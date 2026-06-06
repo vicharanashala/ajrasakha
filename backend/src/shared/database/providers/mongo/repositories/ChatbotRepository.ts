@@ -16,6 +16,8 @@ import type {
   VoiceAccuracyEntry,
   GeoStateEntry,
   QueryCategoryEntry,
+  PaginatedQueryCategoryQuestions,
+  QueryCategoryQuestionType,
   WeeklySessionDurationEntry,
   DailyQueryCountEntry,
   WeeklyQueryCountEntry,
@@ -32,6 +34,7 @@ import type {
   DistrictAnalyticsEntry,
   FeedbackData,
   ResponseAdherenceTable,
+  UnverifiedUserEntry,
   WeatherConcernAnalyticsFilters,
   WeatherConcernAnalyticsResponse,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
@@ -46,11 +49,14 @@ import crypto from 'crypto';
 interface IUser {
   _id?: any;
   name?: string;
+  firstName?: string;
+  lastName?: string;
   username?: string;
   email?: string;
   firebaseUID?: string;
   role?: string;
   userRole?: string;
+  isVerified?: boolean;
   createdAt: Date;
   updatedAt: Date;
   farmerProfile?: {
@@ -1676,6 +1682,195 @@ export class ChatbotRepository implements IChatbotRepository {
       return result;
     } catch (error) {
       throw new Error(`Failed to fetch query categories: ${error}`);
+    }
+  }
+
+  async getQueryCategoryQuestions(
+    category: string,
+    questionType: QueryCategoryQuestionType = 'all',
+    page = 1,
+    limit = 10,
+    _source = 'vicharanashala',
+    session?: ClientSession,
+    userType = 'all',
+  ): Promise<PaginatedQueryCategoryQuestions> {
+    try {
+      await this.initReviewSystem();
+
+      const safePage = Math.max(Number(page) || 1, 1);
+      const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
+      const skip = (safePage - 1) * safeLimit;
+      const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
+      const baseMatch = {
+        source: 'AJRASAKHA',
+        'details.domain': {
+          $exists: true,
+          $nin: [null, ''],
+        },
+      };
+
+      const categoryLabel = category?.trim();
+      if (!categoryLabel) {
+        throw new BadRequestError('category is required');
+      }
+
+      let domainMatch: Record<string, any>;
+      if (categoryLabel.toLowerCase() === 'remaining categories') {
+        const topDomains = await this.QuestionCollection.aggregate(
+          [
+            {$match: baseMatch},
+            ...lookupStages,
+            {$group: {_id: '$details.domain', totalCount: {$sum: 1}}},
+            {$sort: {totalCount: -1}},
+            {$limit: 15},
+            {$project: {_id: 1}},
+          ],
+          {session},
+        ).toArray();
+
+        domainMatch = {
+          'details.domain': {
+            $nin: topDomains.map(item => item._id).filter(Boolean),
+          },
+        };
+      } else {
+        domainMatch = {'details.domain': categoryLabel};
+      }
+
+      const typeMatch =
+        questionType === 'duplicate'
+          ? {status: 'duplicate'}
+          : questionType === 'unique'
+            ? {status: {$ne: 'duplicate'}}
+            : {};
+
+      const result = await this.QuestionCollection.aggregate(
+        [
+          {
+            $match: {
+              ...baseMatch,
+              ...domainMatch,
+              ...typeMatch,
+            },
+          },
+          ...lookupStages,
+          {
+            $addFields: {
+              _categoryUserOid: {
+                $cond: [
+                  {$and: [{$ne: ['$userId', null]}, {$ne: ['$userId', '']}]},
+                  {$toObjectId: '$userId'},
+                  null,
+                ],
+              },
+            },
+          },
+          {
+            $lookup: {
+              from: 'users',
+              localField: '_categoryUserOid',
+              foreignField: '_id',
+              as: '_categoryUserDoc',
+            },
+          },
+          {
+            $unwind: {
+              path: '$_categoryUserDoc',
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+          {$sort: {createdAt: -1}},
+          {
+            $facet: {
+              data: [
+                {$skip: skip},
+                {$limit: safeLimit},
+                {
+                  $project: {
+                    _id: 0,
+                    questionId: {$toString: '$_id'},
+                    question: 1,
+                    status: 1,
+                    questionType: {
+                      $cond: [
+                        {$eq: ['$status', 'duplicate']},
+                        'duplicate',
+                        'unique',
+                      ],
+                    },
+                    category: '$details.domain',
+                    createdAt: 1,
+                    farmerName: {
+                      $ifNull: [
+                        '$_categoryUserDoc.farmerProfile.farmerName',
+                        '$_categoryUserDoc.name',
+                      ],
+                    },
+                    name: {
+                      $trim: {
+                        input: {
+                          $concat: [
+                            { $ifNull: ['$_categoryUserDoc.firstName', ''] },
+                            ' ',
+                            { $ifNull: ['$_categoryUserDoc.lastName', ''] }
+                          ]
+                        }
+                      }
+                    },
+                    email: '$_categoryUserDoc.email',
+                    crop: {
+                      $ifNull: [
+                        '$details.normalised_crop',
+                        {$ifNull: ['$details.crop.name', '$details.crop']},
+                      ],
+                    },
+                    village: {
+                      $ifNull: [
+                        '$details.village',
+                        '$_categoryUserDoc.farmerProfile.villageName',
+                      ],
+                    },
+                    block: {
+                      $ifNull: [
+                        '$details.block',
+                        '$_categoryUserDoc.farmerProfile.blockName',
+                      ],
+                    },
+                    district: {
+                      $ifNull: [
+                        '$details.district',
+                        '$_categoryUserDoc.farmerProfile.district',
+                      ],
+                    },
+                    state: {
+                      $ifNull: [
+                        '$details.state',
+                        '$_categoryUserDoc.farmerProfile.state',
+                      ],
+                    },
+                  },
+                },
+              ],
+              metadata: [{$count: 'total'}],
+            },
+          },
+        ],
+        {session},
+      ).toArray();
+
+      const total = result[0]?.metadata?.[0]?.total ?? 0;
+      const questions = result[0]?.data ?? [];
+
+      return {
+        questions,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / safeLimit)),
+        page: safePage,
+        limit: safeLimit,
+      };
+    } catch (error) {
+      if (error instanceof BadRequestError) throw error;
+      throw new Error(`Failed to fetch query category questions: ${error}`);
     }
   }
 
@@ -4378,6 +4573,7 @@ export class ChatbotRepository implements IChatbotRepository {
     lowFeedbackOnly = false,
     activeTodayByProfile = false,
     missingDemographicField = '',
+    isVerfied = true,
   ): Promise<PaginatedUserDetails> {
     try {
       await this.init(source);
@@ -4418,7 +4614,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const userFilter: Record<string, any> = {
         ...this.buildUserDocFilter(userType),
       };
-
+      userFilter.isVerified = isVerfied;
       if (activeTodayByProfile) {
         const todayStart = new Date();
         todayStart.setHours(0, 0, 0, 0);
@@ -4492,7 +4688,8 @@ export class ChatbotRepository implements IChatbotRepository {
       }
 
       const allUsers = await this.users.find(userFilter, {session}).toArray();
-
+      console.log('useres::',allUsers)
+      console.log('type of isverified:', isVerfied);
       // Merge
       const merged: UserDetailEntry[] = allUsers.map(u => ({
         userId: String(u._id),
@@ -4502,6 +4699,7 @@ export class ChatbotRepository implements IChatbotRepository {
         userRole: u.userRole || '',
         totalQuestions: countMap.get(String(u._id)) ?? 0,
         createdAt: u.createdAt,
+        isVerified: u.isVerified,
         farmerProfile: u.farmerProfile
           ? // {
             //     farmerName: u.farmerProfile.farmerName,
@@ -9328,6 +9526,110 @@ export class ChatbotRepository implements IChatbotRepository {
       throw new InternalServerError(
         `Failed to fetch repeat query count: ${error}`,
       );
+    }
+  }
+
+  async verifyUser(
+    userId: string,
+    source = 'vicharanashala',
+  ): Promise<any> {
+    try {
+      await this.init(source);
+
+      return await this.users.findOneAndUpdate(
+        {_id: new ObjectId(userId)},
+        {
+          $set: {
+            isVerified: true,
+            updatedAt: new Date(),
+          },
+        },
+      );
+    } catch (error) {
+      throw new InternalServerError(`Failed to verify user: ${error}`);
+    }
+  }
+
+   async findUnverifiedUsers(
+    page: number,
+    limit: number,
+    search: string,
+    source?: string,
+    session?: ClientSession,
+  ): Promise<{
+    users: UnverifiedUserEntry[];
+    totalUsers: number;
+    totalPages: number;
+  }> {
+    await this.init(source='vicharanashala');
+
+    try {
+      const skip = (page - 1) * limit;
+
+      const matchQuery: any = {
+        isVerified: false,
+      };
+
+      if (search) {
+        matchQuery.$or = [
+          { name: { $regex: search, $options: 'i' } },
+          { username: { $regex: search, $options: 'i' } },
+          { email: { $regex: search, $options: 'i' } },
+        ];
+      }
+
+      const result = await this.users
+        .aggregate([
+          { $match: matchQuery },
+          {
+            $facet: {
+              users: [
+                { $sort: { createdAt: -1 } },
+                { $skip: skip },
+                { $limit: limit },
+                {
+                  $project: {
+                    _id: 1,
+                    name: 1,
+                    username: 1,
+                    email: 1,
+                    createdAt: 1,
+                    role: 1,
+                  },
+                },
+              ],
+              meta: [{ $count: 'totalUsers' }],
+            },
+          },
+        ], { session })
+        .toArray();
+
+      const users: UnverifiedUserEntry[] = (result[0]?.users || []).map(
+        (user: {
+          _id: ObjectId | string;
+          name?: string;
+          username?: string;
+          email?: string;
+          role?: string;
+          createdAt?: Date;
+        }) => ({
+          _id: user._id.toString(),
+          name: user.name ?? '',
+          username: user.username ?? '',
+          email: user.email ?? '',
+          role: user.role ?? '',
+          createdAt: user.createdAt,
+        }),
+      );
+      const totalUsers = result[0]?.meta[0]?.totalUsers || 0;
+
+      return {
+        users,
+        totalUsers,
+        totalPages: Math.ceil(totalUsers / limit),
+      };
+    } catch (error) {
+      throw new InternalServerError('Failed to fetch unverified users');
     }
   }
 

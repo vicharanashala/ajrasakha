@@ -1322,6 +1322,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     // ready immediately after question creation (race between add and processing).
     const retryDelaysMs = [3000, 6000, 12000];
     let lastError: any;
+    let hadSuccessfulApiCall = false;
 
     for (let attempt = 0; attempt <= retryDelaysMs.length; attempt++) {
       if (attempt > 0) {
@@ -1334,6 +1335,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       try {
         const matchedQuestion = await this.getMatchedQuestion(questionId);
+        hadSuccessfulApiCall = true; // API responded (even if no match returned)
         if (matchedQuestion) {
           return {isValid: true, data: matchedQuestion};
         }
@@ -1349,10 +1351,14 @@ export class QuestionService extends BaseService implements IQuestionService {
       `[validateTimeBoundQuestionThread] All attempts exhausted for questionId=${questionId}:`,
       lastError?.message,
     );
-    return {
-      isValid: true,
-      reason: lastError?.message || 'MATCHED_QUESTION_FAILED',
-    };
+
+    // API responded but found no match → question is a test, mark isTesting
+    if (hadSuccessfulApiCall) {
+      return {isValid: false, reason: 'Thread_id_not_found'};
+    }
+
+    // All attempts threw errors (API failure) → don't mark isTesting, proceed normally
+    return {isValid: true, reason: lastError?.message || 'API_FAILED'};
   }
 
   async getQuestionDataById(questionId: string): Promise<IQuestion | null> {

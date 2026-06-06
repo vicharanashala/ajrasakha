@@ -5,6 +5,8 @@ import type {
   VoiceAccuracyEntry,
   GeoStateEntry,
   QueryCategoryEntry,
+  PaginatedQueryCategoryQuestions,
+  QueryCategoryQuestionType,
   WeeklySessionDurationEntry,
   PaginatedUserDetails,
   DemographicEntry,
@@ -17,6 +19,7 @@ import type {
   ResponseAdherenceTable,
   WeatherConcernAnalyticsFilters,
   WeatherConcernAnalyticsResponse,
+  UnverifiedUserEntry,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import { GrowthResponse } from '../types/chatbot.type.js';
 
@@ -74,6 +77,14 @@ export interface IChatbotService {
   getVoiceAccuracyByLanguage(source?: string): Promise<VoiceAccuracyEntry[]>;
   getGeoDistribution(source?: string): Promise<GeoStateEntry[]>;
   getQueryCategories(source?: string, userType?: string): Promise<QueryCategoryEntry[]>;
+  getQueryCategoryQuestions(
+    category: string,
+    questionType?: QueryCategoryQuestionType,
+    page?: number,
+    limit?: number,
+    source?: string,
+    userType?: string,
+  ): Promise<PaginatedQueryCategoryQuestions>;
   getTopCrops(source?: string): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
   getWeeklyAvgSessionDuration(weeks?: number, source?: string): Promise<WeeklySessionDurationEntry[]>;
   getDailyAnalytics(month?: string, source?: string, userType?: string): Promise<any[]>;
@@ -92,7 +103,7 @@ export interface IChatbotService {
     },
   ): Promise<QueryAnalyticsResponse>;
   getDailyUserTrend(days?: number, source?: string, userType?: string): Promise<DailyActiveUsersEntry[]>;
-  getUserDetails(startDate?: string, endDate?: string, page?: number, limit?: number, search?: string, source?: string, crop?: string, village?: string, profileCompleted?: string, inactiveOnly?: boolean, lowFeedbackOnly?: boolean, userType?: string,sortBy?:string, sortOrder?:string, activeTodayByProfile?: boolean, missingDemographicField?: string): Promise<PaginatedUserDetails>;
+  getUserDetails(startDate?: string, endDate?: string, page?: number, limit?: number, search?: string, source?: string, crop?: string, village?: string, profileCompleted?: string, inactiveOnly?: boolean, lowFeedbackOnly?: boolean, userType?: string,sortBy?:string, sortOrder?:string, activeTodayByProfile?: boolean, missingDemographicField?: string, isVerified?: boolean): Promise<PaginatedUserDetails>;
   getAvgSessionDurationV2(source?: string, userType?: string): Promise<number>;
   getWeeklyAvgSessionDurationV2(weeks?: number, source?: string, userType?: string): Promise<WeeklySessionDurationEntry[]>;
   // generateChatbotExcelReport(startDate: Date, endDate: Date, source?: string): Promise<ArrayBuffer | null>;
@@ -180,5 +191,16 @@ export interface IChatbotService {
 }[]>;
   getTopQuestionsFromCollection(source?: string, userType?: string, startTime?: string, endTime?: string): Promise<any>;
   getRepeatQueryCount(source?: string, userType?: string, startTime?: string, endTime?: string): Promise<any>;
+  getAllUnverifiedUsers(
+    page?: number,
+    limit?: number,
+    search?: string,
+    source?: string,
+  ): Promise<{
+    users: UnverifiedUserEntry[];
+    totalUsers: number;
+    totalPages: number;
+  }>;
+  verifyUser(userId: string, source?: string): Promise<any>;
   getResponseAdherenceTable(source?: string, userType?: string, startTime?: string, endTime?: string): Promise<ResponseAdherenceTable>;
 }

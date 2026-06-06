@@ -11,7 +11,7 @@ import { Calendar } from "@/components/atoms/calendar";
 import { Button } from "@/components/atoms/button";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
-import { Download, Loader2, CalendarIcon, Shapes, Info } from "lucide-react";
+import { Download, Loader2, CalendarIcon, Shapes, Info, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 import { ChatbotService } from "@/hooks/services/chatbotService";
 import {
@@ -20,6 +20,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
+import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 
 import { STATES } from "../../components/MetaData";
 
@@ -45,6 +46,7 @@ interface NavItemConfig {
   badge?: string;
   badgeVariant?: "red" | "amber";
   children?: ChildNavItem[];
+  adminOnly?: boolean;
 }
 
 interface ChildNavItem {
@@ -286,6 +288,12 @@ const NAV_SECTIONS: SidebarSection[] = [
         icon: <Download size={16} />,
         view: "export-data",
       },
+      // {
+      //   label: "User Verification",
+      //   icon: <UserCheck size={16} />,
+      //   view: "verify-users",
+      //   adminOnly: true,
+      // },
     ],
   },
 ];
@@ -477,6 +485,9 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
     },
     [isMobile, onViewChange],
   );
+
+  const { data: currentUser } = useGetCurrentUser({ enabled: true });
+  const isAdmin = currentUser?.role === "admin";
 
   const healthBarWidth = `${Math.min(100, Math.max(0, healthScore))}%`;
   const healthScoreColor =
@@ -703,42 +714,46 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
               </div>
             )}
 
-            {section.items.map((item) => {
-              const isActive = activeView === item.view;
-              const isExpandable = !!(
-                item.children && item.children.length > 0
-              );
-              const showExpanded =
-                isExpandable && segmentsExpanded && (!collapsed || isMobile);
+            {section.items
+              .filter((item) => !item.adminOnly || isAdmin)
+              .map((item) => {
+                const isActive = activeView === item.view;
+                const isExpandable = !!(
+                  item.children && item.children.length > 0
+                );
+                const showExpanded =
+                  isExpandable && segmentsExpanded && (!collapsed || isMobile);
 
-              return (
-                <div key={item.view}>
-                  <NavItemRow
-                    label={item.label}
-                    icon={item.icon}
-                    badge={item.badge}
-                    badgeVariant={item.badgeVariant}
-                    active={isActive}
-                    expandable={isExpandable}
-                    expanded={showExpanded}
-                    collapsed={collapsed && !isMobile}
-                    onClick={() => handleNavClick(item.view, isExpandable)}
-                  />
-                  {isExpandable && showExpanded && (
-                    <div>
-                      {item.children!.map((child) => (
-                        <ChildNavItemRow
-                          key={child.id}
-                          label={child.label}
-                          active={activeSegmentId === child.id}
-                          onClick={() => handleChildClick(child.id, item.view)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                return (
+                  <div key={item.view}>
+                    <NavItemRow
+                      label={item.label}
+                      icon={item.icon}
+                      badge={item.badge}
+                      badgeVariant={item.badgeVariant}
+                      active={isActive}
+                      expandable={isExpandable}
+                      expanded={showExpanded}
+                      collapsed={collapsed && !isMobile}
+                      onClick={() => handleNavClick(item.view, isExpandable)}
+                    />
+                    {isExpandable && showExpanded && (
+                      <div>
+                        {item.children!.map((child) => (
+                          <ChildNavItemRow
+                            key={child.id}
+                            label={child.label}
+                            active={activeSegmentId === child.id}
+                            onClick={() =>
+                              handleChildClick(child.id, item.view)
+                            }
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
           </div>
         ))}
 
@@ -863,18 +878,20 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                       <div className="w-1 h-1 rounded-full bg-(--border)" />
                     </div>
                   )}
-                  {section.items.map((item) => {
-                    const isActive = activeView === item.view;
-                    return (
-                      <div
-                        key={item.view}
-                        onClick={() => {
-                          handleNavClick(item.view);
-                        }}
-                        role="button"
-                        tabIndex={0}
-                        title={item.label}
-                        className={`
+                  {section.items
+                    .filter((item) => !item.adminOnly || isAdmin)
+                    .map((item) => {
+                      const isActive = activeView === item.view;
+                      return (
+                        <div
+                          key={item.view}
+                          onClick={() => {
+                            handleNavClick(item.view);
+                          }}
+                          role="button"
+                          tabIndex={0}
+                          title={item.label}
+                          className={`
                                                     relative flex items-center justify-center mx-1 my-0.5 rounded-lg px-0 py-2 cursor-pointer select-none transition-all duration-150
                                                     ${
                                                       isActive
@@ -882,21 +899,21 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                                                         : "text-(--muted-foreground) hover:bg-(--accent) hover:text-(--foreground)"
                                                     }
                                                 `}
-                      >
-                        {isActive && (
-                          <span className="absolute -left-1 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full bg-[#3AAA5A]" />
-                        )}
-                        <span className="shrink-0 flex items-center scale-75">
-                          {item.icon}
-                        </span>
-                        {item.badge && (
-                          <span
-                            className={`absolute top-1 right-1 w-1.5 h-1.5 rounded-full ${item.badgeVariant === "amber" ? "bg-[#BA7517]" : "bg-[#E24B4A]"}`}
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
+                        >
+                          {isActive && (
+                            <span className="absolute -left-1 top-1/2 -translate-y-1/2 w-[3px] h-4 rounded-r-full bg-[#3AAA5A]" />
+                          )}
+                          <span className="shrink-0 flex items-center scale-75">
+                            {item.icon}
+                          </span>
+                          {item.badge && (
+                            <span
+                              className={`absolute top-1 right-1 w-1.5 h-1.5 rounded-full ${item.badgeVariant === "amber" ? "bg-[#BA7517]" : "bg-[#E24B4A]"}`}
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
                 </div>
               ))}
             </div>
