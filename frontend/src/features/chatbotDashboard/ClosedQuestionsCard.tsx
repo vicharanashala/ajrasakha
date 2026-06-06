@@ -432,7 +432,7 @@ export function ClosedQuestionsCard({
             </div>
           </div>
 
-       
+        
           </>)}
         </CardHeader>
       </Card>
