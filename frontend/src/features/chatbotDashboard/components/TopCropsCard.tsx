@@ -17,9 +17,11 @@ import {
   Cell,
   ResponsiveContainer,
 } from "recharts";
-import { Maximize2, X, InfoIcon } from "lucide-react";
+import { Maximize2, X, InfoIcon, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { Tooltip as ShadcnTooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
+import { useQueryClient } from "@tanstack/react-query";
+import { LazySectionSkeleton } from "../AnnamDashboard_dev";
 
 
 const colors = [
@@ -71,6 +73,13 @@ export const TopCropsCard = ({topCrops,
       color: colors[index % colors.length],
     }));
   }, [topCrops?.topCrops]);
+  const queryClient = useQueryClient();
+  const [loading, setLoading] = useState(false);
+  const handleRefresh = async ()=>{
+    setLoading(true);
+    await queryClient.refetchQueries({ queryKey: ["query-categories"] });
+    setLoading(false);
+    }
 
   if (isLoadingTopCrops) {
     return (
@@ -94,7 +103,7 @@ export const TopCropsCard = ({topCrops,
     if (active && payload && payload.length) {
       const pointInfo = payload[0].payload;
       return (
-        <div className=" border border-gray-200 dark:border-gray-800 rounded-lg shadow-lg p-3 text-sm text-gray-800 dark:text-gray-200 flex flex-col gap-1 min-w-[140px]">
+        <div className="bg-primary text-primary-foreground border border-primary/20 rounded-lg shadow-lg p-3 text-sm flex flex-col gap-1 min-w-[140px]">
           <p className="font-semibold pb-1 border-b border-gray-100 dark:border-gray-800">{label}</p>
           
           {!pointInfo.subItems ? (
@@ -130,6 +139,17 @@ export const TopCropsCard = ({topCrops,
       >
         {/* Maximize Button */}
         <button
+          onClick={handleRefresh}
+          className="absolute top-4 right-14 z-20 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
+          title="Refresh"
+        >
+          <RefreshCw
+            className={`h-3.5 w-3.5 bg-background ${
+              loading ? "animate-spin" : ""
+            }`}
+          />
+        </button>
+        <button
           onClick={() => setIsMaximized(true)}
           className="absolute top-4 right-4 p-1.5 rounded-md bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-700 transition-colors shadow-sm z-20"
           title="Maximize chart"
@@ -159,6 +179,11 @@ export const TopCropsCard = ({topCrops,
           </CardDescription>
         </CardHeader>
         <CardContent className="flex-1 pb-4">
+          {loading ? (
+            <div>
+              <LazySectionSkeleton/>
+            </div>
+          ):(
           <div className="w-full h-[320px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
@@ -199,7 +224,7 @@ export const TopCropsCard = ({topCrops,
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
-          </div>
+          </div>)}
         </CardContent>
       </Card>
 

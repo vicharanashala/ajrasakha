@@ -91,7 +91,7 @@ export class CropRepository implements ICropRepository {
       const resolvedType = type ?? 'crop';
       const now = new Date();
       const payload: ICrop = {
-        name: name.trim().toLowerCase(),
+       name:name.trim().split(/\s+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' '),
         type: resolvedType,
         aliases: (aliases || []).map(a => ({
           language: (a.language ?? '').trim(),

@@ -1,6 +1,6 @@
 import {ObjectId} from 'mongodb';
 
-export type UserRole = 'admin' | 'moderator' | 'expert' | 'pae_expert';
+export type UserRole = 'admin' | 'moderator' | 'expert' | 'pae_expert' | 'tester';
 export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold' | 'pae_submitted' | 'draft' | 'pass' | 'duplicate' | 'non_agri' | 'pending';
 export interface IPreference {
   state: string;
@@ -79,6 +79,7 @@ export interface IQuestion {
   isHidden?: false;
   passingRemark?: string;
   isOnHold?: boolean;
+  isTesting?: boolean;
   messageId?: string;
   threadId?: string;
   /** Wall-clock moment the current hold segment started (SLA timer freezes until unhold). */
@@ -92,6 +93,7 @@ export interface IQuestion {
   referenceQuestionId?: ObjectId;
   referenceQuestion?: string;
   referenceSource?: string;
+  isExact?: boolean;
   saved_to_draft?: boolean;
   pae_review?: boolean;
   firstAllocationAt?: Date;
@@ -214,7 +216,13 @@ export interface IQuestionSubmission {
   history: ISubmissionHistory[];
   queue: (string | ObjectId)[];
   reviewDelayNotificationSent?: boolean;
+  /** Timestamp when the current expert first opened/clicked this time-bound question.
+   *  Set via POST /questions/:id/mark-opened. Cleared on each reallocation.
+   *  When set → question is "active" → blocked from 45-min auto-reallocation. */
   currentExpertOpenedAt?: Date | null;
+  /** Timestamp when the current expert was allocated to this question.
+   *  Set on initial allocation and reset on every reallocation.
+   *  Used to compute the 45-minute reallocation window for time-bound questions. */
   currentExpertAllocatedAt?: Date | null;
   createdAt?: Date;
   updatedAt?: Date;
@@ -276,7 +284,8 @@ export type INotificationType =
   | 'question_from_ajrasakha'
   | 'expert_replacement'
   | 'user_verification'
-  | 'delayed_question';
+  | 'delayed_question'
+  | 'moderator_approval'
 export interface INotification {
   _id?: string | ObjectId;
   userId: string | ObjectId;

@@ -9,12 +9,14 @@ import {
   Authorized,
   CurrentUser,
   QueryParam,
+  ForbiddenError,
 } from 'routing-controllers';
 import { OpenAPI } from 'routing-controllers-openapi';
 import { inject, injectable } from 'inversify';
 import { WHATSAPP_TYPES } from '../types.js';
 import type { IWhatsAppService } from '../interfaces/IWhatsAppService.js';
 import { IUser } from '#root/shared/index.js';
+import { verifyNotTester } from '#root/shared/functions/verifyNotTester.js';
 import { WhatsappUsers } from '#root/utils/dummyWhatsAppUsers.js';
 
 @OpenAPI({
@@ -66,6 +68,7 @@ export class WhatsAppController {
     @Body() body: {phoneNumber: string; messageText: string},
     @CurrentUser() user: IUser,
   ) {
+    verifyNotTester(user);
     const userId = user._id.toString();
     await this.whatsappService.sendMessage(
       userId,
