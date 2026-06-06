@@ -64,14 +64,6 @@ export default function NewFilters({
             <SelectTrigger>
               <SelectValue placeholder="Select Application" />
             </SelectTrigger>
-
-            {/* <SelectContent>
-              <SelectItem value="annam">Annam</SelectItem>
-
-              <SelectItem value="vicharanashala">VicharanShala</SelectItem>
-
-              <SelectItem value="whatsapp">WhatsApp</SelectItem>
-            </SelectContent> */}
             <SelectContent>
               {applications.map((app) => (
                 <SelectItem key={app.value} value={app.value}>
