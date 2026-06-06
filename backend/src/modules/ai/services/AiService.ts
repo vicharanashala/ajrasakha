@@ -18,6 +18,9 @@ export class AiService {
   private _whatsAppServerUrl =
     'http://' + aiConfig.serverIP + ':' + aiConfig.whatsAppServerPort;
 
+  private _gdbServerUrl =
+    'http://' + aiConfig.gdbServerIP + ':' + aiConfig.gdbServerPort;
+
   async getQuestionByContext(
     context: string,
   ): Promise<QuestionSearchResponse> {
@@ -508,4 +511,46 @@ export class AiService {
     }
   }
 
+  async searchGdb(params: {
+    crop: string;
+    state: string;
+    rephrased_query: string;
+  }): Promise<GdbSearchResponse | null> {
+    try {
+      const response = await fetch(`${this._gdbServerUrl}/v1/gdb/search`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(params),
+      });
+      if (!response.ok) {
+        console.error(`[searchGdb] Failed: ${response.status} ${response.statusText}`);
+        return null;
+      }
+      return (await response.json()) as GdbSearchResponse;
+    } catch (error) {
+      console.error('[searchGdb] Error:', error);
+      return null;
+    }
+  }
+
+}
+
+export interface GdbMatchItem {
+  question_id: string;
+  similarity_score: number;
+  question: string;
+  answer?: string;
+  retrieval_source?: string;
+  details?: any[];
+  chosen_for_answer?: boolean;
+  answer_from_class?: string;
+}
+
+export interface GdbSearchResponse {
+  rephrased_query: string;
+  crop: string;
+  state: string;
+  exact_match: GdbMatchItem | null;
+  selected_match: GdbMatchItem | null;
+  classification_audit?: any;
 }
