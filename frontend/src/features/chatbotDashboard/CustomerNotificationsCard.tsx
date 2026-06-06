@@ -189,38 +189,7 @@ export function CustomerNotificationsCard({
                 initial="hidden"
                 animate="visible"
               >
-                {/* Notified */}
-                {/* <motion.div
-              className="flex flex-1 flex-col"
-              variants={{
-                hidden: { opacity: 0, y: 12, scale: 0.9 },
-                visible: {
-                  opacity: 1,
-                  y: 0,
-                  scale: 1,
-                  transition: {
-                    type: "spring",
-                    stiffness: 300,
-                    damping: 24,
-                  },
-                },
-              }}
-            >
-              <span className="text-xs text-muted-foreground">Notified</span>
-
-              <motion.span
-                key={safeNotified}
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="text-3xl font-bold tracking-tight"
-              >
-                <CountUp
-                  end={safeNotified}
-                  duration={1.5}
-                  preserveValue
-                />
-              </motion.span>
-            </motion.div> */}
+               
                 <motion.div
                   className="flex flex-1 flex-col"
                   variants={{
@@ -330,6 +299,10 @@ export function CustomerNotificationsCard({
                   </motion.span>
                 </motion.div>
               </motion.div>
+
+              <div className="mb-3 h-px w-full bg-gradient-to-r " >
+
+              </div>
             </>
           )}
         </CardHeader>

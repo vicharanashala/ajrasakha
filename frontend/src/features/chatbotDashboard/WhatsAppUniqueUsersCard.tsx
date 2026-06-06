@@ -80,7 +80,7 @@ export function WhatsAppUniqueUsersCard({
               </motion.span>
             </div>
 
-            <span className="mt-3 text-[11px] text-muted-foreground leading-tight">
+            <span className="mt-8 text-[11px] text-muted-foreground leading-tight">
               Total distinct WhatsApp users in the system.
             </span>
           </CardHeader>
