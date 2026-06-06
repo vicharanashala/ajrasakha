@@ -122,6 +122,55 @@ export interface WeatherConcernAnalyticsResponse {
   timeline: WeatherConcernTimelineEntry[];
 }
 
+export type FarmerHeatMapGranularity = 'monthly' | 'weekly' | 'daily';
+
+export interface FarmerHeatMapFilters {
+  source?: string;
+  userType?: string;
+  state?: string;
+  granularity?: FarmerHeatMapGranularity;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface FarmerHeatMapBucket {
+  key: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface FarmerHeatMapCell {
+  bucket: string;
+  label: string;
+  activeFarmers: number;
+  totalQuestions: number;
+  closedQuestions: number;
+  notifiedQuestions: number;
+  averageClosureTimeMinutes: number;
+  statusDistribution: Record<string, number>;
+}
+
+export interface FarmerHeatMapRow {
+  id: string;
+  label: string;
+  scope: 'state' | 'district';
+  cells: FarmerHeatMapCell[];
+}
+
+export interface FarmerHeatMapResponse {
+  filters: FarmerHeatMapFilters;
+  buckets: FarmerHeatMapBucket[];
+  rows: FarmerHeatMapRow[];
+  maxValues: {
+    activeFarmers: number;
+    totalQuestions: number;
+    closedQuestions: number;
+    notifiedQuestions: number;
+    averageClosureTimeMinutes: number;
+  };
+}
+
 export interface WeeklySessionDurationEntry {
   week: string; // ISO week string, e.g. '2025-W03'
   avgSessionDurationMin: number;
@@ -506,6 +555,11 @@ export interface IChatbotRepository {
     session?: ClientSession,
     userType?: string,
   ): Promise<WeatherConcernAnalyticsResponse>;
+
+  getFarmerHeatMapAnalytics(
+    filters?: FarmerHeatMapFilters,
+    session?: ClientSession,
+  ): Promise<FarmerHeatMapResponse>;
 
   
   getUserById(userId: string, source: string): Promise<any>;

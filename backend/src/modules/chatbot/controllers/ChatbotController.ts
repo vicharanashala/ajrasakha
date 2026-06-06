@@ -384,6 +384,32 @@ export class ChatbotController {
   }
 
   @OpenAPI({
+    summary: 'Get farmer heat map analytics',
+    description:
+      'Returns state or district heat map metrics by month, week, or day for farmer activity and question status analysis.',
+  })
+  @Get('/farmer-heat-map')
+  @HttpCode(200)
+  @Authorized()
+  async getFarmerHeatMapAnalytics(
+    @QueryParam('source') source: string,
+    @QueryParam('userType') userType: string,
+    @QueryParam('state') state: string,
+    @QueryParam('granularity') granularity: 'monthly' | 'weekly' | 'daily',
+    @QueryParam('startDate') startDate?: string,
+    @QueryParam('endDate') endDate?: string,
+  ) {
+    return this.chatbotService.getFarmerHeatMapAnalytics({
+      source,
+      userType,
+      state,
+      granularity,
+      startDate,
+      endDate,
+    });
+  }
+
+  @OpenAPI({
     summary: 'Get top crops by questions',
     description:
       'Retrieves top crops aggregated from questions and duplicate_questions, excluding agri_expert source.',
