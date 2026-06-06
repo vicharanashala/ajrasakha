@@ -257,7 +257,7 @@ def _resolve_state_deterministic(
     location: Optional[dict],
     prev_entities: Optional[PlannerEntities] = None,
 ) -> Optional[str]:
-    """Deterministically resolve state: prev_entities (previous turns), then latest text, then GPS."""
+    """Deterministically resolve state from previous turns or latest text (do NOT fallback to GPS here)."""
     # Priority 0: State from previous planner turns (carry-over from clarification)
     if prev_entities and prev_entities.get("state"):
         return prev_entities.get("state")
@@ -265,8 +265,7 @@ def _resolve_state_deterministic(
     state_from_latest = extract_state_from_text(latest_human_text(messages))
     if state_from_latest:
         return state_from_latest
-    # Priority 2: GPS thread location
-    return gps_state_from_location(location)
+    return None
 
 
 async def _apply_domain_and_crop_async(
