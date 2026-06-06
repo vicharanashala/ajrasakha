@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/atoms/dialog";
 import { type UserDetail } from "../hooks/useUserDetails";
+import { motion, AnimatePresence } from "framer-motion";
 
 const EMPTY_VALUE = "Not provided";
 
@@ -291,6 +292,337 @@ export function FarmerDetailsModal({
                 </div>
               )}
             </div>
+            {isAdmin && onChangePassword && (
+              // <section className="rounded-md border bg-card/60">
+              //   <button
+              //     type="button"
+              //     onClick={() => setPasswordOpen((prev) => !prev)}
+              //     className="flex w-full items-center justify-between gap-3 p-4 text-left group rounded-lg transition-colors hover:bg-accent/50"
+              //   >
+              //     <span className="flex min-w-0 items-center gap-3">
+              //       <motion.div
+              //         whileHover={{ rotate: 15 }}
+              //         transition={{ type: "spring", stiffness: 300 }}
+              //       >
+              //         <KeyRound className="h-4 w-4 shrink-0 text-muted-foreground" />
+              //       </motion.div>
+              //       <span>
+              //         <span className="block text-sm font-semibold">
+              //           Change Password
+              //         </span>
+              //         <span className="block text-xs text-muted-foreground">
+              //           Set a new password for this user.
+              //         </span>
+              //       </span>
+              //     </span>
+              //     <motion.div
+              //       animate={{ rotate: passwordOpen ? 180 : 0 }}
+              //       transition={{ duration: 0.3, ease: "easeInOut" }}
+              //     >
+              //       <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+              //     </motion.div>
+              //   </button>
+
+              //   {passwordOpen && (
+              //     <div className="border-t p-4">
+              //       <div className="grid gap-4 md:grid-cols-2">
+              //         <PasswordInput
+              //           label="New Password"
+              //           value={newPassword}
+              //           visible={showNewPassword}
+              //           error={passwordErrors.newPassword}
+              //           onChange={(value) => {
+              //             setNewPassword(value);
+              //             setPasswordErrors((prev) => ({
+              //               ...prev,
+              //               newPassword: "",
+              //             }));
+              //           }}
+              //           onToggleVisible={() =>
+              //             setShowNewPassword((prev) => !prev)
+              //           }
+              //         />
+              //         <PasswordInput
+              //           label="Confirm Password"
+              //           value={confirmPassword}
+              //           visible={showConfirmPassword}
+              //           error={passwordErrors.confirmPassword}
+              //           onChange={(value) => {
+              //             setConfirmPassword(value);
+              //             setPasswordErrors((prev) => ({
+              //               ...prev,
+              //               confirmPassword: "",
+              //             }));
+              //           }}
+              //           onToggleVisible={() =>
+              //             setShowConfirmPassword((prev) => !prev)
+              //           }
+              //         />
+              //       </div>
+
+              //       <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              //         {PASSWORD_RULES.map((rule) => {
+              //           const passed = rule.test(newPassword);
+              //           return (
+              //             <div
+              //               key={rule.label}
+              //               className={`flex items-center gap-2 text-xs ${
+              //                 passed
+              //                   ? "text-emerald-600"
+              //                   : "text-muted-foreground"
+              //               }`}
+              //             >
+              //               <Check className="h-3.5 w-3.5" />
+              //               {rule.label}
+              //             </div>
+              //           );
+              //         })}
+              //       </div>
+
+              //       {confirmPasswordChangeOpen && (
+              //         <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/50 dark:bg-amber-950/30">
+              //           <div className="flex items-start gap-2">
+              //             <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" />
+              //             <div className="min-w-0">
+              //               <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+              //                 Change this user&apos;s password?
+              //               </p>
+              //               <p className="mt-1 text-xs text-amber-800 dark:text-amber-200">
+              //                 The new password will replace the existing
+              //                 password.
+              //               </p>
+              //             </div>
+              //           </div>
+              //           <div className="mt-3 flex justify-end gap-2">
+              //             <Button
+              //               type="button"
+              //               variant="outline"
+              //               size="sm"
+              //               disabled={isChangingPassword}
+              //               onClick={() => setConfirmPasswordChangeOpen(false)}
+              //             >
+              //               Cancel
+              //             </Button>
+              //             <Button
+              //               type="button"
+              //               size="sm"
+              //               disabled={isChangingPassword}
+              //               onClick={() => void handleConfirmPasswordChange()}
+              //             >
+              //               {isChangingPassword
+              //                 ? "Changing..."
+              //                 : "Confirm Change"}
+              //             </Button>
+              //           </div>
+              //         </div>
+              //       )}
+
+              //       <div className="mt-4 flex justify-end">
+              //         <Button
+              //           type="button"
+              //           variant="outline"
+              //           onClick={handleChangePasswordClick}
+              //           disabled={
+              //             isChangingPassword || confirmPasswordChangeOpen
+              //           }
+              //           className="h-9 gap-2"
+              //         >
+              //           <KeyRound className="h-4 w-4" />
+              //           Change Password
+              //         </Button>
+              //       </div>
+              //     </div>
+              //   )}
+              // </section>
+              <section className="rounded-md border bg-card/60 overflow-hidden">
+                <motion.button
+                  type="button"
+                  onClick={() => setPasswordOpen((prev) => !prev)}
+                  className="flex w-full items-center justify-between gap-3 p-4 text-left group rounded-lg transition-colors hover:bg-accent/50"
+                  whileTap={{ scale: 0.995 }}
+                >
+                  <span className="flex min-w-0 items-center gap-3">
+                    <motion.div
+                      whileHover={{ rotate: 15, scale: 1.1 }}
+                      transition={{
+                        type: "spring",
+                        stiffness: 300,
+                        damping: 15,
+                      }}
+                    >
+                      <KeyRound className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
+                    </motion.div>
+                    <span>
+                      <span className="block text-sm font-semibold">
+                        Change Password
+                      </span>
+                      <span className="block text-xs text-muted-foreground">
+                        Set a new password for this user.
+                      </span>
+                    </span>
+                  </span>
+                  <motion.div
+                    animate={{ rotate: passwordOpen ? 180 : 0 }}
+                    transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+                  >
+                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  </motion.div>
+                </motion.button>
+
+                <AnimatePresence initial={false}>
+                  {passwordOpen && (
+                    <motion.div
+                      key="password-content"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{
+                        height: { duration: 0.3, ease: [0.4, 0, 0.2, 1] },
+                        opacity: { duration: 0.2, ease: "easeInOut" },
+                      }}
+                      className="overflow-hidden"
+                    >
+                      <motion.div
+                        initial={{ y: -8 }}
+                        animate={{ y: 0 }}
+                        exit={{ y: -8 }}
+                        transition={{ duration: 0.25, ease: "easeOut" }}
+                        className="border-t p-4"
+                      >
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <PasswordInput
+                            label="New Password"
+                            value={newPassword}
+                            visible={showNewPassword}
+                            error={passwordErrors.newPassword}
+                            onChange={(value) => {
+                              setNewPassword(value);
+                              setPasswordErrors((prev) => ({
+                                ...prev,
+                                newPassword: "",
+                              }));
+                            }}
+                            onToggleVisible={() =>
+                              setShowNewPassword((prev) => !prev)
+                            }
+                          />
+                          <PasswordInput
+                            label="Confirm Password"
+                            value={confirmPassword}
+                            visible={showConfirmPassword}
+                            error={passwordErrors.confirmPassword}
+                            onChange={(value) => {
+                              setConfirmPassword(value);
+                              setPasswordErrors((prev) => ({
+                                ...prev,
+                                confirmPassword: "",
+                              }));
+                            }}
+                            onToggleVisible={() =>
+                              setShowConfirmPassword((prev) => !prev)
+                            }
+                          />
+                        </div>
+
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                          {PASSWORD_RULES.map((rule, i) => {
+                            const passed = rule.test(newPassword);
+                            return (
+                              <motion.div
+                                key={rule.label}
+                                initial={{ opacity: 0, x: -6 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: 0.05 * i, duration: 0.2 }}
+                                className={`flex items-center gap-2 text-xs transition-colors ${
+                                  passed
+                                    ? "text-emerald-600"
+                                    : "text-muted-foreground"
+                                }`}
+                              >
+                                <motion.span
+                                  animate={{ scale: passed ? [1, 1.3, 1] : 1 }}
+                                  transition={{ duration: 0.3 }}
+                                >
+                                  <Check className="h-3.5 w-3.5" />
+                                </motion.span>
+                                {rule.label}
+                              </motion.div>
+                            );
+                          })}
+                        </div>
+
+                        <AnimatePresence>
+                          {confirmPasswordChangeOpen && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -6, height: 0 }}
+                              animate={{ opacity: 1, y: 0, height: "auto" }}
+                              exit={{ opacity: 0, y: -6, height: 0 }}
+                              transition={{ duration: 0.25, ease: "easeOut" }}
+                              className="mt-4 overflow-hidden"
+                            >
+                              <div className="rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/50 dark:bg-amber-950/30">
+                                <div className="flex items-start gap-2">
+                                  <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" />
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                                      Change this user&apos;s password?
+                                    </p>
+                                    <p className="mt-1 text-xs text-amber-800 dark:text-amber-200">
+                                      The new password will replace the existing
+                                      password.
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="mt-3 flex justify-end gap-2">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={isChangingPassword}
+                                    onClick={() =>
+                                      setConfirmPasswordChangeOpen(false)
+                                    }
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    disabled={isChangingPassword}
+                                    onClick={() =>
+                                      void handleConfirmPasswordChange()
+                                    }
+                                  >
+                                    {isChangingPassword
+                                      ? "Changing..."
+                                      : "Confirm Change"}
+                                  </Button>
+                                </div>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+
+                        <div className="mt-4 flex justify-end">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleChangePasswordClick}
+                            disabled={
+                              isChangingPassword || confirmPasswordChangeOpen
+                            }
+                            className="h-9 gap-2"
+                          >
+                            <KeyRound className="h-4 w-4" />
+                            Change Password
+                          </Button>
+                        </div>
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </section>
+            )}
 
             <section>
               <h4 className="mb-2 text-sm font-semibold">Account</h4>
@@ -316,142 +648,6 @@ export function FarmerDetailsModal({
                 />
               </dl>
             </section>
-
-            {isAdmin && onChangePassword && (
-              <section className="rounded-md border bg-card/60">
-                <button
-                  type="button"
-                  onClick={() => setPasswordOpen((prev) => !prev)}
-                  className="flex w-full items-center justify-between gap-3 p-4 text-left"
-                >
-                  <span className="flex min-w-0 items-center gap-2">
-                    <KeyRound className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <span>
-                      <span className="block text-sm font-semibold">
-                        Change Password
-                      </span>
-                      <span className="block text-xs text-muted-foreground">
-                        Set a new password for this user.
-                      </span>
-                    </span>
-                  </span>
-                  <ChevronDown
-                    className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
-                      passwordOpen ? "rotate-180" : ""
-                    }`}
-                  />
-                </button>
-
-                {passwordOpen && (
-                  <div className="border-t p-4">
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <PasswordInput
-                        label="New Password"
-                        value={newPassword}
-                        visible={showNewPassword}
-                        error={passwordErrors.newPassword}
-                        onChange={(value) => {
-                          setNewPassword(value);
-                          setPasswordErrors((prev) => ({
-                            ...prev,
-                            newPassword: "",
-                          }));
-                        }}
-                        onToggleVisible={() =>
-                          setShowNewPassword((prev) => !prev)
-                        }
-                      />
-                      <PasswordInput
-                        label="Confirm Password"
-                        value={confirmPassword}
-                        visible={showConfirmPassword}
-                        error={passwordErrors.confirmPassword}
-                        onChange={(value) => {
-                          setConfirmPassword(value);
-                          setPasswordErrors((prev) => ({
-                            ...prev,
-                            confirmPassword: "",
-                          }));
-                        }}
-                        onToggleVisible={() =>
-                          setShowConfirmPassword((prev) => !prev)
-                        }
-                      />
-                    </div>
-
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                      {PASSWORD_RULES.map((rule) => {
-                        const passed = rule.test(newPassword);
-                        return (
-                          <div
-                            key={rule.label}
-                            className={`flex items-center gap-2 text-xs ${
-                              passed
-                                ? "text-emerald-600"
-                                : "text-muted-foreground"
-                            }`}
-                          >
-                            <Check className="h-3.5 w-3.5" />
-                            {rule.label}
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {confirmPasswordChangeOpen && (
-                      <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/50 dark:bg-amber-950/30">
-                        <div className="flex items-start gap-2">
-                          <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" />
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                              Change this user&apos;s password?
-                            </p>
-                            <p className="mt-1 text-xs text-amber-800 dark:text-amber-200">
-                              The new password will replace the existing
-                              password.
-                            </p>
-                          </div>
-                        </div>
-                        <div className="mt-3 flex justify-end gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={isChangingPassword}
-                            onClick={() => setConfirmPasswordChangeOpen(false)}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            disabled={isChangingPassword}
-                            onClick={() => void handleConfirmPasswordChange()}
-                          >
-                            {isChangingPassword
-                              ? "Changing..."
-                              : "Confirm Change"}
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="mt-4 flex justify-end">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleChangePasswordClick}
-                        disabled={isChangingPassword || confirmPasswordChangeOpen}
-                        className="h-9 gap-2"
-                      >
-                        <KeyRound className="h-4 w-4" />
-                        Change Password
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </section>
-            )}
 
             <section>
               <h4 className="mb-2 text-sm font-semibold">Profile</h4>
@@ -509,9 +705,7 @@ export function FarmerDetailsModal({
                 />
                 <DetailItem
                   label="Landhold"
-                  value={
-                    fp?.landhold != null ? `${fp.landhold} acres` : null
-                  }
+                  value={fp?.landhold != null ? `${fp.landhold} acres` : null}
                 />
                 <DetailItem
                   label="KCC aware"
