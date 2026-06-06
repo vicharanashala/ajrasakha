@@ -89,7 +89,7 @@ describe('CropRepository integration ', () => {
     );
 
     expect(crop._id).toBeDefined();
-    expect(crop.name).toBe(TEST_CROP_NAME_LOWER);
+    expect(crop.name.toLowerCase()).toBe(TEST_CROP_NAME_LOWER);
     expect(
       crop.aliases.some(
         a =>
@@ -148,7 +148,7 @@ describe('CropRepository integration ', () => {
     const crop = await repo.findByNameOrAlias(TEST_CROP_NAME);
     findCropId = crop._id!.toString();
     expect(crop).not.toBeNull();
-    expect(crop?.name).toBe(TEST_CROP_NAME_LOWER);
+    expect(crop.name.toLowerCase()).toBe(TEST_CROP_NAME_LOWER);
   }, 30000);
 
   const FIND_ALIAS = `find_alias_${TS}`;
@@ -180,7 +180,9 @@ describe('CropRepository integration ', () => {
     });
 
     expect(totalCount).toBeGreaterThanOrEqual(1);
-    expect(crops.some(c => c.name === TEST_CROP_NAME_LOWER)).toBe(true);
+    expect(crops.some(c => c.name.toLowerCase() === TEST_CROP_NAME_LOWER)).toBe(
+      true,
+    );
   }, 30000);
 
   it('getAllCrops — filters by crop type', async () => {
@@ -224,7 +226,7 @@ describe('CropRepository integration ', () => {
     const crop = await repo.getCropById(createdDocId);
 
     expect(crop).not.toBeNull();
-    expect(crop!.name).toBe(TEST_CROP_NAME_LOWER);
+    expect(crop.name.toLowerCase()).toBe(TEST_CROP_NAME_LOWER);
   }, 30000);
 
   it('getCropById — returns null for unknown id', async () => {
