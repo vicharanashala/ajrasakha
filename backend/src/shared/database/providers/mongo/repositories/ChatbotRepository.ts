@@ -54,6 +54,7 @@ interface IUser {
   username?: string;
   email?: string;
   firebaseUID?: string;
+  password?: string;
   role?: string;
   userRole?: string;
   isVerified?: boolean;
@@ -7008,6 +7009,15 @@ export class ChatbotRepository implements IChatbotRepository {
       const existingUser = await this.users.findOne({_id: new ObjectId(userId)});
       if (!existingUser) {
         throw new NotFoundError('User not found');
+      }
+
+      if (
+        existingUser.password &&
+        bcrypt.compareSync(newPassword, existingUser.password)
+      ) {
+        throw new BadRequestError(
+          'New password cannot be the same as the existing password',
+        );
       }
 
       const hashedPassword = bcrypt.hashSync(newPassword, 10);

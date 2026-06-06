@@ -368,10 +368,10 @@ const debouncedSearch = useDebounce(filters.search, 500);
     setIsAddModalOpen(false);
   };
 
-  const handleChangeUserPassword = async (payload: {newPassword: string}) => {
-    if (!userToEdit) return;
+  const handleChangeViewedUserPassword = async (payload: {newPassword: string}) => {
+    if (!userToView) return;
     await changeUserPasswordMutation.mutateAsync({
-      userId: userToEdit.userId,
+      userId: userToView.userId,
       source,
       newPassword: payload.newPassword,
     });
@@ -1222,6 +1222,8 @@ const debouncedSearch = useDebounce(filters.search, 500);
               isAdmin={isAdmin}
               onEdit={handleEditUser}
               onDelete={handleDeleteUser}
+              isChangingPassword={changeUserPasswordMutation.isPending}
+              onChangePassword={handleChangeViewedUserPassword}
             />
           </CardContent>
         </Card>
@@ -1239,9 +1241,7 @@ const debouncedSearch = useDebounce(filters.search, 500);
         onOpenChange={(open) => !open && setUserToEdit(null)}
         user={userToEdit}
         isSaving={updateUserMutation.isPending}
-        isChangingPassword={changeUserPasswordMutation.isPending}
         onSave={handleSaveEditedUser}
-        onChangePassword={handleChangeUserPassword}
       />
 
       {/* Delete confirmation */}
