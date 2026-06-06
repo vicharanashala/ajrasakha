@@ -6,10 +6,11 @@ import {
   SelectValue,
 } from "@/components/atoms/select";
 import { BookOpen, MessageCircle } from "lucide-react";
+import { useEffect } from "react";
 
 type UserSourceType = "application" | "manual";
 
-type ApplicationSource = "annam" | "vicharanashala" | "whatsapp";
+export type ApplicationSource = "annam" | "vicharanashala" | "whatsapp";
 
 export type Filters = {
   sourceType?: UserSourceType;
@@ -46,6 +47,13 @@ export default function NewFilters({
   onChange,
   onSourceChange,
 }: NewFiltersProps) {
+
+  useEffect(() => {
+    if (filters.application) {
+      localStorage.setItem("application-filter", filters.application);
+    }
+  }, [filters.application]);
+
   return (
     <div>
       {/* Application Filter */}
