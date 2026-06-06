@@ -58,6 +58,32 @@ export interface QueryCategoryEntry {
   duplicateQuestionCount: number;
 }
 
+export type QueryCategoryQuestionType = 'all' | 'unique' | 'duplicate';
+
+export interface QueryCategoryQuestionEntry {
+  questionId: string;
+  question: string;
+  status: string;
+  questionType: 'unique' | 'duplicate';
+  category: string;
+  createdAt?: Date;
+  farmerName?: string;
+  email?: string;
+  crop?: string;
+  village?: string;
+  block?: string;
+  district?: string;
+  state?: string;
+}
+
+export interface PaginatedQueryCategoryQuestions {
+  questions: QueryCategoryQuestionEntry[];
+  total: number;
+  totalPages: number;
+  page: number;
+  limit: number;
+}
+
 export interface DistrictAnalyticsEntry{
   district: string;
   totalQuestions: number;
@@ -177,6 +203,7 @@ export interface UserDetailEntry {
   totalQuestions: number;
   farmerProfile?: FarmerProfile;
   createdAt: Date;
+  isVerified?: boolean;
 }
 
 export interface PaginatedUserDetails { 
@@ -186,6 +213,15 @@ export interface PaginatedUserDetails {
   activeUsers?: number;
   inactiveUsers?: number;
   totalQuestions?: number;
+}
+
+export interface UnverifiedUserEntry {
+  _id: string;
+  name: string;
+  username?: string;
+  email: string;
+  createdAt?: Date;
+  role?: string;
 }
 
 export interface DemographicEntry {
@@ -287,6 +323,16 @@ export interface IChatbotRepository {
   /** Percentage breakdown of sessions by query category, sorted descending. */
   getQueryCategories(source?: string, session?: ClientSession, userType?: string): Promise<QueryCategoryEntry[]>;
 
+  getQueryCategoryQuestions(
+    category: string,
+    questionType?: QueryCategoryQuestionType,
+    page?: number,
+    limit?: number,
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+  ): Promise<PaginatedQueryCategoryQuestions>;
+
   getTopCrops(source?: string, session?: ClientSession): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
 
   /** Weekly avg session duration (updatedAt - createdAt) over the last `weeks` ISO weeks, sorted ascending. */
@@ -367,6 +413,7 @@ export interface IChatbotRepository {
     lowFeedbackOnly?: boolean,
     activeTodayByProfile?: boolean,
     missingDemographicField?: string,
+    isVerified?: boolean,
   ): Promise<PaginatedUserDetails>;
 
   getUserQuestionsData(messageIds: string[], source?: string, userType?: string, page?: number, limit?: number): Promise<any>;
@@ -487,6 +534,12 @@ export interface IChatbotRepository {
     },
   ): Promise<boolean>;
 
+  verifyUser(
+    userId: string,
+    source?: string,
+    session?: ClientSession,
+  ): Promise<any>;
+
   // getDailyActiveUsersTrend  ( source: string, userType: string,startDate?: Date, endDate?: Date, session?: ClientSession):Promise<any>
 
   // getMonthlyActiveUsersTrend ( source: string, userType: string,startDate?: Date, endDate?: Date, session?: ClientSession): Promise<any>
@@ -532,6 +585,26 @@ export interface IChatbotRepository {
 }[]>;
 
   getRepeatQueryCount(source?: string, userType?: string, startTime?: string, endTime?: string, session?: ClientSession): Promise<any>;
+
+  /**
+   * Finds unverified users with pagination and search.
+   * @param page - Page number (1-indexed)
+   * @param limit - Number of users per page
+   * @param search - Search query (searches firstName, lastName, email)
+   * @param session - MongoDB session for transactions
+   * @returns Promise with paginated unverified users and metadata
+   */
+  findUnverifiedUsers(
+    page: number,
+    limit: number,
+    search: string,
+    source?: string,
+    session?: ClientSession,
+  ): Promise<{
+    users: UnverifiedUserEntry[];
+    totalUsers: number;
+    totalPages: number;
+  }>;
 
 }
 

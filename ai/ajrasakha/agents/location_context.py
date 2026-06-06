@@ -352,7 +352,8 @@ async def forward_geocode(state: Optional[str], district: Optional[str] = None) 
     params = {
         "country": "India",
         "format": "json",
-        "limit": 1
+        "limit": 1,
+        "addressdetails": 1
     }
     if state:
         params["state"] = state
@@ -373,10 +374,11 @@ async def forward_geocode(state: Optional[str], district: Optional[str] = None) 
                 lat = float(item["lat"])
                 lon = float(item["lon"])
                 display_name = item.get("display_name")
+                resolved_state = item.get("address", {}).get("state") or state
                 return {
                     "latitude": lat,
                     "longitude": lon,
-                    "state": state,
+                    "state": resolved_state,
                     "city": district or item.get("name"),
                     "address": display_name
                 }
@@ -395,7 +397,8 @@ async def forward_geocode(state: Optional[str], district: Optional[str] = None) 
     params = {
         "q": q,
         "format": "json",
-        "limit": 1
+        "limit": 1,
+        "addressdetails": 1
     }
     
     try:
@@ -408,10 +411,11 @@ async def forward_geocode(state: Optional[str], district: Optional[str] = None) 
                 lat = float(item["lat"])
                 lon = float(item["lon"])
                 display_name = item.get("display_name")
+                resolved_state = item.get("address", {}).get("state") or state
                 return {
                     "latitude": lat,
                     "longitude": lon,
-                    "state": state,
+                    "state": resolved_state,
                     "city": district or item.get("name"),
                     "address": display_name
                 }

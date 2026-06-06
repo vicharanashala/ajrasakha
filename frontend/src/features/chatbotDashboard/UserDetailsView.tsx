@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Eye, X, Trash2, Pencil, Users, InfoIcon, UserPlus, Search, AlertCircle, Inbox, ArrowUpDown, ArrowDown, ArrowUp } from "lucide-react";
+import { Eye, X, Trash2, Pencil, Users, InfoIcon, UserPlus, Search, AlertCircle, Inbox, ArrowUpDown, ArrowDown, ArrowUp, UserCheck2, Loader2 } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import {
@@ -58,6 +58,8 @@ import { useAddUser } from "./hooks/useAddUser";
 import { motion,AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/atoms/badge";
 import { useDebounce } from "@/hooks/ui/useDebounce";
+import { useVerifyUserAnalytics } from "@/hooks/api/user/useVerifyUserAnalytics";
+import { toast } from "sonner";
 
 const EMPTY_VALUE = "Not provided";
 
@@ -78,6 +80,7 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
   inactiveOnly: false,
   lowFeedbackOnly: false,
   userType: "all",
+  isVerified: true,
 };
 
 interface UserDetailsViewProps {
@@ -92,6 +95,10 @@ export function UserDetailsView({
   userType = "all",
 }: UserDetailsViewProps) {
   const { data: currentUser } = useGetCurrentUser({});
+  const verifyUserMutation = useVerifyUserAnalytics();
+  const verifyingUserId = verifyUserMutation.isPending
+    ? verifyUserMutation.variables?.userId
+    : null;
   const isAdmin = currentUser?.role === "admin";
   const deleteUserMutation = useDeleteUser();
   const updateUserMutation = useUpdateUser();
@@ -171,6 +178,9 @@ const debouncedSearch = useDebounce(filters.search, 500);
     userType,
     sortBy,
     sortOrder,
+    false,
+    '',
+    filters.isVerified
   );
 
   const {
@@ -300,7 +310,8 @@ const debouncedSearch = useDebounce(filters.search, 500);
     filters.startTime ||
     filters.profileCompleted !== "all" ||
     filters.inactiveOnly ||
-    filters.lowFeedbackOnly;
+    filters.lowFeedbackOnly ||
+    !filters.isVerified;
 
   // const dateLabel =
   //   filters.startTime && filters.endTime
@@ -370,6 +381,20 @@ const debouncedSearch = useDebounce(filters.search, 500);
     setUserToView(null);
     setUserToEdit(user);
   };
+
+  const handleVerifyUser = async (userId: string, source: string) =>{
+    console.log('source:::',source)
+    try {
+      const response = await verifyUserMutation.mutateAsync({
+        userId,
+        source,
+      });
+
+      toast.success(response?.message || "User verified successfully");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to verify user");
+    }
+  }
 
   const handleDeleteUser = (user: UserDetail) => {
     setUserToView(null);
@@ -999,7 +1024,9 @@ const debouncedSearch = useDebounce(filters.search, 500);
                         </TableCell>
                       </TableRow>
                     ) : (
-                      users.map((user, idx) => (
+                      users.map((user, idx) => {
+                        const isVerifyingThisUser = verifyingUserId === user.userId;
+                        return(
                         <ContextMenu key={user.userId} modal={false}>
                           <ContextMenuTrigger asChild>
                             <motion.tr
@@ -1065,6 +1092,26 @@ const debouncedSearch = useDebounce(filters.search, 500);
                                   
                                   {isAdmin && (
                                     <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+
+                                      {
+                                        !user?.isVerified && (
+                                          <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        disabled={isVerifyingThisUser}
+                                        className="h-8 w-8 hover:bg-purple-500/10 hover:text-purple-500"
+                                        onClick={() => handleVerifyUser(user.userId,source)}
+                                        title="Verify farmer"
+                                      >
+                                        {isVerifyingThisUser ? (
+                                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                        ) : (
+                                          <UserCheck2 className="h-4 w-4" />
+                                        )}
+                                      </Button>
+                                        )
+                                      }
+
                                       <Button
                                         variant="ghost"
                                         size="icon"
@@ -1125,7 +1172,7 @@ const debouncedSearch = useDebounce(filters.search, 500);
                             </ContextMenuContent>
                           )}
                         </ContextMenu>
-                      ))
+                      )})
                     )}
                   </TableBody>
                 </Table>

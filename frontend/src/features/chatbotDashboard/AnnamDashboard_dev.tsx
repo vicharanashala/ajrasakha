@@ -95,12 +95,8 @@ import { ClosedQuestionsCard } from "./ClosedQuestionsCard";
 import { CustomerNotificationsCard } from "./CustomerNotificationsCard";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { ChurnRateChart } from "./ChurnRateChart";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/atoms/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/atoms/tabs";
+import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -215,15 +211,7 @@ function LazySectionSkeleton({
   );
 }
 
-export function AnnamDashboard_dev({
-  className,
-  source = "annam",
-  onSourceChange,
-}: {
-  className?: string;
-  source?: "vicharanashala" | "annam" | "whatsapp";
-  onSourceChange?: (source: "vicharanashala" | "annam" | "whatsapp") => void;
-}) {
+export function AnnamDashboard_dev({ className, source = 'annam', onSourceChange }: { className?: string; source?: 'vicharanashala' | 'annam' | 'whatsapp'; onSourceChange?: (source: 'vicharanashala' | 'annam' | 'whatsapp') => void }) {
   const [activeSegment, setActiveSegment] = useState<Segment | null>(null);
   const [activeView, setActiveView] = useState<DashboardView>("overview");
   const [activeChartTab, setActiveChartTab] = useState<string>("dau");
@@ -335,6 +323,7 @@ export function AnnamDashboard_dev({
   const { ref: weatherConcernRef, isVisible: isWeatherConcernVisible } =
     useInView();
   const { ref: userDetailsRef, isVisible: isUserDetailsVisible } = useInView();
+  // const { ref: userVerificationRef, isVisible: isUserVerificationVisible } = useInView();
   const { ref: userDemographicsRef, isVisible: isUserDemographicsVisible } =
     useInView();
 
@@ -346,6 +335,7 @@ export function AnnamDashboard_dev({
   const shouldLoadActiveUsers = loadImmediately || isActiveUsersVisible;
   const shouldLoadWeatherConcern = loadImmediately || isWeatherConcernVisible;
   const shouldLoadUserDetails = loadImmediately || isUserDetailsVisible;
+  // const shouldUserVerification = loadImmediately || isUserVerificationVisible;
   const shouldLoadUserDemographics = loadImmediately || isUserDemographicsVisible;
 
   const { data: queryCategories } = useQueryCategories(
@@ -463,6 +453,7 @@ export function AnnamDashboard_dev({
   const [userDetailsInitialFilters, setUserDetailsInitialFilters] = useState<
     Partial<UserDetailsFilters> | undefined
   >(undefined);
+
   const {
     data: topCrops,
     isLoading: isLoadingTopCrops,
@@ -1327,6 +1318,8 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                                 //   ? queryCategories
                                 //   : data.queryCategories
                               }
+                              source={source}
+                              userType={filters.userType}
                             />
                           ) : (
                             <LazySectionSkeleton className="h-[360px]" />
@@ -1561,6 +1554,7 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                         </div>
                       )}
                       {source !== "whatsapp" && (
+                        <>
                         <div
                           ref={(el) => {
                             sectionRefs.current["user-details"] = el;
@@ -1577,6 +1571,29 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                             <LazySectionSkeleton className="h-[520px]" />
                           )}
                         </div>
+                        {/* user verification */}
+                            {/* {
+                              isAdmin && (
+                                <div
+                                  ref={(el) => {
+                                    sectionRefs.current["verify-users"] = el;
+                                    userVerificationRef.current = el;
+                                  }}
+                                >
+                                  {shouldUserVerification ? (
+                                    <VerifyUser
+                                      source={source}
+                                      initialFilters={userVerificationInitialFilters}
+                                      userType={filters.userType}
+                                    />
+                                  ) : (
+                                    <LazySectionSkeleton className="h-[520px]" />
+                                  )}
+                                </div>
+                              )
+                            } */}
+                        
+                        </>
                       )}
                       {source === "whatsapp" && (
                         <div

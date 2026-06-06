@@ -91,6 +91,73 @@ export const useQueryCategories = (source: string, enabled: boolean = true) => {
   });
 };
 
+export type QueryCategoryQuestionType = "all" | "unique" | "duplicate";
+
+export interface QueryCategoryQuestionEntry {
+  questionId: string;
+  question: string;
+  status: string;
+  questionType: "unique" | "duplicate";
+  category: string;
+  createdAt?: string;
+  farmerName?: string;
+  name?: string;
+  email?: string;
+  crop?: string;
+  village?: string;
+  block?: string;
+  district?: string;
+  state?: string;
+}
+
+export interface QueryCategoryQuestionsResponse {
+  questions: QueryCategoryQuestionEntry[];
+  total: number;
+  totalPages: number;
+  page: number;
+  limit: number;
+}
+
+export const useQueryCategoryQuestions = ({
+  category,
+  questionType,
+  page,
+  limit,
+  source,
+  userType = "all",
+  enabled = true,
+}: {
+  category?: string;
+  questionType: QueryCategoryQuestionType;
+  page: number;
+  limit: number;
+  source: string;
+  userType?: string;
+  enabled?: boolean;
+}) => {
+  return useQuery<QueryCategoryQuestionsResponse>({
+    queryKey: [
+      "query-category-questions",
+      category,
+      questionType,
+      page,
+      limit,
+      source,
+      userType,
+    ],
+    queryFn: () =>
+      chatbotService.getQueryCategoryQuestions({
+        category: category ?? "",
+        questionType,
+        page,
+        limit,
+        source,
+        userType,
+      }),
+    enabled: enabled && Boolean(category),
+  });
+};
+
 export const useInactiveWhatsappUsers = (inactiveUsersPage: number, enabled: boolean = true) => {
   return useQuery({
     queryKey: ["whatsapp-inactive-users",
