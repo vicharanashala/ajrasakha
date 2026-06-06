@@ -322,7 +322,7 @@ export const ExpertDashboard = ({
       [key]: value,
     }));
   };
-
+  console.log("questtions ", paginatedQuestions)
   return (
     <main
       className={`min-h-screen bg-background ${isLoading ? "opacity-40" : ""}`}
@@ -624,90 +624,90 @@ export const ExpertDashboard = ({
 
           <TabsContent value="review_level">
             <Card>
-          <div className="flex justify-between ml-5 mr-5">
-            <h1 className="text-1xl font-bold text-foreground mt-0 mb-3">
-              Summary of Pending Tasks by Review Level
-            </h1>
-            <DateRangeFilter
-              advanceFilter={expertDate}
-              handleDialogChange={handleDateChange}
-            />
-          </div>
+              <div className="flex justify-between ml-5 mr-5">
+                <h1 className="text-1xl font-bold text-foreground mt-0 mb-3">
+                  Summary of Pending Tasks by Review Level
+                </h1>
+                <DateRangeFilter
+                  advanceFilter={expertDate}
+                  handleDialogChange={handleDateChange}
+                />
+              </div>
 
-          <div className="rounded-lg border bg-card overflow-x-auto min-h-[55vh] ml-5 mr-5">
-            <Table className="min-w-[800px]">
-              <TableHeader className="bg-card sticky top-0 z-10">
-                <TableRow>
-                  <TableHead className="text-center w-12">Sl.No</TableHead>
-                  <TableHead className="w-[35%] text-center w-52">
-                    Review Level
-                  </TableHead>
-                  <TableHead className="text-center w-52">
-                    Pending Tasks({totalPending})
-                  </TableHead>
-                  <TableHead className="text-center w-52">
-                    Approved Answers({totalapproved})
-                  </TableHead>
-                  <TableHead className="text-center w-52">
-                    Rejected Answers({totalrejected})
-                  </TableHead>
-                  <TableHead className="text-center w-52">
-                    Modified Answers({totalmodified})
-                  </TableHead>
-                  <TableHead className="text-center w-52">
-                    Completed Tasks({totalCompleted})
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-
-              <TableBody>
-                {isLoadingReviewLevel ? (
-                  <TableRow>
-                    <TableCell colSpan={10} className="text-center py-10">
-                      <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />
-                    </TableCell>
-                  </TableRow>
-                ) : !reviewLevel || reviewLevel.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={10}
-                      rowSpan={10}
-                      className="text-center py-10 text-muted-foreground"
-                    >
-                      No Details found
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  reviewLevel.map((level: any, ind: number) => (
-                    <TableRow key={ind} className="text-center">
-                      <TableCell className="align-middle w-36">
-                        {ind + 1}
-                      </TableCell>
-                      <TableCell className="align-middle w-36">
-                        {level.Review_level}
-                      </TableCell>
-                      <TableCell className="align-middle w-36">
-                        {level.pendingcount}
-                      </TableCell>
-                      <TableCell className="align-middle w-36">
-                        {ind === 0 ? "N/A" : level.approvedCount}
-                      </TableCell>
-                      <TableCell className="align-middle w-36">
-                        {ind === 0 ? "N/A" : level.rejectedCount}
-                      </TableCell>
-                      <TableCell className="align-middle w-36">
-                        {ind === 0 ? "N/A" : level.modifiedCount}
-                      </TableCell>
-                      <TableCell className="align-middle w-36">
-                        {level.completedcount}
-                      </TableCell>
+              <div className="rounded-lg border bg-card overflow-x-auto min-h-[55vh] ml-5 mr-5">
+                <Table className="min-w-[800px]">
+                  <TableHeader className="bg-card sticky top-0 z-10">
+                    <TableRow>
+                      <TableHead className="text-center w-12">Sl.No</TableHead>
+                      <TableHead className="w-[35%] text-center w-52">
+                        Review Level
+                      </TableHead>
+                      <TableHead className="text-center w-52">
+                        Pending Tasks({totalPending})
+                      </TableHead>
+                      <TableHead className="text-center w-52">
+                        Approved Answers({totalapproved})
+                      </TableHead>
+                      <TableHead className="text-center w-52">
+                        Rejected Answers({totalrejected})
+                      </TableHead>
+                      <TableHead className="text-center w-52">
+                        Modified Answers({totalmodified})
+                      </TableHead>
+                      <TableHead className="text-center w-52">
+                        Completed Tasks({totalCompleted})
+                      </TableHead>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </Card>
+                  </TableHeader>
+
+                  <TableBody>
+                    {isLoadingReviewLevel ? (
+                      <TableRow>
+                        <TableCell colSpan={10} className="text-center py-10">
+                          <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />
+                        </TableCell>
+                      </TableRow>
+                    ) : !reviewLevel || reviewLevel.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={10}
+                          rowSpan={10}
+                          className="text-center py-10 text-muted-foreground"
+                        >
+                          No Details found
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      reviewLevel.map((level: any, ind: number) => (
+                        <TableRow key={ind} className="text-center">
+                          <TableCell className="align-middle w-36">
+                            {ind + 1}
+                          </TableCell>
+                          <TableCell className="align-middle w-36">
+                            {level.Review_level}
+                          </TableCell>
+                          <TableCell className="align-middle w-36">
+                            {level.pendingcount}
+                          </TableCell>
+                          <TableCell className="align-middle w-36">
+                            {ind === 0 ? "N/A" : level.approvedCount}
+                          </TableCell>
+                          <TableCell className="align-middle w-36">
+                            {ind === 0 ? "N/A" : level.rejectedCount}
+                          </TableCell>
+                          <TableCell className="align-middle w-36">
+                            {ind === 0 ? "N/A" : level.modifiedCount}
+                          </TableCell>
+                          <TableCell className="align-middle w-36">
+                            {level.completedcount}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
           </TabsContent>
 
           <TabsContent value="questions">
@@ -732,6 +732,7 @@ export const ExpertDashboard = ({
                   <TableHeader className="bg-card sticky top-0 z-10">
                     <TableRow>
                       <TableHead className="text-center w-12">Sl.No</TableHead>
+                      <TableHead className="text-center w-12">Source</TableHead>
                       <TableHead className="text-left">Question Text</TableHead>
                       <TableHead className="text-center w-52">Review Level</TableHead>
                     </TableRow>
@@ -759,6 +760,16 @@ export const ExpertDashboard = ({
                           <TableCell className="align-top text-center">
                             {(questionsPage - 1) * questionsLimit + index + 1}
                           </TableCell>
+                          <TableCell className={` ${question.source === "AJRASAKHA"
+                              ? "text-red-500 "
+                              : question.source === "WHATSAPP"
+                                ? "text-green-500"
+                                : question.source === "OUTREACH"
+                                  ? "text-orange-500"
+                                  : question.source === "AGRI_EXPERT"
+                                    ? "text-gray-500"
+                                    : "text-yellow-500"
+                            }`}>{question.source}</TableCell>
                           <TableCell className="align-top">{question.text}</TableCell>
                           <TableCell className="align-top text-center">
                             {formatReviewLevel(question.review_level_number)}
