@@ -7388,22 +7388,13 @@ export class ChatbotRepository implements IChatbotRepository {
         };
       }
       if (userType === 'external') {
-        matchStage.email = {
-          $regex: '^rup',
-          $options: 'i',
+        matchStage.userRole = {
+          $in: ['FARMER', 'COORDINATOR'],
         };
       }
 
-      /**
-       * Internal Users
-       */
       if (userType === 'internal') {
-        matchStage.email = {
-          $not: {
-            $regex: '^rup',
-            $options: 'i',
-          },
-        };
+        matchStage.userRole = 'INTERNAL';
       }
 
       let format = '%Y-%m-%d';
@@ -8869,18 +8860,13 @@ export class ChatbotRepository implements IChatbotRepository {
 
     let userMatchStage: any = {};
     if (userType === 'external') {
-      userMatchStage['userDetails.email'] = {
-        $regex: '^rup',
-        $options: 'i',
+      userMatchStage['userDetails.userRole'] = {
+        $in: ['FARMER', 'COORDINATOR'],
       };
     }
+
     if (userType === 'internal') {
-      userMatchStage['userDetails.email'] = {
-        $not: {
-          $regex: '^rup',
-          $options: 'i',
-        },
-      };
+      userMatchStage['userDetails.userRole'] = 'INTERNAL';
     }
 
     const startDate = new Date('2026-01-01');
@@ -9082,26 +9068,14 @@ export class ChatbotRepository implements IChatbotRepository {
         };
       }
 
-      /**
-       * External Users
-       */
       if (userType === 'external') {
-        matchStage.email = {
-          $regex: '^rup',
-          $options: 'i',
+        matchStage.userRole = {
+          $in: ['FARMER', 'COORDINATOR'],
         };
       }
 
-      /**
-       * Internal Users
-       */
       if (userType === 'internal') {
-        matchStage.email = {
-          $not: {
-            $regex: '^rup',
-            $options: 'i',
-          },
-        };
+        matchStage.userRole = 'INTERNAL';
       }
 
       let groupStage: any;
