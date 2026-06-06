@@ -51,6 +51,40 @@ FORECAST_ENVELOPE = {
 }
 
 
+AGMARKNET_COTTON_ROW = {
+    "trend": "up",
+    "cmdt_name": "Cotton",
+    "msp_price": "7710.00",
+    "as_on_price": "8436.65",
+    "as_on_arrival": "31.00",
+    "cmdt_grp_name": "Fibre Crops",
+    "reported_date": "04-06-2026",
+    "one_day_ago_price": "8776.00",
+    "two_day_ago_price": "8310.45",
+    "one_day_ago_arrival": "11.50",
+    "two_day_ago_arrival": "43.40",
+}
+
+MARKET_COTTON_SIRSA_ENVELOPE = {
+    "query_context": {
+        "state": "Haryana",
+        "district": "Sirsa",
+        "crop": "Cotton",
+        "target_date": "2026-06-06",
+    },
+    "agmarknet": {
+        "success": True,
+        "source": "Agmarknet",
+        "data": [dict(AGMARKNET_COTTON_ROW) for _ in range(5)],
+    },
+    "enam": {
+        "success": True,
+        "source": "eNAM",
+        "data": [],
+    },
+}
+
+
 def test_format_forecast_from_real_payload():
     raw = json.dumps(FORECAST_ENVELOPE)
     out = format_tool_output("weather", raw)
@@ -240,9 +274,91 @@ def test_format_weather_non_json_passthrough():
     assert format_tool_output("weather", msg) == msg
 
 
-def test_format_market_passthrough():
+def test_format_market_passthrough_non_json():
     prose = "Wheat price is ₹2500/qtl in Ludhiana mandi."
     assert format_tool_output("market", prose) == prose
+
+
+def test_format_market_agmarknet_cotton_sirsa():
+    out = format_tool_output("market", json.dumps(MARKET_COTTON_SIRSA_ENVELOPE))
+    assert "{" not in out
+    assert "Mandi prices" in out
+    assert "Cotton" in out
+    assert "Sirsa" in out
+    assert "8436.65" in out or "8,436" in out
+    assert "Agmarknet" in out
+    assert "• No trade data" in out or "eNAM" in out
+    assert out.count("Latest modal price") == 1
+
+
+def test_format_market_onion_missing_latest_price():
+    payload = {
+        "query_context": {
+            "state": "Haryana",
+            "district": "Sirsa",
+            "crop": "Onion",
+            "target_date": "2026-06-06",
+        },
+        "agmarknet": {
+            "success": True,
+            "source": "Agmarknet",
+            "data": [{
+                "cmdt_name": "Onion",
+                "cmdt_grp_name": "Vegetables",
+                "reported_date": "04-06-2026",
+                "as_on_price": None,
+                "msp_price": None,
+                "as_on_arrival": None,
+                "one_day_ago_price": "1304.28",
+                "one_day_ago_arrival": "11.90",
+                "two_day_ago_price": "1175.94",
+                "two_day_ago_arrival": "9.90",
+            }],
+        },
+        "enam": {"success": True, "source": "eNAM", "data": []},
+    }
+    out = format_tool_output("market", json.dumps(payload))
+    assert "Latest modal price not reported for query date" in out
+    assert "Previous prices:" in out
+    assert "1 day ago" in out
+    assert "2 days ago" in out
+    assert "• Commodity: Onion (Vegetables)" in out
+    assert "\n\nAgmarknet" in out
+
+
+def test_format_market_both_empty():
+    payload = {
+        "query_context": {
+            "state": "Jammu and Kashmir",
+            "district": "all",
+            "crop": "Paddy(Common)",
+            "target_date": "2026-06-06",
+        },
+        "agmarknet": {"success": True, "source": "Agmarknet", "data": []},
+        "enam": {"success": True, "source": "eNAM", "data": []},
+    }
+    out = format_tool_output("market", json.dumps(payload))
+    assert "No mandi price data found" in out
+    assert "No price data for this date" in out
+    assert "No trade data for this date" in out
+
+
+def test_format_non_gdb_market_json_becomes_readable():
+    messages = [
+        HumanMessage(content="Cotton price in Sirsa?"),
+        ToolMessage(
+            content=json.dumps(MARKET_COTTON_SIRSA_ENVELOPE),
+            tool_call_id="m-1",
+            name="market",
+        ),
+    ]
+    block = format_non_gdb_tool_results(messages)
+    assert "{" not in block
+    assert "8436.65" in block or "8,436" in block
+
+
+def test_format_market_passthrough_invalid_json():
+    assert format_tool_output("market", "not json at all") == "not json at all"
 
 
 def test_format_non_gdb_weather_json_becomes_readable():

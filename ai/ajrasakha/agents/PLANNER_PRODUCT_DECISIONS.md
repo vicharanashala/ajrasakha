@@ -72,4 +72,4 @@ Set `ENABLE_CHEMICAL_CHECKER = True` in `plan_executor.py` to re-enable.
 
 The planner graph does **not** use a synthesizer LLM. Bodies are assembled deterministically in **assemble_answer_body**, then **translate_answer** handles language/script and footers.
 
-**Specialist tool formatting:** The weather tool returns raw IMD JSON; `tool_output_formatters.format_tool_output()` turns it into readable prose (forecast, current conditions, warnings, etc.) before translate. Market, soil, schemes, and chemical_checker already return sub-agent prose and pass through unchanged.
+**Specialist tool formatting:** Weather and market tools return raw JSON; `tool_output_formatters.format_tool_output()` turns them into readable prose before translate. Soil, schemes, and chemical_checker pass through unchanged.

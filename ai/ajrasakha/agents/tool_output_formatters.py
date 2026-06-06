@@ -7,26 +7,43 @@ import re
 from typing import Any, Optional
 
 _SUBDIVISION_LIST_CAP = 10
+_MARKET_ROW_CAP = 5
+_MARKET_DEDUPE_KEYS = (
+    "cmdt_name",
+    "reported_date",
+    "as_on_price",
+    "msp_price",
+    "as_on_arrival",
+    "one_day_ago_price",
+    "two_day_ago_price",
+)
 
 
 def format_tool_output(tool_name: str, raw_text: str) -> str:
-    """Format tool output for farmer-facing assembly; non-weather prose passes through."""
+    """Format tool output for farmer-facing assembly; JSON tools get readable prose."""
     text = (raw_text or "").strip()
     if not text:
         return ""
 
-    if tool_name != "weather":
+    if tool_name == "weather":
+        try:
+            data = json.loads(text)
+        except (json.JSONDecodeError, TypeError):
+            return text
+        if isinstance(data, dict):
+            return format_weather_envelope(data)
         return text
 
-    try:
-        data = json.loads(text)
-    except (json.JSONDecodeError, TypeError):
+    if tool_name == "market":
+        try:
+            data = json.loads(text)
+        except (json.JSONDecodeError, TypeError):
+            return text
+        if isinstance(data, dict) and "query_context" in data:
+            return format_market_envelope(data)
         return text
 
-    if not isinstance(data, dict):
-        return text
-
-    return format_weather_envelope(data)
+    return text
 
 
 def format_weather_envelope(data: dict[str, Any]) -> str:
@@ -470,3 +487,250 @@ def _wind(speed: Any, direction: Any) -> Optional[str]:
     if not _is_empty_val(direction):
         parts.append(f"direction {direction}°")
     return " ".join(parts) if parts else None
+
+
+def format_market_envelope(data: dict[str, Any]) -> str:
+    ctx = data.get("query_context") or {}
+    crop = ctx.get("crop") or "crop"
+    district = ctx.get("district") or "district"
+    state = ctx.get("state") or "state"
+    target_date = ctx.get("target_date") or ""
+
+    ag_block = data.get("agmarknet")
+    enam_block = data.get("enam")
+    has_ag = _market_source_has_rows(ag_block)
+    has_enam = _market_source_has_rows(enam_block)
+
+    blocks: list[str] = []
+    if not has_ag and not has_enam:
+        blocks.append(
+            f"No mandi price data found for {crop} in {district}, {state} on {target_date}."
+        )
+    else:
+        blocks.append(
+            "Mandi prices\n"
+            f"Crop: {crop} | District: {district} | State: {state}\n"
+            f"Query date: {target_date}"
+        )
+
+    blocks.append(_format_agmarknet_block_text(ag_block))
+    blocks.append(_format_enam_block_text(enam_block))
+    return _join_market_blocks(blocks)
+
+
+def _join_market_blocks(blocks: list[str]) -> str:
+    parts = [b.strip() for b in blocks if b and b.strip()]
+    return "\n\n".join(parts)
+
+
+def _market_bullet(label: str, value: str) -> str:
+    return f"• {label}: {value}"
+
+
+def _market_bullet_plain(text: str) -> str:
+    return f"• {text}"
+
+
+def _agmarknet_modal_price(row: dict[str, Any]) -> Optional[str]:
+    for key in ("as_on_price", "modal_price", "max_price", "price"):
+        formatted = _format_rupees_per_quintal(row.get(key))
+        if formatted:
+            return formatted
+    return None
+
+
+def _format_agmarknet_block_text(block: Any) -> str:
+    if not isinstance(block, dict):
+        return "Agmarknet\n• Data unavailable"
+    if block.get("error"):
+        return f"Agmarknet\n• {block['error']}"
+    if block.get("success") is False:
+        err = block.get("error") or "Data unavailable"
+        return f"Agmarknet\n• {err}"
+
+    rows = block.get("data")
+    if not isinstance(rows, list) or not rows:
+        return "Agmarknet\n• No price data for this date."
+
+    row_blocks: list[str] = []
+    for row in _dedupe_market_rows(rows):
+        row_blocks.append(_format_agmarknet_row_text(row))
+    return "Agmarknet\n\n" + "\n\n".join(row_blocks)
+
+
+def _format_agmarknet_row_text(row: dict[str, Any]) -> str:
+    name = row.get("cmdt_name") or "Commodity"
+    grp = row.get("cmdt_grp_name")
+    commodity = f"{name} ({grp})" if grp and not _is_empty_val(grp) else name
+
+    lines: list[str] = [_market_bullet("Commodity", commodity)]
+
+    reported = row.get("reported_date")
+    if not _is_empty_val(reported):
+        lines.append(_market_bullet("Report date", str(reported)))
+
+    modal = _agmarknet_modal_price(row)
+    trend = row.get("trend")
+    if modal:
+        if not _is_empty_val(trend):
+            lines.append(_market_bullet("Latest modal price", f"{modal} (trend: {trend})"))
+        else:
+            lines.append(_market_bullet("Latest modal price", modal))
+    else:
+        lines.append(
+            _market_bullet_plain(
+                "Latest modal price not reported for query date — see previous days below"
+            )
+        )
+
+    msp = _format_rupees_per_quintal(row.get("msp_price"))
+    if msp:
+        lines.append(_market_bullet("MSP", msp))
+
+    arrival = row.get("as_on_arrival")
+    if not _is_empty_val(arrival):
+        lines.append(_market_bullet("Arrival", f"{arrival} quintals"))
+
+    history: list[str] = []
+    prev1_price = _format_rupees_per_quintal(row.get("one_day_ago_price"))
+    prev1_arr = row.get("one_day_ago_arrival")
+    if prev1_price:
+        if not _is_empty_val(prev1_arr):
+            history.append(f"1 day ago — {prev1_price}, arrival {prev1_arr} quintals")
+        else:
+            history.append(f"1 day ago — {prev1_price}")
+
+    prev2_price = _format_rupees_per_quintal(row.get("two_day_ago_price"))
+    prev2_arr = row.get("two_day_ago_arrival")
+    if prev2_price:
+        if not _is_empty_val(prev2_arr):
+            history.append(f"2 days ago — {prev2_price}, arrival {prev2_arr} quintals")
+        else:
+            history.append(f"2 days ago — {prev2_price}")
+
+    if history:
+        lines.append("Previous prices:")
+        lines.extend(_market_bullet_plain(item) for item in history)
+
+    return "\n".join(lines)
+
+
+def _format_enam_block_text(block: Any) -> str:
+    if not isinstance(block, dict):
+        return "eNAM\n• Data unavailable"
+    if block.get("error"):
+        return f"eNAM\n• {block['error']}"
+    if block.get("success") is False:
+        err = block.get("error") or "Data unavailable"
+        return f"eNAM\n• {err}"
+
+    rows = block.get("data")
+    if not isinstance(rows, list) or not rows:
+        return "eNAM\n• No trade data for this date."
+
+    row_blocks: list[str] = []
+    for row in _dedupe_market_rows(rows):
+        row_blocks.append(_format_enam_row_text(row))
+    return "eNAM\n\n" + "\n\n".join(row_blocks)
+
+
+def _format_enam_row_text(row: dict[str, Any]) -> str:
+    lines = _format_enam_row(row)
+    converted: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("- "):
+            converted.append(_market_bullet_plain(stripped[2:]))
+        elif stripped.startswith("  "):
+            converted.append(f"• {stripped.strip()}")
+        else:
+            converted.append(stripped)
+    return "\n".join(converted)
+
+
+def _market_source_has_rows(block: Any) -> bool:
+    if not isinstance(block, dict):
+        return False
+    if block.get("error"):
+        return False
+    if block.get("success") is False:
+        return False
+    rows = block.get("data")
+    return isinstance(rows, list) and len(rows) > 0
+
+
+def _dedupe_market_rows(rows: list[Any]) -> list[dict[str, Any]]:
+    seen: set[tuple[str, ...]] = set()
+    unique: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        key = tuple(str(row.get(k, "")).strip() for k in _MARKET_DEDUPE_KEYS)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(row)
+        if len(unique) >= _MARKET_ROW_CAP:
+            break
+    return unique
+
+
+def _format_rupees_per_quintal(value: Any) -> Optional[str]:
+    if _is_empty_val(value):
+        return None
+    s = str(value).strip().replace(",", "")
+    try:
+        num = float(s)
+        if num == int(num):
+            formatted = f"{int(num):,}"
+        else:
+            formatted = f"{num:,.2f}".rstrip("0").rstrip(".")
+    except ValueError:
+        formatted = s
+    return f"₹{formatted}/quintal"
+
+
+def _format_agmarknet_block(block: Any) -> list[str]:
+    return _format_agmarknet_block_text(block).split("\n")
+
+
+def _format_enam_row(row: dict[str, Any]) -> list[str]:
+    commodity = row.get("commodity_name") or row.get("cmdt_name") or "Commodity"
+    apmc = row.get("apmc_name") or row.get("market_name")
+    title = f"- {commodity}"
+    if apmc and not _is_empty_val(apmc):
+        title += f" at {apmc}"
+    lines = [title]
+
+    trade_date = row.get("trade_date") or row.get("reported_date") or row.get("date")
+    if not _is_empty_val(trade_date):
+        lines.append(f"  Date: {trade_date}")
+
+    modal = _format_rupees_per_quintal(
+        row.get("modal_price") or row.get("modal") or row.get("as_on_price")
+    )
+    min_p = _format_rupees_per_quintal(row.get("min_price") or row.get("min"))
+    max_p = _format_rupees_per_quintal(row.get("max_price") or row.get("max"))
+
+    if modal:
+        lines.append(f"  Modal price: {modal}")
+    if min_p or max_p:
+        parts = []
+        if min_p:
+            parts.append(f"min {min_p}")
+        if max_p:
+            parts.append(f"max {max_p}")
+        lines.append(f"  Price range: {', '.join(parts)}")
+
+    if len(lines) == 1:
+        for key, value in row.items():
+            if _is_empty_val(value) or key in {
+                "commodity_name", "cmdt_name", "apmc_name", "market_name",
+                "trade_date", "reported_date", "date",
+                "modal_price", "modal", "as_on_price", "min_price", "min", "max_price", "max",
+            }:
+                continue
+            label = key.replace("_", " ")
+            lines.append(f"  {label}: {value}")
+
+    return lines
