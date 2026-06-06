@@ -383,6 +383,7 @@ export class ChatbotController {
       limit?: number;
       source?: string;
       userType?: string;
+      search?: string
     },
   ){
     if(query.category){
@@ -392,7 +393,9 @@ export class ChatbotController {
       query.page,
       query.limit,
       query.source,
-      query.userType)
+      query.userType,
+      query.search,
+    )
     }else{
       return this.chatbotService.getQuestionFromDistrict(
       query.district,
@@ -401,6 +404,7 @@ export class ChatbotController {
       query.limit,
       query.source,
       query.userType,
+      query.search,
       )
     }
   }

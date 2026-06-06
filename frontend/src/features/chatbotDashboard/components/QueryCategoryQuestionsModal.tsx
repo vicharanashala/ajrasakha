@@ -73,30 +73,36 @@ export function QueryCategoryQuestionsModal({
     useState<QueryCategoryQuestionType>("all");
   const [page, setPage] = useState(1);
 
+  const [searchTerm, setSearchTerm] = useState("");
+
   useEffect(() => {
     setPage(1);
     setQuestionType("all");
   }, [category]);
 
-  const { data, isLoading, isError, isFetching } = isQueryCategory ? useQuestionFilter({
-    category,
-    questionType,
-    page,
-    limit: PAGE_SIZE,
-    source,
-    userType,
-    enabled: true,
-  }) : useQuestionFilter( {
-    district,
-    questionType,
-    page,
-    limit: PAGE_SIZE,
-    source,
-    userType,
-    enabled: true,
-  })
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  console.log(`Fetched questions: ${isQueryCategory ? "Query Category": "District"}`, data )
+useEffect(() => {
+  const timer = setTimeout(() => {
+    setDebouncedSearch(searchTerm);
+    setPage(1);
+  }, 500);
+
+  return () => clearTimeout(timer);
+}, [searchTerm]);
+
+
+  const { data, isLoading, isError, isFetching } = useQuestionFilter({
+  category,
+  district,
+  questionType,
+  page,
+  limit: PAGE_SIZE,
+  source,
+  userType,
+  search: debouncedSearch,
+  enabled: true,
+});
 
   const columns = useMemo<QuestionListColumn<QueryCategoryQuestionEntry>[]>(
     () => [
@@ -166,7 +172,9 @@ export function QueryCategoryQuestionsModal({
         className: "w-[8%]",
         render: (row) => (
           <Badge
-            variant={row.questionType === "duplicate" ? "destructive" : "secondary"}
+            variant={
+              row.questionType === "duplicate" ? "destructive" : "secondary"
+            }
             className="justify-center capitalize"
           >
             {row.questionType}
@@ -194,6 +202,7 @@ export function QueryCategoryQuestionsModal({
   );
 
   const questions = data?.questions ?? [];
+
   const total = data?.total ?? 0;
 
   return createPortal(
@@ -205,19 +214,26 @@ export function QueryCategoryQuestionsModal({
         }
       }}
     >
-      <div
-        className="flex max-h-[88vh] w-full max-w-6xl flex-col rounded-xl bg-white shadow-2xl dark:bg-[#1a1a1a]"
-      >
+      <div className="flex max-h-[88vh] w-full max-w-6xl flex-col rounded-xl bg-white shadow-2xl dark:bg-[#1a1a1a]">
         <div className="flex shrink-0 items-center justify-between gap-4 border-b border-gray-100 px-6 py-4 dark:border-[#2a2a2a]">
           <div className="min-w-0">
             <h2 className="truncate text-base font-semibold text-gray-900 dark:text-gray-100">
               {category}
             </h2>
             <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-              Questions in this query category
+              {isQueryCategory
+                ? "Questions in this query category"
+                : `Question releated to the ${district}`}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-3">
+            <input
+              type="text"
+              placeholder="Search by name or email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-64 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-[#2a2a2a]"
+            />
             <Tabs
               value={questionType}
               onValueChange={(value) => {

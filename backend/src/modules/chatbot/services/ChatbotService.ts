@@ -633,6 +633,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     limit = 10,
     source = 'vicharanashala',
     userType = 'all',
+    search?: string
   ) {
     try {
       return await this.chatbotRepository.getQueryCategoryQuestions(
@@ -643,6 +644,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         source,
         undefined,
         userType,
+        search
       );
     } catch (error) {
       throw new InternalServerError(
@@ -696,6 +698,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     limit = 10,
     source = 'vicharanashala',
     userType = 'all',
+    search?: string
   ):Promise<any>{
      try {
       return await this.chatbotRepository.getQuestionFromDistrict(
@@ -706,6 +709,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         source,
         undefined,
         userType,
+        search
       );
      }catch (error){
       throw new InternalServerError(

@@ -1681,9 +1681,11 @@ export class ChatbotRepository implements IChatbotRepository {
     _source = 'vicharanashala',
     session?: ClientSession,
     userType = 'all',
+    search?: string,
   ): Promise<PaginatedQueryCategoryQuestions> {
     try {
       await this.initReviewSystem();
+      await this.init(_source);
 
       const safePage = Math.max(Number(page) || 1, 1);
       const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
@@ -1732,6 +1734,50 @@ export class ChatbotRepository implements IChatbotRepository {
             ? {status: {$ne: 'duplicate'}}
             : {};
 
+      let searchMatch = {};
+
+      if (search?.trim()) {
+        const matchingUsers = await this.users
+          .find({
+            $or: [
+              {
+                email: {
+                  $regex: search,
+                  $options: 'i',
+                },
+              },
+              {
+                firstName: {
+                  $regex: search,
+                  $options: 'i',
+                },
+              },
+              {
+                lastName: {
+                  $regex: search,
+                  $options: 'i',
+                },
+              },
+              {
+                'farmerProfile.farmerName': {
+                  $regex: search,
+                  $options: 'i',
+                },
+              },
+            ],
+          })
+          .project({_id: 1})
+          .toArray();
+
+        const userIds = matchingUsers.map(user => user._id.toString());
+
+        searchMatch = {
+          userId: {
+            $in: userIds,
+          },
+        };
+      }
+
       const result = await this.QuestionCollection.aggregate(
         [
           {
@@ -1739,6 +1785,7 @@ export class ChatbotRepository implements IChatbotRepository {
               ...baseMatch,
               ...domainMatch,
               ...typeMatch,
+              ...searchMatch,
             },
           },
           // ...lookupStages,
@@ -1781,8 +1828,6 @@ export class ChatbotRepository implements IChatbotRepository {
       const total = result[0]?.metadata?.[0]?.total ?? 0;
       const questions = result[0]?.data ?? [];
 
-      await this.init(_source)
-
       const userIds = [
         ...new Set(questions.map(q => q.userId).filter(Boolean)),
       ];
@@ -1818,7 +1863,6 @@ export class ChatbotRepository implements IChatbotRepository {
           state: user?.farmerProfile?.state,
         };
       });
-
 
       return {
         questions: enrichedQuestions,
@@ -2144,9 +2188,11 @@ export class ChatbotRepository implements IChatbotRepository {
     source: string,
     session?: ClientSession,
     userType = 'all',
+    search?: string,
   ): Promise<any> {
     try {
       await this.initReviewSystem();
+      await this.init(source);
       const safePage = Math.max(Number(page) || 1, 1);
       const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
       const skip = (safePage - 1) * safeLimit;
@@ -2170,6 +2216,50 @@ export class ChatbotRepository implements IChatbotRepository {
             ? {status: {$ne: 'duplicate'}}
             : {};
 
+      let searchMatch = {};
+
+      if (search?.trim()) {
+        const matchingUsers = await this.users
+          .find({
+            $or: [
+              {
+                email: {
+                  $regex: search,
+                  $options: 'i',
+                },
+              },
+              {
+                firstName: {
+                  $regex: search,
+                  $options: 'i',
+                },
+              },
+              {
+                lastName: {
+                  $regex: search,
+                  $options: 'i',
+                },
+              },
+              {
+                'farmerProfile.farmerName': {
+                  $regex: search,
+                  $options: 'i',
+                },
+              },
+            ],
+          })
+          .project({_id: 1})
+          .toArray();
+
+        const userIds = matchingUsers.map(user => user._id.toString());
+
+        searchMatch = {
+          userId: {
+            $in: userIds,
+          },
+        };
+      }
+
       const result = await this.QuestionCollection.aggregate(
         [
           {
@@ -2177,6 +2267,7 @@ export class ChatbotRepository implements IChatbotRepository {
               ...baseMatch,
               ...districtMatch,
               ...typeMatch,
+              ...searchMatch,
             },
           },
           {
@@ -2224,8 +2315,6 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const total = result[0]?.metadata?.[0]?.total ?? 0;
       const questions = result[0]?.data ?? [];
-
-      await this.init(source);
 
       const userIds = [
         ...new Set(questions.map(q => q.userId).filter(Boolean)),

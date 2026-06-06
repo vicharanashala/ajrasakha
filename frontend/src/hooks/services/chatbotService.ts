@@ -231,6 +231,7 @@ export class ChatbotService {
     limit,
     source,
     userType,
+    search,
   }: {
     category?: string;
     district?: string;
@@ -239,6 +240,7 @@ export class ChatbotService {
     limit: number;
     source: string;
     userType?: string;
+    search?: string;
   }) {
     const params = new URLSearchParams();
     if(category) params.append("category", category);
@@ -248,6 +250,9 @@ export class ChatbotService {
     params.append("limit", limit.toString());
     params.append("source", source);
     if (userType) params.append("userType", userType);
+    if (search?.trim()) {
+  params.append("search", search.trim());
+}
         return apiFetch<any>(
       `${this._baseUrl}/filtered-questions?${params.toString()}`,
     );

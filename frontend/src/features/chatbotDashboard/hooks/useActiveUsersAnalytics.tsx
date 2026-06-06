@@ -166,6 +166,7 @@ export const useQuestionFilter = ({
   limit,
   source,
   userType = "all",
+  search = "",
   enabled = true,
 }: {
   category?: string;
@@ -175,25 +176,21 @@ export const useQuestionFilter = ({
   limit: number;
   source: string;
   userType?: string;
+  search?: string;
   enabled?: boolean;
 }) => {
-  console.log("useQuestionFilter called", {
-  category,
-  district,
-  questionType,
-  enabled,
-});
   return useQuery<QueryCategoryQuestionsResponse>({
-    queryKey: [
-      "get-question-filter",
-      category,
-      district,
-      questionType,
-      page,
-      limit,
-      source,
-      userType,
-    ],
+  queryKey: [
+    "get-question-filter",
+    category,
+    district,
+    questionType,
+    page,
+    limit,
+    source,
+    userType,
+    search,
+  ],
     queryFn: () =>
       chatbotService.getQuestionByFilters({
         category: category ?? "",
@@ -203,6 +200,7 @@ export const useQuestionFilter = ({
         limit,
         source,
         userType,
+        search
       }),
     enabled: enabled && Boolean(category || district),
   });
