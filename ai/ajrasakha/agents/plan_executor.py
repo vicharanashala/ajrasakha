@@ -453,7 +453,7 @@ async def execute_plan_node(
 
     direct = reviewer_direct_answer(new_msgs)
     if direct and text_matches_user_language(direct, user_query):
-        logger.info("Reviewer returned direct answer_text — skipping synthesize")
+        logger.info("Reviewer returned direct answer_text — reviewer direct → translate")
         return {
             "messages": [AIMessage(content=direct)],
             "location": merged_loc,
@@ -461,7 +461,7 @@ async def execute_plan_node(
         }
     if direct:
         logger.info(
-            "Reviewer answer language does not match farmer message — running synthesize to translate"
+            "Reviewer answer language does not match farmer message — assemble/translate path"
         )
 
     extra_chems = extract_chemicals_from_tool_messages(new_msgs)
@@ -578,13 +578,13 @@ def should_expert_queue_reply(state: AjraSakhaState) -> bool:
 def route_after_execute(state: AjraSakhaState) -> str:
     plan = state.get("plan") or {}
     if plan.get("skip_synthesize"):
-        return "end"
+        return "translate_answer"
+    messages = state.get("messages") or []
+    if _gdb_has_usable_data(messages) and _turn_has_specialist_tool_message(messages):
+        return "empty_gdb_reply"
     if should_expert_queue_reply(state):
         return "empty_gdb_reply"
-    messages = state.get("messages") or []
-    if _gdb_has_usable_data(messages):
-        return "gdb_passthrough"
-    if _turn_has_specialist_tool_message(messages):
-        return "synthesize"
+    if _gdb_has_usable_data(messages) or _turn_has_specialist_tool_message(messages):
+        return "assemble_answer_body"
     return "empty_gdb_reply"
 

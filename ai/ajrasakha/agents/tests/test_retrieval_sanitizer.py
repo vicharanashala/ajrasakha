@@ -76,15 +76,15 @@ def test_route_exact_match_skips_sanitizer():
     data = _gdb_payload(is_exact=True, is_similar=False)
     data["exact_match"] = {"question": "Q", "answer": "Expert wheat guide."}
     state = _state_with_gdb(data)
-    assert route_after_execute(state) == "gdb_passthrough"
+    assert route_after_execute(state) == "assemble_answer_body"
 
 
-def test_route_similar_only_goes_to_gdb_passthrough():
+def test_route_similar_only_goes_to_assemble_answer_body():
     state = _state_with_gdb(_gdb_payload())
-    assert route_after_execute(state) == "gdb_passthrough"
+    assert route_after_execute(state) == "assemble_answer_body"
 
 
-def test_route_no_gdb_with_weather_goes_to_synthesize():
+def test_route_no_gdb_with_weather_goes_to_assemble_answer_body():
     state: AjraSakhaState = {
         "messages": [
             HumanMessage(content="Weather in Punjab?"),
@@ -93,15 +93,26 @@ def test_route_no_gdb_with_weather_goes_to_synthesize():
         ],
         "plan": {},
     }
-    assert route_after_execute(state) == "synthesize"
+    assert route_after_execute(state) == "assemble_answer_body"
 
 
-def test_route_skip_synthesize_ends():
+def test_route_gdb_and_weather_to_empty_gdb():
+    data = _gdb_payload(is_exact=True, is_similar=False)
+    data["exact_match"] = {"question": "Q", "answer": "Expert wheat guide."}
+    state = _state_with_gdb(data)
+    state["messages"].extend([
+        AIMessage(content="", tool_calls=[{"id": "call_w", "name": "weather", "args": {}}]),
+        ToolMessage(content="Forecast: rain", tool_call_id="call_w", name="weather"),
+    ])
+    assert route_after_execute(state) == "empty_gdb_reply"
+
+
+def test_route_skip_synthesize_goes_to_translate_answer():
     state: AjraSakhaState = {
         "messages": [HumanMessage(content="Hi")],
         "plan": {"skip_synthesize": True},
     }
-    assert route_after_execute(state) == "end"
+    assert route_after_execute(state) == "translate_answer"
 
 
 def test_route_empty_gdb_sentinel():

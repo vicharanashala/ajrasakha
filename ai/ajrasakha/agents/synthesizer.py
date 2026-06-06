@@ -1,104 +1,27 @@
-"""Final answer synthesis from tool results (no tool binding).
+"""DEPRECATED — synthesizer LLM is not wired in the planner graph.
 
-Outputs English advisory body only. Sources, author lines, and disclaimers are
-appended in translate_answer via answer_footers.py.
+Answer bodies are assembled in assemble_answer_body.py and translated in
+translate_answer.py. This module re-exports helpers for legacy tests only.
 """
 
 from __future__ import annotations
 
-import asyncio
-import json
 import logging
-from typing import Optional
 
-from anthropic import APITimeoutError, APIConnectionError, APIStatusError
-from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import BaseMessage
 from langchain_core.runnables import RunnableConfig
-from langgraph.store.base import BaseStore
 
-from ajrasakha.agents.config import SYNTHESIZE_MODEL
-from ajrasakha.agents.language import language_directive_for_synthesis
-from ajrasakha.agents.translation_catalog import language_pair_from_plan, synthesis_lang_label
-from ajrasakha.agents.memory import load_long_term_summary
-from ajrasakha.agents.location_context import (
-    is_location_information_tool_name,
-    main_agent_location_context_message,
+from ajrasakha.agents.answer_body import (
+    defer_empty_gdb_to_translate as _defer_empty_gdb_to_translate,
+    extract_gdb_from_messages as _extract_gdb_from_messages,
+    format_non_gdb_tool_results as _format_non_gdb_tool_results,
+    message_to_text as _message_to_text,
 )
-from ajrasakha.agents.state import TRANSLATE_PATH_EMPTY_GDB
-from ajrasakha.agents.retrieval_sanitizer import gdb_has_usable_answers
-from ajrasakha.agents.prompts import EMPTY_GDB_REPLY, LLM_FALLBACK_MSG, SYNTHESIZER_SYSTEM_PROMPT
 from ajrasakha.agents.state import AjraSakhaState
 
 logger = logging.getLogger(__name__)
 
-
-def _message_to_text(message: BaseMessage) -> str:
-    content = message.content
-    if content is None:
-        return ""
-    if isinstance(content, str):
-        return content.strip()
-    if isinstance(content, list):
-        parts: list[str] = []
-        for block in content:
-            if isinstance(block, str):
-                parts.append(block)
-            elif isinstance(block, dict):
-                text = block.get("text")
-                if isinstance(text, str):
-                    parts.append(text)
-        return " ".join(parts).strip()
-    return str(content).strip()
-
-
-# ── GDB response parsing helpers ──────────────────────────────────────────
-
-
-def _parse_gdb_response(text: str) -> Optional[dict]:
-    """Parse GDB tool response into a dict, returning None on failure."""
-    try:
-        data = json.loads(text)
-        if isinstance(data, dict):
-            return data
-    except (json.JSONDecodeError, TypeError):
-        pass
-    return None
-
-
-def _extract_gdb_from_messages(messages: list[BaseMessage]) -> Optional[dict]:
-    """Find and parse the GDB tool message from the current turn."""
-    for msg in reversed(messages):
-        if isinstance(msg, HumanMessage):
-            break
-        if isinstance(msg, ToolMessage) and getattr(msg, "name", None) == "gdb":
-            text = _message_to_text(msg)
-            if text:
-                return _parse_gdb_response(text)
-    return None
-
-
-def _defer_empty_gdb_to_translate(
-    state: AjraSakhaState,
-    *,
-    plan: dict | None = None,
-) -> dict:
-    """Defensive: empty body + translate_path so translate_answer adds sheet footers."""
-    merged_plan = {
-        **(state.get("plan") or {}),
-        **(plan or {}),
-        "translate_path": TRANSLATE_PATH_EMPTY_GDB,
-        "expert_queue": False,
-    }
-    return {
-        "messages": [AIMessage(content="")],
-        "location": state.get("location"),
-        "plan": merged_plan,
-    }
-
-
-# ── Synthesizer prompts for exact vs similar ──────────────────────────────
-
+# Legacy prompt constants — kept for test_synthesizer_prompts contract tests only.
 _SYNTHESIS_BODY_ONLY_REMINDER = (
     "Rephrase/synthesize the answer body only. "
     "Do not add sources, disclaimers, or footers — the system appends those."
@@ -142,280 +65,19 @@ OUTPUT CONTRACT (NON-NEGOTIABLE):
 
 """.strip()
 
-# ── Formatting helpers ────────────────────────────────────────────────────
-
-
-def _format_non_gdb_tool_results(messages: list[BaseMessage]) -> str:
-    """Collect specialist tool outputs for the current turn (weather, market, soil, etc.).
-
-    Skips GDB, reviewer upload, and location_information_tool — location is thread
-    context only and must not trigger the similar-match expert-queue deferral.
-    """
-    last_human_idx = -1
-    for i in range(len(messages) - 1, -1, -1):
-        if isinstance(messages[i], HumanMessage):
-            last_human_idx = i
-            break
-    if last_human_idx < 0:
-        return ""
-
-    blocks: list[str] = []
-    for msg in messages[last_human_idx + 1:]:
-        if isinstance(msg, ToolMessage):
-            name = getattr(msg, "name", "tool")
-            if (
-                name == "gdb"
-                or name == "upload_question_to_reviewer_system"
-                or is_location_information_tool_name(name)
-            ):
-                continue
-            text = _message_to_text(msg)
-            if text:
-                blocks.append(f"### {name}\n{text}")
-    return "\n\n".join(blocks)
-
 
 def _format_tool_results_for_synthesizer(messages: list[BaseMessage]) -> str:
-    """Specialist tool outputs only (GDB omitted — footers/sources in translate_answer)."""
     block = _format_non_gdb_tool_results(messages)
     return block if block.strip() else "(No tool results)"
-
-
-async def _synthesize_from_specialist_tools(
-    state: AjraSakhaState,
-    config: RunnableConfig,
-    *,
-    user_text: str,
-    vocal_language: str,
-    script_language: str,
-    messages: list[BaseMessage],
-) -> dict:
-    """Synthesize from weather/market/soil/schemes tools when GDB has no usable answer."""
-    logger.info("Synthesizing from specialist tool results (GDB empty or rejected)")
-    tool_block = _format_tool_results_for_synthesizer(messages)
-    llm_messages: list[BaseMessage] = [
-        SystemMessage(content=SYNTHESIZER_SYSTEM_PROMPT),
-        SystemMessage(content=language_directive_for_synthesis(vocal_language, script_language)),
-    ]
-    loc_ctx = main_agent_location_context_message(state.get("location"))
-    if loc_ctx:
-        llm_messages.append(loc_ctx)
-    llm_messages.append(
-        HumanMessage(
-            content=(
-                f"Farmer message (vocal={vocal_language}, script={script_language}):\n"
-                f"{user_text}"
-            )
-        )
-    )
-    llm_messages.append(HumanMessage(content=f"Tool results:\n{tool_block}"))
-
-    try:
-        llm = ChatAnthropic(model=SYNTHESIZE_MODEL)
-        response = await llm.ainvoke(llm_messages, config=config)
-        answer_text = _message_to_text(response)
-        logger.info("Tool-only synthesis complete (len=%d)", len(answer_text))
-        return {
-            "messages": [AIMessage(content=answer_text)],
-            "location": state.get("location"),
-        }
-    except (asyncio.CancelledError, TimeoutError, APITimeoutError, APIConnectionError) as exc:
-        logger.warning("Synthesizer failed (%s: %s)", type(exc).__name__, exc)
-        return {
-            "messages": [AIMessage(content=LLM_FALLBACK_MSG)],
-            "location": state.get("location"),
-        }
-    except APIStatusError as exc:
-        if exc.status_code >= 500:
-            return {
-                "messages": [AIMessage(content=LLM_FALLBACK_MSG)],
-                "location": state.get("location"),
-            }
-        raise
-
-
-# ── Main synthesize node ─────────────────────────────────────────────────
 
 
 async def synthesize_node(
     state: AjraSakhaState,
     config: RunnableConfig,
-    *,
-    store: BaseStore | None = None,
+    **kwargs,
 ) -> dict:
-    messages = state.get("messages") or []
-    human: HumanMessage | None = None
-    for msg in reversed(messages):
-        if isinstance(msg, HumanMessage):
-            human = msg
-            break
-
-    if human is None:
-        return {}
-
-    user_text = _message_to_text(human)
-    plan = state.get("plan") or {}
-    script_lang, vocal_lang = language_pair_from_plan(plan)
-
-    logger.info(
-        "synthesize_node: vocal=%s script=%s user_text=%s",
-        vocal_lang,
-        script_lang,
-        repr(user_text[:80]),
+    """Not used — planner graph routes to assemble_answer_body instead."""
+    raise RuntimeError(
+        "synthesize_node is deprecated and not wired in the planner graph; "
+        "use assemble_answer_body_node → translate_answer_node"
     )
-
-    # Parse GDB response to determine exact vs similar
-    gdb_data = _extract_gdb_from_messages(messages)
-    other_tools = _format_non_gdb_tool_results(messages)
-
-    if gdb_data and gdb_has_usable_answers(gdb_data):
-        exact = gdb_data.get("exact_match") or {}
-        is_exact = gdb_data.get("is_exact", False) and bool(
-            (exact.get("answer") or "").strip()
-        )
-    else:
-        is_exact = False
-
-    if gdb_data and gdb_has_usable_answers(gdb_data) and is_exact:
-        # ── EXACT MATCH: Rephrase only ────────────────────────────────
-        exact = gdb_data.get("exact_match") or {}
-        exact_answer = exact.get("answer", "")
-        exact_question = exact.get("question", "")
-
-        llm_messages: list[BaseMessage] = [
-            SystemMessage(content=EXACT_MATCH_REPHRASE_PROMPT),
-            SystemMessage(content=language_directive_for_synthesis(vocal_lang, script_lang)),
-        ]
-        loc_ctx = main_agent_location_context_message(state.get("location"))
-        if loc_ctx:
-            llm_messages.append(loc_ctx)
-
-        llm_messages.append(
-            HumanMessage(
-                content=(
-                    f"{_SYNTHESIS_BODY_ONLY_REMINDER}\n\n"
-                    f"Farmer's question (vocal={vocal_lang}, script={script_lang}):\n{user_text}\n\n"
-                    f"EXACT MATCH from Golden Database:\n"
-                    f"Matched Question: {exact_question}\n"
-                    f"Expert Answer: {exact_answer}"
-                )
-            )
-        )
-
-        try:
-            llm = ChatAnthropic(model=SYNTHESIZE_MODEL)
-            response = await llm.ainvoke(llm_messages, config=config)
-            answer_text = _message_to_text(response)
-            if not (answer_text or "").strip():
-                logger.info("Exact match LLM returned empty body — expert-queue canned reply")
-                return _defer_empty_gdb_to_translate(state, plan={**plan, "gdb_has_data": False})
-
-            logger.info("Exact match synthesis complete (len=%d)", len(answer_text))
-            return {
-                "messages": [AIMessage(content=answer_text)],
-                "location": state.get("location"),
-                "plan": {**plan, "gdb_has_data": True},
-            }
-        except (asyncio.CancelledError, TimeoutError, APITimeoutError, APIConnectionError) as exc:
-            logger.warning("Exact match synthesizer failed (%s: %s)", type(exc).__name__, exc)
-            return {
-                "messages": [AIMessage(content=exact_answer)],
-                "location": state.get("location"),
-                "plan": {**plan, "gdb_has_data": True},
-            }
-        except APIStatusError as exc:
-            if exc.status_code >= 500:
-                answer_text = exact_answer
-                return {
-                    "messages": [AIMessage(content=answer_text)],
-                    "location": state.get("location"),
-                    "plan": {**plan, "gdb_has_data": True},
-                }
-            raise
-
-    elif gdb_data and gdb_has_usable_answers(gdb_data):
-        # ── SIMILAR MATCH: Full synthesis ─────────────────────────────
-        llm_messages: list[BaseMessage] = [
-            SystemMessage(content=SIMILAR_MATCH_SYNTHESIS_PROMPT),
-            SystemMessage(content=language_directive_for_synthesis(vocal_lang, script_lang)),
-        ]
-        loc_ctx = main_agent_location_context_message(state.get("location"))
-        if loc_ctx:
-            llm_messages.append(loc_ctx)
-
-        # Sanitizer keeps only the highest-confidence pair as similar_pair1
-        pairs_text = ""
-        best_pair = gdb_data.get("similar_pair1")
-        if best_pair and isinstance(best_pair, dict) and best_pair.get("answer"):
-            pairs_text = (
-                f"Question: {best_pair.get('question', '')}\n"
-                f"Answer: {best_pair.get('answer', '')}"
-            )
-
-        # If other specialist tools also have results, defer to expert-queue
-        # (reviewer upload and location_information_tool excluded by _format_non_gdb_tool_results)
-        if other_tools.strip():
-            logger.info(
-                "Similar match from GDB but specialist tools also have results — expert-queue"
-            )
-            return _defer_empty_gdb_to_translate(state, plan={**plan, "gdb_has_data": False})
-
-        # No specialist tools — synthesize from GDB pairs only
-        if not pairs_text.strip():
-            logger.info(
-                "Similar match path has no pair answers and no specialist tools — expert-queue"
-            )
-            return _defer_empty_gdb_to_translate(state, plan=plan)
-
-        llm_messages.append(
-            HumanMessage(
-                content=(
-                    f"{_SYNTHESIS_BODY_ONLY_REMINDER}\n\n"
-                    f"Farmer's question (vocal={vocal_lang}, script={script_lang}):\n{user_text}\n\n"
-                    f"SIMILAR MATCHES from Golden Database:\n{pairs_text}\n\n"
-                    f"Synthesize an answer based on the retrieved QA pair."
-                )
-            )
-        )
-
-        try:
-            llm = ChatAnthropic(model=SYNTHESIZE_MODEL)
-            response = await llm.ainvoke(llm_messages, config=config)
-            answer_text = _message_to_text(response)
-            if not (answer_text or "").strip():
-                logger.info("Similar match LLM returned empty body — expert-queue canned reply")
-                return _defer_empty_gdb_to_translate(state, plan={**plan, "gdb_has_data": False})
-
-            logger.info("Similar match synthesis complete (len=%d)", len(answer_text))
-            return {
-                "messages": [AIMessage(content=answer_text)],
-                "location": state.get("location"),
-                "plan": {**plan, "gdb_has_data": True},
-            }
-        except (asyncio.CancelledError, TimeoutError, APITimeoutError, APIConnectionError) as exc:
-            logger.warning("Similar match synthesizer failed (%s: %s)", type(exc).__name__, exc)
-            return {
-                "messages": [AIMessage(content=LLM_FALLBACK_MSG)],
-                "location": state.get("location"),
-            }
-        except APIStatusError as exc:
-            if exc.status_code >= 500:
-                return {
-                    "messages": [AIMessage(content=LLM_FALLBACK_MSG)],
-                    "location": state.get("location"),
-                }
-            raise
-
-    else:
-        # GDB missing or empty/rejected — use specialist tools if any
-        if other_tools.strip():
-            return await _synthesize_from_specialist_tools(
-                state,
-                config,
-                user_text=user_text,
-                vocal_language=vocal_lang,
-                script_language=script_lang,
-                messages=messages,
-            )
-        logger.info("No usable GDB and no specialist tools — returning expert-queue canned reply")
-        return _defer_empty_gdb_to_translate(state, plan=plan)
