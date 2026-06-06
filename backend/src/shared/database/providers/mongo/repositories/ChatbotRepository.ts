@@ -6387,7 +6387,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   async getIdsCreated(startDate: Date, endDate: Date, session?: ClientSession) {
     try {
-      await this.init();
+      await this.init("annam");
       const result = await this.users
         .aggregate([
           {
@@ -6416,7 +6416,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   async getInstalls(startDate: Date, endDate: Date, session?: ClientSession) {
     try {
-      await this.init();
+      await this.init('annam');
       const result = await this.users
         .aggregate([
           {
@@ -6450,7 +6450,7 @@ export class ChatbotRepository implements IChatbotRepository {
     session?: ClientSession,
   ) {
     try {
-      await this.init();
+      await this.init('annam');
       const result = await this.messagesCollection
         .aggregate([
           {
