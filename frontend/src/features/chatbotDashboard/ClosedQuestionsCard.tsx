@@ -101,7 +101,7 @@ export function ClosedQuestionsCard({
           <div className="flex items-center justify-between gap-2">
             <button
                 onClick={handleRefresh}
-                className="absolute top-6 right-33 z-20 rounded-lg border border-gray-200/60 bg-white/70 p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:shadow-md dark:border-[#333] dark:bg-gray-800/70"
+                className="absolute top-6 right-33 z-20 rounded-lg border border-gray-200/60 p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:shadow-md dark:border-[#333]"
                 title="Refresh"
               >
                 <RefreshCw

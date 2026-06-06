@@ -114,7 +114,7 @@ export function TopFaqsLeaderboard({
               <span>Top 10 FAQ Leaderboard</span>
               <button
                 onClick={handleRefresh}
-                className="absolute top-8 right-55 rounded-lg border border-gray-200/60 bg-white/70 p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:shadow-md dark:border-[#333] dark:bg-gray-800/70"
+                className="absolute top-8 right-55 rounded-lg border border-gray-200/60 p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:shadow-md dark:border-[#333]"
                 title="Refresh"
               >
                 <RefreshCw
