@@ -51,7 +51,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
   }
   async getCurrentUserFromToken(token: string): Promise<IUser> {
     // Verify the token and decode it to get the Firebase UID
-    const decodedToken = await this.auth.verifyIdToken(token, true);
+    const decodedToken = await this.auth.verifyIdToken(token);
     const firebaseUID = decodedToken.uid;
 
     // Retrieve the user from our database using the Firebase UID
@@ -71,7 +71,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
     }
     await this.verifyToken(token);
     // Decode the token to get the Firebase UID
-    const decodedToken = await this.auth.verifyIdToken(token, true);
+    const decodedToken = await this.auth.verifyIdToken(token);
     const firebaseUID = decodedToken.uid;
     const user = await this.userRepository.findByFirebaseUID(firebaseUID);
     if (!user) {
@@ -81,7 +81,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
   }
   async verifyToken(token: string): Promise<boolean> {
     // Decode and verify the Firebase token
-    const decodedToken = await this.auth.verifyIdToken(token, true);
+    const decodedToken = await this.auth.verifyIdToken(token);
     // // Retrieve the full user record from Firebase
     // const userRecord = await this.auth.getUser(decodedToken.uid);
 
