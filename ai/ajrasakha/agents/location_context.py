@@ -335,3 +335,91 @@ def main_agent_location_context_message(location: Optional[dict[str, Any]]) -> O
         "on this turn (before any other tool) except for pure greetings listed in the skip list."
     )
     return SystemMessage(content=text)
+
+
+async def forward_geocode(state: Optional[str], district: Optional[str] = None) -> Optional[dict[str, Any]]:
+    """Forward geocode state and district to latitude/longitude using OpenStreetMap Nominatim."""
+    import logging
+    import httpx
+    
+    logger = logging.getLogger(__name__)
+    
+    if not state and not district:
+        return None
+        
+    url = "https://nominatim.openstreetmap.org/search"
+    # Try structured query first since it is more reliable
+    params = {
+        "country": "India",
+        "format": "json",
+        "limit": 1,
+        "addressdetails": 1
+    }
+    if state:
+        params["state"] = state
+    if district:
+        params["county"] = district
+        
+    headers = {
+        "User-Agent": "AjraSakha-Agent/1.0"
+    }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, params=params, headers=headers, timeout=10.0)
+            response.raise_for_status()
+            data = response.json()
+            if data and isinstance(data, list) and len(data) > 0:
+                item = data[0]
+                lat = float(item["lat"])
+                lon = float(item["lon"])
+                display_name = item.get("display_name")
+                resolved_state = item.get("address", {}).get("state") or state
+                return {
+                    "latitude": lat,
+                    "longitude": lon,
+                    "state": resolved_state,
+                    "city": district or item.get("name"),
+                    "address": display_name
+                }
+    except Exception as e:
+        logger.error("Structured forward geocoding failed: %s", e)
+        
+    # Fallback to general query string if structured query failed (e.g. for spelling variants)
+    query_parts = []
+    if district:
+        query_parts.append(district)
+    if state:
+        query_parts.append(state)
+    query_parts.append("India")
+    q = ", ".join(query_parts)
+    
+    params = {
+        "q": q,
+        "format": "json",
+        "limit": 1,
+        "addressdetails": 1
+    }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, params=params, headers=headers, timeout=10.0)
+            response.raise_for_status()
+            data = response.json()
+            if data and isinstance(data, list) and len(data) > 0:
+                item = data[0]
+                lat = float(item["lat"])
+                lon = float(item["lon"])
+                display_name = item.get("display_name")
+                resolved_state = item.get("address", {}).get("state") or state
+                return {
+                    "latitude": lat,
+                    "longitude": lon,
+                    "state": resolved_state,
+                    "city": district or item.get("name"),
+                    "address": display_name
+                }
+    except Exception as e:
+        logger.error("Fallback forward geocoding failed: %s", e)
+        
+    return None

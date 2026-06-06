@@ -13,11 +13,13 @@ export interface FarmerProfile {
   phoneNo?: string;
   languagePreference?: string;
   yearsOfExperience?: number;
+  landhold?: number;
   cropsCultivated?: string[];
   primaryCrop?: string;
   secondaryCrop?: string;
   awarenessOfKCC?: boolean;
   usesAgriApps?: boolean;
+  nearestKVK?: string;
   highestEducatedPerson?: string;
   numberOfSmartphones?: number;
   platform?: string;
@@ -33,9 +35,11 @@ export interface UserDetail {
   name: string;
   email: string;
   role?: string;
+  userRole?: string;
   totalQuestions: number;
   farmerProfile?: FarmerProfile;
   createdAt?: string;
+  isVerified?: boolean;
 }
 
 export interface PaginatedUserDetailsResponse {
@@ -60,10 +64,11 @@ export function useUserDetails(
   inactiveOnly = false,
   lowFeedbackOnly = false,
   userType: 'all' | 'external' | 'internal' = 'all',
-  sortBy: 'totalQuestions' | 'name' = 'name',
+  sortBy: 'totalQuestions' | 'name' | 'farmerName' | 'email' | 'createdAt' = 'name',
   sortOrder: 'asc' | 'desc' = 'asc',
   activeTodayByProfile = false,
   missingDemographicField = '',
+  isVerified = true,
   enabled = true,
 ) {
   const startISO = startDate?.toISOString();
@@ -74,7 +79,7 @@ export function useUserDetails(
     : undefined;
 
   const { data, isLoading, error } = useQuery<PaginatedUserDetailsResponse, Error>({
-    queryKey: ['user-details', startISO, endISO, page, limit, search, source, crop, village, profileCompleted, inactiveOnly, lowFeedbackOnly, userType, sortBy, sortOrder, activeTodayByProfile, missingDemographicField],
+    queryKey: ['user-details', startISO, endISO, page, limit, search, source, crop, village, profileCompleted, inactiveOnly, lowFeedbackOnly, userType, sortBy, sortOrder, activeTodayByProfile, missingDemographicField, isVerified],
     staleTime: 30 * 1000,
     enabled,
     queryFn: async () => {
@@ -96,6 +101,7 @@ export function useUserDetails(
       params.set('sortOrder', sortOrder);
       if (activeTodayByProfile) params.set('activeTodayByProfile', 'true');
       if (missingDemographicField) params.set('missingDemographicField', missingDemographicField);
+      params.set('isVerified', String(isVerified));
 
       const result = await apiFetch<PaginatedUserDetailsResponse>(
         `${API_BASE_URL}/analytics/user-details?${params.toString()}`,

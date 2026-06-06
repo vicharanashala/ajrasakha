@@ -152,6 +152,34 @@ export class ChatbotService {
     );
   }
 
+  async getQueryCategoryQuestions({
+    category,
+    questionType,
+    page,
+    limit,
+    source,
+    userType,
+  }: {
+    category: string;
+    questionType: "all" | "unique" | "duplicate";
+    page: number;
+    limit: number;
+    source: string;
+    userType?: string;
+  }): Promise<any> {
+    const params = new URLSearchParams();
+    params.append("category", category);
+    params.append("questionType", questionType);
+    params.append("page", page.toString());
+    params.append("limit", limit.toString());
+    params.append("source", source);
+    if (userType) params.append("userType", userType);
+
+    return apiFetch<any>(
+      `${this._baseUrl}/query-category-questions?${params.toString()}`,
+    );
+  }
+
   async getInactiveWhatsappUsers(
     inactiveUsersPage: number
   ): Promise<any> {

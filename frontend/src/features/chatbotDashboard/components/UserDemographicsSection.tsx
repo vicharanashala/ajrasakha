@@ -2,10 +2,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/car
 import type { UserDemographics } from "../types";
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { Maximize2, X, Info } from "lucide-react";
+import { Maximize2, X, InfoIcon } from "lucide-react";
 import { MissingDemographicsModal } from "./MissingDemographicsModal";
+import { useUserMertices } from "../hooks/useDashboardData";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 
 const AGE_COLORS: Record<string, string> = {
+  "Less than 16": "#2DD4BF",
   "16-30": "#3AAA5A",
   "18-30": "#3AAA5A",
   "30-45": "#378ADD",
@@ -221,9 +224,9 @@ function EnlargedHorizontalBars({ segments, onSegmentClick }: { segments: { labe
 }
 
 interface Props {
-  data: UserDemographics;
   source: "vicharanashala" | "annam" | "whatsapp";
   userType: "all" | "external" | "internal";
+  shouldLoadUserDemographics?: boolean;
 }
 
 function DemographicCard({
@@ -266,31 +269,26 @@ function DemographicCard({
               <CardTitle className="text-sm font-semibold tracking-tight text-foreground/90">
                 {title}
               </CardTitle>
-
-              {infoText && (
-                <div className="relative group/info">
-                  <Info className="w-3.5 h-3.5 text-muted-foreground cursor-pointer" />
-
-                  <div className="absolute left-5 top-1/2 -translate-y-1/2 z-50 hidden group-hover/info:block w-64 rounded-md border border-border bg-background p-3 text-xs shadow-lg">
-                    <div className="space-y-1 text-muted-foreground">
-                      <p>
-                        <span className="font-medium text-foreground">Small:</span>{" "}
-                        0 to {"<<"} 2 acres
-                      </p>
-
-                      <p>
-                        <span className="font-medium text-foreground">Medium:</span>{" "}
-                        2 to {"<<"} 10 acres
-                      </p>
-
-                      <p>
-                        <span className="font-medium text-foreground">Large:</span>{" "}
-                        ≥ 10 acres
-                      </p>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground">
+                    <InfoIcon className="w-3.5 h-3.5" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {title === "Age Group" && "Distribution of chatbot users across different age categories."}
+                  {title === "Gender Split" && "Breakdown of chatbot users by gender."}
+                  {title === "Farming Experience" && "Farming experience duration breakdown among chatbot users."}
+                  {title === "Land Holding" && (
+                    <div className="space-y-1">
+                      <p>Classification of users based on land holding size:</p>
+                      <p><span className="font-semibold">Small:</span> 0 to &lt; 2 acres</p>
+                      <p><span className="font-semibold">Medium:</span> 2 to &lt; 10 acres</p>
+                      <p><span className="font-semibold">Large:</span> ≥ 10 acres</p>
                     </div>
-                  </div>
-                </div>
-              )}
+                  )}
+                </TooltipContent>
+              </Tooltip>
             </div>
           </div>
         </CardHeader>
@@ -354,13 +352,14 @@ function DemographicCard({
   );
 }
 
-export function UserDemographicsSection({ data, source, userType }: Props) {
+ function UserDemographicsSection({ source, userType, shouldLoadUserDemographics }: Props) {
+    const { data: userMetricesData, isLoading: usermetricsLoading, isFetching: usermetricsFetching } = useUserMertices(source, userType, shouldLoadUserDemographics);
   const [selectedMissingField, setSelectedMissingField] = useState<{ title: string; key: string } | null>(null);
 
-  const ageSegments = data.ageGroups.map((d) => ({ ...d, color: AGE_COLORS[d.label] ?? "#6B7280" }));
-  const genderSegments = data.genderSplit.map((d) => ({ ...d, color: GENDER_COLORS[d.label] ?? "#6B7280" }));
-  const expSegments = data.farmingExperience.map((d, i) => ({ ...d, color: EXP_COLORS[i % EXP_COLORS.length] }));
-  const landSegments = (data.landHolding ?? []).map((d) => ({ ...d, color: LAND_COLORS[d.label] ?? "#6B7280" }));
+  const ageSegments = (userMetricesData?.userDemographics?.ageGroups ?? []).map((d) => ({ ...d, color: AGE_COLORS[d.label] ?? "#6B7280" }));
+  const genderSegments = (userMetricesData?.userDemographics?.genderSplit ?? []).map((d) => ({ ...d, color: GENDER_COLORS[d.label] ?? "#6B7280" }));
+  const expSegments = (userMetricesData?.userDemographics?.farmingExperience ?? []).map((d, i) => ({ ...d, color: EXP_COLORS[i % EXP_COLORS.length] }));
+  const landSegments = (userMetricesData?.userDemographics?.landHolding ?? []).map((d) => ({ ...d, color: LAND_COLORS[d.label] ?? "#6B7280" }));
 
   return (
     <>
@@ -404,3 +403,4 @@ export function UserDemographicsSection({ data, source, userType }: Props) {
     </>
   );
 }
+export default UserDemographicsSection;

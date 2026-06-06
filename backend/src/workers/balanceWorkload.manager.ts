@@ -9,6 +9,8 @@ const __dirname = path.dirname(__filename);
 interface AssignmentJob {
   submissionId: string;
   expertId: string;
+  /** When true the worker appends the new expert to queue/history instead of replacing the stuck one. */
+  appendExpert?: boolean;
 }
 
 export const startBalanceWorkloadWorkers = (assignments: AssignmentJob[], inactiveExpertIds: string[] = []) => {

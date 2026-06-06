@@ -58,6 +58,7 @@ export const QuestionsPage = ({
   //grid or table
   const [view, setView] = useState<"table" | "grid">("table");
   const [search, setSearch] = useState("");
+  const [searchTabMode, setSearchTabMode] = useState<string>("search");
   const [status, setStatus] = useState<QuestionFilterStatus>("all");
   const [source, setSource] = useState<QuestionSourceFilter>(getInitialSource);
   const [priority, setPriority] = useState<QuestionPriorityFilter>("all");
@@ -270,16 +271,41 @@ export const QuestionsPage = ({
     if (currentUser?.role !== "expert") onReset();
   }, [debouncedSearch]);
 
+
+  const sourceByMode: Record<string, string> = {
+    ajraskha: "AJRASAKHA",
+    manual: "AGRI_EXPERT",
+    whatsapp: "WHATSAPP",
+    outreach: "OUTREACH",
+  };
+
+  const filteredQuestions = useMemo(() => {
+    const questions = questionData?.questions || [];
+    if (!debouncedSearch || searchTabMode === "search") return questions;
+    const srcFilter = sourceByMode[searchTabMode];
+    if (srcFilter) return questions.filter((q) => q.source === srcFilter);
+    if (searchTabMode === "draft") return questions.filter((q) => q.status === "draft");
+    if (searchTabMode === "non_agri") return questions.filter((q) => q.status === "non_agri");
+    if (searchTabMode === "pae") return questions.filter((q) => (q as any).pae_review === true);
+    return questions;
+  }, [questionData, debouncedSearch, searchTabMode]);
+
   const currentItems = useMemo(() => {
-    if (viewMode === "all") return questionData?.questions || [];
-    return reviewData?.data || [];
-  }, [viewMode, questionData, reviewData]);
+    if (viewMode !== "all") return reviewData?.data || [];
+    return filteredQuestions;
+  }, [viewMode, filteredQuestions, reviewData]);
 
   const currentIndex = useMemo(() => {
     return currentItems.findIndex((q) => q._id === selectedQuestionId);
   }, [currentItems, selectedQuestionId]);
 
-  const totalPages = viewMode === "all" ? (questionData?.totalPages || 0) : (reviewData?.totalPages || 0);
+  const totalPages = viewMode === "all"
+    ? (questionData?.totalPages || 0)
+    : (reviewData?.totalPages || 0);
+
+  const displayTotal = viewMode === "all"
+    ? (questionData?.totalCount || 0)
+    : (reviewData?.totalDocs || 0);
   const currentPageVal = viewMode === "all" ? currentPage : reviewPage;
 
   const hasNext = currentIndex < currentItems.length - 1 || currentPageVal < totalPages;
@@ -515,11 +541,7 @@ export const QuestionsPage = ({
             refetch={() => {
               refetch();
             }}
-            totalQuestions={
-              viewMode === "all"
-                ? questionData?.totalCount || 0
-                : reviewData?.totalDocs || 0
-            }
+            totalQuestions={displayTotal}
             userRole={currentUser?.role!}
             isSelectionModeOn={isSelectionModeOn}
             handleBulkDelete={handleBulkDelete}
@@ -536,17 +558,18 @@ export const QuestionsPage = ({
             showClosedAt={showClosedAt}
             view={view}
             setView={setView}
+            onAnswerModeChange={setSearchTabMode}
           />
 
           {viewMode === "all" ? (
             <QuestionsTable
-              items={questionData?.questions}
+              items={filteredQuestions}
               onViewMore={handleViewMore}
               currentPage={currentPage}
               setCurrentPage={setCurrentPage}
               userRole={currentUser?.role!}
               limit={limit}
-              totalPages={questionData?.totalPages || 0}
+              totalPages={totalPages}
               isLoading={isLoading || isFetching || bulkDeletingQuestions}
               isBulkUpload={isBulkUpload}
               uploadedQuestionsCount={uploadedQuestionsCount}

@@ -56,6 +56,11 @@ export interface IQuestionService {
     context: string,
   ): Promise<GeneratedQuestionResponse[]>;
 
+  /** Manually trigger duplicate check for a question without a reference */
+  manualCheckDuplicate(
+    questionId: string,
+  ): Promise<{ message: string; isDuplicate: boolean; referenceQuestionId?: string }>;
+
   /** Create a new question */
   addQuestion(
     userId: string,
@@ -216,6 +221,7 @@ export interface IQuestionService {
   ): Promise<{
     totalQuestions: number;
     statuses: {status: string; count: number}[];
+    sourceCounts: {source: string; count: number}[];
   }>;
 
   getExprtIdByIndex(questionId: string, index: number): Promise<string | null>;
@@ -232,4 +238,12 @@ export interface IQuestionService {
   ): Promise<{ message: string; submissionsProcessed: number }>;
 
   balanceWorkloadSelectedQuestions(questionIds: string[]): Promise<{ message: string; expertsInvolved: number; submissionsProcessed: number }>;
+
+  /** Mark that the current expert opened a time-bound question.
+   *  Prevents the 45-min auto-reallocation for this question. */
+  markQuestionOpened(questionId: string, userId: string): Promise<void>;
+
+  /** Find time-bound questions pending > 45 min (not opened) and reallocate them
+   *  to experts with fewer than 3 active time-bound questions. */
+  reallocateTimeBoundQuestions(): Promise<{ message: string; reallocated: number; skipped: number }>;
 }

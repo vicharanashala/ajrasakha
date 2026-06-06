@@ -1,5 +1,8 @@
 import React from "react";
 import { ScrollArea } from "@/components/atoms/scroll-area";
+import { InfoIcon } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
+import { QueryCategoryQuestionsModal } from "./components/QueryCategoryQuestionsModal";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -13,6 +16,8 @@ interface QueryCategory {
 
 interface QueryCategoriesProps {
     categories?: QueryCategory[];
+    source?: "vicharanashala" | "annam" | "whatsapp";
+    userType?: string;
 }
 
 // ─── PREMIUM HARMONIOUS 15-COLOR PALETTE ─────────────────────────────────────
@@ -51,6 +56,7 @@ interface ProgressBarProps {
     color: string;
     questionCount: number;
     duplicateQuestionCount: number;
+    onClick?: () => void;
 }
 
 const ProgressBar: React.FC<ProgressBarProps> = ({
@@ -59,11 +65,17 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
     color,
     questionCount,
     duplicateQuestionCount,
+    onClick,
 }) => {
     const total = questionCount + duplicateQuestionCount;
 
     return (
-        <div className="mb-4 last:mb-0 hover:bg-gray-50/50 dark:hover:bg-white/5 p-2 rounded-lg transition-all duration-300">
+        <button
+            type="button"
+            onClick={onClick}
+            className="mb-4 w-full cursor-pointer rounded-lg p-2 text-left transition-all duration-300 last:mb-0 hover:bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-[#3AAA5A]/40 dark:hover:bg-white/5"
+            aria-label={`View questions in ${label}`}
+        >
             <div className="flex justify-between items-center mb-1.5">
                 <span className="text-[12px] font-medium text-gray-700 dark:text-gray-300">
                     {label}
@@ -83,15 +95,18 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
                     style={{ width: `${pct}%`, background: color }}
                 />
             </div>
-        </div>
+        </button>
     );
 };
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
-export const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
+ const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
     categories = DEFAULT_CATEGORIES,
+    source = "annam",
+    userType = "all",
 }) => {
+    const [selectedCategory, setSelectedCategory] = React.useState<QueryCategory | null>(null);
     // Determine maximum total count among all categories to scale progress bars proportionally
     const activeCategories = categories && categories.length > 0 ? categories : DEFAULT_CATEGORIES;
     const totals = activeCategories.map((c) => c.questionCount + c.duplicateQuestionCount);
@@ -105,8 +120,18 @@ export const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div>
-            <div className="text-[13px] font-semibold text-gray-900 dark:text-gray-100">
-              Query categories
+            <div className="text-[13px] font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
+              <span>Query categories</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground">
+                    <InfoIcon className="h-3.5 w-3.5" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  List of top domains/categories that chatbot users are asking questions about, showing unique vs duplicate counts.
+                </TooltipContent>
+              </Tooltip>
             </div>
             <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
               Dynamic Agriculture Domains (Top 15)
@@ -130,10 +155,21 @@ export const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
                 color={color}
                 questionCount={q.questionCount}
                 duplicateQuestionCount={q.duplicateQuestionCount}
+                onClick={() => setSelectedCategory(q)}
               />
             );
           })}
         </ScrollArea>
+        {selectedCategory && (
+          <QueryCategoryQuestionsModal
+            category={selectedCategory.label}
+            source={source}
+            userType={userType}
+            onClose={() => setSelectedCategory(null)}
+          />
+        )}
       </div>
     );
 };
+
+export default DashboardQueryCategories;

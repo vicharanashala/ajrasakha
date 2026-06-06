@@ -168,6 +168,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           },
           $set: {
             reviewDelayNotificationSent: false,
+            currentExpertAllocatedAt: null,
           },
         },
         { session },
@@ -275,43 +276,27 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     try {
       await this.init();
 
-      const submission = await this.getByQuestionId(questionId, session);
-
-      if (!submission) {
-        throw new NotFoundError(
-          `Failed to find submission while updating history!`,
-        );
+      const setFields: Record<string, any> = { 'history.$[entry].updatedAt': new Date() };
+      for (const [key, value] of Object.entries(updatedDoc)) {
+        setFields[`history.$[entry].${key}`] = value;
       }
 
-      const submissionHistory = submission.history || [];
-
-      if (submissionHistory.length === 0) {
-        throw new BadRequestError(`No history found to update!`);
-      }
-
-      const updatedHistory = [...submissionHistory];
-
-      const indexToUpdate = updatedHistory.findIndex(
-        history => history.updatedBy.toString() === userId,
-      );
-
-      if (indexToUpdate === -1) {
-        throw new BadRequestError(
-          `No matching history found for userId: ${userId}`,
-        );
-      }
-
-      updatedHistory[indexToUpdate] = {
-        ...updatedHistory[indexToUpdate],
-        ...updatedDoc,
-        updatedAt: new Date(),
-      };
-
-      await this.QuestionSubmissionCollection.updateOne(
+      const result = await this.QuestionSubmissionCollection.updateOne(
         { questionId: new ObjectId(questionId) },
-        { $set: { history: updatedHistory } },
-        { session },
+        { $set: setFields },
+        {
+          session,
+          arrayFilters: [{ 'entry.updatedBy': new ObjectId(userId) }],
+        },
       );
+
+      if (result.matchedCount === 0) {
+        throw new NotFoundError(`Failed to find submission for questionId: ${questionId}`);
+      }
+
+      if (result.modifiedCount === 0) {
+        throw new BadRequestError(`No matching history entry found for userId: ${userId}`);
+      }
     } catch (error) {
       throw new InternalServerError(
         `Failed to update history / More: ${error}`,
@@ -3187,33 +3172,33 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       [
         {
           $match: {
-        $or: [
-          // Type A — Never answered
-          {
-            history: { $size: 0 },
-            lastRespondedBy: null,
-            createdAt: { $lte: oneHourAgo },
-          },
+            $or: [
+              // Type A — Never answered
+              {
+                history: { $size: 0 },
+                lastRespondedBy: null,
+                createdAt: { $lte: oneHourAgo },
+              },
 
-          // Type B — Last update stuck in-review
-          {
-            'history.1': {$exists: true},
-            $expr: {
-              $let: {
-                vars: {
-                  lastHistory: {$arrayElemAt: ['$history', -1]},
-                },
-                in: {
-                  $and: [
-                    {$eq: ['$$lastHistory.status', 'in-review']},
-                    {$lte: ['$$lastHistory.createdAt', oneHourAgo]},
-                  ],
+              // Type B — Last update stuck in-review
+              {
+                'history.1': { $exists: true },
+                $expr: {
+                  $let: {
+                    vars: {
+                      lastHistory: { $arrayElemAt: ['$history', -1] },
+                    },
+                    in: {
+                      $and: [
+                        { $eq: ['$$lastHistory.status', 'in-review'] },
+                        { $lte: ['$$lastHistory.createdAt', oneHourAgo] },
+                      ],
+                    },
+                  },
                 },
               },
-            },
+            ],
           },
-        ],
-      },
         },
         {
           $lookup: {
@@ -3226,9 +3211,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         {
           $unwind: '$question',
         },
-        ...(limit ? [{$limit: limit}] : []),
+        ...(limit ? [{ $limit: limit }] : []),
       ],
-      {session},
+      { session },
     ).toArray();
   }
   async findById(id: string): Promise<IQuestionSubmission | null> {
@@ -3391,6 +3376,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
           'question.status': { $nin: ['closed', 'pass', 'duplicate', 'draft', 'non_agri'] },
           'question.isOnHold': { $ne: true },
+          'question.isAutoAllocate': {$eq: true}
         },
       },
       { $sort: { 'question.createdAt': 1 } },
@@ -3796,6 +3782,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     update: {
       queue?: ObjectId[];
       popHistory?: boolean;
+      expertIdToRemove?: string;
     },
     session?: ClientSession,
   ): Promise<void> {
@@ -3812,7 +3799,17 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         updateDoc.$set.queue = update.queue;
       }
 
-      if (update.popHistory) {
+      if (update.popHistory && update.expertIdToRemove) {
+        // Only remove the history entry if it is still 'in-review'.
+        // $pop blindly removes the last element even after the expert has
+        // already submitted (status changed to 'reviewed'), causing data loss.
+        updateDoc.$pull = {
+          history: {
+            updatedBy: new ObjectId(update.expertIdToRemove),
+            status: 'in-review',
+          },
+        };
+      } else if (update.popHistory) {
         updateDoc.$pop = { history: 1 };
       }
 
@@ -4064,11 +4061,11 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           },
         },
       ],
-      {session},
+      { session },
     ).toArray();
   }
 
-    //get delayed questions
+  //get delayed questions
   async getDelayedReviews(session: ClientSession): Promise<{ _id: ObjectId; questionId: ObjectId; userId: ObjectId }[]> {
     try {
       await this.init();

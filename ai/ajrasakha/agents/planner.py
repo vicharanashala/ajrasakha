@@ -47,10 +47,13 @@ from ajrasakha.agents.location_context import (
 )
 from ajrasakha.agents.plan_executor import ENABLE_CHEMICAL_CHECKER
 from ajrasakha.agents.planner_rules import (
+    apply_crop_one_shot_fallback,
     apply_planner_completeness_rules,
+    crop_slot_satisfied,
     format_conversation_for_planner,
     merge_entities_from_rephrased_query,
     resolve_crop_for_turn,
+    was_crop_clarify_asked,
 )
 from ajrasakha.agents.prompts import PLANNER_SYSTEM_PROMPT
 from ajrasakha.agents.state import AjraSakhaState, PlannerEntities, PlannerPlan
@@ -254,7 +257,7 @@ def _resolve_state_deterministic(
     location: Optional[dict],
     prev_entities: Optional[PlannerEntities] = None,
 ) -> Optional[str]:
-    """Deterministically resolve state: prev_entities (previous turns), then latest text, then history, then GPS."""
+    """Deterministically resolve state from previous turns or latest text (do NOT fallback to GPS here)."""
     # Priority 0: State from previous planner turns (carry-over from clarification)
     if prev_entities and prev_entities.get("state"):
         return prev_entities.get("state")
@@ -262,12 +265,7 @@ def _resolve_state_deterministic(
     state_from_latest = extract_state_from_text(latest_human_text(messages))
     if state_from_latest:
         return state_from_latest
-    # Priority 2: Conversation history (last 4 human turns)
-    state_from_history = _extract_state_from_history(messages, max_turns=4)
-    if state_from_history:
-        return state_from_history
-    # Priority 3: GPS thread location
-    return gps_state_from_location(location)
+    return None
 
 
 async def _apply_domain_and_crop_async(
@@ -306,21 +304,25 @@ async def _apply_domain_and_crop_async(
     question = plan.get("rephrased_query") or user_text
     original = plan.get("original_query_en") or user_text
 
+    entities = apply_crop_one_shot_fallback(messages, entities, domains)
+
     crop_required = False
     crop_required_any = any(domain_requires_crop(d) for d in domains)
 
-    # Always-ask safety rule: if ANY selected domain requires a crop and crop is missing,
-    # we must ask for crop (no classifier-based skipping).
+    # Crop-required domains: ask once, then fall back to crop=all if still unresolved.
     if crop_required_any:
         crop = crop_prefilled or resolve_crop_for_turn(messages) or entities.get("crop")
-        if crop and crop_counts_as_resolved(crop) and not is_crop_placeholder(crop):
-            entities["crop"] = (
-                "all" if crop.lower() == "all"
-                else crop[0].upper() + crop[1:].lower()
-            )
+        if crop_slot_satisfied(crop):
+            if crop and str(crop).strip().lower() == "all":
+                entities["crop"] = "all"
+            elif crop and not is_crop_placeholder(crop):
+                entities["crop"] = crop[0].upper() + crop[1:].lower()
             crop_required = False
-        else:
+        elif not was_crop_clarify_asked(messages):
             crop_required = True
+        else:
+            entities["crop"] = "all"
+            crop_required = False
     elif domains[0] in CROP_ALL_DOMAINS:
         entities["crop"] = "all"
         crop_required = False
@@ -350,9 +352,7 @@ def _check_question_completeness(
         follow_up = get_state_follow_up(script, vocal)
         return False, missing, follow_up
 
-    if crop_required and (
-        not crop_counts_as_resolved(crop_resolved) or is_crop_placeholder(crop_resolved)
-    ):
+    if crop_required and not crop_slot_satisfied(crop_resolved):
         missing.append("crop")
         follow_up = get_crop_follow_up(script, vocal)
         return False, missing, follow_up
@@ -396,7 +396,10 @@ async def planner_node(
 
     location = state.get("location")
     # Extract previous entities BEFORE LLM call so state can be carried forward
-    prev_entities: PlannerEntities = dict(state.get("plan", {}).get("entities") or {})
+    prev_plan = state.get("plan") or {}
+    prev_entities: PlannerEntities = {}
+    if prev_plan and not prev_plan.get("is_complete", True):
+        prev_entities = dict(prev_plan.get("entities") or {})
 
     state_resolved = _resolve_state_deterministic(messages, location, prev_entities)
     crop_resolved = resolve_crop_for_turn(messages)

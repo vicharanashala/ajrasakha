@@ -17,15 +17,13 @@ from ajrasakha.agents.location_context import (
     gps_state_from_location,
     has_gps_coordinates,
     merge_location_dict,
+    forward_geocode,
 )
 from ajrasakha.agents.language import text_matches_user_language
 from ajrasakha.agents.config import resolve_question_source, resolve_thread_id
 from ajrasakha.agents.domains import reviewer_upload_domain
 from ajrasakha.agents.state import AjraSakhaState, Location, PlannerPlan
-from ajrasakha.agents.retrieval_sanitizer import (
-    gdb_has_usable_answers,
-    should_skip_sanitizer_for_gdb,
-)
+from ajrasakha.agents.retrieval_sanitizer import gdb_has_usable_answers
 from ajrasakha.agents.tool_registry import get_location_tool, get_main_tool_node, get_reviewer_tool
 
 logger = logging.getLogger(__name__)
@@ -98,21 +96,21 @@ def _entity_str(
     entity_text: str = "",
 ) -> str:
     entities = plan.get("entities") or {}
+    
+    # State and District fallbacks are fully handled in planner_rules.py.
+    if key in {"state", "district"}:
+        if key in entities:
+            val = entities.get(key)
+            if val is None or str(val).strip() == "":
+                return default
+            return str(val).strip()
+    
     val = entities.get(key) if isinstance(entities, dict) else None
     if val:
         return str(val).strip()
-    if key == "state" and entity_text:
-        extracted = extract_state_from_text(entity_text)
-        if extracted:
-            return extracted
+    
     if loc:
-        if key == "state":
-            gps_state = gps_state_from_location(loc)
-            if gps_state:
-                return gps_state
-        elif key == "district" and has_gps_coordinates(loc) and loc.get("city"):
-            return str(loc["city"]).strip()
-        elif loc.get(key):
+        if loc.get(key):
             return str(loc[key]).strip()
     return default
 
@@ -131,6 +129,7 @@ async def build_tool_calls_from_plan(
     question_source: str | None = None,
     thread_id: str | None = None,
     extra_chemicals: Optional[list[str]] = None,
+    out_transient_location: Optional[dict[str, Any]] = None,
 ) -> list[dict[str, Any]]:
     """Build LangChain tool_call dicts for one parallel batch."""
     if not (question_source and str(question_source).strip()):
@@ -195,6 +194,49 @@ async def build_tool_calls_from_plan(
     lat = loc.get("latitude")
     lon = loc.get("longitude")
     addr = loc.get("address")
+
+    # Transient / Query-Specific Location resolving (e.g. Varanasi vs. Faridabad)
+    is_custom_location = False
+    home_state = gps_state_from_location(loc) or loc.get("state")
+    home_city = loc.get("city")
+    
+    curr_state_ent = entities.get("state")
+    curr_dist_ent = entities.get("district")
+    
+    if (lat is not None and lon is not None) or (home_state or home_city):
+        if curr_state_ent and home_state and curr_state_ent.strip().lower() != home_state.strip().lower():
+            is_custom_location = True
+        elif curr_dist_ent and home_city and curr_dist_ent.strip().lower() != home_city.strip().lower() and curr_dist_ent.strip().lower() != "all":
+            is_custom_location = True
+            
+    if is_custom_location:
+        state_to_geocode = curr_state_ent if curr_state_ent else None
+        dist_to_geocode = district if district != "all" else None
+        
+        logger.info("build_tool_calls_from_plan: Geocoding custom transient location state=%s district=%s", state_to_geocode, dist_to_geocode)
+        if out_transient_location is not None:
+            out_transient_location["state"] = state_to_geocode
+            out_transient_location["city"] = dist_to_geocode
+            
+        custom_res = await forward_geocode(state_to_geocode, dist_to_geocode)
+        if custom_res:
+            lat = custom_res.get("latitude")
+            lon = custom_res.get("longitude")
+            addr = custom_res.get("address")
+            
+            resolved_state = custom_res.get("state")
+            if resolved_state:
+                state_name = resolved_state
+                
+            if out_transient_location is not None:
+                out_transient_location["state"] = state_name
+                out_transient_location["latitude"] = lat
+                out_transient_location["longitude"] = lon
+                out_transient_location["address"] = addr
+        else:
+            lat = None
+            lon = None
+            addr = dist_to_geocode if dist_to_geocode else state_to_geocode
 
     if plan.get("weather"):
         calls.append({
@@ -262,17 +304,19 @@ async def build_tool_calls_from_plan(
         })
 
     if plan.get("knowledge_base"):
-        gdb_query = plan.get("original_query_en") or user_query
-        rephrased = plan.get("rephrased_query") or gdb_query
+        rephrased = (
+            (plan.get("rephrased_query") or "").strip()
+            or (plan.get("original_query_en") or "").strip()
+            or user_query
+        )
         resolved_crop = "all" if crop.lower() in {"general", "not specified", "none", "null", "all"} else crop
         resolved_state = "all" if state_name.lower() in {"general", "not specified", "none", "null", "all"} else state_name
         calls.append({
             "name": "gdb",
             "args": {
-                "query": gdb_query,
+                "rephrased_query": rephrased,
                 "crop": resolved_crop,
                 "state": resolved_state,
-                "rephrased_query": rephrased,
                 "latitude": lat,
                 "longitude": lon,
                 "address": addr,
@@ -345,31 +389,48 @@ async def ensure_location_node(
     state: AjraSakhaState,
     config: RunnableConfig,
 ) -> dict:
-    """Resolve GPS to state/district when coordinates exist but place names do not."""
-    loc = state.get("location")
-    if not _needs_location_resolve(loc):
-        return {}
+    """Resolve GPS to state/district when coordinates exist but place names do not, OR geocode state/district when coordinates do not exist."""
+    loc = state.get("location") or {}
+    plan = state.get("plan") or {}
+    entities = plan.get("entities") or {}
 
-    location_tool = await get_location_tool()
-    tool_node = await get_main_tool_node()
-    ai_msg = AIMessage(
-        content="",
-        tool_calls=[{
-            "name": location_tool.name,
-            "args": {"latitude": loc["latitude"], "longitude": loc["longitude"]},
-            "id": _new_tool_call_id(),
-            "type": "tool_call",
-        }],
-    )
-    exec_state = {**state, "messages": list(state.get("messages") or []) + [ai_msg]}
-    merged_configurable = dict((config.get("configurable") or {}))
-    merged_configurable["location"] = loc
-    enriched = patch_config(config, configurable=merged_configurable)
-    result = await tool_node.ainvoke(exec_state, config=enriched)
-    new_msgs = result.get("messages") or []
-    updates = extract_location_updates_from_new_tool_messages(new_msgs, loc)
-    merged_loc = merge_location_dict(loc, updates) if updates else loc
-    return {"messages": new_msgs, "location": merged_loc}
+    # Scenario 1: Coordinates exist but place names do not (Reverse Geocoding)
+    if _needs_location_resolve(loc):
+        location_tool = await get_location_tool()
+        tool_node = await get_main_tool_node()
+        ai_msg = AIMessage(
+            content="",
+            tool_calls=[{
+                "name": location_tool.name,
+                "args": {"latitude": loc["latitude"], "longitude": loc["longitude"]},
+                "id": _new_tool_call_id(),
+                "type": "tool_call",
+            }],
+        )
+        exec_state = {**state, "messages": list(state.get("messages") or []) + [ai_msg]}
+        merged_configurable = dict((config.get("configurable") or {}))
+        merged_configurable["location"] = loc
+        enriched = patch_config(config, configurable=merged_configurable)
+        result = await tool_node.ainvoke(exec_state, config=enriched)
+        new_msgs = result.get("messages") or []
+        updates = extract_location_updates_from_new_tool_messages(new_msgs, loc)
+        merged_loc = merge_location_dict(loc, updates) if updates else loc
+        return {"messages": new_msgs, "location": merged_loc}
+
+    # Scenario 2: Coordinates are missing, but state/district exist in plan entities (Home Location registration)
+    lat = loc.get("latitude")
+    lon = loc.get("longitude")
+    state_resolved = entities.get("state")
+    district_resolved = entities.get("district")
+
+    if (lat is None or lon is None) and (state_resolved or district_resolved):
+        logger.info("ensure_location_node: Geocoding home location for state=%s district=%s", state_resolved, district_resolved)
+        geocode_res = await forward_geocode(state_resolved, district_resolved)
+        if geocode_res:
+            merged_loc = merge_location_dict(loc, geocode_res)
+            return {"location": merged_loc}
+
+    return {}
 
 
 async def execute_plan_node(
@@ -388,6 +449,7 @@ async def execute_plan_node(
     reviewer_tool = await get_reviewer_tool()
     question_source = resolve_question_source(config)
     thread_id = resolve_thread_id(config)
+    transient_loc: dict[str, Any] = {}
     tool_calls = await build_tool_calls_from_plan(
         plan,
         user_query,
@@ -396,6 +458,7 @@ async def execute_plan_node(
         reviewer_tool_name=reviewer_tool.name,
         question_source=question_source,
         thread_id=thread_id,
+        out_transient_location=transient_loc,
     )
     if not tool_calls:
         return {}
@@ -405,7 +468,7 @@ async def execute_plan_node(
     exec_state = {**state, "messages": list(messages) + [ai_msg]}
 
     merged_configurable = dict((config.get("configurable") or {}))
-    merged_configurable["location"] = loc
+    merged_configurable["location"] = transient_loc if transient_loc else loc
     enriched = patch_config(config, configurable=merged_configurable)
 
     result = await tool_node.ainvoke(exec_state, config=enriched)
@@ -432,6 +495,7 @@ async def execute_plan_node(
         and plan.get("knowledge_base")
         and not plan.get("chemical_checker")
     ):
+        transient_loc2: dict[str, Any] = {}
         second_calls = await build_tool_calls_from_plan(
             {**plan, "chemical_checker": True},
             user_query,
@@ -441,18 +505,41 @@ async def execute_plan_node(
             question_source=question_source,
             thread_id=thread_id,
             extra_chemicals=extra_chems,
+            out_transient_location=transient_loc2,
         )
         chem_only = [c for c in second_calls if c.get("name") == "chemical_checker"]
         if chem_only:
             ai2 = AIMessage(content="", tool_calls=chem_only)
             exec2 = {**state, "messages": list(messages) + [ai_msg] + new_msgs + [ai2]}
-            enriched2 = patch_config(enriched, configurable={**merged_configurable, "location": merged_loc})
+            loc_for_enriched2 = transient_loc2 if transient_loc2 else merged_loc
+            enriched2 = patch_config(enriched, configurable={**merged_configurable, "location": loc_for_enriched2})
             result2 = await tool_node.ainvoke(exec2, config=enriched2)
             new_msgs = (result2.get("messages") or [])[-len(chem_only):]
             merged_loc = result2.get("location") or merged_loc
-            return {"messages": [ai_msg] + (result.get("messages") or []) + [ai2] + new_msgs, "location": merged_loc}
+            out = {
+                "messages": [ai_msg] + (result.get("messages") or []) + [ai2] + new_msgs,
+                "location": merged_loc,
+            }
+            audit = _golden_audit_from_messages(out["messages"])
+            if audit:
+                out["golden_retrieval_audit"] = audit
+            return out
 
-    return {"messages": [ai_msg] + new_msgs, "location": merged_loc}
+    out: dict = {"messages": [ai_msg] + new_msgs, "location": merged_loc}
+    audit = _golden_audit_from_messages(out["messages"])
+    if audit:
+        out["golden_retrieval_audit"] = audit
+    return out
+
+
+def _golden_audit_from_messages(messages: list[BaseMessage]) -> Optional[dict]:
+    data = _latest_turn_gdb_payload(messages)
+    if not data:
+        return None
+    audit = data.get("classification_audit")
+    if isinstance(audit, dict):
+        return audit
+    return None
 
 
 def _latest_turn_gdb_payload(messages: list[BaseMessage]) -> Optional[dict]:
@@ -515,29 +602,16 @@ def should_expert_queue_reply(state: AjraSakhaState) -> bool:
     return not _gdb_has_usable_data(messages) and not has_specialist_content
 
 
-def route_after_sanitizer(state: AjraSakhaState) -> str:
-    """After sanitizer: expert-queue only when GDB empty and no specialist tool content."""
-    if should_expert_queue_reply(state):
-        return "empty_gdb_reply"
-    return "synthesize"
-
-
 def route_after_execute(state: AjraSakhaState) -> str:
     plan = state.get("plan") or {}
     if plan.get("skip_synthesize"):
         return "end"
-    messages = state.get("messages") or []
-    for msg in reversed(messages):
-        if isinstance(msg, AIMessage):
-            break
-        if isinstance(msg, ToolMessage) and getattr(msg, "name", None) == "gdb":
-            if should_expert_queue_reply(state):
-                return "empty_gdb_reply"
-            data = _latest_turn_gdb_payload(messages)
-            if data and should_skip_sanitizer_for_gdb(data):
-                return "synthesize"
-            return "retrieval_sanitizer"
     if should_expert_queue_reply(state):
         return "empty_gdb_reply"
-    return "retrieval_sanitizer"
+    messages = state.get("messages") or []
+    if _gdb_has_usable_data(messages):
+        return "gdb_passthrough"
+    if _turn_has_specialist_tool_message(messages):
+        return "synthesize"
+    return "empty_gdb_reply"
 

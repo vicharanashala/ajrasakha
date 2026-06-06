@@ -2,6 +2,16 @@ name: API Deployment
 
 on:
   workflow_dispatch:
+    inputs:
+      target_api:
+        description: 'API to build and push'
+        required: true
+        default: 'acc_api'
+        type: choice
+        options:
+          - acc_api
+          - ans_gen_pop
+          - golden_api
 
 permissions:
   contents: read
@@ -10,7 +20,7 @@ permissions:
 
 jobs:
   build-and-push:
-    name: Build & Push acc_api
+    name: Build & Push ${{ github.event.inputs.target_api }}
     runs-on: ubuntu-latest
     steps:
       - name: Free Disk Space
@@ -34,12 +44,37 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build & Push acc_api
+        if: github.event.inputs.target_api == 'acc_api'
         uses: docker/build-push-action@v5
         with:
-          context: ./mcp/acc_api
-          file: ./mcp/acc_api/Dockerfile
+          context: ./apis/acc_api
+          file: ./apis/acc_api/Dockerfile
           push: true
           platforms: linux/amd64
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/acc_api:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/acc_api:${{ github.sha }}
+
+      - name: Build & Push ans_gen_pop
+        if: github.event.inputs.target_api == 'ans_gen_pop'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./apis/ans_gen_pop
+          file: ./apis/ans_gen_pop/Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/ans_gen_pop:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/ans_gen_pop:${{ github.sha }}
+
+      - name: Build & Push golden_api
+        if: github.event.inputs.target_api == 'golden_api'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./ai
+          file: ./ai/ajrasakha/tools/golden/Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/golden_api:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/golden_api:${{ github.sha }}

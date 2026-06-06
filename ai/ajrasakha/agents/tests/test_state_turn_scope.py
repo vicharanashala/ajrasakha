@@ -11,7 +11,7 @@ from ajrasakha.agents.plan_executor import build_tool_calls_from_plan
 from ajrasakha.agents.planner import _resolve_state_deterministic
 from ajrasakha.agents.planner_rules import apply_planner_completeness_rules
 
-
+from ajrasakha.agents.state import AjraSakhaState
 def test_state_not_leaked_from_old_karnataka_message():
     messages = [
         HumanMessage(content="Wheat disease control in Karnataka"),
@@ -47,7 +47,7 @@ def test_gps_state_used_when_latest_message_has_no_state():
         "state": "Punjab",
         "city": "Ludhiana",
     }
-    assert _resolve_state_deterministic(messages, location) == "Punjab"
+    assert _resolve_state_deterministic(messages, location) is None
     plan = apply_planner_completeness_rules(
         {"schemes": True, "is_complete": False, "entities": {}},
         messages,
@@ -95,3 +95,75 @@ async def test_gdb_uses_kerala_from_rephrased_plan_not_stale_gps_punjab():
     )
     gdb = next(c for c in calls if c["name"] == "gdb")
     assert gdb["args"]["state"] == "Kerala"
+
+
+def test_state_does_not_leak_on_new_question_with_gps():
+    from ajrasakha.agents.planner import planner_node
+    from langchain_core.runnables import RunnableConfig
+    
+    # Simulate a thread where the previous turn was complete
+    # and the user asks a new question without mentioning any state.
+    state: AjraSakhaState = {
+        "messages": [
+            HumanMessage(content="Wheat disease control in Karnataka"),
+            AIMessage(content="Here is advice for Karnataka wheat."),
+            HumanMessage(content="how to grow paddy?"),
+        ],
+        "location": {
+            "latitude": 28.3584,
+            "longitude": 77.3268,
+            "state": "Haryana",
+            "city": "Faridabad",
+        },
+        "plan": {
+            "domain": "Plant Protection",
+            "is_complete": True,  # PREVIOUS TURN WAS COMPLETE
+            "entities": {"crop": "wheat", "state": "Karnataka"},
+        }
+    }
+    
+    import asyncio
+    loop = asyncio.get_event_loop()
+    res = loop.run_until_complete(planner_node(state, RunnableConfig()))
+    
+    new_plan = res["plan"]
+    # Karnataka should not carry over!
+    assert new_plan["entities"].get("state") == "Haryana"
+    assert new_plan["entities"].get("district") == "Faridabad"
+    assert new_plan["entities"].get("crop") == "Paddy"
+
+
+def test_state_carries_forward_during_clarify_loop():
+    from ajrasakha.agents.planner import planner_node
+    from langchain_core.runnables import RunnableConfig
+    
+    # Simulate a thread where the previous turn was INCOMPLETE (clarification loop)
+    # and the user responds to it.
+    state: AjraSakhaState = {
+        "messages": [
+            HumanMessage(content="What is mandi price in Karnataka?"),
+            AIMessage(content="Which crop do you want to check?"),
+            HumanMessage(content="Onion"),
+        ],
+        "location": {
+            "latitude": 28.3584,
+            "longitude": 77.3268,
+            "state": "Haryana",
+            "city": "Faridabad",
+        },
+        "plan": {
+            "domain": "Market Prices",
+            "is_complete": False,  # PREVIOUS TURN WAS INCOMPLETE (clarification)
+            "entities": {"state": "Karnataka"},
+        }
+    }
+    
+    import asyncio
+    loop = asyncio.get_event_loop()
+    res = loop.run_until_complete(planner_node(state, RunnableConfig()))
+    
+    new_plan = res["plan"]
+    # Karnataka should carry over since the previous turn was incomplete!
+    assert new_plan["entities"].get("state") == "Karnataka"
+    assert new_plan["entities"].get("crop") == "Onion"
+

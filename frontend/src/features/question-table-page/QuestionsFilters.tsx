@@ -111,9 +111,10 @@ type QuestionsFiltersProps = {
   setView: (v: "grid" | "table") => void;
   handleBulkAllocateToPae: (paeExpertId: string) => Promise<void>;
   isBulkAllocatingPae: boolean;
+  onAnswerModeChange?: (mode: string) => void;
 };
 
-type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae" | "non_agri";
+type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae" | "non_agri" | "search";
 
 const filterToAnswerMode = (filter: AdvanceFilterValues): AnswerMode => {
   if (filter.is_non_agri === true) return "non_agri";
@@ -163,6 +164,7 @@ export const QuestionsFilters = ({
   setView,
   handleBulkAllocateToPae,
   isBulkAllocatingPae,
+  onAnswerModeChange,
 }: QuestionsFiltersProps) => {
   const navigate = useNavigate();
   //question global state
@@ -184,6 +186,7 @@ export const QuestionsFilters = ({
   const [answerMode, setAnswerMode] = useState<AnswerMode>(() =>
     filterToAnswerMode(appliedFilters),
   );
+  const prevAnswerModeRef = useRef<AnswerMode>(filterToAnswerMode(appliedFilters));
 
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
     useAddQuestion((count, isBulkUpload) => {
@@ -450,6 +453,26 @@ export const QuestionsFilters = ({
   const handleAnswerModeChange = (nextAnswerMode: AnswerMode) => {
     let nextFilters: AdvanceFilterValues;
 
+    if (nextAnswerMode === "search") {
+      // Search Results tab → fetch all sources, reset client-side mode
+      nextFilters = { ...advanceFilter, source: "all", pae_review: undefined, is_non_agri: undefined };
+      prevAnswerModeRef.current = "search";
+      setAnswerMode("search");
+      setAdvanceFilterValues(nextFilters);
+      onChange(nextFilters);
+      onAnswerModeChange?.("search");
+      return;
+    }
+
+    // When search is active, switching tabs just filters the already-fetched
+    // results client-side — no API call needed.
+    if (search) {
+      prevAnswerModeRef.current = nextAnswerMode;
+      setAnswerMode(nextAnswerMode);
+      onAnswerModeChange?.(nextAnswerMode);
+      return;
+    }
+
     if (nextAnswerMode === "non_agri") {
       nextFilters = { ...advanceFilter, source: "all", is_non_agri: true, pae_review: undefined };
       if (answerMode === "draft") nextFilters.status = "all";
@@ -464,10 +487,21 @@ export const QuestionsFilters = ({
       if (answerMode === "draft") nextFilters.status = "all";
     }
 
+    prevAnswerModeRef.current = nextAnswerMode;
     setAnswerMode(nextAnswerMode);
     setAdvanceFilterValues(nextFilters);
     onChange(nextFilters);
   };
+
+  // Auto-switch to Search Results tab when user types; revert when cleared
+  useEffect(() => {
+    if (search && answerMode !== "search") {
+      prevAnswerModeRef.current = answerMode;
+      handleAnswerModeChange("search");
+    } else if (!search && answerMode === "search") {
+      handleAnswerModeChange(prevAnswerModeRef.current);
+    }
+  }, [search]);
 
   const clearAddQuestionError = (field: keyof AddQuestionValidationErrors) => {
     setAddQuestionErrors((prev) => {
@@ -485,7 +519,12 @@ export const QuestionsFilters = ({
 
   useEffect(() => {
     setAdvanceFilterValues(appliedFilters);
-    setAnswerMode(filterToAnswerMode(appliedFilters));
+    // Don't override answerMode while search is active — the "search" tab
+    // sets source:"all" which filterToAnswerMode resolves to "ajraskha" (fallback),
+    // which would reset the active tab back to AJRASAKHA.
+    if (!search) {
+      setAnswerMode(filterToAnswerMode(appliedFilters));
+    }
   }, [appliedFilters]);
 
   const handleApplyFilters = (myPreference?: IMyPreference) => {
@@ -579,7 +618,8 @@ export const QuestionsFilters = ({
   const offset = useRef({ x: 0, y: 0 });
   const [isBadgeExpanded, setIsBadgeExpanded] = useState(false);
   const hasDragged = useRef(false);
-  const { data: statusSummary, isLoading: isStatusLoading } = useGetQuestionStatusSummary(advanceFilter, search, isBadgeExpanded);
+  const { data: statusSummaryRaw, isLoading: isStatusLoading } = useGetQuestionStatusSummary(advanceFilter, search, isBadgeExpanded);
+  const statusSummary = statusSummaryRaw as import("@/hooks/api/question/useGetQuestionStatusSummary").QuestionStatusSummary | null;
 
   // Dynamically clamp the badge position based on its estimated sizes to prevent it from ever clipping off the screen
   const estimatedBadgeHeight = isBadgeExpanded ? 240 : 50;
@@ -739,6 +779,9 @@ export const QuestionsFilters = ({
       <AnswerModeSwitcher
         answerMode={answerMode}
         handleAnswerModeChange={handleAnswerModeChange}
+        hasSearch={!!search}
+        sourceCounts={statusSummary?.sourceCounts}
+        totalSearchCount={search ? statusSummary?.totalQuestions : undefined}
       />
 
       <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">
@@ -761,7 +804,7 @@ export const QuestionsFilters = ({
           </Tooltip>
         </TooltipProvider>
 
-        {userRole !== "expert" && (
+        {userRole !== "expert" && userRole !== "tester" && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -783,7 +826,7 @@ export const QuestionsFilters = ({
         {isSelectionModeOn && (
           <div className="hidden md:flex items-center gap-4 whitespace-nowrap">
             {/* Allocate to PAE */}
-            {userRole !== "expert" && answerMode.toLowerCase() === "draft" && (
+            {userRole !== "expert" && userRole !== "tester" && answerMode.toLowerCase() === "draft" && (
               <Button
                 variant="outline"
                 size="sm"
@@ -801,7 +844,7 @@ export const QuestionsFilters = ({
             )}
 
             {/* Allocate to EXPERTS */}
-            {userRole !== "expert" && answerMode.toLowerCase() !== "draft" && (
+            {userRole !== "expert" && userRole !== "tester" && answerMode.toLowerCase() !== "draft" && (
               <div className="relative inline-block">
                 <Button
                   variant="outline"
@@ -815,8 +858,8 @@ export const QuestionsFilters = ({
                     setIsReAllocateSelectedQuestionsOpen(true);
                   }}
                   className={`flex items-center gap-2 transition-all border-primary text-primary hover:bg-primary/10 ${reAllocating || isReAllocateDisabled
-                      ? "cursor-not-allowed text-green-600"
-                      : ""
+                    ? "cursor-not-allowed text-green-600"
+                    : ""
                     }`}
                 >
                   <UserCheck className="h-4 w-4" />
@@ -837,32 +880,34 @@ export const QuestionsFilters = ({
             )}
 
             {/* Bulk delete with count */}
-            <ConfirmationModal
-              title="Delete Selected Questions?"
-              description={`Are you sure you want to delete ${selectedQuestionIds.length
-                } selected question${selectedQuestionIds.length > 1 ? "s" : ""
-                }? This action is irreversible.`}
-              confirmText="Delete"
-              cancelText="Cancel"
-              isLoading={bulkDeletingQuestions}
-              type="delete"
-              onConfirm={handleBulkDelete}
-              trigger={
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  disabled={
-                    selectedQuestionIds.length === 0 || bulkDeletingQuestions
-                  }
-                  className="flex items-center gap-2 transition-all"
-                >
-                  <Trash className="h-4 w-4" />
-                  {bulkDeletingQuestions
-                    ? `Deleting (${selectedQuestionIds.length})...`
-                    : `Delete (${selectedQuestionIds.length})`}
-                </Button>
-              }
-            />
+            {userRole !== "tester" && (
+              <ConfirmationModal
+                title="Delete Selected Questions?"
+                description={`Are you sure you want to delete ${selectedQuestionIds.length
+                  } selected question${selectedQuestionIds.length > 1 ? "s" : ""
+                  }? This action is irreversible.`}
+                confirmText="Delete"
+                cancelText="Cancel"
+                isLoading={bulkDeletingQuestions}
+                type="delete"
+                onConfirm={handleBulkDelete}
+                trigger={
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={
+                      selectedQuestionIds.length === 0 || bulkDeletingQuestions
+                    }
+                    className="flex items-center gap-2 transition-all"
+                  >
+                    <Trash className="h-4 w-4" />
+                    {bulkDeletingQuestions
+                      ? `Deleting (${selectedQuestionIds.length})...`
+                      : `Delete (${selectedQuestionIds.length})`}
+                  </Button>
+                }
+              />
+            )}
 
             {/* Cancel selection */}
             <Button
@@ -1029,7 +1074,7 @@ export const QuestionsFilters = ({
               )}
 
               {/* WhatsApp History */}
-              {userRole !== "expert" && (
+              {userRole !== "expert" && userRole !== 'tester' && (
                 <button
                   className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none relative"
                   onClick={() => {
@@ -1057,7 +1102,7 @@ export const QuestionsFilters = ({
               )}
 
               {/* update crops */}
-              {userRole !== "expert" && (
+              {userRole !== "expert" && userRole !== "tester" && (
                 <button
                   className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
                   onClick={() => {
@@ -1111,7 +1156,7 @@ export const QuestionsFilters = ({
               )} */}
 
               {/* reallocate */}
-              {userRole !== "expert" && (
+              {userRole !== "expert" && userRole !== "tester" && (
                 <button
                   className="relative w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
                   onClick={() => {
@@ -1147,7 +1192,7 @@ export const QuestionsFilters = ({
               )}
 
               {/* send outreach rport */}
-              {userRole !== "expert" && (
+              {userRole !== "expert" && userRole !== "tester" && (
                 <OutreachReportModal setIsSidebarOpen={setIsSidebarOpen} />
               )}
               {/* preferences */}
@@ -1167,7 +1212,7 @@ export const QuestionsFilters = ({
           </section>
 
           {/* Section: Download Reports */}
-          {userRole !== "expert" && (
+          {userRole !== "expert" && userRole !== 'tester' && (
             <section>
               <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
                 Download Reports
@@ -1303,8 +1348,8 @@ export const QuestionsFilters = ({
           }
         }}
         className={`fixed z-50 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-600 shadow-xl backdrop-blur-md select-none transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${isBadgeExpanded
-            ? "rounded-[16px] px-4 py-3 min-w-[220px]"
-            : "rounded-[24px] px-4 py-2.5 min-w-[120px]"
+          ? "rounded-[16px] px-4 py-3 min-w-[220px]"
+          : "rounded-[24px] px-4 py-2.5 min-w-[120px]"
           } ${isDragging ? "cursor-grabbing shadow-2xl scale-105" : "cursor-grab hover:shadow-2xl"}`}
         style={{
           left: `${safeX}px`,
@@ -1336,8 +1381,8 @@ export const QuestionsFilters = ({
         {/* Expanded status breakdown */}
         <div
           className={`grid transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${isBadgeExpanded
-              ? "grid-rows-[1fr] opacity-100"
-              : "grid-rows-[0fr] opacity-0"
+            ? "grid-rows-[1fr] opacity-100"
+            : "grid-rows-[0fr] opacity-0"
             }`}
         >
           <div className="overflow-hidden">

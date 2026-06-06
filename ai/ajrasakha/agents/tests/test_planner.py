@@ -335,4 +335,5 @@ def test_compiled_graph_uses_planner_pipeline_by_default():
     assert use_planner_graph() is True
     assert "planner" in graph.nodes
     assert "execute_plan" in graph.nodes
+    assert "gdb_passthrough" in graph.nodes
     assert "synthesize" in graph.nodes

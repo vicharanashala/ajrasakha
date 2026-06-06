@@ -75,6 +75,31 @@ export class QueryAnalyticsQueryDto extends SourceQueryDto {
   limit: number = 10;
 }
 
+export class QueryCategoryQuestionsQueryDto extends SourceQueryDto {
+  @JSONSchema({ example: 'Disease Management', description: 'Category/domain label to list questions for' })
+  @IsString()
+  category: string;
+
+  @JSONSchema({ example: 'all', description: 'Question filter: all, unique, or duplicate' })
+  @IsOptional()
+  @IsIn(['all', 'unique', 'duplicate'])
+  questionType: 'all' | 'unique' | 'duplicate' = 'all';
+
+  @JSONSchema({ example: 1, description: 'Page number' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page: number = 1;
+
+  @JSONSchema({ example: 10, description: 'Results per page' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  limit: number = 10;
+}
+
 export class WeatherConcernAnalyticsQueryDto extends SourceQueryDto {
   @JSONSchema({ example: 'Kharif', description: 'Filter by season' })
   @IsOptional()
@@ -182,10 +207,10 @@ export class UserDetailsQueryDto {
   @IsString()
   activeTodayByProfile?: string;
 
-  @JSONSchema({ example: 'totalQuestions', description: 'Sort by field: totalQuestions or name' })
+  @JSONSchema({ example: 'totalQuestions', description: 'Sort by field: totalQuestions, name, farmerName, email, or createdAt' })
   @IsOptional()
-  @IsIn(['totalQuestions', 'name'])
-  sortBy: 'totalQuestions' | 'name' = 'totalQuestions';
+  @IsIn(['totalQuestions', 'name', 'farmerName', 'email', 'createdAt'])
+  sortBy: 'totalQuestions' | 'name' | 'farmerName' | 'email' | 'createdAt' = 'totalQuestions';
 
   @JSONSchema({ example: 'desc', description: 'Sort order: asc or desc' })
   @IsOptional()
@@ -196,4 +221,9 @@ export class UserDetailsQueryDto {
   @IsOptional()
   @IsString()
   missingDemographicField?: string;
+
+   @JSONSchema({ example: 'true', description: 'If true, return only users who are verified' })
+  @IsOptional()
+  @IsString()
+  isVerified?: string;
 }

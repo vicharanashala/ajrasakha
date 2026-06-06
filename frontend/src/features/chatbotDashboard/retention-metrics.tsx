@@ -5,7 +5,7 @@ import { useState } from "react";
 import { format, subDays } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Line, LineChart, CartesianGrid, XAxis, YAxis } from "recharts";
-import { CalendarIcon, RefreshCcw } from "lucide-react";
+import { CalendarIcon, InfoIcon, RefreshCcw } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -200,20 +200,20 @@ export const RetentionMetricsChart = ({
                         text-[10px]
                       "
                     >
-                      i
+                      <InfoIcon className="h-3 w-3" />
                     </span>
                   </TooltipTrigger>
 
-                  <TooltipContent className="max-w-[260px]">
+                  <TooltipContent className="max-w-[300px]">
                     <p>
                       {requestType === "daily" &&
-                        "Shows retention grouped by day cohorts."}
+                        "Retention measures how many users return after their first activity. This view groups users into daily cohorts based on the day they first engaged and tracks how many return on subsequent days."}
 
                       {requestType === "weekly" &&
-                        "Shows retention grouped by ISO week cohorts."}
+                        "Retention measures how many users return after their first activity. This view groups users into weekly cohorts based on the week they first engaged and tracks how many return in the following weeks."}
 
                       {requestType === "monthly" &&
-                        "Shows retention grouped by monthly cohorts."}
+                        "Retention measures how many users return after their first activity. This view groups users into monthly cohorts based on the month they first engaged and tracks how many return in the following months."}
                     </p>
                   </TooltipContent>
                 </Tooltip>

@@ -349,6 +349,19 @@ export class QuestionService {
     );
   }
 
+  /** Notify the backend that the expert has opened a time-bound question.
+   *  Blocks 45-min auto-reallocation. Fire-and-forget — never throws. */
+  async markQuestionOpened(questionId: string): Promise<void> {
+    try {
+      await apiFetch<{ success: boolean }>(
+        `${this._baseUrl}/${questionId}/mark-opened`,
+        { method: "POST" },
+      );
+    } catch {
+      // Non-fatal — silently ignore network errors
+    }
+  }
+
   async bulkDeleteQuestions(questionIds: string[]) {
     return apiFetch<{ message: string; jobId: string }>(`${this._baseUrl}/bulk`, {
       method: "DELETE",
@@ -698,12 +711,17 @@ export class QuestionService {
   );
 }
 
+  async manualCheckDuplicate(questionId: string): Promise<{ message: string; isDuplicate: boolean; referenceQuestionId?: string } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/check-duplicate`, { method: "POST" });
+  }
+
   async getQuestionStatusSummary(
     filter: AdvanceFilterValues,
     search: string,
   ): Promise<{
     totalQuestions: number;
     statuses: { status: string; count: number }[];
+    sourceCounts: { source: string; count: number }[];
   } | null> {
     const params = new URLSearchParams();
 

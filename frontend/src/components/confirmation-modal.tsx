@@ -106,6 +106,7 @@ export const ConfirmationModal = ({
     { value: "expert", label: "Expert" },
     { value: "moderator", label: "Moderator" },
     { value: "pae_expert", label: "PAE Expert" },
+    { value: "tester", label: "Tester" },
   ];
 
   return (
