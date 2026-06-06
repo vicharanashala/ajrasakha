@@ -47,6 +47,7 @@ import { Button } from "@/components/atoms/button";
 import { CalendarIcon, RefreshCcw } from "lucide-react";
 
 import { format, subDays } from "date-fns";
+import { useQueryClient } from "@tanstack/react-query";
 const chartConfig = {
   value: {
     label: "Active Users",
@@ -103,9 +104,13 @@ export const ActiveUsersChart = ({
         return "Active Users";
     }
   }, [type]);
-
-  const resetDateRange = () => {
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const resetDateRange = async () => {
     setDateRange(undefined);
+    setRefreshing(true);
+    await queryClient.refetchQueries({ queryKey: ["active_user_trend"] });
+    setRefreshing(false);
   };
 
   const formatCohortLabel = (value: string, requestType: ActiveUserType) => {
@@ -248,7 +253,7 @@ export const ActiveUsersChart = ({
       </CardHeader>
 
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-        {isFetching ? (
+        {(refreshing || isFetching) ? (
           <div className="h-[320px]">
             <Skeleton className="h-full w-full rounded-xl" />
           </div>

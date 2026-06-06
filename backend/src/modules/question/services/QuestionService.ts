@@ -1193,7 +1193,8 @@ export class QuestionService extends BaseService implements IQuestionService {
               isTesting: true,
             });
             return;
-          } else {
+          } 
+         /* else {
             // Extract the last GDB tool response from thread content
             const content: any[] = threadValidation.data?.content || [];
             const gdbToolCalls = content.filter(
@@ -1234,47 +1235,84 @@ export class QuestionService extends BaseService implements IQuestionService {
               }
               // Both false — fall through to existing duplicate check below
             }
-          }
-        }
-
-        // AJRASAKHA / WHATSAPP — duplicate check then notify moderators
-        try {
-          const duplicateResult = await this.checkDuplicateQuestion(
-            baseQuestion,
-            details,
-            logData,
-          );
-       /*   if (duplicateResult?.isDuplicate && duplicateResult?.duplicateData) {
-            const {
-              similarityScore,
-              referenceQuestionId,
-              referenceQuestion,
-              referenceSource,
-            } = duplicateResult.duplicateData as any;
-            await this.questionRepo.updateQuestion(questionId, {
-              status: 'duplicate',
-              similarityScore,
-              referenceQuestionId,
-              referenceQuestion,
-              referenceSource,
-            });
-            return;
           }*/
-          if (duplicateResult?.isNonAgri) {
-            await this.questionRepo.updateQuestion(questionId, {
-              status: 'non_agri',
-            });
-            return;
+        
+
+        // AJRASAKHA / WHATSAPP — GDB duplicate check then LLM non-agri check
+        try {
+          const cropName = typeof details.crop === 'string' ? details.crop : (details.crop as any)?.name || '';
+          const gdbResult = await this.aiService.searchGdb({
+            crop: cropName,
+            state: details.state,
+            rephrased_query: baseQuestion.question,
+          });
+
+          const extractObjectId = (id: any): ObjectId | null => {
+            // Handle MongoDB extended JSON { $oid: "..." } or plain hex string
+            const raw = id?.$oid ?? id;
+            const hex = String(raw ?? '');
+            if (/^[a-f\d]{24}$/i.test(hex)) return new ObjectId(hex);
+            return null;
+          };
+
+          const exactMatch = gdbResult?.exact_match;
+          if (exactMatch?.question_id) {
+            const refId = extractObjectId(exactMatch.question_id);
+            if (!refId) {
+              console.warn(`[processQuestionInBackground] GDB exact_match has invalid question_id: ${exactMatch.question_id}, skipping`);
+            } else {
+              await this.questionRepo.updateQuestion(questionId, {
+                status: 'duplicate',
+                similarityScore: Number((exactMatch.similarity_score * 100).toFixed(2)),
+                referenceQuestionId: refId,
+                referenceQuestion: exactMatch.question,
+                referenceSource: 'reviewer',
+                isExact: true,
+              });
+              return;
+            }
           }
-          // NONE result — not a duplicate and not non-agri, mark as open
+
+          const selectedMatch = gdbResult?.selected_match;
+          if (selectedMatch?.question_id) {
+            const refId = extractObjectId(selectedMatch.question_id);
+            if (!refId) {
+              console.warn(`[processQuestionInBackground] GDB selected_match has invalid question_id: ${selectedMatch.question_id}, skipping`);
+            } else {
+              await this.questionRepo.updateQuestion(questionId, {
+                status: 'duplicate',
+                similarityScore: Number((selectedMatch.similarity_score * 100).toFixed(2)),
+                referenceQuestionId: refId,
+                referenceQuestion: selectedMatch.question,
+                referenceSource: 'reviewer',
+                isExact: false,
+              });
+              return;
+            }
+          }
+
+          // No duplicate — call LLM to classify non-agri vs agri
+          try {
+            const llmResult = await checkConceptDuplicate(baseQuestion.question, []);
+            if (llmResult.isNonAgri) {
+              logData.outcome = 'NON_AGRI_DETECTED';
+              chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData);
+              await this.questionRepo.updateQuestion(questionId, {status: 'non_agri'});
+              return;
+            }
+          } catch (llmError: any) {
+            console.error('[processQuestionInBackground] LLM non-agri check failed, proceeding as open:', llmError?.message);
+          }
+
           await this.questionRepo.updateQuestion(questionId, {status: 'open'});
-        } catch (duplicateError: any) {
+        } catch (gdbError: any) {
           console.error(
-            '[processQuestionInBackground] Duplicate check failed, proceeding as open:',
-            duplicateError.message,
+            '[processQuestionInBackground] GDB check failed, proceeding as open:',
+            gdbError?.message,
           );
           await this.questionRepo.updateQuestion(questionId, {status: 'open'});
         }
+      }
 
         const [allModerators, taskForceModerators] = await Promise.all([
           this.userRepo.findModerators(),
@@ -1340,6 +1378,15 @@ export class QuestionService extends BaseService implements IQuestionService {
           return {isValid: true, data: matchedQuestion};
         }
       } catch (error: any) {
+        const notFoundMessages = [
+          'No matching WhatsApp message found',
+          'Question not found',
+          'Thread id not found',
+        ];
+        const isNotFound = notFoundMessages.some(msg => error?.message?.includes(msg));
+        if (isNotFound) {
+          hadSuccessfulApiCall = true; // API reachable — question simply not present yet
+        }
         lastError = error;
         console.warn(
           `[validateTimeBoundQuestionThread] Attempt ${attempt + 1}/${retryDelaysMs.length + 1} failed for questionId=${questionId}: ${error?.message}`,
@@ -4738,7 +4785,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       const response = await this.aiService.fetchWhatsAppMessage(
         questionData.threadId,
-        questionData._id.toString(),
+         questionData._id.toString(),
       );
 
       if (!response) {
