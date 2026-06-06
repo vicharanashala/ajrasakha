@@ -146,7 +146,7 @@ export class ChatbotController {
     source: string,
 
     @QueryParam('userType')
-    userType: string,
+    userType: string = 'all',
   ) {
     return this.chatbotService.getDistrictAnalyticsByState(
       state,
@@ -306,6 +306,7 @@ export class ChatbotController {
   @HttpCode(200)
   @Authorized()
   async getQueryCategories(@QueryParams() query: SourceQueryDto) {
+    console.log("-------/query-categories", query.userType)
     return this.chatbotService.getQueryCategories(query.source, query.userType);
   }
 
