@@ -41,6 +41,7 @@ import type {
   FarmerHeatMapResponse,
   FarmerHeatMapBucket,
   FarmerHeatMapRow,
+  FarmerHeatMapMetricTotals,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {IQuestion, QuestionSource} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
@@ -476,7 +477,11 @@ export class ChatbotRepository implements IChatbotRepository {
     dynamicSchemesCount: number;
     markedDuplicateGdbCount: number;
   }> {
-    const matchQuery: any = {source, createdAt: {$exists: true}};
+    const matchQuery: any = {
+      source,
+      createdAt: {$exists: true},
+      $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+    };
     if (startTime || endTime) {
       matchQuery.createdAt = {};
       if (startTime) matchQuery.createdAt.$gte = new Date(startTime);
@@ -494,6 +499,7 @@ export class ChatbotRepository implements IChatbotRepository {
     const result = await this.QuestionCollection.aggregate(
       [
         {$match: matchQuery},
+        // ...userTypeLookupStages,
         // ...userTypeLookupStages,
         {
           $facet: {
@@ -1221,6 +1227,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const dupeWithMsgId = await this.QuestionCollection.find({
         similarityScore: {$exists: true},
         messageId: {$exists: true, $ne: null},
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
       })
         .project<{messageId: string}>({messageId: 1})
         .toArray();
@@ -1597,9 +1604,8 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.initReviewSystem();
 
-      const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
-      const source = _source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
       // const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
+      const source = _source === "whatsapp" ? 'WHATSAPP' : 'AJRASAKHA';
 
       const matchQuery: any = {
         source,
@@ -1607,13 +1613,16 @@ export class ChatbotRepository implements IChatbotRepository {
           $exists: true,
           $nin: [null, ''],
         },
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
       };
 
       Object.assign(
         matchQuery,
-        await this.buildUserTypeMatchQuery(_source, userType),
-      );
-      console.log('-----matchQuery', matchQuery);
+        await this.buildUserTypeMatchQuery(
+          _source,
+          userType,
+        ),
+      ); 
       const pipeline = [
         {
           $match: matchQuery,
@@ -1729,11 +1738,16 @@ export class ChatbotRepository implements IChatbotRepository {
           $exists: true,
           $nin: [null, ''],
         },
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
       };
       Object.assign(
         baseMatch,
+        await this.buildUserTypeMatchQuery(
+          _source,
+          userType,
+        ),
+      ); 
         await this.buildUserTypeMatchQuery(_source, userType),
-      );
       console.log('=====baseMatch', baseMatch);
       const categoryLabel = category?.trim();
       if (!categoryLabel) {
@@ -1745,6 +1759,7 @@ export class ChatbotRepository implements IChatbotRepository {
         const topDomains = await this.QuestionCollection.aggregate(
           [
             {$match: baseMatch},
+            // ...lookupStages,
             // ...lookupStages,
             {$group: {_id: '$details.domain', totalCount: {$sum: 1}}},
             {$sort: {totalCount: -1}},
@@ -2116,12 +2131,17 @@ export class ChatbotRepository implements IChatbotRepository {
           $exists: true,
           $ne: null,
         },
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
       };
 
-      // Object.assign(
-      //   matchQuery,
-      //   await this.buildUserTypeMatchQuery(source, userType),
-      // );
+      Object.assign(
+        matchQuery,
+        await this.buildUserTypeMatchQuery(
+          _source,
+          userType,
+        ),
+      );
+
 
       // const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
 
@@ -2130,6 +2150,7 @@ export class ChatbotRepository implements IChatbotRepository {
           $match: matchQuery,
         },
 
+        // ...lookupStages,
         // ...lookupStages,
 
         {
@@ -2241,7 +2262,6 @@ export class ChatbotRepository implements IChatbotRepository {
 
         return b.totalQuestions - a.totalQuestions;
       });
-
       return data;
     } catch (error) {
       throw new Error('Failed to fetch district analytics: ${error}');
@@ -2272,6 +2292,7 @@ export class ChatbotRepository implements IChatbotRepository {
           $exists: true,
           $nin: [null, ''],
         },
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
       };
       const districtLabel = district.trim();
       if (!districtLabel) {
@@ -2444,6 +2465,13 @@ export class ChatbotRepository implements IChatbotRepository {
       const userType = filters.userType || 'all';
       const selectedState = filters.state || 'all';
       const granularity = filters.granularity || 'monthly';
+      const createEmptyHeatMapTotals = (): FarmerHeatMapMetricTotals => ({
+        activeFarmers: 0,
+        totalQuestions: 0,
+        closedQuestions: 0,
+        notifiedQuestions: 0,
+        averageClosureTimeMinutes: 0,
+      });
 
       await this.init(source);
       await this.initReviewSystem();
@@ -2513,6 +2541,7 @@ export class ChatbotRepository implements IChatbotRepository {
               label: monthLabel.format(cursor),
               startDate: bucketStart.toISOString(),
               endDate: bucketEnd.toISOString(),
+              totals: createEmptyHeatMapTotals(),
             });
 
             cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
@@ -2532,6 +2561,7 @@ export class ChatbotRepository implements IChatbotRepository {
               label: `Week ${week}`,
               startDate: bucketStart.toISOString(),
               endDate: bucketEnd.toISOString(),
+              totals: createEmptyHeatMapTotals(),
             });
 
             cursor = addDays(bucketEnd, 1);
@@ -2553,6 +2583,7 @@ export class ChatbotRepository implements IChatbotRepository {
               label: `${String(cursor.getHours()).padStart(2, '0')}:00`,
               startDate: bucketStart.toISOString(),
               endDate: bucketEnd.toISOString(),
+              totals: createEmptyHeatMapTotals(),
             });
 
             cursor.setHours(cursor.getHours() + 1, 0, 0, 0);
@@ -2571,6 +2602,7 @@ export class ChatbotRepository implements IChatbotRepository {
               label: `Day ${day}`,
               startDate: bucketStart.toISOString(),
               endDate: bucketEnd.toISOString(),
+              totals: createEmptyHeatMapTotals(),
             });
 
             cursor = addDays(cursor, 1);
@@ -2706,11 +2738,14 @@ export class ChatbotRepository implements IChatbotRepository {
             $match: {
               source: finalSource,
               createdAt: {$gte: startDate, $lte: endDate},
+              $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
             },
           },
           {
             $project: {
               userId: 1,
+              messageId: 1,
+              threadId: 1,
               createdAt: 1,
               closedAt: 1,
               status: {$ifNull: ['$status', 'unknown']},
@@ -2721,14 +2756,75 @@ export class ChatbotRepository implements IChatbotRepository {
         {session},
       ).toArray();
 
-      const questionUserObjectIds = [
+      const questionMessageIds = [
         ...new Set(
           questionDocs
-            .map(row => row.userId?.toString())
-            .filter(id => id && ObjectId.isValid(id)),
+            .map(row => row.messageId)
+            .filter(id => id !== undefined && id !== null && id !== ''),
         ),
+      ];
+      const questionThreadIds = [
+        ...new Set(
+          questionDocs
+            .map(row => row.threadId)
+            .filter(id => id !== undefined && id !== null && id !== ''),
+        ),
+      ];
+
+      const [questionMessages, questionConversations] = await Promise.all([
+        questionMessageIds.length
+          ? this.messagesCollection
+              .find(
+                {messageId: {$in: questionMessageIds}},
+                {projection: {messageId: 1, user: 1}, session},
+              )
+              .toArray()
+          : Promise.resolve([]),
+        questionThreadIds.length
+          ? this.conversations
+              .find(
+                {conversationId: {$in: questionThreadIds}},
+                {projection: {conversationId: 1, user: 1}, session},
+              )
+              .toArray()
+          : Promise.resolve([]),
+      ]);
+
+      const questionMessageUserMap = new Map(
+        questionMessages.map(message => [
+          String(message.messageId),
+          message.user?.toString(),
+        ]),
+      );
+      const questionConversationUserMap = new Map(
+        questionConversations.map(conversation => [
+          String(conversation.conversationId),
+          conversation.user?.toString(),
+        ]),
+      );
+
+      const resolvedUserIdByQuestionId = new Map<string, string>();
+      for (const row of questionDocs) {
+        const directUserId = row.userId?.toString();
+        const messageUserId =
+          row.messageId !== undefined && row.messageId !== null
+            ? questionMessageUserMap.get(String(row.messageId))
+            : undefined;
+        const conversationUserId =
+          row.threadId !== undefined && row.threadId !== null
+            ? questionConversationUserMap.get(String(row.threadId))
+            : undefined;
+        const resolvedUserId = directUserId || messageUserId || conversationUserId;
+        if (resolvedUserId) {
+          resolvedUserIdByQuestionId.set(row._id.toString(), resolvedUserId);
+        }
+      }
+
+      const questionUserObjectIds = [
+        ...new Set([...resolvedUserIdByQuestionId.values()]),
       ]
-        .map(id => new ObjectId(id as string));
+        .filter(id => ObjectId.isValid(id))
+        .map(id => new ObjectId(id));
 
       const questionUsers = questionUserObjectIds.length
         ? await this.users
@@ -2740,7 +2836,7 @@ export class ChatbotRepository implements IChatbotRepository {
       );
 
       questionRows = questionDocs.flatMap(row => {
-        const userId = row.userId?.toString();
+        const userId = resolvedUserIdByQuestionId.get(row._id.toString());
         if (!userId) return [];
 
         const userDoc = questionUserMap.get(userId);
@@ -2819,6 +2915,53 @@ export class ChatbotRepository implements IChatbotRepository {
         questionMap.set(key, existing);
       }
 
+      const calculateTotals = (
+        labelFilter?: string,
+        bucketFilter?: string,
+      ): FarmerHeatMapMetricTotals => {
+        const activeFarmerIds = new Set<string>();
+        let totalQuestions = 0;
+        let closedQuestions = 0;
+        let notifiedQuestions = 0;
+        let closureTotalMinutes = 0;
+
+        const filteredLabels = labelFilter ? [labelFilter] : labels;
+        const filteredBuckets = bucketFilter
+          ? buckets.filter(bucket => bucket.key === bucketFilter)
+          : buckets;
+
+        for (const label of filteredLabels) {
+          for (const bucket of filteredBuckets) {
+            const key = `${label}__${bucket.key}`;
+            const activeFarmers = activeFarmerMap.get(key);
+            if (activeFarmers) {
+              for (const farmerId of activeFarmers) {
+                activeFarmerIds.add(farmerId);
+              }
+            }
+
+            const questionMetrics = questionMap.get(key);
+            if (!questionMetrics) continue;
+
+            totalQuestions += questionMetrics.totalQuestions;
+            closedQuestions += questionMetrics.closedQuestions;
+            notifiedQuestions += questionMetrics.notifiedQuestions;
+            closureTotalMinutes += questionMetrics.closureTotalMinutes;
+          }
+        }
+
+        return {
+          activeFarmers: activeFarmerIds.size,
+          totalQuestions,
+          closedQuestions,
+          notifiedQuestions,
+          averageClosureTimeMinutes:
+            totalQuestions > 0
+              ? Math.round((closureTotalMinutes / totalQuestions) * 10) / 10
+              : 0,
+        };
+      };
+
       const rows: FarmerHeatMapRow[] = labels.map(label => {
         const cells = buckets.map(bucket => {
           const key = `${label}__${bucket.key}`;
@@ -2850,8 +2993,16 @@ export class ChatbotRepository implements IChatbotRepository {
           label,
           scope,
           cells,
+          totals: calculateTotals(label),
         };
       });
+
+      const bucketsWithTotals = buckets.map(bucket => ({
+        ...bucket,
+        totals: calculateTotals(undefined, bucket.key),
+      }));
+
+      const totals = calculateTotals();
 
       const maxValues = rows.reduce(
         (acc, row) => {
@@ -2895,8 +3046,9 @@ export class ChatbotRepository implements IChatbotRepository {
           startDate: startDate.toISOString(),
           endDate: endDate.toISOString(),
         },
-        buckets,
+        buckets: bucketsWithTotals,
         rows,
+        totals,
         maxValues,
       };
     } catch (error) {
@@ -2906,16 +3058,26 @@ export class ChatbotRepository implements IChatbotRepository {
 
   async getTopCrops(
     source: string,
+    userType?: string,
     session?: ClientSession,
   ): Promise<{totalQuestions: number; topCrops: any[]}> {
     try {
       await this.initReviewSystem();
-      let matchStage;
+      let matchStage : any ={
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+      };
       if (source === 'whatsapp') {
         matchStage = {source: 'WHATSAPP'};
       } else {
         matchStage = {source: {$ne: 'AGRI_EXPERT'}};
       }
+      Object.assign(
+        matchStage,
+        await this.buildUserTypeMatchQuery(
+          source,
+          userType,
+        ),
+      );
       const cropFieldRaw = {
         $ifNull: ['$details.normalised_crop', '$details.crop'],
       };
@@ -5576,6 +5738,7 @@ export class ChatbotRepository implements IChatbotRepository {
             },
 
             source: 'AJRASAKHA',
+            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         },
 
@@ -6877,7 +7040,7 @@ export class ChatbotRepository implements IChatbotRepository {
       session,
       userType,
     );
-    const topCrops = await this.getTopCrops(source, session);
+    const topCrops = await this.getTopCrops(source, userType, session);
     const topTenFaqs = await this.getTopQuestionsFromCollection(
       source,
       session,
@@ -7092,7 +7255,9 @@ export class ChatbotRepository implements IChatbotRepository {
       }
       // 1. Fetch duplicate questions from the main review DB
       const dupeQuestions = await this.QuestionCollection.find(
-        {similarityScore: {$exists: true}},
+        {similarityScore: {$exists: true},
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+        },
         {session},
       )
         .project<{
@@ -7255,7 +7420,9 @@ export class ChatbotRepository implements IChatbotRepository {
       };
 
       const pipeline: any[] = [
-        {$match: domainMatch},
+        {$match: domainMatch,
+          $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+        },
         groupStage,
         {
           $unionWith: {
@@ -7349,7 +7516,9 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.initReviewSystem();
 
-      let matchQuery: any;
+      let matchQuery: any ={
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+      };
 
       if (dbSource === 'whatsapp') {
         matchQuery = {
@@ -7509,7 +7678,9 @@ export class ChatbotRepository implements IChatbotRepository {
   ): Promise<Array<{question: string; count: number}>> {
     try {
       await this.initReviewSystem();
-      let matchQuery: any;
+      let matchQuery: any = {
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+      };
       if (dbSource !== 'whatsapp') {
         matchQuery = {
           source: 'AJRASAKHA',
@@ -8517,6 +8688,7 @@ export class ChatbotRepository implements IChatbotRepository {
               $gte: start,
               $lt: end,
             },
+            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         },
         {
@@ -8662,6 +8834,7 @@ export class ChatbotRepository implements IChatbotRepository {
         status: {
           $ne: 'closed',
         },
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
       }),
     ]);
 
@@ -8723,6 +8896,7 @@ export class ChatbotRepository implements IChatbotRepository {
               $gte: start,
               $lt: end,
             },
+            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         },
 
@@ -8917,6 +9091,7 @@ export class ChatbotRepository implements IChatbotRepository {
         {
           $match: {
             source: 'WHATSAPP',
+            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         },
 
@@ -9084,6 +9259,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const dupeQuestions = await this.QuestionCollection.find(
         {
           source: 'WHATSAPP',
+          $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           similarityScore: {
             $exists: true,
           },
@@ -9153,6 +9329,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const matchQuery: any = {
         source: 'WHATSAPP',
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
       };
 
       // ============================================
@@ -9225,6 +9402,7 @@ export class ChatbotRepository implements IChatbotRepository {
           {
             $match: {
               source: 'WHATSAPP',
+              $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
               similarityScore: {
                 $exists: true,
               },
@@ -9256,7 +9434,9 @@ export class ChatbotRepository implements IChatbotRepository {
   ): Promise<any> {
     try {
       await this.initReviewSystem();
-      const matchStage: any = {};
+      const matchStage: any = {
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+      };
       if (source !== 'whatsapp') {
         source = 'AJRASAKHA';
       }
@@ -9501,7 +9681,9 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.initReviewSystem();
 
-      const matchStage: any = {};
+      const matchStage: any = {
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+      };
       if (source !== 'whatsapp') {
         source = 'AJRASAKHA';
       }
@@ -9767,7 +9949,9 @@ export class ChatbotRepository implements IChatbotRepository {
   async getCarryForwardQuestions(source?: string): Promise<any> {
     try {
       await this.initReviewSystem();
-      const matchStage: any = {};
+      const matchStage: any = {
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+      };
       if (source !== 'whatsapp') {
         source = 'AJRASAKHA';
       }
@@ -9977,6 +10161,7 @@ export class ChatbotRepository implements IChatbotRepository {
                 ...(queryMatch.createdAt && {
                   createdAt: queryMatch.createdAt,
                 }),
+                $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
               },
             },
 
@@ -10336,7 +10521,9 @@ export class ChatbotRepository implements IChatbotRepository {
 
     // Questions with null userId
     const questionWithNullUsers = await this.QuestionCollection.find(
-      {userId: null},
+      { userId: null,
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+       },
       {
         projection: {
           _id: 1,
@@ -10345,7 +10532,6 @@ export class ChatbotRepository implements IChatbotRepository {
         },
       },
     ).toArray();
-
     const threadIds = questionWithNullUsers
       .filter(q => q.threadId)
       .map(q => q.threadId);
@@ -10353,7 +10539,6 @@ export class ChatbotRepository implements IChatbotRepository {
     const messageIds = questionWithNullUsers
       .filter(q => !q.threadId && q.messageId)
       .map(q => q.messageId);
-
     // Resolve threadId -> user
     const conversations = await this.conversations
       .find(
@@ -10402,8 +10587,11 @@ export class ChatbotRepository implements IChatbotRepository {
           resolvedUserId = messageUserMap.get(q.messageId);
         }
 
-        // No threadId/messageId => treat as external
-        if (!resolvedUserId && userType === 'internal') {
+        // No threadId/messageId => treat as internal
+        if (
+          !resolvedUserId &&
+          userType === 'internal'
+        ) {
           return true;
         }
 
@@ -10694,6 +10882,7 @@ export class ChatbotRepository implements IChatbotRepository {
               ...cropMatch,
               ...typeMatch,
               ...searchMatch,
+              $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
             },
           },
 

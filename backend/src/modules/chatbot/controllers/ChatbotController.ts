@@ -522,8 +522,8 @@ export class ChatbotController {
   @Get('/top-crops')
   @HttpCode(200)
   @Authorized()
-  async getTopCrops(@QueryParams() query: {source?: string}) {
-    return this.chatbotService.getTopCrops(query.source);
+  async getTopCrops(@QueryParams() query: {source?: string, userType?: string}) {
+    return this.chatbotService.getTopCrops(query.source, query.userType);
   }
 
   @OpenAPI({

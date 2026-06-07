@@ -133,11 +133,20 @@ export interface FarmerHeatMapFilters {
   endDate?: string;
 }
 
+export interface FarmerHeatMapMetricTotals {
+  activeFarmers: number;
+  totalQuestions: number;
+  closedQuestions: number;
+  notifiedQuestions: number;
+  averageClosureTimeMinutes: number;
+}
+
 export interface FarmerHeatMapBucket {
   key: string;
   label: string;
   startDate: string;
   endDate: string;
+  totals: FarmerHeatMapMetricTotals;
 }
 
 export interface FarmerHeatMapCell {
@@ -156,12 +165,14 @@ export interface FarmerHeatMapRow {
   label: string;
   scope: 'state' | 'district';
   cells: FarmerHeatMapCell[];
+  totals: FarmerHeatMapMetricTotals;
 }
 
 export interface FarmerHeatMapResponse {
   filters: FarmerHeatMapFilters;
   buckets: FarmerHeatMapBucket[];
   rows: FarmerHeatMapRow[];
+  totals: FarmerHeatMapMetricTotals;
   maxValues: {
     activeFarmers: number;
     totalQuestions: number;
@@ -385,7 +396,9 @@ export interface IChatbotRepository {
 
   getQuestionFromDistrict(district: string, state?: string, questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string, search?: string): Promise<any>;
 
-  getTopCrops(source?: string, session?: ClientSession): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
+  getTopCrops(source?: string, userType?: string, session?: ClientSession): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
+
+    getQuestionsByCrop(crop: string, questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string, search?: string): Promise<any>
 
     getQuestionsByCrop(crop: string, questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string, search?: string): Promise<any>
 

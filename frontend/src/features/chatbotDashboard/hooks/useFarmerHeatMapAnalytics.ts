@@ -23,6 +23,7 @@ export interface FarmerHeatMapBucket {
   label: string;
   startDate: string;
   endDate: string;
+  totals: FarmerHeatMapMetricTotals;
 }
 
 export interface FarmerHeatMapCell {
@@ -36,17 +37,21 @@ export interface FarmerHeatMapCell {
   statusDistribution: Record<string, number>;
 }
 
+export type FarmerHeatMapMetricTotals = Record<FarmerHeatMapMetric, number>;
+
 export interface FarmerHeatMapRow {
   id: string;
   label: string;
   scope: "state" | "district";
   cells: FarmerHeatMapCell[];
+  totals: FarmerHeatMapMetricTotals;
 }
 
 export interface FarmerHeatMapResponse {
   filters: Partial<FarmerHeatMapFilters>;
   buckets: FarmerHeatMapBucket[];
   rows: FarmerHeatMapRow[];
+  totals: FarmerHeatMapMetricTotals;
   maxValues: Record<FarmerHeatMapMetric, number>;
 }
 
@@ -61,6 +66,13 @@ const EMPTY_FARMER_HEAT_MAP_RESPONSE: FarmerHeatMapResponse = {
   filters: {},
   buckets: [],
   rows: [],
+  totals: {
+    activeFarmers: 0,
+    totalQuestions: 0,
+    closedQuestions: 0,
+    notifiedQuestions: 0,
+    averageClosureTimeMinutes: 0,
+  },
   maxValues: {
     activeFarmers: 0,
     totalQuestions: 0,

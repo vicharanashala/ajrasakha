@@ -737,9 +737,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getTopCrops(source?: string) {
+  async getTopCrops(source?: string, userType?: string) {
     try {
-      return await this.chatbotRepository.getTopCrops(source);
+      return await this.chatbotRepository.getTopCrops(source, userType);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch top crops: ${error}`);
     }
@@ -885,7 +885,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
       const total = rows.length;
       const totalPages = Math.max(1, Math.ceil(total / limit));
       const startIndex = (page - 1) * limit;
-      console.log("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<DATA:>>>>>>>>>>>>>>>>", rows.slice(startIndex, startIndex + limit));
       return {
         data: rows.slice(startIndex, startIndex + limit),
         page,
