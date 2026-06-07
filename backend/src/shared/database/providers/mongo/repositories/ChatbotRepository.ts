@@ -2243,11 +2243,15 @@ export class ChatbotRepository implements IChatbotRepository {
           ? new Date(filters.startDate)
           : granularity === 'monthly'
             ? new Date(now.getFullYear(), 0, 1)
+            : granularity === 'hourly'
+              ? new Date(now.getFullYear(), now.getMonth(), now.getDate())
             : new Date(now.getFullYear(), now.getMonth(), 1);
         const endDate = filters.endDate
           ? new Date(filters.endDate)
           : granularity === 'monthly'
             ? new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999)
+            : granularity === 'hourly'
+              ? new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
             : new Date(
                 now.getFullYear(),
                 now.getMonth() + 1,
@@ -2262,7 +2266,10 @@ export class ChatbotRepository implements IChatbotRepository {
         endDate.setHours(23, 59, 59, 999);
 
         const monthLabel = new Intl.DateTimeFormat('en', {month: 'short'});
-        const toDateKey = (date: Date) => date.toISOString().slice(0, 10);
+        const toDateKey = (date: Date) =>
+          `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        const toHourKey = (date: Date) =>
+          `${toDateKey(date)}-${String(date.getHours()).padStart(2, '0')}`;
         const addDays = (date: Date, days: number) => {
           const next = new Date(date);
           next.setDate(next.getDate() + days);
@@ -2324,6 +2331,25 @@ export class ChatbotRepository implements IChatbotRepository {
             cursor.setHours(0, 0, 0, 0);
             week += 1;
           }
+        } else if (granularity === 'hourly') {
+          let cursor = new Date(startDate);
+          cursor.setMinutes(0, 0, 0);
+
+          while (cursor <= endDate) {
+            const bucketStart = new Date(cursor);
+            const bucketEnd = new Date(cursor);
+            bucketEnd.setMinutes(59, 59, 999);
+            if (bucketEnd > endDate) bucketEnd.setTime(endDate.getTime());
+
+            buckets.push({
+              key: toHourKey(cursor),
+              label: `${String(cursor.getHours()).padStart(2, '0')}:00`,
+              startDate: bucketStart.toISOString(),
+              endDate: bucketEnd.toISOString(),
+            });
+
+            cursor.setHours(cursor.getHours() + 1, 0, 0, 0);
+          }
         } else {
           let cursor = new Date(startDate);
           let day = 1;
@@ -2361,6 +2387,9 @@ export class ChatbotRepository implements IChatbotRepository {
           }
           if (granularity === 'daily') {
             return toDateKey(date);
+          }
+          if (granularity === 'hourly') {
+            return toHourKey(date);
           }
           const bucket = buckets.find(item => {
             const range = bucketMap.get(item.key);
