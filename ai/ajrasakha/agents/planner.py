@@ -590,6 +590,7 @@ def route_after_planner(state: AjraSakhaState) -> str:
 
 def route_after_ensure_location(state: AjraSakhaState) -> str:
     plan = state.get("plan") or {}
-    if plan.get("is_agriculture_related") is False:
+    is_greeting = plan.get("is_greeting") or plan.get("reasoning") == "greeting"
+    if plan.get("is_agriculture_related") is False and not is_greeting:
         return "upload_reviewer_only"
     return "execute_plan"
