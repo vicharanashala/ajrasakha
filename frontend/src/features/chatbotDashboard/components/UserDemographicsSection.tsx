@@ -7,6 +7,7 @@ import { MissingDemographicsModal } from "./MissingDemographicsModal";
 import { useUserMertices } from "../hooks/useDashboardData";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { useQueryClient } from "@tanstack/react-query";
+import { motion, AnimatePresence } from "framer-motion";
 
 const AGE_COLORS: Record<string, string> = {
   "Less than 16": "#2DD4BF",
@@ -92,72 +93,131 @@ function DonutSegments({ segments, onSegmentClick }: { segments: { label: string
   );
 }
 
-function EnlargedDonutSegments({ segments, onSegmentClick }: { segments: { label: string; count: number; pct: number; color: string }[], onSegmentClick?: () => void }) {
-  const [hoveredSeg, setHoveredSeg] = useState<{ label: string; count: number } | null>(null);
+function EnlargedDonutSegments({
+  segments,
+  onSegmentClick,
+}: {
+  segments: { label: string; count: number; pct: number; color: string }[];
+  onSegmentClick?: () => void;
+}) {
+  const [hoveredSeg, setHoveredSeg] = useState<{
+    label: string;
+    count: number;
+  } | null>(null);
   const displayTotal = segments.reduce((s, x) => s + x.count, 0);
   const totalCount = displayTotal || 1;
-  const r = 80, cx = 100, cy = 100, circ = 2 * Math.PI * r;
+  const r = 80,
+    cx = 100,
+    cy = 100,
+    circ = 2 * Math.PI * r;
+  const GAP = 2; // px gap between arcs
   let offset = 0;
+
   return (
     <div className="flex flex-col lg:flex-row items-center justify-center gap-8 w-full">
       <div className="relative flex-shrink-0">
-      <svg width={200} height={200} viewBox="0 0 200 200" className="flex-shrink-0">
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e5e7eb" strokeWidth={28} strokeLinecap="butt" />
-        {segments.map((seg) => {
-          const dash = (seg.count / totalCount) * circ;
-          const el = (
-            <circle key={seg.label} cx={cx} cy={cy} r={r} fill="none" stroke={seg.color}
-              strokeWidth={28} strokeLinecap="butt"
-              strokeDasharray={`${dash} ${circ * 10}`}
-              strokeDashoffset={-offset} transform={`rotate(-90 ${cx} ${cy})`}
-                className={`transition-opacity duration-200 hover:opacity-80 ${seg.label === 'Not Provided' && onSegmentClick ? 'cursor-pointer hover:stroke-gray-500' : 'cursor-default'}`}
+        <svg
+          width={200}
+          height={200}
+          viewBox="0 0 200 200"
+          className="flex-shrink-0"
+        >
+          {/* Track */}
+          <circle
+            cx={cx}
+            cy={cy}
+            r={r}
+            fill="none"
+            className="stroke-gray-100 dark:stroke-white/5"
+            strokeWidth={28}
+          />
+
+          {segments.map((seg) => {
+            const full = (seg.count / totalCount) * circ;
+            const dash = Math.max(0, full - GAP); // shorten to create gap
+            const isInteractive =
+              seg.label === "Not Provided" && onSegmentClick;
+            const el = (
+              <circle
+                key={seg.label}
+                cx={cx}
+                cy={cy}
+                r={r}
+                fill="none"
+                stroke={seg.color}
+                strokeWidth={28}
+                strokeLinecap="butt"
+                strokeDasharray={`${dash} ${circ}`}
+                strokeDashoffset={-offset}
+                transform={`rotate(-90 ${cx} ${cy})`}
+                className={`transition-all duration-200 hover:opacity-90 ${
+                  isInteractive ? "cursor-pointer" : "cursor-default"
+                }`}
                 onMouseEnter={() => setHoveredSeg(seg)}
                 onMouseLeave={() => setHoveredSeg(null)}
                 onClick={() => {
-                  if (seg.label === 'Not Provided' && onSegmentClick) {
-                    onSegmentClick();
-                  }
+                  if (isInteractive) onSegmentClick!();
                 }}
               />
-          );
-          offset += dash;
-          return el;
-        })}
-      </svg>
+            );
+            offset += full;
+            return el;
+          })}
+        </svg>
+
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
           {hoveredSeg ? (
             <>
-              <span className="text-sm text-gray-800 dark:text-gray-200 max-w-[120px] truncate mb-1">{hoveredSeg.label}</span>
-              <span className="text-3xl font-bold text-gray-800 dark:text-gray-100">{formatCount(hoveredSeg.count)}</span>
+              <span className="text-sm text-gray-800 dark:text-gray-200 max-w-[120px] truncate mb-1">
+                {hoveredSeg.label}
+              </span>
+              <span className="text-3xl font-bold text-gray-800 dark:text-gray-100 tabular-nums">
+                {formatCount(hoveredSeg.count)}
+              </span>
             </>
           ) : (
             <>
-              <span className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-1">{formatCount(displayTotal)}</span>
-              <span className="text-sm text-gray-500 uppercase tracking-wider">Total</span>
+              <span className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-1 tabular-nums">
+                {formatCount(displayTotal)}
+              </span>
+              <span className="text-sm text-gray-500 uppercase tracking-wider">
+                Total
+              </span>
             </>
           )}
         </div>
       </div>
+
+      {/* Legend with colored swatches that match each segment */}
       <div className="flex flex-col gap-3 w-full max-w-md">
         {segments.map((s) => (
-          <div 
-            key={s.label} 
-            className={`flex items-center gap-3 text-base text-gray-600 dark:text-gray-300 ${s.label === 'Not Provided' && onSegmentClick ? 'cursor-pointer hover:opacity-80' : ''}`}
+          <div
+            key={s.label}
+            className={`flex items-center gap-3 text-base text-gray-600 dark:text-gray-300 ${
+              s.label === "Not Provided" && onSegmentClick
+                ? "cursor-pointer hover:opacity-80"
+                : ""
+            }`}
             onClick={() => {
-              if (s.label === 'Not Provided' && onSegmentClick) {
+              if (s.label === "Not Provided" && onSegmentClick)
                 onSegmentClick();
-              }
             }}
           >
-            <span className="w-4 h-4 rounded-sm flex-shrink-0" style={{ background: s.color }} />
+            <span
+              className="w-4 h-4 rounded-sm flex-shrink-0 ring-1 ring-black/5"
+              style={{ background: s.color }}
+            />
             <span className="flex-1">{s.label}</span>
-            <span className="font-semibold text-gray-800 dark:text-gray-100 text-lg min-w-[60px] text-right flex-shrink-0">{formatCount(s.count)}</span>
+            <span className="font-semibold text-gray-800 dark:text-gray-100 text-lg min-w-[60px] text-right flex-shrink-0 tabular-nums">
+              {formatCount(s.count)}
+            </span>
           </div>
         ))}
       </div>
     </div>
   );
 }
+
 
 
 function HorizontalBars({ segments, onSegmentClick }: { segments: { label: string; count: number; pct: number; color: string }[], onSegmentClick?: () => void }) {
@@ -331,38 +391,81 @@ function DemographicCard({
       {isMaximized &&
         segments.length > 0 &&
         createPortal(
-          <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
-            onClick={() => setIsMaximized(false)}
-          >
-            <div
-              className="bg-white dark:bg-[#1a1a1a] rounded-lg shadow-2xl max-w-3xl w-full p-8 relative"
-              onClick={(e) => e.stopPropagation()}
+          <AnimatePresence>
+            <motion.div
+              key="chart-modal-overlay"
+              className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
+              onClick={() => setIsMaximized(false)}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
             >
-              {/* Close Button */}
-              <button
-                onClick={() => setIsMaximized(false)}
-                className="absolute top-4 right-4 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                title="Close"
+              <motion.div
+                role="dialog"
+                aria-modal="true"
+                className="relative w-full max-w-3xl rounded-2xl bg-white dark:bg-[#111] shadow-[0_20px_70px_-15px_rgba(0,0,0,0.45)] ring-1 ring-black/5 dark:ring-white/10 overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+                initial={{ opacity: 0, scale: 0.96, y: 16 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.97, y: 8 }}
+                transition={{ type: "spring", stiffness: 320, damping: 28 }}
               >
-                <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-              </button>
+                {/* Accent gradient bar */}
+                <div className="h-1 w-full bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
 
-              {/* Header */}
-              <div className="mb-8">
-                <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
-                  {title}
-                </h3>
-              </div>
+                <div className="p-8">
+                  {/* Close */}
+                  <motion.button
+                    onClick={() => setIsMaximized(false)}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.92 }}
+                    className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+                    aria-label="Close"
+                  >
+                    <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                  </motion.button>
 
-              {/* Enlarged Chart */}
-              {type === "donut" ? (
-                <EnlargedDonutSegments segments={segments} onSegmentClick={onSegmentClick} />
-              ) : (
-                <EnlargedHorizontalBars segments={segments} onSegmentClick={onSegmentClick} />
-              )}
-            </div>
-          </div>,
+                  {/* Header */}
+                  <motion.div
+                    className="mb-8 flex items-center gap-3"
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.08 }}
+                  >
+                    <span className="h-5 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
+                    <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                      {title}
+                    </h3>
+                  </motion.div>
+
+                  {/* Enlarged chart */}
+                  <motion.div
+                    className="rounded-xl bg-gray-50/60 dark:bg-white/5 p-6 ring-1 ring-black/5 dark:ring-white/10"
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.15, duration: 0.3 }}
+                  >
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key={type}
+                        initial={{ opacity: 0, scale: 0.97 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.98 }}
+                        transition={{ duration: 0.22 }}
+                      >
+                        {type === "donut" ? (
+                          <EnlargedDonutSegments segments={segments} onSegmentClick={onSegmentClick} />
+                        ) : (
+                          <EnlargedHorizontalBars segments={segments} onSegmentClick={onSegmentClick} />
+                        )}
+                      </motion.div>
+                    </AnimatePresence>
+                  </motion.div>
+                </div>
+              </motion.div>
+            </motion.div>
+          </AnimatePresence>,
           document.body,
         )}
     </>
