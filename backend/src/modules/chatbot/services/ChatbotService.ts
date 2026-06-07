@@ -884,7 +884,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
       const total = rows.length;
       const totalPages = Math.max(1, Math.ceil(total / limit));
       const startIndex = (page - 1) * limit;
-      console.log("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<DATA:>>>>>>>>>>>>>>>>", rows.slice(startIndex, startIndex + limit));
       return {
         data: rows.slice(startIndex, startIndex + limit),
         page,
