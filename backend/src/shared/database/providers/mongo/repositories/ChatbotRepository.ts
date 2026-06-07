@@ -9436,6 +9436,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   async getClosedVsTotalQuestions(
     source: string,
+    userType?: string,
     startDate?: Date,
     endDate?: Date,
   ): Promise<any> {
@@ -9453,6 +9454,13 @@ export class ChatbotRepository implements IChatbotRepository {
         if (startDate) matchStage.createdAt.$gte = startDate;
         if (endDate) matchStage.createdAt.$lte = endDate;
       }
+      Object.assign(
+        matchStage,
+        await this.buildUserTypeMatchQuery(
+          source,
+          userType,
+        ),
+      ); 
 
       const previousMonthReferenceDate = startDate ?? new Date();
       const previousMonthStart = new Date(
@@ -9682,6 +9690,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   async getNotifiedVsClosed(
     source?: string,
+    userType?: string,
     startDate?: Date,
     endDate?: Date,
   ): Promise<any> {
@@ -9701,6 +9710,13 @@ export class ChatbotRepository implements IChatbotRepository {
         if (startDate) matchStage.createdAt.$gte = startDate;
         if (endDate) matchStage.createdAt.$lte = endDate;
       }
+      Object.assign(
+        matchStage,
+        await this.buildUserTypeMatchQuery(
+          source,
+          userType,
+        ),
+      );
 
       const [result] = await this.QuestionCollection.aggregate([
         {
@@ -9771,6 +9787,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   async getClosedInLastTwoHours(
     source?: string,
+    userType?: string,
     startDate?: Date,
     endDate?: Date,
   ): Promise<any> {
@@ -9794,6 +9811,13 @@ export class ChatbotRepository implements IChatbotRepository {
         if (startDate) matchStage.createdAt.$gte = startDate;
         if (endDate) matchStage.createdAt.$lte = endDate;
       }
+      Object.assign(
+        matchStage,
+        await this.buildUserTypeMatchQuery(
+          source,
+          userType,
+        ),
+      );
 
       const count = await this.QuestionCollection.countDocuments(matchStage);
       return count;
@@ -9953,7 +9977,7 @@ export class ChatbotRepository implements IChatbotRepository {
     return results;
   }
 
-  async getCarryForwardQuestions(source?: string): Promise<any> {
+  async getCarryForwardQuestions(source?: string, userType?: string): Promise<any> {
     try {
       await this.initReviewSystem();
       const matchStage: any = {
@@ -9963,6 +9987,13 @@ export class ChatbotRepository implements IChatbotRepository {
         source = 'AJRASAKHA';
       }
       matchStage.source = source.toUpperCase();
+      Object.assign(
+        matchStage,
+        await this.buildUserTypeMatchQuery(
+          source,
+          userType,
+        ),
+      );
       const carryForwardWindowStart = new Date(
         new Date().toLocaleString('en-US', {
           timeZone: 'Asia/Kolkata',

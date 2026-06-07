@@ -246,15 +246,16 @@ export const useAllWhatsappUsers = () => {
   });
 };
 
-export const useClosedAndNotifedData = (source: string, startDate?: string, endDate?: string, enabled: boolean = true)=>{
+export const useClosedAndNotifedData = (source: string, userType: string, startDate?: string, endDate?: string, enabled: boolean = true)=>{
   return useQuery({
     queryKey: ["closed-notified-data",
       source,
+      userType,
       startDate,
       endDate,
     ],
     queryFn: () => {
-      return chatbotService.getClosedAndNotifedData(source, startDate, endDate);
+      return chatbotService.getClosedAndNotifedData(source, userType, startDate, endDate);
     },
     placeholderData: (previousData) => previousData,
     enabled,
