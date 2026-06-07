@@ -309,7 +309,6 @@ export function AnnamDashboard_dev({
   const { data: queryCategories } = useQueryCategories(
     source,
     filters.userType,
-    filters.userType,
     shouldLoadQueryInsights,
   );
   const [trendsDateRange, setTrendsDateRange] = useState<DateRange | undefined>(
