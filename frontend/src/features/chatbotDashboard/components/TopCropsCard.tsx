@@ -318,7 +318,7 @@ export const TopCropsCard = ({topCrops,
                       />
                       <Bar dataKey="count" radius={[6, 6, 0, 0]}>
                         {processedData.map((entry: any, index: any) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
+                          <Cell key={`cell-${index}`} fill={entry.color} onClick={()=>handleClick(entry.name)}/>
                         ))}
                       </Bar>
                     </BarChart>

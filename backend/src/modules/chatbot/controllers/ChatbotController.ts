@@ -406,6 +406,7 @@ export class ChatbotController {
     query: {
       category?: string;
       district?: string;
+      state?: string;
       crop?: string;
       questionType?: QueryCategoryQuestionType;
       page?: number;
@@ -428,6 +429,7 @@ export class ChatbotController {
     }else if(query.district){
       return this.chatbotService.getQuestionFromDistrict(
       query.district,
+      query.state,
       query.questionType,
       query.page,
       query.limit,

@@ -2118,10 +2118,10 @@ export class ChatbotRepository implements IChatbotRepository {
         },
       };
 
-      Object.assign(
-        matchQuery,
-        await this.buildUserTypeMatchQuery(source, userType),
-      );
+      // Object.assign(
+      //   matchQuery,
+      //   await this.buildUserTypeMatchQuery(source, userType),
+      // );
 
       // const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
 
@@ -2250,6 +2250,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   async getQuestionFromDistrict(
     district: string,
+    state: string,
     questionType: QueryCategoryQuestionType = 'all',
     page = 1,
     limit = 10,
@@ -2276,7 +2277,7 @@ export class ChatbotRepository implements IChatbotRepository {
       if (!districtLabel) {
         throw new BadRequestError('district is required');
       }
-      const districtMatch = {'details.district': districtLabel};
+      const districtMatch = {'details.state': state,'details.district': districtLabel};
       const typeMatch =
         questionType === 'duplicate'
           ? {status: 'duplicate'}

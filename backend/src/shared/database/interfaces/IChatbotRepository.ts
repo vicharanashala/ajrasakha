@@ -383,7 +383,7 @@ export interface IChatbotRepository {
     search?: string
   ): Promise<PaginatedQueryCategoryQuestions>;
 
-  getQuestionFromDistrict(district: string, questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string, search?: string): Promise<any>;
+  getQuestionFromDistrict(district: string, state?: string, questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string, search?: string): Promise<any>;
 
   getTopCrops(source?: string, session?: ClientSession): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
 

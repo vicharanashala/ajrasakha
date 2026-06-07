@@ -162,6 +162,7 @@ export interface QueryCategoryQuestionsResponse {
 export const useQuestionFilter = ({
   category,
   district,
+  state,
   crop,
   questionType,
   page,
@@ -173,6 +174,7 @@ export const useQuestionFilter = ({
 }: {
   category?: string;
   district?: string;
+  state?: string
   crop?: string
   questionType: QueryCategoryQuestionType;
   page: number;
@@ -187,6 +189,7 @@ export const useQuestionFilter = ({
     "get-question-filter",
     category,
     district,
+    state,
     crop,
     questionType,
     page,
@@ -199,6 +202,7 @@ export const useQuestionFilter = ({
       chatbotService.getQuestionByFilters({
         category: category ?? "",
         district: district ?? "",
+        state: state ?? "",
         crop: crop ?? "",
         questionType,
         page,

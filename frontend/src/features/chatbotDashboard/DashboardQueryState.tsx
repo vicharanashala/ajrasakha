@@ -430,6 +430,7 @@ export const DashboardStateWiseAnalytics = ({
          {selectedDistrict && (
             <QueryCategoryQuestionsModal
               district={selectedDistrict}
+              state= {selectedState}
               source={source}
               userType={userType}
               isQueryCategory = {false}

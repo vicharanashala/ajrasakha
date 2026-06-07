@@ -53,6 +53,7 @@ const CopyableIdCell = ({ id }: { id?: string }) => {
 interface QueryCategoryQuestionsModalProps {
   category?: string;
   district?: string;
+  state?: string
   crop?: string;
   source: "vicharanashala" | "annam" | "whatsapp";
   userType?: string;
@@ -65,6 +66,7 @@ const PAGE_SIZE = 10;
 export function QueryCategoryQuestionsModal({
   category,
   district,
+  state,
   crop,
   source,
   userType = "all",
@@ -97,6 +99,7 @@ useEffect(() => {
   const { data, isLoading, isError, isFetching } = useQuestionFilter({
   category,
   district,
+  state,
   crop,
   questionType,
   page,
