@@ -37,6 +37,7 @@ import {
   UserCheck2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {motion} from "framer-motion";
 
 export interface UserDetailsFilters {
   search: string;
@@ -196,7 +197,7 @@ export function UserDetailsPreferenceFilter({
           <Filter className="h-4 w-4" />
           Preferences
           {activeCount > 0 && (
-            <Badge className="ml-0.5 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-[#3AAA5A] hover:bg-[#3AAA5A] text-white">
+            <Badge className="ml-0.5 h-5 min-w-5 rounded-full px-1.5 flex items-center justify-center text-xs bg-[#3AAA5A] hover:bg-[#3AAA5A] text-white">
               {activeCount}
             </Badge>
           )}
@@ -204,221 +205,220 @@ export function UserDetailsPreferenceFilter({
       </DialogTrigger>
 
       <DialogContent
-        className="sm:max-w-lg w-full p-0 gap-0 overflow-hidden z-[10001]"
-        overlayClassName="z-[10000]"
+        className="sm:max-w-3xl w-full p-0 gap-0 overflow-hidden z-[10001] bg-white dark:bg-[#0f0f0f] border-gray-200 dark:border-gray-800 shadow-2xl"
+        overlayClassName="z-[10000] bg-black/60 backdrop-blur-sm"
       >
-        {/* Header */}
-        <DialogHeader className="px-6 pt-5 pb-4 border-b border-gray-100 dark:border-gray-800">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-[#3AAA5A]/10">
-              <Filter className="h-4 w-4 text-[#3AAA5A]" />
-            </div>
-            <div>
-              <DialogTitle className="text-base font-semibold">
-                Filter Preferences
-              </DialogTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Refine the farmer list with one or more filters
-              </p>
-            </div>
-          </div>
-        </DialogHeader>
-
-        {/* Body */}
-        <div className="px-6 py-5 space-y-3 max-h-[60vh] overflow-y-auto">
-          {/* User Type */}
-          {!hideFields.includes("userType") && (
-            <FilterSection
-              icon={<UserCheck className="h-3.5 w-3.5" />}
-              label="User Type"
-            >
-              <Select
-                value={draft.userType}
-                onValueChange={(v) =>
-                  setDraft((d) => ({
-                    ...d,
-                    userType: v as "all" | "internal" | "external",
-                  }))
-                }
+        <motion.div
+          initial={{ opacity: 0, y: 12, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          className="flex flex-col"
+        >
+          {/* Header — filled gradient strip */}
+          <DialogHeader className="relative px-6 pt-5 pb-5 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-br from-[#3AAA5A]/10 via-white to-white dark:from-[#3AAA5A]/10 dark:via-[#141414] dark:to-[#0f0f0f]">
+            <div className="flex items-center gap-3">
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.05, duration: 0.2 }}
+                className="flex items-center justify-center w-11 h-11 rounded-xl bg-[#3AAA5A] text-white shadow-lg shadow-[#3AAA5A]/30 shrink-0"
               >
-                <SelectTrigger className="h-10 text-sm rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1e1e1e]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="z-[10002]">
-                  <SelectItem value="all">All Users</SelectItem>
-                  <SelectItem value="external">External Users</SelectItem>
-                  <SelectItem value="internal">Internal Users</SelectItem>
-                </SelectContent>
-              </Select>
-            </FilterSection>
-          )}
-
-          {/* Search
-          <FilterSection icon={<Search className="h-3.5 w-3.5" />} label="Name / Email">
-            <input
-              type="text"
-              placeholder="Search by name or email..."
-              value={draft.search}
-              onChange={(e) => setDraft((d) => ({ ...d, search: e.target.value }))}
-              className={inputClass}
-            />
-          </FilterSection> */}
-
-          {/* Crop */}
-          {!hideFields.includes("crop") && (
-            <FilterSection
-              icon={<Sprout className="h-3.5 w-3.5" />}
-              label="Crop"
-            >
-              <input
-                type="text"
-                placeholder="e.g. rice, wheat..."
-                value={draft.crop}
-                onChange={(e) =>
-                  setDraft((d) => ({ ...d, crop: e.target.value }))
-                }
-                className={inputClass}
-              />
-            </FilterSection>
-          )}
-
-          {/* Location fields */}
-          <FilterSection
-            icon={<MapPin className="h-3.5 w-3.5" />}
-            label="Location"
-          >
-            <div className="grid grid-cols-2 gap-3">
-              <input
-                type="text"
-                placeholder="Village..."
-                value={draft.village}
-                onChange={(e) =>
-                  setDraft((d) => ({ ...d, village: e.target.value }))
-                }
-                className={inputClass}
-              />
-              <input
-                type="text"
-                placeholder="Block..."
-                value={draft.block}
-                onChange={(e) =>
-                  setDraft((d) => ({ ...d, block: e.target.value }))
-                }
-                className={inputClass}
-              />
-              <input
-                type="text"
-                placeholder="District..."
-                value={draft.district}
-                onChange={(e) =>
-                  setDraft((d) => ({ ...d, district: e.target.value }))
-                }
-                className={inputClass}
-              />
-              <input
-                type="text"
-                placeholder="State..."
-                value={draft.state}
-                onChange={(e) =>
-                  setDraft((d) => ({ ...d, state: e.target.value }))
-                }
-                className={inputClass}
-              />
-            </div>
-          </FilterSection>
-
-          {/* Date Range */}
-          <FilterSection
-            icon={<Calendar className="h-3.5 w-3.5" />}
-            label="Date Range"
-          >
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <span className="text-xs text-muted-foreground font-medium">
-                  From
-                </span>
-                <input
-                  type="date"
-                  value={toDateInputValue(draft.startTime)}
-                  max={
-                    toDateInputValue(draft.endTime) ||
-                    toDateInputValue(new Date())
-                  }
-                  onChange={(e) =>
-                    setDraft((d) => ({
-                      ...d,
-                      startTime: fromDateInputValue(e.target.value),
-                    }))
-                  }
-                  className={inputClass}
-                />
+                <Filter className="h-5 w-5" />
+              </motion.div>
+              <div className="min-w-0">
+                <DialogTitle className="text-base font-semibold tracking-tight">
+                  Filter Preferences
+                </DialogTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Refine the farmer list with one or more filters
+                </p>
               </div>
-              <div className="space-y-1">
-                <span className="text-xs text-muted-foreground font-medium">
-                  To
-                </span>
-                <input
-                  type="date"
-                  value={toDateInputValue(draft.endTime)}
-                  min={toDateInputValue(draft.startTime)}
-                  max={toDateInputValue(new Date())}
-                  onChange={(e) =>
-                    setDraft((d) => ({
-                      ...d,
-                      endTime: fromDateInputValue(e.target.value),
-                    }))
-                  }
-                  className={inputClass}
-                />
-              </div>
-            </div>
-            {draft.inactiveOnly && inactiveDateError && (
-              <p className="text-xs text-destructive mt-2">
-                {inactiveDateError}
-              </p>
-            )}
-            {draft.inactiveOnly && !inactiveDateError && (
-              <p className="text-xs text-muted-foreground mt-2">
-                Range: 3–30 days
-              </p>
-            )}
-          </FilterSection>
-
-          {/* Inactive Users */}
-          {!hideFields.includes("inactive") && (
-            <div className="rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#161616] p-4">
-              <div className="flex items-center justify-between">
-                <Label className="flex items-center gap-2 text-sm font-semibold text-(--foreground)">
-                  <span className="flex items-center justify-center w-6 h-6 rounded-md bg-[#3AAA5A]/10 text-[#3AAA5A]">
-                    <UserX className="h-3.5 w-3.5" />
-                  </span>
-                  Inactive Users
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="h-3.5 w-3.5 text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent
-                      side="top"
-                      className="max-w-[200px] text-xs"
-                    >
-                      Shows users who have not asked any questions in the
-                      selected date range
-                    </TooltipContent>
-                  </Tooltip>
-                </Label>
-                <label
-                  htmlFor="inactive-only"
-                  className={cn(
-                    "relative inline-flex h-[22px] w-[40px] shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200",
-                    draft.inactiveOnly
-                      ? "bg-[#3AAA5A]"
-                      : "bg-gray-300 dark:bg-gray-600",
-                  )}
+              {activeCount > 0 && (
+                <motion.span
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="ml-auto text-xs font-semibold text-white bg-[#3AAA5A] px-3 py-1.5 rounded-full shadow-sm"
                 >
-                  <input
-                    type="checkbox"
+                  {activeCount} active
+                </motion.span>
+              )}
+            </div>
+          </DialogHeader>
+
+          {/* Body — filled panels, no wasted space */}
+          <div className="px-6 py-5 max-h-[65vh] overflow-y-auto bg-gray-50/60 dark:bg-[#0d0d0d]">
+            <div className="grid grid-cols-2 gap-3">
+              {/* Row 1: User Type + Crop */}
+              {!hideFields.includes("userType") && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.07 }}
+                  className="col-span-1 rounded-xl bg-white dark:bg-[#161616] border border-gray-200/70 dark:border-gray-800 p-3.5"
+                >
+                  <FilterSection
+                    icon={<UserCheck className="h-3.5 w-3.5" />}
+                    label="User Type"
+                  >
+                    <Select
+                      value={draft.userType}
+                      onValueChange={(v) =>
+                        setDraft((d) => ({
+                          ...d,
+                          userType: v as "all" | "internal" | "external",
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="h-10 text-sm rounded-lg border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1e1e1e]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="z-[10002]">
+                        <SelectItem value="all">All Users</SelectItem>
+                        <SelectItem value="external">External Users</SelectItem>
+                        <SelectItem value="internal">Internal Users</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FilterSection>
+                </motion.div>
+              )}
+
+              {!hideFields.includes("crop") && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.09 }}
+                  className="col-span-1 rounded-xl bg-white dark:bg-[#161616] border border-gray-200/70 dark:border-gray-800 p-3.5"
+                >
+                  <FilterSection
+                    icon={<Sprout className="h-3.5 w-3.5" />}
+                    label="Crop"
+                  >
+                    <input
+                      type="text"
+                      placeholder="e.g. rice, wheat..."
+                      value={draft.crop}
+                      onChange={(e) =>
+                        setDraft((d) => ({ ...d, crop: e.target.value }))
+                      }
+                      className={inputClass}
+                    />
+                  </FilterSection>
+                </motion.div>
+              )}
+
+              {/* Location — full width filled panel */}
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.11 }}
+                className="col-span-2 rounded-xl bg-white dark:bg-[#161616] border border-gray-200/70 dark:border-gray-800 p-3.5"
+              >
+                <FilterSection
+                  icon={<MapPin className="h-3.5 w-3.5" />}
+                  label="Location"
+                >
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      ["Village", "village"],
+                      ["Block", "block"],
+                      ["District", "district"],
+                      ["State", "state"],
+                    ].map(([ph, key]) => (
+                      <input
+                        key={key}
+                        type="text"
+                        placeholder={ph}
+                        value={(draft as any)[key]}
+                        onChange={(e) =>
+                          setDraft((d) => ({ ...d, [key]: e.target.value }))
+                        }
+                        className={inputClass}
+                      />
+                    ))}
+                  </div>
+                </FilterSection>
+              </motion.div>
+
+              {/* Date Range */}
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.13 }}
+                className="col-span-2 rounded-xl bg-white dark:bg-[#161616] border border-gray-200/70 dark:border-gray-800 p-3.5"
+              >
+                <FilterSection
+                  icon={<Calendar className="h-3.5 w-3.5" />}
+                  label="Date Range"
+                >
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <span className="text-xs text-muted-foreground font-medium">
+                        From
+                      </span>
+                      <input
+                        type="date"
+                        value={toDateInputValue(draft.startTime)}
+                        max={
+                          toDateInputValue(draft.endTime) ||
+                          toDateInputValue(new Date())
+                        }
+                        onChange={(e) =>
+                          setDraft((d) => ({
+                            ...d,
+                            startTime: fromDateInputValue(e.target.value),
+                          }))
+                        }
+                        className={inputClass}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-xs text-muted-foreground font-medium">
+                        To
+                      </span>
+                      <input
+                        type="date"
+                        value={toDateInputValue(draft.endTime)}
+                        min={toDateInputValue(draft.startTime)}
+                        max={toDateInputValue(new Date())}
+                        onChange={(e) =>
+                          setDraft((d) => ({
+                            ...d,
+                            endTime: fromDateInputValue(e.target.value),
+                          }))
+                        }
+                        className={inputClass}
+                      />
+                    </div>
+                  </div>
+                  {draft.inactiveOnly && inactiveDateError && (
+                    <p className="text-xs text-destructive mt-2">
+                      {inactiveDateError}
+                    </p>
+                  )}
+                  {draft.inactiveOnly && !inactiveDateError && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Range: 3–30 days
+                    </p>
+                  )}
+                </FilterSection>
+              </motion.div>
+
+              {/* Toggle row — filled, 3-up */}
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15 }}
+                className="col-span-2 grid grid-cols-3 gap-3"
+              >
+                {!hideFields.includes("inactive") && (
+                  <ToggleCard
                     id="inactive-only"
-                    className="sr-only"
+                    icon={<UserX className="h-3.5 w-3.5" />}
+                    iconBg="bg-[#3AAA5A]/10"
+                    iconColor="text-[#3AAA5A]"
+                    activeColor="bg-[#3AAA5A]"
+                    label="Inactive Users"
+                    tooltip="Shows users who have not asked any questions in the selected date range"
                     checked={draft.inactiveOnly}
                     onChange={(e) =>
                       setDraft((d) => ({
@@ -435,106 +435,29 @@ export function UserDetailsPreferenceFilter({
                       }))
                     }
                   />
-                  <span
-                    className={cn(
-                      "pointer-events-none inline-block h-[18px] w-[18px] rounded-full bg-white shadow transition-transform duration-200",
-                      draft.inactiveOnly
-                        ? "translate-x-[20px]"
-                        : "translate-x-[2px]",
-                    )}
-                  />
-                </label>
-              </div>
-            </div>
-          )}
-
-          {/* Unverified Users */}
-          {true && (
-            <div className="rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#161616] p-4">
-              <div className="flex items-center justify-between">
-                <Label className="flex items-center gap-2 text-sm font-semibold text-(--foreground)">
-                  <span className="flex items-center justify-center w-6 h-6 rounded-md bg-violet-500/10 text-violet-500">
-                    <UserCheck2 className="h-3.5 w-3.5" />
-                  </span>
-                  Unverified Users
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="h-3.5 w-3.5 text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent
-                      side="top"
-                      className="max-w-[200px] text-xs"
-                    >
-                      Shows users waiting for admin verfication
-                    </TooltipContent>
-                  </Tooltip>
-                </Label>
-                <label
-                  htmlFor="un-verified-users-only"
-                  className={cn(
-                    "relative inline-flex h-[22px] w-[40px] shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200",
-                    !draft.isVerified
-                      ? "bg-violet-500"
-                      : "bg-gray-300 dark:bg-gray-600",
-                  )}
-                >
-                  <input
-                    type="checkbox"
-                    id="un-verified-users-only"
-                    className="sr-only"
-                    checked={!draft.isVerified}
-                    onChange={(e) =>
-                      setDraft((d) => ({ ...d, isVerified: !e.target.checked }))
-                    }
-                  />
-                  <span
-                    className={cn(
-                      "pointer-events-none inline-block h-[18px] w-[18px] rounded-full bg-white shadow transition-transform duration-200",
-                      !draft.isVerified
-                        ? "translate-x-[20px]"
-                        : "translate-x-[2px]",
-                    )}
-                  />
-                </label>
-              </div>
-            </div>
-          )}
-
-          {/* Low Feedback Users */}
-          {!hideFields.includes("lowFeedback") && (
-            <div className="rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#161616] p-4">
-              <div className="flex items-center justify-between">
-                <Label className="flex items-center gap-2 text-sm font-semibold text-(--foreground)">
-                  <span className="flex items-center justify-center w-6 h-6 rounded-md bg-orange-500/10 text-orange-500">
-                    <MessageSquareOff className="h-3.5 w-3.5" />
-                  </span>
-                  Low Feedback Users
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="h-3.5 w-3.5 text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent
-                      side="top"
-                      className="max-w-[200px] text-xs"
-                    >
-                      Shows users who have never given any feedback (no thumbs
-                      up/down on any response)
-                    </TooltipContent>
-                  </Tooltip>
-                </Label>
-                <label
-                  htmlFor="low-feedback-only"
-                  className={cn(
-                    "relative inline-flex h-[22px] w-[40px] shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200",
-                    draft.lowFeedbackOnly
-                      ? "bg-orange-500"
-                      : "bg-gray-300 dark:bg-gray-600",
-                  )}
-                >
-                  <input
-                    type="checkbox"
+                )}
+                <ToggleCard
+                  id="un-verified-users-only"
+                  icon={<UserCheck2 className="h-3.5 w-3.5" />}
+                  iconBg="bg-violet-500/10"
+                  iconColor="text-violet-500"
+                  activeColor="bg-violet-500"
+                  label="Unverified Users"
+                  tooltip="Shows users waiting for admin verification"
+                  checked={!draft.isVerified}
+                  onChange={(e) =>
+                    setDraft((d) => ({ ...d, isVerified: !e.target.checked }))
+                  }
+                />
+                {!hideFields.includes("lowFeedback") && (
+                  <ToggleCard
                     id="low-feedback-only"
-                    className="sr-only"
+                    icon={<MessageSquareOff className="h-3.5 w-3.5" />}
+                    iconBg="bg-orange-500/10"
+                    iconColor="text-orange-500"
+                    activeColor="bg-orange-500"
+                    label="Low Feedback"
+                    tooltip="Shows users who have never given any feedback (no thumbs up/down on any response)"
                     checked={draft.lowFeedbackOnly}
                     onChange={(e) =>
                       setDraft((d) => ({
@@ -543,75 +466,146 @@ export function UserDetailsPreferenceFilter({
                       }))
                     }
                   />
-                  <span
-                    className={cn(
-                      "pointer-events-none inline-block h-[18px] w-[18px] rounded-full bg-white shadow transition-transform duration-200",
-                      draft.lowFeedbackOnly
-                        ? "translate-x-[20px]"
-                        : "translate-x-[2px]",
-                    )}
-                  />
-                </label>
-              </div>
+                )}
+              </motion.div>
+
+              {/* Profile Completed */}
+              {!hideFields.includes("profile") && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.17 }}
+                  className="col-span-2 rounded-xl bg-white dark:bg-[#161616] border border-gray-200/70 dark:border-gray-800 p-3.5"
+                >
+                  <FilterSection
+                    icon={<UserCheck className="h-3.5 w-3.5" />}
+                    label="Farmer Profile"
+                  >
+                    <Select
+                      value={draft.profileCompleted}
+                      onValueChange={(v) =>
+                        setDraft((d) => ({
+                          ...d,
+                          profileCompleted: v as "all" | "yes" | "no",
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="h-10 text-sm rounded-lg border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1e1e1e]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="z-[10002]">
+                        <SelectItem value="all">All Farmers</SelectItem>
+                        <SelectItem value="yes">Profile Completed</SelectItem>
+                        <SelectItem value="no">
+                          Profile Not Completed
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FilterSection>
+                </motion.div>
+              )}
             </div>
-          )}
-
-          {/* Profile Completed */}
-          {!hideFields.includes("profile") && (
-            <FilterSection
-              icon={<UserCheck className="h-3.5 w-3.5" />}
-              label="Farmer Profile"
-            >
-              <Select
-                value={draft.profileCompleted}
-                onValueChange={(v) =>
-                  setDraft((d) => ({
-                    ...d,
-                    profileCompleted: v as "all" | "yes" | "no",
-                  }))
-                }
-              >
-                <SelectTrigger className="h-10 text-sm rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1e1e1e]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="z-[10002]">
-                  <SelectItem value="all">All Farmers</SelectItem>
-                  <SelectItem value="yes">Profile Completed</SelectItem>
-                  <SelectItem value="no">Profile Not Completed</SelectItem>
-                </SelectContent>
-              </Select>
-            </FilterSection>
-          )}
-        </div>
-
-        {/* Footer */}
-        <DialogFooter className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 flex justify-between sm:justify-between gap-2 bg-gray-50/50 dark:bg-[#161616]">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleReset}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <RefreshCcw className="h-3.5 w-3.5 mr-1.5" />
-            Reset all
-          </Button>
-          <div className="flex gap-2">
-            <DialogClose asChild>
-              <Button variant="outline" size="sm">
-                Cancel
-              </Button>
-            </DialogClose>
-            <Button
-              size="sm"
-              onClick={handleApply}
-              disabled={draft.inactiveOnly && !!inactiveDateError}
-              className="bg-[#3AAA5A] hover:bg-[#2e9449] text-white px-5 disabled:opacity-50"
-            >
-              Apply Filters
-            </Button>
           </div>
-        </DialogFooter>
+
+          {/* Footer */}
+          <DialogFooter className="px-6 py-4 border-t border-gray-100 dark:border-gray-800 flex justify-between sm:justify-between gap-2 bg-white dark:bg-[#0f0f0f]">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleReset}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <RefreshCcw className="h-3.5 w-3.5 mr-1.5" />
+              Reset all
+            </Button>
+            <div className="flex gap-2">
+              <DialogClose asChild>
+                <Button variant="outline" size="sm">
+                  Cancel
+                </Button>
+              </DialogClose>
+              <Button
+                size="sm"
+                onClick={handleApply}
+                disabled={draft.inactiveOnly && !!inactiveDateError}
+                className="bg-[#3AAA5A] hover:bg-[#2e9449] text-white px-6 shadow-md shadow-[#3AAA5A]/25 disabled:opacity-50 disabled:shadow-none"
+              >
+                Apply Filters
+              </Button>
+            </div>
+          </DialogFooter>
+        </motion.div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ToggleCard({
+  id,
+  icon,
+  iconBg,
+  iconColor,
+  activeColor,
+  label,
+  tooltip,
+  checked,
+  onChange,
+}: {
+  id: string;
+  icon: React.ReactNode;
+  iconBg: string;
+  iconColor: string;
+  activeColor: string;
+  label: string;
+  tooltip: string;
+  checked: boolean;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <div className="rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-[#161616] p-3.5 flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <span
+          className={cn(
+            "flex items-center justify-center w-6 h-6 rounded-md shrink-0",
+            iconBg,
+            iconColor,
+          )}
+        >
+          {icon}
+        </span>
+        <span className="text-sm font-semibold text-foreground leading-tight">
+          {label}
+        </span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Info className="h-3.5 w-3.5 text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 cursor-help shrink-0" />
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-[200px] text-xs">
+            {tooltip}
+          </TooltipContent>
+        </Tooltip>
+      </div>
+      <label
+        htmlFor={id}
+        className={cn(
+          "relative inline-flex h-[22px] w-[40px] shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200",
+          checked ? activeColor : "bg-gray-300 dark:bg-gray-600",
+        )}
+      >
+        <input
+          type="checkbox"
+          id={id}
+          className="sr-only"
+          checked={checked}
+          onChange={onChange}
+        />
+        <span
+          className={cn(
+            "pointer-events-none inline-block h-[18px] w-[18px] rounded-full bg-white shadow transition-transform duration-200",
+            checked ? "translate-x-[20px]" : "translate-x-[2px]",
+          )}
+        />
+      </label>
+    </div>
   );
 }
