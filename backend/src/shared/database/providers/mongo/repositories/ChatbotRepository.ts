@@ -8034,6 +8034,7 @@ export class ChatbotRepository implements IChatbotRepository {
         createdFrom: 'REVIEW_SYSTEM',
         createdAt: new Date(),
         updatedAt: new Date(),
+        isVerified: true,
         __v: 0,
       };
 
