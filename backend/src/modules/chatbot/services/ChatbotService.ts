@@ -20,6 +20,8 @@ import type {
   KccAndAgriAppStats,
   FeedbackData,
   ResponseAdherenceTable,
+  FarmerHeatMapFilters,
+  FarmerHeatMapResponse,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import ExcelJS from 'exceljs';
 import {GrowthResponse} from '../types/chatbot.type.js';
@@ -670,6 +672,18 @@ export class ChatbotService extends BaseService implements IChatbotService {
     } catch (error) {
       throw new InternalServerError(
         `Failed to fetch weather concern analytics: ${error}`,
+      );
+    }
+  }
+
+  async getFarmerHeatMapAnalytics(
+    filters: FarmerHeatMapFilters = {},
+  ): Promise<FarmerHeatMapResponse> {
+    try {
+      return await this.chatbotRepository.getFarmerHeatMapAnalytics(filters);
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch farmer heat map analytics: ${error}`,
       );
     }
   }

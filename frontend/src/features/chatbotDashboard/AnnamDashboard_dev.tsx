@@ -78,6 +78,7 @@ import {
   DEFAULT_WEATHER_CONCERN_FILTERS,
   type WeatherConcernFilters,
 } from "./hooks/useWeatherConcernAnalytics";
+import { FarmerAnalyticsHeatMap } from "./components/FarmerAnalyticsHeatMap";
 import { WhatsAppAnalyticsCard } from "./WhatsAppAnalyticsCard";
 import {
   useClosedAndNotifedData,
@@ -172,6 +173,7 @@ export function AnnamDashboard_dev({
       queryClient.refetchQueries({ queryKey: ["top-crops-chatbot"] }),
       queryClient.refetchQueries({ queryKey: ["state-wise-analytics"] }),
       queryClient.refetchQueries({ queryKey: ["weather-concern-analytics"] }),
+      queryClient.refetchQueries({ queryKey: ["farmer-heat-map"] }),
     ]);
     setInvalidating(false);
   };
@@ -285,6 +287,8 @@ export function AnnamDashboard_dev({
   const { ref: activeUsersRef, isVisible: isActiveUsersVisible } = useInView();
   const { ref: weatherConcernRef, isVisible: isWeatherConcernVisible } =
     useInView();
+  const { ref: farmerHeatMapRef, isVisible: isFarmerHeatMapVisible } =
+    useInView();
   const { ref: userDetailsRef, isVisible: isUserDetailsVisible } = useInView();
   // const { ref: userVerificationRef, isVisible: isUserVerificationVisible } = useInView();
   const { ref: userDemographicsRef, isVisible: isUserDemographicsVisible } =
@@ -297,6 +301,7 @@ export function AnnamDashboard_dev({
   const shouldLoadFaqs = loadImmediately || isFaqsVisible;
   const shouldLoadActiveUsers = loadImmediately || isActiveUsersVisible;
   const shouldLoadWeatherConcern = loadImmediately || isWeatherConcernVisible;
+  const shouldLoadFarmerHeatMap = loadImmediately || isFarmerHeatMapVisible;
   const shouldLoadUserDetails = loadImmediately || isUserDetailsVisible;
   // const shouldUserVerification = loadImmediately || isUserVerificationVisible;
   const shouldLoadUserDemographics = loadImmediately || isUserDemographicsVisible;
@@ -1554,6 +1559,24 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                             />
                           ) : (
                             <LazySectionSkeleton className="h-[360px]" />
+                          )}
+                        </div>
+                      )}
+                      {source !== "whatsapp" && (
+                        <div
+                          ref={(el) => {
+                            farmerHeatMapRef.current = el;
+                          }}
+                          className="mt-4 mb-4"
+                        >
+                          {shouldLoadFarmerHeatMap ? (
+                            <FarmerAnalyticsHeatMap
+                              source={source}
+                              userType={filters.userType}
+                              enabled={shouldLoadFarmerHeatMap}
+                            />
+                          ) : (
+                            <LazySectionSkeleton className="h-[520px]" />
                           )}
                         </div>
                       )}

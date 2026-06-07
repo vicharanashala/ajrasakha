@@ -37,6 +37,10 @@ import type {
   UnverifiedUserEntry,
   WeatherConcernAnalyticsFilters,
   WeatherConcernAnalyticsResponse,
+  FarmerHeatMapFilters,
+  FarmerHeatMapResponse,
+  FarmerHeatMapBucket,
+  FarmerHeatMapRow,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {IQuestion, QuestionSource} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
@@ -2217,6 +2221,391 @@ export class ChatbotRepository implements IChatbotRepository {
       return data;
     } catch (error) {
       throw new Error('Failed to fetch district analytics: ${error}');
+    }
+  }
+
+  async getFarmerHeatMapAnalytics(
+    filters: FarmerHeatMapFilters = {},
+    session?: ClientSession,
+  ): Promise<FarmerHeatMapResponse> {
+    try {
+      const source = filters.source || 'annam';
+      const userType = filters.userType || 'all';
+      const selectedState = filters.state || 'all';
+      const granularity = filters.granularity || 'monthly';
+
+      await this.init(source);
+      await this.initReviewSystem();
+
+      const buildHeatMapTimeRange = () => {
+        const now = new Date();
+        const startDate = filters.startDate
+          ? new Date(filters.startDate)
+          : granularity === 'monthly'
+            ? new Date(now.getFullYear(), 0, 1)
+            : new Date(now.getFullYear(), now.getMonth(), 1);
+        const endDate = filters.endDate
+          ? new Date(filters.endDate)
+          : granularity === 'monthly'
+            ? new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999)
+            : new Date(
+                now.getFullYear(),
+                now.getMonth() + 1,
+                0,
+                23,
+                59,
+                59,
+                999,
+              );
+
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+
+        const monthLabel = new Intl.DateTimeFormat('en', {month: 'short'});
+        const toDateKey = (date: Date) => date.toISOString().slice(0, 10);
+        const addDays = (date: Date, days: number) => {
+          const next = new Date(date);
+          next.setDate(next.getDate() + days);
+          return next;
+        };
+        const buckets: FarmerHeatMapBucket[] = [];
+
+        if (granularity === 'monthly') {
+          let cursor = new Date(
+            startDate.getFullYear(),
+            startDate.getMonth(),
+            1,
+          );
+
+          while (cursor <= endDate) {
+            const bucketStart = new Date(cursor);
+            const bucketEnd = new Date(
+              cursor.getFullYear(),
+              cursor.getMonth() + 1,
+              0,
+              23,
+              59,
+              59,
+              999,
+            );
+            const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`;
+
+            buckets.push({
+              key,
+              label: monthLabel.format(cursor),
+              startDate: bucketStart.toISOString(),
+              endDate: bucketEnd.toISOString(),
+            });
+
+            cursor = new Date(
+              cursor.getFullYear(),
+              cursor.getMonth() + 1,
+              1,
+            );
+          }
+        } else if (granularity === 'weekly') {
+          let cursor = new Date(startDate);
+          let week = 1;
+
+          while (cursor <= endDate) {
+            const bucketStart = new Date(cursor);
+            const bucketEnd = addDays(bucketStart, 6);
+            bucketEnd.setHours(23, 59, 59, 999);
+            if (bucketEnd > endDate) bucketEnd.setTime(endDate.getTime());
+
+            buckets.push({
+              key: `week-${week}`,
+              label: `Week ${week}`,
+              startDate: bucketStart.toISOString(),
+              endDate: bucketEnd.toISOString(),
+            });
+
+            cursor = addDays(bucketEnd, 1);
+            cursor.setHours(0, 0, 0, 0);
+            week += 1;
+          }
+        } else {
+          let cursor = new Date(startDate);
+          let day = 1;
+
+          while (cursor <= endDate) {
+            const bucketStart = new Date(cursor);
+            const bucketEnd = new Date(cursor);
+            bucketEnd.setHours(23, 59, 59, 999);
+
+            buckets.push({
+              key: toDateKey(cursor),
+              label: `Day ${day}`,
+              startDate: bucketStart.toISOString(),
+              endDate: bucketEnd.toISOString(),
+            });
+
+            cursor = addDays(cursor, 1);
+            cursor.setHours(0, 0, 0, 0);
+            day += 1;
+          }
+        }
+
+        const bucketMap = new Map(
+          buckets.map(bucket => [
+            bucket.key,
+            {
+              startDate: new Date(bucket.startDate),
+              endDate: new Date(bucket.endDate),
+            },
+          ]),
+        );
+        const getBucketKey = (date: Date) => {
+          if (granularity === 'monthly') {
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+          }
+          if (granularity === 'daily') {
+            return toDateKey(date);
+          }
+          const bucket = buckets.find(item => {
+            const range = bucketMap.get(item.key);
+            return range && date >= range.startDate && date <= range.endDate;
+          });
+          return bucket?.key;
+        };
+
+        return {startDate, endDate, buckets, getBucketKey};
+      };
+
+      const {startDate, endDate, buckets, getBucketKey} =
+        buildHeatMapTimeRange();
+
+      const scope = selectedState && selectedState !== 'all' ? 'district' : 'state';
+      const labels =
+        scope === 'district'
+          ? [...(DISTRICTS[selectedState] || [])].sort()
+          : Object.keys(DISTRICTS).sort();
+      const labelMap = new Map(
+        labels.map(label => [this.normalizeDistrictName(label), label]),
+      );
+
+      const finalSource: QuestionSource =
+        source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
+      const activeFarmerRows = await this.messagesCollection
+        .aggregate(
+          [
+            {
+              $match: {
+                createdAt: {$gte: startDate, $lte: endDate},
+                isCreatedByUser: true,
+                isDeleted: {$ne: true},
+              },
+            },
+            {
+              $addFields: {
+                _userOid: {
+                  $cond: [
+                    {$and: [{$ne: ['$user', null]}, {$ne: ['$user', '']}]},
+                    {$toObjectId: '$user'},
+                    null,
+                  ],
+                },
+              },
+            },
+            {
+              $lookup: {
+                from: 'users',
+                localField: '_userOid',
+                foreignField: '_id',
+                as: '_userDoc',
+              },
+            },
+            {$unwind: {path: '$_userDoc', preserveNullAndEmptyArrays: false}},
+            ...(userType === 'all'
+              ? []
+              : [
+                  {
+                    $match:
+                      userType === 'external'
+                        ? {'_userDoc.userRole': {$in: ['FARMER', 'COORDINATOR']}}
+                        : {'_userDoc.userRole': 'INTERNAL'},
+                  },
+                ]),
+            ...(scope === 'district'
+              ? [{$match: {'_userDoc.farmerProfile.state': selectedState}}]
+              : []),
+            {
+              $project: {
+                user: '$user',
+                createdAt: 1,
+                location:
+                  scope === 'district'
+                    ? '$_userDoc.farmerProfile.district'
+                    : '$_userDoc.farmerProfile.state',
+              },
+            },
+            {$match: {location: {$exists: true, $nin: [null, '']}}},
+          ],
+          {session},
+        )
+        .toArray();
+
+      const activeFarmerMap = new Map<string, Set<string>>();
+      for (const row of activeFarmerRows) {
+        const bucket = getBucketKey(new Date(row.createdAt));
+        const label = labelMap.get(this.normalizeDistrictName(String(row.location)));
+        if (!bucket || !label) continue;
+        const key = `${label}__${bucket}`;
+        if (!activeFarmerMap.has(key)) activeFarmerMap.set(key, new Set());
+        activeFarmerMap.get(key)?.add(String(row.user));
+      }
+
+      const questionRows = await this.QuestionCollection.aggregate(
+        [
+          {
+            $match: {
+              source: finalSource,
+              createdAt: {$gte: startDate, $lte: endDate},
+            },
+          },
+          ...this.buildQuestionUserTypeLookupStages(userType),
+          ...(scope === 'district'
+            ? [{$match: {'details.state': selectedState}}]
+            : []),
+          {
+            $project: {
+              createdAt: 1,
+              closedAt: 1,
+              status: {$ifNull: ['$status', 'unknown']},
+              isCustomerNotified: 1,
+              location:
+                scope === 'district' ? '$details.district' : '$details.state',
+            },
+          },
+          {$match: {location: {$exists: true, $nin: [null, '']}}},
+        ],
+        {session},
+      ).toArray();
+
+      const questionMap = new Map<
+        string,
+        {
+          totalQuestions: number;
+          closedQuestions: number;
+          notifiedQuestions: number;
+          closureTotalMinutes: number;
+          closureCount: number;
+          statusDistribution: Record<string, number>;
+        }
+      >();
+
+      for (const row of questionRows) {
+        const bucket = getBucketKey(new Date(row.createdAt));
+        const label = labelMap.get(this.normalizeDistrictName(String(row.location)));
+        if (!bucket || !label) continue;
+        const key = `${label}__${bucket}`;
+        const existing =
+          questionMap.get(key) || {
+            totalQuestions: 0,
+            closedQuestions: 0,
+            notifiedQuestions: 0,
+            closureTotalMinutes: 0,
+            closureCount: 0,
+            statusDistribution: {},
+          };
+        const status = String(row.status || 'unknown');
+        existing.totalQuestions += 1;
+        existing.statusDistribution[status] =
+          (existing.statusDistribution[status] || 0) + 1;
+
+        if (status === 'closed') {
+          existing.closedQuestions += 1;
+          if (row.isCustomerNotified === true) {
+            existing.notifiedQuestions += 1;
+          }
+          if (row.closedAt && new Date(row.closedAt) >= new Date(row.createdAt)) {
+            existing.closureTotalMinutes +=
+              (new Date(row.closedAt).getTime() -
+                new Date(row.createdAt).getTime()) /
+              60000;
+            existing.closureCount += 1;
+          }
+        }
+
+        questionMap.set(key, existing);
+      }
+
+      const rows: FarmerHeatMapRow[] = labels.map(label => {
+        const cells = buckets.map(bucket => {
+          const key = `${label}__${bucket.key}`;
+          const questionMetrics = questionMap.get(key);
+          const activeFarmers = activeFarmerMap.get(key)?.size ?? 0;
+          const averageClosureTimeMinutes =
+            questionMetrics && questionMetrics.totalQuestions > 0
+              ? Math.round(
+                  (questionMetrics.closureTotalMinutes /
+                    questionMetrics.totalQuestions) *
+                    10,
+                ) / 10
+              : 0;
+
+          return {
+            bucket: bucket.key,
+            label: bucket.label,
+            activeFarmers,
+            totalQuestions: questionMetrics?.totalQuestions ?? 0,
+            closedQuestions: questionMetrics?.closedQuestions ?? 0,
+            notifiedQuestions: questionMetrics?.notifiedQuestions ?? 0,
+            averageClosureTimeMinutes,
+            statusDistribution: questionMetrics?.statusDistribution ?? {},
+          };
+        });
+
+        return {
+          id: this.normalizeDistrictName(label),
+          label,
+          scope,
+          cells,
+        };
+      });
+
+      const maxValues = rows.reduce(
+        (acc, row) => {
+          for (const cell of row.cells) {
+            acc.activeFarmers = Math.max(acc.activeFarmers, cell.activeFarmers);
+            acc.totalQuestions = Math.max(acc.totalQuestions, cell.totalQuestions);
+            acc.closedQuestions = Math.max(acc.closedQuestions, cell.closedQuestions);
+            acc.notifiedQuestions = Math.max(
+              acc.notifiedQuestions,
+              cell.notifiedQuestions,
+            );
+            acc.averageClosureTimeMinutes = Math.max(
+              acc.averageClosureTimeMinutes,
+              cell.averageClosureTimeMinutes,
+            );
+          }
+          return acc;
+        },
+        {
+          activeFarmers: 0,
+          totalQuestions: 0,
+          closedQuestions: 0,
+          notifiedQuestions: 0,
+          averageClosureTimeMinutes: 0,
+        },
+      );
+
+      return {
+        filters: {
+          ...filters,
+          source,
+          userType,
+          state: selectedState,
+          granularity,
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        },
+        buckets,
+        rows,
+        maxValues,
+      };
+    } catch (error) {
+      throw new Error(`Failed to fetch farmer heat map analytics: ${error}`);
     }
   }
 
