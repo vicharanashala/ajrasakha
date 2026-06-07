@@ -27,6 +27,7 @@ import { Skeleton } from "@/components/atoms/skeleton";
 
 import { ChevronsUpDown, Check, InfoIcon, RefreshCw } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
+import { QueryCategoryQuestionsModal } from "./components/QueryCategoryQuestionsModal";
 import { useQueryClient } from "@tanstack/react-query";
 
 // ─── TYPES ─────────────────────────────────────────────
@@ -75,6 +76,8 @@ interface ProgressBarProps {
   pct: number;
 
   color: string;
+
+  onClick?: ()=> void;
 }
 
 const ProgressBar: React.FC<ProgressBarProps> = ({
@@ -84,6 +87,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
   duplicateQuestions,
   pct,
   color,
+  onClick
 }) => {
   return (
     <div
@@ -97,6 +101,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
         transition-all
         duration-300
       "
+      onClick={onClick}
     >
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1.5 mb-1.5">
         <span
@@ -209,6 +214,7 @@ export const DashboardStateWiseAnalytics = ({
   userType,
 }: DashboardStateWiseAnalyticsProps) => {
   const [selectedState, setSelectedState] = useState("Punjab");
+  const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
 
   const [open, setOpen] = useState(false);
 
@@ -415,11 +421,21 @@ export const DashboardStateWiseAnalytics = ({
                   duplicateQuestions={district.duplicateQuestions}
                   pct={pct}
                   color={PREMIUM_PALETTE[index % PREMIUM_PALETTE.length]}
+                  onClick= {() => setSelectedDistrict(district.district)}
                 />
               );
             })}
           </ScrollArea>
         )}
+         {selectedDistrict && (
+            <QueryCategoryQuestionsModal
+              district={selectedDistrict}
+              source={source}
+              userType={userType}
+              isQueryCategory = {false}
+              onClose={() => setSelectedDistrict(null)}
+            />
+          )}
       </CardContent>
     </Card>
   );

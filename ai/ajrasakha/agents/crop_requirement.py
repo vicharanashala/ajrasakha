@@ -14,12 +14,7 @@ from ajrasakha.agents.config import CROP_CLASSIFY_MODEL
 
 logger = logging.getLogger(__name__)
 
-_CROP_CLASSIFICATION_SYSTEM_PROMPT = (
-    "You classify agricultural farmer questions. Given a domain and question, "
-    "decide whether a human expert must know the specific crop to answer correctly, "
-    "and whether the answer would meaningfully differ across crops. "
-    "Return exactly one word: crop_specific or general. No other text."
-)
+from ajrasakha.agents.prompts import CROP_CLASSIFICATION_SYSTEM_PROMPT
 
 
 def parse_crop_classification(raw_output: str) -> bool:
@@ -61,7 +56,7 @@ async def is_crop_specific_question(
         llm = ChatAnthropic(model=CROP_CLASSIFY_MODEL, max_tokens=16, temperature=0)
         response = await llm.ainvoke(
             [
-                SystemMessage(content=_CROP_CLASSIFICATION_SYSTEM_PROMPT),
+                SystemMessage(content=CROP_CLASSIFICATION_SYSTEM_PROMPT),
                 HumanMessage(
                     content=(
                         f"Domain: {domain}\n"
