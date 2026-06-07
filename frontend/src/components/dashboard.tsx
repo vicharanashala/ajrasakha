@@ -34,9 +34,9 @@ import { DateRangeFilter } from "./DateRangeFilter";
 import { ReviewLevelComponent } from "./ReviewLevelComponent";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { PerformaneService } from "@/hooks/services/performanceService";
-import { toast } from "sonner";
 import { TopRightBadge } from "./NewBadge";
 import { QuestionsAnsweredAfter120MinProps } from "./dashboard/questions-answered-after-120min";
+import { toast } from "@/shared/components/toast";
 
 export type ViewType = "year" | "month" | "week" | "day";
 
@@ -115,11 +115,14 @@ export const Dashboard = () => {
     setSendingReport(true);
     try {
       const service = new PerformaneService();
-      await service.sendCronSnapshotReport();
-      toast.success("Cron snapshot report sent successfully");
+      await toast.promise(service.sendCronSnapshotReport(),{
+        loading: "senting cron snapshot report...",
+        success: "Cron snapshot report sent successfully",
+        error: "Failed to send cron snapshot report"
+      }) ;
+      
       setSendingReport(false);
     } catch (err) {
-      toast.error("Failed to send cron snapshot report");
       console.error("Failed to fetch cron snapshot", err);
       setSendingReport(false);
     }
