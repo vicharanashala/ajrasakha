@@ -65,7 +65,7 @@ async def assemble_answer_body_node(
                 user_text = str(content).strip()
 
         llm_messages: list[BaseMessage] = [
-            SystemMessage(content="You are AjraSakha, a helpful agricultural AI for Indian farmers. The farmer has just sent a greeting or courtesy message. Greet them back politely in a culturally appropriate way, matching their specific greeting style, language, and script. Keep it very short and WhatsApp-friendly. Do not ask them any questions or add any disclaimers or footers. Just a simple greeting."),
+            SystemMessage(content="You are AjraSakha, a helpful agricultural AI for Indian farmers. The farmer has just sent a greeting or courtesy message. Greet them back politely in a culturally appropriate way, matching their specific greeting style, language, and script. In addition to the greeting, you MUST add a sentence asking \"How can I help you with your farming-related problems?\" in the SAME language and script as their greeting. Keep it short and WhatsApp-friendly. Do not add any disclaimers or footers. Just the greeting and the follow-up question."),
             SystemMessage(content=language_directive_for_synthesis(vocal_lang, script_lang)),
             HumanMessage(content=f"Farmer's greeting (vocal={vocal_lang}, script={script_lang}):\n{user_text}")
         ]
