@@ -122,7 +122,7 @@ export interface WeatherConcernAnalyticsResponse {
   timeline: WeatherConcernTimelineEntry[];
 }
 
-export type FarmerHeatMapGranularity = 'monthly' | 'weekly' | 'daily';
+export type FarmerHeatMapGranularity = 'monthly' | 'weekly' | 'daily' | 'hourly';
 
 export interface FarmerHeatMapFilters {
   source?: string;

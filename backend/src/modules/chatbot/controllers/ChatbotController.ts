@@ -466,7 +466,7 @@ export class ChatbotController {
   @OpenAPI({
     summary: 'Get farmer heat map analytics',
     description:
-      'Returns state or district heat map metrics by month, week, or day for farmer activity and question status analysis.',
+      'Returns state or district heat map metrics by month, week, day, or hour for farmer activity and question status analysis.',
   })
   @Get('/farmer-heat-map')
   @HttpCode(200)
@@ -475,7 +475,7 @@ export class ChatbotController {
     @QueryParam('source') source: string,
     @QueryParam('userType') userType: string,
     @QueryParam('state') state: string,
-    @QueryParam('granularity') granularity: 'monthly' | 'weekly' | 'daily',
+    @QueryParam('granularity') granularity: 'monthly' | 'weekly' | 'daily' | 'hourly',
     @QueryParam('startDate') startDate?: string,
     @QueryParam('endDate') endDate?: string,
   ) {
