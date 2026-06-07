@@ -104,16 +104,33 @@ function Sparkline({
     null,
   );
   const svgRef = useRef<SVGSVGElement>(null);
+
+  if (!points || points.length === 0) {
+    return null;
+  }
+
   const max = Math.max(...points);
   const min = Math.min(...points);
   const width = 120;
   const height = 28;
-  const px = (i: number) => (i / (points.length - 1)) * width;
+
+  const px = (i: number) => {
+    if (points.length <= 1) return width / 2;
+    return (i / (points.length - 1)) * width;
+  };
+
   const py = (v: number) => height - ((v - min) / (max - min || 1)) * height;
-  const d = points
-    .map((v, i) => `${i === 0 ? "M" : "L"} ${px(i)} ${py(v)}`)
-    .join(" ");
-  const fill = `${d} L ${width} ${height} L 0 ${height} Z`;
+
+  const d = points.length === 1
+    ? `M 0 ${py(points[0])} L ${width} ${py(points[0])}`
+    : points
+        .map((v, i) => `${i === 0 ? "M" : "L"} ${px(i)} ${py(v)}`)
+        .join(" ");
+
+  const fill = points.length === 1
+    ? `M 0 ${py(points[0])} L ${width} ${py(points[0])} L ${width} ${height} L 0 ${height} Z`
+    : `${d} L ${width} ${height} L 0 ${height} Z`;
+
   const sliceWidth = width / points.length;
 
   const handleEnter = (i: number) => {

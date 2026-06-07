@@ -9802,7 +9802,7 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getActiveUsersTrend( // use messages or conversations instead of lastactiveAt
+  async getActiveUsersTrend(
     source: string,
     userType: string,
     requestType: string,
@@ -9814,121 +9814,136 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.init(source);
 
       const matchStage: any = {
-        lastActiveAt: {
-          $ne: null,
-        },
+        isCreatedByUser: true,
+        isDeleted: { $ne: true },
       };
 
       if (startDate && endDate) {
-        matchStage.lastActiveAt = {
-          $ne: null,
+        matchStage.createdAt = {
           $gte: startDate,
           $lte: endDate,
         };
-      }
-
-      if (userType === 'external') {
-        matchStage.userRole = {
-          $in: ['FARMER', 'COORDINATOR'],
-        };
-      }
-
-      if (userType === 'internal') {
-        matchStage.userRole = 'INTERNAL';
-      }
-
-      let groupStage: any;
-      let sortStage: any;
-      const projectStage: any = null;
-
-      switch (requestType) {
-        case 'daily':
-          groupStage = {
-            _id: {
-              $dateToString: {
-                format: '%Y-%m-%d',
-                date: '$lastActiveAt',
-              },
-            },
-            activeUsers: {$sum: 1},
-          };
-
-          sortStage = {_id: 1};
-          break;
-
-        case 'weekly':
-          groupStage = {
-            _id: {
-              year: {
-                $isoWeekYear: '$lastActiveAt',
-              },
-              week: {
-                $isoWeek: '$lastActiveAt',
-              },
-            },
-            activeUsers: {$sum: 1},
-          };
-
-          sortStage = {
-            '_id.year': 1,
-            '_id.week': 1,
-          };
-          break;
-
-        case 'monthly':
-          groupStage = {
-            _id: {
-              $dateToString: {
-                format: '%Y-%m',
-                date: '$lastActiveAt',
-              },
-            },
-            activeUsers: {$sum: 1},
-          };
-
-          sortStage = {_id: 1};
-          break;
-
-        default:
-          throw new Error(`Invalid requestType: ${requestType}`);
       }
 
       const pipeline: any[] = [
         {
           $match: matchStage,
         },
-        {
-          $group: groupStage,
-        },
-        {
-          $sort: sortStage,
-        },
       ];
 
-      if (requestType === 'weekly') {
-        pipeline.push({
-          $project: {
-            _id: {
-              $concat: [
-                {$toString: '$_id.year'},
-                '-W',
-                {
-                  $cond: [
-                    {$lt: ['$_id.week', 10]},
-                    {
-                      $concat: ['0', {$toString: '$_id.week'}],
-                    },
-                    {$toString: '$_id.week'},
-                  ],
-                },
-              ],
-            },
-            activeUsers: 1,
-          },
-        });
+      if (userType !== 'all') {
+        pipeline.push(...this.buildUserTypeLookupStages(userType));
       }
 
-      const data = await this.users.aggregate(pipeline, {session}).toArray();
+      let firstGroupStage: any;
+      let secondGroupStage: any;
+      let sortStage: any;
+      let projectStage: any = null;
+
+      switch (requestType) {
+        case 'daily':
+          firstGroupStage = {
+            $group: {
+              _id: {
+                date: {
+                  $dateToString: {
+                    format: '%Y-%m-%d',
+                    date: '$createdAt',
+                    timezone: '+05:30',
+                  },
+                },
+                user: '$user',
+              },
+            },
+          };
+          secondGroupStage = {
+            $group: {
+              _id: '$_id.date',
+              activeUsers: { $sum: 1 },
+            },
+          };
+          sortStage = { _id: 1 };
+          break;
+
+        case 'weekly':
+          firstGroupStage = {
+            $group: {
+              _id: {
+                year: { $isoWeekYear: { date: '$createdAt', timezone: '+05:30' } },
+                week: { $isoWeek: { date: '$createdAt', timezone: '+05:30' } },
+                user: '$user',
+              },
+            },
+          };
+          secondGroupStage = {
+            $group: {
+              _id: {
+                year: '$_id.year',
+                week: '$_id.week',
+              },
+              activeUsers: { $sum: 1 },
+            },
+          };
+          projectStage = {
+            $project: {
+              _id: {
+                $concat: [
+                  { $toString: '$_id.year' },
+                  '-W',
+                  {
+                    $cond: [
+                      { $lt: ['$_id.week', 10] },
+                      { $concat: ['0', { $toString: '$_id.week' }] },
+                      { $toString: '$_id.week' },
+                    ],
+                  },
+                ],
+              },
+              activeUsers: 1,
+            },
+          };
+          sortStage = { _id: 1 };
+          break;
+
+        case 'monthly':
+          firstGroupStage = {
+            $group: {
+              _id: {
+                month: {
+                  $dateToString: {
+                    format: '%Y-%m',
+                    date: '$createdAt',
+                    timezone: '+05:30',
+                  },
+                },
+                user: '$user',
+              },
+            },
+          };
+          secondGroupStage = {
+            $group: {
+              _id: '$_id.month',
+              activeUsers: { $sum: 1 },
+            },
+          };
+          sortStage = { _id: 1 };
+          break;
+
+        default:
+          throw new Error(`Invalid requestType: ${requestType}`);
+      }
+
+      pipeline.push(firstGroupStage, secondGroupStage);
+
+      if (projectStage) {
+        pipeline.push(projectStage);
+      }
+
+      pipeline.push({
+        $sort: sortStage,
+      });
+
+      const data = await this.messagesCollection.aggregate(pipeline, { session }).toArray();
       return data as IActiveUser[];
     } catch (error) {
       throw new InternalServerError(
