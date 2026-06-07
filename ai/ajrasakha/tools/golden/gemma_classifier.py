@@ -68,9 +68,12 @@ Retrieved expert answer:
 
 Choose exactly ONE class:
 - SAME_INTENT: User is asking essentially the same thing. Existing answer can be reused without modification.
-- COVERED_BY_CONTEXT: Different question, but the existing Q&A contains enough information to answer it. Some reasoning or extraction may be needed.
-- PARTIALLY_COVERED: Q&A helps, but does not fully answer the question. Additional information is required.
+- COVERED_BY_CONTEXT: Different question, but the existing Q&A contains all or nearly all information needed to answer the farmer's specific question. Only minor reasoning or extraction is needed. No important information is missing.
+- PARTIALLY_COVERED: Q&A is relevant and useful, but does not fully answer the farmer's specific question. It may provide possible causes, related information, background knowledge, or partial guidance. Additional information, diagnosis, or assumptions would be required.
 - NOT_COVERED: Q&A does not contain the information needed.
+
+Important:
+If deciding between COVERED_BY_CONTEXT and PARTIALLY_COVERED, choose PARTIALLY_COVERED.
 
 Reply with JSON only, no markdown:
 {{"classification": "<CLASS>", "reason": "<one short sentence>"}}
