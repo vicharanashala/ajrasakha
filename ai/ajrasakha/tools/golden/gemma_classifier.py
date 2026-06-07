@@ -68,8 +68,8 @@ Retrieved expert answer:
 
 Choose exactly ONE class:
 - SAME_INTENT: User is asking essentially the same thing. Existing answer can be reused without modification.
-- COVERED_BY_CONTEXT: Different question, but the existing Q&A contains all or nearly all information needed to answer the farmer's specific question. Only minor reasoning or extraction is needed. No important information is missing.
-- PARTIALLY_COVERED: Q&A is relevant and useful, but does not fully answer the farmer's specific question. It may provide possible causes, related information, background knowledge, or partial guidance. Additional information, diagnosis, or assumptions would be required.
+- COVERED_BY_CONTEXT: Different question, but the retrieved expert answer already answers the farmer's specific question. The answer can be shown to the farmer as-is, without rephrasing, additional reasoning, diagnosis, assumptions, or adding information from outside the retrieved Q&A. No important information is missing.
+- PARTIALLY_COVERED: Q&A is relevant and useful, but the retrieved answer cannot be shown directly to the farmer as a complete answer. It may provide possible causes, related information, background knowledge, similar symptoms, or partial guidance. Additional reasoning, diagnosis, assumptions, clarification, or information would be required.
 - NOT_COVERED: Q&A does not contain the information needed.
 
 Important:
