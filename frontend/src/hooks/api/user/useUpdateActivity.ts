@@ -1,6 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { UserService } from "../../services/userService"; // Follow useBlockUser pattern
-import { toast } from "sonner";
 
 const userService = new UserService();
 
