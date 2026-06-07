@@ -21,7 +21,12 @@ import {inject, injectable} from 'inversify';
 import {CHATBOT_TYPES} from '../types.js';
 import type {IChatbotService} from '../interfaces/IChatbotService.js';
 import {IUser} from '#root/shared/interfaces/models.js';
-import {AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus} from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
+import {
+  AuditAction,
+  AuditCategory,
+  ModeratorAuditTrail,
+  OutComeStatus,
+} from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 import {AUDIT_TRAILS_TYPES} from '#root/modules/auditTrails/types.js';
 import {IAuditTrailsService} from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import {
@@ -52,8 +57,15 @@ import {
   RetentionMetricsQuery,
   TopFaqsQuery,
 } from '../types/chatbot.type.js';
-import { IActiveUser } from '#root/shared/database/providers/mongo/repositories/ChatbotRepository.js';
-import { FeedbackData, KccAndAgriAppStats, PlatformInstallEntry, ResponseAdherenceTable, UserDemographics } from '#root/shared/database/interfaces/IChatbotRepository.js';
+import {IActiveUser} from '#root/shared/database/providers/mongo/repositories/ChatbotRepository.js';
+import {
+  FeedbackData,
+  KccAndAgriAppStats,
+  PlatformInstallEntry,
+  QueryCategoryQuestionType,
+  ResponseAdherenceTable,
+  UserDemographics,
+} from '#root/shared/database/interfaces/IChatbotRepository.js';
 
 @OpenAPI({
   tags: ['analytics'],
@@ -337,25 +349,92 @@ export class ChatbotController {
     return this.chatbotService.getQueryCategories(query.source, query.userType);
   }
 
+  // @OpenAPI({
+  //   summary: 'Get paginated questions for a query category',
+  //   description:
+  //     'Lists questions for a selected dashboard query category, with server-side pagination and all/unique/duplicate filtering.',
+  // })
+  // @Get('/query-category-questions')
+  // @HttpCode(200)
+  // @Authorized()
+  // async getQueryCategoryQuestions(
+  //   @QueryParams() query: QueryCategoryQuestionsQueryDto,
+  // ) {
+  //   return this.chatbotService.getQueryCategoryQuestions(
+  //     query.category,
+  //     query.questionType,
+  //     query.page,
+  //     query.limit,
+  //     query.source,
+  //     query.userType,
+  //   );
+  // }
+
+  // @Get('/district-questions')
+  // @HttpCode(200)
+  // @Authorized()
+  // async getQuestionFromDistrict(
+  //   @QueryParams()
+  //   query: {
+  //     district: string;
+  //     questionType?: QueryCategoryQuestionType;
+  //     page?: number;
+  //     limit?: number;
+  //     source?: string;
+  //     userType?: string;
+  //   },
+  // ) {
+  //   return this.chatbotService.getQuestionFromDistrict(
+  //     query.district,
+  //     query.questionType,
+  //     query.page,
+  //     query.limit,
+  //     query.source,
+  //     query.userType,
+  //   );
+  // }
+
   @OpenAPI({
-    summary: 'Get paginated questions for a query category',
-    description:
-      'Lists questions for a selected dashboard query category, with server-side pagination and all/unique/duplicate filtering.',
+    summary: "Get the paginated queries from the selected filter",
+    description: "Retrieves paginated questions based on the selected filter - either by query category or by district. Supports filtering by question type (all, unique, duplicate) and pagination parameters.",
   })
-  @Get('/query-category-questions')
+  @Get('/filtered-questions')
   @HttpCode(200)
   @Authorized()
-  async getQueryCategoryQuestions(
-    @QueryParams() query: QueryCategoryQuestionsQueryDto,
-  ) {
-    return this.chatbotService.getQueryCategoryQuestions(
+  async getQuestionByFilters (
+       @QueryParams()
+    query: {
+      category?: string;
+      district?: string;
+      questionType?: QueryCategoryQuestionType;
+      page?: number;
+      limit?: number;
+      source?: string;
+      userType?: string;
+      search?: string
+    },
+  ){
+    if(query.category){
+      return this.chatbotService.getQueryCategoryQuestions(
       query.category,
       query.questionType,
       query.page,
       query.limit,
       query.source,
       query.userType,
-    );
+      query.search,
+    )
+    }else{
+      return this.chatbotService.getQuestionFromDistrict(
+      query.district,
+      query.questionType,
+      query.page,
+      query.limit,
+      query.source,
+      query.userType,
+      query.search,
+      )
+    }
   }
 
   @OpenAPI({
@@ -488,7 +567,8 @@ export class ChatbotController {
   async getUserDetails(@QueryParams() query: UserDetailsQueryDto) {
     const inactiveOnly = query.inactiveOnly === 'true';
     const lowFeedbackOnly = query.lowFeedbackOnly === 'true';
-    const isVerified = query.isVerified === undefined ? true : query.isVerified === 'true';
+    const isVerified =
+      query.isVerified === undefined ? true : query.isVerified === 'true';
     const activeTodayByProfile = query.activeTodayByProfile === 'true';
     return this.chatbotService.getUserDetails(
       query.startDate,
@@ -537,14 +617,14 @@ export class ChatbotController {
       page,
       limit,
       search,
-      source
+      source,
     );
   }
 
   @OpenAPI({
     summary: 'Verify a user',
     description:
-      'Updates a user\'s verification status to true. Only users with admin role can perform this action.',
+      "Updates a user's verification status to true. Only users with admin role can perform this action.",
   })
   @ResponseSchema(ChatbotErrorResponse, {
     statusCode: 401,
@@ -790,13 +870,15 @@ export class ChatbotController {
       source = 'vicharanashala';
     }
 
-    const actorPayload = user ? {
-      id: user._id.toString(),
-      name: `${user.firstName} ${user.lastName}`,
-      email: user.email,
-      role: user.role,
-      avatar: user.avatar || '',
-    } : null;
+    const actorPayload = user
+      ? {
+          id: user._id.toString(),
+          name: `${user.firstName} ${user.lastName}`,
+          email: user.email,
+          role: user.role,
+          avatar: user.avatar || '',
+        }
+      : null;
 
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.FARMER_MANAGEMENT,
@@ -822,17 +904,19 @@ export class ChatbotController {
         auditPayload = {
           ...auditPayload,
           changes: {
-            before: beforeUser ? {
-              id: beforeUser._id?.toString(),
-              name: beforeUser.name,
-              email: beforeUser.email,
-              userRole: beforeUser.userRole,
-              farmerProfile: beforeUser.farmerProfile,
-            } : {},
+            before: beforeUser
+              ? {
+                  id: beforeUser._id?.toString(),
+                  name: beforeUser.name,
+                  email: beforeUser.email,
+                  userRole: beforeUser.userRole,
+                  farmerProfile: beforeUser.farmerProfile,
+                }
+              : {},
           },
           outcome: {
             status: OutComeStatus.SUCCESS,
-          }
+          },
         };
       } else {
         auditPayload = {
@@ -840,7 +924,7 @@ export class ChatbotController {
           outcome: {
             status: OutComeStatus.FAILED,
             errorMessage: 'Failed to delete user',
-          }
+          },
         };
       }
       if (actorPayload) {
@@ -848,7 +932,9 @@ export class ChatbotController {
       }
       return {
         success,
-        message: success ? 'User deleted successfully' : 'Failed to delete user',
+        message: success
+          ? 'User deleted successfully'
+          : 'Failed to delete user',
       };
     } catch (error: any) {
       auditPayload = {
@@ -858,8 +944,10 @@ export class ChatbotController {
           errorCode: error?.errorCode || 'INTERNAL_ERROR',
           errorMessage: error?.message || 'Failed to delete user',
           errorName: error?.name || 'Error',
-          errorStack: error?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
-        }
+          errorStack:
+            error?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
+            'No stack trace available',
+        },
       };
       if (actorPayload) {
         this.auditTrailsService.createAuditTrail(auditPayload);
@@ -914,13 +1002,15 @@ export class ChatbotController {
     }
     console.log('Body---------', body);
 
-    const actorPayload = user ? {
-      id: user._id.toString(),
-      name: `${user.firstName} ${user.lastName}`,
-      email: user.email,
-      role: user.role,
-      avatar: user.avatar || '',
-    } : null;
+    const actorPayload = user
+      ? {
+          id: user._id.toString(),
+          name: `${user.firstName} ${user.lastName}`,
+          email: user.email,
+          role: user.role,
+          avatar: user.avatar || '',
+        }
+      : null;
 
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.FARMER_MANAGEMENT,
@@ -941,7 +1031,11 @@ export class ChatbotController {
     }
 
     try {
-      const success = await this.chatbotService.updateUser(userId, source, body);
+      const success = await this.chatbotService.updateUser(
+        userId,
+        source,
+        body,
+      );
       if (success) {
         let afterUser: any = null;
         try {
@@ -953,20 +1047,24 @@ export class ChatbotController {
         auditPayload = {
           ...auditPayload,
           changes: {
-            before: beforeUser ? {
-              name: beforeUser.name,
-              userRole: beforeUser.userRole,
-              farmerProfile: beforeUser.farmerProfile,
-            } : {},
-            after: afterUser ? {
-              name: afterUser.name,
-              userRole: afterUser.userRole,
-              farmerProfile: afterUser.farmerProfile,
-            } : {},
+            before: beforeUser
+              ? {
+                  name: beforeUser.name,
+                  userRole: beforeUser.userRole,
+                  farmerProfile: beforeUser.farmerProfile,
+                }
+              : {},
+            after: afterUser
+              ? {
+                  name: afterUser.name,
+                  userRole: afterUser.userRole,
+                  farmerProfile: afterUser.farmerProfile,
+                }
+              : {},
           },
           outcome: {
             status: OutComeStatus.SUCCESS,
-          }
+          },
         };
       } else {
         auditPayload = {
@@ -974,7 +1072,7 @@ export class ChatbotController {
           outcome: {
             status: OutComeStatus.FAILED,
             errorMessage: 'Failed to update user',
-          }
+          },
         };
       }
       if (actorPayload) {
@@ -982,7 +1080,9 @@ export class ChatbotController {
       }
       return {
         success,
-        message: success ? 'User updated successfully' : 'Failed to update user',
+        message: success
+          ? 'User updated successfully'
+          : 'Failed to update user',
       };
     } catch (error: any) {
       auditPayload = {
@@ -992,8 +1092,10 @@ export class ChatbotController {
           errorCode: error?.errorCode || 'INTERNAL_ERROR',
           errorMessage: error?.message || 'Failed to update user',
           errorName: error?.name || 'Error',
-          errorStack: error?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
-        }
+          errorStack:
+            error?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
+            'No stack trace available',
+        },
       };
       if (actorPayload) {
         this.auditTrailsService.createAuditTrail(auditPayload);
@@ -1147,13 +1249,15 @@ export class ChatbotController {
     }
     this.assertStrongPassword(body.password);
 
-    const actorPayload = user ? {
-      id: user._id.toString(),
-      name: `${user.firstName} ${user.lastName}`,
-      email: user.email,
-      role: user.role,
-      avatar: user.avatar || '',
-    } : null;
+    const actorPayload = user
+      ? {
+          id: user._id.toString(),
+          name: `${user.firstName} ${user.lastName}`,
+          email: user.email,
+          role: user.role,
+          avatar: user.avatar || '',
+        }
+      : null;
 
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.FARMER_MANAGEMENT,
@@ -1173,7 +1277,9 @@ export class ChatbotController {
         try {
           const userRepo = (this.chatbotService as any).chatbotRepository;
           await userRepo.init(source);
-          createdUser = await userRepo.users.findOne({ email: body.email.trim().toLowerCase() });
+          createdUser = await userRepo.users.findOne({
+            email: body.email.trim().toLowerCase(),
+          });
         } catch (e) {
           console.error('Failed to fetch added user for audit trail', e);
         }
@@ -1181,21 +1287,23 @@ export class ChatbotController {
         auditPayload = {
           ...auditPayload,
           changes: {
-            after: createdUser ? {
-              id: createdUser._id?.toString(),
-              name: createdUser.name,
-              email: createdUser.email,
-              userRole: createdUser.userRole,
-              createdAt: createdUser.createdAt,
-            } : {
-              name: body.name,
-              email: body.email,
-              userRole: body.userRole || 'FARMER',
-            }
+            after: createdUser
+              ? {
+                  id: createdUser._id?.toString(),
+                  name: createdUser.name,
+                  email: createdUser.email,
+                  userRole: createdUser.userRole,
+                  createdAt: createdUser.createdAt,
+                }
+              : {
+                  name: body.name,
+                  email: body.email,
+                  userRole: body.userRole || 'FARMER',
+                },
           },
           outcome: {
             status: OutComeStatus.SUCCESS,
-          }
+          },
         };
       } else {
         auditPayload = {
@@ -1203,7 +1311,7 @@ export class ChatbotController {
           outcome: {
             status: OutComeStatus.FAILED,
             errorMessage: 'Failed to create user',
-          }
+          },
         };
       }
       if (actorPayload) {
@@ -1223,8 +1331,10 @@ export class ChatbotController {
           errorCode: error?.errorCode || 'INTERNAL_ERROR',
           errorMessage: error?.message || 'Failed to create user',
           errorName: error?.name || 'Error',
-          errorStack: error?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
-        }
+          errorStack:
+            error?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
+            'No stack trace available',
+        },
       };
       if (actorPayload) {
         this.auditTrailsService.createAuditTrail(auditPayload);
@@ -1450,7 +1560,9 @@ export class ChatbotController {
   @Authorized()
   async getDailyQuestionTrends(
     @QueryParams() query: ActiveUsersQuery,
-  ): Promise<Array<{ day: string; uniqueCount: number; duplicateCount: number }>> {
+  ): Promise<
+    Array<{day: string; uniqueCount: number; duplicateCount: number}>
+  > {
     const startDate = query.startDate
       ? new Date(query.startDate).toISOString()
       : undefined;
@@ -1473,7 +1585,14 @@ export class ChatbotController {
   @Get('/users-metrices')
   @HttpCode(200)
   @Authorized()
-  async getUsermetrices(@QueryParams() query: ActiveUsersQuery): Promise<{ userDemographics: UserDemographics; platformInstalls: PlatformInstallEntry[]; kccAndAgriAppUsage: KccAndAgriAppStats; feedbackData: FeedbackData}> {
+  async getUsermetrices(
+    @QueryParams() query: ActiveUsersQuery,
+  ): Promise<{
+    userDemographics: UserDemographics;
+    platformInstalls: PlatformInstallEntry[];
+    kccAndAgriAppUsage: KccAndAgriAppStats;
+    feedbackData: FeedbackData;
+  }> {
     const source = query.source;
     const userType = query.userType;
 
@@ -1503,5 +1622,4 @@ export class ChatbotController {
       endDate,
     );
   }
-  
 }
