@@ -19,6 +19,13 @@ from ajrasakha.agents.plan_executor import (
 )
 from ajrasakha.agents.retrieval_sanitizer import gdb_has_usable_answers
 from ajrasakha.agents.state import AjraSakhaState
+from ajrasakha.agents.language import language_directive_for_synthesis
+from ajrasakha.agents.translation_catalog import language_pair_from_plan
+from ajrasakha.agents.config import SYNTHESIZE_MODEL
+from langchain_anthropic import ChatAnthropic
+from anthropic import APITimeoutError, APIConnectionError, APIStatusError
+from langchain_core.messages import SystemMessage, HumanMessage, BaseMessage
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +37,69 @@ async def assemble_answer_body_node(
     """Build AIMessage body from GDB expert text or formatted tool output; no synthesizer LLM."""
     messages = state.get("messages") or []
     plan = state.get("plan") or {}
+
+    if plan.get("is_greeting") or plan.get("reasoning") == "greeting":
+        # Synthesize a simple greeting
+        script_lang, vocal_lang = language_pair_from_plan(plan)
+        human = None
+        for msg in reversed(messages):
+            if isinstance(msg, HumanMessage):
+                human = msg
+                break
+        user_text = ""
+        if human is not None:
+            content = human.content
+            if isinstance(content, str):
+                user_text = content.strip()
+            elif isinstance(content, list):
+                parts = []
+                for block in content:
+                    if isinstance(block, str):
+                        parts.append(block)
+                    elif isinstance(block, dict):
+                        text = block.get("text")
+                        if isinstance(text, str):
+                            parts.append(text)
+                user_text = " ".join(parts).strip()
+            else:
+                user_text = str(content).strip()
+
+        llm_messages: list[BaseMessage] = [
+            SystemMessage(content="You are AjraSakha, a helpful agricultural AI for Indian farmers. The farmer has just sent a greeting or courtesy message. Greet them back politely in a culturally appropriate way, matching their specific greeting style, language, and script. Keep it very short and WhatsApp-friendly. Do not ask them any questions or add any disclaimers or footers. Just a simple greeting."),
+            SystemMessage(content=language_directive_for_synthesis(vocal_lang, script_lang)),
+            HumanMessage(content=f"Farmer's greeting (vocal={vocal_lang}, script={script_lang}):\n{user_text}")
+        ]
+        try:
+            llm = ChatAnthropic(model=SYNTHESIZE_MODEL)
+            response = await llm.ainvoke(llm_messages, config=config)
+            
+            # Simple content extraction
+            content = response.content
+            answer_text = ""
+            if isinstance(content, str):
+                answer_text = content.strip()
+            elif isinstance(content, list):
+                parts = []
+                for block in content:
+                    if isinstance(block, str):
+                        parts.append(block)
+                    elif isinstance(block, dict):
+                        text = block.get("text")
+                        if isinstance(text, str):
+                            parts.append(text)
+                answer_text = " ".join(parts).strip()
+            else:
+                answer_text = str(content).strip()
+                
+            logger.info("Greeting synthesis complete (len=%d)", len(answer_text))
+            return {
+                "messages": [AIMessage(content=answer_text)],
+                "location": state.get("location"),
+                "plan": {**plan, "gdb_has_data": False, "translate_path": None},
+            }
+        except Exception as exc:
+            logger.warning("Greeting synthesizer failed: %s", exc)
+            return defer_empty_gdb_to_translate(state, plan=plan)
 
     has_gdb = _gdb_has_usable_data(messages)
     has_specialist = _turn_has_specialist_tool_message(messages)

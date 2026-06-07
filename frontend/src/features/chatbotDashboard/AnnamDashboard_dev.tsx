@@ -303,6 +303,7 @@ export function AnnamDashboard_dev({
 
   const { data: queryCategories } = useQueryCategories(
     source,
+    filters.userType,
     shouldLoadQueryInsights,
   );
   const [trendsDateRange, setTrendsDateRange] = useState<DateRange | undefined>(
@@ -421,7 +422,7 @@ export function AnnamDashboard_dev({
     data: topCrops,
     isLoading: isLoadingTopCrops,
     error: errorLoadingtopCrops,
-  } = useTopCrops(source, shouldLoadQueryInsights);
+  } = useTopCrops(source, shouldLoadQueryInsights); // usertype filter is required
   // const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
 
   const [hovered, setHovered] = useState<string | null>(null);

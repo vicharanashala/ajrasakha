@@ -689,6 +689,10 @@ def _turn_has_specialist_tool_message(messages: list[BaseMessage]) -> bool:
 
 def should_expert_queue_reply(state: AjraSakhaState) -> bool:
     """GDB empty after retrieval + no non-empty specialist ToolMessage this turn."""
+    plan = state.get("plan") or {}
+    if plan.get("is_greeting") or plan.get("reasoning") == "greeting":
+        return False
+        
     messages = state.get("messages") or []
     has_specialist_content = _turn_has_specialist_tool_message(messages)
     return not _gdb_has_usable_data(messages) and not has_specialist_content
@@ -698,6 +702,8 @@ def route_after_execute(state: AjraSakhaState) -> str:
     plan = state.get("plan") or {}
     if plan.get("skip_synthesize"):
         return "translate_answer"
+    if plan.get("is_greeting") or plan.get("reasoning") == "greeting":
+        return "assemble_answer_body"
     messages = state.get("messages") or []
     if _gdb_has_usable_data(messages) and _turn_has_specialist_tool_message(messages):
         return "empty_gdb_reply"

@@ -200,6 +200,7 @@ async def translate_answer_node(
             script_language=script,
             vocal_language=vocal,
             gdb_data=gdb_data,
+            is_greeting=plan.get("is_greeting", False),
         )
         logger.info("translate_answer: path=synthesis — final len=%d", len(content))
         return _reply_message(content, final_msg, state)
@@ -210,6 +211,7 @@ async def translate_answer_node(
             script_language=script,
             vocal_language=vocal,
             gdb_data=gdb_data,
+            is_greeting=plan.get("is_greeting", False),
         )
         return _reply_message(content, final_msg, state)
     except APIStatusError as exc:
@@ -222,5 +224,6 @@ async def translate_answer_node(
             script_language=script,
             vocal_language=vocal,
             gdb_data=gdb_data,
+            is_greeting=plan.get("is_greeting", False),
         )
         return _reply_message(content, final_msg, state)
