@@ -427,7 +427,7 @@ export function AnnamDashboard_dev({
     data: topCrops,
     isLoading: isLoadingTopCrops,
     error: errorLoadingtopCrops,
-  } = useTopCrops(source, shouldLoadQueryInsights); // usertype filter is required
+  } = useTopCrops(source, filters.userType, shouldLoadQueryInsights);
   // const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
 
   const [hovered, setHovered] = useState<string | null>(null);
@@ -1357,6 +1357,8 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                               topCrops={topCrops}
                               isLoadingTopCrops={isLoadingTopCrops}
                               errorLoadingtopCrops={errorLoadingtopCrops}
+                              source={source}
+                              userType= {filters.userType}
                             />
                           ) : (
                             <LazySectionSkeleton className="h-[360px]" />

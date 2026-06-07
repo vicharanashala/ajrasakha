@@ -406,6 +406,7 @@ export class ChatbotController {
     query: {
       category?: string;
       district?: string;
+      crop?: string;
       questionType?: QueryCategoryQuestionType;
       page?: number;
       limit?: number;
@@ -424,7 +425,7 @@ export class ChatbotController {
       query.userType,
       query.search,
     )
-    }else{
+    }else if(query.district){
       return this.chatbotService.getQuestionFromDistrict(
       query.district,
       query.questionType,
@@ -433,6 +434,16 @@ export class ChatbotController {
       query.source,
       query.userType,
       query.search,
+      )
+    }else if(query.crop){
+      return this.chatbotService.getQuestionsByCrop(
+        query.crop,
+        query.questionType,
+        query.page,
+        query.limit,
+        query.source,
+        query.userType,
+        query.search,
       )
     }
   }
@@ -509,8 +520,8 @@ export class ChatbotController {
   @Get('/top-crops')
   @HttpCode(200)
   @Authorized()
-  async getTopCrops(@QueryParams() query: {source?: string}) {
-    return this.chatbotService.getTopCrops(query.source);
+  async getTopCrops(@QueryParams() query: {source?: string, userType?: string}) {
+    return this.chatbotService.getTopCrops(query.source, query.userType);
   }
 
   @OpenAPI({

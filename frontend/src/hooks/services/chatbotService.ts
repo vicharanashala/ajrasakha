@@ -230,6 +230,7 @@ export class ChatbotService {
   async getQuestionByFilters({
     category,
     district,
+    crop,
     questionType,
     page,
     limit,
@@ -239,6 +240,7 @@ export class ChatbotService {
   }: {
     category?: string;
     district?: string;
+    crop?: string
     questionType: "all" | "unique" | "duplicate";
     page: number;
     limit: number;
@@ -249,6 +251,7 @@ export class ChatbotService {
     const params = new URLSearchParams();
     if(category) params.append("category", category);
     if(district) params.append("district", district);
+    if(crop) params.append("crop", crop)
     params.append("questionType", questionType);
     params.append("page", page.toString());
     params.append("limit", limit.toString());

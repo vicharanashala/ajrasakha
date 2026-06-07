@@ -19,6 +19,7 @@ import {
 } from "@/components/atoms/tooltip";
 import { STATES } from "@/components/MetaData";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 
 import {
   DEFAULT_FARMER_HEAT_MAP_FILTERS,
@@ -26,6 +27,7 @@ import {
   type FarmerHeatMapMetric,
   useFarmerHeatMapAnalytics,
 } from "../hooks/useFarmerHeatMapAnalytics";
+import CountUp from "react-countup";
 
 interface FarmerAnalyticsHeatMapProps {
   source: "vicharanashala" | "annam";
@@ -68,10 +70,10 @@ const metricOptions: Array<{
 type HeatMapPeriodMode = "year" | "month" | "week" | "day";
 
 const periodModeOptions: Array<{ value: HeatMapPeriodMode; label: string }> = [
-  { value: "year", label: "Year" },
-  { value: "month", label: "Month" },
-  { value: "week", label: "Week" },
-  { value: "day", label: "Day" },
+  { value: "year", label: "Months" },
+  { value: "month", label: "Weeks" },
+  { value: "week", label: "Days" },
+  { value: "day", label: "Hours" },
 ];
 
 const monthOptions = [
@@ -139,6 +141,13 @@ const getWeekRange = (year: number, monthIndex: number, week: number) => {
     startDate: startOfDay(new Date(year, monthIndex, startDay)),
     endDate: endOfDay(new Date(year, monthIndex, endDay)),
   };
+};
+
+const getWeekDays = (year: number, monthIndex: number, week: number) => {
+  const { startDate, endDate } = getWeekRange(year, monthIndex, week);
+  const start = startDate.getDate();
+  const end = endDate.getDate();
+  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
 };
 
 const getPeriodFilter = (
@@ -211,12 +220,17 @@ export function FarmerAnalyticsHeatMap({
     [selectedMonth, selectedYear],
   );
   const dayOptions = useMemo(
-    () =>
-      Array.from(
+    () => {
+      if (periodMode === "day") {
+        return getWeekDays(selectedYear, selectedMonth, selectedWeek);
+      }
+
+      return Array.from(
         { length: getDaysInMonth(selectedYear, selectedMonth) },
         (_, index) => index + 1,
-      ),
-    [selectedMonth, selectedYear],
+      );
+    },
+    [periodMode, selectedMonth, selectedWeek, selectedYear],
   );
 
   const { data, isLoading, error } = useFarmerHeatMapAnalytics(
@@ -233,16 +247,11 @@ export function FarmerAnalyticsHeatMap({
   const visibleRows = useMemo(
     () =>
       rows
-        .map((row) => ({
-          ...row,
-          totalForMetric: row.cells.reduce(
-            (sum, cell) => sum + (cell[metric] || 0),
-            0,
-          ),
-        }))
-        .sort((a, b) => b.totalForMetric - a.totalForMetric),
+        .map((row) => row)
+        .sort((a, b) => Number(b.totals?.[metric] ?? 0) - Number(a.totals?.[metric] ?? 0)),
     [metric, rows],
   );
+  const selectedMetricTotal = Number(data?.totals?.[metric] ?? 0);
 
   const updateState = (state: string) => {
     setFilters((current) => ({
@@ -261,7 +270,12 @@ export function FarmerAnalyticsHeatMap({
     const maxWeek = Math.ceil(getDaysInMonth(year, month) / 7);
     const maxDay = getDaysInMonth(year, month);
     const safeWeek = Math.min(week, maxWeek);
-    const safeDay = Math.min(day, maxDay);
+    const weekDays = getWeekDays(year, month, safeWeek);
+    let safeDay = Math.min(day, maxDay);
+
+    if (mode === "day" && !weekDays.includes(safeDay)) {
+      safeDay = weekDays[0] ?? safeDay;
+    }
 
     setPeriodMode(mode);
     setSelectedYear(year);
@@ -298,88 +312,252 @@ export function FarmerAnalyticsHeatMap({
   };
 
   return (
-    <Card className="relative border border-border/60 bg-gradient-to-br from-card to-card/50 shadow-sm transition-shadow duration-300 hover:shadow-md">
-      <button
-        onClick={handleRefresh}
-        className="absolute right-7 top-10 rounded-lg border border-gray-200/60 p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:shadow-md dark:border-[#333]"
-        title="Refresh"
-      >
-        <RefreshCw
-          className={cn("h-3.5 w-3.5 bg-background", {
-            "animate-spin": refreshing,
-          })}
-        />
-      </button>
+    <Card className="relative overflow-hidden border border-border/60 bg-gradient-to-br from-card via-card to-card/40 shadow-sm transition-shadow duration-300 hover:shadow-lg">
+      {/* Compact header: title + filters in one band */}
+      <CardHeader className="gap-3 border-b border-border/50 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-4">
+          <motion.div
+            initial={{ opacity: 0, x: -8 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="flex items-center gap-2.5 "
+          >
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-primary/20">
+              <MapPinned className="h-4 w-4 text-primary" />
+            </div>
+            <div className="leading-tight">
+              <CardTitle className="flex items-center gap-1.5 text-sm font-semibold tracking-tight text-foreground">
+                <span>Farmer Activity Heat Map</span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex cursor-help text-muted-foreground/60 hover:text-muted-foreground">
+                      <InfoIcon className="h-3.5 w-3.5" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    Compares farmer activity and question outcomes across the
+                    selected location and time period.
+                  </TooltipContent>
+                </Tooltip>
+              </CardTitle>
+              <p className="text-[11px] text-muted-foreground">
+                State and district farmer activity by selected period
+              </p>
+            </div>
+          </motion.div>
 
-      <CardHeader className="border-b border-border/50 pb-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-base font-semibold tracking-wide text-foreground">
-              <MapPinned className="h-5 w-5 text-primary" />
-              <span>Farmer Activity Heat Map</span>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex cursor-help text-muted-foreground/60 hover:text-muted-foreground">
-                    <InfoIcon className="h-3.5 w-3.5" />
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
-                  Compares farmer activity and question outcomes across the selected location and time period.
-                </TooltipContent>
-              </Tooltip>
-            </CardTitle>
-            <p className="mt-1 text-xs text-muted-foreground">
-              State and district farmer activity by selected period
-            </p>
-          </div>
+          <motion.button
+            whileHover={{ scale: 1.08, rotate: 15 }}
+            whileTap={{ scale: 0.92, rotate: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 18 }}
+            onClick={handleRefresh}
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border/60 bg-background/80 shadow-sm transition-colors hover:bg-accent"
+            title="Refresh"
+          >
+            <RefreshCw
+              className={cn("h-3.5 w-3.5 text-foreground", {
+                "animate-spin": refreshing,
+              })}
+            />
+          </motion.button>
         </div>
-      </CardHeader>
 
-      <CardContent className="space-y-5 pt-5">
-        <div className="space-y-3">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-            <div className="w-full xl:max-w-md">
-          <SearchableSelect
-            options={STATES}
-            value={filters.state}
-            onChange={updateState}
-            placeholder="All States"
-            className={selectClassName}
-            activeClassName={activeSelectClassName}
-          />
-            </div>
+        {/* Inline filter row — single line on desktop */}
+        <motion.div
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: "easeOut", delay: 0.05 }}
+          className="flex flex-wrap items-center gap-2"
+        >
+          <div className="min-w-[180px] flex-1 sm:max-w-xs">
+            <SearchableSelect
+              options={STATES}
+              value={filters.state}
+              onChange={updateState}
+              placeholder="All States"
+              className={cn(selectClassName, "h-8")}
+              activeClassName={activeSelectClassName}
+            />
+          </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center xl:justify-end">
-              <div className="grid w-full grid-cols-4 gap-1 rounded-md bg-muted/50 p-1 shadow-sm sm:w-auto">
-                {periodModeOptions.map((item) => (
-                  <button
-                    key={item.value}
-                    type="button"
-                    onClick={() =>
-                      applyPeriodFilter(
-                        item.value,
-                        selectedYear,
-                        selectedMonth,
-                        selectedWeek,
-                        selectedDay,
-                      )
-                    }
-                    className={cn(
-                      "h-9 rounded px-4 text-sm font-semibold text-muted-foreground transition-colors sm:min-w-20",
-                      periodMode === item.value &&
-                        "bg-primary text-primary-foreground shadow-sm",
-                    )}
-                  >
-                  {item.label}
+          <div className="flex h-8 items-center gap-0.5 rounded-md bg-muted/60 p-0.5 ring-1 ring-border/60">
+            {periodModeOptions.map((item) => {
+              const isActive = periodMode === item.value;
+              return (
+                <button
+                  key={item.value}
+                  type="button"
+                  onClick={() =>
+                    applyPeriodFilter(
+                      item.value,
+                      selectedYear,
+                      selectedMonth,
+                      selectedWeek,
+                      selectedDay,
+                    )
+                  }
+                  className={cn(
+                    "relative h-7 rounded px-2.5 text-xs font-medium transition-colors",
+                    isActive
+                      ? "text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {isActive && (
+                    <motion.span
+                      layoutId="periodModeActive"
+                      className="absolute inset-0 rounded bg-primary shadow-sm"
+                      transition={{
+                        type: "spring",
+                        stiffness: 380,
+                        damping: 30,
+                      }}
+                    />
+                  )}
+                  <span className="relative z-10">{item.label}</span>
                 </button>
+              );
+            })}
+          </div>
+
+          <Select
+            value={String(selectedYear)}
+            onValueChange={(value) =>
+              applyPeriodFilter(
+                periodMode,
+                Number(value),
+                selectedMonth,
+                selectedWeek,
+                selectedDay,
+              )
+            }
+          >
+            <SelectTrigger className="h-8 w-[92px] rounded-md border-border/70 px-2 text-xs shadow-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {yearOptions.map((year) => (
+                <SelectItem key={year} value={String(year)}>
+                  {year}
+                </SelectItem>
               ))}
-            </div>
+            </SelectContent>
+          </Select>
+
+          <AnimatePresence mode="popLayout" initial={false}>
+            {(periodMode === "month" ||
+              periodMode === "week" ||
+              periodMode === "day") && (
+              <motion.div
+                key="month"
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: "auto" }}
+                exit={{ opacity: 0, width: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <Select
+                  value={String(selectedMonth)}
+                  onValueChange={(value) =>
+                    applyPeriodFilter(
+                      periodMode,
+                      selectedYear,
+                      Number(value),
+                      selectedWeek,
+                      selectedDay,
+                    )
+                  }
+                >
+                  <SelectTrigger className="h-8 w-[120px] rounded-md border-border/70 px-2 text-xs shadow-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {monthOptions.map((month, index) => (
+                      <SelectItem key={month} value={String(index)}>
+                        {month}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </motion.div>
+            )}
+
+            {(periodMode === "week" || periodMode === "day") && (
+              <motion.div
+                key="week"
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: "auto" }}
+                exit={{ opacity: 0, width: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <Select
+                  value={String(selectedWeek)}
+                  onValueChange={(value) =>
+                    applyPeriodFilter(
+                      periodMode,
+                      selectedYear,
+                      selectedMonth,
+                      Number(value),
+                      selectedDay,
+                    )
+                  }
+                >
+                  <SelectTrigger className="h-8 w-[104px] rounded-md border-border/70 px-2 text-xs shadow-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {weekOptions.map((week) => (
+                      <SelectItem key={week} value={String(week)}>
+                        Week {week}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </motion.div>
+            )}
+
+            {periodMode === "day" && (
+              <motion.div
+                key="day"
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: "auto" }}
+                exit={{ opacity: 0, width: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <Select
+                  value={String(selectedDay)}
+                  onValueChange={(value) =>
+                    applyPeriodFilter(
+                      periodMode,
+                      selectedYear,
+                      selectedMonth,
+                      selectedWeek,
+                      Number(value),
+                    )
+                  }
+                >
+                  <SelectTrigger className="h-8 w-[84px] rounded-md border-border/70 px-2 text-xs shadow-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {dayOptions.map((day) => (
+                      <SelectItem key={day} value={String(day)}>
+                        {day}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <Select
             value={metric}
             onValueChange={(value) => setMetric(value as FarmerHeatMapMetric)}
           >
-            <SelectTrigger className="h-10 w-full rounded-md border-border/70 shadow-sm sm:w-48">
+            <SelectTrigger className="ml-auto h-8 w-[180px] rounded-md border-border/70 px-2 text-xs shadow-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -390,196 +568,159 @@ export function FarmerAnalyticsHeatMap({
               ))}
             </SelectContent>
           </Select>
-            </div>
-          </div>
+        </motion.div>
+      </CardHeader>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <Select
-              value={String(selectedYear)}
-              onValueChange={(value) =>
-                applyPeriodFilter(
-                  periodMode,
-                  Number(value),
-                  selectedMonth,
-                  selectedWeek,
-                  selectedDay,
-                )
-              }
+      <CardContent className="space-y-3 pt-4">
+        {/* Meta strip */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.1, duration: 0.3 }}
+          className="flex flex-wrap items-center gap-1.5 text-[11px]"
+        >
+          <span className="inline-flex items-center gap-1 rounded border border-primary/20 bg-primary/5 px-2 py-0.5 font-medium text-primary">
+            <Activity className="h-3 w-3" />
+            {selectedMetric?.label ?? "Selected Metric"}
+          </span>
+          <span className="inline-flex items-center gap-1 rounded border border-border/70 bg-muted/40 px-2 py-0.5 font-semibold text-foreground">
+            <span className="text-muted-foreground">Total:</span>
+            <motion.span
+              key={String(selectedMetricTotal)}
+              initial={{ opacity: 0, y: -3 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="tabular-nums"
             >
-              <SelectTrigger className="h-10 w-[120px] rounded-md border-border/70 shadow-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {yearOptions.map((year) => (
-                  <SelectItem key={year} value={String(year)}>
-                    {year}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {(periodMode === "month" ||
-              periodMode === "week" ||
-              periodMode === "day") && (
-              <Select
-                value={String(selectedMonth)}
-                onValueChange={(value) =>
-                  applyPeriodFilter(
-                    periodMode,
-                    selectedYear,
-                    Number(value),
-                    selectedWeek,
-                    selectedDay,
-                  )
-                }
-              >
-                <SelectTrigger className="h-10 w-[150px] rounded-md border-border/70 shadow-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {monthOptions.map((month, index) => (
-                    <SelectItem key={month} value={String(index)}>
-                      {month}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-
-            {(periodMode === "week" || periodMode === "day") && (
-              <Select
-                value={String(selectedWeek)}
-                onValueChange={(value) =>
-                  applyPeriodFilter(
-                    periodMode,
-                    selectedYear,
-                    selectedMonth,
-                    Number(value),
-                    selectedDay,
-                  )
-                }
-              >
-                <SelectTrigger className="h-10 w-[130px] rounded-md border-border/70 shadow-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {weekOptions.map((week) => (
-                    <SelectItem key={week} value={String(week)}>
-                      Week {week}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-
-            {periodMode === "day" && (
-              <Select
-                value={String(selectedDay)}
-                onValueChange={(value) =>
-                  applyPeriodFilter(
-                    periodMode,
-                    selectedYear,
-                    selectedMonth,
-                    selectedWeek,
-                    Number(value),
-                  )
-                }
-              >
-                <SelectTrigger className="h-10 w-[110px] rounded-md border-border/70 shadow-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {dayOptions.map((day) => (
-                    <SelectItem key={day} value={String(day)}>
-                      {day}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-          <span className="inline-flex items-center gap-1.5">
-            <Activity className="h-3.5 w-3.5 text-primary" />
-            Coloring by {selectedMetric?.label ?? "Selected Metric"}
+              <CountUp
+                end={selectedMetricTotal ?? 0}
+                duration={1.5}
+                preserveValue
+              />
+              {/* {formatValue(metric, selectedMetricTotal)} */}
+            </motion.span>
           </span>
-          <span>
-            Y-axis: {filters.state === "all" ? "States" : "Districts"}
+          <span className="rounded border border-border/60 bg-background px-2 py-0.5 text-muted-foreground">
+            Y: {filters.state === "all" ? "States" : "Districts"}
           </span>
-          <span>X-axis: {periodModeOptions.find((item) => item.value === periodMode)?.label}</span>
-        </div>
+          <span className="rounded border border-border/60 bg-background px-2 py-0.5 text-muted-foreground">
+            X:{" "}
+            {periodModeOptions.find((item) => item.value === periodMode)?.label}
+          </span>
+        </motion.div>
 
-        {isLoading ? (
-          <Skeleton className="h-[430px] w-full rounded-lg" />
-        ) : error ? (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
-            Failed to fetch farmer heat map data.
-          </div>
-        ) : rows.length === 0 || buckets.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border/70 p-8 text-center text-sm text-muted-foreground">
-            No farmer activity data found for the selected filters.
-          </div>
-        ) : (
-          <div className="overflow-hidden rounded-lg border border-border/70 bg-background/80">
-            <div className="max-h-[560px] overflow-auto">
-              <table className="min-w-full border-collapse text-xs">
-                <thead className="sticky top-0 z-20 bg-card">
-                  <tr>
-                    <th className="sticky left-0 z-30 min-w-[180px] border-b border-r border-border/60 bg-card px-3 py-3 text-left font-semibold text-foreground">
-                      {filters.state === "all" ? "States" : "Districts"}
-                    </th>
-                    {buckets.map((bucket) => (
-                      <th
-                        key={bucket.key}
-                        className="min-w-[82px] border-b border-border/60 px-2 py-3 text-center font-semibold text-foreground"
-                      >
-                        {bucket.label}
+        {/* Heat map / states (unchanged from previous version) */}
+        <AnimatePresence mode="wait">
+          {isLoading ? (
+            <motion.div
+              key="loading"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <Skeleton className="h-[430px] w-full rounded-lg" />
+            </motion.div>
+          ) : error ? (
+            <motion.div
+              key="error"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300"
+            >
+              Failed to fetch farmer heat map data.
+            </motion.div>
+          ) : rows.length === 0 || buckets.length === 0 ? (
+            <motion.div
+              key="empty"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="rounded-lg border border-dashed border-border/70 p-8 text-center text-sm text-muted-foreground"
+            >
+              No farmer activity data found for the selected filters.
+            </motion.div>
+          ) : (
+            <motion.div
+              key="table"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              className="overflow-hidden rounded-lg border border-border/70 bg-background/80 shadow-sm"
+            >
+              <div className="max-h-[560px] overflow-auto">
+                <table className="min-w-full border-collapse text-xs">
+                  <thead className="sticky top-0 z-20 bg-card">
+                    <tr>
+                      <th className="sticky left-0 z-30 min-w-[180px] border-b border-r border-border/60 bg-card px-3 py-2.5 text-left font-semibold text-foreground">
+                        {filters.state === "all" ? "States" : "Districts"}
                       </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleRows.map((row) => (
-                    <tr key={row.id} className="border-b border-border/40 last:border-0">
-                      <th className="sticky left-0 z-10 min-w-[180px] border-r border-border/60 bg-background px-3 py-2 text-left font-medium text-foreground">
-                        <span className="line-clamp-2">{row.label}</span>
-                      </th>
-                      {row.cells.map((cell) => {
-                        const value = Number(cell[metric] || 0);
-                        const title = [
-                          `${row.label} - ${cell.label}`,
-                          `Active farmers: ${cell.activeFarmers}`,
-                          `Total questions: ${cell.totalQuestions}`,
-                          `Closed questions: ${cell.closedQuestions}`,
-                          `Notified questions: ${cell.notifiedQuestions}`,
-                          `Average closure time: ${formatValue("averageClosureTimeMinutes", cell.averageClosureTimeMinutes)}`,
-                          `Status distribution: ${formatStatusDistribution(cell.statusDistribution)}`,
-                        ].join("\n");
-
-                        return (
-                          <td
-                            key={`${row.id}-${cell.bucket}`}
-                            className="h-11 min-w-[82px] border-r border-border/30 p-1 text-center align-middle last:border-r-0"
-                            title={title}
-                          >
-                            <div
-                              className="flex h-9 min-w-[70px] items-center justify-center rounded-md px-2 text-[11px] font-semibold tabular-nums"
-                              style={getCellStyle(value)}
-                            >
-                              {formatValue(metric, value)}
-                            </div>
-                          </td>
-                        );
-                      })}
+                      {buckets.map((bucket) => (
+                        <th
+                          key={bucket.key}
+                          className="min-w-[82px] border-b border-border/60 px-2 py-2.5 text-center font-semibold text-foreground"
+                        >
+                          {bucket.label}
+                        </th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+                  </thead>
+                  <tbody>
+                    {visibleRows.map((row, rowIdx) => (
+                      <motion.tr
+                        key={row.id}
+                        initial={{ opacity: 0, x: -6 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{
+                          duration: 0.25,
+                          delay: Math.min(rowIdx * 0.015, 0.3),
+                        }}
+                        className="border-b border-border/40 last:border-0 hover:bg-muted/20"
+                      >
+                        <th className="sticky left-0 z-10 min-w-[180px] border-r border-border/60 bg-background px-3 py-2 text-left font-medium text-foreground">
+                          <span className="line-clamp-2">{row.label}</span>
+                        </th>
+                        {row.cells.map((cell) => {
+                          const value = Number(cell[metric] || 0);
+                          const title = [
+                            `${row.label} - ${cell.label}`,
+                            `Active farmers: ${cell.activeFarmers}`,
+                            `Total questions: ${cell.totalQuestions}`,
+                            `Closed questions: ${cell.closedQuestions}`,
+                            `Notified questions: ${cell.notifiedQuestions}`,
+                            `Average closure time: ${formatValue("averageClosureTimeMinutes", cell.averageClosureTimeMinutes)}`,
+                            `Status distribution: ${formatStatusDistribution(cell.statusDistribution)}`,
+                          ].join("\n");
+
+                          return (
+                            <td
+                              key={`${row.id}-${cell.bucket}`}
+                              className="h-11 min-w-[82px] border-r border-border/30 p-1 text-center align-middle last:border-r-0"
+                              title={title}
+                            >
+                              <motion.div
+                                whileHover={{ scale: 1.08 }}
+                                transition={{
+                                  type: "spring",
+                                  stiffness: 400,
+                                  damping: 20,
+                                }}
+                                className="flex h-9 min-w-[70px] cursor-default items-center justify-center rounded-md px-2 text-[11px] font-semibold tabular-nums shadow-sm"
+                                style={getCellStyle(value)}
+                              >
+                                {formatValue(metric, value)}
+                              </motion.div>
+                            </td>
+                          );
+                        })}
+                      </motion.tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </CardContent>
     </Card>
   );
