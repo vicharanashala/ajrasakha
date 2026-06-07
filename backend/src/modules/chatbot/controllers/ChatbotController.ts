@@ -1485,6 +1485,8 @@ export class ChatbotController {
   async getClosedAndNotifedData(
     @QueryParam('source')
     source: string = 'vicharanashala',
+    @QueryParam('userType')
+    userType: string = 'all',
     @QueryParam('startDate')
     startDate?: string,
     @QueryParam('endDate')
@@ -1492,6 +1494,7 @@ export class ChatbotController {
   ): Promise<any> {
     return await this.chatbotService.getClosedAndNotifedData(
       source,
+      userType,
       startDate,
       endDate,
     );

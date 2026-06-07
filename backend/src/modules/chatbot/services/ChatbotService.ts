@@ -2615,6 +2615,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getClosedAndNotifedData(
     source?: string,
+    userType?: string,
     startDateStr?: string,
     endDateStr?: string,
   ): Promise<any> {
@@ -2629,16 +2630,18 @@ export class ChatbotService extends BaseService implements IChatbotService {
     ] = await Promise.all([
       this.chatbotRepository.getClosedVsTotalQuestions(
         source,
+        userType,
         startDate,
         endDate,
       ),
-      this.chatbotRepository.getNotifiedVsClosed(source, startDate, endDate),
+      this.chatbotRepository.getNotifiedVsClosed(source, userType, startDate, endDate),
       this.chatbotRepository.getClosedInLastTwoHours(
         source,
+        userType,
         startDate,
         endDate,
       ),
-      this.chatbotRepository.getCarryForwardQuestions(source),
+      this.chatbotRepository.getCarryForwardQuestions(source, userType),
     ]);
 
     return {

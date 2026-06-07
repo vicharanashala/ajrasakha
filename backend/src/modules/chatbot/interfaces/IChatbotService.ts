@@ -181,9 +181,9 @@ export interface IChatbotService {
       endDate?: Date,): Promise<any>;
   getUserQuestionsData(userEmail: string, source?: string, userType?: string, page?: number, limit?: number): Promise<any>;
   notifyUser(userEmail: string, messageId: string, message: string): Promise<any>
-  getClosedAndNotifedData(source?: string): Promise<any> 
+  // getClosedAndNotifedData(source?: string): Promise<any> 
 
-  getClosedAndNotifedData(source?: string, startDate?: string, endDate?: string): Promise<any>;
+  getClosedAndNotifedData(source?: string, userType?: string, startDate?: string, endDate?: string): Promise<any>;
   getMonthlyChurnRate(source: string, userType: string):Promise<any>;
   getActiveUsersTrend(
       source: string,
