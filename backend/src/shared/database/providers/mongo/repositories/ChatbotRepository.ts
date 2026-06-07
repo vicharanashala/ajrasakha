@@ -3958,6 +3958,7 @@ export class ChatbotRepository implements IChatbotRepository {
           {
             $match: {
               source: 'AJRASAKHA',
+              $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
               // messageId: { $exists: true, $ne: null },
               // threadId: { $exists: true, $ne: null },
               ...monthDateMatch,
@@ -4180,6 +4181,7 @@ export class ChatbotRepository implements IChatbotRepository {
           {
             $match: {
               source: 'AJRASAKHA',
+              $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
               // messageId: { $exists: true, $ne: null },
               // threadId: { $exists: true, $ne: null },
               ...monthDateMatch,
@@ -4396,6 +4398,7 @@ export class ChatbotRepository implements IChatbotRepository {
           {
             $match: {
               source: 'AJRASAKHA',
+              $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
               // messageId: { $exists: true, $ne: null },
               // threadId: { $exists: true, $ne: null },
               ...yearDateMatch,
@@ -5411,8 +5414,6 @@ export class ChatbotRepository implements IChatbotRepository {
       }
 
       const allUsers = await this.users.find(userFilter, {session}).toArray();
-      console.log('useres::', allUsers);
-      console.log('type of isverified:', isVerfied);
       // console.log('useres::',allUsers)
       // console.log('type of isverified:', isVerfied);
       // Merge
@@ -8489,6 +8490,7 @@ export class ChatbotRepository implements IChatbotRepository {
         {
           $match: {
             source: 'WHATSAPP',
+            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
             closedAt: {
               $gte: start,
               $lt: end,
@@ -8692,6 +8694,7 @@ export class ChatbotRepository implements IChatbotRepository {
         {
           $match: {
             source: 'WHATSAPP',
+            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
             closedAt: {
               $gte: start,
               $lt: end,
@@ -8890,6 +8893,7 @@ export class ChatbotRepository implements IChatbotRepository {
         {
           $match: {
             source: 'WHATSAPP',
+            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
             closedAt: {
               $ne: null,
             },
