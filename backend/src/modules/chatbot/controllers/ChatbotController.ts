@@ -333,7 +333,6 @@ export class ChatbotController {
   @HttpCode(200)
   @Authorized()
   async getQueryCategories(@QueryParams() query: SourceQueryDto) {
-    console.log("-------/query-categories", query.userType)
     return this.chatbotService.getQueryCategories(query.source, query.userType);
   }
 
@@ -404,8 +403,8 @@ export class ChatbotController {
   @Get('/top-crops')
   @HttpCode(200)
   @Authorized()
-  async getTopCrops(@QueryParams() query: {source?: string}) {
-    return this.chatbotService.getTopCrops(query.source);
+  async getTopCrops(@QueryParams() query: {source?: string, userType?: string}) {
+    return this.chatbotService.getTopCrops(query.source, query.userType);
   }
 
   @OpenAPI({

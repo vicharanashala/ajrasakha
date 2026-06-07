@@ -1616,7 +1616,6 @@ export class ChatbotRepository implements IChatbotRepository {
           userType,
         ),
       ); 
-      console.log("-----matchQuery", matchQuery);
       const pipeline = [
         {
           $match: matchQuery,
@@ -1738,7 +1737,6 @@ export class ChatbotRepository implements IChatbotRepository {
           userType,
         ),
       ); 
-      console.log("=====baseMatch", baseMatch)
       const categoryLabel = category?.trim();
       if (!categoryLabel) {
         throw new BadRequestError('category is required');
@@ -2088,7 +2086,7 @@ export class ChatbotRepository implements IChatbotRepository {
       Object.assign(
         matchQuery,
         await this.buildUserTypeMatchQuery(
-          source,
+          _source,
           userType,
         ),
       );
@@ -2212,8 +2210,7 @@ export class ChatbotRepository implements IChatbotRepository {
         if (b.district.toLowerCase() === 'all') return -1;
 
         return b.totalQuestions - a.totalQuestions;
-      });     
-      
+      });
       return data;
     } catch (error) {
       throw new Error('Failed to fetch district analytics: ${error}');
@@ -2222,6 +2219,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   async getTopCrops(
     source: string,
+    userType?: string,
     session?: ClientSession,
   ): Promise<{totalQuestions: number; topCrops: any[]}> {
     try {
@@ -2232,6 +2230,13 @@ export class ChatbotRepository implements IChatbotRepository {
       } else {
         matchStage = {source: {$ne: 'AGRI_EXPERT'}};
       }
+      Object.assign(
+        matchStage,
+        await this.buildUserTypeMatchQuery(
+          source,
+          userType,
+        ),
+      );
       const cropFieldRaw = {
         $ifNull: ['$details.normalised_crop', '$details.crop'],
       };
@@ -6190,7 +6195,7 @@ export class ChatbotRepository implements IChatbotRepository {
       session,
       userType,
     );
-    const topCrops = await this.getTopCrops(source, session);
+    const topCrops = await this.getTopCrops(source, userType, session);
     const topTenFaqs = await this.getTopQuestionsFromCollection(
       source,
       session,
@@ -9171,7 +9176,7 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getActiveUsersTrend( // use messages or conversations instead of lastactiveAt
+  async getActiveUsersTrend(
     source: string,
     userType: string,
     requestType: string,
@@ -9728,7 +9733,6 @@ export class ChatbotRepository implements IChatbotRepository {
         },
       },
     ).toArray();
-
     const threadIds = questionWithNullUsers
       .filter(q => q.threadId)
       .map(q => q.threadId);
@@ -9736,7 +9740,6 @@ export class ChatbotRepository implements IChatbotRepository {
     const messageIds = questionWithNullUsers
       .filter(q => !q.threadId && q.messageId)
       .map(q => q.messageId);
-
     // Resolve threadId -> user
     const conversations = await this.conversations
       .find(
@@ -9791,7 +9794,7 @@ export class ChatbotRepository implements IChatbotRepository {
           resolvedUserId = messageUserMap.get(q.messageId);
         }
 
-        // No threadId/messageId => treat as external
+        // No threadId/messageId => treat as internal
         if (
           !resolvedUserId &&
           userType === 'internal'
