@@ -476,7 +476,11 @@ export class ChatbotRepository implements IChatbotRepository {
     dynamicSchemesCount: number;
     markedDuplicateGdbCount: number;
   }> {
-    const matchQuery: any = {source, createdAt: {$exists: true}};
+    const matchQuery: any = {
+      source,
+      createdAt: {$exists: true},
+      $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+    };
     if (startTime || endTime) {
       matchQuery.createdAt = {};
       if (startTime) matchQuery.createdAt.$gte = new Date(startTime);
@@ -1225,6 +1229,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const dupeWithMsgId = await this.QuestionCollection.find({
         similarityScore: {$exists: true},
         messageId: {$exists: true, $ne: null},
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
       })
         .project<{messageId: string}>({messageId: 1})
         .toArray();
@@ -1610,6 +1615,7 @@ export class ChatbotRepository implements IChatbotRepository {
           $exists: true,
           $nin: [null, ''],
         },
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
       };
 
       Object.assign(
@@ -1734,6 +1740,7 @@ export class ChatbotRepository implements IChatbotRepository {
           $exists: true,
           $nin: [null, ''],
         },
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
       };
       Object.assign(
         baseMatch,
@@ -2125,6 +2132,7 @@ export class ChatbotRepository implements IChatbotRepository {
           $exists: true,
           $ne: null,
         },
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
       };
 
       Object.assign(
@@ -2284,6 +2292,7 @@ export class ChatbotRepository implements IChatbotRepository {
           $exists: true,
           $nin: [null, ''],
         },
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
       };
       const districtLabel = district.trim();
       if (!districtLabel) {
@@ -2718,6 +2727,7 @@ export class ChatbotRepository implements IChatbotRepository {
             $match: {
               source: finalSource,
               createdAt: {$gte: startDate, $lte: endDate},
+              $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
             },
           },
           {
@@ -2923,7 +2933,9 @@ export class ChatbotRepository implements IChatbotRepository {
   ): Promise<{totalQuestions: number; topCrops: any[]}> {
     try {
       await this.initReviewSystem();
-      let matchStage;
+      let matchStage : any ={
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+      };
       if (source === 'whatsapp') {
         matchStage = {source: 'WHATSAPP'};
       } else {
@@ -5596,6 +5608,7 @@ export class ChatbotRepository implements IChatbotRepository {
             },
 
             source: 'AJRASAKHA',
+            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         },
 
@@ -7112,7 +7125,9 @@ export class ChatbotRepository implements IChatbotRepository {
       }
       // 1. Fetch duplicate questions from the main review DB
       const dupeQuestions = await this.QuestionCollection.find(
-        {similarityScore: {$exists: true}},
+        {similarityScore: {$exists: true},
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+        },
         {session},
       )
         .project<{
@@ -7275,7 +7290,9 @@ export class ChatbotRepository implements IChatbotRepository {
       };
 
       const pipeline: any[] = [
-        {$match: domainMatch},
+        {$match: domainMatch,
+          $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+        },
         groupStage,
         {
           $unionWith: {
@@ -7369,7 +7386,9 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.initReviewSystem();
 
-      let matchQuery: any;
+      let matchQuery: any ={
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+      };
 
       if (dbSource === 'whatsapp') {
         matchQuery = {
@@ -7532,7 +7551,9 @@ export class ChatbotRepository implements IChatbotRepository {
   ): Promise<Array<{question: string; count: number}>> {
     try {
       await this.initReviewSystem();
-      let matchQuery: any;
+      let matchQuery: any = {
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+      };
       if (dbSource !== 'whatsapp') {
         matchQuery = {
           source: 'AJRASAKHA',
@@ -8543,6 +8564,7 @@ export class ChatbotRepository implements IChatbotRepository {
               $gte: start,
               $lt: end,
             },
+            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         },
         {
@@ -8688,6 +8710,7 @@ export class ChatbotRepository implements IChatbotRepository {
         status: {
           $ne: 'closed',
         },
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
       }),
     ]);
 
@@ -8749,6 +8772,7 @@ export class ChatbotRepository implements IChatbotRepository {
               $gte: start,
               $lt: end,
             },
+            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         },
 
@@ -8943,6 +8967,7 @@ export class ChatbotRepository implements IChatbotRepository {
         {
           $match: {
             source: 'WHATSAPP',
+            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         },
 
@@ -9110,6 +9135,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const dupeQuestions = await this.QuestionCollection.find(
         {
           source: 'WHATSAPP',
+          $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           similarityScore: {
             $exists: true,
           },
@@ -9179,6 +9205,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const matchQuery: any = {
         source: 'WHATSAPP',
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
       };
 
       // ============================================
@@ -9251,6 +9278,7 @@ export class ChatbotRepository implements IChatbotRepository {
           {
             $match: {
               source: 'WHATSAPP',
+              $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
               similarityScore: {
                 $exists: true,
               },
@@ -9282,7 +9310,9 @@ export class ChatbotRepository implements IChatbotRepository {
   ): Promise<any> {
     try {
       await this.initReviewSystem();
-      const matchStage: any = {};
+      const matchStage: any = {
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+      };
       if (source !== 'whatsapp') {
         source = 'AJRASAKHA';
       }
@@ -9527,7 +9557,9 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.initReviewSystem();
 
-      const matchStage: any = {};
+      const matchStage: any = {
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+      };
       if (source !== 'whatsapp') {
         source = 'AJRASAKHA';
       }
@@ -9793,7 +9825,9 @@ export class ChatbotRepository implements IChatbotRepository {
   async getCarryForwardQuestions(source?: string): Promise<any> {
     try {
       await this.initReviewSystem();
-      const matchStage: any = {};
+      const matchStage: any = {
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+      };
       if (source !== 'whatsapp') {
         source = 'AJRASAKHA';
       }
@@ -10003,6 +10037,7 @@ export class ChatbotRepository implements IChatbotRepository {
                 ...(queryMatch.createdAt && {
                   createdAt: queryMatch.createdAt,
                 }),
+                $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
               },
             },
 
@@ -10360,7 +10395,9 @@ export class ChatbotRepository implements IChatbotRepository {
 
     // Questions with null userId
     const questionWithNullUsers = await this.QuestionCollection.find(
-      { userId: null },
+      { userId: null,
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+       },
       {
         projection: {
           _id: 1,
@@ -10731,6 +10768,7 @@ export class ChatbotRepository implements IChatbotRepository {
               ...cropMatch,
               ...typeMatch,
               ...searchMatch,
+              $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
             },
           },
 
