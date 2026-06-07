@@ -41,6 +41,7 @@ import type {
   FarmerHeatMapResponse,
   FarmerHeatMapBucket,
   FarmerHeatMapRow,
+  FarmerHeatMapMetricTotals,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {IQuestion, QuestionSource} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
@@ -2443,6 +2444,13 @@ export class ChatbotRepository implements IChatbotRepository {
       const userType = filters.userType || 'all';
       const selectedState = filters.state || 'all';
       const granularity = filters.granularity || 'monthly';
+      const createEmptyHeatMapTotals = (): FarmerHeatMapMetricTotals => ({
+        activeFarmers: 0,
+        totalQuestions: 0,
+        closedQuestions: 0,
+        notifiedQuestions: 0,
+        averageClosureTimeMinutes: 0,
+      });
 
       await this.init(source);
       await this.initReviewSystem();
@@ -2512,6 +2520,7 @@ export class ChatbotRepository implements IChatbotRepository {
               label: monthLabel.format(cursor),
               startDate: bucketStart.toISOString(),
               endDate: bucketEnd.toISOString(),
+              totals: createEmptyHeatMapTotals(),
             });
 
             cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
@@ -2531,6 +2540,7 @@ export class ChatbotRepository implements IChatbotRepository {
               label: `Week ${week}`,
               startDate: bucketStart.toISOString(),
               endDate: bucketEnd.toISOString(),
+              totals: createEmptyHeatMapTotals(),
             });
 
             cursor = addDays(bucketEnd, 1);
@@ -2552,6 +2562,7 @@ export class ChatbotRepository implements IChatbotRepository {
               label: `${String(cursor.getHours()).padStart(2, '0')}:00`,
               startDate: bucketStart.toISOString(),
               endDate: bucketEnd.toISOString(),
+              totals: createEmptyHeatMapTotals(),
             });
 
             cursor.setHours(cursor.getHours() + 1, 0, 0, 0);
@@ -2570,6 +2581,7 @@ export class ChatbotRepository implements IChatbotRepository {
               label: `Day ${day}`,
               startDate: bucketStart.toISOString(),
               endDate: bucketEnd.toISOString(),
+              totals: createEmptyHeatMapTotals(),
             });
 
             cursor = addDays(cursor, 1);
@@ -2710,6 +2722,8 @@ export class ChatbotRepository implements IChatbotRepository {
           {
             $project: {
               userId: 1,
+              messageId: 1,
+              threadId: 1,
               createdAt: 1,
               closedAt: 1,
               status: {$ifNull: ['$status', 'unknown']},
@@ -2720,14 +2734,75 @@ export class ChatbotRepository implements IChatbotRepository {
         {session},
       ).toArray();
 
-      const questionUserObjectIds = [
+      const questionMessageIds = [
         ...new Set(
           questionDocs
-            .map(row => row.userId?.toString())
-            .filter(id => id && ObjectId.isValid(id)),
+            .map(row => row.messageId)
+            .filter(id => id !== undefined && id !== null && id !== ''),
         ),
+      ];
+      const questionThreadIds = [
+        ...new Set(
+          questionDocs
+            .map(row => row.threadId)
+            .filter(id => id !== undefined && id !== null && id !== ''),
+        ),
+      ];
+
+      const [questionMessages, questionConversations] = await Promise.all([
+        questionMessageIds.length
+          ? this.messagesCollection
+              .find(
+                {messageId: {$in: questionMessageIds}},
+                {projection: {messageId: 1, user: 1}, session},
+              )
+              .toArray()
+          : Promise.resolve([]),
+        questionThreadIds.length
+          ? this.conversations
+              .find(
+                {conversationId: {$in: questionThreadIds}},
+                {projection: {conversationId: 1, user: 1}, session},
+              )
+              .toArray()
+          : Promise.resolve([]),
+      ]);
+
+      const questionMessageUserMap = new Map(
+        questionMessages.map(message => [
+          String(message.messageId),
+          message.user?.toString(),
+        ]),
+      );
+      const questionConversationUserMap = new Map(
+        questionConversations.map(conversation => [
+          String(conversation.conversationId),
+          conversation.user?.toString(),
+        ]),
+      );
+
+      const resolvedUserIdByQuestionId = new Map<string, string>();
+      for (const row of questionDocs) {
+        const directUserId = row.userId?.toString();
+        const messageUserId =
+          row.messageId !== undefined && row.messageId !== null
+            ? questionMessageUserMap.get(String(row.messageId))
+            : undefined;
+        const conversationUserId =
+          row.threadId !== undefined && row.threadId !== null
+            ? questionConversationUserMap.get(String(row.threadId))
+            : undefined;
+        const resolvedUserId = directUserId || messageUserId || conversationUserId;
+        if (resolvedUserId) {
+          resolvedUserIdByQuestionId.set(row._id.toString(), resolvedUserId);
+        }
+      }
+
+      const questionUserObjectIds = [
+        ...new Set([...resolvedUserIdByQuestionId.values()]),
       ]
-        .map(id => new ObjectId(id as string));
+        .filter(id => ObjectId.isValid(id))
+        .map(id => new ObjectId(id));
 
       const questionUsers = questionUserObjectIds.length
         ? await this.users
@@ -2739,7 +2814,7 @@ export class ChatbotRepository implements IChatbotRepository {
       );
 
       questionRows = questionDocs.flatMap(row => {
-        const userId = row.userId?.toString();
+        const userId = resolvedUserIdByQuestionId.get(row._id.toString());
         if (!userId) return [];
 
         const userDoc = questionUserMap.get(userId);
@@ -2818,6 +2893,53 @@ export class ChatbotRepository implements IChatbotRepository {
         questionMap.set(key, existing);
       }
 
+      const calculateTotals = (
+        labelFilter?: string,
+        bucketFilter?: string,
+      ): FarmerHeatMapMetricTotals => {
+        const activeFarmerIds = new Set<string>();
+        let totalQuestions = 0;
+        let closedQuestions = 0;
+        let notifiedQuestions = 0;
+        let closureTotalMinutes = 0;
+
+        const filteredLabels = labelFilter ? [labelFilter] : labels;
+        const filteredBuckets = bucketFilter
+          ? buckets.filter(bucket => bucket.key === bucketFilter)
+          : buckets;
+
+        for (const label of filteredLabels) {
+          for (const bucket of filteredBuckets) {
+            const key = `${label}__${bucket.key}`;
+            const activeFarmers = activeFarmerMap.get(key);
+            if (activeFarmers) {
+              for (const farmerId of activeFarmers) {
+                activeFarmerIds.add(farmerId);
+              }
+            }
+
+            const questionMetrics = questionMap.get(key);
+            if (!questionMetrics) continue;
+
+            totalQuestions += questionMetrics.totalQuestions;
+            closedQuestions += questionMetrics.closedQuestions;
+            notifiedQuestions += questionMetrics.notifiedQuestions;
+            closureTotalMinutes += questionMetrics.closureTotalMinutes;
+          }
+        }
+
+        return {
+          activeFarmers: activeFarmerIds.size,
+          totalQuestions,
+          closedQuestions,
+          notifiedQuestions,
+          averageClosureTimeMinutes:
+            totalQuestions > 0
+              ? Math.round((closureTotalMinutes / totalQuestions) * 10) / 10
+              : 0,
+        };
+      };
+
       const rows: FarmerHeatMapRow[] = labels.map(label => {
         const cells = buckets.map(bucket => {
           const key = `${label}__${bucket.key}`;
@@ -2849,8 +2971,16 @@ export class ChatbotRepository implements IChatbotRepository {
           label,
           scope,
           cells,
+          totals: calculateTotals(label),
         };
       });
+
+      const bucketsWithTotals = buckets.map(bucket => ({
+        ...bucket,
+        totals: calculateTotals(undefined, bucket.key),
+      }));
+
+      const totals = calculateTotals();
 
       const maxValues = rows.reduce(
         (acc, row) => {
@@ -2894,8 +3024,9 @@ export class ChatbotRepository implements IChatbotRepository {
           startDate: startDate.toISOString(),
           endDate: endDate.toISOString(),
         },
-        buckets,
+        buckets: bucketsWithTotals,
         rows,
+        totals,
         maxValues,
       };
     } catch (error) {

@@ -133,11 +133,20 @@ export interface FarmerHeatMapFilters {
   endDate?: string;
 }
 
+export interface FarmerHeatMapMetricTotals {
+  activeFarmers: number;
+  totalQuestions: number;
+  closedQuestions: number;
+  notifiedQuestions: number;
+  averageClosureTimeMinutes: number;
+}
+
 export interface FarmerHeatMapBucket {
   key: string;
   label: string;
   startDate: string;
   endDate: string;
+  totals: FarmerHeatMapMetricTotals;
 }
 
 export interface FarmerHeatMapCell {
@@ -156,12 +165,14 @@ export interface FarmerHeatMapRow {
   label: string;
   scope: 'state' | 'district';
   cells: FarmerHeatMapCell[];
+  totals: FarmerHeatMapMetricTotals;
 }
 
 export interface FarmerHeatMapResponse {
   filters: FarmerHeatMapFilters;
   buckets: FarmerHeatMapBucket[];
   rows: FarmerHeatMapRow[];
+  totals: FarmerHeatMapMetricTotals;
   maxValues: {
     activeFarmers: number;
     totalQuestions: number;
