@@ -199,17 +199,22 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
 
 // ─── MAIN COMPONENT ────────────────────────────────────
 
-export const DashboardStateWiseAnalytics = (
-  source: "annam" | "vicharanashala" | "whatsapp",
-  userType: "all" | "external" | "internal",
-) => {
+interface DashboardStateWiseAnalyticsProps {
+  source: "annam" | "vicharanashala" | "whatsapp";
+  userType: "all" | "external" | "internal";
+}
+
+export const DashboardStateWiseAnalytics = ({
+  source,
+  userType,
+}: DashboardStateWiseAnalyticsProps) => {
   const [selectedState, setSelectedState] = useState("Punjab");
 
   const [open, setOpen] = useState(false);
 
   const { data, isLoading } = useStateWiseAnalytics(
     selectedState,
-    source.source,
+    source,
     userType,
   );
 

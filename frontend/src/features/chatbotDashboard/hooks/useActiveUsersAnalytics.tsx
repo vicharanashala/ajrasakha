@@ -79,13 +79,14 @@ export const useRetentionMetrics = (
   });
 };
 
-export const useQueryCategories = (source: string, enabled: boolean = true) => {
+export const useQueryCategories = (source: string, userType: string, enabled: boolean = true) => {
   return useQuery({
     queryKey: ["query-categories",
-      source
+      source,
+      userType,
     ],
     queryFn: () => {
-      return chatbotService.getQueryCategories(source);
+      return chatbotService.getQueryCategories(source, userType);
     },
     enabled,
   });

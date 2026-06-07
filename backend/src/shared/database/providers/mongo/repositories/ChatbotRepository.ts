@@ -452,6 +452,7 @@ export class ChatbotRepository implements IChatbotRepository {
     userType = 'all',
     startTime?: string,
     endTime?: string,
+    dbSource?: string,
     session?: ClientSession,
   ): Promise<{
     questionAsked: number;
@@ -473,13 +474,21 @@ export class ChatbotRepository implements IChatbotRepository {
       if (endTime) matchQuery.createdAt.$lte = new Date(endTime);
     }
 
-    const userTypeLookupStages =
-      this.buildQuestionUserTypeLookupStages(userType);
+    Object.assign(
+      matchQuery,
+      await this.buildUserTypeMatchQuery(
+        dbSource,
+        userType,
+      ),
+    ); 
+
+    // const userTypeLookupStages =
+    //   this.buildQuestionUserTypeLookupStages(userType);
 
     const result = await this.QuestionCollection.aggregate(
       [
         {$match: matchQuery},
-        ...userTypeLookupStages,
+        // ...userTypeLookupStages,
         {
           $facet: {
             questionAsked: [{$count: 'count'}],
@@ -590,6 +599,7 @@ export class ChatbotRepository implements IChatbotRepository {
           userType,
           startTime,
           endTime,
+          source,
           session,
         ),
         this.getSourceAdherenceStats(
@@ -597,6 +607,7 @@ export class ChatbotRepository implements IChatbotRepository {
           userType,
           startTime,
           endTime,
+          source,
           session,
         ),
       ]);
@@ -1587,20 +1598,31 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.initReviewSystem();
 
-      const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
+      // const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
       const source = _source === "whatsapp" ? 'WHATSAPP' : 'AJRASAKHA';
+
+      const matchQuery: any = {
+        source,
+        'details.domain': {
+          $exists: true,
+          $nin: [null, ''],
+        },
+      };
+
+      Object.assign(
+        matchQuery,
+        await this.buildUserTypeMatchQuery(
+          _source,
+          userType,
+        ),
+      ); 
+      console.log("-----matchQuery", matchQuery);
       const pipeline = [
         {
-          $match: {
-            source: source,
-            'details.domain': {
-              $exists: true,
-              $nin: [null, ''],
-            },
-          },
+          $match: matchQuery,
         },
 
-        ...lookupStages,
+        // ...lookupStages,
 
         {
           $project: {
@@ -1701,7 +1723,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const safePage = Math.max(Number(page) || 1, 1);
       const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
       const skip = (safePage - 1) * safeLimit;
-      const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
+      // const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
       const baseMatch = {
         source: 'AJRASAKHA',
         'details.domain': {
@@ -1709,7 +1731,14 @@ export class ChatbotRepository implements IChatbotRepository {
           $nin: [null, ''],
         },
       };
-
+      Object.assign(
+        baseMatch,
+        await this.buildUserTypeMatchQuery(
+          _source,
+          userType,
+        ),
+      ); 
+      console.log("=====baseMatch", baseMatch)
       const categoryLabel = category?.trim();
       if (!categoryLabel) {
         throw new BadRequestError('category is required');
@@ -1720,7 +1749,7 @@ export class ChatbotRepository implements IChatbotRepository {
         const topDomains = await this.QuestionCollection.aggregate(
           [
             {$match: baseMatch},
-            ...lookupStages,
+            // ...lookupStages,
             {$group: {_id: '$details.domain', totalCount: {$sum: 1}}},
             {$sort: {totalCount: -1}},
             {$limit: 15},
@@ -1754,7 +1783,7 @@ export class ChatbotRepository implements IChatbotRepository {
               ...typeMatch,
             },
           },
-          ...lookupStages,
+          // ...lookupStages,
           {
             $addFields: {
               _categoryUserOid: {
@@ -2046,21 +2075,33 @@ export class ChatbotRepository implements IChatbotRepository {
         this.normalizeDistrictName(d),
       );
 
-      const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
+      
+      const matchQuery: any = {
+        source,
+        'details.state': state,
+        'details.district': {
+          $exists: true,
+          $ne: null,
+        },
+      };
+
+      Object.assign(
+        matchQuery,
+        await this.buildUserTypeMatchQuery(
+          source,
+          userType,
+        ),
+      );
+
+
+      // const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
 
       const pipeline = [
         {
-          $match: {
-            source,
-            'details.state': state,
-            'details.district': {
-              $exists: true,
-              $ne: null,
-            },
-          },
+          $match: matchQuery,
         },
 
-        ...lookupStages,
+        // ...lookupStages,
 
         {
           $project: {
@@ -6608,9 +6649,9 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getDailyQuestionTrends( 
+  async getDailyQuestionTrends(
     days = 30,
-    source?: string,
+    dbSource?: string,
     session?: ClientSession,
     userType = 'all',
     startTime?: string,
@@ -6623,7 +6664,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
       let matchQuery: any;
 
-      if (source === 'whatsapp') {
+      if (dbSource === 'whatsapp') {
         matchQuery = {
           source: 'WHATSAPP',
         };
@@ -6641,6 +6682,14 @@ export class ChatbotRepository implements IChatbotRepository {
           matchQuery.createdAt.$lte = new Date(endTime);
         }
       }
+
+      Object.assign(
+        matchQuery,
+        await this.buildUserTypeMatchQuery(
+          dbSource,
+          userType,
+        ),
+      );
       // commenting out as we cant filter users in review system for this data, need to rectify
       // const userTypeLookupStages =
       //   this.buildQuestionUserTypeLookupStages(userType);
@@ -6768,7 +6817,7 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getTopQuestionsFromCollection(
-    source = 'vicharanashala',
+    dbSource = 'vicharanashala',
     session?: ClientSession,
     userType = 'all',
     startTime?: string,
@@ -6777,7 +6826,7 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.initReviewSystem();
       let matchQuery: any;
-      if (source !== 'whatsapp') {
+      if (dbSource !== 'whatsapp') {
         matchQuery = {
           source: 'AJRASAKHA',
         };
@@ -6796,15 +6845,23 @@ export class ChatbotRepository implements IChatbotRepository {
         }
       }
 
-      const userTypeLookupStages =
-        this.buildQuestionUserTypeLookupStages(userType);
+      Object.assign(
+        matchQuery,
+        await this.buildUserTypeMatchQuery(
+          dbSource,
+          userType,
+        ),
+      ); 
+
+      // const userTypeLookupStages =
+      //   this.buildQuestionUserTypeLookupStages(userType);
 
       const result = await this.QuestionCollection.aggregate(
         [
           {
             $match: matchQuery,
           },
-          ...userTypeLookupStages,
+          // ...userTypeLookupStages,
           {
             $project: {
               resolvedId: {$ifNull: ['$referenceQuestionId', '$_id']},
@@ -9114,7 +9171,7 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getActiveUsersTrend(
+  async getActiveUsersTrend( // use messages or conversations instead of lastactiveAt
     source: string,
     userType: string,
     requestType: string,
@@ -9615,6 +9672,157 @@ export class ChatbotRepository implements IChatbotRepository {
     } catch (error) {
       throw new InternalServerError('Failed to fetch unverified users');
     }
+  }
+
+  private async getUserIdsByUserType(
+    source: string,
+    userType: string,
+  ): Promise<ObjectId[]> {
+    await this.init(source);
+    if (userType === 'all') {
+      return [];
+    }
+    const userMatch =
+      userType === 'external'
+        ? {
+            userRole: {
+              $in: ['FARMER', 'COORDINATOR'],
+            },
+          }
+        : {
+            userRole: 'INTERNAL',
+          };
+    const users = await this.users
+      .find(userMatch, {       // aggregation
+        projection: { _id: 1 },
+      })
+      .toArray();
+    return users.map(user => user._id); // map is not required.
+  }
+
+  private async buildUserTypeMatchQuery(
+    source: string,
+    userType: string,
+  ): Promise<any> {
+    if (userType === 'all') {
+      return {};
+    }
+
+    // Users from Users DB
+    const directUserObjectIds =
+      await this.getUserIdsByUserType(source, userType);
+
+    const directUserStrings =
+      directUserObjectIds.map(id => id.toString());
+
+    const validUserIds = new Set(directUserStrings);
+
+    // Questions with null userId
+    const questionWithNullUsers = await this.QuestionCollection.find(
+      { userId: null },
+      {
+        projection: {
+          _id: 1,
+          threadId: 1,
+          messageId: 1,
+        },
+      },
+    ).toArray();
+
+    const threadIds = questionWithNullUsers
+      .filter(q => q.threadId)
+      .map(q => q.threadId);
+
+    const messageIds = questionWithNullUsers
+      .filter(q => !q.threadId && q.messageId)
+      .map(q => q.messageId);
+
+    // Resolve threadId -> user
+    const conversations = await this.conversations
+      .find(
+        {
+          conversationId: { $in: threadIds },
+        },
+        {
+          projection: {
+            conversationId: 1,
+            user: 1,
+          },
+        },
+      )
+      .toArray();
+
+    const conversationUserMap = new Map(
+      conversations.map(c => [
+        c.conversationId,
+        c.user?.toString(),
+      ]),
+    );
+
+    // Resolve messageId -> user
+    const messages = await this.messagesCollection
+      .find(
+        {
+          messageId: { $in: messageIds },
+        },
+        {
+          projection: {
+            messageId: 1,
+            user: 1,
+          },
+        },
+      )
+      .toArray();
+
+    const messageUserMap = new Map(
+      messages.map(m => [
+        m.messageId,
+        m.user?.toString(),
+      ]),
+    );
+
+    const resolvedQuestionIds = questionWithNullUsers
+      .filter(q => {
+        let resolvedUserId: string | undefined;
+
+        if (q.threadId) {
+          resolvedUserId = conversationUserMap.get(q.threadId);
+        } else if (q.messageId) {
+          resolvedUserId = messageUserMap.get(q.messageId);
+        }
+
+        // No threadId/messageId => treat as external
+        if (
+          !resolvedUserId &&
+          userType === 'internal'
+        ) {
+          return true;
+        }
+
+        return (
+          resolvedUserId &&
+          validUserIds.has(resolvedUserId)
+        );
+      })
+      .map(q => q._id);
+
+    return {
+      $or: [
+        {
+          userId: {
+            $in: [
+              ...directUserObjectIds,
+              ...directUserStrings,
+            ],
+          },
+        },
+        {
+          _id: {
+            $in: resolvedQuestionIds,
+          },
+        },
+      ],
+    };
   }
 
 }
