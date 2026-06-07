@@ -22,6 +22,7 @@ from ajrasakha.agents.state import AjraSakhaState
 from ajrasakha.agents.language import language_directive_for_synthesis
 from ajrasakha.agents.translation_catalog import language_pair_from_plan
 from ajrasakha.agents.config import SYNTHESIZE_MODEL
+from ajrasakha.agents.prompts import GREETING_SYNTHESIS_PROMPT
 from langchain_anthropic import ChatAnthropic
 from anthropic import APITimeoutError, APIConnectionError, APIStatusError
 from langchain_core.messages import SystemMessage, HumanMessage, BaseMessage
@@ -65,7 +66,7 @@ async def assemble_answer_body_node(
                 user_text = str(content).strip()
 
         llm_messages: list[BaseMessage] = [
-            SystemMessage(content="You are AjraSakha, a helpful agricultural AI for Indian farmers. The farmer has just sent a greeting or courtesy message. Greet them back politely in a culturally appropriate way, matching their specific greeting style, language, and script. In addition to the greeting, you MUST add a sentence asking \"How can I help you with your farming-related problems?\" in the SAME language and script as their greeting. Keep it short and WhatsApp-friendly. Do not add any disclaimers or footers. Just the greeting and the follow-up question."),
+            SystemMessage(content=GREETING_SYNTHESIS_PROMPT),
             SystemMessage(content=language_directive_for_synthesis(vocal_lang, script_lang)),
             HumanMessage(content=f"Farmer's greeting (vocal={vocal_lang}, script={script_lang}):\n{user_text}")
         ]
