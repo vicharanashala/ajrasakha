@@ -2484,7 +2484,9 @@ export class ChatbotRepository implements IChatbotRepository {
         activeFarmerMap.get(key)?.add(String(row.user));
       }
 
-      const questionRows = await this.QuestionCollection.aggregate(
+      let questionRows: any[] = [];
+
+      const questionDocs = await this.QuestionCollection.aggregate(
         [
           {
             $match: {
@@ -2492,24 +2494,64 @@ export class ChatbotRepository implements IChatbotRepository {
               createdAt: {$gte: startDate, $lte: endDate},
             },
           },
-          ...this.buildQuestionUserTypeLookupStages(userType),
-          ...(scope === 'district'
-            ? [{$match: {'details.state': selectedState}}]
-            : []),
           {
             $project: {
+              userId: 1,
               createdAt: 1,
               closedAt: 1,
               status: {$ifNull: ['$status', 'unknown']},
               isCustomerNotified: 1,
-              location:
-                scope === 'district' ? '$details.district' : '$details.state',
             },
           },
-          {$match: {location: {$exists: true, $nin: [null, '']}}},
         ],
         {session},
       ).toArray();
+
+      const questionUserObjectIds = [
+        ...new Set(
+          questionDocs
+            .map(row => row.userId?.toString())
+            .filter(id => id && ObjectId.isValid(id)),
+        ),
+      ]
+        .map(id => new ObjectId(id as string));
+
+      const questionUsers = questionUserObjectIds.length
+        ? await this.users
+            .find({_id: {$in: questionUserObjectIds}}, {session})
+            .toArray()
+        : [];
+      const questionUserMap = new Map(
+        questionUsers.map(user => [user._id.toString(), user]),
+      );
+
+      questionRows = questionDocs.flatMap(row => {
+        const userId = row.userId?.toString();
+        if (!userId) return [];
+
+        const userDoc = questionUserMap.get(userId);
+        if (!userDoc?.farmerProfile) return [];
+
+        if (userType !== 'all') {
+          const matchesUserType =
+            userType === 'external'
+              ? ['FARMER', 'COORDINATOR'].includes(userDoc.userRole)
+              : userDoc.userRole === 'INTERNAL';
+          if (!matchesUserType) return [];
+        }
+
+        if (scope === 'district' && userDoc.farmerProfile.state !== selectedState) {
+          return [];
+        }
+
+        const location =
+          scope === 'district'
+            ? userDoc.farmerProfile.district
+            : userDoc.farmerProfile.state;
+        if (!location) return [];
+
+        return [{...row, location}];
+      });
 
       const questionMap = new Map<
         string,
