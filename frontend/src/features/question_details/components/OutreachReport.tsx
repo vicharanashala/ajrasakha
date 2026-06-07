@@ -118,8 +118,8 @@ export const OutreachReportModal = ({setIsSidebarOpen}:{setIsSidebarOpen:(value:
       });
       setOpen(false);
       setTimeout(resetForm, 300);
-    } catch (error) {
-      toast.error("Failed to send report. Please try again.");
+    } catch (error:any) {
+      console.error("Failed to send report",error.message);
     }
   };
 

@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { QuestionService } from "../../services/questionService";
-import { toast } from "sonner";
+import { useToast } from "@/shared/components/toast";
 
 const questionService = new QuestionService();
 
@@ -11,7 +11,16 @@ interface OutreachReportPayload {
 }
 
 export const useSendOutreachReport = () => {
+  const { success: toastSuccess, loading:toastLoading, dismiss: toastDismiss, error: toastError} = useToast();
   return useMutation({
+
+    onMutate: () => {
+      const toastId = toastLoading("Sending report...", {
+        desc: "Please wait while we send the outreach report.",
+      });
+      // Return the toastId so it becomes available in the "context" variable below
+      return { toastId };
+    },
     mutationFn: async (payload: OutreachReportPayload) => {
       const result = await questionService.sendOutreachReport(
         payload.startDate,
@@ -25,11 +34,13 @@ export const useSendOutreachReport = () => {
       
       return result;
     },
-    onSuccess: (data) => {
-      toast.success(data?.message || `Report sent successfully`);
+    onSuccess: (data,_,context) => {
+      if (context?.toastId)toastDismiss(context.toastId);
+      toastSuccess(data?.message || `Report sent successfully`);
     },
-    onError: (error: any) => {
-      toast.error(error?.message || "Failed to send outreach report");
+    onError: (error: any,_,context) => {
+      if (context?.toastId)toastDismiss(context.toastId);
+      toastError(error?.message || "Failed to send outreach report");
     },
   });
 };
