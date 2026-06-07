@@ -396,7 +396,7 @@ export interface IChatbotRepository {
 
   getQuestionFromDistrict(district: string, questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string, search?: string): Promise<any>;
 
-  getTopCrops(source?: string, session?: ClientSession): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
+  getTopCrops(source?: string, userType?: string, session?: ClientSession): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
 
     getQuestionsByCrop(crop: string, questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string, search?: string): Promise<any>
 
