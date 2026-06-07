@@ -35,6 +35,7 @@ import { useGetAllocatedQuestions } from "@/hooks/api/question/useGetAllocatedQu
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import type { IQuestion } from "@/types";
 import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
+import { toast } from "@/shared/components/toast";
 interface ExpertDashboardProps {
   expertId?: string | null;
   goBack?: () => void;
@@ -377,7 +378,11 @@ export const ExpertDashboard = ({
                 type="delete"
                 isLoading={removingAllocations}
                 onConfirm={async () => {
-                  await removeExpertAllocations(expertId);
+                  await toast.promise(removeExpertAllocations(expertId),{
+                    loading: 'Removing allocations...',
+                    success:(resp:any) => `Allocations removed successfully from ${resp?.questionsAffected ?? 0} question(s).`,
+                    error:(err:any) =>  err?.message || "Failed to remove allocations. Please try again."
+                  });
                 }}
                 trigger={
                   <div className="relative inline-block">
