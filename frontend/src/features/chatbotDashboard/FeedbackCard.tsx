@@ -16,10 +16,13 @@ import {
   ThumbsDown,
   X,
   InfoIcon,
+  RefreshCw,
 } from "lucide-react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
+import { useQueryClient } from "@tanstack/react-query";
+import { LazySectionSkeleton } from "./AnnamDashboard_dev";
 
 function FeedbackCard({
   title,
@@ -136,7 +139,7 @@ function FeedbackCard({
             not_helpful: 0,
           };
 
-    items.forEach((item) => {
+    items?.forEach((item) => {
       if (defaultCategories[item.tag] !== undefined) {
         defaultCategories[item.tag]++;
       }
@@ -153,6 +156,13 @@ function FeedbackCard({
   const positiveSummary = summarizeTags(positiveFeedbacks, "positive");
 
   const negativeSummary = summarizeTags(negativeFeedbacks, "negative");
+  const queryClient = useQueryClient();
+  const [dataRefreshing, setDataRefreshing] = useState(false);
+  const handleRefresh = async ()=>{
+    setDataRefreshing(true);
+    await queryClient.refetchQueries({ queryKey: ["user-metrices"] });
+    setDataRefreshing(false);
+  }
 
   return (
     <>
@@ -185,11 +195,28 @@ function FeedbackCard({
                   Shows customer rating breakdown and categorization of positive/negative feedback.
                 </TooltipContent>
               </Tooltip>
+            <button
+              onClick={handleRefresh}
+              className=" z-20 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
+              title="Refresh"
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5  ${
+                  dataRefreshing ? "animate-spin" : ""
+                }`}
+              />
+            </button>
             </CardTitle>
           </div>
         </CardHeader>
 
         <CardContent className="flex-1 flex flex-col justify-center">
+          {dataRefreshing ? (
+            <div>
+              <LazySectionSkeleton/>
+            </div>
+          ):(
+          <>
           {total > 0 ? (
             <div className="space-y-6">
               {/* Donut */}
@@ -347,6 +374,7 @@ function FeedbackCard({
               <p className="text-sm text-muted-foreground">No feedback yet</p>
             </div>
           )}
+          </>)}
         </CardContent>
       </Card>
 

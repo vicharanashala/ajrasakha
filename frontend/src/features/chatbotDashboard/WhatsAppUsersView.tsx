@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { X, Users, Filter, Search, Calendar, MessageSquare, ArrowUpDown } from "lucide-react";
+import { X, Users, Filter, Search, Calendar, MessageSquare, ArrowUpDown, RefreshCw } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { useAllWhatsappUsers } from "./hooks/useActiveUsersAnalytics";
 import { TranslatableText } from "./components/TranslatableText";
@@ -30,6 +30,8 @@ import {
 } from "@/components/atoms/dialog";
 import { Label } from "@/components/atoms/label";
 import { Badge } from "@/components/atoms/badge";
+import { useQueryClient } from "@tanstack/react-query";
+import { Skeleton } from "@/components/atoms/skeleton";
 
 export interface WhatsAppUser {
   phoneNumber: string;
@@ -309,6 +311,13 @@ function WhatsAppUsersPreferenceFilter({
 }
 
 export function WhatsAppUsersView() {
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await queryClient.refetchQueries({ queryKey: ["whatsapp-all-users"] });
+    setRefreshing(false);
+  };
   const [filters, setFilters] = useState<WhatsAppFilters>(DEFAULT_FILTERS);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
@@ -468,6 +477,16 @@ export function WhatsAppUsersView() {
                   Clear Filters
                 </Button>
               )}
+              <button
+                onClick={handleRefresh}
+                className="h-9 w-9 pl-2 rounded-md border"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 bg-background ${
+                    refreshing ? "animate-spin" : ""
+                  }`}
+                />
+              </button>
 
               <WhatsAppUsersPreferenceFilter
                 filters={filters}
@@ -477,9 +496,9 @@ export function WhatsAppUsersView() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          {isLoading && !apiResponse ? (
-            <div className="py-12">
-              <Spinner text="Fetching WhatsApp users..." fullScreen={false} />
+          {refreshing || isLoading && !apiResponse ? (
+            <div className="h-[320px]">
+                <Skeleton className="h-full w-full" />
             </div>
           ) : activeUsersData.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 px-4 text-center border rounded-lg bg-card">

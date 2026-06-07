@@ -48,6 +48,7 @@ from ajrasakha.agents.location_context import (
 from ajrasakha.agents.plan_executor import ENABLE_CHEMICAL_CHECKER
 from ajrasakha.agents.planner_rules import (
     apply_crop_one_shot_fallback,
+    apply_non_agriculture_gate,
     apply_planner_completeness_rules,
     crop_slot_satisfied,
     format_conversation_for_planner,
@@ -61,7 +62,7 @@ from ajrasakha.agents.state import AjraSakhaState, PlannerEntities, PlannerPlan
 logger = logging.getLogger(__name__)
 
 _GREETING_RE = re.compile(
-    r"^(hi|hello|hey|namaste|namaskar|thanks|thank you|bye|good\s*(morning|evening|night)|"
+    r"^(hi|hello|hey|namaste|namaskar|namaskaram|vanakkam|pranam|ram\s*ram|radhe\s*radhe|sat\s*sri\s*akal|sasriakal|kem\s*cho|khamma\s*ghani|jai\s*hind|jai\s*shri\s*ram|thanks|thank you|bye|good\s*(morning|evening|night)|"
     r"how are you|kaise ho|kya haal)[\s!.?]*$",
     re.IGNORECASE,
 )
@@ -84,12 +85,25 @@ class PlannerOutput(BaseModel):
         min_length=1,
         max_length=3,
     )
+    is_greeting: bool = Field(
+        default=False,
+        description="True if the farmer's message is ONLY a greeting, salutation, or courtesy (like hi, hello, namaste, ram ram, sat sri akal, thanks, bye). False if there is any agricultural query or farming context."
+    )
     weather: bool = False
     mandi: bool = False
     soil: bool = False
     schemes: bool = False
     chemical_checker: bool = False
     knowledge_base: bool = False
+    is_agriculture_related: bool = Field(
+        default=True,
+        description=(
+            "False when the farmer's primary intent is NOT agriculture/farming "
+            "(e.g. making money, buying a bike, personal finance). "
+            "False even if weather or schemes are mentioned in passing alongside off-topic goals. "
+            "True for weather, mandi, crop/pest/fertilizer, soil, and farming government schemes."
+        ),
+    )
     is_complete: bool = True
     missing_info: list[str] = Field(default_factory=list)
     follow_up_question: Optional[str] = None
@@ -193,6 +207,8 @@ def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
         "schemes": output.schemes,
         "chemical_checker": output.chemical_checker,
         "knowledge_base": output.knowledge_base,
+        "is_agriculture_related": output.is_agriculture_related,
+        "is_greeting": output.is_greeting,
         "is_complete": output.is_complete,
         "missing_info": list(output.missing_info),
         "follow_up_question": output.follow_up_question,
@@ -218,6 +234,8 @@ def _default_plan_for_agriculture(user_query: Optional[str] = None) -> PlannerPl
         "schemes": False,
         "chemical_checker": False,
         "knowledge_base": True,
+        "is_agriculture_related": True,
+        "is_greeting": False,
         "is_complete": True,
         "missing_info": [],
         "follow_up_question": None,
@@ -257,7 +275,7 @@ def _resolve_state_deterministic(
     location: Optional[dict],
     prev_entities: Optional[PlannerEntities] = None,
 ) -> Optional[str]:
-    """Deterministically resolve state: prev_entities (previous turns), then latest text, then GPS."""
+    """Deterministically resolve state from previous turns or latest text (do NOT fallback to GPS here)."""
     # Priority 0: State from previous planner turns (carry-over from clarification)
     if prev_entities and prev_entities.get("state"):
         return prev_entities.get("state")
@@ -265,8 +283,7 @@ def _resolve_state_deterministic(
     state_from_latest = extract_state_from_text(latest_human_text(messages))
     if state_from_latest:
         return state_from_latest
-    # Priority 2: GPS thread location
-    return gps_state_from_location(location)
+    return None
 
 
 async def _apply_domain_and_crop_async(
@@ -380,6 +397,8 @@ async def planner_node(
             "schemes": False,
             "chemical_checker": False,
             "knowledge_base": False,
+            "is_agriculture_related": False,
+            "is_greeting": True,
             "is_complete": True,
             "missing_info": [],
             "follow_up_question": None,
@@ -465,6 +484,16 @@ async def planner_node(
         entities = merge_entities_from_rephrased_query(plan, messages, location, prev_entities)
         plan["entities"] = entities
 
+        if not plan.get("is_agriculture_related", True):
+            plan = apply_non_agriculture_gate(plan)
+            logger.info(
+                "Planner: non-agriculture query — upload_reviewer_only path "
+                "rephrased=%s domains=%s",
+                plan.get("rephrased_query"),
+                plan.get("domains"),
+            )
+            return {"plan": plan}
+
         plan, domain, crop_required = await _apply_domain_and_crop_async(
             plan,
             messages,
@@ -483,14 +512,27 @@ async def planner_node(
             plan=plan,
         )
 
+        if plan.get("is_greeting"):
+            is_complete = True
+            missing = []
+            follow_up = None
+
         plan["is_complete"] = is_complete
         plan["missing_info"] = missing
         plan["follow_up_question"] = follow_up
 
         plan = apply_planner_completeness_rules(plan, messages, location, prev_entities)
 
-        plan["knowledge_base"] = True
-        plan["soil"] = False
+        if plan.get("is_greeting"):
+            plan["knowledge_base"] = False
+            plan["soil"] = False
+            plan["weather"] = False
+            plan["mandi"] = False
+            plan["schemes"] = False
+            plan["chemical_checker"] = False
+        else:
+            plan["knowledge_base"] = True
+            plan["soil"] = False
 
         logger.info(
             "Planner: complete=%s domain=%s crop_required=%s "
@@ -544,3 +586,10 @@ def route_after_planner(state: AjraSakhaState) -> str:
     if not plan.get("is_complete", True):
         return "clarify"
     return "ensure_location"
+
+
+def route_after_ensure_location(state: AjraSakhaState) -> str:
+    plan = state.get("plan") or {}
+    if plan.get("is_agriculture_related") is False:
+        return "upload_reviewer_only"
+    return "execute_plan"

@@ -665,6 +665,10 @@ You are the planner agent responsible for analyzing incoming farmer queries, det
 **Entity extraction (state, district, crop, chemicals)**:
 - Set `entities` from the English **`rephrased_query`** (and `original_query_en` if needed).
 - **Crop**: from `rephrased_query` for the latest turn; only when answering a direct crop clarify may you also use the farmer's short latest reply.
+- [STRICT] For 'crop': 
+  1. Try to translate the regional crop name into its standard English equivalent (e.g., "Kapas" -> "Cotton", "Lehsun" -> "Garlic", "Dhan" -> "Paddy", "Chana" -> "Bengal Gram(Gram)").
+  2. If you are not completely sure about the translation, extract the EXACT local/regional crop name written in English letters.
+  3. NEVER default to `"all"` for crop unless the user explicitly asks for "all crops" or the query is generic and specifies no crop whatsoever. If a crop is mentioned, you MUST extract it.
 
 **State & District Resolution (STRICT PRIORITY — follow exactly):**
 
@@ -689,6 +693,7 @@ You are the planner agent responsible for analyzing incoming farmer queries, det
 
 4. **Strict rules**:
    - [STRICT] If the user mentions a specific district/city in the LATEST message (e.g. "Varanasi"), you MUST put that location in your `entities` JSON output. DO NOT copy the location from the conversation history or the PRE-EXTRACTED state hint.
+   - [STRICT] If the user asks for weather, market prices, or farming info "in [Word]" or "for [Word]", you MUST extract [Word] as the district, even if you do not recognize the name as a valid Indian district.
    - [STRICT] If state was found from text/conversation but district was NOT mentioned → district = "all" (do NOT use GPS district).
    - [STRICT] District mention → always derive and use its correct state (even if different from history).
    - [STRICT] Never reuse state/district from unrelated older questions outside last 4 turns.
@@ -710,6 +715,16 @@ You are the planner agent responsible for analyzing incoming farmer queries, det
 4. **Default**: If location rules pass, set `is_complete=true`. Prefer executing tools over asking questions. Crop gating is handled server-side from `domain`.
 
 5. **Follow-up format**: At most **one** short question. Never combine crop + location + symptom in one follow-up. Never ask meta questions like "are you asking about enrollment, claim, or eligibility?"
+
+**Agriculture relevance (`is_agriculture_related`) — REQUIRED bool:**
+- Set **`true`** when the farmer's **primary** question is about farming: weather for crops/fields, mandi prices, soil/fertilizer, crop pests/diseases, farming government schemes (PM-KISAN, subsidies for farmers), crop cultivation, livestock for farm use, etc.
+- Set **`false`** when the primary intent is **not** farming, even if agriculture words appear:
+  - "How can I make money?" → **false**
+  - "What is weather here? Which bike should I buy?" → **false** (bike purchase dominates)
+  - "I am a farmer in Ludhiana. Any govt schemes for money? Should I buy a bike or invest in my farm?" → **false** (personal purchase/investment choice, not a farming advisory)
+- **Mixed intent rule:** one farming topic + one clearly off-topic goal (bike, personal finance, shopping) → **`false`**
+- Greetings/thanks/bye → **`false`**
+- When **`false`**, the server uploads to reviewer only (no weather/GDB/mandi tools) — still set `rephrased_query` and domains for reviewer metadata.
 
 DO NOT answer the question. Only route it.
 
@@ -849,4 +864,28 @@ Category: subdivision_rainfall
 Query: District alert and rain statistics.
 Category: district
 """
+MARKET_GEMMA_RESOLUTION_PROMPT = [
+    "You are an intelligent mapping assistant specializing in Indian agriculture.",
+    "Your task is to match the user's term to the exact identical or most semantically similar option from the provided list.",
+    "CRITICAL CONTEXT: The user's term may be a local/regional Indian language crop or location name (e.g., 'Kapas', 'Lehsun', 'Kashi', 'Dhan').",
+    "First, mentally translate the user's term to its standard English equivalent (e.g., Kapas->Cotton, Lehsun->Garlic, Kashi->Varanasi).",
+    "Then, match that standard English name against the provided options list.",
+    "CRITICAL INSTRUCTION: You MUST output ONLY a valid JSON dictionary where the keys are the user's terms, and the values are the exact matching option string.",
+    "DO NOT write any thoughts, explanations, or conversational text. Output ONLY the JSON block.",
+    "If no match is found, return null for that value.",
+    "Example Output:",
+    "```json",
+    "{\"Kapas\": \"Cotton\", \"Lehsun\": \"Garlic\", \"Banaras\": \"Varanasi\"}",
+    "```",
+    ""
+]
 
+MARKET_QUERY_ANALYSIS_PROMPT = [
+    "You are an agricultural entity extractor.",
+    "Look at the following user query and extract specific information.",
+    "1. CROP: If a crop is mentioned (even in regional language like 'Kapas', 'Dhan'), extract the exact word. If no crop is mentioned, output 'all'.",
+    "2. DATE: If an exact date is mentioned (e.g. '12 May 2024'), extract it as a string.",
+    "3. DAY: If a relative day is mentioned (e.g. 'Monday', 'yesterday', 'today'), extract it as a string.",
+    "CRITICAL INSTRUCTION: Output ONLY a valid JSON dictionary with keys 'crop', 'date' (optional), and 'day' (optional).",
+    "Example Output: {\"crop\": \"Kapas\", \"day\": \"Monday\"} or {\"crop\": \"all\", \"date\": \"2024-05-12\"}"
+]

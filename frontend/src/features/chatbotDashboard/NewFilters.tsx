@@ -5,15 +5,36 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/atoms/select";
+import { BookOpen, MessageCircle } from "lucide-react";
+import { useEffect } from "react";
 
 type UserSourceType = "application" | "manual";
 
-type ApplicationSource = "annam" | "vicharanashala" | "whatsapp";
+export type ApplicationSource = "annam" | "vicharanashala" | "whatsapp";
 
 export type Filters = {
   sourceType?: UserSourceType;
   application?: ApplicationSource;
 };
+const applications = [
+  {
+    value: "annam",
+    label: "Annam",
+    icon: (
+      <img src="/logo.png" alt="Annam" className="h-4 w-4 object-contain" />
+    ),
+  },
+  {
+    value: "vicharanashala",
+    label: "Vicharanashala",
+    icon: <BookOpen className="h-4 w-4 text-orange-500" />,
+  },
+  {
+    value: "whatsapp",
+    label: "WhatsApp",
+    icon: <MessageCircle className="h-4 w-4 text-green-500" />,
+  },
+];
 
 type NewFiltersProps = {
   filters: Filters;
@@ -26,6 +47,13 @@ export default function NewFilters({
   onChange,
   onSourceChange,
 }: NewFiltersProps) {
+
+  useEffect(() => {
+    if (filters.application) {
+      localStorage.setItem("application-filter", filters.application);
+    }
+  }, [filters.application]);
+
   return (
     <div>
       {/* Application Filter */}
@@ -44,13 +72,15 @@ export default function NewFilters({
             <SelectTrigger>
               <SelectValue placeholder="Select Application" />
             </SelectTrigger>
-
             <SelectContent>
-              <SelectItem value="annam">Annam</SelectItem>
-
-              <SelectItem value="vicharanashala">VicharanShala</SelectItem>
-
-              <SelectItem value="whatsapp">WhatsApp</SelectItem>
+              {applications.map((app) => (
+                <SelectItem key={app.value} value={app.value}>
+                  <div className="flex items-center gap-2">
+                    {app.icon}
+                    <span>{app.label}</span>
+                  </div>
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

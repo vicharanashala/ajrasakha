@@ -1,5 +1,9 @@
 import {injectable, inject} from 'inversify';
-import {InternalServerError, BadRequestError} from 'routing-controllers';
+import {
+  InternalServerError,
+  BadRequestError,
+  NotFoundError,
+} from 'routing-controllers';
 import {CHATBOT_TYPES} from '../types.js';
 import type {
   IChatbotService,
@@ -10,6 +14,12 @@ import type {
   ChatbotConversationData,
   WeatherConcernAnalyticsFilters,
   PaginatedUserDetails,
+  UnverifiedUserEntry,
+  UserDemographics,
+  PlatformInstallEntry,
+  KccAndAgriAppStats,
+  FeedbackData,
+  ResponseAdherenceTable,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import ExcelJS from 'exceljs';
 import {GrowthResponse} from '../types/chatbot.type.js';
@@ -20,7 +30,6 @@ import {
   getDateRange,
   mapToSeries,
 } from '../utils/chatbot.utils.js';
-import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 
 import PDFDocument from 'pdfkit';
 import {WhatsappUsers} from '#root/utils/dummyWhatsAppUsers.js';
@@ -37,8 +46,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
   constructor(
     @inject(CHATBOT_TYPES.ChatbotRepository)
     private readonly chatbotRepository: IChatbotRepository,
-    @inject(GLOBAL_TYPES.UserRepository)
-    private readonly userRepository: IUserRepository,
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
     @inject(WHATSAPP_TYPES.WhatsAppService)
@@ -353,10 +360,10 @@ export class ChatbotService extends BaseService implements IChatbotService {
       const [
         kpi,
         dau,
-        channelSplit,
-        voiceAccuracy,
-        geo,
-        queryCategories,
+        // channelSplit,
+        // voiceAccuracy,
+        // geo,
+        // queryCategories,
         dailyQueries,
         todayQueryCount,
         weeklyQueries,
@@ -367,12 +374,12 @@ export class ChatbotService extends BaseService implements IChatbotService {
         // demographics,
         // kccAndAgri,
         // platformInstalls,
-        domainSpikes,
+        // domainSpikes,
         // feedbackData,
         // dailyQuestionTrends,
   // topFaqs,
   // topQuestionsFromCollection,
-        responseAdherenceTable,
+        // responseAdherenceTable,
         dailySummary,
         weeklySummary,
         monthlySummary,
@@ -390,10 +397,10 @@ export class ChatbotService extends BaseService implements IChatbotService {
           undefined,
           userType,
         ),
-        this.chatbotRepository.getChannelSplit(source),
-        this.chatbotRepository.getVoiceAccuracyByLanguage(source),
-        this.chatbotRepository.getGeoDistribution(source),
-        this.chatbotRepository.getQueryCategories(source, undefined, userType),
+//         this.chatbotRepository.getChannelSplit(source),
+//         this.chatbotRepository.getVoiceAccuracyByLanguage(source),
+//         this.chatbotRepository.getGeoDistribution(source),
+//         this.chatbotRepository.getQueryCategories(source, undefined, userType),
         this.chatbotRepository.getDailyAnalytics(
           currentMonth,
           source,
@@ -432,7 +439,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         //   userType,
         // ),
         // this.chatbotRepository.getPlatformInstalls(source, undefined, userType),
-        this.chatbotRepository.getDomainSpikes(60),
+//         this.chatbotRepository.getDomainSpikes(60),
         // this.chatbotRepository.getFeedbackData(source, undefined, userType),
         // this.chatbotRepository.getDailyQuestionTrends(
         //   days,
@@ -456,45 +463,45 @@ export class ChatbotService extends BaseService implements IChatbotService {
 //   startTime,
 //   endTime,
 // ),
-        this.chatbotRepository
-          .getResponseAdherenceTable(
-            undefined,
-            userType,
-            startTime,
-            endTime,
-            source,
-          )
-          .catch(() => ({
-            date: '',
-            time: '',
-            timeWindow: '',
-            whatsappQueriesAsked: 0,
-            ajrasakhaQueriesAsked: 0,
-            whatsappPushedToReviewer: 0,
-            ajrasakhaPushedToReviewer: 0,
-            whatsappAnsweredWithin120Min: 0,
-            ajrasakhaAnsweredWithin120Min: 0,
-            whatsappMarkedDuplicate: 0,
-            ajrasakhaMarkedDuplicate: 0,
-            whatsappDynamicWeather: 0,
-            ajrasakhaDynamicWeather: 0,
-            whatsappDynamicMarket: 0,
-            ajrasakhaDynamicMarket: 0,
-            whatsappDynamicSchemes: 0,
-            ajrasakhaDynamicSchemes: 0,
-            whatsappNonGdbWithin120: 0,
-            ajrasakhaNonGdbWithin120: 0,
-            whatsappInReview: 0,
-            ajrasakhaInReview: 0,
-            whatsappOpen: 0,
-            ajrasakhaOpen: 0,
-            whatsappDelayed: 0,
-            ajrasakhaDelayed: 0,
-            whatsappAverageResponseMinutes: 0,
-            ajrasakhaAverageResponseMinutes: 0,
-            whatsappAdherencePct: 0,
-            ajrasakhaAdherencePct: 0,
-          })),
+        // this.chatbotRepository
+        //   .getResponseAdherenceTable(
+        //     undefined,
+        //     userType,
+        //     startTime,
+        //     endTime,
+        //     source,
+        //   )
+        //   .catch(() => ({
+        //     date: '',
+        //     time: '',
+        //     timeWindow: '',
+        //     whatsappQueriesAsked: 0,
+        //     ajrasakhaQueriesAsked: 0,
+        //     whatsappPushedToReviewer: 0,
+        //     ajrasakhaPushedToReviewer: 0,
+        //     whatsappAnsweredWithin120Min: 0,
+        //     ajrasakhaAnsweredWithin120Min: 0,
+        //     whatsappMarkedDuplicate: 0,
+        //     ajrasakhaMarkedDuplicate: 0,
+        //     whatsappDynamicWeather: 0,
+        //     ajrasakhaDynamicWeather: 0,
+        //     whatsappDynamicMarket: 0,
+        //     ajrasakhaDynamicMarket: 0,
+        //     whatsappDynamicSchemes: 0,
+        //     ajrasakhaDynamicSchemes: 0,
+        //     whatsappNonGdbWithin120: 0,
+        //     ajrasakhaNonGdbWithin120: 0,
+        //     whatsappInReview: 0,
+        //     ajrasakhaInReview: 0,
+        //     whatsappOpen: 0,
+        //     ajrasakhaOpen: 0,
+        //     whatsappDelayed: 0,
+        //     ajrasakhaDelayed: 0,
+        //     whatsappAverageResponseMinutes: 0,
+        //     ajrasakhaAverageResponseMinutes: 0,
+        //     whatsappAdherencePct: 0,
+        //     ajrasakhaAdherencePct: 0,
+        //   })),
         this.chatbotRepository.getQuerySummaryByPeriod(
           'daily',
           source,
@@ -519,10 +526,10 @@ export class ChatbotService extends BaseService implements IChatbotService {
         // Override avgSessionDurationMin in the KPI with the V2 value
         kpi: {...kpi, dailyQueries: todayQueryCount, avgSessionDurationMin},
         dau,
-        channelSplit,
-        voiceAccuracy,
-        geo,
-        queryCategories,
+        // channelSplit,
+        // voiceAccuracy,
+        // geo,
+        // queryCategories,
         weeklySessionDuration,
         dailyQueries,
         weeklyQueries,
@@ -535,12 +542,12 @@ export class ChatbotService extends BaseService implements IChatbotService {
         // kccAwareness: kccAndAgri.kccAwareness,
         // agriAppUsage: kccAndAgri.agriAppUsage,
         // platformInstalls,
-        domainSpikes,
+        // domainSpikes,
         // feedbackData,
         // dailyQuestionTrends,
 // topFaqs,
 // topQuestionsFromCollection,
-        responseAdherenceTable,
+        // responseAdherenceTable,
         querySummaries: {
           daily: dailySummary,
           weekly: weeklySummary,
@@ -619,6 +626,31 @@ export class ChatbotService extends BaseService implements IChatbotService {
     } catch (error) {
       throw new InternalServerError(
         `Failed to fetch query categories: ${error}`,
+      );
+    }
+  }
+
+  async getQueryCategoryQuestions(
+    category: string,
+    questionType: 'all' | 'unique' | 'duplicate' = 'all',
+    page = 1,
+    limit = 10,
+    source = 'vicharanashala',
+    userType = 'all',
+  ) {
+    try {
+      return await this.chatbotRepository.getQueryCategoryQuestions(
+        category,
+        questionType,
+        page,
+        limit,
+        source,
+        undefined,
+        userType,
+      );
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch query category questions: ${error}`,
       );
     }
   }
@@ -841,6 +873,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     sortOrder = 'desc',
     activeTodayByProfile = false,
     missingDemographicField?: string,
+    isVerified = true,
   ): Promise<PaginatedUserDetails> {
     try {
       const start = startDate ? new Date(startDate) : undefined;
@@ -863,6 +896,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         lowFeedbackOnly,
         activeTodayByProfile,
         missingDemographicField,
+        isVerified,
       );
       return data;
     } catch (error) {
@@ -2329,6 +2363,25 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
+  async changeUserPassword(
+    userId: string,
+    source: string,
+    newPassword: string,
+  ): Promise<boolean> {
+    try {
+      return await this.chatbotRepository.changeUserPassword(
+        userId,
+        source,
+        newPassword,
+      );
+    } catch (error) {
+      if (error instanceof BadRequestError || error instanceof NotFoundError) {
+        throw error;
+      }
+      throw new InternalServerError(`Failed to change user password: ${error}`);
+    }
+  }
+
   async addUser(
     source: string,
     data: {
@@ -2539,7 +2592,10 @@ export class ChatbotService extends BaseService implements IChatbotService {
       requestType: string,
       startDate?: Date,
       endDate?: Date,
-    ) : Promise<any> {
+    ) : Promise<{
+  _id: string;
+  activeUsers: number;
+}[]> {
       return await this.chatbotRepository.getActiveUsersTrend(source, userType, requestType, startDate, endDate);
   }
 
@@ -2570,7 +2626,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getUsersMetrics(source?: string, userType?: string): Promise<any> {
+  async getUsersMetrics(source?: string, userType?: string): Promise<{ userDemographics: UserDemographics; platformInstalls: PlatformInstallEntry[]; kccAndAgriAppUsage: KccAndAgriAppStats; feedbackData: FeedbackData}>{
     try{
       const [userDemographics, platformInstalls, kccAndAgriAppUsage, feedbackData] = await Promise.all([
         this.chatbotRepository.getUserDemographics(source, undefined, userType),
@@ -2589,4 +2645,101 @@ export class ChatbotService extends BaseService implements IChatbotService {
       throw new InternalServerError(`Failed to fetch users metrics: ${error}`);
     }
   }
-}
+
+  async getAllUnverifiedUsers(
+    page: number = 1,
+    limit: number = 10,
+    search: string = '',
+    source : string = 'vicharanashala',
+  ): Promise<{
+    users: UnverifiedUserEntry[];
+    totalUsers: number;
+    totalPages: number;
+  }> {
+    try {
+      // Fetch unverified users using the dedicated repository method
+      const data = await this.chatbotRepository.findUnverifiedUsers(
+        page,
+        limit,
+        search,
+        source
+      );
+      return {
+        users: data.users,
+        totalUsers: data.totalUsers,
+        totalPages: data.totalPages,
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch unverified users: ${error}`);
+    }
+  }
+
+  async verifyUser(
+    userId: string,
+    source = 'vicharanashala',
+  ): Promise<any> {
+    try {
+      if (!userId) {
+        throw new NotFoundError('User ID is required');
+      }
+
+      const updatedUser = await this.chatbotRepository.verifyUser(
+        userId,
+        source,
+      );
+
+      if (!updatedUser) {
+        throw new NotFoundError(`User not found`);
+      }
+      return updatedUser;
+
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to verify user with ID ${userId}: ${error}`,
+      );
+    }
+  }
+
+  async getResponseAdherenceTable(source?:string, userType?: string, startTime?: string, endTime?: string): Promise<ResponseAdherenceTable> {
+    return this.chatbotRepository
+          .getResponseAdherenceTable(
+            undefined,
+            userType,
+            startTime,
+            endTime,
+            source,
+          )
+          .catch(() => ({
+            date: '',
+            time: '',
+            timeWindow: '',
+            whatsappQueriesAsked: 0,
+            ajrasakhaQueriesAsked: 0,
+            whatsappPushedToReviewer: 0,
+            ajrasakhaPushedToReviewer: 0,
+            whatsappAnsweredWithin120Min: 0,
+            ajrasakhaAnsweredWithin120Min: 0,
+            whatsappMarkedDuplicate: 0,
+            ajrasakhaMarkedDuplicate: 0,
+            whatsappDynamicWeather: 0,
+            ajrasakhaDynamicWeather: 0,
+            whatsappDynamicMarket: 0,
+            ajrasakhaDynamicMarket: 0,
+            whatsappDynamicSchemes: 0,
+            ajrasakhaDynamicSchemes: 0,
+            whatsappNonGdbWithin120: 0,
+            ajrasakhaNonGdbWithin120: 0,
+            whatsappInReview: 0,
+            ajrasakhaInReview: 0,
+            whatsappOpen: 0,
+            ajrasakhaOpen: 0,
+            whatsappDelayed: 0,
+            ajrasakhaDelayed: 0,
+            whatsappAverageResponseMinutes: 0,
+            ajrasakhaAverageResponseMinutes: 0,
+            whatsappAdherencePct: 0,
+            ajrasakhaAdherencePct: 0,
+          }));
+  }
+
+  }

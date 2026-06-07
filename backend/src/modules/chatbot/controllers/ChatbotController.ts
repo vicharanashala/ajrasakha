@@ -27,6 +27,7 @@ import {IAuditTrailsService} from '#root/modules/auditTrails/interfaces/IAuditTr
 import {
   DashboardQueryDto,
   QueryAnalyticsQueryDto,
+  QueryCategoryQuestionsQueryDto,
   SourceQueryDto,
   UserDetailsQueryDto,
   WeatherConcernAnalyticsQueryDto,
@@ -51,8 +52,8 @@ import {
   RetentionMetricsQuery,
   TopFaqsQuery,
 } from '../types/chatbot.type.js';
-import {GLOBAL_TYPES} from '#root/types.js';
-import {UserService} from '#root/modules/user/services/UserService.js';
+import { IActiveUser } from '#root/shared/database/providers/mongo/repositories/ChatbotRepository.js';
+import { FeedbackData, KccAndAgriAppStats, PlatformInstallEntry, ResponseAdherenceTable, UserDemographics } from '#root/shared/database/interfaces/IChatbotRepository.js';
 
 @OpenAPI({
   tags: ['analytics'],
@@ -65,12 +66,36 @@ export class ChatbotController {
     @inject(CHATBOT_TYPES.ChatbotService)
     private readonly chatbotService: IChatbotService,
 
-    @inject(GLOBAL_TYPES.UserService)
-    private readonly userService: UserService,
-
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
     private readonly auditTrailsService: IAuditTrailsService,
   ) {}
+
+  private assertStrongPassword(password?: string) {
+    if (!password || !password.trim()) {
+      throw new BadRequestError('Password is required');
+    }
+    if (password.length < 8) {
+      throw new BadRequestError('Password must be at least 8 characters');
+    }
+    if (!/[A-Z]/.test(password)) {
+      throw new BadRequestError(
+        'Password must contain at least one uppercase letter',
+      );
+    }
+    if (!/[a-z]/.test(password)) {
+      throw new BadRequestError(
+        'Password must contain at least one lowercase letter',
+      );
+    }
+    if (!/[0-9]/.test(password)) {
+      throw new BadRequestError('Password must contain at least one number');
+    }
+    if (!/[^A-Za-z0-9]/.test(password)) {
+      throw new BadRequestError(
+        'Password must contain at least one special character',
+      );
+    }
+  }
 
   @OpenAPI({
     summary: 'Get full chatbot analytics dashboard data',
@@ -312,6 +337,27 @@ export class ChatbotController {
   }
 
   @OpenAPI({
+    summary: 'Get paginated questions for a query category',
+    description:
+      'Lists questions for a selected dashboard query category, with server-side pagination and all/unique/duplicate filtering.',
+  })
+  @Get('/query-category-questions')
+  @HttpCode(200)
+  @Authorized()
+  async getQueryCategoryQuestions(
+    @QueryParams() query: QueryCategoryQuestionsQueryDto,
+  ) {
+    return this.chatbotService.getQueryCategoryQuestions(
+      query.category,
+      query.questionType,
+      query.page,
+      query.limit,
+      query.source,
+      query.userType,
+    );
+  }
+
+  @OpenAPI({
     summary: 'Get weather concern analytics',
     description:
       'Returns weather concern percentages from weather tool messages filtered by season and farmer location.',
@@ -415,6 +461,7 @@ export class ChatbotController {
   async getUserDetails(@QueryParams() query: UserDetailsQueryDto) {
     const inactiveOnly = query.inactiveOnly === 'true';
     const lowFeedbackOnly = query.lowFeedbackOnly === 'true';
+    const isVerified = query.isVerified === undefined ? true : query.isVerified === 'true';
     const activeTodayByProfile = query.activeTodayByProfile === 'true';
     return this.chatbotService.getUserDetails(
       query.startDate,
@@ -433,7 +480,77 @@ export class ChatbotController {
       query.sortOrder,
       activeTodayByProfile,
       query.missingDemographicField,
+      isVerified,
     );
+  }
+
+  @OpenAPI({
+    summary: 'Get unverified users with search capability',
+    description:
+      'Retrieves a paginated list of unverified users (isVerified = false) with optional search filter. Supports pagination.',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to fetch unverified users',
+  })
+  @Get('/unverified-users')
+  @HttpCode(200)
+  @Authorized()
+  async getUnverifiedUsers(
+    @QueryParam('page') page: number = 1,
+    @QueryParam('limit') limit: number = 10,
+    @QueryParam('search') search: string = '',
+    @QueryParam('source') source: string = '',
+  ) {
+    return this.chatbotService.getAllUnverifiedUsers(
+      page,
+      limit,
+      search,
+      source
+    );
+  }
+
+  @OpenAPI({
+    summary: 'Verify a user',
+    description:
+      'Updates a user\'s verification status to true. Only users with admin role can perform this action.',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 404,
+    description: 'User not found',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to verify user',
+  })
+  @Patch('/verify-user/:userId')
+  @HttpCode(200)
+  @Authorized(['admin'])
+  async verifyUser(
+    @Param('userId') userId: string,
+    @QueryParam('source') source: string = 'vicharanashala',
+  ) {
+    if (!userId) {
+      throw new BadRequestError('User ID is required');
+    }
+    try {
+      const verifiedUser = await this.chatbotService.verifyUser(userId, source);
+      return {
+        success: true,
+        message: 'User verified successfully',
+        user: verifiedUser,
+      };
+    } catch (error: any) {
+      throw error;
+    }
   }
 
   // @Get('/download-chatbot-report')
@@ -859,6 +976,116 @@ export class ChatbotController {
   }
 
   @OpenAPI({
+    summary: 'Change farmer password',
+    description:
+      'Updates a farmer password securely in the selected source database.',
+  })
+  @Post('/admin/users/:userId/change-password')
+  @HttpCode(200)
+  @Authorized(['admin'])
+  async changeUserPassword(
+    @Param('userId') userId: string,
+    @QueryParam('source') source: string,
+    @Body()
+    body: {
+      newPassword: string;
+    },
+    @CurrentUser() user: IUser,
+  ) {
+    if (!source) {
+      source = 'vicharanashala';
+    }
+    this.assertStrongPassword(body.newPassword);
+
+    const actorPayload = user
+      ? {
+          id: user._id.toString(),
+          name: `${user.firstName} ${user.lastName}`,
+          email: user.email,
+          role: user.role,
+          avatar: user.avatar || '',
+        }
+      : null;
+
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.FARMER_MANAGEMENT,
+      action: AuditAction.CHANGE_USER_PASSWORD,
+      actor: actorPayload!,
+      context: {
+        userId,
+        source,
+        origin: 'Admin Panel',
+      },
+      createdAt: new Date(),
+    };
+
+    let targetUser: any = null;
+    try {
+      targetUser = await this.chatbotService.getUserById(userId, source);
+    } catch (e) {
+      console.error('Failed to fetch target user for password audit trail', e);
+    }
+
+    try {
+      const success = await this.chatbotService.changeUserPassword(
+        userId,
+        source,
+        body.newPassword,
+      );
+
+      auditPayload = {
+        ...auditPayload,
+        changes: {
+          before: targetUser
+            ? {
+                id: targetUser._id?.toString(),
+                email: targetUser.email,
+                userRole: targetUser.userRole,
+                passwordChanged: false,
+              }
+            : {},
+          after: {
+            passwordChanged: success,
+            sessionsInvalidated: success,
+          },
+        },
+        outcome: {
+          status: success ? OutComeStatus.SUCCESS : OutComeStatus.FAILED,
+          ...(success ? {} : {errorMessage: 'Failed to change user password'}),
+        },
+      };
+
+      if (actorPayload) {
+        this.auditTrailsService.createAuditTrail(auditPayload);
+      }
+
+      return {
+        success,
+        message: success
+          ? 'Password changed successfully'
+          : 'Failed to change password',
+      };
+    } catch (error: any) {
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: error?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: error?.message || 'Failed to change password',
+          errorName: error?.name || 'Error',
+          errorStack:
+            error?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
+            'No stack trace available',
+        },
+      };
+      if (actorPayload) {
+        this.auditTrailsService.createAuditTrail(auditPayload);
+      }
+      throw error;
+    }
+  }
+
+  @OpenAPI({
     summary: 'Add a new farmer',
     description:
       'Creates a new farmer in the selected database source (restricted to annam/vicharanashala).',
@@ -891,6 +1118,7 @@ export class ChatbotController {
     if (!body.name || !body.name.trim()) {
       throw new BadRequestError('Name is required');
     }
+    this.assertStrongPassword(body.password);
 
     const actorPayload = user ? {
       id: user._id.toString(),
@@ -1139,7 +1367,7 @@ export class ChatbotController {
   @Authorized()
   async getActiveUsersTrend(
     @QueryParams() query: ActiveUsersQuery,
-  ): Promise<any> {
+  ): Promise<IActiveUser[]> {
     const startDate = query.startDate ? new Date(query.startDate) : undefined;
 
     const endDate = query.endDate ? new Date(query.endDate) : undefined;
@@ -1195,7 +1423,7 @@ export class ChatbotController {
   @Authorized()
   async getDailyQuestionTrends(
     @QueryParams() query: ActiveUsersQuery,
-  ): Promise<any> {
+  ): Promise<Array<{ day: string; uniqueCount: number; duplicateCount: number }>> {
     const startDate = query.startDate
       ? new Date(query.startDate).toISOString()
       : undefined;
@@ -1218,10 +1446,35 @@ export class ChatbotController {
   @Get('/users-metrices')
   @HttpCode(200)
   @Authorized()
-  async getUsermetrices(@QueryParams() query: ActiveUsersQuery): Promise<any> {
+  async getUsermetrices(@QueryParams() query: ActiveUsersQuery): Promise<{ userDemographics: UserDemographics; platformInstalls: PlatformInstallEntry[]; kccAndAgriAppUsage: KccAndAgriAppStats; feedbackData: FeedbackData}> {
     const source = query.source;
     const userType = query.userType;
 
     return await this.chatbotService.getUsersMetrics(source, userType);
   }
+
+  @Get('/response-adherence-table-data')
+  @HttpCode(200)
+  @Authorized()
+  async getResponseAderenceTable(
+    @QueryParams() query: ActiveUsersQuery,
+  ): Promise<ResponseAdherenceTable> {
+    const startDate = query.startDate
+      ? new Date(query.startDate).toISOString()
+      : undefined;
+
+    const endDate = query.endDate
+      ? new Date(query.endDate).toISOString()
+      : undefined;
+    const source = query.source;
+    const userType = query.userType;
+
+    return await this.chatbotService.getResponseAdherenceTable(
+      source,
+      userType,
+      startDate,
+      endDate,
+    );
+  }
+  
 }
