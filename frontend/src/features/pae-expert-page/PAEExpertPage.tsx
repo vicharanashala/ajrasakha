@@ -267,7 +267,6 @@ export const PAEExpertPage = () => {
       });
       setSelectedQuestion(null);
       handleReset();
-      toast.success("Your response has been submitted. Thank you!");
     } catch (error) {
       console.error("Failed to submit:", error);
     }
