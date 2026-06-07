@@ -710,6 +710,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getQuestionFromDistrict(
     district: string,
+    state: string,
     questionType: 'all' | 'unique' | 'duplicate' = 'all',
     page = 1,
     limit = 10,
@@ -720,6 +721,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     try {
       return await this.chatbotRepository.getQuestionFromDistrict(
         district,
+        state,
         questionType,
         page,
         limit,

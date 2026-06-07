@@ -490,11 +490,8 @@ export class ChatbotRepository implements IChatbotRepository {
 
     Object.assign(
       matchQuery,
-      await this.buildUserTypeMatchQuery(
-        dbSource,
-        userType,
-      ),
-    ); 
+      await this.buildUserTypeMatchQuery(dbSource, userType),
+    );
 
     // const userTypeLookupStages =
     //   this.buildQuestionUserTypeLookupStages(userType);
@@ -1750,6 +1747,8 @@ export class ChatbotRepository implements IChatbotRepository {
           userType,
         ),
       ); 
+        await this.buildUserTypeMatchQuery(_source, userType),
+      console.log('=====baseMatch', baseMatch);
       const categoryLabel = category?.trim();
       if (!categoryLabel) {
         throw new BadRequestError('category is required');
@@ -2125,7 +2124,6 @@ export class ChatbotRepository implements IChatbotRepository {
         this.normalizeDistrictName(d),
       );
 
-      
       const matchQuery: any = {
         source,
         'details.state': state,
@@ -2272,6 +2270,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   async getQuestionFromDistrict(
     district: string,
+    state: string,
     questionType: QueryCategoryQuestionType = 'all',
     page = 1,
     limit = 10,
@@ -2299,7 +2298,7 @@ export class ChatbotRepository implements IChatbotRepository {
       if (!districtLabel) {
         throw new BadRequestError('district is required');
       }
-      const districtMatch = {'details.district': districtLabel};
+      const districtMatch = {'details.state': state,'details.district': districtLabel};
       const typeMatch =
         questionType === 'duplicate'
           ? {status: 'duplicate'}
@@ -7542,10 +7541,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
       Object.assign(
         matchQuery,
-        await this.buildUserTypeMatchQuery(
-          dbSource,
-          userType,
-        ),
+        await this.buildUserTypeMatchQuery(dbSource, userType),
       );
       // commenting out as we cant filter users in review system for this data, need to rectify
       // const userTypeLookupStages =
@@ -7706,11 +7702,8 @@ export class ChatbotRepository implements IChatbotRepository {
 
       Object.assign(
         matchQuery,
-        await this.buildUserTypeMatchQuery(
-          dbSource,
-          userType,
-        ),
-      ); 
+        await this.buildUserTypeMatchQuery(dbSource, userType),
+      );
 
       // const userTypeLookupStages =
       //   this.buildQuestionUserTypeLookupStages(userType);
@@ -10545,8 +10538,9 @@ export class ChatbotRepository implements IChatbotRepository {
             userRole: 'INTERNAL',
           };
     const users = await this.users
-      .find(userMatch, {       // aggregation
-        projection: { _id: 1 },
+      .find(userMatch, {
+        // aggregation
+        projection: {_id: 1},
       })
       .toArray();
     return users.map(user => user._id); // map is not required.
@@ -10561,11 +10555,12 @@ export class ChatbotRepository implements IChatbotRepository {
     }
 
     // Users from Users DB
-    const directUserObjectIds =
-      await this.getUserIdsByUserType(source, userType);
+    const directUserObjectIds = await this.getUserIdsByUserType(
+      source,
+      userType,
+    );
 
-    const directUserStrings =
-      directUserObjectIds.map(id => id.toString());
+    const directUserStrings = directUserObjectIds.map(id => id.toString());
 
     const validUserIds = new Set(directUserStrings);
 
@@ -10593,7 +10588,7 @@ export class ChatbotRepository implements IChatbotRepository {
     const conversations = await this.conversations
       .find(
         {
-          conversationId: { $in: threadIds },
+          conversationId: {$in: threadIds},
         },
         {
           projection: {
@@ -10605,17 +10600,14 @@ export class ChatbotRepository implements IChatbotRepository {
       .toArray();
 
     const conversationUserMap = new Map(
-      conversations.map(c => [
-        c.conversationId,
-        c.user?.toString(),
-      ]),
+      conversations.map(c => [c.conversationId, c.user?.toString()]),
     );
 
     // Resolve messageId -> user
     const messages = await this.messagesCollection
       .find(
         {
-          messageId: { $in: messageIds },
+          messageId: {$in: messageIds},
         },
         {
           projection: {
@@ -10627,10 +10619,7 @@ export class ChatbotRepository implements IChatbotRepository {
       .toArray();
 
     const messageUserMap = new Map(
-      messages.map(m => [
-        m.messageId,
-        m.user?.toString(),
-      ]),
+      messages.map(m => [m.messageId, m.user?.toString()]),
     );
 
     const resolvedQuestionIds = questionWithNullUsers
@@ -10651,10 +10640,7 @@ export class ChatbotRepository implements IChatbotRepository {
           return true;
         }
 
-        return (
-          resolvedUserId &&
-          validUserIds.has(resolvedUserId)
-        );
+        return resolvedUserId && validUserIds.has(resolvedUserId);
       })
       .map(q => q._id);
 
@@ -10662,10 +10648,7 @@ export class ChatbotRepository implements IChatbotRepository {
       $or: [
         {
           userId: {
-            $in: [
-              ...directUserObjectIds,
-              ...directUserStrings,
-            ],
+            $in: [...directUserObjectIds, ...directUserStrings],
           },
         },
         {
