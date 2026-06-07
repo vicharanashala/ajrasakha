@@ -141,6 +141,13 @@ const getWeekRange = (year: number, monthIndex: number, week: number) => {
   };
 };
 
+const getWeekDays = (year: number, monthIndex: number, week: number) => {
+  const { startDate, endDate } = getWeekRange(year, monthIndex, week);
+  const start = startDate.getDate();
+  const end = endDate.getDate();
+  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+};
+
 const getPeriodFilter = (
   mode: HeatMapPeriodMode,
   year: number,
@@ -211,12 +218,17 @@ export function FarmerAnalyticsHeatMap({
     [selectedMonth, selectedYear],
   );
   const dayOptions = useMemo(
-    () =>
-      Array.from(
+    () => {
+      if (periodMode === "day") {
+        return getWeekDays(selectedYear, selectedMonth, selectedWeek);
+      }
+
+      return Array.from(
         { length: getDaysInMonth(selectedYear, selectedMonth) },
         (_, index) => index + 1,
-      ),
-    [selectedMonth, selectedYear],
+      );
+    },
+    [periodMode, selectedMonth, selectedWeek, selectedYear],
   );
 
   const { data, isLoading, error } = useFarmerHeatMapAnalytics(
@@ -233,16 +245,11 @@ export function FarmerAnalyticsHeatMap({
   const visibleRows = useMemo(
     () =>
       rows
-        .map((row) => ({
-          ...row,
-          totalForMetric: row.cells.reduce(
-            (sum, cell) => sum + (cell[metric] || 0),
-            0,
-          ),
-        }))
-        .sort((a, b) => b.totalForMetric - a.totalForMetric),
+        .map((row) => row)
+        .sort((a, b) => Number(b.totals?.[metric] ?? 0) - Number(a.totals?.[metric] ?? 0)),
     [metric, rows],
   );
+  const selectedMetricTotal = Number(data?.totals?.[metric] ?? 0);
 
   const updateState = (state: string) => {
     setFilters((current) => ({
@@ -261,7 +268,12 @@ export function FarmerAnalyticsHeatMap({
     const maxWeek = Math.ceil(getDaysInMonth(year, month) / 7);
     const maxDay = getDaysInMonth(year, month);
     const safeWeek = Math.min(week, maxWeek);
-    const safeDay = Math.min(day, maxDay);
+    const weekDays = getWeekDays(year, month, safeWeek);
+    let safeDay = Math.min(day, maxDay);
+
+    if (mode === "day" && !weekDays.includes(safeDay)) {
+      safeDay = weekDays[0] ?? safeDay;
+    }
 
     setPeriodMode(mode);
     setSelectedYear(year);
@@ -504,6 +516,9 @@ export function FarmerAnalyticsHeatMap({
           <span className="inline-flex items-center gap-1.5">
             <Activity className="h-3.5 w-3.5 text-primary" />
             Coloring by {selectedMetric?.label ?? "Selected Metric"}
+          </span>
+          <span className="rounded-md border border-border/70 bg-muted/30 px-2.5 py-1 font-semibold text-foreground">
+            Total: {formatValue(metric, selectedMetricTotal)}
           </span>
           <span>
             Y-axis: {filters.state === "all" ? "States" : "Districts"}
