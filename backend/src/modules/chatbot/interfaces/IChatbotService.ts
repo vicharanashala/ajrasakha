@@ -150,11 +150,17 @@ export interface IChatbotService {
       };
     },
   ): Promise<boolean>;
+  changeUserPassword(
+    userId: string,
+    source: string,
+    newPassword: string,
+  ): Promise<boolean>;
   addUser(
     source: string,
     data: {
       email: string;
       name: string;
+      password: string;
       userRole?: string;
     },
   ): Promise<boolean>;

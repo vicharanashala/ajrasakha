@@ -2,6 +2,7 @@ import json
 import logging
 import re
 from typing import Any, Optional
+from datetime import datetime, timedelta
 
 import httpx
 from langchain_core.runnables import RunnableConfig
@@ -21,7 +22,7 @@ from ajrasakha.tools.market.market_enam_tool import (
     get_trade_data_from_enam,
     get_today_date_for_enam
 )
-from ajrasakha.agents.prompts import MARKET_GEMMA_RESOLUTION_PROMPT, MARKET_CROP_VERIFICATION_PROMPT
+from ajrasakha.agents.prompts import MARKET_GEMMA_RESOLUTION_PROMPT, MARKET_QUERY_ANALYSIS_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,35 @@ def _normalize(s: str) -> str:
         return ""
     # Lowercase, remove non-alphanumeric, strip spaces
     return re.sub(r'[^a-z0-9]', '', str(s).lower())
+
+def resolve_date_programmatically(date_str: str | None, day_str: str | None) -> str:
+    today = datetime.now()
+    if date_str:
+        try:
+            from dateutil.parser import parse
+            parsed = parse(date_str)
+            return parsed.strftime("%Y-%m-%d")
+        except Exception:
+            pass
+            
+    if day_str:
+        day_str = day_str.lower().strip()
+        if day_str == "today":
+            return today.strftime("%Y-%m-%d")
+        elif day_str == "yesterday":
+            return (today - timedelta(days=1)).strftime("%Y-%m-%d")
+        
+        days_of_week = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+        for d in days_of_week:
+            if d in day_str:
+                target_weekday = days_of_week.index(d)
+                current_weekday = today.weekday()
+                diff = current_weekday - target_weekday
+                if diff < 0:
+                    diff += 7
+                return (today - timedelta(days=diff)).strftime("%Y-%m-%d")
+
+    return today.strftime("%Y-%m-%d")
 
 async def resolve_market_entities_via_gemma(failures: list[dict]) -> dict[str, str]:
     """
@@ -109,8 +139,8 @@ async def resolve_market_entities_via_gemma(failures: list[dict]) -> dict[str, s
     return {}
 
 
-async def verify_crop_with_gemma(query: str) -> str | None:
-    prompt_parts = MARKET_CROP_VERIFICATION_PROMPT + [
+async def analyze_query_with_gemma(query: str) -> dict:
+    prompt_parts = MARKET_QUERY_ANALYSIS_PROMPT + [
         f"Query: {query}",
         "---"
     ]
@@ -138,25 +168,25 @@ async def verify_crop_with_gemma(query: str) -> str | None:
                 
                 full_text = content + "\n" + reasoning
                 
-                if "```json" in full_text:
-                    content_to_parse = full_text.split("```json")[1].split("```")[0].strip()
-                elif "```" in full_text:
-                    content_to_parse = full_text.split("```")[1].split("```")[0].strip()
+                json_blocks = re.findall(r'```(?:json)?(.*?)```', full_text, re.DOTALL)
+                if json_blocks:
+                    content_to_parse = json_blocks[0].strip()
                 else:
-                    start_idx = full_text.find('{')
-                    end_idx = full_text.rfind('}')
-                    if start_idx != -1 and end_idx != -1:
-                        content_to_parse = full_text[start_idx:end_idx+1]
+                    # fallback to extracting content between { and }
+                    match = re.search(r'\{[^{}]*\}', full_text)
+                    if match:
+                        content_to_parse = match.group(0).strip()
                     else:
                         content_to_parse = full_text
                         
+                print(f"RAW GEMMA OUTPUT:\n{content_to_parse}")
                 data = json.loads(content_to_parse)
-                return data.get("crop")
+                return data
     except Exception as e:
-        logger.warning(f"Crop verification failed: {e}")
-    return None
+        logger.warning(f"Query analysis failed: {e}")
+    return {}
 
-async def fetch_agmarknet_data(state: str, district: str, crop: str, date: str) -> dict:
+async def fetch_agmarknet_data(state: str, district: str, crop: str, target_date: str) -> dict:
     # 1. States
     states_res = await agm_get_states()
     if not states_res.get("success"):
@@ -235,16 +265,37 @@ async def fetch_agmarknet_data(state: str, district: str, crop: str, date: str) 
     if not matched_dist_id:
         return {"success": False, "source": "Agmarknet", "error": f"District '{district}' not found"}
 
-    # 4. Fetch Price Data
-    data = await agm_get_price_arrivals(state=matched_state_id, district=matched_dist_id, commodity=matched_cmdt_id, date=date)
+    # 4. Fetch Price Data for 5 days
+    target_dt = datetime.strptime(target_date, "%Y-%m-%d")
+    dates_to_fetch = [(target_dt - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(5)]
     
-    # Extract only the inner data to keep payload size small
-    extracted_data = data.get("data", {}).get("data", []) if isinstance(data.get("data"), dict) else data.get("data", [])
+    import asyncio
+    async def fetch_for_date(d: str):
+        data = await agm_get_price_arrivals(state=matched_state_id, district=matched_dist_id, commodity=matched_cmdt_id, date=d)
+        return data.get("data", {}).get("data", []) if isinstance(data.get("data"), dict) else data.get("data", [])
+
+    results = await asyncio.gather(*[fetch_for_date(d) for d in dates_to_fetch], return_exceptions=True)
+    
+    extracted_data = []
+    for res in results:
+        if isinstance(res, list):
+            extracted_data.extend(res)
+        elif isinstance(res, dict):
+            # Agmarknet often returns {"columns": [...], "records": [...]}
+            if "records" in res:
+                extracted_data.extend(res["records"])
+            else:
+                extracted_data.append(res)
     
     return {"success": True, "source": "Agmarknet", "data": extracted_data}
 
 
-async def fetch_enam_data(state: str, district: str, crop: str, date: str) -> dict:
+async def fetch_enam_data(state: str, district: str, crop: str, target_date: str) -> dict:
+    from datetime import datetime, timedelta
+    target_dt = datetime.strptime(target_date, "%Y-%m-%d")
+    to_date = target_dt.strftime("%Y-%m-%d")
+    from_date = (target_dt - timedelta(days=4)).strftime("%Y-%m-%d")
+
     # 1. State
     state_res = await get_state_list_from_enam()
     if not state_res.get("success"):
@@ -314,12 +365,12 @@ async def fetch_enam_data(state: str, district: str, crop: str, date: str) -> di
     async def fetch_for_apmc(apmc_name: str):
         target_crops = []
         if crop.lower() == "all" or crop.lower() == "any":
-            cmdt_res = await get_commodity_list_from_enam(matched_state_name, apmc_name, date, date)
+            cmdt_res = await get_commodity_list_from_enam(matched_state_name, apmc_name, from_date, to_date)
             if cmdt_res.get("success"):
                 cmdt_data = cmdt_res["data"].get("data", []) if isinstance(cmdt_res.get("data"), dict) else []
                 target_crops = [c["commodity_name"] for c in cmdt_data if "commodity_name" in c]
         else:
-            cmdt_res = await get_commodity_list_from_enam(matched_state_name, apmc_name, date, date)
+            cmdt_res = await get_commodity_list_from_enam(matched_state_name, apmc_name, from_date, to_date)
             if cmdt_res.get("success"):
                 cmdt_data = cmdt_res["data"].get("data", []) if isinstance(cmdt_res.get("data"), dict) else []
                 cmdt_options = [c["commodity_name"] for c in cmdt_data if "commodity_name" in c]
@@ -341,7 +392,7 @@ async def fetch_enam_data(state: str, district: str, crop: str, date: str) -> di
         apmc_results = []
         for c_name in target_crops:
             async with semaphore:
-                data = await get_trade_data_from_enam(matched_state_name, apmc_name, c_name, date, date)
+                data = await get_trade_data_from_enam(matched_state_name, apmc_name, c_name, from_date, to_date)
                 extracted = data.get("data", {}).get("data", []) if isinstance(data.get("data"), dict) else []
                 apmc_results.extend(extracted)
         return apmc_results
@@ -363,23 +414,71 @@ async def market(query: str, state: str, district: str, crop: str, date: str | N
     """
     try:
         from datetime import date as date_type
-        if date is None:
-            date = date_type.today().isoformat()
+        target_date = date
+        if crop.lower() in ("all", "any") or date is None:
+            analysis = await analyze_query_with_gemma(query)
+            extracted_crop = analysis.get("crop")
+            extracted_date = analysis.get("date")
+            extracted_day = analysis.get("day")
             
-        if crop.lower() == "all" or crop.lower() == "any":
-            verified_crop = await verify_crop_with_gemma(query)
-            if verified_crop and verified_crop.lower() != "all":
-                logger.info(f"Gemma hallucination check overridden 'all' with '{verified_crop}'")
-                crop = verified_crop
+            if crop.lower() in ("all", "any") and extracted_crop and extracted_crop.lower() != "all":
+                logger.info(f"Gemma query analysis overridden 'all' with '{extracted_crop}'")
+                crop = extracted_crop
+                
+            if date is None:
+                target_date = resolve_date_programmatically(extracted_date, extracted_day)
+        
+        if target_date is None:
+            target_date = date_type.today().isoformat()
 
         import asyncio
         results = await asyncio.gather(
-            fetch_agmarknet_data(state, district, crop, date),
-            fetch_enam_data(state, district, crop, date),
+            fetch_agmarknet_data(state, district, crop, target_date),
+            fetch_enam_data(state, district, crop, target_date),
             return_exceptions=True
         )
         
-        final_output = {"query_context": {"state": state, "district": district, "crop": crop, "date": date}}
+        # Helper to check if results contain any data
+        def has_data(res):
+            if isinstance(res, Exception): return False
+            return res.get("success") and len(res.get("data", [])) > 0
+
+        # Fallback Case 1: If user requested specific date and no data was found, fallback to today
+        today_str = date_type.today().isoformat()
+        if target_date != today_str:
+            if not has_data(results[0]) and not has_data(results[1]):
+                logger.info(f"No data found for 5-day window ending {target_date}. Falling back to 5-day window ending today.")
+                target_date = today_str
+                results = await asyncio.gather(
+                    fetch_agmarknet_data(state, district, crop, target_date),
+                    fetch_enam_data(state, district, crop, target_date),
+                    return_exceptions=True
+                )
+                
+        # Fallback Case 2: If the 5-day window ending today is STILL empty, search backwards up to 30 days
+        # to find the "latest available data".
+        if not has_data(results[0]) and not has_data(results[1]):
+            from datetime import timedelta
+            logger.info(f"No data found for 5-day window ending {today_str}. Searching backwards up to 30 days for latest data...")
+            
+            for chunk_idx in range(1, 6):  # 5 chunks of 5 days = 25 additional days (total 30 days)
+                chunk_end_dt = date_type.today() - timedelta(days=chunk_idx * 5)
+                chunk_target_date = chunk_end_dt.isoformat()
+                
+                logger.info(f"Checking 5-day chunk ending {chunk_target_date}...")
+                chunk_results = await asyncio.gather(
+                    fetch_agmarknet_data(state, district, crop, chunk_target_date),
+                    fetch_enam_data(state, district, crop, chunk_target_date),
+                    return_exceptions=True
+                )
+                
+                if has_data(chunk_results[0]) or has_data(chunk_results[1]):
+                    logger.info(f"Found latest data in 5-day chunk ending {chunk_target_date}")
+                    results = chunk_results
+                    target_date = chunk_target_date
+                    break
+        
+        final_output = {"query_context": {"state": state, "district": district, "crop": crop, "target_date": target_date}}
         
         agmarknet_res = results[0]
         if isinstance(agmarknet_res, Exception):

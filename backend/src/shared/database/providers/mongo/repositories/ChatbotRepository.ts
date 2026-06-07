@@ -1,6 +1,10 @@
 import {inject, injectable} from 'inversify';
 import {Collection, ClientSession, ObjectId, MongoClient} from 'mongodb';
-import {InternalServerError, BadRequestError} from 'routing-controllers';
+import {
+  InternalServerError,
+  BadRequestError,
+  NotFoundError,
+} from 'routing-controllers';
 import {AnalyticsMongoDatabase} from '../AnalyticsMongoDatabase.js';
 import {AnnamDatabase} from '../AnnamDatabase.js';
 import {GLOBAL_TYPES} from '#root/types.js';
@@ -37,6 +41,7 @@ import type {
 import {IQuestion, QuestionSource} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
 import {DISTRICTS} from '#root/utils/districts.js';
+import {getFirebaseAuth} from '#root/config/firebaseAdmin.js';
 
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
@@ -48,6 +53,8 @@ interface IUser {
   lastName?: string;
   username?: string;
   email?: string;
+  firebaseUID?: string;
+  password?: string;
   role?: string;
   userRole?: string;
   isVerified?: boolean;
@@ -6225,7 +6232,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   async getIdsCreated(startDate: Date, endDate: Date, session?: ClientSession) {
     try {
-      await this.init();
+      await this.init("annam");
       const result = await this.users
         .aggregate([
           {
@@ -6254,7 +6261,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   async getInstalls(startDate: Date, endDate: Date, session?: ClientSession) {
     try {
-      await this.init();
+      await this.init('annam');
       const result = await this.users
         .aggregate([
           {
@@ -6288,7 +6295,7 @@ export class ChatbotRepository implements IChatbotRepository {
     session?: ClientSession,
   ) {
     try {
-      await this.init();
+      await this.init('annam');
       const result = await this.messagesCollection
         .aggregate([
           {
@@ -7039,6 +7046,70 @@ export class ChatbotRepository implements IChatbotRepository {
       return result.matchedCount > 0;
     } catch (error) {
       throw new InternalServerError(`Failed to update user: ${error}`);
+    }
+  }
+
+  async changeUserPassword(
+    userId: string,
+    source: string,
+    newPassword: string,
+  ): Promise<boolean> {
+    if (source === 'whatsapp') {
+      throw new BadRequestError(
+        'Change password functionality is not supported for whatsapp source',
+      );
+    }
+
+    try {
+      await this.init(source);
+
+      const existingUser = await this.users.findOne({_id: new ObjectId(userId)});
+      if (!existingUser) {
+        throw new NotFoundError('User not found');
+      }
+
+      if (
+        existingUser.password &&
+        bcrypt.compareSync(newPassword, existingUser.password)
+      ) {
+        throw new BadRequestError(
+          'New password cannot be the same as the existing password',
+        );
+      }
+
+      const hashedPassword = bcrypt.hashSync(newPassword, 10);
+      if (existingUser.firebaseUID) {
+        const firebaseAuth = getFirebaseAuth();
+        await firebaseAuth.updateUser(existingUser.firebaseUID, {
+          password: newPassword,
+        });
+        await firebaseAuth.revokeRefreshTokens(existingUser.firebaseUID);
+      }
+
+      const result = await this.users.updateOne(
+        {_id: new ObjectId(userId)},
+        {
+          $set: {
+            password: hashedPassword,
+            passwordChangedAt: new Date(),
+            refreshToken: [],
+            updatedAt: new Date(),
+          },
+        },
+      );
+
+      if (result.matchedCount === 0) {
+        throw new NotFoundError('User not found');
+      }
+
+      return true;
+    } catch (error) {
+      if (error instanceof BadRequestError || error instanceof NotFoundError) {
+        throw error;
+      }
+      throw new InternalServerError(
+        `Failed to change user password: ${error}`,
+      );
     }
   }
 

@@ -129,7 +129,14 @@ export class QuestionController {
     @CurrentUser() user: IUser,
   ): Promise<QuestionResponse[]> {
     const userId = user._id.toString();
-    return this.questionService.getAllocatedQuestions(userId, query, body);
+    const canViewQueue =
+      user.role === 'admin' || user.role === 'moderator';
+    const targetUserId =
+      canViewQueue && query.user && query.user !== 'all'
+        ? query.user
+        : userId;
+
+    return this.questionService.getAllocatedQuestions(targetUserId, query, body);
   }
 
   @Get('/allocated/page')

@@ -716,6 +716,16 @@ You are the planner agent responsible for analyzing incoming farmer queries, det
 
 5. **Follow-up format**: At most **one** short question. Never combine crop + location + symptom in one follow-up. Never ask meta questions like "are you asking about enrollment, claim, or eligibility?"
 
+**Agriculture relevance (`is_agriculture_related`) — REQUIRED bool:**
+- Set **`true`** when the farmer's **primary** question is about farming: weather for crops/fields, mandi prices, soil/fertilizer, crop pests/diseases, farming government schemes (PM-KISAN, subsidies for farmers), crop cultivation, livestock for farm use, etc.
+- Set **`false`** when the primary intent is **not** farming, even if agriculture words appear:
+  - "How can I make money?" → **false**
+  - "What is weather here? Which bike should I buy?" → **false** (bike purchase dominates)
+  - "I am a farmer in Ludhiana. Any govt schemes for money? Should I buy a bike or invest in my farm?" → **false** (personal purchase/investment choice, not a farming advisory)
+- **Mixed intent rule:** one farming topic + one clearly off-topic goal (bike, personal finance, shopping) → **`false`**
+- Greetings/thanks/bye → **`false`**
+- When **`false`**, the server uploads to reviewer only (no weather/GDB/mandi tools) — still set `rephrased_query` and domains for reviewer metadata.
+
 DO NOT answer the question. Only route it.
 
 """
@@ -870,11 +880,12 @@ MARKET_GEMMA_RESOLUTION_PROMPT = [
     ""
 ]
 
-MARKET_CROP_VERIFICATION_PROMPT = [
+MARKET_QUERY_ANALYSIS_PROMPT = [
     "You are an agricultural entity extractor.",
-    "Look at the following user query and determine if a specific crop or agricultural commodity is mentioned.",
-    "If a crop is mentioned (even in regional language like 'Kapas', 'Dhan', etc.), extract the exact word.",
-    "If no crop is mentioned (e.g., 'What are the prices in Azadpur mandi?'), output 'all'.",
-    "CRITICAL INSTRUCTION: Output ONLY a valid JSON dictionary with a single key 'crop'.",
-    "Example Output: {\"crop\": \"Kapas\"} or {\"crop\": \"all\"}"
+    "Look at the following user query and extract specific information.",
+    "1. CROP: If a crop is mentioned (even in regional language like 'Kapas', 'Dhan'), extract the exact word. If no crop is mentioned, output 'all'.",
+    "2. DATE: If an exact date is mentioned (e.g. '12 May 2024'), extract it as a string.",
+    "3. DAY: If a relative day is mentioned (e.g. 'Monday', 'yesterday', 'today'), extract it as a string.",
+    "CRITICAL INSTRUCTION: Output ONLY a valid JSON dictionary with keys 'crop', 'date' (optional), and 'day' (optional).",
+    "Example Output: {\"crop\": \"Kapas\", \"day\": \"Monday\"} or {\"crop\": \"all\", \"date\": \"2024-05-12\"}"
 ]

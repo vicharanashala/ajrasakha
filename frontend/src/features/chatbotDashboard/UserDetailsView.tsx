@@ -34,6 +34,7 @@ import { Input } from "@/components/atoms/input";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useDeleteUser } from "./hooks/useDeleteUser";
 import { useUpdateUser } from "./hooks/useUpdateUser";
+import { useChangeUserPassword } from "./hooks/useChangeUserPassword";
 import {
   Table,
   TableBody,
@@ -102,6 +103,7 @@ export function UserDetailsView({
   const isAdmin = currentUser?.role === "admin";
   const deleteUserMutation = useDeleteUser();
   const updateUserMutation = useUpdateUser();
+  const changeUserPasswordMutation = useChangeUserPassword();
   const addUserMutation = useAddUser();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [filters, setFilters] = useState<UserDetailsFilters>(() => ({
@@ -365,6 +367,15 @@ const debouncedSearch = useDebounce(filters.search, 500);
       data: payload,
     });
     setIsAddModalOpen(false);
+  };
+
+  const handleChangeViewedUserPassword = async (payload: {newPassword: string}) => {
+    if (!userToView) return;
+    await changeUserPasswordMutation.mutateAsync({
+      userId: userToView.userId,
+      source,
+      newPassword: payload.newPassword,
+    });
   };
 
   const handleEditUser = (user: UserDetail) => {
@@ -1232,6 +1243,8 @@ const debouncedSearch = useDebounce(filters.search, 500);
               isAdmin={isAdmin}
               onEdit={handleEditUser}
               onDelete={handleDeleteUser}
+              isChangingPassword={changeUserPasswordMutation.isPending}
+              onChangePassword={handleChangeViewedUserPassword}
             />
           </CardContent>
         </Card>

@@ -72,7 +72,7 @@ import {
 import FeedbackCard from "./FeedbackCard";
 import { ResponseAdherenceTableCard } from "./components/ResponseAdherenceTableCard";
 import { ActiveUsersChart } from "./active-users";
-import NewFilters, { type Filters } from "./NewFilters";
+import NewFilters, { type ApplicationSource, type Filters } from "./NewFilters";
 import { WeatherConcernAnalyticsCard } from "./components/WeatherConcernAnalyticsCard";
 import {
   DEFAULT_WEATHER_CONCERN_FILTERS,
@@ -562,9 +562,17 @@ export function AnnamDashboard_dev({
       isDummy: card.id !== "totalInstalls",
     }));
 
-  const [newFilters, setNewFilters] = useState<Filters>({
-    sourceType: "application",
-    application: source,
+  // const [newFilters, setNewFilters] = useState<Filters>({
+  //   sourceType: "application",
+  //   application: source,
+  // });
+  const [newFilters, setNewFilters] = useState<Filters>(() => {
+    const saved = localStorage.getItem("application-filter");
+
+    return {
+      sourceType: "application",
+      application: (saved as ApplicationSource) || source,
+    };
   });
   const [weatherConcernFilters, setWeatherConcernFilters] =
     useState<WeatherConcernFilters>(DEFAULT_WEATHER_CONCERN_FILTERS);

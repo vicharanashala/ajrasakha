@@ -453,4 +453,18 @@ def apply_planner_completeness_rules(
     out["reasoning"] = (out.get("reasoning") or "") + f"; domain={domain}"
     return out
 
-    
+
+def apply_non_agriculture_gate(plan: PlannerPlan) -> PlannerPlan:
+    """Non-ag path: force complete, disable all specialist tool flags."""
+    out: PlannerPlan = {**plan}
+    out["is_agriculture_related"] = False
+    out["is_complete"] = True
+    out["missing_info"] = []
+    out["follow_up_question"] = None
+    out["weather"] = False
+    out["mandi"] = False
+    out["soil"] = False
+    out["schemes"] = False
+    out["chemical_checker"] = False
+    out["knowledge_base"] = False
+    return out
