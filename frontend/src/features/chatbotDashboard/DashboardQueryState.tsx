@@ -96,6 +96,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
         last:mb-0
         hover:bg-gray-50/50
         dark:hover:bg-white/5
+        hover:cursor-pointer
         p-2
         rounded-lg
         transition-all

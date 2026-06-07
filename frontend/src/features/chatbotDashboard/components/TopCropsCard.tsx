@@ -178,7 +178,8 @@ export const TopCropsCard = ({topCrops,
                 </span>
               </TooltipTrigger>
               <TooltipContent className="normal-case tracking-normal">
-                Highlights the top 5 crops mentioned in queries, with others grouped.
+                Highlights the top 5 crops mentioned in queries, with others
+                grouped.
               </TooltipContent>
             </ShadcnTooltip>
           </CardTitle>
@@ -192,50 +193,59 @@ export const TopCropsCard = ({topCrops,
         <CardContent className="flex-1 pb-4">
           {loading ? (
             <div>
-              <LazySectionSkeleton/>
+              <LazySectionSkeleton />
             </div>
-          ):(
-          <div className="w-full h-[320px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={processedData}
-                margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  vertical={false}
-                  stroke="var(--color-border, #e2e8f0)"
-                />
-                <XAxis
-                  dataKey="name"
-                  stroke="var(--color-muted-foreground, #64748b)"
-                  tick={{ fontSize: 11, textAnchor: "end", dy: 8 }}
-                  tickLine={false}
-                  axisLine={false}
-                  interval={0}
-                  height={50}
-                  angle={-35}
-                />
-                <YAxis
-                  stroke="var(--color-muted-foreground)"
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(value) =>
-                    value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value
-                  }
-                />
-                <Tooltip
-                  cursor={{ fill: "var(--color-muted, #f1f5f9)", opacity: 0.4 }}
-                  content={<CustomTooltip />}
-                />
-                <Bar dataKey="count" radius={[4, 4, 0, 0]} >
-                  {processedData.map((entry: any, index: null) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} onClick={()=>handleClick(entry.name)}/>
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>)}
+          ) : (
+            <div className="w-full h-[320px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={processedData}
+                  margin={{ top: 10, right: 10, left: 0, bottom: 10 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="var(--color-border, #e2e8f0)"
+                  />
+                  <XAxis
+                    dataKey="name"
+                    stroke="var(--color-muted-foreground, #64748b)"
+                    tick={{ fontSize: 11, textAnchor: "end", dy: 8 }}
+                    tickLine={false}
+                    axisLine={false}
+                    interval={0}
+                    height={50}
+                    angle={-35}
+                  />
+                  <YAxis
+                    stroke="var(--color-muted-foreground)"
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) =>
+                      value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value
+                    }
+                  />
+                  <Tooltip
+                    cursor={{
+                      fill: "var(--color-muted, #f1f5f9)",
+                      opacity: 0.4,
+                    }}
+                    content={<CustomTooltip />}
+                  />
+                  <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                    {processedData.map((entry: any, index: null) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={entry.color}
+                        style={{ cursor: "pointer" }}
+                        onClick={() => handleClick(entry.name)}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -366,7 +376,15 @@ export const TopCropsCard = ({topCrops,
           </div>,
           document.body,
         )}
-        {topCrop && <QueryCategoryQuestionsModal crop={topCrop} source={source} userType={userType} isQueryCategory={false} onClose={()=>setTopCrop(null)}/>}
+      {topCrop && (
+        <QueryCategoryQuestionsModal
+          crop={topCrop}
+          source={source}
+          userType={userType}
+          isQueryCategory={false}
+          onClose={() => setTopCrop(null)}
+        />
+      )}
     </>
   );
 };
