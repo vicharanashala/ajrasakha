@@ -2,7 +2,7 @@ import { env } from "@/config/env";
 import { apiFetch } from "@/hooks/api/api-fetch";
 import { useQuery } from "@tanstack/react-query";
 
-export type FarmerHeatMapGranularity = "monthly" | "weekly" | "daily";
+export type FarmerHeatMapGranularity = "monthly" | "weekly" | "daily" | "hourly";
 
 export type FarmerHeatMapMetric =
   | "activeFarmers"

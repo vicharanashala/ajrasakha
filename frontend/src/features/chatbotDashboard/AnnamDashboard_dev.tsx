@@ -532,11 +532,13 @@ export function AnnamDashboard_dev({
     "totalQuestions",
     "desc",
     true, // activeTodayByProfile
-    undefined,
-    shouldLoadActiveUsers,
+    "",
+    true, // isVerified
+    true, // enabled
   );
 
   // Patch the DAU card to show "today / total" instead of just total
+  
   const patchedKpiRow1 = useMemo(() => {
     if (!data?.kpiRow1) return data.kpiRow1;
     const todayCount = todayActiveFarmersData?.totalUsers ?? null;
@@ -558,6 +560,8 @@ export function AnnamDashboard_dev({
       ...card,
       isDummy: !dynamicIds.includes(card.id),
     }));
+
+
 
   const kpiRow2WithOverlay = data.kpiRow2
     .filter((card) => card.id === "totalInstalls") // Commented out dummy cards: filter only totalInstalls

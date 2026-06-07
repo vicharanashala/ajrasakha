@@ -2453,11 +2453,15 @@ export class ChatbotRepository implements IChatbotRepository {
           ? new Date(filters.startDate)
           : granularity === 'monthly'
             ? new Date(now.getFullYear(), 0, 1)
+            : granularity === 'hourly'
+              ? new Date(now.getFullYear(), now.getMonth(), now.getDate())
             : new Date(now.getFullYear(), now.getMonth(), 1);
         const endDate = filters.endDate
           ? new Date(filters.endDate)
           : granularity === 'monthly'
             ? new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999)
+            : granularity === 'hourly'
+              ? new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
             : new Date(
                 now.getFullYear(),
                 now.getMonth() + 1,
@@ -2472,7 +2476,10 @@ export class ChatbotRepository implements IChatbotRepository {
         endDate.setHours(23, 59, 59, 999);
 
         const monthLabel = new Intl.DateTimeFormat('en', {month: 'short'});
-        const toDateKey = (date: Date) => date.toISOString().slice(0, 10);
+        const toDateKey = (date: Date) =>
+          `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        const toHourKey = (date: Date) =>
+          `${toDateKey(date)}-${String(date.getHours()).padStart(2, '0')}`;
         const addDays = (date: Date, days: number) => {
           const next = new Date(date);
           next.setDate(next.getDate() + days);
@@ -2530,6 +2537,25 @@ export class ChatbotRepository implements IChatbotRepository {
             cursor.setHours(0, 0, 0, 0);
             week += 1;
           }
+        } else if (granularity === 'hourly') {
+          let cursor = new Date(startDate);
+          cursor.setMinutes(0, 0, 0);
+
+          while (cursor <= endDate) {
+            const bucketStart = new Date(cursor);
+            const bucketEnd = new Date(cursor);
+            bucketEnd.setMinutes(59, 59, 999);
+            if (bucketEnd > endDate) bucketEnd.setTime(endDate.getTime());
+
+            buckets.push({
+              key: toHourKey(cursor),
+              label: `${String(cursor.getHours()).padStart(2, '0')}:00`,
+              startDate: bucketStart.toISOString(),
+              endDate: bucketEnd.toISOString(),
+            });
+
+            cursor.setHours(cursor.getHours() + 1, 0, 0, 0);
+          }
         } else {
           let cursor = new Date(startDate);
           let day = 1;
@@ -2567,6 +2593,9 @@ export class ChatbotRepository implements IChatbotRepository {
           }
           if (granularity === 'daily') {
             return toDateKey(date);
+          }
+          if (granularity === 'hourly') {
+            return toHourKey(date);
           }
           const bucket = buckets.find(item => {
             const range = bucketMap.get(item.key);
@@ -2668,7 +2697,9 @@ export class ChatbotRepository implements IChatbotRepository {
         activeFarmerMap.get(key)?.add(String(row.user));
       }
 
-      const questionRows = await this.QuestionCollection.aggregate(
+      let questionRows: any[] = [];
+
+      const questionDocs = await this.QuestionCollection.aggregate(
         [
           {
             $match: {
@@ -2676,24 +2707,64 @@ export class ChatbotRepository implements IChatbotRepository {
               createdAt: {$gte: startDate, $lte: endDate},
             },
           },
-          ...this.buildQuestionUserTypeLookupStages(userType),
-          ...(scope === 'district'
-            ? [{$match: {'details.state': selectedState}}]
-            : []),
           {
             $project: {
+              userId: 1,
               createdAt: 1,
               closedAt: 1,
               status: {$ifNull: ['$status', 'unknown']},
               isCustomerNotified: 1,
-              location:
-                scope === 'district' ? '$details.district' : '$details.state',
             },
           },
-          {$match: {location: {$exists: true, $nin: [null, '']}}},
         ],
         {session},
       ).toArray();
+
+      const questionUserObjectIds = [
+        ...new Set(
+          questionDocs
+            .map(row => row.userId?.toString())
+            .filter(id => id && ObjectId.isValid(id)),
+        ),
+      ]
+        .map(id => new ObjectId(id as string));
+
+      const questionUsers = questionUserObjectIds.length
+        ? await this.users
+            .find({_id: {$in: questionUserObjectIds}}, {session})
+            .toArray()
+        : [];
+      const questionUserMap = new Map(
+        questionUsers.map(user => [user._id.toString(), user]),
+      );
+
+      questionRows = questionDocs.flatMap(row => {
+        const userId = row.userId?.toString();
+        if (!userId) return [];
+
+        const userDoc = questionUserMap.get(userId);
+        if (!userDoc?.farmerProfile) return [];
+
+        if (userType !== 'all') {
+          const matchesUserType =
+            userType === 'external'
+              ? ['FARMER', 'COORDINATOR'].includes(userDoc.userRole)
+              : userDoc.userRole === 'INTERNAL';
+          if (!matchesUserType) return [];
+        }
+
+        if (scope === 'district' && userDoc.farmerProfile.state !== selectedState) {
+          return [];
+        }
+
+        const location =
+          scope === 'district'
+            ? userDoc.farmerProfile.district
+            : userDoc.farmerProfile.state;
+        if (!location) return [];
+
+        return [{...row, location}];
+      });
 
       const questionMap = new Map<
         string,
@@ -3889,6 +3960,7 @@ export class ChatbotRepository implements IChatbotRepository {
           {
             $match: {
               source: 'AJRASAKHA',
+              $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
               // messageId: { $exists: true, $ne: null },
               // threadId: { $exists: true, $ne: null },
               ...monthDateMatch,
@@ -4111,6 +4183,7 @@ export class ChatbotRepository implements IChatbotRepository {
           {
             $match: {
               source: 'AJRASAKHA',
+              $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
               // messageId: { $exists: true, $ne: null },
               // threadId: { $exists: true, $ne: null },
               ...monthDateMatch,
@@ -4327,6 +4400,7 @@ export class ChatbotRepository implements IChatbotRepository {
           {
             $match: {
               source: 'AJRASAKHA',
+              $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
               // messageId: { $exists: true, $ne: null },
               // threadId: { $exists: true, $ne: null },
               ...yearDateMatch,
@@ -5342,8 +5416,6 @@ export class ChatbotRepository implements IChatbotRepository {
       }
 
       const allUsers = await this.users.find(userFilter, {session}).toArray();
-      console.log('useres::', allUsers);
-      console.log('type of isverified:', isVerfied);
       // console.log('useres::',allUsers)
       // console.log('type of isverified:', isVerfied);
       // Merge
@@ -8414,6 +8486,7 @@ export class ChatbotRepository implements IChatbotRepository {
         {
           $match: {
             source: 'WHATSAPP',
+            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
             closedAt: {
               $gte: start,
               $lt: end,
@@ -8617,6 +8690,7 @@ export class ChatbotRepository implements IChatbotRepository {
         {
           $match: {
             source: 'WHATSAPP',
+            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
             closedAt: {
               $gte: start,
               $lt: end,
@@ -8815,6 +8889,7 @@ export class ChatbotRepository implements IChatbotRepository {
         {
           $match: {
             source: 'WHATSAPP',
+            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
             closedAt: {
               $ne: null,
             },

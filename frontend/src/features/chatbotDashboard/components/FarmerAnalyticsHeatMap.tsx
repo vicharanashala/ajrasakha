@@ -65,13 +65,28 @@ const metricOptions: Array<{
   },
 ];
 
-const granularityOptions: Array<{
-  value: FarmerHeatMapGranularity;
-  label: string;
-}> = [
-  { value: "monthly", label: "Monthly" },
-  { value: "weekly", label: "Weekly" },
-  { value: "daily", label: "Daily" },
+type HeatMapPeriodMode = "year" | "month" | "week" | "day";
+
+const periodModeOptions: Array<{ value: HeatMapPeriodMode; label: string }> = [
+  { value: "year", label: "Year" },
+  { value: "month", label: "Month" },
+  { value: "week", label: "Week" },
+  { value: "day", label: "Day" },
+];
+
+const monthOptions = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 
 const selectClassName =
@@ -100,16 +115,109 @@ const formatStatusDistribution = (statusDistribution: Record<string, number>) =>
     .join(", ");
 };
 
+const startOfDay = (date: Date) => {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+};
+
+const endOfDay = (date: Date) => {
+  const next = new Date(date);
+  next.setHours(23, 59, 59, 999);
+  return next;
+};
+
+const getDaysInMonth = (year: number, monthIndex: number) =>
+  new Date(year, monthIndex + 1, 0).getDate();
+
+const getWeekRange = (year: number, monthIndex: number, week: number) => {
+  const startDay = (week - 1) * 7 + 1;
+  const lastDay = getDaysInMonth(year, monthIndex);
+  const endDay = Math.min(startDay + 6, lastDay);
+
+  return {
+    startDate: startOfDay(new Date(year, monthIndex, startDay)),
+    endDate: endOfDay(new Date(year, monthIndex, endDay)),
+  };
+};
+
+const getPeriodFilter = (
+  mode: HeatMapPeriodMode,
+  year: number,
+  monthIndex: number,
+  week: number,
+  day: number,
+) => {
+  if (mode === "year") {
+    return {
+      granularity: "monthly" as FarmerHeatMapGranularity,
+      startDate: startOfDay(new Date(year, 0, 1)),
+      endDate: endOfDay(new Date(year, 11, 31)),
+    };
+  }
+
+  if (mode === "month") {
+    return {
+      granularity: "weekly" as FarmerHeatMapGranularity,
+      startDate: startOfDay(new Date(year, monthIndex, 1)),
+      endDate: endOfDay(new Date(year, monthIndex, getDaysInMonth(year, monthIndex))),
+    };
+  }
+
+  if (mode === "week") {
+    const range = getWeekRange(year, monthIndex, week);
+    return {
+      granularity: "daily" as FarmerHeatMapGranularity,
+      ...range,
+    };
+  }
+
+  return {
+    granularity: "hourly" as FarmerHeatMapGranularity,
+    startDate: startOfDay(new Date(year, monthIndex, day)),
+    endDate: endOfDay(new Date(year, monthIndex, day)),
+  };
+};
+
 export function FarmerAnalyticsHeatMap({
   source,
   userType,
   enabled = true,
 }: FarmerAnalyticsHeatMapProps) {
-  const [filters, setFilters] = useState(DEFAULT_FARMER_HEAT_MAP_FILTERS);
+  const now = useMemo(() => new Date(), []);
+  const [periodMode, setPeriodMode] = useState<HeatMapPeriodMode>("year");
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
+  const [selectedWeek, setSelectedWeek] = useState(1);
+  const [selectedDay, setSelectedDay] = useState(now.getDate());
+  const [filters, setFilters] = useState(() => ({
+    ...DEFAULT_FARMER_HEAT_MAP_FILTERS,
+    ...getPeriodFilter("year", now.getFullYear(), now.getMonth(), 1, now.getDate()),
+  }));
   const [metric, setMetric] =
     useState<FarmerHeatMapMetric>("totalQuestions");
   const [refreshing, setRefreshing] = useState(false);
   const queryClient = useQueryClient();
+  const yearOptions = useMemo(
+    () => Array.from({ length: 6 }, (_, index) => now.getFullYear() - index),
+    [now],
+  );
+  const weekOptions = useMemo(
+    () =>
+      Array.from(
+        { length: Math.ceil(getDaysInMonth(selectedYear, selectedMonth) / 7) },
+        (_, index) => index + 1,
+      ),
+    [selectedMonth, selectedYear],
+  );
+  const dayOptions = useMemo(
+    () =>
+      Array.from(
+        { length: getDaysInMonth(selectedYear, selectedMonth) },
+        (_, index) => index + 1,
+      ),
+    [selectedMonth, selectedYear],
+  );
 
   const { data, isLoading, error } = useFarmerHeatMapAnalytics(
     filters,
@@ -143,10 +251,26 @@ export function FarmerAnalyticsHeatMap({
     }));
   };
 
-  const updateGranularity = (granularity: FarmerHeatMapGranularity) => {
+  const applyPeriodFilter = (
+    mode: HeatMapPeriodMode,
+    year: number,
+    month: number,
+    week: number,
+    day: number,
+  ) => {
+    const maxWeek = Math.ceil(getDaysInMonth(year, month) / 7);
+    const maxDay = getDaysInMonth(year, month);
+    const safeWeek = Math.min(week, maxWeek);
+    const safeDay = Math.min(day, maxDay);
+
+    setPeriodMode(mode);
+    setSelectedYear(year);
+    setSelectedMonth(month);
+    setSelectedWeek(safeWeek);
+    setSelectedDay(safeDay);
     setFilters((current) => ({
       ...current,
-      granularity,
+      ...getPeriodFilter(mode, year, month, safeWeek, safeDay),
     }));
   };
 
@@ -212,7 +336,9 @@ export function FarmerAnalyticsHeatMap({
       </CardHeader>
 
       <CardContent className="space-y-5 pt-5">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div className="space-y-3">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="w-full xl:max-w-md">
           <SearchableSelect
             options={STATES}
             value={filters.state}
@@ -221,30 +347,39 @@ export function FarmerAnalyticsHeatMap({
             className={selectClassName}
             activeClassName={activeSelectClassName}
           />
+            </div>
 
-          <Select
-            value={filters.granularity}
-            onValueChange={(value) =>
-              updateGranularity(value as FarmerHeatMapGranularity)
-            }
-          >
-            <SelectTrigger className="h-9 rounded-md border-border/70 shadow-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {granularityOptions.map((item) => (
-                <SelectItem key={item.value} value={item.value}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center xl:justify-end">
+              <div className="grid w-full grid-cols-4 gap-1 rounded-md bg-muted/50 p-1 shadow-sm sm:w-auto">
+                {periodModeOptions.map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    onClick={() =>
+                      applyPeriodFilter(
+                        item.value,
+                        selectedYear,
+                        selectedMonth,
+                        selectedWeek,
+                        selectedDay,
+                      )
+                    }
+                    className={cn(
+                      "h-9 rounded px-4 text-sm font-semibold text-muted-foreground transition-colors sm:min-w-20",
+                      periodMode === item.value &&
+                        "bg-primary text-primary-foreground shadow-sm",
+                    )}
+                  >
                   {item.label}
-                </SelectItem>
+                </button>
               ))}
-            </SelectContent>
-          </Select>
+            </div>
 
           <Select
             value={metric}
             onValueChange={(value) => setMetric(value as FarmerHeatMapMetric)}
           >
-            <SelectTrigger className="h-9 rounded-md border-border/70 shadow-sm">
+            <SelectTrigger className="h-10 w-full rounded-md border-border/70 shadow-sm sm:w-48">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -255,6 +390,114 @@ export function FarmerAnalyticsHeatMap({
               ))}
             </SelectContent>
           </Select>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <Select
+              value={String(selectedYear)}
+              onValueChange={(value) =>
+                applyPeriodFilter(
+                  periodMode,
+                  Number(value),
+                  selectedMonth,
+                  selectedWeek,
+                  selectedDay,
+                )
+              }
+            >
+              <SelectTrigger className="h-10 w-[120px] rounded-md border-border/70 shadow-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {yearOptions.map((year) => (
+                  <SelectItem key={year} value={String(year)}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {(periodMode === "month" ||
+              periodMode === "week" ||
+              periodMode === "day") && (
+              <Select
+                value={String(selectedMonth)}
+                onValueChange={(value) =>
+                  applyPeriodFilter(
+                    periodMode,
+                    selectedYear,
+                    Number(value),
+                    selectedWeek,
+                    selectedDay,
+                  )
+                }
+              >
+                <SelectTrigger className="h-10 w-[150px] rounded-md border-border/70 shadow-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {monthOptions.map((month, index) => (
+                    <SelectItem key={month} value={String(index)}>
+                      {month}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {(periodMode === "week" || periodMode === "day") && (
+              <Select
+                value={String(selectedWeek)}
+                onValueChange={(value) =>
+                  applyPeriodFilter(
+                    periodMode,
+                    selectedYear,
+                    selectedMonth,
+                    Number(value),
+                    selectedDay,
+                  )
+                }
+              >
+                <SelectTrigger className="h-10 w-[130px] rounded-md border-border/70 shadow-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {weekOptions.map((week) => (
+                    <SelectItem key={week} value={String(week)}>
+                      Week {week}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {periodMode === "day" && (
+              <Select
+                value={String(selectedDay)}
+                onValueChange={(value) =>
+                  applyPeriodFilter(
+                    periodMode,
+                    selectedYear,
+                    selectedMonth,
+                    selectedWeek,
+                    Number(value),
+                  )
+                }
+              >
+                <SelectTrigger className="h-10 w-[110px] rounded-md border-border/70 shadow-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {dayOptions.map((day) => (
+                    <SelectItem key={day} value={String(day)}>
+                      {day}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
@@ -265,7 +508,7 @@ export function FarmerAnalyticsHeatMap({
           <span>
             Y-axis: {filters.state === "all" ? "States" : "Districts"}
           </span>
-          <span>X-axis: {granularityOptions.find((item) => item.value === filters.granularity)?.label}</span>
+          <span>X-axis: {periodModeOptions.find((item) => item.value === periodMode)?.label}</span>
         </div>
 
         {isLoading ? (
