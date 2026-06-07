@@ -2717,6 +2717,8 @@ export class ChatbotRepository implements IChatbotRepository {
           {
             $project: {
               userId: 1,
+              messageId: 1,
+              threadId: 1,
               createdAt: 1,
               closedAt: 1,
               status: {$ifNull: ['$status', 'unknown']},
@@ -2727,14 +2729,75 @@ export class ChatbotRepository implements IChatbotRepository {
         {session},
       ).toArray();
 
-      const questionUserObjectIds = [
+      const questionMessageIds = [
         ...new Set(
           questionDocs
-            .map(row => row.userId?.toString())
-            .filter(id => id && ObjectId.isValid(id)),
+            .map(row => row.messageId)
+            .filter(id => id !== undefined && id !== null && id !== ''),
         ),
+      ];
+      const questionThreadIds = [
+        ...new Set(
+          questionDocs
+            .map(row => row.threadId)
+            .filter(id => id !== undefined && id !== null && id !== ''),
+        ),
+      ];
+
+      const [questionMessages, questionConversations] = await Promise.all([
+        questionMessageIds.length
+          ? this.messagesCollection
+              .find(
+                {messageId: {$in: questionMessageIds}},
+                {projection: {messageId: 1, user: 1}, session},
+              )
+              .toArray()
+          : Promise.resolve([]),
+        questionThreadIds.length
+          ? this.conversations
+              .find(
+                {conversationId: {$in: questionThreadIds}},
+                {projection: {conversationId: 1, user: 1}, session},
+              )
+              .toArray()
+          : Promise.resolve([]),
+      ]);
+
+      const questionMessageUserMap = new Map(
+        questionMessages.map(message => [
+          String(message.messageId),
+          message.user?.toString(),
+        ]),
+      );
+      const questionConversationUserMap = new Map(
+        questionConversations.map(conversation => [
+          String(conversation.conversationId),
+          conversation.user?.toString(),
+        ]),
+      );
+
+      const resolvedUserIdByQuestionId = new Map<string, string>();
+      for (const row of questionDocs) {
+        const directUserId = row.userId?.toString();
+        const messageUserId =
+          row.messageId !== undefined && row.messageId !== null
+            ? questionMessageUserMap.get(String(row.messageId))
+            : undefined;
+        const conversationUserId =
+          row.threadId !== undefined && row.threadId !== null
+            ? questionConversationUserMap.get(String(row.threadId))
+            : undefined;
+        const resolvedUserId = directUserId || messageUserId || conversationUserId;
+        if (resolvedUserId) {
+          resolvedUserIdByQuestionId.set(row._id.toString(), resolvedUserId);
+        }
+      }
+
+      const questionUserObjectIds = [
+        ...new Set([...resolvedUserIdByQuestionId.values()]),
       ]
-        .map(id => new ObjectId(id as string));
+        .filter(id => ObjectId.isValid(id))
+        .map(id => new ObjectId(id));
 
       const questionUsers = questionUserObjectIds.length
         ? await this.users
@@ -2746,7 +2809,7 @@ export class ChatbotRepository implements IChatbotRepository {
       );
 
       questionRows = questionDocs.flatMap(row => {
-        const userId = row.userId?.toString();
+        const userId = resolvedUserIdByQuestionId.get(row._id.toString());
         if (!userId) return [];
 
         const userDoc = questionUserMap.get(userId);
