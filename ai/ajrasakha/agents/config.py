@@ -36,8 +36,17 @@ def resolve_question_source(config: Optional[dict[str, Any]] = None) -> Optional
 
 
 def resolve_thread_id(config: Optional[dict[str, Any]] = None) -> Optional[str]:
-    """LangGraph conversation id from configurable (set by bridge from x-conversation-id)."""
+    """Thread identifier for the reviewer system.
+
+    Prefers reviewer_thread_id ({phone}-{date} format, set by wa-client)
+    so the reviewer system receives a human-readable identifier.
+    Falls back to thread_id / thread for other channels (webapp, etc.).
+    """
     configurable = (config or {}).get("configurable") or {}
+    # WhatsApp channel: explicit {phone}-{date} string
+    reviewer_tid = configurable.get("reviewer_thread_id")
+    if reviewer_tid is not None and str(reviewer_tid).strip():
+        return str(reviewer_tid).strip()
     for key in ("thread_id", "thread"):
         val = configurable.get(key)
         if val is not None and str(val).strip():
