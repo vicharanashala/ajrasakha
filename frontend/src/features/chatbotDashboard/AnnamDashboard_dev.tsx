@@ -1353,6 +1353,8 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                               topCrops={topCrops}
                               isLoadingTopCrops={isLoadingTopCrops}
                               errorLoadingtopCrops={errorLoadingtopCrops}
+                              source={source}
+                              userType= {filters.userType}
                             />
                           ) : (
                             <LazySectionSkeleton className="h-[360px]" />
