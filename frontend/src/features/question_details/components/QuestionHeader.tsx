@@ -115,34 +115,30 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
         new Date(latestHistory.updatedAt ?? "").getTime()
       : null;
 
-  const formattedTime = (() => {
-    if (diffMs === null || diffMs <= 0) {
-      return "N/A";
-    }
+  // When moderatorAssignedAt is present, compute a separate TAT using that timestamp
+  const moderatorDiffMs =
+    question?.moderatorAssignedAt && question?.closedAt
+      ? new Date(question.closedAt).getTime() -
+        new Date(question.moderatorAssignedAt).getTime()
+      : null;
 
-    const totalMilliseconds = diffMs;
-
-    const totalSeconds = Math.floor(totalMilliseconds / 1000);
-    const milliseconds = totalMilliseconds % 1000;
-
+  const formatMs = (ms: number) => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const milliseconds = ms % 1000;
     const totalMinutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
-
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
-
     return [
       hours > 0 ? `${hours} hour${hours !== 1 ? "s" : ""}` : null,
-
       minutes > 0 ? `${minutes} minute${minutes !== 1 ? "s" : ""}` : null,
-
       `${seconds} second${seconds !== 1 ? "s" : ""}`,
-
       `${milliseconds} ms`,
-    ]
-      .filter(Boolean)
-      .join(" ");
-  })();
+    ].filter(Boolean).join(" ");
+  };
+
+  const formattedTime = diffMs !== null && diffMs > 0 ? formatMs(diffMs) : "N/A";
+  const moderatorFormattedTime = moderatorDiffMs !== null && moderatorDiffMs > 0 ? formatMs(moderatorDiffMs) : "N/A";
 
   return (
     <>
@@ -304,10 +300,12 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                 </div>
               </div>
             )} */}
+          {/* Only show standalone "Closed by" when moderatorAssignedAt is absent (old flow) */}
           {question?.status === "closed" &&
             (currentUser.role === "moderator" ||
               currentUser.role === "admin") &&
-            question?.closedAt && (
+            question?.closedAt &&
+            !question?.moderatorAssignedAt && (
               <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <CircleCheck className="h-3.5 w-3.5 text-primary" />
                 <span>
@@ -353,15 +351,33 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
           </div>
           <div>
             {question?.status === "closed" &&
-              (currentUser.role === "moderator" ||
-                currentUser.role === "admin") && (
-                <div className="text-sm">
-                  {question?.closedAt && (
+              (currentUser.role === "moderator" || currentUser.role === "admin") &&
+              question?.closedAt && (
+                <div className="flex flex-col gap-1 text-sm text-right">
+                  {question?.moderatorAssignedAt ? (
+                    <>
+                      <div className="flex items-center justify-end gap-1.5 text-xs text-muted-foreground">
+                        <CircleCheck className="h-3.5 w-3.5 text-primary" />
+                        <span>
+                          Closed by{" "}
+                          <span className="font-medium text-foreground">
+                            {question.approved_moderator?.name || "Unknown"}
+                          </span>
+                        </span>
+                        <span>•</span>
+                        <span>{new Date(question.closedAt).toLocaleString()}</span>
+                      </div>
+                      <div className="text-muted-foreground">
+                        Moderator TAT:{" "}
+                        <span className="font-medium text-foreground">
+                          {moderatorFormattedTime}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
                     <div>
                       Moderator TAT:{" "}
-                      {latestHistory && diffMs && diffMs > 0
-                        ? formattedTime
-                        : "N/A"}
+                      {latestHistory && diffMs && diffMs > 0 ? formattedTime : "N/A"}
                     </div>
                   )}
                 </div>
