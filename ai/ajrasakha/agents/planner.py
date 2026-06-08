@@ -18,7 +18,7 @@ from typing import Optional
 from anthropic import APITimeoutError, APIConnectionError, APIStatusError
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
-from langchain_core.runnables import RunnableConfig
+from langchain_core.runnables import RunnableConfig, patch_config
 from pydantic import BaseModel, Field
 
 from ajrasakha.agents.config import PLANNER_MODEL
@@ -269,6 +269,13 @@ def _extract_state_from_history(
     return None
 
 
+def _planner_invoke_config(config: RunnableConfig) -> RunnableConfig:
+    """Strip thread location from config so the planner LLM never sees coordinates."""
+    configurable = dict((config.get("configurable") or {}))
+    configurable.pop("location", None)
+    return patch_config(config, configurable=configurable)
+
+
 def _resolve_state_deterministic(
     messages: list[BaseMessage],
     location: Optional[dict],
@@ -355,15 +362,13 @@ def _check_question_completeness(
     state_resolved: Optional[str],
     crop_resolved: Optional[str],
     crop_required: bool,
-    has_gps: bool,
     plan: PlannerPlan,
 ) -> tuple[bool, list[str], Optional[str]]:
-    """Deterministic completeness check following the specified flow."""
+    """Deterministic completeness check — state from text/entities only, not device GPS."""
     script, vocal = language_pair_from_plan(plan)
     missing: list[str] = []
     follow_up: Optional[str] = None
-
-    has_state = bool(state_resolved) or has_gps
+    has_state = bool(state_resolved)
     if not has_state:
         missing.append("location")
         follow_up = get_state_follow_up(script, vocal)
@@ -423,12 +428,6 @@ async def planner_node(
     state_resolved = _resolve_state_deterministic(messages, location, prev_entities)
     crop_resolved = resolve_crop_for_turn(messages)
 
-    has_gps = bool(
-        location
-        and location.get("latitude") is not None
-        and location.get("longitude") is not None
-    )
-
     llm_messages: list[BaseMessage] = [SystemMessage(content=PLANNER_SYSTEM_PROMPT)]
     conv_block = format_conversation_for_planner(messages) or user_text
 
@@ -436,7 +435,6 @@ async def planner_node(
         f"PRE-EXTRACTED HINTS from latest raw message (server will re-merge from rephrased_query):\n"
         f"- state hint: {state_resolved or 'NOT RESOLVED'}\n"
         f"- crop hint: {crop_resolved or 'NOT RESOLVED'}\n"
-        f"- has_gps: {has_gps}\n"
     )
     llm_messages.append(
         HumanMessage(
@@ -453,7 +451,7 @@ async def planner_node(
 
     try:
         llm = ChatAnthropic(model=PLANNER_MODEL).with_structured_output(PlannerOutput)
-        output = await llm.ainvoke(llm_messages, config=config)
+        output = await llm.ainvoke(llm_messages, config=_planner_invoke_config(config))
         plan = planner_output_to_plan(output)
 
         prev_vocal = plan.get("vocal_language")
@@ -504,7 +502,6 @@ async def planner_node(
             state_resolved=final_state,
             crop_resolved=effective_crop,
             crop_required=crop_required,
-            has_gps=has_gps,
             plan=plan,
         )
 
