@@ -57,6 +57,7 @@ import ExcelJS from 'exceljs';
 import {cosineSimilarity} from '../../../utils/cosine-similarity.js';
 import {IDuplicateQuestionRepository} from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
 import {chatbotSimilarityLogger} from '../logger/chatbot-similarity.logger.js';
+import {checkConceptDuplicate} from '#root/modules/question/aiservice/checkConceptDuplicate.js';
 import {ICropRepository} from '#root/shared/database/interfaces/ICropRepository.js';
 import {CHATBOT_TYPES} from '#root/modules/chatbot/types.js';
 import {IChatbotRepository} from '#root/shared/database/interfaces/IChatbotRepository.js';
@@ -976,23 +977,17 @@ export class QuestionService extends BaseService implements IQuestionService {
       console.warn(`[runDuplicateCheckPipeline] GDB selected_match invalid question_id: ${selectedMatch.question_id}, skipping`);
     }
 
-    // No GDB match — fall back to embedding search + LLM (same as manualCheckDuplicate)
+    // No GDB match — call LLM directly to classify non-agri vs agri (no embedding search)
     try {
-      const duplicateResult = await this.checkDuplicateQuestion(baseQuestion, details, logData);
-
-      if (duplicateResult?.isDuplicate && duplicateResult?.duplicateData) {
-        const { similarityScore, referenceQuestionId, referenceQuestion, referenceSource } = duplicateResult.duplicateData as any;
-        return { isDuplicate: true, similarityScore, referenceQuestionId, referenceQuestion, referenceSource };
-      }
-
-      if (duplicateResult?.isNonAgri) {
+      const llmResult = await checkConceptDuplicate(baseQuestion.question, []);
+      if (llmResult.isNonAgri) {
         logData.outcome = 'NON_AGRI_DETECTED';
         chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData);
         return { isDuplicate: false, isNonAgri: true };
       }
-    } catch (embeddingError: any) {
+    } catch (llmError: any) {
       console.warn(
-        `[runDuplicateCheckPipeline] Embedding/LLM fallback failed, treating as no duplicate: ${embeddingError?.message}`,
+        `[runDuplicateCheckPipeline] LLM non-agri check failed, treating as agri: ${llmError?.message}`,
       );
     }
 
@@ -4834,7 +4829,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       const response = await this.aiService.fetchWhatsAppMessage(
         questionData.threadId,
-         "6a26489df0f159564de0b7f4".toString(),
+         questionData._id.toString(),
       );
 
       if (!response) {
