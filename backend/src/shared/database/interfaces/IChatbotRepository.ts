@@ -463,6 +463,8 @@ export interface IChatbotRepository {
     search?: string,
   ): Promise<any>;
 
+    getQuestionsByCrop(crop: string, questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string, search?: string): Promise<any>
+
   /** Weekly avg session duration (updatedAt - createdAt) over the last `weeks` ISO weeks, sorted ascending. */
   getWeeklyAvgSessionDuration(
     weeks?: number,
@@ -551,7 +553,12 @@ export interface IChatbotRepository {
     search?: string,
     source?: string,
     crop?: string,
+    primaryCrops?: string,
+    secondaryCrops?: string,
     village?: string,
+    state?: string,
+    district?: string,
+    block?: string,
     profileCompleted?: string,
     inactiveOnly?: boolean,
     session?: ClientSession,
@@ -762,27 +769,15 @@ export interface IChatbotRepository {
     userType?: string,
   ): Promise<{label: string; totalQueries: number}>;
 
-  getClosedVsTotalQuestions(
-    source: string,
-    startDate?: Date,
-    endDate?: Date,
-  ): Promise<any>;
+  getClosedVsTotalQuestions(source: string, userType?: string, startDate?: Date, endDate?: Date):Promise<any>;
 
-  getNotifiedVsClosed(
-    source?: string,
-    startDate?: Date,
-    endDate?: Date,
-  ): Promise<any>;
+  getNotifiedVsClosed(source?: string, userType?: string, startDate?: Date, endDate?: Date):Promise<any>;
 
-  getClosedInLastTwoHours(
-    source?: string,
-    startDate?: Date,
-    endDate?: Date,
-  ): Promise<any>;
+  getClosedInLastTwoHours(source?: string, userType?: string, startDate?: Date, endDate?: Date): Promise<any>;
 
   getMonthlyChurnRate(source: string, userType: string): Promise<any>;
 
-  getCarryForwardQuestions(source?: string): Promise<any>;
+  getCarryForwardQuestions(source?: string, userType?: string): Promise<any>;
 
   getActiveUsersTrend(
     source: string,

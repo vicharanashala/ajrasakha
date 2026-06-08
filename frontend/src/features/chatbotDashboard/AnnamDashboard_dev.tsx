@@ -251,16 +251,19 @@ export function AnnamDashboard_dev({
 
   const { data: closed2hData, isLoading: isClosed2hLoading, isFetching: isClosed2hFetching } = useClosedAndNotifedData(
     source,
+    filters.userType,
     closed2hRange.startTime,
     closed2hRange.endTime,
   );
   const { data: questionStatusData, isLoading: isQuestionStatusLoading, isFetching: isQuestionStatusFetching } = useClosedAndNotifedData(
     source,
+    filters.userType,
     questionStatusRange.startTime,
     questionStatusRange.endTime,
   );
   const { data: customerNotificationsData, isLoading: isCustomerNotificationsLoading, isFetching: isCustomerNotificationsFetching } = useClosedAndNotifedData(
     source,
+    filters.userType,
     customerNotificationsRange.startTime,
     customerNotificationsRange.endTime,
   );
@@ -523,6 +526,11 @@ export function AnnamDashboard_dev({
     1,
     "",
     source as any,
+    "",
+    [],
+    [],
+    "",
+    "",
     "",
     "",
     "all",

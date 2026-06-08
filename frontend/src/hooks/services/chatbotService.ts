@@ -296,11 +296,13 @@ export class ChatbotService {
 
   async getClosedAndNotifedData(
     source: string,
+    userType: string,
     startDate?: string,
     endDate?: string,
   ): Promise<any> {
     const params = new URLSearchParams();
     params.append("source", source);
+    params.append("userType", userType);
     if (startDate) {
       params.append("startDate", startDate);
     }

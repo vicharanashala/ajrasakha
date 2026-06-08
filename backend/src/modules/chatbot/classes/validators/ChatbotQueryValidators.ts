@@ -177,10 +177,35 @@ export class UserDetailsQueryDto {
   @IsString()
   crop: string = '';
 
+  @JSONSchema({ example: 'rice,wheat', description: 'Comma-separated primary crop filters' })
+  @IsOptional()
+  @IsString()
+  primaryCrops: string = '';
+
+  @JSONSchema({ example: 'maize,cotton', description: 'Comma-separated secondary crop filters' })
+  @IsOptional()
+  @IsString()
+  secondaryCrops: string = '';
+
   @JSONSchema({ example: 'Poonjar', description: 'Filter by village name' })
   @IsOptional()
   @IsString()
   village: string = '';
+
+  @JSONSchema({ example: 'Kerala', description: 'Filter by farmer state' })
+  @IsOptional()
+  @IsString()
+  state: string = '';
+
+  @JSONSchema({ example: 'Kottayam', description: 'Filter by farmer district' })
+  @IsOptional()
+  @IsString()
+  district: string = '';
+
+  @JSONSchema({ example: 'Erattupetta', description: 'Filter by farmer block' })
+  @IsOptional()
+  @IsString()
+  block: string = '';
 
   @JSONSchema({ example: 'yes', description: 'Filter by farmer profile completion: yes, no, or all' })
   @IsOptional()
