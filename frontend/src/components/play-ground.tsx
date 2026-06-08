@@ -7,20 +7,20 @@ import {
 import { UserProfileActions } from "@/components/atoms/user-profile-actions";
 import { ThemeToggleCompact } from "./atoms/ThemeToggle";
 import { QAInterface } from "../features/qa-interface-page/QA-interface";
-import { FullSubmissionHistory } from "./submission-history";
+// import { FullSubmissionHistory } from "./submission-history";
 import { VoiceRecorderCard } from "./voice-recorder-card";
 import { QuestionsPage } from "./questions-page";
 import { BellIcon, ChevronDownIcon } from "lucide-react";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
-import { RequestsPage } from "./request-page";
+// import { RequestsPage } from "./request-page";
 import { initializeNotifications } from "@/services/pushService";
 import { useEffect, useRef, useState } from "react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/atoms/dropdown-menu";
+// import {
+//   DropdownMenu,
+//   DropdownMenuContent,
+//   DropdownMenuItem,
+//   DropdownMenuTrigger,
+// } from "@/components/atoms/dropdown-menu";
 import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
 import { MobileSidebar } from "./mobile-sidebar";
 import { HoverCard } from "./atoms/hover-card";
@@ -30,8 +30,8 @@ import { ExpertDashboard } from "./ExpertDashboard";
 import { NotificationModal } from "./NotificationModal";
 import { AnnamDashboard_dev as AnnamDashboard } from "../features/chatbotDashboard/AnnamDashboard_dev";
 import { cn } from "@/lib/utils";
-import AuditPage from "./AuditPage";
-import { WhatsAppHistoryPage } from "../features/whatsappHistory/WhatsAppHistoryPage";
+// import AuditPage from "./AuditPage";
+// import { WhatsAppHistoryPage } from "../features/whatsappHistory/WhatsAppHistoryPage";
 import { DataProcessingDashboard } from "../features/faq-pop/DataProcessingDashboard";
 
 export const PlaygroundPage = () => {
@@ -53,14 +53,14 @@ export const PlaygroundPage = () => {
 
   const [activeTab, setActiveTab] = useState<string>("all_questions");
   const [chatbotSource, setChatbotSource] = useState<
-    "vicharanashala" | "annam" | "whatsapp"
+     "annam" | "whatsapp"
   >("annam");
   useEffect(() => {
     const saved = localStorage.getItem("application-filter");
 
     if (
       saved === "annam" ||
-      saved === "vicharanashala" ||
+      // saved === "vicharanashala" ||
       saved === "whatsapp"
     ) {
       setChatbotSource(saved);
