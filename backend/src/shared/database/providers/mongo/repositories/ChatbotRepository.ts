@@ -995,50 +995,50 @@ export class ChatbotRepository implements IChatbotRepository {
   // We were able to remove $unwind because _userDoc always contains at most one user
   // document (since we are joining on the unique _id field), and Mongo can directly
   //  match on array fields using _userDoc.userRole without first flattening the array.
-  private buildQuestionUserTypeLookupStages(userType: string): any[] {
-    if (userType === 'all') return [];
+  // private buildQuestionUserTypeLookupStages(userType: string): any[] {
+  //   if (userType === 'all') return [];
 
-    const userRoleMatch =
-      userType === 'external'
-        ? {
-            '_userDoc.userRole': {
-              $in: ['FARMER', 'COORDINATOR'],
-            },
-          }
-        : {
-            '_userDoc.userRole': 'INTERNAL',
-          };
+  //   const userRoleMatch =
+  //     userType === 'external'
+  //       ? {
+  //           '_userDoc.userRole': {
+  //             $in: ['FARMER', 'COORDINATOR'],
+  //           },
+  //         }
+  //       : {
+  //           '_userDoc.userRole': 'INTERNAL',
+  //         };
 
-    return [
-      {
-        $addFields: {
-          _userOid: {
-            $cond: [
-              {
-                $and: [{$ne: ['$userId', null]}, {$ne: ['$userId', '']}],
-              },
-              {$toObjectId: '$userId'},
-              null,
-            ],
-          },
-        },
-      },
-      {
-        $lookup: {
-          from: 'users',
-          localField: '_userOid',
-          foreignField: '_id',
-          as: '_userDoc',
-        },
-      },
-      {
-        $match: userRoleMatch,
-      },
-      {
-        $unset: ['_userOid', '_userDoc'],
-      },
-    ];
-  }
+  //   return [
+  //     {
+  //       $addFields: {
+  //         _userOid: {
+  //           $cond: [
+  //             {
+  //               $and: [{$ne: ['$userId', null]}, {$ne: ['$userId', '']}],
+  //             },
+  //             {$toObjectId: '$userId'},
+  //             null,
+  //           ],
+  //         },
+  //       },
+  //     },
+  //     {
+  //       $lookup: {
+  //         from: 'users',
+  //         localField: '_userOid',
+  //         foreignField: '_id',
+  //         as: '_userDoc',
+  //       },
+  //     },
+  //     {
+  //       $match: userRoleMatch,
+  //     },
+  //     {
+  //       $unset: ['_userOid', '_userDoc'],
+  //     },
+  //   ];
+  // }
 
   private escapeRegex(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -1747,8 +1747,8 @@ export class ChatbotRepository implements IChatbotRepository {
           userType,
         ),
       ); 
-        await this.buildUserTypeMatchQuery(_source, userType),
-      console.log('=====baseMatch', baseMatch);
+      //   await this.buildUserTypeMatchQuery(_source, userType),
+      // console.log('=====baseMatch', baseMatch);
       const categoryLabel = category?.trim();
       if (!categoryLabel) {
         throw new BadRequestError('category is required');
@@ -8043,306 +8043,6 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  // async getDailyActiveUsersTrend(
-  //   source: string,
-  //   userType: string,
-  //   startDate?: Date,
-  //   endDate?: Date,
-  //   session?: ClientSession,
-  // ) {
-  //   try {
-  //     await this.init(source);
-
-  //     const matchStage: any = {
-  //       lastActiveAt: {
-  //         $ne: null,
-  //       },
-  //     };
-
-  //     if (startDate && endDate) {
-  //       matchStage.lastActiveAt = {
-  //         $ne: null,
-  //         $gte: startDate,
-  //         $lte: endDate,
-  //       };
-  //     }
-
-  //     /**
-  //      * External Users
-  //      */
-  //     if (userType === 'external') {
-  //       matchStage.email = {
-  //         $regex: '^rup',
-  //         $options: 'i',
-  //       };
-  //     }
-
-  //     /**
-  //      * Internal Users
-  //      */
-  //     if (userType === 'internal') {
-  //       matchStage.email = {
-  //         $not: {
-  //           $regex: '^rup',
-  //           $options: 'i',
-  //         },
-  //       };
-  //     }
-
-  //     /**
-  //      * DAU Trend
-  //      */
-  //     const result = await this.users
-  //       .aggregate(
-  //         [
-  //           {
-  //             $match: matchStage,
-  //           },
-  //           {
-  //             $group: {
-  //               _id: {
-  //                 $dateToString: {
-  //                   format: '%Y-%m-%d',
-  //                   date: '$lastActiveAt',
-  //                 },
-  //               },
-  //               dau: {
-  //                 $sum: 1,
-  //               },
-  //             },
-  //           },
-  //           {
-  //             $sort: {
-  //               _id: 1,
-  //             },
-  //           },
-  //         ],
-  //         {
-  //           session,
-  //         },
-  //       )
-  //       .toArray();
-
-  //     return result;
-  //   } catch (error) {
-  //     throw new InternalServerError(
-  //       `Failed to get daily active users trend: ${error}`,
-  //     );
-  //   }
-  // }
-
-  // async getWeeklyActiveUsersTrend(
-  //   source: string,
-  //   userType: string,
-  //   startDate?: Date,
-  //   endDate?: Date,
-  //   session?: ClientSession,
-  // ) {
-  //   try {
-  //     await this.init(source);
-
-  //     const matchStage: any = {
-  //       lastActiveAt: {
-  //         $ne: null,
-  //       },
-  //     };
-
-  //     if (startDate && endDate) {
-  //       matchStage.lastActiveAt = {
-  //         $ne: null,
-  //         $gte: startDate,
-  //         $lte: endDate,
-  //       };
-  //     }
-
-  //     /**
-  //      * External Users
-  //      */
-  //     if (userType === 'external') {
-  //       matchStage.email = {
-  //         $regex: '^rup',
-  //         $options: 'i',
-  //       };
-  //     }
-
-  //     /**
-  //      * Internal Users
-  //      */
-  //     if (userType === 'internal') {
-  //       matchStage.email = {
-  //         $not: {
-  //           $regex: '^rup',
-  //           $options: 'i',
-  //         },
-  //       };
-  //     }
-
-  //     /**
-  //      * WAU Trend
-  //      */
-  //     const result = await this.users
-  //       .aggregate(
-  //         [
-  //           {
-  //             $match: matchStage,
-  //           },
-  //           {
-  //             $group: {
-  //               _id: {
-  //                 year: {
-  //                   $isoWeekYear: '$lastActiveAt',
-  //                 },
-
-  //                 week: {
-  //                   $isoWeek: '$lastActiveAt',
-  //                 },
-  //               },
-
-  //               wau: {
-  //                 $sum: 1,
-  //               },
-  //             },
-  //           },
-  //           {
-  //             $sort: {
-  //               '_id.year': 1,
-  //               '_id.week': 1,
-  //             },
-  //           },
-  //           {
-  //             $project: {
-  //               _id: {
-  //                 $concat: [
-  //                   {
-  //                     $toString: '$_id.year',
-  //                   },
-  //                   '-W',
-  //                   {
-  //                     $cond: [
-  //                       {
-  //                         $lt: ['$_id.week', 10],
-  //                       },
-  //                       {
-  //                         $concat: [
-  //                           '0',
-  //                           {
-  //                             $toString: '$_id.week',
-  //                           },
-  //                         ],
-  //                       },
-  //                       {
-  //                         $toString: '$_id.week',
-  //                       },
-  //                     ],
-  //                   },
-  //                 ],
-  //               },
-
-  //               wau: 1,
-  //             },
-  //           },
-  //         ],
-  //         {
-  //           session,
-  //         },
-  //       )
-  //       .toArray();
-
-  //     return result;
-  //   } catch (error) {
-  //     throw new InternalServerError(
-  //       `Failed to get weekly active users trend: ${error}`,
-  //     );
-  //   }
-  // }
-
-  // async getMonthlyActiveUsersTrend(
-  //   source: string,
-  //   userType: string,
-  //   startDate?: Date,
-  //   endDate?: Date,
-  //   session?: ClientSession,
-  // ) {
-  //   try {
-  //     await this.init(source);
-
-  //     const matchStage: any = {
-  //       lastActiveAt: {
-  //         $ne: null,
-  //       },
-  //     };
-
-  //     if (startDate && endDate) {
-  //       matchStage.lastActiveAt = {
-  //         $ne: null,
-  //         $gte: startDate,
-  //         $lte: endDate,
-  //       };
-  //     }
-
-  //     /**
-  //      * External Users
-  //      */
-  //     if (userType === 'external') {
-  //       matchStage.email = {
-  //         $regex: '^rup',
-  //         $options: 'i',
-  //       };
-  //     }
-
-  //     /**
-  //      * Internal Users
-  //      */
-  //     if (userType === 'internal') {
-  //       matchStage.email = {
-  //         $not: {
-  //           $regex: '^rup',
-  //           $options: 'i',
-  //         },
-  //       };
-  //     }
-  //     /**
-  //      * MAU Trend
-  //      */
-  //     const result = await this.users
-  //       .aggregate(
-  //         [
-  //           {
-  //             $match: matchStage,
-  //           },
-  //           {
-  //             $group: {
-  //               _id: {
-  //                 $dateToString: {
-  //                   format: '%Y-%m',
-  //                   date: '$lastActiveAt',
-  //                 },
-  //               },
-  //               mau: {
-  //                 $sum: 1,
-  //               },
-  //             },
-  //           },
-  //           {
-  //             $sort: {
-  //               _id: 1,
-  //             },
-  //           },
-  //         ],
-  //         {
-  //           session,
-  //         },
-  //       )
-  //       .toArray();
-
-  //     return result;
-  //   } catch (error) {
-  //     throw new InternalServerError(
-  //       `Failed to get monthly active users trend: ${error}`,
-  //     );
-  //   }
-  // }
-
   async getRetentionMetrics(
     source: string,
     userType: string,
@@ -9439,6 +9139,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const matchStage: any = {
         $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
       };
+      const dbSource = source;
       if (source !== 'whatsapp') {
         source = 'AJRASAKHA';
       }
@@ -9451,7 +9152,7 @@ export class ChatbotRepository implements IChatbotRepository {
       Object.assign(
         matchStage,
         await this.buildUserTypeMatchQuery(
-          source,
+          dbSource,
           userType,
         ),
       ); 
@@ -9694,6 +9395,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const matchStage: any = {
         $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
       };
+      const dbSource = source;
       if (source !== 'whatsapp') {
         source = 'AJRASAKHA';
       }
@@ -9707,7 +9409,7 @@ export class ChatbotRepository implements IChatbotRepository {
       Object.assign(
         matchStage,
         await this.buildUserTypeMatchQuery(
-          source,
+          dbSource,
           userType,
         ),
       );
@@ -9977,6 +9679,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const matchStage: any = {
         $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
       };
+      const dbSource = source;
       if (source !== 'whatsapp') {
         source = 'AJRASAKHA';
       }
@@ -9984,7 +9687,7 @@ export class ChatbotRepository implements IChatbotRepository {
       Object.assign(
         matchStage,
         await this.buildUserTypeMatchQuery(
-          source,
+          dbSource,
           userType,
         ),
       );
