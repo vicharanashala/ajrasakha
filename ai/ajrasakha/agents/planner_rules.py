@@ -342,8 +342,9 @@ def _location_status(
     loc = location or {}
     lat, lon = loc.get("latitude"), loc.get("longitude")
     has_gps = lat is not None and lon is not None
-    has_state = bool(entities.get("state") or (has_gps and loc.get("state")))
-    has_district = bool(entities.get("district") or (has_gps and loc.get("city")))
+    # Completeness uses entities only; device GPS / reverse-geocode on thread does not count.
+    has_state = bool(entities.get("state"))
+    has_district = bool(entities.get("district"))
     return has_state, has_district, has_gps
 
 
@@ -366,9 +367,8 @@ def _finalize_location_and_crop_completeness(
     entities: PlannerEntities,
     domains: list[str],
     has_state: bool,
-    has_gps: bool,
 ) -> PlannerPlan:
-    """Single completeness pass: state (or GPS) required; district defaults to all."""
+    """Single completeness pass: state in entities required; district defaults to all."""
     script, vocal = language_pair_from_plan(out)
     crop = entities.get("crop")
     canonical_domains = [normalize_domain(d) for d in (domains or [])] or ["General"]
@@ -377,7 +377,7 @@ def _finalize_location_and_crop_completeness(
         and not crop_slot_satisfied(crop)
     )
 
-    if not has_state and not has_gps:
+    if not has_state:
         out["is_complete"] = False
         out["missing_info"] = ["location"]
         out["follow_up_question"] = get_state_follow_up(script, vocal)
@@ -416,7 +416,7 @@ def apply_planner_completeness_rules(
     entities = apply_crop_one_shot_fallback(messages, entities, domains_for_crop)
     out["entities"] = entities
 
-    has_state, _, has_gps = _location_status(entities, location)
+    has_state, _, _has_gps = _location_status(entities, location)
     domain = normalize_domain(out.get("domain") or "General")
     domains = list(out.get("domains") or [domain])
 
@@ -447,7 +447,6 @@ def apply_planner_completeness_rules(
         entities=entities,
         domains=domains,
         has_state=has_state,
-        has_gps=has_gps,
     )
 
     out["reasoning"] = (out.get("reasoning") or "") + f"; domain={domain}"
