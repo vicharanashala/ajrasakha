@@ -406,8 +406,8 @@ export class ChatbotRepository implements IChatbotRepository {
   private messagesCollection!: Collection<any>;
 
   constructor(
-    @inject(GLOBAL_TYPES.analyticsDatabase) //vicharansahsa
-    private analyticsDb: AnalyticsMongoDatabase,
+    // @inject(GLOBAL_TYPES.analyticsDatabase) //vicharansahsa
+    // private analyticsDb: AnalyticsMongoDatabase,
 
     @inject(GLOBAL_TYPES.annamanalyticsDatabase) //annamalytics
     private annamDb: AnnamDatabase,
@@ -421,13 +421,13 @@ export class ChatbotRepository implements IChatbotRepository {
     private analyticsDb: AnnamDatabase,
   ) {}*/
 
-  private async init(source = 'vicharanashala') {
+  private async init(source = 'annam') {
     const db =
       source === 'whatsapp'
         ? this.db
-        : source === 'annam'
-          ? this.annamDb
-          : this.analyticsDb;
+        // : source === 'vicharanashala'
+          // : this.analyticsDb
+          : this.annamDb;
     // const db = source === 'whatsapp' ? this.db: source === 'annam' ? this.annamDb : this.analyticsDb;
     this.users = await db.getCollection<IUser>('users');
     this.conversations = await db.getCollection<IConversation>('conversations');
@@ -599,7 +599,7 @@ export class ChatbotRepository implements IChatbotRepository {
     userType = 'all',
     startTime?: string,
     endTime?: string,
-    source = 'vicharanashala',
+    source = 'annam',
   ): Promise<ResponseAdherenceTable> {
     try {
       await this.init(source);
@@ -1074,7 +1074,7 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getKpiSummary(
-    source = 'vicharanashala',
+    source = 'annam',
     session?: ClientSession,
     userType = 'all',
     startTime?: string,
@@ -1512,7 +1512,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   async getDailyActiveUsers(
     days = 13,
-    source = 'vicharanashala',
+    source = 'annam',
     session?: ClientSession,
     userType = 'all',
   ): Promise<DailyActiveUsersEntry[]> {
@@ -1576,28 +1576,28 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getChannelSplit(
-    _source = 'vicharanashala',
+    _source = 'annam',
     _session?: ClientSession,
   ): Promise<ChannelSplitEntry[]> {
     return [];
   }
 
   async getVoiceAccuracyByLanguage(
-    _source = 'vicharanashala',
+    _source = 'annam',
     _session?: ClientSession,
   ): Promise<VoiceAccuracyEntry[]> {
     return [];
   }
 
   async getGeoDistribution(
-    _source = 'vicharanashala',
+    _source = 'annam',
     _session?: ClientSession,
   ): Promise<GeoStateEntry[]> {
     return [];
   }
 
   async getQueryCategories(
-    _source = 'vicharanashala',
+    _source = 'annam',
     session?: ClientSession,
     userType = 'all',
   ): Promise<QueryCategoryEntry[]> {
@@ -1719,7 +1719,7 @@ export class ChatbotRepository implements IChatbotRepository {
     questionType: QueryCategoryQuestionType = 'all',
     page = 1,
     limit = 10,
-    _source = 'vicharanashala',
+    _source = 'annam',
     session?: ClientSession,
     userType = 'all',
     search?: string,
@@ -1954,7 +1954,7 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   // async getDistrictAnalyticsByState(
-  //   _source = 'vicharanashala',
+  //   _source = 'annam',
   //   state: string,
   //   session?: ClientSession,
   //   userType = 'all',
@@ -2104,7 +2104,7 @@ export class ChatbotRepository implements IChatbotRepository {
   // }
 
   async getDistrictAnalyticsByState(
-    _source = 'vicharanashala',
+    _source = 'annam',
     state: string,
     session?: ClientSession,
     userType = 'all',
@@ -3141,7 +3141,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   async getWeeklyAvgSessionDuration(
     weeks = 52,
-    source = 'vicharanashala',
+    source = 'annam',
     session?: ClientSession,
   ): Promise<WeeklySessionDurationEntry[]> {
     try {
@@ -3193,7 +3193,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   async getDailyQueryCounts(
     days = 30,
-    source = 'vicharanashala',
+    source = 'annam',
     session?: ClientSession,
     userType = 'all',
   ): Promise<DailyQueryCountEntry[]> {
@@ -3239,7 +3239,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   async getDailyUserTrend(
     days = 30,
-    source = 'vicharanashala',
+    source = 'annam',
     session?: ClientSession,
     userType = 'all',
   ): Promise<DailyActiveUsersEntry[]> {
@@ -3300,7 +3300,7 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getWeeklyQueryCounts(
-    source = 'vicharanashala',
+    source = 'annam',
     session?: ClientSession,
     userType = 'all',
   ): Promise<WeeklyQueryCountEntry[]> {
@@ -3342,7 +3342,7 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getMonthlyQueryCounts(
-    source = 'vicharanashala',
+    source = 'annam',
     session?: ClientSession,
     userType = 'all',
   ): Promise<MonthlyQueryCountEntry[]> {
@@ -3406,7 +3406,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   async getQuerySummaryByPeriod(
     period: 'daily' | 'weekly' | 'monthly',
-    source = 'vicharanashala',
+    source = 'annam',
     session?: ClientSession,
     userType = 'all',
   ) {
@@ -3475,7 +3475,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   async getWeatherConcernAnalytics(
     filters: WeatherConcernAnalyticsFilters = {},
-    source = 'vicharanashala',
+    source = 'annam',
     session?: ClientSession,
     userType = 'all',
   ): Promise<WeatherConcernAnalyticsResponse> {
@@ -4036,7 +4036,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   async getDailyAnalytics(
     month?: string,
-    source = 'vicharanashala',
+    source = 'annam',
     session?: ClientSession,
     userType = 'all',
   ) {
@@ -4259,7 +4259,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   async getWeeklyAnalytics(
     month?: string,
-    source = 'vicharanashala',
+    source = 'annam',
     session?: ClientSession,
     userType = 'all',
   ) {
@@ -4481,7 +4481,7 @@ export class ChatbotRepository implements IChatbotRepository {
   // ============================================
 
   async getMonthlyAnalytics(
-    source = 'vicharanashala',
+    source = 'annam',
     session?: ClientSession,
     userType = 'all',
     year?: number,
@@ -4696,7 +4696,7 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   // async getFeedbackData(
-  //   source = 'vicharanashala',
+  //   source = 'annam',
   //   session?: ClientSession,
   //   userType = 'all',
   // ): Promise<FeedbackData> {
@@ -4833,7 +4833,7 @@ export class ChatbotRepository implements IChatbotRepository {
   // }
 
   async getFeedbackData(
-    source = 'vicharanashala',
+    source = 'annam',
     session?: ClientSession,
     userType = 'all',
   ): Promise<FeedbackData> {
@@ -5110,7 +5110,7 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getTodayQueryCount(
-    source = 'vicharanashala',
+    source = 'annam',
     session?: ClientSession,
     userType = 'all',
   ): Promise<number> {
@@ -5147,152 +5147,152 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async findMatchingMessages(data: {
-    question: string;
-    details: any;
-    createdAt: Date;
-    questionId: string;
-    messageId: string | undefined;
-  }) {
-    await this.init();
-    await this.initReviewSystem();
-    const {question, details, createdAt, questionId, messageId} = data;
+  // async findMatchingMessages(data: {
+  //   question: string;
+  //   details: any;
+  //   createdAt: Date;
+  //   questionId: string;
+  //   messageId: string | undefined;
+  // }) {
+  //   await this.init("vicharanashala");
+  //   await this.initReviewSystem();
+  //   const {question, details, createdAt, questionId, messageId} = data;
 
-    const start = new Date(new Date(createdAt).getTime() - 10 * 60 * 1000);
-    const end = new Date(new Date(createdAt).getTime() + 10 * 60 * 1000);
+  //   const start = new Date(new Date(createdAt).getTime() - 10 * 60 * 1000);
+  //   const end = new Date(new Date(createdAt).getTime() + 10 * 60 * 1000);
 
-    let pipeline = [];
+  //   let pipeline = [];
 
-    if (messageId) {
-      pipeline.push({
-        $match: {
-          messageId,
-        },
-      });
-    } else {
-      pipeline.push({
-        $match: {
-          createdAt: {
-            $gte: start,
-            $lte: end,
-          },
-        },
-      });
-    }
-    pipeline.push(
-      {
-        $addFields: {
-          userObjectId: {
-            $cond: [
-              {
-                $and: [{$ne: ['$user', null]}, {$ne: ['$user', '']}],
-              },
-              {$toObjectId: '$user'},
-              null,
-            ],
-          },
-        },
-      },
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'userObjectId',
-          foreignField: '_id',
-          as: 'userDetails',
-        },
-      },
-      {
-        $unwind: {
-          path: '$userDetails',
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-    );
-    let result = await this.messagesCollection.aggregate(pipeline).toArray();
-    if (messageId) return result;
-    const baseTime = new Date('2026-04-10T07:36:36.357Z');
-    const cutoffDate = new Date(baseTime.getTime() - 30 * 60 * 1000);
-    let matchedMessageId: string | null = null;
-    let matchedUserId: ObjectId | null = null;
-    const result1 = result.filter(doc => {
-      try {
-        const isNewFlow = new Date(doc.createdAt) > cutoffDate;
-        const matchedContent = doc.content?.find((item: any) => {
-          const isRightTool =
-            item?.type === 'tool_call' &&
-            (item?.tool_call?.name ===
-              'upload_question_to_reviewer_system_mcp_pop' ||
-              item?.tool_call?.name ===
-                'upload_question_to_reviewer_system_mcp_reviewer');
+  //   if (messageId) {
+  //     pipeline.push({
+  //       $match: {
+  //         messageId,
+  //       },
+  //     });
+  //   } else {
+  //     pipeline.push({
+  //       $match: {
+  //         createdAt: {
+  //           $gte: start,
+  //           $lte: end,
+  //         },
+  //       },
+  //     });
+  //   }
+  //   pipeline.push(
+  //     {
+  //       $addFields: {
+  //         userObjectId: {
+  //           $cond: [
+  //             {
+  //               $and: [{$ne: ['$user', null]}, {$ne: ['$user', '']}],
+  //             },
+  //             {$toObjectId: '$user'},
+  //             null,
+  //           ],
+  //         },
+  //       },
+  //     },
+  //     {
+  //       $lookup: {
+  //         from: 'users',
+  //         localField: 'userObjectId',
+  //         foreignField: '_id',
+  //         as: 'userDetails',
+  //       },
+  //     },
+  //     {
+  //       $unwind: {
+  //         path: '$userDetails',
+  //         preserveNullAndEmptyArrays: true,
+  //       },
+  //     },
+  //   );
+  //   let result = await this.messagesCollection.aggregate(pipeline).toArray();
+  //   if (messageId) return result;
+  //   const baseTime = new Date('2026-04-10T07:36:36.357Z');
+  //   const cutoffDate = new Date(baseTime.getTime() - 30 * 60 * 1000);
+  //   let matchedMessageId: string | null = null;
+  //   let matchedUserId: ObjectId | null = null;
+  //   const result1 = result.filter(doc => {
+  //     try {
+  //       const isNewFlow = new Date(doc.createdAt) > cutoffDate;
+  //       const matchedContent = doc.content?.find((item: any) => {
+  //         const isRightTool =
+  //           item?.type === 'tool_call' &&
+  //           (item?.tool_call?.name ===
+  //             'upload_question_to_reviewer_system_mcp_pop' ||
+  //             item?.tool_call?.name ===
+  //               'upload_question_to_reviewer_system_mcp_reviewer');
 
-          if (!isRightTool || !item?.tool_call?.output) {
-            return false;
-          }
-          try {
-            const outputArr = JSON.parse(item.tool_call.output);
-            const innerText = outputArr?.[0]?.text;
+  //         if (!isRightTool || !item?.tool_call?.output) {
+  //           return false;
+  //         }
+  //         try {
+  //           const outputArr = JSON.parse(item.tool_call.output);
+  //           const innerText = outputArr?.[0]?.text;
 
-            if (!innerText) return false;
+  //           if (!innerText) return false;
 
-            const parsedOutput = JSON.parse(innerText);
+  //           const parsedOutput = JSON.parse(innerText);
 
-            const isNotFailed = parsedOutput?.status.toLowerCase() !== 'failed';
+  //           const isNotFailed = parsedOutput?.status.toLowerCase() !== 'failed';
 
-            return isNotFailed;
-          } catch (error) {
-            console.error('Failed to parse tool call output in filter:', error);
-            return false;
-          }
-        });
-        if (!matchedContent) return false;
-        if (isNewFlow) {
-          if (!matchedContent?.tool_call?.output) return false;
-          const outputArr = JSON.parse(matchedContent.tool_call.output);
-          const innerText = outputArr?.[0]?.text;
-          const parsedOutput = JSON.parse(innerText);
-          const questionIdFromOutput = parsedOutput?.question_id;
-          const isMatch = questionIdFromOutput == questionId?.toString();
-          if (isMatch) {
-            matchedMessageId = doc.messageId;
-            matchedUserId = doc.userObjectId ?? null;
-          }
-          return isMatch;
-        }
-        const args = JSON.parse(matchedContent.tool_call.args);
+  //           return isNotFailed;
+  //         } catch (error) {
+  //           console.error('Failed to parse tool call output in filter:', error);
+  //           return false;
+  //         }
+  //       });
+  //       if (!matchedContent) return false;
+  //       if (isNewFlow) {
+  //         if (!matchedContent?.tool_call?.output) return false;
+  //         const outputArr = JSON.parse(matchedContent.tool_call.output);
+  //         const innerText = outputArr?.[0]?.text;
+  //         const parsedOutput = JSON.parse(innerText);
+  //         const questionIdFromOutput = parsedOutput?.question_id;
+  //         const isMatch = questionIdFromOutput == questionId?.toString();
+  //         if (isMatch) {
+  //           matchedMessageId = doc.messageId;
+  //           matchedUserId = doc.userObjectId ?? null;
+  //         }
+  //         return isMatch;
+  //       }
+  //       const args = JSON.parse(matchedContent.tool_call.args);
 
-        const isMatch =
-          args?.question?.toLowerCase() === question?.toLowerCase() &&
-          args?.details?.state?.toLowerCase() ===
-            details?.state?.toLowerCase() &&
-          args?.details?.crop?.toLowerCase() === details?.crop?.toLowerCase();
+  //       const isMatch =
+  //         args?.question?.toLowerCase() === question?.toLowerCase() &&
+  //         args?.details?.state?.toLowerCase() ===
+  //           details?.state?.toLowerCase() &&
+  //         args?.details?.crop?.toLowerCase() === details?.crop?.toLowerCase();
 
-        if (isMatch) {
-          matchedMessageId = doc.messageId;
-          matchedUserId = doc.userObjectId ?? null;
-        }
+  //       if (isMatch) {
+  //         matchedMessageId = doc.messageId;
+  //         matchedUserId = doc.userObjectId ?? null;
+  //       }
 
-        return isMatch;
-      } catch (e) {
-        return false;
-      }
-    });
-    if (matchedMessageId && questionId) {
-      const updateFields: Record<string, any> = {messageId: matchedMessageId};
-      if (matchedUserId) {
-        updateFields.userId = matchedUserId;
-      }
-      const question = await this.QuestionCollection.findOne({
-        _id: new ObjectId(questionId),
-      });
-      if (!question.messageId)
-        await this.QuestionCollection.updateOne(
-          {_id: new ObjectId(questionId)},
-          {$set: updateFields},
-        );
-    }
+  //       return isMatch;
+  //     } catch (e) {
+  //       return false;
+  //     }
+  //   });
+  //   if (matchedMessageId && questionId) {
+  //     const updateFields: Record<string, any> = {messageId: matchedMessageId};
+  //     if (matchedUserId) {
+  //       updateFields.userId = matchedUserId;
+  //     }
+  //     const question = await this.QuestionCollection.findOne({
+  //       _id: new ObjectId(questionId),
+  //     });
+  //     if (!question.messageId)
+  //       await this.QuestionCollection.updateOne(
+  //         {_id: new ObjectId(questionId)},
+  //         {$set: updateFields},
+  //       );
+  //   }
 
-    return result1;
-  }
+  //   return result1;
+  // }
 
   async findFromSecondDb(data: {
     question: string;
@@ -5452,7 +5452,7 @@ export class ChatbotRepository implements IChatbotRepository {
     page = 1,
     limit = 10,
     search = '',
-    source = 'vicharanashala',
+    source = 'annam',
     crop = '',
     primaryCrops = '',
     secondaryCrops = '',
@@ -6004,7 +6004,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   async getUsersMessages(
     email: string,
-    source = 'vicharanashala',
+    source = 'annam',
     session?: ClientSession,
     userType = 'all',
     page = 1,
@@ -6215,7 +6215,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   async getAllUserMessageIds(
     email: string,
-    source = 'vicharanashala',
+    source = 'annam',
     session?: ClientSession,
   ) {
     try {
@@ -6249,7 +6249,7 @@ export class ChatbotRepository implements IChatbotRepository {
   // excluded. Single-message conversations are also excluded.
   // Requires MongoDB 5.0+ ($setWindowFields).
   async getAvgSessionDurationV2(
-    source = 'vicharanashala',
+    source = 'annam',
     session?: ClientSession,
     userType = 'all',
   ): Promise<number> {
@@ -6322,7 +6322,7 @@ export class ChatbotRepository implements IChatbotRepository {
   // can render the sparkline and week-over-week % delta.
   async getWeeklyAvgSessionDurationV2(
     weeks = 52,
-    source = 'vicharanashala',
+    source = 'annam',
     session?: ClientSession,
     userType = 'all',
   ): Promise<WeeklySessionDurationEntry[]> {
@@ -6423,7 +6423,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   async getMonthlyAvgSessionDuration(
     months = 12,
-    source = 'vicharanashala',
+    source = 'annam',
     session?: ClientSession,
     userType = 'all',
   ): Promise<MonthlySessionDurationEntry[]> {
@@ -6590,7 +6590,7 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getUserDemographics(
-    source = 'vicharanashala',
+    source = 'annam',
     session?: ClientSession,
     userType = 'all',
   ): Promise<UserDemographics> {
@@ -6821,7 +6821,7 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  // async getKccAndAgriAppStats(source = 'vicharanashala', session?: ClientSession, userType = 'all'): Promise<KccAndAgriAppStats> {
+  // async getKccAndAgriAppStats(source = 'annam', session?: ClientSession, userType = 'all'): Promise<KccAndAgriAppStats> {
   //   try {
   //     await this.init(source);
   //     const userDocFilter = this.buildUserDocFilter(userType);
@@ -6876,7 +6876,7 @@ export class ChatbotRepository implements IChatbotRepository {
   // }
 
   async getKccAndAgriAppStats(
-    source = 'vicharanashala',
+    source = 'annam',
     session?: ClientSession,
     userType = 'all',
   ): Promise<KccAndAgriAppStats> {
@@ -6975,7 +6975,7 @@ export class ChatbotRepository implements IChatbotRepository {
   async generateChatbotExcelReport(
     startDate: Date,
     endDate: Date,
-    source = 'vicharanashala',
+    source = 'annam',
     session?: ClientSession,
   ): Promise<ChatbotConversationData[]> {
     try {
@@ -7055,7 +7055,7 @@ export class ChatbotRepository implements IChatbotRepository {
     startDate,
     endDate,
     days = 30,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
     month?: string,
     state?: string,
@@ -7250,7 +7250,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   //get platform installs
   async getPlatformInstalls(
-    source: 'vicharanashala',
+    source: 'annam',
     session?: ClientSession,
     userType = 'all',
   ): Promise<PlatformInstallEntry[]> {
@@ -7680,7 +7680,7 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getTopFaqs(
-    source = 'vicharanashala',
+    source = 'annam',
     session?: ClientSession,
     userType = 'all',
     startTime?: string,
@@ -7739,7 +7739,7 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getTopQuestionsFromCollection(
-    dbSource = 'vicharanashala',
+    dbSource = 'annam',
     session?: ClientSession,
     userType = 'all',
     startTime?: string,
@@ -10188,7 +10188,7 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async verifyUser(userId: string, source = 'vicharanashala'): Promise<any> {
+  async verifyUser(userId: string, source = 'annam'): Promise<any> {
     try {
       await this.init(source);
 
@@ -10217,7 +10217,7 @@ export class ChatbotRepository implements IChatbotRepository {
     totalUsers: number;
     totalPages: number;
   }> {
-    await this.init((source = 'vicharanashala'));
+    await this.init((source = 'annam'));
 
     try {
       const skip = (page - 1) * limit;
@@ -10438,7 +10438,7 @@ export class ChatbotRepository implements IChatbotRepository {
   //   questionType: QueryCategoryQuestionType = 'all',
   //   page = 1,
   //   limit = 10,
-  //   source = 'vicharanashala',
+  //   source = 'annam',
   //   session?: ClientSession,
   //   userType = 'all',
   // ): Promise<any> {
@@ -10581,7 +10581,7 @@ export class ChatbotRepository implements IChatbotRepository {
     questionType: QueryCategoryQuestionType = 'all',
     page = 1,
     limit = 10,
-    source = 'vicharanashala',
+    source = 'annam',
     session?: ClientSession,
     userType = 'all',
     search?: string,

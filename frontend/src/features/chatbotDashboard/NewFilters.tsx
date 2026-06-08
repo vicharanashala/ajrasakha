@@ -10,7 +10,7 @@ import { useEffect } from "react";
 
 type UserSourceType = "application" | "manual";
 
-export type ApplicationSource = "annam" | "vicharanashala" | "whatsapp";
+export type ApplicationSource = "annam" | "whatsapp";
 
 export type Filters = {
   sourceType?: UserSourceType;
@@ -24,11 +24,11 @@ const applications = [
       <img src="/logo.png" alt="Annam" className="h-4 w-4 object-contain" />
     ),
   },
-  {
-    value: "vicharanashala",
-    label: "Vicharanashala",
-    icon: <BookOpen className="h-4 w-4 text-orange-500" />,
-  },
+  // {
+  //   value: "vicharanashala",
+  //   label: "Vicharanashala",
+  //   icon: <BookOpen className="h-4 w-4 text-orange-500" />,
+  // },
   {
     value: "whatsapp",
     label: "WhatsApp",
@@ -39,7 +39,7 @@ const applications = [
 type NewFiltersProps = {
   filters: Filters;
   onChange: (filters: Filters) => void;
-  onSourceChange?: (source: "annam" | "vicharanashala" | "whatsapp") => void;
+  onSourceChange?: (source: "annam" |  "whatsapp") => void;
 };
 
 export default function NewFilters({

@@ -440,7 +440,7 @@ export interface IChatbotRepository {
     session?: ClientSession,
     userType?: string,
   ): Promise<DailyActiveUsersEntry[]>;
-  findMatchingMessages(data: {question: string; details: any; createdAt: Date; questionId: string; messageId?: string|undefined});
+  // findMatchingMessages(data: {question: string; details: any; createdAt: Date; questionId: string; messageId?: string|undefined});
   findFromSecondDb(data: {question: string; details: any; createdAt: Date; questionId: string; messageId?: string|undefined});
 
   /** Inactivity-gap based avg session duration in minutes (KPI number). Requires MongoDB 5.0+. */
