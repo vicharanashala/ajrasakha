@@ -40,6 +40,7 @@ export default defineConfig({
       'src/**/*.unit.test.ts',
       'src/**/*.integration.test.ts',
       'src/**/*.api.test.ts',
+      'src/**/*.e2e.test.ts',
     ],
     hookTimeout: 30000,
     coverage: {
