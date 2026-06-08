@@ -24,6 +24,7 @@ import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQ
 import {getFromContainer} from 'class-validator';
 import {FirebaseAuthService} from '#root/modules/auth/services/FirebaseAuthService.js';
 import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
+import {sendEmailNotification} from '#root/utils/mailer.js';
 
 @injectable()
 export class UserService extends BaseService {
@@ -504,5 +505,41 @@ export class UserService extends BaseService {
         questionIds,
       };
     });
+  }
+
+  async requestVerification(identifier: string): Promise<void> {
+    try {
+      if (!identifier) throw new BadRequestError('Identifier is required');
+
+      return await this._withTransaction(async (session: ClientSession) => {
+        const admins = await this.userRepo.findAdmins(session);
+        if (admins && admins.length > 0) {
+          const adminEmails = admins.map(admin => admin.email).filter(Boolean);
+          if (adminEmails.length > 0) {
+            const subject = 'New Verification Request';
+            const htmlMessage = `
+              <div style="font-family: Arial, sans-serif; padding: 20px;">
+                <h2 style="color: #4F46E5;">Verification Request</h2>
+                <p>Hello Admin,</p>
+                <p>A user with the following identifier has requested account verification:</p>
+                <p><strong>${identifier}</strong></p>
+                <br />
+                <p>Please review their request in the admin dashboard.</p>
+              </div>
+            `;
+            await sendEmailNotification(
+              adminEmails,
+              subject,
+              '',
+              htmlMessage
+            );
+          }
+        }
+      });
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to send verification request for identifier ${identifier}: ${error}`,
+      );
+    }
   }
 }

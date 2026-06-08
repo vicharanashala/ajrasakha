@@ -36,7 +36,8 @@ import {
   ExpertReviewLevelDto,
   UpdateUserDto,
   ToggleUserRoleDto,
-  VerifyUserBody
+  VerifyUserBody,
+  VerificationRequestDto
 } from '#root/modules/user/validators/UserValidators.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
@@ -897,5 +898,27 @@ export class UserController {
     const {isVerified} = body;
     const updatedUser = await this.userService.verifyUser(userId, isVerified);
     return updatedUser;
+  }
+
+  @OpenAPI({
+    summary: 'Request account verification',
+    description: 'Allows unverified users to send a verification request to all system admins.',
+  })
+  @ResponseSchema(UserSuccessMessageResponse, {
+    statusCode: 200,
+    description: 'Verification request sent successfully',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Identifier is missing',
+  })
+  @Post('/verification-request')
+  @HttpCode(200)
+  async requestVerification(
+    @Body() body: VerificationRequestDto
+  ): Promise<{ message: string }> {
+    const { identifier } = body;
+    await this.userService.requestVerification(identifier);
+    return { message: 'Verification request sent to administrators.' };
   }
 }
