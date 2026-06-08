@@ -253,7 +253,7 @@ export const RequestListItem = ({
               {(req.status == "pending" || req.status == "in-review") && (
                 <Button
                   onClick={handleSubmit}
-                  // disabled={reqDiffLoading || updatingStatus || !response.trim()}
+                  disabled={reqDiffLoading || updatingStatus || !response.trim()}
                   className="bg-primary text-primary-foreground text-xs sm:text-sm"
                 >
                   {updatingStatus ? "Submitting..." : "Submit Response"}
