@@ -55,6 +55,17 @@ export const PlaygroundPage = () => {
   const [chatbotSource, setChatbotSource] = useState<
     "vicharanashala" | "annam" | "whatsapp"
   >("annam");
+  useEffect(() => {
+    const saved = localStorage.getItem("application-filter");
+
+    if (
+      saved === "annam" ||
+      saved === "vicharanashala" ||
+      saved === "whatsapp"
+    ) {
+      setChatbotSource(saved);
+    }
+  }, []);
   const getStorageKey = (user?: { email?: string }) => {
     if (!user?.email) return null;
     return `playground_active_tab_${user.email}`;
