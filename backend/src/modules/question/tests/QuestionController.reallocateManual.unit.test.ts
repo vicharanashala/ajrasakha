@@ -10,6 +10,10 @@ describe('QuestionController.reallocateManual', () => {
   let mockUserService: any;
   let mockContextService: any;
   let mockAuditTrailsService: any;
+  const mockUser = {
+    _id: 'user-123',
+    role: 'moderator',
+  } as any;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -48,10 +52,13 @@ describe('QuestionController.reallocateManual', () => {
 
     mockQuestionService.manualReallocate.mockResolvedValue(response);
 
-    const result = await controller.reallocateManual({
-      assignments,
-      inactiveExpertIds: ['expert-old'],
-    });
+    const result = await controller.reallocateManual(
+      {
+        assignments,
+        inactiveExpertIds: ['expert-old'],
+      },
+      mockUser,
+    );
 
     expect(mockQuestionService.manualReallocate).toHaveBeenCalledWith(
       assignments,
@@ -73,9 +80,12 @@ describe('QuestionController.reallocateManual', () => {
       success: true,
     });
 
-    await controller.reallocateManual({
-      assignments,
-    });
+    await controller.reallocateManual(
+      {
+        assignments,
+      },
+      mockUser,
+    );
 
     expect(mockQuestionService.manualReallocate).toHaveBeenCalledWith(
       assignments,
@@ -99,10 +109,13 @@ describe('QuestionController.reallocateManual', () => {
       success: true,
     });
 
-    await controller.reallocateManual({
-      assignments,
-      inactiveExpertIds: [],
-    });
+    await controller.reallocateManual(
+      {
+        assignments,
+        inactiveExpertIds: [],
+      },
+      mockUser,
+    );
 
     expect(mockQuestionService.manualReallocate).toHaveBeenCalledWith(
       assignments,
@@ -116,9 +129,12 @@ describe('QuestionController.reallocateManual', () => {
     );
 
     await expect(
-      controller.reallocateManual({
-        assignments: [],
-      }),
+      controller.reallocateManual(
+        {
+          assignments: [],
+        },
+        mockUser,
+      ),
     ).rejects.toThrow('Manual reallocation failed');
   });
 
@@ -127,9 +143,12 @@ describe('QuestionController.reallocateManual', () => {
       success: true,
     });
 
-    await controller.reallocateManual({
-      assignments: [],
-    });
+    await controller.reallocateManual(
+      {
+        assignments: [],
+      },
+      mockUser,
+    );
 
     expect(mockQuestionService.manualReallocate).toHaveBeenCalledTimes(1);
   });
