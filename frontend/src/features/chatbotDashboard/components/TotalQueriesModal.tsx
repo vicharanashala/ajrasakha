@@ -516,7 +516,7 @@ export function TotalQueriesModal({
             </motion.div>
 
             {/* Notice */}
-            <motion.div
+            {/* <motion.div
               className="mb-3 rounded-xl border border-amber-200/70 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -525,7 +525,7 @@ export function TotalQueriesModal({
               Queries can be classified by source (Annam / Vicharanashala), but
               questions cannot always be accurately classified by source because
               the review system database is shared across platforms.
-            </motion.div>
+            </motion.div> */}
 
             {/* Table */}
             <AnimatePresence mode="wait">
