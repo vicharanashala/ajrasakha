@@ -977,17 +977,23 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
 
     // No GDB match — fall back to embedding search + LLM (same as manualCheckDuplicate)
-    const duplicateResult = await this.checkDuplicateQuestion(baseQuestion, details, logData);
+    try {
+      const duplicateResult = await this.checkDuplicateQuestion(baseQuestion, details, logData);
 
-    if (duplicateResult?.isDuplicate && duplicateResult?.duplicateData) {
-      const { similarityScore, referenceQuestionId, referenceQuestion, referenceSource } = duplicateResult.duplicateData as any;
-      return { isDuplicate: true, similarityScore, referenceQuestionId, referenceQuestion, referenceSource };
-    }
+      if (duplicateResult?.isDuplicate && duplicateResult?.duplicateData) {
+        const { similarityScore, referenceQuestionId, referenceQuestion, referenceSource } = duplicateResult.duplicateData as any;
+        return { isDuplicate: true, similarityScore, referenceQuestionId, referenceQuestion, referenceSource };
+      }
 
-    if (duplicateResult?.isNonAgri) {
-      logData.outcome = 'NON_AGRI_DETECTED';
-      chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData);
-      return { isDuplicate: false, isNonAgri: true };
+      if (duplicateResult?.isNonAgri) {
+        logData.outcome = 'NON_AGRI_DETECTED';
+        chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData);
+        return { isDuplicate: false, isNonAgri: true };
+      }
+    } catch (embeddingError: any) {
+      console.warn(
+        `[runDuplicateCheckPipeline] Embedding/LLM fallback failed, treating as no duplicate: ${embeddingError?.message}`,
+      );
     }
 
     return { isDuplicate: false };
@@ -4828,7 +4834,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       const response = await this.aiService.fetchWhatsAppMessage(
         questionData.threadId,
-         questionData._id.toString(),
+         "6a26489df0f159564de0b7f4".toString(),
       );
 
       if (!response) {
