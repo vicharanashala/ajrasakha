@@ -11534,4 +11534,7 @@ export class ChatbotRepository implements IChatbotRepository {
     );
   }
 }
+async findMatchingMessages(data: { question: string; details: any; createdAt: Date; questionId: string; messageId?: string | undefined; }) {
+  
+}
 }

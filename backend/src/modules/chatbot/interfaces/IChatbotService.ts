@@ -247,10 +247,10 @@ export interface IChatbotService {
     messageId: string,
     message: string,
   ): Promise<any>;
-  getClosedAndNotifedData(source?: string): Promise<any>;
 
   getClosedAndNotifedData(
     source?: string,
+    userType?: string,
     startDate?: string,
     endDate?: string,
   ): Promise<any>;
@@ -296,6 +296,16 @@ export interface IChatbotService {
     startTime?: string,
     endTime?: string,
   ): Promise<ResponseAdherenceTable>;
+
+  getQuestionsByStatus(        
+    status?: string,
+    page?: number,
+    limit?: number,
+    source?: string,
+    userType?: string,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date): Promise<any>
 
   getQuestionsClosedWithinTwoHours(
     page?: number,
