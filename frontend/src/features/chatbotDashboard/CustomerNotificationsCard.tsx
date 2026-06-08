@@ -202,7 +202,7 @@ export function CustomerNotificationsCard({
                 animate="visible"
               >
                 <motion.div
-                  className="flex flex-1 flex-col"
+                  className="flex flex-1 flex-col hover:cursor-pointer"
                   variants={{
                     hidden: { opacity: 0, y: 12, scale: 0.9 },
                     visible: {
@@ -249,7 +249,7 @@ export function CustomerNotificationsCard({
 
                 {/* Not Notified */}
                 <motion.div
-                  className="flex flex-1 flex-col"
+                  className="flex flex-1 flex-col hover:cursor-pointer"
                   onClick={() => handleClick("not-notified")}
                 >
                   <span className="text-xs text-muted-foreground">
@@ -286,7 +286,7 @@ export function CustomerNotificationsCard({
 
                 {/* Untracked */}
                 <motion.div
-                  className="flex flex-1 flex-col"
+                  className="flex flex-1 flex-col hover:cursor-pointer"
                   onClick={() => handleClick("untracked")}
                 >
                   <span className="text-xs text-muted-foreground">

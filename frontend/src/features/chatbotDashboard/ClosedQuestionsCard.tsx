@@ -315,7 +315,7 @@ export function ClosedQuestionsCard({
               >
                 {/* Total */}
                 <motion.div
-                  className="flex flex-1 flex-col"
+                  className="flex flex-1 flex-col hover:cursor-pointer"
                   variants={{
                     hidden: { opacity: 0, y: 12 },
                     visible: { opacity: 1, y: 0 },
@@ -347,7 +347,7 @@ export function ClosedQuestionsCard({
 
                 {/* Closed */}
                 <motion.div
-                  className="flex flex-1 flex-col"
+                  className="flex flex-1 flex-col hover:cursor-pointer"
                   variants={{
                     hidden: { opacity: 0, y: 12 },
                     visible: { opacity: 1, y: 0 },
@@ -378,7 +378,7 @@ export function ClosedQuestionsCard({
                 </motion.div>
 
                 <motion.div
-                  className="flex flex-1 flex-col"
+                  className="flex flex-1 flex-col hover:cursor-pointer"
                   variants={{
                     hidden: { opacity: 0, y: 12 },
                     visible: { opacity: 1, y: 0 },

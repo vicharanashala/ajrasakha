@@ -183,7 +183,7 @@ export function ClosedInLastTwoHoursCard({
                 font-bold
                 tracking-tight
                 ${isLoading ? "opacity-50" : ""}
-                `}
+                hover:cursor-pointer`}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{
