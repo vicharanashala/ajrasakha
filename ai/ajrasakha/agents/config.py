@@ -36,17 +36,12 @@ def resolve_question_source(config: Optional[dict[str, Any]] = None) -> Optional
 
 
 def resolve_thread_id(config: Optional[dict[str, Any]] = None) -> Optional[str]:
-    """Thread identifier for the reviewer system.
+    """Thread identifier from configurable.
 
-    Prefers reviewer_thread_id ({phone}-{date} format, set by wa-client)
-    so the reviewer system receives a human-readable identifier.
-    Falls back to thread_id / thread for other channels (webapp, etc.).
+    For WhatsApp, thread_id is {phone}-{date} (e.g. 919541703420-2026-06-03).
+    For other channels, thread_id is whatever the platform sets (typically a UUID).
     """
     configurable = (config or {}).get("configurable") or {}
-    # WhatsApp channel: explicit {phone}-{date} string
-    reviewer_tid = configurable.get("reviewer_thread_id")
-    if reviewer_tid is not None and str(reviewer_tid).strip():
-        return str(reviewer_tid).strip()
     for key in ("thread_id", "thread"):
         val = configurable.get(key)
         if val is not None and str(val).strip():
