@@ -5455,6 +5455,9 @@ export class ChatbotRepository implements IChatbotRepository {
     source = 'vicharanashala',
     crop = '',
     village = '',
+    state = '',
+    district = '',
+    block = '',
     profileCompleted = 'all',
     inactiveOnly = false,
     session?: ClientSession,
@@ -5550,6 +5553,36 @@ export class ChatbotRepository implements IChatbotRepository {
         userFilter.$and = [
           ...(userFilter.$and ?? []),
           {'farmerProfile.villageName': villageRegex},
+        ];
+      }
+      if (state && state.trim()) {
+        const stateRegex = {
+          $regex: `^${state.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+          $options: 'i',
+        };
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          {'farmerProfile.state': stateRegex},
+        ];
+      }
+      if (district && district.trim()) {
+        const districtRegex = {
+          $regex: `^${district.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+          $options: 'i',
+        };
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          {'farmerProfile.district': districtRegex},
+        ];
+      }
+      if (block && block.trim()) {
+        const blockRegex = {
+          $regex: `^${block.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+          $options: 'i',
+        };
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          {'farmerProfile.blockName': blockRegex},
         ];
       }
       if (profileCompleted === 'yes') {

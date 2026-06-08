@@ -38,6 +38,13 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {motion} from "framer-motion";
+import {
+  BLOCKS,
+  CROPS,
+  DISTRICTS,
+  STATES,
+  VILLAGES,
+} from "../utils/metaData";
 
 export interface UserDetailsFilters {
   search: string;
@@ -99,6 +106,9 @@ function defaultInactiveEnd(): Date {
 const inputClass =
   "w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#1e1e1e] text-(--foreground) placeholder:text-(--muted-foreground) outline-none focus:ring-2 focus:ring-[#3AAA5A]/30 focus:border-[#3AAA5A] transition-all";
 
+const selectTriggerClass =
+  "h-10 text-sm rounded-lg border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1e1e1e]";
+
 function FilterSection({
   icon,
   label,
@@ -145,6 +155,12 @@ export function UserDetailsPreferenceFilter({
   const inactiveDateError = draft.inactiveOnly
     ? getInactiveDateError(draft.startTime, draft.endTime)
     : "";
+  const cropOptions = CROPS;
+  const districtOptions = draft.state ? DISTRICTS[draft.state] ?? [] : [];
+  const blockOptions = draft.district ? BLOCKS[draft.district] ?? [] : [];
+  const villageOptions = draft.block
+    ? (VILLAGES as Record<string, string[]>)[draft.block] ?? []
+    : [];
 
   const handleOpen = (isOpen: boolean) => {
     if (isOpen) setDraft(filters);
@@ -269,7 +285,7 @@ export function UserDetailsPreferenceFilter({
                         }))
                       }
                     >
-                      <SelectTrigger className="h-10 text-sm rounded-lg border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1e1e1e]">
+                      <SelectTrigger className={selectTriggerClass}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="z-[10002]">
@@ -293,14 +309,12 @@ export function UserDetailsPreferenceFilter({
                     icon={<Sprout className="h-3.5 w-3.5" />}
                     label="Crop"
                   >
-                    <input
-                      type="text"
-                      placeholder="e.g. rice, wheat..."
+                    <OptionInput
+                      id="farmer-filter-crop"
+                      placeholder="Select or search crop"
                       value={draft.crop}
-                      onChange={(e) =>
-                        setDraft((d) => ({ ...d, crop: e.target.value }))
-                      }
-                      className={inputClass}
+                      options={cropOptions}
+                      onChange={(crop) => setDraft((d) => ({ ...d, crop }))}
                     />
                   </FilterSection>
                 </motion.div>
@@ -317,24 +331,82 @@ export function UserDetailsPreferenceFilter({
                   icon={<MapPin className="h-3.5 w-3.5" />}
                   label="Location"
                 >
-                  <div className="grid grid-cols-4 gap-2">
-                    {[
-                      ["Village", "village"],
-                      ["Block", "block"],
-                      ["District", "district"],
-                      ["State", "state"],
-                    ].map(([ph, key]) => (
-                      <input
-                        key={key}
-                        type="text"
-                        placeholder={ph}
-                        value={(draft as any)[key]}
-                        onChange={(e) =>
-                          setDraft((d) => ({ ...d, [key]: e.target.value }))
-                        }
-                        className={inputClass}
-                      />
-                    ))}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                    <Select
+                      value={draft.state || "all"}
+                      onValueChange={(value) =>
+                        setDraft((d) => ({
+                          ...d,
+                          state: value === "all" ? "" : value,
+                          district: "",
+                          block: "",
+                          village: "",
+                        }))
+                      }
+                    >
+                      <SelectTrigger className={selectTriggerClass}>
+                        <SelectValue placeholder="State" />
+                      </SelectTrigger>
+                      <SelectContent className="z-[10002]">
+                        <SelectItem value="all">All States</SelectItem>
+                        {STATES.map((state) => (
+                          <SelectItem key={state} value={state}>
+                            {state}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <Select
+                      value={draft.district || "all"}
+                      disabled={!draft.state}
+                      onValueChange={(value) =>
+                        setDraft((d) => ({
+                          ...d,
+                          district: value === "all" ? "" : value,
+                          block: "",
+                          village: "",
+                        }))
+                      }
+                    >
+                      <SelectTrigger className={selectTriggerClass}>
+                        <SelectValue placeholder="District" />
+                      </SelectTrigger>
+                      <SelectContent className="z-[10002]">
+                        <SelectItem value="all">All Districts</SelectItem>
+                        {districtOptions.map((district) => (
+                          <SelectItem key={district} value={district}>
+                            {district}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    <OptionInput
+                      id="farmer-filter-block"
+                      placeholder="Select block"
+                      value={draft.block}
+                      disabled={!draft.district}
+                      options={blockOptions}
+                      onChange={(block) =>
+                        setDraft((d) => ({
+                          ...d,
+                          block,
+                          village: "",
+                        }))
+                      }
+                    />
+
+                    <OptionInput
+                      id="farmer-filter-village"
+                      placeholder="Select village"
+                      value={draft.village}
+                      disabled={!draft.block}
+                      options={villageOptions}
+                      onChange={(village) =>
+                        setDraft((d) => ({ ...d, village }))
+                      }
+                    />
                   </div>
                 </FilterSection>
               </motion.div>
@@ -490,7 +562,7 @@ export function UserDetailsPreferenceFilter({
                         }))
                       }
                     >
-                      <SelectTrigger className="h-10 text-sm rounded-lg border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1e1e1e]">
+                      <SelectTrigger className={selectTriggerClass}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="z-[10002]">
@@ -537,6 +609,41 @@ export function UserDetailsPreferenceFilter({
         </motion.div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function OptionInput({
+  id,
+  value,
+  options,
+  placeholder,
+  disabled = false,
+  onChange,
+}: {
+  id: string;
+  value: string;
+  options: string[];
+  placeholder: string;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <>
+      <input
+        type="text"
+        list={id}
+        placeholder={placeholder}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        className={cn(inputClass, disabled && "cursor-not-allowed opacity-60")}
+      />
+      <datalist id={id}>
+        {options.map((option) => (
+          <option key={option} value={option} />
+        ))}
+      </datalist>
+    </>
   );
 }
 

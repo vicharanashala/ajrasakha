@@ -60,6 +60,9 @@ export function useUserDetails(
   source: 'vicharanashala' | 'annam' = 'vicharanashala',
   crop = '',
   village = '',
+  state = '',
+  district = '',
+  block = '',
   profileCompleted: 'all' | 'yes' | 'no' = 'all',
   inactiveOnly = false,
   lowFeedbackOnly = false,
@@ -78,8 +81,8 @@ export function useUserDetails(
     ? new Date(endDate.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString()
     : undefined;
 
-  const { data, isLoading, error } = useQuery<PaginatedUserDetailsResponse, Error>({
-    queryKey: ['user-details', startISO, endISO, page, limit, search, source, crop, village, profileCompleted, inactiveOnly, lowFeedbackOnly, userType, sortBy, sortOrder, activeTodayByProfile, missingDemographicField, isVerified],
+  const { data, isLoading, error, refetch } = useQuery<PaginatedUserDetailsResponse, Error>({
+    queryKey: ['user-details', startISO, endISO, page, limit, search, source, crop, village, state, district, block, profileCompleted, inactiveOnly, lowFeedbackOnly, userType, sortBy, sortOrder, activeTodayByProfile, missingDemographicField, isVerified],
     staleTime: 30 * 1000,
     enabled,
     queryFn: async () => {
@@ -93,6 +96,9 @@ export function useUserDetails(
       params.set('source', source);
       if (crop.trim()) params.set('crop', crop.trim());
       if (village.trim()) params.set('village', village.trim());
+      if (state.trim()) params.set('state', state.trim());
+      if (district.trim()) params.set('district', district.trim());
+      if (block.trim()) params.set('block', block.trim());
       if (profileCompleted !== 'all') params.set('profileCompleted', profileCompleted);
       if (inactiveOnly) params.set('inactiveOnly', 'true');
       if (lowFeedbackOnly) params.set('lowFeedbackOnly', 'true');
@@ -115,5 +121,6 @@ export function useUserDetails(
     data: data ?? { users: [], totalUsers: 0, totalPages: 1, activeUsers: 0, inactiveUsers: 0, totalQuestions: 0 },
     isLoading,
     error,
+    refetch,
   };
 }
