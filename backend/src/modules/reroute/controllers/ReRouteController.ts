@@ -375,8 +375,39 @@ export class ReRouteController {
   ):Promise<{message:string}> {
     verifyNotTester(user);
     const {questionId,expertId} = params;
-    const {status,reason} = body
-    await this.reRouteService.moderatorReject(questionId.toString(),expertId.toString(),status,reason)
-    return {message:"Rejected the request succesfully"}
+    const {status,reason} = body;
+    const auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.ANSWER,
+      action: AuditAction.MODERATOR_REJECT_REROUTE,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: { questionId, expertId, reason, status },
+      createdAt: new Date(),
+    };
+    try {
+      await this.reRouteService.moderatorReject(questionId.toString(),expertId.toString(),status,reason);
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        outcome: { status: OutComeStatus.SUCCESS },
+      });
+      return {message:"Rejected the request succesfully"};
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to reject reroute request',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      });
+      throw err;
+    }
   }
 }
