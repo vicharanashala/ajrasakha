@@ -5454,7 +5454,12 @@ export class ChatbotRepository implements IChatbotRepository {
     search = '',
     source = 'vicharanashala',
     crop = '',
+    primaryCrops = '',
+    secondaryCrops = '',
     village = '',
+    state = '',
+    district = '',
+    block = '',
     profileCompleted = 'all',
     inactiveOnly = false,
     session?: ClientSession,
@@ -5542,6 +5547,40 @@ export class ChatbotRepository implements IChatbotRepository {
           },
         ];
       }
+      const primaryCropValues = primaryCrops
+        .split(',')
+        .map(item => item.trim())
+        .filter(Boolean);
+      if (primaryCropValues.length > 0) {
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          {
+            $or: primaryCropValues.map(value => ({
+              'farmerProfile.primaryCrop': {
+                $regex: `^${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+                $options: 'i',
+              },
+            })),
+          },
+        ];
+      }
+      const secondaryCropValues = secondaryCrops
+        .split(',')
+        .map(item => item.trim())
+        .filter(Boolean);
+      if (secondaryCropValues.length > 0) {
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          {
+            $or: secondaryCropValues.map(value => ({
+              'farmerProfile.secondaryCrop': {
+                $regex: `^${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+                $options: 'i',
+              },
+            })),
+          },
+        ];
+      }
       if (village && village.trim()) {
         const villageRegex = {
           $regex: village.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
@@ -5550,6 +5589,36 @@ export class ChatbotRepository implements IChatbotRepository {
         userFilter.$and = [
           ...(userFilter.$and ?? []),
           {'farmerProfile.villageName': villageRegex},
+        ];
+      }
+      if (state && state.trim()) {
+        const stateRegex = {
+          $regex: `^${state.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+          $options: 'i',
+        };
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          {'farmerProfile.state': stateRegex},
+        ];
+      }
+      if (district && district.trim()) {
+        const districtRegex = {
+          $regex: `^${district.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+          $options: 'i',
+        };
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          {'farmerProfile.district': districtRegex},
+        ];
+      }
+      if (block && block.trim()) {
+        const blockRegex = {
+          $regex: `^${block.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+          $options: 'i',
+        };
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          {'farmerProfile.blockName': blockRegex},
         ];
       }
       if (profileCompleted === 'yes') {
