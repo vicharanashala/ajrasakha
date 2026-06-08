@@ -161,8 +161,8 @@ export function UserDetailsPreferenceFilter({
   const cropOptions = CROPS;
   const districtOptions = draft.state ? DISTRICTS[draft.state] ?? [] : [];
   const blockOptions = draft.district ? BLOCKS[draft.district] ?? [] : [];
-  const villageOptions = draft.block
-    ? (VILLAGES as Record<string, string[]>)[draft.block] ?? []
+  const villageOptions = draft.district
+    ? (VILLAGES as Record<string, string[]>)[draft.district] ?? []
     : [];
 
   const handleOpen = (isOpen: boolean) => {
@@ -427,7 +427,7 @@ export function UserDetailsPreferenceFilter({
                     <SearchableSingleSelect
                       placeholder="Select village"
                       value={draft.village}
-                      disabled={!draft.block}
+                      disabled={!draft.district}
                       options={villageOptions}
                       onChange={(village) =>
                         setDraft((d) => ({ ...d, village }))
