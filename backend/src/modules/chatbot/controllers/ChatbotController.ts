@@ -601,6 +601,7 @@ export class ChatbotController {
       inactiveOnly,
       lowFeedbackOnly,
       query.userType,
+      query.roles,
       query.sortBy,
       query.sortOrder,
       activeTodayByProfile,

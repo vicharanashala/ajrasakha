@@ -52,6 +52,7 @@ export interface UserDetailsFilters {
   crop: string;
   primaryCrops: string[];
   secondaryCrops: string[];
+  roles: string[];
   village: string;
   block: string;
   district: string;
@@ -70,7 +71,7 @@ interface UserDetailsPreferenceFilterProps {
   onApply: (filters: UserDetailsFilters) => void;
   /** Fields to hide from the filter dialog */
   hideFields?: Array<
-    "crop" | "inactive" | "profile" | "userType" | "lowFeedback"
+    "crop" | "inactive" | "profile" | "userType" | "roles" | "lowFeedback"
   >;
 }
 
@@ -111,6 +112,8 @@ const inputClass =
 
 const selectTriggerClass =
   "h-10 w-full min-w-0 text-sm rounded-lg border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1e1e1e] [&>span]:truncate";
+
+const ROLE_OPTIONS = ["Farmer", "Internal", "Coordinator", "Admin"];
 
 function FilterSection({
   icon,
@@ -164,6 +167,10 @@ export function UserDetailsPreferenceFilter({
   const villageOptions = draft.district
     ? (VILLAGES as Record<string, string[]>)[draft.district] ?? []
     : [];
+  const farmerRoleSelected = draft.roles.some(
+    (role) => role.toUpperCase() === "FARMER",
+  );
+  const showFarmerProfileFilters = draft.roles.length === 0 || farmerRoleSelected;
 
   const handleOpen = (isOpen: boolean) => {
     if (isOpen) setDraft(filters);
@@ -171,7 +178,14 @@ export function UserDetailsPreferenceFilter({
   };
 
   const handleApply = () => {
-    onApply(draft);
+    const shouldShowFarmerProfileFilters =
+      draft.roles.length === 0 ||
+      draft.roles.some((role) => role.toUpperCase() === "FARMER");
+    onApply(
+      shouldShowFarmerProfileFilters
+        ? draft
+        : {...draft, profileCompleted: "all"},
+    );
     setOpen(false);
   };
 
@@ -181,6 +195,7 @@ export function UserDetailsPreferenceFilter({
       crop: "",
       primaryCrops: [],
       secondaryCrops: [],
+      roles: [],
       village: "",
       block: "",
       district: "",
@@ -199,6 +214,7 @@ export function UserDetailsPreferenceFilter({
     (filters.crop ? 1 : 0) +
     (filters.primaryCrops?.length ? 1 : 0) +
     (filters.secondaryCrops?.length ? 1 : 0) +
+    (filters.roles?.length ? 1 : 0) +
     (filters.village ? 1 : 0) +
     (filters.block ? 1 : 0) +
     (filters.district ? 1 : 0) +
@@ -301,6 +317,38 @@ export function UserDetailsPreferenceFilter({
                         <SelectItem value="internal">Internal Users</SelectItem>
                       </SelectContent>
                     </Select>
+                  </FilterSection>
+                </motion.div>
+              )}
+
+              {!hideFields.includes("roles") && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.08 }}
+                  className="col-span-2 rounded-xl bg-white dark:bg-[#161616] border border-gray-200/70 dark:border-gray-800 p-3.5"
+                >
+                  <FilterSection
+                    icon={<UserCheck className="h-3.5 w-3.5" />}
+                    label="Roles"
+                  >
+                    <SearchableMultiSelect
+                      label="User roles"
+                      placeholder="Search or select roles"
+                      options={ROLE_OPTIONS}
+                      selected={draft.roles ?? []}
+                      onChange={(roles) =>
+                        setDraft((d) => ({
+                          ...d,
+                          roles,
+                          profileCompleted:
+                            roles.length > 0 &&
+                            !roles.some((role) => role.toUpperCase() === "FARMER")
+                              ? "all"
+                              : d.profileCompleted,
+                        }))
+                      }
+                    />
                   </FilterSection>
                 </motion.div>
               )}
@@ -568,7 +616,7 @@ export function UserDetailsPreferenceFilter({
               </motion.div>
 
               {/* Profile Completed */}
-              {!hideFields.includes("profile") && (
+              {!hideFields.includes("profile") && showFarmerProfileFilters && (
                 <motion.div
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}

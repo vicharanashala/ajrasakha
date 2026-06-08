@@ -27,6 +27,7 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
   crop: '',
   primaryCrops: [],
   secondaryCrops: [],
+  roles: [],
   village: '',
   block: '',
   district: '',
@@ -242,7 +243,7 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
             <UserDetailsPreferenceFilter
               filters={filters}
               onApply={setFilters}
-              hideFields={["crop", "inactive", "profile"]}
+              hideFields={["crop", "inactive", "profile", "roles"]}
             />
             <button
               onClick={onClose}

@@ -5464,6 +5464,7 @@ export class ChatbotRepository implements IChatbotRepository {
     inactiveOnly = false,
     session?: ClientSession,
     userType = 'all',
+    roles = '',
     sortBy = 'createdAt',
     sortOrder = 'asc',
     lowFeedbackOnly = false,
@@ -5511,6 +5512,28 @@ export class ChatbotRepository implements IChatbotRepository {
         ...this.buildUserDocFilter(userType),
       };
       userFilter.isVerified = isVerfied;
+      const roleValues = roles
+        .split(',')
+        .map(role => role.trim())
+        .filter(Boolean);
+      const normalizedUserRoles = roleValues.map(role => role.toUpperCase());
+      const normalizedRoles = roleValues.flatMap(role => [
+        role,
+        role.toUpperCase(),
+        role.toLowerCase(),
+      ]);
+
+      if (roleValues.length > 0) {
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          {
+            $or: [
+              {userRole: {$in: normalizedUserRoles}},
+              {role: {$in: normalizedRoles}},
+            ],
+          },
+        ];
+      }
       if (activeTodayByProfile) {
         const todayStart = new Date();
         todayStart.setHours(0, 0, 0, 0);

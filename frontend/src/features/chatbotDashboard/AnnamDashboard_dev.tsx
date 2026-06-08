@@ -537,6 +537,7 @@ export function AnnamDashboard_dev({
     false,
     false,
     filters.userType as any,
+    [],
     "totalQuestions",
     "desc",
     true, // activeTodayByProfile

@@ -480,6 +480,7 @@ export interface IChatbotRepository {
     inactiveOnly?: boolean,
     session?: ClientSession,
     userType?: string,
+    roles?: string,
     sortBy?: string,
     sortOrder?: string,
     lowFeedbackOnly?: boolean,

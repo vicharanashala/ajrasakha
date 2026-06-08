@@ -227,6 +227,11 @@ export class UserDetailsQueryDto {
   @IsIn(['all', 'external', 'internal'])
   userType: 'all' | 'external' | 'internal' = 'all';
 
+  @JSONSchema({ example: 'FARMER,INTERNAL', description: 'Comma-separated role filters' })
+  @IsOptional()
+  @IsString()
+  roles: string = '';
+
   @JSONSchema({ example: 'false', description: 'If true, filter users by lastActiveAt is today and has farmerProfile' })
   @IsOptional()
   @IsString()

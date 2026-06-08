@@ -44,6 +44,7 @@ export function MissingDemographicsModal({
     false, // inactiveOnly
     false, // lowFeedbackOnly
     userType,
+    [], // roles
     "name", // sortBy
     "asc", // sortOrder
     false, // activeTodayByProfile

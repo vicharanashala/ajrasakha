@@ -69,6 +69,7 @@ export function useUserDetails(
   inactiveOnly = false,
   lowFeedbackOnly = false,
   userType: 'all' | 'external' | 'internal' = 'all',
+  roles: string[] = [],
   sortBy: 'totalQuestions' | 'name' | 'farmerName' | 'email' | 'createdAt' = 'name',
   sortOrder: 'asc' | 'desc' = 'asc',
   activeTodayByProfile = false,
@@ -84,7 +85,7 @@ export function useUserDetails(
     : undefined;
 
   const { data, isLoading, error, refetch } = useQuery<PaginatedUserDetailsResponse, Error>({
-    queryKey: ['user-details', startISO, endISO, page, limit, search, source, crop, primaryCrops, secondaryCrops, village, state, district, block, profileCompleted, inactiveOnly, lowFeedbackOnly, userType, sortBy, sortOrder, activeTodayByProfile, missingDemographicField, isVerified],
+    queryKey: ['user-details', startISO, endISO, page, limit, search, source, crop, primaryCrops, secondaryCrops, village, state, district, block, profileCompleted, inactiveOnly, lowFeedbackOnly, userType, roles, sortBy, sortOrder, activeTodayByProfile, missingDemographicField, isVerified],
     staleTime: 30 * 1000,
     enabled,
     queryFn: async () => {
@@ -107,6 +108,7 @@ export function useUserDetails(
       if (inactiveOnly) params.set('inactiveOnly', 'true');
       if (lowFeedbackOnly) params.set('lowFeedbackOnly', 'true');
       if (userType !== 'all') params.set('userType', userType);
+      if (roles.length) params.set('roles', roles.join(','));
       params.set('sortBy', sortBy);
       params.set('sortOrder', sortOrder);
       if (activeTodayByProfile) params.set('activeTodayByProfile', 'true');
