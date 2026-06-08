@@ -10,11 +10,11 @@ import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
 import { useState } from "react";
 import { useHoldQuestion } from "@/hooks/api/question/useHoldQuestion";
 import { useManualCheckDuplicate } from "@/hooks/api/question/useManualCheckDuplicate";
-import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/atoms/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/atoms/dialog";
 import { CircleCheck, GitCompareArrows } from "lucide-react";
 import { diffWords } from "@/utils/wordDifference";
+import { toast } from "@/shared/components/toast";
 
 interface QuestionHeaderProps {
   question: IQuestionFullData;
@@ -58,15 +58,19 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
     setConfirmDialog({ open: true, type: question.isOnHold ? "unhold" : "hold", });
   };
   const doHold = async () => {
+    let toastId;
     try {
+      toastId = toast.loading(`${question.isOnHold ? "releasing" : "holding"} the question...`)
       await holdQuestion({
         questionId: question._id!,
         action: question.isOnHold ? "unhold" : "hold",
       });
+      toast.dismiss(toastId)
       toast.success(`Question ${question.isOnHold ? "released from hold" : "put on hold"} successfully`);
       goBack();
     } catch (error) {
       console.error(error);
+      toast.dismiss(toastId)
       toast.error("Failed to hold question");
     }
   };
