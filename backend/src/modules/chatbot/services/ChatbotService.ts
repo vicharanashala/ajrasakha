@@ -2850,9 +2850,17 @@ export class ChatbotService extends BaseService implements IChatbotService {
       }));
   }
 
-  async getQuestionsByCrop(crop: string, questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, userType?: string, search?: string): Promise<any> {
-    try{
-      return this.chatbotRepository.getQuestionsByCrop( 
+  async getQuestionsByCrop(
+    crop: string,
+    questionType?: QueryCategoryQuestionType,
+    page?: number,
+    limit?: number,
+    source?: string,
+    userType?: string,
+    search?: string,
+  ): Promise<any> {
+    try {
+      return this.chatbotRepository.getQuestionsByCrop(
         crop,
         questionType,
         page,
@@ -2860,7 +2868,68 @@ export class ChatbotService extends BaseService implements IChatbotService {
         source,
         undefined,
         userType,
-        search
+        search,
+      );
+    } catch (error) {
+      throw new InternalServerError(`Internal server error ${error}`);
+    }
+  }
+
+  async getQuestionsByStatus(
+    status: string,
+    page?: number,
+    limit?: number,
+    source?: string,
+    userType?: string,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<any> {
+    try {
+      return this.chatbotRepository.getQuestionsByStatus(
+        status,
+        page,
+        limit,
+        source,
+        undefined,
+        userType,
+        search,
+        startDate,
+        endDate,
+      );
+    } catch (error) {
+      throw new InternalServerError(`Internal server error ${error}`);
+    }
+  }
+
+  async getQuestionsClosedWithinTwoHours(page?: number, limit?: number, source?: string, userType?: string, search?: string, startDate?: Date, endDate?: Date): Promise<any> {
+    try {
+      return this.chatbotRepository.getQuestionsClosedWithinTwoHours(
+        page,
+        limit,
+        source,
+        undefined,
+        userType,
+        search,
+        startDate,
+        endDate
+      )
+    }catch(error){
+      throw new InternalServerError(`Internal server error ${error}`)
+    }
+  }
+  async getQuestionsByNotificationStatus(notificationType: string, page: number, limit: number, source: string, userType?: string, search?: string, startDate?: Date, endDate?: Date): Promise<any> {
+      try {
+      return this.chatbotRepository.getQuestionsByNotificationStatus(
+        notificationType,
+        page,
+        limit,
+        source,
+        undefined,
+        userType,
+        search,
+        startDate,
+        endDate
       )
     }catch(error){
       throw new InternalServerError(`Internal server error ${error}`)

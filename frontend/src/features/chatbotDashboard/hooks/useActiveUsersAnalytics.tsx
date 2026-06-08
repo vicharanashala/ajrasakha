@@ -164,11 +164,16 @@ export const useQuestionFilter = ({
   district,
   state,
   crop,
+  status,
+  closedWithInTwohours,
+  notificationType,
   questionType,
   page,
   limit,
   source,
   userType = "all",
+  startDate,
+  endDate,
   search = "",
   enabled = true,
 }: {
@@ -176,14 +181,21 @@ export const useQuestionFilter = ({
   district?: string;
   state?: string
   crop?: string
+  status?: string
+  closedWithInTwohours?: boolean
+  notificationType?: string
   questionType: QueryCategoryQuestionType;
   page: number;
   limit: number;
   source: string;
   userType?: string;
+  startDate?: Date;
+  endDate?: Date;
   search?: string;
   enabled?: boolean;
 }) => {
+  const stringStartDate = startDate?.toISOString()
+  const stringEndDate = endDate?.toISOString()
   return useQuery<QueryCategoryQuestionsResponse>({
   queryKey: [
     "get-question-filter",
@@ -191,11 +203,16 @@ export const useQuestionFilter = ({
     district,
     state,
     crop,
+    status,
+    closedWithInTwohours,
+    notificationType,
     questionType,
     page,
     limit,
     source,
     userType,
+    stringStartDate,
+    stringEndDate,
     search,
   ],
     queryFn: () =>
@@ -204,14 +221,19 @@ export const useQuestionFilter = ({
         district: district ?? "",
         state: state ?? "",
         crop: crop ?? "",
+        status: status,
+        closedWithInTwohours: closedWithInTwohours,
+        notificationType: notificationType ?? "",
         questionType,
         page,
         limit,
         source,
         userType,
+        stringStartDate,
+        stringEndDate,
         search
       }),
-    enabled: enabled && Boolean(category || district || crop),
+    enabled: enabled && Boolean(category || district || crop || status || true),
   });
 };
 
