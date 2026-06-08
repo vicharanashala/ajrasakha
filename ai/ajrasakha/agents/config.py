@@ -36,7 +36,11 @@ def resolve_question_source(config: Optional[dict[str, Any]] = None) -> Optional
 
 
 def resolve_thread_id(config: Optional[dict[str, Any]] = None) -> Optional[str]:
-    """LangGraph conversation id from configurable (set by bridge from x-conversation-id)."""
+    """Thread identifier from configurable.
+
+    For WhatsApp, thread_id is {phone}-{date} (e.g. 919541703420-2026-06-03).
+    For other channels, thread_id is whatever the platform sets (typically a UUID).
+    """
     configurable = (config or {}).get("configurable") or {}
     for key in ("thread_id", "thread"):
         val = configurable.get(key)

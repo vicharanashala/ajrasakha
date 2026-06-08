@@ -190,6 +190,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
             category={selectedCategory.label}
             source={source}
             userType={userType}
+            isQueryCategory = {true}
             onClose={() => setSelectedCategory(null)}
           />
         )}

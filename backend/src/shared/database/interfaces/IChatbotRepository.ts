@@ -122,6 +122,66 @@ export interface WeatherConcernAnalyticsResponse {
   timeline: WeatherConcernTimelineEntry[];
 }
 
+export type FarmerHeatMapGranularity = 'monthly' | 'weekly' | 'daily' | 'hourly';
+
+export interface FarmerHeatMapFilters {
+  source?: string;
+  userType?: string;
+  state?: string;
+  granularity?: FarmerHeatMapGranularity;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface FarmerHeatMapMetricTotals {
+  activeFarmers: number;
+  totalQuestions: number;
+  closedQuestions: number;
+  notifiedQuestions: number;
+  averageClosureTimeMinutes: number;
+}
+
+export interface FarmerHeatMapBucket {
+  key: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+  totals: FarmerHeatMapMetricTotals;
+}
+
+export interface FarmerHeatMapCell {
+  bucket: string;
+  label: string;
+  activeFarmers: number;
+  totalQuestions: number;
+  closedQuestions: number;
+  notifiedQuestions: number;
+  averageClosureTimeMinutes: number;
+  statusDistribution: Record<string, number>;
+}
+
+export interface FarmerHeatMapRow {
+  id: string;
+  label: string;
+  scope: 'state' | 'district';
+  cells: FarmerHeatMapCell[];
+  totals: FarmerHeatMapMetricTotals;
+}
+
+export interface FarmerHeatMapResponse {
+  filters: FarmerHeatMapFilters;
+  buckets: FarmerHeatMapBucket[];
+  rows: FarmerHeatMapRow[];
+  totals: FarmerHeatMapMetricTotals;
+  maxValues: {
+    activeFarmers: number;
+    totalQuestions: number;
+    closedQuestions: number;
+    notifiedQuestions: number;
+    averageClosureTimeMinutes: number;
+  };
+}
+
 export interface WeeklySessionDurationEntry {
   week: string; // ISO week string, e.g. '2025-W03'
   avgSessionDurationMin: number;
@@ -331,9 +391,16 @@ export interface IChatbotRepository {
     source?: string,
     session?: ClientSession,
     userType?: string,
+    search?: string
   ): Promise<PaginatedQueryCategoryQuestions>;
 
-  getTopCrops(source?: string, session?: ClientSession): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
+  getQuestionFromDistrict(district: string, state?: string, questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string, search?: string): Promise<any>;
+
+  getTopCrops(source?: string, userType?: string, session?: ClientSession): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
+
+    getQuestionsByCrop(crop: string, questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string, search?: string): Promise<any>
+
+    getQuestionsByCrop(crop: string, questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string, search?: string): Promise<any>
 
   /** Weekly avg session duration (updatedAt - createdAt) over the last `weeks` ISO weeks, sorted ascending. */
   getWeeklyAvgSessionDuration(
@@ -403,7 +470,12 @@ export interface IChatbotRepository {
     search?: string,
     source?: string,
     crop?: string,
+    primaryCrops?: string,
+    secondaryCrops?: string,
     village?: string,
+    state?: string,
+    district?: string,
+    block?: string,
     profileCompleted?: string,
     inactiveOnly?: boolean,
     session?: ClientSession,
@@ -507,6 +579,11 @@ export interface IChatbotRepository {
     userType?: string,
   ): Promise<WeatherConcernAnalyticsResponse>;
 
+  getFarmerHeatMapAnalytics(
+    filters?: FarmerHeatMapFilters,
+    session?: ClientSession,
+  ): Promise<FarmerHeatMapResponse>;
+
   
   getUserById(userId: string, source: string): Promise<any>;
   deleteUser(userId: string, source: string): Promise<boolean>;
@@ -562,15 +639,15 @@ export interface IChatbotRepository {
     userType?: string,
   ): Promise<{ label: string; totalQueries: number }>;
 
-  getClosedVsTotalQuestions(source: string, startDate?: Date, endDate?: Date):Promise<any>;
+  getClosedVsTotalQuestions(source: string, userType?: string, startDate?: Date, endDate?: Date):Promise<any>;
 
-  getNotifiedVsClosed(source?: string, startDate?: Date, endDate?: Date):Promise<any>;
+  getNotifiedVsClosed(source?: string, userType?: string, startDate?: Date, endDate?: Date):Promise<any>;
 
-  getClosedInLastTwoHours(source?: string, startDate?: Date, endDate?: Date): Promise<any>;
+  getClosedInLastTwoHours(source?: string, userType?: string, startDate?: Date, endDate?: Date): Promise<any>;
 
   getMonthlyChurnRate(source: string, userType: string):Promise<any>;
 
-  getCarryForwardQuestions(source?: string): Promise<any>;
+  getCarryForwardQuestions(source?: string, userType?: string): Promise<any>;
 
   getActiveUsersTrend(
     source: string,

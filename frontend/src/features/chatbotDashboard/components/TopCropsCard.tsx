@@ -22,6 +22,7 @@ import { Skeleton } from "@/components/atoms/skeleton";
 import { Tooltip as ShadcnTooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { useQueryClient } from "@tanstack/react-query";
 import { LazySectionSkeleton } from "../AnnamDashboard_dev";
+import { QueryCategoryQuestionsModal } from "./QueryCategoryQuestionsModal";
 
 
 const colors = [
@@ -47,11 +48,15 @@ interface TopCropsCardProps {
   topCrops: TopCropsData|undefined;
   isLoadingTopCrops: boolean;
   errorLoadingtopCrops: string | null| Error;
+  source?: "vicharanashala" | "annam" | "whatsapp";
+  userType?: string;
 }
 
 export const TopCropsCard = ({topCrops,
   isLoadingTopCrops,
-  errorLoadingtopCrops}:TopCropsCardProps) => {
+  errorLoadingtopCrops,
+  source = "annam",
+  userType}:TopCropsCardProps) => {
   const [isMaximized, setIsMaximized] = useState(false);
  
   const processedData = React.useMemo(() => {
@@ -75,9 +80,10 @@ export const TopCropsCard = ({topCrops,
   }, [topCrops?.topCrops]);
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
+  const [topCrop, setTopCrop] = useState<string | null>(null);
   const handleRefresh = async ()=>{
     setLoading(true);
-    await queryClient.refetchQueries({ queryKey: ["query-categories"] });
+    await queryClient.refetchQueries({ queryKey: ["top-crops-chatbot"] });
     setLoading(false);
     }
 
@@ -97,6 +103,11 @@ export const TopCropsCard = ({topCrops,
         Error loading top crops.
       </Card>
     );
+  }
+
+  const handleClick = (cropName: string)=>{
+    console.log("This bar is clicked right now.....The crop name is", cropName)
+    setTopCrop(cropName)
   }
 
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -217,9 +228,9 @@ export const TopCropsCard = ({topCrops,
                   cursor={{ fill: "var(--color-muted, #f1f5f9)", opacity: 0.4 }}
                   content={<CustomTooltip />}
                 />
-                <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                <Bar dataKey="count" radius={[4, 4, 0, 0]} >
                   {processedData.map((entry: any, index: null) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                    <Cell key={`cell-${index}`} fill={entry.color} onClick={()=>handleClick(entry.name)}/>
                   ))}
                 </Bar>
               </BarChart>
@@ -307,7 +318,7 @@ export const TopCropsCard = ({topCrops,
                       />
                       <Bar dataKey="count" radius={[6, 6, 0, 0]}>
                         {processedData.map((entry: any, index: any) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
+                          <Cell key={`cell-${index}`} fill={entry.color} onClick={()=>handleClick(entry.name)}/>
                         ))}
                       </Bar>
                     </BarChart>
@@ -355,6 +366,7 @@ export const TopCropsCard = ({topCrops,
           </div>,
           document.body,
         )}
+        {topCrop && <QueryCategoryQuestionsModal crop={topCrop} source={source} userType={userType} isQueryCategory={false} onClose={()=>setTopCrop(null)}/>}
     </>
   );
 };

@@ -67,10 +67,16 @@ Retrieved expert answer:
 {retrieved_answer}
 
 Choose exactly ONE class:
-- SAME_INTENT: User is asking essentially the same thing. Existing answer can be reused without modification.
-- COVERED_BY_CONTEXT: Different question, but the existing Q&A contains enough information to answer it. Some reasoning or extraction may be needed.
-- PARTIALLY_COVERED: Q&A helps, but does not fully answer the question. Additional information is required.
+- SAME_INTENT: User is asking essentially the same thing. Existing answer can be reused without modification. For local names, slang terms, and regional terminology, use exact string matching only. Do not use semantic matching or external knowledge to determine equivalence. 
+- COVERED_BY_CONTEXT: Different question, but the retrieved expert answer already answers the farmer's specific question. The answer can be shown to the farmer as-is, without rephrasing, additional reasoning, diagnosis, assumptions, or adding information from outside the retrieved Q&A. No important information is missing.
+- PARTIALLY_COVERED: Q&A is relevant and useful, but the retrieved answer cannot be shown directly to the farmer as a complete answer. It may provide possible causes, related information, background knowledge, similar symptoms, or partial guidance. Additional reasoning, diagnosis, assumptions, clarification, or information would be required.
 - NOT_COVERED: Q&A does not contain the information needed.
+
+Important:
+If deciding between COVERED_BY_CONTEXT and PARTIALLY_COVERED, choose PARTIALLY_COVERED.
+Don't assume local names, slang terms, or regional disease names are the same, even if your knowledge suggests they are. Treat them as different unless the retrieved Q&A explicitly states they are the same.
+Example:
+If the farmer mentions Disease A and the retrieved Q&A discusses Disease B, do not assume they are the same condition. Classify as NOT_COVERED unless the retrieved Q&A explicitly states that Disease A and Disease B refer to the same disease.
 
 Reply with JSON only, no markdown:
 {{"classification": "<CLASS>", "reason": "<one short sentence>"}}

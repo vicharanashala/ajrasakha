@@ -43,7 +43,6 @@ from ajrasakha.agents.location_context import (
     extract_state_from_text,
     gps_state_from_location,
     latest_human_text,
-    main_agent_location_context_message,
 )
 from ajrasakha.agents.plan_executor import ENABLE_CHEMICAL_CHECKER
 from ajrasakha.agents.planner_rules import (
@@ -431,9 +430,6 @@ async def planner_node(
     )
 
     llm_messages: list[BaseMessage] = [SystemMessage(content=PLANNER_SYSTEM_PROMPT)]
-    loc_ctx = main_agent_location_context_message(location)
-    if loc_ctx:
-        llm_messages.append(loc_ctx)
     conv_block = format_conversation_for_planner(messages) or user_text
 
     deterministic_context = (
@@ -590,6 +586,7 @@ def route_after_planner(state: AjraSakhaState) -> str:
 
 def route_after_ensure_location(state: AjraSakhaState) -> str:
     plan = state.get("plan") or {}
-    if plan.get("is_agriculture_related") is False:
+    is_greeting = plan.get("is_greeting") or plan.get("reasoning") == "greeting"
+    if plan.get("is_agriculture_related") is False and not is_greeting:
         return "upload_reviewer_only"
     return "execute_plan"

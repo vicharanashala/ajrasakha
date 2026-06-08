@@ -78,6 +78,7 @@ import {
   DEFAULT_WEATHER_CONCERN_FILTERS,
   type WeatherConcernFilters,
 } from "./hooks/useWeatherConcernAnalytics";
+import { FarmerAnalyticsHeatMap } from "./components/FarmerAnalyticsHeatMap";
 import { WhatsAppAnalyticsCard } from "./WhatsAppAnalyticsCard";
 import {
   useClosedAndNotifedData,
@@ -172,6 +173,7 @@ export function AnnamDashboard_dev({
       queryClient.refetchQueries({ queryKey: ["top-crops-chatbot"] }),
       queryClient.refetchQueries({ queryKey: ["state-wise-analytics"] }),
       queryClient.refetchQueries({ queryKey: ["weather-concern-analytics"] }),
+      queryClient.refetchQueries({ queryKey: ["farmer-heat-map"] }),
     ]);
     setInvalidating(false);
   };
@@ -249,16 +251,19 @@ export function AnnamDashboard_dev({
 
   const { data: closed2hData, isLoading: isClosed2hLoading, isFetching: isClosed2hFetching } = useClosedAndNotifedData(
     source,
+    filters.userType,
     closed2hRange.startTime,
     closed2hRange.endTime,
   );
   const { data: questionStatusData, isLoading: isQuestionStatusLoading, isFetching: isQuestionStatusFetching } = useClosedAndNotifedData(
     source,
+    filters.userType,
     questionStatusRange.startTime,
     questionStatusRange.endTime,
   );
   const { data: customerNotificationsData, isLoading: isCustomerNotificationsLoading, isFetching: isCustomerNotificationsFetching } = useClosedAndNotifedData(
     source,
+    filters.userType,
     customerNotificationsRange.startTime,
     customerNotificationsRange.endTime,
   );
@@ -285,6 +290,8 @@ export function AnnamDashboard_dev({
   const { ref: activeUsersRef, isVisible: isActiveUsersVisible } = useInView();
   const { ref: weatherConcernRef, isVisible: isWeatherConcernVisible } =
     useInView();
+  const { ref: farmerHeatMapRef, isVisible: isFarmerHeatMapVisible } =
+    useInView();
   const { ref: userDetailsRef, isVisible: isUserDetailsVisible } = useInView();
   // const { ref: userVerificationRef, isVisible: isUserVerificationVisible } = useInView();
   const { ref: userDemographicsRef, isVisible: isUserDemographicsVisible } =
@@ -297,12 +304,14 @@ export function AnnamDashboard_dev({
   const shouldLoadFaqs = loadImmediately || isFaqsVisible;
   const shouldLoadActiveUsers = loadImmediately || isActiveUsersVisible;
   const shouldLoadWeatherConcern = loadImmediately || isWeatherConcernVisible;
+  const shouldLoadFarmerHeatMap = loadImmediately || isFarmerHeatMapVisible;
   const shouldLoadUserDetails = loadImmediately || isUserDetailsVisible;
   // const shouldUserVerification = loadImmediately || isUserVerificationVisible;
   const shouldLoadUserDemographics = loadImmediately || isUserDemographicsVisible;
 
   const { data: queryCategories } = useQueryCategories(
     source,
+    filters.userType,
     shouldLoadQueryInsights,
   );
   const [trendsDateRange, setTrendsDateRange] = useState<DateRange | undefined>(
@@ -421,7 +430,7 @@ export function AnnamDashboard_dev({
     data: topCrops,
     isLoading: isLoadingTopCrops,
     error: errorLoadingtopCrops,
-  } = useTopCrops(source, shouldLoadQueryInsights);
+  } = useTopCrops(source, filters.userType, shouldLoadQueryInsights);
   // const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
 
   const [hovered, setHovered] = useState<string | null>(null);
@@ -518,6 +527,11 @@ export function AnnamDashboard_dev({
     "",
     source as any,
     "",
+    [],
+    [],
+    "",
+    "",
+    "",
     "",
     "all",
     false,
@@ -526,11 +540,13 @@ export function AnnamDashboard_dev({
     "totalQuestions",
     "desc",
     true, // activeTodayByProfile
-    undefined,
-    shouldLoadActiveUsers,
+    "",
+    true, // isVerified
+    true, // enabled
   );
 
   // Patch the DAU card to show "today / total" instead of just total
+  
   const patchedKpiRow1 = useMemo(() => {
     if (!data?.kpiRow1) return data.kpiRow1;
     const todayCount = todayActiveFarmersData?.totalUsers ?? null;
@@ -552,6 +568,8 @@ export function AnnamDashboard_dev({
       ...card,
       isDummy: !dynamicIds.includes(card.id),
     }));
+
+
 
   const kpiRow2WithOverlay = data.kpiRow2
     .filter((card) => card.id === "totalInstalls") // Commented out dummy cards: filter only totalInstalls
@@ -1347,6 +1365,8 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                               topCrops={topCrops}
                               isLoadingTopCrops={isLoadingTopCrops}
                               errorLoadingtopCrops={errorLoadingtopCrops}
+                              source={source}
+                              userType= {filters.userType}
                             />
                           ) : (
                             <LazySectionSkeleton className="h-[360px]" />
@@ -1553,6 +1573,24 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                             />
                           ) : (
                             <LazySectionSkeleton className="h-[360px]" />
+                          )}
+                        </div>
+                      )}
+                      {source !== "whatsapp" && (
+                        <div
+                          ref={(el) => {
+                            farmerHeatMapRef.current = el;
+                          }}
+                          className="mt-4 mb-4"
+                        >
+                          {shouldLoadFarmerHeatMap ? (
+                            <FarmerAnalyticsHeatMap
+                              source={source}
+                              userType={filters.userType}
+                              enabled={shouldLoadFarmerHeatMap}
+                            />
+                          ) : (
+                            <LazySectionSkeleton className="h-[520px]" />
                           )}
                         </div>
                       )}

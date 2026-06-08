@@ -501,17 +501,16 @@ def format_market_envelope(data: dict[str, Any]) -> str:
     has_ag = _market_source_has_rows(ag_block)
     has_enam = _market_source_has_rows(enam_block)
 
-    blocks: list[str] = []
+    # If both sources have no data, return empty string to trigger EMPTY_GDB_REPLY
     if not has_ag and not has_enam:
-        blocks.append(
-            f"No mandi price data found for {crop} in {district}, {state} on {target_date}."
-        )
-    else:
-        blocks.append(
-            "Mandi prices\n"
-            f"Crop: {crop} | District: {district} | State: {state}\n"
-            f"Query date: {target_date}"
-        )
+        return ""
+
+    blocks: list[str] = []
+    blocks.append(
+        "Mandi prices\n"
+        f"Crop: {crop} | District: {district} | State: {state}\n"
+        f"Query date: {target_date}"
+    )
 
     blocks.append(_format_agmarknet_block_text(ag_block))
     blocks.append(_format_enam_block_text(enam_block))
