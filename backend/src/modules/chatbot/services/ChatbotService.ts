@@ -2865,6 +2865,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getQuestionsByCrop(
     crop: string,
+    crops?: string[],
     questionType?: QueryCategoryQuestionType,
     page?: number,
     limit?: number,
@@ -2875,6 +2876,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     try {
       return this.chatbotRepository.getQuestionsByCrop(
         crop,
+        crops,
         questionType,
         page,
         limit,

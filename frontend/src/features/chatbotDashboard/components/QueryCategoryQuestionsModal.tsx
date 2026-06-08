@@ -55,7 +55,8 @@ interface QueryCategoryQuestionsModalProps {
   district?: string;
   state?: string;
   crop?: string;
-  status?: string;
+  crops?: string[];
+  status?: string; 
   closedWithInTwohours?: boolean;
   notificationType?: string;
   source?: "vicharanashala" | "annam" | "whatsapp";
@@ -74,6 +75,7 @@ export function QueryCategoryQuestionsModal({
   district,
   state,
   crop,
+  crops,
   status,
   closedWithInTwohours,
   notificationType,
@@ -114,6 +116,7 @@ export function QueryCategoryQuestionsModal({
     district,
     state,
     crop,
+    crops,
     status,
     closedWithInTwohours,
     notificationType,

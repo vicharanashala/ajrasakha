@@ -409,6 +409,7 @@ export class ChatbotController {
       district?: string;
       state?: string;
       crop?: string;
+      crops?: string;
       status?: string;
       closedWithInTwohours?: boolean;
       notificationType?: string;
@@ -446,6 +447,7 @@ export class ChatbotController {
     } else if (query.crop) {
       return this.chatbotService.getQuestionsByCrop(
         query.crop,
+        query.crops?.split(','),
         query.questionType,
         query.page,
         query.limit,

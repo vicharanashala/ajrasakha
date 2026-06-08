@@ -229,6 +229,7 @@ export class ChatbotService {
     district,
     state,
     crop,
+    crops,
     status,
     closedWithInTwohours,
     notificationType,
@@ -245,6 +246,7 @@ export class ChatbotService {
     district?: string;
     state?: string;
     crop?: string;
+    crops?: string[];
     status?: string;
     closedWithInTwohours?: boolean
     notificationType?: string
@@ -262,6 +264,7 @@ export class ChatbotService {
     if (district) params.append("district", district);
     if (state) params.append("state", state);
     if (crop) params.append("crop", crop);
+    if (crops?.length) params.append("crops", crops?.join(","));
     if (status) params.append("status", status);
     if (closedWithInTwohours) params.append("closedWithInTwohours", closedWithInTwohours.toString());
     if (notificationType) params.append('notificationType', notificationType)

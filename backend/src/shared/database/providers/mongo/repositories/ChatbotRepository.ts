@@ -425,9 +425,9 @@ export class ChatbotRepository implements IChatbotRepository {
     const db =
       source === 'whatsapp'
         ? this.db
-        // : source === 'vicharanashala'
+        : // : source === 'vicharanashala'
           // : this.analyticsDb
-          : this.annamDb;
+          this.annamDb;
     // const db = source === 'whatsapp' ? this.db: source === 'annam' ? this.annamDb : this.analyticsDb;
     this.users = await db.getCollection<IUser>('users');
     this.conversations = await db.getCollection<IConversation>('conversations');
@@ -1739,11 +1739,8 @@ export class ChatbotRepository implements IChatbotRepository {
       };
       Object.assign(
         baseMatch,
-        await this.buildUserTypeMatchQuery(
-          _source,
-          userType,
-        ),
-      ); 
+        await this.buildUserTypeMatchQuery(_source, userType),
+      );
       //   await this.buildUserTypeMatchQuery(_source, userType),
       // console.log('=====baseMatch', baseMatch);
       const categoryLabel = category?.trim();
@@ -2287,11 +2284,18 @@ export class ChatbotRepository implements IChatbotRepository {
         },
         $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
       };
+        Object.assign(
+        baseMatch,
+        await this.buildUserTypeMatchQuery(source, userType),
+      );
       const districtLabel = district.trim();
       if (!districtLabel) {
         throw new BadRequestError('district is required');
       }
-      const districtMatch = {'details.state': state,'details.district': districtLabel};
+      const districtMatch = {
+        'details.state': state,
+        'details.district': districtLabel,
+      };
       const typeMatch =
         questionType === 'duplicate'
           ? {status: 'duplicate'}
@@ -3068,13 +3072,22 @@ export class ChatbotRepository implements IChatbotRepository {
   ): Promise<{totalQuestions: number; topCrops: any[]}> {
     try {
       await this.initReviewSystem();
+      // let matchStage: any = {
+      //   $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+      // };
+      // if (source === 'whatsapp') {
+      //   matchStage = {source: 'WHATSAPP'};
+      // } else {
+      //   matchStage = {source: {$ne: 'AGRI_EXPERT'}};
+      // }
       let matchStage: any = {
         $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
       };
+
       if (source === 'whatsapp') {
-        matchStage = {source: 'WHATSAPP'};
+        matchStage.source = 'WHATSAPP';
       } else {
-        matchStage = {source: {$ne: 'AGRI_EXPERT'}};
+        matchStage.source = {$ne: 'AGRI_EXPERT'};
       }
       Object.assign(
         matchStage,
@@ -9224,11 +9237,8 @@ export class ChatbotRepository implements IChatbotRepository {
       }
       Object.assign(
         matchStage,
-        await this.buildUserTypeMatchQuery(
-          dbSource,
-          userType,
-        ),
-      ); 
+        await this.buildUserTypeMatchQuery(dbSource, userType),
+      );
 
       const previousMonthReferenceDate = startDate ?? new Date();
       const previousMonthStart = new Date(
@@ -9481,10 +9491,7 @@ export class ChatbotRepository implements IChatbotRepository {
       }
       Object.assign(
         matchStage,
-        await this.buildUserTypeMatchQuery(
-          dbSource,
-          userType,
-        ),
+        await this.buildUserTypeMatchQuery(dbSource, userType),
       );
 
       const [result] = await this.QuestionCollection.aggregate([
@@ -9582,10 +9589,7 @@ export class ChatbotRepository implements IChatbotRepository {
       }
       Object.assign(
         matchStage,
-        await this.buildUserTypeMatchQuery(
-          source,
-          userType,
-        ),
+        await this.buildUserTypeMatchQuery(source, userType),
       );
 
       const count = await this.QuestionCollection.countDocuments(matchStage);
@@ -9746,7 +9750,10 @@ export class ChatbotRepository implements IChatbotRepository {
     return results;
   }
 
-  async getCarryForwardQuestions(source?: string, userType?: string): Promise<any> {
+  async getCarryForwardQuestions(
+    source?: string,
+    userType?: string,
+  ): Promise<any> {
     try {
       await this.initReviewSystem();
       const matchStage: any = {
@@ -9759,10 +9766,7 @@ export class ChatbotRepository implements IChatbotRepository {
       matchStage.source = source.toUpperCase();
       Object.assign(
         matchStage,
-        await this.buildUserTypeMatchQuery(
-          dbSource,
-          userType,
-        ),
+        await this.buildUserTypeMatchQuery(dbSource, userType),
       );
       const carryForwardWindowStart = new Date(
         new Date().toLocaleString('en-US', {
@@ -9808,7 +9812,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const matchStage: any = {
         isCreatedByUser: true,
-        isDeleted: { $ne: true },
+        isDeleted: {$ne: true},
       };
 
       if (startDate && endDate) {
@@ -9852,18 +9856,18 @@ export class ChatbotRepository implements IChatbotRepository {
           secondGroupStage = {
             $group: {
               _id: '$_id.date',
-              activeUsers: { $sum: 1 },
+              activeUsers: {$sum: 1},
             },
           };
-          sortStage = { _id: 1 };
+          sortStage = {_id: 1};
           break;
 
         case 'weekly':
           firstGroupStage = {
             $group: {
               _id: {
-                year: { $isoWeekYear: { date: '$createdAt', timezone: '+05:30' } },
-                week: { $isoWeek: { date: '$createdAt', timezone: '+05:30' } },
+                year: {$isoWeekYear: {date: '$createdAt', timezone: '+05:30'}},
+                week: {$isoWeek: {date: '$createdAt', timezone: '+05:30'}},
                 user: '$user',
               },
             },
@@ -9874,20 +9878,20 @@ export class ChatbotRepository implements IChatbotRepository {
                 year: '$_id.year',
                 week: '$_id.week',
               },
-              activeUsers: { $sum: 1 },
+              activeUsers: {$sum: 1},
             },
           };
           projectStage = {
             $project: {
               _id: {
                 $concat: [
-                  { $toString: '$_id.year' },
+                  {$toString: '$_id.year'},
                   '-W',
                   {
                     $cond: [
-                      { $lt: ['$_id.week', 10] },
-                      { $concat: ['0', { $toString: '$_id.week' }] },
-                      { $toString: '$_id.week' },
+                      {$lt: ['$_id.week', 10]},
+                      {$concat: ['0', {$toString: '$_id.week'}]},
+                      {$toString: '$_id.week'},
                     ],
                   },
                 ],
@@ -9895,7 +9899,7 @@ export class ChatbotRepository implements IChatbotRepository {
               activeUsers: 1,
             },
           };
-          sortStage = { _id: 1 };
+          sortStage = {_id: 1};
           break;
 
         case 'monthly':
@@ -9916,10 +9920,10 @@ export class ChatbotRepository implements IChatbotRepository {
           secondGroupStage = {
             $group: {
               _id: '$_id.month',
-              activeUsers: { $sum: 1 },
+              activeUsers: {$sum: 1},
             },
           };
-          sortStage = { _id: 1 };
+          sortStage = {_id: 1};
           break;
 
         default:
@@ -9936,7 +9940,9 @@ export class ChatbotRepository implements IChatbotRepository {
         $sort: sortStage,
       });
 
-      const data = await this.messagesCollection.aggregate(pipeline, { session }).toArray();
+      const data = await this.messagesCollection
+        .aggregate(pipeline, {session})
+        .toArray();
       return data as IActiveUser[];
     } catch (error) {
       throw new InternalServerError(
@@ -10580,6 +10586,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
   async getQuestionsByCrop(
     crop: string,
+    crops?: string[],
     questionType: QueryCategoryQuestionType = 'all',
     page = 1,
     limit = 10,
@@ -10591,6 +10598,7 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.initReviewSystem();
       await this.init(source);
+      console.log('Crop is', crop);
       const safePage = Math.max(Number(page) || 1, 1);
       const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
       const skip = (safePage - 1) * safeLimit;
@@ -10622,7 +10630,35 @@ export class ChatbotRepository implements IChatbotRepository {
       // Match crop exactly how top crops aggregation calculates it
       let cropMatch;
 
-      if (cropLabel.toLowerCase() === 'others') {
+      // if (cropLabel.toLowerCase() === 'Others') {
+      //   cropMatch = {
+      //     $expr: {
+      //       $in: [
+      //         {
+      //           $toLower: {
+      //             $ifNull: ['$details.normalised_crop', '$details.crop'],
+      //           },
+      //         },
+      //         ['mango', 'maize', 'onion', 'cotton', 'chili'],
+      //       ],
+      //     },
+      //   };
+      // } else {
+      //   cropMatch = {
+      //     $expr: {
+      //       $eq: [
+      //         {
+      //           $toLower: {
+      //             $ifNull: ['$details.normalised_crop', '$details.crop'],
+      //           },
+      //         },
+      //         cropLabel.toLowerCase(),
+      //       ],
+      //     },
+      //   };
+      // }
+
+      if (crops?.length) {
         cropMatch = {
           $expr: {
             $in: [
@@ -10631,7 +10667,7 @@ export class ChatbotRepository implements IChatbotRepository {
                   $ifNull: ['$details.normalised_crop', '$details.crop'],
                 },
               },
-              ['mango', 'maize', 'onion', 'cotton', 'chili'],
+              crops.map(c => c.toLowerCase()),
             ],
           },
         };
@@ -10644,7 +10680,7 @@ export class ChatbotRepository implements IChatbotRepository {
                   $ifNull: ['$details.normalised_crop', '$details.crop'],
                 },
               },
-              cropLabel.toLowerCase(),
+              crop.toLowerCase(),
             ],
           },
         };
@@ -10694,16 +10730,31 @@ export class ChatbotRepository implements IChatbotRepository {
         };
       }
 
+      const finalMatch: any = {
+        ...matchStage,
+        ...cropMatch,
+        ...typeMatch,
+        ...searchMatch,
+        $and: [
+          {
+            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+          },
+        ],
+      };
+
+      const userTypeMatch = await this.buildUserTypeMatchQuery(
+        source,
+        userType,
+      );
+
+      if (Object.keys(userTypeMatch).length) {
+        finalMatch.$and.push(userTypeMatch);
+      }
+
       const result = await this.QuestionCollection.aggregate(
         [
           {
-            $match: {
-              ...matchStage,
-              ...cropMatch,
-              ...typeMatch,
-              ...searchMatch,
-              $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-            },
+            $match: finalMatch,
           },
 
           {
@@ -10721,12 +10772,7 @@ export class ChatbotRepository implements IChatbotRepository {
               coll: 'duplicate_questions',
               pipeline: [
                 {
-                  $match: {
-                    ...matchStage,
-                    ...cropMatch,
-                    ...typeMatch,
-                    ...searchMatch,
-                  },
+                  $match: finalMatch,
                 },
                 {
                   $project: {
@@ -10913,10 +10959,10 @@ export class ChatbotRepository implements IChatbotRepository {
       }
 
       // Apply user type filter
-      // Object.assign(
-      //   matchQuery,
-      //   await this.buildUserTypeMatchQuery(source, userType),
-      // );
+      Object.assign(
+        matchQuery,
+        await this.buildUserTypeMatchQuery(source, userType),
+      );
 
       // Search by name/email
       if (search?.trim()) {
@@ -11122,13 +11168,10 @@ export class ChatbotRepository implements IChatbotRepository {
       }
     }
 
-    // Object.assign(
-    //   matchQuery,
-    //   await this.buildUserTypeMatchQuery(
-    //     source,
-    //     userType,
-    //   ),
-    // );
+    Object.assign(
+      matchQuery,
+      await this.buildUserTypeMatchQuery(source, userType),
+    );
 
     // search logic same as other methods
 
@@ -11265,276 +11308,232 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   async getQuestionsByNotificationStatus(
-  notificationType:string,
-  page = 1,
-  limit = 10,
-  source = 'vicharanashala',
-  session?: ClientSession,
-  userType = 'all',
-  search?: string,
-  startDate?: Date,
-  endDate?: Date,
-): Promise<any> {
-  try {
-    await this.initReviewSystem();
-    await this.init(source);
+    notificationType: string,
+    page = 1,
+    limit = 10,
+    source = 'vicharanashala',
+    session?: ClientSession,
+    userType = 'all',
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<any> {
+    try {
+      await this.initReviewSystem();
+      await this.init(source);
 
-    const safePage = Math.max(Number(page) || 1, 1);
-    const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
-    const skip = (safePage - 1) * safeLimit;
+      const safePage = Math.max(Number(page) || 1, 1);
+      const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
+      const skip = (safePage - 1) * safeLimit;
 
-    const sourceType =
-      source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
+      const sourceType = source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
 
-    const matchQuery: any = {
-      source: sourceType,
-      status: 'closed',
-      $or: [
-        { isTesting: { $exists: false } },
-        { isTesting: { $ne: true } },
-      ],
-    };
+      const matchQuery: any = {
+        source: sourceType,
+        status: 'closed',
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+      };
 
-    // Date range
-    const validStartDate =
-      startDate instanceof Date &&
-      !isNaN(startDate.getTime());
+      // Date range
+      const validStartDate =
+        startDate instanceof Date && !isNaN(startDate.getTime());
 
-    const validEndDate =
-      endDate instanceof Date &&
-      !isNaN(endDate.getTime());
+      const validEndDate = endDate instanceof Date && !isNaN(endDate.getTime());
 
-    if (validStartDate || validEndDate) {
-      matchQuery.createdAt = {};
+      if (validStartDate || validEndDate) {
+        matchQuery.createdAt = {};
 
-      if (validStartDate) {
-        matchQuery.createdAt.$gte = startDate;
+        if (validStartDate) {
+          matchQuery.createdAt.$gte = startDate;
+        }
+
+        if (validEndDate) {
+          matchQuery.createdAt.$lte = endDate;
+        }
       }
 
-      if (validEndDate) {
-        matchQuery.createdAt.$lte = endDate;
-      }
-    }
-
-    // User type filter
-    Object.assign(
-      matchQuery,
-      await this.buildUserTypeMatchQuery(
-        source,
-        userType,
-      ),
-    );
-
-    // Notification filter
-    switch (notificationType) {
-      case 'notified':
-        matchQuery.isCustomerNotified = true;
-        break;
-
-      case 'not-notified':
-        matchQuery.isCustomerNotified = false;
-        break;
-
-      case 'untracked':
-        matchQuery.isCustomerNotified = {
-          $exists: false,
-        };
-        break;
-    }
-
-    // Search
-    if (search?.trim()) {
-      const matchingUsers = await this.users
-        .find({
-          $or: [
-            {
-              email: {
-                $regex: search,
-                $options: 'i',
-              },
-            },
-            {
-              name: {
-                $regex: search,
-                $options: 'i',
-              },
-            },
-            {
-              lastName: {
-                $regex: search,
-                $options: 'i',
-              },
-            },
-            {
-              'farmerProfile.farmerName': {
-                $regex: search,
-                $options: 'i',
-              },
-            },
-          ],
-        })
-        .project({ _id: 1 })
-        .toArray();
-
-      const userIds = matchingUsers.map(user =>
-        user._id.toString(),
+      // User type filter
+      Object.assign(
+        matchQuery,
+        await this.buildUserTypeMatchQuery(source, userType),
       );
 
-      matchQuery.userId = {
-        $in: userIds,
-      };
-    }
+      // Notification filter
+      switch (notificationType) {
+        case 'notified':
+          matchQuery.isCustomerNotified = true;
+          break;
 
-    const result = await this.QuestionCollection.aggregate(
-      [
-        {
-          $match: matchQuery,
-        },
+        case 'not-notified':
+          matchQuery.isCustomerNotified = false;
+          break;
 
-        {
-          $sort: {
-            createdAt: -1,
-          },
-        },
+        case 'untracked':
+          matchQuery.isCustomerNotified = {
+            $exists: false,
+          };
+          break;
+      }
 
-        {
-          $facet: {
-            data: [
+      // Search
+      if (search?.trim()) {
+        const matchingUsers = await this.users
+          .find({
+            $or: [
               {
-                $skip: skip,
+                email: {
+                  $regex: search,
+                  $options: 'i',
+                },
               },
               {
-                $limit: safeLimit,
+                name: {
+                  $regex: search,
+                  $options: 'i',
+                },
               },
-
               {
-                $project: {
-                  _id: 0,
-
-                  questionId: {
-                    $toString: '$_id',
-                  },
-
-                  userId: 1,
-                  question: 1,
-                  status: 1,
-                  createdAt: 1,
-                  isCustomerNotified: 1,
-
-                  district: '$details.district',
-
-                  crop: {
-                    $ifNull: [
-                      '$details.normalised_crop',
-                      '$details.crop',
-                    ],
-                  },
-
-                  village: '$details.village',
-
-                  block: '$details.block',
+                lastName: {
+                  $regex: search,
+                  $options: 'i',
+                },
+              },
+              {
+                'farmerProfile.farmerName': {
+                  $regex: search,
+                  $options: 'i',
                 },
               },
             ],
+          })
+          .project({_id: 1})
+          .toArray();
 
-            metadata: [
-              {
-                $count: 'total',
-              },
-            ],
+        const userIds = matchingUsers.map(user => user._id.toString());
+
+        matchQuery.userId = {
+          $in: userIds,
+        };
+      }
+
+      const result = await this.QuestionCollection.aggregate(
+        [
+          {
+            $match: matchQuery,
           },
-        },
-      ],
-      { session },
-    ).toArray();
 
-    const total =
-      result[0]?.metadata?.[0]?.total ?? 0;
+          {
+            $sort: {
+              createdAt: -1,
+            },
+          },
 
-    const questions =
-      result[0]?.data ?? [];
+          {
+            $facet: {
+              data: [
+                {
+                  $skip: skip,
+                },
+                {
+                  $limit: safeLimit,
+                },
 
-    const userIds = [
-      ...new Set(
-        questions
-          .map(q => q.userId)
-          .filter(Boolean),
-      ),
-    ];
+                {
+                  $project: {
+                    _id: 0,
 
-    const users = await this.users
-      .find({
-        _id: {
-          $in: userIds.map(
-            id => new ObjectId(id as string),
-          ),
-        },
-      })
-      .toArray();
+                    questionId: {
+                      $toString: '$_id',
+                    },
 
-    const userMap = new Map(
-      users.map(user => [
-        user._id.toString(),
-        user,
-      ]),
-    );
+                    userId: 1,
+                    question: 1,
+                    status: 1,
+                    createdAt: 1,
+                    isCustomerNotified: 1,
 
-    const enrichedQuestions = questions.map(
-      question => {
-        const user = userMap.get(
-          question.userId,
-        );
+                    district: '$details.district',
+
+                    crop: {
+                      $ifNull: ['$details.normalised_crop', '$details.crop'],
+                    },
+
+                    village: '$details.village',
+
+                    block: '$details.block',
+                  },
+                },
+              ],
+
+              metadata: [
+                {
+                  $count: 'total',
+                },
+              ],
+            },
+          },
+        ],
+        {session},
+      ).toArray();
+
+      const total = result[0]?.metadata?.[0]?.total ?? 0;
+
+      const questions = result[0]?.data ?? [];
+
+      const userIds = [
+        ...new Set(questions.map(q => q.userId).filter(Boolean)),
+      ];
+
+      const users = await this.users
+        .find({
+          _id: {
+            $in: userIds.map(id => new ObjectId(id as string)),
+          },
+        })
+        .toArray();
+
+      const userMap = new Map(users.map(user => [user._id.toString(), user]));
+
+      const enrichedQuestions = questions.map(question => {
+        const user = userMap.get(question.userId);
 
         return {
           ...question,
 
-          farmerName:
-            user?.farmerProfile?.farmerName ??
-            user?.name ??
-            null,
+          farmerName: user?.farmerProfile?.farmerName ?? user?.name ?? null,
 
-          name:
-            `${user?.name ?? ''} ${
-              user?.lastName ?? ''
-            }`.trim(),
+          name: `${user?.name ?? ''} ${user?.lastName ?? ''}`.trim(),
 
           email: user?.email ?? null,
 
-          village:
-            question.village ??
-            user?.farmerProfile?.villageName,
+          village: question.village ?? user?.farmerProfile?.villageName,
 
-          block:
-            question.block ??
-            user?.farmerProfile?.blockName,
+          block: question.block ?? user?.farmerProfile?.blockName,
 
-          district:
-            question.district ??
-            user?.farmerProfile?.district,
+          district: question.district ?? user?.farmerProfile?.district,
 
-          state:
-            user?.farmerProfile?.state,
+          state: user?.farmerProfile?.state,
         };
-      },
-    );
+      });
 
-    return {
-      questions: enrichedQuestions,
-      total,
-      totalPages: Math.max(
-        1,
-        Math.ceil(total / safeLimit),
-      ),
-      page: safePage,
-      limit: safeLimit,
-    };
-  } catch (error) {
-    throw new InternalServerError(
-      `Failed to fetch notification questions: ${error}`,
-    );
+      return {
+        questions: enrichedQuestions,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / safeLimit)),
+        page: safePage,
+        limit: safeLimit,
+      };
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch notification questions: ${error}`,
+      );
+    }
   }
-}
-async findMatchingMessages(data: { question: string; details: any; createdAt: Date; questionId: string; messageId?: string | undefined; }) {
-  
-}
+  async findMatchingMessages(data: {
+    question: string;
+    details: any;
+    createdAt: Date;
+    questionId: string;
+    messageId?: string | undefined;
+  }) {}
 }

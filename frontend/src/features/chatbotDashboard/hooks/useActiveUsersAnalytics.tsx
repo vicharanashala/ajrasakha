@@ -164,6 +164,7 @@ export const useQuestionFilter = ({
   district,
   state,
   crop,
+  crops,
   status,
   closedWithInTwohours,
   notificationType,
@@ -181,6 +182,7 @@ export const useQuestionFilter = ({
   district?: string;
   state?: string
   crop?: string
+  crops?: string[]
   status?: string
   closedWithInTwohours?: boolean
   notificationType?: string
@@ -203,6 +205,7 @@ export const useQuestionFilter = ({
     district,
     state,
     crop,
+    crops?.join(","),
     status,
     closedWithInTwohours,
     notificationType,
@@ -221,6 +224,7 @@ export const useQuestionFilter = ({
         district: district ?? "",
         state: state ?? "",
         crop: crop ?? "",
+        crops: crops ?? [],
         status: status,
         closedWithInTwohours: closedWithInTwohours,
         notificationType: notificationType ?? "",

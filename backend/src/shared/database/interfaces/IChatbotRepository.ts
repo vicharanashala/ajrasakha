@@ -429,16 +429,16 @@ export interface IChatbotRepository {
     topCrops: {name: string; count: number}[];
   }>;
 
-  getQuestionsByCrop(
-    crop: string,
-    questionType?: QueryCategoryQuestionType,
-    page?: number,
-    limit?: number,
-    source?: string,
-    session?: ClientSession,
-    userType?: string,
-    search?: string,
-  ): Promise<any>;
+  // getQuestionsByCrop(
+  //   crop: string,
+  //   questionType?: QueryCategoryQuestionType,
+  //   page?: number,
+  //   limit?: number,
+  //   source?: string,
+  //   session?: ClientSession,
+  //   userType?: string,
+  //   search?: string,
+  // ): Promise<any>;
 
   getQuestionsByStatus(
     status: string,
@@ -452,18 +452,18 @@ export interface IChatbotRepository {
     endDate?: Date
   ): Promise<any>;
 
-  getQuestionsByCrop(
-    crop: string,
-    questionType?: QueryCategoryQuestionType,
-    page?: number,
-    limit?: number,
-    source?: string,
-    session?: ClientSession,
-    userType?: string,
-    search?: string,
-  ): Promise<any>;
+  // getQuestionsByCrop(
+  //   crop: string,
+  //   questionType?: QueryCategoryQuestionType,
+  //   page?: number,
+  //   limit?: number,
+  //   source?: string,
+  //   session?: ClientSession,
+  //   userType?: string,
+  //   search?: string,
+  // ): Promise<any>;
 
-    getQuestionsByCrop(crop: string, questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string, search?: string): Promise<any>
+    getQuestionsByCrop(crop: string, crops?: string[] ,questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string, search?: string): Promise<any>
 
   /** Weekly avg session duration (updatedAt - createdAt) over the last `weeks` ISO weeks, sorted ascending. */
   getWeeklyAvgSessionDuration(
