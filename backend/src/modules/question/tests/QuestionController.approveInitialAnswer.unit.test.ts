@@ -11,6 +11,10 @@ describe('QuestionController.approveInitialAnswer', () => {
   let mockUserService: any;
   let mockContextService: any;
   let mockAuditTrailsService: any;
+  const mockUser = {
+    _id: 'user-123',
+    role: 'moderator',
+  } as any;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -50,6 +54,7 @@ describe('QuestionController.approveInitialAnswer', () => {
       {
         answer: 'Approved answer content',
       } as any,
+      mockUser,
     );
 
     expect(mockQuestionService.approveAiInitialAnswer).toHaveBeenCalledWith(
@@ -72,6 +77,7 @@ describe('QuestionController.approveInitialAnswer', () => {
       {
         answer: 'Detailed approved answer',
       } as any,
+      mockUser,
     );
 
     expect(mockQuestionService.approveAiInitialAnswer).toHaveBeenCalledWith(
@@ -95,6 +101,7 @@ describe('QuestionController.approveInitialAnswer', () => {
       {
         answer: 'Approved answer',
       } as any,
+      mockUser,
     );
 
     expect(result).toEqual(response);
@@ -113,6 +120,7 @@ describe('QuestionController.approveInitialAnswer', () => {
         {
           answer: 'Approved answer',
         } as any,
+        mockUser,
       ),
     ).rejects.toThrow('Database failure');
   });
@@ -130,6 +138,7 @@ describe('QuestionController.approveInitialAnswer', () => {
         {
           answer: 'Approved answer',
         } as any,
+        mockUser,
       ),
     ).rejects.toThrow('Approval failed');
   });
@@ -146,6 +155,7 @@ describe('QuestionController.approveInitialAnswer', () => {
       {
         answer: 'Approved answer',
       } as any,
+      mockUser,
     );
 
     expect(mockQuestionService.approveAiInitialAnswer).toHaveBeenCalledTimes(1);
@@ -163,6 +173,7 @@ describe('QuestionController.approveInitialAnswer', () => {
       {
         answer: '',
       } as any,
+      mockUser,
     );
 
     expect(mockQuestionService.approveAiInitialAnswer).toHaveBeenCalledWith(

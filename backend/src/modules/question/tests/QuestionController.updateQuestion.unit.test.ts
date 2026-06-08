@@ -11,6 +11,10 @@ describe('QuestionController.updateQuestion', () => {
   let mockUserService: any;
   let mockContextService: any;
   let mockAuditTrailsService: any;
+  const mockUser = {
+    _id: 'user-123',
+    role: 'moderator',
+  } as any;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -49,6 +53,7 @@ describe('QuestionController.updateQuestion', () => {
       {
         status: 'closed',
       } as any,
+      mockUser,
     );
 
     expect(mockQuestionService.updateQuestion).toHaveBeenCalledWith(
@@ -77,6 +82,7 @@ describe('QuestionController.updateQuestion', () => {
         questionId: 'question-123',
       } as any,
       updates as any,
+      mockUser,
     );
 
     expect(mockQuestionService.updateQuestion).toHaveBeenCalledWith(
@@ -98,6 +104,7 @@ describe('QuestionController.updateQuestion', () => {
         {
           status: 'closed',
         } as any,
+        mockUser,
       ),
     ).rejects.toThrow(InternalServerError);
 
@@ -109,6 +116,7 @@ describe('QuestionController.updateQuestion', () => {
         {
           status: 'closed',
         } as any,
+        mockUser,
       ),
     ).rejects.toThrow('Database failure');
   });
@@ -126,6 +134,7 @@ describe('QuestionController.updateQuestion', () => {
         {
           status: 'closed',
         } as any,
+        mockUser,
       ),
     ).rejects.toThrow(BadRequestError);
 
@@ -137,6 +146,7 @@ describe('QuestionController.updateQuestion', () => {
         {
           status: 'closed',
         } as any,
+        mockUser,
       ),
     ).rejects.toThrow('Validation failed');
   });
@@ -154,6 +164,7 @@ describe('QuestionController.updateQuestion', () => {
         {
           priority: 'high',
         } as any,
+        mockUser,
       ),
     ).rejects.toThrow(BadRequestError);
   });
@@ -170,6 +181,7 @@ describe('QuestionController.updateQuestion', () => {
       {
         status: 'open',
       } as any,
+      mockUser,
     );
 
     expect(mockQuestionService.updateQuestion).toHaveBeenCalledTimes(1);
