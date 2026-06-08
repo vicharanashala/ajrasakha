@@ -110,7 +110,7 @@ const inputClass =
   "w-full h-10 px-3 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-[#1e1e1e] text-(--foreground) placeholder:text-(--muted-foreground) outline-none focus:ring-2 focus:ring-[#3AAA5A]/30 focus:border-[#3AAA5A] transition-all";
 
 const selectTriggerClass =
-  "h-10 text-sm rounded-lg border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1e1e1e]";
+  "h-10 w-full min-w-0 text-sm rounded-lg border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1e1e1e] [&>span]:truncate";
 
 function FilterSection({
   icon,
@@ -359,7 +359,7 @@ export function UserDetailsPreferenceFilter({
                   icon={<MapPin className="h-3.5 w-3.5" />}
                   label="Location"
                 >
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 [&>*]:min-w-0">
                     <Select
                       value={draft.state || "all"}
                       onValueChange={(value) =>
@@ -658,7 +658,7 @@ function SearchableSingleSelect({
     .slice(0, 10);
 
   return (
-    <div className="relative">
+    <div className="relative min-w-0">
       <input
         type="text"
         placeholder={placeholder}
