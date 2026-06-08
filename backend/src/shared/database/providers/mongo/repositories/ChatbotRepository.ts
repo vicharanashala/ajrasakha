@@ -5454,6 +5454,8 @@ export class ChatbotRepository implements IChatbotRepository {
     search = '',
     source = 'vicharanashala',
     crop = '',
+    primaryCrops = '',
+    secondaryCrops = '',
     village = '',
     state = '',
     district = '',
@@ -5542,6 +5544,40 @@ export class ChatbotRepository implements IChatbotRepository {
               {'farmerProfile.primaryCrop': cropRegex},
               {'farmerProfile.secondaryCrop': cropRegex},
             ],
+          },
+        ];
+      }
+      const primaryCropValues = primaryCrops
+        .split(',')
+        .map(item => item.trim())
+        .filter(Boolean);
+      if (primaryCropValues.length > 0) {
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          {
+            $or: primaryCropValues.map(value => ({
+              'farmerProfile.primaryCrop': {
+                $regex: `^${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+                $options: 'i',
+              },
+            })),
+          },
+        ];
+      }
+      const secondaryCropValues = secondaryCrops
+        .split(',')
+        .map(item => item.trim())
+        .filter(Boolean);
+      if (secondaryCropValues.length > 0) {
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          {
+            $or: secondaryCropValues.map(value => ({
+              'farmerProfile.secondaryCrop': {
+                $regex: `^${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+                $options: 'i',
+              },
+            })),
           },
         ];
       }

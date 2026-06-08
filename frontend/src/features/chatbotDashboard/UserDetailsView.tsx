@@ -71,6 +71,8 @@ function EmptyValue() {
 const DEFAULT_FILTERS: UserDetailsFilters = {
   search: "",
   crop: "",
+  primaryCrops: [],
+  secondaryCrops: [],
   village: "",
   block: "",
   district: "",
@@ -172,6 +174,8 @@ const debouncedSearch = useDebounce(filters.search, 500);
     debouncedSearch,
     source,
     filters.crop,
+    filters.primaryCrops,
+    filters.secondaryCrops,
     filters.village,
     filters.state,
     filters.district,
@@ -307,6 +311,8 @@ const debouncedSearch = useDebounce(filters.search, 500);
   const isFiltered =
     filters.search ||
     filters.crop ||
+    filters.primaryCrops.length > 0 ||
+    filters.secondaryCrops.length > 0 ||
     filters.village ||
     filters.block ||
     filters.district ||

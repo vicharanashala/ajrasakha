@@ -591,6 +591,8 @@ export class ChatbotController {
       query.search,
       query.source,
       query.crop,
+      query.primaryCrops,
+      query.secondaryCrops,
       query.village,
       query.state,
       query.district,

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Dialog,
   DialogTrigger,
@@ -25,7 +25,6 @@ import {
 } from "@/components/atoms/tooltip";
 import {
   Filter,
-  Search,
   Sprout,
   MapPin,
   Calendar,
@@ -35,6 +34,8 @@ import {
   MessageSquareOff,
   Info,
   UserCheck2,
+  ChevronDown,
+  Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {motion} from "framer-motion";
@@ -49,6 +50,8 @@ import {
 export interface UserDetailsFilters {
   search: string;
   crop: string;
+  primaryCrops: string[];
+  secondaryCrops: string[];
   village: string;
   block: string;
   district: string;
@@ -176,6 +179,8 @@ export function UserDetailsPreferenceFilter({
     setDraft({
       search: draft.search,
       crop: "",
+      primaryCrops: [],
+      secondaryCrops: [],
       village: "",
       block: "",
       district: "",
@@ -192,6 +197,8 @@ export function UserDetailsPreferenceFilter({
 
   const activeCount =
     (filters.crop ? 1 : 0) +
+    (filters.primaryCrops?.length ? 1 : 0) +
+    (filters.secondaryCrops?.length ? 1 : 0) +
     (filters.village ? 1 : 0) +
     (filters.block ? 1 : 0) +
     (filters.district ? 1 : 0) +
@@ -270,7 +277,7 @@ export function UserDetailsPreferenceFilter({
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.07 }}
-                  className="col-span-1 rounded-xl bg-white dark:bg-[#161616] border border-gray-200/70 dark:border-gray-800 p-3.5"
+                  className="col-span-2 rounded-xl bg-white dark:bg-[#161616] border border-gray-200/70 dark:border-gray-800 p-3.5"
                 >
                   <FilterSection
                     icon={<UserCheck className="h-3.5 w-3.5" />}
@@ -303,19 +310,40 @@ export function UserDetailsPreferenceFilter({
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.09 }}
-                  className="col-span-1 rounded-xl bg-white dark:bg-[#161616] border border-gray-200/70 dark:border-gray-800 p-3.5"
+                  className="col-span-2 rounded-xl bg-white dark:bg-[#161616] border border-gray-200/70 dark:border-gray-800 p-3.5"
                 >
                   <FilterSection
                     icon={<Sprout className="h-3.5 w-3.5" />}
                     label="Crop"
                   >
-                    <OptionInput
-                      id="farmer-filter-crop"
-                      placeholder="Select or search crop"
-                      value={draft.crop}
-                      options={cropOptions}
-                      onChange={(crop) => setDraft((d) => ({ ...d, crop }))}
-                    />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <SearchableMultiSelect
+                        label="Primary crops"
+                        placeholder="Search primary crops"
+                        options={cropOptions}
+                        selected={draft.primaryCrops ?? []}
+                        onChange={(primaryCrops) =>
+                          setDraft((d) => ({
+                            ...d,
+                            primaryCrops,
+                            crop: "",
+                          }))
+                        }
+                      />
+                      <SearchableMultiSelect
+                        label="Secondary crops"
+                        placeholder="Search secondary crops"
+                        options={cropOptions}
+                        selected={draft.secondaryCrops ?? []}
+                        onChange={(secondaryCrops) =>
+                          setDraft((d) => ({
+                            ...d,
+                            secondaryCrops,
+                            crop: "",
+                          }))
+                        }
+                      />
+                    </div>
                   </FilterSection>
                 </motion.div>
               )}
@@ -382,8 +410,7 @@ export function UserDetailsPreferenceFilter({
                       </SelectContent>
                     </Select>
 
-                    <OptionInput
-                      id="farmer-filter-block"
+                    <SearchableSingleSelect
                       placeholder="Select block"
                       value={draft.block}
                       disabled={!draft.district}
@@ -397,8 +424,7 @@ export function UserDetailsPreferenceFilter({
                       }
                     />
 
-                    <OptionInput
-                      id="farmer-filter-village"
+                    <SearchableSingleSelect
                       placeholder="Select village"
                       value={draft.village}
                       disabled={!draft.block}
@@ -612,38 +638,211 @@ export function UserDetailsPreferenceFilter({
   );
 }
 
-function OptionInput({
-  id,
+function SearchableSingleSelect({
   value,
   options,
   placeholder,
   disabled = false,
   onChange,
 }: {
-  id: string;
   value: string;
   options: string[];
   placeholder: string;
   disabled?: boolean;
   onChange: (value: string) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const filteredOptions = options
+    .filter((option) => option.toLowerCase().includes(query.toLowerCase()))
+    .slice(0, 10);
+
   return (
-    <>
+    <div className="relative">
       <input
         type="text"
-        list={id}
         placeholder={placeholder}
-        value={value}
+        value={open ? query : value}
         disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
+        onFocus={() => {
+          setOpen(true);
+          setQuery("");
+        }}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setOpen(true);
+        }}
+        onBlur={() => window.setTimeout(() => setOpen(false), 120)}
         className={cn(inputClass, disabled && "cursor-not-allowed opacity-60")}
       />
-      <datalist id={id}>
-        {options.map((option) => (
-          <option key={option} value={option} />
-        ))}
-      </datalist>
-    </>
+      {open && !disabled && (
+        <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[10003] max-h-[260px] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-[#1e1e1e]">
+          {filteredOptions.length > 0 ? (
+            filteredOptions.map((option) => (
+              <button
+                key={option}
+                type="button"
+                className="block w-full px-3 py-2 text-left text-sm hover:bg-[#3AAA5A]/10"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onChange(option);
+                  setQuery("");
+                  setOpen(false);
+                }}
+              >
+                {option}
+              </button>
+            ))
+          ) : (
+            <div className="px-3 py-2 text-sm text-muted-foreground">
+              No matches
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SearchableMultiSelect({
+  label,
+  selected,
+  options,
+  placeholder,
+  onChange,
+}: {
+  label: string;
+  selected: string[];
+  options: string[];
+  placeholder: string;
+  onChange: (value: string[]) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const selectedSet = new Set(selected);
+  const filteredOptions = options
+    .filter((option) => option.toLowerCase().includes(query.toLowerCase()))
+    .slice(0, 10);
+  const selectedSummary = selected.join(", ");
+
+  const remove = (option: string) => {
+    onChange(selected.filter((item) => item !== option));
+  };
+
+  const toggle = (option: string) => {
+    if (selectedSet.has(option)) {
+      remove(option);
+      return;
+    }
+
+    onChange([...selected, option]);
+  };
+
+  return (
+    <div
+      className="space-y-2"
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+          setOpen(false);
+        }
+      }}
+    >
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <div className="relative">
+        <input
+          ref={inputRef}
+          type="text"
+          placeholder={selected.length > 0 ? "" : placeholder}
+          value={query}
+          onMouseDown={() => setOpen(true)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+          }}
+          className={cn(inputClass, "pr-10")}
+        />
+        {selectedSummary && !query && (
+          <span className="pointer-events-none absolute inset-y-0 left-3 right-10 flex items-center truncate text-sm text-(--foreground)">
+            {selectedSummary}
+          </span>
+        )}
+        <button
+          type="button"
+          aria-label={open ? "Close crop dropdown" : "Open crop dropdown"}
+          className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-gray-100 hover:text-foreground dark:hover:bg-gray-800"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onClick={() => setOpen((current) => !current)}
+        >
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 transition-transform",
+              open && "rotate-180",
+            )}
+          />
+        </button>
+        {open && (
+          <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-[10003] max-h-[260px] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-[#1e1e1e]">
+            {filteredOptions.length > 0 ? (
+              filteredOptions.map((option) => {
+                const isSelected = selectedSet.has(option);
+
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    className={cn(
+                      "flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-[#3AAA5A]/10",
+                      isSelected && "bg-[#3AAA5A]/10 font-medium text-[#26783d]",
+                    )}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      toggle(option);
+                      setQuery("");
+                      setOpen(true);
+                      inputRef.current?.focus();
+                    }}
+                  >
+                    <span className="truncate">{option}</span>
+                    {isSelected && (
+                      <Check className="h-4 w-4 shrink-0 text-[#26783d]" />
+                    )}
+                  </button>
+                );
+              })
+            ) : (
+              <div className="px-3 py-2 text-sm text-muted-foreground">
+                No matches
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      {selected.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {selected.map((option) => (
+            <span
+              key={option}
+              className="inline-flex max-w-full items-center gap-1 rounded-md border border-[#3AAA5A]/30 bg-[#3AAA5A]/10 px-2 py-1 text-xs font-medium text-[#26783d]"
+            >
+              <span className="truncate">{option}</span>
+              <button
+                type="button"
+                aria-label={`Remove ${option}`}
+                className="rounded-sm px-0.5 text-[#26783d] hover:bg-[#3AAA5A]/20"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => remove(option)}
+              >
+                x
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

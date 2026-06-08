@@ -177,6 +177,16 @@ export class UserDetailsQueryDto {
   @IsString()
   crop: string = '';
 
+  @JSONSchema({ example: 'rice,wheat', description: 'Comma-separated primary crop filters' })
+  @IsOptional()
+  @IsString()
+  primaryCrops: string = '';
+
+  @JSONSchema({ example: 'maize,cotton', description: 'Comma-separated secondary crop filters' })
+  @IsOptional()
+  @IsString()
+  secondaryCrops: string = '';
+
   @JSONSchema({ example: 'Poonjar', description: 'Filter by village name' })
   @IsOptional()
   @IsString()

@@ -470,6 +470,8 @@ export interface IChatbotRepository {
     search?: string,
     source?: string,
     crop?: string,
+    primaryCrops?: string,
+    secondaryCrops?: string,
     village?: string,
     state?: string,
     district?: string,

@@ -57,8 +57,10 @@ export function useUserDetails(
   page = 1,
   limit = 10,
   search = '',
-  source: 'vicharanashala' | 'annam' = 'vicharanashala',
+  source: 'vicharanashala' | 'annam' | 'whatsapp' = 'vicharanashala',
   crop = '',
+  primaryCrops: string[] = [],
+  secondaryCrops: string[] = [],
   village = '',
   state = '',
   district = '',
@@ -82,7 +84,7 @@ export function useUserDetails(
     : undefined;
 
   const { data, isLoading, error, refetch } = useQuery<PaginatedUserDetailsResponse, Error>({
-    queryKey: ['user-details', startISO, endISO, page, limit, search, source, crop, village, state, district, block, profileCompleted, inactiveOnly, lowFeedbackOnly, userType, sortBy, sortOrder, activeTodayByProfile, missingDemographicField, isVerified],
+    queryKey: ['user-details', startISO, endISO, page, limit, search, source, crop, primaryCrops, secondaryCrops, village, state, district, block, profileCompleted, inactiveOnly, lowFeedbackOnly, userType, sortBy, sortOrder, activeTodayByProfile, missingDemographicField, isVerified],
     staleTime: 30 * 1000,
     enabled,
     queryFn: async () => {
@@ -95,6 +97,8 @@ export function useUserDetails(
       if (search.trim()) params.set('search', search.trim());
       params.set('source', source);
       if (crop.trim()) params.set('crop', crop.trim());
+      if (primaryCrops.length) params.set('primaryCrops', primaryCrops.join(','));
+      if (secondaryCrops.length) params.set('secondaryCrops', secondaryCrops.join(','));
       if (village.trim()) params.set('village', village.trim());
       if (state.trim()) params.set('state', state.trim());
       if (district.trim()) params.set('district', district.trim());
