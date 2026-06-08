@@ -40,7 +40,6 @@ import type { IRequest, RequestStatus } from "@/types";
 import { useGetRequestDiff } from "@/hooks/api/request/useGetRequestDiff";
 import { ScrollArea } from "./atoms/scroll-area";
 import { useUpdateRequestStatus } from "@/hooks/api/request/useUpdateRequestStatus";
-import { toast } from "sonner";
 import { Separator } from "./atoms/separator";
 import {
   Dialog,
@@ -49,6 +48,7 @@ import {
   DialogTitle,
 } from "./atoms/dialog";
 import { ReqDetailsDiff } from "./ReqDetailsDiff";
+import { toast } from "@/shared/components/toast";
 
 const initials = (name: string) => {
   return name
@@ -140,6 +140,7 @@ export const RequestListItem = ({
     useSoftDeleteRequest();
 
   const handleSubmit = async () => {
+    let toastId;
     try {
       if (!newStatus || newStatus === req.status) {
         toast.error(
@@ -151,11 +152,14 @@ export const RequestListItem = ({
         toast.error("Response must be at least 8 characters long.");
         return;
       }
+      toast.loading("updating the request...")
       await updateStatus({ status: newStatus, requestId: req._id, response });
+      toast.dismiss(toastId)
       toast.success("Request updated successfully.");
       setDiffOpen(false);
     } catch (error) {
       console.error("Error updating request:", error);
+      toast.dismiss(toastId)
       toast.error("Failed to update the request. Please try again.");
     }
   };
@@ -249,7 +253,7 @@ export const RequestListItem = ({
               {(req.status == "pending" || req.status == "in-review") && (
                 <Button
                   onClick={handleSubmit}
-                  disabled={reqDiffLoading || updatingStatus || !response.trim()}
+                  // disabled={reqDiffLoading || updatingStatus || !response.trim()}
                   className="bg-primary text-primary-foreground text-xs sm:text-sm"
                 >
                   {updatingStatus ? "Submitting..." : "Submit Response"}
@@ -429,15 +433,18 @@ export const RequestListItem = ({
             onOpenChange={setDeleteModalOpen}
             isLoading={deleting}
             onConfirm={async () => {
+              const requestId=toast.loading('deleting the request...')
               try {
                 await softDelete(req._id);
                 queryClient.removeQueries({
                   queryKey: ["request_diff", req._id],
                 });
                 queryClient.invalidateQueries({ queryKey: ["requests"] });
+                toast.dismiss(requestId)
                 toast.success("Request deleted successfully.");
                 setDeleteModalOpen(false);
               } catch {
+                toast.dismiss(requestId)
                 toast.error("Failed to delete request.");
               }
             }}
