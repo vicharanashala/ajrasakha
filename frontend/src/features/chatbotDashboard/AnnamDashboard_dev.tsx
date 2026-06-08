@@ -147,8 +147,8 @@ export function AnnamDashboard_dev({
   onSourceChange,
 }: {
   className?: string;
-  source?: "vicharanashala" | "annam" | "whatsapp";
-  onSourceChange?: (source: "vicharanashala" | "annam" | "whatsapp") => void;
+  source?:  "annam" | "whatsapp";
+  onSourceChange?: (source: "annam" | "whatsapp") => void;
 }) {
   const [invalidating, setInvalidating] = useState(false);
   const queryClient = useQueryClient();
@@ -182,9 +182,9 @@ export function AnnamDashboard_dev({
   const [activeChartTab, setActiveChartTab] = useState<string>("dau");
   const [filters, setFilters] =
     useState<DashboardFilterValues>(DEFAULT_FILTERS);
-  const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
+  // const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
   const isAppAnalyticsSource =
-    source === "annam" || source === "vicharanashala" || source === "whatsapp";
+    source === "annam" || source === "whatsapp";
   const loadImmediately = !isAppAnalyticsSource;
   const { data, isLoading, isFetching, error } = useDashboardData(
     filters,
@@ -742,7 +742,7 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
 
               <DashboardFilters filters={filters} onFilterChange={setFilters} />
               {(source === "annam" ||
-                source === "vicharanashala" ||
+                // source === "vicharanashala" ||
                 source === "whatsapp") && (
                 <div
                   ref={(el) => {
@@ -817,8 +817,9 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                       kpiRow2={data.kpiRow2}
                     /> */}
                         {/* Uncomment the above line when data is dynamic and delete the below code */}
-                        {(source === "annam" ||
-                          source === "vicharanashala") && (
+                        {(source === "annam" 
+                        // ||source === "vicharanashala"
+                        ) && (
                           <EightCardsComponent
                             kpiRow1={kpiRow1WithOverlay}
                             kpiRow2={kpiRow2WithOverlay}
