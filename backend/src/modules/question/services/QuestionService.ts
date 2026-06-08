@@ -57,7 +57,6 @@ import ExcelJS from 'exceljs';
 import {cosineSimilarity} from '../../../utils/cosine-similarity.js';
 import {IDuplicateQuestionRepository} from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
 import {chatbotSimilarityLogger} from '../logger/chatbot-similarity.logger.js';
-import {checkConceptDuplicate} from '#root/modules/question/aiservice/checkConceptDuplicate.js';
 import {ICropRepository} from '#root/shared/database/interfaces/ICropRepository.js';
 import {CHATBOT_TYPES} from '#root/modules/chatbot/types.js';
 import {IChatbotRepository} from '#root/shared/database/interfaces/IChatbotRepository.js';
@@ -888,26 +887,110 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
 
     const logData: Record<string, any> = { questionId, manual: true };
-    const duplicateResult = await this.checkDuplicateQuestion(question, question.details, logData);
+    const result = await this.runDuplicateCheckPipeline(question, question.details, logData);
 
-    if (duplicateResult?.isDuplicate && duplicateResult?.duplicateData) {
-      const { similarityScore, referenceQuestionId, referenceQuestion, referenceSource } = duplicateResult.duplicateData as any;
+    if (result.isDuplicate) {
+      const refId = result.referenceQuestionId instanceof ObjectId
+        ? result.referenceQuestionId
+        : result.referenceQuestionId
+          ? new ObjectId(String(result.referenceQuestionId))
+          : null;
       await this.questionRepo.updateQuestion(questionId, {
         status: 'duplicate',
-        similarityScore,
-        referenceQuestionId,
-        referenceQuestion,
-        referenceSource,
+        similarityScore: result.similarityScore,
+        referenceQuestionId: refId,
+        referenceQuestion: result.referenceQuestion,
+        referenceSource: result.referenceSource,
+        ...(result.isExact !== undefined ? { isExact: result.isExact } : {}),
       });
-      return { message: 'Duplicate detected and question updated.', isDuplicate: true, referenceQuestionId: referenceQuestionId?.toString() };
+      return { message: 'Duplicate detected and question updated.', isDuplicate: true, referenceQuestionId: refId?.toString() };
     }
 
-    if (duplicateResult?.isNonAgri) {
+    if (result.isNonAgri) {
       await this.questionRepo.updateQuestion(questionId, { status: 'non_agri' });
       return { message: 'Question marked as non-agri.', isDuplicate: false };
     }
 
     return { message: 'No duplicate found. Question remains open.', isDuplicate: false };
+  }
+
+  private async runDuplicateCheckPipeline(
+    baseQuestion: IQuestion,
+    details: IQuestion['details'],
+    logData: Record<string, any>,
+  ): Promise<{
+    isDuplicate: boolean;
+    isNonAgri?: boolean;
+    referenceQuestionId?: ObjectId | string | null;
+    referenceQuestion?: string;
+    referenceSource?: string;
+    similarityScore?: number;
+    isExact?: boolean;
+  }> {
+    const cropName = typeof details.crop === 'string' ? details.crop : (details.crop as any)?.name || '';
+
+    const gdbResult = await this.aiService.searchGdb({
+      crop: cropName,
+      state: details.state,
+      rephrased_query: baseQuestion.question,
+    });
+
+    console.log('[runDuplicateCheckPipeline] gdbResult:', gdbResult);
+
+    const extractObjectId = (id: any): ObjectId | null => {
+      const raw = id?.$oid ?? id;
+      const hex = String(raw ?? '');
+      if (/^[a-f\d]{24}$/i.test(hex)) return new ObjectId(hex);
+      return null;
+    };
+
+    const exactMatch = gdbResult?.exact_match;
+    if (exactMatch?.question_id) {
+      const refId = extractObjectId(exactMatch.question_id);
+      if (refId) {
+        return {
+          isDuplicate: true,
+          referenceQuestionId: refId,
+          referenceQuestion: exactMatch.question,
+          referenceSource: 'reviewer',
+          similarityScore: Number((exactMatch.similarity_score * 100).toFixed(2)),
+          isExact: true,
+        };
+      }
+      console.warn(`[runDuplicateCheckPipeline] GDB exact_match invalid question_id: ${exactMatch.question_id}, skipping`);
+    }
+
+    const selectedMatch = gdbResult?.selected_match;
+    if (selectedMatch?.question_id) {
+      const refId = extractObjectId(selectedMatch.question_id);
+      if (refId) {
+        return {
+          isDuplicate: true,
+          referenceQuestionId: refId,
+          referenceQuestion: selectedMatch.question,
+          referenceSource: 'reviewer',
+          similarityScore: Number((selectedMatch.similarity_score * 100).toFixed(2)),
+          isExact: false,
+        };
+      }
+      console.warn(`[runDuplicateCheckPipeline] GDB selected_match invalid question_id: ${selectedMatch.question_id}, skipping`);
+    }
+
+    // No GDB match — fall back to embedding search + LLM (same as manualCheckDuplicate)
+    const duplicateResult = await this.checkDuplicateQuestion(baseQuestion, details, logData);
+
+    if (duplicateResult?.isDuplicate && duplicateResult?.duplicateData) {
+      const { similarityScore, referenceQuestionId, referenceQuestion, referenceSource } = duplicateResult.duplicateData as any;
+      return { isDuplicate: true, similarityScore, referenceQuestionId, referenceQuestion, referenceSource };
+    }
+
+    if (duplicateResult?.isNonAgri) {
+      logData.outcome = 'NON_AGRI_DETECTED';
+      chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData);
+      return { isDuplicate: false, isNonAgri: true };
+    }
+
+    return { isDuplicate: false };
   }
 
   async addQuestion(
@@ -1238,77 +1321,37 @@ export class QuestionService extends BaseService implements IQuestionService {
           }*/
         
 
-        // AJRASAKHA / WHATSAPP — GDB duplicate check then LLM non-agri check
+        // AJRASAKHA / WHATSAPP — GDB → embedding → LLM duplicate/non-agri pipeline
         try {
-          const cropName = typeof details.crop === 'string' ? details.crop : (details.crop as any)?.name || '';
-          const gdbResult = await this.aiService.searchGdb({
-            crop: cropName,
-            state: details.state,
-            rephrased_query: baseQuestion.question,
-          });
+          const result = await this.runDuplicateCheckPipeline(baseQuestion, details, logData);
 
-          const extractObjectId = (id: any): ObjectId | null => {
-            // Handle MongoDB extended JSON { $oid: "..." } or plain hex string
-            const raw = id?.$oid ?? id;
-            const hex = String(raw ?? '');
-            if (/^[a-f\d]{24}$/i.test(hex)) return new ObjectId(hex);
-            return null;
-          };
-
-          const exactMatch = gdbResult?.exact_match;
-          if (exactMatch?.question_id) {
-            const refId = extractObjectId(exactMatch.question_id);
-            if (!refId) {
-              console.warn(`[processQuestionInBackground] GDB exact_match has invalid question_id: ${exactMatch.question_id}, skipping`);
-            } else {
-              await this.questionRepo.updateQuestion(questionId, {
-                status: 'duplicate',
-                similarityScore: Number((exactMatch.similarity_score * 100).toFixed(2)),
-                referenceQuestionId: refId,
-                referenceQuestion: exactMatch.question,
-                referenceSource: 'reviewer',
-                isExact: true,
-              });
-              return;
-            }
+          if (result.isDuplicate) {
+            const refId = result.referenceQuestionId instanceof ObjectId
+              ? result.referenceQuestionId
+              : result.referenceQuestionId
+                ? new ObjectId(String(result.referenceQuestionId))
+                : null;
+            await this.questionRepo.updateQuestion(questionId, {
+              status: 'duplicate',
+              similarityScore: result.similarityScore,
+              referenceQuestionId: refId,
+              referenceQuestion: result.referenceQuestion,
+              referenceSource: result.referenceSource,
+              ...(result.isExact !== undefined ? { isExact: result.isExact } : {}),
+            });
+            return;
           }
 
-          const selectedMatch = gdbResult?.selected_match;
-          if (selectedMatch?.question_id) {
-            const refId = extractObjectId(selectedMatch.question_id);
-            if (!refId) {
-              console.warn(`[processQuestionInBackground] GDB selected_match has invalid question_id: ${selectedMatch.question_id}, skipping`);
-            } else {
-              await this.questionRepo.updateQuestion(questionId, {
-                status: 'duplicate',
-                similarityScore: Number((selectedMatch.similarity_score * 100).toFixed(2)),
-                referenceQuestionId: refId,
-                referenceQuestion: selectedMatch.question,
-                referenceSource: 'reviewer',
-                isExact: false,
-              });
-              return;
-            }
-          }
-
-          // No duplicate — call LLM to classify non-agri vs agri
-          try {
-            const llmResult = await checkConceptDuplicate(baseQuestion.question, []);
-            if (llmResult.isNonAgri) {
-              logData.outcome = 'NON_AGRI_DETECTED';
-              chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData);
-              await this.questionRepo.updateQuestion(questionId, {status: 'non_agri'});
-              return;
-            }
-          } catch (llmError: any) {
-            console.error('[processQuestionInBackground] LLM non-agri check failed, proceeding as open:', llmError?.message);
+          if (result.isNonAgri) {
+            await this.questionRepo.updateQuestion(questionId, {status: 'non_agri'});
+            return;
           }
 
           await this.questionRepo.updateQuestion(questionId, {status: 'open'});
-        } catch (gdbError: any) {
+        } catch (pipelineError: any) {
           console.error(
-            '[processQuestionInBackground] GDB check failed, proceeding as open:',
-            gdbError?.message,
+            '[processQuestionInBackground] Duplicate check pipeline failed, proceeding as open:',
+            pipelineError?.message,
           );
           await this.questionRepo.updateQuestion(questionId, {status: 'open'});
         }
