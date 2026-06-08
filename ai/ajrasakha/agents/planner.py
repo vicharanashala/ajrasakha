@@ -43,7 +43,6 @@ from ajrasakha.agents.location_context import (
     extract_state_from_text,
     gps_state_from_location,
     latest_human_text,
-    main_agent_location_context_message,
 )
 from ajrasakha.agents.plan_executor import ENABLE_CHEMICAL_CHECKER
 from ajrasakha.agents.planner_rules import (
@@ -431,9 +430,6 @@ async def planner_node(
     )
 
     llm_messages: list[BaseMessage] = [SystemMessage(content=PLANNER_SYSTEM_PROMPT)]
-    loc_ctx = main_agent_location_context_message(location)
-    if loc_ctx:
-        llm_messages.append(loc_ctx)
     conv_block = format_conversation_for_planner(messages) or user_text
 
     deterministic_context = (
