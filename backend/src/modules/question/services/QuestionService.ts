@@ -4820,7 +4820,15 @@ export class QuestionService extends BaseService implements IQuestionService {
       throw new Error('Question does not have messageId, cannot reliably fetch matched message');
     }*/
 
-    const analyticsPromise = this.chatbotRepository.findMatchingMessages({
+    // const analyticsPromise = this.chatbotRepository.findMatchingMessages({
+    //   question,
+    //   details,
+    //   createdAt,
+    //   questionId: questionId.toString(),
+    //   messageId: messageId ? messageId.toString() : undefined,
+    // });
+
+    const annamPromise = await this.chatbotRepository.findFromSecondDb({
       question,
       details,
       createdAt,
@@ -4828,16 +4836,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       messageId: messageId ? messageId.toString() : undefined,
     });
 
-    const annamPromise = this.chatbotRepository.findFromSecondDb({
-      question,
-      details,
-      createdAt,
-      questionId: questionId.toString(),
-      messageId: messageId ? messageId.toString() : undefined,
-    });
-
-    const [analyticsResult, annamResult] = await Promise.allSettled([
-      analyticsPromise,
+    const [ annamResult] = await Promise.allSettled([
       annamPromise,
     ]);
 
@@ -4845,8 +4844,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     // HANDLE RESULTS
     // =========================
 
-    const analyticsMessages =
-      analyticsResult.status === 'fulfilled' ? analyticsResult.value : [];
+    // const analyticsMessages =
+    //   analyticsResult.status === 'fulfilled' ? analyticsResult.value : [];
 
     const annamMessages =
       annamResult.status === 'fulfilled' ? annamResult.value : [];
@@ -4855,14 +4854,14 @@ export class QuestionService extends BaseService implements IQuestionService {
     // LOG FAILURES
     // =========================
 
-    if (analyticsResult.status === 'rejected') {
-      console.error('Analytics DB failed:', {
-        error: analyticsResult.reason?.message,
-        stack: analyticsResult.reason?.stack,
-        questionId,
-        messageId,
-      });
-    }
+    // if (analyticsResult.status === 'rejected') {
+    //   console.error('Analytics DB failed:', {
+    //     error: analyticsResult.reason?.message,
+    //     stack: analyticsResult.reason?.stack,
+    //     questionId,
+    //     messageId,
+    //   });
+    // }
 
     if (annamResult.status === 'rejected') {
       console.error('Second DB failed:', {
@@ -4876,7 +4875,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     // MERGE RESULTS
     // =========================
 
-    const allMessages = [...analyticsMessages, ...annamMessages];
+    const allMessages = [...annamMessages];
 
     const message = allMessages?.[0];
 
