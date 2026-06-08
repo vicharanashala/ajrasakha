@@ -59,8 +59,8 @@ import { motion,AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/atoms/badge";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import { useVerifyUserAnalytics } from "@/hooks/api/user/useVerifyUserAnalytics";
-import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "@/shared/components/toast";
 
 const EMPTY_VALUE = "Not provided";
 
@@ -393,15 +393,17 @@ const debouncedSearch = useDebounce(filters.search, 500);
   };
 
   const handleVerifyUser = async (userId: string, source: string) =>{
-    console.log('source:::',source)
+    let toastId;
     try {
+      toastId = toast.loading('verifying user')
       const response = await verifyUserMutation.mutateAsync({
         userId,
         source,
       });
-
+      toast.dismiss(toastId)
       toast.success(response?.message || "User verified successfully");
     } catch (error: any) {
+      toast.dismiss(toastId)
       toast.error(error?.message || "Failed to verify user");
     }
   }
