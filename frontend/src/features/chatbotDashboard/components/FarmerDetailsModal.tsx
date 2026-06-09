@@ -270,8 +270,13 @@ export function FarmerDetailsModal({
           <div className="space-y-5">
             <div className="flex flex-col gap-3 rounded-md border bg-muted/30 p-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <h3 className="truncate text-base font-semibold">
-                  {user.name || fp?.farmerName || EMPTY_VALUE}
+                <h3 className="flex min-w-0 items-center gap-1.5 text-base font-semibold">
+                  <span className="truncate">
+                    {user.name || fp?.farmerName || EMPTY_VALUE}
+                  </span>
+                  {!isUserVerified && (
+                    <UserX className="h-1 w-1 shrink-0 text-red-500" />
+                  )}
                 </h3>
                 <p className="break-all text-sm text-muted-foreground">
                   {user.email || EMPTY_VALUE}

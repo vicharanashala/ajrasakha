@@ -1020,9 +1020,6 @@ const debouncedSearch = useDebounce(filters.search, 500);
                       <TableHead className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wide">
                         User Role
                       </TableHead>
-                      <TableHead className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        Verification
-                      </TableHead>
 
                       <SortableHead
                         label="Query Asked"
@@ -1042,7 +1039,7 @@ const debouncedSearch = useDebounce(filters.search, 500);
                     {users.length === 0 ? (
                       <TableRow className="hover:bg-transparent">
                         <TableCell
-                          colSpan={8}
+                          colSpan={7}
                           className="text-center py-16"
                         >
                           <div className="flex flex-col items-center gap-2 text-muted-foreground">
@@ -1083,7 +1080,19 @@ const debouncedSearch = useDebounce(filters.search, 500);
                               </TableCell>
 
                               <TableCell className="align-middle font-medium whitespace-nowrap">
-                                {user.name || <EmptyValue />}
+                                <div className="inline-flex items-center justify-center gap-1.5">
+                                  <span>{user.name || <EmptyValue />}</span>
+                                  {!isUserVerified && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <UserX className="h-4 w-4 text-red-500" />
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        Not verified
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                </div>
                               </TableCell>
 
                               <TableCell className="align-middle whitespace-nowrap">
@@ -1107,19 +1116,6 @@ const debouncedSearch = useDebounce(filters.search, 500);
                                 ) : (
                                   <EmptyValue />
                                 )}
-                              </TableCell>
-
-                              <TableCell className="align-middle whitespace-nowrap">
-                                <Badge
-                                    variant="secondary"
-                                    className={`font-normal ${
-                                    isUserVerified
-                                      ? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300"
-                                      : "bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400"
-                                  }`}
-                                >
-                                  {isUserVerified ? "Verified" : "Not Verified"}
-                                </Badge>
                               </TableCell>
 
                               <TableCell className="align-middle">
@@ -1146,36 +1142,28 @@ const debouncedSearch = useDebounce(filters.search, 500);
                                   {isAdmin && (
                                     <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
 
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        disabled={isVerifyingThisUser}
-                                        className={`h-8 w-8 ${
-                                          isUserVerified
-                                            ? "hover:bg-red-500/10 hover:text-red-500"
-                                            : "hover:bg-purple-500/10 hover:text-purple-500"
-                                        }`}
-                                        onClick={() =>
-                                          handleUpdateVerification(
-                                            user.userId,
-                                            source,
-                                            !isUserVerified,
-                                          )
-                                        }
-                                        title={
-                                          isUserVerified
-                                            ? "Set unverified"
-                                            : "Set verified"
-                                        }
-                                      >
-                                        {isVerifyingThisUser ? (
-                                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                                        ) : isUserVerified ? (
-                                          <UserX className="h-4 w-4" />
-                                        ) : (
-                                          <UserCheck2 className="h-4 w-4" />
-                                        )}
-                                      </Button>
+                                      {!isUserVerified && (
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          disabled={isVerifyingThisUser}
+                                          className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
+                                          onClick={() =>
+                                            handleUpdateVerification(
+                                              user.userId,
+                                              source,
+                                              true,
+                                            )
+                                          }
+                                          title="Set verified"
+                                        >
+                                          {isVerifyingThisUser ? (
+                                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                          ) : (
+                                            <UserCheck2 className="h-4 w-4" />
+                                          )}
+                                        </Button>
+                                      )}
 
                                       <Button
                                         variant="ghost"
