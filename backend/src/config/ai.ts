@@ -9,6 +9,7 @@ export const aiConfig = {
   openAIServerIP: env('OPENAI_SERVER_IP'),
   openAIServerPort: Number(env('OPENAI_SERVER_PORT')?.trim()) || 8080,
   whatsAppServerPort: Number(env('WHATSAPP_SERVER_PORT')?.trim()) || 2026,
+  aiInitialAnswerGenerateUrl: env('AI_INITIAL_ANSWER_GENERATE_URL'),
   gemma_api: env('GEMMA_API'),
   gemma_api_key: env('GEMMA_API_KEY') || 'test-key',
   minimax_api: env('MINIMAX_API'),

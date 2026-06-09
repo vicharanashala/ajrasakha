@@ -549,7 +549,7 @@ export class UserRepository implements IUserRepository {
   ): Promise<void> {
     await this.init();
     const submissionCollection = await this.db.getCollection<any>('question_submissions');
-    
+
     const userObjectId = new ObjectId(userId);
     const userIdStr = userId.toString();
 
@@ -567,7 +567,7 @@ export class UserRepository implements IUserRepository {
         {
           $and: [
             { history: { $not: { $size: 0 } } },
-            { 
+            {
               $expr: {
                 $and: [
                   { $eq: [{ $arrayElemAt: ['$history.status', -1] }, 'in-review'] },
@@ -1319,7 +1319,7 @@ export class UserRepository implements IUserRepository {
       throw new InternalServerError(`Failed to update IsBlock`);
     }
   }
-  
+
   async updateSTFStatus(
     userId: string,
     action: string,
@@ -1329,14 +1329,14 @@ export class UserRepository implements IUserRepository {
     try {
       const special_task_force = action === 'assign';
       await this.usersCollection.updateOne(
-        {_id: new ObjectId(userId)},
+        { _id: new ObjectId(userId) },
         {
           $set: {
             special_task_force,
             updatedAt: new Date(),
           },
         },
-        {upsert: true, session},
+        { upsert: true, session },
       );
     } catch (error) {
       throw new InternalServerError(`Failed to update STF status`);
@@ -1508,4 +1508,93 @@ export class UserRepository implements IUserRepository {
     }
   }
 
+  async findCallAgents(session?: ClientSession): Promise<IUser[]> {
+    try {
+      await this.init();
+
+      const agents = await this.usersCollection
+        .find(
+          {
+            isCallAgent: true,
+            role: { $in: ['expert', 'moderator'] },
+          },
+          { session },
+        )
+        .toArray();
+
+      // Convert ObjectId to string and return minimal data
+      return agents.map((agent) => ({
+        ...agent,
+        _id: agent._id.toString(),
+      })) as IUser[];
+    } catch (error) {
+      throw new InternalServerError('Failed to find call agents');
+    }
+  }
+
+  async setCallAgentStatus(
+    userId: string,
+    isCallAgent: boolean,
+    isCallAgentActive: boolean,
+    session?: ClientSession,
+  ): Promise<IUser> {
+    try {
+      await this.init();
+      const result = await this.usersCollection.findOneAndUpdate(
+        { _id: new ObjectId(userId) },
+        {
+          $set: {
+            isCallAgent,
+            isCallAgentActive,
+            updatedAt: new Date(),
+          },
+        },
+        { returnDocument: 'after', session },
+      );
+      if (!result) {
+        throw new NotFoundError('User not found');
+      }
+      const plainResult = JSON.parse(JSON.stringify(result));
+      return {
+        ...plainResult,
+        _id: result._id.toString(),
+      } as IUser;
+    } catch (error) {
+      throw new InternalServerError('Failed to set call agent status');
+    }
+  }
+
+  async toggleCallAgentActive(
+    userId: string,
+    session?: ClientSession,
+  ): Promise<IUser> {
+    try {
+      await this.init();
+      const user = await this.usersCollection.findOne(
+        { _id: new ObjectId(userId) },
+        { session },
+      );
+      if (!user) {
+        throw new NotFoundError('User not found');
+      }
+      const newStatus = !user.isCallAgentActive;
+      const result = await this.usersCollection.findOneAndUpdate(
+        { _id: new ObjectId(userId) },
+        {
+          $set: {
+            isCallAgentActive: newStatus,
+            updatedAt: new Date(),
+          },
+        },
+        { returnDocument: 'after', session },
+      );
+      const plainResult = JSON.parse(JSON.stringify(result));
+      return {
+        ...plainResult,
+        _id: result._id.toString(),
+      } as IUser;
+    } catch (error) {
+      throw new InternalServerError('Failed to toggle call agent active status');
+    }
+  }
 }

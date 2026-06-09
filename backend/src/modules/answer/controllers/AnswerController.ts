@@ -24,7 +24,7 @@ import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import { verifyNotTester } from '#root/shared/functions/verifyNotTester.js';
 import {IAnswer, IUser} from '#root/shared/interfaces/models.js';
 import { AnswerService } from '../services/AnswerService.js';
-import { AddAnswerBody, AnswerIdParam, DeleteAnswerParams, ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
+import { AddAnswerBody, AnswerIdParam, DeleteAnswerParams, FetchAiInitialAnswerBody, ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
 import { IAnswerService } from '../interfaces/IAnswerService.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
@@ -153,6 +153,15 @@ export class AnswerController {
       }
       throw new BadRequestError(err?.message || 'Failed to review answer');
     }
+  }
+
+  @OpenAPI({summary: 'Fetch AI initial answer through backend proxy'})
+  @Post('/fetch-ai-answer')
+  @HttpCode(200)
+  @Authorized()
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async fetchAiInitialAnswer(@Body() body: FetchAiInitialAnswerBody) {
+    return this.answerService.fetchAiInitialAnswer(body);
   }
 
   @Get('/submissions')
