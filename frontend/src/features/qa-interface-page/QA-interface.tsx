@@ -589,6 +589,18 @@ export const QAInterface = ({
 
   };
 
+  const handleAiAnswerFetched = (
+    questionId: string,
+    answer: string,
+    aiSources: SourceItem[],
+  ) => {
+    setSelectedQuestion(questionId);
+    setTranslatedDraftText("");
+    setNewAnswer(answer);
+    setSources(aiSources);
+    setRemarks("AI Generated Answer");
+  };
+
 
   const handleActionChange = (value: string) => {
     setActionType(value as "allocated" | "reroute");
@@ -643,6 +655,7 @@ export const QAInterface = ({
               questionItemRefs={questionItemRefs}
               setQuestionRef={setQuestionRef}
               onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              onAiAnswerFetched={handleAiAnswerFetched}
             />
           </div>
           {selectedQuestionData &&

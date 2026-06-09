@@ -8,6 +8,8 @@ import {
   MapPin,
   Pencil,
   Trash2,
+  UserCheck2,
+  ShieldX,
 } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
@@ -17,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/atoms/dialog";
+import { ScrollArea } from "@/components/atoms/scroll-area";
 import { type UserDetail } from "../hooks/useUserDetails";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -155,6 +158,8 @@ interface FarmerDetailsModalProps {
   onDelete: (user: UserDetail) => void;
   isChangingPassword?: boolean;
   onChangePassword?: (payload: {newPassword: string}) => void | Promise<void>;
+  isUpdatingVerification?: boolean;
+  onVerificationChange?: (isVerified: boolean) => void | Promise<void>;
 }
 
 export function FarmerDetailsModal({
@@ -166,8 +171,11 @@ export function FarmerDetailsModal({
   onDelete,
   isChangingPassword = false,
   onChangePassword,
+  isUpdatingVerification = false,
+  onVerificationChange,
 }: FarmerDetailsModalProps) {
   const fp = user?.farmerProfile;
+  const isUserVerified = user?.isVerified ?? true;
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -254,25 +262,67 @@ export function FarmerDetailsModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="!max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Farmer Details</DialogTitle>
-        </DialogHeader>
+      <DialogContent className="!max-w-4xl w-[95vw] max-h-[90vh] p-0 gap-0 overflow-hidden">
+        <motion.div
+          initial={{ opacity: 0, y: 12, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -12, scale: 0.98 }}
+          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+          className="flex flex-col max-h-[90vh]"
+        >
+          <DialogHeader className="px-6 pt-5 pb-4 border-b border-border/60">
+            <DialogTitle className="text-lg font-semibold">Farmer Details</DialogTitle>
+          </DialogHeader>
 
         {user && (
-          <div className="space-y-5">
+          <ScrollArea className="flex-1 px-6 py-5">
+            <div className="space-y-5 pr-4">
             <div className="flex flex-col gap-3 rounded-md border bg-muted/30 p-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <h3 className="truncate text-base font-semibold">
-                  {user.name || fp?.farmerName || EMPTY_VALUE}
+                <h3 className="flex min-w-0 items-center gap-1.5 text-base font-semibold">
+                  <span className="truncate">
+                    {user.name || fp?.farmerName || EMPTY_VALUE}
+                  </span>
+                  {!isUserVerified && (
+                    <ShieldX className="h-4 w-4 shrink-0 text-orange-500" />
+                  )}
                 </h3>
                 <p className="break-all text-sm text-muted-foreground">
                   {user.email || EMPTY_VALUE}
                 </p>
+                <div
+                  className={`mt-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                    isUserVerified
+                      ? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300"
+                      : "bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400"
+                  }`}
+                >
+                  {isUserVerified ? "Verified" : "Not Verified"}
+                </div>
               </div>
 
               {isAdmin && (
-                <div className="flex shrink-0 gap-2">
+                <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                  {onVerificationChange && (
+                    <Button
+                      size="sm"
+                      disabled={isUpdatingVerification}
+                      className={isUserVerified 
+                        ? "bg-orange-800 hover:bg-orange-900 text-white gap-1.5" 
+                        : "bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5"
+                      }
+                      onClick={() =>
+                        onVerificationChange(!isUserVerified)
+                      }
+                    >
+                  {isUserVerified ? (
+                    <ShieldX className="h-4 w-4" />
+                  ) : (
+                    <UserCheck2 className="h-4 w-4" />
+                  )}
+                      {isUserVerified ? "Set Unverified" : "Set Verified"}
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
@@ -591,7 +641,9 @@ export function FarmerDetailsModal({
               </dl>
             </section>
           </div>
+          </ScrollArea>
         )}
+        </motion.div>
       </DialogContent>
     </Dialog>
   );

@@ -66,6 +66,32 @@ class AddAnswerBody {
   @Type(() => SourceItem)
   sources: SourceItem[];
 }
+
+class FetchAiInitialAnswerBody {
+  @JSONSchema({
+    description: 'Question text to generate an AI answer for',
+    example: 'How should I apply magnesium sulphate for paddy?',
+  })
+  @IsNotEmpty()
+  @IsString()
+  query: string;
+
+  @JSONSchema({
+    description: 'Crop name',
+    example: 'Paddy',
+  })
+  @IsNotEmpty()
+  @IsString()
+  crop: string;
+
+  @JSONSchema({
+    description: 'State name',
+    example: 'Punjab',
+  })
+  @IsNotEmpty()
+  @IsString()
+  state: string;
+}
 // class AddAnswerBody {
 //   @JSONSchema({
 //     description: 'ID of the question being answered',
@@ -518,6 +544,7 @@ export const ANSWER_VALIDATORS = [
   UpdateAnswerBody,
   SubmissionResponse,
   ReviewAnswerBody,
+  FetchAiInitialAnswerBody,
 ];
 
 export {
@@ -528,4 +555,5 @@ export {
   UpdateAnswerBody,
   SubmissionResponse,
   ReviewAnswerBody,
+  FetchAiInitialAnswerBody,
 };

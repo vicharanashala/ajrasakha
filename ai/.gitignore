@@ -52,6 +52,9 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
+# Per-thread runtime logs
+logs/
+
 # HuggingFace Cache
 .cache/
 models/

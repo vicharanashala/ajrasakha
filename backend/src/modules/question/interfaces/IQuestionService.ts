@@ -13,8 +13,8 @@ import {
   GetDetailedQuestionsQuery,
   QuestionResponse,
 } from '../classes/validators/QuestionVaidators.js';
-import {QuestionLevelResponse} from '#root/modules/question/classes/transformers/QuestionLevel.js';
-import {ClientSession, ObjectId} from 'mongodb';
+import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
+import { ClientSession, ObjectId } from 'mongodb';
 
 export interface IQuestionService {
   /** Bulk insert questions (CSV / upload / AI generated) */
@@ -56,6 +56,16 @@ export interface IQuestionService {
     context: string,
   ): Promise<GeneratedQuestionResponse[]>;
 
+  /** Generate questions from call context (AI) */
+  getQuestionFromCallContext(
+    context: string,
+    state?: string,
+    crop?: string,
+  ): Promise<GeneratedQuestionResponse[]>;
+
+  getCallSummary(
+    query: string,
+  ): Promise<any>;
   /** Manually trigger duplicate check for a question without a reference */
   manualCheckDuplicate(
     questionId: string,
@@ -77,20 +87,20 @@ export interface IQuestionService {
   updateQuestion(
     questionId: string,
     updates: Partial<IQuestion>,
-    threadUpdate?:boolean
-  ): Promise<{modifiedCount: number}>;
+    threadUpdate?: boolean
+  ): Promise<{ modifiedCount: number }>;
 
   /** Auto allocate experts */
   autoAllocateExperts(
     questionId: string,
     session?: any,
     batchSize?: number,
-  ): Promise<{data?: ObjectId[]; status: boolean}>;
+  ): Promise<{ data?: ObjectId[]; status: boolean }>;
 
   /** Toggle auto allocation on/off */
   toggleAutoAllocate(
     questionId: string,
-  ): Promise<{message: string; data?: ObjectId[]}>;
+  ): Promise<{ message: string; data?: ObjectId[] }>;
 
   /** Manually allocate experts */
   allocateExperts(
@@ -104,7 +114,7 @@ export interface IQuestionService {
     userId: string,
     questionIds: string[],
     paeExpertId: string,
-  ): Promise<{jobId: string; message: string}>;
+  ): Promise<{ jobId: string; message: string }>;
 
   /** Remove expert from allocation queue */
   removeExpertFromQueue(
@@ -127,13 +137,13 @@ export interface IQuestionService {
   deleteQuestion(
     questionId: string,
     session?: any,
-  ): Promise<{deletedCount: number}>;
+  ): Promise<{ deletedCount: number }>;
 
   /** Bulk delete (no limit, background worker) */
   bulkDeleteQuestions(
     userId: string,
     questionIds: string[],
-  ): Promise<{jobId: string; message: string}>;
+  ): Promise<{ jobId: string; message: string }>;
 
   /** Fetch question with answers, history & permissions */
   getQuestionFullData(
@@ -141,7 +151,7 @@ export interface IQuestionService {
     userId: string,
   ): Promise<{
     question: IQuestion | null;
-    approved_moderator: {name: string; email: string};
+    approved_moderator: { name: string; email: string };
   }>;
 
   /** Get expert’s allocated question page */
@@ -176,7 +186,7 @@ export interface IQuestionService {
     startDate: string,
     endDate: string,
     emails: string | string[],
-  ): Promise<{success: boolean; message: string}>;
+  ): Promise<{ success: boolean; message: string }>;
   generateQuestionReport(
     consecutiveApprovals?: number,
     startDate?: Date,
@@ -211,7 +221,7 @@ export interface IQuestionService {
     questionId: string,
     userId: string,
     action: 'hold' | 'unhold',
-  ): Promise<{id: string}>;
+  ): Promise<{ id: string }>;
   checkSubmissionExists(questionId: string): Promise<boolean>;
 
   /** Returns total question count and per-status breakdown with filters applied */
@@ -220,14 +230,14 @@ export interface IQuestionService {
     body: DetailedQuestionsBodyDto,
   ): Promise<{
     totalQuestions: number;
-    statuses: {status: string; count: number}[];
-    sourceCounts: {source: string; count: number}[];
+    statuses: { status: string; count: number }[];
+    sourceCounts: { source: string; count: number }[];
   }>;
 
   getExprtIdByIndex(questionId: string, index: number): Promise<string | null>;
   generateAiInitialAnswer(
     questionId: string,
-  ): Promise<{aiInitialAnswer: string}>;
+  ): Promise<{ aiInitialAnswer: string }>;
 
   approveAiInitialAnswer(questionId: string, answer: string);
 

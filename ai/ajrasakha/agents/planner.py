@@ -18,10 +18,16 @@ from typing import Optional
 from anthropic import APITimeoutError, APIConnectionError, APIStatusError
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
-from langchain_core.runnables import RunnableConfig
+from langchain_core.runnables import RunnableConfig, patch_config
 from pydantic import BaseModel, Field
 
 from ajrasakha.agents.config import PLANNER_MODEL
+from ajrasakha.agents.thread_logging import (
+    begin_conversation_turn,
+    end_conversation_turn,
+)
+from ajrasakha.agents.crop_chemical_resolver import format_planner_crop_hints
+from ajrasakha.agents.thread_trace import trace_event
 from ajrasakha.agents.crop_requirement import is_crop_specific_question
 from ajrasakha.agents.domains import (
     CROP_ALL_DOMAINS,
@@ -51,6 +57,7 @@ from ajrasakha.agents.planner_rules import (
     apply_planner_completeness_rules,
     crop_slot_satisfied,
     format_conversation_for_planner,
+    format_prev_plan_context,
     merge_entities_from_rephrased_query,
     resolve_crop_for_turn,
     was_crop_clarify_asked,
@@ -269,6 +276,13 @@ def _extract_state_from_history(
     return None
 
 
+def _planner_invoke_config(config: RunnableConfig) -> RunnableConfig:
+    """Strip thread location from config so the planner LLM never sees coordinates."""
+    configurable = dict((config.get("configurable") or {}))
+    configurable.pop("location", None)
+    return patch_config(config, configurable=configurable)
+
+
 def _resolve_state_deterministic(
     messages: list[BaseMessage],
     location: Optional[dict],
@@ -355,15 +369,13 @@ def _check_question_completeness(
     state_resolved: Optional[str],
     crop_resolved: Optional[str],
     crop_required: bool,
-    has_gps: bool,
     plan: PlannerPlan,
 ) -> tuple[bool, list[str], Optional[str]]:
-    """Deterministic completeness check following the specified flow."""
+    """Deterministic completeness check — state from text/entities only, not device GPS."""
     script, vocal = language_pair_from_plan(plan)
     missing: list[str] = []
     follow_up: Optional[str] = None
-
-    has_state = bool(state_resolved) or has_gps
+    has_state = bool(state_resolved)
     if not has_state:
         missing.append("location")
         follow_up = get_state_follow_up(script, vocal)
@@ -387,6 +399,8 @@ async def planner_node(
         return {"plan": _default_plan_for_agriculture(None)}
 
     user_text = _message_to_text(human)
+    begin_conversation_turn(user_text)
+
     if is_greeting_message(user_text):
         plan: PlannerPlan = {
             "domain": "General",
@@ -423,37 +437,61 @@ async def planner_node(
     state_resolved = _resolve_state_deterministic(messages, location, prev_entities)
     crop_resolved = resolve_crop_for_turn(messages)
 
-    has_gps = bool(
-        location
-        and location.get("latitude") is not None
-        and location.get("longitude") is not None
-    )
-
     llm_messages: list[BaseMessage] = [SystemMessage(content=PLANNER_SYSTEM_PROMPT)]
     conv_block = format_conversation_for_planner(messages) or user_text
 
+    crop_hints = format_planner_crop_hints(user_text)
+    prev_plan_context = format_prev_plan_context(prev_plan)
+    trace_event(
+        "crop_fuzzy_hints",
+        user_text=user_text,
+        hints=crop_hints or "(no fuzzy crop alias matches above 80%)",
+    )
     deterministic_context = (
         f"PRE-EXTRACTED HINTS from latest raw message (server will re-merge from rephrased_query):\n"
         f"- state hint: {state_resolved or 'NOT RESOLVED'}\n"
         f"- crop hint: {crop_resolved or 'NOT RESOLVED'}\n"
-        f"- has_gps: {has_gps}\n"
     )
-    llm_messages.append(
-        HumanMessage(
-            content=(
-                f"{deterministic_context}\n"
-                f"Latest farmer message:\n{conv_block}\n\n"
-                f"Pick `domain` from the allowed list using this latest message only.\n"
-                "Set `vocal_language` and `script_language` from the official language list.\n"
-                "Leave `follow_up_question` empty when location/crop is missing — server uses the sheet.\n"
-                "Return the routing plan only."
-            )
-        )
+    if prev_plan_context:
+        deterministic_context = f"{deterministic_context}\n{prev_plan_context}"
+    if crop_hints:
+        deterministic_context = f"{deterministic_context}\n{crop_hints}\n"
+    human_content = (
+        f"{deterministic_context}\n"
+        f"Current farmer message (route using this):\n{user_text}\n\n"
+        f"Recent farmer messages in thread:\n{conv_block}\n\n"
+        f"Pick `domain` from the allowed list using the current farmer message only.\n"
+        "Set `vocal_language` and `script_language` from the official language list.\n"
+        "Leave `follow_up_question` empty when location/crop is missing — server uses the sheet.\n"
+        "Return the routing plan only."
     )
+    trace_event(
+        "planner_llm_request",
+        state_hint=state_resolved,
+        crop_hint=crop_resolved,
+        prev_plan_context=prev_plan_context or None,
+        conversation=conv_block,
+        deterministic_context=deterministic_context,
+        llm_human_message=human_content,
+        system_prompt_note="PLANNER_SYSTEM_PROMPT (full system prompt omitted — see prompts.py)",
+    )
+    llm_messages.append(HumanMessage(content=human_content))
 
     try:
         llm = ChatAnthropic(model=PLANNER_MODEL).with_structured_output(PlannerOutput)
-        output = await llm.ainvoke(llm_messages, config=config)
+        output = await llm.ainvoke(llm_messages, config=_planner_invoke_config(config))
+        trace_event(
+            "planner_llm_response",
+            reasoning=output.reasoning,
+            original_query_en=output.original_query_en,
+            rephrased_query=output.rephrased_query,
+            domains=output.domains,
+            is_agriculture_related=output.is_agriculture_related,
+            is_greeting=output.is_greeting,
+            entities=output.entities.model_dump(),
+            vocal_language=output.vocal_language,
+            script_language=output.script_language,
+        )
         plan = planner_output_to_plan(output)
 
         prev_vocal = plan.get("vocal_language")
@@ -479,6 +517,7 @@ async def planner_node(
 
         entities = merge_entities_from_rephrased_query(plan, messages, location, prev_entities)
         plan["entities"] = entities
+        trace_event("planner_entities_merged", entities=entities)
 
         if not plan.get("is_agriculture_related", True):
             plan = apply_non_agriculture_gate(plan)
@@ -504,7 +543,6 @@ async def planner_node(
             state_resolved=final_state,
             crop_resolved=effective_crop,
             crop_required=crop_required,
-            has_gps=has_gps,
             plan=plan,
         )
 
@@ -518,6 +556,31 @@ async def planner_node(
         plan["follow_up_question"] = follow_up
 
         plan = apply_planner_completeness_rules(plan, messages, location, prev_entities)
+
+        trace_event(
+            "planner_final_plan",
+            plan={
+                k: plan.get(k)
+                for k in (
+                    "domain",
+                    "domains",
+                    "is_complete",
+                    "missing_info",
+                    "entities",
+                    "rephrased_query",
+                    "original_query_en",
+                    "reasoning",
+                    "weather",
+                    "mandi",
+                    "soil",
+                    "schemes",
+                    "chemical_checker",
+                    "knowledge_base",
+                    "vocal_language",
+                    "script_language",
+                )
+            },
+        )
 
         if plan.get("is_greeting"):
             plan["knowledge_base"] = False
@@ -574,6 +637,7 @@ def clarify_node(state: AjraSakhaState) -> dict:
             question = get_crop_follow_up(script, vocal)
         else:
             question = get_state_follow_up(script, vocal)
+    end_conversation_turn(question, outcome="clarify")
     return {"messages": [AIMessage(content=question)]}
 
 

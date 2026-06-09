@@ -8,14 +8,14 @@ export interface KpiSummary {
   dailyQueries?: number;
   avgSessionDurationMin?: number;
   csatRating?: number;
-// repeatQueryRatePct: number; 
+  // repeatQueryRatePct: number;
   voiceUsageSharePct?: number;
   totalAppInstalls?: number; // It will the count the user whose profile is completed or not.
   inactiveUsersLast3Days?: number; // users with zero messages in the last 3 days
   duplicateQuestionsCount?: number; // questions with a similarityScore field
   lowFeedbackUsersCount?: number; // users who have never given any feedback (no feedback object in messages)
-// avgQuestionsPerUserDay?: number;
-// repeatQueryCount?: number;
+  // avgQuestionsPerUserDay?: number;
+  // repeatQueryCount?: number;
 }
 
 export interface DuplicateQuestionEntry {
@@ -84,7 +84,7 @@ export interface PaginatedQueryCategoryQuestions {
   limit: number;
 }
 
-export interface DistrictAnalyticsEntry{
+export interface DistrictAnalyticsEntry {
   district: string;
   totalQuestions: number;
   uniqueQuestions: number;
@@ -122,7 +122,11 @@ export interface WeatherConcernAnalyticsResponse {
   timeline: WeatherConcernTimelineEntry[];
 }
 
-export type FarmerHeatMapGranularity = 'monthly' | 'weekly' | 'daily' | 'hourly';
+export type FarmerHeatMapGranularity =
+  | 'monthly'
+  | 'weekly'
+  | 'daily'
+  | 'hourly';
 
 export interface FarmerHeatMapFilters {
   source?: string;
@@ -212,18 +216,18 @@ export interface FeedbackEntry {
   tag: string;
 }
 
-export interface FeedbackData{
+export interface FeedbackData {
   positiveFeedbacks: FeedbackEntry[];
   negativeFeedbacks: FeedbackEntry[];
-  positiveFeedbackCounts: {tag: string, count: any}[],
-  negativeFeedbackCounts: {tag: string, count: any}[],
+  positiveFeedbackCounts: {tag: string; count: any}[];
+  negativeFeedbackCounts: {tag: string; count: any}[];
   stats: {
-    "_id"?: null | ObjectId,
-    positiveCount: number,
-    negativeCount: number,
-    averageRating: number,
-    totalFeedbacks: number
-  }
+    _id?: null | ObjectId;
+    positiveCount: number;
+    negativeCount: number;
+    averageRating: number;
+    totalFeedbacks: number;
+  };
 }
 
 export interface FarmerProfile {
@@ -235,7 +239,7 @@ export interface FarmerProfile {
   district?: string;
   state?: string;
   phoneNo?: string;
-  nearestKVK?: string
+  nearestKVK?: string;
   languagePreference?: string;
   yearsOfExperience?: number;
   cropsCultivated?: string[];
@@ -246,7 +250,7 @@ export interface FarmerProfile {
   highestEducatedPerson?: string;
   numberOfSmartphones?: number;
   platform?: string;
-  platformHistory?: { os: string; timestamp: string }[];
+  platformHistory?: {os: string; timestamp: string}[];
   location?: {
     latitude: number;
     longitude: number;
@@ -266,7 +270,7 @@ export interface UserDetailEntry {
   isVerified?: boolean;
 }
 
-export interface PaginatedUserDetails { 
+export interface PaginatedUserDetails {
   users: UserDetailEntry[];
   totalUsers: number;
   totalPages: number;
@@ -309,11 +313,11 @@ export interface PlatformInstallEntry {
 
 export interface DomainSpikeEntry {
   domain: string;
-  date: string;       // 'YYYY-MM-DD'
-  count: number;      // query count on that date
-  baseline: number;   // rolling 30-day average (excluding the spike day)
-  spikePct: number;   // % above baseline, rounded
-  location?: string;  // most common "District, State" for that domain+date
+  date: string; // 'YYYY-MM-DD'
+  count: number; // query count on that date
+  baseline: number; // rolling 30-day average (excluding the spike day)
+  spikePct: number; // % above baseline, rounded
+  location?: string; // most common "District, State" for that domain+date
 }
 
 export interface ResponseAdherenceTable {
@@ -369,7 +373,10 @@ export interface IChatbotRepository {
   ): Promise<DailyActiveUsersEntry[]>;
 
   /** Percentage breakdown of sessions by channel (voice / text / kcc_agent / ivrs). */
-  getChannelSplit(source?: string, session?: ClientSession): Promise<ChannelSplitEntry[]>;
+  getChannelSplit(
+    source?: string,
+    session?: ClientSession,
+  ): Promise<ChannelSplitEntry[]>;
 
   /** Average voice recognition accuracy grouped by language. */
   getVoiceAccuracyByLanguage(
@@ -378,10 +385,17 @@ export interface IChatbotRepository {
   ): Promise<VoiceAccuracyEntry[]>;
 
   /** Session counts grouped by state abbreviation, sorted descending. */
-  getGeoDistribution(source?: string, session?: ClientSession): Promise<GeoStateEntry[]>;
+  getGeoDistribution(
+    source?: string,
+    session?: ClientSession,
+  ): Promise<GeoStateEntry[]>;
 
   /** Percentage breakdown of sessions by query category, sorted descending. */
-  getQueryCategories(source?: string, session?: ClientSession, userType?: string): Promise<QueryCategoryEntry[]>;
+  getQueryCategories(
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+  ): Promise<QueryCategoryEntry[]>;
 
   getQueryCategoryQuestions(
     category: string,
@@ -391,16 +405,65 @@ export interface IChatbotRepository {
     source?: string,
     session?: ClientSession,
     userType?: string,
-    search?: string
+    search?: string,
   ): Promise<PaginatedQueryCategoryQuestions>;
 
-  getQuestionFromDistrict(district: string, state?: string, questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string, search?: string): Promise<any>;
+  getQuestionFromDistrict(
+    district: string,
+    state?: string,
+    questionType?: QueryCategoryQuestionType,
+    page?: number,
+    limit?: number,
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+    search?: string,
+  ): Promise<any>;
 
-  getTopCrops(source?: string, userType?: string, session?: ClientSession): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
+  getTopCrops(
+    source?: string,
+    userType?: string,
+    session?: ClientSession,
+  ): Promise<{
+    totalQuestions: number;
+    topCrops: {name: string; count: number}[];
+  }>;
 
-    getQuestionsByCrop(crop: string, questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string, search?: string): Promise<any>
+  // getQuestionsByCrop(
+  //   crop: string,
+  //   questionType?: QueryCategoryQuestionType,
+  //   page?: number,
+  //   limit?: number,
+  //   source?: string,
+  //   session?: ClientSession,
+  //   userType?: string,
+  //   search?: string,
+  // ): Promise<any>;
 
-    getQuestionsByCrop(crop: string, questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string, search?: string): Promise<any>
+  getQuestionsByStatus(
+    status: string,
+    page?: number,
+    limit?: number,
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<any>;
+
+  // getQuestionsByCrop(
+  //   crop: string,
+  //   questionType?: QueryCategoryQuestionType,
+  //   page?: number,
+  //   limit?: number,
+  //   source?: string,
+  //   session?: ClientSession,
+  //   userType?: string,
+  //   search?: string,
+  // ): Promise<any>;
+
+    getQuestionsByCrop(crop: string, crops?: string[] ,questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string, search?: string): Promise<any>
 
   /** Weekly avg session duration (updatedAt - createdAt) over the last `weeks` ISO weeks, sorted ascending. */
   getWeeklyAvgSessionDuration(
@@ -417,7 +480,11 @@ export interface IChatbotRepository {
   ): Promise<any[]>;
 
   /** Count of user messages created today from the messages collection. */
-  getTodayQueryCount(source?: string, session?: ClientSession, userType?: string): Promise<number>;
+  getTodayQueryCount(
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+  ): Promise<number>;
 
   getWeeklyAnalytics(
     month?: string,
@@ -440,11 +507,27 @@ export interface IChatbotRepository {
     session?: ClientSession,
     userType?: string,
   ): Promise<DailyActiveUsersEntry[]>;
-  findMatchingMessages(data: {question: string; details: any; createdAt: Date; questionId: string; messageId?: string|undefined});
-  findFromSecondDb(data: {question: string; details: any; createdAt: Date; questionId: string; messageId?: string|undefined});
+  findMatchingMessages(data: {
+    question: string;
+    details: any;
+    createdAt: Date;
+    questionId: string;
+    messageId?: string | undefined;
+  });
+  findFromSecondDb(data: {
+    question: string;
+    details: any;
+    createdAt: Date;
+    questionId: string;
+    messageId?: string | undefined;
+  });
 
   /** Inactivity-gap based avg session duration in minutes (KPI number). Requires MongoDB 5.0+. */
-  getAvgSessionDurationV2(source?: string, session?: ClientSession, userType?: string): Promise<number>;
+  getAvgSessionDurationV2(
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+  ): Promise<number>;
 
   /** Inactivity-gap based weekly avg session duration for sparkline/delta. Requires MongoDB 5.0+. */
   getWeeklyAvgSessionDurationV2(
@@ -480,6 +563,7 @@ export interface IChatbotRepository {
     inactiveOnly?: boolean,
     session?: ClientSession,
     userType?: string,
+    roles?: string,
     sortBy?: string,
     sortOrder?: string,
     lowFeedbackOnly?: boolean,
@@ -488,13 +572,34 @@ export interface IChatbotRepository {
     isVerified?: boolean,
   ): Promise<PaginatedUserDetails>;
 
-  getUserQuestionsData(messageIds: string[], source?: string, userType?: string, page?: number, limit?: number): Promise<any>;
+  getUserQuestionsData(
+    messageIds: string[],
+    source?: string,
+    userType?: string,
+    page?: number,
+    limit?: number,
+  ): Promise<any>;
 
-  getUsersMessages(email: string, source?: string, session?: ClientSession, userType?: string, page?: number, limit?: number): Promise<any>;
+  getUsersMessages(
+    email: string,
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+    page?: number,
+    limit?: number,
+  ): Promise<any>;
 
-  getUserData(userEmail: string, source: string, session?: ClientSession): Promise<{ userId: string; name: string }>;
+  getUserData(
+    userEmail: string,
+    source: string,
+    session?: ClientSession,
+  ): Promise<{userId: string; name: string}>;
 
-  getAllUserMessageIds(email: string, source?: string, session?: ClientSession): Promise<string[]>;
+  getAllUserMessageIds(
+    email: string,
+    source?: string,
+    session?: ClientSession,
+  ): Promise<string[]>;
 
   /** Aggregate conversations from the messages collection for Excel export. */
   generateChatbotExcelReport(
@@ -504,7 +609,7 @@ export interface IChatbotRepository {
     session?: ClientSession,
   ): Promise<ChatbotConversationData[]>;
 
-  generateChatBotData(    
+  generateChatBotData(
     startDate: Date,
     endDate: Date,
     days: number,
@@ -513,28 +618,50 @@ export interface IChatbotRepository {
     state?: string,
     source?: string,
     session?: ClientSession,
-  )
+  );
 
   /** Aggregate age group, gender split, and farming experience distributions from farmerProfile. */
-  getUserDemographics(source?: string, session?: ClientSession, userType?: string): Promise<UserDemographics>;
+  getUserDemographics(
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+  ): Promise<UserDemographics>;
 
   /** Aggregate KCC policy awareness and agri app usage splits from farmerProfile. */
-  getKccAndAgriAppStats(source?: string, session?: ClientSession, userType?: string): Promise<KccAndAgriAppStats>;
+  getKccAndAgriAppStats(
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+  ): Promise<KccAndAgriAppStats>;
 
-  getIdsCreated(startDate:Date,endDate:Date, session?: ClientSession)
-  getInstalls(startDate:Date,endDate:Date, session?: ClientSession)
-  getActiveUsers(startDate:Date,endDate:Date, session?: ClientSession)
+  getIdsCreated(userType: string, startDate:Date,endDate:Date, session?: ClientSession)
+  getInstalls(userType: string, startDate:Date,endDate:Date, session?: ClientSession)
+  getActiveUsers(userType: string, startDate:Date,endDate:Date, session?: ClientSession)
 
-  getFeedbackData(source?: string, session?: ClientSession, userType?: string): Promise<FeedbackData>;
+  getFeedbackData(
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+  ): Promise<FeedbackData>;
 
   // get platform wise installs
-  getPlatformInstalls(source: string, session?: ClientSession, userType?: string): Promise<PlatformInstallEntry[]>;
+  getPlatformInstalls(
+    source: string,
+    session?: ClientSession,
+    userType?: string,
+  ): Promise<PlatformInstallEntry[]>;
 
   /** Duplicate questions (questions with a similarityScore) enriched with farmer details. */
-  getDuplicateQuestions(source?: string, session?: ClientSession): Promise<DuplicateQuestionEntry[]>;
+  getDuplicateQuestions(
+    source?: string,
+    session?: ClientSession,
+  ): Promise<DuplicateQuestionEntry[]>;
 
   /** Domain query spikes: days where a domain's question count is ≥2× its 30-day rolling average. */
-  getDomainSpikes(days?: number, session?: ClientSession): Promise<DomainSpikeEntry[]>;
+  getDomainSpikes(
+    days?: number,
+    session?: ClientSession,
+  ): Promise<DomainSpikeEntry[]>;
 
   /** Daily unique vs duplicate questions asked on the review system (source AJRASAKHA). */
   getDailyQuestionTrends(
@@ -544,7 +671,7 @@ export interface IChatbotRepository {
     userType?: string,
     startTime?: string,
     endTime?: string,
-  ): Promise<Array<{ day: string; uniqueCount: number; duplicateCount: number }>>;
+  ): Promise<Array<{day: string; uniqueCount: number; duplicateCount: number}>>;
 
   /** 10 most frequently asked questions from the messages collection. */
   getTopFaqs(
@@ -553,7 +680,7 @@ export interface IChatbotRepository {
     userType?: string,
     startTime?: string,
     endTime?: string,
-  ): Promise<Array<{ question: string; count: number }>>;
+  ): Promise<Array<{question: string; count: number}>>;
 
   /** 10 most frequently asked questions from the questions collection. */
   getTopQuestionsFromCollection(
@@ -562,7 +689,7 @@ export interface IChatbotRepository {
     userType?: string,
     startTime?: string,
     endTime?: string,
-  ): Promise<Array<{ question: string; count: number }>>;
+  ): Promise<Array<{question: string; count: number}>>;
   getResponseAdherenceTable(
     session?: ClientSession,
     userType?: string,
@@ -570,7 +697,12 @@ export interface IChatbotRepository {
     endTime?: string,
     source?: string,
   ): Promise<ResponseAdherenceTable>;
-  getDistrictAnalyticsByState( state: string, source?: string, session?: ClientSession, userType?: string): Promise<DistrictAnalyticsEntry[]>;
+  getDistrictAnalyticsByState(
+    state: string,
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+  ): Promise<DistrictAnalyticsEntry[]>;
 
   getWeatherConcernAnalytics(
     filters?: WeatherConcernAnalyticsFilters,
@@ -584,7 +716,6 @@ export interface IChatbotRepository {
     session?: ClientSession,
   ): Promise<FarmerHeatMapResponse>;
 
-  
   getUserById(userId: string, source: string): Promise<any>;
   deleteUser(userId: string, source: string): Promise<boolean>;
   updateUser(
@@ -608,12 +739,14 @@ export interface IChatbotRepository {
       name: string;
       password: string;
       userRole?: string;
+      isVerified?: boolean;
     },
   ): Promise<boolean>;
 
   verifyUser(
     userId: string,
     source?: string,
+    isVerified?: boolean,
     session?: ClientSession,
   ): Promise<any>;
 
@@ -623,21 +756,21 @@ export interface IChatbotRepository {
 
   // getWeeklyActiveUsersTrend ( source: string, userType: string,startDate?: Date, endDate?: Date, session?: ClientSession): Promise<any>
 
-  getRetentionMetrics (
+  getRetentionMetrics(
     source: string,
     userType: string,
     requestType: string,
     startDate?: Date,
     endDate?: Date,
     session?: ClientSession,
-  ): Promise<any>
+  ): Promise<any>;
 
   getQuerySummaryByPeriod(
     period: 'daily' | 'weekly' | 'monthly',
     source?: string,
     session?: ClientSession,
     userType?: string,
-  ): Promise<{ label: string; totalQueries: number }>;
+  ): Promise<{label: string; totalQueries: number}>;
 
   getClosedVsTotalQuestions(source: string, userType?: string, startDate?: Date, endDate?: Date):Promise<any>;
 
@@ -645,7 +778,7 @@ export interface IChatbotRepository {
 
   getClosedInLastTwoHours(source?: string, userType?: string, startDate?: Date, endDate?: Date): Promise<any>;
 
-  getMonthlyChurnRate(source: string, userType: string):Promise<any>;
+  getMonthlyChurnRate(source: string, userType: string): Promise<any>;
 
   getCarryForwardQuestions(source?: string, userType?: string): Promise<any>;
 
@@ -656,12 +789,20 @@ export interface IChatbotRepository {
     startDate?: Date,
     endDate?: Date,
     session?: ClientSession,
-  ) : Promise<{
-  _id: string;
-  activeUsers: number;
-}[]>;
+  ): Promise<
+    {
+      _id: string;
+      activeUsers: number;
+    }[]
+  >;
 
-  getRepeatQueryCount(source?: string, userType?: string, startTime?: string, endTime?: string, session?: ClientSession): Promise<any>;
+  getRepeatQueryCount(
+    source?: string,
+    userType?: string,
+    startTime?: string,
+    endTime?: string,
+    session?: ClientSession,
+  ): Promise<any>;
 
   /**
    * Finds unverified users with pagination and search.
@@ -683,6 +824,38 @@ export interface IChatbotRepository {
     totalPages: number;
   }>;
 
+  getQuestionsClosedWithinTwoHours(
+    page?: number,
+    limit?: number,
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date 
+  ): Promise<any>
+
+  getQuestionsByNotificationStatus(
+  notificationType:string,
+  page: number,
+  limit: number,
+  source: string,
+  session?: ClientSession,
+  userType?: string,
+  search?: string,
+  startDate?: Date,
+  endDate?: Date,
+  ): Promise<any>
+
+  getQueriesByPeriod (
+    period: string,
+    page:number,
+    limit: number,
+    source: string,
+    session?: ClientSession,
+    userType?: string,
+    search?: string,
+  ): Promise<any>
 }
 
 export interface ChatbotConversationData {

@@ -147,8 +147,8 @@ export function AnnamDashboard_dev({
   onSourceChange,
 }: {
   className?: string;
-  source?: "vicharanashala" | "annam" | "whatsapp";
-  onSourceChange?: (source: "vicharanashala" | "annam" | "whatsapp") => void;
+  source?:  "annam" | "whatsapp";
+  onSourceChange?: (source: "annam" | "whatsapp") => void;
 }) {
   const [invalidating, setInvalidating] = useState(false);
   const queryClient = useQueryClient();
@@ -182,9 +182,9 @@ export function AnnamDashboard_dev({
   const [activeChartTab, setActiveChartTab] = useState<string>("dau");
   const [filters, setFilters] =
     useState<DashboardFilterValues>(DEFAULT_FILTERS);
-  const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
+  // const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
   const isAppAnalyticsSource =
-    source === "annam" || source === "vicharanashala" || source === "whatsapp";
+    source === "annam" || source === "whatsapp";
   const loadImmediately = !isAppAnalyticsSource;
   const { data, isLoading, isFetching, error } = useDashboardData(
     filters,
@@ -537,11 +537,12 @@ export function AnnamDashboard_dev({
     false,
     false,
     filters.userType as any,
+    [],
     "totalQuestions",
     "desc",
     true, // activeTodayByProfile
     "",
-    true, // isVerified
+    "verified", // verificationStatus
     true, // enabled
   );
 
@@ -742,7 +743,7 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
 
               <DashboardFilters filters={filters} onFilterChange={setFilters} />
               {(source === "annam" ||
-                source === "vicharanashala" ||
+                // source === "vicharanashala" ||
                 source === "whatsapp") && (
                 <div
                   ref={(el) => {
@@ -817,12 +818,14 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                       kpiRow2={data.kpiRow2}
                     /> */}
                         {/* Uncomment the above line when data is dynamic and delete the below code */}
-                        {(source === "annam" ||
-                          source === "vicharanashala") && (
+                        {(source === "annam" 
+                        // ||source === "vicharanashala"
+                        ) && (
                           <EightCardsComponent
                             kpiRow1={kpiRow1WithOverlay}
                             kpiRow2={kpiRow2WithOverlay}
                             source={source}
+                            userType={filters.userType}
                             isLoading={isFetching}
                           />
                         )}
@@ -871,6 +874,7 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
 
                           <ClosedInLastTwoHoursCard
                             source={source}
+                            userType={filters.userType}
                             count={closed2hData?.closedInLastTwoHours}
                             totalClosed={
                               closed2hData?.closedVsTotalQuestions
@@ -908,6 +912,8 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                                 ?.previousMonthAvgCloseTimeMinutes
                             }
                             statusBreakup={questionStatusData?.closedVsTotalQuestions}
+                            source ={source}
+                            userType = {filters.userType}
                           />
                           <CustomerNotificationsCard
                             notified={
@@ -925,6 +931,8 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                             dateRange={customerNotificationsDateRange}
                             onDateRangeChange={setCustomerNotificationsDateRange}
                             isLoading={isCustomerNotificationsFetching || isCustomerNotificationsLoading}
+                            source = {source}
+                            userType = {filters.userType}
                           />
                         </div>
                         {source !== "whatsapp" && (
@@ -961,7 +969,7 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                         {/* {isGrowthVisible ? source === "whatsapp" ?(<div className="h-full w-full blur-sm opacity-90"></div>):( */}
                         {isGrowthVisible || loadImmediately ? (
                           <Suspense fallback={<LazySectionSkeleton />}>
-                            <LazyUserGrowthChart source={source} />
+                            <LazyUserGrowthChart source={source} userType = {filters.userType}/>
                           </Suspense>
                         ) : (
                           <LazySectionSkeleton />
@@ -1000,6 +1008,7 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                             <DuplicateQuestionsModal
                               onClose={() => setIsDuplicateModalOpen(false)}
                               source={source}
+                              userType={filters.userType}
                             />
                           )}
                           <InactiveUsersModal

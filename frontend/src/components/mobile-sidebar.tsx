@@ -60,7 +60,7 @@ export const MobileSidebar = ({
 }: {
   user: IUser;
   setTab: (value: string) => void;
-  setChatbotSource: (value: "vicharanashala" | "annam") => void;
+  setChatbotSource: (value: "whatsapp" | "annam") => void;
 }) => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);

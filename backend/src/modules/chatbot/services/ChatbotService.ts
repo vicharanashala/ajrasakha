@@ -348,7 +348,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getDashboard(
     days = 30,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
     startTime?: string,
     endTime?: string,
@@ -560,7 +560,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getKpiSummary(source = 'vicharanashala', userType = 'all') {
+  async getKpiSummary(source = 'annam', userType = 'all') {
     try {
       return await this.chatbotRepository.getKpiSummary(
         source,
@@ -574,7 +574,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getDailyActiveUsers(
     days = 30,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
   ) {
     try {
@@ -591,7 +591,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getChannelSplit(source = 'vicharanashala') {
+  async getChannelSplit(source = 'annam') {
     try {
       return await this.chatbotRepository.getChannelSplit(source);
     } catch (error) {
@@ -599,7 +599,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getVoiceAccuracyByLanguage(source = 'vicharanashala') {
+  async getVoiceAccuracyByLanguage(source = 'annam') {
     try {
       return await this.chatbotRepository.getVoiceAccuracyByLanguage(source);
     } catch (error) {
@@ -607,7 +607,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getGeoDistribution(source = 'vicharanashala') {
+  async getGeoDistribution(source = 'annam') {
     try {
       return await this.chatbotRepository.getGeoDistribution(source);
     } catch (error) {
@@ -617,7 +617,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getQueryCategories(source = 'vicharanashala', userType = 'all') {
+  async getQueryCategories(source = 'annam', userType = 'all') {
     try {
       return await this.chatbotRepository.getQueryCategories(
         source,
@@ -636,7 +636,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     questionType: 'all' | 'unique' | 'duplicate' = 'all',
     page = 1,
     limit = 10,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
     search?: string,
   ) {
@@ -660,7 +660,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getWeatherConcernAnalytics(
     filters: WeatherConcernAnalyticsFilters = {},
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
   ) {
     try {
@@ -690,7 +690,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
   }
 
   async getDistrictAnalyticsByState(
-    source = 'vicharanashala',
+    source = 'annam',
     state: string,
     userType = 'all',
   ) {
@@ -714,7 +714,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     questionType: 'all' | 'unique' | 'duplicate' = 'all',
     page = 1,
     limit = 10,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
     search?: string,
   ): Promise<any> {
@@ -745,7 +745,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getWeeklyAvgSessionDuration(weeks = 52, source = 'vicharanashala') {
+  async getWeeklyAvgSessionDuration(weeks = 52, source = 'annam') {
     try {
       return await this.chatbotRepository.getWeeklyAvgSessionDuration(
         weeks,
@@ -760,7 +760,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getDailyAnalytics(
     month?: string,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
   ) {
     try {
@@ -777,7 +777,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getTodayQueryCount(source = 'vicharanashala', userType = 'all') {
+  async getTodayQueryCount(source = 'annam', userType = 'all') {
     try {
       return await this.chatbotRepository.getTodayQueryCount(
         source,
@@ -793,7 +793,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getDailyUserTrend(
     days = 30,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
   ) {
     try {
@@ -812,7 +812,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getWeeklyAnalytics(
     month?: string,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
   ) {
     try {
@@ -829,7 +829,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getMonthlyAnalytics(source = 'vicharanashala', userType = 'all') {
+  async getMonthlyAnalytics(source = 'annam', userType = 'all') {
     try {
       return await this.chatbotRepository.getMonthlyAnalytics(
         source,
@@ -854,7 +854,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       userType?: string;
     },
   ) {
-    const source = options.source ?? 'vicharanashala';
+    const source = options.source ?? 'annam';
     const userType = options.userType ?? 'all';
     const page = Math.max(1, options.page ?? 1);
     const limit = Math.max(1, options.limit ?? 10);
@@ -905,7 +905,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     page = 1,
     limit = 10,
     search = '',
-    source = 'vicharanashala',
+    source = 'annam',
     crop = '',
     primaryCrops = '',
     secondaryCrops = '',
@@ -917,11 +917,12 @@ export class ChatbotService extends BaseService implements IChatbotService {
     inactiveOnly = false,
     lowFeedbackOnly = false,
     userType = 'all',
+    roles = '',
     sortBy = 'totalQuestions',
     sortOrder = 'desc',
     activeTodayByProfile = false,
     missingDemographicField?: string,
-    isVerified = true,
+    isVerified?: boolean,
   ): Promise<PaginatedUserDetails> {
     try {
       const start = startDate ? new Date(startDate) : undefined;
@@ -944,6 +945,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         inactiveOnly,
         undefined,
         userType,
+        roles,
         sortBy,
         sortOrder,
         lowFeedbackOnly,
@@ -959,7 +961,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getUserQuestionsData(
     userEmail: string,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
     page = 1,
     limit = 10,
@@ -1027,7 +1029,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     };
   }
 
-  async getAvgSessionDurationV2(source = 'vicharanashala', userType = 'all') {
+  async getAvgSessionDurationV2(source = 'annam', userType = 'all') {
     try {
       return await this.chatbotRepository.getAvgSessionDurationV2(
         source,
@@ -1043,7 +1045,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getWeeklyAvgSessionDurationV2(
     weeks = 52,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
   ) {
     try {
@@ -1063,7 +1065,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
   // async generateChatbotExcelReport(
   //   startDate: Date,
   //   endDate: Date,
-  //   source = 'vicharanashala',
+  //   source = 'annam',
   // ): Promise<ArrayBuffer | null> {
   //   try {
   //     const rows = await this.chatbotRepository.generateChatbotExcelReport(
@@ -1545,7 +1547,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     startDate: Date,
     endDate: Date,
     state: string,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
     month?: string,
   ): Promise<ArrayBuffer | null> {
@@ -2083,7 +2085,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     startDate: Date,
     endDate: Date,
     state: string,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
     month?: string,
   ): Promise<Buffer> {
@@ -2269,6 +2271,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getGrowth(
     source: string,
+    userType: string,
     range: number,
     startDate?: Date,
     endDate?: Date,
@@ -2290,16 +2293,19 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
       const [idsData, installsData, activeUsersData] = await Promise.all([
         this.chatbotRepository.getIdsCreated(
+          userType,
           resolvedStartDate,
           resolvedEndDate,
           session,
         ),
         this.chatbotRepository.getInstalls(
+          userType,
           resolvedStartDate,
           resolvedEndDate,
           session,
         ),
         this.chatbotRepository.getActiveUsers(
+          userType,
           resolvedStartDate,
           resolvedEndDate,
           session,
@@ -2358,7 +2364,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
   }
 
   async getTopFaqs(
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
     startTime?: string,
     endTime?: string,
@@ -2451,6 +2457,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       name: string;
       password: string;
       userRole?: string;
+      isVerified?: boolean;
     },
   ): Promise<boolean> {
     try {
@@ -2690,7 +2697,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
   }
 
   async getTopQuestionsFromCollection(
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
     startTime?: string,
     endTime?: string,
@@ -2768,7 +2775,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     page: number = 1,
     limit: number = 10,
     search: string = '',
-    source: string = 'vicharanashala',
+    source: string = 'annam',
   ): Promise<{
     users: UnverifiedUserEntry[];
     totalUsers: number;
@@ -2794,7 +2801,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async verifyUser(userId: string, source = 'vicharanashala'): Promise<any> {
+  async verifyUser(userId: string, source = 'vicharanashala',  isVerified?: boolean,  ): Promise<any> {
     try {
       if (!userId) {
         throw new NotFoundError('User ID is required');
@@ -2803,6 +2810,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       const updatedUser = await this.chatbotRepository.verifyUser(
         userId,
         source,
+        isVerified,
       );
 
       if (!updatedUser) {
@@ -2863,20 +2871,99 @@ export class ChatbotService extends BaseService implements IChatbotService {
       }));
   }
 
-  async getQuestionsByCrop(crop: string, questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, userType?: string, search?: string): Promise<any> {
-    try{
-      return this.chatbotRepository.getQuestionsByCrop( 
+  async getQuestionsByCrop(
+    crop: string,
+    crops?: string[],
+    questionType?: QueryCategoryQuestionType,
+    page?: number,
+    limit?: number,
+    source?: string,
+    userType?: string,
+    search?: string,
+  ): Promise<any> {
+    try {
+      return this.chatbotRepository.getQuestionsByCrop(
         crop,
+        crops,
         questionType,
         page,
         limit,
         source,
         undefined,
         userType,
-        search
+        search,
+      );
+    } catch (error) {
+      throw new InternalServerError(`Internal server error ${error}`);
+    }
+  }
+
+  async getQuestionsByStatus(
+    status: string,
+    page?: number,
+    limit?: number,
+    source?: string,
+    userType?: string,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<any> {
+    try {
+      return this.chatbotRepository.getQuestionsByStatus(
+        status,
+        page,
+        limit,
+        source,
+        undefined,
+        userType,
+        search,
+        startDate,
+        endDate,
+      );
+    } catch (error) {
+      throw new InternalServerError(`Internal server error ${error}`);
+    }
+  }
+
+  async getQuestionsClosedWithinTwoHours(page?: number, limit?: number, source?: string, userType?: string, search?: string, startDate?: Date, endDate?: Date): Promise<any> {
+    try {
+      return this.chatbotRepository.getQuestionsClosedWithinTwoHours(
+        page,
+        limit,
+        source,
+        undefined,
+        userType,
+        search,
+        startDate,
+        endDate
       )
     }catch(error){
       throw new InternalServerError(`Internal server error ${error}`)
+    }
+  }
+  async getQuestionsByNotificationStatus(notificationType: string, page: number, limit: number, source: string, userType?: string, search?: string, startDate?: Date, endDate?: Date): Promise<any> {
+      try {
+      return this.chatbotRepository.getQuestionsByNotificationStatus(
+        notificationType,
+        page,
+        limit,
+        source,
+        undefined,
+        userType,
+        search,
+        startDate,
+        endDate
+      )
+    }catch(error){
+      throw new InternalServerError(`Internal server error ${error}`)
+    }
+  }
+
+  async getQueriesByPeriod(period: string, page: number, limit: number, source: string, userType?: string, search?: string): Promise<any> {
+    try{
+      return this.chatbotRepository.getQueriesByPeriod(period, page, limit, source, undefined, userType, search)
+    }catch(error){
+      throw new InternalServerError(`Internal Server Error ${error}`)
     }
   }
 }

@@ -1,0 +1,295 @@
+"""Per-thread log files: logs/{thread_id}.txt
+
+Set context at graph node entry; a root logging handler routes records to the
+matching file while that context is active.
+
+Multi-turn: each new farmer message opens a beautified TURN block in the same file.
+"""
+
+from __future__ import annotations
+
+import inspect
+import logging
+import os
+import re
+import threading
+from contextvars import ContextVar
+from datetime import datetime, timedelta, timezone
+from functools import wraps
+
+# IST = UTC+5:30 (no DST — fixed offset is always correct)
+_IST = timezone(timedelta(hours=5, minutes=30))
+from pathlib import Path
+from typing import Any, Callable, TypeVar
+
+from langchain_core.runnables import RunnableConfig
+
+from ajrasakha.agents.config import resolve_thread_id
+
+F = TypeVar("F", bound=Callable[..., Any])
+
+_thread_id_ctx: ContextVar[str | None] = ContextVar("thread_id", default=None)
+_turn_num_ctx: ContextVar[int | None] = ContextVar("turn_num", default=None)
+
+_handler_installed = False
+_handler_lock = threading.Lock()
+_turn_counts: dict[str, int] = {}
+_turn_counts_lock = threading.Lock()
+
+_UNSAFE_FILENAME = re.compile(r"[^\w.\-]+", re.UNICODE)
+_END_TURN_RE = re.compile(r"END TURN (\d+)", re.MULTILINE)
+_BOX_WIDTH = 76
+
+# Thread log files: application logs only (skip httpx / MCP transport noise).
+_THREAD_LOG_LOGGER_PREFIX = "ajrasakha"
+
+
+class ThreadLogFilter(logging.Filter):
+    """Keep only ajrasakha application loggers in per-thread files."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.name.startswith(_THREAD_LOG_LOGGER_PREFIX)
+
+
+def thread_log_dir() -> Path:
+    raw = os.getenv("THREAD_LOG_DIR", "/tmp/logs").strip() or "/tmp/logs"
+    return Path(raw)
+
+def sanitize_thread_id_for_filename(thread_id: str) -> str:
+    cleaned = _UNSAFE_FILENAME.sub("_", (thread_id or "").strip())
+    return cleaned or "unknown_thread"
+
+
+def set_thread_log_context(thread_id: str | None) -> None:
+    _thread_id_ctx.set(thread_id)
+
+
+def clear_thread_log_context() -> None:
+    _thread_id_ctx.set(None)
+
+
+def current_thread_log_id() -> str | None:
+    return _thread_id_ctx.get()
+
+
+def current_turn_num() -> int | None:
+    return _turn_num_ctx.get()
+
+
+def _wrap_box_lines(text: str, *, prefix: str = "┃ ") -> str:
+    content = (text or "").strip() or "(empty)"
+    out: list[str] = []
+    for raw_line in content.splitlines():
+        line = raw_line
+        while len(line) > _BOX_WIDTH:
+            out.append(f"{prefix}{line[:_BOX_WIDTH]}")
+            line = line[_BOX_WIDTH:]
+        out.append(f"{prefix}{line}")
+    return "\n".join(out)
+
+
+def _thread_log_path(thread_id: str) -> Path:
+    safe = sanitize_thread_id_for_filename(thread_id)
+    return thread_log_dir() / f"{safe}.txt"
+
+
+def _max_turn_from_log(thread_id: str) -> int:
+    """Read highest completed turn from the thread log (survives process restart)."""
+    path = _thread_log_path(thread_id)
+    if not path.is_file():
+        return 0
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return 0
+    turns = [int(m) for m in _END_TURN_RE.findall(text)]
+    return max(turns) if turns else 0
+
+
+def append_thread_block(text: str, *, thread_id: str | None = None) -> None:
+    """Append a raw multi-line block directly to the thread log (no log prefix)."""
+    tid = thread_id or _thread_id_ctx.get()
+    if not tid:
+        return
+    path = _thread_log_path(tid)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    block = text if text.endswith("\n") else f"{text}\n"
+    with _turn_counts_lock:
+        with path.open("a", encoding="utf-8") as fh:
+            fh.write(block)
+
+
+def begin_conversation_turn(farmer_message: str) -> int:
+    """Start a new turn block for the latest farmer message (same thread file)."""
+    thread_id = _thread_id_ctx.get()
+    if not thread_id:
+        return 0
+
+    with _turn_counts_lock:
+        # In-memory counter for same process; log file for restart / hot-reload.
+        prior = max(_turn_counts.get(thread_id, 0), _max_turn_from_log(thread_id))
+        turn = prior + 1
+        _turn_counts[thread_id] = turn
+
+    _turn_num_ctx.set(turn)
+    ts = datetime.now(_IST).strftime("%Y-%m-%d %H:%M:%S IST")
+    farmer_box = _wrap_box_lines(farmer_message)
+
+    block = f"""
+{'#' * 80}
+#  TURN {turn}  |  thread={thread_id}
+#  started: {ts}
+{'#' * 80}
+
+┏━ FARMER MESSAGE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{farmer_box}
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+── pipeline trace (turn {turn}) ───────────────────────────────────────────────────
+"""
+    append_thread_block(block, thread_id=thread_id)
+    return turn
+
+
+def end_conversation_turn(
+    bot_message: str,
+    *,
+    outcome: str = "answer",
+    thread_id: str | None = None,
+) -> None:
+    """Close the current turn block with the bot reply."""
+    tid = thread_id or _thread_id_ctx.get()
+    if not tid:
+        return
+
+    turn = _turn_num_ctx.get() or _turn_counts.get(tid, 0)
+    ts = datetime.now(_IST).strftime("%Y-%m-%d %H:%M:%S IST")
+    bot_box = _wrap_box_lines(bot_message)
+
+    block = f"""
+── bot reply (turn {turn}) | outcome={outcome} | {ts} ───────────────────────────
+
+┏━ BOT MESSAGE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{bot_box}
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+{'=' * 80}
+  END TURN {turn}
+{'=' * 80}
+
+"""
+    append_thread_block(block, thread_id=tid)
+
+
+def _resolve_config_thread_id(config: RunnableConfig | dict[str, Any] | None) -> str | None:
+    if config is None:
+        return None
+    return resolve_thread_id(config if isinstance(config, dict) else dict(config))
+
+
+class ThreadFileLogHandler(logging.Handler):
+    """Routes log records to logs/{thread_id}.txt based on contextvar."""
+
+    def __init__(self, log_dir: Path | None = None) -> None:
+        super().__init__()
+        self.log_dir = log_dir or thread_log_dir()
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+        self._file_handlers: dict[str, logging.FileHandler] = {}
+        self._fh_lock = threading.Lock()
+
+    def _get_file_handler(self, thread_id: str) -> logging.FileHandler:
+        safe = sanitize_thread_id_for_filename(thread_id)
+        with self._fh_lock:
+            fh = self._file_handlers.get(safe)
+            if fh is None:
+                path = self.log_dir / f"{safe}.txt"
+                fh = logging.FileHandler(path, encoding="utf-8")
+                fh.setFormatter(
+                    logging.Formatter(
+                        "%(asctime)s [%(levelname)s] %(name)s "
+                        "(%(filename)s:%(lineno)d): %(message)s"
+                    )
+                )
+                self._file_handlers[safe] = fh
+            return fh
+
+    def emit(self, record: logging.LogRecord) -> None:
+        thread_id = _thread_id_ctx.get()
+        if not thread_id:
+            return
+        try:
+            fh = self._get_file_handler(thread_id)
+            if not self.formatter:
+                msg = record.getMessage()
+            else:
+                msg = self.format(record)
+            if _turn_num_ctx.get() is not None and record.name.startswith(
+                _THREAD_LOG_LOGGER_PREFIX
+            ):
+                msg = "\n".join(f"  │ {line}" for line in msg.splitlines())
+            fh.stream.write(msg + fh.terminator)
+            fh.flush()
+        except Exception:
+            self.handleError(record)
+
+
+_file_handler_registry: ThreadFileLogHandler | None = None
+
+
+def setup_thread_file_logging(*, log_dir: Path | None = None) -> ThreadFileLogHandler | None:
+    """Install per-thread file handler on root logger (once)."""
+    global _handler_installed, _file_handler_registry
+    enabled = os.getenv("THREAD_FILE_LOGGING", "true").lower() in ("true", "1", "yes")
+    if not enabled:
+        return None
+
+    with _handler_lock:
+        if _handler_installed:
+            return _file_handler_registry
+
+        handler = ThreadFileLogHandler(log_dir)
+        handler.addFilter(ThreadLogFilter())
+        handler.setLevel(logging.DEBUG)
+        root = logging.getLogger()
+        root.addHandler(handler)
+        _handler_installed = True
+        _file_handler_registry = handler
+        logging.getLogger(__name__).info(
+            "Thread file logging enabled: %s/{{thread_id}}.txt",
+            handler.log_dir,
+        )
+        return handler
+
+
+def with_thread_logging(node_fn: F) -> F:
+    """Wrap a LangGraph node so logs during the run go to logs/{thread_id}.txt."""
+
+    if inspect.iscoroutinefunction(node_fn):
+
+        @wraps(node_fn)
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            config = kwargs.get("config")
+            if config is None and len(args) > 1:
+                config = args[1]
+            thread_id = _resolve_config_thread_id(config)
+            set_thread_log_context(thread_id)
+            try:
+                return await node_fn(*args, **kwargs)
+            finally:
+                clear_thread_log_context()
+
+        return async_wrapper  # type: ignore[return-value]
+
+    @wraps(node_fn)
+    def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+        config = kwargs.get("config")
+        if config is None and len(args) > 1:
+            config = args[1]
+        thread_id = _resolve_config_thread_id(config)
+        set_thread_log_context(thread_id)
+        try:
+            return node_fn(*args, **kwargs)
+        finally:
+            clear_thread_log_context()
+
+    return sync_wrapper  # type: ignore[return-value]

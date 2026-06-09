@@ -201,6 +201,7 @@ export const AddOrEditQuestionDialog = ({
         question: "",
         context: "",
         priority: "medium",
+        status: "open",
         source: "AGRI_EXPERT",
         details: {
           state: "",
@@ -766,8 +767,7 @@ export const AddOrEditQuestionDialog = ({
                     </p>
                   )}
                   {userRole !== "expert" &&
-                    mode == "edit" &&
-                    question?.status !== "closed" && (
+                    (mode === "add" || (mode === "edit" && question?.status !== "closed")) && (
                       <>
                         <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                           <CheckCircle className="h-4 w-4" aria-hidden="true" />
@@ -784,12 +784,14 @@ export const AddOrEditQuestionDialog = ({
                           }
                         >
                           <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select priority" />
+                            <SelectValue placeholder="Select status" />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="open">Open</SelectItem>
                             <SelectItem value="in-review">In review</SelectItem>
                             <SelectItem value="delayed">Delayed</SelectItem>
+                            <SelectItem value="duplicate">Duplicate</SelectItem>
+                            <SelectItem value="dynamic">Dynamic</SelectItem>
                             <SelectItem value="closed">Closed</SelectItem>
                           </SelectContent>
                         </Select>
