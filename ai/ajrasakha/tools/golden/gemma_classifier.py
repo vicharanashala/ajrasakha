@@ -41,6 +41,8 @@ BATCH_RELEVANCE_FILTER_PROMPT = """You are a lenient relevance gate for Indian a
 
 Farmer question:
 {original_query}
+
+additional context about farmer's crop and location:
 crop is: {crop} and state is: {state}
 
 Assume all below candidates are for the crop: {crop} and state: {state}.
@@ -50,7 +52,7 @@ Below are {num_candidates} candidate Q&A pairs retrieved by vector search (numbe
 
 For EACH candidate, decide SAME, KEEP, or REJECT:
 - SAME: The retrieved question is the same as the farmer question — exact match OR clear paraphrase (same intent, same problem; wording may differ). Use crop/state only as context; they need not appear in the retrieved text.
-- REJECT ONLY if that Q&A is COMPLETELY irrelevant to the farmer — unrelated crop AND unrelated problem with NO useful overlap.
+- REJECT ONLY if that Q&A is COMPLETELY irrelevant to the farmer, or asked information is itself ambiguous.
 - KEEP if there is ANY common thread: same/related topic, similar symptom or issue, same farming topic (pest, disease, nutrient, irrigation), or partial overlap that could help — but the question is NOT a same/paraphrase match.
 - When unsure between KEEP and REJECT, KEEP it. Be NOT aggressive.
 - Mark at most ONE candidate as SAME across the entire batch. If multiple look same, pick only the single best paraphrase match.
@@ -63,6 +65,8 @@ CLASSIFICATION_PROMPT = """You classify whether a retrieved expert Q&A can answe
 Remember:: string matching is very important for local names, diseases, crops, chemicals name etc. If string is not matching then select PARTIALLY_COVERED or NOT_COVERED.
 Farmer question (original):
 {original_query}
+
+additional context about farmer's crop and location:
 state is: {state} and crop is: {crop}
 
 
