@@ -121,13 +121,13 @@ export const IncomingCallBox = ({
 
   // Initialize Plivo SDK (NPM package) - Only for call agents
   useEffect(() => {
-    // Check if current user is authorized to use Plivo
-    if (!currentUser?.isCallAgent || !currentUser?.isCallAgentActive) {
-      return;
-    }
     // Skip if still loading
     if (isUserLoading) {
-      // console.log('🔒 [IncomingCallBox] Skipping Plivo init - user still loading');
+      return;
+    }
+
+    // Check if current user is authorized to use Plivo
+    if (!currentUser?.isCallAgent || !currentUser?.isCallAgentActive) {
       return;
     }
 
@@ -137,7 +137,6 @@ export const IncomingCallBox = ({
       return;
     }
 
-    console.log('🔧 Initializing Plivo client from NPM package...');
     initializePlivoClient();
 
     return () => {
@@ -150,8 +149,7 @@ export const IncomingCallBox = ({
         }
       }
     };
-    // }, [isAdmin, isUserLoading]);
-  }, []);
+  }, [currentUser, isUserLoading]);
 
   const initializePlivoClient = () => {
     // Prevent multiple initializations
