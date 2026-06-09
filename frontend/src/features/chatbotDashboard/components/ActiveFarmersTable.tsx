@@ -35,6 +35,7 @@ export function ActiveFarmersTable({
     false,
     false,
     userType as any,
+    [],
     'totalQuestions',
     'desc',
     true // activeTodayByProfile

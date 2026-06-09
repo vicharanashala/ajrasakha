@@ -44,11 +44,12 @@ export function MissingDemographicsModal({
     false, // inactiveOnly
     false, // lowFeedbackOnly
     userType,
+    [], // roles
     "name", // sortBy
     "asc", // sortOrder
     false, // activeTodayByProfile
     fieldKey, // missingDemographicField
-    true,
+    "verified",
   );
 
   const users = data?.users || [];
