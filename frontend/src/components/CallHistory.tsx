@@ -5,7 +5,6 @@ import { Badge } from "./atoms/badge";
 import { Phone, Filter, ChevronLeft, ChevronRight, RefreshCw, Eye, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { plivoApi } from "@/hooks/api/plivo/api";
-import { whatsappApi } from "@/hooks/api/whatsapp/api";
 import type { CallHistoryItem } from "@/hooks/api/plivo/api";
 import { format } from "date-fns";
 import { FarmerDetails } from "./FarmerDetails";
@@ -94,16 +93,32 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
   //   }
   // };
 
-  const handleSendMessage = async (destination: string) => {
+  const handleSendMessage = async (CallHistoryItem: any) => {
+        const { from, to } = CallHistoryItem;
+
+      // Designated numbers to check
+      const designatedNumbers = ["918031150392", "sip:annamuser1293525305518427216@phone.plivo.com"];
+
+      // // Determine which number to call
+      let numbertomsg; // Default to calling the 'to' number
+
+      // // If 'from' contains any of the designated numbers, call the opposite (to)
+      if (designatedNumbers.some(dn => from?.includes(dn))) {
+        numbertomsg = to;
+      }
+      // // If 'to' contains any of the designated numbers, call the opposite (from)
+      else if (designatedNumbers.some(dn => to?.includes(dn))) {
+        numbertomsg = from;
+      }
     if (!messageText.trim()) return;
     setSendingMessage(true);
     try {
-      await whatsappApi.sendMessage(destination, messageText);
-      toast.success("WhatsApp message sent successfully!");
+      await plivoApi.sendMessage(numbertomsg, messageText);
+      toast.success("SMS sent successfully!");
       setMessageRow(null);
       setMessageText("");
     } catch (err: any) {
-      toast.error(`Failed to send WhatsApp message: ${err.message || "Unknown error"}`);
+      toast.error(`Failed to send SMS: ${err.message || "Unknown error"}`);
     } finally {
       setSendingMessage(false);
     }
@@ -448,11 +463,11 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                             <tr key={`message-${call.uuid}`}>
                               <td colSpan={6} className="px-4 py-4 bg-muted/10">
                                 <div className="flex flex-col gap-2 max-w-md">
-                                  <h4 className="text-sm font-semibold">Send WhatsApp Message to {call.direction === 'inbound' ? call.from : call.to}</h4>
+                                  <h4 className="text-sm font-semibold">Send SMS to {call.direction === 'inbound' ? call.from : call.to}</h4>
                                   <textarea
                                     className="w-full p-2 border rounded-md text-sm bg-background"
                                     rows={3}
-                                    placeholder="Type your WhatsApp message here..."
+                                    placeholder="Type your SMS message here..."
                                     value={messageText}
                                     onChange={(e) => setMessageText(e.target.value)}
                                   />
@@ -466,12 +481,12 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                     </Button>
                                     <Button
                                       size="sm"
-                                      onClick={() => handleSendMessage(call.direction === 'inbound' ? call.from : call.to)}
+                                      onClick={() => handleSendMessage(call)}
                                       disabled={!messageText.trim() || sendingMessage}
                                       className="gap-2"
                                     >
                                       {sendingMessage && <RefreshCw className="h-3 w-3 animate-spin" />}
-                                      Send WhatsApp
+                                      Send SMS
                                     </Button>
                                   </div>
                                 </div>

@@ -11,12 +11,14 @@ import {
   BadRequestError,
   InternalServerError,
   Controller,
+  BodyParam,
 } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
 import { Request, Response } from 'express';
 import { appConfig } from '#root/config/app.js';
 import { inject, injectable } from 'inversify';
 import plivo from 'plivo';
+import axios from 'axios';
 import { PLIVO_TYPES } from '../types.js';
 import type { ICallDetailsRepository } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
 
@@ -134,6 +136,70 @@ export class PlivoController {
     } catch (error: any) {
       console.error('❌ Error fetching call history:', error);
       throw new InternalServerError('Failed to fetch call history');
+    }
+  }
+  @Post('/send-message')
+  @Authorized(['expert'])
+  @OpenAPI({
+    summary: 'Send SMS using Fast2SMS',
+    description: 'Send SMS to one or multiple phone numbers using Fast2SMS Quick SMS API',
+  })
+  async sendMessage(
+    @BodyParam("destination") destination: string,
+    @BodyParam("text") text: string,
+    @Res() res: Response
+  ) {
+    try {
+      // console.log("🚀 ~ PlivoController ~ sendMessage ~ destination:", destination);
+      // console.log("🚀 ~ PlivoController ~ sendMessage ~ text:", text);
+
+      if (!destination || !text) {
+        return res.status(400).json({
+          success: false,
+          error: "destination and text are required parameters"
+        });
+      }
+
+      const apiKey = appConfig.fast2sms.apiKey;
+      if (!apiKey) {
+        return res.status(500).json({
+          success: false,
+          error: "Fast2SMS API key not configured"
+        });
+      }
+
+      const requestBody = {
+        route: 'q',
+        message: text,
+        language: 'english',
+        flash: 0,
+        numbers: destination,
+        sms_details:1
+      };
+
+      const response = await axios.post(
+        'https://www.fast2sms.com/dev/bulkV2',
+        requestBody,
+        {
+          headers: {
+            'authorization': apiKey,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      console.log("✅ Fast2SMS response:", response.data);
+
+      return res.json({
+        success: true,
+        data: response.data
+      });
+    } catch (err: any) {
+      console.error('❌ Fast2SMS error:', err.response?.data || err.message);
+      return res.status(500).json({
+        success: false,
+        error: err.response?.data?.message || err.message || 'Failed to send SMS'
+      });
     }
   }
 }
