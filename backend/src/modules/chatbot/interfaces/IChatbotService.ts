@@ -146,6 +146,7 @@ export interface IChatbotService {
   ): Promise<ArrayBuffer | null>;
   getGrowth(
     source: string,
+    usertType: string,
     range: number,
     startDate?: Date,
     endDate?: Date,
