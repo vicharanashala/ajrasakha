@@ -20,6 +20,37 @@ import { auth } from "@/config/firebase";
 import { getIdToken } from "firebase/auth";
 
 const API_BASE_URL = env.apiBaseUrl();
+
+export type QueueQuestionItem = {
+  _id: string;
+  question: string;
+  status: string;
+  source: string;
+  priority?: string;
+  createdAt?: string;
+  state?: string;
+  district?: string;
+  crop?: string;
+  expertName?: string;
+  allocatedAt?: string | null;
+  minutesSinceAllocated?: number;
+};
+
+export type QueueExpertItem = {
+  _id: string;
+  name: string;
+  email?: string;
+  reputationScore?: number;
+};
+
+export type QueueDetailsResponse = {
+  received: { count: number; items: QueueQuestionItem[] };
+  autoAllocateOff: { count: number; items: QueueQuestionItem[] };
+  allocated: { count: number; items: QueueQuestionItem[] };
+  waiting: { count: number; items: QueueQuestionItem[] };
+  freeExperts: { count: number; items: QueueExpertItem[] };
+  stuck: { count: number; items: QueueQuestionItem[] };
+};
 export class QuestionService {
   private _baseUrl = `${API_BASE_URL}/questions`;
   private _reRouteUrl = `${API_BASE_URL}/reroute`;
@@ -796,6 +827,16 @@ export class QuestionService {
     }>(`${this._baseUrl}/status-summary?${params.toString()}`, {
       method: "POST",
       body: JSON.stringify(requestBody),
+    });
+    return res?.data ?? null;
+  }
+
+  async getQueueDetails(): Promise<QueueDetailsResponse | null> {
+    const res = await apiFetch<{
+      success: boolean;
+      data: QueueDetailsResponse;
+    }>(`${this._baseUrl}/queue-details`, {
+      method: "GET",
     });
     return res?.data ?? null;
   }

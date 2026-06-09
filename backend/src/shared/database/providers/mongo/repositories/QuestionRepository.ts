@@ -53,6 +53,10 @@ import {
 } from '#root/modules/question/classes/validators/QuestionVaidators.js';
 import {buildReviewTimeline} from '#root/utils/buildReviewTat.js';
 import {getShiftFilter} from '#root/utils/date.utils.js';
+import {
+  QueueQuestionData,
+  RawQueueQuestionRow,
+} from '#root/modules/question/interfaces/IQuestionService.js';
 
 const VECTOR_INDEX_NAME = 'questions_vector_index';
 const EMBEDDING_FIELD = 'embedding';
@@ -6433,5 +6437,88 @@ export class QuestionRepository implements IQuestionRepository {
       ...item,
       userId: item.userId.toString(),
     }));
+  }
+
+  async getQueueQuestionData(limit: number): Promise<QueueQuestionData> {
+    await this.init();
+
+    // Scope: time-bound questions only — AJRASAKHA / WHATSAPP that are auto-allocated.
+    const receivedMatch = {
+      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+      isAutoAllocate: true,
+    };
+    const allocatedMatch = {
+      ...receivedMatch,
+      firstAllocationAt: {$exists: true, $ne: null},
+    };
+    // AJRASAKHA/WHATSAPP questions with auto-allocation OFF (handled manually).
+    const autoOffMatch = {
+      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+      isAutoAllocate: {$ne: true},
+    };
+
+    // Lean projection + join the question's submission (queue/history) so the
+    // service can derive the current assignee without extra round-trips.
+    const buildItemsPipeline = (match: Record<string, unknown>) => [
+      {$match: match},
+      {$sort: {createdAt: -1}},
+      {$limit: limit},
+      {
+        $lookup: {
+          from: 'question_submissions',
+          localField: '_id',
+          foreignField: 'questionId',
+          as: 'sub',
+        },
+      },
+      {$addFields: {sub: {$arrayElemAt: ['$sub', 0]}}},
+      {
+        $project: {
+          _id: 1,
+          question: 1,
+          status: 1,
+          source: 1,
+          priority: 1,
+          createdAt: 1,
+          firstAllocationAt: 1,
+          state: '$details.state',
+          district: '$details.district',
+          crop: '$details.crop',
+          queue: '$sub.queue',
+          history: '$sub.history',
+        },
+      },
+    ];
+
+    const [
+      receivedCount,
+      allocatedCount,
+      autoOffCount,
+      receivedItems,
+      allocatedItems,
+      autoOffItems,
+    ] = await Promise.all([
+      this.QuestionCollection.countDocuments(receivedMatch as any),
+      this.QuestionCollection.countDocuments(allocatedMatch as any),
+      this.QuestionCollection.countDocuments(autoOffMatch as any),
+      this.QuestionCollection.aggregate<RawQueueQuestionRow>(
+        buildItemsPipeline(receivedMatch),
+      ).toArray(),
+      this.QuestionCollection.aggregate<RawQueueQuestionRow>(
+        buildItemsPipeline(allocatedMatch),
+      ).toArray(),
+      this.QuestionCollection.aggregate<RawQueueQuestionRow>(
+        buildItemsPipeline(autoOffMatch),
+      ).toArray(),
+    ]);
+
+    return {
+      receivedCount,
+      allocatedCount,
+      autoOffCount,
+      receivedItems,
+      allocatedItems,
+      autoOffItems,
+    };
   }
 }

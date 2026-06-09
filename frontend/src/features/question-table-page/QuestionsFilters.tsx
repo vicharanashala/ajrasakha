@@ -73,6 +73,7 @@ import {
 import ViewDropdown from "../questions/components/ViewDropdown";
 import DownloadLevelWiseReportButton from "./DownloadLevelWiseReportButton";
 import { CropManagementModal } from "./CropManagementModal";
+import { QueueDetailsModal } from "./QueueDetailsModal";
 import { ChemicalManagementModal } from "./ChemicalManagementModal";
 import { CropService } from "@/hooks/services/cropService";
 import { AnswerModeSwitcher } from "./AnswerModeSwitcher";
@@ -1208,6 +1209,11 @@ export const QuestionsFilters = ({
                 isForQA={false}
                 setIsSidebarOpen={setIsSidebarOpen}
               />
+
+              {/* queue details — moderators & admins only */}
+              {(userRole === "admin" || userRole === "moderator") && (
+                <QueueDetailsModal setIsSidebarOpen={setIsSidebarOpen} />
+              )}
             </div>
           </section>
 

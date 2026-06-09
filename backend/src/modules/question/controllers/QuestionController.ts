@@ -107,6 +107,18 @@ export class QuestionController {
     return { success: true, data };
   }
 
+  @Get('/queue-details')
+  @HttpCode(200)
+  @Authorized(['admin', 'moderator'])
+  @OpenAPI({
+    summary:
+      'Queue details for moderators/admins: counts + lists for received, allocated, waiting, free experts, and stuck time-bound questions',
+  })
+  async getQueueDetails() {
+    const data = await this.questionService.getQueueDetails();
+    return { success: true, data };
+  }
+
   @Get('/context/:contextId')
   @HttpCode(200)
   @Authorized()
