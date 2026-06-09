@@ -10328,7 +10328,6 @@ export class ChatbotRepository implements IChatbotRepository {
         avgQuestionsPerUserDay: Math.round(avgQuestionsPerUserDay * 100) / 100,
       };
     } catch (error) {
-      console.log("-errr-----getRepeatQueryCount", error)
       throw new InternalServerError(
         `Failed to fetch repeat query count: ${error}`,
       );
@@ -10879,7 +10878,6 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.initReviewSystem();
       await this.init(source);
-      console.log('Crop is', crop);
       const safePage = Math.max(Number(page) || 1, 1);
       const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
       const skip = (safePage - 1) * safeLimit;
