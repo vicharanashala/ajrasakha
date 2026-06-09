@@ -154,28 +154,30 @@ export function AnnamDashboard_dev({
   const queryClient = useQueryClient();
   const handleRefreshAll = async () => {
     setInvalidating(true);
-    await Promise.all([
-      queryClient.refetchQueries({ queryKey: ["dashboard-data"] }),
-      queryClient.refetchQueries({ queryKey: ["top-faqs"] }),
-      queryClient.refetchQueries({ queryKey: ["daily-question-trends"] }),
-      queryClient.refetchQueries({ queryKey: ["user-metrices"] }),
-      queryClient.refetchQueries({ queryKey: ["response-adherence-table"] }),
-      queryClient.refetchQueries({ queryKey: ["retention_metrics"] }),
-      queryClient.refetchQueries({ queryKey: ["query-categories"] }),
-      queryClient.refetchQueries({ queryKey: ["whatsapp-inactive-users"] }),
-      queryClient.refetchQueries({ queryKey: ["whatsapp-unique-users"] }),
-      queryClient.refetchQueries({ queryKey: ["whatsapp-all-users"] }),
-      queryClient.refetchQueries({ queryKey: ["closed-notified-data"] }),
-      queryClient.refetchQueries({ queryKey: ["monthly-churn-rate"] }),
-      queryClient.refetchQueries({ queryKey: ["active_user_trend"] }),
-      queryClient.refetchQueries({ queryKey: ["user-details"] }),
-      queryClient.refetchQueries({ queryKey: ["user_growth"] }),
-      queryClient.refetchQueries({ queryKey: ["top-crops-chatbot"] }),
-      queryClient.refetchQueries({ queryKey: ["state-wise-analytics"] }),
-      queryClient.refetchQueries({ queryKey: ["weather-concern-analytics"] }),
-      queryClient.refetchQueries({ queryKey: ["farmer-heat-map"] }),
-    ]);
-    setInvalidating(false);
+    // Invalidate all dashboard queries - this marks them as stale and triggers background refetch
+    // Data stays visible during refetch (unlike refetchQueries which blocks until complete)
+    queryClient.invalidateQueries({ queryKey: ["dashboard-data"] });
+    queryClient.invalidateQueries({ queryKey: ["top-faqs"] });
+    queryClient.invalidateQueries({ queryKey: ["daily-question-trends"] });
+    queryClient.invalidateQueries({ queryKey: ["user-metrices"] });
+    queryClient.invalidateQueries({ queryKey: ["response-adherence-table"] });
+    queryClient.invalidateQueries({ queryKey: ["retention_metrics"] });
+    queryClient.invalidateQueries({ queryKey: ["query-categories"] });
+    queryClient.invalidateQueries({ queryKey: ["whatsapp-inactive-users"] });
+    queryClient.invalidateQueries({ queryKey: ["whatsapp-unique-users"] });
+    queryClient.invalidateQueries({ queryKey: ["whatsapp-all-users"] });
+    queryClient.invalidateQueries({ queryKey: ["closed-notified-data"] });
+    queryClient.invalidateQueries({ queryKey: ["monthly-churn-rate"] });
+    queryClient.invalidateQueries({ queryKey: ["active_user_trend"] });
+    queryClient.invalidateQueries({ queryKey: ["user-details"] });
+    queryClient.invalidateQueries({ queryKey: ["user_growth"] });
+    queryClient.invalidateQueries({ queryKey: ["top-crops-chatbot"] });
+    queryClient.invalidateQueries({ queryKey: ["state-wise-analytics"] });
+    queryClient.invalidateQueries({ queryKey: ["weather-concern-analytics"] });
+    queryClient.invalidateQueries({ queryKey: ["farmer-heat-map"] });
+    
+    // Give a short delay to show the refreshing state
+    setTimeout(() => setInvalidating(false), 500);
   };
   const [activeSegment, setActiveSegment] = useState<Segment | null>(null);
   const [activeView, setActiveView] = useState<DashboardView>("overview");
@@ -537,11 +539,12 @@ export function AnnamDashboard_dev({
     false,
     false,
     filters.userType as any,
+    [],
     "totalQuestions",
     "desc",
     true, // activeTodayByProfile
     "",
-    true, // isVerified
+    "verified", // verificationStatus
     true, // enabled
   );
 
@@ -672,51 +675,46 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
             <div className="flex-1 overflow-y-auto px-5 pb-5">
               {/* Source Selection Tabs & All Users Filter */}
               <div className="flex items-center justify-between gap-4 border-b border-border pb-3 mb-5 pt-3">
-                {/* Top Level Tabs */}
+                {/* Source Tabs (Annam / WhatsApp) */}
                 <div className="flex items-center gap-2">
-                  {/* Application Tab */}
+                  {/* Annam Tab */}
                   <button
-                    onClick={() =>
-                      setNewFilters((prev) => ({
-                        ...prev,
-                        sourceType: "application",
-                      }))
-                    }
+                    onClick={() => onSourceChange?.("annam")}
                     className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                      newFilters.sourceType === "application"
+                      source === "annam"
                         ? "bg-primary text-primary-foreground shadow-sm"
                         : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                     }`}
                   >
-                    Application
+                    Annam
                   </button>
 
-                  {/* Manual Tab (Muted/Disabled) */}
+                  {/* WhatsApp Tab */}
                   <button
-                    disabled
-                    className="px-4 py-1.5 rounded-lg text-sm font-medium text-muted-foreground/50 cursor-not-allowed"
+                    onClick={() => onSourceChange?.("whatsapp")}
+                    className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                      source === "whatsapp"
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    }`}
                   >
-                    Manual
+                    WhatsApp
                   </button>
                 </div>
 
                 <div className="flex items-center ml-auto gap-4">
-                <button
-                  onClick={handleRefreshAll}
-                  className="z-50 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
-                  title="Refresh"
-                >
+                  <button
+                    onClick={handleRefreshAll}
+                    className="z-50 flex items-center gap-2 rounded-lg px-3 py-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-accent border"
+                    title="Refresh"
+                  >
                     <RefreshCw
                       className={`h-3.5 w-3.5  ${
                         invalidating ? "animate-spin" : ""
                       }`}
                     />
+                    <span className="text-sm font-medium">Refresh</span>
                   </button>
-                  <NewFilters
-                    filters={newFilters}
-                    onChange={setNewFilters}
-                    onSourceChange={onSourceChange}
-                  />
 
                   <SearchableSelect
                     options={
@@ -824,6 +822,7 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                             kpiRow1={kpiRow1WithOverlay}
                             kpiRow2={kpiRow2WithOverlay}
                             source={source}
+                            userType={filters.userType}
                             isLoading={isFetching}
                           />
                         )}
@@ -872,6 +871,7 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
 
                           <ClosedInLastTwoHoursCard
                             source={source}
+                            userType={filters.userType}
                             count={closed2hData?.closedInLastTwoHours}
                             totalClosed={
                               closed2hData?.closedVsTotalQuestions
@@ -909,6 +909,8 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                                 ?.previousMonthAvgCloseTimeMinutes
                             }
                             statusBreakup={questionStatusData?.closedVsTotalQuestions}
+                            source ={source}
+                            userType = {filters.userType}
                           />
                           <CustomerNotificationsCard
                             notified={
@@ -926,6 +928,8 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                             dateRange={customerNotificationsDateRange}
                             onDateRangeChange={setCustomerNotificationsDateRange}
                             isLoading={isCustomerNotificationsFetching || isCustomerNotificationsLoading}
+                            source = {source}
+                            userType = {filters.userType}
                           />
                         </div>
                         {source !== "whatsapp" && (
