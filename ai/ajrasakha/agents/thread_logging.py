@@ -14,8 +14,11 @@ import os
 import re
 import threading
 from contextvars import ContextVar
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from functools import wraps
+
+# IST = UTC+5:30 (no DST — fixed offset is always correct)
+_IST = timezone(timedelta(hours=5, minutes=30))
 from pathlib import Path
 from typing import Any, Callable, TypeVar
 
@@ -133,7 +136,7 @@ def begin_conversation_turn(farmer_message: str) -> int:
         _turn_counts[thread_id] = turn
 
     _turn_num_ctx.set(turn)
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    ts = datetime.now(_IST).strftime("%Y-%m-%d %H:%M:%S IST")
     farmer_box = _wrap_box_lines(farmer_message)
 
     block = f"""
@@ -164,7 +167,7 @@ def end_conversation_turn(
         return
 
     turn = _turn_num_ctx.get() or _turn_counts.get(tid, 0)
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    ts = datetime.now(_IST).strftime("%Y-%m-%d %H:%M:%S IST")
     bot_box = _wrap_box_lines(bot_message)
 
     block = f"""
