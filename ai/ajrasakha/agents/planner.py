@@ -38,7 +38,7 @@ from ajrasakha.agents.domains import (
     is_crop_placeholder,
     normalize_domain,
 )
-from ajrasakha.agents.language import resolve_planner_language_pair
+from ajrasakha.agents.language import detect_script_language, resolve_planner_language_pair
 from ajrasakha.agents.translation_catalog import (
     OFFICIAL_LANGUAGES,
     get_crop_follow_up,
@@ -495,20 +495,18 @@ async def planner_node(
         plan = planner_output_to_plan(output)
 
         prev_vocal = plan.get("vocal_language")
-        prev_script = plan.get("script_language")
-        vocal, script = resolve_planner_language_pair(
-            user_text, prev_vocal or "English", prev_script or "English"
-        )
-        if vocal != prev_vocal or script != prev_script:
+        # Use Unicode-based script detection for script_language
+        detected_script = detect_script_language(user_text)
+        # Keep vocal_language from LLM (or normalize it)
+        vocal = _coerce_official_language(prev_vocal) or "English"
+        if detected_script != prev_vocal:
             logger.info(
-                "Planner language normalized from raw message: (%s, %s) -> (%s, %s)",
+                "Planner script detected via Unicode: prev_script=%s -> detected_script=%s",
                 prev_vocal,
-                prev_script,
-                vocal,
-                script,
+                detected_script,
             )
         plan["vocal_language"] = vocal
-        plan["script_language"] = script
+        plan["script_language"] = detected_script
 
         if not plan.get("rephrased_query"):
             plan["rephrased_query"] = user_text
@@ -654,3 +652,15 @@ def route_after_ensure_location(state: AjraSakhaState) -> str:
     if plan.get("is_agriculture_related") is False and not is_greeting:
         return "upload_reviewer_only"
     return "execute_plan"
+
+
+def _coerce_official_language(name: str) -> str | None:
+    """Case-insensitive match against OFFICIAL_LANGUAGES; None if unknown."""
+    raw = (name or "").strip()
+    if not raw:
+        return None
+    lower = raw.lower()
+    for lang in OFFICIAL_LANGUAGES:
+        if lang.lower() == lower:
+            return lang
+    return None

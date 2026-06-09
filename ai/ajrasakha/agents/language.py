@@ -27,32 +27,35 @@ _MEITEI_MAYEK = re.compile(r"[\uABC0-\uABFF\uAAE0-\uAAFF]")
 
 
 def detect_script(text: str) -> str:
-    """Return the name of the detected script, defaulting to 'Latin'."""
+    """Return the name of the detected script, defaulting to 'Latin'.
+    
+    Uses count-based detection to handle overlapping Unicode ranges correctly.
+    Returns the script with the most character matches.
+    """
     t = text or ""
-    if _DEVANAGARI.search(t):
-        return "Devanagari"
-    if _BENGALI_ASSAMESE.search(t):
-        return "Bengali-Assamese"
-    if _GURMUKHI.search(t):
-        return "Gurmukhi"
-    if _GUJARATI.search(t):
-        return "Gujarati"
-    if _ODIA.search(t):
-        return "Odia"
-    if _TAMIL.search(t):
-        return "Tamil"
-    if _TELUGU.search(t):
-        return "Telugu"
-    if _KANNADA.search(t):
-        return "Kannada"
-    if _MALAYALAM.search(t):
-        return "Malayalam"
-    if _PERSO_ARABIC.search(t):
-        return "Perso-Arabic"
-    if _OL_CHIKI.search(t):
-        return "Ol Chiki"
-    if _MEITEI_MAYEK.search(t):
-        return "Meitei Mayek"
+    
+    # Count characters for each script
+    script_counts: dict[str, int] = {
+        "Devanagari": len(_DEVANAGARI.findall(t)),
+        "Bengali-Assamese": len(_BENGALI_ASSAMESE.findall(t)),
+        "Gurmukhi": len(_GURMUKHI.findall(t)),
+        "Gujarati": len(_GUJARATI.findall(t)),
+        "Odia": len(_ODIA.findall(t)),
+        "Tamil": len(_TAMIL.findall(t)),
+        "Telugu": len(_TELUGU.findall(t)),
+        "Kannada": len(_KANNADA.findall(t)),
+        "Malayalam": len(_MALAYALAM.findall(t)),
+        "Perso-Arabic": len(_PERSO_ARABIC.findall(t)),
+        "Ol Chiki": len(_OL_CHIKI.findall(t)),
+        "Meitei Mayek": len(_MEITEI_MAYEK.findall(t)),
+    }
+    
+    # Return the script with the highest count (if any)
+    if script_counts:
+        detected_script = max(script_counts, key=script_counts.get)
+        if script_counts[detected_script] > 0:
+            return detected_script
+    
     return "Latin"
 
 
@@ -68,6 +71,52 @@ _SCRIPT_TO_OFFICIAL_LANGUAGE: dict[str, str] = {
     "Ol Chiki": "Santali",
     "Meitei Mayek": "Manipuri (Meitei)",
 }
+
+# Unique scripts list for script_language field
+UNIQUE_SCRIPTS = [
+    "Bengali-Assamese",
+    "Devanagari",
+    "Gujarati",
+    "Gurmukhi",
+    "Kannada",
+    "Malayalam",
+    "Meitei Mayek",
+    "Odia",
+    "Ol Chiki",
+    "Perso-Arabic",
+    "Tamil",
+    "Telugu",
+]
+
+# Mapping from detect_script output to UNIQUE_SCRIPTS names
+_SCRIPT_TO_UNIQUE: dict[str, str] = {
+    "Bengali-Assamese": "Bengali-Assamese",
+    "Devanagari": "Devanagari",
+    "Gujarati": "Gujarati",
+    "Gurmukhi": "Gurmukhi",
+    "Kannada": "Kannada",
+    "Malayalam": "Malayalam",
+    "Meitei Mayek": "Meitei Mayek",
+    "Odia": "Odia",
+    "Ol Chiki": "Ol Chiki",
+    "Perso-Arabic": "Perso-Arabic",
+    "Tamil": "Tamil",
+    "Telugu": "Telugu",
+}
+
+
+def detect_script_language(text: str) -> str:
+    """Detect script language using Unicode ranges.
+    
+    Returns one of the UNIQUE_SCRIPTS values, or "English" for Latin/Roman text.
+    This is deterministic and does not require LLM inference.
+    """
+    detected = detect_script(text or "")
+    
+    if detected == "Latin":
+        return "English"
+    
+    return _SCRIPT_TO_UNIQUE.get(detected, "English")
 
 _DEVANAGARI_VOCAL_LANGUAGES = frozenset(
     {
