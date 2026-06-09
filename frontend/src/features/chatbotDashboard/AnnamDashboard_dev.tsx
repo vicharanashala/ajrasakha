@@ -89,11 +89,17 @@ import {
 } from "./hooks/useActiveUsersAnalytics";
 import { InactiveUsersModal } from "./InactiveUsersModal";
 import { RetentionMetricsChart } from "@/features/chatbotDashboard/retention-metrics";
-import { motion, AnimatePresence, useTransform } from "framer-motion";
+import { motion, AnimatePresence, useTransform, useSpring } from "framer-motion";
+import type { Variants } from "framer-motion";
+
 import { WhatsAppUniqueUsersCard } from "./WhatsAppUniqueUsersCard";
+
 import { ClosedInLastTwoHoursCard } from "./ClosedInLastTwoHoursCard";
+
 import { ClosedQuestionsCard } from "./ClosedQuestionsCard";
+
 import { CustomerNotificationsCard } from "./CustomerNotificationsCard";
+
 import { Skeleton } from "@/components/atoms/skeleton";
 import { ChurnRateChart } from "./ChurnRateChart";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/atoms/tabs";
@@ -639,6 +645,79 @@ export function AnnamDashboard_dev({
   }
 
 const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLoading: isUniqueWhatsAppUsersLoading} = useUniqueWhatsappUsers(source === "whatsapp");
+
+  // Animation variants for staggered entrance
+  const containerVariants: Variants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.08,
+        delayChildren: 0.1,
+      },
+    },
+  };
+
+  const itemVariants: Variants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.5,
+        ease: [0.25, 0.46, 0.45, 0.94],
+      },
+    },
+  };
+
+  const cardVariants: Variants = {
+    hidden: { opacity: 0, scale: 0.95 },
+    visible: {
+      opacity: 1,
+      scale: 1,
+      transition: {
+        duration: 0.4,
+        ease: "easeOut",
+      },
+    },
+    hover: {
+      scale: 1.02,
+      transition: { duration: 0.2 },
+    },
+  };
+
+  const slideInVariants: Variants = {
+    hidden: { opacity: 0, x: -20 },
+    visible: {
+      opacity: 1,
+      x: 0,
+      transition: {
+        duration: 0.4,
+        ease: "easeOut",
+      },
+    },
+  };
+
+  const tabContentVariants: Variants = {
+    hidden: { opacity: 0, y: 10 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.3,
+        ease: "easeInOut",
+      },
+    },
+    exit: {
+      opacity: 0,
+      y: -10,
+      transition: {
+        duration: 0.2,
+        ease: "easeIn",
+      },
+    },
+  };
+
   return (
     <div className={cn("flex flex-col min-h-screen bg-background", className)}>
       {/* Keyframe animations required by child components (seg-pulse, slideIn) */}
@@ -674,11 +753,18 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
 
             <div className="flex-1 overflow-y-auto px-5 pb-5">
               {/* Source Selection Tabs & All Users Filter */}
-              <div className="flex items-center justify-between gap-4 border-b border-border pb-3 mb-5 pt-3">
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+                className="flex items-center justify-between gap-4 border-b border-border pb-3 mb-5 pt-3"
+              >
                 {/* Source Tabs (Annam / WhatsApp) */}
                 <div className="flex items-center gap-2">
                   {/* Annam Tab */}
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => onSourceChange?.("annam")}
                     className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
                       source === "annam"
@@ -687,10 +773,12 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                     }`}
                   >
                     Annam
-                  </button>
+                  </motion.button>
 
                   {/* WhatsApp Tab */}
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => onSourceChange?.("whatsapp")}
                     className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
                       source === "whatsapp"
@@ -699,22 +787,25 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                     }`}
                   >
                     WhatsApp
-                  </button>
+                  </motion.button>
                 </div>
 
                 <div className="flex items-center ml-auto gap-4">
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.05, backgroundColor: "hsl(var(--accent))" }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={handleRefreshAll}
-                    className="z-50 flex items-center gap-2 rounded-lg px-3 py-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-accent border"
+                    className="z-50 flex items-center gap-2 rounded-lg px-3 py-1.5 shadow-sm backdrop-blur-sm border transition-colors duration-200"
                     title="Refresh"
                   >
-                    <RefreshCw
-                      className={`h-3.5 w-3.5  ${
-                        invalidating ? "animate-spin" : ""
-                      }`}
-                    />
+                    <motion.div
+                      animate={{ rotate: invalidating ? 360 : 0 }}
+                      transition={{ duration: 0.5, repeat: invalidating ? Infinity : 0, ease: "linear" }}
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    </motion.div>
                     <span className="text-sm font-medium">Refresh</span>
-                  </button>
+                  </motion.button>
 
                   <SearchableSelect
                     options={
@@ -736,9 +827,10 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                     placeholder="All Users"
                   />
                 </div>
-              </div>
+              </motion.div>
 
               <DashboardFilters filters={filters} onFilterChange={setFilters} />
+ 
               {(source === "annam" ||
                 // source === "vicharanashala" ||
                 source === "whatsapp") && (
@@ -827,29 +919,39 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                           />
                         )}
                         {source === "whatsapp" && (
-                          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-                            <WhatsAppAnalyticsCard
-                              title="Daily Queries"
-                              analytics={dailyAnalytics}
-                              granularity="daily"
-                              isLoading={isFetching || isLoading}
-                            />
+                          <motion.div 
+                            className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6"
+                            variants={containerVariants}
+                            initial="hidden"
+                            animate="visible"
+                          >
+                            <motion.div variants={itemVariants}>
+                              <WhatsAppAnalyticsCard
+                                title="Daily Queries"
+                                analytics={dailyAnalytics}
+                                granularity="daily"
+                                isLoading={isFetching || isLoading}
+                              />
+                            </motion.div>
 
-                            <WhatsAppAnalyticsCard
-                              title="Weekly Queries"
-                              analytics={weeklyAnalytics}
-                              granularity="weekly"
-                              isLoading={isFetching || isLoading}
+                            <motion.div variants={itemVariants}>
+                              <WhatsAppAnalyticsCard
+                                title="Weekly Queries"
+                                analytics={weeklyAnalytics}
+                                granularity="weekly"
+                                isLoading={isFetching || isLoading}
+                              />
+                            </motion.div>
 
-                            />
-
-                            <WhatsAppAnalyticsCard
-                              title="Monthly Queries"
-                              analytics={monthlyAnalytics}
-                              granularity="monthly"
-                              isLoading={isFetching || isLoading}                              
-                            />
-                          </div>
+                            <motion.div variants={itemVariants}>
+                              <WhatsAppAnalyticsCard
+                                title="Monthly Queries"
+                                analytics={monthlyAnalytics}
+                                granularity="monthly"
+                                isLoading={isFetching || isLoading}                              
+                              />
+                            </motion.div>
+                          </motion.div>
                         )}
                         <div
                           className={`grid gap-4 mb-6 items-stretch ${
@@ -1652,7 +1754,6 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                         </div>
                       )}
                     </>
-                  
                 </div>
               )}
             </div>
