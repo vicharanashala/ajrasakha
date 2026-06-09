@@ -889,14 +889,57 @@ export class UserController {
     @CurrentUser() currentUser: IUser,
   ): Promise<IUser> {
     // manual admin check
-    if (currentUser.role !== 'admin') {
-      throw new ForbiddenError(
-        'Only admins can verify users',
-      );
+  if (currentUser.role !== 'admin') {
+    throw new ForbiddenError(
+      'Only admins can verify users',
+    );
+  }
+    const {isVerified} = body;
+    const targetUser = await this.userService.getUserById(userId);
+    const auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.USER_MANAGEMENT,
+      action: AuditAction.VERIFY_USER,
+      actor: {
+        id: currentUser._id.toString(),
+        name: `${currentUser.firstName} ${currentUser.lastName}`,
+        email: currentUser.email,
+        role: currentUser.role,
+        avatar: currentUser?.avatar || '',
+      },
+      context: {
+        userId,
+        name: targetUser ? `${targetUser.firstName} ${targetUser.lastName}` : userId,
+        email: targetUser?.email,
+      },
+      changes: {
+        before: { isVerified: targetUser?.isVerified },
+      },
+      createdAt: new Date(),
+    };
+    try {
+      const updatedUser = await this.userService.verifyUser(userId, isVerified);
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        changes: {
+          ...auditPayload.changes,
+          after: { isVerified },
+        },
+        outcome: { status: OutComeStatus.SUCCESS },
+      });
+      return updatedUser;
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to verify user',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      });
+      throw err;
     }
-    const { isVerified } = body;
-    const updatedUser = await this.userService.verifyUser(userId, isVerified);
-    return updatedUser;
   }
 
   @OpenAPI({

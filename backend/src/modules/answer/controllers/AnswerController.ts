@@ -57,7 +57,43 @@ export class AnswerController {
     verifyNotTester(user);
     const {questionId, answer, sources} = body;
     const authorId = user._id.toString();
-    return this.answerService.addAnswer(questionId, authorId, answer, sources);
+    const auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.ANSWER,
+      action: AuditAction.SUBMIT_ANSWER,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: { questionId },
+      createdAt: new Date(),
+    };
+    try {
+      const result = await this.answerService.addAnswer(questionId, authorId, answer, sources);
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        changes: { after: { answer: answer?.substring(0, 200) } },
+        outcome: { status: OutComeStatus.SUCCESS },
+      });
+      return result;
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to add answer',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      });
+      if (err instanceof InternalServerError) {
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(err?.message || 'Failed to add answer');
+    }
   }
 
   @OpenAPI({summary: 'review and add a new answer to a question'})
@@ -71,11 +107,52 @@ export class AnswerController {
   ): Promise<{message: string}> {
     verifyNotTester(user);
     const userId = user._id.toString();
-    if(body.type=="reroute")
-    {
-      return this.answerService.reRouteReviewAnswer(userId, body)
+    const auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.ANSWER,
+      action: AuditAction.REVIEW_ANSWER,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: {
+        questionId: body.questionId,
+        type: body.type,
+        status: body.status,
+      },
+      createdAt: new Date(),
+    };
+    try {
+      let result;
+      if(body.type=="reroute")
+      {
+        result = await this.answerService.reRouteReviewAnswer(userId, body);
+      } else {
+        result = await this.answerService.reviewAnswer(userId, body);
+      }
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        outcome: { status: OutComeStatus.SUCCESS },
+      });
+      return result;
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to review answer',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      });
+      if (err instanceof InternalServerError) {
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(err?.message || 'Failed to review answer');
     }
-    return this.answerService.reviewAnswer(userId, body);
   }
 
   @OpenAPI({summary: 'Fetch AI initial answer through backend proxy'})
@@ -337,7 +414,39 @@ export class AnswerController {
   async deleteAnswer(@Params() params: DeleteAnswerParams, @CurrentUser() user: IUser) {
     verifyNotTester(user);
     const {answerId, questionId} = params;
-    return this.answerService.deleteAnswer(questionId, answerId);
+    const auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.ANSWER,
+      action: AuditAction.DELETE_ANSWER,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: { questionId, answerId },
+      createdAt: new Date(),
+    };
+    try {
+      const result = await this.answerService.deleteAnswer(questionId, answerId);
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        outcome: { status: OutComeStatus.SUCCESS },
+      });
+      return result;
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to delete answer',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      });
+      throw err;
+    }
   }
 
   @Get('/faqs/mod')
