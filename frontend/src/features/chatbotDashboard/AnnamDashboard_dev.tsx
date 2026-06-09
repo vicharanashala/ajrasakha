@@ -154,28 +154,30 @@ export function AnnamDashboard_dev({
   const queryClient = useQueryClient();
   const handleRefreshAll = async () => {
     setInvalidating(true);
-    await Promise.all([
-      queryClient.refetchQueries({ queryKey: ["dashboard-data"] }),
-      queryClient.refetchQueries({ queryKey: ["top-faqs"] }),
-      queryClient.refetchQueries({ queryKey: ["daily-question-trends"] }),
-      queryClient.refetchQueries({ queryKey: ["user-metrices"] }),
-      queryClient.refetchQueries({ queryKey: ["response-adherence-table"] }),
-      queryClient.refetchQueries({ queryKey: ["retention_metrics"] }),
-      queryClient.refetchQueries({ queryKey: ["query-categories"] }),
-      queryClient.refetchQueries({ queryKey: ["whatsapp-inactive-users"] }),
-      queryClient.refetchQueries({ queryKey: ["whatsapp-unique-users"] }),
-      queryClient.refetchQueries({ queryKey: ["whatsapp-all-users"] }),
-      queryClient.refetchQueries({ queryKey: ["closed-notified-data"] }),
-      queryClient.refetchQueries({ queryKey: ["monthly-churn-rate"] }),
-      queryClient.refetchQueries({ queryKey: ["active_user_trend"] }),
-      queryClient.refetchQueries({ queryKey: ["user-details"] }),
-      queryClient.refetchQueries({ queryKey: ["user_growth"] }),
-      queryClient.refetchQueries({ queryKey: ["top-crops-chatbot"] }),
-      queryClient.refetchQueries({ queryKey: ["state-wise-analytics"] }),
-      queryClient.refetchQueries({ queryKey: ["weather-concern-analytics"] }),
-      queryClient.refetchQueries({ queryKey: ["farmer-heat-map"] }),
-    ]);
-    setInvalidating(false);
+    // Invalidate all dashboard queries - this marks them as stale and triggers background refetch
+    // Data stays visible during refetch (unlike refetchQueries which blocks until complete)
+    queryClient.invalidateQueries({ queryKey: ["dashboard-data"] });
+    queryClient.invalidateQueries({ queryKey: ["top-faqs"] });
+    queryClient.invalidateQueries({ queryKey: ["daily-question-trends"] });
+    queryClient.invalidateQueries({ queryKey: ["user-metrices"] });
+    queryClient.invalidateQueries({ queryKey: ["response-adherence-table"] });
+    queryClient.invalidateQueries({ queryKey: ["retention_metrics"] });
+    queryClient.invalidateQueries({ queryKey: ["query-categories"] });
+    queryClient.invalidateQueries({ queryKey: ["whatsapp-inactive-users"] });
+    queryClient.invalidateQueries({ queryKey: ["whatsapp-unique-users"] });
+    queryClient.invalidateQueries({ queryKey: ["whatsapp-all-users"] });
+    queryClient.invalidateQueries({ queryKey: ["closed-notified-data"] });
+    queryClient.invalidateQueries({ queryKey: ["monthly-churn-rate"] });
+    queryClient.invalidateQueries({ queryKey: ["active_user_trend"] });
+    queryClient.invalidateQueries({ queryKey: ["user-details"] });
+    queryClient.invalidateQueries({ queryKey: ["user_growth"] });
+    queryClient.invalidateQueries({ queryKey: ["top-crops-chatbot"] });
+    queryClient.invalidateQueries({ queryKey: ["state-wise-analytics"] });
+    queryClient.invalidateQueries({ queryKey: ["weather-concern-analytics"] });
+    queryClient.invalidateQueries({ queryKey: ["farmer-heat-map"] });
+    
+    // Give a short delay to show the refreshing state
+    setTimeout(() => setInvalidating(false), 500);
   };
   const [activeSegment, setActiveSegment] = useState<Segment | null>(null);
   const [activeView, setActiveView] = useState<DashboardView>("overview");
@@ -703,7 +705,7 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                 <div className="flex items-center ml-auto gap-4">
                   <button
                     onClick={handleRefreshAll}
-                    className="z-50 flex items-center gap-2 rounded-lg px-3 py-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-accent border"
+                    className="z-50 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
                     title="Refresh"
                   >
                     <RefreshCw
@@ -711,7 +713,6 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                         invalidating ? "animate-spin" : ""
                       }`}
                     />
-                    <span className="text-sm font-medium">Refresh</span>
                   </button>
 
                   <SearchableSelect
