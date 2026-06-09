@@ -72,10 +72,10 @@ export const env = {
   vapidPublicKey: () => getEnv("VITE_VAPID_PUBLIC_KEY", true, "dummy-vapid-public-key"),
 
   plivo: {
-    endpointUsername: () => getEnv("VITE_PLIVO_ENDPOINT_USERNAME", false),
-    endpointPassword: () => getEnv("VITE_PLIVO_ENDPOINT_PASSWORD", false),
-    streamUrl: () => getEnv("VITE_PLIVO_STREAM_URL"),
-    targetUserId: () => getEnv("VITE_TARGET_USER_ID", false),
+    endpointUsername: () => getEnv("VITE_PLIVO_ENDPOINT_USERNAME", false, "dummy-plivo-username"),
+    endpointPassword: () => getEnv("VITE_PLIVO_ENDPOINT_PASSWORD", false, "dummy-plivo-password"),
+    streamUrl: () => getEnv("VITE_PLIVO_STREAM_URL", true, "wss://dummy-stream-url.example.com"),
+    targetUserId: () => getEnv("VITE_TARGET_USER_ID", false, "dummy-target-user-id"),
   },
 
   internalApiKey: () => getEnv("VITE_INTERNAL_API_KEY", true, "dummy-internal-api-key"),
