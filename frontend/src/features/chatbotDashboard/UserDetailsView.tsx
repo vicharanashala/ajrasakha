@@ -87,6 +87,12 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
   verificationStatus: "all",
 };
 
+const rolesForUserType = (value: "all" | "external" | "internal"): string[] => {
+  if (value === "external") return ["Farmer", "Coordinator"];
+  if (value === "internal") return ["Internal"];
+  return [];
+};
+
 interface UserDetailsViewProps {
   source?: "vicharanashala" | "annam" | undefined;
   initialFilters?: Partial<UserDetailsFilters>;
@@ -112,6 +118,7 @@ export function UserDetailsView({
   const [filters, setFilters] = useState<UserDetailsFilters>(() => ({
     ...DEFAULT_FILTERS,
     ...initialFilters,
+    roles: initialFilters?.roles ?? rolesForUserType(userType),
   }));
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
@@ -166,13 +173,27 @@ const debouncedSearch = useDebounce(filters.search, 500);
   // Apply initialFilters when they change (e.g. clicking from AlertCard in overview)
   useEffect(() => {
     if (initialFilters) {
-      setFilters((prev) => ({ ...prev, ...initialFilters }));
+      setFilters((prev) => ({ ...prev, ...initialFilters,
+        roles: initialFilters.roles ?? rolesForUserType(userType),
+        profileCompleted:
+          initialFilters.profileCompleted ??
+          (userType === "internal" ? "all" : prev.profileCompleted),
+      }));
       setCurrentPage(1);
       if (initialFilters.inactiveOnly || initialFilters.lowFeedbackOnly) {
         scrollToTable();
       }
     }
-  }, [initialFilters]);
+  }, [initialFilters, userType]);
+
+  useEffect(() => {
+    setFilters((prev) => ({
+      ...prev,
+      roles: rolesForUserType(userType),
+      profileCompleted: userType === "internal" ? "all" : prev.profileCompleted,
+    }));
+    setCurrentPage(1);
+  }, [userType]);
 
   const { data, isLoading, error } = useUserDetails(
     filters.startTime,
