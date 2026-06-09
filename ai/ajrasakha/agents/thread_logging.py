@@ -52,12 +52,8 @@ class ThreadLogFilter(logging.Filter):
 
 
 def thread_log_dir() -> Path:
-    raw = os.getenv("THREAD_LOG_DIR", "logs").strip() or "logs"
-    path = Path(raw)
-    if not path.is_absolute():
-        path = Path(__file__).resolve().parents[2] / path
-    return path
-
+    raw = os.getenv("THREAD_LOG_DIR", "/tmp/logs").strip() or "/tmp/logs"
+    return Path(raw)
 
 def sanitize_thread_id_for_filename(thread_id: str) -> str:
     cleaned = _UNSAFE_FILENAME.sub("_", (thread_id or "").strip())
