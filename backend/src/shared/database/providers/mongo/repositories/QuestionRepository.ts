@@ -451,14 +451,14 @@ export class QuestionRepository implements IQuestionRepository {
       caseInsensitiveStringFilter('source', source);
       caseInsensitiveStringFilter('priority', priority);
 
-      // --- Non-Agri / Dynamic tab filter ---
+      // --- Non-Agri tab filter ---
       // When on Non-Agri tab → only show non_agri questions.
-      // On any OTHER tab (and no explicit status filter) → exclude non_agri and dynamic.
-      // Dynamic tab sends status=dynamic via caseInsensitiveStringFilter above.
+      // On any OTHER tab (and no explicit status filter) → exclude non_agri questions
+      // so they don't leak into AJRASAKHA / WhatsApp / Outreach / Manual tabs.
       if (is_non_agri === 'true' || is_non_agri === true) {
         filter.status = 'non_agri';
       } else if (filter.status === undefined) {
-        filter.status = {$nin: ['non_agri', 'dynamic']};
+        filter.status = {$ne: 'non_agri'};
       }
       // --- State filter (from body array) ---
       if (body?.states && body.states.length > 0) {
@@ -5455,11 +5455,11 @@ export class QuestionRepository implements IQuestionRepository {
       filter.$or = [{pae_review: {$eq: false}}, {pae_review: {$exists: false}}];
     }
 
-    // Apply is_non_agri / dynamic filter exactly matching findDetailedQuestions logic
+    // Apply is_non_agri filter exactly matching findDetailedQuestions logic
     if (query.is_non_agri === 'true' || query.is_non_agri === true) {
-     // filter.status = 'non_agri';
+      filter.status = 'non_agri';
     } else if (filter.status === undefined) {
-     // filter.status = {$nin: ['non_agri', 'dynamic']};
+      filter.status = {$ne: 'non_agri'};
     }
 
     // Apply isOnHold filter exactly matching findDetailedQuestions logic
