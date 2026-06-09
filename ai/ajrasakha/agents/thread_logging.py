@@ -14,11 +14,11 @@ import os
 import re
 import threading
 from contextvars import ContextVar
-from datetime import datetime, timezone
-from zoneinfo import ZoneInfo
-
-_IST = ZoneInfo("Asia/Kolkata")
+from datetime import datetime, timedelta, timezone
 from functools import wraps
+
+# IST = UTC+5:30 (no DST — fixed offset is always correct)
+_IST = timezone(timedelta(hours=5, minutes=30))
 from pathlib import Path
 from typing import Any, Callable, TypeVar
 
