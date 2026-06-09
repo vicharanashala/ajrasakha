@@ -58,6 +58,32 @@ export interface QueryCategoryEntry {
   duplicateQuestionCount: number;
 }
 
+export type QueryCategoryQuestionType = 'all' | 'unique' | 'duplicate';
+
+export interface QueryCategoryQuestionEntry {
+  questionId: string;
+  question: string;
+  status: string;
+  questionType: 'unique' | 'duplicate';
+  category: string;
+  createdAt?: Date;
+  farmerName?: string;
+  email?: string;
+  crop?: string;
+  village?: string;
+  block?: string;
+  district?: string;
+  state?: string;
+}
+
+export interface PaginatedQueryCategoryQuestions {
+  questions: QueryCategoryQuestionEntry[];
+  total: number;
+  totalPages: number;
+  page: number;
+  limit: number;
+}
+
 export interface DistrictAnalyticsEntry{
   district: string;
   totalQuestions: number;
@@ -94,6 +120,66 @@ export interface WeatherConcernAnalyticsResponse {
   };
   concernDistribution: WeatherConcernDistributionEntry[];
   timeline: WeatherConcernTimelineEntry[];
+}
+
+export type FarmerHeatMapGranularity = 'monthly' | 'weekly' | 'daily' | 'hourly';
+
+export interface FarmerHeatMapFilters {
+  source?: string;
+  userType?: string;
+  state?: string;
+  granularity?: FarmerHeatMapGranularity;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface FarmerHeatMapMetricTotals {
+  activeFarmers: number;
+  totalQuestions: number;
+  closedQuestions: number;
+  notifiedQuestions: number;
+  averageClosureTimeMinutes: number;
+}
+
+export interface FarmerHeatMapBucket {
+  key: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+  totals: FarmerHeatMapMetricTotals;
+}
+
+export interface FarmerHeatMapCell {
+  bucket: string;
+  label: string;
+  activeFarmers: number;
+  totalQuestions: number;
+  closedQuestions: number;
+  notifiedQuestions: number;
+  averageClosureTimeMinutes: number;
+  statusDistribution: Record<string, number>;
+}
+
+export interface FarmerHeatMapRow {
+  id: string;
+  label: string;
+  scope: 'state' | 'district';
+  cells: FarmerHeatMapCell[];
+  totals: FarmerHeatMapMetricTotals;
+}
+
+export interface FarmerHeatMapResponse {
+  filters: FarmerHeatMapFilters;
+  buckets: FarmerHeatMapBucket[];
+  rows: FarmerHeatMapRow[];
+  totals: FarmerHeatMapMetricTotals;
+  maxValues: {
+    activeFarmers: number;
+    totalQuestions: number;
+    closedQuestions: number;
+    notifiedQuestions: number;
+    averageClosureTimeMinutes: number;
+  };
 }
 
 export interface WeeklySessionDurationEntry {
@@ -177,6 +263,7 @@ export interface UserDetailEntry {
   totalQuestions: number;
   farmerProfile?: FarmerProfile;
   createdAt: Date;
+  isVerified?: boolean;
 }
 
 export interface PaginatedUserDetails { 
@@ -186,6 +273,15 @@ export interface PaginatedUserDetails {
   activeUsers?: number;
   inactiveUsers?: number;
   totalQuestions?: number;
+}
+
+export interface UnverifiedUserEntry {
+  _id: string;
+  name: string;
+  username?: string;
+  email: string;
+  createdAt?: Date;
+  role?: string;
 }
 
 export interface DemographicEntry {
@@ -287,7 +383,24 @@ export interface IChatbotRepository {
   /** Percentage breakdown of sessions by query category, sorted descending. */
   getQueryCategories(source?: string, session?: ClientSession, userType?: string): Promise<QueryCategoryEntry[]>;
 
-  getTopCrops(source?: string, session?: ClientSession): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
+  getQueryCategoryQuestions(
+    category: string,
+    questionType?: QueryCategoryQuestionType,
+    page?: number,
+    limit?: number,
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+    search?: string
+  ): Promise<PaginatedQueryCategoryQuestions>;
+
+  getQuestionFromDistrict(district: string, state?: string, questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string, search?: string): Promise<any>;
+
+  getTopCrops(source?: string, userType?: string, session?: ClientSession): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
+
+    getQuestionsByCrop(crop: string, questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string, search?: string): Promise<any>
+
+    getQuestionsByCrop(crop: string, questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, session?: ClientSession, userType?: string, search?: string): Promise<any>
 
   /** Weekly avg session duration (updatedAt - createdAt) over the last `weeks` ISO weeks, sorted ascending. */
   getWeeklyAvgSessionDuration(
@@ -327,7 +440,7 @@ export interface IChatbotRepository {
     session?: ClientSession,
     userType?: string,
   ): Promise<DailyActiveUsersEntry[]>;
-  findMatchingMessages(data: {question: string; details: any; createdAt: Date; questionId: string; messageId?: string|undefined});
+  // findMatchingMessages(data: {question: string; details: any; createdAt: Date; questionId: string; messageId?: string|undefined});
   findFromSecondDb(data: {question: string; details: any; createdAt: Date; questionId: string; messageId?: string|undefined});
 
   /** Inactivity-gap based avg session duration in minutes (KPI number). Requires MongoDB 5.0+. */
@@ -357,7 +470,12 @@ export interface IChatbotRepository {
     search?: string,
     source?: string,
     crop?: string,
+    primaryCrops?: string,
+    secondaryCrops?: string,
     village?: string,
+    state?: string,
+    district?: string,
+    block?: string,
     profileCompleted?: string,
     inactiveOnly?: boolean,
     session?: ClientSession,
@@ -367,6 +485,7 @@ export interface IChatbotRepository {
     lowFeedbackOnly?: boolean,
     activeTodayByProfile?: boolean,
     missingDemographicField?: string,
+    isVerified?: boolean,
   ): Promise<PaginatedUserDetails>;
 
   getUserQuestionsData(messageIds: string[], source?: string, userType?: string, page?: number, limit?: number): Promise<any>;
@@ -460,6 +579,11 @@ export interface IChatbotRepository {
     userType?: string,
   ): Promise<WeatherConcernAnalyticsResponse>;
 
+  getFarmerHeatMapAnalytics(
+    filters?: FarmerHeatMapFilters,
+    session?: ClientSession,
+  ): Promise<FarmerHeatMapResponse>;
+
   
   getUserById(userId: string, source: string): Promise<any>;
   deleteUser(userId: string, source: string): Promise<boolean>;
@@ -472,6 +596,11 @@ export interface IChatbotRepository {
       farmerProfile?: Partial<FarmerProfile>;
     },
   ): Promise<boolean>;
+  changeUserPassword(
+    userId: string,
+    source: string,
+    newPassword: string,
+  ): Promise<boolean>;
   addUser(
     source: string,
     data: {
@@ -481,6 +610,12 @@ export interface IChatbotRepository {
       userRole?: string;
     },
   ): Promise<boolean>;
+
+  verifyUser(
+    userId: string,
+    source?: string,
+    session?: ClientSession,
+  ): Promise<any>;
 
   // getDailyActiveUsersTrend  ( source: string, userType: string,startDate?: Date, endDate?: Date, session?: ClientSession):Promise<any>
 
@@ -504,15 +639,15 @@ export interface IChatbotRepository {
     userType?: string,
   ): Promise<{ label: string; totalQueries: number }>;
 
-  getClosedVsTotalQuestions(source: string, startDate?: Date, endDate?: Date):Promise<any>;
+  getClosedVsTotalQuestions(source: string, userType?: string, startDate?: Date, endDate?: Date):Promise<any>;
 
-  getNotifiedVsClosed(source?: string, startDate?: Date, endDate?: Date):Promise<any>;
+  getNotifiedVsClosed(source?: string, userType?: string, startDate?: Date, endDate?: Date):Promise<any>;
 
-  getClosedInLastTwoHours(source?: string, startDate?: Date, endDate?: Date): Promise<any>;
+  getClosedInLastTwoHours(source?: string, userType?: string, startDate?: Date, endDate?: Date): Promise<any>;
 
   getMonthlyChurnRate(source: string, userType: string):Promise<any>;
 
-  getCarryForwardQuestions(source?: string): Promise<any>;
+  getCarryForwardQuestions(source?: string, userType?: string): Promise<any>;
 
   getActiveUsersTrend(
     source: string,
@@ -527,6 +662,26 @@ export interface IChatbotRepository {
 }[]>;
 
   getRepeatQueryCount(source?: string, userType?: string, startTime?: string, endTime?: string, session?: ClientSession): Promise<any>;
+
+  /**
+   * Finds unverified users with pagination and search.
+   * @param page - Page number (1-indexed)
+   * @param limit - Number of users per page
+   * @param search - Search query (searches firstName, lastName, email)
+   * @param session - MongoDB session for transactions
+   * @returns Promise with paginated unverified users and metadata
+   */
+  findUnverifiedUsers(
+    page: number,
+    limit: number,
+    search: string,
+    source?: string,
+    session?: ClientSession,
+  ): Promise<{
+    users: UnverifiedUserEntry[];
+    totalUsers: number;
+    totalPages: number;
+  }>;
 
 }
 

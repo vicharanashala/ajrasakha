@@ -1,0 +1,301 @@
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import { X, Copy, Check } from "lucide-react";
+import { Badge } from "@/components/atoms/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/atoms/tabs";
+import {
+  // useDistrictQuestion,
+  // useQueryCategoryQuestions,
+  useQuestionFilter,
+  type QueryCategoryQuestionEntry,
+  type QueryCategoryQuestionType,
+} from "../hooks/useActiveUsersAnalytics";
+import {
+  FarmerInfoCell,
+  QuestionListTable,
+  type QuestionListColumn,
+} from "./QuestionListTable";
+import { TranslatableText } from "./TranslatableText";
+
+const CopyableIdCell = ({ id }: { id?: string }) => {
+  const [copied, setCopied] = useState(false);
+
+  if (!id) return null;
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(id);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="group flex items-center gap-1.5">
+      <span className="font-mono" title={id}>
+        ...{id.slice(-6)}
+      </span>
+      <button
+        type="button"
+        onClick={handleCopy}
+        className="opacity-0 transition-opacity group-hover:opacity-100 hover:text-gray-900 dark:hover:text-gray-100"
+        title="Copy full ID"
+      >
+        {copied ? (
+          <Check className="h-3 w-3 text-green-500" />
+        ) : (
+          <Copy className="h-3 w-3 text-gray-400" />
+        )}
+      </button>
+    </div>
+  );
+};
+
+interface QueryCategoryQuestionsModalProps {
+  category?: string;
+  district?: string;
+  state?: string
+  crop?: string;
+  source: "vicharanashala" | "annam" | "whatsapp";
+  userType?: string;
+  isQueryCategory?: boolean;
+  onClose: () => void;
+}
+
+const PAGE_SIZE = 10;
+
+export function QueryCategoryQuestionsModal({
+  category,
+  district,
+  state,
+  crop,
+  source,
+  userType = "all",
+  isQueryCategory,
+  onClose,
+}: QueryCategoryQuestionsModalProps) {
+  const [questionType, setQuestionType] =
+    useState<QueryCategoryQuestionType>("all");
+  const [page, setPage] = useState(1);
+
+  const [searchTerm, setSearchTerm] = useState("");
+
+  useEffect(() => {
+    setPage(1);
+    setQuestionType("all");
+  }, [category]);
+
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+useEffect(() => {
+  const timer = setTimeout(() => {
+    setDebouncedSearch(searchTerm);
+    setPage(1);
+  }, 500);
+
+  return () => clearTimeout(timer);
+}, [searchTerm]);
+
+
+  const { data, isLoading, isError, isFetching } = useQuestionFilter({
+  category,
+  district,
+  state,
+  crop,
+  questionType,
+  page,
+  limit: PAGE_SIZE,
+  source,
+  userType,
+  search: debouncedSearch,
+  enabled: true,
+});
+
+  const columns = useMemo<QuestionListColumn<QueryCategoryQuestionEntry>[]>(
+    () => [
+      {
+        key: "questionId",
+        label: "Question ID",
+        sortable: true,
+        sortAccessor: (row) => row.questionId,
+        className: "w-[12%]",
+        cellClassName: "text-xs text-gray-500",
+        render: (row) => <CopyableIdCell id={row.questionId} />,
+      },
+      {
+        key: "email",
+        label: "Email",
+        sortable: true,
+        sortAccessor: (row) => row.email || "N/A",
+        className: "w-[16%]",
+        cellClassName: "truncate",
+        accessor: (row) => row.email || "N/A",
+      },
+      {
+        key: "name",
+        label: "Name",
+        sortable: true,
+        sortAccessor: (row) => row.name || row.farmerName || "N/A",
+        className: "w-[14%]",
+        cellClassName: "truncate",
+        accessor: (row) => row.name || row.farmerName || "N/A",
+      },
+      {
+        key: "question",
+        label: "Question",
+        sortable: true,
+        sortAccessor: (row) => row.question,
+        className: "w-[32%]",
+        cellClassName: "overflow-hidden",
+        render: (row) => (
+          <TranslatableText
+            text={row.question ?? ""}
+            showTooltip
+            textClassName="text-xs line-clamp-2"
+          />
+        ),
+      },
+      {
+        key: "createdAt",
+        label: "Created At",
+        sortable: true,
+        sortAccessor: (row) => (row.createdAt ? new Date(row.createdAt) : null),
+        className: "w-[10%]",
+        cellClassName: "whitespace-normal break-words text-[11px]",
+        render: (row) =>
+          row.createdAt
+            ? new Date(row.createdAt).toLocaleString(undefined, {
+                dateStyle: "short",
+                timeStyle: "short",
+              })
+            : undefined,
+      },
+      {
+        key: "questionType",
+        label: "Type",
+        align: "center",
+        sortable: true,
+        sortAccessor: (row) => row.questionType,
+        className: "w-[8%]",
+        render: (row) => (
+          <Badge
+            variant={
+              row.questionType === "duplicate" ? "destructive" : "secondary"
+            }
+            className="justify-center capitalize"
+          >
+            {row.questionType}
+          </Badge>
+        ),
+      },
+      {
+        key: "status",
+        label: "Status",
+        align: "center",
+        sortable: true,
+        sortAccessor: (row) => row.status ?? "",
+        className: "w-[8%]",
+        render: (row) => (
+          <Badge
+            variant="outline"
+            className="justify-center capitalize text-gray-500"
+          >
+            {row.status}
+          </Badge>
+        ),
+      },
+    ],
+    [],
+  );
+
+  const questions = data?.questions ?? [];
+
+  const total = data?.total ?? 0;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+      onPointerDown={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div className="flex max-h-[88vh] w-full max-w-6xl flex-col rounded-xl bg-white shadow-2xl dark:bg-[#1a1a1a]">
+        <div className="flex shrink-0 items-center justify-between gap-4 border-b border-gray-100 px-6 py-4 dark:border-[#2a2a2a]">
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-semibold text-gray-900 dark:text-gray-100">
+              {category}
+            </h2>
+            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+              {isQueryCategory
+                ? "Questions in this query category"
+                : crop ? `Question related to crop of type ${crop}` : `Question releated to the ${district}`}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-3">
+            <input
+              type="text"
+              placeholder="Search by name or email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-64 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-[#2a2a2a]"
+            />
+            <Tabs
+              value={questionType}
+              onValueChange={(value) => {
+                setQuestionType(value as QueryCategoryQuestionType);
+                setPage(1);
+              }}
+            >
+              <TabsList>
+                <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value="unique">Unique</TabsTrigger>
+                <TabsTrigger value="duplicate">Duplicate</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
+              aria-label="Close category questions"
+            >
+              <X className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+            </button>
+          </div>
+        </div>
+
+        <QuestionListTable
+          data={questions}
+          columns={columns}
+          loading={isLoading}
+          loadingMessage="Loading category questions..."
+          error={
+            isError
+              ? "Failed to load category questions. Please try again."
+              : undefined
+          }
+          emptyMessage="No questions found for this category."
+          getRowKey={(row) => row.questionId}
+          pagination={{
+            page,
+            pageSize: PAGE_SIZE,
+            total,
+            onPageChange: setPage,
+          }}
+          initialSortKey="createdAt"
+          initialSortDirection="desc"
+        />
+
+        <div className="flex shrink-0 items-center justify-between border-t border-gray-100 px-6 py-3 text-xs text-gray-400 dark:border-[#2a2a2a] dark:text-gray-500">
+          <span>
+            {isFetching && !isLoading
+              ? "Refreshing..."
+              : `${total} question${total !== 1 ? "s" : ""}`}
+          </span>
+          <span className="capitalize">{questionType} filter</span>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}

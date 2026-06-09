@@ -118,8 +118,69 @@ async def gdb_search(
         log.warning("gdb_search done path=empty (no vector hits)")
         return response
 
-    # Stage 1: one batch LLM call — all RAG candidates, reject only completely irrelevant
-    filter_results = await filter_relevance_batch(query, rag_pairs)
+    # Stage 1: one batch LLM call — all RAG candidates; may detect SAME for early bypass
+    filter_results = await filter_relevance_batch(
+        query, rag_pairs, crop=crop, state=state
+    )
+
+    same_winner_idx: int | None = None
+    for i, filt in enumerate(filter_results):
+        if filt.get("relevance_decision") == "SAME":
+            same_winner_idx = i
+            break
+
+    if same_winner_idx is not None:
+        winner = rag_pairs[same_winner_idx]
+        winner_filt = filter_results[same_winner_idx]
+        evaluations: list[dict] = []
+        for pair, filt in zip(rag_pairs, filter_results):
+            decision = filt.get("relevance_decision", "KEEP")
+            ev = {
+                "question_id": pair.question_id,
+                "similarity_score": pair.similarity_score,
+                "retrieved_question": pair.question_text,
+                "relevance_decision": decision,
+                "relevance_reason": filt.get("relevance_reason", ""),
+                "classification": "SAME_INTENT" if decision == "SAME" else None,
+                "reason": (
+                    filt.get("relevance_reason", "")
+                    if decision == "SAME"
+                    else ""
+                ),
+                "llm_parse_ok": filt.get("llm_parse_ok", False),
+                "action": "pending",
+                "chosen_for_answer": pair.question_id == winner.question_id,
+            }
+            if decision == "REJECT":
+                ev["action"] = "rejected_irrelevant"
+            elif decision == "SAME":
+                ev["action"] = "selected"
+            else:
+                ev["action"] = "skipped_same_bypass"
+            evaluations.append(ev)
+
+        response["selected_match"] = match_entry(
+            winner,
+            RETRIEVAL_SOURCE_RAG,
+            gemma_class="SAME_INTENT",
+            chosen_for_answer=True,
+            answer_from_class="SAME_INTENT",
+        )
+        audit = response["classification_audit"]
+        audit["evaluations"] = evaluations
+        audit["status"] = "selected"
+        audit["selected_question_id"] = winner.question_id
+        audit["selection_rule"] = "same_question_relevance_bypass"
+        audit["answer_from_class"] = "SAME_INTENT"
+        audit["selection_method"] = "same_question_bypass"
+        audit["chosen_for_answer"] = True
+
+        log.info(
+            "gdb_search done path=same_question_bypass question_id=%s reason=%r",
+            winner.question_id,
+            (winner_filt.get("relevance_reason") or "")[:80],
+        )
+        return response
 
     evaluations: list[dict] = []
     kept_pairs: list[QuestionAnswerPair] = []
@@ -168,6 +229,8 @@ async def gdb_search(
             original_query=query,
             retrieved_question=pair.question_text,
             retrieved_answer=pair.answer_text,
+            crop=crop,
+            state=state,
         )
         for pair in kept_pairs
     ]

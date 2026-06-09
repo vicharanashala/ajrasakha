@@ -16,4 +16,6 @@ export const aiConfig = {
   minimax_api_key: env('MINIMAX_API_KEY') || 'test-key',
   WHATSAPP_SERVER_URL: env('WHATSAPP_SERVER_URL'),
   vicharanashala_api_token: env('VICHARANASHALA_API_TOKEN'),
+  gdbServerIP: env('GDB_SERVER_IP') || 'localhost',
+  gdbServerPort: Number(env('GDB_SERVER_PORT')?.trim()) || 8110,
 };

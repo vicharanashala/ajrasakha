@@ -1,4 +1,4 @@
-import type { IUser, ReviewLevelCount } from "@/types";
+import type { IUser, IUnverifiedUser, ReviewLevelCount } from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import type { IUsersNameResponse } from "../api/user/useGetAllUsers";
 import { formatDateLocal } from "@/utils/formatDate";
@@ -138,5 +138,56 @@ export class UserService {
     return apiFetch<IUser>(`${this._baseUrl}/call-agents/${userId}/toggle-active`, {
       method: "PATCH",
     });
+  }
+  /**
+   * Get unverified users with search capability
+   * @param page - Page number (default: 1)
+   * @param limit - Results per page (default: 10)
+   * @param search - Search query to filter users by name/email
+   * @returns Paginated list of unverified users
+   */
+  async getUnverifiedUsers(
+    page: number = 1,
+    limit: number = 10,
+    search: string = ""
+  ): Promise<{
+    users: IUnverifiedUser[];
+    totalUsers: number;
+    totalPages: number;
+  } | null> {
+    const analyticsBaseUrl = `${API_BASE_URL}/analytics`;
+    const params = new URLSearchParams();
+    params.append("page", page.toString());
+    params.append("limit", limit.toString());
+    if (search) params.append("search", search);
+
+    return apiFetch<{
+      users: IUnverifiedUser[];
+      totalUsers: number;
+      totalPages: number;
+    }>(
+      `${analyticsBaseUrl}/unverified-users?${params.toString()}`
+    );
+  }
+
+  /**
+   * Verify a user (set isVerified to true)
+   * @param userId - The ID of the user to verify
+   * @returns Updated user object
+   */
+  async verifyUserInAnalytics(
+    userId: string,
+    source: string = "vicharanashala",
+  ): Promise<{ success: boolean; message: string; user: IUser } | null> {
+    const analyticsBaseUrl = `${API_BASE_URL}/analytics`;
+    const params = new URLSearchParams();
+    params.append("source", source);
+
+    return apiFetch<{ success: boolean; message: string; user: IUser }>(
+      `${analyticsBaseUrl}/verify-user/${userId}?${params.toString()}`,
+      {
+        method: "PATCH",
+      }
+    );
   }
 }

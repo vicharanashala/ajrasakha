@@ -17,9 +17,12 @@ import {
   Cell,
   ResponsiveContainer,
 } from "recharts";
-import { Maximize2, X, InfoIcon } from "lucide-react";
+import { Maximize2, X, InfoIcon, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { Tooltip as ShadcnTooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
+import { useQueryClient } from "@tanstack/react-query";
+import { LazySectionSkeleton } from "../AnnamDashboard_dev";
+import { QueryCategoryQuestionsModal } from "./QueryCategoryQuestionsModal";
 
 
 const colors = [
@@ -45,11 +48,15 @@ interface TopCropsCardProps {
   topCrops: TopCropsData|undefined;
   isLoadingTopCrops: boolean;
   errorLoadingtopCrops: string | null| Error;
+  source?: "vicharanashala" | "annam" | "whatsapp";
+  userType?: string;
 }
 
 export const TopCropsCard = ({topCrops,
   isLoadingTopCrops,
-  errorLoadingtopCrops}:TopCropsCardProps) => {
+  errorLoadingtopCrops,
+  source = "annam",
+  userType}:TopCropsCardProps) => {
   const [isMaximized, setIsMaximized] = useState(false);
  
   const processedData = React.useMemo(() => {
@@ -71,6 +78,14 @@ export const TopCropsCard = ({topCrops,
       color: colors[index % colors.length],
     }));
   }, [topCrops?.topCrops]);
+  const queryClient = useQueryClient();
+  const [loading, setLoading] = useState(false);
+  const [topCrop, setTopCrop] = useState<string | null>(null);
+  const handleRefresh = async ()=>{
+    setLoading(true);
+    await queryClient.refetchQueries({ queryKey: ["top-crops-chatbot"] });
+    setLoading(false);
+    }
 
   if (isLoadingTopCrops) {
     return (
@@ -88,6 +103,11 @@ export const TopCropsCard = ({topCrops,
         Error loading top crops.
       </Card>
     );
+  }
+
+  const handleClick = (cropName: string)=>{
+    console.log("This bar is clicked right now.....The crop name is", cropName)
+    setTopCrop(cropName)
   }
 
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -130,6 +150,17 @@ export const TopCropsCard = ({topCrops,
       >
         {/* Maximize Button */}
         <button
+          onClick={handleRefresh}
+          className="absolute top-4 right-14 z-20 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
+          title="Refresh"
+        >
+          <RefreshCw
+            className={`h-3.5 w-3.5 bg-background ${
+              loading ? "animate-spin" : ""
+            }`}
+          />
+        </button>
+        <button
           onClick={() => setIsMaximized(true)}
           className="absolute top-4 right-4 p-1.5 rounded-md bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-700 transition-colors shadow-sm z-20"
           title="Maximize chart"
@@ -159,6 +190,11 @@ export const TopCropsCard = ({topCrops,
           </CardDescription>
         </CardHeader>
         <CardContent className="flex-1 pb-4">
+          {loading ? (
+            <div>
+              <LazySectionSkeleton/>
+            </div>
+          ):(
           <div className="w-full h-[320px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
@@ -192,14 +228,14 @@ export const TopCropsCard = ({topCrops,
                   cursor={{ fill: "var(--color-muted, #f1f5f9)", opacity: 0.4 }}
                   content={<CustomTooltip />}
                 />
-                <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                <Bar dataKey="count" radius={[4, 4, 0, 0]} >
                   {processedData.map((entry: any, index: null) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                    <Cell key={`cell-${index}`} fill={entry.color} onClick={()=>handleClick(entry.name)}/>
                   ))}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
-          </div>
+          </div>)}
         </CardContent>
       </Card>
 
@@ -282,7 +318,7 @@ export const TopCropsCard = ({topCrops,
                       />
                       <Bar dataKey="count" radius={[6, 6, 0, 0]}>
                         {processedData.map((entry: any, index: any) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
+                          <Cell key={`cell-${index}`} fill={entry.color} onClick={()=>handleClick(entry.name)}/>
                         ))}
                       </Bar>
                     </BarChart>
@@ -330,6 +366,7 @@ export const TopCropsCard = ({topCrops,
           </div>,
           document.body,
         )}
+        {topCrop && <QueryCategoryQuestionsModal crop={topCrop} source={source} userType={userType} isQueryCategory={false} onClose={()=>setTopCrop(null)}/>}
     </>
   );
 };

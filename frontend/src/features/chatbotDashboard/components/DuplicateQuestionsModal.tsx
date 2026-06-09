@@ -25,6 +25,8 @@ interface DuplicateQuestionsModalProps {
 const DEFAULT_FILTERS: UserDetailsFilters = {
   search: '',
   crop: '',
+  primaryCrops: [],
+  secondaryCrops: [],
   village: '',
   block: '',
   district: '',
@@ -35,6 +37,7 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
   inactiveOnly: false,
   lowFeedbackOnly: false,
   userType: 'all',
+  isVerified: true,
 };
 
 export function DuplicateQuestionsModal({ onClose, source = 'annam' }: DuplicateQuestionsModalProps) {

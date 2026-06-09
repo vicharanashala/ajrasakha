@@ -60,7 +60,7 @@ export const MobileSidebar = ({
 }: {
   user: IUser;
   setTab: (value: string) => void;
-  setChatbotSource: (value: "vicharanashala" | "annam") => void;
+  setChatbotSource: (value: "whatsapp" | "annam") => void;
 }) => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -125,7 +125,7 @@ export const MobileSidebar = ({
         ]
       : []),
 
-    ...(user && (user.role === "moderator" || user.role === "tester" || user.role === "admin")
+    ...(user && user.role === "admin"
       ? [{ id: "data_processing", label: "Data Processing", icon: Database }]
       : []),
 

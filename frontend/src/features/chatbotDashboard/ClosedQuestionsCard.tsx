@@ -14,7 +14,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/atoms/popover";
-import { CalendarIcon, Clock3, X, InfoIcon } from "lucide-react";
+import { CalendarIcon, Clock3, X, InfoIcon} from "lucide-react";
 import { format, isSameDay } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/atoms/skeleton";
@@ -92,7 +92,6 @@ export function ClosedQuestionsCard({
             </div>
           ) : (
             <>
-
           {/* Header */}
           <div className="flex items-center justify-between gap-2">
             <div className="text-sm text-muted-foreground flex gap-2 items-center">
@@ -433,7 +432,7 @@ export function ClosedQuestionsCard({
             </div>
           </div>
 
-       
+        
           </>)}
         </CardHeader>
       </Card>

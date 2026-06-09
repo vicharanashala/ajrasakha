@@ -64,50 +64,20 @@ def _extract_gdb_from_messages(messages: list[BaseMessage]) -> Optional[dict]:
     return None
 
 
-_TRANSLATE_SHARED_RULES = """You translate agricultural advisories for Indian farmers.
-
-Rules
-- Output ONLY the translated advisory body.
-- Preserve numbers, URLs, chemical names, and units exactly.
-- Do not add any other text or formatting to the output.
-"""
-
-_TRANSLATE_ENGLISH_SCRIPT_RULES = """
-Script = English (Latin alphabet — Romanized / Hinglish):
-- Write the full reply using the Latin alphabet.
-- Use {vocal_language} wording; script is English (Latin letters only).
-- Cultivar codes and chemical labels may stay in Latin letters (e.g. PBW 872, Zinc, NPK).
-"""
-
-_TRANSLATE_NATIVE_SCRIPT_RULES = """
-Script = {script_language} (native writing system — NOT Latin alphabet for body text):
-- Translate all sentences into {vocal_language}.
-- Every word the farmer reads must use the {script_language} writing system.
-- Transliterate every Latin-letter token into {script_language} — do NOT drop or shorten labels.
-- Preserve meaning and all named entities; transliterate Latin spellings into the target script.
-- Do NOT leave A–Z Latin letters in the body except inside URLs.
-- Numbers stay as digits (e.g. 872, 24.4) unless the target script normally uses other numerals for prose.
-
-Transliteration examples (Hindi Devanagari — apply the same idea for other native scripts):
-- Zinc → ज़िंक
-- PBW → पीबीडब्ल्यू
-- PBW 872 → पीबीडब्ल्यू 872
-- NPK → एनपीके (transliterate letters; keep the acronym readable in script)
-
-Forbidden:
-- Deleting a variety or chemical line because the label was in Latin.
-- Copying English paragraphs without translating into {vocal_language}.
-"""
-
+from ajrasakha.agents.prompts import (
+    TRANSLATE_SHARED_RULES,
+    TRANSLATE_ENGLISH_SCRIPT_RULES,
+    TRANSLATE_NATIVE_SCRIPT_RULES
+)
 
 def build_translate_system_prompt(script_language: str, vocal_language: str) -> str:
     """Build translate LLM instructions: native script transliterates Latin tokens; English script keeps Latin codes."""
     script = (script_language or "English").strip()
     vocal = (vocal_language or "English").strip()
-    base = _TRANSLATE_SHARED_RULES
+    base = TRANSLATE_SHARED_RULES
     if script.lower() == "english":
-        return base + _TRANSLATE_ENGLISH_SCRIPT_RULES.format(vocal_language=vocal)
-    return base + _TRANSLATE_NATIVE_SCRIPT_RULES.format(
+        return base + TRANSLATE_ENGLISH_SCRIPT_RULES.format(vocal_language=vocal)
+    return base + TRANSLATE_NATIVE_SCRIPT_RULES.format(
         script_language=script,
         vocal_language=vocal,
     )
@@ -199,6 +169,7 @@ async def translate_answer_node(
             script_language=script,
             vocal_language=vocal,
             gdb_data=gdb_data,
+            is_greeting=plan.get("is_greeting", False),
         )
         logger.info("translate_answer: path=synthesis — final len=%d", len(content))
         return _reply_message(content, final_msg, state)
@@ -209,6 +180,7 @@ async def translate_answer_node(
             script_language=script,
             vocal_language=vocal,
             gdb_data=gdb_data,
+            is_greeting=plan.get("is_greeting", False),
         )
         return _reply_message(content, final_msg, state)
     except APIStatusError as exc:
@@ -221,5 +193,6 @@ async def translate_answer_node(
             script_language=script,
             vocal_language=vocal,
             gdb_data=gdb_data,
+            is_greeting=plan.get("is_greeting", False),
         )
         return _reply_message(content, final_msg, state)

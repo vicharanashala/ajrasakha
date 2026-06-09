@@ -34,7 +34,12 @@ export function MissingDemographicsModal({
     search,
     source,
     "", // crop
+    [], // primaryCrops
+    [], // secondaryCrops
     "", // village
+    "", // state
+    "", // district
+    "", // block
     "all", // profileCompleted
     false, // inactiveOnly
     false, // lowFeedbackOnly

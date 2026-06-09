@@ -1,8 +1,16 @@
 // @ts-nocheck
 import { useState, useEffect, useRef } from 'react';
-import { RefreshCw, Download, Upload, Trash2 } from 'lucide-react';
+import { RefreshCw, Download, Upload, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { getStateTable, uploadAuditedFile, downloadUrl, outputDownloadUrl, deleteFolder, deleteFile } from '../../api';
 import ColumnFilter from './ColumnFilter';
+
+function formatFinishedAt(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("en-IN", {
+    day: "2-digit", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
 
 function AuditCell({ row, onUploaded }) {
   const inputRef = useRef(null);
@@ -93,6 +101,7 @@ export default function StateTable({ refreshKey }) {
   const [domainFilter, setDomainFilter] = useState([]);
   const [downloadFilter, setDownloadFilter] = useState([]);
   const [auditFilter, setAuditFilter] = useState([]);
+  const [finishedSort, setFinishedSort] = useState<null | 'asc' | 'desc'>(null);
 
   async function load() {
     setLoading(true);
@@ -125,6 +134,18 @@ export default function StateTable({ refreshKey }) {
 
   const anyFilter = stateFilter.length > 0 || districtFilter.length > 0 || cropFilter.length > 0
     || domainFilter.length > 0 || downloadFilter.length > 0 || auditFilter.length > 0;
+
+  const displayed = finishedSort
+    ? [...filtered].sort((a, b) => {
+        const ta = a.finished_at ? new Date(a.finished_at).getTime() : -Infinity;
+        const tb = b.finished_at ? new Date(b.finished_at).getTime() : -Infinity;
+        return finishedSort === 'asc' ? ta - tb : tb - ta;
+      })
+    : filtered;
+
+  function cycleFinishedSort() {
+    setFinishedSort(s => s === null ? 'desc' : s === 'desc' ? 'asc' : null);
+  }
 
   function rowKey(row) { return `${row.state}__${row.district || ''}__${row.crop}`; }
 
@@ -270,18 +291,28 @@ export default function StateTable({ refreshKey }) {
                 <th className="text-left px-3 py-2 whitespace-nowrap">
                   <ColumnFilter label="Audit" options={['audited', 'not audited']} selected={auditFilter} onChange={setAuditFilter} />
                 </th>
+                <th className="text-left px-3 py-2 whitespace-nowrap">
+                  <button
+                    onClick={cycleFinishedSort}
+                    className={`flex items-center gap-1 font-semibold text-[11px] uppercase tracking-wide transition-colors cursor-pointer
+                      ${finishedSort ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    Finished
+                    {finishedSort === 'asc' ? <ArrowUp size={11} /> : finishedSort === 'desc' ? <ArrowDown size={11} /> : <ArrowUpDown size={11} />}
+                  </button>
+                </th>
                 <th className="px-3 py-2 w-12"></th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-sm text-muted-foreground italic">
+                  <td colSpan={9} className="px-4 py-8 text-center text-sm text-muted-foreground italic">
                     No rows match the current filters.
                   </td>
                 </tr>
               ) : (
-                filtered.map((row, idx) => (
+                displayed.map((row, idx) => (
                   <tr key={`${row.state}__${row.district || ''}__${row.crop}`} className={`border-b border-border/50 hover:bg-muted/20 transition-colors ${selectedRows.has(rowKey(row)) ? 'bg-primary/5' : idx % 2 === 0 ? '' : 'bg-muted/10'}`}>
                     <td className="px-3 py-2 align-middle">
                       <input
@@ -320,6 +351,9 @@ export default function StateTable({ refreshKey }) {
                     </td>
                     <td className="px-3 py-2 align-top">
                       <AuditCell row={row} onUploaded={load} />
+                    </td>
+                    <td className="px-3 py-2 align-top whitespace-nowrap font-mono text-[10px] text-muted-foreground">
+                      {formatFinishedAt(row.finished_at)}
                     </td>
                     <td className="px-3 py-2 align-middle">
                       <button
