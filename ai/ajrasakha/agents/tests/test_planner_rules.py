@@ -5,8 +5,11 @@ from langchain_core.messages import AIMessage, HumanMessage
 from ajrasakha.agents.domains import domain_requires_crop
 from ajrasakha.agents.planner_rules import (
     apply_planner_completeness_rules,
+    canonicalize_chemical_names,
     conversation_text_from_messages,
     extract_crop_from_text,
+    format_conversation_for_planner,
+    format_prev_plan_context,
     infer_domain_for_plan,
     is_schemes_intent,
 )
@@ -35,6 +38,55 @@ def test_crop_insurance_requires_crop():
     assert domain_requires_crop(domain) is True
 
 
+def test_format_prev_plan_context_includes_rephrased_and_chemicals():
+    prev = {
+        "is_complete": False,
+        "rephrased_query": "How to use Dazomet (mylone)?",
+        "entities": {"chemicals": ["Dazomet"]},
+        "domain": "Plant Protection",
+        "missing_info": ["location"],
+    }
+    text = format_prev_plan_context(prev)
+    assert "previous_rephrased_query: How to use Dazomet (mylone)?" in text
+    assert "resolved_chemicals (canonical): Dazomet" in text
+    assert "still_missing: location" in text
+
+
+def test_format_prev_plan_context_empty_when_prior_turn_complete():
+    assert format_prev_plan_context({"is_complete": True, "rephrased_query": "x"}) == ""
+
+
+def test_canonicalize_chemical_names_typo_to_dazomet():
+    from ajrasakha.agents import crop_chemical_resolver as resolver
+
+    resolver.build_cache_from_docs([
+        {
+            "_id": "chem2",
+            "name": "Dazomet",
+            "type": "chemical",
+            "aliases": [{"english_representation": "mylone", "native_representation": ""}],
+        },
+    ])
+    assert canonicalize_chemical_names(["mylonee"]) == ["Dazomet"]
+
+
+def test_format_conversation_for_planner_keeps_farmer_messages_not_bot():
+    long_bot = "Bot answer " * 500
+    messages = [
+        HumanMessage(content="ਪੰਜਾਬ ਵਿੱਚ ਝੋਨੇ ਨੂੰ ਲੀਫ ਬਲਾਈਟ"),
+        AIMessage(content=long_bot),
+        HumanMessage(content="how to use mylonee"),
+        AIMessage(content="expert queue reply"),
+        HumanMessage(content="how to use myloni"),
+    ]
+    conv = format_conversation_for_planner(messages)
+    assert "ਪੰਜਾਬ" in conv
+    assert "how to use mylonee" in conv
+    assert "how to use myloni" in conv
+    assert "Bot answer" not in conv
+    assert "expert queue" not in conv
+
+
 def test_conversation_carries_crop():
     messages = [
         HumanMessage(content="Can i get insurance for my crop?"),
@@ -45,7 +97,7 @@ def test_conversation_carries_crop():
     assert extract_crop_from_text(conv) == "cotton"
 
 
-def test_cotton_turn_complete_with_gps():
+def test_cotton_clarify_without_farmer_state_asks_location_not_gps():
     messages = [
         HumanMessage(content="Can i get insurance for my crop?"),
         AIMessage(content="Which crop are you growing?"),
@@ -62,12 +114,13 @@ def test_cotton_turn_complete_with_gps():
         messages,
         {"latitude": 30.9, "longitude": 76.5, "state": "Punjab", "city": "Ludhiana"},
     )
-    assert plan["is_complete"] is True
+    assert plan["is_complete"] is False
     assert plan["entities"]["crop"] == "Cotton"
-    assert plan.get("follow_up_question") is None
+    assert plan["entities"].get("state") is None
+    assert "location" in (plan.get("missing_info") or [])
 
 
-def test_pm_kisan_complete_with_gps_no_crop_bleed():
+def test_pm_kisan_without_farmer_state_asks_location_not_gps():
     messages = [
         HumanMessage(content="Can i get insurance for my crop?"),
         HumanMessage(content="Cotton"),
@@ -83,9 +136,10 @@ def test_pm_kisan_complete_with_gps_no_crop_bleed():
         messages,
         {"latitude": 30.9, "longitude": 76.5, "state": "Punjab", "city": "Ludhiana"},
     )
-    assert plan["is_complete"] is True
+    assert plan["is_complete"] is False
     assert plan["entities"]["crop"] == "all"
-    assert plan.get("follow_up_question") is None
+    assert plan["entities"].get("state") is None
+    assert "location" in (plan.get("missing_info") or [])
 
 
 def test_state_only_sets_district_all_without_follow_up():

@@ -34,6 +34,7 @@ _turn_counts: dict[str, int] = {}
 _turn_counts_lock = threading.Lock()
 
 _UNSAFE_FILENAME = re.compile(r"[^\w.\-]+", re.UNICODE)
+_END_TURN_RE = re.compile(r"END TURN (\d+)", re.MULTILINE)
 _BOX_WIDTH = 76
 
 # Thread log files: application logs only (skip httpx / MCP transport noise).
@@ -93,6 +94,19 @@ def _thread_log_path(thread_id: str) -> Path:
     return thread_log_dir() / f"{safe}.txt"
 
 
+def _max_turn_from_log(thread_id: str) -> int:
+    """Read highest completed turn from the thread log (survives process restart)."""
+    path = _thread_log_path(thread_id)
+    if not path.is_file():
+        return 0
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return 0
+    turns = [int(m) for m in _END_TURN_RE.findall(text)]
+    return max(turns) if turns else 0
+
+
 def append_thread_block(text: str, *, thread_id: str | None = None) -> None:
     """Append a raw multi-line block directly to the thread log (no log prefix)."""
     tid = thread_id or _thread_id_ctx.get()
@@ -113,7 +127,9 @@ def begin_conversation_turn(farmer_message: str) -> int:
         return 0
 
     with _turn_counts_lock:
-        turn = _turn_counts.get(thread_id, 0) + 1
+        # In-memory counter for same process; log file for restart / hot-reload.
+        prior = max(_turn_counts.get(thread_id, 0), _max_turn_from_log(thread_id))
+        turn = prior + 1
         _turn_counts[thread_id] = turn
 
     _turn_num_ctx.set(turn)

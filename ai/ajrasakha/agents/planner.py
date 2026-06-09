@@ -57,6 +57,7 @@ from ajrasakha.agents.planner_rules import (
     apply_planner_completeness_rules,
     crop_slot_satisfied,
     format_conversation_for_planner,
+    format_prev_plan_context,
     merge_entities_from_rephrased_query,
     resolve_crop_for_turn,
     was_crop_clarify_asked,
@@ -439,7 +440,8 @@ async def planner_node(
     llm_messages: list[BaseMessage] = [SystemMessage(content=PLANNER_SYSTEM_PROMPT)]
     conv_block = format_conversation_for_planner(messages) or user_text
 
-    crop_hints = format_planner_crop_hints(f"{user_text}\n{conv_block}")
+    crop_hints = format_planner_crop_hints(user_text)
+    prev_plan_context = format_prev_plan_context(prev_plan)
     trace_event(
         "crop_fuzzy_hints",
         user_text=user_text,
@@ -450,12 +452,15 @@ async def planner_node(
         f"- state hint: {state_resolved or 'NOT RESOLVED'}\n"
         f"- crop hint: {crop_resolved or 'NOT RESOLVED'}\n"
     )
+    if prev_plan_context:
+        deterministic_context = f"{deterministic_context}\n{prev_plan_context}"
     if crop_hints:
         deterministic_context = f"{deterministic_context}\n{crop_hints}\n"
     human_content = (
         f"{deterministic_context}\n"
-        f"Latest farmer message:\n{conv_block}\n\n"
-        f"Pick `domain` from the allowed list using this latest message only.\n"
+        f"Current farmer message (route using this):\n{user_text}\n\n"
+        f"Recent farmer messages in thread:\n{conv_block}\n\n"
+        f"Pick `domain` from the allowed list using the current farmer message only.\n"
         "Set `vocal_language` and `script_language` from the official language list.\n"
         "Leave `follow_up_question` empty when location/crop is missing — server uses the sheet.\n"
         "Return the routing plan only."
@@ -464,6 +469,7 @@ async def planner_node(
         "planner_llm_request",
         state_hint=state_resolved,
         crop_hint=crop_resolved,
+        prev_plan_context=prev_plan_context or None,
         conversation=conv_block,
         deterministic_context=deterministic_context,
         llm_human_message=human_content,

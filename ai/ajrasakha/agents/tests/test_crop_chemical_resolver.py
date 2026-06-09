@@ -120,7 +120,7 @@ def test_devanagari_does_not_match_telugu_alias():
     assert all(m.script == "devanagari" for m in devanagari_matches)
 
 
-def test_chemical_excluded_from_fuzzy_crop_matches():
+def test_chemical_included_in_fuzzy_matches():
     resolver.build_cache_from_docs([
         {
             "_id": "chem1",
@@ -129,8 +129,72 @@ def test_chemical_excluded_from_fuzzy_crop_matches():
             "aliases": [{"english_representation": "monocil", "native_representation": ""}],
         },
     ])
-    matches = resolver.find_crop_fuzzy_matches("monocil spray")
-    assert matches == []
+    matches = resolver.find_crop_fuzzy_matches("how to use monocil spray")
+    assert matches
+    assert matches[0].entry.name == "Monocrotophos"
+    assert matches[0].entry.type == "chemical"
+
+
+def test_chemical_typo_mylonee_matches_mylone():
+    resolver.build_cache_from_docs([
+        {
+            "_id": "chem2",
+            "name": "Dazomet",
+            "type": "chemical",
+            "aliases": [{"english_representation": "mylone", "native_representation": ""}],
+        },
+    ])
+    matches = resolver.find_crop_fuzzy_matches("how to use        mylonee")
+    assert matches
+    assert matches[0].entry.name == "Dazomet"
+    assert matches[0].alias == "mylone"
+
+
+def test_word_boundary_rice_in_red_rice():
+    resolver.build_cache_from_docs([
+        {
+            "_id": "crop5",
+            "name": "Rice",
+            "type": "crop",
+            "aliases": [{"english_representation": "red rice", "native_representation": ""}],
+        },
+    ])
+    matches = resolver.find_crop_fuzzy_matches("price of rice today")
+    assert matches
+    assert matches[0].entry.name == "Rice"
+    assert matches[0].score == 100
+
+
+def test_redrice_does_not_match_red_rice_alias():
+    resolver.build_cache_from_docs([
+        {
+            "_id": "crop5",
+            "name": "Rice",
+            "type": "crop",
+            "aliases": [{"english_representation": "red rice", "native_representation": ""}],
+        },
+    ])
+    matches = resolver.find_crop_fuzzy_matches("redrice pests")
+    assert all(m.entry.name != "Rice" for m in matches)
+
+
+def test_alias_match_score_word_boundary_vs_ratio():
+    assert resolver._alias_match_score("rice", "red rice") == 100
+    assert resolver._alias_match_score("rice", "redrice") < 80
+    assert resolver._alias_match_score("mylonee", "mylone") > 80
+
+
+def test_latin_token_match_avoids_use_us_false_positive():
+    resolver.build_cache_from_docs([
+        {
+            "_id": "crop4",
+            "name": "Sugarcane",
+            "type": "crop",
+            "aliases": [{"english_representation": "us", "native_representation": ""}],
+        },
+    ])
+    matches = resolver.find_crop_fuzzy_matches("how to use mylonee")
+    assert all(m.entry.name != "Sugarcane" for m in matches)
 
 
 def test_sentinel_crop_excluded_from_fuzzy_index():
@@ -141,7 +205,7 @@ def test_sentinel_crop_excluded_from_fuzzy_index():
 
 def test_format_planner_crop_hints():
     text = resolver.format_planner_crop_hints("vazhuthana pests in Kerala")
-    assert "CROP ALIAS HINTS" in text
+    assert "CROP/CHEMICAL ALIAS HINTS" in text
     assert "Brinjal" in text
     assert "[latin]" in text
 

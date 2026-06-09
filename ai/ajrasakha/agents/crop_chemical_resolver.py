@@ -54,6 +54,7 @@ _SUPPORTED_UDP: dict[str, ScriptName] = {
 _SKIP_UDP = frozenset({"Common", "Inherited", "Unknown"})
 
 _CROP_FUZZY_MIN_SCORE = 80
+_MIN_FUZZY_ALIAS_LEN = 3
 
 _SENTINEL_CROP_NAMES = frozenset({
     "all",
@@ -99,7 +100,8 @@ class AliasHit:
 
 _entries_by_id: dict[str, CropMasterEntry] = {}
 _alias_exact: dict[tuple[str, ScriptName], AliasHit] = {}
-_crop_fuzzy_by_script: dict[ScriptName, list[tuple[str, str]]] = {}
+_alias_fuzzy_by_script: dict[ScriptName, list[tuple[str, str]]] = {}
+_LATIN_TOKEN_MIN_LEN = 4
 _loaded = False
 _dictionary_path: Path | None = None
 
@@ -337,12 +339,57 @@ def load_crop_chemical_name_dict(*, reload: bool = False) -> dict[str, Any]:
     return data
 
 
+def _has_word_boundary_match(query: str, alias: str) -> bool:
+    """True when query and alias share a complete word (not a substring inside a word)."""
+    if not query or not alias:
+        return False
+    if re.search(rf"\b{re.escape(query)}\b", alias, re.IGNORECASE):
+        return True
+    if re.search(rf"\b{re.escape(alias)}\b", query, re.IGNORECASE):
+        return True
+    return False
+
+
+def _alias_match_score(query: str, alias: str) -> float:
+    """Word-boundary match → 100; else best fuzz.ratio (per alias word if multi-word)."""
+    if _has_word_boundary_match(query, alias):
+        return 100.0
+
+    if " " in alias:
+        word_scores = [_alias_match_score(query, word) for word in alias.split()]
+        return max(word_scores) if word_scores else 0.0
+
+    return float(fuzz.ratio(query, alias))
+
+
+def _alias_match_scorer(query: str, alias: str, **_: Any) -> float:
+    """rapidfuzz scorer wrapper (accepts score_cutoff kwarg from process.extract)."""
+    return _alias_match_score(query, alias)
+
+
+def _latin_match_tokens(segment: str, *, min_len: int = _LATIN_TOKEN_MIN_LEN) -> list[str]:
+    """Word tokens for latin fuzzy match (avoids 'us' inside 'use' on whole-phrase match)."""
+    tokens = re.findall(r"[a-zA-Z][a-zA-Z0-9\-]*", segment)
+    return [t for t in tokens if len(t) >= min_len]
+
+
+def _match_units(segment: str, script: ScriptName) -> list[str]:
+    if script == "latin":
+        tokens = _latin_match_tokens(segment)
+        if tokens:
+            return tokens
+        stripped = segment.strip()
+        return [stripped] if len(stripped) >= _LATIN_TOKEN_MIN_LEN else []
+    tokens = [w for w in re.split(r"\s+", segment.strip()) if w]
+    return tokens if tokens else ([segment.strip()] if segment.strip() else [])
+
+
 def _build_memory_indexes(entries: list[dict[str, Any]]) -> None:
-    global _entries_by_id, _alias_exact, _crop_fuzzy_by_script, _loaded
+    global _entries_by_id, _alias_exact, _alias_fuzzy_by_script, _loaded
 
     entries_by_id: dict[str, CropMasterEntry] = {}
     alias_exact: dict[tuple[str, ScriptName], AliasHit] = {}
-    crop_fuzzy_by_script: dict[ScriptName, list[tuple[str, str]]] = {}
+    alias_fuzzy_by_script: dict[ScriptName, list[tuple[str, str]]] = {}
 
     for row in entries:
         entry_id = str(row.get("id", ""))
@@ -376,7 +423,9 @@ def _build_memory_indexes(entries: list[dict[str, Any]]) -> None:
         entries_by_id[entry_id] = entry
 
         is_crop = entry_type == "crop"
+        is_chemical = entry_type == "chemical"
         skip_fuzzy = is_crop and _is_sentinel_crop(name)
+        index_fuzzy = (is_crop and not skip_fuzzy) or is_chemical
 
         for ia in indexed:
             hit = AliasHit(
@@ -388,23 +437,27 @@ def _build_memory_indexes(entries: list[dict[str, Any]]) -> None:
             )
             alias_exact[(ia.alias_normalized, ia.script)] = hit
 
-            if is_crop and not skip_fuzzy and ia.script != "unknown":
-                crop_fuzzy_by_script.setdefault(ia.script, []).append(
+            if (
+                index_fuzzy
+                and ia.script != "unknown"
+                and len(ia.alias_normalized) >= _MIN_FUZZY_ALIAS_LEN
+            ):
+                alias_fuzzy_by_script.setdefault(ia.script, []).append(
                     (ia.alias_normalized, entry_id)
                 )
 
     _entries_by_id = entries_by_id
     _alias_exact = alias_exact
-    _crop_fuzzy_by_script = crop_fuzzy_by_script
+    _alias_fuzzy_by_script = alias_fuzzy_by_script
     _loaded = True
 
-    crop_alias_count = sum(len(v) for v in crop_fuzzy_by_script.values())
+    fuzzy_alias_count = sum(len(v) for v in alias_fuzzy_by_script.values())
     logger.info(
-        "crop_master memory cache loaded: entries=%d exact_aliases=%d crop_fuzzy_aliases=%d scripts=%d",
+        "crop_master memory cache loaded: entries=%d exact_aliases=%d fuzzy_aliases=%d scripts=%d",
         len(entries_by_id),
         len(alias_exact),
-        crop_alias_count,
-        len(crop_fuzzy_by_script),
+        fuzzy_alias_count,
+        len(alias_fuzzy_by_script),
     )
 
 
@@ -515,46 +568,52 @@ def find_crop_fuzzy_matches(
     min_score: float = _CROP_FUZZY_MIN_SCORE,
     limit: int = 5,
 ) -> list[AliasHit]:
+    """Fuzzy alias hits for crops and chemicals (script-scoped, token-aware for latin)."""
     if not _loaded or not text.strip():
         return []
 
     best_by_entry: dict[str, AliasHit] = {}
 
     for segment, script in segment_by_script(text):
-        choices = _crop_fuzzy_by_script.get(script)
+        choices = _alias_fuzzy_by_script.get(script)
         if not choices:
             continue
 
         alias_strings = [alias for alias, _ in choices]
         alias_to_entry = {alias: entry_id for alias, entry_id in choices}
 
-        matches = process.extract(
-            _normalize_alias(segment, script),
-            alias_strings,
-            scorer=fuzz.partial_ratio,
-            limit=max(limit * 3, 10),
-        )
-
-        for matched_alias, score, _idx in matches:
-            if score <= min_score:
-                continue
-            entry_id = alias_to_entry.get(matched_alias)
-            if not entry_id:
-                continue
-            entry = _entries_by_id.get(entry_id)
-            if not entry or entry.type != "crop":
+        for unit in _match_units(segment, script):
+            query = _normalize_alias(unit, script)
+            if not query:
                 continue
 
-            hit = AliasHit(
-                alias=matched_alias,
-                script=script,
-                entry=entry,
-                score=float(score),
-                match_type="fuzzy",
+            matches = process.extract(
+                query,
+                alias_strings,
+                scorer=_alias_match_scorer,
+                limit=max(limit * 3, 10),
             )
-            prev = best_by_entry.get(entry_id)
-            if prev is None or hit.score > prev.score:
-                best_by_entry[entry_id] = hit
+
+            for matched_alias, score, _idx in matches:
+                if score <= min_score:
+                    continue
+                entry_id = alias_to_entry.get(matched_alias)
+                if not entry_id:
+                    continue
+                entry = _entries_by_id.get(entry_id)
+                if not entry:
+                    continue
+
+                hit = AliasHit(
+                    alias=matched_alias,
+                    script=script,
+                    entry=entry,
+                    score=float(score),
+                    match_type="fuzzy",
+                )
+                prev = best_by_entry.get(entry_id)
+                if prev is None or hit.score > prev.score:
+                    best_by_entry[entry_id] = hit
 
     ranked = sorted(best_by_entry.values(), key=lambda h: h.score, reverse=True)
     return ranked[:limit]
@@ -584,13 +643,13 @@ def format_planner_crop_hints(text: str, *, limit: int = 5) -> str:
         return ""
 
     lines = [
-        "CROP ALIAS HINTS from crop_master "
-        "(script-scoped fuzzy partial_ratio > 80%; crops only — "
-        "use when rephrasing/detecting crop):",
+        "CROP/CHEMICAL ALIAS HINTS from crop_master "
+        "(latest farmer message only; word-boundary match or fuzz.ratio > 80%; "
+        "latin tokens >= 4 chars — use when rephrasing/detecting crop or chemical):",
     ]
     for hit in matches:
         lines.append(
-            f'- [{hit.script}] local "{hit.alias}" -> canonical "{hit.entry.name}" '
-            f"(score {hit.score:.0f}%)"
+            f'- [{hit.script}] {hit.entry.type} alias "{hit.alias}" -> '
+            f'canonical "{hit.entry.name}" (score {hit.score:.0f}%)'
         )
     return "\n".join(lines)

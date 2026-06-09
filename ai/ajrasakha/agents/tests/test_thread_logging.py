@@ -32,6 +32,30 @@ def test_conversation_turn_blocks(tmp_path: Path, monkeypatch):
     assert "END TURN 2" in text
 
 
+def test_turn_counter_survives_process_restart(tmp_path: Path, monkeypatch):
+    """After restart in-memory _turn_counts is empty; next turn reads from log file."""
+    monkeypatch.setattr(tl, "thread_log_dir", lambda: tmp_path)
+    tl._turn_counts.clear()
+
+    tl.set_thread_log_context("thread-restart")
+    tl.begin_conversation_turn("First question")
+    tl.end_conversation_turn("First answer", outcome="answer")
+    tl.clear_thread_log_context()
+
+    tl._turn_counts.clear()
+    tl.set_thread_log_context("thread-restart")
+    tl.begin_conversation_turn("Second question")
+    tl.end_conversation_turn("Second answer", outcome="answer")
+    tl.clear_thread_log_context()
+
+    text = (tmp_path / "thread-restart.txt").read_text(encoding="utf-8")
+    assert "TURN 1" in text
+    assert "TURN 2" in text
+    assert "END TURN 2" in text
+    assert text.count("#  TURN 1 ") == 1
+    assert text.count("#  TURN 2 ") == 1
+
+
 def test_thread_file_handler_routes_by_context(tmp_path: Path):
     handler = tl.ThreadFileLogHandler(tmp_path)
     handler.addFilter(tl.ThreadLogFilter())
