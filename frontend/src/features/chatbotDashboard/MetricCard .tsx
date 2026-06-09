@@ -2,14 +2,27 @@ import { useState, useRef, useMemo } from "react";
 import CountUp from "react-countup";
 import { createPortal } from "react-dom";
 import { Card, CardContent } from "@/components/atoms/card";
-import { Download, Smartphone, Apple, Maximize2, X, Info as InfoIcon, RefreshCw } from "lucide-react";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/atoms/tooltip";
+import {
+  Download,
+  Smartphone,
+  Apple,
+  Maximize2,
+  X,
+  Info as InfoIcon,
+  RefreshCw,
+} from "lucide-react";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/atoms/tooltip";
 import { TotalQueriesModal } from "./components/TotalQueriesModal";
 import { ActiveFarmersTable } from "./components/ActiveFarmersTable";
 import type { QueryGranularity } from "./components/TotalQueriesModal";
 import type { AnalyticsEntry } from "./utils/dashboardHelpers";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
+import { QueryCategoryQuestionsModal } from "./components/QueryCategoryQuestionsModal";
 
 type BadgeVariant = "green" | "red" | "amber" | "blue";
 
@@ -121,15 +134,17 @@ function Sparkline({
 
   const py = (v: number) => height - ((v - min) / (max - min || 1)) * height;
 
-  const d = points.length === 1
-    ? `M 0 ${py(points[0])} L ${width} ${py(points[0])}`
-    : points
-        .map((v, i) => `${i === 0 ? "M" : "L"} ${px(i)} ${py(v)}`)
-        .join(" ");
+  const d =
+    points.length === 1
+      ? `M 0 ${py(points[0])} L ${width} ${py(points[0])}`
+      : points
+          .map((v, i) => `${i === 0 ? "M" : "L"} ${px(i)} ${py(v)}`)
+          .join(" ");
 
-  const fill = points.length === 1
-    ? `M 0 ${py(points[0])} L ${width} ${py(points[0])} L ${width} ${height} L 0 ${height} Z`
-    : `${d} L ${width} ${height} L 0 ${height} Z`;
+  const fill =
+    points.length === 1
+      ? `M 0 ${py(points[0])} L ${width} ${py(points[0])} L ${width} ${height} L 0 ${height} Z`
+      : `${d} L ${width} ${height} L 0 ${height} Z`;
 
   const sliceWidth = width / points.length;
 
@@ -260,7 +275,9 @@ function AnimatedKpiValue({ value, kpiId }: { value: string; kpiId: string }) {
 
   // Handled slash-separated "X / Y" formats (used in DAU and Total Installs)
   if (raw.includes("/")) {
-    const [leftRaw, rightRaw] = raw.split("/").map((s) => s.replace(/,/g, "").trim());
+    const [leftRaw, rightRaw] = raw
+      .split("/")
+      .map((s) => s.replace(/,/g, "").trim());
     const left = Number(leftRaw);
     const right = Number(rightRaw);
     return (
@@ -284,7 +301,15 @@ function AnimatedKpiValue({ value, kpiId }: { value: string; kpiId: string }) {
   if (raw.endsWith(" min")) {
     const num = Number(raw.replace(" min", "").replace(/,/g, ""));
     if (Number.isFinite(num)) {
-      return <CountUp end={num} duration={1.5} decimals={1} suffix=" min" preserveValue />;
+      return (
+        <CountUp
+          end={num}
+          duration={1.5}
+          decimals={1}
+          suffix=" min"
+          preserveValue
+        />
+      );
     }
   }
 
@@ -298,17 +323,28 @@ function AnimatedKpiValue({ value, kpiId }: { value: string; kpiId: string }) {
   return <>{raw}</>;
 }
 
-function KpiCard({ kpi, source , isLoading}: { kpi: KpiCardData, source: string, isLoading: boolean }) {
+function KpiCard({
+  kpi,
+  source = "annam",
+  userType,
+  isLoading,
+}: {
+  kpi: KpiCardData;
+  source?: "vicharanashala" | "annam" | "whatsapp";
+  userType?: string;
+  isLoading: boolean;
+}) {
   const queryClient = useQueryClient();
-  const handleKPIrefresh = async ()=>{
+  const handleKPIrefresh = async () => {
     await queryClient.refetchQueries({ queryKey: ["dashboard-data"] });
-  }
+  };
 
   const [isMaximized, setIsMaximized] = useState(false);
   const [granularity, setGranularity] = useState<QueryGranularity>("daily");
+  const [showQuestions, setShowQuestions] = useState(false);
 
-  const shouldBlur = source === "whatsapp" && kpi.id ==="dau"
-  const shouldHide = source === "whatsapp" && kpi.id ==="session"
+  const shouldBlur = source === "whatsapp" && kpi.id === "dau";
+  const shouldHide = source === "whatsapp" && kpi.id === "session";
 
   const activePoints =
     kpi.id === "queries"
@@ -331,21 +367,25 @@ function KpiCard({ kpi, source , isLoading}: { kpi: KpiCardData, source: string,
   // Dynamic label and value based on granularity tab (queries card only)
   const activeCardLabel =
     kpi.id === "queries" && kpi.querySummaries
-      ? kpi.querySummaries[granularity]?.label ?? kpi.label
+      ? (kpi.querySummaries[granularity]?.label ?? kpi.label)
       : kpi.label;
 
   const activeCardValue =
     kpi.id === "queries" && kpi.querySummaries
-      ? kpi.querySummaries[granularity]?.totalQueries?.toLocaleString() ?? kpi.value
+      ? (kpi.querySummaries[granularity]?.totalQueries?.toLocaleString() ??
+        kpi.value)
       : kpi.value;
 
   const dailyActiveFarmerPct = (() => {
     if (kpi.id !== "dau") return null;
     const raw = String(activeCardValue ?? "");
-    const [activeStr, totalStr] = raw.split("/").map((v) => v?.replace(/,/g, "").trim());
+    const [activeStr, totalStr] = raw
+      .split("/")
+      .map((v) => v?.replace(/,/g, "").trim());
     const active = Number(activeStr);
     const total = Number(totalStr);
-    if (!Number.isFinite(active) || !Number.isFinite(total) || total <= 0) return null;
+    if (!Number.isFinite(active) || !Number.isFinite(total) || total <= 0)
+      return null;
     return ((active / total) * 100).toFixed(2);
   })();
 
@@ -442,8 +482,13 @@ function KpiCard({ kpi, source , isLoading}: { kpi: KpiCardData, source: string,
                 )}
               </div>
               <div
-                className="text-2xl font-bold leading-tight tracking-tight tabular-nums dark:text-slate-100"
+                className="text-2xl font-bold leading-tight tracking-tight tabular-nums dark:text-slate-100 cursor-pointer"
                 style={{ color: kpi.valueColor }}
+                onClick={() => {
+                  if (kpi.id === "queries") {
+                    setShowQuestions(true);
+                  }
+                }}
               >
                 <AnimatedKpiValue value={activeCardValue} kpiId={kpi.id} />
               </div>
@@ -542,127 +587,6 @@ function KpiCard({ kpi, source , isLoading}: { kpi: KpiCardData, source: string,
       {isMaximized &&
         kpi.id !== "queries" &&
         kpi.sparkPoints &&
-        // createPortal(
-        //   <div
-        //     className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
-        //     onClick={() => setIsMaximized(false)}
-        //   >
-        //     <div
-        //       className="bg-white dark:bg-[#1a1a1a] rounded-lg shadow-2xl max-w-4xl w-full p-6 relative"
-        //       onClick={(e) => e.stopPropagation()}
-        //     >
-        //       {/* Close Button */}
-        //       <button
-        //         onClick={() => setIsMaximized(false)}
-        //         className="absolute top-4 right-4 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-        //         title="Close"
-        //       >
-        //         <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-        //       </button>
-
-        //       {/* Header */}
-        //       <div className="mb-6 pr-12">
-        //         <div className="flex items-start justify-between mb-2 gap-4">
-        //           <div className="flex items-center gap-3 flex-1 min-w-0">
-        //             {kpi.icon && (
-        //               <div
-        //                 className="flex items-center justify-center w-12 h-12 rounded-full flex-shrink-0"
-        //                 style={{ background: `${kpi.accentColor}20` }}
-        //               >
-        //                 {getIcon(kpi.icon, kpi.accentColor, 28)}
-        //               </div>
-        //             )}
-        //             <div className="min-w-0">
-        //               <div className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-        //                 {activeCardLabel}
-        //               </div>
-        //               <div
-        //                 className="text-4xl font-semibold dark:text-slate-100"
-        //                 style={{ color: kpi.valueColor }}
-        //               >
-        //                 <AnimatedKpiValue value={activeCardValue} kpiId={kpi.id} />
-        //               </div>
-        //             </div>
-        //           </div>
-        //         </div>
-        //       </div>
-
-        //       {/* Main Content Area */}
-        //       <div className="flex flex-col gap-6">
-        //         {/* Top Section: Chart (left/top) + Table (right/bottom) */}
-        //         <div className="flex gap-4 items-start">
-        //         {/* Sparkline */}
-        //         <div className="flex-[65] min-w-0">
-        //           <div className="h-48 relative">
-        //             <div className="absolute left-0 top-0 bottom-0 w-px bg-gray-300 dark:bg-gray-700" />
-        //             <div className="absolute left-0 right-0 bottom-0 h-px bg-gray-300 dark:bg-gray-700" />
-        //             <Sparkline
-        //               points={activePoints || []}
-        //               color={kpi.accentColor}
-        //               labels={activeLabels}
-        //             />
-        //           </div>
-        //           {kpi.badges && (
-        //             <div className="flex gap-2 flex-wrap mt-4">
-        //               {kpi.badges.map((b) => (
-        //                 <SmallBadge
-        //                   key={b.label}
-        //                   label={b.label}
-        //                   variant={b.variant}
-        //                 />
-        //               ))}
-        //             </div>
-        //           )}
-        //         </div>
-
-        //         {/* Date/Value Table */}
-        //         <div className="flex-[35] min-w-0">
-        //           <div className="max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
-        //             <table className="w-full text-sm">
-        //               <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
-        //                 <tr>
-        //                   <th className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
-        //                     Date
-        //                   </th>
-        //                   <th className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
-        //                     Total Queries
-        //                   </th>
-        //                 </tr>
-        //               </thead>
-        //               <tbody>
-        //                 {(activePoints || []).map((value, idx) => {
-        //                   const label = activeLabels?.[idx] || `Point ${idx + 1}`;
-        //                   return (
-        //                     <tr
-        //                       key={idx}
-        //                       className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
-        //                     >
-        //                       <td className="px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">
-        //                         {label}
-        //                       </td>
-        //                       <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
-        //                         {value.toLocaleString()}
-        //                       </td>
-        //                     </tr>
-        //                   );
-        //                 })}
-        //               </tbody>
-        //             </table>
-        //           </div>
-        //         </div>
-        //       </div>
-
-        //       {/* Bottom Section: Active Farmers Table (Full Width) */}
-        //       {kpi.id === "dau" && (
-        //         <div className="w-full mt-4">
-        //           <ActiveFarmersTable source={source} userType={kpi.userType || "all"} />
-        //         </div>
-        //       )}
-        //       </div>
-        //     </div>
-        //   </div>,
-        //   document.body,
-        // )
         createPortal(
           <AnimatePresence>
             {isMaximized && (
@@ -829,6 +753,14 @@ function KpiCard({ kpi, source , isLoading}: { kpi: KpiCardData, source: string,
           </AnimatePresence>,
           document.body,
         )}
+      {showQuestions && (
+        <QueryCategoryQuestionsModal
+          period={granularity}
+          source={source}
+          userType={userType}
+          onClose={() => setShowQuestions(false)}
+        />
+      )}
     </>
   );
 }
@@ -836,12 +768,14 @@ function KpiCard({ kpi, source , isLoading}: { kpi: KpiCardData, source: string,
 export function EightCardsComponent({
   kpiRow1,
   kpiRow2,
-  source,
-  isLoading
+  source = "annam",
+  userType,
+  isLoading,
 }: {
   kpiRow1: KpiCardData[];
   kpiRow2: KpiCardData[];
-  source: string;
+  source?: "vicharanashala" | "annam" | "whatsapp";
+  userType?: string;
   isLoading: boolean;
 }) {
   const combinedKpis = [...kpiRow1, ...kpiRow2];
@@ -852,39 +786,40 @@ export function EightCardsComponent({
     "session",
     "bugs",
     "repeatQuery",
-    "states"]
+    "states",
+  ];
 
   combinedKpis.sort((a, b) => {
     const idxA = customOrder.indexOf(a.id);
     const idxB = customOrder.indexOf(b.id);
     return idxA - idxB;
   });
-if (isLoading) {
-  return (
-    <div className="mb-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5">
-      {Array.from({ length: 4 }).map((_, index) => (
-        <div
-          key={index}
-          className="rounded-2xl border border-border/50 bg-card p-5 animate-pulse min-h-[190px]"
-        >
-          <div className="flex items-start justify-between mb-4">
-            <div className="space-y-2 flex-1">
-              <div className="h-3 w-24 rounded bg-muted" />
-              <div className="h-8 w-20 rounded bg-muted" />
+  if (isLoading) {
+    return (
+      <div className="mb-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div
+            key={index}
+            className="rounded-2xl border border-border/50 bg-card p-5 animate-pulse min-h-[190px]"
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div className="space-y-2 flex-1">
+                <div className="h-3 w-24 rounded bg-muted" />
+                <div className="h-8 w-20 rounded bg-muted" />
+              </div>
+
+              <div className="h-10 w-10 rounded-xl bg-muted" />
             </div>
 
-            <div className="h-10 w-10 rounded-xl bg-muted" />
+            <div className="space-y-2">
+              <div className="h-2 w-full rounded bg-muted" />
+              <div className="h-2 w-3/4 rounded bg-muted" />
+            </div>
           </div>
-
-          <div className="space-y-2">
-            <div className="h-2 w-full rounded bg-muted" />
-            <div className="h-2 w-3/4 rounded bg-muted" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
+        ))}
+      </div>
+    );
+  }
   // console.log("Combinedkpis", combinedKpis);
   return (
     <>
@@ -902,7 +837,7 @@ if (isLoading) {
       */}
       <div className="mb-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5">
         {combinedKpis.map((kpi) => (
-          <KpiCard key={kpi.id} kpi={kpi} source={source} />
+          <KpiCard key={kpi.id} kpi={kpi} source={source} userType={userType} />
         ))}
       </div>
     </>

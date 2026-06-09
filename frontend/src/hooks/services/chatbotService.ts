@@ -163,10 +163,7 @@ export class ChatbotService {
     );
   }
 
-  async getQueryCategories(
-    source: string,
-    userType: string,
-  ): Promise<any> {
+  async getQueryCategories(source: string, userType: string): Promise<any> {
     const params = new URLSearchParams();
     params.append("source", source);
     params.append("userType", userType);
@@ -236,38 +233,59 @@ export class ChatbotService {
     district,
     state,
     crop,
+    crops,
+    status,
+    closedWithInTwohours,
+    notificationType,
+    period,
     questionType,
     page,
     limit,
     source,
     userType,
+    stringStartDate,
+    stringEndDate,
     search,
   }: {
     category?: string;
     district?: string;
     state?: string;
-    crop?: string
+    crop?: string;
+    crops?: string[];
+    status?: string;
+    closedWithInTwohours?: boolean
+    notificationType?: string
+    period?: string
     questionType: "all" | "unique" | "duplicate";
     page: number;
     limit: number;
     source: string;
     userType?: string;
+    stringStartDate?: string;
+    stringEndDate?: string;
     search?: string;
   }) {
     const params = new URLSearchParams();
-    if(category) params.append("category", category);
-    if(district) params.append("district", district);
-    if(state) params.append('state', state)
-    if(crop) params.append("crop", crop)
+    if (category) params.append("category", category);
+    if (district) params.append("district", district);
+    if (state) params.append("state", state);
+    if (crop) params.append("crop", crop);
+    if (crops?.length) params.append("crops", crops?.join(","));
+    if (status) params.append("status", status);
+    if (closedWithInTwohours) params.append("closedWithInTwohours", closedWithInTwohours.toString());
+    if (notificationType) params.append('notificationType', notificationType);
+    if (period) params.append('period', period)
     params.append("questionType", questionType);
     params.append("page", page.toString());
     params.append("limit", limit.toString());
     params.append("source", source);
     if (userType) params.append("userType", userType);
+    if (stringStartDate) params.append("startDate", stringStartDate);
+    if (stringEndDate) params.append("endDate", stringEndDate);
     if (search?.trim()) {
-  params.append("search", search.trim());
-}
-        return apiFetch<any>(
+      params.append("search", search.trim());
+    }
+    return apiFetch<any>(
       `${this._baseUrl}/filtered-questions?${params.toString()}`,
     );
   }

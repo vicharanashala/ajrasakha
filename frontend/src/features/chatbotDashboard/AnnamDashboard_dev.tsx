@@ -825,6 +825,7 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                             kpiRow1={kpiRow1WithOverlay}
                             kpiRow2={kpiRow2WithOverlay}
                             source={source}
+                            userType={filters.userType}
                             isLoading={isFetching}
                           />
                         )}
@@ -873,6 +874,7 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
 
                           <ClosedInLastTwoHoursCard
                             source={source}
+                            userType={filters.userType}
                             count={closed2hData?.closedInLastTwoHours}
                             totalClosed={
                               closed2hData?.closedVsTotalQuestions
@@ -910,6 +912,8 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                                 ?.previousMonthAvgCloseTimeMinutes
                             }
                             statusBreakup={questionStatusData?.closedVsTotalQuestions}
+                            source ={source}
+                            userType = {filters.userType}
                           />
                           <CustomerNotificationsCard
                             notified={
@@ -927,6 +931,8 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                             dateRange={customerNotificationsDateRange}
                             onDateRangeChange={setCustomerNotificationsDateRange}
                             isLoading={isCustomerNotificationsFetching || isCustomerNotificationsLoading}
+                            source = {source}
+                            userType = {filters.userType}
                           />
                         </div>
                         {source !== "whatsapp" && (

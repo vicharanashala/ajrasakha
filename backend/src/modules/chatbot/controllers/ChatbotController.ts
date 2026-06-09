@@ -345,7 +345,7 @@ export class ChatbotController {
   @HttpCode(200)
   @Authorized()
   async getQueryCategories(@QueryParams() query: SourceQueryDto) {
-    console.log("-------/query-categories", query.userType)
+    console.log('-------/query-categories', query.userType);
     return this.chatbotService.getQueryCategories(query.source, query.userType);
   }
 
@@ -395,58 +395,116 @@ export class ChatbotController {
   // }
 
   @OpenAPI({
-    summary: "Get the paginated queries from the selected filter",
-    description: "Retrieves paginated questions based on the selected filter - either by query category or by district. Supports filtering by question type (all, unique, duplicate) and pagination parameters.",
+    summary: 'Get the paginated queries from the selected filter',
+    description:
+      'Retrieves paginated questions based on the selected filter - either by query category or by district. Supports filtering by question type (all, unique, duplicate) and pagination parameters.',
   })
   @Get('/filtered-questions')
   @HttpCode(200)
   @Authorized()
-  async getQuestionByFilters (
-       @QueryParams()
+  async getQuestionByFilters(
+    @QueryParams()
     query: {
       category?: string;
       district?: string;
       state?: string;
       crop?: string;
+      crops?: string;
+      status?: string;
+      closedWithInTwohours?: boolean;
+      notificationType?: string;
+      period?: string
       questionType?: QueryCategoryQuestionType;
       page?: number;
       limit?: number;
       source?: string;
       userType?: string;
-      search?: string
+      search?: string;
+      startDate?: Date;
+      endDate?: Date;
     },
-  ){
-    if(query.category){
+  ) {
+    if (query.category) {
       return this.chatbotService.getQueryCategoryQuestions(
-      query.category,
-      query.questionType,
-      query.page,
-      query.limit,
-      query.source,
-      query.userType,
-      query.search,
-    )
-    }else if(query.district){
-      return this.chatbotService.getQuestionFromDistrict(
-      query.district,
-      query.state,
-      query.questionType,
-      query.page,
-      query.limit,
-      query.source,
-      query.userType,
-      query.search,
-      )
-    }else if(query.crop){
-      return this.chatbotService.getQuestionsByCrop(
-        query.crop,
+        query.category,
         query.questionType,
         query.page,
         query.limit,
         query.source,
         query.userType,
         query.search,
-      )
+      );
+    } else if (query.district) {
+      return this.chatbotService.getQuestionFromDistrict(
+        query.district,
+        query.state,
+        query.questionType,
+        query.page,
+        query.limit,
+        query.source,
+        query.userType,
+        query.search,
+      );
+    } else if (query.crop) {
+      return this.chatbotService.getQuestionsByCrop(
+        query.crop,
+        query.crops?.split(','),
+        query.questionType,
+        query.page,
+        query.limit,
+        query.source,
+        query.userType,
+        query.search,
+      );
+    } else if (query.status) {
+      const startDate = new Date(query.startDate);
+      const endDate = new Date(query.endDate);
+      return this.chatbotService.getQuestionsByStatus(
+        query.status,
+        query.page,
+        query.limit,
+        query.source,
+        query.userType,
+        query.search,
+        startDate,
+        endDate,
+      );
+    } else if (query.closedWithInTwohours) {
+      const startDate = new Date(query.startDate);
+      const endDate = new Date(query.endDate);
+      return this.chatbotService.getQuestionsClosedWithinTwoHours(
+        query.page,
+        query.limit,
+        query.source,
+        query.userType,
+        query.search,
+        startDate,
+        endDate,
+      );
+    } else {
+      if(query.period){
+        return this.chatbotService.getQueriesByPeriod(
+        query.period,
+        query.page,
+        query.limit,
+        query.source,
+        query.userType,
+        query.search,
+        )
+      }
+      
+      const startDate = new Date(query.startDate);
+      const endDate = new Date(query.endDate);
+      return this.chatbotService.getQuestionsByNotificationStatus(
+        query.notificationType,
+        query.page,
+        query.limit,
+        query.source,
+        query.userType,
+        query.search,
+        startDate,
+        endDate,
+      );
     }
   }
 
@@ -488,7 +546,8 @@ export class ChatbotController {
     @QueryParam('source') source: string,
     @QueryParam('userType') userType: string,
     @QueryParam('state') state: string,
-    @QueryParam('granularity') granularity: 'monthly' | 'weekly' | 'daily' | 'hourly',
+    @QueryParam('granularity')
+    granularity: 'monthly' | 'weekly' | 'daily' | 'hourly',
     @QueryParam('startDate') startDate?: string,
     @QueryParam('endDate') endDate?: string,
   ) {
@@ -522,7 +581,9 @@ export class ChatbotController {
   @Get('/top-crops')
   @HttpCode(200)
   @Authorized()
-  async getTopCrops(@QueryParams() query: {source?: string, userType?: string}) {
+  async getTopCrops(
+    @QueryParams() query: {source?: string; userType?: string},
+  ) {
     return this.chatbotService.getTopCrops(query.source, query.userType);
   }
 
@@ -1674,9 +1735,7 @@ export class ChatbotController {
   @Get('/users-metrices')
   @HttpCode(200)
   @Authorized()
-  async getUsermetrices(
-    @QueryParams() query: ActiveUsersQuery,
-  ): Promise<{
+  async getUsermetrices(@QueryParams() query: ActiveUsersQuery): Promise<{
     userDemographics: UserDemographics;
     platformInstalls: PlatformInstallEntry[];
     kccAndAgriAppUsage: KccAndAgriAppStats;

@@ -81,6 +81,7 @@ export const TopCropsCard = ({topCrops,
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [topCrop, setTopCrop] = useState<string | null>(null);
+  const [selectedCrops, setSelectedCrops] = useState<string[]>([]);
   const handleRefresh = async ()=>{
     setLoading(true);
     await queryClient.refetchQueries({ queryKey: ["top-crops-chatbot"] });
@@ -105,10 +106,20 @@ export const TopCropsCard = ({topCrops,
     );
   }
 
-  const handleClick = (cropName: string)=>{
-    console.log("This bar is clicked right now.....The crop name is", cropName)
-    setTopCrop(cropName)
+  const handleClick = (
+  cropName: string,
+  subItems?: any[],
+) => {
+  setTopCrop(cropName);
+
+  if (cropName === "Others" && subItems?.length) {
+    setSelectedCrops(
+      subItems.map(item => item.name)
+    );
+  } else {
+    setSelectedCrops([]);
   }
+};
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -230,7 +241,16 @@ export const TopCropsCard = ({topCrops,
                 />
                 <Bar dataKey="count" radius={[4, 4, 0, 0]} >
                   {processedData.map((entry: any, index: null) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} onClick={()=>handleClick(entry.name)}/>
+                    <Cell
+  key={`cell-${index}`}
+  fill={entry.color}
+  onClick={() =>
+    handleClick(
+      entry.name,
+      entry.subItems
+    )
+  }
+/>
                   ))}
                 </Bar>
               </BarChart>
@@ -318,7 +338,16 @@ export const TopCropsCard = ({topCrops,
                       />
                       <Bar dataKey="count" radius={[6, 6, 0, 0]}>
                         {processedData.map((entry: any, index: any) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} onClick={()=>handleClick(entry.name)}/>
+                         <Cell
+  key={`cell-${index}`}
+  fill={entry.color}
+  onClick={() =>
+    handleClick(
+      entry.name,
+      entry.subItems
+    )
+  }
+/>
                         ))}
                       </Bar>
                     </BarChart>
@@ -366,7 +395,17 @@ export const TopCropsCard = ({topCrops,
           </div>,
           document.body,
         )}
-        {topCrop && <QueryCategoryQuestionsModal crop={topCrop} source={source} userType={userType} isQueryCategory={false} onClose={()=>setTopCrop(null)}/>}
+        {topCrop && <QueryCategoryQuestionsModal
+  crop={topCrop}
+  crops={selectedCrops}
+  source={source}
+  userType={userType}
+  isQueryCategory={false}
+  onClose={() => {
+    setTopCrop(null);
+    setSelectedCrops([]);
+  }}
+/>}
     </>
   );
 };
