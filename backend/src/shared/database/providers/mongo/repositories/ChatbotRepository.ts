@@ -485,6 +485,7 @@ export class ChatbotRepository implements IChatbotRepository {
           $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
         },
       ],
+      status:{$ne:'non_agri'}
     };
     if (startTime || endTime) {
       matchQuery.createdAt = {};
@@ -1245,6 +1246,7 @@ export class ChatbotRepository implements IChatbotRepository {
             ...query,
           },
         ],
+        status:{$ne:'non_agri'}
       })
         .project<{messageId: string}>({messageId: 1})
         .toArray();
@@ -1635,6 +1637,7 @@ export class ChatbotRepository implements IChatbotRepository {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         ],
+        status:{$ne:'non_agri'}
       };
 
       const query = await this.buildQuestionUserTypeMatchQuery(
@@ -1765,6 +1768,7 @@ export class ChatbotRepository implements IChatbotRepository {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         ],
+        status:{$ne:'non_agri'}
       };
       const query = await this.buildQuestionUserTypeMatchQuery(
         _source,
@@ -2155,6 +2159,7 @@ export class ChatbotRepository implements IChatbotRepository {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         ],
+        status:{$ne:'non_agri'}
       };
 
       const query = await this.buildQuestionUserTypeMatchQuery(
@@ -2778,6 +2783,7 @@ export class ChatbotRepository implements IChatbotRepository {
               source: finalSource,
               createdAt: {$gte: startDate, $lte: endDate},
               $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+              status:{$ne:'non_agri'}
             },
           },
           {
@@ -3113,6 +3119,7 @@ export class ChatbotRepository implements IChatbotRepository {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         ],
+        status:{$ne:'non_agri'}
       };
       const query = await this.buildQuestionUserTypeMatchQuery(
         source,
@@ -4174,6 +4181,7 @@ export class ChatbotRepository implements IChatbotRepository {
               // threadId: { $exists: true, $ne: null },
               ...monthDateMatch,
               ...questionUserTypeLookupStages,
+              status: {$ne: 'non_agri'},
             },
           },
           // ...userTypeLookupStages,
@@ -4399,6 +4407,7 @@ export class ChatbotRepository implements IChatbotRepository {
               // threadId: { $exists: true, $ne: null },
               ...monthDateMatch,
               ...questionUserTypeLookupStages,
+               status: {$ne: 'non_agri'},
             },
           },
           // ...userTypeLookupStages,
@@ -4618,6 +4627,7 @@ export class ChatbotRepository implements IChatbotRepository {
               // threadId: { $exists: true, $ne: null },
               ...yearDateMatch,
               ...questionUserTypeLookupStages,
+              status: {$ne: 'non_agri'},
             },
           },
           // ...userTypeLookupStages,
@@ -5884,6 +5894,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
             source: 'AJRASAKHA',
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+            status: {$ne: 'non_agri'},
           },
         },
 
@@ -7442,6 +7453,7 @@ export class ChatbotRepository implements IChatbotRepository {
         {
           similarityScore: {$exists: true},
           $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+          status: {$ne: 'non_agri'},
         },
         {session},
       )
@@ -7608,6 +7620,7 @@ export class ChatbotRepository implements IChatbotRepository {
         {
           $match: domainMatch,
           $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+          status: {$ne: 'non_agri'},
         },
         groupStage,
         {
@@ -7711,6 +7724,7 @@ export class ChatbotRepository implements IChatbotRepository {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         ],
+        status: {$ne: 'non_agri'},
       };
 
       if (startTime || endTime) {
@@ -8554,6 +8568,7 @@ export class ChatbotRepository implements IChatbotRepository {
               $gte: start,
               $lt: end,
             },
+            status: {$ne: 'non_agri'},
           },
         },
         {
@@ -8580,6 +8595,7 @@ export class ChatbotRepository implements IChatbotRepository {
               $lt: end,
             },
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+            status: {$ne: 'non_agri'},
           },
         },
         {
@@ -8723,7 +8739,7 @@ export class ChatbotRepository implements IChatbotRepository {
         },
 
         status: {
-          $ne: 'closed',
+          $nin: ['closed', 'non_agri'],
         },
         $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
       }),
@@ -8760,6 +8776,7 @@ export class ChatbotRepository implements IChatbotRepository {
               $gte: start,
               $lt: end,
             },
+            status: {$ne: 'non_agri'},
           },
         },
         {
@@ -8788,6 +8805,7 @@ export class ChatbotRepository implements IChatbotRepository {
               $lt: end,
             },
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+            status: {$ne: 'non_agri'},
           },
         },
 
@@ -8959,6 +8977,7 @@ export class ChatbotRepository implements IChatbotRepository {
             closedAt: {
               $ne: null,
             },
+            status: {$ne: 'non_agri'},
           },
         },
         {
@@ -8983,6 +9002,7 @@ export class ChatbotRepository implements IChatbotRepository {
           $match: {
             source: 'WHATSAPP',
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+            status: {$ne: 'non_agri'},
           },
         },
 
@@ -9157,6 +9177,7 @@ export class ChatbotRepository implements IChatbotRepository {
           referenceQuestionId: {
             $exists: true,
           },
+          status: {$ne: 'non_agri'},
         },
         {session},
       )
@@ -9221,6 +9242,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const matchQuery: any = {
         source: 'WHATSAPP',
         $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+        status: {$ne: 'non_agri'},
       };
 
       // ============================================
@@ -9300,6 +9322,7 @@ export class ChatbotRepository implements IChatbotRepository {
               referenceQuestionId: {
                 $exists: true,
               },
+              status: {$ne: 'non_agri'},
             },
           },
 
@@ -9332,6 +9355,7 @@ export class ChatbotRepository implements IChatbotRepository {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         ],
+        status: {$ne: 'non_agri'},
       };
       const dbSource = source;
       if (source !== 'whatsapp') {
@@ -9593,6 +9617,7 @@ export class ChatbotRepository implements IChatbotRepository {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         ],
+        status: {$ne: 'non_agri'},
       };
       const dbSource = source;
       if (source !== 'whatsapp') {
@@ -9890,6 +9915,7 @@ export class ChatbotRepository implements IChatbotRepository {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         ],
+        status: {$ne: 'non_agri'},
       };
       const dbSource = source;
       if (source !== 'whatsapp') {
@@ -10126,6 +10152,7 @@ export class ChatbotRepository implements IChatbotRepository {
                   createdAt: queryMatch.createdAt,
                 }),
                 $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+                status: {$ne: 'non_agri'},
               },
             },
 
@@ -11019,6 +11046,7 @@ export class ChatbotRepository implements IChatbotRepository {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         ],
+        status: {$ne: 'non_agri'},
       };
 
       const userTypeMatch = await this.buildQuestionUserTypeMatchQuery(
@@ -11206,6 +11234,7 @@ export class ChatbotRepository implements IChatbotRepository {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         ],
+        status: {$ne: 'non_agri'},
       };
 
       // Apply date range
