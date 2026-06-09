@@ -233,6 +233,7 @@ export class ChatbotService {
     status,
     closedWithInTwohours,
     notificationType,
+    period,
     questionType,
     page,
     limit,
@@ -250,6 +251,7 @@ export class ChatbotService {
     status?: string;
     closedWithInTwohours?: boolean
     notificationType?: string
+    period?: string
     questionType: "all" | "unique" | "duplicate";
     page: number;
     limit: number;
@@ -267,7 +269,8 @@ export class ChatbotService {
     if (crops?.length) params.append("crops", crops?.join(","));
     if (status) params.append("status", status);
     if (closedWithInTwohours) params.append("closedWithInTwohours", closedWithInTwohours.toString());
-    if (notificationType) params.append('notificationType', notificationType)
+    if (notificationType) params.append('notificationType', notificationType);
+    if (period) params.append('period', period)
     params.append("questionType", questionType);
     params.append("page", page.toString());
     params.append("limit", limit.toString());

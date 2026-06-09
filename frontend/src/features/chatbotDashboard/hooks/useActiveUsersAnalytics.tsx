@@ -95,7 +95,8 @@ export const useQueryCategories = (source: string, userType: string, enabled: bo
 export type QueryCategoryQuestionType = "all" | "unique" | "duplicate";
 
 export interface QueryCategoryQuestionEntry {
-  questionId: string;
+  questionId?: string;
+  messageId?: string;
   question: string;
   status: string;
   questionType: "unique" | "duplicate";
@@ -168,6 +169,7 @@ export const useQuestionFilter = ({
   status,
   closedWithInTwohours,
   notificationType,
+  period,
   questionType,
   page,
   limit,
@@ -186,6 +188,7 @@ export const useQuestionFilter = ({
   status?: string
   closedWithInTwohours?: boolean
   notificationType?: string
+  period?: string
   questionType: QueryCategoryQuestionType;
   page: number;
   limit: number;
@@ -209,6 +212,7 @@ export const useQuestionFilter = ({
     status,
     closedWithInTwohours,
     notificationType,
+    period,
     questionType,
     page,
     limit,
@@ -228,6 +232,7 @@ export const useQuestionFilter = ({
         status: status,
         closedWithInTwohours: closedWithInTwohours,
         notificationType: notificationType ?? "",
+        period: period,
         questionType,
         page,
         limit,

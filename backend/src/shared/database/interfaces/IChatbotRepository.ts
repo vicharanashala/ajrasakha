@@ -843,6 +843,16 @@ export interface IChatbotRepository {
   startDate?: Date,
   endDate?: Date,
   ): Promise<any>
+
+  getQueriesByPeriod (
+    period: string,
+    page:number,
+    limit: number,
+    source: string,
+    session?: ClientSession,
+    userType?: string,
+    search?: string,
+  ): Promise<any>
 }
 
 export interface ChatbotConversationData {

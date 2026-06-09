@@ -59,6 +59,7 @@ interface QueryCategoryQuestionsModalProps {
   status?: string; 
   closedWithInTwohours?: boolean;
   notificationType?: string;
+  period?: string;
   source?: "vicharanashala" | "annam" | "whatsapp";
   // source? : string;
   userType?: string;
@@ -79,6 +80,7 @@ export function QueryCategoryQuestionsModal({
   status,
   closedWithInTwohours,
   notificationType,
+  period,
   source,
   userType = "all",
   isQueryCategory,
@@ -120,6 +122,7 @@ export function QueryCategoryQuestionsModal({
     status,
     closedWithInTwohours,
     notificationType,
+    period,
     questionType,
     page,
     limit: PAGE_SIZE,
@@ -232,15 +235,19 @@ export function QueryCategoryQuestionsModal({
     QuestionListColumn<QueryCategoryQuestionEntry>[]
   >(() => {
     const baseColumns: QuestionListColumn<QueryCategoryQuestionEntry>[] = [
-      {
-        key: "questionId",
-        label: "Question ID",
-        sortable: true,
-        sortAccessor: (row) => row.questionId,
-        className: "w-[12%]",
-        cellClassName: "text-xs text-gray-500",
-        render: (row) => <CopyableIdCell id={row.questionId} />,
-      },
+     {
+  key: period ? "messageId" : "questionId",
+  label: period ? "Message ID" : "Question ID",
+  sortable: true,
+  sortAccessor: (row) => row.questionId || row.messageId,
+  className: "w-[12%]",
+  cellClassName: "text-xs text-gray-500",
+  render: (row) => (
+    <CopyableIdCell
+      id={period ? row.messageId : row.questionId}
+    />
+  ),
+},
 
       {
         key: "email",
@@ -264,7 +271,7 @@ export function QueryCategoryQuestionsModal({
 
       {
         key: "question",
-        label: "Question",
+        label: period ? "Query" : "Question",
         sortable: true,
         sortAccessor: (row) => row.question,
         className: "w-[32%]",
@@ -296,7 +303,7 @@ export function QueryCategoryQuestionsModal({
     ];
 
     // Show Type column only when status modal is NOT opened
-    if (!status && !closedWithInTwohours && !notificationType) {
+    if (!status && !closedWithInTwohours && !notificationType && !period) {
       baseColumns.push({
         key: "questionType",
         label: "Type",
@@ -317,22 +324,24 @@ export function QueryCategoryQuestionsModal({
       });
     }
 
-    baseColumns.push({
-      key: "status",
-      label: "Status",
-      align: "center",
-      sortable: true,
-      sortAccessor: (row) => row.status ?? "",
-      className: "w-[8%]",
-      render: (row) => (
-        <Badge
-          variant="outline"
-          className="justify-center capitalize text-gray-500"
-        >
-          {row.status}
-        </Badge>
-      ),
-    });
+    if (!period) {
+  baseColumns.push({
+    key: "status",
+    label: "Status",
+    align: "center",
+    sortable: true,
+    sortAccessor: (row) => row.status ?? "",
+    className: "w-[8%]",
+    render: (row) => (
+      <Badge
+        variant="outline"
+        className="justify-center capitalize text-gray-500"
+      >
+        {row.status}
+      </Badge>
+    ),
+  });
+}
 
     return baseColumns;
   }, [status, closedWithInTwohours, notificationType]);
@@ -385,7 +394,7 @@ export function QueryCategoryQuestionsModal({
                 setPage(1);
               }}
             >
-              {!status && !closedWithInTwohours && !notificationType && (
+              {!status && !closedWithInTwohours && !notificationType && !period &&(
                 <TabsList>
                   <TabsTrigger value="all">All</TabsTrigger>
                   <TabsTrigger value="unique">Unique</TabsTrigger>
@@ -415,7 +424,7 @@ export function QueryCategoryQuestionsModal({
               : undefined
           }
           emptyMessage="No questions found for this category."
-          getRowKey={(row) => row.questionId}
+          getRowKey={(row) => row.questionId || row.messageId}
           pagination={{
             page,
             pageSize: PAGE_SIZE,

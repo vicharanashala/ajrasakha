@@ -2950,4 +2950,12 @@ export class ChatbotService extends BaseService implements IChatbotService {
       throw new InternalServerError(`Internal server error ${error}`)
     }
   }
+
+  async getQueriesByPeriod(period: string, page: number, limit: number, source: string, userType?: string, search?: string): Promise<any> {
+    try{
+      return this.chatbotRepository.getQueriesByPeriod(period, page, limit, source, undefined, userType, search)
+    }catch(error){
+      throw new InternalServerError(`Internal Server Error ${error}`)
+    }
+  }
 }

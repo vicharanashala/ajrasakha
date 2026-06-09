@@ -413,6 +413,7 @@ export class ChatbotController {
       status?: string;
       closedWithInTwohours?: boolean;
       notificationType?: string;
+      period?: string
       questionType?: QueryCategoryQuestionType;
       page?: number;
       limit?: number;
@@ -481,6 +482,17 @@ export class ChatbotController {
         endDate,
       );
     } else {
+      if(query.period){
+        return this.chatbotService.getQueriesByPeriod(
+        query.period,
+        query.page,
+        query.limit,
+        query.source,
+        query.userType,
+        query.search,
+        )
+      }
+      
       const startDate = new Date(query.startDate);
       const endDate = new Date(query.endDate);
       return this.chatbotService.getQuestionsByNotificationStatus(

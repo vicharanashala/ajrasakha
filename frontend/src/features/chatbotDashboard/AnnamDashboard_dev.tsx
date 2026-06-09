@@ -824,6 +824,7 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                             kpiRow1={kpiRow1WithOverlay}
                             kpiRow2={kpiRow2WithOverlay}
                             source={source}
+                            userType={filters.userType}
                             isLoading={isFetching}
                           />
                         )}

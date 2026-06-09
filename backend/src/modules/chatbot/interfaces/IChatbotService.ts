@@ -327,4 +327,13 @@ export interface IChatbotService {
     startDate?: Date,
     endDate?: Date,
   ): Promise<any>
+
+    getQueriesByPeriod (
+      period: string,
+      page:number,
+      limit: number,
+      source: string,
+      userType?: string,
+      search?: string,
+    ): Promise<any>
 }
