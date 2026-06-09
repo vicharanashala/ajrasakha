@@ -725,7 +725,7 @@ export class ChatbotController {
   async verifyUser(
     @Param('userId') userId: string,
     @Body() body: {isVerified?: boolean},
-    @QueryParam('source') source: string = 'vicharanashala',
+    @QueryParam('source') source: string = 'annam',
     @CurrentUser() currentUser: IUser,
   ) {
     if (!userId) {
