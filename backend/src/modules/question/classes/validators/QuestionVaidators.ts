@@ -826,6 +826,14 @@ class GetDetailedQuestionsQuery {
   })
   @IsOptional()
   is_non_agri?: string | boolean;
+
+  @JSONSchema({
+    description: 'filter questions with status=dynamic',
+    example: 'true',
+    type: 'string',
+  })
+  @IsOptional()
+  is_dynamic?: string | boolean;
 }
 
 export interface IQuestionWithAnswerTexts {
