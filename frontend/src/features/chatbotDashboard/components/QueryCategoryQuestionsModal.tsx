@@ -376,7 +376,7 @@ export function QueryCategoryQuestionsModal({
                       ? "Question that closed with in 2 hours"
                       : notificationType
                         ? "Question related to Notification users"
-                        : `Question releated to the ${district}`}
+                        : period? `Question related to the ${period}` : `Question releated to the ${district}`}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-3">
