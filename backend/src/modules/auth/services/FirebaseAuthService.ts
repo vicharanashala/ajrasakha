@@ -3,6 +3,7 @@ import {
   User,
   ChangePasswordBody,
   GoogleSignUpBody,
+  AdminCreateReviewUserBody,
 } from '#auth/classes/index.js';
 import { IAuthService } from '#auth/interfaces/IAuthService.js';
 import { GLOBAL_TYPES } from '#root/types.js';
@@ -189,6 +190,125 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
     });
   }
 
+  async adminCreateReviewUser(body: AdminCreateReviewUserBody): Promise<IUser> {
+    const email = body.email.trim().toLowerCase();
+    const fullName = body.name.trim();
+
+    if (!fullName) {
+      throw new BadRequestError('Name is required');
+    }
+
+    const allowedRoles = [
+      'district_coordinator',
+      'block_coordinator',
+      'village_coordinator',
+    ] as const;
+
+    if (!allowedRoles.includes(body.role)) {
+      throw new BadRequestError('Invalid review system role');
+    }
+
+    const names = fullName.split(/\s+/);
+    const firstName = names[0] || email.split('@')[0];
+    const lastName = names.slice(1).join(' ');
+    let firebaseUser: any;
+    let createdFirebaseUser = false;
+
+    try {
+      firebaseUser = await this.auth.getUserByEmail(email);
+      await this.auth.updateUser(firebaseUser.uid, {
+        password: body.password,
+        displayName: fullName,
+        emailVerified: true,
+        disabled: false,
+      });
+    } catch (error: any) {
+      if (error.code !== 'auth/user-not-found') {
+        throw new BadRequestError(error.message || 'Failed to prepare Firebase user');
+      }
+
+      firebaseUser = await this.auth.createUser({
+        email,
+        password: body.password,
+        displayName: fullName,
+        emailVerified: true,
+        disabled: false,
+      });
+      createdFirebaseUser = true;
+    }
+
+    try {
+      const createdUser = await this._withTransaction(async session => {
+        const existingUserByUid = await this.userRepository.findByFirebaseUID(
+          firebaseUser.uid,
+          session,
+        );
+        if (existingUserByUid) {
+          throw new BadRequestError('Review system user with this email already exists');
+        }
+
+        const existingUserByEmail = await this.userRepository.findByEmail(
+          email,
+          session,
+        );
+        if (existingUserByEmail) {
+          if (
+            existingUserByEmail.firebaseUID &&
+            existingUserByEmail.firebaseUID !== firebaseUser.uid
+          ) {
+            throw new BadRequestError(
+              'Review system user with this email is already linked to another Firebase account',
+            );
+          }
+
+          const updatedUser = await this.userRepository.edit(
+            existingUserByEmail._id.toString(),
+            {
+              firebaseUID: firebaseUser.uid,
+              email,
+              firstName,
+              lastName,
+              role: body.role,
+              isVerified: true,
+              isBlocked: false,
+              status: 'active',
+            },
+            session,
+          );
+          if (!updatedUser) {
+            throw new InternalServerError('Failed to update review system user');
+          }
+          return updatedUser;
+        }
+
+        const newUser = new User({
+          firebaseUID: firebaseUser.uid,
+          email,
+          firstName,
+          lastName,
+          role: body.role,
+          isVerified: true,
+        });
+
+        const createdId = await this.userRepository.create(newUser, session);
+        const user = await this.userRepository.findById(createdId, session);
+        if (!user) {
+          throw new InternalServerError('Failed to create review system user');
+        }
+        return user;
+      });
+
+      return createdUser;
+    } catch (error) {
+      if (createdFirebaseUser) {
+        await this.auth.deleteUser(firebaseUser.uid).catch((deleteError: any) => {
+          console.error('Failed to rollback Firebase user creation:', deleteError);
+        });
+      }
+      throw error;
+    }
+  }
+
   async changePassword(
     body: ChangePasswordBody,
     requestUser: IUser,
@@ -228,6 +348,16 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
 
   async syncUserWithDb(firebaseUID: string, email: string, displayName: string): Promise<IUser> {
     let user = await this.userRepository.findByFirebaseUID(firebaseUID);
+
+    if (!user) {
+      const existingUserByEmail = await this.userRepository.findByEmail(email);
+      if (existingUserByEmail) {
+        await this.userRepository.edit(existingUserByEmail._id.toString(), {
+          firebaseUID,
+        });
+        user = await this.userRepository.findByFirebaseUID(firebaseUID);
+      }
+    }
 
     if (!user) {
       console.log(`User ${firebaseUID} not found in DB, creating...`);

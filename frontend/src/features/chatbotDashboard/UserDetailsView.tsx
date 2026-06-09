@@ -436,7 +436,9 @@ export function UserDetailsView({
     name: string;
     password: string;
     userRole?: string;
+    role?: "district_coordinator" | "block_coordinator" | "village_coordinator";
     isVerified?: boolean;
+    target: "web_app" | "review_system";
   }) => {
     await addUserMutation.mutateAsync({
       source,
@@ -1048,7 +1050,7 @@ export function UserDetailsView({
                         }}
                       >
                         <UserPlus className="h-4 w-4" />
-                        Add Farmer
+                        Add User
                       </Button>
                     </motion.div>
                   )}

@@ -10,14 +10,24 @@ import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
 import { Eye, EyeOff } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/atoms/radio-group";
+import { Tabs, TabsList, TabsTrigger } from "@/components/atoms/tabs";
 
-const USER_ROLES = [
+const WEB_APP_ROLES = [
   { label: "Farmer", value: "FARMER" },
   { label: "Coordinator", value: "COORDINATOR" },
   { label: "Internal", value: "INTERNAL" },
 ] as const;
 
-type UserRole = (typeof USER_ROLES)[number]["value"];
+const REVIEW_SYSTEM_ROLES = [
+  { label: "District Coordinator", value: "district_coordinator" },
+  { label: "Block Coordinator", value: "block_coordinator" },
+  { label: "Village Coordinator", value: "village_coordinator" },
+] as const;
+
+type ModalMode = "web_app" | "review_system";
+type WebAppRole = (typeof WEB_APP_ROLES)[number]["value"];
+type ReviewSystemRole = (typeof REVIEW_SYSTEM_ROLES)[number]["value"];
+type UserRole = WebAppRole | ReviewSystemRole;
 
 interface AddFarmerModalProps {
   open: boolean;
@@ -28,7 +38,9 @@ interface AddFarmerModalProps {
     name: string;
     password: string;
     userRole?: string;
+    role?: ReviewSystemRole;
     isVerified?: boolean;
+    target: ModalMode;
   }) => void | Promise<void>;
 }
 
@@ -46,10 +58,14 @@ export function AddFarmerModal({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [role, setRole] = useState<UserRole>("FARMER");
+  const [mode, setMode] = useState<ModalMode>("web_app");
   const [isVerified, setIsVerified] = useState(true);
+  const roleOptions = mode === "web_app" ? WEB_APP_ROLES : REVIEW_SYSTEM_ROLES;
   const selectedRoleLabel =
-    USER_ROLES.find((userRole) => userRole.value === role)?.label ?? "Farmer";
-  const addButtonLabel = `Add ${selectedRoleLabel}`;
+    roleOptions.find((userRole) => userRole.value === role)?.label ??
+    (mode === "web_app" ? "Farmer" : "Coordinator");
+  const addButtonLabel =
+    mode === "review_system" ? "Add Cordinator" : `Add ${selectedRoleLabel}`;
 
   // Reset form when modal opens/closes
   useEffect(() => {
@@ -58,11 +74,19 @@ export function AddFarmerModal({
       setEmail("");
       setPassword("");
       setConfirmPassword("");
+      setMode("web_app");
       setRole("FARMER");
       setIsVerified(true);
       setErrors({});
     }
   }, [open]);
+
+  const handleModeChange = (nextMode: ModalMode) => {
+    setMode(nextMode);
+    setRole(nextMode === "web_app" ? "FARMER" : "district_coordinator");
+    setIsVerified(true);
+    setErrors((prev) => ({ ...prev, role: "" }));
+  };
 
 const validate = () => {
   const newErrors: Record<string, string> = {};
@@ -120,8 +144,10 @@ const validate = () => {
       name: name.trim(),
       email: email.trim(),
       password,
-      userRole: role,
+      userRole: mode === "web_app" ? role : undefined,
+      role: mode === "review_system" ? (role as ReviewSystemRole) : undefined,
       isVerified,
+      target: mode,
     });
   };
 
@@ -130,15 +156,21 @@ const validate = () => {
       <DialogContent className="max-w-md w-[95vw] p-6 rounded-2xl bg-white dark:bg-[#1a1a1a] border border-slate-200 dark:border-[#2a2a2a] shadow-xl">
         <DialogHeader className="pb-4">
           <DialogTitle className="text-xl font-semibold text-slate-900 dark:text-slate-100">
-            {addButtonLabel}
+            Add User
           </DialogTitle>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Create a new {selectedRoleLabel.toLowerCase()} profile. The
-            credentials will be registered.
+            Create a new user profile. The credentials will be registered.
           </p>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          <Tabs value={mode} onValueChange={(value) => handleModeChange(value as ModalMode)}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="web_app">Web App</TabsTrigger>
+              <TabsTrigger value="review_system">Review System</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
               Full Name <span className="text-red-500">*</span>
@@ -204,9 +236,13 @@ const validate = () => {
             <RadioGroup
               value={role}
               onValueChange={(value) => setRole(value as UserRole)}
-              className="grid grid-cols-1 gap-3 sm:grid-cols-3"
+              className={
+                mode === "review_system"
+                  ? "grid grid-cols-1 gap-3"
+                  : "grid grid-cols-1 gap-3 sm:grid-cols-3"
+              }
             >
-              {USER_ROLES.map((item) => (
+              {roleOptions.map((item) => (
                 <label
                   key={item.value}
                   className={`flex items-center gap-3 rounded-xl border p-3 cursor-pointer transition-all ${
