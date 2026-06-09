@@ -1199,6 +1199,7 @@ export class ChatbotRepository implements IChatbotRepository {
                   isDeleted: {$ne: true},
                 },
               },
+              ...userTypeLookupStages,
               {$group: {_id: '$user'}},
               {$count: 'total'},
             ],
@@ -7661,6 +7662,9 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.initReviewSystem();
 
       let matchQuery: any ={
+        source: dbSource === 'whatsapp'
+          ? 'WHATSAPP'
+          : 'AJRASAKHA',
         $and: [
           {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
@@ -7668,15 +7672,6 @@ export class ChatbotRepository implements IChatbotRepository {
         ],
       };
 
-      if (dbSource === 'whatsapp') {
-        matchQuery = {
-          source: 'WHATSAPP',
-        };
-      } else {
-        matchQuery = {
-          source: 'AJRASAKHA',
-        };
-      }
       if (startTime || endTime) {
         matchQuery.createdAt = {};
         if (startTime) {
@@ -7828,21 +7823,17 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.initReviewSystem();
       let matchQuery: any = {
+        source:
+          dbSource !== 'whatsapp'
+            ? 'AJRASAKHA'
+            : 'WHATSAPP',
         $and: [
           {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           }
         ],
       };
-      if (dbSource !== 'whatsapp') {
-        matchQuery = {
-          source: 'AJRASAKHA',
-        };
-      } else {
-        matchQuery = {
-          source: 'WHATSAPP',
-        };
-      }
+
       if (startTime || endTime) {
         matchQuery.createdAt = {};
         if (startTime) {
@@ -10290,6 +10281,7 @@ export class ChatbotRepository implements IChatbotRepository {
         avgQuestionsPerUserDay: Math.round(avgQuestionsPerUserDay * 100) / 100,
       };
     } catch (error) {
+      console.log("-errr-----getRepeatQueryCount", error)
       throw new InternalServerError(
         `Failed to fetch repeat query count: ${error}`,
       );
@@ -10435,21 +10427,22 @@ export class ChatbotRepository implements IChatbotRepository {
       return {};
     }
 
-    // Users from Users DB
-    const directUserObjectIds = await this.getUserIdsByUserType(
+    // External users
+    const externalUserIds = await this.getUserIdsByUserType(
       source,
-      userType,
+      'external',
     );
 
-    const directUserStrings = directUserObjectIds.map(id => id.toString());
+    const externalUserStrings = externalUserIds.map(id => id.toString());
 
-    const validUserIds = new Set(directUserStrings);
+    const externalUserSet = new Set(externalUserStrings);
 
     // Questions with null userId
     const questionWithNullUsers = await this.QuestionCollection.find(
-      { userId: null,
+      {
+        userId: null,
         $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-       },
+      },
       {
         projection: {
           _id: 1,
@@ -10481,7 +10474,10 @@ export class ChatbotRepository implements IChatbotRepository {
       .toArray();
 
     const conversationUserMap = new Map(
-      conversations.map(c => [c.conversationId, c.user?.toString()]),
+      conversations.map(c => [
+        c.conversationId,
+        c.user?.toString(),
+      ]),
     );
 
     // Resolve messageId -> user
@@ -10500,10 +10496,14 @@ export class ChatbotRepository implements IChatbotRepository {
       .toArray();
 
     const messageUserMap = new Map(
-      messages.map(m => [m.messageId, m.user?.toString()]),
+      messages.map(m => [
+        m.messageId,
+        m.user?.toString(),
+      ]),
     );
 
-    const resolvedQuestionIds = questionWithNullUsers
+    // Questions whose null userId resolves to an EXTERNAL user
+    const externalResolvedQuestionIds = questionWithNullUsers
       .filter(q => {
         let resolvedUserId: string | undefined;
 
@@ -10513,28 +10513,47 @@ export class ChatbotRepository implements IChatbotRepository {
           resolvedUserId = messageUserMap.get(q.messageId);
         }
 
-        // No threadId/messageId => treat as internal
-        if (
-          !resolvedUserId &&
-          userType === 'internal'
-        ) {
-          return true;
-        }
-
-        return resolvedUserId && validUserIds.has(resolvedUserId);
+        return (
+          resolvedUserId &&
+          externalUserSet.has(resolvedUserId)
+        );
       })
       .map(q => q._id);
 
+    if (userType === 'external') {
+      return {
+        $or: [
+          {
+            userId: {
+              $in: [
+                ...externalUserIds,
+                ...externalUserStrings,
+              ],
+            },
+          },
+          {
+            _id: {
+              $in: externalResolvedQuestionIds,
+            },
+          },
+        ],
+      };
+    }
+
+    // internal = NOT external
     return {
-      $or: [
+      $and: [
         {
           userId: {
-            $in: [...directUserObjectIds, ...directUserStrings],
+            $nin: [
+              ...externalUserIds,
+              ...externalUserStrings,
+            ],
           },
         },
         {
           _id: {
-            $in: resolvedQuestionIds,
+            $nin: externalResolvedQuestionIds,
           },
         },
       ],

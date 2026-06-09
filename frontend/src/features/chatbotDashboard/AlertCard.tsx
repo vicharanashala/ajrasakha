@@ -2,7 +2,7 @@ import { useState } from "react";
 import { TrendingUp, InfoIcon, RefreshCw } from "lucide-react";
 import { Badge } from "./components/shared/Badge";
 import { DomainSpikesModal } from "./components/DomainSpikesModal";
-import { useDomainSpikes } from "./hooks/useDomainSpikes";
+// import { useDomainSpikes } from "./hooks/useDomainSpikes";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -38,15 +38,15 @@ export function AlertCard({
   onInactiveWhatsAppUsersClick,
   isFetching,
 }: AlertCardProps) {
-  const [isSpikesModalOpen, setIsSpikesModalOpen] = useState(false);
+  // const [isSpikesModalOpen, setIsSpikesModalOpen] = useState(false);
 
   // Fetch spikes independently — always enabled so the preview row is live
-  const { data: spikes = [] } = useDomainSpikes(true, 60);
+  // const { data: spikes = [] } = useDomainSpikes(true, 60);
 
   // Show the highest spike as the preview
-  const topSpike = spikes.length > 0
-    ? spikes.reduce((a, b) => (b.spikePct > a.spikePct ? b : a))
-    : null;
+  // const topSpike = spikes.length > 0
+  //   ? spikes.reduce((a, b) => (b.spikePct > a.spikePct ? b : a))
+  //   : null;
   const queryClient = useQueryClient();
   const handleRefresh = async ()=>{
     await queryClient.refetchQueries({ queryKey: ["dashboard-data"] });
