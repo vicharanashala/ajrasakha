@@ -20,6 +20,7 @@ export const useManualCheckDuplicate = () => {
       if(context?.toastId)toast.dismiss(context.toastId);
        toast.success(res?.message ?? "Duplicate check complete.");
       queryClient.invalidateQueries({ queryKey: ["detailed_questions"] });
+      queryClient.invalidateQueries({ queryKey: ["detailed_questions"] });
     },
     onError: (_,__,context)=>{
       if(context?.toastId)toast.dismiss(context.toastId);
