@@ -292,4 +292,37 @@ export interface IUserRepository {
   findAdmins(session?: ClientSession): Promise<IUser[]>;
 
   findInactiveOrBlockedExperts(session?: ClientSession): Promise<IUser[]>;
+
+  /**
+   * Finds all call agents (users with isCallAgent: true)
+   * @param session - The session for transaction
+   * @returns A promise that resolves to an array of call agents
+   */
+  findCallAgents(session?: ClientSession): Promise<IUser[]>;
+
+  /**
+   * Sets a user as a call agent
+   * @param userId - The ID of the user to set as call agent
+   * @param isCallAgent - Whether the user is a call agent
+   * @param isCallAgentActive - Whether the call agent is active
+   * @param session - The session for transaction
+   * @returns A promise that resolves to the updated user
+   */
+  setCallAgentStatus(
+    userId: string,
+    isCallAgent: boolean,
+    isCallAgentActive: boolean,
+    session?: ClientSession,
+  ): Promise<IUser>;
+
+  /**
+   * Toggles the active status of a call agent
+   * @param userId - The ID of the call agent
+   * @param session - The session for transaction
+   * @returns A promise that resolves to the updated user
+   */
+  toggleCallAgentActive(
+    userId: string,
+    session?: ClientSession,
+  ): Promise<IUser>;
 }
