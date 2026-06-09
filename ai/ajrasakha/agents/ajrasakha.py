@@ -52,6 +52,11 @@ from ajrasakha.agents.tool_registry import get_main_tool_node
 
 load_dotenv()
 
+from ajrasakha.agents.crop_chemical_resolver import ensure_crop_master_loaded
+from ajrasakha.agents.thread_logging import setup_thread_file_logging, with_thread_logging
+
+ensure_crop_master_loaded()
+setup_thread_file_logging()
 
 MCP_SERVERS = {
     "golden_db":        {"url": MCP_URLS["gdb"],       "transport": "http"},
@@ -392,19 +397,19 @@ def sanitize_answer_node(state: AjraSakhaState) -> dict:
 
 def _build_graph():
     builder = StateGraph(AjraSakhaState)
-    builder.add_node("empty_gdb_reply", empty_gdb_reply_node)
+    builder.add_node("empty_gdb_reply", with_thread_logging(empty_gdb_reply_node))
     # builder.add_node("sanitize_answer", sanitize_answer_node)  # disabled: 2-hour disclaimer post-process
 
     if use_planner_graph():
-        builder.add_node("planner", planner_node)
-        builder.add_node("clarify", clarify_node)
-        builder.add_node("ensure_location", ensure_location_node)
-        builder.add_node("upload_reviewer_only", upload_reviewer_only_node)
-        builder.add_node("execute_plan", execute_plan_node)
-        builder.add_node("assemble_answer_body", assemble_answer_body_node)
+        builder.add_node("planner", with_thread_logging(planner_node))
+        builder.add_node("clarify", with_thread_logging(clarify_node))
+        builder.add_node("ensure_location", with_thread_logging(ensure_location_node))
+        builder.add_node("upload_reviewer_only", with_thread_logging(upload_reviewer_only_node))
+        builder.add_node("execute_plan", with_thread_logging(execute_plan_node))
+        builder.add_node("assemble_answer_body", with_thread_logging(assemble_answer_body_node))
         from ajrasakha.agents.translate_answer import translate_answer_node
 
-        builder.add_node("translate_answer", translate_answer_node)
+        builder.add_node("translate_answer", with_thread_logging(translate_answer_node))
 
         builder.add_edge(START, "planner")
         builder.add_conditional_edges(

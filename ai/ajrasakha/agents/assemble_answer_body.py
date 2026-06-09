@@ -13,6 +13,7 @@ from ajrasakha.agents.answer_body import (
     format_non_gdb_tool_results,
     gdb_answer_body,
 )
+from ajrasakha.agents.thread_trace import trace_event
 from ajrasakha.agents.plan_executor import (
     _gdb_has_usable_data,
     _turn_has_specialist_tool_message,
@@ -122,6 +123,13 @@ async def assemble_answer_body_node(
             logger.info("assemble_answer_body: empty GDB answer — empty_gdb path")
             return defer_empty_gdb_to_translate(state, plan=plan)
 
+        trace_event(
+            "assemble_answer_body_gdb",
+            is_exact=gdb_data.get("is_exact"),
+            is_similar=gdb_data.get("is_similar"),
+            body_preview=body[:1500],
+            body_len=len(body),
+        )
         logger.info(
             "assemble_answer_body: GDB %s answer (len=%d)",
             "exact" if gdb_data.get("is_exact") else "similar",

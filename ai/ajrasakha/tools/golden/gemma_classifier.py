@@ -60,7 +60,7 @@ Reply with JSON only, no markdown — one entry per candidate index:
 """
 
 CLASSIFICATION_PROMPT = """You classify whether a retrieved expert Q&A can answer a farmer's question.
-
+Remember:: string matching is very important for local names, diseases, crops, chemicals name etc. If string is not matching then select PARTIALLY_COVERED or NOT_COVERED.
 Farmer question (original):
 {original_query}
 state is: {state} and crop is: {crop}
@@ -79,7 +79,7 @@ Choose exactly ONE class:
     Either: Farmer question (original) is the same as the retrieved question (retrieved_question) even if answer is different.
     Or: Existing answer can be reused without modification. For local names, slang terms, and regional terminology, use exact string matching only. Do not use semantic matching or external knowledge to determine equivalence. 
 - COVERED_BY_CONTEXT: Different question, but the retrieved expert answer already answers the farmer's specific question. The answer can be shown to the farmer as-is, without rephrasing, additional reasoning, diagnosis, assumptions, or adding information from outside the retrieved Q&A. No important information is missing.
-- PARTIALLY_COVERED: Q&A is relevant and useful, but the retrieved answer cannot be shown directly to the farmer as a complete answer. It may provide possible causes, related information, background knowledge, similar symptoms, or partial guidance. Additional reasoning, diagnosis, assumptions, clarification, or information would be required.
+- PARTIALLY_COVERED: Q&A is relevant and useful but do not address complete question or some chemical name/ crop varieties, diseases, or local terms strings are not matching.
 - NOT_COVERED: Q&A does not contain the information needed.
 
 Important:

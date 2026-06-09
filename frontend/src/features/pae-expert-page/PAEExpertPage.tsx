@@ -278,6 +278,18 @@ export const PAEExpertPage = () => {
     handleReset();
   };
 
+  const handleAiAnswerFetched = (
+    questionId: string,
+    answer: string,
+    aiSources: SourceItem[],
+  ) => {
+    setSelectedQuestion(questionId);
+    setTranslatedDraftText("");
+    setNewAnswer(answer);
+    setSources(aiSources);
+    setRemarks("AI Generated Answer");
+  };
+
   const renderRightPanel = () => {
     if (!selectedQuestionData) return null;
 
@@ -482,6 +494,7 @@ export const PAEExpertPage = () => {
               questionItemRefs={questionItemRefs}
               setQuestionRef={setQuestionRef}
               onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              onAiAnswerFetched={handleAiAnswerFetched}
               hideControls={true}
             />
           </div>
