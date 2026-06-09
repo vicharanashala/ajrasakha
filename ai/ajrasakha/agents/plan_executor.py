@@ -21,6 +21,7 @@ from ajrasakha.agents.location_context import (
 )
 from ajrasakha.agents.language import text_matches_user_language
 from ajrasakha.agents.config import resolve_question_source, resolve_thread_id
+from ajrasakha.agents.thread_trace import trace_event
 from ajrasakha.agents.domains import reviewer_upload_domain
 from ajrasakha.agents.state import AjraSakhaState, Location, PlannerPlan
 from ajrasakha.agents.retrieval_sanitizer import gdb_has_usable_answers
@@ -554,6 +555,11 @@ async def execute_plan_node(
     )
     if not tool_calls:
         return {}
+
+    trace_event(
+        "execute_plan_tool_calls",
+        tools=[{"name": tc.get("name"), "args": tc.get("args")} for tc in tool_calls],
+    )
 
     tool_node = await get_main_tool_node()
     ai_msg = AIMessage(content="", tool_calls=tool_calls)

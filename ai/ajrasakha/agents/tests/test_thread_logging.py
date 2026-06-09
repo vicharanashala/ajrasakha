@@ -1,0 +1,62 @@
+"""Tests for per-thread file logging."""
+
+import logging
+from pathlib import Path
+
+from ajrasakha.agents import thread_logging as tl
+
+
+def test_sanitize_thread_id():
+    assert tl.sanitize_thread_id_for_filename("919541703420-2026-06-03") == "919541703420-2026-06-03"
+    assert tl.sanitize_thread_id_for_filename("a/b:c") == "a_b_c"
+
+
+def test_conversation_turn_blocks(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(tl, "thread_log_dir", lambda: tmp_path)
+    tl.set_thread_log_context("thread-multi")
+    tl.begin_conversation_turn("What crop for Punjab?")
+    tl.end_conversation_turn("Please tell me your crop.", outcome="clarify")
+    tl.begin_conversation_turn("Paddy")
+    tl.end_conversation_turn("Here is advice for paddy.", outcome="answer")
+    tl.clear_thread_log_context()
+
+    text = (tmp_path / "thread-multi.txt").read_text(encoding="utf-8")
+    assert "TURN 1" in text
+    assert "TURN 2" in text
+    assert "FARMER MESSAGE" in text
+    assert "BOT MESSAGE" in text
+    assert "What crop for Punjab?" in text
+    assert "Please tell me your crop." in text
+    assert "Paddy" in text
+    assert "END TURN 1" in text
+    assert "END TURN 2" in text
+
+
+def test_thread_file_handler_routes_by_context(tmp_path: Path):
+    handler = tl.ThreadFileLogHandler(tmp_path)
+    handler.addFilter(tl.ThreadLogFilter())
+    logger = logging.getLogger("ajrasakha.agents.tests.thread_logging")
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+    tl.set_thread_log_context("thread-abc")
+    logger.info("hello from thread abc")
+    tl.clear_thread_log_context()
+
+    tl.set_thread_log_context("thread-xyz")
+    logger.info("hello from thread xyz")
+    tl.clear_thread_log_context()
+
+    # Noisy third-party loggers should not appear in thread files.
+    tl.set_thread_log_context("thread-abc")
+    logging.getLogger("httpx").info("HTTP Request: POST http://example/mcp")
+    logging.getLogger("mcp.client.streamable_http").info("Received session ID: abc")
+    tl.clear_thread_log_context()
+
+    logger.removeHandler(handler)
+
+    abc_text = (tmp_path / "thread-abc.txt").read_text(encoding="utf-8")
+    assert abc_text.count("hello from thread abc") == 1
+    assert "HTTP Request" not in abc_text
+    assert "Received session ID" not in abc_text
+    assert (tmp_path / "thread-xyz.txt").read_text(encoding="utf-8").count("hello from thread xyz") == 1
