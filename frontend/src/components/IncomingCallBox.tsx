@@ -19,7 +19,6 @@ import { env } from "@/config/env";
 import Plivo from "plivo-browser-sdk";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { FarmerDetails } from "./FarmerDetails";
-import { toast } from "sonner";
 
 interface IncomingCall {
   uuid: string;

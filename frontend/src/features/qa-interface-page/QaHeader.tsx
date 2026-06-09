@@ -27,7 +27,7 @@ import { TimerDisplay } from "../../components/timer-display";
 import { getTimerStartTime } from "@/utils/getTimerStartTime";
 import { useFetchAnswer } from "@/hooks/api/answer/useGetAiInitialAnswer";
 import type { SourceItem } from "@/types";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 
 type AiAnswerResponse = {
   answer?: string;
@@ -293,6 +293,7 @@ const QaQuestionItem = ({
   const fetchAiInitialAnswer = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     onQuestionSelect(question.id);
+    const toastId = toast.loading('fetching answer...')
     fetchAnswer(
       {
         query: question.text,
@@ -302,6 +303,7 @@ const QaQuestionItem = ({
       {
         onSuccess: (result: AiAnswerResponse | null) => {
           if (!result?.answer) {
+            toast.dismiss(toastId)
             toast.error("AI answer was not returned.");
             return;
           }
@@ -311,9 +313,11 @@ const QaQuestionItem = ({
             result.answer,
             normalizeAiAnswerSources(result),
           );
+          toast.dismiss(toastId)
           toast.success("AI answer added to draft.");
         },
         onError: () => {
+          toast.dismiss(toastId)
           toast.error("Failed to fetch AI answer.");
         },
       },
