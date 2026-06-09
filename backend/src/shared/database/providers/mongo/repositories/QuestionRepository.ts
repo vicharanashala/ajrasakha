@@ -340,6 +340,7 @@ export class QuestionRepository implements IQuestionRepository {
         unallocatedQuestions,
         pae_review,
         is_non_agri,
+        moderatorId,
       } = query;
       //  const filter: any = {};
       const filter: any = {
@@ -460,6 +461,15 @@ export class QuestionRepository implements IQuestionRepository {
       } else if (filter.status === undefined) {
         filter.status = {$nin: ['non_agri', 'dynamic']};
       }
+
+      // --- Dedicated (moderator-assigned) tab filter ---
+      // When filtering by moderatorId, always restrict to active statuses only
+      // (in-review or re-routed), overriding any status filter the frontend sent.
+      if (moderatorId) {
+        filter.moderatorId = new ObjectId(moderatorId as string);
+        filter.status = { $in: ['in-review', 're-routed'] };
+      }
+
       // --- State filter (from body array) ---
       if (body?.states && body.states.length > 0) {
         filter['details.state'] = {$in: body.states};
@@ -4464,6 +4474,8 @@ export class QuestionRepository implements IQuestionRepository {
           question: 1,
           status: 1,
           createdAt: 1,
+          updatedAt: 1,
+          moderatorAssignedAt: 1,
           authors_history: 1, // ← Add authors_history to projection
         },
       },
@@ -4908,9 +4920,11 @@ export class QuestionRepository implements IQuestionRepository {
           question: 1,
           status: 1,
           createdAt: 1,
+          updatedAt: 1,
           reviewLevels: 1,
           totalTurnAround: 1,
           authors_history: 1,
+          moderatorAssignedAt: 1,
           submission: {
             _id: '$submission._id',
             questionId: '$submission.questionId',
@@ -4954,8 +4968,10 @@ export class QuestionRepository implements IQuestionRepository {
         question: doc.question,
         status: doc.status,
         createdAt: doc.createdAt,
+        updatedAt: doc.updatedAt ?? null,
         reviewLevels: doc.reviewLevels,
         authors_history: doc.authors_history,
+        moderatorAssignedAt: doc.moderatorAssignedAt ?? null,
         submission: doc.submission,
       })),
     };
@@ -6433,5 +6449,33 @@ export class QuestionRepository implements IQuestionRepository {
       ...item,
       userId: item.userId.toString(),
     }));
+  }
+
+  /** Returns in-review questions with no moderator assigned yet, ordered oldest first. */
+  async findUnassignedInReviewQuestions(): Promise<IQuestion[]> {
+    await this.init();
+    return this.QuestionCollection
+      .find({
+        status: 'in-review',
+        $or: [{ moderatorId: { $exists: false } }, { moderatorId: null }],
+      })
+      .sort({ createdAt: 1 })
+      .toArray();
+  }
+
+  /** Sets or clears moderatorId on a question document. Also stamps moderatorAssignedAt when assigning. */
+  async updateModeratorId(questionId: string, moderatorId: string | null): Promise<void> {
+    await this.init();
+    const now = new Date();
+    await this.QuestionCollection.updateOne(
+      { _id: new ObjectId(questionId) },
+      {
+        $set: {
+          moderatorId: moderatorId ? new ObjectId(moderatorId) : null,
+          moderatorAssignedAt: moderatorId ? now : null,
+          updatedAt: now,
+        },
+      },
+    );
   }
 }

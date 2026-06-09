@@ -35,9 +35,9 @@ export function BaseTable<T>({
   startIndex,
 }: BaseTableProps<T>) {
   return (
-    <Table 
-      containerClassName="overflow-hidden"
-      className="min-w-[800px] table-fixed"
+    <Table
+      containerClassName="overflow-visible"
+      className="min-w-max"
     >
       <TableHeader className="bg-card sticky top-0 z-10">
         <TableRow>

@@ -48,6 +48,9 @@ interface QuestionDetailProps {
   onPrev?: () => void;
   hasNext?: boolean;
   hasPrev?: boolean;
+  /** True when the question is opened from the moderator's Dedicated tab.
+   *  Only in this view can moderators approve or reroute answers. */
+  isDedicatedView?: boolean;
 }
 
 export const QuestionDetails = ({
@@ -63,6 +66,7 @@ export const QuestionDetails = ({
   onPrev,
   hasNext,
   hasPrev,
+  isDedicatedView = false,
 }: QuestionDetailProps) => {
   const ANSWER_VISIBLE_COUNT = 5;
 
@@ -371,6 +375,7 @@ export const QuestionDetails = ({
                 userRole={currentUser.role}
                 queue={question.submission.queue}
                 rerouteQuestion={reroutequestionDetails ?? undefined}
+                isDedicatedView={isDedicatedView}
               />
               {answerVisibleCount < answers.length && (
                 <div className="flex justify-center">

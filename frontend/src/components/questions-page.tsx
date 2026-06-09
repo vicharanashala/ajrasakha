@@ -100,7 +100,7 @@ export const QuestionsPage = ({
   // for Select mulitple questions and bulk delete
   const [isSelectionModeOn, setIsSelectionModeOn] = useState(false);
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
-  const [viewMode, setViewMode] = useState<"all" | "review-level">("all");
+  const [viewMode, setViewMode] = useState<"all" | "review-level" | "dedicated">("all");
   const [reviewPage, setReviewPage] = useState(1);
   const [limit, setLimit] = useState(12);
   const [pendingNav, setPendingNav] = useState<"prev" | "next" | null>(null);
@@ -155,34 +155,40 @@ export const QuestionsPage = ({
   }, [source]);
 
   const filter = useMemo(
-    () => ({
-      status,
-      state,
-      states,
-      source,
-      crop,
-      normalised_crop: normalisedCrop,
-      normalisedCrops,
-      answersCount,
-      dateRange,
-      priority,
-      domain,
-      user,
-      startTime,
-      endTime,
-      review_level,
-      closedAtStart,
-      closedAtEnd,
-      consecutiveApprovals,
-      autoAllocateFilter,
-      closedInTwoHrs,
-      hiddenQuestions,
-      duplicateQuestions,
-      isOnHold,
-      unallocatedQuestions,
-      pae_review: paeReview,
-      is_non_agri: isNonAgri,
-    }),
+    () => {
+      const isDedicated = viewMode === "dedicated";
+      return {
+        // In dedicated mode: ignore source/status filters so ALL assigned questions show
+        status: isDedicated ? "all" : status,
+        source: isDedicated ? "all" : source,
+        state,
+        states,
+        crop,
+        normalised_crop: normalisedCrop,
+        normalisedCrops,
+        answersCount,
+        dateRange,
+        priority,
+        domain,
+        user,
+        startTime,
+        endTime,
+        review_level,
+        closedAtStart,
+        closedAtEnd,
+        consecutiveApprovals,
+        autoAllocateFilter,
+        closedInTwoHrs,
+        hiddenQuestions,
+        duplicateQuestions,
+        isOnHold,
+        unallocatedQuestions,
+        pae_review: paeReview,
+        is_non_agri: isNonAgri,
+        // Dedicated tab: filter to questions assigned to the current moderator
+        moderatorId: isDedicated ? (currentUser?._id?.toString() ?? undefined) : undefined,
+      };
+    },
     [
       status,
       state,
@@ -210,6 +216,7 @@ export const QuestionsPage = ({
       unallocatedQuestions,
       paeReview,
       isNonAgri,
+      viewMode,
     ],
   );
 
@@ -223,7 +230,7 @@ export const QuestionsPage = ({
     limit,
     filter,
     debouncedSearch,
-    viewMode === "all",
+    viewMode === "all" || viewMode === "dedicated",
     questionSort,
   );
   const {
@@ -292,7 +299,7 @@ export const QuestionsPage = ({
   }, [questionData, debouncedSearch, searchTabMode]);
 
   const currentItems = useMemo(() => {
-    if (viewMode !== "all") return reviewData?.data || [];
+    if (viewMode === "review-level") return reviewData?.data || [];
     return filteredQuestions;
   }, [viewMode, filteredQuestions, reviewData]);
 
@@ -300,14 +307,14 @@ export const QuestionsPage = ({
     return currentItems.findIndex((q) => q._id === selectedQuestionId);
   }, [currentItems, selectedQuestionId]);
 
-  const totalPages = viewMode === "all"
-    ? (questionData?.totalPages || 0)
-    : (reviewData?.totalPages || 0);
+  const totalPages = viewMode === "review-level"
+    ? (reviewData?.totalPages || 0)
+    : (questionData?.totalPages || 0);
 
-  const displayTotal = viewMode === "all"
-    ? (questionData?.totalCount || 0)
-    : (reviewData?.totalDocs || 0);
-  const currentPageVal = viewMode === "all" ? currentPage : reviewPage;
+  const displayTotal = viewMode === "review-level"
+    ? (reviewData?.totalDocs || 0)
+    : (questionData?.totalCount || 0);
+  const currentPageVal = viewMode === "review-level" ? reviewPage : currentPage;
 
   const hasNext = currentIndex < currentItems.length - 1 || currentPageVal < totalPages;
   const hasPrev = currentIndex > 0 || currentPageVal > 1;
@@ -317,8 +324,8 @@ export const QuestionsPage = ({
       setSelectedQuestionId(currentItems[currentIndex + 1]._id);
     } else if (currentPageVal < totalPages) {
       setPendingNav("next");
-      if (viewMode === "all") setCurrentPage(prev => prev + 1);
-      else setReviewPage(prev => prev + 1);
+      if (viewMode === "review-level") setReviewPage(prev => prev + 1);
+      else setCurrentPage(prev => prev + 1);
     }
   };
 
@@ -327,8 +334,8 @@ export const QuestionsPage = ({
       setSelectedQuestionId(currentItems[currentIndex - 1]._id);
     } else if (currentPageVal > 1) {
       setPendingNav("prev");
-      if (viewMode === "all") setCurrentPage(prev => prev - 1);
-      else setReviewPage(prev => prev - 1);
+      if (viewMode === "review-level") setReviewPage(prev => prev - 1);
+      else setCurrentPage(prev => prev - 1);
     }
   };
 
@@ -524,6 +531,7 @@ export const QuestionsPage = ({
               onPrev={handlePrev}
               hasNext={hasNext}
               hasPrev={hasPrev}
+              isDedicatedView={viewMode === "dedicated"}
             />
           )
         )
@@ -562,7 +570,7 @@ export const QuestionsPage = ({
             onAnswerModeChange={setSearchTabMode}
           />
 
-          {viewMode === "all" ? (
+          {viewMode === "all" || viewMode === "dedicated" ? (
             <QuestionsTable
               items={filteredQuestions}
               onViewMore={handleViewMore}
@@ -583,6 +591,7 @@ export const QuestionsPage = ({
               onSort={toggleQuestionSort}
               view={view}
               setLimit={setLimit}
+              isDedicatedView={viewMode === "dedicated"}
             />
           ) : (
             <ReviewLevelsTable

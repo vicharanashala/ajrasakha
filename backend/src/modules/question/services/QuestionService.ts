@@ -3363,7 +3363,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     userId: string,
   ): Promise<{
     question: IQuestion | null;
-    approved_moderator: { name: string; email: string };
+    approved_moderator: {name: string; email: string};
+    assigned_moderator: {name: string; email: string} | null;
   }> {
     try {
       const user = await this.userRepo.findById(userId);
@@ -3399,9 +3400,22 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
       }
 
+      // Resolve the currently assigned moderator (if any)
+      let assigned_moderator: {name: string; email: string} | null = null;
+      if ((question as any).moderatorId) {
+        const mod = await this.userRepo.findById((question as any).moderatorId.toString());
+        if (mod) {
+          assigned_moderator = {
+            name: `${mod.firstName} ${mod.lastName ?? ''}`.trim(),
+            email: mod.email,
+          };
+        }
+      }
+
       return {
         question,
         approved_moderator,
+        assigned_moderator,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to fetch question data: ${error}`);
@@ -5553,6 +5567,95 @@ export class QuestionService extends BaseService implements IQuestionService {
     } catch (error) {
       // Non-fatal — log and swallow so the UI is never blocked by this
       console.error(`[markQuestionOpened] Failed for questionId=${questionId}:`, error);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // MODERATOR QUEUE CRON
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Periodic cron job — moderator queue management.
+   *
+   * Logic:
+   *  1. Find all in-review questions that have no moderatorId assigned.
+   *  2. Find available moderators — those whose user document has assignedQuestionId = null.
+   *  3. For each available moderator, assign the oldest unassigned in-review question:
+   *       - Set question.moderatorId = moderatorId
+   *       - Set user.assignedQuestionId = questionId
+   *       - Push a moderator history entry into the submission
+   *       - Notify the moderator
+   *
+   * De-assignment:
+   *  When the moderator closes (approves) a question, AnswerService clears:
+   *       - question.moderatorId = null
+   *       - user.assignedQuestionId = null
+   *  …making the moderator available again on the next cron run.
+   */
+  async runModeratorQueueCron(): Promise<{ assigned: number; availableWaiting: number; failedAssignments: number }> {
+    console.log('[ModeratorQueue] Starting moderator queue assignment check...');
+    try {
+      // 1. Available moderators (no active question in their user document)
+      const availableModerators = await this.userRepo.findAvailableModerators();
+      if (!availableModerators.length) {
+        console.log('[ModeratorQueue] No available moderators — all moderators are busy.');
+        return { assigned: 0, availableWaiting: 0, failedAssignments: 0 };
+      }
+
+      // 2. Unassigned in-review questions (oldest first)
+      const unassignedQuestions = await this.questionRepo.findUnassignedInReviewQuestions();
+      if (!unassignedQuestions.length) {
+        console.log(`[ModeratorQueue] No unassigned in-review questions — ${availableModerators.length} moderator(s) available and waiting.`);
+        return { assigned: 0, availableWaiting: availableModerators.length, failedAssignments: 0 };
+      }
+
+      // Track which question IDs are claimed in this batch to avoid double-assignment
+      const claimedIds = new Set<string>();
+      let assigned = 0;
+      let availableWaiting = 0;
+      let failedAssignments = 0;
+
+      for (const moderator of availableModerators) {
+        const moderatorId = moderator._id.toString();
+
+        const nextQuestion = unassignedQuestions.find(
+          (q: any) => !claimedIds.has(q._id.toString()),
+        );
+        if (!nextQuestion) {
+          // Moderator is free but no more questions left in this batch
+          availableWaiting++;
+          continue;
+        }
+
+        const questionId = nextQuestion._id.toString();
+        claimedIds.add(questionId);
+
+        try {
+          // Assign question to moderator — update both documents and notify
+          await Promise.all([
+            this.questionRepo.updateModeratorId(questionId, moderatorId),
+            this.userRepo.setAssignedQuestion(moderatorId, questionId),
+            this.notificationService.saveTheNotifications(
+              'An in-review question has been assigned to you for moderation',
+              'Moderation Assigned',
+              questionId,
+              moderatorId,
+              'moderator_approval',
+            ),
+          ]);
+          console.log(`[ModeratorQueue] Assigned question ${questionId} → moderator ${moderatorId}`);
+          assigned++;
+        } catch (err: any) {
+          console.error(`[ModeratorQueue] Failed to assign ${questionId} → ${moderatorId}:`, err?.message);
+          claimedIds.delete(questionId);
+          failedAssignments++;
+        }
+      }
+
+      return { assigned, availableWaiting, failedAssignments };
+    } catch (error: any) {
+      console.error('[ModeratorQueue] runModeratorQueueCron failed:', error?.message);
+      throw new InternalServerError(`Moderator queue cron failed: ${error?.message}`);
     }
   }
 

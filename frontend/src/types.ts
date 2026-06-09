@@ -507,6 +507,10 @@ export interface IQuestionFullData {
     name: string;
     email: string;
   }
+  /** Moderator currently assigned to review this question (set by the moderator-queue cron). */
+  assigned_moderator?: { name: string; email: string } | null;
+  /** Timestamp when a moderator was assigned. Used to calculate moderator handling time (closedAt - moderatorAssignedAt). */
+  moderatorAssignedAt?: string | null;
   closedFinalAnswer?: {
     _id: string;
     questionId: string;
@@ -603,6 +607,8 @@ export interface IDetailedQuestion {
   referenceQuestion?: string
   referenceSource?: string;
   isDuplicateChecked?: boolean;
+  /** Moderator currently assigned to review this question (set by the moderator-queue cron). */
+  moderatorId?: string | null;
 }
 
 export interface IDetailedQuestionResponse {

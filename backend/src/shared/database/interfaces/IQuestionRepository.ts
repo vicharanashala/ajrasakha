@@ -515,4 +515,7 @@ export interface IQuestionRepository {
     shift: string,
     session?: ClientSession
   ): Promise<any>
+
+  findUnassignedInReviewQuestions(): Promise<IQuestion[]>
+  updateModeratorId(questionId: string, moderatorId: string | null): Promise<void>
 }

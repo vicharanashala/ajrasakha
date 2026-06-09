@@ -815,6 +815,36 @@ export class UserRepository implements IUserRepository {
     return await this.usersCollection.find({ role: 'moderator' }).toArray();
   }
 
+  /** Returns non-blocked moderators who have no question currently assigned to them. */
+  async findAvailableModerators(): Promise<IUser[]> {
+    await this.init();
+    return this.usersCollection
+      .find({
+        role: 'moderator',
+        isBlocked: { $ne: true },
+        $or: [{ assignedQuestionId: { $exists: false } }, { assignedQuestionId: null }],
+      })
+      .toArray();
+  }
+
+  /** Assigns a question to a moderator (sets assignedQuestionId on the user document). */
+  async setAssignedQuestion(moderatorId: string, questionId: string): Promise<void> {
+    await this.init();
+    await this.usersCollection.updateOne(
+      { _id: new ObjectId(moderatorId) },
+      { $set: { assignedQuestionId: new ObjectId(questionId), updatedAt: new Date() } },
+    );
+  }
+
+  /** Clears the moderator's assigned question (called when the question is closed). */
+  async clearAssignedQuestion(moderatorId: string): Promise<void> {
+    await this.init();
+    await this.usersCollection.updateOne(
+      { _id: new ObjectId(moderatorId) },
+      { $set: { assignedQuestionId: null, updatedAt: new Date() } },
+    );
+  }
+
   async findAdmins(session?: ClientSession): Promise<IUser[]> {
     await this.init();
     return await this.usersCollection.find({ role: 'admin' }, { session }).toArray();

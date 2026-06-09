@@ -151,7 +151,8 @@ export interface IQuestionService {
     userId: string,
   ): Promise<{
     question: IQuestion | null;
-    approved_moderator: { name: string; email: string };
+    approved_moderator: {name: string; email: string};
+    assigned_moderator: {name: string; email: string} | null;
   }>;
 
   /** Get expert’s allocated question page */
