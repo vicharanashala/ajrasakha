@@ -1,7 +1,29 @@
 import { useState, useEffect, useRef } from "react";
-import { Eye, X, Trash2, Pencil, Users, InfoIcon, UserPlus, Search, AlertCircle, Inbox, ArrowUpDown, ArrowDown, ArrowUp, UserCheck2, Loader2, RefreshCw, UserX } from "lucide-react";
+import {
+  Eye,
+  X,
+  Trash2,
+  Pencil,
+  Users,
+  InfoIcon,
+  UserPlus,
+  Search,
+  AlertCircle,
+  Inbox,
+  ArrowUpDown,
+  ArrowDown,
+  ArrowUp,
+  UserCheck2,
+  Loader2,
+  RefreshCw,
+  ShieldX,
+} from "lucide-react";
 import { Button } from "@/components/atoms/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/atoms/tooltip";
 import {
   Card,
   CardContent,
@@ -55,7 +77,7 @@ import { EditFarmerModal } from "./components/EditFarmerModal";
 import { AddFarmerModal } from "./components/AddFarmerModal";
 import { FarmerDetailsModal } from "./components/FarmerDetailsModal";
 import { useAddUser } from "./hooks/useAddUser";
-import { motion,AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/atoms/badge";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import { useVerifyUserAnalytics } from "@/hooks/api/user/useVerifyUserAnalytics";
@@ -122,7 +144,9 @@ export function UserDetailsView({
   }));
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
-  const [sortBy, setSortBy] = useState<"totalQuestions" | "name" | "farmerName" | "email">("name");
+  const [sortBy, setSortBy] = useState<
+    "totalQuestions" | "name" | "farmerName" | "email"
+  >("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   // const [isBarGraphMaximized, setIsBarGraphMaximized] = useState(false);
   // const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
@@ -145,7 +169,7 @@ export function UserDetailsView({
   // const [hovered, setHovered] = useState<string | null>(null);
   // const [agriHovered, setAgriHovered] = useState<string | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
-const debouncedSearch = useDebounce(filters.search, 500);
+  const debouncedSearch = useDebounce(filters.search, 500);
 
   // const scrollToTable = () => {
   //   setTimeout(() => tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
@@ -173,7 +197,9 @@ const debouncedSearch = useDebounce(filters.search, 500);
   // Apply initialFilters when they change (e.g. clicking from AlertCard in overview)
   useEffect(() => {
     if (initialFilters) {
-      setFilters((prev) => ({ ...prev, ...initialFilters,
+      setFilters((prev) => ({
+        ...prev,
+        ...initialFilters,
         roles: initialFilters.roles ?? rolesForUserType(userType),
         profileCompleted:
           initialFilters.profileCompleted ??
@@ -217,8 +243,8 @@ const debouncedSearch = useDebounce(filters.search, 500);
     sortBy,
     sortOrder,
     false,
-    '',
-    filters.verificationStatus
+    "",
+    filters.verificationStatus,
   );
 
   const {
@@ -324,7 +350,9 @@ const debouncedSearch = useDebounce(filters.search, 500);
     setCurrentPage(1);
   };
 
-  const handleSort = (newSortBy: "totalQuestions" | "name" | "farmerName" | "email") => {
+  const handleSort = (
+    newSortBy: "totalQuestions" | "name" | "farmerName" | "email",
+  ) => {
     if (sortBy === newSortBy) {
       // Toggle sort order if same field
       setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"));
@@ -332,7 +360,11 @@ const debouncedSearch = useDebounce(filters.search, 500);
       // Change field and set default sort order
       setSortBy(newSortBy);
       setSortOrder(
-        newSortBy === "name" || newSortBy === "farmerName" || newSortBy === "email" ? "asc" : "desc"
+        newSortBy === "name" ||
+          newSortBy === "farmerName" ||
+          newSortBy === "email"
+          ? "asc"
+          : "desc",
       );
     }
     setCurrentPage(1);
@@ -409,7 +441,9 @@ const debouncedSearch = useDebounce(filters.search, 500);
     setIsAddModalOpen(false);
   };
 
-  const handleChangeViewedUserPassword = async (payload: {newPassword: string}) => {
+  const handleChangeViewedUserPassword = async (payload: {
+    newPassword: string;
+  }) => {
     if (!userToView) return;
     await changeUserPasswordMutation.mutateAsync({
       userId: userToView.userId,
@@ -423,7 +457,10 @@ const debouncedSearch = useDebounce(filters.search, 500);
     setUserToEdit(user);
   };
 
-  const handleUpdateVerification = async (userId: string, source: string,  isVerified: boolean,
+  const handleUpdateVerification = async (
+    userId: string,
+    source: string,
+    isVerified: boolean,
   ) => {
     try {
       const response = await verifyUserMutation.mutateAsync({
@@ -432,9 +469,14 @@ const debouncedSearch = useDebounce(filters.search, 500);
         isVerified,
       });
 
-      toast.success(response?.message ||  (isVerified  ? "User verified successfully"  : "User marked unverified successfully"),);
+      toast.success(
+        response?.message ||
+          (isVerified
+            ? "User verified successfully"
+            : "User marked unverified successfully"),
+      );
       setUserToView((current) =>
-        current?.userId === userId ? {...current, isVerified} : current,
+        current?.userId === userId ? { ...current, isVerified } : current,
       );
     } catch (error: any) {
       toast.error(error?.message || "Failed to update verification status");
@@ -1093,10 +1135,7 @@ const debouncedSearch = useDebounce(filters.search, 500);
                   <TableBody>
                     {users.length === 0 ? (
                       <TableRow className="hover:bg-transparent">
-                        <TableCell
-                          colSpan={7}
-                          className="text-center py-16"
-                        >
+                        <TableCell colSpan={7} className="text-center py-16">
                           <div className="flex flex-col items-center gap-2 text-muted-foreground">
                             <div className="p-3 rounded-full bg-muted">
                               <Inbox className="h-5 w-5" />
@@ -1116,167 +1155,179 @@ const debouncedSearch = useDebounce(filters.search, 500);
                       </TableRow>
                     ) : (
                       users.map((user, idx) => {
-                        const isVerifyingThisUser = verifyingUserId === user.userId;
+                        const isVerifyingThisUser =
+                          verifyingUserId === user.userId;
                         const isUserVerified = user.isVerified ?? true;
-                        return(
-                        <ContextMenu key={user.userId} modal={false}>
-                          <ContextMenuTrigger asChild>
-                            <motion.tr
-                              initial={{ opacity: 0, y: 4 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{
-                                duration: 0.18,
-                                delay: Math.min(idx * 0.02, 0.2),
-                              }}
-                              className="group text-center border-b border-border/40 hover:bg-muted/40 transition-colors duration-150"
-                            >
-                              <TableCell className="align-middle text-xs text-muted-foreground tabular-nums">
-                                {(currentPage - 1) * pageSize + idx + 1}
-                              </TableCell>
-
-                              <TableCell className="align-middle font-medium whitespace-nowrap">
-                                <div className="inline-flex items-center justify-center gap-1.5">
-                                  <span>{user.name || <EmptyValue />}</span>
-                                  {!isUserVerified && (
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <UserX className="h-4 w-4 text-red-500" />
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        Not verified
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  )}
-                                </div>
-                              </TableCell>
-
-                              <TableCell className="align-middle whitespace-nowrap">
-                                {user.farmerProfile?.farmerName || (
-                                  <EmptyValue />
-                                )}
-                              </TableCell>
-
-                              <TableCell className="align-middle whitespace-nowrap text-xs text-muted-foreground">
-                                {user.email || <EmptyValue />}
-                              </TableCell>
-
-                              <TableCell className="align-middle whitespace-nowrap">
-                                {user.userRole ? (
-                                  <Badge
-                                    variant="secondary"
-                                    className="font-normal"
-                                  >
-                                    {user.userRole}
-                                  </Badge>
-                                ) : (
-                                  <EmptyValue />
-                                )}
-                              </TableCell>
-
-                              <TableCell className="align-middle">
-                                <button
-                                  onClick={() => {
-                                    setSelectedUser(user);
-                                    setQuestionModalOpen(true);
-                                  }}
-                                  disabled={user.totalQuestions === 0}
-                                  title="View queries"
-                                  className={`inline-flex items-center justify-center min-w-[36px] h-6 px-2.5 rounded-full text-xs font-semibold transition-all ${
-                                    user.totalQuestions > 0
-                                      ? "bg-primary/10 text-primary hover:bg-primary/20 hover:scale-105 cursor-pointer"
-                                      : "bg-muted text-muted-foreground cursor-default"
-                                  }`}
-                                >
-                                  {user.totalQuestions.toLocaleString()}
-                                </button>
-                              </TableCell>
-
-                              <TableCell className="align-middle">
-                                <div className="flex items-center justify-center gap-3">
-                                  
-                                  {isAdmin && (
-                                    <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
-
-                                      {!isUserVerified && (
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          disabled={isVerifyingThisUser}
-                                          className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
-                                          onClick={() =>
-                                            requestVerificationChange(user, true)
-                                          }
-                                          title="Set verified"
-                                        >
-                                          {isVerifyingThisUser ? (
-                                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                                          ) : (
-                                            <UserCheck2 className="h-4 w-4" />
-                                          )}
-                                        </Button>
-                                      )}
-
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
-                                        onClick={() => handleEditUser(user)}
-                                        title="Edit farmer"
-                                      >
-                                        <Pencil className="h-4 w-4" />
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                        onClick={() => handleDeleteUser(user)}
-                                        title="Delete farmer"
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  )}
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setUserToView(user)}
-                                    className="h-8 gap-1.5"
-                                  >
-                                    <Eye className="h-3.5 w-3.5" />
-                                    View More
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </motion.tr>
-                          </ContextMenuTrigger>
-
-                          {isAdmin && (
-                            <ContextMenuContent className="w-40">
-                              <ContextMenuItem
-                                className="cursor-pointer gap-2"
-                                onSelect={() => setUserToEdit(user)}
-                              >
-                                <Pencil className="h-4 w-4" />
-                                Edit
-                              </ContextMenuItem>
-                              <ContextMenuItem
-                                className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer gap-2"
-                                onSelect={() => {
-                                  setConfirmEmail("");
-                                  setUserToDelete({
-                                    userId: user.userId,
-                                    source,
-                                    email: user.email,
-                                  });
+                        return (
+                          <ContextMenu key={user.userId} modal={false}>
+                            <ContextMenuTrigger asChild>
+                              <motion.tr
+                                initial={{ opacity: 0, y: 4 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{
+                                  duration: 0.18,
+                                  delay: Math.min(idx * 0.02, 0.2),
                                 }}
+                                className="group text-center border-b border-border/40 hover:bg-muted/40 transition-colors duration-150"
                               >
-                                <Trash2 className="h-4 w-4" />
-                                Delete
-                              </ContextMenuItem>
-                            </ContextMenuContent>
-                          )}
-                        </ContextMenu>
-                      )})
+                                <TableCell className="align-middle text-xs text-muted-foreground tabular-nums">
+                                  {(currentPage - 1) * pageSize + idx + 1}
+                                </TableCell>
+
+                                <TableCell className="align-middle font-medium whitespace-nowrap">
+                                  <div className="inline-flex items-center justify-center gap-1.5">
+                                    <span>{user.name || <EmptyValue />}</span>
+                                    {!isUserVerified && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <ShieldX className="h-4 w-4 text-orange-500" />
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          Not verified
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    )}
+                                  </div>
+                                </TableCell>
+
+                                <TableCell className="align-middle whitespace-nowrap">
+                                  {user.farmerProfile?.farmerName || (
+                                    <EmptyValue />
+                                  )}
+                                </TableCell>
+
+                                <TableCell className="align-middle whitespace-nowrap text-xs text-muted-foreground">
+                                  {user.email || <EmptyValue />}
+                                </TableCell>
+
+                                <TableCell className="align-middle whitespace-nowrap">
+                                  {user.userRole ? (
+                                    <Badge
+                                      variant="secondary"
+                                      className="font-normal"
+                                    >
+                                      {user.userRole}
+                                    </Badge>
+                                  ) : (
+                                    <EmptyValue />
+                                  )}
+                                </TableCell>
+
+                                <TableCell className="align-middle">
+                                  <button
+                                    onClick={() => {
+                                      setSelectedUser(user);
+                                      setQuestionModalOpen(true);
+                                    }}
+                                    disabled={user.totalQuestions === 0}
+                                    title="View queries"
+                                    className={`inline-flex items-center justify-center min-w-[36px] h-6 px-2.5 rounded-full text-xs font-semibold transition-all ${
+                                      user.totalQuestions > 0
+                                        ? "bg-primary/10 text-primary hover:bg-primary/20 hover:scale-105 cursor-pointer"
+                                        : "bg-muted text-muted-foreground cursor-default"
+                                    }`}
+                                  >
+                                    {user.totalQuestions.toLocaleString()}
+                                  </button>
+                                </TableCell>
+
+                                <TableCell className="align-middle">
+                                  <div className="flex items-center justify-center gap-3">
+                                    {isAdmin && (
+                                      <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                                        {!isUserVerified ? (
+                                          <Button
+                                            disabled={isVerifyingThisUser}
+                                            className="h-8 px-3 gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
+                                            onClick={() =>
+                                              requestVerificationChange(
+                                                user,
+                                                true,
+                                              )
+                                            }
+                                          >
+                                            {isVerifyingThisUser ? (
+                                              <>
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                Verifying...
+                                              </>
+                                            ) : (
+                                              <>
+                                                <UserCheck2 className="h-4 w-4" />
+                                                Verify
+                                              </>
+                                            )}
+                                          </Button>
+                                        ) : (
+                                          <>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
+                                              onClick={() =>
+                                                handleEditUser(user)
+                                              }
+                                              title="Edit farmer"
+                                            >
+                                              <Pencil className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                              onClick={() =>
+                                                handleDeleteUser(user)
+                                              }
+                                              title="Delete farmer"
+                                            >
+                                              <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                          </>
+                                        )}
+                                      </div>
+                                    )}
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => setUserToView(user)}
+                                      className="h-8 gap-1.5"
+                                    >
+                                      <Eye className="h-3.5 w-3.5" />
+                                      View More
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </motion.tr>
+                            </ContextMenuTrigger>
+
+                            {isAdmin && (
+                              <ContextMenuContent className="w-40">
+                                <ContextMenuItem
+                                  className="cursor-pointer gap-2"
+                                  onSelect={() => setUserToEdit(user)}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                  Edit
+                                </ContextMenuItem>
+                                <ContextMenuItem
+                                  className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer gap-2"
+                                  onSelect={() => {
+                                    setConfirmEmail("");
+                                    setUserToDelete({
+                                      userId: user.userId,
+                                      source,
+                                      email: user.email,
+                                    });
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  Delete
+                                </ContextMenuItem>
+                              </ContextMenuContent>
+                            )}
+                          </ContextMenu>
+                        );
+                      })
                     )}
                   </TableBody>
                 </Table>
@@ -1417,7 +1468,7 @@ const debouncedSearch = useDebounce(filters.search, 500);
               {verificationToConfirm?.isVerified ? (
                 <UserCheck2 className="h-5 w-5 text-primary" />
               ) : (
-                <UserX className="h-5 w-5 text-destructive" />
+                <ShieldX className="h-5 w-5 text-destructive" />
               )}
             </div>
             <AlertDialogTitle className="text-center">
@@ -1431,10 +1482,7 @@ const debouncedSearch = useDebounce(filters.search, 500);
                 {verificationToConfirm?.name}
               </strong>
               {verificationToConfirm?.email ? (
-                <>
-                  {" "}
-                  ({verificationToConfirm.email})
-                </>
+                <> ({verificationToConfirm.email})</>
               ) : null}
               .
             </AlertDialogDescription>
@@ -1467,8 +1515,6 @@ const debouncedSearch = useDebounce(filters.search, 500);
     </div>
   );
 }
-
-
 
 function SortableHead({
   label,
