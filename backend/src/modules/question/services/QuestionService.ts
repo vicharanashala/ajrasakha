@@ -902,17 +902,19 @@ export class QuestionService extends BaseService implements IQuestionService {
         referenceQuestionId: refId,
         referenceQuestion: result.referenceQuestion,
         referenceSource: result.referenceSource,
+        isDuplicateChecked: true,
         ...(result.isExact !== undefined ? { isExact: result.isExact } : {}),
       });
       return { message: 'Duplicate detected and question updated.', isDuplicate: true, referenceQuestionId: refId?.toString() };
     }
 
     if (result.isNonAgri) {
-      await this.questionRepo.updateQuestion(questionId, { status: 'non_agri' });
+      await this.questionRepo.updateQuestion(questionId, { status: 'non_agri', isDuplicateChecked: true });
       return { message: 'Question marked as non-agri.', isDuplicate: false };
     }
 
-    return { message: 'No duplicate found. Question remains open.', isDuplicate: false };
+    await this.questionRepo.updateQuestion(questionId, { isDuplicateChecked: true });
+    return { message: 'No duplicate found.', isDuplicate: false };
   }
 
   private async runDuplicateCheckPipeline(
