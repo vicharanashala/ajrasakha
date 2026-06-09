@@ -2269,6 +2269,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getGrowth(
     source: string,
+    userType: string,
     range: number,
     startDate?: Date,
     endDate?: Date,
@@ -2290,16 +2291,19 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
       const [idsData, installsData, activeUsersData] = await Promise.all([
         this.chatbotRepository.getIdsCreated(
+          userType,
           resolvedStartDate,
           resolvedEndDate,
           session,
         ),
         this.chatbotRepository.getInstalls(
+          userType,
           resolvedStartDate,
           resolvedEndDate,
           session,
         ),
         this.chatbotRepository.getActiveUsers(
+          userType,
           resolvedStartDate,
           resolvedEndDate,
           session,

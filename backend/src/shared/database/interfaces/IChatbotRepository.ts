@@ -633,9 +633,9 @@ export interface IChatbotRepository {
     userType?: string,
   ): Promise<KccAndAgriAppStats>;
 
-  getIdsCreated(startDate: Date, endDate: Date, session?: ClientSession);
-  getInstalls(startDate: Date, endDate: Date, session?: ClientSession);
-  getActiveUsers(startDate: Date, endDate: Date, session?: ClientSession);
+  getIdsCreated(userType: string, startDate:Date,endDate:Date, session?: ClientSession)
+  getInstalls(userType: string, startDate:Date,endDate:Date, session?: ClientSession)
+  getActiveUsers(userType: string, startDate:Date,endDate:Date, session?: ClientSession)
 
   getFeedbackData(
     source?: string,

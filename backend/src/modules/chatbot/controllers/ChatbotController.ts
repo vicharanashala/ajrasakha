@@ -913,6 +913,7 @@ export class ChatbotController {
 
       const data = await this.chatbotService.getGrowth(
         query.source,
+        query.userType,
         30,
         startDate,
         endDate,
@@ -921,7 +922,7 @@ export class ChatbotController {
     }
 
     const range = Number(query.range) || 30;
-    const data = await this.chatbotService.getGrowth(query.source, range);
+    const data = await this.chatbotService.getGrowth(query.source, query.userType, range);
     return data;
   }
 
