@@ -1,8 +1,8 @@
 import 'reflect-metadata';
 import * as dotenv from 'dotenv';
 import request from 'supertest';
-import {describe, it, expect} from 'vitest';
-
+import {describe, it, expect, beforeAll} from 'vitest';
+import {getFirebaseToken} from '../helpers/firebaseAuth.js';
 dotenv.config({path: '.env.test'});
 
 const BASE_URL = 'http://localhost:4000'; // change only if your backend runs on another port
@@ -10,9 +10,64 @@ const BASE_URL = 'http://localhost:4000'; // change only if your backend runs on
 let chemicalId: string;
 let chemicalName: string;
 
-describe('Chemical Create E2E', () => {
+let adminTokenG: string;
+let moderatorTokenG: string;
+let expertTokenG: string;
+
+beforeAll(async () => {
+  adminTokenG = await getFirebaseToken(
+    process.env.ADMIN_EMAIL!,
+    process.env.ADMIN_PASSWORD!,
+  );
+
+  moderatorTokenG = await getFirebaseToken(
+    process.env.MODERATOR_EMAIL!,
+    process.env.MODERATOR_PASSWORD!,
+  );
+
+  expertTokenG = await getFirebaseToken(
+    process.env.EXPERT_EMAIL!,
+    process.env.EXPERT_PASSWORD!,
+  );
+
+  console.log('Tokens generated successfully');
+}, 30000);
+
+describe('Authentication Smoke Tests', () => {
+  it('returns 401 when token is missing', async () => {
+    const res = await request(BASE_URL).get('/api/chemicals');
+
+    console.log('STATUS:', res.status);
+    console.log('BODY:', JSON.stringify(res.body, null, 2));
+
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 401 when token is invalid', async () => {
+    const res = await request(BASE_URL)
+      .get('/api/chemicals')
+      .set('Authorization', 'Bearer invalid-token');
+
+    console.log('STATUS:', res.status);
+    console.log('BODY:', JSON.stringify(res.body, null, 2));
+
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 200 when token is valid', async () => {
+    const res = await request(BASE_URL)
+      .get('/api/chemicals')
+      .set('Authorization', `Bearer ${adminTokenG}`);
+
+    console.log('STATUS:', res.status);
+
+    expect(res.status).toBe(200);
+  });
+});
+
+describe('Chemical CRUD E2E', () => {
   it('admin creates a chemical successfully', async () => {
-    const token = process.env.ADMIN_TOKEN;
+    const token = adminTokenG;
 
     expect(token).toBeTruthy();
 
@@ -37,7 +92,7 @@ describe('Chemical Create E2E', () => {
     expect(res.body.data.status).toBe('Restricted');
   });
   it('admin gets created chemical by id', async () => {
-    const token = process.env.ADMIN_TOKEN;
+    const token = adminTokenG;
     const res = await request(BASE_URL)
       .get(`/api/chemicals/${chemicalId}`)
       .set('Authorization', `Bearer ${token}`);
@@ -50,7 +105,7 @@ describe('Chemical Create E2E', () => {
   });
 
   it('admin updates a chemical', async () => {
-    const token = process.env.ADMIN_TOKEN;
+    const token = adminTokenG;
 
     const updatedName = `${chemicalName}_UPDATED`;
 
@@ -72,7 +127,7 @@ describe('Chemical Create E2E', () => {
   });
 
   it('admin gets chemical after update', async () => {
-    const token = process.env.ADMIN_TOKEN;
+    const token = adminTokenG;
 
     const res = await request(BASE_URL)
       .get(`/api/chemicals/${chemicalId}`)
@@ -85,7 +140,7 @@ describe('Chemical Create E2E', () => {
   });
 
   it('admin deletes a chemical', async () => {
-    const token = process.env.ADMIN_TOKEN;
+    const token = adminTokenG;
 
     const res = await request(BASE_URL)
       .delete(`/api/chemicals/${chemicalId}`)
@@ -99,7 +154,7 @@ describe('Chemical Create E2E', () => {
   });
 
   it('admin gets 404 for deleted chemical', async () => {
-    const token = process.env.ADMIN_TOKEN;
+    const token = adminTokenG;
 
     const res = await request(BASE_URL)
       .get(`/api/chemicals/${chemicalId}`)
@@ -111,7 +166,7 @@ describe('Chemical Create E2E', () => {
     expect(res.status).toBe(404);
   });
   it('expert cannot create chemical', async () => {
-    const token = process.env.EXPERT_TOKEN;
+    const token = expertTokenG;
 
     expect(token).toBeTruthy();
 
@@ -130,7 +185,7 @@ describe('Chemical Create E2E', () => {
   });
 
   it('expert cannot update a chemical', async () => {
-    const token = process.env.EXPERT_TOKEN;
+    const token = expertTokenG;
 
     const updatedName = `${chemicalName}_UPDATED`;
 
@@ -149,7 +204,7 @@ describe('Chemical Create E2E', () => {
   });
 
   it('moderator creates chemical', async () => {
-    const token = process.env.MODERATOR_TOKEN;
+    const token = moderatorTokenG;
 
     expect(token).toBeTruthy();
     const uniqueName = `E2E_Create_Chemical_Moderator_${Date.now()}`;
@@ -175,8 +230,8 @@ describe('Chemical Create E2E', () => {
   });
 
   it('moderator can update chemical', async () => {
-    const adminToken = process.env.ADMIN_TOKEN;
-    const moderatorToken = process.env.MODERATOR_TOKEN;
+    const adminToken = adminTokenG;
+    const moderatorToken = moderatorTokenG;
 
     expect(adminToken).toBeTruthy();
     expect(moderatorToken).toBeTruthy();
@@ -225,8 +280,8 @@ describe('Chemical Create E2E', () => {
   });
 
   it('expert cannot delete chemical', async () => {
-    const adminToken = process.env.ADMIN_TOKEN;
-    const expertToken = process.env.EXPERT_TOKEN;
+    const adminToken = adminTokenG;
+    const expertToken = expertTokenG;
 
     expect(adminToken).toBeTruthy();
     expect(expertToken).toBeTruthy();
@@ -268,8 +323,8 @@ describe('Chemical Create E2E', () => {
   });
 
   it('moderator can delete chemical', async () => {
-    const adminToken = process.env.ADMIN_TOKEN;
-    const moderatorToken = process.env.MODERATOR_TOKEN;
+    const adminToken = adminTokenG;
+    const moderatorToken = moderatorTokenG;
 
     expect(adminToken).toBeTruthy();
     expect(moderatorToken).toBeTruthy();
