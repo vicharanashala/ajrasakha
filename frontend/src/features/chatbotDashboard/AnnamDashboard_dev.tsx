@@ -962,7 +962,7 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                         {/* {isGrowthVisible ? source === "whatsapp" ?(<div className="h-full w-full blur-sm opacity-90"></div>):( */}
                         {isGrowthVisible || loadImmediately ? (
                           <Suspense fallback={<LazySectionSkeleton />}>
-                            <LazyUserGrowthChart source={source} />
+                            <LazyUserGrowthChart source={source} userType = {filters.userType}/>
                           </Suspense>
                         ) : (
                           <LazySectionSkeleton />
@@ -1001,6 +1001,7 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                             <DuplicateQuestionsModal
                               onClose={() => setIsDuplicateModalOpen(false)}
                               source={source}
+                              userType={filters.userType}
                             />
                           )}
                           <InactiveUsersModal

@@ -115,7 +115,7 @@ export interface IChatbotService {
 
   generateChatbotAnalyticsPdfReport(startDate: Date, endDate: Date, source?:string, state?:string):Promise<Buffer>;
   generateChatbotAnalyticsExcelReport(startDate: Date, endDate: Date, state:string, source?: string):Promise<ArrayBuffer | null>;
-  getGrowth(source: string, range:number,startDate?: Date, endDate?: Date):Promise<GrowthResponse>
+  getGrowth(source: string, userType: string, range:number,startDate?: Date, endDate?: Date):Promise<GrowthResponse>
   getDuplicateQuestions(source?: string): Promise<DuplicateQuestionEntry[]>;
   getDomainSpikes(days?: number): Promise<DomainSpikeEntry[]>;
   getDailyQuestionTrends(days?: number, source?: string, userType?: string, startTime?: string, endTime?: string): Promise<Array<{ day: string; uniqueCount: number; duplicateCount: number }>>;

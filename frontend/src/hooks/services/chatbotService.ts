@@ -46,12 +46,14 @@ export class ChatbotService {
 
   async getUserGrowth(
     source: string,
+    userType: string,
     range: number,
   ): Promise<GrowthResponse | null> {
     const params = new URLSearchParams();
 
     if (range) params.append("range", range.toString());
     params.append("source", source);
+    params.append("userType", userType)
 
     return apiFetch<GrowthResponse>(
       `${this._baseUrl}/user-growth?${params.toString()}`,
@@ -60,6 +62,7 @@ export class ChatbotService {
 
   async getUserGrowthByDateRange(
     source: string,
+    userType: string,
     startDate: string,
     endDate: string,
   ): Promise<GrowthResponse | null> {
@@ -67,6 +70,7 @@ export class ChatbotService {
     params.append("startDate", startDate);
     params.append("endDate", endDate);
     params.append("source", source);
+    params.append("userType", userType);
 
     return apiFetch<GrowthResponse>(
       `${this._baseUrl}/user-growth?${params.toString()}`,
