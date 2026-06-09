@@ -95,7 +95,8 @@ export const useQueryCategories = (source: string, userType: string, enabled: bo
 export type QueryCategoryQuestionType = "all" | "unique" | "duplicate";
 
 export interface QueryCategoryQuestionEntry {
-  questionId: string;
+  questionId?: string;
+  messageId?: string;
   question: string;
   status: string;
   questionType: "unique" | "duplicate";
@@ -164,11 +165,18 @@ export const useQuestionFilter = ({
   district,
   state,
   crop,
+  crops,
+  status,
+  closedWithInTwohours,
+  notificationType,
+  period,
   questionType,
   page,
   limit,
   source,
   userType = "all",
+  startDate,
+  endDate,
   search = "",
   enabled = true,
 }: {
@@ -176,14 +184,23 @@ export const useQuestionFilter = ({
   district?: string;
   state?: string
   crop?: string
+  crops?: string[]
+  status?: string
+  closedWithInTwohours?: boolean
+  notificationType?: string
+  period?: string
   questionType: QueryCategoryQuestionType;
   page: number;
   limit: number;
   source: string;
   userType?: string;
+  startDate?: Date;
+  endDate?: Date;
   search?: string;
   enabled?: boolean;
 }) => {
+  const stringStartDate = startDate?.toISOString()
+  const stringEndDate = endDate?.toISOString()
   return useQuery<QueryCategoryQuestionsResponse>({
   queryKey: [
     "get-question-filter",
@@ -191,11 +208,18 @@ export const useQuestionFilter = ({
     district,
     state,
     crop,
+    crops?.join(","),
+    status,
+    closedWithInTwohours,
+    notificationType,
+    period,
     questionType,
     page,
     limit,
     source,
     userType,
+    stringStartDate,
+    stringEndDate,
     search,
   ],
     queryFn: () =>
@@ -204,14 +228,21 @@ export const useQuestionFilter = ({
         district: district ?? "",
         state: state ?? "",
         crop: crop ?? "",
+        crops: crops ?? [],
+        status: status,
+        closedWithInTwohours: closedWithInTwohours,
+        notificationType: notificationType ?? "",
+        period: period,
         questionType,
         page,
         limit,
         source,
         userType,
+        stringStartDate,
+        stringEndDate,
         search
       }),
-    enabled: enabled && Boolean(category || district || crop),
+    enabled: enabled && Boolean(category || district || crop || status || true),
   });
 };
 

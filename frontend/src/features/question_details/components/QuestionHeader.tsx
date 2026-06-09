@@ -234,23 +234,28 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
               </Button>
             )}
             {!isDuplicate && !question.referenceQuestionId && currentUser.role !== "expert" && currentUser.role !== "tester" && (
-              <Button
-                size="sm"
-                disabled={isCheckingDuplicate}
-                className="bg-green-600 hover:bg-green-700 text-white"
-                onClick={() =>
-                  checkDuplicate(question._id!, {
-                    onSuccess: (res) => {
-                      toast.success(
-                        `${res?.message ?? "Duplicate check complete"} Please refresh the page to check updated status.`,
-                      );
-                    },
-                    onError: () => toast.error("Duplicate check failed"),
-                  })
-                }
-              >
-                {isCheckingDuplicate ? "Checking..." : "Check Duplicate"}
-              </Button>
+              question.isDuplicateChecked ? (
+                <Badge className="bg-green-500/10 text-green-700 border-green-500/30 gap-1">
+                  <CircleCheck className="h-3 w-3" />
+                  No duplicate found
+                </Badge>
+              ) : (
+                <Button
+                  size="sm"
+                  disabled={isCheckingDuplicate}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  onClick={() =>
+                    checkDuplicate(question._id!, {
+                      onSuccess: (res) => {
+                        toast.success(res?.message ?? "Duplicate check complete.");
+                      },
+                      onError: () => toast.error("Duplicate check failed"),
+                    })
+                  }
+                >
+                  {isCheckingDuplicate ? "Checking..." : "Check Duplicate"}
+                </Button>
+              )
             )}
             {!isDuplicate && (
               <>
@@ -306,7 +311,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
             )} */}
           {question?.status === "closed" &&
             (currentUser.role === "moderator" ||
-              currentUser.role === "admin") &&
+              currentUser.role === "admin" || currentUser.role ==='tester') &&
             question?.closedAt && (
               <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <CircleCheck className="h-3.5 w-3.5 text-primary" />
@@ -334,7 +339,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
           <div>
             {question?.status === "closed" &&
               (currentUser.role === "moderator" ||
-                currentUser.role === "admin") && (
+                currentUser.role === "admin" || currentUser.role === 'tester') && (
                 <div className="text-sm">
                   {question?.closedAt && (
                     <div>

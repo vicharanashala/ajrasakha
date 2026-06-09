@@ -425,16 +425,13 @@ export function useDashboardData(
   const { data, isLoading, isFetching, error } = useQuery<DashboardDataType, Error>({
     queryKey: [
       "dashboard-data",
-      filters?.village ?? "all",
-      filters?.crop ?? "all",
-      filters?.season ?? "all",
-      startISO,
-      endISO,
       source,
       userType,
     ],
     enabled,
-    // placeholderData: (prev) => prev,
+    // Keep previous data while fetching new data (for filter changes)
+    placeholderData: (prev) => prev,
+    staleTime: 5 * 60 * 1000, // Data is fresh for 5 minutes
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
 

@@ -1,19 +1,19 @@
-import {inject, injectable} from 'inversify';
-import {GLOBAL_TYPES} from '#root/types.js';
+import { inject, injectable } from 'inversify';
+import { GLOBAL_TYPES } from '#root/types.js';
 import {
   IUser,
   NotificationRetentionType,
   UserRole,
 } from '#root/shared/interfaces/models.js';
-import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
+import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
 import {
   BadRequestError,
   ForbiddenError,
   InternalServerError,
   NotFoundError,
 } from 'routing-controllers';
-import {BaseService, MongoDatabase} from '#root/shared/index.js';
-import {ClientSession} from 'mongodb';
+import { BaseService, MongoDatabase } from '#root/shared/index.js';
+import { ClientSession } from 'mongodb';
 import {
   PreferenceDto,
   UsersNameResponseDto,
@@ -156,7 +156,7 @@ export class UserService extends BaseService {
 
         const updatedUser = await this.userRepo.edit(
           userId,
-          {role: changeRoleTo},
+          { role: changeRoleTo },
           session,
         );
 
@@ -209,7 +209,7 @@ export class UserService extends BaseService {
       return { users, totalUsers, totalPages };
     });
   }
-  
+
   async getAllUsersforManualSelect(
     userId: string,
     page: number,
@@ -291,7 +291,7 @@ export class UserService extends BaseService {
     search: string,
     sort: string,
     filter: string,
-  ): Promise<{experts: IUser[]; totalExperts: number; totalPages: number}> {
+  ): Promise<{ experts: IUser[]; totalExperts: number; totalPages: number }> {
     return await this._withTransaction(async (session: ClientSession) => {
       return await this.userRepo.findAllExperts(
         page,
@@ -354,7 +354,7 @@ export class UserService extends BaseService {
       return this._withTransaction(async (session: ClientSession) => {
         const updatedUser = await this.userRepo.edit(
           userId,
-          {isVerified},
+          { isVerified },
           session,
         );
         if (!updatedUser)
@@ -541,5 +541,62 @@ export class UserService extends BaseService {
         `Failed to send verification request for identifier ${identifier}: ${error}`,
       );
     }
+  }
+  
+  async getCallAgents(): Promise<IUser[]> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      return await this.userRepo.findCallAgents(session);
+    });
+  }
+
+
+  async setCallAgentStatus(
+    userId: string,
+    isCallAgent: boolean,
+    isCallAgentActive: boolean,
+    requestingUserRole?: string,
+  ): Promise<IUser> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      if (requestingUserRole !== 'admin') {
+        throw new ForbiddenError('Only admin can manage call agents');
+      }
+      const user = await this.userRepo.findById(userId, session);
+      if (!user) {
+        throw new NotFoundError(`User with ID ${userId} not found`);
+      }
+      // Only experts and moderators can be call agents
+      if (isCallAgent && user.role !== 'expert' && user.role !== 'moderator') {
+        throw new BadRequestError(
+          'Only experts and moderators can be set as call agents',
+        );
+      }
+      const res = await this.userRepo.setCallAgentStatus(
+        userId,
+        isCallAgent,
+        isCallAgentActive,
+        session,
+      );
+      return res;
+    });
+  }
+
+
+
+  async toggleCallAgentActive(userId: string, requestingUserRole?: string): Promise<IUser> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      // Only moderators can manage call agents
+      if (requestingUserRole !== 'admin') {
+        throw new ForbiddenError('Only admin can manage call agents');
+      }
+      const user = await this.userRepo.findById(userId, session);
+      if (!user) {
+        throw new NotFoundError(`User with ID ${userId} not found`);
+      }
+
+      if (!user.isCallAgent) {
+        throw new BadRequestError('User is not a call agent');
+      }
+      return await this.userRepo.toggleCallAgentActive(userId, session);
+    });
   }
 }

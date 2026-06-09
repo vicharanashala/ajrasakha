@@ -14,6 +14,8 @@ from ajrasakha.agents.answer_footers import build_expert_queue_content, finalize
 from ajrasakha.agents.config import TRANSLATE_MODEL
 from ajrasakha.agents.state import AjraSakhaState, TRANSLATE_PATH_EMPTY_GDB
 from ajrasakha.agents.translation_catalog import language_pair_from_plan, needs_translation
+from ajrasakha.agents.thread_trace import trace_event
+from ajrasakha.agents.thread_logging import end_conversation_turn
 
 logger = logging.getLogger(__name__)
 
@@ -95,19 +97,30 @@ async def _translate_body(
 
     llm = ChatAnthropic(model=TRANSLATE_MODEL)
     system_prompt = build_translate_system_prompt(script_language, vocal_language)
+    human_msg = (
+        f"Translate into {vocal_language} using the {script_language} "
+        f"writing system.\n\n{text}"
+    )
+    trace_event(
+        "translate_llm_request",
+        vocal_language=vocal_language,
+        script_language=script_language,
+        body_preview=text[:1500],
+        llm_human_message=human_msg[:2000],
+        system_prompt_note="TRANSLATE_* rules from prompts.py (full system prompt omitted)",
+    )
     response = await llm.ainvoke(
         [
             SystemMessage(content=system_prompt),
-            HumanMessage(
-                content=(
-                    f"Translate into {vocal_language} using the {script_language} "
-                    f"writing system.\n\n{text}"
-                )
-            ),
+            HumanMessage(content=human_msg),
         ],
         config=config,
     )
     translated = _message_to_text(response)
+    trace_event(
+        "translate_llm_response",
+        translated_preview=translated[:1500],
+    )
     return translated if translated.strip() else text
 
 
@@ -121,6 +134,17 @@ def _reply_message(
         "messages": [AIMessage(content=content, id=msg_id)],
         "location": state.get("location"),
     }
+
+
+def _finish_turn_reply(
+    content: str,
+    final_msg: AIMessage | None,
+    state: AjraSakhaState,
+    *,
+    outcome: str = "answer",
+) -> dict:
+    end_conversation_turn(content, outcome=outcome)
+    return _reply_message(content, final_msg, state)
 
 
 async def translate_answer_node(
@@ -142,16 +166,26 @@ async def translate_answer_node(
             vocal,
         )
         content = build_expert_queue_content(script, vocal)
-        return _reply_message(content, final_msg, state)
+        return _finish_turn_reply(content, final_msg, state, outcome="expert_queue")
 
     # Path B: synthesize — translate body + GDB sources + testing only
     if final_msg is None:
+        end_conversation_turn("(no farmer-facing AI message)", outcome="empty")
         return {}
 
     body = _message_to_text(final_msg)
     if not body.strip():
         logger.warning("translate_answer: path=synthesis but empty body — no-op")
+        end_conversation_turn("(empty answer body)", outcome="empty")
         return {}
+
+    trace_event(
+        "translate_answer_input",
+        vocal=vocal,
+        script=script,
+        body_preview=body[:1500],
+        gdb_has_data=bool(gdb_data),
+    )
 
     try:
         if needs_translation(script, vocal):
@@ -171,8 +205,13 @@ async def translate_answer_node(
             gdb_data=gdb_data,
             is_greeting=plan.get("is_greeting", False),
         )
+        trace_event(
+            "translate_answer_final",
+            content_preview=content[:2000],
+            content_len=len(content),
+        )
         logger.info("translate_answer: path=synthesis — final len=%d", len(content))
-        return _reply_message(content, final_msg, state)
+        return _finish_turn_reply(content, final_msg, state, outcome="answer")
     except (APITimeoutError, APIConnectionError) as exc:
         logger.warning("translate_answer failed (%s) — untranslated body + synthesis footers", exc)
         content = finalize_synthesis_answer(
@@ -182,7 +221,7 @@ async def translate_answer_node(
             gdb_data=gdb_data,
             is_greeting=plan.get("is_greeting", False),
         )
-        return _reply_message(content, final_msg, state)
+        return _finish_turn_reply(content, final_msg, state, outcome="answer_fallback")
     except APIStatusError as exc:
         logger.warning(
             "translate_answer API error (%s) — untranslated body + synthesis footers",
@@ -195,4 +234,4 @@ async def translate_answer_node(
             gdb_data=gdb_data,
             is_greeting=plan.get("is_greeting", False),
         )
-        return _reply_message(content, final_msg, state)
+        return _finish_turn_reply(content, final_msg, state, outcome="answer_fallback")

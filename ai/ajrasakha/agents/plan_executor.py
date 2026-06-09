@@ -21,6 +21,7 @@ from ajrasakha.agents.location_context import (
 )
 from ajrasakha.agents.language import text_matches_user_language
 from ajrasakha.agents.config import resolve_question_source, resolve_thread_id
+from ajrasakha.agents.thread_trace import trace_event
 from ajrasakha.agents.domains import reviewer_upload_domain
 from ajrasakha.agents.state import AjraSakhaState, Location, PlannerPlan
 from ajrasakha.agents.retrieval_sanitizer import gdb_has_usable_answers
@@ -255,8 +256,8 @@ async def build_tool_calls_from_plan(
             is_custom_location = True
             
     if is_custom_location:
-        state_to_geocode = curr_state_ent if curr_state_ent else None
-        dist_to_geocode = district if district != "all" else None
+        state_to_geocode = curr_state_ent if curr_state_ent and curr_state_ent.strip().lower() not in {"all", "not specified", "unknown"} else None
+        dist_to_geocode = district if district and district.strip().lower() not in {"all", "not specified", "unknown"} else None
         
         logger.info("build_tool_calls_from_plan: Geocoding custom transient location state=%s district=%s", state_to_geocode, dist_to_geocode)
         if out_transient_location is not None:
@@ -468,6 +469,11 @@ async def ensure_location_node(
     state_resolved = entities.get("state")
     district_resolved = entities.get("district")
 
+    if state_resolved and state_resolved.strip().lower() in {"all", "not specified", "unknown", "general", "none"}:
+        state_resolved = None
+    if district_resolved and district_resolved.strip().lower() in {"all", "not specified", "unknown", "general", "none"}:
+        district_resolved = None
+
     if (lat is None or lon is None) and (state_resolved or district_resolved):
         logger.info("ensure_location_node: Geocoding home location for state=%s district=%s", state_resolved, district_resolved)
         geocode_res = await forward_geocode(state_resolved, district_resolved)
@@ -554,6 +560,11 @@ async def execute_plan_node(
     )
     if not tool_calls:
         return {}
+
+    trace_event(
+        "execute_plan_tool_calls",
+        tools=[{"name": tc.get("name"), "args": tc.get("args")} for tc in tool_calls],
+    )
 
     tool_node = await get_main_tool_node()
     ai_msg = AIMessage(content="", tool_calls=tool_calls)

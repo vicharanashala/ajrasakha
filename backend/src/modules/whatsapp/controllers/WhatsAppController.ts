@@ -24,12 +24,12 @@ import { WhatsappUsers } from '#root/utils/dummyWhatsAppUsers.js';
   description: 'WhatsApp history endpoints',
 })
 @injectable()
-@JsonController('/whatsapp', {transformResponse: false})
+@JsonController('/whatsapp', { transformResponse: false })
 export class WhatsAppController {
   constructor(
     @inject(WHATSAPP_TYPES.WhatsAppService)
     private readonly whatsappService: IWhatsAppService,
-  ) {}
+  ) { }
 
   @OpenAPI({
     summary: 'Get all WhatsApp threads',
@@ -65,7 +65,7 @@ export class WhatsAppController {
   @HttpCode(200)
   @Authorized()
   async sendMessage(
-    @Body() body: {phoneNumber: string; messageText: string},
+    @Body() body: { phoneNumber: string; messageText: string },
     @CurrentUser() user: IUser,
   ) {
     verifyNotTester(user);
@@ -75,7 +75,8 @@ export class WhatsAppController {
       body.phoneNumber,
       body.messageText,
     );
-    return {success: true, message: 'Message sent successfully'};
+    console.log('[WhatsAppController] Message sent successfully');
+    return { success: true, message: 'Message sent successfully' };
   }
 
   @OpenAPI({
@@ -91,7 +92,7 @@ export class WhatsAppController {
     @QueryParam('limit') limit = 2,
   ) {
     const skip = (page - 1) * limit;
-    const response = await this.whatsappService.getInactiveUsers(skip, limit); 
+    const response = await this.whatsappService.getInactiveUsers(skip, limit);
     const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
 
     const inactiveUsers = response.data.filter(item => {
