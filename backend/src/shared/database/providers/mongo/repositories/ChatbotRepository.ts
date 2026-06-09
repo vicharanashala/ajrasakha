@@ -3102,17 +3102,16 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.initReviewSystem();
       let matchStage : any ={
+        source:
+          source === 'whatsapp'
+            ? 'WHATSAPP'
+            : { $ne: 'AGRI_EXPERT' },
         $and: [
           {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           }
         ],
       };
-      if (source === 'whatsapp') {
-        matchStage = {source: 'WHATSAPP'};
-      } else {
-        matchStage = {source: {$ne: 'AGRI_EXPERT'}};
-      }
       const query = await this.buildQuestionUserTypeMatchQuery(
         source,
         userType,
