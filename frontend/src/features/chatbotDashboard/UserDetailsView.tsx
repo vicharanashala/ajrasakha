@@ -125,6 +125,13 @@ export function UserDetailsView({
     source: string;
     email: string;
   } | null>(null);
+  const [verificationToConfirm, setVerificationToConfirm] = useState<{
+    userId: string;
+    source: string;
+    name: string;
+    email: string;
+    isVerified: boolean;
+  } | null>(null);
   const [userToEdit, setUserToEdit] = useState<UserDetail | null>(null);
   const [userToView, setUserToView] = useState<UserDetail | null>(null);
   const [confirmEmail, setConfirmEmail] = useState("");
@@ -411,6 +418,26 @@ const debouncedSearch = useDebounce(filters.search, 500);
     } catch (error: any) {
       toast.error(error?.message || "Failed to update verification status");
     }
+  };
+
+  const requestVerificationChange = (user: UserDetail, nextStatus: boolean) => {
+    setVerificationToConfirm({
+      userId: user.userId,
+      source,
+      name: user.name || user.farmerProfile?.farmerName || EMPTY_VALUE,
+      email: user.email,
+      isVerified: nextStatus,
+    });
+  };
+
+  const handleConfirmVerificationChange = async () => {
+    if (!verificationToConfirm) return;
+    await handleUpdateVerification(
+      verificationToConfirm.userId,
+      verificationToConfirm.source,
+      verificationToConfirm.isVerified,
+    );
+    setVerificationToConfirm(null);
   };
 
   const handleDeleteUser = (user: UserDetail) => {
@@ -1156,11 +1183,7 @@ const debouncedSearch = useDebounce(filters.search, 500);
                                           disabled={isVerifyingThisUser}
                                           className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
                                           onClick={() =>
-                                            handleUpdateVerification(
-                                              user.userId,
-                                              source,
-                                              true,
-                                            )
+                                            requestVerificationChange(user, true)
                                           }
                                           title="Set verified"
                                         >
@@ -1287,11 +1310,7 @@ const debouncedSearch = useDebounce(filters.search, 500);
               isUpdatingVerification={verifyUserMutation.isPending}
               onVerificationChange={(nextStatus) => {
                 if (userToView) {
-                  return handleUpdateVerification(
-                    userToView.userId,
-                    source,
-                    nextStatus,
-                  );
+                  requestVerificationChange(userToView, nextStatus);
                 }
               }}
             />
@@ -1358,6 +1377,68 @@ const debouncedSearch = useDebounce(filters.search, 500);
               }}
             >
               Delete Farmer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={!!verificationToConfirm}
+        onOpenChange={(open) => {
+          if (!open && !verifyUserMutation.isPending) {
+            setVerificationToConfirm(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="mx-auto mb-2 p-3 rounded-full bg-primary/10 w-fit">
+              {verificationToConfirm?.isVerified ? (
+                <UserCheck2 className="h-5 w-5 text-primary" />
+              ) : (
+                <UserX className="h-5 w-5 text-destructive" />
+              )}
+            </div>
+            <AlertDialogTitle className="text-center">
+              {verificationToConfirm?.isVerified
+                ? "Set user as verified?"
+                : "Set user as unverified?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              This will update verification status for{" "}
+              <strong className="text-foreground">
+                {verificationToConfirm?.name}
+              </strong>
+              {verificationToConfirm?.email ? (
+                <>
+                  {" "}
+                  ({verificationToConfirm.email})
+                </>
+              ) : null}
+              .
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={verifyUserMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={verifyUserMutation.isPending}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleConfirmVerificationChange();
+              }}
+            >
+              {verifyUserMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : verificationToConfirm?.isVerified ? (
+                "Set Verified"
+              ) : (
+                "Set Unverified"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
