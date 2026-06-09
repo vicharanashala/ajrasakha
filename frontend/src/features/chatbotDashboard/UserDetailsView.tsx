@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Eye, X, Trash2, Pencil, Users, InfoIcon, UserPlus, Search, AlertCircle, Inbox, ArrowUpDown, ArrowDown, ArrowUp, UserCheck2, Loader2, RefreshCw } from "lucide-react";
+import { Eye, X, Trash2, Pencil, Users, InfoIcon, UserPlus, Search, AlertCircle, Inbox, ArrowUpDown, ArrowDown, ArrowUp, UserCheck2, Loader2, RefreshCw, UserX } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import {
@@ -84,7 +84,7 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
   inactiveOnly: false,
   lowFeedbackOnly: false,
   userType: "all",
-  isVerified: true,
+  verificationStatus: "all",
 };
 
 interface UserDetailsViewProps {
@@ -190,7 +190,7 @@ const debouncedSearch = useDebounce(filters.search, 500);
     sortOrder,
     false,
     '',
-    filters.isVerified
+    filters.verificationStatus
   );
 
   const {
@@ -323,7 +323,7 @@ const debouncedSearch = useDebounce(filters.search, 500);
     filters.profileCompleted !== "all" ||
     filters.inactiveOnly ||
     filters.lowFeedbackOnly ||
-    !filters.isVerified;
+    filters.verificationStatus !== "all";
 
   // const dateLabel =
   //   filters.startTime && filters.endTime
@@ -394,19 +394,23 @@ const debouncedSearch = useDebounce(filters.search, 500);
     setUserToEdit(user);
   };
 
-  const handleVerifyUser = async (userId: string, source: string) =>{
-    console.log('source:::',source)
+  const handleUpdateVerification = async (userId: string, source: string,  isVerified: boolean,
+  ) => {
     try {
       const response = await verifyUserMutation.mutateAsync({
         userId,
         source,
+        isVerified,
       });
 
-      toast.success(response?.message || "User verified successfully");
+      toast.success(response?.message ||  (isVerified  ? "User verified successfully"  : "User marked unverified successfully"),);
+      setUserToView((current) =>
+        current?.userId === userId ? {...current, isVerified} : current,
+      );
     } catch (error: any) {
-      toast.error(error?.message || "Failed to verify user");
+      toast.error(error?.message || "Failed to update verification status");
     }
-  }
+  };
 
   const handleDeleteUser = (user: UserDetail) => {
     setUserToView(null);
@@ -1016,6 +1020,9 @@ const debouncedSearch = useDebounce(filters.search, 500);
                       <TableHead className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wide">
                         User Role
                       </TableHead>
+                      <TableHead className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Verification
+                      </TableHead>
 
                       <SortableHead
                         label="Query Asked"
@@ -1035,7 +1042,7 @@ const debouncedSearch = useDebounce(filters.search, 500);
                     {users.length === 0 ? (
                       <TableRow className="hover:bg-transparent">
                         <TableCell
-                          colSpan={7}
+                          colSpan={8}
                           className="text-center py-16"
                         >
                           <div className="flex flex-col items-center gap-2 text-muted-foreground">
@@ -1058,6 +1065,7 @@ const debouncedSearch = useDebounce(filters.search, 500);
                     ) : (
                       users.map((user, idx) => {
                         const isVerifyingThisUser = verifyingUserId === user.userId;
+                        const isUserVerified = user.isVerified ?? true;
                         return(
                         <ContextMenu key={user.userId} modal={false}>
                           <ContextMenuTrigger asChild>
@@ -1101,6 +1109,19 @@ const debouncedSearch = useDebounce(filters.search, 500);
                                 )}
                               </TableCell>
 
+                              <TableCell className="align-middle whitespace-nowrap">
+                                <Badge
+                                    variant="secondary"
+                                    className={`font-normal ${
+                                    isUserVerified
+                                      ? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300"
+                                      : "bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400"
+                                  }`}
+                                >
+                                  {isUserVerified ? "Verified" : "Not Verified"}
+                                </Badge>
+                              </TableCell>
+
                               <TableCell className="align-middle">
                                 <button
                                   onClick={() => {
@@ -1125,24 +1146,36 @@ const debouncedSearch = useDebounce(filters.search, 500);
                                   {isAdmin && (
                                     <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
 
-                                      {
-                                        !user?.isVerified && (
-                                          <Button
+                                      <Button
                                         variant="ghost"
                                         size="icon"
                                         disabled={isVerifyingThisUser}
-                                        className="h-8 w-8 hover:bg-purple-500/10 hover:text-purple-500"
-                                        onClick={() => handleVerifyUser(user.userId,source)}
-                                        title="Verify farmer"
+                                        className={`h-8 w-8 ${
+                                          isUserVerified
+                                            ? "hover:bg-red-500/10 hover:text-red-500"
+                                            : "hover:bg-purple-500/10 hover:text-purple-500"
+                                        }`}
+                                        onClick={() =>
+                                          handleUpdateVerification(
+                                            user.userId,
+                                            source,
+                                            !isUserVerified,
+                                          )
+                                        }
+                                        title={
+                                          isUserVerified
+                                            ? "Set unverified"
+                                            : "Set verified"
+                                        }
                                       >
                                         {isVerifyingThisUser ? (
                                           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                        ) : isUserVerified ? (
+                                          <UserX className="h-4 w-4" />
                                         ) : (
                                           <UserCheck2 className="h-4 w-4" />
                                         )}
                                       </Button>
-                                        )
-                                      }
 
                                       <Button
                                         variant="ghost"
@@ -1256,6 +1289,16 @@ const debouncedSearch = useDebounce(filters.search, 500);
               onDelete={handleDeleteUser}
               isChangingPassword={changeUserPasswordMutation.isPending}
               onChangePassword={handleChangeViewedUserPassword}
+              isUpdatingVerification={verifyUserMutation.isPending}
+              onVerificationChange={(nextStatus) => {
+                if (userToView) {
+                  return handleUpdateVerification(
+                    userToView.userId,
+                    source,
+                    nextStatus,
+                  );
+                }
+              }}
             />
           </CardContent>
         </Card>

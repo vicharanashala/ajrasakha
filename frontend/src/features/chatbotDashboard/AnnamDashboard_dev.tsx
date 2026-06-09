@@ -542,7 +542,7 @@ export function AnnamDashboard_dev({
     "desc",
     true, // activeTodayByProfile
     "",
-    true, // isVerified
+    "verified", // verificationStatus
     true, // enabled
   );
 

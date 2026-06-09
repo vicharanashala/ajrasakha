@@ -922,7 +922,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     sortOrder = 'desc',
     activeTodayByProfile = false,
     missingDemographicField?: string,
-    isVerified = true,
+    isVerified?: boolean,
   ): Promise<PaginatedUserDetails> {
     try {
       const start = startDate ? new Date(startDate) : undefined;
@@ -2796,7 +2796,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async verifyUser(userId: string, source = 'vicharanashala'): Promise<any> {
+  async verifyUser(userId: string, source = 'vicharanashala',  isVerified?: boolean,  ): Promise<any> {
     try {
       if (!userId) {
         throw new NotFoundError('User ID is required');
@@ -2805,6 +2805,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       const updatedUser = await this.chatbotRepository.verifyUser(
         userId,
         source,
+        isVerified,
       );
 
       if (!updatedUser) {

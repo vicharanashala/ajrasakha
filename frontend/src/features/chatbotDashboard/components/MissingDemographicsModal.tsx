@@ -49,7 +49,7 @@ export function MissingDemographicsModal({
     "asc", // sortOrder
     false, // activeTodayByProfile
     fieldKey, // missingDemographicField
-    true,
+    "verified",
   );
 
   const users = data?.users || [];

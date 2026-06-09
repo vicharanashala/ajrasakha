@@ -581,7 +581,9 @@ export class ChatbotController {
     const inactiveOnly = query.inactiveOnly === 'true';
     const lowFeedbackOnly = query.lowFeedbackOnly === 'true';
     const isVerified =
-      query.isVerified === undefined ? true : query.isVerified === 'true';
+      query.isVerified === 'true' ? true : query.isVerified === 'false'
+          ? false
+          : undefined;
     const activeTodayByProfile = query.activeTodayByProfile === 'true';
     return this.chatbotService.getUserDetails(
       query.startDate,
@@ -641,9 +643,9 @@ export class ChatbotController {
   }
 
   @OpenAPI({
-    summary: 'Verify a user',
+    summary: 'Update user verification status',
     description:
-      "Updates a user's verification status to true. Only users with admin role can perform this action.",
+      "Updates a user's verification status. Only users with admin role can perform this action.",
   })
   @ResponseSchema(ChatbotErrorResponse, {
     statusCode: 401,
@@ -662,19 +664,80 @@ export class ChatbotController {
   @Authorized(['admin'])
   async verifyUser(
     @Param('userId') userId: string,
+    @Body() body: {isVerified?: boolean},
     @QueryParam('source') source: string = 'vicharanashala',
+    @CurrentUser() currentUser: IUser,
   ) {
     if (!userId) {
       throw new BadRequestError('User ID is required');
     }
     try {
-      const verifiedUser = await this.chatbotService.verifyUser(userId, source);
+      const targetStatus = body?.isVerified ?? true;
+      const beforeUser = await this.chatbotService.getUserById(userId, source);
+      const previousValue = beforeUser?.isVerified ?? true;
+      const verifiedUser = await this.chatbotService.verifyUser(
+        userId,
+        source,
+        targetStatus,
+      );
+      this.auditTrailsService.createAuditTrail({
+        category: AuditCategory.FARMER_MANAGEMENT,
+        action: AuditAction.UPDATE_USER_VERIFICATION,
+        actor: {
+          id: currentUser._id.toString(),
+          name: `${currentUser.firstName} ${currentUser.lastName}`.trim(),
+          email: currentUser.email,
+          role: currentUser.role,
+          avatar: currentUser.avatar || '',
+        },
+        context: {
+          userId,
+          source,
+          name: beforeUser?.name || beforeUser?.username || '',
+          email: beforeUser?.email || '',
+          role: beforeUser?.role || beforeUser?.userRole || '',
+        },
+        changes: {
+          before: {isVerified: previousValue},
+          after: {isVerified: targetStatus},
+        },
+        outcome: {
+          status: OutComeStatus.SUCCESS,
+        },
+      });
       return {
         success: true,
-        message: 'User verified successfully',
+        message: targetStatus
+          ? 'User verified successfully'
+          : 'User marked unverified successfully',
         user: verifiedUser,
       };
     } catch (error: any) {
+      this.auditTrailsService.createAuditTrail({
+        category: AuditCategory.FARMER_MANAGEMENT,
+        action: AuditAction.UPDATE_USER_VERIFICATION,
+        actor: {
+          id: currentUser._id.toString(),
+          name: `${currentUser.firstName} ${currentUser.lastName}`.trim(),
+          email: currentUser.email,
+          role: currentUser.role,
+          avatar: currentUser.avatar || '',
+        },
+        context: {userId, source},
+        changes: {
+          after: {isVerified: body?.isVerified ?? true},
+        },
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: error?.errorCode || 'INTERNAL_ERROR',
+          errorMessage:
+            error?.message || 'Failed to update verification status',
+          errorName: error?.name || 'Error',
+          errorStack:
+            error?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
+            'No stack trace available',
+        },
+      });
       throw error;
     }
   }

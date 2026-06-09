@@ -615,6 +615,7 @@ export interface IChatbotRepository {
   verifyUser(
     userId: string,
     source?: string,
+    isVerified?: boolean,
     session?: ClientSession,
   ): Promise<any>;
 

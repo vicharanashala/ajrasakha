@@ -63,7 +63,7 @@ export interface UserDetailsFilters {
   inactiveOnly: boolean;
   lowFeedbackOnly: boolean;
   userType: "all" | "internal" | "external";
-  isVerified: boolean;
+  verificationStatus: "all" | "verified" | "unverified";
 }
 
 interface UserDetailsPreferenceFilterProps {
@@ -206,7 +206,7 @@ export function UserDetailsPreferenceFilter({
       inactiveOnly: false,
       lowFeedbackOnly: false,
       userType: "all",
-      isVerified: true,
+      verificationStatus: "all",
     });
   };
 
@@ -223,7 +223,8 @@ export function UserDetailsPreferenceFilter({
     (filters.profileCompleted !== "all" ? 1 : 0) +
     (filters.inactiveOnly ? 1 : 0) +
     (filters.lowFeedbackOnly ? 1 : 0) +
-    (filters.userType !== "all" ? 1 : 0);
+    (filters.userType !== "all" ? 1 : 0) +
+    (filters.verificationStatus !== "all" ? 1 : 0);
 
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
@@ -582,19 +583,34 @@ export function UserDetailsPreferenceFilter({
                     }
                   />
                 )}
-                <ToggleCard
-                  id="un-verified-users-only"
-                  icon={<UserCheck2 className="h-3.5 w-3.5" />}
-                  iconBg="bg-violet-500/10"
-                  iconColor="text-violet-500"
-                  activeColor="bg-violet-500"
-                  label="Unverified Users"
-                  tooltip="Shows users waiting for admin verification"
-                  checked={!draft.isVerified}
-                  onChange={(e) =>
-                    setDraft((d) => ({ ...d, isVerified: !e.target.checked }))
-                  }
-                />
+                <div className="rounded-xl bg-white dark:bg-[#161616] border border-gray-200/70 dark:border-gray-800 p-3.5">
+                  <FilterSection
+                    icon={<UserCheck2 className="h-3.5 w-3.5" />}
+                    label="Verification"
+                  >
+                    <Select
+                      value={draft.verificationStatus}
+                      onValueChange={(value) =>
+                        setDraft((d) => ({
+                          ...d,
+                          verificationStatus: value as
+                            | "all"
+                            | "verified"
+                            | "unverified",
+                        }))
+                      }
+                    >
+                      <SelectTrigger className={selectTriggerClass}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="z-[10002]">
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="verified">Verified</SelectItem>
+                        <SelectItem value="unverified">Not Verified</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FilterSection>
+                </div>
                 {!hideFields.includes("lowFeedback") && (
                   <ToggleCard
                     id="low-feedback-only"

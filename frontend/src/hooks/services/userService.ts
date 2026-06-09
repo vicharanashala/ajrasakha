@@ -169,6 +169,7 @@ export class UserService {
   async verifyUserInAnalytics(
     userId: string,
     source: string = "vicharanashala",
+    isVerified: boolean = true,
   ): Promise<{ success: boolean; message: string; user: IUser } | null> {
     const analyticsBaseUrl = `${API_BASE_URL}/analytics`;
     const params = new URLSearchParams();
@@ -178,6 +179,7 @@ export class UserService {
       `${analyticsBaseUrl}/verify-user/${userId}?${params.toString()}`,
       {
         method: "PATCH",
+        body: JSON.stringify({ isVerified }),
       }
     );
   }

@@ -8,6 +8,8 @@ import {
   MapPin,
   Pencil,
   Trash2,
+  UserCheck2,
+  UserX,
 } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
@@ -155,6 +157,8 @@ interface FarmerDetailsModalProps {
   onDelete: (user: UserDetail) => void;
   isChangingPassword?: boolean;
   onChangePassword?: (payload: {newPassword: string}) => void | Promise<void>;
+  isUpdatingVerification?: boolean;
+  onVerificationChange?: (isVerified: boolean) => void | Promise<void>;
 }
 
 export function FarmerDetailsModal({
@@ -166,8 +170,11 @@ export function FarmerDetailsModal({
   onDelete,
   isChangingPassword = false,
   onChangePassword,
+  isUpdatingVerification = false,
+  onVerificationChange,
 }: FarmerDetailsModalProps) {
   const fp = user?.farmerProfile;
+  const isUserVerified = user?.isVerified ?? true;
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -269,10 +276,36 @@ export function FarmerDetailsModal({
                 <p className="break-all text-sm text-muted-foreground">
                   {user.email || EMPTY_VALUE}
                 </p>
+                <div
+                  className={`mt-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                    isUserVerified
+                      ? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300"
+                      : "bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400"
+                  }`}
+                >
+                  {isUserVerified ? "Verified" : "Not Verified"}
+                </div>
               </div>
 
               {isAdmin && (
-                <div className="flex shrink-0 gap-2">
+                <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                  {onVerificationChange && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={isUpdatingVerification}
+                      onClick={() =>
+                        onVerificationChange(!isUserVerified)
+                      }
+                    >
+                      {isUserVerified ? (
+                        <UserX className="h-4 w-4" />
+                      ) : (
+                        <UserCheck2 className="h-4 w-4" />
+                      )}
+                      {isUserVerified ? "Set Unverified" : "Set Verified"}
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
