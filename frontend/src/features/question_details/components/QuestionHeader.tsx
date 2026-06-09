@@ -311,7 +311,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
             )} */}
           {question?.status === "closed" &&
             (currentUser.role === "moderator" ||
-              currentUser.role === "admin") &&
+              currentUser.role === "admin" || currentUser.role ==='tester') &&
             question?.closedAt && (
               <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <CircleCheck className="h-3.5 w-3.5 text-primary" />
@@ -339,7 +339,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
           <div>
             {question?.status === "closed" &&
               (currentUser.role === "moderator" ||
-                currentUser.role === "admin") && (
+                currentUser.role === "admin" || currentUser.role === 'tester') && (
                 <div className="text-sm">
                   {question?.closedAt && (
                     <div>
