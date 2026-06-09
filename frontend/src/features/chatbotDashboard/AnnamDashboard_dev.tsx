@@ -673,51 +673,46 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
             <div className="flex-1 overflow-y-auto px-5 pb-5">
               {/* Source Selection Tabs & All Users Filter */}
               <div className="flex items-center justify-between gap-4 border-b border-border pb-3 mb-5 pt-3">
-                {/* Top Level Tabs */}
+                {/* Source Tabs (Annam / WhatsApp) */}
                 <div className="flex items-center gap-2">
-                  {/* Application Tab */}
+                  {/* Annam Tab */}
                   <button
-                    onClick={() =>
-                      setNewFilters((prev) => ({
-                        ...prev,
-                        sourceType: "application",
-                      }))
-                    }
+                    onClick={() => onSourceChange?.("annam")}
                     className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                      newFilters.sourceType === "application"
+                      source === "annam"
                         ? "bg-primary text-primary-foreground shadow-sm"
                         : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                     }`}
                   >
-                    Application
+                    Annam
                   </button>
 
-                  {/* Manual Tab (Muted/Disabled) */}
+                  {/* WhatsApp Tab */}
                   <button
-                    disabled
-                    className="px-4 py-1.5 rounded-lg text-sm font-medium text-muted-foreground/50 cursor-not-allowed"
+                    onClick={() => onSourceChange?.("whatsapp")}
+                    className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                      source === "whatsapp"
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    }`}
                   >
-                    Manual
+                    WhatsApp
                   </button>
                 </div>
 
                 <div className="flex items-center ml-auto gap-4">
-                <button
-                  onClick={handleRefreshAll}
-                  className="z-50 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
-                  title="Refresh"
-                >
+                  <button
+                    onClick={handleRefreshAll}
+                    className="z-50 flex items-center gap-2 rounded-lg px-3 py-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-accent border"
+                    title="Refresh"
+                  >
                     <RefreshCw
                       className={`h-3.5 w-3.5  ${
                         invalidating ? "animate-spin" : ""
                       }`}
                     />
+                    <span className="text-sm font-medium">Refresh</span>
                   </button>
-                  <NewFilters
-                    filters={newFilters}
-                    onChange={setNewFilters}
-                    onSourceChange={onSourceChange}
-                  />
 
                   <SearchableSelect
                     options={
