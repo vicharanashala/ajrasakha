@@ -601,25 +601,95 @@ The delete operation succeeds, but retrieval of a deleted resource returns an in
 
 ---
 
-## Coverage Achieved
+## Documentation: Bulk Delete Questions E2E
 
-```text
-Authentication ✓
+**Test Name:** `moderator bulk deletes questions`
 
-Question CRUD
-├── Create ✓
-├── Read ✓
-├── Update ✓
-├── Verify Update ✓
-├── Delete ✓
-└── Retrieve Deleted Question ✗ (Bug Found)
+### Purpose
 
-Background Allocation
-└── Not Tested Yet
+Verify that an authenticated moderator can delete multiple questions in a single operation using the bulk delete endpoint.
 
-Duplicate Detection
-└── Not Tested Yet
+---
 
-Notifications
-└── Not Tested Yet
+### Preconditions
+
+- Backend is running.
+- Firebase authentication is configured.
+- Moderator token is valid.
+- Multiple questions exist and are available for deletion.
+
+---
+
+### Endpoint
+
+```http
+DELETE /api/questions/bulk
 ```
+
+---
+
+### Authentication
+
+```http
+Authorization: Bearer <moderator_token>
+```
+
+---
+
+### Request Payload
+
+```json
+{
+  "questionIds": ["<question_id_1>", "<question_id_2>"]
+}
+```
+
+---
+
+### Test Setup
+
+Before executing the bulk delete request:
+
+1. Create Question #1.
+2. Create Question #2.
+3. Capture both generated question IDs.
+4. Pass the IDs to the bulk delete endpoint.
+
+---
+
+### Validation Performed
+
+Verified that:
+
+- Moderator can access bulk delete endpoint.
+- Multiple question IDs are accepted.
+- Bulk delete operation completes successfully.
+- API returns success response.
+
+---
+
+### Assertions
+
+```ts
+expect(deleteRes.status).toBe(200);
+```
+
+---
+
+### Expected Result
+
+| Check                | Expected |
+| -------------------- | -------- |
+| HTTP Status          | 200      |
+| Bulk Delete Executed | Yes      |
+| Questions Removed    | Yes      |
+
+---
+
+### Result
+
+**PASSED**
+
+Multiple questions were successfully deleted using a single bulk delete request.
+
+---

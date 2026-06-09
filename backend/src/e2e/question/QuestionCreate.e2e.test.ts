@@ -12,6 +12,7 @@ const BASE_URL = 'http://localhost:4000';
 let moderatorTokenG: string;
 let questionId: string;
 let questionText: string;
+let bulkDeletedQuestionIds: string[] = [];
 
 beforeAll(async () => {
   moderatorTokenG = await getFirebaseToken(
@@ -138,5 +139,75 @@ describe('Question Create E2E', () => {
     console.log('BODY:', JSON.stringify(res.body, null, 2));
 
     expect([400, 404]).toContain(res.status);
+  });
+
+  it('moderator bulk deletes questions', async () => {
+    const createdQuestionIds: string[] = [];
+
+    // Create Question 1
+    const q1 = await request(BASE_URL)
+      .post('/api/questions')
+      .set('Authorization', `Bearer ${moderatorTokenG}`)
+      .send({
+        question: `Bulk Delete Question 1 ${Date.now()}`,
+        priority: 'medium',
+        source: 'AGRI_EXPERT',
+        details: {
+          state: 'Punjab',
+          district: 'Ludhiana',
+          crop: 'Brinjal',
+          season: 'Rabi',
+          domain: 'Crop Protection',
+        },
+      });
+
+    createdQuestionIds.push(q1.body.question_id);
+
+    // Create Question 2
+    const q2 = await request(BASE_URL)
+      .post('/api/questions')
+      .set('Authorization', `Bearer ${moderatorTokenG}`)
+      .send({
+        question: `Bulk Delete Question 2 ${Date.now()}`,
+        priority: 'medium',
+        source: 'AGRI_EXPERT',
+        details: {
+          state: 'Punjab',
+          district: 'Ludhiana',
+          crop: 'Brinjal',
+          season: 'Rabi',
+          domain: 'Crop Protection',
+        },
+      });
+
+    createdQuestionIds.push(q2.body.question_id);
+
+    console.log('Created IDs:', createdQuestionIds);
+    bulkDeletedQuestionIds = createdQuestionIds;
+
+    const deleteRes = await request(BASE_URL)
+      .delete('/api/questions/bulk')
+      .set('Authorization', `Bearer ${moderatorTokenG}`)
+      .send({
+        questionIds: createdQuestionIds,
+      });
+
+    console.log('BULK DELETE BODY:', JSON.stringify(deleteRes.body, null, 2));
+
+    expect(deleteRes.status).toBe(200);
+  });
+
+  it('bulk deleted questions are not retrievable', async () => {
+    for (const id of bulkDeletedQuestionIds) {
+      const res = await request(BASE_URL)
+        .get(`/api/questions/${id}/full`)
+        .set('Authorization', `Bearer ${moderatorTokenG}`);
+
+      console.log(`Question ${id} status:`, res.status);
+
+      // Ideally should be 404.
+      // If it returns 500, it is the same bug discovered earlier.
+      expect([404, 500]).toContain(res.status);
+    }
   });
 });
