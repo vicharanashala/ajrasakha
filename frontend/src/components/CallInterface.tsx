@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { IncomingCallBox } from "./IncomingCallBox";
 import type { CallTranscript } from "./IncomingCallBox";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
-import { toast } from "sonner";
 import { Button } from "./atoms/button";
 import { RotateCcw, Send, MessageSquare, Globe, CheckCircle2, AlertCircle, HelpCircle, Lightbulb, User, FileText, ChevronDown, ChevronUp } from "lucide-react";
 import { useSubmitTranscript } from "@/hooks/api/context/useSubmitTranscript";
@@ -16,6 +15,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
 import { Checkbox } from "./atoms/checkbox";
 import type { GeneratedQuestion } from "./voice-recorder-card";
 import Plivo from "plivo-browser-sdk";
+import { toast } from "@/shared/components/toast";
 
 export const CallInterface = () => {
   const { mutateAsync: submitTranscript, isPending } = useSubmitTranscript();
@@ -64,8 +64,9 @@ export const CallInterface = () => {
       toast.error("Transcript is empty!");
       return;
     }
-
+    let toastId;
     try {
+      toastId = toast.loading('submitting transcript...')
       await submitTranscript(editableTranslatedTranscript);
       setEditableTranslatedTranscript("");
       setTranscriptsList([]); // Clear the conversation view
@@ -76,8 +77,10 @@ export const CallInterface = () => {
       setExtractedState("");
       setExtractedCrop("");
       setHasGeneratedQuestions(false);
+      toast.dismiss(toastId)
       toast.success("Transcript submitted successfully!");
     } catch (error) {
+      toast.dismiss(toastId)
       console.error(error);
       toast.error("Failed to submit transcript. Try again!");
     }
@@ -117,8 +120,9 @@ export const CallInterface = () => {
       toast.info("Summary is empty. Please summarize the conversation first.");
       return;
     }
-
+    let toastId;
     try {
+      toastId = toast.loading('generating questions...')
       const qstns = await generateQuestions({
         transcript: editableSummaryText,
         state: extractedState,
@@ -126,7 +130,10 @@ export const CallInterface = () => {
       });
       setQuestions(prev => [...prev, ...(qstns || [])]);
       setHasGeneratedQuestions(true);
+      toast.dismiss(toastId)
+      toast.success('question generated successfully')
     } catch (err) {
+      toast.dismiss(toastId)
       console.error("Error generating question", err);
       toast.error("Failed to generate questions.");
     }
@@ -148,13 +155,18 @@ export const CallInterface = () => {
       })
       .filter(Boolean)
       .join("\n");
-
+    
+      let toastId;
     try {
+      toastId = toast.loading('generating summary...')
       const summary = await generateSummary(allTranscriptText);
       setEditableSummaryText(summary?.extracted_question || "");
       setExtractedState(summary?.extracted_state || "");
       setExtractedCrop(summary?.extracted_crop || "");
+      toast.dismiss(toastId)
+      toast.success('summary generated successfully')
     } catch (err) {
+      toast.dismiss(toastId)
       console.error("Error generating summary", err);
       toast.error("Failed to generate summary.");
     }
