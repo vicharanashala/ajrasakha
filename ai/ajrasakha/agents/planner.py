@@ -51,6 +51,8 @@ from ajrasakha.agents.location_context import (
     latest_human_text,
 )
 from ajrasakha.agents.plan_executor import ENABLE_CHEMICAL_CHECKER
+from ajrasakha.agents.llm_trace import trace_llm_request, trace_llm_response
+from ajrasakha.agents.resolution_trace import trace_resolution, trace_thread_location
 from ajrasakha.agents.planner_rules import (
     apply_crop_one_shot_fallback,
     apply_non_agriculture_gate,
@@ -291,11 +293,29 @@ def _resolve_state_deterministic(
     """Deterministically resolve state from previous turns or latest text (do NOT fallback to GPS here)."""
     # Priority 0: State from previous planner turns (carry-over from clarification)
     if prev_entities and prev_entities.get("state"):
-        return prev_entities.get("state")
+        state = prev_entities.get("state")
+        trace_resolution(
+            "planner_state_hint",
+            state=state,
+            state_source="prev_entities (incomplete_clarify_carryover)",
+        )
+        return state
     # Priority 1: Latest message only
-    state_from_latest = extract_state_from_text(latest_human_text(messages))
+    latest_text = latest_human_text(messages)
+    state_from_latest = extract_state_from_text(latest_text)
     if state_from_latest:
+        trace_resolution(
+            "planner_state_hint",
+            state=state_from_latest,
+            state_source="latest_message_text (regex)",
+            text_preview=latest_text[:120] if latest_text else None,
+        )
         return state_from_latest
+    trace_resolution(
+        "planner_state_hint",
+        state=None,
+        state_source="unresolved (no_prev_entities_no_text; GPS not used here)",
+    )
     return None
 
 
@@ -362,6 +382,24 @@ async def _apply_domain_and_crop_async(
         crop_required = False
 
     plan["entities"] = entities
+    crop_source = "domain_crop_all" if domains[0] in CROP_ALL_DOMAINS else (
+        "crop_required_resolved" if not crop_required else "crop_required_pending"
+    )
+    if entities.get("crop") == "all" and crop_required is False:
+        crop_source = (
+            "domain_crop_all"
+            if domains[0] in CROP_ALL_DOMAINS
+            else "one_shot_fallback_or_default_all"
+        )
+    trace_resolution(
+        "planner_domain_crop",
+        domain=domains[0],
+        domain_source="plan.domains[0] (normalized)",
+        crop=entities.get("crop"),
+        crop_source=crop_source,
+        crop_required=crop_required,
+        domains=domains,
+    )
     return plan, domains[0], crop_required
 
 
@@ -379,13 +417,37 @@ def _check_question_completeness(
     if not has_state:
         missing.append("location")
         follow_up = get_state_follow_up(script, vocal)
+        trace_resolution(
+            "planner_completeness",
+            state=None,
+            state_source="missing — will clarify",
+            crop=crop_resolved,
+            crop_source="entities" if crop_resolved else "unset",
+            is_complete=False,
+        )
         return False, missing, follow_up
 
     if crop_required and not crop_slot_satisfied(crop_resolved):
         missing.append("crop")
         follow_up = get_crop_follow_up(script, vocal)
+        trace_resolution(
+            "planner_completeness",
+            state=state_resolved,
+            state_source="entities",
+            crop=crop_resolved,
+            crop_source="missing — will clarify",
+            is_complete=False,
+        )
         return False, missing, follow_up
 
+    trace_resolution(
+        "planner_completeness",
+        state=state_resolved,
+        state_source="entities",
+        crop=crop_resolved,
+        crop_source="entities" if crop_resolved else "unset",
+        is_complete=True,
+    )
     return True, [], None
 
 
@@ -425,6 +487,23 @@ async def planner_node(
             "translate_path": None,
             "expert_queue": False,
         }
+        trace_thread_location(
+            "planner_greeting_input",
+            state.get("location"),
+            plan_entities=plan.get("entities"),
+            note="greeting short-circuit — thread GPS ignored for upload/tools",
+        )
+        trace_resolution(
+            "planner_greeting",
+            crop="all",
+            crop_source="greeting_short_circuit",
+            state=None,
+            state_source="not_resolved (greeting skips entity merge; GPS not used)",
+            district=None,
+            district_source="not_resolved (greeting skips entity merge; GPS not used)",
+            domain="General",
+            domain_source="greeting_short_circuit",
+        )
         return {"plan": plan}
 
     location = state.get("location")
@@ -433,6 +512,14 @@ async def planner_node(
     prev_entities: PlannerEntities = {}
     if prev_plan and not prev_plan.get("is_complete", True):
         prev_entities = dict(prev_plan.get("entities") or {})
+
+    trace_thread_location(
+        "planner_input",
+        location,
+        plan_entities=prev_entities or None,
+        prev_plan_reasoning=prev_plan.get("reasoning"),
+        prev_plan_complete=prev_plan.get("is_complete"),
+    )
 
     state_resolved = _resolve_state_deterministic(messages, location, prev_entities)
     crop_resolved = resolve_crop_for_turn(messages)
@@ -465,30 +552,28 @@ async def planner_node(
         "Leave `follow_up_question` empty when location/crop is missing — server uses the sheet.\n"
         "Return the routing plan only."
     )
-    trace_event(
-        "planner_llm_request",
+    llm_messages.append(HumanMessage(content=human_content))
+    trace_llm_request(
+        "planner",
+        model=PLANNER_MODEL,
+        messages=llm_messages,
         state_hint=state_resolved,
         crop_hint=crop_resolved,
         prev_plan_context=prev_plan_context or None,
-        conversation=conv_block,
-        deterministic_context=deterministic_context,
-        llm_human_message=human_content,
-        system_prompt_note="PLANNER_SYSTEM_PROMPT (full system prompt omitted — see prompts.py)",
     )
-    llm_messages.append(HumanMessage(content=human_content))
 
     try:
         llm = ChatAnthropic(model=PLANNER_MODEL).with_structured_output(PlannerOutput)
         output = await llm.ainvoke(llm_messages, config=_planner_invoke_config(config))
-        trace_event(
-            "planner_llm_response",
+        trace_llm_response(
+            "planner",
+            output=output,
             reasoning=output.reasoning,
-            original_query_en=output.original_query_en,
-            rephrased_query=output.rephrased_query,
             domains=output.domains,
             is_agriculture_related=output.is_agriculture_related,
             is_greeting=output.is_greeting,
-            entities=output.entities.model_dump(),
+            is_complete=output.is_complete,
+            missing_info=output.missing_info,
             vocal_language=output.vocal_language,
             script_language=output.script_language,
         )

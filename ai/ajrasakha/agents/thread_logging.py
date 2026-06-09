@@ -25,6 +25,11 @@ from typing import Any, Callable, TypeVar
 from langchain_core.runnables import RunnableConfig
 
 from ajrasakha.agents.config import resolve_thread_id
+from ajrasakha.agents.thread_log_mongo import (
+    mongo_thread_log_enabled,
+    read_thread_log_text,
+    sync_thread_log_file_to_mongo,
+)
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -93,17 +98,44 @@ def _thread_log_path(thread_id: str) -> Path:
     return thread_log_dir() / f"{safe}.txt"
 
 
-def _max_turn_from_log(thread_id: str) -> int:
-    """Read highest completed turn from the thread log (survives process restart)."""
+def _read_local_thread_log_text(thread_id: str) -> str:
+    """Read accumulated log text from the local file only (never blocks on MongoDB)."""
     path = _thread_log_path(thread_id)
     if not path.is_file():
-        return 0
+        return ""
     try:
-        text = path.read_text(encoding="utf-8")
+        return path.read_text(encoding="utf-8")
     except OSError:
+        return ""
+
+
+def _read_thread_log_text(thread_id: str) -> str:
+    """Read log text: local file first, then MongoDB (for offline/admin reads only)."""
+    text = _read_local_thread_log_text(thread_id)
+    if text:
+        return text
+    if mongo_thread_log_enabled():
+        return read_thread_log_text(thread_id)
+    return ""
+
+
+def _max_turn_from_log(thread_id: str) -> int:
+    """Read highest completed turn from the local thread log file."""
+    text = _read_local_thread_log_text(thread_id)
+    if not text:
         return 0
     turns = [int(m) for m in _END_TURN_RE.findall(text)]
     return max(turns) if turns else 0
+
+
+def _append_to_file(thread_id: str, text: str) -> None:
+    """Append text to the local thread log file only (fast path during request)."""
+    block = text if text.endswith("\n") else f"{text}\n"
+    path = _thread_log_path(thread_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with _turn_counts_lock:
+        with path.open("a", encoding="utf-8") as fh:
+            fh.write(block)
 
 
 def append_thread_block(text: str, *, thread_id: str | None = None) -> None:
@@ -111,12 +143,7 @@ def append_thread_block(text: str, *, thread_id: str | None = None) -> None:
     tid = thread_id or _thread_id_ctx.get()
     if not tid:
         return
-    path = _thread_log_path(tid)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    block = text if text.endswith("\n") else f"{text}\n"
-    with _turn_counts_lock:
-        with path.open("a", encoding="utf-8") as fh:
-            fh.write(block)
+    _append_to_file(tid, text)
 
 
 def begin_conversation_turn(farmer_message: str) -> int:
@@ -125,9 +152,10 @@ def begin_conversation_turn(farmer_message: str) -> int:
     if not thread_id:
         return 0
 
+    # Local file only — never call MongoDB here (sync I/O would block the async graph).
+    prior_from_log = _max_turn_from_log(thread_id)
     with _turn_counts_lock:
-        # In-memory counter for same process; log file for restart / hot-reload.
-        prior = max(_turn_counts.get(thread_id, 0), _max_turn_from_log(thread_id))
+        prior = max(_turn_counts.get(thread_id, 0), prior_from_log)
         turn = prior + 1
         _turn_counts[thread_id] = turn
 
@@ -179,6 +207,8 @@ def end_conversation_turn(
 
 """
     append_thread_block(block, thread_id=tid)
+    if mongo_thread_log_enabled():
+        sync_thread_log_file_to_mongo(tid, file_path=_thread_log_path(tid))
 
 
 def _resolve_config_thread_id(config: RunnableConfig | dict[str, Any] | None) -> str | None:
@@ -227,7 +257,8 @@ class ThreadFileLogHandler(logging.Handler):
                 _THREAD_LOG_LOGGER_PREFIX
             ):
                 msg = "\n".join(f"  │ {line}" for line in msg.splitlines())
-            fh.stream.write(msg + fh.terminator)
+            line = msg + fh.terminator
+            fh.stream.write(line)
             fh.flush()
         except Exception:
             self.handleError(record)

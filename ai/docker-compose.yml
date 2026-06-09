@@ -64,9 +64,9 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
-    volumes:
-      - ./src:/app/src:ro
-      - ./aegra.json:/app/aegra.json:ro
+    # Bind-mounting single files (e.g. aegra.json) fails when the Docker daemon
+    # cannot see the host path (common in devbox/remote Docker). Config and code
+    # are already COPY'd into the image by the Dockerfile.
 
 volumes:
   postgres_data:
