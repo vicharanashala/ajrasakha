@@ -17,6 +17,7 @@ export function useAddUser() {
         name: string;
         password: string
         userRole?: string;
+        isVerified?: boolean;
       };
     }) => {
       const result = await apiFetch<any>(
