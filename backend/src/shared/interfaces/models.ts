@@ -33,6 +33,8 @@ export interface IUser {
   mobile?: string;
   university?: string;
   isVerified?: boolean;
+  isCallAgent?: boolean;
+  isCallAgentActive?: boolean;
 }
 
 export type IQuestionPriority = 'low' | 'medium' | 'high' | 'critical';
@@ -103,6 +105,7 @@ export interface IQuestion {
   }>;
   popContext?: string;
   isCustomerNotified?: boolean;
+  isDuplicateChecked?: boolean;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';

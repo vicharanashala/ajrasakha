@@ -60,7 +60,13 @@ const defaultDateRange: DateRange = {
   to: new Date(),
 };
 
-const UserGrowthChart = ({source}) => {
+type SourceType = "annam" | "whatsapp";
+
+interface UserGrowthChartProps {
+  source: SourceType;
+}
+
+const UserGrowthChart = ({ source }: UserGrowthChartProps) => {
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>(defaultDateRange);
   const [activeMetrics, setActiveMetrics] = useState(
@@ -70,7 +76,7 @@ const UserGrowthChart = ({source}) => {
   const [isMaximized, setIsMaximized] = useState(false);
   const [tablePage, setTablePage] = useState(1);
   const { data, isLoading, isError } = useUserGrowth(source, dateRange?.from, dateRange?.to);
-
+// console.log(dateRange,"data", data)
   if (isLoading) {
     return (
       <Card className="h-full min-h-[300px] p-4 dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">

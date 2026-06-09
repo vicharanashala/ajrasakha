@@ -46,6 +46,10 @@ export interface GeneratedQuestion {
   answer: string;
   referenceSource:string;
 }
+
+export interface VoiceRecorderCardProps {
+  // No props needed - call transcript is only in CallInterface
+}
 declare global {
   interface Window {
     webkitSpeechRecognition: any;
@@ -80,10 +84,13 @@ const supportedLanguages: {
   { code: "sd-IN", label: "Sindhi" },
 ];
 
-export const VoiceRecorderCard = () => {
+export const VoiceRecorderCard = ({}: VoiceRecorderCardProps) => {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState(``);
   const [isListening, setIsListening] = useState(false);
+
+  // Use transcript directly
+  const combinedTranscript = transcript;
   const [language, setLanguage] = useState<SupportedLanguage>("auto");
   const [isLoadingRemainingTranscript, setIsLoadingRemainingTranscript] =
     useState(false);
@@ -259,13 +266,13 @@ export const VoiceRecorderCard = () => {
   };
 
   const handleSubmit = async () => {
-    if (!transcript.trim()) {
+    if (!combinedTranscript.trim()) {
       toast.error("Transcript is empty!");
       return;
     }
 
     try {
-      await submitTranscript(transcript);
+      await submitTranscript(combinedTranscript);
       setTranscript("");
       toast.success("Transcript submitted successfully!");
     } catch (error) {
@@ -334,6 +341,7 @@ export const VoiceRecorderCard = () => {
                     "h-12 w-12 rounded-full flex-shrink-0 self-center sm:self-auto",
                     isRecording && "animate-pulse"
                   )}
+                  title="Toggle recording"
                 >
                   {isRecording ? (
                     <MicOff className="h-5 w-5" />
@@ -441,7 +449,7 @@ export const VoiceRecorderCard = () => {
               </div>
             </CardContent>
           </Card>
-
+            {/* can the incoming call box be moved here? */}
           <Card className="min-h-[80%]  md:h-auto">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">

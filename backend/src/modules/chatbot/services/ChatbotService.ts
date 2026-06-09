@@ -348,7 +348,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getDashboard(
     days = 30,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
     startTime?: string,
     endTime?: string,
@@ -560,7 +560,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getKpiSummary(source = 'vicharanashala', userType = 'all') {
+  async getKpiSummary(source = 'annam', userType = 'all') {
     try {
       return await this.chatbotRepository.getKpiSummary(
         source,
@@ -574,7 +574,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getDailyActiveUsers(
     days = 30,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
   ) {
     try {
@@ -591,7 +591,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getChannelSplit(source = 'vicharanashala') {
+  async getChannelSplit(source = 'annam') {
     try {
       return await this.chatbotRepository.getChannelSplit(source);
     } catch (error) {
@@ -599,7 +599,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getVoiceAccuracyByLanguage(source = 'vicharanashala') {
+  async getVoiceAccuracyByLanguage(source = 'annam') {
     try {
       return await this.chatbotRepository.getVoiceAccuracyByLanguage(source);
     } catch (error) {
@@ -607,7 +607,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getGeoDistribution(source = 'vicharanashala') {
+  async getGeoDistribution(source = 'annam') {
     try {
       return await this.chatbotRepository.getGeoDistribution(source);
     } catch (error) {
@@ -617,7 +617,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getQueryCategories(source = 'vicharanashala', userType = 'all') {
+  async getQueryCategories(source = 'annam', userType = 'all') {
     try {
       return await this.chatbotRepository.getQueryCategories(
         source,
@@ -636,7 +636,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     questionType: 'all' | 'unique' | 'duplicate' = 'all',
     page = 1,
     limit = 10,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
     search?: string,
   ) {
@@ -660,7 +660,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getWeatherConcernAnalytics(
     filters: WeatherConcernAnalyticsFilters = {},
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
   ) {
     try {
@@ -690,7 +690,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
   }
 
   async getDistrictAnalyticsByState(
-    source = 'vicharanashala',
+    source = 'annam',
     state: string,
     userType = 'all',
   ) {
@@ -714,7 +714,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     questionType: 'all' | 'unique' | 'duplicate' = 'all',
     page = 1,
     limit = 10,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
     search?: string,
   ): Promise<any> {
@@ -745,7 +745,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getWeeklyAvgSessionDuration(weeks = 52, source = 'vicharanashala') {
+  async getWeeklyAvgSessionDuration(weeks = 52, source = 'annam') {
     try {
       return await this.chatbotRepository.getWeeklyAvgSessionDuration(
         weeks,
@@ -760,7 +760,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getDailyAnalytics(
     month?: string,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
   ) {
     try {
@@ -777,7 +777,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getTodayQueryCount(source = 'vicharanashala', userType = 'all') {
+  async getTodayQueryCount(source = 'annam', userType = 'all') {
     try {
       return await this.chatbotRepository.getTodayQueryCount(
         source,
@@ -793,7 +793,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getDailyUserTrend(
     days = 30,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
   ) {
     try {
@@ -812,7 +812,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getWeeklyAnalytics(
     month?: string,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
   ) {
     try {
@@ -829,7 +829,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getMonthlyAnalytics(source = 'vicharanashala', userType = 'all') {
+  async getMonthlyAnalytics(source = 'annam', userType = 'all') {
     try {
       return await this.chatbotRepository.getMonthlyAnalytics(
         source,
@@ -854,7 +854,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       userType?: string;
     },
   ) {
-    const source = options.source ?? 'vicharanashala';
+    const source = options.source ?? 'annam';
     const userType = options.userType ?? 'all';
     const page = Math.max(1, options.page ?? 1);
     const limit = Math.max(1, options.limit ?? 10);
@@ -905,7 +905,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     page = 1,
     limit = 10,
     search = '',
-    source = 'vicharanashala',
+    source = 'annam',
     crop = '',
     primaryCrops = '',
     secondaryCrops = '',
@@ -961,7 +961,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getUserQuestionsData(
     userEmail: string,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
     page = 1,
     limit = 10,
@@ -1029,7 +1029,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     };
   }
 
-  async getAvgSessionDurationV2(source = 'vicharanashala', userType = 'all') {
+  async getAvgSessionDurationV2(source = 'annam', userType = 'all') {
     try {
       return await this.chatbotRepository.getAvgSessionDurationV2(
         source,
@@ -1045,7 +1045,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getWeeklyAvgSessionDurationV2(
     weeks = 52,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
   ) {
     try {
@@ -1065,7 +1065,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
   // async generateChatbotExcelReport(
   //   startDate: Date,
   //   endDate: Date,
-  //   source = 'vicharanashala',
+  //   source = 'annam',
   // ): Promise<ArrayBuffer | null> {
   //   try {
   //     const rows = await this.chatbotRepository.generateChatbotExcelReport(
@@ -1547,7 +1547,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     startDate: Date,
     endDate: Date,
     state: string,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
     month?: string,
   ): Promise<ArrayBuffer | null> {
@@ -2085,7 +2085,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     startDate: Date,
     endDate: Date,
     state: string,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
     month?: string,
   ): Promise<Buffer> {
@@ -2360,7 +2360,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
   }
 
   async getTopFaqs(
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
     startTime?: string,
     endTime?: string,
@@ -2692,7 +2692,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
   }
 
   async getTopQuestionsFromCollection(
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
     startTime?: string,
     endTime?: string,
@@ -2770,7 +2770,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     page: number = 1,
     limit: number = 10,
     search: string = '',
-    source: string = 'vicharanashala',
+    source: string = 'annam',
   ): Promise<{
     users: UnverifiedUserEntry[];
     totalUsers: number;
