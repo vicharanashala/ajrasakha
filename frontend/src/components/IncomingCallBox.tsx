@@ -2,12 +2,21 @@ import { useEffect, useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { Badge } from "./atoms/badge";
 import { Button } from "./atoms/button";
-import { Phone, PhoneOff, Pause, Play, VolumeX, Volume2, Mic, MicOff } from "lucide-react";
+import {
+  Phone,
+  PhoneOff,
+  Pause,
+  Play,
+  VolumeX,
+  Volume2,
+  Mic,
+  MicOff,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PlivoWebSocketService } from "@/hooks/services/plivoWebSocketService";
 import type { PlivoTranscriptMessage } from "@/hooks/services/plivoWebSocketService";
 import { env } from "@/config/env";
-import Plivo from 'plivo-browser-sdk';
+import Plivo from "plivo-browser-sdk";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { FarmerDetails } from "./FarmerDetails";
 import { toast } from "sonner";
@@ -19,7 +28,7 @@ interface IncomingCall {
 }
 
 export interface CallTranscript {
-  track: 'inbound' | 'outbound';
+  track: "inbound" | "outbound";
   text: string;
   originalText: string;
   translatedText: string;
@@ -46,15 +55,17 @@ export const IncomingCallBox = ({
   onTranscriptChange,
   onOriginalTranscriptChange,
   onTranscriptsListChange,
-  onCallStateChange
+  onCallStateChange,
 }: IncomingCallBoxProps) => {
-  console.log(' [IncomingCallBox] Component mounting...');
+  console.log(" [IncomingCallBox] Component mounting...");
 
   const { data: currentUser, isLoading: isUserLoading } = useGetCurrentUser();
-  const isAdmin = currentUser?.role === 'admin';
+  const isAdmin = currentUser?.role === "admin";
 
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
-  const [callStatus, setCallStatus] = useState<'idle' | 'incoming' | 'connected' | 'held' | 'ended'>('idle');
+  const [callStatus, setCallStatus] = useState<
+    "idle" | "incoming" | "connected" | "held" | "ended"
+  >("idle");
   const [transcripts, setTranscripts] = useState<CallTranscript[]>([]);
   const [isMuted, setIsMuted] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -67,27 +78,31 @@ export const IncomingCallBox = ({
   const callbacksRef = useRef({
     onOriginalTranscriptChange,
     onTranscriptChange,
-    onTranscriptsListChange
+    onTranscriptsListChange,
   });
 
   useEffect(() => {
     callbacksRef.current = {
       onOriginalTranscriptChange,
       onTranscriptChange,
-      onTranscriptsListChange
+      onTranscriptsListChange,
     };
   });
 
   // Notify parent component when transcripts change
   useEffect(() => {
-    const formattedOriginal = transcripts.map(t => {
-      const speaker = t.track === 'inbound' ? 'Caller' : 'Agent';
-      return `${speaker}: ${t.originalText}`;
-    }).join('\n');
-    const formattedTranslated = transcripts.map(t => {
-      const speaker = t.track === 'inbound' ? 'Caller' : 'Agent';
-      return `${speaker}: ${t.translatedText}`;
-    }).join('\n');
+    const formattedOriginal = transcripts
+      .map((t) => {
+        const speaker = t.track === "inbound" ? "Caller" : "Agent";
+        return `${speaker}: ${t.originalText}`;
+      })
+      .join("\n");
+    const formattedTranslated = transcripts
+      .map((t) => {
+        const speaker = t.track === "inbound" ? "Caller" : "Agent";
+        return `${speaker}: ${t.translatedText}`;
+      })
+      .join("\n");
 
     callbacksRef.current.onOriginalTranscriptChange?.(formattedOriginal);
     callbacksRef.current.onTranscriptChange?.(formattedTranslated);
@@ -96,11 +111,11 @@ export const IncomingCallBox = ({
 
   // Auto-reset call UI if stuck in 'incoming' state for too long
   useEffect(() => {
-    if (callStatus === 'incoming' && incomingCall) {
+    if (callStatus === "incoming" && incomingCall) {
       // Set timeout to auto-reset after 30 seconds if call not answered
       callTimeoutRef.current = setTimeout(() => {
-        console.log('⏰ Auto-resetting call UI after timeout');
-        setCallStatus('idle');
+        console.log("⏰ Auto-resetting call UI after timeout");
+        setCallStatus("idle");
         setIncomingCall(null);
         disconnectWebSocket();
       }, 30000);
@@ -142,7 +157,7 @@ export const IncomingCallBox = ({
 
     // Prevent multiple initializations
     if (plivoClientRef.current) {
-      console.log('⚠️ Plivo client already exists, skipping initialization...');
+      console.log("⚠️ Plivo client already exists, skipping initialization...");
       return;
     }
 
@@ -154,7 +169,7 @@ export const IncomingCallBox = ({
           plivoClientRef.current.client.logout();
           plivoClientRef.current = null;
         } catch (error) {
-          console.error('Error logging out Plivo client:', error);
+          console.error("Error logging out Plivo client:", error);
         }
       }
     };
@@ -163,15 +178,15 @@ export const IncomingCallBox = ({
   const initializePlivoClient = () => {
     // Prevent multiple initializations
     if (plivoClientRef.current) {
-      console.log('⚠️ Plivo client already initialized, skipping...');
+      console.log("⚠️ Plivo client already initialized, skipping...");
       return;
     }
 
-    console.log('🔧 Initializing Plivo client from NPM package...');
+    console.log("🔧 Initializing Plivo client from NPM package...");
     const options = {
       debug: "DEBUG" as const,
       permOnClick: true,
-      enableTracking: true
+      enableTracking: true,
     };
 
     const client = new Plivo(options);
@@ -181,113 +196,122 @@ export const IncomingCallBox = ({
     const endpointUsername = env.plivo.endpointUsername();
     const endpointPassword = env.plivo.endpointPassword();
 
-    console.log('🔑 Attempting Plivo login with username:', endpointUsername);
-    console.log('🌐 Plivo SDK loaded successfully');
+    console.log("🔑 Attempting Plivo login with username:", endpointUsername);
+    console.log("🌐 Plivo SDK loaded successfully");
 
     client.client.login(endpointUsername, endpointPassword);
 
     // Register event handlers using the correct Plivo SDK format
-    client.client.on('onLogin', () => {
+    client.client.on("onLogin", () => {
       // console.log('✅ Plivo client logged in successfully');
       // console.log('📞 Plivo client ready for incoming calls');
     });
 
-    client.client.on('onLoginFailed', (error: any) => {
-      console.error('❌ Plivo client login failed:', error);
-      console.error('🔍 Login error details:', JSON.stringify(error, null, 2));
+    client.client.on("onLoginFailed", (error: any) => {
+      console.error("❌ Plivo client login failed:", error);
+      console.error("🔍 Login error details:", JSON.stringify(error, null, 2));
 
       // Retry logic for connection issues
-      if (error?.message?.includes('Connection') || error?.message?.includes('Network')) {
+      if (
+        error?.message?.includes("Connection") ||
+        error?.message?.includes("Network")
+      ) {
         // console.log('🔄 Retrying login in 5 seconds due to connection error...');
         setTimeout(() => {
-          console.log('🔄 Retrying Plivo login...');
+          console.log("🔄 Retrying Plivo login...");
           client.client.login(endpointUsername, endpointPassword);
         }, 5000);
       } else {
-        alert('Plivo login failed: ' + JSON.stringify(error));
+        alert("Plivo login failed: " + JSON.stringify(error));
       }
     });
 
-    client.client.on('onIncomingCall', (callerID, extraHeaders, callInfo: {}, callerName: string) => {
-      // console.log('📞 Incoming call from:', callerName);
-      alert("Incoming call from " + callerName);
-      setIncomingCall({
-        uuid: callerID,
-        number: callerName,
-        timestamp: new Date().toISOString()
-      });
-      setCallStatus('incoming');
-      // WebSocket will connect when call is answered, not here
-    });
+    client.client.on(
+      "onIncomingCall",
+      (callerID, extraHeaders, callInfo: {}, callerName: string) => {
+        // console.log('📞 Incoming call from:', callerName);
+        alert("Incoming call from " + callerName);
+        setIncomingCall({
+          uuid: callerID,
+          number: callerName,
+          timestamp: new Date().toISOString(),
+        });
+        setCallStatus("incoming");
+        // WebSocket will connect when call is answered, not here
+      },
+    );
 
-    client.client.on('onCallAnswered', () => {
+    client.client.on("onCallAnswered", () => {
       // console.log('✅ [CALL ANSWERED] Event fired!');
       // console.log('✅ Call answered - WebSocket already connected');
-      setCallStatus('connected');
+      setCallStatus("connected");
       onCallStateChange?.(true);
     });
 
-    client.client.on('onCallTerminated', () => {
-      console.log('📴 Call ended');
-      setCallStatus('ended');
+    client.client.on("onCallTerminated", () => {
+      console.log("📴 Call ended");
+      setCallStatus("ended");
       setIncomingCall(null);
       onCallStateChange?.(false);
       disconnectWebSocket();
     });
 
-    client.client.on('onCallRejected', () => {
-      console.log('❌ Call rejected');
-      setCallStatus('idle');
+    client.client.on("onCallRejected", () => {
+      console.log("❌ Call rejected");
+      setCallStatus("idle");
       setIncomingCall(null);
     });
 
     // Additional debugging events
-    client.client.on('onCalling', () => {
+    client.client.on("onCalling", () => {
       // console.log('📞 Calling...');
     });
 
-    client.client.on('onCallRemoteRinging', () => {
+    client.client.on("onCallRemoteRinging", () => {
       // console.log('🔔 Remote ringing...');
     });
 
-    client.client.on('onCallFailed', (error: any) => {
-      console.error('❌ Call failed:', error);
-      setCallStatus('idle');
+    client.client.on("onCallFailed", (error: any) => {
+      console.error("❌ Call failed:", error);
+      setCallStatus("idle");
       setIncomingCall(null);
     });
 
     // Handle call cancelled by caller before answering
-    client.client.on('onCallCancelled', () => {
-      console.log('❌ Call cancelled by caller');
-      setCallStatus('idle');
+    client.client.on("onCallCancelled", () => {
+      console.log("❌ Call cancelled by caller");
+      setCallStatus("idle");
       setIncomingCall(null);
       disconnectWebSocket();
     });
 
     // Handle incoming call ended (caller hung up)
-    client.client.on('onIncomingCallEnded', () => {
-      console.log('📴 Incoming call ended');
-      setCallStatus('idle');
+    client.client.on("onIncomingCallEnded", () => {
+      console.log("📴 Incoming call ended");
+      setCallStatus("idle");
       setIncomingCall(null);
       disconnectWebSocket();
     });
 
-    client.client.on('onMediaConnected', () => {
+    client.client.on("onMediaConnected", () => {
       // console.log('🎧 Media connected');
     });
 
-    client.client.on('onWebrtcNotSupported', () => {
-      console.error('❌ WebRTC not supported');
-      alert('WebRTC is not supported in this browser');
+    client.client.on("onWebrtcNotSupported", () => {
+      console.error("❌ WebRTC not supported");
+      alert("WebRTC is not supported in this browser");
     });
 
     // Monitor connection status
-    client.client.on('onConnectionChange', (status: any) => {
+    client.client.on("onConnectionChange", (status: any) => {
       // console.log('🌐 Connection status changed:', status);
-      if (status === 'disconnected') {
+      if (status === "disconnected") {
         // console.log('🔌 Connection lost, attempting to reconnect...');
         setTimeout(() => {
-          if (plivoClientRef.current && !plivoClientRef.current.client.isConnected) {
+          if (
+            plivoClientRef.current &&
+            !plivoClientRef.current.client.isConnected
+          ) {
             // console.log('🔄 Reconnecting to Plivo...');
             client.client.login(endpointUsername, endpointPassword);
           }
@@ -312,48 +336,68 @@ export const IncomingCallBox = ({
     wsRef.current = ws;
 
     // Setup message handlers
-    ws.onMessage('transcript', (message: PlivoTranscriptMessage) => {
+    ws.onMessage("transcript", (message: PlivoTranscriptMessage) => {
       // console.log('📝 [IncomingCallBox] Received transcript:', message);
       if (message.originalText || message.translatedText) {
         const newTranscript: CallTranscript = {
-          track: message.track || 'inbound',
-          text: message.text || '',
-          originalText: message.originalText || '',
-          translatedText: message.translatedText || '',
-          detectedLanguage: message.detectedLanguage || 'unknown',
-          timestamp: message.timestamp
+          track: message.track || "inbound",
+          text: message.text || "",
+          originalText: message.originalText || "",
+          translatedText: message.translatedText || "",
+          detectedLanguage: message.detectedLanguage || "unknown",
+          timestamp: message.timestamp,
         };
 
-        setTranscripts(prev => [...prev, newTranscript]);
+        setTranscripts((prev) => [...prev, newTranscript]);
       }
     });
 
-    ws.onMessage('call_end', (message: any) => {
+    ws.onMessage("call_end", (message: any) => {
       // console.log('📴 Call ended from WebSocket:', message);
       const finalItems: CallTranscript[] = [];
 
       const caller = message.caller || message.inbound;
       const agent = message.agent || message.outbound;
 
-      if (caller && (caller.transcript || caller.translation || caller.originalText || caller.translatedText)) {
+      if (
+        caller &&
+        (caller.transcript ||
+          caller.translation ||
+          caller.originalText ||
+          caller.translatedText)
+      ) {
         finalItems.push({
-          track: 'inbound',
-          text: caller.transcript || caller.finalTranscript || caller.originalText || '',
-          originalText: caller.transcript || caller.originalText || '',
-          translatedText: caller.translation || caller.translatedText || '',
-          detectedLanguage: caller.detectedLanguage || 'unknown',
-          timestamp: message.timestamp || new Date().toISOString()
+          track: "inbound",
+          text:
+            caller.transcript ||
+            caller.finalTranscript ||
+            caller.originalText ||
+            "",
+          originalText: caller.transcript || caller.originalText || "",
+          translatedText: caller.translation || caller.translatedText || "",
+          detectedLanguage: caller.detectedLanguage || "unknown",
+          timestamp: message.timestamp || new Date().toISOString(),
         });
       }
 
-      if (agent && (agent.transcript || agent.translation || agent.originalText || agent.translatedText)) {
+      if (
+        agent &&
+        (agent.transcript ||
+          agent.translation ||
+          agent.originalText ||
+          agent.translatedText)
+      ) {
         finalItems.push({
-          track: 'outbound',
-          text: agent.transcript || agent.finalTranscript || agent.originalText || '',
-          originalText: agent.transcript || agent.originalText || '',
-          translatedText: agent.translation || agent.translatedText || '',
-          detectedLanguage: agent.detectedLanguage || 'unknown',
-          timestamp: message.timestamp || new Date().toISOString()
+          track: "outbound",
+          text:
+            agent.transcript ||
+            agent.finalTranscript ||
+            agent.originalText ||
+            "",
+          originalText: agent.transcript || agent.originalText || "",
+          translatedText: agent.translation || agent.translatedText || "",
+          detectedLanguage: agent.detectedLanguage || "unknown",
+          timestamp: message.timestamp || new Date().toISOString(),
         });
       }
 
@@ -361,33 +405,39 @@ export const IncomingCallBox = ({
         setTranscripts(finalItems);
       }
 
-      setCallStatus('ended');
+      setCallStatus("ended");
       setIncomingCall(null);
       onCallStateChange?.(false);
       disconnectWebSocket();
     });
 
-    ws.onMessage('call_disconnected', (message: PlivoTranscriptMessage) => {
+    ws.onMessage("call_disconnected", (message: PlivoTranscriptMessage) => {
       // console.log('❌ Call disconnected from WebSocket:', message);
-      setCallStatus('ended');
+      setCallStatus("ended");
       setIncomingCall(null);
       onCallStateChange?.(false);
       disconnectWebSocket();
     });
 
     // Connect to WebSocket
-    const token = localStorage.getItem('token');
-    console.log('🔑 [IncomingCallBox] Using token:', token ? '✅' : '❌ None');
+    const token = localStorage.getItem("token");
+    console.log("🔑 [IncomingCallBox] Using token:", token ? "✅" : "❌ None");
 
     if (token) {
       ws.connect(token).catch((error) => {
-        console.error('❌ [IncomingCallBox] WebSocket connection failed with token:', error);
-        alert('WebSocket connection failed: ' + error);
+        console.error(
+          "❌ [IncomingCallBox] WebSocket connection failed with token:",
+          error,
+        );
+        alert("WebSocket connection failed: " + error);
       });
     } else {
       ws.connect().catch((error) => {
-        console.error('❌ [IncomingCallBox] WebSocket connection failed without token:', error);
-        alert('WebSocket connection failed: ' + error);
+        console.error(
+          "❌ [IncomingCallBox] WebSocket connection failed without token:",
+          error,
+        );
+        alert("WebSocket connection failed: " + error);
       });
     }
   };
@@ -402,7 +452,6 @@ export const IncomingCallBox = ({
   };
 
   const handleAnswer = () => {
-
     const client = plivoClientRef.current;
 
     if (!client) {
@@ -438,12 +487,12 @@ export const IncomingCallBox = ({
 
   const handleToggleHold = () => {
     if (plivoClientRef.current) {
-      if (callStatus === 'held') {
+      if (callStatus === "held") {
         plivoClientRef.current.client.unmute();
-        setCallStatus('connected');
+        setCallStatus("connected");
       } else {
         plivoClientRef.current.client.mute();
-        setCallStatus('held');
+        setCallStatus("held");
       }
     }
   };
@@ -472,50 +521,78 @@ export const IncomingCallBox = ({
     }
   };
 
-
   return (
-    <div className={cn(
-      "rounded-xl transition-all duration-300",
-      callStatus === 'incoming' ? "p-[2px] from-white via-white to-white animate-pulse shadow-[0_0_15px_rgba(255,255,255,0.4)]" : ""
-    )}>
-            {/* <button onClick={() => handleRedial("+919606751041")}>Redial</button> */}
-      <Card className={cn(
-        "transition-all duration-300 overflow-hidden",
-        callStatus === 'incoming' ? "border-2 border-white" : "",
-        callStatus === 'connected' ? "border-green-500/30" : "",
-        callStatus === 'held' ? "border-yellow-500/30 bg-yellow-500/5 dark:bg-yellow-950/5" : ""
-      )}>
+    <div
+      className={cn(
+        "rounded-xl transition-all duration-300",
+        callStatus === "incoming"
+          ? "p-[2px] from-white via-white to-white animate-pulse shadow-[0_0_15px_rgba(255,255,255,0.4)]"
+          : "",
+      )}
+    >
+      {/* <button onClick={() => handleRedial("+919606751041")}>Redial</button> */}
+      <Card
+        className={cn(
+          "transition-all duration-300 overflow-hidden",
+          callStatus === "incoming" ? "border-2 border-white" : "",
+          callStatus === "connected" ? "border-green-500/30" : "",
+          callStatus === "held"
+            ? "border-yellow-500/30 bg-yellow-500/5 dark:bg-yellow-950/5"
+            : "",
+        )}
+      >
         <CardHeader className="px-4 border-b-0">
           <CardTitle className="flex items-center justify-between gap-2 text-base">
             <div className="flex items-center gap-2">
-              <div className={cn(
-                "p-1 rounded-lg transition-colors",
-                callStatus === 'incoming' ? "bg-amber-100 dark:bg-amber-950/40" :
-                  callStatus === 'connected' ? "bg-emerald-100 dark:bg-emerald-950/40" :
-                    callStatus === 'held' ? "bg-yellow-100 dark:bg-yellow-950/40" : "bg-zinc-100 dark:bg-zinc-800"
-              )}>
-                <Phone className={cn(
-                  "h-3.5 w-3.5 transition-colors",
-                  callStatus === 'incoming' ? "text-amber-600 dark:text-amber-400" :
-                    callStatus === 'connected' ? "text-emerald-600 dark:text-emerald-400" :
-                      callStatus === 'held' ? "text-yellow-600 dark:text-yellow-400" : "text-zinc-500 dark:text-zinc-400"
-                )} />
+              <div
+                className={cn(
+                  "p-1 rounded-lg transition-colors",
+                  callStatus === "incoming"
+                    ? "bg-amber-100 dark:bg-amber-950/40"
+                    : callStatus === "connected"
+                      ? "bg-emerald-100 dark:bg-emerald-950/40"
+                      : callStatus === "held"
+                        ? "bg-yellow-100 dark:bg-yellow-950/40"
+                        : "bg-zinc-100 dark:bg-zinc-800",
+                )}
+              >
+                <Phone
+                  className={cn(
+                    "h-3.5 w-3.5 transition-colors",
+                    callStatus === "incoming"
+                      ? "text-amber-600 dark:text-amber-400"
+                      : callStatus === "connected"
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : callStatus === "held"
+                          ? "text-yellow-600 dark:text-yellow-400"
+                          : "text-zinc-500 dark:text-zinc-400",
+                  )}
+                />
               </div>
               <span className="text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-                {callStatus === 'incoming' ? "Incoming Call" :
-                  callStatus === 'connected' ? "Active Call" :
-                    callStatus === 'held' ? "Call On Hold" :
-                      callStatus === 'ended' ? "Call Concluded" : "Telephony Panel"}
+                {callStatus === "incoming"
+                  ? "Incoming Call"
+                  : callStatus === "connected"
+                    ? "Active Call"
+                    : callStatus === "held"
+                      ? "Call On Hold"
+                      : callStatus === "ended"
+                        ? "Call Concluded"
+                        : "Telephony Panel"}
               </span>
             </div>
             <Badge
               className={cn(
                 "text-[10px] font-bold px-2 py-0.5 rounded-full border transition-all uppercase tracking-wider",
-                callStatus === 'connected' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" :
-                  callStatus === 'incoming' ? "bg-amber-500/10 text-amber-500 border-amber-500/20 animate-pulse" :
-                    callStatus === 'held' ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/20" :
-                      callStatus === 'ended' ? "bg-zinc-500/10 text-zinc-500 border-zinc-500/20" :
-                        "bg-zinc-500/10 text-zinc-400 border-zinc-500/10"
+                callStatus === "connected"
+                  ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                  : callStatus === "incoming"
+                    ? "bg-amber-500/10 text-amber-500 border-amber-500/20 animate-pulse"
+                    : callStatus === "held"
+                      ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/20"
+                      : callStatus === "ended"
+                        ? "bg-zinc-500/10 text-zinc-500 border-zinc-500/20"
+                        : "bg-zinc-500/10 text-zinc-400 border-zinc-500/10",
               )}
             >
               {callStatus}
@@ -530,45 +607,66 @@ export const IncomingCallBox = ({
               <span className="text-sm font-medium">Admin access only</span>
             </div>
           </CardContent>
-        ) : ((callStatus === 'idle' || callStatus === 'ended') && !incomingCall) ? (
+        ) : (callStatus === "idle" || callStatus === "ended") &&
+          !incomingCall ? (
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Phone className="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
-              <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">No active calls</span>
+              <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                No active calls
+              </span>
             </div>
           </CardContent>
         ) : (
           <CardContent className="p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
-
               {/* Left Column: Call Info and Controls */}
               <div className="flex flex-col justify-between space-y-4 bg-zinc-50/50 dark:bg-zinc-900/40 p-4 rounded-xl border border-zinc-200/40 dark:border-zinc-800/40">
                 {/* Caller Identity Detail */}
                 <div className="flex items-center gap-3">
-                  <div className={cn(
-                    "p-3 rounded-full shrink-0 flex items-center justify-center shadow-inner transition-colors",
-                    callStatus === 'incoming' ? "bg-amber-500/10 text-amber-500 dark:bg-amber-500/20" :
-                      callStatus === 'connected' ? "bg-emerald-500/10 text-emerald-500 dark:bg-emerald-500/20" :
-                        callStatus === 'held' ? "bg-yellow-500/10 text-yellow-500 dark:bg-yellow-500/20" :
-                          "bg-zinc-500/10 text-zinc-500 dark:bg-zinc-500/20"
-                  )}>
-                    <Phone className={cn(
-                      "h-5 w-5",
-                      callStatus === 'incoming' && "animate-bounce"
-                    )} />
+                  <div
+                    className={cn(
+                      "p-3 rounded-full shrink-0 flex items-center justify-center shadow-inner transition-colors",
+                      callStatus === "incoming"
+                        ? "bg-amber-500/10 text-amber-500 dark:bg-amber-500/20"
+                        : callStatus === "connected"
+                          ? "bg-emerald-500/10 text-emerald-500 dark:bg-emerald-500/20"
+                          : callStatus === "held"
+                            ? "bg-yellow-500/10 text-yellow-500 dark:bg-yellow-500/20"
+                            : "bg-zinc-500/10 text-zinc-500 dark:bg-zinc-500/20",
+                    )}
+                  >
+                    <Phone
+                      className={cn(
+                        "h-5 w-5",
+                        callStatus === "incoming" && "animate-bounce",
+                      )}
+                    />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-                      {callStatus === 'incoming' ? 'Incoming Call From' :
-                        callStatus === 'connected' ? 'Connected Call' :
-                          callStatus === 'held' ? 'Call On Hold' : 'Call Status'}
+                      {callStatus === "incoming"
+                        ? "Incoming Call From"
+                        : callStatus === "connected"
+                          ? "Connected Call"
+                          : callStatus === "held"
+                            ? "Call On Hold"
+                            : "Call Status"}
                     </p>
                     <p className="text-lg font-bold text-zinc-900 dark:text-zinc-100 tracking-tight truncate font-mono">
-                      {incomingCall?.number || 'Unknown Caller'}
+                      {incomingCall?.number || "Unknown Caller"}
                     </p>
                     {incomingCall && (
                       <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
-                        Started: {new Date(incomingCall.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        Started:{" "}
+                        {new Date(incomingCall.timestamp).toLocaleTimeString(
+                          [],
+                          {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            second: "2-digit",
+                          },
+                        )}
                       </p>
                     )}
                   </div>
@@ -579,7 +677,7 @@ export const IncomingCallBox = ({
 
                 {/* Call Controls Group */}
                 <div className="flex flex-wrap gap-2 items-center">
-                  {callStatus === 'incoming' && (
+                  {callStatus === "incoming" && (
                     <div className="flex gap-2 w-full">
                       <Button
                         onClick={handleAnswer}
@@ -601,7 +699,7 @@ export const IncomingCallBox = ({
                     </div>
                   )}
 
-                  {(callStatus === 'connected' || callStatus === 'held') && (
+                  {(callStatus === "connected" || callStatus === "held") && (
                     <div className="grid grid-cols-2 gap-2 w-full">
                       <Button
                         onClick={handleHangup}
@@ -621,7 +719,7 @@ export const IncomingCallBox = ({
                           "flex items-center justify-center gap-1.5 h-8.5 rounded-lg text-xs font-medium transition-all",
                           isRecording
                             ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 dark:bg-red-500/20 border-red-500/30 animate-pulse font-semibold"
-                            : "bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400 dark:bg-emerald-500/20 border-emerald-500/30 border"
+                            : "bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400 dark:bg-emerald-500/20 border-emerald-500/30 border",
                         )}
                       >
                         {isRecording ? (
@@ -643,7 +741,7 @@ export const IncomingCallBox = ({
                         variant="outline"
                         className="flex items-center justify-center gap-1.5 h-8.5 rounded-lg text-xs font-medium border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900/50"
                       >
-                        {callStatus === 'held' ? (
+                        {callStatus === "held" ? (
                           <>
                             <Play className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500" />
                             <span>Resume</span>
@@ -662,7 +760,8 @@ export const IncomingCallBox = ({
                         variant={isMuted ? "destructive" : "outline"}
                         className={cn(
                           "col-span-2 flex items-center justify-center gap-1.5 h-8.5 rounded-lg text-xs font-medium border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900/50",
-                          isMuted && "bg-orange-500/10 text-orange-500 hover:bg-orange-500/20 dark:bg-orange-500/20 border-orange-500/30 font-semibold"
+                          isMuted &&
+                            "bg-orange-500/10 text-orange-500 hover:bg-orange-500/20 dark:bg-orange-500/20 border-orange-500/30 font-semibold",
                         )}
                       >
                         {isMuted ? (
@@ -685,10 +784,12 @@ export const IncomingCallBox = ({
               {/* Right Column: Farmer Details */}
               <div className="flex flex-col justify-start">
                 {incomingCall && (
-                  <FarmerDetails phoneNo={incomingCall.number} className="h-full border border-zinc-200/40 dark:border-zinc-800/40 bg-zinc-50/20 dark:bg-zinc-900/10" />
+                  <FarmerDetails
+                    phoneNo={incomingCall.number}
+                    className="h-full border border-zinc-200/40 dark:border-zinc-800/40 bg-zinc-50/20 dark:bg-zinc-900/10"
+                  />
                 )}
               </div>
-
             </div>
           </CardContent>
         )}
