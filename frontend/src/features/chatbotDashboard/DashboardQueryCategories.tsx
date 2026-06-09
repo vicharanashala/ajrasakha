@@ -1,8 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import { ScrollArea } from "@/components/atoms/scroll-area";
-import { InfoIcon } from "lucide-react";
+import { InfoIcon, RefreshCw } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { QueryCategoryQuestionsModal } from "./components/QueryCategoryQuestionsModal";
+import { useQueryClient } from "@tanstack/react-query";
+import { LazySectionSkeleton } from "./AnnamDashboard_dev";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -111,6 +113,13 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
     const activeCategories = categories && categories.length > 0 ? categories : DEFAULT_CATEGORIES;
     const totals = activeCategories.map((c) => c.questionCount + c.duplicateQuestionCount);
     const maxTotal = Math.max(...totals, 1);
+    const queryClient = useQueryClient();
+    const [loading, setLoading] = useState(false);
+    const handleRefresh = async ()=>{
+      setLoading(true);
+      await queryClient.refetchQueries({ queryKey: ["query-categories"] });
+      setLoading(false);
+    }
 
     return (
       <div
@@ -132,6 +141,17 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
                   List of top domains/categories that chatbot users are asking questions about, showing unique vs duplicate counts.
                 </TooltipContent>
               </Tooltip>
+            <button
+              onClick={handleRefresh}
+              className="absolute top-3 right-6 z-20 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
+              title="Refresh"
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 bg-background ${
+                  loading ? "animate-spin" : ""
+                }`}
+              />
+            </button>
             </div>
             <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
               Dynamic Agriculture Domains (Top 15)
@@ -140,6 +160,11 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
         </div>
 
         {/* Progress bars — scrollable */}
+        {loading ? (
+          <div>
+            <LazySectionSkeleton/>
+          </div>
+        ):(
         <ScrollArea className="flex-1 max-h-[300px] pr-1">
           {activeCategories.map((q, index) => {
             const total = q.questionCount + q.duplicateQuestionCount;
@@ -159,12 +184,13 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
               />
             );
           })}
-        </ScrollArea>
+        </ScrollArea>)}
         {selectedCategory && (
           <QueryCategoryQuestionsModal
             category={selectedCategory.label}
             source={source}
             userType={userType}
+            isQueryCategory = {true}
             onClose={() => setSelectedCategory(null)}
           />
         )}

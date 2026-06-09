@@ -15,8 +15,6 @@ from ajrasakha.agents.domains import (
 )
 from ajrasakha.agents.location_context import (
     extract_state_from_text,
-    gps_state_from_location,
-    has_gps_coordinates,
     latest_human_text,
     recent_human_text,
 )
@@ -99,21 +97,61 @@ def conversation_text_from_messages(messages: list[BaseMessage], *, max_turns: i
     return "\n".join(lines)
 
 
-# def format_conversation_for_planner(messages: list[BaseMessage]) -> str:
-#     """Latest farmer message only — domain must not bleed from older thread topics."""
-#     return latest_human_text(messages)
+def format_prev_plan_context(prev_plan: PlannerPlan) -> str:
+    """Context from the prior incomplete turn (rephrased query + resolved entities)."""
+    if not prev_plan or prev_plan.get("is_complete", True):
+        return ""
 
-def format_conversation_for_planner(messages: list[BaseMessage]) -> str:
-    """Last 4 conversation turns (both farmer + bot) for planner context."""
+    lines = [
+        "PRIOR TURN CONTEXT (incomplete — merge with current farmer reply in rephrased_query):",
+    ]
+    rephrased = (prev_plan.get("rephrased_query") or "").strip()
+    if rephrased:
+        lines.append(f"- previous_rephrased_query: {rephrased}")
+    original = (prev_plan.get("original_query_en") or "").strip()
+    if original and original != rephrased:
+        lines.append(f"- previous_original_query_en: {original}")
+
+    entities = prev_plan.get("entities") or {}
+    chemicals = entities.get("chemicals") or []
+    if chemicals:
+        lines.append(f"- resolved_chemicals (canonical): {', '.join(chemicals)}")
+    crop = entities.get("crop")
+    if crop and not is_crop_placeholder(crop):
+        lines.append(f"- resolved_crop: {crop}")
+    state = entities.get("state")
+    if state:
+        lines.append(f"- resolved_state: {state}")
+    district = entities.get("district")
+    if district:
+        lines.append(f"- resolved_district: {district}")
+
+    domain = prev_plan.get("domain")
+    if domain:
+        lines.append(f"- domain: {domain}")
+
+    missing = prev_plan.get("missing_info") or []
+    if missing:
+        lines.append(f"- still_missing: {', '.join(missing)}")
+
+    return "\n".join(lines) + "\n"
+
+
+def format_conversation_for_planner(
+    messages: list[BaseMessage],
+    *,
+    max_farmer_messages: int = 4,
+) -> str:
+    """Recent farmer lines only — bot replies are omitted so long answers do not
+    push earlier farmer messages out of the planner window."""
     lines: list[str] = []
     for msg in messages:
-        if isinstance(msg, (HumanMessage, AIMessage)):
+        if isinstance(msg, HumanMessage):
             text = _message_to_text(msg)
             if text:
-                role = "Farmer" if isinstance(msg, HumanMessage) else "Bot"
-                lines.append(f"{role}: {text}")
-    if len(lines) > 4:
-        lines = lines[-4:]
+                lines.append(f"Farmer: {text}")
+    if len(lines) > max_farmer_messages:
+        lines = lines[-max_farmer_messages:]
     return "\n".join(lines) if lines else latest_human_text(messages)
 
 
@@ -202,21 +240,14 @@ def merge_entities_from_rephrased_query(
     location: Optional[Location],
     prev_entities: Optional[PlannerEntities] = None,
 ) -> PlannerEntities:
-    """Resolve state/crop/district with strict priority: current query -> history -> GPS.
+    """Resolve state/crop/district from farmer text and planner LLM entities only (no GPS).
 
-    District ONLY from: LLM entities (via plan) OR GPS.
-    State from: LLM entities OR prev_entities OR current query text OR history OR GPS.
-    
-    Previous entities are used as fallback when current query does not mention location.
-    
-    Priority:
-    1. District: From LLM entities OR GPS (last resort)
-    2. State: From LLM entities OR prev_entities OR current query text OR history (last 4 turns) OR GPS
+    State/district never come from device coordinates — only from rephrased query text,
+    LLM entity fields, or ``prev_entities`` during an incomplete clarification turn.
     """
     # Start with previous entities, override with new plan entities
     merged: PlannerEntities = {**(prev_entities or {}), **dict(plan.get("entities") or {})}
     text = entity_text_from_plan(plan, messages)
-    has_gps = has_gps_coordinates(location)
 
     # --- Crop Resolution ---
     if is_crop_clarify_turn(messages):
@@ -229,54 +260,66 @@ def merge_entities_from_rephrased_query(
         c = str(merged["crop"])
         merged["crop"] = c[0].upper() + c[1:].lower()
 
-    # --- State/District Resolution (STRICT PRIORITY) ---
-    gps_state = gps_state_from_location(location)
-    gps_city = str(location["city"]) if location and location.get("city") else None
-
+    # --- State/District Resolution (farmer text + LLM entities + clarify carry-over) ---
     state_from_text = extract_state_from_text(text)
     llm_state = plan.get("entities", {}).get("state")
     llm_district = plan.get("entities", {}).get("district")
-    
+
     extracted_state = state_from_text or llm_state
     extracted_district = llm_district
 
     if extracted_state and extracted_district:
-        # Both extracted from query
         merged["state"] = extracted_state
         merged["district"] = extracted_district
     elif extracted_district and not extracted_state:
-        # Only district extracted. Unset state so it can be resolved via geocoding later.
         merged["district"] = extracted_district
         merged.pop("state", None)
     elif extracted_state and not extracted_district:
-        # Only state is given
-        if gps_state and extracted_state.strip().lower() == gps_state.strip().lower():
-            # State matches user's home state -> use user's home state and district
-            merged["state"] = gps_state
-            if gps_city:
-                merged["district"] = gps_city
-            else:
-                merged["district"] = "all"
+        merged["state"] = extracted_state
+        merged["district"] = "all"
+    elif prev_entities and prev_entities.get("state"):
+        merged["state"] = prev_entities.get("state")
+        if prev_entities.get("district"):
+            merged["district"] = prev_entities["district"]
         else:
-            # Doesn't match home state -> take state mentioned, district is "all"
-            merged["state"] = extracted_state
-            merged["district"] = "all"
+            merged.pop("district", None)
     else:
-        # Neither extracted. Fallback to Home GPS.
-        if gps_state:
-            merged["state"] = gps_state
-            if gps_city:
-                merged["district"] = gps_city
-            else:
-                merged["district"] = "all"
-        elif prev_entities and prev_entities.get("state"):
-            merged["state"] = prev_entities.get("state")
-            merged.pop("district", None)
-        else:
-            merged.pop("state", None)
-            merged.pop("district", None)
+        merged.pop("state", None)
+        merged.pop("district", None)
+
+    chems = merged.get("chemicals")
+    if chems:
+        merged["chemicals"] = canonicalize_chemical_names(list(chems))
+    elif prev_entities and prev_entities.get("chemicals"):
+        merged["chemicals"] = canonicalize_chemical_names(list(prev_entities["chemicals"]))
 
     return merged
+
+
+def canonicalize_chemical_names(names: list[str]) -> list[str]:
+    """Map farmer/alias chemical tokens to crop_master canonical names when possible."""
+    from ajrasakha.agents.crop_chemical_resolver import (
+        ensure_crop_master_loaded,
+        find_crop_fuzzy_matches,
+    )
+
+    ensure_crop_master_loaded()
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw in names:
+        token = (raw or "").strip()
+        if not token:
+            continue
+        hits = find_crop_fuzzy_matches(token, limit=1)
+        if hits and hits[0].entry.type == "chemical":
+            canonical = hits[0].entry.name
+        else:
+            canonical = token
+        key = canonical.casefold()
+        if key not in seen:
+            seen.add(key)
+            out.append(canonical)
+    return out
 
 
 def _extract_state_from_history(
@@ -342,8 +385,9 @@ def _location_status(
     loc = location or {}
     lat, lon = loc.get("latitude"), loc.get("longitude")
     has_gps = lat is not None and lon is not None
-    has_state = bool(entities.get("state") or (has_gps and loc.get("state")))
-    has_district = bool(entities.get("district") or (has_gps and loc.get("city")))
+    # Completeness uses entities only; device GPS / reverse-geocode on thread does not count.
+    has_state = bool(entities.get("state"))
+    has_district = bool(entities.get("district"))
     return has_state, has_district, has_gps
 
 
@@ -366,9 +410,8 @@ def _finalize_location_and_crop_completeness(
     entities: PlannerEntities,
     domains: list[str],
     has_state: bool,
-    has_gps: bool,
 ) -> PlannerPlan:
-    """Single completeness pass: state (or GPS) required; district defaults to all."""
+    """Single completeness pass: state in entities required; district defaults to all."""
     script, vocal = language_pair_from_plan(out)
     crop = entities.get("crop")
     canonical_domains = [normalize_domain(d) for d in (domains or [])] or ["General"]
@@ -377,7 +420,7 @@ def _finalize_location_and_crop_completeness(
         and not crop_slot_satisfied(crop)
     )
 
-    if not has_state and not has_gps:
+    if not has_state:
         out["is_complete"] = False
         out["missing_info"] = ["location"]
         out["follow_up_question"] = get_state_follow_up(script, vocal)
@@ -416,7 +459,7 @@ def apply_planner_completeness_rules(
     entities = apply_crop_one_shot_fallback(messages, entities, domains_for_crop)
     out["entities"] = entities
 
-    has_state, _, has_gps = _location_status(entities, location)
+    has_state, _, _has_gps = _location_status(entities, location)
     domain = normalize_domain(out.get("domain") or "General")
     domains = list(out.get("domains") or [domain])
 
@@ -447,10 +490,23 @@ def apply_planner_completeness_rules(
         entities=entities,
         domains=domains,
         has_state=has_state,
-        has_gps=has_gps,
     )
 
     out["reasoning"] = (out.get("reasoning") or "") + f"; domain={domain}"
     return out
 
-    
+
+def apply_non_agriculture_gate(plan: PlannerPlan) -> PlannerPlan:
+    """Non-ag path: force complete, disable all specialist tool flags."""
+    out: PlannerPlan = {**plan}
+    out["is_agriculture_related"] = False
+    out["is_complete"] = True
+    out["missing_info"] = []
+    out["follow_up_question"] = None
+    out["weather"] = False
+    out["mandi"] = False
+    out["soil"] = False
+    out["schemes"] = False
+    out["chemical_checker"] = False
+    out["knowledge_base"] = False
+    return out

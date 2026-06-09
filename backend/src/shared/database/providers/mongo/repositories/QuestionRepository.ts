@@ -451,14 +451,14 @@ export class QuestionRepository implements IQuestionRepository {
       caseInsensitiveStringFilter('source', source);
       caseInsensitiveStringFilter('priority', priority);
 
-      // --- Non-Agri tab filter ---
+      // --- Non-Agri / Dynamic tab filter ---
       // When on Non-Agri tab → only show non_agri questions.
-      // On any OTHER tab (and no explicit status filter) → exclude non_agri questions
-      // so they don't leak into AJRASAKHA / WhatsApp / Outreach / Manual tabs.
+      // On any OTHER tab (and no explicit status filter) → exclude non_agri and dynamic.
+      // Dynamic tab sends status=dynamic via caseInsensitiveStringFilter above.
       if (is_non_agri === 'true' || is_non_agri === true) {
         filter.status = 'non_agri';
       } else if (filter.status === undefined) {
-        filter.status = {$ne: 'non_agri'};
+        filter.status = {$nin: ['non_agri', 'dynamic']};
       }
       // --- State filter (from body array) ---
       if (body?.states && body.states.length > 0) {
@@ -1445,6 +1445,13 @@ export class QuestionRepository implements IQuestionRepository {
           },
         },
       ]).toArray();
+      const reviewLevelByQuestionId = new Map(
+        submissions.map((sub: any) => {
+          const historyCount = sub?.historyCount ?? 0;
+          const reviewLevelNumber = historyCount <= 1 ? 'Author' : historyCount - 1;
+          return [sub?.questionId?.toString(), reviewLevelNumber];
+        }),
+      );
 
       const questionIdsToAttempt = submissions.map(
         sub => new ObjectId(sub?.questionId),
@@ -1525,8 +1532,10 @@ export class QuestionRepository implements IQuestionRepository {
         pipeline,
         {session},
       ).toArray();
-
-      return results;
+      return results.map((q: any) => ({
+        ...q,
+        review_level_number: reviewLevelByQuestionId.get(q.id) ?? 'Author',
+      }));
     } catch (error) {
       throw new InternalServerError(
         `Failed to fetch unanswered questions: ${error}`,
@@ -5446,11 +5455,11 @@ export class QuestionRepository implements IQuestionRepository {
       filter.$or = [{pae_review: {$eq: false}}, {pae_review: {$exists: false}}];
     }
 
-    // Apply is_non_agri filter exactly matching findDetailedQuestions logic
+    // Apply is_non_agri / dynamic filter exactly matching findDetailedQuestions logic
     if (query.is_non_agri === 'true' || query.is_non_agri === true) {
-      filter.status = 'non_agri';
+     // filter.status = 'non_agri';
     } else if (filter.status === undefined) {
-      filter.status = {$ne: 'non_agri'};
+     // filter.status = {$nin: ['non_agri', 'dynamic']};
     }
 
     // Apply isOnHold filter exactly matching findDetailedQuestions logic

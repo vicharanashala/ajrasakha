@@ -88,14 +88,14 @@ def test_route_after_execute_empty_when_weather_planned_but_no_tool_content():
     assert route_after_execute(state) == "empty_gdb_reply"
 
 
-def test_route_after_execute_synthesize_when_weather_has_content():
-    """Empty GDB + non-empty weather tool → synthesize (not expert-queue)."""
+def test_route_after_execute_assemble_when_weather_has_content():
+    """Empty GDB + non-empty weather tool → assemble_answer_body (not expert-queue)."""
     state = _state_after_sanitizer_filter()
     state["plan"] = {**state["plan"], "weather": True}
     state["messages"].append(
         ToolMessage(content="Rain expected tomorrow", tool_call_id="w1", name="weather")
     )
-    assert route_after_execute(state) == "synthesize"
+    assert route_after_execute(state) == "assemble_answer_body"
 
 
 async def test_empty_gdb_reply_sets_translate_path():

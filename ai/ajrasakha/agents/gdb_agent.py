@@ -11,6 +11,7 @@ from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 
 from ajrasakha.agents.config import GOLDEN_API_URL
+from ajrasakha.agents.thread_trace import trace_event
 
 load_dotenv()
 
@@ -230,6 +231,20 @@ async def gdb(
 
         normalized = _normalize_gdb_response(
             raw_data, resolved_rephrased, resolved_crop, resolved_state
+        )
+        chosen = normalized.get("exact_match") or {}
+        audit = normalized.get("classification_audit") or {}
+        trace_event(
+            "gdb_result",
+            is_exact=normalized.get("is_exact"),
+            is_similar=normalized.get("is_similar"),
+            audit_status=audit.get("status"),
+            chosen_question=(chosen.get("question") or "")[:500],
+            chosen_answer_preview=(chosen.get("answer") or "")[:800],
+            similarity_score=chosen.get("similarity_score"),
+            gemma_class=chosen.get("gemma_class"),
+            answer_from_class=chosen.get("answer_from_class"),
+            classification_audit=audit,
         )
         logger.info(
             "GDB response: is_exact=%s is_similar=%s audit_status=%s",

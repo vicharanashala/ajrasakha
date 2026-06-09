@@ -5,6 +5,7 @@ const chatbotService = new ChatbotService();
 
 export const useUserGrowth = (
   source: string,
+  userType: string,
   startDate?: Date,
   endDate?: Date,
   enabled: boolean = true
@@ -15,13 +16,13 @@ export const useUserGrowth = (
     : undefined;
 
   return useQuery({
-    queryKey: ["user_growth", startISO, endISO],
+    queryKey: ["user_growth", source, userType, startISO, endISO],
     queryFn: () => {
       if (startISO && endISO) {
-        return chatbotService.getUserGrowthByDateRange(source, startISO, endISO);
+        return chatbotService.getUserGrowthByDateRange(source, userType, startISO, endISO);
       }
 
-      return chatbotService.getUserGrowth(source, 3650);
+      return chatbotService.getUserGrowth(source, userType, 3650);
     },
     enabled,
   });

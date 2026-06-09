@@ -28,10 +28,12 @@ import { INotificationRepository } from '#root/shared/database/interfaces/INotif
 import { notifyUser } from '#root/utils/pushNotification.js';
 import { IReviewRepository } from '#root/shared/database/interfaces/IReviewRepository.js';
 import { appConfig } from '#root/config/app.js';
+import { aiConfig } from '#root/config/ai.js';
 import { IReRouteRepository } from '#root/shared/database/interfaces/IReRouteRepository.js';
 import { AiService } from '#root/modules/ai/services/AiService.js';
 import { CORE_TYPES, NotificationService } from '#root/modules/core/index.js';
 import {
+  FetchAiInitialAnswerBody,
   ReviewAnswerBody,
   SubmissionResponse,
   UpdateAnswerBody,
@@ -162,6 +164,37 @@ export class AnswerService extends BaseService implements IAnswerService {
     );
   }
 
+  async fetchAiInitialAnswer(body: FetchAiInitialAnswerBody): Promise<any> {
+    try {
+      const response = await fetch(aiConfig.aiInitialAnswerGenerateUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      const responseText = await response.text();
+      let data: any;
+      try {
+        data = responseText ? JSON.parse(responseText) : null;
+      } catch {
+        data = responseText;
+      }
+
+      if (!response.ok) {
+        throw new InternalServerError(
+          `AI answer service failed with status ${response.status}: ${typeof data === 'string' ? data : JSON.stringify(data)}`,
+        );
+      }
+      return data;
+    } catch (error) {
+      if (error instanceof InternalServerError) throw error;
+      console.error('Error in fetchAiInitialAnswer:', error);
+      throw new InternalServerError('Failed to fetch AI initial answer');
+    }
+  }
+ 
   private async notifyModeratorsAndAdminsForApproval(
     questionId: string,
     questionText: string | undefined,

@@ -1,5 +1,9 @@
 import {injectable, inject} from 'inversify';
-import {InternalServerError, BadRequestError, NotFoundError} from 'routing-controllers';
+import {
+  InternalServerError,
+  BadRequestError,
+  NotFoundError,
+} from 'routing-controllers';
 import {CHATBOT_TYPES} from '../types.js';
 import type {
   IChatbotService,
@@ -16,6 +20,9 @@ import type {
   KccAndAgriAppStats,
   FeedbackData,
   ResponseAdherenceTable,
+  FarmerHeatMapFilters,
+  FarmerHeatMapResponse,
+  QueryCategoryQuestionType,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import ExcelJS from 'exceljs';
 import {GrowthResponse} from '../types/chatbot.type.js';
@@ -35,7 +42,7 @@ import {appConfig} from '#root/config/app.js';
 import axios from 'axios';
 import {WHATSAPP_TYPES} from '#root/modules/whatsapp/types.js';
 import {IWhatsAppService} from '#root/modules/whatsapp/interfaces/IWhatsAppService.js';
-import { triggerWebhook } from '#root/modules/answer/utils/triggerWebhook.js';
+import {triggerWebhook} from '#root/modules/answer/utils/triggerWebhook.js';
 
 @injectable()
 export class ChatbotService extends BaseService implements IChatbotService {
@@ -123,7 +130,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         widths: [260, 220],
       },
 
-      "District Analytics": {
+      'District Analytics': {
         headers: ['District', 'Unique Count', 'Duplicate Count', 'Total'],
         fields: [
           'district',
@@ -176,8 +183,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
     const config = tableConfigs[title];
 
     if (!config) return;
-
-    
 
     const startX = 50;
     let currentY = doc.y;
@@ -343,7 +348,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getDashboard(
     days = 30,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
     startTime?: string,
     endTime?: string,
@@ -373,8 +378,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
         // domainSpikes,
         // feedbackData,
         // dailyQuestionTrends,
-  // topFaqs,
-  // topQuestionsFromCollection,
+        // topFaqs,
+        // topQuestionsFromCollection,
         // responseAdherenceTable,
         dailySummary,
         weeklySummary,
@@ -393,10 +398,10 @@ export class ChatbotService extends BaseService implements IChatbotService {
           undefined,
           userType,
         ),
-//         this.chatbotRepository.getChannelSplit(source),
-//         this.chatbotRepository.getVoiceAccuracyByLanguage(source),
-//         this.chatbotRepository.getGeoDistribution(source),
-//         this.chatbotRepository.getQueryCategories(source, undefined, userType),
+        //         this.chatbotRepository.getChannelSplit(source),
+        //         this.chatbotRepository.getVoiceAccuracyByLanguage(source),
+        //         this.chatbotRepository.getGeoDistribution(source),
+        //         this.chatbotRepository.getQueryCategories(source, undefined, userType),
         this.chatbotRepository.getDailyAnalytics(
           currentMonth,
           source,
@@ -435,7 +440,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         //   userType,
         // ),
         // this.chatbotRepository.getPlatformInstalls(source, undefined, userType),
-//         this.chatbotRepository.getDomainSpikes(60),
+        //         this.chatbotRepository.getDomainSpikes(60),
         // this.chatbotRepository.getFeedbackData(source, undefined, userType),
         // this.chatbotRepository.getDailyQuestionTrends(
         //   days,
@@ -445,20 +450,20 @@ export class ChatbotService extends BaseService implements IChatbotService {
         //   startTime,
         //   endTime,
         // ),
-// this.chatbotRepository.getTopFaqs(
-//   source,
-//   undefined,
-//   userType,
-//   startTime,
-//   endTime,
-// ),
-// this.chatbotRepository.getTopQuestionsFromCollection(
-//   source,
-//   undefined,
-//   userType,
-//   startTime,
-//   endTime,
-// ),
+        // this.chatbotRepository.getTopFaqs(
+        //   source,
+        //   undefined,
+        //   userType,
+        //   startTime,
+        //   endTime,
+        // ),
+        // this.chatbotRepository.getTopQuestionsFromCollection(
+        //   source,
+        //   undefined,
+        //   userType,
+        //   startTime,
+        //   endTime,
+        // ),
         // this.chatbotRepository
         //   .getResponseAdherenceTable(
         //     undefined,
@@ -541,8 +546,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
         // domainSpikes,
         // feedbackData,
         // dailyQuestionTrends,
-// topFaqs,
-// topQuestionsFromCollection,
+        // topFaqs,
+        // topQuestionsFromCollection,
         // responseAdherenceTable,
         querySummaries: {
           daily: dailySummary,
@@ -555,7 +560,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getKpiSummary(source = 'vicharanashala', userType = 'all') {
+  async getKpiSummary(source = 'annam', userType = 'all') {
     try {
       return await this.chatbotRepository.getKpiSummary(
         source,
@@ -569,7 +574,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getDailyActiveUsers(
     days = 30,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
   ) {
     try {
@@ -586,7 +591,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getChannelSplit(source = 'vicharanashala') {
+  async getChannelSplit(source = 'annam') {
     try {
       return await this.chatbotRepository.getChannelSplit(source);
     } catch (error) {
@@ -594,7 +599,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getVoiceAccuracyByLanguage(source = 'vicharanashala') {
+  async getVoiceAccuracyByLanguage(source = 'annam') {
     try {
       return await this.chatbotRepository.getVoiceAccuracyByLanguage(source);
     } catch (error) {
@@ -602,7 +607,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getGeoDistribution(source = 'vicharanashala') {
+  async getGeoDistribution(source = 'annam') {
     try {
       return await this.chatbotRepository.getGeoDistribution(source);
     } catch (error) {
@@ -612,7 +617,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getQueryCategories(source = 'vicharanashala', userType = 'all') {
+  async getQueryCategories(source = 'annam', userType = 'all') {
     try {
       return await this.chatbotRepository.getQueryCategories(
         source,
@@ -631,8 +636,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
     questionType: 'all' | 'unique' | 'duplicate' = 'all',
     page = 1,
     limit = 10,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
+    search?: string,
   ) {
     try {
       return await this.chatbotRepository.getQueryCategoryQuestions(
@@ -643,6 +649,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         source,
         undefined,
         userType,
+        search,
       );
     } catch (error) {
       throw new InternalServerError(
@@ -653,7 +660,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getWeatherConcernAnalytics(
     filters: WeatherConcernAnalyticsFilters = {},
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
   ) {
     try {
@@ -670,8 +677,20 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
+  async getFarmerHeatMapAnalytics(
+    filters: FarmerHeatMapFilters = {},
+  ): Promise<FarmerHeatMapResponse> {
+    try {
+      return await this.chatbotRepository.getFarmerHeatMapAnalytics(filters);
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch farmer heat map analytics: ${error}`,
+      );
+    }
+  }
+
   async getDistrictAnalyticsByState(
-    source = 'vicharanashala',
+    source = 'annam',
     state: string,
     userType = 'all',
   ) {
@@ -689,15 +708,44 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getTopCrops(source?: string) {
+  async getQuestionFromDistrict(
+    district: string,
+    state: string,
+    questionType: 'all' | 'unique' | 'duplicate' = 'all',
+    page = 1,
+    limit = 10,
+    source = 'annam',
+    userType = 'all',
+    search?: string,
+  ): Promise<any> {
     try {
-      return await this.chatbotRepository.getTopCrops(source);
+      return await this.chatbotRepository.getQuestionFromDistrict(
+        district,
+        state,
+        questionType,
+        page,
+        limit,
+        source,
+        undefined,
+        userType,
+        search,
+      );
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch district questions: ${error}`,
+      );
+    }
+  }
+
+  async getTopCrops(source?: string, userType?: string) {
+    try {
+      return await this.chatbotRepository.getTopCrops(source, userType);
     } catch (error) {
       throw new InternalServerError(`Failed to fetch top crops: ${error}`);
     }
   }
 
-  async getWeeklyAvgSessionDuration(weeks = 52, source = 'vicharanashala') {
+  async getWeeklyAvgSessionDuration(weeks = 52, source = 'annam') {
     try {
       return await this.chatbotRepository.getWeeklyAvgSessionDuration(
         weeks,
@@ -712,7 +760,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getDailyAnalytics(
     month?: string,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
   ) {
     try {
@@ -729,7 +777,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getTodayQueryCount(source = 'vicharanashala', userType = 'all') {
+  async getTodayQueryCount(source = 'annam', userType = 'all') {
     try {
       return await this.chatbotRepository.getTodayQueryCount(
         source,
@@ -745,7 +793,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getDailyUserTrend(
     days = 30,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
   ) {
     try {
@@ -764,7 +812,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getWeeklyAnalytics(
     month?: string,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
   ) {
     try {
@@ -781,7 +829,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getMonthlyAnalytics(source = 'vicharanashala', userType = 'all') {
+  async getMonthlyAnalytics(source = 'annam', userType = 'all') {
     try {
       return await this.chatbotRepository.getMonthlyAnalytics(
         source,
@@ -806,7 +854,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       userType?: string;
     },
   ) {
-    const source = options.source ?? 'vicharanashala';
+    const source = options.source ?? 'annam';
     const userType = options.userType ?? 'all';
     const page = Math.max(1, options.page ?? 1);
     const limit = Math.max(1, options.limit ?? 10);
@@ -837,7 +885,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
       const total = rows.length;
       const totalPages = Math.max(1, Math.ceil(total / limit));
       const startIndex = (page - 1) * limit;
-
       return {
         data: rows.slice(startIndex, startIndex + limit),
         page,
@@ -858,18 +905,24 @@ export class ChatbotService extends BaseService implements IChatbotService {
     page = 1,
     limit = 10,
     search = '',
-    source = 'vicharanashala',
+    source = 'annam',
     crop = '',
+    primaryCrops = '',
+    secondaryCrops = '',
     village = '',
+    state = '',
+    district = '',
+    block = '',
     profileCompleted = 'all',
     inactiveOnly = false,
     lowFeedbackOnly = false,
     userType = 'all',
+    roles = '',
     sortBy = 'totalQuestions',
     sortOrder = 'desc',
     activeTodayByProfile = false,
     missingDemographicField?: string,
-    isVerified = true,
+    isVerified?: boolean,
   ): Promise<PaginatedUserDetails> {
     try {
       const start = startDate ? new Date(startDate) : undefined;
@@ -882,11 +935,17 @@ export class ChatbotService extends BaseService implements IChatbotService {
         search,
         source,
         crop,
+        primaryCrops,
+        secondaryCrops,
         village,
+        state,
+        district,
+        block,
         profileCompleted,
         inactiveOnly,
         undefined,
         userType,
+        roles,
         sortBy,
         sortOrder,
         lowFeedbackOnly,
@@ -902,7 +961,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getUserQuestionsData(
     userEmail: string,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
     page = 1,
     limit = 10,
@@ -970,9 +1029,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     };
   }
 
- 
-
-  async getAvgSessionDurationV2(source = 'vicharanashala', userType = 'all') {
+  async getAvgSessionDurationV2(source = 'annam', userType = 'all') {
     try {
       return await this.chatbotRepository.getAvgSessionDurationV2(
         source,
@@ -988,7 +1045,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getWeeklyAvgSessionDurationV2(
     weeks = 52,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
   ) {
     try {
@@ -1008,7 +1065,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
   // async generateChatbotExcelReport(
   //   startDate: Date,
   //   endDate: Date,
-  //   source = 'vicharanashala',
+  //   source = 'annam',
   // ): Promise<ArrayBuffer | null> {
   //   try {
   //     const rows = await this.chatbotRepository.generateChatbotExcelReport(
@@ -1490,7 +1547,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     startDate: Date,
     endDate: Date,
     state: string,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
     month?: string,
   ): Promise<ArrayBuffer | null> {
@@ -1899,7 +1956,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       ];
 
       analyticsSheet.addRow({
-        district: `${state === "All States"? "N/A": state}`,
+        district: `${state === 'All States' ? 'N/A' : state}`,
       });
 
       (reportData.districtAnalytics || []).forEach((item: any) => {
@@ -2028,7 +2085,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     startDate: Date,
     endDate: Date,
     state: string,
-    source = 'vicharanashala',
+    source = 'annam',
     userType = 'all',
     month?: string,
   ): Promise<Buffer> {
@@ -2214,6 +2271,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getGrowth(
     source: string,
+    userType: string,
     range: number,
     startDate?: Date,
     endDate?: Date,
@@ -2235,16 +2293,19 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
       const [idsData, installsData, activeUsersData] = await Promise.all([
         this.chatbotRepository.getIdsCreated(
+          userType,
           resolvedStartDate,
           resolvedEndDate,
           session,
         ),
         this.chatbotRepository.getInstalls(
+          userType,
           resolvedStartDate,
           resolvedEndDate,
           session,
         ),
         this.chatbotRepository.getActiveUsers(
+          userType,
           resolvedStartDate,
           resolvedEndDate,
           session,
@@ -2279,7 +2340,13 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getDailyQuestionTrends(days = 30, source?: string, userType = 'all', startTime?: string, endTime?: string) {
+  async getDailyQuestionTrends(
+    days = 30,
+    source?: string,
+    userType = 'all',
+    startTime?: string,
+    endTime?: string,
+  ) {
     try {
       return await this.chatbotRepository.getDailyQuestionTrends(
         days,
@@ -2296,7 +2363,12 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getTopFaqs(source = 'vicharanashala', userType = 'all', startTime?: string, endTime?: string) {
+  async getTopFaqs(
+    source = 'annam',
+    userType = 'all',
+    startTime?: string,
+    endTime?: string,
+  ) {
     try {
       return await this.chatbotRepository.getTopFaqs(
         source,
@@ -2359,6 +2431,25 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
+  async changeUserPassword(
+    userId: string,
+    source: string,
+    newPassword: string,
+  ): Promise<boolean> {
+    try {
+      return await this.chatbotRepository.changeUserPassword(
+        userId,
+        source,
+        newPassword,
+      );
+    } catch (error) {
+      if (error instanceof BadRequestError || error instanceof NotFoundError) {
+        throw error;
+      }
+      throw new InternalServerError(`Failed to change user password: ${error}`);
+    }
+  }
+
   async addUser(
     source: string,
     data: {
@@ -2366,6 +2457,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       name: string;
       password: string;
       userRole?: string;
+      isVerified?: boolean;
     },
   ): Promise<boolean> {
     try {
@@ -2374,7 +2466,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
       if (error instanceof BadRequestError) {
         throw error;
       }
-      throw new InternalServerError(`Failed to add user: ${error.message || error}`);
+      throw new InternalServerError(
+        `Failed to add user: ${error.message || error}`,
+      );
     }
   }
 
@@ -2507,35 +2601,43 @@ export class ChatbotService extends BaseService implements IChatbotService {
     };
   }
 
-   async notifyUser(userEmail: string, messageId: string, message:string): Promise<any>{
-    const user = await this.chatbotRepository.getUserData(userEmail, "annam")
+  async notifyUser(
+    userEmail: string,
+    messageId: string,
+    message: string,
+  ): Promise<any> {
+    const user = await this.chatbotRepository.getUserData(userEmail, 'annam');
     console.log('User id for notification', user.userId);
     const webhookPayload = {
       customMessage: message,
       userId: user.userId.toString(),
       type: 'CUSTOM',
     };
-      const response = await triggerWebhook(
-        appConfig.WEB_WEBHOOK_API_URL,
-        appConfig.WEB_WEBHOOK_API_KEY,
-        webhookPayload,
-        'Browser',
+    const response = await triggerWebhook(
+      appConfig.WEB_WEBHOOK_API_URL,
+      appConfig.WEB_WEBHOOK_API_KEY,
+      webhookPayload,
+      'Browser',
+    );
+    if (!response?.ok || response.status < 200 || response.status >= 300) {
+      throw new InternalServerError(
+        `Webhook failed with status ${response?.status}, ${response.body ? `response: ${response.body}` : 'no response body'}`,
       );
-      if (!response?.ok || response.status < 200 || response.status >= 300) {
-        throw new InternalServerError(
-          `Webhook failed with status ${response?.status}, ${response.body ? `response: ${response.body}` : 'no response body'}`,
-        );
-      }
+    }
 
-      return {
-        success: true,
-        status: response.status,
-        message: response.body,
-      };
+    return {
+      success: true,
+      status: response.status,
+      message: response.body,
+    };
   }
 
-
-  async getClosedAndNotifedData(source?: string, startDateStr?: string, endDateStr?: string): Promise<any> {
+  async getClosedAndNotifedData(
+    source?: string,
+    userType?: string,
+    startDateStr?: string,
+    endDateStr?: string,
+  ): Promise<any> {
     const startDate = startDateStr ? new Date(startDateStr) : undefined;
     const endDate = endDateStr ? new Date(endDateStr) : undefined;
 
@@ -2545,38 +2647,61 @@ export class ChatbotService extends BaseService implements IChatbotService {
       closedInLastTwoHours,
       carryForward,
     ] = await Promise.all([
-      this.chatbotRepository.getClosedVsTotalQuestions(source, startDate, endDate),
-      this.chatbotRepository.getNotifiedVsClosed(source, startDate, endDate),
-      this.chatbotRepository.getClosedInLastTwoHours(source, startDate, endDate),
-      this.chatbotRepository.getCarryForwardQuestions(source),
+      this.chatbotRepository.getClosedVsTotalQuestions(
+        source,
+        userType,
+        startDate,
+        endDate,
+      ),
+      this.chatbotRepository.getNotifiedVsClosed(source, userType, startDate, endDate),
+      this.chatbotRepository.getClosedInLastTwoHours(
+        source,
+        userType,
+        startDate,
+        endDate,
+      ),
+      this.chatbotRepository.getCarryForwardQuestions(source, userType),
     ]);
 
     return {
       closedVsTotalQuestions,
       notifiedVsClosed,
       closedInLastTwoHours,
-      carryForward
+      carryForward,
     };
   }
 
-  async getMonthlyChurnRate(source: string, userType: string):Promise<any> {
+  async getMonthlyChurnRate(source: string, userType: string): Promise<any> {
     return await this.chatbotRepository.getMonthlyChurnRate(source, userType);
   }
 
   async getActiveUsersTrend(
-      source: string,
-      userType: string,
-      requestType: string,
-      startDate?: Date,
-      endDate?: Date,
-    ) : Promise<{
-  _id: string;
-  activeUsers: number;
-}[]> {
-      return await this.chatbotRepository.getActiveUsersTrend(source, userType, requestType, startDate, endDate);
+    source: string,
+    userType: string,
+    requestType: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<
+    {
+      _id: string;
+      activeUsers: number;
+    }[]
+  > {
+    return await this.chatbotRepository.getActiveUsersTrend(
+      source,
+      userType,
+      requestType,
+      startDate,
+      endDate,
+    );
   }
 
-  async getTopQuestionsFromCollection(source = 'vicharanashala', userType = 'all', startTime?: string, endTime?: string): Promise<any> {
+  async getTopQuestionsFromCollection(
+    source = 'annam',
+    userType = 'all',
+    startTime?: string,
+    endTime?: string,
+  ): Promise<any> {
     try {
       return await this.chatbotRepository.getTopQuestionsFromCollection(
         source,
@@ -2590,7 +2715,12 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async  getRepeatQueryCount(source?: string, userType?: string, startTime?: string, endTime?: string): Promise<any> {
+  async getRepeatQueryCount(
+    source?: string,
+    userType?: string,
+    startTime?: string,
+    endTime?: string,
+  ): Promise<any> {
     try {
       return await this.chatbotRepository.getRepeatQueryCount(
         source,
@@ -2599,26 +2729,44 @@ export class ChatbotService extends BaseService implements IChatbotService {
         endTime,
       );
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch repeat query count: ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch repeat query count: ${error}`,
+      );
     }
   }
 
-  async getUsersMetrics(source?: string, userType?: string): Promise<{ userDemographics: UserDemographics; platformInstalls: PlatformInstallEntry[]; kccAndAgriAppUsage: KccAndAgriAppStats; feedbackData: FeedbackData}>{
-    try{
-      const [userDemographics, platformInstalls, kccAndAgriAppUsage, feedbackData] = await Promise.all([
+  async getUsersMetrics(
+    source?: string,
+    userType?: string,
+  ): Promise<{
+    userDemographics: UserDemographics;
+    platformInstalls: PlatformInstallEntry[];
+    kccAndAgriAppUsage: KccAndAgriAppStats;
+    feedbackData: FeedbackData;
+  }> {
+    try {
+      const [
+        userDemographics,
+        platformInstalls,
+        kccAndAgriAppUsage,
+        feedbackData,
+      ] = await Promise.all([
         this.chatbotRepository.getUserDemographics(source, undefined, userType),
         this.chatbotRepository.getPlatformInstalls(source, undefined, userType),
-        this.chatbotRepository.getKccAndAgriAppStats(source, undefined, userType),
-        this.chatbotRepository.getFeedbackData(source, undefined, userType)
-      ])
+        this.chatbotRepository.getKccAndAgriAppStats(
+          source,
+          undefined,
+          userType,
+        ),
+        this.chatbotRepository.getFeedbackData(source, undefined, userType),
+      ]);
       return {
         userDemographics,
         platformInstalls,
         kccAndAgriAppUsage,
-        feedbackData
+        feedbackData,
       };
-
-    }catch(error){
+    } catch (error) {
       throw new InternalServerError(`Failed to fetch users metrics: ${error}`);
     }
   }
@@ -2627,7 +2775,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     page: number = 1,
     limit: number = 10,
     search: string = '',
-    source : string = 'vicharanashala',
+    source: string = 'annam',
   ): Promise<{
     users: UnverifiedUserEntry[];
     totalUsers: number;
@@ -2639,7 +2787,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         page,
         limit,
         search,
-        source
+        source,
       );
       return {
         users: data.users,
@@ -2647,14 +2795,13 @@ export class ChatbotService extends BaseService implements IChatbotService {
         totalPages: data.totalPages,
       };
     } catch (error) {
-      throw new InternalServerError(`Failed to fetch unverified users: ${error}`);
+      throw new InternalServerError(
+        `Failed to fetch unverified users: ${error}`,
+      );
     }
   }
 
-  async verifyUser(
-    userId: string,
-    source = 'vicharanashala',
-  ): Promise<any> {
+  async verifyUser(userId: string, source = 'vicharanashala',  isVerified?: boolean,  ): Promise<any> {
     try {
       if (!userId) {
         throw new NotFoundError('User ID is required');
@@ -2663,13 +2810,13 @@ export class ChatbotService extends BaseService implements IChatbotService {
       const updatedUser = await this.chatbotRepository.verifyUser(
         userId,
         source,
+        isVerified,
       );
 
       if (!updatedUser) {
         throw new NotFoundError(`User not found`);
       }
       return updatedUser;
-
     } catch (error) {
       throw new InternalServerError(
         `Failed to verify user with ID ${userId}: ${error}`,
@@ -2677,46 +2824,146 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getResponseAdherenceTable(source?:string, userType?: string, startTime?: string, endTime?: string): Promise<ResponseAdherenceTable> {
+  async getResponseAdherenceTable(
+    source?: string,
+    userType?: string,
+    startTime?: string,
+    endTime?: string,
+  ): Promise<ResponseAdherenceTable> {
     return this.chatbotRepository
-          .getResponseAdherenceTable(
-            undefined,
-            userType,
-            startTime,
-            endTime,
-            source,
-          )
-          .catch(() => ({
-            date: '',
-            time: '',
-            timeWindow: '',
-            whatsappQueriesAsked: 0,
-            ajrasakhaQueriesAsked: 0,
-            whatsappPushedToReviewer: 0,
-            ajrasakhaPushedToReviewer: 0,
-            whatsappAnsweredWithin120Min: 0,
-            ajrasakhaAnsweredWithin120Min: 0,
-            whatsappMarkedDuplicate: 0,
-            ajrasakhaMarkedDuplicate: 0,
-            whatsappDynamicWeather: 0,
-            ajrasakhaDynamicWeather: 0,
-            whatsappDynamicMarket: 0,
-            ajrasakhaDynamicMarket: 0,
-            whatsappDynamicSchemes: 0,
-            ajrasakhaDynamicSchemes: 0,
-            whatsappNonGdbWithin120: 0,
-            ajrasakhaNonGdbWithin120: 0,
-            whatsappInReview: 0,
-            ajrasakhaInReview: 0,
-            whatsappOpen: 0,
-            ajrasakhaOpen: 0,
-            whatsappDelayed: 0,
-            ajrasakhaDelayed: 0,
-            whatsappAverageResponseMinutes: 0,
-            ajrasakhaAverageResponseMinutes: 0,
-            whatsappAdherencePct: 0,
-            ajrasakhaAdherencePct: 0,
-          }));
+      .getResponseAdherenceTable(
+        undefined,
+        userType,
+        startTime,
+        endTime,
+        source,
+      )
+      .catch(() => ({
+        date: '',
+        time: '',
+        timeWindow: '',
+        whatsappQueriesAsked: 0,
+        ajrasakhaQueriesAsked: 0,
+        whatsappPushedToReviewer: 0,
+        ajrasakhaPushedToReviewer: 0,
+        whatsappAnsweredWithin120Min: 0,
+        ajrasakhaAnsweredWithin120Min: 0,
+        whatsappMarkedDuplicate: 0,
+        ajrasakhaMarkedDuplicate: 0,
+        whatsappDynamicWeather: 0,
+        ajrasakhaDynamicWeather: 0,
+        whatsappDynamicMarket: 0,
+        ajrasakhaDynamicMarket: 0,
+        whatsappDynamicSchemes: 0,
+        ajrasakhaDynamicSchemes: 0,
+        whatsappNonGdbWithin120: 0,
+        ajrasakhaNonGdbWithin120: 0,
+        whatsappInReview: 0,
+        ajrasakhaInReview: 0,
+        whatsappOpen: 0,
+        ajrasakhaOpen: 0,
+        whatsappDelayed: 0,
+        ajrasakhaDelayed: 0,
+        whatsappAverageResponseMinutes: 0,
+        ajrasakhaAverageResponseMinutes: 0,
+        whatsappAdherencePct: 0,
+        ajrasakhaAdherencePct: 0,
+      }));
   }
 
+  async getQuestionsByCrop(
+    crop: string,
+    crops?: string[],
+    questionType?: QueryCategoryQuestionType,
+    page?: number,
+    limit?: number,
+    source?: string,
+    userType?: string,
+    search?: string,
+  ): Promise<any> {
+    try {
+      return this.chatbotRepository.getQuestionsByCrop(
+        crop,
+        crops,
+        questionType,
+        page,
+        limit,
+        source,
+        undefined,
+        userType,
+        search,
+      );
+    } catch (error) {
+      throw new InternalServerError(`Internal server error ${error}`);
+    }
   }
+
+  async getQuestionsByStatus(
+    status: string,
+    page?: number,
+    limit?: number,
+    source?: string,
+    userType?: string,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<any> {
+    try {
+      return this.chatbotRepository.getQuestionsByStatus(
+        status,
+        page,
+        limit,
+        source,
+        undefined,
+        userType,
+        search,
+        startDate,
+        endDate,
+      );
+    } catch (error) {
+      throw new InternalServerError(`Internal server error ${error}`);
+    }
+  }
+
+  async getQuestionsClosedWithinTwoHours(page?: number, limit?: number, source?: string, userType?: string, search?: string, startDate?: Date, endDate?: Date): Promise<any> {
+    try {
+      return this.chatbotRepository.getQuestionsClosedWithinTwoHours(
+        page,
+        limit,
+        source,
+        undefined,
+        userType,
+        search,
+        startDate,
+        endDate
+      )
+    }catch(error){
+      throw new InternalServerError(`Internal server error ${error}`)
+    }
+  }
+  async getQuestionsByNotificationStatus(notificationType: string, page: number, limit: number, source: string, userType?: string, search?: string, startDate?: Date, endDate?: Date): Promise<any> {
+      try {
+      return this.chatbotRepository.getQuestionsByNotificationStatus(
+        notificationType,
+        page,
+        limit,
+        source,
+        undefined,
+        userType,
+        search,
+        startDate,
+        endDate
+      )
+    }catch(error){
+      throw new InternalServerError(`Internal server error ${error}`)
+    }
+  }
+
+  async getQueriesByPeriod(period: string, page: number, limit: number, source: string, userType?: string, search?: string): Promise<any> {
+    try{
+      return this.chatbotRepository.getQueriesByPeriod(period, page, limit, source, undefined, userType, search)
+    }catch(error){
+      throw new InternalServerError(`Internal Server Error ${error}`)
+    }
+  }
+}

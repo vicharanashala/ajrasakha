@@ -5,7 +5,7 @@ TEST_CASES = [
         "location": {"city": "Ropar", "state": "Punjab"},
         "expected_domain": "Weather",
         "stable": True,
-        "expected_nodes": ["planner", "execute_plan", "synthesize"],
+        "expected_nodes": ["planner", "execute_plan", "assemble_answer_body", "translate_answer"],
         "expected_tools": ["upload_question_to_reviewer_system", "weather"],
         "expected_plan": {
             "weather": True,
@@ -25,7 +25,7 @@ TEST_CASES = [
         "location": {"city": "Delhi", "state": "Delhi"},
         "expected_domain": "Weather",
         "stable": False,
-        "expected_nodes": ["planner", "execute_plan", "synthesize"],
+        "expected_nodes": ["planner", "execute_plan", "assemble_answer_body", "translate_answer"],
         "expected_tools": ["upload_question_to_reviewer_system", "weather"],
         "expected_plan": {
             "weather": True,
@@ -41,7 +41,7 @@ TEST_CASES = [
         "location": {"city": "Ludhiana", "state": "Punjab"},
         "stable": False,
         "expected_domain": "Weather",
-        "expected_nodes": ["planner", "execute_plan", "synthesize"],
+        "expected_nodes": ["planner", "execute_plan", "assemble_answer_body", "translate_answer"],
         "expected_tools": ["upload_question_to_reviewer_system", "weather"],
         "expected_plan": {
             "weather": True,
@@ -57,7 +57,7 @@ TEST_CASES = [
         "location": {"city": "Sirsa", "state": "Haryana"},
         "expected_domain": "Market Prices",
         "stable": True,
-        "expected_nodes": ["planner", "execute_plan", "synthesize"],
+        "expected_nodes": ["planner", "execute_plan", "assemble_answer_body", "translate_answer"],
         "expected_tools": ["upload_question_to_reviewer_system", "market"],
         "expected_plan": {
             "mandi": True,
@@ -73,7 +73,7 @@ TEST_CASES = [
         "location": {"city": "Karnal", "state": "Haryana"},
         "expected_domain": "Market Prices",
         "stable": False,
-        "expected_nodes": ["planner", "execute_plan", "synthesize"],
+        "expected_nodes": ["planner", "execute_plan", "assemble_answer_body", "translate_answer"],
         "expected_tools": ["upload_question_to_reviewer_system", "market"],
         "expected_plan": {
             "mandi": True,
@@ -88,7 +88,7 @@ TEST_CASES = [
         "location": {"city": "Ropar", "state": "Punjab"},
         "expected_domain": "Nutrient Management",
         "stable": False,
-        "expected_nodes": ["planner", "execute_plan", "synthesize"],
+        "expected_nodes": ["planner", "execute_plan", "assemble_answer_body", "translate_answer"],
         "expected_tools": ["upload_question_to_reviewer_system", "gdb"],
         "expected_plan": {
             "soil": False,
@@ -104,7 +104,7 @@ TEST_CASES = [
         "location": {"city": "Jaipur", "state": "Rajasthan"},
         "expected_domain": "Government Schemes",
         "stable": False,
-        "expected_nodes": ["planner", "execute_plan", "synthesize"],
+        "expected_nodes": ["planner", "execute_plan", "assemble_answer_body", "translate_answer"],
         "expected_tools": ["upload_question_to_reviewer_system", "schemes"],
         "expected_plan": {
             "schemes": True,
@@ -120,7 +120,7 @@ TEST_CASES = [
         "location": {"city": "Nashik", "state": "Maharashtra"},
         "expected_domain": "Government Schemes",
         "stable": False,
-        "expected_nodes": ["planner", "execute_plan", "synthesize"],
+        "expected_nodes": ["planner", "execute_plan", "assemble_answer_body", "translate_answer"],
         "expected_tools": ["upload_question_to_reviewer_system", "schemes"],
         "expected_plan": {
             "schemes": True,
@@ -136,7 +136,7 @@ TEST_CASES = [
         "location": {"city": "Ropar", "state": "Punjab"},
         "expected_domain": "Cultural Practices",
         "stable": True,
-        "expected_nodes": ["planner", "execute_plan", "retrieval_sanitizer", "synthesize"],
+        "expected_nodes": ["planner", "execute_plan", "retrieval_sanitizer", "assemble_answer_body", "translate_answer"],
         "expected_tools": ["upload_question_to_reviewer_system", "gdb"],
         "expected_plan": {
             "knowledge_base": True,
@@ -152,7 +152,7 @@ TEST_CASES = [
         "location": None,
         "stable": False,
         "expected_domain": "General",
-        "expected_nodes": ["planner", "execute_plan", "synthesize"],
+        "expected_nodes": ["planner", "execute_plan", "assemble_answer_body", "translate_answer"],
         "expected_tools": [],
         "expected_plan": {
             "knowledge_base": True,
@@ -165,7 +165,7 @@ TEST_CASES = [
         "location": None,
         "stable": False,
         "expected_domain": "General",
-        "expected_nodes": ["planner", "execute_plan", "synthesize"],
+        "expected_nodes": ["planner", "execute_plan", "assemble_answer_body", "translate_answer"],
         "expected_tools": [],
         "expected_plan": {
             "knowledge_base": True,
@@ -178,7 +178,7 @@ TEST_CASES = [
         "location": {"city": "Delhi", "state": "Delhi"},
         "expected_domain": "Weather",
         "stable": False,
-        "expected_nodes": ["planner", "execute_plan", "synthesize"],
+        "expected_nodes": ["planner", "execute_plan", "assemble_answer_body", "translate_answer"],
         "expected_tools": ["upload_question_to_reviewer_system", "weather"],
         "expected_plan": {
             "weather": True,
@@ -193,7 +193,7 @@ TEST_CASES = [
         "location": {"city": "Ludhiana", "state": "Punjab"},
         "expected_domain": "Plant Protection",
         "stable": False,
-        "expected_nodes": ["planner", "execute_plan", "retrieval_sanitizer", "synthesize"],
+        "expected_nodes": ["planner", "execute_plan", "retrieval_sanitizer", "assemble_answer_body", "translate_answer"],
         "expected_tools": ["upload_question_to_reviewer_system", "weather", "gdb"],
         "expected_plan": {
             "weather": True,

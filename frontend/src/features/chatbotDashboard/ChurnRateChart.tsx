@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
   Card,
@@ -17,7 +17,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/atoms/chart";
-import { InfoIcon, Loader2 } from "lucide-react";
+import { InfoIcon, Loader2, RefreshCw } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -25,6 +25,7 @@ import {
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
 import { useMonthlyChurnRate } from "./hooks/useActiveUsersAnalytics";
+import { useQueryClient } from "@tanstack/react-query";
 
 type MonthlyChurnRateItem = {
   month: string;
@@ -46,7 +47,15 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
+
 export const ChurnRateChart = ({ source, userType }: ChurnRateChartProps) => {
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await queryClient.refetchQueries({ queryKey: ["monthly-churn-rate"] });
+    setRefreshing(false);
+  };
   const { data: monthlyChurnRateData, isFetching } = useMonthlyChurnRate(source, userType);
   const chartData = useMemo(() => {
     return monthlyChurnRateData?.map((item) => ({
@@ -60,6 +69,17 @@ export const ChurnRateChart = ({ source, userType }: ChurnRateChartProps) => {
 
   return (
     <Card className="pt-0 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300 mb-7">
+      <button
+        onClick={handleRefresh}
+        className="absolute top-10 right-13 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
+        title="Refresh"
+      >
+        <RefreshCw
+          className={`h-3.5 w-3.5 bg-background ${
+            refreshing ? "animate-spin" : ""
+          }`}
+        />
+      </button>
       <CardHeader className="border-b py-5">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
@@ -123,7 +143,7 @@ export const ChurnRateChart = ({ source, userType }: ChurnRateChartProps) => {
       </CardHeader>
 
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-        {isFetching ? (
+        {(refreshing || isFetching) ? (
           <div className="flex h-[320px] items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>

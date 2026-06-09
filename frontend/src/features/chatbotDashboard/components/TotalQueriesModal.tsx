@@ -9,6 +9,7 @@ import {
   ReusableDataTable,
   type ReusableTableColumn,
 } from "./ReusableDataTable";
+import { motion, AnimatePresence } from "framer-motion";
 
 export type QueryGranularity = "weekly" | "daily" | "monthly";
 
@@ -332,74 +333,147 @@ export function TotalQueriesModal({
   const headerLabel = activeSummary?.label ?? label;
   const headerValue = activeSummary?.totalQueries?.toLocaleString() ?? value;
 
+
   return createPortal(
-    <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white dark:bg-[#1a1a1a] rounded-xl shadow-2xl max-w-5xl w-full max-h-[88vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
+    <AnimatePresence>
+      <motion.div
+        key="modal-overlay"
+        className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
+        onClick={onClose}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
       >
-        <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-gray-100 dark:border-[#2a2a2a] shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            {icon && (
-              <div
-                className="flex items-center justify-center w-12 h-12 rounded-full flex-shrink-0"
-                style={{ background: `${accentColor}20` }}
-              >
-                {icon}
-              </div>
-            )}
-            <div className="min-w-0">
-              <div className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                {headerLabel}
-              </div>
-              <div
-                className="text-4xl font-semibold dark:text-slate-100"
-                style={{ color: valueColor }}
-              >
-                {headerValue}
-              </div>
-            </div>
-          </div>
+        <motion.div
+          role="dialog"
+          aria-modal="true"
+          className="relative w-full max-w-5xl max-h-[88vh] flex flex-col rounded-2xl bg-white dark:bg-[#111] shadow-[0_20px_70px_-15px_rgba(0,0,0,0.45)] ring-1 ring-black/5 dark:ring-white/10 overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+          initial={{ opacity: 0, scale: 0.96, y: 16 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.97, y: 8 }}
+          transition={{ type: "spring", stiffness: 320, damping: 28 }}
+        >
+          {/* Accent gradient bar */}
+          <div
+            className="h-1 w-full shrink-0"
+            style={{
+              background: `linear-gradient(90deg, ${accentColor}, transparent)`,
+            }}
+          />
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 rounded-full bg-gray-100 dark:bg-[#2a2a2a] p-1 flex-shrink-0">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.value}
-                  onClick={() => onGranularityChange(tab.value)}
-                  className={`text-sm px-4 py-1.5 rounded-full font-medium transition-all ${
-                    granularity === tab.value
-                      ? "bg-white dark:bg-[#3a3a3a] text-gray-800 dark:text-gray-100 shadow-sm"
-                      : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-                  }`}
+          {/* Header */}
+          <motion.div
+            className="flex items-start justify-between gap-4 px-6 py-4 border-b border-gray-100 dark:border-white/5 shrink-0"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.08 }}
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              {icon && (
+                <motion.div
+                  className="flex items-center justify-center w-12 h-12 rounded-2xl flex-shrink-0 ring-1 ring-black/5 dark:ring-white/10"
+                  style={{ background: `${accentColor}1A` }}
+                  initial={{ scale: 0.6, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 400,
+                    damping: 20,
+                    delay: 0.12,
+                  }}
                 >
-                  {tab.label}
-                </button>
-              ))}
+                  {icon}
+                </motion.div>
+              )}
+              <div className="min-w-0">
+                <div className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-500 dark:text-gray-400">
+                  {headerLabel}
+                </div>
+                <div
+                  className="text-4xl font-semibold tracking-tight dark:text-slate-100 tabular-nums"
+                  style={{ color: valueColor }}
+                >
+                  {headerValue}
+                </div>
+              </div>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              title="Close"
+
+            <div className="flex items-center gap-3">
+              <div className="relative flex items-center gap-1 rounded-full bg-gray-100 dark:bg-white/5 p-1 flex-shrink-0">
+                {tabs.map((tab) => {
+                  const active = granularity === tab.value;
+                  return (
+                    <button
+                      key={tab.value}
+                      onClick={() => onGranularityChange(tab.value)}
+                      className={`relative text-sm px-4 py-1.5 rounded-full font-medium transition-colors ${
+                        active
+                          ? "text-gray-900 dark:text-white"
+                          : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                      }`}
+                    >
+                      {active && (
+                        <motion.span
+                          layoutId="granularity-pill"
+                          className="absolute inset-0 bg-white dark:bg-white/10 rounded-full shadow-sm"
+                          transition={{
+                            type: "spring",
+                            stiffness: 400,
+                            damping: 30,
+                          }}
+                        />
+                      )}
+                      <span className="relative z-10">{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <motion.button
+                onClick={onClose}
+                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+                aria-label="Close"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.92 }}
+              >
+                <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+              </motion.button>
+            </div>
+          </motion.div>
+
+          {/* Body */}
+          <div className="flex-1 overflow-auto px-6 py-5">
+            {/* Chart */}
+            <motion.div
+              className="h-52 relative mb-5 rounded-xl bg-gray-50/60 dark:bg-white/5 p-4"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
             >
-              <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-            </button>
-          </div>
-        </div>
+              <div className="absolute left-4 top-4 bottom-4 w-px bg-gray-200 dark:bg-white/10" />
+              <div className="absolute left-4 right-4 bottom-4 h-px bg-gray-200 dark:bg-white/10" />
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={granularity}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full w-full"
+                >
+                  {renderChart()}
+                </motion.div>
+              </AnimatePresence>
+            </motion.div>
 
-        <div className="flex-1 overflow-auto px-6 py-5">
-          <div className="h-48 relative mb-5">
-            <div className="absolute left-0 top-0 bottom-0 w-px bg-gray-300 dark:bg-gray-700" />
-            <div className="absolute left-0 right-0 bottom-0 h-px bg-gray-300 dark:bg-gray-700" />
-            {renderChart()}
-          </div>
-
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <div>
-              
+            {/* Toolbar */}
+            <motion.div
+              className="flex items-center justify-between gap-3 mb-3"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
               <div className="text-sm font-medium text-gray-800 dark:text-gray-100">
                 {granularity === "monthly"
                   ? "Monthly data"
@@ -407,82 +481,120 @@ export function TotalQueriesModal({
                       tabs.find((tab) => tab.value === granularity)?.label
                     } data`}
               </div>
-            </div>
-            <div className="flex items-center gap-2 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-[#111] px-2 py-1">
-              <button
-                onClick={() => stepFilter(-1)}
-                className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                title="Previous period"
-              >
-                <ChevronLeft className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-              </button>
-              <span className="min-w-[120px] text-center text-sm font-semibold text-gray-800 dark:text-gray-100">
-                {formatFilterLabel(selectedDate, granularity)}
-              </span>
-              <button
-                onClick={() => stepFilter(1)}
-                className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                title="Next period"
-              >
-                <ChevronRight className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-              </button>
-            </div>
-          </div>
-          <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-200">
-            Queries can be classified by source (Annam / Vicharanashala), but questions cannot always be accurately classified by source because the review system database is shared across platforms.
-          </div>
-          <ReusableDataTable
-            columns={columns}
-            data={queryAnalytics?.data ?? []}
-            getRowKey={(row, index) => `${row.period}-${index}`}
-            emptyMessage={
-              isFetching
-                ? "Loading query analytics..."
-                : "No query analytics available for this period."
-            }
-            className="max-h-[38vh]"
-          />
+              <div className="flex items-center gap-1 rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-1.5 py-1">
+                <motion.button
+                  onClick={() => stepFilter(-1)}
+                  className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+                  aria-label="Previous period"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                >
+                  <ChevronLeft className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                </motion.button>
+                <AnimatePresence mode="wait">
+                  <motion.span
+                    key={String(selectedDate)}
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.15 }}
+                    className="min-w-[120px] text-center text-sm font-semibold text-gray-800 dark:text-gray-100 tabular-nums"
+                  >
+                    {formatFilterLabel(selectedDate, granularity)}
+                  </motion.span>
+                </AnimatePresence>
+                <motion.button
+                  onClick={() => stepFilter(1)}
+                  className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+                  aria-label="Next period"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                >
+                  <ChevronRight className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                </motion.button>
+              </div>
+            </motion.div>
 
-          <div className="mt-3 flex items-center justify-between gap-3 text-xs text-gray-500 dark:text-gray-400">
-            <span>
-              {queryAnalytics?.total
-                ? `${queryAnalytics.total.toLocaleString()} result${
-                    queryAnalytics.total === 1 ? "" : "s"
-                  }`
-                : isFetching
-                  ? "Loading..."
-                  : "0 results"}
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage((current) => Math.max(1, current - 1))}
-                disabled={page <= 1 || isFetching}
-                className="px-2.5 py-1 rounded-md border border-gray-200 dark:border-gray-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800"
+            {/* Notice */}
+            {/* <motion.div
+              className="mb-3 rounded-xl border border-amber-200/70 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.25 }}
+            >
+              Queries can be classified by source (Annam / Vicharanashala), but
+              questions cannot always be accurately classified by source because
+              the review system database is shared across platforms.
+            </motion.div> */}
+
+            {/* Table */}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={`${granularity}-${page}-${String(selectedDate)}`}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18 }}
               >
-                Previous
-              </button>
-              <span className="min-w-[80px] text-center">
-                Page {queryAnalytics?.page ?? page} of{" "}
-                {queryAnalytics?.totalPages ?? 1}
+                <ReusableDataTable
+                  columns={columns}
+                  data={queryAnalytics?.data ?? []}
+                  getRowKey={(row, index) => `${row.period}-${index}`}
+                  emptyMessage={
+                    isFetching
+                      ? "Loading query analytics..."
+                      : "No query analytics available for this period."
+                  }
+                  className="max-h-[38vh]"
+                />
+              </motion.div>
+            </AnimatePresence>
+
+            {/* Pagination */}
+            <div className="mt-4 flex items-center justify-between gap-3 text-xs text-gray-500 dark:text-gray-400">
+              <span className="tabular-nums">
+                {queryAnalytics?.total
+                  ? `${queryAnalytics.total.toLocaleString()} result${
+                      queryAnalytics.total === 1 ? "" : "s"
+                    }`
+                  : isFetching
+                    ? "Loading..."
+                    : "0 results"}
               </span>
-              <button
-                onClick={() =>
-                  setPage((current) =>
-                    Math.min(queryAnalytics?.totalPages ?? current + 1, current + 1),
-                  )
-                }
-                disabled={
-                  isFetching || page >= (queryAnalytics?.totalPages ?? 1)
-                }
-                className="px-2.5 py-1 rounded-md border border-gray-200 dark:border-gray-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-800"
-              >
-                Next
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  disabled={page <= 1 || isFetching}
+                  className="px-2.5 py-1 rounded-md border border-gray-200 dark:border-white/10 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                >
+                  Previous
+                </button>
+                <span className="min-w-[90px] text-center tabular-nums">
+                  Page {queryAnalytics?.page ?? page} of{" "}
+                  {queryAnalytics?.totalPages ?? 1}
+                </span>
+                <button
+                  onClick={() =>
+                    setPage((current) =>
+                      Math.min(
+                        queryAnalytics?.totalPages ?? current + 1,
+                        current + 1,
+                      ),
+                    )
+                  }
+                  disabled={
+                    isFetching || page >= (queryAnalytics?.totalPages ?? 1)
+                  }
+                  className="px-2.5 py-1 rounded-md border border-gray-200 dark:border-white/10 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+                >
+                  Next
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-    </div>,
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>,
     document.body,
   );
 }

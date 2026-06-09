@@ -6,6 +6,9 @@ import {
   TooltipTrigger,
   TooltipProvider,
 } from "@/components/atoms/tooltip";
+import { useQueryClient } from "@tanstack/react-query";
+import { RefreshCw } from "lucide-react";
+import { useState } from "react";
 
 type AnalyticsItem = {
   queryCount: number;
@@ -40,6 +43,14 @@ export function WhatsAppAnalyticsCard({
   granularity,
   isLoading,
 }: WhatsAppAnalyticsCardProps) {
+  
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await queryClient.refetchQueries({ queryKey: ["dashboard-data"] });
+    setRefreshing(false);
+  };
   const latest = analytics.at(-1);
   const totalQueries = latest?.totalQuestions || 0;
   const maxPoint = Math.max(...analytics.map((item) => item.totalQuestions), 1);
@@ -132,7 +143,7 @@ export function WhatsAppAnalyticsCard({
             tracking-tight
           "
             >
-              {totalQueries}
+              {(refreshing || isLoading) ? (<Skeleton/>) : totalQueries}
             </div>
             <TooltipProvider>
               <Tooltip>
@@ -156,10 +167,21 @@ export function WhatsAppAnalyticsCard({
               </Tooltip>
             </TooltipProvider>
           </div>
+        {granularity === "daily" && <button
+          onClick={handleRefresh}
+          className="absolute top-15 right-12 z-50 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
+          title="Refresh"
+        >
+          <RefreshCw
+            className={`h-3.5 w-3.5 bg-background ${
+              refreshing ? "animate-spin" : ""
+            }`}
+          />
+        </button>}
         </CardHeader>
 
         <CardContent>
-          {isLoading ? (
+          {(refreshing || isLoading) ? (
             <div className="space-y-4">
               {/* Header Number */}
               <Skeleton className="h-6 w-15" />

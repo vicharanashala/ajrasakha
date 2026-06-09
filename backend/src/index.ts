@@ -6,23 +6,26 @@ await import('./instrument.js');
 
 import * as Sentry from '@sentry/node';
 import express from 'express';
-import {useExpressServer, RoutingControllersOptions} from 'routing-controllers';
-import {appConfig} from './config/app.js';
-import {loggingHandler} from './shared/middleware/loggingHandler.js';
-import {HttpErrorHandler} from './shared/index.js';
-import {loadAppModules} from './bootstrap/loadModules.js';
-import {printStartupSummary} from './utils/logDetails.js';
-import type {CorsOptions} from 'cors';
-import {authorizationChecker} from './shared/functions/authorizationChecker.js';
-import {currentUserChecker} from './shared/functions/currentUserChecker.js';
+import { useExpressServer, RoutingControllersOptions } from 'routing-controllers';
+import { appConfig } from './config/app.js';
+import { loggingHandler } from './shared/middleware/loggingHandler.js';
+import { HttpErrorHandler } from './shared/index.js';
+import { loadAppModules } from './bootstrap/loadModules.js';
+import { printStartupSummary } from './utils/logDetails.js';
+import type { CorsOptions } from 'cors';
+import { authorizationChecker } from './shared/functions/authorizationChecker.js';
+import { currentUserChecker } from './shared/functions/currentUserChecker.js';
 import { InternalApiAuth } from './shared/index.js';
 import path from 'path';
-import {fileURLToPath} from 'url';
+import { fileURLToPath } from 'url';
 import { initJobs } from './bootstrap/jobs/index.js';
 import { apiReference } from '@scalar/express-api-reference';
 import { generateOpenAPISpec } from './shared/functions/generateOpenApiSpec.js';
+import http from 'http';
+import { initWebSocket } from './bootstrap/websocket.js';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { faqPopConfig } from './config/faqPop.js';
+
 
 const app = express();
 
@@ -37,7 +40,34 @@ app.get(`${appConfig.routePrefix}/health`, (_req, res) => {
 
 app.use(loggingHandler);
 
-const {controllers, validators} = await loadAppModules(
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  if (!origin || appConfig.origins.includes(origin as string)) {
+    res.header('Access-Control-Allow-Origin', (origin as string) || '*');
+  }
+
+  res.header(
+    'Access-Control-Allow-Methods',
+    'GET,POST,PUT,PATCH,DELETE,OPTIONS'
+  );
+
+  res.header(
+    'Access-Control-Allow-Headers',
+    'Content-Type, Authorization, X-Requested-With'
+  );
+
+  res.header('Access-Control-Allow-Credentials', 'true');
+
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
+
+
+const { controllers, validators } = await loadAppModules(
   appConfig.module.toLowerCase(),
 );
 
@@ -116,7 +146,12 @@ app.use(
   }),
 );
 
-app.listen(appConfig.port, () => {
+const server = http.createServer(app);
+
+initWebSocket(server);
+
+server.listen(appConfig.port, () => {
   initJobs();
   printStartupSummary();
 });
+

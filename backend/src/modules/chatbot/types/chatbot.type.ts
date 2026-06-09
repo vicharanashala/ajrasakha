@@ -3,6 +3,7 @@ export type GrowthQuery = {
   startDate?: string;
   endDate?: string;
   source?: string;
+  userType?: string,
 };
 
 export type GrowthResponse = {

@@ -10,10 +10,10 @@ export class DashboardQueryDto {
   @Min(1)
   days: number = 30;
 
-  @JSONSchema({ example: 'vicharanashala', description: 'Data source to query' })
+  @JSONSchema({ example: 'annam', description: 'Data source to query' })
   @IsOptional()
-  @IsIn(['vicharanashala', 'annam', 'whatsapp'])
-  source: 'vicharanashala' | 'annam' | 'whatsapp'= 'vicharanashala';
+  @IsIn([ 'annam', 'whatsapp'])
+  source: 'annam' | 'whatsapp'= 'annam';
 
   @JSONSchema({ example: 'all', description: 'Filter by user type: all, external (username starts with rup), or internal' })
   @IsOptional()
@@ -32,10 +32,10 @@ export class DashboardQueryDto {
 }
 
 export class SourceQueryDto {
-  @JSONSchema({ example: 'vicharanashala', description: 'Data source to query' })
+  @JSONSchema({ example: 'annam', description: 'Data source to query' })
   @IsOptional()
-  @IsIn(['vicharanashala', 'annam', 'whatsapp'])
-  source: 'vicharanashala' | 'annam' | 'whatsapp' = 'vicharanashala';
+  @IsIn([ 'annam', 'whatsapp'])
+  source: 'annam' | 'whatsapp' = 'annam';
 
   @JSONSchema({ example: 'all', description: 'Filter by user type: all, external (username starts with rup), or internal' })
   @IsOptional()
@@ -167,20 +167,45 @@ export class UserDetailsQueryDto {
   @IsString()
   search: string = '';
 
-  @JSONSchema({ example: 'vicharanashala', description: 'Data source to query' })
+  @JSONSchema({ example: 'annam', description: 'Data source to query' })
   @IsOptional()
-  @IsIn(['vicharanashala', 'annam', 'whatsapp'])
-  source: 'vicharanashala' | 'annam' | 'whatsapp'= 'vicharanashala';
+  @IsIn([ 'annam', 'whatsapp'])
+  source: 'annam' | 'whatsapp'= 'annam';
 
   @JSONSchema({ example: 'rice', description: 'Filter by crop (matches cropsCultivated, primaryCrop, secondaryCrop)' })
   @IsOptional()
   @IsString()
   crop: string = '';
 
+  @JSONSchema({ example: 'rice,wheat', description: 'Comma-separated primary crop filters' })
+  @IsOptional()
+  @IsString()
+  primaryCrops: string = '';
+
+  @JSONSchema({ example: 'maize,cotton', description: 'Comma-separated secondary crop filters' })
+  @IsOptional()
+  @IsString()
+  secondaryCrops: string = '';
+
   @JSONSchema({ example: 'Poonjar', description: 'Filter by village name' })
   @IsOptional()
   @IsString()
   village: string = '';
+
+  @JSONSchema({ example: 'Kerala', description: 'Filter by farmer state' })
+  @IsOptional()
+  @IsString()
+  state: string = '';
+
+  @JSONSchema({ example: 'Kottayam', description: 'Filter by farmer district' })
+  @IsOptional()
+  @IsString()
+  district: string = '';
+
+  @JSONSchema({ example: 'Erattupetta', description: 'Filter by farmer block' })
+  @IsOptional()
+  @IsString()
+  block: string = '';
 
   @JSONSchema({ example: 'yes', description: 'Filter by farmer profile completion: yes, no, or all' })
   @IsOptional()
@@ -201,6 +226,11 @@ export class UserDetailsQueryDto {
   @IsOptional()
   @IsIn(['all', 'external', 'internal'])
   userType: 'all' | 'external' | 'internal' = 'all';
+
+  @JSONSchema({ example: 'FARMER,INTERNAL', description: 'Comma-separated role filters' })
+  @IsOptional()
+  @IsString()
+  roles: string = '';
 
   @JSONSchema({ example: 'false', description: 'If true, filter users by lastActiveAt is today and has farmerProfile' })
   @IsOptional()

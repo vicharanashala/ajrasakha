@@ -1,9 +1,11 @@
 import { CardHeader, CardTitle } from "@/components/atoms/card";
-import { Globe, Maximize2, X, InfoIcon } from "lucide-react";
+import { Globe, Maximize2, X, InfoIcon, RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useUserMertices } from "../hooks/useDashboardData";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
+import { useQueryClient } from "@tanstack/react-query";
+import { LazySectionSkeleton } from "../AnnamDashboard_dev";
 
 // interface PlatformData {
 //   // count: number;
@@ -114,6 +116,13 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({ platform, color, className 
   const cx = VIEW / 2;
   const cy = VIEW / 2;
   const circ = 2 * Math.PI * r;
+  const queryClient = useQueryClient();
+  const [dataRefreshing, setDataRefreshing] = useState(false);
+  const handleRefresh = async ()=>{
+    setDataRefreshing(true);
+    await queryClient.refetchQueries({ queryKey: ["user-metrices"] });
+    setDataRefreshing(false);
+  }
 
   const renderDonut = (size: number, radius: number, stroke: number) => {
     const c = size / 2;
@@ -203,8 +212,24 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({ platform, color, className 
               </TooltipContent>
             </Tooltip>
           </h3>
+            <button
+              onClick={handleRefresh}
+              className="rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
+              title="Refresh"
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${
+                  dataRefreshing ? "animate-spin" : ""
+                }`}
+              />
+            </button>
         </div>
-
+        {dataRefreshing ? (
+            <div>
+              <LazySectionSkeleton/>
+            </div>
+          ):(
+            <>
         {isEmpty ? (
           <div className="flex flex-col items-center justify-center gap-3 py-6 flex-1">
             <svg width={120} height={120}>
@@ -289,6 +314,7 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({ platform, color, className 
             </div>
           </div>
         )}
+        </>)}
       </div>
 
       {/* Maximized Modal */}
