@@ -291,7 +291,7 @@ export interface IChatbotService {
     totalUsers: number;
     totalPages: number;
   }>;
-  verifyUser(userId: string, source?: string): Promise<any>;
+  verifyUser(userId: string, source?: string, isVerified?: boolean): Promise<any>;
   getResponseAdherenceTable(
     source?: string,
     userType?: string,
