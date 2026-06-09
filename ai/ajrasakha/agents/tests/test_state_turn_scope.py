@@ -11,7 +11,7 @@ from ajrasakha.agents.plan_executor import build_tool_calls_from_plan
 from ajrasakha.agents.planner import _resolve_state_deterministic
 from ajrasakha.agents.planner_rules import apply_planner_completeness_rules
 
-
+from ajrasakha.agents.state import AjraSakhaState
 def test_state_not_leaked_from_old_karnataka_message():
     messages = [
         HumanMessage(content="Wheat disease control in Karnataka"),
@@ -47,7 +47,7 @@ def test_gps_state_used_when_latest_message_has_no_state():
         "state": "Punjab",
         "city": "Ludhiana",
     }
-    assert _resolve_state_deterministic(messages, location) == "Punjab"
+    assert _resolve_state_deterministic(messages, location) is None
     plan = apply_planner_completeness_rules(
         {"schemes": True, "is_complete": False, "entities": {}},
         messages,

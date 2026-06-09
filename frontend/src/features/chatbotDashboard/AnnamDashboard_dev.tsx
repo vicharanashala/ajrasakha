@@ -14,7 +14,7 @@ import {
   useTopFaqs,
   useUserMertices,
 } from "./hooks/useDashboardData";
-import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
+// import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
 import { useUserDetails } from "./hooks/useUserDetails";
 import type { Segment } from "./types";
 import { DashboardSidebar } from "./DashboardSidebar";
@@ -22,16 +22,16 @@ import type { DashboardView } from "./DashboardSidebar";
 import { DashboardFilters } from "./DashboardFilters";
 import type { DashboardFilterValues } from "./DashboardFilters";
 import { EightCardsComponent } from "./MetricCard ";
-import DailyActiveUsers from "./dailyActiveUsers";
-import { ChannelSplitCard } from "./components/ChannelSplitCard";
+// import DailyActiveUsers from "./dailyActiveUsers";
+// import { ChannelSplitCard } from "./components/ChannelSplitCard";
 import DashboardQueryCategories from "./DashboardQueryCategories";
-import { DashboardFarmerSegments } from "./DashboardFarmerSegments";
+// import { DashboardFarmerSegments } from "./DashboardFarmerSegments";
 import { AlertCard } from "./AlertCard";
 import { DuplicateQuestionsModal } from "./components/DuplicateQuestionsModal";
-import { GeoCard } from "./GeoCard";
-import { HealthScoreCard } from "./HealthScoreCard";
+// import { GeoCard } from "./GeoCard";
+// import { HealthScoreCard } from "./HealthScoreCard";
 import { SegmentDetailBanner } from "./components/SegmentDetailBanner";
-import { StatusBar } from "./components/StatusBar";
+// import { StatusBar } from "./components/StatusBar";
 import { UserDetailsView } from "./UserDetailsView";
 import { WhatsAppUsersView } from "./WhatsAppUsersView";
 // import { UserDemographicsSection } from "./components/UserDemographicsSection";
@@ -60,7 +60,7 @@ import {
   HelpCircle,
   InfoIcon,
 } from "lucide-react";
-import { createPortal } from "react-dom";
+// import { createPortal } from "react-dom";
 import { SearchableSelect } from "@/components/atoms/SearchableSelect";
 import type { DateRange } from "react-day-picker";
 import { DashboardStateWiseAnalytics } from "./DashboardQueryState";
@@ -72,12 +72,13 @@ import {
 import FeedbackCard from "./FeedbackCard";
 import { ResponseAdherenceTableCard } from "./components/ResponseAdherenceTableCard";
 import { ActiveUsersChart } from "./active-users";
-import NewFilters, { type Filters } from "./NewFilters";
+import NewFilters, { type ApplicationSource, type Filters } from "./NewFilters";
 import { WeatherConcernAnalyticsCard } from "./components/WeatherConcernAnalyticsCard";
 import {
   DEFAULT_WEATHER_CONCERN_FILTERS,
   type WeatherConcernFilters,
 } from "./hooks/useWeatherConcernAnalytics";
+import { FarmerAnalyticsHeatMap } from "./components/FarmerAnalyticsHeatMap";
 import { WhatsAppAnalyticsCard } from "./WhatsAppAnalyticsCard";
 import {
   useClosedAndNotifedData,
@@ -95,12 +96,10 @@ import { ClosedQuestionsCard } from "./ClosedQuestionsCard";
 import { CustomerNotificationsCard } from "./CustomerNotificationsCard";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { ChurnRateChart } from "./ChurnRateChart";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/atoms/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/atoms/tabs";
+import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
+import { useQueryClient } from "@tanstack/react-query";
+import { Button } from "@/components/atoms/button";
 
 const DEFAULT_FILTERS: DashboardFilterValues = {
   village: "all",
@@ -124,81 +123,8 @@ const parseInputDateToLocalDate = (value: string): Date => {
   return new Date(year, month - 1, day);
 };
 
-const loadingSkeletonRows = [
-  {
-    cols: "grid-cols-1 md:grid-cols-2 xl:grid-cols-4",
-    items: [
-      { span: "", height: "140px" },
-      { span: "", height: "140px" },
-      { span: "", height: "140px" },
-      { span: "", height: "140px" },
-    ],
-  },
-  {
-    cols: "grid-cols-1 lg:grid-cols-3",
-    items: [
-      { span: "", height: "220px" },
-      { span: "", height: "220px" },
-      { span: "", height: "220px" },
-    ],
-  },
-  {
-    cols: "grid-cols-1 xl:grid-cols-4",
-    items: [
-      { span: "xl:col-span-3", height: "260px" },
-      { span: "", height: "260px" },
-    ],
-  },
-  {
-    cols: "grid-cols-1 md:grid-cols-2 xl:grid-cols-4",
-    items: [
-      { span: "", height: "180px" },
-      { span: "", height: "180px" },
-      { span: "", height: "180px" },
-      { span: "", height: "180px" },
-    ],
-  },
-  {
-    cols: "grid-cols-1 lg:grid-cols-3",
-    items: [
-      { span: "", height: "220px" },
-      { span: "", height: "220px" },
-      { span: "", height: "220px" },
-    ],
-  },
-  {
-    cols: "grid-cols-1 lg:grid-cols-2",
-    items: [
-      { span: "", height: "260px" },
-      { span: "", height: "260px" },
-    ],
-  },
-  {
-    cols: "grid-cols-1",
-    items: [{ span: "", height: "320px" }],
-  },
-  {
-    cols: "grid-cols-1 lg:grid-cols-2",
-    items: [
-      { span: "", height: "240px" },
-      { span: "", height: "240px" },
-    ],
-  },
-  {
-    cols: "grid-cols-1",
-    items: [{ span: "", height: "260px" }],
-  },
-  {
-    cols: "grid-cols-1",
-    items: [{ span: "", height: "300px" }],
-  },
-  {
-    cols: "grid-cols-1",
-    items: [{ span: "", height: "280px" }],
-  },
-];
 
-function LazySectionSkeleton({
+export function LazySectionSkeleton({
   className = "h-[300px]",
 }: {
   className?: string;
@@ -221,17 +147,44 @@ export function AnnamDashboard_dev({
   onSourceChange,
 }: {
   className?: string;
-  source?: "vicharanashala" | "annam" | "whatsapp";
-  onSourceChange?: (source: "vicharanashala" | "annam" | "whatsapp") => void;
+  source?:  "annam" | "whatsapp";
+  onSourceChange?: (source: "annam" | "whatsapp") => void;
 }) {
+  const [invalidating, setInvalidating] = useState(false);
+  const queryClient = useQueryClient();
+  const handleRefreshAll = async () => {
+    setInvalidating(true);
+    await Promise.all([
+      queryClient.refetchQueries({ queryKey: ["dashboard-data"] }),
+      queryClient.refetchQueries({ queryKey: ["top-faqs"] }),
+      queryClient.refetchQueries({ queryKey: ["daily-question-trends"] }),
+      queryClient.refetchQueries({ queryKey: ["user-metrices"] }),
+      queryClient.refetchQueries({ queryKey: ["response-adherence-table"] }),
+      queryClient.refetchQueries({ queryKey: ["retention_metrics"] }),
+      queryClient.refetchQueries({ queryKey: ["query-categories"] }),
+      queryClient.refetchQueries({ queryKey: ["whatsapp-inactive-users"] }),
+      queryClient.refetchQueries({ queryKey: ["whatsapp-unique-users"] }),
+      queryClient.refetchQueries({ queryKey: ["whatsapp-all-users"] }),
+      queryClient.refetchQueries({ queryKey: ["closed-notified-data"] }),
+      queryClient.refetchQueries({ queryKey: ["monthly-churn-rate"] }),
+      queryClient.refetchQueries({ queryKey: ["active_user_trend"] }),
+      queryClient.refetchQueries({ queryKey: ["user-details"] }),
+      queryClient.refetchQueries({ queryKey: ["user_growth"] }),
+      queryClient.refetchQueries({ queryKey: ["top-crops-chatbot"] }),
+      queryClient.refetchQueries({ queryKey: ["state-wise-analytics"] }),
+      queryClient.refetchQueries({ queryKey: ["weather-concern-analytics"] }),
+      queryClient.refetchQueries({ queryKey: ["farmer-heat-map"] }),
+    ]);
+    setInvalidating(false);
+  };
   const [activeSegment, setActiveSegment] = useState<Segment | null>(null);
   const [activeView, setActiveView] = useState<DashboardView>("overview");
   const [activeChartTab, setActiveChartTab] = useState<string>("dau");
   const [filters, setFilters] =
     useState<DashboardFilterValues>(DEFAULT_FILTERS);
-  const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
+  // const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
   const isAppAnalyticsSource =
-    source === "annam" || source === "vicharanashala" || source === "whatsapp";
+    source === "annam" || source === "whatsapp";
   const loadImmediately = !isAppAnalyticsSource;
   const { data, isLoading, isFetching, error } = useDashboardData(
     filters,
@@ -298,16 +251,19 @@ export function AnnamDashboard_dev({
 
   const { data: closed2hData, isLoading: isClosed2hLoading, isFetching: isClosed2hFetching } = useClosedAndNotifedData(
     source,
+    filters.userType,
     closed2hRange.startTime,
     closed2hRange.endTime,
   );
   const { data: questionStatusData, isLoading: isQuestionStatusLoading, isFetching: isQuestionStatusFetching } = useClosedAndNotifedData(
     source,
+    filters.userType,
     questionStatusRange.startTime,
     questionStatusRange.endTime,
   );
   const { data: customerNotificationsData, isLoading: isCustomerNotificationsLoading, isFetching: isCustomerNotificationsFetching } = useClosedAndNotifedData(
     source,
+    filters.userType,
     customerNotificationsRange.startTime,
     customerNotificationsRange.endTime,
   );
@@ -334,7 +290,10 @@ export function AnnamDashboard_dev({
   const { ref: activeUsersRef, isVisible: isActiveUsersVisible } = useInView();
   const { ref: weatherConcernRef, isVisible: isWeatherConcernVisible } =
     useInView();
+  const { ref: farmerHeatMapRef, isVisible: isFarmerHeatMapVisible } =
+    useInView();
   const { ref: userDetailsRef, isVisible: isUserDetailsVisible } = useInView();
+  // const { ref: userVerificationRef, isVisible: isUserVerificationVisible } = useInView();
   const { ref: userDemographicsRef, isVisible: isUserDemographicsVisible } =
     useInView();
 
@@ -345,11 +304,14 @@ export function AnnamDashboard_dev({
   const shouldLoadFaqs = loadImmediately || isFaqsVisible;
   const shouldLoadActiveUsers = loadImmediately || isActiveUsersVisible;
   const shouldLoadWeatherConcern = loadImmediately || isWeatherConcernVisible;
+  const shouldLoadFarmerHeatMap = loadImmediately || isFarmerHeatMapVisible;
   const shouldLoadUserDetails = loadImmediately || isUserDetailsVisible;
+  // const shouldUserVerification = loadImmediately || isUserVerificationVisible;
   const shouldLoadUserDemographics = loadImmediately || isUserDemographicsVisible;
 
   const { data: queryCategories } = useQueryCategories(
     source,
+    filters.userType,
     shouldLoadQueryInsights,
   );
   const [trendsDateRange, setTrendsDateRange] = useState<DateRange | undefined>(
@@ -463,11 +425,12 @@ export function AnnamDashboard_dev({
   const [userDetailsInitialFilters, setUserDetailsInitialFilters] = useState<
     Partial<UserDetailsFilters> | undefined
   >(undefined);
+
   const {
     data: topCrops,
     isLoading: isLoadingTopCrops,
     error: errorLoadingtopCrops,
-  } = useTopCrops(source, shouldLoadQueryInsights);
+  } = useTopCrops(source, filters.userType, shouldLoadQueryInsights);
   // const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
 
   const [hovered, setHovered] = useState<string | null>(null);
@@ -564,6 +527,11 @@ export function AnnamDashboard_dev({
     "",
     source as any,
     "",
+    [],
+    [],
+    "",
+    "",
+    "",
     "",
     "all",
     false,
@@ -572,11 +540,13 @@ export function AnnamDashboard_dev({
     "totalQuestions",
     "desc",
     true, // activeTodayByProfile
-    undefined,
-    shouldLoadActiveUsers,
+    "",
+    true, // isVerified
+    true, // enabled
   );
 
   // Patch the DAU card to show "today / total" instead of just total
+  
   const patchedKpiRow1 = useMemo(() => {
     if (!data?.kpiRow1) return data.kpiRow1;
     const todayCount = todayActiveFarmersData?.totalUsers ?? null;
@@ -599,6 +569,8 @@ export function AnnamDashboard_dev({
       isDummy: !dynamicIds.includes(card.id),
     }));
 
+
+
   const kpiRow2WithOverlay = data.kpiRow2
     .filter((card) => card.id === "totalInstalls") // Commented out dummy cards: filter only totalInstalls
     .map((card) => ({
@@ -607,9 +579,17 @@ export function AnnamDashboard_dev({
       isDummy: card.id !== "totalInstalls",
     }));
 
-  const [newFilters, setNewFilters] = useState<Filters>({
-    sourceType: "application",
-    application: source,
+  // const [newFilters, setNewFilters] = useState<Filters>({
+  //   sourceType: "application",
+  //   application: source,
+  // });
+  const [newFilters, setNewFilters] = useState<Filters>(() => {
+    const saved = localStorage.getItem("application-filter");
+
+    return {
+      sourceType: "application",
+      application: (saved as ApplicationSource) || source,
+    };
   });
   const [weatherConcernFilters, setWeatherConcernFilters] =
     useState<WeatherConcernFilters>(DEFAULT_WEATHER_CONCERN_FILTERS);
@@ -648,8 +628,12 @@ export function AnnamDashboard_dev({
     isLoading: usermetricsLoading,
     isFetching: usermetricsFetching,
   } = useUserMertices(source, filters.userType, shouldLoadUserDemographics);
-
-  // console.log("userMetricesData", userMetricesData);
+  const [kwDataRefreshing, setKWDataRefreshing] = useState(false);
+  const handleKWRefresh = async ()=>{
+    setKWDataRefreshing(true);
+    await queryClient.refetchQueries({ queryKey: ["user-metrices"] });
+    setKWDataRefreshing(false);
+  }
 
 const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLoading: isUniqueWhatsAppUsersLoading} = useUniqueWhatsappUsers(source === "whatsapp");
   return (
@@ -716,7 +700,18 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                   </button>
                 </div>
 
-                <div className="flex items-center ml-auto gap-1">
+                <div className="flex items-center ml-auto gap-4">
+                <button
+                  onClick={handleRefreshAll}
+                  className="z-50 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
+                  title="Refresh"
+                >
+                    <RefreshCw
+                      className={`h-3.5 w-3.5  ${
+                        invalidating ? "animate-spin" : ""
+                      }`}
+                    />
+                  </button>
                   <NewFilters
                     filters={newFilters}
                     onChange={setNewFilters}
@@ -747,7 +742,7 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
 
               <DashboardFilters filters={filters} onFilterChange={setFilters} />
               {(source === "annam" ||
-                source === "vicharanashala" ||
+                // source === "vicharanashala" ||
                 source === "whatsapp") && (
                 <div
                   ref={(el) => {
@@ -822,8 +817,9 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                       kpiRow2={data.kpiRow2}
                     /> */}
                         {/* Uncomment the above line when data is dynamic and delete the below code */}
-                        {(source === "annam" ||
-                          source === "vicharanashala") && (
+                        {(source === "annam" 
+                        // ||source === "vicharanashala"
+                        ) && (
                           <EightCardsComponent
                             kpiRow1={kpiRow1WithOverlay}
                             kpiRow2={kpiRow2WithOverlay}
@@ -999,6 +995,7 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                             onInactiveWhatsAppUsersClick={
                               handleWhatsappInactiveUsersClick
                             }
+                            isFetching={isFetching}
                           />
                           {isDuplicateModalOpen && (
                             <DuplicateQuestionsModal
@@ -1091,9 +1088,24 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                                     </TooltipContent>
                                   </Tooltip>
                                 </h3>
+                                <button
+                                  onClick={handleKWRefresh}
+                                  className="rounded-lg shadow-sm backdrop-blur-sm transition-all duration-200"
+                                  title="Refresh"
+                                >
+                                  <RefreshCw
+                                    className={`h-3.5 w-3.5 ${
+                                      kwDataRefreshing ? "animate-spin" : ""
+                                    }`}
+                                  />
+                                </button>
                               </div>
-
-                              <div className="flex flex-wrap gap-6 justify-center items-center h-[calc(100%-3rem)] overflow-hidden">
+                              {kwDataRefreshing ? (
+                                <div>
+                                  <LazySectionSkeleton/>
+                                </div>
+                              ):(
+                                <div className="flex flex-wrap gap-6 justify-center items-center h-[calc(100%-3rem)] overflow-hidden">
                                 {[
                                   {
                                     label: "KCC Awareness",
@@ -1274,7 +1286,8 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                                     );
                                   },
                                 )}
-                              </div>
+                              </div>)}
+
                             </div>
                           </div>
                         )}
@@ -1327,6 +1340,8 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                                 //   ? queryCategories
                                 //   : data.queryCategories
                               }
+                              source={source}
+                              userType={filters.userType}
                             />
                           ) : (
                             <LazySectionSkeleton className="h-[360px]" />
@@ -1351,6 +1366,8 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                               topCrops={topCrops}
                               isLoadingTopCrops={isLoadingTopCrops}
                               errorLoadingtopCrops={errorLoadingtopCrops}
+                              source={source}
+                              userType= {filters.userType}
                             />
                           ) : (
                             <LazySectionSkeleton className="h-[360px]" />
@@ -1563,6 +1580,25 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                       {source !== "whatsapp" && (
                         <div
                           ref={(el) => {
+                            farmerHeatMapRef.current = el;
+                          }}
+                          className="mt-4 mb-4"
+                        >
+                          {shouldLoadFarmerHeatMap ? (
+                            <FarmerAnalyticsHeatMap
+                              source={source}
+                              userType={filters.userType}
+                              enabled={shouldLoadFarmerHeatMap}
+                            />
+                          ) : (
+                            <LazySectionSkeleton className="h-[520px]" />
+                          )}
+                        </div>
+                      )}
+                      {source !== "whatsapp" && (
+                        <>
+                        <div
+                          ref={(el) => {
                             sectionRefs.current["user-details"] = el;
                             userDetailsRef.current = el;
                           }}
@@ -1577,6 +1613,29 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                             <LazySectionSkeleton className="h-[520px]" />
                           )}
                         </div>
+                        {/* user verification */}
+                            {/* {
+                              isAdmin && (
+                                <div
+                                  ref={(el) => {
+                                    sectionRefs.current["verify-users"] = el;
+                                    userVerificationRef.current = el;
+                                  }}
+                                >
+                                  {shouldUserVerification ? (
+                                    <VerifyUser
+                                      source={source}
+                                      initialFilters={userVerificationInitialFilters}
+                                      userType={filters.userType}
+                                    />
+                                  ) : (
+                                    <LazySectionSkeleton className="h-[520px]" />
+                                  )}
+                                </div>
+                              )
+                            } */}
+                        
+                        </>
                       )}
                       {source === "whatsapp" && (
                         <div

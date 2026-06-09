@@ -18,7 +18,14 @@ import {
 } from "@/components/atoms/select";
 import { RadioGroup, RadioGroupItem } from "@/components/atoms/radio-group";
 
-const USER_ROLES = ["FARMER", "COORDINATOR", "INTERNAL"] as const;
+const USER_ROLES = [
+  { label: "Farmer", value: "FARMER" },
+  { label: "Coordinator", value: "COORDINATOR" },
+  { label: "Internal", value: "INTERNAL" },
+] as const;
+
+type UserRole = (typeof USER_ROLES)[number]["value"];
+
 interface AddFarmerModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -44,7 +51,10 @@ export function AddFarmerModal({
   const [showPassword, setShowPassword] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [role, setRole] = useState("FARMER");
+  const [role, setRole] = useState<UserRole>("FARMER");
+  const selectedRoleLabel =
+    USER_ROLES.find((userRole) => userRole.value === role)?.label ?? "Farmer";
+  const addButtonLabel = `Add ${selectedRoleLabel}`;
 
   // Reset form when modal opens/closes
   useEffect(() => {
@@ -123,10 +133,11 @@ const validate = () => {
       <DialogContent className="max-w-md w-[95vw] p-6 rounded-2xl bg-white dark:bg-[#1a1a1a] border border-slate-200 dark:border-[#2a2a2a] shadow-xl">
         <DialogHeader className="pb-4">
           <DialogTitle className="text-xl font-semibold text-slate-900 dark:text-slate-100">
-            Add Farmer
+            {addButtonLabel}
           </DialogTitle>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Create a new farmer profile. The credentials will be registered.
+            Create a new {selectedRoleLabel.toLowerCase()} profile. The
+            credentials will be registered.
           </p>
         </DialogHeader>
 
@@ -191,13 +202,10 @@ const validate = () => {
 
             <RadioGroup
               value={role}
-              onValueChange={setRole}
-              className="grid grid-cols-2 gap-3"
+              onValueChange={(value) => setRole(value as UserRole)}
+              className="grid grid-cols-1 gap-3 sm:grid-cols-3"
             >
-              {[
-                { label: "Farmer", value: "FARMER" },
-                { label: "Coordinator", value: "COORDINATOR" },
-              ].map((item) => (
+              {USER_ROLES.map((item) => (
                 <label
                   key={item.value}
                   className={`flex items-center gap-3 rounded-xl border p-3 cursor-pointer transition-all ${
@@ -330,7 +338,7 @@ const validate = () => {
             disabled={isSaving}
             className="h-9 px-5 rounded-xl text-sm bg-primary hover:bg-primary/95 text-white"
           >
-            {isSaving ? "Adding..." : "Add Farmer"}
+            {isSaving ? "Adding..." : addButtonLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

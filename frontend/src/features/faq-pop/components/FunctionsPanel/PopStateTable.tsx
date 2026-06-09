@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { RefreshCw, Download, Upload, FolderPlus, Trash2 } from 'lucide-react';
+import { RefreshCw, Download, Upload, FolderPlus, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { uploadPopDoc, createPopState, createPopCrop, popDownloadUrl, popOutputDownloadUrl, deletePopDoc, deleteEmptyPopCrop, deleteEmptyPopState, deletePopFile, uploadPopAuditedFile } from '../../api';
 import ColumnFilter from './ColumnFilter';
 
@@ -67,6 +67,14 @@ function AutocompleteInput({ value, onChange, suggestions, placeholder, classNam
       )}
     </>
   );
+}
+
+function formatFinishedAt(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("en-IN", {
+    day: "2-digit", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
 }
 
 function PopAuditCell({ row, onUploaded }) {
@@ -317,6 +325,7 @@ export default function PopStateTable({ rows: rowsProp, loading, error, onRefres
   const [pdfFilter, setPdfFilter] = useState([]);
   const [outputFilter, setOutputFilter] = useState([]);
   const [auditFilter, setAuditFilter] = useState([]);
+  const [finishedSort, setFinishedSort] = useState<null | 'asc' | 'desc'>(null);
 
   function load() { onRefresh?.(); }
 
@@ -347,6 +356,18 @@ export default function PopStateTable({ rows: rowsProp, loading, error, onRefres
 
   const anyFilter = stateFilter.length > 0 || cropFilter.length > 0
     || pdfFilter.length > 0 || outputFilter.length > 0 || auditFilter.length > 0;
+
+  const displayed = finishedSort
+    ? [...filtered].sort((a, b) => {
+        const ta = a.finished_at ? new Date(a.finished_at).getTime() : -Infinity;
+        const tb = b.finished_at ? new Date(b.finished_at).getTime() : -Infinity;
+        return finishedSort === 'asc' ? ta - tb : tb - ta;
+      })
+    : filtered;
+
+  function cycleFinishedSort() {
+    setFinishedSort(s => s === null ? 'desc' : s === 'desc' ? 'asc' : null);
+  }
 
   const selectableFiltered = filtered.filter(r => !r.is_empty && r.doc_path);
 
@@ -520,18 +541,28 @@ export default function PopStateTable({ rows: rowsProp, loading, error, onRefres
                   <th className="text-left px-3 py-2 whitespace-nowrap">
                     <ColumnFilter label="Audit" options={['audited', 'not audited']} selected={auditFilter} onChange={setAuditFilter} />
                   </th>
+                  <th className="text-left px-3 py-2 whitespace-nowrap">
+                    <button
+                      onClick={cycleFinishedSort}
+                      className={`flex items-center gap-1 font-semibold text-[11px] uppercase tracking-wide transition-colors cursor-pointer
+                        ${finishedSort ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                      Finished
+                      {finishedSort === 'asc' ? <ArrowUp size={11} /> : finishedSort === 'desc' ? <ArrowDown size={11} /> : <ArrowUpDown size={11} />}
+                    </button>
+                  </th>
                   <th className="px-3 py-2 w-12"></th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-sm text-muted-foreground italic">
+                    <td colSpan={9} className="px-4 py-8 text-center text-sm text-muted-foreground italic">
                       No rows match the current filters.
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((row, idx) => {
+                  displayed.map((row, idx) => {
                     if (row.is_empty) {
                       const isEmptyState = row.crop === null || row.crop === undefined;
                       return (
@@ -555,6 +586,7 @@ export default function PopStateTable({ rows: rowsProp, loading, error, onRefres
                               : 'Empty folder — upload a PDF to get started'
                             }
                           </td>
+                          <td className="px-3 py-2" />
                           <td className="px-3 py-2" />
                           <td className="px-3 py-2 align-middle">
                             <button
@@ -616,6 +648,9 @@ export default function PopStateTable({ rows: rowsProp, loading, error, onRefres
                         </td>
                         <td className="px-3 py-2 align-top">
                           <PopAuditCell row={row} onUploaded={load} />
+                        </td>
+                        <td className="px-3 py-2 align-top whitespace-nowrap font-mono text-[10px] text-muted-foreground">
+                          {formatFinishedAt(row.finished_at)}
                         </td>
                         <td className="px-3 py-2 align-middle">
                           <button

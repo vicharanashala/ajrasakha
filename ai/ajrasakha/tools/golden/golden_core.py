@@ -105,12 +105,18 @@ def _normalize_crop_for_search(crop: str) -> str:
     if not crop or crop.lower() == "all":
         return "all"
     crop = crop.lower().replace("_", " ")
-    return re.sub(r"\s+", " ", crop).strip()
+    crop = re.sub(r"\s+", " ", crop).strip()
+    return " ".join(word.capitalize() for word in crop.split())
 
 
 def _normalize_crop_state(crop: str, state: str) -> tuple[str, str]:
+    try:
+        from .states_name import resolve_state_name
+    except ImportError:
+        from states_name import resolve_state_name
+
     crop = _normalize_crop_for_search(crop)
-    state = (state or "").strip() or "all"
+    state = resolve_state_name(state)
     return crop, state
 
 

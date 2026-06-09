@@ -11,6 +11,8 @@ import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { TranslatableText } from "./TranslatableText";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
+import { useQueryClient } from "@tanstack/react-query";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface TopFaqEntry {
   question: string;
@@ -43,6 +45,14 @@ export function TopFaqsLeaderboard({
   const leaderboardList = topQuestionsFromCollection;
   // Find the maximum count to calculate relative intensities
   const maxCount = leaderboardList.length > 0 ? leaderboardList[0].count : 1;
+  
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = async ()=>{
+    setRefreshing(true);
+    await queryClient.refetchQueries({ queryKey: ["top-faqs"] });
+    setRefreshing(false);
+  }
 
   // Render a badge based on rank (1st, 2nd, 3rd get special colors)
   const getRankBadge = (index: number) => {
@@ -103,6 +113,17 @@ export function TopFaqsLeaderboard({
           <div>
             <CardTitle className="text-base font-semibold tracking-wide text-foreground flex items-center gap-1.5">
               <span>Top 10 FAQ Leaderboard</span>
+              <button
+                onClick={handleRefresh}
+                className="absolute top-8 right-55 rounded-lg border border-gray-200/60 p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-white hover:shadow-md dark:border-[#333]"
+                title="Refresh"
+              >
+                <RefreshCw
+                  className={`h-3.5 w-3.5 bg-background ${
+                    refreshing ? "animate-spin" : ""
+                  }`}
+                />
+              </button>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground">
@@ -110,7 +131,8 @@ export function TopFaqsLeaderboard({
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>
-                  Lists the top 10 most common queries received by the chatbot, ranked by total count.
+                  Lists the top 10 most common queries received by the chatbot,
+                  ranked by total count.
                 </TooltipContent>
               </Tooltip>
             </CardTitle>
@@ -260,7 +282,7 @@ export function TopFaqsLeaderboard({
       </div>
 
       <CardContent className="pt-3 flex-1 min-h-0 pr-1 pb-3 relative">
-        {isLoading && (
+        {(refreshing || isLoading) && (
           <div className="absolute inset-0 z-10 rounded-b-xl bg-background/70 p-4 backdrop-blur-[1px]">
             <Skeleton className="h-full w-full rounded-lg" />
           </div>
@@ -341,161 +363,352 @@ export function TopFaqsLeaderboard({
       </CardContent>
 
       {isFaqModalOpen &&
+        // createPortal(
+        //   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-200">
+        //     {/* Modal Container */}
+        //     <div className="relative w-full max-w-4xl h-[78vh] overflow-hidden rounded-3xl border border-slate-200/70 bg-gradient-to-br from-white via-slate-50 to-slate-100 shadow-[0_20px_80px_rgba(15,23,42,0.18)] dark:border-white/[0.06] dark:bg-[#121212] dark:from-[#18181b] dark:via-[#161616] dark:to-[#121212] dark:shadow-black/40 flex flex-col animate-in zoom-in-95 duration-200">
+        //       {/* Glow Layer */}
+        //       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(58,170,90,0.08),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(55,138,221,0.08),transparent_28%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(58,170,90,0.12),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(55,138,221,0.12),transparent_28%)]" />
+
+        //       {/* Header */}
+        //       <div className="relative z-10 flex items-center justify-between border-b border-slate-200/70 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.03] backdrop-blur-xl px-6 py-5">
+        //         <div className="flex items-center gap-4">
+        //           <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-amber-500 shadow-sm dark:border-amber-500/20 dark:bg-amber-500/10">
+        //             <RefreshCw className="w-5 h-5" />
+        //           </div>
+
+        //           <div>
+        //             <h3 className="text-lg font-semibold tracking-tight text-slate-800 dark:text-gray-100">
+        //               Frequently Asked Queries
+        //             </h3>
+
+        //             <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-muted-foreground">
+        //               Top chatbot messages ranked by occurrence
+        //               <span className="ml-1 font-semibold text-amber-600 dark:text-amber-400">
+        //                 ({Number(repeatQueryRatePct).toFixed(1)}% repeat rate)
+        //               </span>
+        //             </p>
+        //           </div>
+        //         </div>
+
+        //         {/* Close Button */}
+        //         <button
+        //           onClick={() => setIsFaqModalOpen(false)}
+        //           className="
+        //   flex items-center justify-center
+        //   h-10 w-10
+        //   rounded-xl
+        //   border border-slate-200
+        //   bg-white/80
+        //   text-slate-500
+        //   shadow-sm
+        //   transition-all duration-200
+        //   hover:bg-slate-100
+        //   hover:text-slate-900
+        //   hover:shadow-md
+        //   dark:border-white/[0.06]
+        //   dark:bg-white/[0.04]
+        //   dark:text-gray-400
+        //   dark:hover:bg-white/[0.08]
+        //   dark:hover:text-white
+        // "
+        //         >
+        //           <X className="w-4 h-4" />
+        //         </button>
+        //       </div>
+
+        //       {/* Content */}
+        //       <div className="relative z-10 flex-1 overflow-hidden p-6">
+        //         {faqs.length === 0 ? (
+        //           <div className="flex flex-col items-center justify-center h-full text-center">
+        //             <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-200 bg-slate-100 dark:border-white/[0.06] dark:bg-white/[0.03]">
+        //               <MessageCircle className="w-7 h-7 text-slate-400 dark:text-muted-foreground/30" />
+        //             </div>
+
+        //             <p className="mt-5 text-sm font-semibold text-slate-700 dark:text-muted-foreground/70">
+        //               No frequently asked messages found
+        //             </p>
+
+        //             <p className="mt-1 text-xs text-slate-500 dark:text-muted-foreground/40">
+        //               Try adjusting the date range to see results
+        //             </p>
+        //           </div>
+        //         ) : (
+        //           <ScrollArea className="h-full w-full pr-4">
+        //             <div className="space-y-4 pb-2">
+        //               {faqs.map((item, index) => {
+        //                 const faqMaxCount = faqs.length > 0 ? faqs[0].count : 1;
+
+        //                 const heatAlpha = Math.max(
+        //                   0.06,
+        //                   (item.count / faqMaxCount) * 0.18,
+        //                 );
+
+        //                 const isTop3 = index < 3;
+
+        //                 return (
+        //                   <div
+        //                     key={index}
+        //                     className="
+        //             group relative
+        //             flex items-start gap-4
+        //             rounded-2xl
+        //             border border-slate-200/70
+        //             bg-white/80
+        //             p-4
+        //             shadow-sm
+        //             transition-all duration-200
+        //             hover:-translate-y-[1px]
+        //             hover:border-slate-300
+        //             hover:bg-white
+        //             hover:shadow-lg
+        //             dark:border-white/[0.06]
+        //             dark:bg-white/[0.03]
+        //             dark:hover:border-white/[0.10]
+        //             dark:hover:bg-white/[0.05]
+        //           "
+        //                   >
+        //                     {/* soft hover glow */}
+        //                     <div className="absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(58,170,90,0.05),transparent_35%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(58,170,90,0.08),transparent_35%)]" />
+
+        //                     {getRankBadge(index)}
+
+        //                     <div className="relative z-10 flex-1 min-w-0">
+        //                       {/* Bubble */}
+        //                       <div
+        //                         className="relative rounded-2xl rounded-tl-sm border border-slate-200/70 px-4 py-3 dark:border-white/[0.06]"
+        //                         style={{
+        //                           backgroundColor: `rgba(58, 170, 90, ${heatAlpha})`,
+        //                         }}
+        //                       >
+        //                         <div className="flex items-start justify-between gap-3">
+        //                           <TranslatableText
+        //                             text={item.question}
+        //                             textClassName="text-sm text-slate-700 dark:text-gray-100"
+        //                             translateButtonClassName="h-8 text-xs"
+        //                           />
+
+        //                           <span
+        //                             className={`inline-flex items-center gap-1.5 shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold shadow-sm ${
+        //                               isTop3
+        //                                 ? "border-[#3AAA5A]/25 bg-[#3AAA5A]/10 text-[#3AAA5A]"
+        //                                 : "border-[#378ADD]/20 bg-[#378ADD]/10 text-[#378ADD]"
+        //                             }`}
+        //                           >
+        //                             <MessageSquare className="w-3.5 h-3.5" />
+        //                             {item.count.toLocaleString()}
+        //                           </span>
+        //                         </div>
+
+        //                         {/* Bubble Tail */}
+        //                         <div
+        //                           className="absolute -left-2 top-3 h-4 w-4 rotate-45 border-b border-l border-slate-200/70 dark:border-white/[0.06]"
+        //                           style={{
+        //                             backgroundColor: `rgba(58, 170, 90, ${heatAlpha})`,
+        //                           }}
+        //                         />
+        //                       </div>
+        //                     </div>
+        //                   </div>
+        //                 );
+        //               })}
+        //             </div>
+        //           </ScrollArea>
+        //         )}
+        //       </div>
+        //     </div>
+        //   </div>,
+        //   document.body,
+        // )
         createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-200">
-            {/* Modal Container */}
-            <div className="relative w-full max-w-4xl h-[78vh] overflow-hidden rounded-3xl border border-slate-200/70 bg-gradient-to-br from-white via-slate-50 to-slate-100 shadow-[0_20px_80px_rgba(15,23,42,0.18)] dark:border-white/[0.06] dark:bg-[#121212] dark:from-[#18181b] dark:via-[#161616] dark:to-[#121212] dark:shadow-black/40 flex flex-col animate-in zoom-in-95 duration-200">
-              {/* Glow Layer */}
-              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(58,170,90,0.08),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(55,138,221,0.08),transparent_28%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(58,170,90,0.12),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(55,138,221,0.12),transparent_28%)]" />
-
-              {/* Header */}
-              <div className="relative z-10 flex items-center justify-between border-b border-slate-200/70 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.03] backdrop-blur-xl px-6 py-5">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-amber-500 shadow-sm dark:border-amber-500/20 dark:bg-amber-500/10">
-                    <RefreshCw className="w-5 h-5" />
-                  </div>
-
-                  <div>
-                    <h3 className="text-lg font-semibold tracking-tight text-slate-800 dark:text-gray-100">
-                      Frequently Asked Queries
-                    </h3>
-
-                    <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-muted-foreground">
-                      Top chatbot messages ranked by occurrence
-                      <span className="ml-1 font-semibold text-amber-600 dark:text-amber-400">
-                        ({Number(repeatQueryRatePct).toFixed(1)}% repeat rate)
-                      </span>
-                    </p>
-                  </div>
-                </div>
-
-                {/* Close Button */}
-                <button
-                  onClick={() => setIsFaqModalOpen(false)}
-                  className="
-          flex items-center justify-center
-          h-10 w-10
-          rounded-xl
-          border border-slate-200
-          bg-white/80
-          text-slate-500
-          shadow-sm
-          transition-all duration-200
-          hover:bg-slate-100
-          hover:text-slate-900
-          hover:shadow-md
-          dark:border-white/[0.06]
-          dark:bg-white/[0.04]
-          dark:text-gray-400
-          dark:hover:bg-white/[0.08]
-          dark:hover:text-white
-        "
+          <AnimatePresence>
+            {isFaqModalOpen && (
+              <motion.div
+                key="faq-overlay"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4"
+              >
+                {/* Modal Container */}
+                <motion.div
+                  key="faq-modal"
+                  initial={{ opacity: 0, scale: 0.95, y: 8 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.97, y: 4 }}
+                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                  className="relative w-full max-w-4xl h-[78vh] overflow-hidden rounded-3xl border border-slate-200/70 bg-gradient-to-br from-white via-slate-50 to-slate-100 shadow-[0_20px_80px_rgba(15,23,42,0.18)] dark:border-white/[0.06] dark:bg-[#121212] dark:from-[#18181b] dark:via-[#161616] dark:to-[#121212] dark:shadow-black/40 flex flex-col"
                 >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+                  {/* Glow Layer */}
+                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(58,170,90,0.08),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(55,138,221,0.08),transparent_28%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(58,170,90,0.12),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(55,138,221,0.12),transparent_28%)]" />
 
-              {/* Content */}
-              <div className="relative z-10 flex-1 overflow-hidden p-6">
-                {faqs.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-center">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-200 bg-slate-100 dark:border-white/[0.06] dark:bg-white/[0.03]">
-                      <MessageCircle className="w-7 h-7 text-slate-400 dark:text-muted-foreground/30" />
+                  {/* Header */}
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25, delay: 0.05 }}
+                    className="relative z-10 flex items-center justify-between border-b border-slate-200/70 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.03] backdrop-blur-xl px-6 py-5"
+                  >
+                    <div className="flex items-center gap-4">
+                      <motion.div
+                        initial={{ scale: 0.8, rotate: -15, opacity: 0 }}
+                        animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                        transition={{
+                          duration: 0.35,
+                          delay: 0.1,
+                          ease: "backOut",
+                        }}
+                        className="flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-amber-500 shadow-sm dark:border-amber-500/20 dark:bg-amber-500/10"
+                      >
+                        <RefreshCw className="w-5 h-5" />
+                      </motion.div>
+
+                      <div>
+                        <h3 className="text-lg font-semibold tracking-tight text-slate-800 dark:text-gray-100">
+                          Frequently Asked Queries
+                        </h3>
+                        <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-muted-foreground">
+                          Top chatbot messages ranked by occurrence
+                          <span className="ml-1 font-semibold text-amber-600 dark:text-amber-400">
+                            ({Number(repeatQueryRatePct).toFixed(1)}% repeat
+                            rate)
+                          </span>
+                        </p>
+                      </div>
                     </div>
 
-                    <p className="mt-5 text-sm font-semibold text-slate-700 dark:text-muted-foreground/70">
-                      No frequently asked messages found
-                    </p>
+                    {/* Close Button */}
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.92 }}
+                      onClick={() => setIsFaqModalOpen(false)}
+                      className="flex items-center justify-center h-10 w-10 rounded-xl border border-slate-200 bg-white/80 text-slate-500 shadow-sm transition-colors duration-200 hover:bg-slate-100 hover:text-slate-900 hover:shadow-md dark:border-white/[0.06] dark:bg-white/[0.04] dark:text-gray-400 dark:hover:bg-white/[0.08] dark:hover:text-white"
+                    >
+                      <X className="w-4 h-4" />
+                    </motion.button>
+                  </motion.div>
 
-                    <p className="mt-1 text-xs text-slate-500 dark:text-muted-foreground/40">
-                      Try adjusting the date range to see results
-                    </p>
-                  </div>
-                ) : (
-                  <ScrollArea className="h-full w-full pr-4">
-                    <div className="space-y-4 pb-2">
-                      {faqs.map((item, index) => {
-                        const faqMaxCount = faqs.length > 0 ? faqs[0].count : 1;
+                  {/* Content */}
+                  <div className="relative z-10 flex-1 overflow-hidden p-6">
+                    {faqs.length === 0 ? (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: 0.1 }}
+                        className="flex flex-col items-center justify-center h-full text-center"
+                      >
+                        <motion.div
+                          initial={{ scale: 0.85, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          transition={{
+                            duration: 0.35,
+                            delay: 0.15,
+                            ease: "backOut",
+                          }}
+                          className="flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-200 bg-slate-100 dark:border-white/[0.06] dark:bg-white/[0.03]"
+                        >
+                          <MessageCircle className="w-7 h-7 text-slate-400 dark:text-muted-foreground/30" />
+                        </motion.div>
+                        <p className="mt-5 text-sm font-semibold text-slate-700 dark:text-muted-foreground/70">
+                          No frequently asked messages found
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500 dark:text-muted-foreground/40">
+                          Try adjusting the date range to see results
+                        </p>
+                      </motion.div>
+                    ) : (
+                      <ScrollArea className="h-full w-full pr-4">
+                        <motion.div
+                          initial="hidden"
+                          animate="visible"
+                          variants={{
+                            hidden: {},
+                            visible: {
+                              transition: {
+                                staggerChildren: 0.04,
+                                delayChildren: 0.08,
+                              },
+                            },
+                          }}
+                          className="space-y-4 pb-2"
+                        >
+                          {faqs.map((item, index) => {
+                            const faqMaxCount =
+                              faqs.length > 0 ? faqs[0].count : 1;
+                            const heatAlpha = Math.max(
+                              0.06,
+                              (item.count / faqMaxCount) * 0.18,
+                            );
+                            const isTop3 = index < 3;
 
-                        const heatAlpha = Math.max(
-                          0.06,
-                          (item.count / faqMaxCount) * 0.18,
-                        );
-
-                        const isTop3 = index < 3;
-
-                        return (
-                          <div
-                            key={index}
-                            className="
-                    group relative
-                    flex items-start gap-4
-                    rounded-2xl
-                    border border-slate-200/70
-                    bg-white/80
-                    p-4
-                    shadow-sm
-                    transition-all duration-200
-                    hover:-translate-y-[1px]
-                    hover:border-slate-300
-                    hover:bg-white
-                    hover:shadow-lg
-                    dark:border-white/[0.06]
-                    dark:bg-white/[0.03]
-                    dark:hover:border-white/[0.10]
-                    dark:hover:bg-white/[0.05]
-                  "
-                          >
-                            {/* soft hover glow */}
-                            <div className="absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(58,170,90,0.05),transparent_35%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(58,170,90,0.08),transparent_35%)]" />
-
-                            {getRankBadge(index)}
-
-                            <div className="relative z-10 flex-1 min-w-0">
-                              {/* Bubble */}
-                              <div
-                                className="relative rounded-2xl rounded-tl-sm border border-slate-200/70 px-4 py-3 dark:border-white/[0.06]"
-                                style={{
-                                  backgroundColor: `rgba(58, 170, 90, ${heatAlpha})`,
+                            return (
+                              <motion.div
+                                key={index}
+                                variants={{
+                                  hidden: { opacity: 0, y: 10 },
+                                  visible: { opacity: 1, y: 0 },
                                 }}
+                                transition={{ duration: 0.25, ease: "easeOut" }}
+                                whileHover={{ y: -1 }}
+                                className="group relative flex items-start gap-4 rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-sm transition-colors duration-200 hover:border-slate-300 hover:bg-white hover:shadow-lg dark:border-white/[0.06] dark:bg-white/[0.03] dark:hover:border-white/[0.10] dark:hover:bg-white/[0.05]"
                               >
-                                <div className="flex items-start justify-between gap-3">
-                                  <TranslatableText
-                                    text={item.question}
-                                    textClassName="text-sm text-slate-700 dark:text-gray-100"
-                                    translateButtonClassName="h-8 text-xs"
-                                  />
+                                <div className="absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(58,170,90,0.05),transparent_35%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(58,170,90,0.08),transparent_35%)]" />
 
-                                  <span
-                                    className={`inline-flex items-center gap-1.5 shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold shadow-sm ${
-                                      isTop3
-                                        ? "border-[#3AAA5A]/25 bg-[#3AAA5A]/10 text-[#3AAA5A]"
-                                        : "border-[#378ADD]/20 bg-[#378ADD]/10 text-[#378ADD]"
-                                    }`}
+                                {getRankBadge(index)}
+
+                                <div className="relative z-10 flex-1 min-w-0">
+                                  <div
+                                    className="relative rounded-2xl rounded-tl-sm border border-slate-200/70 px-4 py-3 dark:border-white/[0.06]"
+                                    style={{
+                                      backgroundColor: `rgba(58, 170, 90, ${heatAlpha})`,
+                                    }}
                                   >
-                                    <MessageSquare className="w-3.5 h-3.5" />
-                                    {item.count.toLocaleString()}
-                                  </span>
-                                </div>
+                                    <div className="flex items-start justify-between gap-3">
+                                      <TranslatableText
+                                        text={item.question}
+                                        textClassName="text-sm text-slate-700 dark:text-gray-100"
+                                        translateButtonClassName="h-8 text-xs"
+                                      />
 
-                                {/* Bubble Tail */}
-                                <div
-                                  className="absolute -left-2 top-3 h-4 w-4 rotate-45 border-b border-l border-slate-200/70 dark:border-white/[0.06]"
-                                  style={{
-                                    backgroundColor: `rgba(58, 170, 90, ${heatAlpha})`,
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </ScrollArea>
-                )}
-              </div>
-            </div>
-          </div>,
+                                      <motion.span
+                                        initial={{ scale: 0.8, opacity: 0 }}
+                                        animate={{ scale: 1, opacity: 1 }}
+                                        transition={{
+                                          duration: 0.25,
+                                          delay: 0.05,
+                                          ease: "backOut",
+                                        }}
+                                        className={`inline-flex items-center gap-1.5 shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold shadow-sm ${
+                                          isTop3
+                                            ? "border-[#3AAA5A]/25 bg-[#3AAA5A]/10 text-[#3AAA5A]"
+                                            : "border-[#378ADD]/20 bg-[#378ADD]/10 text-[#378ADD]"
+                                        }`}
+                                      >
+                                        <MessageSquare className="w-3.5 h-3.5" />
+                                        {item.count.toLocaleString()}
+                                      </motion.span>
+                                    </div>
+
+                                    <div
+                                      className="absolute -left-2 top-3 h-4 w-4 rotate-45 border-b border-l border-slate-200/70 dark:border-white/[0.06]"
+                                      style={{
+                                        backgroundColor: `rgba(58, 170, 90, ${heatAlpha})`,
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              </motion.div>
+                            );
+                          })}
+                        </motion.div>
+                      </ScrollArea>
+                    )}
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>,
           document.body,
         )}
     </Card>

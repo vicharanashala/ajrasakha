@@ -230,46 +230,51 @@ def merge_entities_from_rephrased_query(
         merged["crop"] = c[0].upper() + c[1:].lower()
 
     # --- State/District Resolution (STRICT PRIORITY) ---
-    
-    # Priority 1: Explicit mention in the current query text
+    gps_state = gps_state_from_location(location)
+    gps_city = str(location["city"]) if location and location.get("city") else None
+
     state_from_text = extract_state_from_text(text)
-    
     llm_state = plan.get("entities", {}).get("state")
     llm_district = plan.get("entities", {}).get("district")
     
-    if state_from_text:
-        merged["state"] = state_from_text
-        if llm_district:
-            merged["district"] = llm_district
-    elif llm_state or llm_district:
-        # Priority 2: LLM successfully extracted a location (e.g. district "Varanasi" -> state "Uttar Pradesh")
-        if llm_state:
-            merged["state"] = llm_state
-        if llm_district:
-            merged["district"] = llm_district
+    extracted_state = state_from_text or llm_state
+    extracted_district = llm_district
+
+    if extracted_state and extracted_district:
+        # Both extracted from query
+        merged["state"] = extracted_state
+        merged["district"] = extracted_district
+    elif extracted_district and not extracted_state:
+        # Only district extracted. Unset state so it can be resolved via geocoding later.
+        merged["district"] = extracted_district
+        merged.pop("state", None)
+    elif extracted_state and not extracted_district:
+        # Only state is given
+        if gps_state and extracted_state.strip().lower() == gps_state.strip().lower():
+            # State matches user's home state -> use user's home state and district
+            merged["state"] = gps_state
+            if gps_city:
+                merged["district"] = gps_city
+            else:
+                merged["district"] = "all"
+        else:
+            # Doesn't match home state -> take state mentioned, district is "all"
+            merged["state"] = extracted_state
+            merged["district"] = "all"
     else:
-        # Priority 3: GPS Fallback
-        gps_state = gps_state_from_location(location)
+        # Neither extracted. Fallback to Home GPS.
         if gps_state:
             merged["state"] = gps_state
-            # Always clear district if we fall back to GPS state, so it takes GPS city or 'all'
+            if gps_city:
+                merged["district"] = gps_city
+            else:
+                merged["district"] = "all"
+        elif prev_entities and prev_entities.get("state"):
+            merged["state"] = prev_entities.get("state")
             merged.pop("district", None)
         else:
-            # Priority 4: Fallback to previous entities
-            if prev_entities and prev_entities.get("state"):
-                merged["state"] = prev_entities.get("state")
-            else:
-                merged.pop("state", None)
-    
-    # --- District Resolution ---
-    # District only from: LLM entities OR GPS (never from text regex)
-    if not merged.get("district"):
-        if has_gps and location and location.get("city"):
-            merged["district"] = str(location["city"])
-        elif merged.get("state"):
-            # State found but no district mentioned → set to "all"
-            merged["district"] = "all"
-        # else: no state yet → district will be set after state resolution
+            merged.pop("state", None)
+            merged.pop("district", None)
 
     return merged
 
@@ -337,8 +342,9 @@ def _location_status(
     loc = location or {}
     lat, lon = loc.get("latitude"), loc.get("longitude")
     has_gps = lat is not None and lon is not None
-    has_state = bool(entities.get("state") or (has_gps and loc.get("state")))
-    has_district = bool(entities.get("district") or (has_gps and loc.get("city")))
+    # Completeness uses entities only; device GPS / reverse-geocode on thread does not count.
+    has_state = bool(entities.get("state"))
+    has_district = bool(entities.get("district"))
     return has_state, has_district, has_gps
 
 
@@ -361,9 +367,8 @@ def _finalize_location_and_crop_completeness(
     entities: PlannerEntities,
     domains: list[str],
     has_state: bool,
-    has_gps: bool,
 ) -> PlannerPlan:
-    """Single completeness pass: state (or GPS) required; district defaults to all."""
+    """Single completeness pass: state in entities required; district defaults to all."""
     script, vocal = language_pair_from_plan(out)
     crop = entities.get("crop")
     canonical_domains = [normalize_domain(d) for d in (domains or [])] or ["General"]
@@ -372,7 +377,7 @@ def _finalize_location_and_crop_completeness(
         and not crop_slot_satisfied(crop)
     )
 
-    if not has_state and not has_gps:
+    if not has_state:
         out["is_complete"] = False
         out["missing_info"] = ["location"]
         out["follow_up_question"] = get_state_follow_up(script, vocal)
@@ -411,7 +416,7 @@ def apply_planner_completeness_rules(
     entities = apply_crop_one_shot_fallback(messages, entities, domains_for_crop)
     out["entities"] = entities
 
-    has_state, _, has_gps = _location_status(entities, location)
+    has_state, _, _has_gps = _location_status(entities, location)
     domain = normalize_domain(out.get("domain") or "General")
     domains = list(out.get("domains") or [domain])
 
@@ -442,9 +447,23 @@ def apply_planner_completeness_rules(
         entities=entities,
         domains=domains,
         has_state=has_state,
-        has_gps=has_gps,
     )
 
     out["reasoning"] = (out.get("reasoning") or "") + f"; domain={domain}"
     return out
 
+
+def apply_non_agriculture_gate(plan: PlannerPlan) -> PlannerPlan:
+    """Non-ag path: force complete, disable all specialist tool flags."""
+    out: PlannerPlan = {**plan}
+    out["is_agriculture_related"] = False
+    out["is_complete"] = True
+    out["missing_info"] = []
+    out["follow_up_question"] = None
+    out["weather"] = False
+    out["mandi"] = False
+    out["soil"] = False
+    out["schemes"] = False
+    out["chemical_checker"] = False
+    out["knowledge_base"] = False
+    return out

@@ -1001,26 +1001,110 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
 
     const logData: Record<string, any> = { questionId, manual: true };
-    const duplicateResult = await this.checkDuplicateQuestion(question, question.details, logData);
+    const result = await this.runDuplicateCheckPipeline(question, question.details, logData);
 
-    if (duplicateResult?.isDuplicate && duplicateResult?.duplicateData) {
-      const { similarityScore, referenceQuestionId, referenceQuestion, referenceSource } = duplicateResult.duplicateData as any;
+    if (result.isDuplicate) {
+      const refId = result.referenceQuestionId instanceof ObjectId
+        ? result.referenceQuestionId
+        : result.referenceQuestionId
+          ? new ObjectId(String(result.referenceQuestionId))
+          : null;
       await this.questionRepo.updateQuestion(questionId, {
         status: 'duplicate',
-        similarityScore,
-        referenceQuestionId,
-        referenceQuestion,
-        referenceSource,
+        similarityScore: result.similarityScore,
+        referenceQuestionId: refId,
+        referenceQuestion: result.referenceQuestion,
+        referenceSource: result.referenceSource,
+        ...(result.isExact !== undefined ? { isExact: result.isExact } : {}),
       });
-      return { message: 'Duplicate detected and question updated.', isDuplicate: true, referenceQuestionId: referenceQuestionId?.toString() };
+      return { message: 'Duplicate detected and question updated.', isDuplicate: true, referenceQuestionId: refId?.toString() };
     }
 
-    if (duplicateResult?.isNonAgri) {
+    if (result.isNonAgri) {
       await this.questionRepo.updateQuestion(questionId, { status: 'non_agri' });
       return { message: 'Question marked as non-agri.', isDuplicate: false };
     }
 
     return { message: 'No duplicate found. Question remains open.', isDuplicate: false };
+  }
+
+  private async runDuplicateCheckPipeline(
+    baseQuestion: IQuestion,
+    details: IQuestion['details'],
+    logData: Record<string, any>,
+  ): Promise<{
+    isDuplicate: boolean;
+    isNonAgri?: boolean;
+    referenceQuestionId?: ObjectId | string | null;
+    referenceQuestion?: string;
+    referenceSource?: string;
+    similarityScore?: number;
+    isExact?: boolean;
+  }> {
+    const cropName = typeof details.crop === 'string' ? details.crop : (details.crop as any)?.name || '';
+
+    const gdbResult = await this.aiService.searchGdb({
+      crop: cropName,
+      state: details.state,
+      rephrased_query: baseQuestion.question,
+    });
+
+    console.log('[runDuplicateCheckPipeline] gdbResult:', gdbResult);
+
+    const extractObjectId = (id: any): ObjectId | null => {
+      const raw = id?.$oid ?? id;
+      const hex = String(raw ?? '');
+      if (/^[a-f\d]{24}$/i.test(hex)) return new ObjectId(hex);
+      return null;
+    };
+
+    const exactMatch = gdbResult?.exact_match;
+    if (exactMatch?.question_id) {
+      const refId = extractObjectId(exactMatch.question_id);
+      if (refId) {
+        return {
+          isDuplicate: true,
+          referenceQuestionId: refId,
+          referenceQuestion: exactMatch.question,
+          referenceSource: 'reviewer',
+          similarityScore: Number((exactMatch.similarity_score * 100).toFixed(2)),
+          isExact: true,
+        };
+      }
+      console.warn(`[runDuplicateCheckPipeline] GDB exact_match invalid question_id: ${exactMatch.question_id}, skipping`);
+    }
+
+    const selectedMatch = gdbResult?.selected_match;
+    if (selectedMatch?.question_id) {
+      const refId = extractObjectId(selectedMatch.question_id);
+      if (refId) {
+        return {
+          isDuplicate: true,
+          referenceQuestionId: refId,
+          referenceQuestion: selectedMatch.question,
+          referenceSource: 'reviewer',
+          similarityScore: Number((selectedMatch.similarity_score * 100).toFixed(2)),
+          isExact: false,
+        };
+      }
+      console.warn(`[runDuplicateCheckPipeline] GDB selected_match invalid question_id: ${selectedMatch.question_id}, skipping`);
+    }
+
+    // No GDB match — call LLM directly to classify non-agri vs agri (no embedding search)
+    try {
+      const llmResult = await checkConceptDuplicate(baseQuestion.question, []);
+      if (llmResult.isNonAgri) {
+        logData.outcome = 'NON_AGRI_DETECTED';
+        chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData);
+        return { isDuplicate: false, isNonAgri: true };
+      }
+    } catch (llmError: any) {
+      console.warn(
+        `[runDuplicateCheckPipeline] LLM non-agri check failed, treating as agri: ${llmError?.message}`,
+      );
+    }
+
+    return { isDuplicate: false };
   }
 
   async addQuestion(
@@ -1306,87 +1390,85 @@ export class QuestionService extends BaseService implements IQuestionService {
               isTesting: true,
             });
             return;
-          } else {
-            // Extract the last GDB tool response from thread content
-            const content: any[] = threadValidation.data?.content || [];
-            const gdbToolCalls = content.filter(
-              (c: any) => c.type === 'tool' && c.toolName === 'gdb' && c.toolResponse,
-            );
-            const lastGdbResponse = gdbToolCalls.length > 0
-              ? gdbToolCalls[gdbToolCalls.length - 1].toolResponse
-              : null;
+          }
+          /* else {
+             // Extract the last GDB tool response from thread content
+             const content: any[] = threadValidation.data?.content || [];
+             const gdbToolCalls = content.filter(
+               (c: any) => c.type === 'tool' && c.toolName === 'gdb' && c.toolResponse,
+             );
+             const lastGdbResponse = gdbToolCalls.length > 0
+               ? gdbToolCalls[gdbToolCalls.length - 1].toolResponse
+               : null;
+ 
+             if (lastGdbResponse) {
+               const isExact: boolean = lastGdbResponse.is_exact === true;
+               const isSimilar: boolean = lastGdbResponse.is_similar === true;
+ 
+               if (isExact && !isSimilar) {
+                 // Exact match found in GDB — mark as duplicate using exact_match data
+                 const exactMatch = lastGdbResponse.exact_match;
+                 await this.questionRepo.updateQuestion(questionId, {
+                   status: 'duplicate',
+                   similarityScore: Number((exactMatch.similarity_score * 100).toFixed(2)),
+                   referenceQuestionId: new ObjectId(String(exactMatch.question_id)),
+                   referenceQuestion: exactMatch.question,
+                   referenceSource: 'reviewer',
+                   isExact: true,
+                 });
+                 return;
+               } else if (!isExact && isSimilar) {
+                 // Similar match found in GDB — mark as duplicate using similar_pair1 data
+                 const similarPair = lastGdbResponse.similar_pair1;
+                 await this.questionRepo.updateQuestion(questionId, {
+                   status: 'duplicate',
+                   similarityScore: Number((similarPair.similarity_score * 100).toFixed(2)),
+                   referenceQuestionId: new ObjectId(String(similarPair.question_id)),
+                   referenceQuestion: similarPair.question,
+                   referenceSource: 'reviewer',
+                   isExact: false,
+                 });
+                 return;
+               }
+               // Both false — fall through to existing duplicate check below
+             }
+           }*/
 
-            if (lastGdbResponse) {
-              const isExact: boolean = lastGdbResponse.is_exact === true;
-              const isSimilar: boolean = lastGdbResponse.is_similar === true;
 
-              if (isExact && !isSimilar) {
-                // Exact match found in GDB — mark as duplicate using exact_match data
-                const exactMatch = lastGdbResponse.exact_match;
-                await this.questionRepo.updateQuestion(questionId, {
-                  status: 'duplicate',
-                  similarityScore: Number((exactMatch.similarity_score * 100).toFixed(2)),
-                  referenceQuestionId: new ObjectId(String(exactMatch.question_id)),
-                  referenceQuestion: exactMatch.question,
-                  referenceSource: 'reviewer',
-                  isExact: true,
-                });
-                return;
-              } else if (!isExact && isSimilar) {
-                // Similar match found in GDB — mark as duplicate using similar_pair1 data
-                const similarPair = lastGdbResponse.similar_pair1;
-                await this.questionRepo.updateQuestion(questionId, {
-                  status: 'duplicate',
-                  similarityScore: Number((similarPair.similarity_score * 100).toFixed(2)),
-                  referenceQuestionId: new ObjectId(String(similarPair.question_id)),
-                  referenceQuestion: similarPair.question,
-                  referenceSource: 'reviewer',
-                  isExact: false,
-                });
-                return;
-              }
-              // Both false — fall through to existing duplicate check below
+          // AJRASAKHA / WHATSAPP — GDB → embedding → LLM duplicate/non-agri pipeline
+          try {
+            const result = await this.runDuplicateCheckPipeline(baseQuestion, details, logData);
+
+            if (result.isDuplicate) {
+              const refId = result.referenceQuestionId instanceof ObjectId
+                ? result.referenceQuestionId
+                : result.referenceQuestionId
+                  ? new ObjectId(String(result.referenceQuestionId))
+                  : null;
+              await this.questionRepo.updateQuestion(questionId, {
+                status: 'duplicate',
+                similarityScore: result.similarityScore,
+                referenceQuestionId: refId,
+                referenceQuestion: result.referenceQuestion,
+                referenceSource: result.referenceSource,
+                ...(result.isExact !== undefined ? { isExact: result.isExact } : {}),
+              });
+              return;
             }
-          }
-        }
 
-        // AJRASAKHA / WHATSAPP — duplicate check then notify moderators
-        try {
-          const duplicateResult = await this.checkDuplicateQuestion(
-            baseQuestion,
-            details,
-            logData,
-          );
-          /*   if (duplicateResult?.isDuplicate && duplicateResult?.duplicateData) {
-               const {
-                 similarityScore,
-                 referenceQuestionId,
-                 referenceQuestion,
-                 referenceSource,
-               } = duplicateResult.duplicateData as any;
-               await this.questionRepo.updateQuestion(questionId, {
-                 status: 'duplicate',
-                 similarityScore,
-                 referenceQuestionId,
-                 referenceQuestion,
-                 referenceSource,
-               });
-               return;
-             }*/
-          if (duplicateResult?.isNonAgri) {
-            await this.questionRepo.updateQuestion(questionId, {
-              status: 'non_agri',
-            });
-            return;
+            if (result.isNonAgri) {
+              await this.questionRepo.updateQuestion(questionId, { status: 'non_agri' });
+              return;
+            }
+
+            await this.questionRepo.updateQuestion(questionId, { status: 'open' });
+          } catch (pipelineError: any) {
+            console.error(
+              '[processQuestionInBackground] Duplicate check pipeline failed, proceeding as open:',
+              pipelineError?.message,
+            );
+            await this.questionRepo.updateQuestion(questionId, { status: 'open' });
           }
-          // NONE result — not a duplicate and not non-agri, mark as open
-          await this.questionRepo.updateQuestion(questionId, { status: 'open' });
-        } catch (duplicateError: any) {
-          console.error(
-            '[processQuestionInBackground] Duplicate check failed, proceeding as open:',
-            duplicateError.message,
-          );
-          await this.questionRepo.updateQuestion(questionId, { status: 'open' });
         }
 
         const [allModerators, taskForceModerators] = await Promise.all([
@@ -1435,6 +1517,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     // ready immediately after question creation (race between add and processing).
     const retryDelaysMs = [3000, 6000, 12000];
     let lastError: any;
+    let hadSuccessfulApiCall = false;
 
     for (let attempt = 0; attempt <= retryDelaysMs.length; attempt++) {
       if (attempt > 0) {
@@ -1447,10 +1530,20 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       try {
         const matchedQuestion = await this.getMatchedQuestion(questionId);
+        hadSuccessfulApiCall = true; // API responded (even if no match returned)
         if (matchedQuestion) {
           return { isValid: true, data: matchedQuestion };
         }
       } catch (error: any) {
+        const notFoundMessages = [
+          'No matching WhatsApp message found',
+          'Question not found',
+          'Thread id not found',
+        ];
+        const isNotFound = notFoundMessages.some(msg => error?.message?.includes(msg));
+        if (isNotFound) {
+          hadSuccessfulApiCall = true; // API reachable — question simply not present yet
+        }
         lastError = error;
         console.warn(
           `[validateTimeBoundQuestionThread] Attempt ${attempt + 1}/${retryDelaysMs.length + 1} failed for questionId=${questionId}: ${error?.message}`,
@@ -1462,10 +1555,14 @@ export class QuestionService extends BaseService implements IQuestionService {
       `[validateTimeBoundQuestionThread] All attempts exhausted for questionId=${questionId}:`,
       lastError?.message,
     );
-    return {
-      isValid: true,
-      reason: lastError?.message || 'MATCHED_QUESTION_FAILED',
-    };
+
+    // API responded but found no match → question is a test, mark isTesting
+    if (hadSuccessfulApiCall) {
+      return { isValid: false, reason: 'Thread_id_not_found' };
+    }
+
+    // All attempts threw errors (API failure) → don't mark isTesting, proceed normally
+    return { isValid: true, reason: lastError?.message || 'API_FAILED' };
   }
 
   async getQuestionDataById(questionId: string): Promise<IQuestion | null> {
@@ -4880,7 +4977,15 @@ export class QuestionService extends BaseService implements IQuestionService {
        throw new Error('Question does not have messageId, cannot reliably fetch matched message');
      }*/
 
-    const analyticsPromise = this.chatbotRepository.findMatchingMessages({
+    // const analyticsPromise = this.chatbotRepository.findMatchingMessages({
+    //   question,
+    //   details,
+    //   createdAt,
+    //   questionId: questionId.toString(),
+    //   messageId: messageId ? messageId.toString() : undefined,
+    // });
+
+    const annamPromise = await this.chatbotRepository.findFromSecondDb({
       question,
       details,
       createdAt,
@@ -4888,16 +4993,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       messageId: messageId ? messageId.toString() : undefined,
     });
 
-    const annamPromise = this.chatbotRepository.findFromSecondDb({
-      question,
-      details,
-      createdAt,
-      questionId: questionId.toString(),
-      messageId: messageId ? messageId.toString() : undefined,
-    });
-
-    const [analyticsResult, annamResult] = await Promise.allSettled([
-      analyticsPromise,
+    const [annamResult] = await Promise.allSettled([
       annamPromise,
     ]);
 
@@ -4905,8 +5001,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     // HANDLE RESULTS
     // =========================
 
-    const analyticsMessages =
-      analyticsResult.status === 'fulfilled' ? analyticsResult.value : [];
+    // const analyticsMessages =
+    //   analyticsResult.status === 'fulfilled' ? analyticsResult.value : [];
 
     const annamMessages =
       annamResult.status === 'fulfilled' ? annamResult.value : [];
@@ -4915,14 +5011,14 @@ export class QuestionService extends BaseService implements IQuestionService {
     // LOG FAILURES
     // =========================
 
-    if (analyticsResult.status === 'rejected') {
-      console.error('Analytics DB failed:', {
-        error: analyticsResult.reason?.message,
-        stack: analyticsResult.reason?.stack,
-        questionId,
-        messageId,
-      });
-    }
+    // if (analyticsResult.status === 'rejected') {
+    //   console.error('Analytics DB failed:', {
+    //     error: analyticsResult.reason?.message,
+    //     stack: analyticsResult.reason?.stack,
+    //     questionId,
+    //     messageId,
+    //   });
+    // }
 
     if (annamResult.status === 'rejected') {
       console.error('Second DB failed:', {
@@ -4936,7 +5032,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     // MERGE RESULTS
     // =========================
 
-    const allMessages = [...analyticsMessages, ...annamMessages];
+    const allMessages = [...annamMessages];
 
     const message = allMessages?.[0];
 

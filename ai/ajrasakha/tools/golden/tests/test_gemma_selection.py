@@ -5,6 +5,7 @@ import json
 import pytest
 
 from ajrasakha.tools.golden.gemma_classifier import (
+    _enforce_at_most_one_same,
     _parse_batch_relevance_response,
     _parse_tie_breaker_response,
     _pick_single_candidate,
@@ -28,6 +29,46 @@ def test_parse_batch_relevance_defaults_all_keep():
     results = _parse_batch_relevance_response("not json", 3)
     assert len(results) == 3
     assert all(r["relevance_decision"] == "KEEP" for r in results)
+
+
+def test_parse_batch_relevance_same_decision():
+    raw = json.dumps({
+        "results": [
+            {"index": 1, "decision": "SAME", "reason": "paraphrase match"},
+            {"index": 2, "decision": "KEEP", "reason": "related"},
+        ]
+    })
+    results = _parse_batch_relevance_response(raw, 2)
+    assert results[0]["relevance_decision"] == "SAME"
+    assert results[0]["relevance_reason"] == "paraphrase match"
+    assert results[1]["relevance_decision"] == "KEEP"
+
+
+def test_enforce_at_most_one_same_demotes_lower_score():
+    pairs = [_pair("a", 0.6), _pair("b", 0.9)]
+    results = [
+        {"relevance_decision": "SAME", "relevance_reason": "first same"},
+        {"relevance_decision": "SAME", "relevance_reason": "second same"},
+    ]
+    enforced = _enforce_at_most_one_same(results, pairs)
+    assert enforced[0]["relevance_decision"] == "KEEP"
+    assert "demoted" in enforced[0]["relevance_reason"]
+    assert enforced[1]["relevance_decision"] == "SAME"
+
+
+def test_enforce_at_most_one_same_unchanged_when_zero_or_one():
+    pairs = [_pair("a", 0.8), _pair("b", 0.7)]
+    single = [
+        {"relevance_decision": "SAME", "relevance_reason": "only one"},
+        {"relevance_decision": "KEEP", "relevance_reason": "ok"},
+    ]
+    assert _enforce_at_most_one_same(single, pairs) == single
+
+    none_same = [
+        {"relevance_decision": "KEEP", "relevance_reason": "ok"},
+        {"relevance_decision": "REJECT", "relevance_reason": "no"},
+    ]
+    assert _enforce_at_most_one_same(none_same, pairs) == none_same
 
 
 def test_parse_batch_relevance_mixed():
@@ -142,3 +183,50 @@ async def test_select_none_for_partial_or_not_covered():
         {"classification": "NOT_COVERED", "reason": "no"},
     ]
     assert await select_best_match("q", pairs, classifications) is None
+
+
+@pytest.mark.asyncio
+async def test_gdb_search_same_question_bypass(monkeypatch):
+    from ajrasakha.tools.golden import golden_search
+
+    rag_pairs = [_pair("winner", 0.85), _pair("other", 0.7)]
+
+    async def mock_strict(*_args, **_kwargs):
+        return []
+
+    async def mock_rag(*_args, **_kwargs):
+        return rag_pairs
+
+    async def mock_filter(*_args, **_kwargs):
+        return [
+            {
+                "relevance_decision": "SAME",
+                "relevance_reason": "paraphrase",
+                "llm_parse_ok": True,
+            },
+            {
+                "relevance_decision": "KEEP",
+                "relevance_reason": "related",
+                "llm_parse_ok": True,
+            },
+        ]
+
+    async def fail_classify(*_args, **_kwargs):
+        raise AssertionError("classify_pair should not run on SAME bypass")
+
+    monkeypatch.setattr(golden_search, "strict_exact_search", mock_strict)
+    monkeypatch.setattr(golden_search, "vector_rag_search", mock_rag)
+    monkeypatch.setattr(golden_search, "filter_relevance_batch", mock_filter)
+    monkeypatch.setattr(golden_search, "classify_pair", fail_classify)
+
+    result = await golden_search.gdb_search("farmer question", "wheat", "punjab")
+
+    assert result["selected_match"]["question_id"] == "winner"
+    assert result["selected_match"]["answer_from_class"] == "SAME_INTENT"
+    audit = result["classification_audit"]
+    assert audit["selection_rule"] == "same_question_relevance_bypass"
+    assert audit["selection_method"] == "same_question_bypass"
+    assert audit["status"] == "selected"
+    evals = {e["question_id"]: e for e in audit["evaluations"]}
+    assert evals["winner"]["action"] == "selected"
+    assert evals["other"]["action"] == "skipped_same_bypass"

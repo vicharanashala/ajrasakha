@@ -7,12 +7,12 @@ import {
 import { UserProfileActions } from "@/components/atoms/user-profile-actions";
 import { ThemeToggleCompact } from "./atoms/ThemeToggle";
 import { QAInterface } from "../features/qa-interface-page/QA-interface";
-import { FullSubmissionHistory } from "./submission-history";
+// import { FullSubmissionHistory } from "./submission-history";
 import { VoiceRecorderCard } from "./voice-recorder-card";
 import { QuestionsPage } from "./questions-page";
 import { BellIcon, ChevronDownIcon } from "lucide-react";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
-import { RequestsPage } from "./request-page";
+// import { RequestsPage } from "./request-page";
 import { initializeNotifications } from "@/services/pushService";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -30,8 +30,6 @@ import { ExpertDashboard } from "./ExpertDashboard";
 import { NotificationModal } from "./NotificationModal";
 import { AnnamDashboard_dev as AnnamDashboard } from "../features/chatbotDashboard/AnnamDashboard_dev";
 import { cn } from "@/lib/utils";
-import AuditPage from "./AuditPage";
-import { WhatsAppHistoryPage } from "../features/whatsappHistory/WhatsAppHistoryPage";
 import { CallInterface } from "./CallInterface";
 import { CallHistory } from "./CallHistory";
 import { ManageCallAgents } from "./ManageCallAgents";
@@ -56,9 +54,20 @@ export const PlaygroundPage = () => {
   // Initialize from localStorage or default
 
   const [activeTab, setActiveTab] = useState<string>("all_questions");
-  const [chatbotSource, setChatbotSource] = useState<
-    "vicharanashala" | "annam" | "whatsapp"
-  >("annam");
+  const [chatbotSource, setChatbotSource] = useState<"annam" | "whatsapp">(
+    "annam",
+  );
+  useEffect(() => {
+    const saved = localStorage.getItem("application-filter");
+
+    if (
+      saved === "annam" ||
+      // saved === "vicharanashala" ||
+      saved === "whatsapp"
+    ) {
+      setChatbotSource(saved);
+    }
+  }, []);
   const getStorageKey = (user?: { email?: string }) => {
     if (!user?.email) return null;
     return `playground_active_tab_${user.email}`;
@@ -312,15 +321,14 @@ export const PlaygroundPage = () => {
                     <span>ChatBot Analytics</span>
                   </TabsTrigger>
                 )}
-                {user &&
-                  (user.role === "moderator" || user.role === "admin") && (
-                    <TabsTrigger
-                      value="data_processing"
-                      className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                    >
-                      <span>Data Processing</span>
-                    </TabsTrigger>
-                  )}
+                {user && user.role === "admin" && (
+                  <TabsTrigger
+                    value="data_processing"
+                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  >
+                    <span>Data Processing</span>
+                  </TabsTrigger>
+                )}
                 {/*
                 {user && (
                   <TabsTrigger
@@ -539,7 +547,7 @@ export const PlaygroundPage = () => {
                   </TabsContent>
                 )}
 
-              {user && (user.role === "moderator" || user.role === "admin") && (
+              {user && user.role === "admin" && (
                 <TabsContent
                   value="data_processing"
                   className={cn(

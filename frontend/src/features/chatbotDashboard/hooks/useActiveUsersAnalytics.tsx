@@ -79,17 +79,143 @@ export const useRetentionMetrics = (
   });
 };
 
-export const useQueryCategories = (source: string, enabled: boolean = true) => {
+export const useQueryCategories = (source: string, userType: string, enabled: boolean = true) => {
   return useQuery({
     queryKey: ["query-categories",
-      source
+      source,
+      userType,
     ],
     queryFn: () => {
-      return chatbotService.getQueryCategories(source);
+      return chatbotService.getQueryCategories(source, userType);
     },
     enabled,
   });
 };
+
+export type QueryCategoryQuestionType = "all" | "unique" | "duplicate";
+
+export interface QueryCategoryQuestionEntry {
+  questionId: string;
+  question: string;
+  status: string;
+  questionType: "unique" | "duplicate";
+  category: string;
+  createdAt?: string;
+  farmerName?: string;
+  name?: string;
+  email?: string;
+  crop?: string;
+  village?: string;
+  block?: string;
+  district?: string;
+  state?: string;
+}
+
+export interface QueryCategoryQuestionsResponse {
+  questions: QueryCategoryQuestionEntry[];
+  total: number;
+  totalPages: number;
+  page: number;
+  limit: number;
+}
+
+// export const useQueryCategoryQuestions = ({
+//   category,
+//   questionType,
+//   page,
+//   limit,
+//   source,
+//   userType = "all",
+//   enabled = true,
+// }: {
+//   category?: string;
+//   questionType: QueryCategoryQuestionType;
+//   page: number;
+//   limit: number;
+//   source: string;
+//   userType?: string;
+//   enabled?: boolean;
+// }) => {
+//   return useQuery<QueryCategoryQuestionsResponse>({
+//     queryKey: [
+//       "query-category-questions",
+//       category,
+//       questionType,
+//       page,
+//       limit,
+//       source,
+//       userType,
+//     ],
+//     queryFn: () =>
+//       chatbotService.getQueryCategoryQuestions({
+//         category: category ?? "",
+//         questionType,
+//         page,
+//         limit,
+//         source,
+//         userType,
+//       }),
+//     enabled: enabled && Boolean(category),
+//   });
+// };
+
+export const useQuestionFilter = ({
+  category,
+  district,
+  state,
+  crop,
+  questionType,
+  page,
+  limit,
+  source,
+  userType = "all",
+  search = "",
+  enabled = true,
+}: {
+  category?: string;
+  district?: string;
+  state?: string
+  crop?: string
+  questionType: QueryCategoryQuestionType;
+  page: number;
+  limit: number;
+  source: string;
+  userType?: string;
+  search?: string;
+  enabled?: boolean;
+}) => {
+  return useQuery<QueryCategoryQuestionsResponse>({
+  queryKey: [
+    "get-question-filter",
+    category,
+    district,
+    state,
+    crop,
+    questionType,
+    page,
+    limit,
+    source,
+    userType,
+    search,
+  ],
+    queryFn: () =>
+      chatbotService.getQuestionByFilters({
+        category: category ?? "",
+        district: district ?? "",
+        state: state ?? "",
+        crop: crop ?? "",
+        questionType,
+        page,
+        limit,
+        source,
+        userType,
+        search
+      }),
+    enabled: enabled && Boolean(category || district || crop),
+  });
+};
+
+
 
 export const useInactiveWhatsappUsers = (inactiveUsersPage: number, enabled: boolean = true) => {
   return useQuery({
@@ -124,15 +250,16 @@ export const useAllWhatsappUsers = () => {
   });
 };
 
-export const useClosedAndNotifedData = (source: string, startDate?: string, endDate?: string, enabled: boolean = true)=>{
+export const useClosedAndNotifedData = (source: string, userType: string, startDate?: string, endDate?: string, enabled: boolean = true)=>{
   return useQuery({
     queryKey: ["closed-notified-data",
       source,
+      userType,
       startDate,
       endDate,
     ],
     queryFn: () => {
-      return chatbotService.getClosedAndNotifedData(source, startDate, endDate);
+      return chatbotService.getClosedAndNotifedData(source, userType, startDate, endDate);
     },
     placeholderData: (previousData) => previousData,
     enabled,
