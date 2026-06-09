@@ -249,12 +249,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                   disabled={isCheckingDuplicate}
                   className="bg-green-600 hover:bg-green-700 text-white"
                   onClick={() =>
-                    checkDuplicate(question._id!, {
-                      onSuccess: (res) => {
-                        toast.success(res?.message ?? "Duplicate check complete.");
-                      },
-                      onError: () => toast.error("Duplicate check failed"),
-                    })
+                    checkDuplicate(question._id!)
                   }
                 >
                   {isCheckingDuplicate ? "Checking..." : "Check Duplicate"}
