@@ -164,15 +164,6 @@ export class AnswerController {
     return this.answerService.fetchAiInitialAnswer(body);
   }
 
-  @OpenAPI({summary: 'Fetch AI initial answer through backend proxy'})
-  @Post('/fetch-ai-answer')
-  @HttpCode(200)
-  @Authorized()
-  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
-  async fetchAiInitialAnswer(@Body() body: FetchAiInitialAnswerBody) {
-    return this.answerService.fetchAiInitialAnswer(body);
-  }
-
   @Get('/submissions')
   @HttpCode(200)
   @Authorized()
