@@ -480,6 +480,7 @@ export interface IChatbotRepository {
     inactiveOnly?: boolean,
     session?: ClientSession,
     userType?: string,
+    roles?: string,
     sortBy?: string,
     sortOrder?: string,
     lowFeedbackOnly?: boolean,
@@ -608,12 +609,14 @@ export interface IChatbotRepository {
       name: string;
       password: string;
       userRole?: string;
+      isVerified?: boolean;
     },
   ): Promise<boolean>;
 
   verifyUser(
     userId: string,
     source?: string,
+    isVerified?: boolean,
     session?: ClientSession,
   ): Promise<any>;
 

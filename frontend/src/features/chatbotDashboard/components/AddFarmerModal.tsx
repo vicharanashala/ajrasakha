@@ -9,13 +9,6 @@ import {
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
 import { Eye, EyeOff } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/atoms/select";
 import { RadioGroup, RadioGroupItem } from "@/components/atoms/radio-group";
 
 const USER_ROLES = [
@@ -35,6 +28,7 @@ interface AddFarmerModalProps {
     name: string;
     password: string;
     userRole?: string;
+    isVerified?: boolean;
   }) => void | Promise<void>;
 }
 
@@ -52,6 +46,7 @@ export function AddFarmerModal({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [role, setRole] = useState<UserRole>("FARMER");
+  const [isVerified, setIsVerified] = useState(true);
   const selectedRoleLabel =
     USER_ROLES.find((userRole) => userRole.value === role)?.label ?? "Farmer";
   const addButtonLabel = `Add ${selectedRoleLabel}`;
@@ -64,6 +59,7 @@ export function AddFarmerModal({
       setPassword("");
       setConfirmPassword("");
       setRole("FARMER");
+      setIsVerified(true);
       setErrors({});
     }
   }, [open]);
@@ -125,6 +121,7 @@ const validate = () => {
       email: email.trim(),
       password,
       userRole: role,
+      isVerified,
     });
   };
 
@@ -147,6 +144,8 @@ const validate = () => {
               Full Name <span className="text-red-500">*</span>
             </label>
             <Input
+              name="new-farmer-name"
+              autoComplete="off"
               value={name}
               onChange={(e) => {
                 setName(e.target.value);
@@ -173,6 +172,8 @@ const validate = () => {
               Email Address <span className="text-red-500">*</span>
             </label>
             <Input
+              name="new-farmer-email"
+              autoComplete="off"
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
@@ -229,11 +230,46 @@ const validate = () => {
 
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+              Verification Status
+            </label>
+
+            <RadioGroup
+              value={isVerified ? "verified" : "unverified"}
+              onValueChange={(value) => setIsVerified(value === "verified")}
+              className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+            >
+              <label
+                className={`flex items-center gap-3 rounded-xl border p-3 cursor-pointer transition-all ${
+                  isVerified
+                    ? "border-primary bg-primary/5"
+                    : "border-border"
+                }`}
+              >
+                <RadioGroupItem value="verified" />
+                <span className="text-sm font-medium">Verified</span>
+              </label>
+              <label
+                className={`flex items-center gap-3 rounded-xl border p-3 cursor-pointer transition-all ${
+                  !isVerified
+                    ? "border-primary bg-primary/5"
+                    : "border-border"
+                }`}
+              >
+                <RadioGroupItem value="unverified" />
+                <span className="text-sm font-medium">Not Verified</span>
+              </label>
+            </RadioGroup>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
               Password <span className="text-red-500">*</span>
             </label>
 
             <div className="relative">
               <Input
+                name="new-farmer-password"
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
@@ -281,6 +317,8 @@ const validate = () => {
 
             <div className="relative">
               <Input
+                name="new-farmer-confirm-password"
+                autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(e) => {
                   setConfirmPassword(e.target.value);

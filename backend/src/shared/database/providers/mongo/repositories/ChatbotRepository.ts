@@ -5510,12 +5510,13 @@ export class ChatbotRepository implements IChatbotRepository {
     inactiveOnly = false,
     session?: ClientSession,
     userType = 'all',
+    roles = '',
     sortBy = 'createdAt',
     sortOrder = 'asc',
     lowFeedbackOnly = false,
     activeTodayByProfile = false,
     missingDemographicField = '',
-    isVerfied = true,
+    isVerfied?: boolean,
   ): Promise<PaginatedUserDetails> {
     try {
       await this.init(source);
@@ -5556,7 +5557,31 @@ export class ChatbotRepository implements IChatbotRepository {
       const userFilter: Record<string, any> = {
         ...this.buildUserDocFilter(userType),
       };
-      userFilter.isVerified = isVerfied;
+      if (isVerfied !== undefined) {
+        userFilter.isVerified = isVerfied;
+      }
+      const roleValues = roles
+        .split(',')
+        .map(role => role.trim())
+        .filter(Boolean);
+      const normalizedUserRoles = roleValues.map(role => role.toUpperCase());
+      const normalizedRoles = roleValues.flatMap(role => [
+        role,
+        role.toUpperCase(),
+        role.toLowerCase(),
+      ]);
+
+      if (roleValues.length > 0) {
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          {
+            $or: [
+              {userRole: {$in: normalizedUserRoles}},
+              {role: {$in: normalizedRoles}},
+            ],
+          },
+        ];
+      }
       if (activeTodayByProfile) {
         const todayStart = new Date();
         todayStart.setHours(0, 0, 0, 0);
@@ -5705,7 +5730,7 @@ export class ChatbotRepository implements IChatbotRepository {
         userRole: u.userRole || '',
         totalQuestions: countMap.get(String(u._id)) ?? 0,
         createdAt: u.createdAt,
-        isVerified: u.isVerified,
+        isVerified: u.isVerified ?? true,
         farmerProfile: u.farmerProfile
           ? // {
             //     farmerName: u.farmerProfile.farmerName,
@@ -8129,6 +8154,7 @@ export class ChatbotRepository implements IChatbotRepository {
       name: string;
       password: string;
       userRole?: string;
+      isVerified?: boolean;
     },
   ): Promise<boolean> {
     if (source === 'whatsapp') {
@@ -8184,7 +8210,7 @@ export class ChatbotRepository implements IChatbotRepository {
         createdFrom: 'REVIEW_SYSTEM',
         createdAt: new Date(),
         updatedAt: new Date(),
-        isVerified: true,
+        isVerified: data.isVerified ?? true,
         __v: 0,
       };
 
@@ -10296,7 +10322,7 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async verifyUser(userId: string, source = 'annam'): Promise<any> {
+  async verifyUser(userId: string, source = 'vicharanashala',  isVerified = true,): Promise<any> {
     try {
       await this.init(source);
 
@@ -10304,10 +10330,11 @@ export class ChatbotRepository implements IChatbotRepository {
         {_id: new ObjectId(userId)},
         {
           $set: {
-            isVerified: true,
+            isVerified,
             updatedAt: new Date(),
           },
         },
+        {returnDocument: 'after'},
       );
     } catch (error) {
       throw new InternalServerError(`Failed to verify user: ${error}`);

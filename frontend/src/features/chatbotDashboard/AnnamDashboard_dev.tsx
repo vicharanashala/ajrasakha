@@ -537,11 +537,12 @@ export function AnnamDashboard_dev({
     false,
     false,
     filters.userType as any,
+    [],
     "totalQuestions",
     "desc",
     true, // activeTodayByProfile
     "",
-    true, // isVerified
+    "verified", // verificationStatus
     true, // enabled
   );
 
