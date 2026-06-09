@@ -2453,6 +2453,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       name: string;
       password: string;
       userRole?: string;
+      isVerified?: boolean;
     },
   ): Promise<boolean> {
     try {

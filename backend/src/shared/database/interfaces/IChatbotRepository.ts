@@ -609,6 +609,7 @@ export interface IChatbotRepository {
       name: string;
       password: string;
       userRole?: string;
+      isVerified?: boolean;
     },
   ): Promise<boolean>;
 

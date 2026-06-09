@@ -8066,6 +8066,7 @@ export class ChatbotRepository implements IChatbotRepository {
       name: string;
       password: string;
       userRole?: string;
+      isVerified?: boolean;
     },
   ): Promise<boolean> {
     if (source === 'whatsapp') {
@@ -8121,7 +8122,7 @@ export class ChatbotRepository implements IChatbotRepository {
         createdFrom: 'REVIEW_SYSTEM',
         createdAt: new Date(),
         updatedAt: new Date(),
-        isVerified: true,
+        isVerified: data.isVerified ?? true,
         __v: 0,
       };
 

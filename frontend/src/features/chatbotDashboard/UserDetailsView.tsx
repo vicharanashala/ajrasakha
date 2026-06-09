@@ -372,6 +372,7 @@ const debouncedSearch = useDebounce(filters.search, 500);
     name: string;
     password: string;
     userRole?: string;
+    isVerified?: boolean;
   }) => {
     await addUserMutation.mutateAsync({
       source,
@@ -872,6 +873,8 @@ const debouncedSearch = useDebounce(filters.search, 500);
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                 <Input
                   type="text"
+                  name="farmer-table-search"
+                  autoComplete="off"
                   placeholder="Search by name or email..."
                   value={filters.search}
                   onChange={(e) =>
@@ -942,9 +945,13 @@ const debouncedSearch = useDebounce(filters.search, 500);
                       whileTap={{ scale: 0.97 }}
                     >
                       <Button
+                        type="button"
                         size="sm"
                         className="h-9 px-3.5 gap-1.5 shadow-sm shadow-primary/20"
-                        onClick={() => setIsAddModalOpen(true)}
+                        onClick={() => {
+                          setFilters((prev) => ({ ...prev, search: "" }));
+                          setIsAddModalOpen(true);
+                        }}
                       >
                         <UserPlus className="h-4 w-4" />
                         Add Farmer

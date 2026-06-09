@@ -1312,6 +1312,7 @@ export class ChatbotController {
       name: string;
       password: string;
       userRole?: string;
+      isVerified?: boolean;
     },
     @CurrentUser() user: IUser,
   ) {
@@ -1375,12 +1376,14 @@ export class ChatbotController {
                   name: createdUser.name,
                   email: createdUser.email,
                   userRole: createdUser.userRole,
+                  isVerified: createdUser.isVerified ?? true,
                   createdAt: createdUser.createdAt,
                 }
               : {
                   name: body.name,
                   email: body.email,
                   userRole: body.userRole || 'FARMER',
+                  isVerified: body.isVerified ?? true,
                 },
           },
           outcome: {
