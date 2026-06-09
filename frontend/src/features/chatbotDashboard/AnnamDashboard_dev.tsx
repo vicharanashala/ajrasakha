@@ -705,7 +705,7 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                 <div className="flex items-center ml-auto gap-4">
                   <button
                     onClick={handleRefreshAll}
-                    className="z-50 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
+                    className="z-50 flex items-center gap-2 rounded-lg px-3 py-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-accent border"
                     title="Refresh"
                   >
                     <RefreshCw
@@ -713,6 +713,7 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
                         invalidating ? "animate-spin" : ""
                       }`}
                     />
+                    <span className="text-sm font-medium">Refresh</span>
                   </button>
 
                   <SearchableSelect
