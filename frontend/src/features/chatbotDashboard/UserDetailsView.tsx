@@ -17,6 +17,10 @@ import {
   Loader2,
   RefreshCw,
   ShieldX,
+  User,
+  Shield,
+  Briefcase,
+  UsersRound,
 } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import {
@@ -1201,16 +1205,7 @@ export function UserDetailsView({
                                 </TableCell>
 
                                 <TableCell className="align-middle whitespace-nowrap">
-                                  {user.userRole ? (
-                                    <Badge
-                                      variant="secondary"
-                                      className="font-normal"
-                                    >
-                                      {user.userRole}
-                                    </Badge>
-                                  ) : (
-                                    <EmptyValue />
-                                  )}
+                                  <RoleBadge role={user.userRole} />
                                 </TableCell>
 
                                 <TableCell className="align-middle">
@@ -1548,5 +1543,40 @@ function SortableHead({
         />
       </div>
     </TableHead>
+  );
+}
+
+// Role Badge component with pill-shaped badges and icons for user roles
+function RoleBadge({ role }: { role?: string }) {
+  if (!role) return <EmptyValue />;
+
+  const roleConfig: Record<string, { icon: React.ReactNode; className: string }> = {
+    farmer: {
+      icon: <User className="h-3 w-3" />,
+      className: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 border border-green-200 dark:border-green-800",
+    },
+    coordinator: {
+      icon: <UsersRound className="h-3 w-3" />,
+      className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
+    },
+    internal: {
+      icon: <Briefcase className="h-3 w-3" />,
+      className: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800",
+    },
+  };
+
+  const normalizedRole = role.toLowerCase();
+  const config = roleConfig[normalizedRole] || {
+    icon: <User className="h-3 w-3" />,
+    className: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700",
+  };
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${config.className}`}
+    >
+      {config.icon}
+      {role}
+    </span>
   );
 }
