@@ -157,6 +157,13 @@ export const QAInterface = ({
     if (!questionPages?.pages) return [];
     return questionPages.pages.flat();
   }, [questionPages, actionType]);
+
+  // Check if there are any timebound questions (AJRASAKHA or WHATSAPP) in the queue
+  const hasTimeboundQuestions = useMemo(() => {
+    return questions.some(
+      (q) => q?.source === "AJRASAKHA" || q?.source === "WHATSAPP"
+    );
+  }, [questions]);
   const didInit = useRef(false);
 
   useEffect(() => {
@@ -657,6 +664,7 @@ export const QAInterface = ({
               setQuestionRef={setQuestionRef}
               onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
               onAiAnswerFetched={handleAiAnswerFetched}
+              hasTimeboundQuestions={hasTimeboundQuestions}
             />
           </div>
           {selectedQuestionData &&
