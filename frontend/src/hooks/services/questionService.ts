@@ -41,6 +41,8 @@ export type QueueExpertItem = {
   name: string;
   email?: string;
   reputationScore?: number;
+  role?: string;
+  isSpecialTaskForce?: boolean;
 };
 
 export type QueueDetailsResponse = {
@@ -845,11 +847,19 @@ export class QuestionService {
     return res?.data ?? null;
   }
 
-  async getQueueDetails(): Promise<QueueDetailsResponse | null> {
+  async getQueueDetails(startTime?: Date, endTime?: Date): Promise<QueueDetailsResponse | null> {
+    const params = new URLSearchParams();
+    if (startTime) {
+      params.append("startTime", startTime.toISOString());
+    }
+    if (endTime) {
+      params.append("endTime", endTime.toISOString());
+    }
+    const queryString = params.toString();
     const res = await apiFetch<{
       success: boolean;
       data: QueueDetailsResponse;
-    }>(`${this._baseUrl}/queue-details`, {
+    }>(`${this._baseUrl}/queue-details${queryString ? `?${queryString}` : ""}`, {
       method: "GET",
     });
     return res?.data ?? null;

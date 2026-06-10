@@ -41,6 +41,8 @@ export interface QueueExpertItem {
   name: string;
   email?: string;
   reputationScore?: number;
+  role?: string;
+  isSpecialTaskForce?: boolean;
 }
 
 export interface QueueDetailsResponse {
@@ -326,5 +328,5 @@ export interface IQuestionService {
 
   /** Moderator/admin "Queue Details": counts + lean lists for received, allocated,
    *  waiting-for-expert, free experts, and stuck (allocated >45min, never opened). */
-  getQueueDetails(): Promise<QueueDetailsResponse>;
+  getQueueDetails(startTime?: Date, endTime?: Date): Promise<QueueDetailsResponse>;
 }

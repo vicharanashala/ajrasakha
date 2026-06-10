@@ -6,10 +6,14 @@ import {
 
 const questionService = new QuestionService();
 
-export const useGetQueueDetails = (enabled: boolean) => {
+export const useGetQueueDetails = (
+  enabled: boolean,
+  startTime?: Date,
+  endTime?: Date
+) => {
   return useQuery<QueueDetailsResponse | null, Error>({
-    queryKey: ["queue-details"],
-    queryFn: () => questionService.getQueueDetails(),
+    queryKey: ["queue-details", startTime?.toISOString(), endTime?.toISOString()],
+    queryFn: () => questionService.getQueueDetails(startTime, endTime),
     enabled,
     staleTime: 30_000,
   });

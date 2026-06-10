@@ -3349,19 +3349,40 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     ]).toArray();
   }
 
-  async findUnallocatedTimeBoundQuestions(): Promise<IQuestionSubmission[]> {
+  async findUnallocatedTimeBoundQuestions(limit: number = 100, startTime?: Date, endTime?: Date): Promise<IQuestionSubmission[]> {
     await this.init();
 
+    // Build date filter for createdAt if provided
+    const createdAtFilter: Record<string, unknown> = {};
+    if (startTime) {
+      createdAtFilter.$gte = startTime;
+    }
+    if (endTime) {
+      createdAtFilter.$lte = endTime;
+    }
+    const hasDateFilter = startTime || endTime;
+
+    const matchStage: Record<string, unknown> = {
+      queue: { $size: 0 },
+      $or: [
+        { currentExpertAllocatedAt: { $exists: false } },
+        { currentExpertAllocatedAt: null },
+      ],
+    };
+
+    const questionMatchStage: Record<string, unknown> = {
+      'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
+      'question.status': { $in: ['open', 'delayed', 'duplicate'] },
+      'question.isOnHold': { $ne: true },
+      'question.isAutoAllocate': { $eq: true },
+    };
+
+    if (hasDateFilter) {
+      questionMatchStage['question.createdAt'] = createdAtFilter;
+    }
+
     return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>([
-      {
-        $match: {
-          queue: { $size: 0 },
-          $or: [
-            { currentExpertAllocatedAt: { $exists: false } },
-            { currentExpertAllocatedAt: null },
-          ],
-        },
-      },
+      { $match: matchStage },
       {
         $lookup: {
           from: 'questions',
@@ -3371,15 +3392,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         },
       },
       { $unwind: '$question' },
-      {
-        $match: {
-          'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
-          'question.status': { $nin: ['closed', 'pass', 'duplicate', 'draft', 'non_agri'] },
-          'question.isOnHold': { $ne: true },
-          'question.isAutoAllocate': {$eq: true}
-        },
-      },
-      { $sort: { 'question.createdAt': 1 } },
+      { $match: questionMatchStage },
+      { $sort: { 'question.createdAt': -1 } },
+      { $limit: limit },
     ]).toArray();
   }
 

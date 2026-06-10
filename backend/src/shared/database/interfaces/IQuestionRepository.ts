@@ -29,7 +29,7 @@ import {QueueQuestionData} from '#root/modules/question/interfaces/IQuestionServ
 export interface IQuestionRepository {
   /** Counts + lean lists of time-bound (AJRASAKHA/WHATSAPP, auto-allocated)
    *  questions for the moderator/admin "Queue Details" modal. */
-  getQueueQuestionData(limit: number): Promise<QueueQuestionData>;
+  getQueueQuestionData(limit: number, startTime?: Date, endTime?: Date): Promise<QueueQuestionData>;
 
   /**
    * Adds multiple questions for a specific context and user.

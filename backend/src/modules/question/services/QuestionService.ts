@@ -5829,8 +5829,18 @@ export class QuestionService extends BaseService implements IQuestionService {
    *  (AJRASAKHA/WHATSAPP, auto-allocated) queue. Reuses the exact same queries
    *  the reallocation cron relies on, so the numbers always match its behaviour.
    *  Touches no allocation state. */
-  async getQueueDetails(): Promise<QueueDetailsResponse> {
+  async getQueueDetails(startTime?: Date, endTime?: Date): Promise<QueueDetailsResponse> {
     const LIST_LIMIT = 100;
+    
+    // Build date filter for createdAt if provided
+    const createdAtFilter: Record<string, unknown> = {};
+    if (startTime) {
+      createdAtFilter.$gte = startTime;
+    }
+    if (endTime) {
+      createdAtFilter.$lte = endTime;
+    }
+    const hasDateFilter = startTime || endTime;
 
     // Same current-assignee derivation the cron + markQuestionOpened use.
     // Used for STUCK items (mirrors which expert the cron will penalise/replace).
@@ -5903,10 +5913,10 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     const [qData, waitingSubs, stuckSubs, allExperts, busyMap] =
       await Promise.all([
-        this.questionRepo.getQueueQuestionData(LIST_LIMIT),
-        this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(),
+        this.questionRepo.getQueueQuestionData(LIST_LIMIT, startTime, endTime),
+        this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(LIST_LIMIT, startTime, endTime),
         this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(),
-        this.userRepo.findExpertsByReputationScore({} as any),
+        this.userRepo.findExpertsByReputationScore({} as any, undefined, LIST_LIMIT),
         this.questionSubmissionRepo.getTimeBoundActiveCountPerExpert(),
       ]);
 
@@ -5989,6 +5999,8 @@ export class QuestionService extends BaseService implements IQuestionService {
         name: `${e.firstName ?? ''} ${e.lastName ?? ''}`.trim() || e.email || 'Unknown',
         email: e.email,
         reputationScore: e.reputation_score,
+        role: e.role,
+        isSpecialTaskForce: e.special_task_force === true,
       })),
     };
 

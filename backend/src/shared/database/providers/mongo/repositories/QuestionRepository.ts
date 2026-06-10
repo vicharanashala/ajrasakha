@@ -6447,9 +6447,12 @@ export class QuestionRepository implements IQuestionRepository {
       source: {$in: ['AJRASAKHA', 'WHATSAPP']},
       isAutoAllocate: true,
     };
+    // Allocated: time-bound + first allocated, status NOT closed/in-review.
+    // (history >= 1 is enforced after the submission $lookup below.)
     const allocatedMatch = {
       ...receivedMatch,
       firstAllocationAt: {$exists: true, $ne: null},
+      status: {$nin: ['closed', 'in-review']},
     };
     // AJRASAKHA/WHATSAPP questions with auto-allocation OFF (handled manually).
     const autoOffMatch = {
@@ -6459,7 +6462,10 @@ export class QuestionRepository implements IQuestionRepository {
 
     // Lean projection + join the question's submission (queue/history) so the
     // service can derive the current assignee without extra round-trips.
-    const buildItemsPipeline = (match: Record<string, unknown>) => [
+    const buildItemsPipeline = (
+      match: Record<string, unknown>,
+      requireHistory: boolean = false,
+    ) => [
       {$match: match},
       {$sort: {createdAt: -1}},
       {$limit: limit},
@@ -6472,6 +6478,10 @@ export class QuestionRepository implements IQuestionRepository {
         },
       },
       {$addFields: {sub: {$arrayElemAt: ['$sub', 0]}}},
+      // Allocated only: require the joined submission to have history.length >= 1.
+      ...(requireHistory
+        ? [{$match: {'sub.history': {$exists: true, $ne: null, $not: {$size: 0}}}}]
+        : []),
       {
         $project: {
           _id: 1,
@@ -6490,27 +6500,46 @@ export class QuestionRepository implements IQuestionRepository {
       },
     ];
 
+    // Allocated count must mirror the items filter exactly — join the submission
+    // and require history.length >= 1 — so the count can never exceed the list.
+    const allocatedCountPipeline = [
+      {$match: allocatedMatch},
+      {
+        $lookup: {
+          from: 'question_submissions',
+          localField: '_id',
+          foreignField: 'questionId',
+          as: 'sub',
+        },
+      },
+      {$addFields: {sub: {$arrayElemAt: ['$sub', 0]}}},
+      {$match: {'sub.history': {$exists: true, $ne: null, $not: {$size: 0}}}},
+      {$count: 'count'},
+    ];
+
     const [
       receivedCount,
-      allocatedCount,
+      allocatedCountResult,
       autoOffCount,
       receivedItems,
       allocatedItems,
       autoOffItems,
     ] = await Promise.all([
       this.QuestionCollection.countDocuments(receivedMatch as any),
-      this.QuestionCollection.countDocuments(allocatedMatch as any),
+      this.QuestionCollection.aggregate<{count: number}>(allocatedCountPipeline).toArray(),
       this.QuestionCollection.countDocuments(autoOffMatch as any),
       this.QuestionCollection.aggregate<RawQueueQuestionRow>(
         buildItemsPipeline(receivedMatch),
       ).toArray(),
       this.QuestionCollection.aggregate<RawQueueQuestionRow>(
-        buildItemsPipeline(allocatedMatch),
+        buildItemsPipeline(allocatedMatch, true), // require history >= 1
       ).toArray(),
       this.QuestionCollection.aggregate<RawQueueQuestionRow>(
         buildItemsPipeline(autoOffMatch),
       ).toArray(),
     ]);
+
+    const allocatedCount = allocatedCountResult[0]?.count ?? 0;
 
     return {
       receivedCount,

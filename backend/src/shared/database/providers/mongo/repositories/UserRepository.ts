@@ -760,13 +760,15 @@ export class UserRepository implements IUserRepository {
   async findExpertsByReputationScore(
     details: PreferenceDto,
     session?: ClientSession,
+    limit?: number,
   ): Promise<IUser[]> {
     await this.init();
 
-    // 1. Fetch all experts
-    const allUsersRaw = await this.usersCollection
-      .find({ role: 'expert', isBlocked: false }, { session })
-      .toArray();
+    // 1. Fetch all experts (include role and isBlocked for queue details)
+    const query: any = { role: 'expert', isBlocked: false };
+    const cursor = this.usersCollection.find(query, { session });
+    if (limit) cursor.limit(limit);
+    const allUsersRaw = await cursor.toArray();
 
     // 2. Remove duplicates based on email
     const uniqueUsersMap = new Map<string, IUser>();

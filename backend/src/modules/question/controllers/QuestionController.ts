@@ -114,8 +114,12 @@ export class QuestionController {
     summary:
       'Queue details for moderators/admins: counts + lists for received, allocated, waiting, free experts, and stuck time-bound questions',
   })
-  async getQueueDetails() {
-    const data = await this.questionService.getQueueDetails();
+  async getQueueDetails(
+    @QueryParams() query: { startTime?: string; endTime?: string },
+  ) {
+    const startTime = query.startTime ? new Date(query.startTime) : undefined;
+    const endTime = query.endTime ? new Date(query.endTime) : undefined;
+    const data = await this.questionService.getQueueDetails(startTime, endTime);
     return { success: true, data };
   }
 

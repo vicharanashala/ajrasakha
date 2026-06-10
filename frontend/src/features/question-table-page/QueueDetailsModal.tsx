@@ -25,6 +25,8 @@ import type {
   QueueExpertItem,
 } from "@/hooks/services/questionService";
 import { formatDate } from "@/utils/formatDate";
+import { DateRangeFilter } from "@/components/DateRangeFilter";
+import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
 
 type SectionColor = "blue" | "green" | "amber" | "violet" | "red" | "slate";
 
@@ -115,9 +117,21 @@ const QuestionRow = ({
 const ExpertRow = ({ item }: { item: QueueExpertItem }) => (
   <div className="px-3 py-2.5 border-b border-gray-100 dark:border-gray-800 last:border-0 flex items-center justify-between gap-2">
     <div className="min-w-0">
-      <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-        {item.name}
-      </p>
+      <div className="flex items-center gap-2">
+        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+          {item.name}
+        </p>
+        {item.isSpecialTaskForce && (
+          <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300">
+            STF
+          </span>
+        )}
+        {item.role && (
+          <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 uppercase">
+            {item.role}
+          </span>
+        )}
+      </div>
       {item.email && (
         <p className="text-[11px] text-gray-500 truncate">{item.email}</p>
       )}
@@ -230,11 +244,27 @@ export const QueueDetailsModal = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [openSection, setOpenSection] = useState<string | null>("received");
+  
+  // Date filter state - default to current date
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  
+  const [dateFilter, setDateFilter] = useState<Partial<AdvanceFilterValues>>({
+    startTime: today,
+    endTime: tomorrow,
+  });
+  
   const { data, isLoading, isError, error, refetch, isFetching } =
-    useGetQueueDetails(open);
+    useGetQueueDetails(open, dateFilter.startTime, dateFilter.endTime);
 
   const toggle = (key: string) =>
     setOpenSection((prev) => (prev === key ? null : key));
+
+  const handleDateFilterChange = (key: string, value: Date | undefined) => {
+    setDateFilter((prev) => ({ ...prev, [key]: value }));
+  };
 
   return (
     <Dialog
@@ -262,25 +292,36 @@ export const QueueDetailsModal = ({
         </button>
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-2xl max-w-[95vw] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-[85vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl flex items-center gap-2">
-            <ListChecks className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            Queue Details
-            <button
-              type="button"
-              onClick={() => refetch()}
-              className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
-            >
-              <RefreshCcw
-                size={13}
-                className={cn(isFetching && "animate-spin")}
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <DialogTitle className="text-xl flex items-center gap-2">
+              <ListChecks className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              Queue Details
+            </DialogTitle>
+            <div className="flex items-center gap-2">
+              <DateRangeFilter
+                advanceFilter={dateFilter}
+                handleDialogChange={handleDateFilterChange}
+                customName="Created At"
+                type="createdAt"
+                className="w-[200px]"
               />
-              Refresh
-            </button>
-          </DialogTitle>
+              <button
+                type="button"
+                onClick={() => refetch()}
+                className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 px-2 py-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                <RefreshCcw
+                  size={13}
+                  className={cn(isFetching && "animate-spin")}
+                />
+                Refresh
+              </button>
+            </div>
+          </div>
           <p className="text-sm text-muted-foreground">
-            Time-bound questions (AjraSakha &amp; WhatsApp, auto-allocated)
+            Time-bound questions (AjraSakha & WhatsApp, auto-allocated)
           </p>
         </DialogHeader>
 
