@@ -153,19 +153,19 @@ const validate = () => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md w-[95vw] p-6 rounded-2xl bg-white dark:bg-[#1a1a1a] border border-slate-200 dark:border-[#2a2a2a] shadow-xl">
-        <DialogHeader className="pb-4">
-          <DialogTitle className="text-xl font-semibold text-slate-900 dark:text-slate-100">
+      <DialogContent className="flex max-h-[90vh] w-[92vw] max-w-[420px] flex-col gap-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-0 shadow-xl sm:max-w-[420px] dark:border-[#2a2a2a] dark:bg-[#1a1a1a]">
+        <DialogHeader className="shrink-0 px-5 pb-3 pt-5">
+          <DialogTitle className="text-lg font-semibold text-slate-900 dark:text-slate-100">
             Add User
           </DialogTitle>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             Create a new user profile. The credentials will be registered.
           </p>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-2">
           <Tabs value={mode} onValueChange={(value) => handleModeChange(value as ModalMode)}>
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid h-9 w-full grid-cols-2">
               <TabsTrigger value="web_app">Web App</TabsTrigger>
               <TabsTrigger value="review_system">Review System</TabsTrigger>
             </TabsList>
@@ -238,21 +238,23 @@ const validate = () => {
               onValueChange={(value) => setRole(value as UserRole)}
               className={
                 mode === "review_system"
-                  ? "grid grid-cols-1 gap-3"
-                  : "grid grid-cols-1 gap-3 sm:grid-cols-3"
+                  ? "grid grid-cols-1 gap-2"
+                  : "grid grid-cols-1 gap-2 sm:grid-cols-2"
               }
             >
               {roleOptions.map((item) => (
                 <label
                   key={item.value}
-                  className={`flex items-center gap-3 rounded-xl border p-3 cursor-pointer transition-all ${
+                  className={`flex min-w-0 cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2.5 transition-all ${
                     role === item.value
                       ? "border-primary bg-primary/5"
                       : "border-border"
                   }`}
                 >
-                  <RadioGroupItem value={item.value} />
-                  <span className="text-sm font-medium">{item.label}</span>
+                  <RadioGroupItem value={item.value} className="shrink-0" />
+                  <span className="min-w-0 text-sm font-medium leading-tight">
+                    {item.label}
+                  </span>
                 </label>
               ))}
             </RadioGroup>
@@ -272,10 +274,10 @@ const validate = () => {
             <RadioGroup
               value={isVerified ? "verified" : "unverified"}
               onValueChange={(value) => setIsVerified(value === "verified")}
-              className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+              className="grid grid-cols-1 gap-2 sm:grid-cols-2"
             >
               <label
-                className={`flex items-center gap-3 rounded-xl border p-3 cursor-pointer transition-all ${
+                className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 transition-all ${
                   isVerified
                     ? "border-primary bg-primary/5"
                     : "border-border"
@@ -285,7 +287,7 @@ const validate = () => {
                 <span className="text-sm font-medium">Verified</span>
               </label>
               <label
-                className={`flex items-center gap-3 rounded-xl border p-3 cursor-pointer transition-all ${
+                className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 transition-all ${
                   !isVerified
                     ? "border-primary bg-primary/5"
                     : "border-border"
@@ -396,7 +398,7 @@ const validate = () => {
           </div>
         </div>
 
-        <DialogFooter className="pt-6 flex justify-end gap-3 border-t border-slate-100 dark:border-white/[0.05]">
+        <DialogFooter className="shrink-0 flex justify-end gap-3 border-t border-slate-100 px-5 py-4 dark:border-white/[0.05]">
           <Button
             type="button"
             variant="outline"
