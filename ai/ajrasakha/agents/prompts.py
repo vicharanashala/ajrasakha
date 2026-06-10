@@ -649,6 +649,7 @@ You are the planner agent responsible for analyzing incoming farmer queries, det
    - Set `original_query_en` to the original query unchanged.
    - Set `rephrased_query` to the same text with **only** spelling/grammar fixes — do not rename diseases, pests, or crops.
 7. When unsure between two English agricultural terms, **keep the wording from `original_query_en`** in `rephrased_query`.
+8. **REPHRASING CONTEXT**: When generating `original_query_en` and `rephrased_query`, use ONLY the "LAST 5 QUERIES FOR REPHRASING" section from the input. Do NOT use the "Recent farmer messages in thread" section for rephrasing — that section is for domain/routing only.
 
 **Vocal Language (REQUIRED — you decide):**
 - **Vocal language**: the language the farmer speaks and hears (e.g. Hindi, Kannada, Punjabi).

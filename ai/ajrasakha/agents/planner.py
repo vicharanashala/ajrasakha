@@ -59,6 +59,7 @@ from ajrasakha.agents.planner_rules import (
     apply_planner_completeness_rules,
     crop_slot_satisfied,
     format_conversation_for_planner,
+    format_last_queries_for_rephrasing,
     format_prev_plan_context,
     merge_entities_from_rephrased_query,
     resolve_crop_for_turn,
@@ -526,6 +527,7 @@ async def planner_node(
 
     llm_messages: list[BaseMessage] = [SystemMessage(content=PLANNER_SYSTEM_PROMPT)]
     conv_block = format_conversation_for_planner(messages) or user_text
+    rephrasing_context = format_last_queries_for_rephrasing(messages)
 
     crop_hints = format_planner_crop_hints(user_text)
     prev_plan_context = format_prev_plan_context(prev_plan)
@@ -547,6 +549,9 @@ async def planner_node(
         f"{deterministic_context}\n"
         f"Current farmer message (route using this):\n{user_text}\n\n"
         f"Recent farmer messages in thread:\n{conv_block}\n\n"
+        f"--- LAST 5 QUERIES FOR REPHRASING (use ONLY for original_query_en and rephrased_query) ---\n"
+        f"{rephrasing_context}\n"
+        f"--- END REPHRASING CONTEXT ---\n\n"
         f"Pick `domain` from the allowed list using the current farmer message only.\n"
         "Set `vocal_language` and `script_language` from the official language list.\n"
         "Leave `follow_up_question` empty when location/crop is missing — server uses the sheet.\n"

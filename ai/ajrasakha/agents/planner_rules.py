@@ -156,6 +156,27 @@ def format_conversation_for_planner(
     return "\n".join(lines) if lines else latest_human_text(messages)
 
 
+def format_last_queries_for_rephrasing(
+    messages: list[BaseMessage],
+    *,
+    max_turns: int = 5,
+) -> str:
+    """Extract only the last N human messages for rephrasing context.
+    
+    This provides a focused context for the LLM to rephrase the query
+    based on recent conversation history, without including bot responses.
+    """
+    lines: list[str] = []
+    for msg in messages:
+        if isinstance(msg, HumanMessage):
+            text = _message_to_text(msg)
+            if text:
+                lines.append(text)
+    if len(lines) > max_turns:
+        lines = lines[-max_turns:]
+    return "\n".join(lines) if lines else latest_human_text(messages)
+
+
 def is_crop_clarify_turn(messages: list[BaseMessage]) -> bool:
     """True when the farmer's latest reply follows an AI crop clarify question."""
     last_human_idx: int | None = None
