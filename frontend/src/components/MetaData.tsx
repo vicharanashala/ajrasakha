@@ -230,7 +230,7 @@ export const STATUS=[
   "pae_submitted",
   //"pae_closed",
   "pass",
- // "closed"
+  "closed"
 ]
 export const Review_Level_QAI=[
   "Author",

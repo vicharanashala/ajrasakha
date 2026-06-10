@@ -257,4 +257,15 @@ export interface IAnswerRepository {
       createdAt: Date;
     }>;
   }>;
+
+  /**
+   * Retrieves final answers for a list of question IDs
+   * @param questionIds - Array of question IDs to fetch final answers for
+   * @param session - Optional MongoDB client session for transactions
+   * @returns Promise resolving to array of final answers with isFinalAnswer=true
+   */
+  getFinalAnswersByQuestionIds(
+    questionIds: string[],
+    session?: ClientSession,
+  ): Promise<IAnswer[]>;
 }

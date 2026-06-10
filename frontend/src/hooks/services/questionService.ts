@@ -643,6 +643,7 @@ export class QuestionService {
     season?: string;
     domain?: string;
     status?: string;
+    source?: string;
     hiddenQuestions?: boolean;
     duplicateQuestions?: boolean;
     startDate?: string;
@@ -672,6 +673,9 @@ export class QuestionService {
     }
     if (filters.status && filters.status !== "all") {
       params.append("status", filters.status);
+    }
+    if (filters.source && filters.source !== "all") {
+      params.append("source", filters.source);
     }
     if (filters.hiddenQuestions) {
       params.append("hiddenQuestions", String(filters.hiddenQuestions));
