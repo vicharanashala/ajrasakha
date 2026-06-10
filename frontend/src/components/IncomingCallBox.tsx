@@ -600,11 +600,11 @@ export const IncomingCallBox = ({
           </CardTitle>
         </CardHeader>
 
-        {isAdmin ? (
+        {!currentUser?.isCallAgentActive ? (
           <CardContent className="p-1">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Phone className="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
-              <span className="text-sm font-medium">Admin access only</span>
+              <span className="text-sm font-medium">Agent access only</span>
             </div>
           </CardContent>
         ) : (callStatus === "idle" || callStatus === "ended") &&

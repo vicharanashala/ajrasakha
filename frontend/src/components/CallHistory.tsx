@@ -42,6 +42,7 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
   const [messageRow, setMessageRow] = useState<string | null>(null);
   const [messageText, setMessageText] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
+  const MAX_MESSAGE_LENGTH = 150;
 
   // Filters
   const [showFilters, setShowFilters] = useState(false);
@@ -126,6 +127,10 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
       numbertomsg = from;
     }
     if (!messageText.trim()) return;
+    if (messageText.length > MAX_MESSAGE_LENGTH) {
+      toast.error(`Message exceeds ${MAX_MESSAGE_LENGTH} character limit`);
+      return;
+    }
     setSendingMessage(true);
     try {
       numbertomsg = numbertomsg.replace(/^91/, "");
@@ -563,10 +568,21 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                     rows={3}
                                     placeholder="Type your SMS message here..."
                                     value={messageText}
-                                    onChange={(e) =>
-                                      setMessageText(e.target.value)
-                                    }
+                                    onChange={(e) => {
+                                      if (e.target.value.length <= MAX_MESSAGE_LENGTH) {
+                                        setMessageText(e.target.value);
+                                      }
+                                    }}
+                                    maxLength={MAX_MESSAGE_LENGTH}
                                   />
+                                  <div className="flex justify-between items-center mt-1">
+                                    <span className={cn(
+                                      "text-xs",
+                                      messageText.length >= MAX_MESSAGE_LENGTH ? "text-red-500 font-semibold" : "text-muted-foreground"
+                                    )}>
+                                      {messageText.length}/{MAX_MESSAGE_LENGTH} characters
+                                    </span>
+                                  </div>
                                   <div className="flex justify-end gap-2 mt-2">
                                     <Button
                                       size="sm"
@@ -578,9 +594,7 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                     <Button
                                       size="sm"
                                       onClick={() => handleSendMessage(call)}
-                                      disabled={
-                                        !messageText.trim() || sendingMessage
-                                      }
+                                      disabled={!messageText.trim() || sendingMessage || messageText.length > MAX_MESSAGE_LENGTH}
                                       className="gap-2"
                                     >
                                       {sendingMessage && (

@@ -28,8 +28,6 @@ import { faqPopConfig } from './config/faqPop.js';
 
 const app = express();
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
 app.get(`${appConfig.routePrefix}/health`, (_req, res) => {
   res.status(200).json({

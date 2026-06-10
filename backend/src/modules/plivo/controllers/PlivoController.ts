@@ -12,6 +12,7 @@ import {
   InternalServerError,
   Controller,
   BodyParam,
+  JsonController,
 } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
 import { Request, Response } from 'express';
@@ -28,7 +29,7 @@ import type { ICallDetailsRepository } from '#root/shared/database/interfaces/IC
   description: 'Operations for managing Plivo calls',
 })
 @injectable()
-@Controller('/plivo')
+@JsonController('/plivo')
 export class PlivoController {
   private client = new plivo.Client(process.env.PLIVO_AUTH_ID, process.env.PLIVO_AUTH_TOKEN, { timeout: 30000 });
 
@@ -139,21 +140,21 @@ export class PlivoController {
     }
   }
   @Post('/send-message')
-  @Authorized(['expert'])
+  @Authorized()
   @OpenAPI({
     summary: 'Send SMS using Fast2SMS',
     description: 'Send SMS to one or multiple phone numbers using Fast2SMS Quick SMS API',
   })
+  @HttpCode(200)
   async sendMessage(
-    @BodyParam("destination") destination: string,
-    @BodyParam("text") text: string,
+    @Body() body: { destination: string , text: string },
     @Res() res: Response
   ) {
     try {
-      // console.log("🚀 ~ PlivoController ~ sendMessage ~ destination:", destination);
-      // console.log("🚀 ~ PlivoController ~ sendMessage ~ text:", text);
+      // console.log("🚀 ~ PlivoController ~ sendMessage ~ destination:", body.destination);
+      // console.log("🚀 ~ PlivoController ~ sendMessage ~ text:", body.text);
 
-      if (!destination || !text) {
+      if (!body.destination || !body.text) {
         return res.status(400).json({
           success: false,
           error: "destination and text are required parameters"
@@ -170,10 +171,10 @@ export class PlivoController {
 
       const requestBody = {
         route: 'q',
-        message: text,
+        message: body.text,
         language: 'english',
         flash: 0,
-        numbers: destination,
+        numbers: body.destination,
         sms_details:1
       };
 

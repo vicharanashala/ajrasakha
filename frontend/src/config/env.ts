@@ -31,7 +31,10 @@ type EnvKey =
   | "VITE_TARGET_USER_ID"
   // FAQ / POP processing servers
   | "VITE_FAQ_API_URL"
-  | "VITE_POP_API_URL";
+  | "VITE_POP_API_URL"
+
+  // Call Agent Management
+  | "VITE_CALL_AGENT_MANAGER_USER_IDS";
 
 /**
  * Internal getter (single source of truth)
@@ -80,4 +83,9 @@ export const env = {
   internalApiKey: () => getEnv("VITE_INTERNAL_API_KEY", true, "dummy-internal-api-key"),
   faqApiUrl: () => getEnv("VITE_FAQ_API_URL", false, "/api/faq"),
   popApiUrl: () => getEnv("VITE_POP_API_URL", false, "/api/pop"),
+
+  callAgentManagerUserIds: () => {
+    const ids = getEnv("VITE_CALL_AGENT_MANAGER_USER_IDS", false, "");
+    return ids ? ids.split(",").map(id => id.trim()) : [];
+  },
 };
