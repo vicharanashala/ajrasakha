@@ -13,6 +13,7 @@ import {
 } from "../utils/validate";
 import type { AuthError, AuthFormData, UseAuthFormReturn } from "../types";
 import { isDevelopment } from "@/shared/app";
+import { isCoordinatorRole } from "@/lib/roles";
 
 /**
  * Custom hook to manage the state and behavior of an Auth form
@@ -146,7 +147,7 @@ export const useAuthForm = (
         avatar: result!.user.photoURL || "",
       });
 
-      navigate({ to: "/home" });
+      navigate({ to: isCoordinatorRole(result?.appUser?.role) ? "/coordinator" : "/home", });
     } catch (error: unknown) {
       const authError = error as AuthError;
       console.error("Auth failed", error);
