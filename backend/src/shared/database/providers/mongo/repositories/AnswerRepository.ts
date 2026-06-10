@@ -1847,4 +1847,34 @@ export class AnswerRepository implements IAnswerRepository {
       );
     }
   }
+
+  async getFinalAnswersByQuestionIds(
+    questionIds: string[],
+    session?: ClientSession,
+  ): Promise<IAnswer[]> {
+    try {
+      await this.init();
+      const objectIds = questionIds.map(id => new ObjectId(id));
+      
+      const answers = await this.AnswerCollection.find(
+        {
+          questionId: {$in: objectIds},
+          isFinalAnswer: true,
+        },
+        {session},
+      ).toArray();
+
+      return answers.map(a => ({
+        ...a,
+        _id: a._id?.toString(),
+        questionId: a.questionId?.toString(),
+        authorId: a.authorId?.toString(),
+        approvedBy: a.approvedBy?.toString(),
+      }));
+    } catch (error) {
+      throw new InternalServerError(
+        `Error fetching final answers: ${error}`,
+      );
+    }
+  }
 }

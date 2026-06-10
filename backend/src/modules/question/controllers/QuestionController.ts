@@ -768,6 +768,7 @@ export class QuestionController {
       season?: string;
       domain?: string;
       status?: string;
+      source?: string;
       hiddenQuestions?: string;
       duplicateQuestions?: string;
       startDate?: string;
@@ -803,6 +804,7 @@ export class QuestionController {
         season: query.season,
         domain: query.domain,
         status: query.status,
+        source: query.source,
         hiddenQuestions: query.hiddenQuestions,
         duplicateQuestions: query.duplicateQuestions,
         startDate: query.startDate,
