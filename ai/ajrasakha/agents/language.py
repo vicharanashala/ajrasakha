@@ -211,6 +211,8 @@ def _llm_detect_language(text: str) -> str:
             "'Mera sawal gehu ke baare me hai', the underlying language is Hindi, not English).\n\n"
             "Spoken languages include: English, Hindi, Punjabi, Bengali, Assamese, Gujarati, Odia, Tamil, Telugu, Kannada, Malayalam, Urdu, Kashmiri, Sindhi, Santali, Manipuri.\n\n"
             "Return ONLY the language name as a single word (e.g., 'Hindi', 'English', 'Punjabi', 'Tamil'). Do not include any other text, reasoning, or punctuation.\n\n"
+            "Focus more on hepling verbs, prepositions, conjuctions, tenses, articles to decide the vocol language"
+            "**Strictly** Never take vocal language based on state name, distict name, crop name, mentioned in question."
             f"Text: {t}\n"
             "Language:"
         )
