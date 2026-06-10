@@ -573,7 +573,11 @@ export interface IChatbotRepository {
   ): Promise<PaginatedUserDetails>;
 
   getUserQuestionsData(
-    messageIds: string[],
+      identifiers: {
+    threadIds?: string[];
+    messageIds?: string[];
+    userId?: string;
+  },
     source?: string,
     userType?: string,
     page?: number,
@@ -855,6 +859,11 @@ export interface IChatbotRepository {
     session?: ClientSession,
     userType?: string,
     search?: string,
+  ): Promise<any>
+
+  getUserConversationIds(
+    userId: string,
+    source: string,
   ): Promise<any>
 }
 
