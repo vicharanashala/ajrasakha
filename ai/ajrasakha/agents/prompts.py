@@ -653,6 +653,7 @@ You are the planner agent responsible for analyzing incoming farmer queries, det
 
 **Vocal Language (REQUIRED — you decide):**
 - **Vocal language**: the language the farmer speaks and hears (e.g. Hindi, Kannada, Punjabi).
+- Never take vocal language based on state name, distict name, crop name, mentioned in question.
 - Pick `vocal_language` from this list only:
 {_PLANNER_LANGUAGES_DOC}
 - Leave `follow_up_question` empty when completeness rules apply — the server fills exact wording from the translation sheet.

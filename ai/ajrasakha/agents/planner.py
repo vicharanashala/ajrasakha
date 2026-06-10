@@ -38,7 +38,7 @@ from ajrasakha.agents.domains import (
     is_crop_placeholder,
     normalize_domain,
 )
-from ajrasakha.agents.language import detect_script_language, resolve_planner_language_pair
+from ajrasakha.agents.language import _llm_detect_language, detect_script_language, resolve_planner_language_pair
 from ajrasakha.agents.translation_catalog import (
     OFFICIAL_LANGUAGES,
     get_crop_follow_up,
@@ -584,16 +584,18 @@ async def planner_node(
         )
         plan = planner_output_to_plan(output)
 
-        prev_vocal = plan.get("vocal_language")
+        # Use LLM-based language detection for vocal_language to avoid incorrect inference from state/crop names
+        detected_vocal = _llm_detect_language(user_text)
+        vocal = _coerce_official_language(detected_vocal) or "English"
+        
         # Use Unicode-based script detection for script_language
         detected_script = detect_script_language(user_text)
-        # Keep vocal_language from LLM (or normalize it)
-        vocal = _coerce_official_language(prev_vocal) or "English"
-        if detected_script != prev_vocal:
+        
+        if vocal != plan.get("vocal_language"):
             logger.info(
-                "Planner script detected via Unicode: prev_script=%s -> detected_script=%s",
-                prev_vocal,
-                detected_script,
+                "Planner vocal_language corrected via LLM detection: prev_vocal=%s -> detected_vocal=%s",
+                plan.get("vocal_language"),
+                vocal,
             )
         plan["vocal_language"] = vocal
         plan["script_language"] = detected_script
