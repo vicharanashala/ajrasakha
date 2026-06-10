@@ -977,11 +977,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
       page,
       limit,
     );
-    console.log("messages", messages)
 
     // No user found
     if (!user) {
-      console.log("If is triggred...")
       return {
         questions: {
           total: 0,
@@ -1568,7 +1566,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
       // FETCH REPORT DATA
       // ─────────────────────────────────────────────────────────────
 
-      console.log('State', state);
 
       const reportData = await this.chatbotRepository.generateChatBotData(
         startDate,
@@ -1582,7 +1579,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
       if (!reportData) return null;
 
-      console.log('Excel Report', reportData);
 
       // ─────────────────────────────────────────────────────────────
       // WORKBOOK SETUP
@@ -2102,7 +2098,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
     month?: string,
   ): Promise<Buffer> {
     try {
-      console.log('PDF report generated with state', state);
       const reportData = await this.chatbotRepository.generateChatBotData(
         startDate,
         endDate,
@@ -2113,7 +2108,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
         state,
       );
 
-      console.log('reportDate', reportData);
 
       // const inactiveUsers = await this.getInactiveUsers()
       // console.log("Inactive users list", inactiveUsers);
@@ -2619,7 +2613,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
     message: string,
   ): Promise<any> {
     const user = await this.chatbotRepository.getUserData(userEmail, 'annam');
-    console.log('User id for notification', user.userId);
     const webhookPayload = {
       customMessage: message,
       userId: user.userId.toString(),
