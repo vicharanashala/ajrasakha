@@ -14,6 +14,7 @@ from ajrasakha.agents.answer_footers import build_expert_queue_content, finalize
 from ajrasakha.agents.config import TRANSLATE_MODEL
 from ajrasakha.agents.state import AjraSakhaState, TRANSLATE_PATH_EMPTY_GDB
 from ajrasakha.agents.translation_catalog import language_pair_from_plan, needs_translation
+from ajrasakha.agents.llm_trace import trace_llm_request, trace_llm_response
 from ajrasakha.agents.thread_trace import trace_event
 from ajrasakha.agents.thread_logging import end_conversation_turn
 
@@ -101,25 +102,24 @@ async def _translate_body(
         f"Translate into {vocal_language} using the {script_language} "
         f"writing system.\n\n{text}"
     )
-    trace_event(
-        "translate_llm_request",
+    llm_messages = [
+        SystemMessage(content=system_prompt),
+        HumanMessage(content=human_msg),
+    ]
+    trace_llm_request(
+        "translate",
+        model=TRANSLATE_MODEL,
+        messages=llm_messages,
         vocal_language=vocal_language,
         script_language=script_language,
-        body_preview=text[:1500],
-        llm_human_message=human_msg[:2000],
-        system_prompt_note="TRANSLATE_* rules from prompts.py (full system prompt omitted)",
     )
-    response = await llm.ainvoke(
-        [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=human_msg),
-        ],
-        config=config,
-    )
+    response = await llm.ainvoke(llm_messages, config=config)
     translated = _message_to_text(response)
-    trace_event(
-        "translate_llm_response",
-        translated_preview=translated[:1500],
+    trace_llm_response(
+        "translate",
+        output=translated,
+        vocal_language=vocal_language,
+        script_language=script_language,
     )
     return translated if translated.strip() else text
 
