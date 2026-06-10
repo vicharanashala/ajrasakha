@@ -415,6 +415,7 @@ export interface IQuestionRepository {
     filters: any,
     session?: ClientSession,
     useDuplicateCollection?: boolean,
+    limit?: number,
   ): Promise<IQuestion[]>;
 
   getAllQuestionEmbeddings(
