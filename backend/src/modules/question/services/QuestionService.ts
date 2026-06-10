@@ -4627,7 +4627,6 @@ export class QuestionService extends BaseService implements IQuestionService {
     season?: string;
     domain?: string;
     status?: string;
-    source?: string;
     hiddenQuestions?: string;
     duplicateQuestions?: string;
     startDate?: string;
@@ -4643,28 +4642,16 @@ export class QuestionService extends BaseService implements IQuestionService {
         query['details.crop'] = filters.crop;
       }
       if (filters.normalised_crop && filters.normalised_crop !== 'all') {
-        // Handle comma-separated multiple crops
-        const crops = filters.normalised_crop.split(',').map(c => c.trim()).filter(c => c);
-        if (crops.length === 0) {
-          // No valid crops, skip filter
-        } else if (crops.length === 1) {
-          // Single crop - use regex match
-          if (crops[0] === '__NOT_SET__') {
-            query.$or = [
-              { 'details.normalised_crop': { $exists: false } },
-              { 'details.normalised_crop': null },
-              { 'details.normalised_crop': '' },
-            ];
-          } else {
-            query['details.normalised_crop'] = {
-              $regex: `^${crops[0]}$`,
-              $options: 'i',
-            };
-          }
+        if (filters.normalised_crop === '__NOT_SET__') {
+          query.$or = [
+            { 'details.normalised_crop': { $exists: false } },
+            { 'details.normalised_crop': null },
+            { 'details.normalised_crop': '' },
+          ];
         } else {
-          // Multiple crops - use $in with regex for each
           query['details.normalised_crop'] = {
-            $in: crops.map(crop => new RegExp(`^${crop}$`, 'i')),
+            $regex: `^${filters.normalised_crop}$`,
+            $options: 'i',
           };
         }
       }
@@ -4682,9 +4669,6 @@ export class QuestionService extends BaseService implements IQuestionService {
           query.status = filters.status;
         }
       }
-      if (filters.source && filters.source !== 'all') {
-        query.source = filters.source;
-      }
       if (filters.hiddenQuestions === 'true') {
         query.isHidden = { $eq: true };
       }
@@ -4700,16 +4684,11 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
       }
 
-      // Check if this is a closed status report - if so, limit to 50 questions
-      const isClosedStatus = filters.status === 'closed' || filters.status === 'pae_closed';
-      const questionLimit = isClosedStatus ? 50 : undefined;
-
       // Get questions from repository
       const questions = await this.questionRepo.getQuestionsByFilters(
         query,
         session,
         filters.duplicateQuestions === 'true',
-        questionLimit,
       );
 
       if (!questions || questions.length === 0) {
@@ -4717,27 +4696,12 @@ export class QuestionService extends BaseService implements IQuestionService {
         return null;
       }
 
-      // For closed status, fetch final answers for each question
-      let questionAnswers: Map<string, string> = new Map();
-      if (isClosedStatus) {
-        const questionIds = questions.map(q => q._id.toString());
-        // Fetch all final answers for these questions
-        const answers = await this.answerRepo.getFinalAnswersByQuestionIds(questionIds, session);
-        
-        // Create a map of questionId -> answer
-        answers.forEach(answer => {
-          if (answer.questionId) {
-            questionAnswers.set(answer.questionId.toString(), answer.answer);
-          }
-        });
-      }
-
       // Create Excel workbook
       const workbook = new ExcelJS.Workbook();
       const sheet = workbook.addWorksheet('Questions');
 
-      // Define columns - add Answer column for closed status
-      const columns = [
+      // Define columns
+      sheet.columns = [
         { header: 'Created At', key: 'createdAt', width: 22 },
         { header: 'Question', key: 'question', width: 60 },
         { header: 'State', key: 'state', width: 20 },
@@ -4750,16 +4714,9 @@ export class QuestionService extends BaseService implements IQuestionService {
         { header: 'Source', key: 'source', width: 15 },
       ];
 
-      // Add Answer column for closed status
-      if (isClosedStatus) {
-        columns.push({ header: 'Answer', key: 'answer', width: 80 });
-      }
-
-      sheet.columns = columns;
-
       // Add data rows
       questions.forEach(q => {
-        const rowData: any = {
+        sheet.addRow({
           createdAt: q.createdAt,
           question: q.question,
           state: q.details?.state,
@@ -4770,14 +4727,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           status: q.status,
           priority: q.priority,
           source: q.source,
-        };
-
-        // Add answer for closed status
-        if (isClosedStatus) {
-          rowData.answer = questionAnswers.get(q._id.toString()) || '';
-        }
-
-        sheet.addRow(rowData);
+        });
       });
 
       // Style the header row

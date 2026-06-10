@@ -5158,7 +5158,6 @@ export class QuestionRepository implements IQuestionRepository {
     filters: any,
     session?: ClientSession,
     useDuplicateCollection = false,
-    limit?: number,
   ): Promise<IQuestion[]> {
     await this.init();
 
@@ -5168,13 +5167,10 @@ export class QuestionRepository implements IQuestionRepository {
     //   :
     const collection = this.QuestionCollection;
 
-    let query = collection.find(filters, {session}).sort({createdAt: -1});
-    
-    if (limit) {
-      query = query.limit(limit);
-    }
-    
-    return await query.toArray();
+    return await collection
+      .find(filters, {session})
+      .sort({createdAt: -1})
+      .toArray();
   }
   async getAllQuestionEmbeddings(
     session?: ClientSession,
