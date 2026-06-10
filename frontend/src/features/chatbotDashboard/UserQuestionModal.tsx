@@ -32,6 +32,7 @@ import {
   MessageSquare,
   MessageSquareText,
   Phone,
+  RefreshCw,
   User,
 } from "lucide-react";
 import { Switch } from "@/components/atoms/switch";
@@ -46,6 +47,7 @@ import {
 import { Textarea } from "@/components/atoms/textarea";
 import { TranslatableText } from "./components/TranslatableText";
 import { useNotifyUser } from "./hooks/useNotifyUser";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface UserQuestionsModalProps {
   open: boolean;
@@ -398,6 +400,10 @@ function UserActivityDialog({
   const totalPages = activeData?.totalPages ?? 1;
 
   const { mutate: notifyUser, isPending } = useNotifyUser();
+  const queryClient = useQueryClient();
+  const handleRefresh = async ()=>{
+    await queryClient.refetchQueries({ queryKey: ["user-questions-data"] });
+  }
 
   return (
     <>
@@ -519,8 +525,26 @@ function UserActivityDialog({
                       <p>Send Notification</p>
                     </TooltipContent>
                   </Tooltip>
+
+                  {/* <Tooltip>
+                    <TooltipTrigger asChild>
+                      
+                <Button
+                        onClick={handleRefresh}
+                        className="absolute top-4 right-4 z-20 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
+                      >
+                        <RefreshCw
+                          className={`h-3.5 w-3.5${isLoading ? "animate-spin" : ""}`}
+                        />
+                      </Button>
+                      <TooltipContent>
+                        <p>Refresh</p>
+                      </TooltipContent>
+                    </TooltipTrigger>
+                  </Tooltip> */}
                 </div>
               </TooltipProvider>
+
             </div>
 
             {/* Toggle */}
@@ -565,6 +589,17 @@ function UserActivityDialog({
                     : "text-muted-foreground"
                 }`}
               />
+            </div>
+            <div>
+               <button
+                        onClick={handleRefresh}
+                        className="absolute top-4 right-4 z-20 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
+                        title="Refresh"
+                      >
+                        <RefreshCw
+                          className={`h-3.5 w-3.5${isLoading ? "animate-spin" : ""}`}
+                        />
+                      </button>
             </div>
           </div>
 
