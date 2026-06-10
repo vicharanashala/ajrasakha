@@ -977,9 +977,11 @@ export class ChatbotService extends BaseService implements IChatbotService {
       page,
       limit,
     );
+    console.log("messages", messages)
 
     // No user found
     if (!user) {
+      console.log("If is triggred...")
       return {
         questions: {
           total: 0,
@@ -992,6 +994,12 @@ export class ChatbotService extends BaseService implements IChatbotService {
         messages,
       };
     }
+
+    const threadIds =
+  await this.chatbotRepository.getUserConversationIds(
+    user.userId,
+    source,
+  );
 
     // Extract messageIds
     const messageIds = await this.chatbotRepository.getAllUserMessageIds(
@@ -1016,7 +1024,11 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
     // Fetch questions using messageIds
     const questions = await this.chatbotRepository.getUserQuestionsData(
+        {
+      threadIds,
       messageIds,
+      userId: user.userId,
+    },
       source,
       userType,
       page,
