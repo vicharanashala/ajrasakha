@@ -48,9 +48,9 @@ export const loginWithEmail = async (email: string, password: string) => {
 
       // Sync user with backend database
       const idToken = await result.user.getIdToken();
-      await authService.accountSync(idToken);
+      const syncResponse = await authService.accountSync(idToken);
 
-      return result;
+      return Object.assign(result, { appUser: syncResponse?.user });
     }
   } catch (error: unknown) {
     // If it's a "User Is Blocked" error, re-throw it
@@ -62,7 +62,9 @@ export const loginWithEmail = async (email: string, password: string) => {
     if (error instanceof Error && (error.message.includes("Request failed") || error.message.includes("Failed to"))) {
       try {
         const result = await signInWithEmailAndPassword(auth, email, password);
-        return result;
+        const idToken = await result.user.getIdToken();
+        const syncResponse = await authService.accountSync(idToken);
+        return Object.assign(result, { appUser: syncResponse?.user });
       } catch (authError) {
         throw authError;
       }
