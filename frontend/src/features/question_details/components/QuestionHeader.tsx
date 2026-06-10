@@ -143,7 +143,6 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
       .filter(Boolean)
       .join(" ");
   })();
-
   return (
     <>
       <header className="grid gap-3 w-full">
@@ -164,7 +163,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
             <div className="flex flex-wrap justify-end gap-2">
               {currentUser.role != "expert" &&
                 currentUser.role !== "tester" &&
-                isQuestionAllocatedToExpert &&
+                (isQuestionOnHold || isQuestionAllocatedToExpert) &&
                 question.status !== "closed" && (
                   <Button
                     size="sm"
