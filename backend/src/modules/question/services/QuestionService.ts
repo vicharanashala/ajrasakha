@@ -3422,6 +3422,14 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
   }
 
+  /**
+   * Manually (re)assign the moderator for a question.
+   * Sets moderatorId and stamps moderatorAssignedAt to now (handled in the repo).
+   */
+  async changeQuestionModerator(questionId: string, moderatorId: string): Promise<void> {
+    await this.questionRepo.updateModeratorId(questionId, moderatorId);
+  }
+
   async getAllocatedQuestionPage(userId: string, questionId: string) {
     return this._withTransaction(async session => {
       return this.questionRepo.getAllocatedQuestionPage(

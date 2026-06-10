@@ -155,6 +155,9 @@ export interface IQuestionService {
     assigned_moderator: {name: string; email: string} | null;
   }>;
 
+  /** Manually (re)assign the moderator for a question. */
+  changeQuestionModerator(questionId: string, moderatorId: string): Promise<void>;
+
   /** Get expert’s allocated question page */
   getAllocatedQuestionPage(userId: string, questionId: string): Promise<any>;
 

@@ -919,6 +919,26 @@ export class QuestionController {
     return result.message;
   }
 
+  @Patch('/:questionId/moderator')
+  @HttpCode(200)
+  @Authorized(['admin', 'moderator'])
+  @OpenAPI({ summary: 'Change the moderator assigned to a question' })
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  async changeModerator(
+    @Params() params: QuestionIdParam,
+    @Body() body: { moderatorId: string },
+    @CurrentUser() user: IUser,
+  ) {
+    verifyNotTester(user);
+    const { questionId } = params;
+    const { moderatorId } = body;
+    if (!moderatorId) {
+      throw new BadRequestError('moderatorId is required');
+    }
+    await this.questionService.changeQuestionModerator(questionId, moderatorId);
+    return { success: true, message: 'Moderator updated successfully' };
+  }
+
   @Post('/bulk-pae-allocate')
   @HttpCode(200)
   @Authorized()

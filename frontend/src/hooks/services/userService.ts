@@ -6,6 +6,12 @@ import { env } from "@/config/env";
 
 const API_BASE_URL = env.apiBaseUrl();
 
+export interface StfModerator {
+  _id: string;
+  name: string;
+  email: string;
+}
+
 export class UserService {
   private _baseUrl = `${API_BASE_URL}/users`;
 
@@ -48,6 +54,10 @@ export class UserService {
       body: JSON.stringify({ userId, action }),
       method: "PATCH",
     });
+  }
+
+  async getStfModerators(): Promise<StfModerator[] | null> {
+    return apiFetch<StfModerator[]>(`${this._baseUrl}/stf-moderators`);
   }
 
   async updateUserStatus(userId: string, status: string) {
