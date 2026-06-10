@@ -12,6 +12,7 @@ from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, To
 from langchain_core.runnables import RunnableConfig
 
 from ajrasakha.agents.config import SANITIZER_MODEL
+from ajrasakha.agents.llm_trace import trace_llm_request, trace_llm_response
 from ajrasakha.agents.prompts import RETRIEVAL_SANITIZER_SYSTEM_PROMPT
 from ajrasakha.agents.state import (
     AjraSakhaState,
@@ -439,10 +440,23 @@ async def retrieval_sanitizer_node(
     llm_parse_ok = False
     llm_error: Optional[str] = None
     try:
+        trace_llm_request(
+            "retrieval_sanitizer",
+            model=SANITIZER_MODEL,
+            messages=llm_messages,
+            pairs_evaluated=len(pairs),
+        )
         llm = ChatAnthropic(model=SANITIZER_MODEL)
         response = await llm.ainvoke(llm_messages, config=config)
-        scores, reasons = _parse_batch_results(_message_to_text(response))
+        raw_text = _message_to_text(response)
+        scores, reasons = _parse_batch_results(raw_text)
         llm_parse_ok = scores is not None
+        trace_llm_response(
+            "retrieval_sanitizer",
+            output=raw_text,
+            llm_parse_ok=llm_parse_ok,
+            scores=scores,
+        )
     except Exception as exc:
         llm_error = type(exc).__name__
         logger.warning(
