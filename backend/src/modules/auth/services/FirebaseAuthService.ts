@@ -211,6 +211,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
     const names = fullName.split(/\s+/);
     const firstName = names[0] || email.split('@')[0];
     const lastName = names.slice(1).join(' ');
+    const isVerified = body.isVerified ?? true;
     let firebaseUser: any;
     let createdFirebaseUser = false;
 
@@ -269,7 +270,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
               firstName,
               lastName,
               role: body.role,
-              isVerified: true,
+              isVerified,
               isBlocked: false,
               status: 'active',
             },
@@ -287,7 +288,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
           firstName,
           lastName,
           role: body.role,
-          isVerified: true,
+          isVerified,
         });
 
         const createdId = await this.userRepository.create(newUser, session);

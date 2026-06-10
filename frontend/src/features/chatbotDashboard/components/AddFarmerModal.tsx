@@ -166,7 +166,7 @@ const validate = () => {
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-2">
           <Tabs value={mode} onValueChange={(value) => handleModeChange(value as ModalMode)}>
             <TabsList className="grid h-9 w-full grid-cols-2">
-              <TabsTrigger value="web_app">Web App</TabsTrigger>
+              <TabsTrigger value="web_app">Web Application</TabsTrigger>
               <TabsTrigger value="review_system">Review System</TabsTrigger>
             </TabsList>
           </Tabs>

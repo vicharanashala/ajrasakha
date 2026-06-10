@@ -133,6 +133,16 @@ class AdminCreateReviewUserBody {
   })
   @IsIn(['district_coordinator', 'block_coordinator', 'village_coordinator'])
   role: 'district_coordinator' | 'block_coordinator' | 'village_coordinator';
+
+  @JSONSchema({
+    title: 'Verification Status',
+    description: 'Whether the review system user is verified in the application',
+    example: true,
+    type: 'boolean',
+  })
+  @IsOptional()
+  @IsBoolean()
+  isVerified?: boolean;
 }
 
 class VerifySignUpProviderBody {

@@ -32,6 +32,7 @@ export function useAddUser() {
               name: data.name,
               password: data.password,
               role: data.role,
+              isVerified: data.isVerified,
             }),
           },
         );
