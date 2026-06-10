@@ -733,6 +733,16 @@ export class QuestionService {
     return apiFetch(`${this._baseUrl}/${questionId}/check-duplicate`, { method: "POST" });
   }
 
+  async changeModerator(
+    questionId: string,
+    moderatorId: string,
+  ): Promise<{ success: boolean; message: string } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/moderator`, {
+      method: "PATCH",
+      body: JSON.stringify({ moderatorId }),
+    });
+  }
+
   async getQuestionStatusSummary(
     filter: AdvanceFilterValues,
     search: string,
