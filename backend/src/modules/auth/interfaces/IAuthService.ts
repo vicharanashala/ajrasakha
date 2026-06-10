@@ -2,6 +2,7 @@ import {
   SignUpBody,
   ChangePasswordBody,
   GoogleSignUpBody,
+  AdminCreateReviewUserBody,
 } from '#auth/classes/index.js';
 import {IUser} from '#shared/interfaces/models.js';
 
@@ -29,6 +30,7 @@ export interface IAuthService {
     user: {uid: string; email: string; displayName: string; photoURL: string};
   } | null>;
   googleSignup(body: GoogleSignUpBody, token: string): Promise<string | null>;
+  adminCreateReviewUser(body: AdminCreateReviewUserBody): Promise<IUser>;
   getUserIdFromReq(req: any): Promise<string>;
   /**
    * Changes the password for an authenticated user.
