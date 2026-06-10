@@ -87,6 +87,7 @@ Choose exactly ONE class:
 - NOT_COVERED: Q&A does not contain the information needed.
 
 Important:
+If retrieved answer is SAME_INTENT or COVERED_BY_CONTEXT for different district but same state then classify as SAME_INTENT or COVERED_BY_CONTEXT ignore string matching for location names.
 If deciding between COVERED_BY_CONTEXT and PARTIALLY_COVERED, choose PARTIALLY_COVERED.
 Don't assume local names, slang terms, or regional disease names are the same, even if your knowledge suggests they are. Treat them as different unless the retrieved Q&A explicitly states they are the same.
 Example:
