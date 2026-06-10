@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -8,6 +8,8 @@ import {
 } from "@/components/atoms/dialog";
 import {
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Inbox,
   UserCheck,
   Clock,
@@ -20,6 +22,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGetQueueDetails } from "@/hooks/api/question/useGetQueueDetails";
+import { useGetQueueSection } from "@/hooks/api/question/useGetQueueSection";
 import type {
   QueueQuestionItem,
   QueueExpertItem,
@@ -126,50 +129,85 @@ const ExpertRow = ({ item }: { item: QueueExpertItem }) => (
             STF
           </span>
         )}
-        {item.role && (
-          <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 uppercase">
-            {item.role}
-          </span>
-        )}
       </div>
       {item.email && (
         <p className="text-[11px] text-gray-500 truncate">{item.email}</p>
       )}
     </div>
-    {typeof item.reputationScore === "number" && (
-      <span className="text-[11px] text-gray-500 shrink-0">
-        score {item.reputationScore}
+    {item.role && (
+      <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 uppercase shrink-0">
+        {item.role}
       </span>
     )}
   </div>
 );
 
-type SectionProps = {
+const PAGE_SIZE = 50;
+
+type SectionProps<T> = {
   icon: React.ReactNode;
   color: SectionColor;
   title: string;
   description: string;
+  /** Exact total (from the main query) — drives the count badge + total pages. */
   count: number;
-  shownCount: number;
+  /** Backend section key used to fetch pages > 1. */
+  section: string;
+  /** Page-1 items already loaded by the main query. */
+  initialItems: T[];
+  renderItem: (item: T) => React.ReactNode;
   isOpen: boolean;
   onToggle: () => void;
-  children: React.ReactNode;
   emptyText: string;
+  startTime?: Date;
+  endTime?: Date;
 };
 
-const Section = ({
+function Section<T>({
   icon,
   color,
   title,
   description,
   count,
-  shownCount,
+  section,
+  initialItems,
+  renderItem,
   isOpen,
   onToggle,
-  children,
   emptyText,
-}: SectionProps) => {
+  startTime,
+  endTime,
+}: SectionProps<T>) {
   const c = colorClasses[color];
+  const [page, setPage] = useState(1);
+
+  // Reset to page 1 when the data refreshes (page-1 items change) or on reopen.
+  useEffect(() => {
+    setPage(1);
+  }, [initialItems, isOpen]);
+
+  const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+
+  // Page 1 comes from the main query; pages > 1 are fetched from the backend.
+  const needFetch = isOpen && safePage > 1;
+  const { data: sectionData, isFetching } = useGetQueueSection(
+    section,
+    safePage,
+    PAGE_SIZE,
+    needFetch,
+    startTime,
+    endTime,
+  );
+
+  const pageItems: T[] =
+    safePage === 1 ? initialItems : ((sectionData?.items as T[] | undefined) ?? []);
+  const isPageLoading = needFetch && isFetching;
+  const start = (safePage - 1) * PAGE_SIZE;
+
+  const pagerBtn =
+    "p-1 rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 disabled:pointer-events-none transition-colors";
+
   return (
     <div className="border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden bg-white dark:bg-[#1a1a1a]">
       <button
@@ -223,11 +261,48 @@ const Section = ({
             </p>
           ) : (
             <>
-              <div className="max-h-72 overflow-y-auto">{children}</div>
-              {count > shownCount && (
-                <p className="px-3 py-2 text-[11px] text-gray-400 text-center border-t border-gray-100 dark:border-gray-800">
-                  Showing latest {shownCount} of {count}
-                </p>
+              <div className="max-h-72 overflow-y-auto">
+                {isPageLoading && pageItems.length === 0 ? (
+                  <div className="flex items-center justify-center py-8 text-gray-400">
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading…
+                  </div>
+                ) : (
+                  pageItems.map(renderItem)
+                )}
+              </div>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between gap-2 px-3 py-2 border-t border-gray-100 dark:border-gray-800">
+                  <span className="text-[11px] text-gray-400">
+                    Showing {start + 1}–{Math.min(start + PAGE_SIZE, count)} of{" "}
+                    {count}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {isFetching && (
+                      <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
+                    )}
+                    <button
+                      type="button"
+                      className={pagerBtn}
+                      disabled={safePage <= 1 || isPageLoading}
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      aria-label="Previous page"
+                    >
+                      <ChevronLeft size={14} />
+                    </button>
+                    <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 tabular-nums px-1">
+                      {safePage} / {totalPages}
+                    </span>
+                    <button
+                      type="button"
+                      className={pagerBtn}
+                      disabled={safePage >= totalPages || isPageLoading}
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      aria-label="Next page"
+                    >
+                      <ChevronRight size={14} />
+                    </button>
+                  </div>
+                </div>
               )}
             </>
           )}
@@ -235,7 +310,7 @@ const Section = ({
       )}
     </div>
   );
-};
+}
 
 export const QueueDetailsModal = ({
   setIsSidebarOpen,
@@ -257,7 +332,11 @@ export const QueueDetailsModal = ({
   });
   
   const { data, isLoading, isError, error, refetch, isFetching } =
-    useGetQueueDetails(open, dateFilter.startTime, dateFilter.endTime);
+    useGetQueueDetails(
+      open,
+      dateFilter.startTime ?? undefined,
+      dateFilter.endTime ?? undefined,
+    );
 
   const toggle = (key: string) =>
     setOpenSection((prev) => (prev === key ? null : key));
@@ -292,38 +371,41 @@ export const QueueDetailsModal = ({
         </button>
       </DialogTrigger>
 
-      <DialogContent className="max-w-[85vw] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <DialogTitle className="text-xl flex items-center gap-2">
-              <ListChecks className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              Queue Details
-            </DialogTitle>
-            <div className="flex items-center gap-2">
-              <DateRangeFilter
-                advanceFilter={dateFilter}
-                handleDialogChange={handleDateFilterChange}
-                customName="Created At"
-                type="createdAt"
-                className="w-[200px]"
-              />
-              <button
-                type="button"
-                onClick={() => refetch()}
-                className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 px-2 py-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              >
-                <RefreshCcw
-                  size={13}
-                  className={cn(isFetching && "animate-spin")}
-                />
-                Refresh
-              </button>
-            </div>
-          </div>
+      <DialogContent className="w-full max-w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto [&_[data-slot=dialog-close]]:size-8 [&_[data-slot=dialog-close]]:flex [&_[data-slot=dialog-close]]:items-center [&_[data-slot=dialog-close]]:justify-center [&_[data-slot=dialog-close]]:rounded-md [&_[data-slot=dialog-close]]:opacity-100 [&_[data-slot=dialog-close]]:transition-colors [&_[data-slot=dialog-close]:hover]:bg-muted [&_[data-slot=dialog-close]_svg]:size-5">
+        <DialogHeader className="space-y-1 pr-8">
+          <DialogTitle className="text-xl flex items-center gap-2">
+            <ListChecks className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            Queue Details
+          </DialogTitle>
           <p className="text-sm text-muted-foreground">
-            Time-bound questions (AjraSakha & WhatsApp, auto-allocated)
+            Time-bound questions (AjraSakha &amp; WhatsApp, auto-allocated)
           </p>
         </DialogHeader>
+
+        {/* Controls bar — date filter + refresh, separated from the title row */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 dark:border-gray-800 pb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+              Filter by
+            </span>
+            <DateRangeFilter
+              advanceFilter={dateFilter}
+              handleDialogChange={handleDateFilterChange}
+              customName="Created At"
+              type="createdAt"
+              className="w-[200px] [&>label]:hidden"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 px-3 py-2 rounded-md border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-60 transition-colors"
+          >
+            <RefreshCcw size={13} className={cn(isFetching && "animate-spin")} />
+            Refresh
+          </button>
+        </div>
 
         {isLoading ? (
           <div className="flex items-center justify-center py-16 text-gray-400">
@@ -346,101 +428,105 @@ export const QueueDetailsModal = ({
           </div>
         ) : data ? (
           <div className="space-y-3 py-2">
-            <Section
+            <Section<QueueQuestionItem>
               icon={<Inbox size={20} />}
               color="blue"
               title="Questions Received"
               description="All time-bound questions received"
               count={data.received.count}
-              shownCount={data.received.items.length}
+              section="received"
+              initialItems={data.received.items}
+              renderItem={(q) => <QuestionRow key={q._id} item={q} />}
               isOpen={openSection === "received"}
               onToggle={() => toggle("received")}
               emptyText="No questions received"
-            >
-              {data.received.items.map((q) => (
-                <QuestionRow key={q._id} item={q} />
-              ))}
-            </Section>
+              startTime={dateFilter.startTime ?? undefined}
+              endTime={dateFilter.endTime ?? undefined}
+            />
 
-            <Section
+            <Section<QueueQuestionItem>
               icon={<PowerOff size={20} />}
               color="slate"
               title="Auto-Allocation OFF"
               description="AjraSakha / WhatsApp, handled manually"
               count={data.autoAllocateOff.count}
-              shownCount={data.autoAllocateOff.items.length}
+              section="autoAllocateOff"
+              initialItems={data.autoAllocateOff.items}
+              renderItem={(q) => <QuestionRow key={q._id} item={q} />}
               isOpen={openSection === "autoAllocateOff"}
               onToggle={() => toggle("autoAllocateOff")}
               emptyText="No auto-allocation-off questions"
-            >
-              {data.autoAllocateOff.items.map((q) => (
-                <QuestionRow key={q._id} item={q} />
-              ))}
-            </Section>
+              startTime={dateFilter.startTime ?? undefined}
+              endTime={dateFilter.endTime ?? undefined}
+            />
 
-            <Section
+            <Section<QueueQuestionItem>
               icon={<UserCheck size={20} />}
               color="green"
               title="Questions Allocated"
               description="Assigned to an expert"
               count={data.allocated.count}
-              shownCount={data.allocated.items.length}
+              section="allocated"
+              initialItems={data.allocated.items}
+              renderItem={(q) => (
+                <QuestionRow key={q._id} item={q} showExpert />
+              )}
               isOpen={openSection === "allocated"}
               onToggle={() => toggle("allocated")}
               emptyText="No allocated questions"
-            >
-              {data.allocated.items.map((q) => (
-                <QuestionRow key={q._id} item={q} showExpert />
-              ))}
-            </Section>
+              startTime={dateFilter.startTime ?? undefined}
+              endTime={dateFilter.endTime ?? undefined}
+            />
 
-            <Section
+            <Section<QueueQuestionItem>
               icon={<Clock size={20} />}
               color="amber"
               title="Waiting for Expert"
               description="Received but not yet allocated"
               count={data.waiting.count}
-              shownCount={data.waiting.items.length}
+              section="waiting"
+              initialItems={data.waiting.items}
+              renderItem={(q) => <QuestionRow key={q._id} item={q} />}
               isOpen={openSection === "waiting"}
               onToggle={() => toggle("waiting")}
               emptyText="Nothing waiting for allocation"
-            >
-              {data.waiting.items.map((q) => (
-                <QuestionRow key={q._id} item={q} />
-              ))}
-            </Section>
+              startTime={dateFilter.startTime ?? undefined}
+              endTime={dateFilter.endTime ?? undefined}
+            />
 
-            <Section
+            <Section<QueueExpertItem>
               icon={<Users size={20} />}
               color="violet"
               title="Experts Waiting in Queue"
               description="Experts free with no active allocation"
               count={data.freeExperts.count}
-              shownCount={data.freeExperts.items.length}
+              section="freeExperts"
+              initialItems={data.freeExperts.items}
+              renderItem={(e) => <ExpertRow key={e._id} item={e} />}
               isOpen={openSection === "freeExperts"}
               onToggle={() => toggle("freeExperts")}
               emptyText="No free experts"
-            >
-              {data.freeExperts.items.map((e) => (
-                <ExpertRow key={e._id} item={e} />
-              ))}
-            </Section>
+              startTime={dateFilter.startTime ?? undefined}
+              endTime={dateFilter.endTime ?? undefined}
+            />
 
-            <Section
+            <Section<QueueQuestionItem>
               icon={<AlertTriangle size={20} />}
               color="red"
               title="Stuck Questions"
               description="Allocated > 45 min, never opened"
               count={data.stuck.count}
-              shownCount={data.stuck.items.length}
+              section="stuck"
+              initialItems={data.stuck.items}
+              renderItem={(q) => (
+                <QuestionRow key={q._id} item={q} showStuck />
+              )}
               isOpen={openSection === "stuck"}
               onToggle={() => toggle("stuck")}
               emptyText="No stuck questions"
-            >
-              {data.stuck.items.map((q) => (
-                <QuestionRow key={q._id} item={q} showStuck />
-              ))}
-            </Section>
+              startTime={dateFilter.startTime ?? undefined}
+              endTime={dateFilter.endTime ?? undefined}
+            />
           </div>
         ) : null}
       </DialogContent>

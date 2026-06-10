@@ -21,15 +21,21 @@ import {
   ICheckStatusResponse
 } from '#root/shared/interfaces/models.js';
 import {ClientSession, ObjectId} from 'mongodb';
-import {QueueQuestionData} from '#root/modules/question/interfaces/IQuestionService.js';
+import {RawQueueQuestionRow} from '#root/modules/question/interfaces/IQuestionService.js';
 
 /**
  * Interface representing a repository for question-related operations.
  */
 export interface IQuestionRepository {
-  /** Counts + lean lists of time-bound (AJRASAKHA/WHATSAPP, auto-allocated)
-   *  questions for the moderator/admin "Queue Details" modal. */
-  getQueueQuestionData(limit: number, startTime?: Date, endTime?: Date): Promise<QueueQuestionData>;
+  /** One page (skip/limit) + exact total for a Queue-Details question section
+   *  ('received' | 'allocated' | 'autoOff'). Status scope: open/delayed/duplicate. */
+  getQueueQuestionSection(
+    kind: 'received' | 'allocated' | 'autoOff',
+    skip: number,
+    limit: number,
+    startTime?: Date,
+    endTime?: Date,
+  ): Promise<{count: number; items: RawQueueQuestionRow[]}>;
 
   /**
    * Adds multiple questions for a specific context and user.

@@ -52,6 +52,9 @@ import {
   IQuestionService,
   QueueDetailsResponse,
   QueueQuestionItem,
+  QueueExpertItem,
+  QueueSectionName,
+  QueueSectionResult,
   RawQueueQuestionRow,
 } from '../interfaces/IQuestionService.js';
 import { isToday } from '#root/utils/date.utils.js';
@@ -5825,65 +5828,47 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
   }
 
-  /** Moderator/admin "Queue Details" — read-only snapshot of the time-bound
-   *  (AJRASAKHA/WHATSAPP, auto-allocated) queue. Reuses the exact same queries
-   *  the reallocation cron relies on, so the numbers always match its behaviour.
-   *  Touches no allocation state. */
-  async getQueueDetails(startTime?: Date, endTime?: Date): Promise<QueueDetailsResponse> {
-    const LIST_LIMIT = 100;
-    
-    // Build date filter for createdAt if provided
-    const createdAtFilter: Record<string, unknown> = {};
-    if (startTime) {
-      createdAtFilter.$gte = startTime;
+  // ── Queue Details helpers ────────────────────────────────────────────────
+
+  /** Current assignee the cron would penalise/replace (used for STUCK items). */
+  private deriveCurrentExpertId(
+    queue: (ObjectId | string)[] = [],
+    history: {updatedBy?: ObjectId | string; status?: string}[] = [],
+  ): string | null {
+    if (!queue?.length) return null;
+    if (!history?.length) return queue[0]?.toString() ?? null;
+    const last = history[history.length - 1];
+    if (last?.status === 'in-review') return last.updatedBy?.toString() ?? null;
+    return queue[history.length]?.toString() ?? null;
+  }
+
+  /** Queue member still holding pending work — identical rule to
+   *  getTimeBoundActiveCountPerExpert's `isPending`. Returns null when every
+   *  assigned expert has finished their step (author answered, awaiting reviewer). */
+  private derivePendingAssigneeId(
+    queue: (ObjectId | string)[] = [],
+    history: {answer?: unknown; status?: string}[] = [],
+  ): string | null {
+    if (!queue?.length) return null;
+    for (let i = 0; i < queue.length; i++) {
+      const ch = history?.[i];
+      const pending = i === 0 ? !ch || !ch.answer : !ch || ch.status === 'in-review';
+      if (pending) return queue[i]?.toString() ?? null;
     }
-    if (endTime) {
-      createdAtFilter.$lte = endTime;
+    return null;
+  }
+
+  private queueCropName(crop: unknown): string | undefined {
+    if (!crop) return undefined;
+    if (typeof crop === 'string') return crop;
+    if (typeof crop === 'object' && 'name' in (crop as any)) {
+      return (crop as any).name?.toString();
     }
-    const hasDateFilter = startTime || endTime;
+    return undefined;
+  }
 
-    // Same current-assignee derivation the cron + markQuestionOpened use.
-    // Used for STUCK items (mirrors which expert the cron will penalise/replace).
-    const deriveCurrentExpertId = (
-      queue: (ObjectId | string)[] = [],
-      history: {updatedBy?: ObjectId | string; status?: string}[] = [],
-    ): string | null => {
-      if (!queue?.length) return null;
-      if (!history?.length) return queue[0]?.toString() ?? null;
-      const last = history[history.length - 1];
-      if (last?.status === 'in-review') return last.updatedBy?.toString() ?? null;
-      return queue[history.length]?.toString() ?? null;
-    };
-
-    // Whoever in the queue STILL has pending work — identical rule to
-    // getTimeBoundActiveCountPerExpert's `isPending`. Returns null when every
-    // assigned expert has finished their step (e.g. author answered, awaiting a
-    // reviewer). Used for the ALLOCATED list so the displayed holder can never
-    // contradict the free-experts list.
-    const derivePendingAssigneeId = (
-      queue: (ObjectId | string)[] = [],
-      history: {answer?: unknown; status?: string}[] = [],
-    ): string | null => {
-      if (!queue?.length) return null;
-      for (let i = 0; i < queue.length; i++) {
-        const ch = history?.[i];
-        const pending =
-          i === 0 ? !ch || !ch.answer : !ch || ch.status === 'in-review';
-        if (pending) return queue[i]?.toString() ?? null;
-      }
-      return null; // everyone done — between stages (awaiting reviewer)
-    };
-
-    const cropName = (crop: unknown): string | undefined => {
-      if (!crop) return undefined;
-      if (typeof crop === 'string') return crop;
-      if (typeof crop === 'object' && 'name' in (crop as any)) {
-        return (crop as any).name?.toString();
-      }
-      return undefined;
-    };
-
-    const rawToItem = (row: RawQueueQuestionRow): QueueQuestionItem => ({
+  private rawToQueueItem(row: RawQueueQuestionRow): QueueQuestionItem {
+    return {
       _id: row._id?.toString(),
       question: row.question ?? '',
       status: row.status ?? '',
@@ -5892,138 +5877,191 @@ export class QuestionService extends BaseService implements IQuestionService {
       createdAt: row.createdAt,
       state: row.state,
       district: row.district,
-      crop: cropName(row.crop),
-    });
-
-    // Map a joined submission (with `.question`) into a lean question item.
-    const submissionToItem = (sub: any): QueueQuestionItem => {
-      const q = sub.question || {};
-      return {
-        _id: (q._id ?? sub.questionId)?.toString(),
-        question: q.question ?? '',
-        status: q.status ?? '',
-        source: q.source ?? '',
-        priority: q.priority,
-        createdAt: q.createdAt,
-        state: q.details?.state,
-        district: q.details?.district,
-        crop: cropName(q.details?.crop),
-      };
+      crop: this.queueCropName(row.crop),
     };
+  }
 
-    const [qData, waitingSubs, stuckSubs, allExperts, busyMap] =
+  /** Map a joined submission (with `.question`) into a lean question item. */
+  private submissionToQueueItem(sub: any): QueueQuestionItem {
+    const q = sub.question || {};
+    return {
+      _id: (q._id ?? sub.questionId)?.toString(),
+      question: q.question ?? '',
+      status: q.status ?? '',
+      source: q.source ?? '',
+      priority: q.priority,
+      createdAt: q.createdAt,
+      state: q.details?.state,
+      district: q.details?.district,
+      crop: this.queueCropName(q.details?.crop),
+    };
+  }
+
+  /** Resolve expert ids → display names in a single batched lookup. */
+  private async resolveExpertNames(ids: string[]): Promise<Map<string, string>> {
+    const map = new Map<string, string>();
+    const unique = [...new Set(ids.filter(Boolean))];
+    if (!unique.length) return map;
+    const users = await this.userRepo.getUsersByIds(unique);
+    for (const u of users) {
+      const name = `${(u as any).firstName ?? ''} ${(u as any).lastName ?? ''}`.trim();
+      map.set(u._id.toString(), name || (u as any).email || 'Unknown');
+    }
+    return map;
+  }
+
+  /** Server-side paginated single Queue-Details section: exact total `count`
+   *  plus only the requested page of `items` (default 50). Touches no allocation
+   *  state and reuses the same queries the reallocation cron relies on. */
+  async getQueueSection(
+    section: QueueSectionName,
+    page = 1,
+    limit = 50,
+    startTime?: Date,
+    endTime?: Date,
+  ): Promise<QueueSectionResult> {
+    const safePage = Math.max(1, Math.floor(page) || 1);
+    const safeLimit = Math.min(Math.max(1, Math.floor(limit) || 50), 200);
+    const skip = (safePage - 1) * safeLimit;
+
+    switch (section) {
+      case 'received':
+      case 'autoAllocateOff': {
+        const kind = section === 'received' ? 'received' : 'autoOff';
+        const {count, items} = await this.questionRepo.getQueueQuestionSection(
+          kind,
+          skip,
+          safeLimit,
+          startTime,
+          endTime,
+        );
+        return {count, items: items.map(r => this.rawToQueueItem(r))};
+      }
+
+      case 'allocated': {
+        const {count, items} = await this.questionRepo.getQueueQuestionSection(
+          'allocated',
+          skip,
+          safeLimit,
+          startTime,
+          endTime,
+        );
+        const byQuestion = new Map<string, string | null>();
+        const ids: string[] = [];
+        for (const r of items) {
+          const id = this.derivePendingAssigneeId(r.queue, r.history as any);
+          byQuestion.set(r._id?.toString() ?? '', id);
+          if (id) ids.push(id);
+        }
+        const names = await this.resolveExpertNames(ids);
+        return {
+          count,
+          items: items.map(r => {
+            const id = byQuestion.get(r._id?.toString() ?? '');
+            return {
+              ...this.rawToQueueItem(r),
+              expertName: id ? names.get(id) ?? 'Unknown' : undefined,
+            };
+          }),
+        };
+      }
+
+      case 'waiting': {
+        const [count, subs] = await Promise.all([
+          this.questionSubmissionRepo.countUnallocatedTimeBoundQuestions(startTime, endTime),
+          this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(safeLimit, skip, startTime, endTime),
+        ]);
+        return {count, items: (subs as any[]).map(s => this.submissionToQueueItem(s))};
+      }
+
+      case 'freeExperts': {
+        const [allExperts, busyMap] = await Promise.all([
+          this.userRepo.findExpertsByReputationScore({} as any),
+          this.questionSubmissionRepo.getTimeBoundActiveCountPerExpert(),
+        ]);
+        // Free = experts with no active time-bound allocation. busyMap is the
+        // authoritative "currently holding pending work" set the cron uses.
+        const free = (allExperts as any[]).filter(e => !busyMap.has(e._id.toString()));
+        const items: QueueExpertItem[] = free.slice(skip, skip + safeLimit).map(e => ({
+          _id: e._id.toString(),
+          name: `${e.firstName ?? ''} ${e.lastName ?? ''}`.trim() || e.email || 'Unknown',
+          email: e.email,
+          reputationScore: e.reputation_score,
+          role: e.role,
+          isSpecialTaskForce: e.special_task_force === true,
+        }));
+        return {count: free.length, items};
+      }
+
+      case 'stuck': {
+        let stuckSubs = (await this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation()) as any[];
+        // Apply the selected createdAt date range (same scope as other sections).
+        if (startTime || endTime) {
+          const from = startTime ? new Date(startTime).getTime() : -Infinity;
+          const to = endTime ? new Date(endTime).getTime() : Infinity;
+          stuckSubs = stuckSubs.filter(s => {
+            const created = s.question?.createdAt;
+            if (!created) return false;
+            const t = new Date(created).getTime();
+            return t >= from && t <= to;
+          });
+        }
+        const count = stuckSubs.length;
+        const pageSubs = stuckSubs.slice(skip, skip + safeLimit);
+        const byQuestion = new Map<string, string | null>();
+        const ids: string[] = [];
+        for (const sub of pageSubs) {
+          const id = this.deriveCurrentExpertId(sub.queue, sub.history);
+          const qId = (sub.question?._id ?? sub.questionId)?.toString() ?? '';
+          byQuestion.set(qId, id);
+          if (id) ids.push(id);
+        }
+        const names = await this.resolveExpertNames(ids);
+        const now = Date.now();
+        const items: QueueQuestionItem[] = pageSubs.map(sub => {
+          const item = this.submissionToQueueItem(sub);
+          const id = byQuestion.get(item._id ?? '');
+          const allocatedAt = sub.currentExpertAllocatedAt ?? null;
+          return {
+            ...item,
+            expertName: id ? names.get(id) ?? 'Unknown' : undefined,
+            allocatedAt,
+            minutesSinceAllocated: allocatedAt
+              ? Math.floor((now - new Date(allocatedAt).getTime()) / 60000)
+              : undefined,
+          };
+        });
+        return {count, items};
+      }
+
+      default:
+        return {count: 0, items: []};
+    }
+  }
+
+  /** Moderator/admin "Queue Details" — counts for all six sections plus the
+   *  first page (50) of each. Subsequent pages are fetched via getQueueSection.
+   *  Touches no allocation state. */
+  async getQueueDetails(startTime?: Date, endTime?: Date): Promise<QueueDetailsResponse> {
+    const PAGE = 1;
+    const LIMIT = 50;
+    const [received, autoAllocateOff, allocated, waiting, freeExperts, stuck] =
       await Promise.all([
-        this.questionRepo.getQueueQuestionData(LIST_LIMIT, startTime, endTime),
-        this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(LIST_LIMIT, startTime, endTime),
-        this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(),
-        this.userRepo.findExpertsByReputationScore({} as any, undefined, LIST_LIMIT),
-        this.questionSubmissionRepo.getTimeBoundActiveCountPerExpert(),
+        this.getQueueSection('received', PAGE, LIMIT, startTime, endTime),
+        this.getQueueSection('autoAllocateOff', PAGE, LIMIT, startTime, endTime),
+        this.getQueueSection('allocated', PAGE, LIMIT, startTime, endTime),
+        this.getQueueSection('waiting', PAGE, LIMIT, startTime, endTime),
+        this.getQueueSection('freeExperts', PAGE, LIMIT, startTime, endTime),
+        this.getQueueSection('stuck', PAGE, LIMIT, startTime, endTime),
       ]);
 
-    // ── Collect every expert id we need a display name for (allocated + stuck) ──
-    // `holdingExpertIds` = everyone currently shown as holding a question; these
-    // must be excluded from the free-experts list so the two can never disagree.
-    const expertIds = new Set<string>();
-    const holdingExpertIds = new Set<string>();
-    const allocatedExpertByQuestion = new Map<string, string | null>();
-    for (const row of qData.allocatedItems) {
-      const id = derivePendingAssigneeId(row.queue, row.history as any);
-      const qId = row._id?.toString();
-      if (qId) allocatedExpertByQuestion.set(qId, id);
-      if (id) {
-        expertIds.add(id);
-        holdingExpertIds.add(id);
-      }
-    }
-    const stuckExpertByQuestion = new Map<string, string | null>();
-    for (const sub of stuckSubs as any[]) {
-      const id = deriveCurrentExpertId(sub.queue, sub.history);
-      const qId = (sub.question?._id ?? sub.questionId)?.toString();
-      if (qId) stuckExpertByQuestion.set(qId, id);
-      if (id) {
-        expertIds.add(id);
-        holdingExpertIds.add(id);
-      }
-    }
-
-    const expertNameById = new Map<string, string>();
-    if (expertIds.size) {
-      const users = await this.userRepo.getUsersByIds([...expertIds]);
-      for (const u of users) {
-        const name = `${(u as any).firstName ?? ''} ${(u as any).lastName ?? ''}`.trim();
-        expertNameById.set(u._id.toString(), name || (u as any).email || 'Unknown');
-      }
-    }
-
-    // ── received ──
-    const received = {
-      count: qData.receivedCount,
-      items: qData.receivedItems.map(rawToItem),
+    return {
+      received: received as QueueDetailsResponse['received'],
+      autoAllocateOff: autoAllocateOff as QueueDetailsResponse['autoAllocateOff'],
+      allocated: allocated as QueueDetailsResponse['allocated'],
+      waiting: waiting as QueueDetailsResponse['waiting'],
+      freeExperts: freeExperts as QueueDetailsResponse['freeExperts'],
+      stuck: stuck as QueueDetailsResponse['stuck'],
     };
-
-    // ── auto-allocation OFF (handled manually) ──
-    const autoAllocateOff = {
-      count: qData.autoOffCount,
-      items: qData.autoOffItems.map(rawToItem),
-    };
-
-    // ── allocated (with current expert name; null assignee = awaiting reviewer) ──
-    const allocated = {
-      count: qData.allocatedCount,
-      items: qData.allocatedItems.map(row => {
-        const id = allocatedExpertByQuestion.get(row._id?.toString() ?? '');
-        return {
-          ...rawToItem(row),
-          expertName: id ? expertNameById.get(id) ?? 'Unknown' : undefined,
-        };
-      }),
-    };
-
-    // ── waiting for expert (unallocated) ──
-    const waiting = {
-      count: waitingSubs.length,
-      items: (waitingSubs as any[]).slice(0, LIST_LIMIT).map(submissionToItem),
-    };
-
-    // ── free experts (no active time-bound allocation) ──
-    // Exclude both the cron's "busy" set AND anyone shown as holding a question
-    // in the allocated/stuck lists, so the lists can never contradict each other.
-    const freeExpertsAll = (allExperts as any[]).filter(e => {
-      const eid = e._id.toString();
-      return !busyMap.has(eid) && !holdingExpertIds.has(eid);
-    });
-    const freeExperts = {
-      count: freeExpertsAll.length,
-      items: freeExpertsAll.slice(0, LIST_LIMIT).map(e => ({
-        _id: e._id.toString(),
-        name: `${e.firstName ?? ''} ${e.lastName ?? ''}`.trim() || e.email || 'Unknown',
-        email: e.email,
-        reputationScore: e.reputation_score,
-        role: e.role,
-        isSpecialTaskForce: e.special_task_force === true,
-      })),
-    };
-
-    // ── stuck (allocated > 45 min, never opened) ──
-    const now = Date.now();
-    const stuck = {
-      count: stuckSubs.length,
-      items: (stuckSubs as any[]).slice(0, LIST_LIMIT).map(sub => {
-        const item = submissionToItem(sub);
-        const expertId = stuckExpertByQuestion.get(item._id ?? '') ?? null;
-        const allocatedAt = sub.currentExpertAllocatedAt ?? null;
-        const minutesSinceAllocated = allocatedAt
-          ? Math.floor((now - new Date(allocatedAt).getTime()) / 60000)
-          : undefined;
-        return {
-          ...item,
-          expertName: expertId ? expertNameById.get(expertId) ?? 'Unknown' : undefined,
-          allocatedAt,
-          minutesSinceAllocated,
-        };
-      }),
-    };
-
-    return {received, autoAllocateOff, allocated, waiting, freeExperts, stuck};
   }
 }

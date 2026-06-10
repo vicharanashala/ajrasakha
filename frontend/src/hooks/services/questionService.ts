@@ -45,6 +45,11 @@ export type QueueExpertItem = {
   isSpecialTaskForce?: boolean;
 };
 
+export type QueueSectionResponse = {
+  count: number;
+  items: (QueueQuestionItem | QueueExpertItem)[];
+};
+
 export type QueueDetailsResponse = {
   received: { count: number; items: QueueQuestionItem[] };
   autoAllocateOff: { count: number; items: QueueQuestionItem[] };
@@ -860,6 +865,28 @@ export class QuestionService {
       success: boolean;
       data: QueueDetailsResponse;
     }>(`${this._baseUrl}/queue-details${queryString ? `?${queryString}` : ""}`, {
+      method: "GET",
+    });
+    return res?.data ?? null;
+  }
+
+  async getQueueSection(
+    section: string,
+    page: number,
+    limit: number,
+    startTime?: Date,
+    endTime?: Date,
+  ): Promise<QueueSectionResponse | null> {
+    const params = new URLSearchParams();
+    params.append("section", section);
+    params.append("page", String(page));
+    params.append("limit", String(limit));
+    if (startTime) params.append("startTime", startTime.toISOString());
+    if (endTime) params.append("endTime", endTime.toISOString());
+    const res = await apiFetch<{
+      success: boolean;
+      data: QueueSectionResponse;
+    }>(`${this._baseUrl}/queue-details?${params.toString()}`, {
       method: "GET",
     });
     return res?.data ?? null;

@@ -3349,17 +3349,11 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     ]).toArray();
   }
 
-  async findUnallocatedTimeBoundQuestions(limit: number = 100, startTime?: Date, endTime?: Date): Promise<IQuestionSubmission[]> {
-    await this.init();
-
-    // Build date filter for createdAt if provided
+  /** Build the match stages shared by the unallocated-time-bound list + count. */
+  private buildUnallocatedTimeBoundMatch(startTime?: Date, endTime?: Date) {
     const createdAtFilter: Record<string, unknown> = {};
-    if (startTime) {
-      createdAtFilter.$gte = startTime;
-    }
-    if (endTime) {
-      createdAtFilter.$lte = endTime;
-    }
+    if (startTime) createdAtFilter.$gte = startTime;
+    if (endTime) createdAtFilter.$lte = endTime;
     const hasDateFilter = startTime || endTime;
 
     const matchStage: Record<string, unknown> = {
@@ -3369,17 +3363,19 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         { currentExpertAllocatedAt: null },
       ],
     };
-
     const questionMatchStage: Record<string, unknown> = {
       'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
       'question.status': { $in: ['open', 'delayed', 'duplicate'] },
       'question.isOnHold': { $ne: true },
       'question.isAutoAllocate': { $eq: true },
     };
+    if (hasDateFilter) questionMatchStage['question.createdAt'] = createdAtFilter;
+    return { matchStage, questionMatchStage };
+  }
 
-    if (hasDateFilter) {
-      questionMatchStage['question.createdAt'] = createdAtFilter;
-    }
+  async findUnallocatedTimeBoundQuestions(limit: number = 100, skip: number = 0, startTime?: Date, endTime?: Date): Promise<IQuestionSubmission[]> {
+    await this.init();
+    const { matchStage, questionMatchStage } = this.buildUnallocatedTimeBoundMatch(startTime, endTime);
 
     return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>([
       { $match: matchStage },
@@ -3394,8 +3390,31 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       { $unwind: '$question' },
       { $match: questionMatchStage },
       { $sort: { 'question.createdAt': -1 } },
+      { $skip: skip },
       { $limit: limit },
     ]).toArray();
+  }
+
+  /** Exact total of unallocated time-bound questions (for pagination counts). */
+  async countUnallocatedTimeBoundQuestions(startTime?: Date, endTime?: Date): Promise<number> {
+    await this.init();
+    const { matchStage, questionMatchStage } = this.buildUnallocatedTimeBoundMatch(startTime, endTime);
+
+    const res = await this.QuestionSubmissionCollection.aggregate<{ count: number }>([
+      { $match: matchStage },
+      {
+        $lookup: {
+          from: 'questions',
+          localField: 'questionId',
+          foreignField: '_id',
+          as: 'question',
+        },
+      },
+      { $unwind: '$question' },
+      { $match: questionMatchStage },
+      { $count: 'count' },
+    ]).toArray();
+    return res[0]?.count ?? 0;
   }
 
   /** Find time-bound (AJRASAKHA/WHATSAPP) submissions where the current expert

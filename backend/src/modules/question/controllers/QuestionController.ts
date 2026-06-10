@@ -63,7 +63,7 @@ import { ContextIdParam } from '#root/modules/context/classes/validators/Context
 import { QuestionService } from '../services/QuestionService.js';
 import { UploadFileOptions } from '#root/modules/question/classes/validators/fileUploadOptions.js';
 import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
-import { IQuestionService } from '../interfaces/IQuestionService.js';
+import { IQuestionService, QueueSectionName } from '../interfaces/IQuestionService.js';
 import { FlexibleAuth } from '#root/shared/functions/flexibleAuth.js';
 import { InternalApiAuth } from '#root/shared/index.js';
 import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
@@ -112,13 +112,36 @@ export class QuestionController {
   @Authorized(['admin', 'moderator'])
   @OpenAPI({
     summary:
-      'Queue details for moderators/admins: counts + lists for received, allocated, waiting, free experts, and stuck time-bound questions',
+      'Queue details for moderators/admins. No params → all sections (counts + page 1). With ?section=&page= → one paginated section (exact count + that page of items).',
   })
   async getQueueDetails(
-    @QueryParams() query: { startTime?: string; endTime?: string },
+    @QueryParams()
+    query: {
+      section?: QueueSectionName;
+      page?: string;
+      limit?: string;
+      startTime?: string;
+      endTime?: string;
+    },
   ) {
     const startTime = query.startTime ? new Date(query.startTime) : undefined;
     const endTime = query.endTime ? new Date(query.endTime) : undefined;
+
+    // Single-section paginated mode (?section=&page=&limit=)
+    if (query.section) {
+      const page = query.page ? parseInt(query.page, 10) : 1;
+      const limit = query.limit ? parseInt(query.limit, 10) : 50;
+      const data = await this.questionService.getQueueSection(
+        query.section,
+        page,
+        limit,
+        startTime,
+        endTime,
+      );
+      return { success: true, data };
+    }
+
+    // Full snapshot: all sections, page 1.
     const data = await this.questionService.getQueueDetails(startTime, endTime);
     return { success: true, data };
   }

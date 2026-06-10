@@ -6439,36 +6439,43 @@ export class QuestionRepository implements IQuestionRepository {
     }));
   }
 
-  async getQueueQuestionData(limit: number): Promise<QueueQuestionData> {
+  /** One page (skip/limit) + exact total for a Queue-Details question section.
+   *  kind: 'received' | 'allocated' | 'autoOff'. Status scope: open/delayed/duplicate.
+   *  Optional createdAt range (startTime/endTime) scopes every kind by date. */
+  async getQueueQuestionSection(
+    kind: 'received' | 'allocated' | 'autoOff',
+    skip: number,
+    limit: number,
+    startTime?: Date,
+    endTime?: Date,
+  ): Promise<{count: number; items: RawQueueQuestionRow[]}> {
     await this.init();
 
-    // Scope: time-bound questions only — AJRASAKHA / WHATSAPP that are auto-allocated.
+    // Optional createdAt date-range filter applied to all kinds.
+    const createdAtFilter: Record<string, unknown> = {};
+    if (startTime) createdAtFilter.$gte = startTime;
+    if (endTime) createdAtFilter.$lte = endTime;
+    const dateScope = startTime || endTime ? {createdAt: createdAtFilter} : {};
+
     const receivedMatch = {
       source: {$in: ['AJRASAKHA', 'WHATSAPP']},
       isAutoAllocate: true,
+      status: {$in: ['open', 'delayed', 'duplicate']},
+      ...dateScope,
     };
-    // Allocated: time-bound + first allocated, status NOT closed/in-review.
-    // (history >= 1 is enforced after the submission $lookup below.)
     const allocatedMatch = {
       ...receivedMatch,
       firstAllocationAt: {$exists: true, $ne: null},
       status: {$nin: ['closed', 'in-review']},
     };
-    // AJRASAKHA/WHATSAPP questions with auto-allocation OFF (handled manually).
     const autoOffMatch = {
       source: {$in: ['AJRASAKHA', 'WHATSAPP']},
       isAutoAllocate: {$ne: true},
+      status: {$in: ['open', 'delayed', 'duplicate']},
+      ...dateScope,
     };
 
-    // Lean projection + join the question's submission (queue/history) so the
-    // service can derive the current assignee without extra round-trips.
-    const buildItemsPipeline = (
-      match: Record<string, unknown>,
-      requireHistory: boolean = false,
-    ) => [
-      {$match: match},
-      {$sort: {createdAt: -1}},
-      {$limit: limit},
+    const lookupStages = [
       {
         $lookup: {
           from: 'question_submissions',
@@ -6478,76 +6485,60 @@ export class QuestionRepository implements IQuestionRepository {
         },
       },
       {$addFields: {sub: {$arrayElemAt: ['$sub', 0]}}},
-      // Allocated only: require the joined submission to have history.length >= 1.
-      ...(requireHistory
-        ? [{$match: {'sub.history': {$exists: true, $ne: null, $not: {$size: 0}}}}]
-        : []),
-      {
-        $project: {
-          _id: 1,
-          question: 1,
-          status: 1,
-          source: 1,
-          priority: 1,
-          createdAt: 1,
-          firstAllocationAt: 1,
-          state: '$details.state',
-          district: '$details.district',
-          crop: '$details.crop',
-          queue: '$sub.queue',
-          history: '$sub.history',
-        },
-      },
     ];
-
-    // Allocated count must mirror the items filter exactly — join the submission
-    // and require history.length >= 1 — so the count can never exceed the list.
-    const allocatedCountPipeline = [
-      {$match: allocatedMatch},
-      {
-        $lookup: {
-          from: 'question_submissions',
-          localField: '_id',
-          foreignField: 'questionId',
-          as: 'sub',
-        },
+    const projectStage = {
+      $project: {
+        _id: 1,
+        question: 1,
+        status: 1,
+        source: 1,
+        priority: 1,
+        createdAt: 1,
+        firstAllocationAt: 1,
+        state: '$details.state',
+        district: '$details.district',
+        crop: '$details.crop',
+        queue: '$sub.queue',
+        history: '$sub.history',
       },
-      {$addFields: {sub: {$arrayElemAt: ['$sub', 0]}}},
-      {$match: {'sub.history': {$exists: true, $ne: null, $not: {$size: 0}}}},
-      {$count: 'count'},
-    ];
+    };
 
-    const [
-      receivedCount,
-      allocatedCountResult,
-      autoOffCount,
-      receivedItems,
-      allocatedItems,
-      autoOffItems,
-    ] = await Promise.all([
-      this.QuestionCollection.countDocuments(receivedMatch as any),
-      this.QuestionCollection.aggregate<{count: number}>(allocatedCountPipeline).toArray(),
-      this.QuestionCollection.countDocuments(autoOffMatch as any),
-      this.QuestionCollection.aggregate<RawQueueQuestionRow>(
-        buildItemsPipeline(receivedMatch),
-      ).toArray(),
-      this.QuestionCollection.aggregate<RawQueueQuestionRow>(
-        buildItemsPipeline(allocatedMatch, true), // require history >= 1
-      ).toArray(),
-      this.QuestionCollection.aggregate<RawQueueQuestionRow>(
-        buildItemsPipeline(autoOffMatch),
-      ).toArray(),
+    if (kind === 'allocated') {
+      // Allocated requires the joined submission to have history.length >= 1;
+      // the count pipeline mirrors that exactly so count never exceeds the list.
+      const base: any[] = [
+        {$match: allocatedMatch},
+        ...lookupStages,
+        {$match: {'sub.history': {$exists: true, $ne: null, $not: {$size: 0}}}},
+      ];
+      const [items, countRes] = await Promise.all([
+        this.QuestionCollection.aggregate<RawQueueQuestionRow>([
+          ...base,
+          {$sort: {createdAt: -1}},
+          {$skip: skip},
+          {$limit: limit},
+          projectStage,
+        ]).toArray(),
+        this.QuestionCollection.aggregate<{count: number}>([
+          ...base,
+          {$count: 'count'},
+        ]).toArray(),
+      ]);
+      return {count: countRes[0]?.count ?? 0, items};
+    }
+
+    const match = kind === 'received' ? receivedMatch : autoOffMatch;
+    const [count, items] = await Promise.all([
+      this.QuestionCollection.countDocuments(match as any),
+      this.QuestionCollection.aggregate<RawQueueQuestionRow>([
+        {$match: match},
+        {$sort: {createdAt: -1}},
+        {$skip: skip},
+        {$limit: limit},
+        ...lookupStages,
+        projectStage,
+      ]).toArray(),
     ]);
-
-    const allocatedCount = allocatedCountResult[0]?.count ?? 0;
-
-    return {
-      receivedCount,
-      allocatedCount,
-      autoOffCount,
-      receivedItems,
-      allocatedItems,
-      autoOffItems,
-    };
+    return {count, items};
   }
 }

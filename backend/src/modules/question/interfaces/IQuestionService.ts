@@ -85,6 +85,21 @@ export interface QueueQuestionData {
   autoOffItems: RawQueueQuestionRow[];
 }
 
+/** The six paginatable Queue-Details sections. */
+export type QueueSectionName =
+  | 'received'
+  | 'autoAllocateOff'
+  | 'allocated'
+  | 'waiting'
+  | 'freeExperts'
+  | 'stuck';
+
+/** One page of a section: exact total + the requested page's items. */
+export interface QueueSectionResult {
+  count: number;
+  items: QueueQuestionItem[] | QueueExpertItem[];
+}
+
 export interface IQuestionService {
   /** Bulk insert questions (CSV / upload / AI generated) */
   createBulkQuestions(
@@ -329,4 +344,13 @@ export interface IQuestionService {
   /** Moderator/admin "Queue Details": counts + lean lists for received, allocated,
    *  waiting-for-expert, free experts, and stuck (allocated >45min, never opened). */
   getQueueDetails(startTime?: Date, endTime?: Date): Promise<QueueDetailsResponse>;
+
+  /** One server-side paginated section (exact total + requested page of items). */
+  getQueueSection(
+    section: QueueSectionName,
+    page?: number,
+    limit?: number,
+    startTime?: Date,
+    endTime?: Date,
+  ): Promise<QueueSectionResult>;
 }
