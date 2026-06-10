@@ -63,9 +63,11 @@ Reply with JSON only, no markdown — one entry per candidate index:
 
 CLASSIFICATION_PROMPT = """You classify whether a retrieved expert Q&A can answer a farmer's question.
 Remember:: string matching is very important for local names, diseases, crops, chemicals name etc. If string is not matching then select PARTIALLY_COVERED or NOT_COVERED.
+Treat all districts as same.I dont want this reason "Farmer asked for abc district information, but the answer provided xyz district."
 Farmer question (original):
 {original_query}
 
+Farmer request: "Ignore my district name in the question."
 additional context about farmer's crop and location:
 state is: {state} and crop is: {crop}
 
@@ -82,12 +84,12 @@ Choose exactly ONE class:
 - SAME_INTENT:
     Either: Farmer question (original) is the same as the retrieved question (retrieved_question) even if answer is different.
     Or: Existing answer can be reused without modification. For local names, slang terms, and regional terminology, use exact string matching only. Do not use semantic matching or external knowledge to determine equivalence. 
-- COVERED_BY_CONTEXT: Different question, but the retrieved expert answer already answers the farmer's specific question. The answer can be shown to the farmer as-is, without rephrasing, additional reasoning, diagnosis, assumptions, or adding information from outside the retrieved Q&A. No important information is missing.
-- PARTIALLY_COVERED: Q&A is relevant and useful but do not address complete question or some chemical name/ crop varieties, diseases, or local terms strings are not matching.
+- COVERED_BY_CONTEXT: Query has no ambiguity and Retrieved answer fully covers farmer query without any missing information.
+- PARTIALLY_COVERED: Different question, but the retrieved expert answer already answers the farmer's specific question. The answer can be shown to the farmer as-is, without rephrasing, additional reasoning, diagnosis, assumptions, or adding information from outside the retrieved Q&A. No important information is missing.
 - NOT_COVERED: Q&A does not contain the information needed.
 
 Important:
-If retrieved answer is SAME_INTENT or COVERED_BY_CONTEXT for different district but same state then classify as SAME_INTENT or COVERED_BY_CONTEXT ignore string matching for location names.
+
 If deciding between COVERED_BY_CONTEXT and PARTIALLY_COVERED, choose PARTIALLY_COVERED.
 Don't assume local names, slang terms, or regional disease names are the same, even if your knowledge suggests they are. Treat them as different unless the retrieved Q&A explicitly states they are the same.
 Example:
@@ -158,10 +160,8 @@ def _format_rag_candidates_for_filter(pairs: list) -> str:
     for i, pair in enumerate(pairs, 1):
         q = (pair.question_text or "")[:400]
         a = (pair.answer_text or "")[:400]
-        score = pair.similarity_score
-        score_s = f"{score:.4f}" if score is not None else "n/a"
         lines.append(
-            f"--- Candidate {i} (vector_score={score_s}, question_id={pair.question_id}) ---\n"
+            f"--- Candidate {i} (question_id={pair.question_id}) ---\n"
             f"Question: {q}\n"
             f"Answer excerpt: {a}"
         )
@@ -406,11 +406,11 @@ async def classify_pair(
 def _format_candidates_block(candidates: list[tuple]) -> str:
     """Each item: (score, pair, cls_result)."""
     lines = []
-    for i, (score, pair, cls_result) in enumerate(candidates, 1):
+    for i, (_, pair, cls_result) in enumerate(candidates, 1):
         q = (pair.question_text or "")[:300]
         a = (pair.answer_text or "")[:500]
         lines.append(
-            f"Candidate {i} (vector_score={score:.4f}, question_id={pair.question_id}):\n"
+            f"Candidate {i} (question_id={pair.question_id}):\n"
             f"  Question: {q}\n"
             f"  Answer excerpt: {a}\n"
             f"  Prior classification reason: {cls_result.get('reason', '')}"
