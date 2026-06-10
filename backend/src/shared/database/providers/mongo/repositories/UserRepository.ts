@@ -827,6 +827,19 @@ export class UserRepository implements IUserRepository {
       .toArray();
   }
 
+  /** Same as findAvailableModerators but restricted to Special Task Force moderators. */
+  async findAvailableStfModerators(): Promise<IUser[]> {
+    await this.init();
+    return this.usersCollection
+      .find({
+        role: 'moderator',
+        isBlocked: { $ne: true },
+        special_task_force: true,
+        $or: [{ assignedQuestionId: { $exists: false } }, { assignedQuestionId: null }],
+      })
+      .toArray();
+  }
+
   /** Assigns a question to a moderator (sets assignedQuestionId on the user document). */
   async setAssignedQuestion(moderatorId: string, questionId: string): Promise<void> {
     await this.init();

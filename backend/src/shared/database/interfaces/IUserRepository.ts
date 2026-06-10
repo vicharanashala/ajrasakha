@@ -326,6 +326,7 @@ export interface IUserRepository {
     session?: ClientSession,
   ): Promise<IUser>;
   findAvailableModerators(): Promise<IUser[]>;
+  findAvailableStfModerators(): Promise<IUser[]>;
   setAssignedQuestion(moderatorId: string, questionId: string): Promise<void>;
   clearAssignedQuestion(moderatorId: string): Promise<void>;
 }

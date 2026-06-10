@@ -3424,10 +3424,24 @@ export class QuestionService extends BaseService implements IQuestionService {
 
   /**
    * Manually (re)assign the moderator for a question.
-   * Sets moderatorId and stamps moderatorAssignedAt to now (handled in the repo).
+   * - Sets moderatorId and stamps moderatorAssignedAt to now on the question (handled in the repo).
+   * - Keeps the single-allocation user docs consistent with the cron: frees the previous
+   *   moderator's assignedQuestionId and marks the new moderator as busy, so the cron's
+   *   "is this moderator free?" check (assignedQuestionId == null) stays accurate.
    */
   async changeQuestionModerator(questionId: string, moderatorId: string): Promise<void> {
+    // Read the currently assigned moderator (if any) so we can free them.
+    const question = await this.questionRepo.getById(questionId);
+    const previousModeratorId = (question as any)?.moderatorId?.toString();
+
+    // Point the question at the new moderator (also stamps moderatorAssignedAt = now).
     await this.questionRepo.updateModeratorId(questionId, moderatorId);
+
+    // Free the previous moderator and mark the new one as busy.
+    if (previousModeratorId && previousModeratorId !== moderatorId) {
+      await this.userRepo.clearAssignedQuestion(previousModeratorId);
+    }
+    await this.userRepo.setAssignedQuestion(moderatorId, questionId);
   }
 
   async getAllocatedQuestionPage(userId: string, questionId: string) {
@@ -5654,7 +5668,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     console.log('[ModeratorQueue] Starting moderator queue assignment check...');
     try {
       // 1. Available moderators (no active question in their user document)
-      const availableModerators = await this.userRepo.findAvailableModerators();
+      const availableModerators = await this.userRepo.findAvailableStfModerators();
       if (!availableModerators.length) {
         console.log('[ModeratorQueue] No available moderators — all moderators are busy.');
         return { assigned: 0, availableWaiting: 0, failedAssignments: 0 };
