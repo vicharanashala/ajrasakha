@@ -30,6 +30,8 @@ type ClosedInLastTwoHoursCardProps = {
   onDateRangeChange?: (range: DateRange | undefined) => void;
   isLoading?: boolean;
   isFetching?: boolean;
+  /** Callback to notify parent to refresh all related cards in the row */
+  onRefresh?: () => void;
 };
 
 export function ClosedInLastTwoHoursCard({
@@ -41,6 +43,7 @@ export function ClosedInLastTwoHoursCard({
   onDateRangeChange,
   isLoading,
   isFetching,
+  onRefresh,
 }: ClosedInLastTwoHoursCardProps) {
   const isRefreshing = isLoading || isFetching;
   const safeCount = count ?? 0;
@@ -50,7 +53,9 @@ export function ClosedInLastTwoHoursCard({
   const [closedWithInTwohours, setClosedWithInTowhours] = useState(false);
   const queryClient = useQueryClient();
   const handleRefresh = async () => {
-    // Invalidate the base query key - this will refetch all queries starting with "closed-notified-data"
+    // Notify parent to refresh all related cards
+    onRefresh?.();
+    // Also invalidate the base query key as fallback
     queryClient.invalidateQueries({ queryKey: ["closed-notified-data"] });
   };
 

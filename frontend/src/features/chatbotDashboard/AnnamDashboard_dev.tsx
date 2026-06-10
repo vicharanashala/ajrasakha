@@ -232,6 +232,12 @@ export function AnnamDashboard_dev({
     false, false, filters.userType as any, [], "totalQuestions", "desc", true, "", "verified", true
   );
   
+  // ─── Stats Cards Refresh Handler ────────────────────────────────────────────
+  // Refresh all related stats cards in the row (Closed in 2h, Question Status, Notifications)
+  const handleRefreshStatsCards = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ["closed-notified-data"] });
+  }, [queryClient]);
+
   // ─── Source Change Handler ─────────────────────────────────────────────────
   const handleSourceChange = useCallback((newSource: "annam" | "whatsapp") => {
     setSource(newSource);
@@ -359,6 +365,7 @@ export function AnnamDashboard_dev({
                       onDateRangeChange={setClosed2hDateRange}
                       isLoading={false}
                       isFetching={isClosed2hFetching}
+                      onRefresh={handleRefreshStatsCards}
                     />
                     <ClosedQuestionsCard
                       closedQuestions={questionStatusData?.closedVsTotalQuestions?.closedQuestions}
@@ -367,12 +374,14 @@ export function AnnamDashboard_dev({
                       dateRange={questionStatusDateRange}
                       onDateRangeChange={setQuestionStatusDateRange}
                       isLoading={false}
+                      isFetching={false}
                       carryForward={questionStatusData?.carryForward}
                       avgCloseTimeMinutes={questionStatusData?.closedVsTotalQuestions?.avgCloseTimeMinutes}
                       previousMonthAvgCloseTimeMinutes={questionStatusData?.closedVsTotalQuestions?.previousMonthAvgCloseTimeMinutes}
                       statusBreakup={questionStatusData?.closedVsTotalQuestions}
                       source={source}
                       userType={filters.userType}
+                      onRefresh={handleRefreshStatsCards}
                     />
                     <CustomerNotificationsCard
                       notified={customerNotificationsData?.notifiedVsClosed?.notified}
@@ -381,8 +390,10 @@ export function AnnamDashboard_dev({
                       dateRange={customerNotificationsDateRange}
                       onDateRangeChange={setCustomerNotificationsDateRange}
                       isLoading={false}
+                      isFetching={false}
                       source={source}
                       userType={filters.userType}
+                      onRefresh={handleRefreshStatsCards}
                     />
                   </div>
                   
