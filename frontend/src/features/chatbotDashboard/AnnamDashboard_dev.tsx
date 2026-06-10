@@ -1,7 +1,7 @@
 // ─── Annam Dashboard Main Component ─────────────────────────────────────────
 import React, {
   useState,
-  useRef,
+  // useRef,
   useCallback,
   useMemo,
   useEffect,
@@ -22,21 +22,20 @@ import type { DashboardView } from "./DashboardSidebar";
 import { DashboardFilters } from "./DashboardFilters";
 import type { DashboardFilterValues } from "./DashboardFilters";
 import { EightCardsComponent } from "./MetricCard ";
-import DashboardQueryCategories from "./DashboardQueryCategories";
+// import DashboardQueryCategories from "./DashboardQueryCategories";
 import { AlertCard } from "./AlertCard";
 import { DuplicateQuestionsModal } from "./components/DuplicateQuestionsModal";
 import { SegmentDetailBanner } from "./components/SegmentDetailBanner";
 import { UserDetailsView } from "./UserDetailsView";
 import { WhatsAppUsersView } from "./WhatsAppUsersView";
 import type { UserDetailsFilters } from "./components/UserDetailsPreferenceFilter";
-import { TopCropsCard } from "./components/TopCropsCard";
+// import { TopCropsCard } from "./components/TopCropsCard";
 import { useTopCrops } from "./hooks/useTopCrops";
 import { DailyQuestionTrendsChart } from "./components/DailyQuestionTrendsChart";
 import { TopFaqsLeaderboard } from "./components/TopFaqsLeaderboard";
-import { useInView } from "@/hooks/useInView";
+// import { useInView } from "@/hooks/useInView";
 import PlatformDonutSegments from "./components/PlatformDonutSegment";
 import { DashboardStateWiseAnalytics } from "./DashboardQueryState";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import FeedbackCard from "./FeedbackCard";
 import { ResponseAdherenceTableCard } from "./components/ResponseAdherenceTableCard";
 import { WeatherConcernAnalyticsCard } from "./components/WeatherConcernAnalyticsCard";
@@ -49,14 +48,16 @@ import { motion } from "framer-motion";
 import { containerVariants, itemVariants, DYNAMIC_KPI_IDS, CSS_KEYFRAMES } from "./utils/constants";
 import { formatDateForInput, getISOStringsForDateRange, getTodayStart, getTodayEnd } from "./utils/dateUtils";
 import { useQueryClient } from "@tanstack/react-query";
-import { SearchableSelect } from "@/components/atoms/SearchableSelect";
-import { RefreshCw } from "lucide-react";
+// import { RefreshCw } from "lucide-react";
 import { KnowledgeAwarenessCard } from "./components/KnowledgeAwarenessCard";
 import { ActiveUsersSection } from "./components/ActiveUsersSection";
 import { WhatsAppUniqueUsersCard } from "./WhatsAppUniqueUsersCard";
 import { ClosedInLastTwoHoursCard } from "./ClosedInLastTwoHoursCard";
 import { ClosedQuestionsCard } from "./ClosedQuestionsCard";
 import { CustomerNotificationsCard } from "./CustomerNotificationsCard";
+import { SourceTabsHeader } from "./components/SourceTabs";
+import { QueryInsightsSection } from "./components/QueryInsightsSection";
+import { useDashboardHandlers } from "./hooks/useDashboardHandlers";
 
 // ─── Lazy Loaded Components ──────────────────────────────────────────────────
 const LazyUserGrowthChart = React.lazy(() => import("./components/UserGrowthChart"));
@@ -72,13 +73,13 @@ export function LazySectionSkeleton({ className = "h-[300px]" }: { className?: s
 }
 
 // ─── Extended DashboardView type ─────────────────────────────────────────────
-type ExtendedDashboardView = DashboardView | "responsetable";
+// type ExtendedDashboardView = DashboardView | "responsetable";
 
 // ─── Main Dashboard Component ─────────────────────────────────────────────────
 export function AnnamDashboard_dev({
   className,
   source: initialSource = "annam",
-  onSourceChange,
+  // onSourceChange,
 }: {
   className?: string;
   source?: "annam" | "whatsapp";
@@ -118,15 +119,8 @@ export function AnnamDashboard_dev({
   const [hovered, setHovered] = useState<string | null>(null);
   const [agriHovered, setAgriHovered] = useState<string | null>(null);
   
-  // Loading states
-  const [invalidating, setInvalidating] = useState(false);
-  const [kwDataRefreshing, setKWDataRefreshing] = useState(false);
-  
   // User details initial filters
   const [userDetailsInitialFilters, setUserDetailsInitialFilters] = useState<Partial<UserDetailsFilters> | undefined>(undefined);
-  
-  // Refs for scroll management
-  const sectionRefs = useRef<Partial<Record<ExtendedDashboardView, HTMLDivElement | null>>>({});
   
   // ─── Computed Values ───────────────────────────────────────────────────────
   const isAppAnalyticsSource = source === "annam" || source === "whatsapp";
@@ -142,7 +136,7 @@ export function AnnamDashboard_dev({
   const customerNotificationsRange = useMemo(() => getISOStringsForDateRange(customerNotificationsDateRange), [customerNotificationsDateRange]);
   
   // Data queries with date ranges
-  const { data: closed2hData } = useClosedAndNotifedData(source, filters.userType, closed2hRange.startTime, closed2hRange.endTime);
+  const { data: closed2hData, isFetching: isClosed2hFetching } = useClosedAndNotifedData(source, filters.userType, closed2hRange.startTime, closed2hRange.endTime);
   const { data: questionStatusData } = useClosedAndNotifedData(source, filters.userType, questionStatusRange.startTime, questionStatusRange.endTime);
   const { data: customerNotificationsData } = useClosedAndNotifedData(source, filters.userType, customerNotificationsRange.startTime, customerNotificationsRange.endTime);
   
@@ -162,28 +156,62 @@ export function AnnamDashboard_dev({
     return { ...filters, startTime: selectedDate, endTime };
   }, [filters, responseAdherenceDate]);
   
-  // ─── In-View Refs ──────────────────────────────────────────────────────────
-  const { ref: growthRef, isVisible: isGrowthVisible } = useInView();
-  const { ref: queryInsightsRef, isVisible: isQueryInsightsVisible } = useInView();
-  const { ref: responseAdherenceRef, isVisible: isResponseAdherenceVisible } = useInView();
-  const { ref: trendsRef, isVisible: isTrendsVisible } = useInView();
-  const { ref: faqsRef, isVisible: isFaqsVisible } = useInView();
-  const { ref: activeUsersRef, isVisible: isActiveUsersVisible } = useInView();
-  const { ref: weatherConcernRef, isVisible: isWeatherConcernVisible } = useInView();
-  const { ref: farmerHeatMapRef, isVisible: isFarmerHeatMapVisible } = useInView();
-  const { ref: userDetailsRef, isVisible: isUserDetailsVisible } = useInView();
-  const { ref: userDemographicsRef, isVisible: isUserDemographicsVisible } = useInView();
-  
-  // Visibility flags
-  const shouldLoadResponseAdherence = loadImmediately || isResponseAdherenceVisible;
-  const shouldLoadQueryInsights = loadImmediately || isQueryInsightsVisible;
-  const shouldLoadTrends = loadImmediately || isTrendsVisible;
-  const shouldLoadFaqs = loadImmediately || isFaqsVisible;
-  const shouldLoadActiveUsers = loadImmediately || isActiveUsersVisible;
-  const shouldLoadWeatherConcern = loadImmediately || isWeatherConcernVisible;
-  const shouldLoadFarmerHeatMap = loadImmediately || isFarmerHeatMapVisible;
-  const shouldLoadUserDetails = loadImmediately || isUserDetailsVisible;
-  const shouldLoadUserDemographics = loadImmediately || isUserDemographicsVisible;
+  // ─── Handlers & Visibility Hook ────────────────────────────────────────────
+  const {
+    sectionRefs,
+    growthRef,
+    // queryInsightsRef,
+    responseAdherenceRef,
+    trendsRef,
+    faqsRef,
+    activeUsersRef,
+    weatherConcernRef,
+    farmerHeatMapRef,
+    userDetailsRef,
+    userDemographicsRef,
+    visibilityFlags,
+    scrollTo,
+    handleViewChange,
+    handleLowFeedbackUsersClick,
+    handleInactiveUsersClick,
+    handleWhatsappInactiveUsersClick,
+    handleRefreshAll,
+    handleKWRefresh,
+    invalidating,
+    kwDataRefreshing,
+  } = useDashboardHandlers({
+    source,
+    loadImmediately,
+    onSetActiveView: setActiveView,
+    onSetUserDetailsInitialFilters: setUserDetailsInitialFilters,
+    onSetInactiveUsersPage: setInactiveUsersPage,
+    onSetIsInactiveWhatsappModalOpen: setIsInactiveWhatsappModalOpen,
+    onSetIsDuplicateModalOpen: setIsDuplicateModalOpen,
+    queryClient,
+  });
+
+  // Destructure visibility flags
+  const {
+    shouldLoadResponseAdherence,
+    shouldLoadQueryInsights,
+    shouldLoadTrends,
+    shouldLoadFaqs,
+    shouldLoadActiveUsers,
+    shouldLoadWeatherConcern,
+    shouldLoadFarmerHeatMap,
+    shouldLoadUserDetails,
+    shouldLoadUserDemographics,
+    isGrowthVisible,
+    // isResponseAdherenceVisible,
+    // isQueryInsightsVisible,
+    // isTrendsVisible,
+    // isFaqsVisible,
+    // isActiveUsersVisible,
+    // isWeatherConcernVisible,
+    // isFarmerHeatMapVisible,
+    // isUserDetailsVisible,
+    isUserDemographicsVisible,
+  } = visibilityFlags;
   
   // ─── Additional Data Queries ───────────────────────────────────────────────
   const { data: queryCategories } = useQueryCategories(source, filters.userType, shouldLoadQueryInsights);
@@ -204,31 +232,7 @@ export function AnnamDashboard_dev({
     false, false, filters.userType as any, [], "totalQuestions", "desc", true, "", "verified", true
   );
   
-  // ─── Handlers ──────────────────────────────────────────────────────────────
-  const scrollTo = useCallback((view: ExtendedDashboardView) => {
-    setTimeout(() => sectionRefs.current[view]?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
-  }, []);
-  
-  const handleRefreshAll = useCallback(async () => {
-    setInvalidating(true);
-    const queryKeys = [
-      "dashboard-data", "top-faqs", "daily-question-trends", "user-metrices",
-      "response-adherence-table", "retention_metrics", "query-categories",
-      "whatsapp-inactive-users", "whatsapp-unique-users", "whatsapp-all-users",
-      "closed-notified-data", "monthly-churn-rate", "active_user_trend",
-      "user-details", "user_growth", "top-crops-chatbot", "state-wise-analytics",
-      "weather-concern-analytics", "farmer-heat-map",
-    ];
-    queryKeys.forEach(key => queryClient.invalidateQueries({ queryKey: [key] }));
-    setTimeout(() => setInvalidating(false), 500);
-  }, [queryClient]);
-  
-  const handleKWRefresh = useCallback(async () => {
-    setKWDataRefreshing(true);
-    await queryClient.refetchQueries({ queryKey: ["user-metrices"] });
-    setKWDataRefreshing(false);
-  }, [queryClient]);
-  
+  // ─── Source Change Handler ─────────────────────────────────────────────────
   const handleSourceChange = useCallback((newSource: "annam" | "whatsapp") => {
     setSource(newSource);
     if (newSource === "whatsapp") {
@@ -237,28 +241,6 @@ export function AnnamDashboard_dev({
     setClosed2hDateRange(undefined);
     setQuestionStatusDateRange(undefined);
     setCustomerNotificationsDateRange(undefined);
-  }, []);
-  
-  const handleViewChange = useCallback((view: DashboardView) => {
-    setActiveView(view);
-    scrollTo(view);
-  }, [scrollTo]);
-  
-  const handleLowFeedbackUsersClick = useCallback(() => {
-    setUserDetailsInitialFilters({ lowFeedbackOnly: true, inactiveOnly: false, search: "", crop: "", village: "", profileCompleted: "all" });
-    setActiveView("user-details");
-  }, []);
-  
-  const handleInactiveUsersClick = useCallback(() => {
-    const threeDaysAgo = getTodayStart();
-    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-    setUserDetailsInitialFilters({ inactiveOnly: true, startTime: threeDaysAgo, endTime: getTodayStart(), search: "", crop: "", village: "", profileCompleted: "all" });
-    setActiveView("user-details");
-  }, []);
-  
-  const handleWhatsappInactiveUsersClick = useCallback(() => {
-    setInactiveUsersPage(1);
-    setIsInactiveWhatsappModalOpen(true);
   }, []);
   
   // ─── Computed KPI Data ─────────────────────────────────────────────────────
@@ -312,46 +294,14 @@ export function AnnamDashboard_dev({
             
             <div className="flex-1 overflow-y-auto px-5 pb-5">
               {/* Source Selection Tabs & Refresh */}
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, ease: "easeOut" }}
-                className="flex items-center justify-between gap-4 border-b border-border pb-3 mb-5 pt-3"
-              >
-                <div className="flex items-center gap-2">
-                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                    onClick={() => handleSourceChange("annam")}
-                    className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition-all",
-                      source === "annam" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-accent")}>
-                    Annam
-                  </motion.button>
-                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                    onClick={() => handleSourceChange("whatsapp")}
-                    className={cn("px-4 py-1.5 rounded-lg text-sm font-medium transition-all",
-                      source === "whatsapp" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-accent")}>
-                    WhatsApp
-                  </motion.button>
-                </div>
-                
-                <div className="flex items-center ml-auto gap-4">
-                  <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                    onClick={handleRefreshAll}
-                    className="z-50 flex items-center gap-2 rounded-lg px-3 py-1.5 shadow-sm backdrop-blur-sm border transition-colors duration-200">
-                    <motion.div animate={{ rotate: invalidating ? 360 : 0 }}
-                      transition={{ duration: 0.5, repeat: invalidating ? Infinity : 0, ease: "linear" }}>
-                      <RefreshCw className="h-3.5 w-3.5" />
-                    </motion.div>
-                    <span className="text-sm font-medium">Refresh</span>
-                  </motion.button>
-                  
-                  <SearchableSelect
-                    options={source === "whatsapp" ? [] : ["External", "Internal"]}
-                    value={filters.userType === "all" ? "All Users" : filters.userType.charAt(0).toUpperCase() + filters.userType.slice(1)}
-                    onChange={(v) => setFilters(prev => ({ ...prev, userType: v.toLowerCase() as DashboardFilterValues["userType"] }))}
-                    placeholder="All Users"
-                  />
-                </div>
-              </motion.div>
+              <SourceTabsHeader
+                source={source}
+                onSourceChange={handleSourceChange}
+                filters={filters}
+                onFilterChange={setFilters}
+                invalidating={invalidating}
+                onRefresh={handleRefreshAll}
+              />
               
               <DashboardFilters filters={filters} onFilterChange={setFilters} />
               
@@ -408,6 +358,7 @@ export function AnnamDashboard_dev({
                       dateRange={closed2hDateRange}
                       onDateRangeChange={setClosed2hDateRange}
                       isLoading={false}
+                      isFetching={isClosed2hFetching}
                     />
                     <ClosedQuestionsCard
                       closedQuestions={questionStatusData?.closedVsTotalQuestions?.closedQuestions}
@@ -533,21 +484,15 @@ export function AnnamDashboard_dev({
               </div>
               
               {/* Query Insights */}
-              <div ref={(el) => { queryInsightsRef.current = el; }} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }}
-                  ref={(el) => { sectionRefs.current["query-analysis"] = el; }} className="h-full">
-                  {shouldLoadQueryInsights ? (
-                    <DashboardQueryCategories categories={queryCategories} source={source} userType={filters.userType} />
-                  ) : <LazySectionSkeleton className="h-[360px]" />}
-                </motion.div>
-                
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut", delay: 0.08 }}
-                  ref={(el) => { sectionRefs.current["feedback-sentiment"] = el; }} className="h-full">
-                  {shouldLoadQueryInsights ? (
-                    <TopCropsCard topCrops={topCrops} isLoadingTopCrops={isLoadingTopCrops} errorLoadingtopCrops={errorLoadingtopCrops} source={source} userType={filters.userType} />
-                  ) : <LazySectionSkeleton className="h-[360px]" />}
-                </motion.div>
-              </div>
+              <QueryInsightsSection
+                queryCategories={queryCategories}
+                topCrops={topCrops}
+                isLoadingTopCrops={isLoadingTopCrops}
+                errorLoadingtopCrops={errorLoadingtopCrops}
+                shouldLoadQueryInsights={shouldLoadQueryInsights}
+                source={source}
+                userType={filters.userType}
+              />
               
               {/* Daily Trends */}
               <div ref={(el) => { trendsRef.current = el; }} className="grid grid-cols-1 lg:grid-cols-1 gap-3 mb-4 mt-6">

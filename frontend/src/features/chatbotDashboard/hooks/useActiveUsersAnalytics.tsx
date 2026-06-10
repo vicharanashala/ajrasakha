@@ -292,7 +292,8 @@ export const useClosedAndNotifedData = (source: string, userType: string, startD
     queryFn: () => {
       return chatbotService.getClosedAndNotifedData(source, userType, startDate, endDate);
     },
-    placeholderData: (previousData) => previousData,
+    // Removed placeholderData to ensure proper refetch
+    staleTime: 1000 * 60 * 2, // 2 minutes
     enabled,
   });
 }
