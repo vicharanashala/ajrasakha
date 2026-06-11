@@ -2112,6 +2112,10 @@ answer: ${updates.answer}`;
       // }
 
       const isAddTextRequired = true;
+      // The moderator currently assigned to this question (set by the moderator-queue
+      // cron). Approving moves the question back to "open", so the moderation step is
+      // done — release the assignment so the moderator becomes available again.
+      const assignedModeratorId = (question as any).moderatorId?.toString();
       // Update question with approved AI answer details
       await this.questionRepo.updateQuestion(
         updates.questionId,
@@ -2122,11 +2126,20 @@ answer: ${updates.answer}`;
           aiInitialAnswer: updates.answer ?? '',
           // totalAnswersCount: 1,
           isAutoAllocate: true,
-          status:"open"
+          status: 'open',
+          // Clear the moderator assignment — status is going back to "open".
+          moderatorId: null,
+          moderatorAssignedAt: null,
         },
         session,
         isAddTextRequired,
       );
+
+      // Free the previously-assigned moderator (clears their assignedQuestionId so the
+      // single-allocation cron sees them as available again).
+      if (assignedModeratorId) {
+        await this.userRepo.clearAssignedQuestion(assignedModeratorId);
+      }
 
     /*  if (question.status !== 'open' && question.status !== 'delayed') {
         let queue: ObjectId[] = [];
