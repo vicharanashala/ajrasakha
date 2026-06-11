@@ -46,6 +46,9 @@ class User implements IUser {
   isBlocked: boolean ;
 
   @Expose()
+  lastCheckInAt?: Date;
+
+  @Expose()
   notificationRetention?: NotificationRetentionType;
 
   @Expose()
@@ -70,8 +73,12 @@ class User implements IUser {
     this.firstName = data?.firstName;
     this.lastName = data?.lastName;
     this.role = data?.role || 'expert';
-    this.status =  'active';
-    this.isBlocked=false;
+    // Preserve the real persisted values; only fall back to defaults when the
+    // field is genuinely absent (e.g. brand-new user). Hardcoding these caused
+    // /me to always report status='active' and isBlocked=false.
+    this.status = data?.status ?? 'active';
+    this.isBlocked = data?.isBlocked ?? false;
+    this.lastCheckInAt = data?.lastCheckInAt;
     this.isVerified = data?.isVerified ?? false;
     this.preference = {
       crop: data?.preference?.crop || 'all',
