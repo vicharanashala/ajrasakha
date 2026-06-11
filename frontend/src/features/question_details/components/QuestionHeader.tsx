@@ -10,10 +10,6 @@ import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
 import { useState } from "react";
 import { useHoldQuestion } from "@/hooks/api/question/useHoldQuestion";
 import { useManualCheckDuplicate } from "@/hooks/api/question/useManualCheckDuplicate";
-import { useChangeModerator } from "@/hooks/api/question/useChangeModerator";
-import { useGetStfModerators } from "@/hooks/api/user/useGetStfModerators";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
-import { RadioGroup, RadioGroupItem } from "@/components/atoms/radio-group";
 import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/atoms/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/atoms/dialog";
@@ -30,14 +26,6 @@ interface QuestionHeaderProps {
 export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAllocatedToExpert }: QuestionHeaderProps) => {
   //translation state
   const [translatedText, setTranslatedText] = useState<string>("");
-
-  // Change-moderator state (only relevant for in-review / re-routed questions)
-  const [changeModOpen, setChangeModOpen] = useState(false);
-  const [selectedModId, setSelectedModId] = useState<string>("");
-  const { data: stfModerators, isLoading: stfModeratorsLoading } =
-    useGetStfModerators(changeModOpen);
-  const { mutate: changeModerator, isPending: changingModerator } =
-    useChangeModerator();
 
   const isDuplicate = Boolean(
     question?.similarityScore &&
@@ -335,104 +323,6 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                 <span>•</span>
 
                 <span>{new Date(question.closedAt).toLocaleString()}</span>
-              </div>
-            )}
-
-          {/* Moderator assignment row — shown whenever moderatorId is set, regardless of question status */}
-          {question.assigned_moderator?.name &&
-            (currentUser.role === "moderator" || currentUser.role === "admin") && (
-              <div className="mt-3 flex items-center gap-2 p-2.5 rounded-lg border border-border bg-muted/40">
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="w-2 h-2 rounded-full bg-foreground/50" />
-                  <span className="text-xs font-semibold text-foreground uppercase tracking-wide">
-                    Moderator
-                  </span>
-                </div>
-                <span className="text-xs text-muted-foreground">•</span>
-                <span className="text-sm font-medium text-foreground">
-                  {question.assigned_moderator.name}
-                  <span className="ml-1.5 text-xs text-muted-foreground font-normal">
-                    ({question.assigned_moderator.email})
-                  </span>
-                </span>
-
-                {/* Change moderator — only while the question is in-review or re-routed */}
-                {(question.status === "in-review" || question.status === "re-routed") && (
-                  <Popover
-                    open={changeModOpen}
-                    onOpenChange={(open) => {
-                      setChangeModOpen(open);
-                      if (!open) setSelectedModId("");
-                    }}
-                  >
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm" className="ml-auto h-7 text-xs">
-                        Change Moderator
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-72 p-3" align="end">
-                      <p className="text-xs font-semibold mb-2">Select STF Moderator</p>
-                      {stfModeratorsLoading ? (
-                        <p className="text-xs text-muted-foreground py-2">Loading…</p>
-                      ) : !stfModerators?.length ? (
-                        <p className="text-xs text-muted-foreground py-2">
-                          No STF moderators found.
-                        </p>
-                      ) : (
-                        <RadioGroup
-                          value={selectedModId}
-                          onValueChange={setSelectedModId}
-                          className="max-h-56 overflow-y-auto gap-1"
-                        >
-                          {stfModerators.map((m) => (
-                            <label
-                              key={m._id}
-                              htmlFor={`mod-${m._id}`}
-                              className="flex items-center gap-2 rounded-md p-2 hover:bg-muted cursor-pointer"
-                            >
-                              <RadioGroupItem value={m._id} id={`mod-${m._id}`} />
-                              <span className="text-sm">
-                                {m.name}
-                                <span className="ml-1 text-xs text-muted-foreground">
-                                  ({m.email})
-                                </span>
-                              </span>
-                            </label>
-                          ))}
-                        </RadioGroup>
-                      )}
-                      <div className="mt-3 flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setChangeModOpen(false);
-                            setSelectedModId("");
-                          }}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          size="sm"
-                          disabled={!selectedModId || changingModerator}
-                          onClick={() =>
-                            changeModerator(
-                              { questionId: question._id, moderatorId: selectedModId },
-                              {
-                                onSuccess: () => {
-                                  setChangeModOpen(false);
-                                  setSelectedModId("");
-                                },
-                              }
-                            )
-                          }
-                        >
-                          {changingModerator ? "Assigning…" : "Assign"}
-                        </Button>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                )}
               </div>
             )}
         </div>

@@ -282,6 +282,8 @@ export class UserController {
       _id: u._id?.toString(),
       name: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim(),
       email: u.email,
+      // The question this moderator is currently assigned to (null when free).
+      assignedQuestionId: u.assignedQuestionId ?? null,
     }));
   }
 

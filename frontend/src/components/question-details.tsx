@@ -24,6 +24,7 @@ import { useGetReRoutedQuestionFullData } from "@/hooks/api/question/useGetReRou
 import { AnswerTimeline } from "@/features/question_details/components/AnswerTimeline";
 import { RerouteTimeline } from "@/features/question_details/components/RerouteTimeline";
 import { AllocationTimeline } from "@/features/question_details/components/AllocationTimeline";
+import { ModeratorQueue } from "@/features/question_details/components/ModeratorQueue";
 import { flattenAnswers } from "@/features/question_details/utils/flattenAnswers";
 import { QuestionHeader } from "@/features/question_details/components/QuestionHeader";
 import { QuestionDetailsCard } from "@/features/question_details/components/QuestionDetailsCard";
@@ -274,6 +275,7 @@ export const QuestionDetails = ({
             currentUser={currentUser}
             question={question}
           />
+          <ModeratorQueue question={question} currentUser={currentUser} />
           {reroutequestionDetails && reroutequestionDetails.length >= 1 && (
             <RerouteTimeline
               currentUser={currentUser}

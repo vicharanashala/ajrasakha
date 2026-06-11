@@ -3365,6 +3365,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     question: IQuestion | null;
     approved_moderator: {name: string; email: string};
     assigned_moderator: {name: string; email: string} | null;
+    isAssignedModerator: boolean;
   }> {
     try {
       const user = await this.userRepo.findById(userId);
@@ -3402,8 +3403,9 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // Resolve the currently assigned moderator (if any)
       let assigned_moderator: {name: string; email: string} | null = null;
-      if ((question as any).moderatorId) {
-        const mod = await this.userRepo.findById((question as any).moderatorId.toString());
+      const assignedModeratorId = (question as any).moderatorId?.toString();
+      if (assignedModeratorId) {
+        const mod = await this.userRepo.findById(assignedModeratorId);
         if (mod) {
           assigned_moderator = {
             name: `${mod.firstName} ${mod.lastName ?? ''}`.trim(),
@@ -3412,10 +3414,15 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
       }
 
+      // Whether the requesting user is the moderator this question is assigned to.
+      // Used by the UI to gate the Pass / Accept / Push to GDB actions.
+      const isAssignedModerator = !!assignedModeratorId && assignedModeratorId === userId;
+
       return {
         question,
         approved_moderator,
         assigned_moderator,
+        isAssignedModerator,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to fetch question data: ${error}`);
@@ -5658,7 +5665,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             this.questionRepo.updateModeratorId(questionId, moderatorId),
             this.userRepo.setAssignedQuestion(moderatorId, questionId),
             this.notificationService.saveTheNotifications(
-              'An in-review question has been assigned to you for moderation',
+              'A question has been assigned to you for moderation',
               'Moderation Assigned',
               questionId,
               moderatorId,

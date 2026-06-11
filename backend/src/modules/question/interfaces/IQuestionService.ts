@@ -153,6 +153,7 @@ export interface IQuestionService {
     question: IQuestion | null;
     approved_moderator: {name: string; email: string};
     assigned_moderator: {name: string; email: string} | null;
+    isAssignedModerator: boolean;
   }>;
 
   /** Manually (re)assign the moderator for a question. */
