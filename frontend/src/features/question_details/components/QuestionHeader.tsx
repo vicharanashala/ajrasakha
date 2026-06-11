@@ -13,8 +13,9 @@ import { useManualCheckDuplicate } from "@/hooks/api/question/useManualCheckDupl
 import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/atoms/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/atoms/dialog";
-import { CircleCheck, GitCompareArrows } from "lucide-react";
+import { CircleCheck, GitCompareArrows, History } from "lucide-react";
 import { diffWords } from "@/utils/wordDifference";
+import { AuditTrailModal } from "./AuditTrailModal";
 
 interface QuestionHeaderProps {
   question: IQuestionFullData;
@@ -44,6 +45,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
   );
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [compareMode, setCompareMode] = useState(false);
+  const [auditModalOpen, setAuditModalOpen] = useState(false);
 
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
@@ -322,11 +324,22 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                   </span>
                 </span>
 
-                <span>•</span>
+          <span>•</span>
 
-                <span>{new Date(question.closedAt).toLocaleString()}</span>
-              </div>
-            )}
+          <span>{new Date(question.closedAt).toLocaleString()}</span>
+        </div>
+      )}
+
+          {/* View Audit Button */}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setAuditModalOpen(true)}
+            className="gap-1.5"
+          >
+            <History className="h-4 w-4" />
+            View Audit
+          </Button>
         </div>
 
         {/* Created / Updated */}
@@ -666,6 +679,12 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AuditTrailModal
+        open={auditModalOpen}
+        onClose={() => setAuditModalOpen(false)}
+        questionId={question._id!}
+      />
     </>
   );
 };
