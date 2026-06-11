@@ -45,6 +45,7 @@ export interface IUser {
   rankPosition?: number;
   expertRank?: number;
   status?: 'active' | 'in-active';
+  lastCheckInAt?: string | Date;
   avatar?: string;
   special_task_force?: boolean;
   special_task_force_moderator?: boolean

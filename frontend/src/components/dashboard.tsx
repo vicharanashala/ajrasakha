@@ -37,6 +37,10 @@ import { PerformaneService } from "@/hooks/services/performanceService";
 import { toast } from "sonner";
 import { TopRightBadge } from "./NewBadge";
 import { QuestionsAnsweredAfter120MinProps } from "./dashboard/questions-answered-after-120min";
+import { useQueryClient } from "@tanstack/react-query";
+import { Clock, CheckCircle } from "lucide-react";
+import { useCheckIn } from "@/hooks/api/performance/useCheckIn";
+import { useBlockUser } from "@/hooks/api/user/useBlockUser";
 
 export type ViewType = "year" | "month" | "week" | "day";
 
@@ -78,6 +82,61 @@ export const Dashboard = () => {
   });
 
   const { data: user } = useGetCurrentUser();
+
+  // ── Moderator check-in / check-out ────────────────────────────────────────
+  // Reuses the existing check-in + block/unblock endpoints. For a moderator,
+  // isBlocked is an availability flag: checked-in = not blocked, checked-out =
+  // blocked. Access itself is gated by `status` (backend), so toggling isBlocked
+  // never logs the moderator out.
+  const queryClient = useQueryClient();
+  const { checkIn, isPending: isCheckingIn } = useCheckIn();
+  const blockUser = useBlockUser();
+  const [moderatorTimer, setModeratorTimer] = useState("00:00:00");
+
+  const isModerator = user?.role === "moderator";
+  const moderatorCheckedIn = isModerator && user?.isBlocked === false;
+  const moderatorBusy = isCheckingIn || blockUser.isPending;
+
+  useEffect(() => {
+    if (!moderatorCheckedIn || !user?.lastCheckInAt) {
+      setModeratorTimer("00:00:00");
+      return;
+    }
+    const checkedInAt = new Date(user.lastCheckInAt).getTime();
+    const tick = () => {
+      const diff = Date.now() - checkedInAt;
+      const f = (n: number) => Math.max(0, n).toString().padStart(2, "0");
+      setModeratorTimer(
+        `${f(Math.floor(diff / 3600000))}:${f(Math.floor((diff / 60000) % 60))}:${f(
+          Math.floor((diff / 1000) % 60),
+        )}`,
+      );
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [moderatorCheckedIn, user?.lastCheckInAt]);
+
+  const handleModeratorCheckIn = async () => {
+    if (!user?._id || moderatorBusy) return;
+    try {
+      await blockUser.mutateAsync({ userId: user._id, action: "unblock" });
+      await checkIn();
+      queryClient.invalidateQueries({ queryKey: ["user"] });
+    } catch {
+      /* errors surfaced via the hooks' toasts */
+    }
+  };
+
+  const handleModeratorCheckOut = async () => {
+    if (!user?._id || moderatorBusy) return;
+    try {
+      await blockUser.mutateAsync({ userId: user._id, action: "block" });
+      queryClient.invalidateQueries({ queryKey: ["user"] });
+    } catch {
+      /* errors surfaced via the hooks' toasts */
+    }
+  };
 
   // Granular Hooks
   const { data: overviewData, isLoading: isOverviewLoading } = useGetOverview();
@@ -160,6 +219,37 @@ export const Dashboard = () => {
           </div>
 
           <div className="flex items-center gap-4">
+            {isModerator && (
+              <div className="flex flex-col items-center gap-0.5">
+                {moderatorCheckedIn && (
+                  <span className="text-lg px-1 font-semibold tracking-widest w-full text-center">
+                    {moderatorTimer}
+                  </span>
+                )}
+                <button
+                  disabled={moderatorBusy}
+                  onClick={() =>
+                    moderatorCheckedIn
+                      ? handleModeratorCheckOut()
+                      : handleModeratorCheckIn()
+                  }
+                  className={`flex items-center gap-2 px-2 py-2 rounded-xl border transition-all duration-200 cursor-pointer ${
+                    moderatorCheckedIn
+                      ? "bg-card border-red-300 text-red-600 hover:bg-red-50"
+                      : "bg-card border-green-300 text-green-600 hover:bg-green-50"
+                  } ${moderatorBusy ? "opacity-60 cursor-not-allowed" : ""}`}
+                >
+                  {moderatorCheckedIn ? (
+                    <CheckCircle className="w-4 h-4 text-red-500" />
+                  ) : (
+                    <Clock className="w-5 h-5 text-green-500" />
+                  )}
+                  <span className="text-sm font-medium">
+                    {moderatorCheckedIn ? "Check Out" : "Check In"}
+                  </span>
+                </button>
+              </div>
+            )}
             <DashboardClock />
           </div>
         </div>
