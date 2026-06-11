@@ -50,6 +50,31 @@ import {getFirebaseAuth} from '#root/config/firebaseAdmin.js';
 
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import {COORDINATOR_ROLES} from '#root/shared/constants/roles.js';
+
+const EXTERNAL_USER_ROLES = ['FARMER', ...COORDINATOR_ROLES] as const;
+
+const buildExternalUserMatch = () => ({
+  $or: [
+    {userRole: {$in: EXTERNAL_USER_ROLES}},
+    {role: {$in: COORDINATOR_ROLES}},
+  ],
+});
+
+const buildExternalJoinedUserMatch = (prefix: string) => ({
+  $or: [
+    {[`${prefix}.userRole`]: {$in: EXTERNAL_USER_ROLES}},
+    {[`${prefix}.role`]: {$in: COORDINATOR_ROLES}},
+  ],
+});
+
+const isExternalUserRole = (userRole?: string, role?: string) =>
+  EXTERNAL_USER_ROLES.includes(
+    userRole as (typeof EXTERNAL_USER_ROLES)[number],
+  ) ||
+  COORDINATOR_ROLES.includes(
+    role as (typeof COORDINATOR_ROLES)[number],
+  );
 
 interface IUser {
   _id?: any;
@@ -404,6 +429,7 @@ export class ChatbotRepository implements IChatbotRepository {
   private users!: Collection<IUser>;
   private conversations!: Collection<IConversation>;
   private messagesCollection!: Collection<any>;
+  private sessionCollection!: Collection<any>;
 
   constructor(
     // @inject(GLOBAL_TYPES.analyticsDatabase) //vicharansahsa
@@ -432,6 +458,7 @@ export class ChatbotRepository implements IChatbotRepository {
     this.users = await db.getCollection<IUser>('users');
     this.conversations = await db.getCollection<IConversation>('conversations');
     this.messagesCollection = await db.getCollection<any>('messages');
+    this.sessionCollection = await db.getCollection<any>("sessions");
   }
   private annamMessagesCollection!: Collection<any>;
 
@@ -485,6 +512,7 @@ export class ChatbotRepository implements IChatbotRepository {
           $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
         },
       ],
+      status: {$ne: 'non_agri'},
     };
     if (startTime || endTime) {
       matchQuery.createdAt = {};
@@ -900,11 +928,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
     const userRoleMatch =
       userType === 'external'
-        ? {
-            '_userDoc.userRole': {
-              $in: ['FARMER', 'COORDINATOR'],
-            },
-          }
+        ? buildExternalJoinedUserMatch('_userDoc')
         : {
             '_userDoc.userRole': 'INTERNAL',
           };
@@ -943,13 +967,41 @@ export class ChatbotRepository implements IChatbotRepository {
   private buildUserDocFilter(userType: string): Record<string, any> {
     if (userType === 'all') return {};
     if (userType === 'external') {
-      return {
-        userRole: {$in: ['FARMER', 'COORDINATOR']},
-      };
+      return buildExternalUserMatch();
     }
     return {
       userRole: 'INTERNAL',
     };
+  }
+
+  /**
+   * Transforms a user doc filter (potentially containing $or expressions)
+   * to be applied on a joined document by prefixing field paths with the given prefix.
+   * Handles special operators like $or by recursively transforming their conditions.
+   */
+  private buildJoinedUserDocFilter(
+    userDocFilter: Record<string, any>,
+    prefix: string,
+  ): Record<string, any> {
+    const result: Record<string, any> = {};
+
+    for (const [key, value] of Object.entries(userDocFilter)) {
+      if (key === '$or') {
+        // Transform $or conditions by prefixing field paths
+        const transformedOr = (value as any[]).map(condition => {
+          const transformedCondition: Record<string, any> = {};
+          for (const [field, fieldValue] of Object.entries(condition as Record<string, any>)) {
+            transformedCondition[`${prefix}.${field}`] = fieldValue;
+          }
+          return transformedCondition;
+        });
+        result['$or'] = transformedOr;
+      } else {
+        result[`${prefix}.${key}`] = value;
+      }
+    }
+
+    return result;
   }
 
   // private buildQuestionUserTypeLookupStages(userType: string): any[] {
@@ -1007,7 +1059,7 @@ export class ChatbotRepository implements IChatbotRepository {
   //     userType === 'external'
   //       ? {
   //           '_userDoc.userRole': {
-  //             $in: ['FARMER', 'COORDINATOR'],
+  //             $in: EXTERNAL_USER_ROLES,
   //           },
   //         }
   //       : {
@@ -1199,6 +1251,7 @@ export class ChatbotRepository implements IChatbotRepository {
                   isDeleted: {$ne: true},
                 },
               },
+              ...userTypeLookupStages,
               {$group: {_id: '$user'}},
               {$count: 'total'},
             ],
@@ -1244,6 +1297,7 @@ export class ChatbotRepository implements IChatbotRepository {
             ...query,
           },
         ],
+        status: {$ne: 'non_agri'},
       })
         .project<{messageId: string}>({messageId: 1})
         .toArray();
@@ -1634,6 +1688,7 @@ export class ChatbotRepository implements IChatbotRepository {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         ],
+        status: {$ne: 'non_agri'},
       };
 
       const query = await this.buildQuestionUserTypeMatchQuery(
@@ -1764,6 +1819,7 @@ export class ChatbotRepository implements IChatbotRepository {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         ],
+        status: {$ne: 'non_agri'},
       };
       const query = await this.buildQuestionUserTypeMatchQuery(
         _source,
@@ -2154,6 +2210,7 @@ export class ChatbotRepository implements IChatbotRepository {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         ],
+        status: {$ne: 'non_agri'},
       };
 
       const query = await this.buildQuestionUserTypeMatchQuery(
@@ -2729,11 +2786,7 @@ export class ChatbotRepository implements IChatbotRepository {
                   {
                     $match:
                       userType === 'external'
-                        ? {
-                            '_userDoc.userRole': {
-                              $in: ['FARMER', 'COORDINATOR'],
-                            },
-                          }
+                        ? buildExternalJoinedUserMatch('_userDoc')
                         : {'_userDoc.userRole': 'INTERNAL'},
                   },
                 ]),
@@ -2777,6 +2830,7 @@ export class ChatbotRepository implements IChatbotRepository {
               source: finalSource,
               createdAt: {$gte: startDate, $lte: endDate},
               $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+              status: {$ne: 'non_agri'},
             },
           },
           {
@@ -2884,7 +2938,7 @@ export class ChatbotRepository implements IChatbotRepository {
         if (userType !== 'all') {
           const matchesUserType =
             userType === 'external'
-              ? ['FARMER', 'COORDINATOR'].includes(userDoc.userRole)
+              ? isExternalUserRole(userDoc.userRole, userDoc.role)
               : userDoc.userRole === 'INTERNAL';
           if (!matchesUserType) return [];
         }
@@ -3112,6 +3166,7 @@ export class ChatbotRepository implements IChatbotRepository {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         ],
+        status: {$ne: 'non_agri'},
       };
       const query = await this.buildQuestionUserTypeMatchQuery(
         source,
@@ -3561,11 +3616,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const userDocFilter = this.buildUserDocFilter(userType);
 
-      const userTypeMatch: Record<string, any> = {};
-
-      for (const key of Object.keys(userDocFilter)) {
-        userTypeMatch[`userDetails.${key}`] = userDocFilter[key];
-      }
+      const userTypeMatch = this.buildJoinedUserDocFilter(userDocFilter, 'userDetails');
 
       // ============================================
       // MATCH WEATHER AI RESPONSES
@@ -4173,6 +4224,7 @@ export class ChatbotRepository implements IChatbotRepository {
               // threadId: { $exists: true, $ne: null },
               ...monthDateMatch,
               ...questionUserTypeLookupStages,
+              status: {$ne: 'non_agri'},
             },
           },
           // ...userTypeLookupStages,
@@ -4398,6 +4450,7 @@ export class ChatbotRepository implements IChatbotRepository {
               // threadId: { $exists: true, $ne: null },
               ...monthDateMatch,
               ...questionUserTypeLookupStages,
+              status: {$ne: 'non_agri'},
             },
           },
           // ...userTypeLookupStages,
@@ -4617,6 +4670,7 @@ export class ChatbotRepository implements IChatbotRepository {
               // threadId: { $exists: true, $ne: null },
               ...yearDateMatch,
               ...questionUserTypeLookupStages,
+              status: {$ne: 'non_agri'},
             },
           },
           // ...userTypeLookupStages,
@@ -5568,7 +5622,11 @@ export class ChatbotRepository implements IChatbotRepository {
         .split(',')
         .map(role => role.trim())
         .filter(Boolean);
-      const normalizedUserRoles = roleValues.map(role => role.toUpperCase());
+      const normalizedUserRoles = roleValues.flatMap(role => [
+        role,
+        role.toUpperCase(),
+        role.toLowerCase(),
+      ]);
       const normalizedRoles = roleValues.flatMap(role => [
         role,
         role.toUpperCase(),
@@ -5604,7 +5662,10 @@ export class ChatbotRepository implements IChatbotRepository {
       if (search && search.trim()) {
         const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const regex = {$regex: escaped, $options: 'i'};
-        userFilter.$or = [{name: regex}, {username: regex}, {email: regex}];
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          {$or: [{name: regex}, {username: regex}, {email: regex}]},
+        ];
       }
       if (crop && crop.trim()) {
         const cropRegex = {
@@ -5853,229 +5914,526 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
+  // async getUserQuestionsData(
+  //   messageIds: string[],
+  //   source: string,
+  //   userType = 'all',
+  //   page = 1,
+  //   limit = 10,
+  // ) {
+  //   try {
+  //     console.log('MessageIds inside repomethods', messageIds);
+  //     await this.initReviewSystem();
+
+  //      const sourceType = source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
+
+  //     // const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+
+  //     const matchQuery = {
+  //       messageId: {
+  //         $exists: true,
+  //         $ne: null,
+  //         $in: messageIds,
+  //       },
+
+  //       source: sourceType,
+  //       $and: [
+  //         {
+  //           $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+  //         },
+  //       ],
+  //       status: {$ne: 'non_agri'},
+  //     };
+
+  //     const query = await this.buildQuestionUserTypeMatchQuery(
+  //       source,
+  //       userType,
+  //     );
+
+  //     if (query && Object.keys(query).length > 0) {
+  //       matchQuery.$and.push(query);
+  //     }
+
+  //     const skip = (page - 1) * limit;
+
+  //     const pipeline = [
+  //       /**
+  //        * Match only questions
+  //        * linked with user's messages
+  //        */
+
+  //       {
+  //         $match: matchQuery,
+  //       },
+
+  //       // ...userTypeLookupStages,
+
+  //       /**
+  //        * Newest first
+  //        */
+
+  //       {
+  //         $sort: {
+  //           createdAt: -1,
+  //         },
+  //       },
+
+  //       /**
+  //        * Group same questions
+  //        * asked by SAME user
+  //        */
+
+  //       {
+  //         $group: {
+  //           _id: {
+  //             $toLower: {
+  //               $trim: {
+  //                 input: '$question',
+  //               },
+  //             },
+  //           },
+
+  //           /**
+  //            * Count how many times
+  //            * same user asked same question
+  //            */
+
+  //           repeatedCount: {
+  //             $sum: 1,
+  //           },
+
+  //           /**
+  //            * Latest question data
+  //            */
+
+  //           latestQuestion: {
+  //             $first: '$question',
+  //           },
+
+  //           latestStatus: {
+  //             $first: '$status',
+  //           },
+
+  //           latestCreatedAt: {
+  //             $first: '$createdAt',
+  //           },
+
+  //           latestUpdatedAt: {
+  //             $first: '$updatedAt',
+  //           },
+
+  //           latestMessageId: {
+  //             $first: '$messageId',
+  //           },
+
+  //           /**
+  //            * Store all timestamps
+  //            * for timeline modal
+  //            */
+
+  //           allCreatedAt: {
+  //             $push: '$createdAt',
+  //           },
+  //         },
+  //       },
+
+  //       /**
+  //        * Final response shape
+  //        */
+
+  //       {
+  //         $project: {
+  //           _id: 0,
+
+  //           messageId: '$latestMessageId',
+
+  //           /**
+  //            * Clean:
+  //            * (repeated)
+  //            * (duplicate)
+  //            * etc.
+  //            */
+
+  //           question: {
+  //             $trim: {
+  //               input: '$latestQuestion',
+  //             },
+  //           },
+
+  //           status: '$latestStatus',
+
+  //           createdAt: '$latestCreatedAt',
+
+  //           updatedAt: '$latestUpdatedAt',
+
+  //           repeatedCount: '$repeatedCount',
+
+  //           repeatedAt: '$allCreatedAt',
+
+  //           /**
+  //            * If asked > 1 time
+  //            */
+
+  //           isDuplicate: {
+  //             $gt: ['$repeatedCount', 1],
+  //           },
+  //         },
+  //       },
+
+  //       /**
+  //        * Sort latest first
+  //        */
+
+  //       {
+  //         $sort: {
+  //           createdAt: -1,
+  //         },
+  //       },
+
+  //       /**
+  //        * Pagination
+  //        */
+
+  //       {
+  //         $facet: {
+  //           metadata: [
+  //             {
+  //               $count: 'total',
+  //             },
+  //           ],
+
+  //           data: [
+  //             {
+  //               $skip: skip,
+  //             },
+
+  //             {
+  //               $limit: limit,
+  //             },
+  //           ],
+  //         },
+  //       },
+  //     ];
+
+  //     const result =
+  //       await this.QuestionCollection.aggregate(pipeline).toArray();
+
+  //     const totalQuestions = result[0]?.metadata?.[0]?.total || 0;
+
+  //     const questions = result[0]?.data || [];
+
+  //     /**
+  //      * Cleanup question prefixes
+  //      */
+
+  //     questions.forEach((q: any) => {
+  //       q.question = q.question?.replace(/^\s*\([^)]*\)\s*/, '')?.trim();
+
+  //       /**
+  //        * Sort timeline newest first
+  //        */
+
+  //       q.repeatedAt = (q.repeatedAt || []).sort(
+  //         (a: string, b: string) =>
+  //           new Date(b).getTime() - new Date(a).getTime(),
+  //       );
+  //     });
+
+  //     const totalPages = Math.ceil(totalQuestions / limit);
+
+  //     return {
+  //       total: totalQuestions,
+
+  //       totalPages,
+
+  //       currentPage: page,
+
+  //       limit,
+
+  //       items: questions,
+  //     };
+  //   } catch (err) {
+  //     throw new InternalServerError(`Failed to get question data: ${err}`);
+  //   }
+  // }
+
   async getUserQuestionsData(
-    messageIds: string[],
-    source: string,
-    userType = 'all',
-    page = 1,
-    limit = 10,
-  ) {
-    try {
-      await this.initReviewSystem();
+  identifiers: {
+    threadIds?: string[];
+    messageIds?: string[];
+    userId?: string;
+  },
+  source: string,
+  userType = 'all',
+  page = 1,
+  limit = 10,
+) {
+  try {
+    await this.initReviewSystem();
 
-      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+    const sourceType =
+      source === 'whatsapp'
+        ? 'WHATSAPP'
+        : 'AJRASAKHA';
 
-      const skip = (page - 1) * limit;
+    const orConditions: any[] = [];
 
-      const pipeline = [
-        /**
-         * Match only questions
-         * linked with user's messages
-         */
-
-        {
-          $match: {
-            messageId: {
-              $exists: true,
-              $ne: null,
-              $in: messageIds,
-            },
-
-            source: 'AJRASAKHA',
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
+    /**
+     * ThreadId matches
+     */
+    if (
+      identifiers.threadIds &&
+      identifiers.threadIds.length > 0
+    ) {
+      orConditions.push({
+        threadId: {
+          $in: identifiers.threadIds,
         },
+      });
+    }
 
-        ...userTypeLookupStages,
-
-        /**
-         * Newest first
-         */
-
-        {
-          $sort: {
-            createdAt: -1,
-          },
+    /**
+     * MessageId matches
+     */
+    if (
+      identifiers.messageIds &&
+      identifiers.messageIds.length > 0
+    ) {
+      orConditions.push({
+        messageId: {
+          $in: identifiers.messageIds,
         },
+      });
+    }
 
-        /**
-         * Group same questions
-         * asked by SAME user
-         */
+    /**
+     * UserId matches
+     */
+    if (identifiers.userId) {
+      orConditions.push({
+        userId: new ObjectId(
+          identifiers.userId,
+        ),
+      });
+    }
 
-        {
-          $group: {
-            _id: {
-              $toLower: {
-                $trim: {
-                  input: '$question',
-                },
-              },
-            },
+    /**
+     * Nothing to search
+     */
+    if (!orConditions.length) {
+      return {
+        total: 0,
+        totalPages: 0,
+        currentPage: page,
+        limit,
+        items: [],
+      };
+    }
 
-            /**
-             * Count how many times
-             * same user asked same question
-             */
+    const matchQuery: any = {
+      source: sourceType,
 
-            repeatedCount: {
-              $sum: 1,
-            },
-
-            /**
-             * Latest question data
-             */
-
-            latestQuestion: {
-              $first: '$question',
-            },
-
-            latestStatus: {
-              $first: '$status',
-            },
-
-            latestCreatedAt: {
-              $first: '$createdAt',
-            },
-
-            latestUpdatedAt: {
-              $first: '$updatedAt',
-            },
-
-            latestMessageId: {
-              $first: '$messageId',
-            },
-
-            /**
-             * Store all timestamps
-             * for timeline modal
-             */
-
-            allCreatedAt: {
-              $push: '$createdAt',
-            },
-          },
-        },
-
-        /**
-         * Final response shape
-         */
-
-        {
-          $project: {
-            _id: 0,
-
-            messageId: '$latestMessageId',
-
-            /**
-             * Clean:
-             * (repeated)
-             * (duplicate)
-             * etc.
-             */
-
-            question: {
-              $trim: {
-                input: '$latestQuestion',
-              },
-            },
-
-            status: '$latestStatus',
-
-            createdAt: '$latestCreatedAt',
-
-            updatedAt: '$latestUpdatedAt',
-
-            repeatedCount: '$repeatedCount',
-
-            repeatedAt: '$allCreatedAt',
-
-            /**
-             * If asked > 1 time
-             */
-
-            isDuplicate: {
-              $gt: ['$repeatedCount', 1],
-            },
-          },
-        },
-
-        /**
-         * Sort latest first
-         */
-
-        {
-          $sort: {
-            createdAt: -1,
-          },
-        },
-
-        /**
-         * Pagination
-         */
-
-        {
-          $facet: {
-            metadata: [
-              {
-                $count: 'total',
-              },
-            ],
-
-            data: [
-              {
-                $skip: skip,
-              },
-
-              {
-                $limit: limit,
-              },
-            ],
-          },
-        },
-      ];
-
-      const result =
-        await this.QuestionCollection.aggregate(pipeline).toArray();
-
-      const totalQuestions = result[0]?.metadata?.[0]?.total || 0;
-
-      const questions = result[0]?.data || [];
+      $or: orConditions,
 
       /**
-       * Cleanup question prefixes
+       * Handle both old and new values
        */
+      status: {
+        $nin: ['non_agri', 'NO_AGRI'],
+      },
 
-      questions.forEach((q: any) => {
-        q.question = q.question?.replace(/^\s*\([^)]*\)\s*/, '')?.trim();
+      $and: [
+          {
+            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+          },
+        ],
+    };
 
-        /**
-         * Sort timeline newest first
-         */
+    const query =
+      await this.buildQuestionUserTypeMatchQuery(
+        source,
+        userType,
+      );
 
-        q.repeatedAt = (q.repeatedAt || []).sort(
-          (a: string, b: string) =>
-            new Date(b).getTime() - new Date(a).getTime(),
-        );
-      });
-
-      const totalPages = Math.ceil(totalQuestions / limit);
-
-      return {
-        total: totalQuestions,
-
-        totalPages,
-
-        currentPage: page,
-
-        limit,
-
-        items: questions,
-      };
-    } catch (err) {
-      throw new InternalServerError(`Failed to get question data: ${err}`);
+    if (
+      query &&
+      Object.keys(query).length > 0
+    ) {
+       matchQuery.$and.push(query);
     }
+
+    const skip = (page - 1) * limit;
+
+    const pipeline = [
+      {
+        $match: matchQuery,
+      },
+
+      {
+        $sort: {
+          createdAt: -1,
+        },
+      },
+
+      {
+        $group: {
+          _id: {
+            $toLower: {
+              $trim: {
+                input: '$question',
+              },
+            },
+          },
+
+          repeatedCount: {
+            $sum: 1,
+          },
+
+          latestQuestion: {
+            $first: '$question',
+          },
+
+          latestStatus: {
+            $first: '$status',
+          },
+
+          latestCreatedAt: {
+            $first: '$createdAt',
+          },
+
+          latestUpdatedAt: {
+            $first: '$updatedAt',
+          },
+
+          latestMessageId: {
+            $first: '$messageId',
+          },
+
+          latestThreadId: {
+            $first: '$threadId',
+          },
+
+          latestUserId: {
+            $first: '$userId',
+          },
+
+          allCreatedAt: {
+            $push: '$createdAt',
+          },
+        },
+      },
+
+      {
+        $project: {
+          _id: 0,
+
+          messageId: '$latestMessageId',
+
+          threadId: '$latestThreadId',
+
+          userId: '$latestUserId',
+
+          question: {
+            $trim: {
+              input: '$latestQuestion',
+            },
+          },
+
+          status: '$latestStatus',
+
+          createdAt: '$latestCreatedAt',
+
+          updatedAt: '$latestUpdatedAt',
+
+          repeatedCount: '$repeatedCount',
+
+          repeatedAt: '$allCreatedAt',
+
+          isDuplicate: {
+            $gt: ['$repeatedCount', 1],
+          },
+        },
+      },
+
+      {
+        $sort: {
+          createdAt: -1,
+        },
+      },
+
+      {
+        $facet: {
+          metadata: [
+            {
+              $count: 'total',
+            },
+          ],
+
+          data: [
+            {
+              $skip: skip,
+            },
+
+            {
+              $limit: limit,
+            },
+          ],
+        },
+      },
+    ];
+
+    const result =
+      await this.QuestionCollection.aggregate(
+        pipeline,
+        {
+          allowDiskUse: true,
+        },
+      ).toArray();
+
+    const totalQuestions =
+      result[0]?.metadata?.[0]?.total || 0;
+
+    const questions =
+      result[0]?.data || [];
+
+    questions.forEach((q: any) => {
+      q.question = q.question
+        ?.replace(
+          /^\s*\([^)]*\)\s*/,
+          '',
+        )
+        ?.trim();
+
+      q.repeatedAt = (
+        q.repeatedAt || []
+      ).sort(
+        (a: string, b: string) =>
+          new Date(b).getTime() -
+          new Date(a).getTime(),
+      );
+    });
+
+    const totalPages = Math.ceil(
+      totalQuestions / limit,
+    );
+
+    return {
+      total: totalQuestions,
+
+      totalPages,
+
+      currentPage: page,
+
+      limit,
+
+      items: questions,
+    };
+  } catch (err) {
+    throw new InternalServerError(
+      `Failed to get question data: ${err}`,
+    );
   }
+}
 
   async getUsersMessages(
     email: string,
@@ -6088,7 +6446,7 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.init(source);
 
-      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+      // const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
       const user = await this.users.findOne({email: email}, {session});
 
@@ -6106,6 +6464,7 @@ export class ChatbotRepository implements IChatbotRepository {
             // sender: 'User',
             // isCreatedByUser: true,
           },
+          // ...userTypeLookupStages
         },
 
         {
@@ -6155,9 +6514,9 @@ export class ChatbotRepository implements IChatbotRepository {
             },
 
             // Store all messageIds
-            messageIds: {
-              $push: '$messageId',
-            },
+            // messageIds: {
+            //   $push: '$messageId',
+            // },
           },
         },
 
@@ -6184,7 +6543,6 @@ export class ChatbotRepository implements IChatbotRepository {
             },
 
             // keep temporarily
-            messageIds: 1,
           },
         },
 
@@ -6197,26 +6555,29 @@ export class ChatbotRepository implements IChatbotRepository {
 
       // Total count
 
-      const totalResult = await this.messagesCollection
-        .aggregate([
-          ...pipeline,
+      // const totalResult = await this.messagesCollection
+      //   .aggregate([
+      //     ...pipeline,
 
+      //     {
+      //       $count: 'total',
+      //     },
+      //   ])
+      //   .toArray();
+
+      const result = await this.messagesCollection
+  .aggregate([
+    ...pipeline,
+
+    {
+      $facet: {
+        metadata: [
           {
             $count: 'total',
           },
-        ])
-        .toArray();
+        ],
 
-      const totalMessages = totalResult[0]?.total || 0;
-
-      const totalPages = Math.ceil(totalMessages / limit);
-
-      // Paginated messages
-
-      const messages = await this.messagesCollection
-        .aggregate([
-          ...pipeline,
-
+        data: [
           {
             $skip: skip,
           },
@@ -6224,14 +6585,42 @@ export class ChatbotRepository implements IChatbotRepository {
           {
             $limit: limit,
           },
-        ])
-        .toArray();
+        ],
+      },
+    },
+  ])
+  .toArray();
+
+    const totalMessages =
+  result[0]?.metadata?.[0]?.total || 0;
+
+const messages =
+  result[0]?.data || [];
+
+const totalPages =
+  Math.ceil(totalMessages / limit);
+
+      // Paginated messages
+
+      // const messages = await this.messagesCollection
+      //   .aggregate([
+      //     ...pipeline,
+
+      //     {
+      //       $skip: skip,
+      //     },
+
+      //     {
+      //       $limit: limit,
+      //     },
+      //   ])
+      //   .toArray();
 
       // Extract all messageIds separately
 
-      const allMessageIds = messages.flatMap(
-        (msg: any) => msg.messageIds || [],
-      );
+      // const allMessageIds = messages.flatMap(
+      //   (msg: any) => msg.messageIds || [],
+      // );
 
       // Remove messageIds from frontend data
 
@@ -6261,7 +6650,7 @@ export class ChatbotRepository implements IChatbotRepository {
         items: filteredMessages,
 
         // separate array
-        allMessageIds,
+        // allMessageIds,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get users messages: ${error}`);
@@ -7236,11 +7625,7 @@ export class ChatbotRepository implements IChatbotRepository {
         userType === 'all'
           ? {}
           : userType === 'external'
-            ? {
-                userRole: {
-                  $in: ['FARMER', 'COORDINATOR'],
-                },
-              }
+            ? buildExternalUserMatch()
             : {
                 userRole: 'INTERNAL',
               };
@@ -7283,11 +7668,7 @@ export class ChatbotRepository implements IChatbotRepository {
         userType === 'all'
           ? {}
           : userType === 'external'
-            ? {
-                userRole: {
-                  $in: ['FARMER', 'COORDINATOR'],
-                },
-              }
+            ? buildExternalUserMatch()
             : {
                 userRole: 'INTERNAL',
               };
@@ -7441,6 +7822,7 @@ export class ChatbotRepository implements IChatbotRepository {
         {
           similarityScore: {$exists: true},
           $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+          status: {$ne: 'non_agri'},
         },
         {session},
       )
@@ -7607,6 +7989,7 @@ export class ChatbotRepository implements IChatbotRepository {
         {
           $match: domainMatch,
           $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+          status: {$ne: 'non_agri'},
         },
         groupStage,
         {
@@ -7702,22 +8085,15 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.initReviewSystem();
 
       let matchQuery: any = {
+        source: dbSource === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA',
         $and: [
           {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         ],
+        status: {$ne: 'non_agri'},
       };
 
-      if (dbSource === 'whatsapp') {
-        matchQuery = {
-          source: 'WHATSAPP',
-        };
-      } else {
-        matchQuery = {
-          source: 'AJRASAKHA',
-        };
-      }
       if (startTime || endTime) {
         matchQuery.createdAt = {};
         if (startTime) {
@@ -7869,21 +8245,14 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.initReviewSystem();
       let matchQuery: any = {
+        source: dbSource !== 'whatsapp' ? 'AJRASAKHA' : 'WHATSAPP',
         $and: [
           {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         ],
       };
-      if (dbSource !== 'whatsapp') {
-        matchQuery = {
-          source: 'AJRASAKHA',
-        };
-      } else {
-        matchQuery = {
-          source: 'WHATSAPP',
-        };
-      }
+
       if (startTime || endTime) {
         matchQuery.createdAt = {};
         if (startTime) {
@@ -8103,6 +8472,7 @@ export class ChatbotRepository implements IChatbotRepository {
     userId: string,
     source: string,
     newPassword: string,
+    keepLoggedIn: boolean,
   ): Promise<boolean> {
     if (source === 'whatsapp') {
       throw new BadRequestError(
@@ -8152,6 +8522,12 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (result.matchedCount === 0) {
         throw new NotFoundError('User not found');
+      }
+
+      if(!keepLoggedIn){
+        await this.sessionCollection.deleteMany({
+          user: new ObjectId(userId),
+        });
       }
 
       return true;
@@ -8268,9 +8644,10 @@ export class ChatbotRepository implements IChatbotRepository {
         };
       }
       if (userType === 'external') {
-        matchStage.userRole = {
-          $in: ['FARMER', 'COORDINATOR'],
-        };
+        matchStage.$and = [
+          ...(matchStage.$and ?? []),
+          buildExternalUserMatch(),
+        ];
       }
 
       if (userType === 'internal') {
@@ -8563,6 +8940,7 @@ export class ChatbotRepository implements IChatbotRepository {
               $gte: start,
               $lt: end,
             },
+            status: {$ne: 'non_agri'},
           },
         },
         {
@@ -8589,6 +8967,7 @@ export class ChatbotRepository implements IChatbotRepository {
               $lt: end,
             },
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+            status: {$ne: 'non_agri'},
           },
         },
         {
@@ -8732,7 +9111,7 @@ export class ChatbotRepository implements IChatbotRepository {
         },
 
         status: {
-          $ne: 'closed',
+          $nin: ['closed', 'non_agri'],
         },
         $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
       }),
@@ -8769,6 +9148,7 @@ export class ChatbotRepository implements IChatbotRepository {
               $gte: start,
               $lt: end,
             },
+            status: {$ne: 'non_agri'},
           },
         },
         {
@@ -8797,6 +9177,7 @@ export class ChatbotRepository implements IChatbotRepository {
               $lt: end,
             },
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+            status: {$ne: 'non_agri'},
           },
         },
 
@@ -8968,6 +9349,7 @@ export class ChatbotRepository implements IChatbotRepository {
             closedAt: {
               $ne: null,
             },
+            status: {$ne: 'non_agri'},
           },
         },
         {
@@ -8992,6 +9374,7 @@ export class ChatbotRepository implements IChatbotRepository {
           $match: {
             source: 'WHATSAPP',
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+            status: {$ne: 'non_agri'},
           },
         },
 
@@ -9166,6 +9549,7 @@ export class ChatbotRepository implements IChatbotRepository {
           referenceQuestionId: {
             $exists: true,
           },
+          status: {$ne: 'non_agri'},
         },
         {session},
       )
@@ -9230,6 +9614,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const matchQuery: any = {
         source: 'WHATSAPP',
         $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+        status: {$ne: 'non_agri'},
       };
 
       // ============================================
@@ -9309,6 +9694,7 @@ export class ChatbotRepository implements IChatbotRepository {
               referenceQuestionId: {
                 $exists: true,
               },
+              status: {$ne: 'non_agri'},
             },
           },
 
@@ -9341,6 +9727,7 @@ export class ChatbotRepository implements IChatbotRepository {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         ],
+        status: {$ne: 'non_agri'},
       };
       const dbSource = source;
       if (source !== 'whatsapp') {
@@ -9602,6 +9989,7 @@ export class ChatbotRepository implements IChatbotRepository {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         ],
+        status: {$ne: 'non_agri'},
       };
       const dbSource = source;
       if (source !== 'whatsapp') {
@@ -9743,9 +10131,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
     let userMatchStage: any = {};
     if (userType === 'external') {
-      userMatchStage['userDetails.userRole'] = {
-        $in: ['FARMER', 'COORDINATOR'],
-      };
+      userMatchStage = buildExternalJoinedUserMatch('userDetails');
     }
 
     if (userType === 'internal') {
@@ -9899,6 +10285,7 @@ export class ChatbotRepository implements IChatbotRepository {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         ],
+        status: {$ne: 'non_agri'},
       };
       const dbSource = source;
       if (source !== 'whatsapp') {
@@ -10135,6 +10522,7 @@ export class ChatbotRepository implements IChatbotRepository {
                   createdAt: queryMatch.createdAt,
                 }),
                 $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+                status: {$ne: 'non_agri'},
               },
             },
 
@@ -10343,11 +10731,15 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async verifyUser(userId: string, source = 'vicharanashala',  isVerified = true,): Promise<any> {
+  async verifyUser(
+    userId: string,
+    source = 'vicharanashala',
+    isVerified = true,
+  ): Promise<any> {
     try {
       await this.init(source);
 
-      return await this.users.findOneAndUpdate(
+      const result = await this.users.findOneAndUpdate(
         {_id: new ObjectId(userId)},
         {
           $set: {
@@ -10357,6 +10749,13 @@ export class ChatbotRepository implements IChatbotRepository {
         },
         {returnDocument: 'after'},
       );
+      if(!isVerified){
+        await this.sessionCollection.deleteMany({
+          user: new ObjectId(userId),
+        });
+      }
+
+      return result;
     } catch (error) {
       throw new InternalServerError(`Failed to verify user: ${error}`);
     }
@@ -10458,11 +10857,7 @@ export class ChatbotRepository implements IChatbotRepository {
     }
     const userMatch =
       userType === 'external'
-        ? {
-            userRole: {
-              $in: ['FARMER', 'COORDINATOR'],
-            },
-          }
+        ? buildExternalUserMatch()
         : {
             userRole: 'INTERNAL',
           };
@@ -10483,15 +10878,12 @@ export class ChatbotRepository implements IChatbotRepository {
       return {};
     }
 
-    // Users from Users DB
-    const directUserObjectIds = await this.getUserIdsByUserType(
-      source,
-      userType,
-    );
+    // External users
+    const externalUserIds = await this.getUserIdsByUserType(source, 'external');
 
-    const directUserStrings = directUserObjectIds.map(id => id.toString());
+    const externalUserStrings = externalUserIds.map(id => id.toString());
 
-    const validUserIds = new Set(directUserStrings);
+    const externalUserSet = new Set(externalUserStrings);
 
     // Questions with null userId
     const questionWithNullUsers = await this.QuestionCollection.find(
@@ -10552,7 +10944,8 @@ export class ChatbotRepository implements IChatbotRepository {
       messages.map(m => [m.messageId, m.user?.toString()]),
     );
 
-    const resolvedQuestionIds = questionWithNullUsers
+    // Questions whose null userId resolves to an EXTERNAL user
+    const externalResolvedQuestionIds = questionWithNullUsers
       .filter(q => {
         let resolvedUserId: string | undefined;
 
@@ -10562,25 +10955,38 @@ export class ChatbotRepository implements IChatbotRepository {
           resolvedUserId = messageUserMap.get(q.messageId);
         }
 
-        // No threadId/messageId => treat as internal
-        if (!resolvedUserId && userType === 'internal') {
-          return true;
-        }
-
-        return resolvedUserId && validUserIds.has(resolvedUserId);
+        return resolvedUserId && externalUserSet.has(resolvedUserId);
       })
       .map(q => q._id);
 
+    if (userType === 'external') {
+      return {
+        $or: [
+          {
+            userId: {
+              $in: [...externalUserIds, ...externalUserStrings],
+            },
+          },
+          {
+            _id: {
+              $in: externalResolvedQuestionIds,
+            },
+          },
+        ],
+      };
+    }
+
+    // internal = NOT external
     return {
-      $or: [
+      $and: [
         {
           userId: {
-            $in: [...directUserObjectIds, ...directUserStrings],
+            $nin: [...externalUserIds, ...externalUserStrings],
           },
         },
         {
           _id: {
-            $in: resolvedQuestionIds,
+            $nin: externalResolvedQuestionIds,
           },
         },
       ],
@@ -10858,7 +11264,6 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.initReviewSystem();
       await this.init(source);
-      console.log('Crop is', crop);
       const safePage = Math.max(Number(page) || 1, 1);
       const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
       const skip = (safePage - 1) * safeLimit;
@@ -11000,6 +11405,7 @@ export class ChatbotRepository implements IChatbotRepository {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         ],
+        status: {$ne: 'non_agri'},
       };
 
       const userTypeMatch = await this.buildQuestionUserTypeMatchQuery(
@@ -11187,6 +11593,7 @@ export class ChatbotRepository implements IChatbotRepository {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         ],
+        status: {$ne: 'non_agri'},
       };
 
       // Apply date range
@@ -11218,14 +11625,14 @@ export class ChatbotRepository implements IChatbotRepository {
       }
 
       // Apply user type filter
-              const query = await this.buildQuestionUserTypeMatchQuery(
-      source,
-      userType,
-    );
+      const query = await this.buildQuestionUserTypeMatchQuery(
+        source,
+        userType,
+      );
 
-    if (query && Object.keys(query).length > 0) {
-      matchQuery.$and.push(query);
-    }
+      if (query && Object.keys(query).length > 0) {
+        matchQuery.$and.push(query);
+      }
 
       // Search by name/email
       if (search?.trim()) {
@@ -11401,12 +11808,11 @@ export class ChatbotRepository implements IChatbotRepository {
           2 * 60 * 60 * 1000,
         ],
       },
-       $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-        ],
-      
+      $and: [
+        {
+          $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+        },
+      ],
     };
 
     const validStartDate =
@@ -11430,10 +11836,7 @@ export class ChatbotRepository implements IChatbotRepository {
       }
     }
 
-            const query = await this.buildQuestionUserTypeMatchQuery(
-      source,
-      userType,
-    );
+    const query = await this.buildQuestionUserTypeMatchQuery(source, userType);
 
     if (query && Object.keys(query).length > 0) {
       matchQuery.$and.push(query);
@@ -11592,7 +11995,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const matchQuery: any = {
         source: sourceType,
         status: 'closed',
-                $and: [
+        $and: [
           {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
@@ -11617,14 +12020,14 @@ export class ChatbotRepository implements IChatbotRepository {
         }
       }
 
-          const query = await this.buildQuestionUserTypeMatchQuery(
-      source,
-      userType,
-    );
+      const query = await this.buildQuestionUserTypeMatchQuery(
+        source,
+        userType,
+      );
 
-    if (query && Object.keys(query).length > 0) {
-      matchQuery.$and.push(query);
-    }
+      if (query && Object.keys(query).length > 0) {
+        matchQuery.$and.push(query);
+      }
 
       // Notification filter
       switch (notificationType) {
@@ -12031,6 +12434,36 @@ export class ChatbotRepository implements IChatbotRepository {
       );
     }
   }
+
+  async getUserConversationIds(
+  userId: string,
+  source = 'annam',
+): Promise<any> {
+  try {
+    await this.init(source);
+
+    const conversations = await this.conversations
+      .find(
+        {
+          user: userId,
+        },
+        {
+          projection: {
+            conversationId: 1,
+          },
+        },
+      )
+      .toArray();
+
+    return conversations
+      .map((c: any) => c.conversationId)
+      .filter(Boolean);
+  } catch (error) {
+    throw new InternalServerError(
+      `Failed to get user conversation ids: ${error}`,
+    );
+  }
+}
 
   async findMatchingMessages(data: {
     question: string;

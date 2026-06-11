@@ -10,6 +10,7 @@ import {
   AuthErrorResponse,
   LoginResponse,
   SyncAccountResponse,
+  AdminCreateReviewUserBody,
 } from '#auth/classes/validators/AuthValidators.js';
 import {
   IAuthService,
@@ -96,6 +97,27 @@ export class AuthController {
       req.headers.authorization?.split(' ')[1],
     );
     return { success: true, message: 'User registered successfully' };
+  }
+
+  @OpenAPI({
+    summary: 'Create a review system user',
+    description:
+      'Allows an admin to create a review system coordinator user in Firebase Authentication and the application users collection without email verification.',
+  })
+  @ResponseSchema(ChangePasswordResponse, {
+    statusCode: 201,
+    description: 'Review system user created successfully',
+  })
+  @Authorized(['admin'])
+  @Post('/admin/review-users')
+  @HttpCode(201)
+  async adminCreateReviewUser(@Body() body: AdminCreateReviewUserBody) {
+    const user = await this.authService.adminCreateReviewUser(body);
+    return {
+      success: true,
+      message: 'Review system user created successfully',
+      user,
+    };
   }
 
   @OpenAPI({

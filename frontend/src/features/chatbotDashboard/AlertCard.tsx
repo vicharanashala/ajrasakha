@@ -2,9 +2,10 @@ import { useState } from "react";
 import { TrendingUp, InfoIcon, RefreshCw } from "lucide-react";
 import { Badge } from "./components/shared/Badge";
 import { DomainSpikesModal } from "./components/DomainSpikesModal";
-import { useDomainSpikes } from "./hooks/useDomainSpikes";
+// import { useDomainSpikes } from "./hooks/useDomainSpikes";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { useQueryClient } from "@tanstack/react-query";
+import CountUp from "react-countup";
 
 interface Alert {
   id: number;
@@ -38,15 +39,15 @@ export function AlertCard({
   onInactiveWhatsAppUsersClick,
   isFetching,
 }: AlertCardProps) {
-  const [isSpikesModalOpen, setIsSpikesModalOpen] = useState(false);
+  // const [isSpikesModalOpen, setIsSpikesModalOpen] = useState(false);
 
   // Fetch spikes independently — always enabled so the preview row is live
-  const { data: spikes = [] } = useDomainSpikes(true, 60);
+  // const { data: spikes = [] } = useDomainSpikes(true, 60);
 
   // Show the highest spike as the preview
-  const topSpike = spikes.length > 0
-    ? spikes.reduce((a, b) => (b.spikePct > a.spikePct ? b : a))
-    : null;
+  // const topSpike = spikes.length > 0
+  //   ? spikes.reduce((a, b) => (b.spikePct > a.spikePct ? b : a))
+  //   : null;
   const queryClient = useQueryClient();
   const handleRefresh = async ()=>{
     await queryClient.refetchQueries({ queryKey: ["dashboard-data"] });
@@ -131,7 +132,11 @@ export function AlertCard({
             </div>
           </div>
         </div>
-        <Badge label={inactiveUsersLast3Days.toLocaleString()} variant="red" />
+        <div className="px-2 py-1 rounded-full bg-red-100 dark:bg-red-900/40">
+          <span className="text-sm font-bold text-red-600 dark:text-red-400">
+            <CountUp end={inactiveUsersLast3Days} duration={1.5} preserveValue />
+          </span>
+        </div>
       </div>
       {/* } */}
 
@@ -169,14 +174,13 @@ export function AlertCard({
             </div>
           </div>
         </div>
-        <Badge
-          label={
-            duplicateQuestionsCount != null
-              ? duplicateQuestionsCount.toLocaleString()
-              : "—"
-          }
-          variant="amber"
-        />
+        <div className="px-2 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40">
+          <span className="text-sm font-bold text-amber-600 dark:text-amber-400">
+            {duplicateQuestionsCount != null ? (
+              <CountUp end={duplicateQuestionsCount} duration={1.5} preserveValue />
+            ) : "—"}
+          </span>
+        </div>
       </div>
 
       {/* Low Feedback Users Row */}
@@ -214,14 +218,13 @@ export function AlertCard({
               </div>
             </div>
           </div>
-          <Badge
-            label={
-              lowFeedbackUsersCount != null
-                ? lowFeedbackUsersCount.toLocaleString()
-                : "—"
-            }
-            variant="amber"
-          />
+          <div className="px-2 py-1 rounded-full bg-orange-100 dark:bg-orange-900/40">
+            <span className="text-sm font-bold text-orange-600 dark:text-orange-400">
+              {lowFeedbackUsersCount != null ? (
+                <CountUp end={lowFeedbackUsersCount} duration={1.5} preserveValue />
+              ) : "—"}
+            </span>
+          </div>
         </div>
       )}
 

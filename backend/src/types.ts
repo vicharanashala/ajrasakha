@@ -21,6 +21,7 @@ const TYPES = {
   NotificationService: Symbol.for('NotificationService'),
   PerformanceService: Symbol.for('PerformanceService'),
   ReRouteService:Symbol.for('ReRouteService'),
+  AccAgentService: Symbol.for('AccAgentService'),
 
   // Repositories
   RequestRepository: Symbol.for('RequestRepository'),

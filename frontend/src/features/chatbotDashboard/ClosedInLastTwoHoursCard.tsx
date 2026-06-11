@@ -29,6 +29,9 @@ type ClosedInLastTwoHoursCardProps = {
   dateRange?: DateRange;
   onDateRangeChange?: (range: DateRange | undefined) => void;
   isLoading?: boolean;
+  isFetching?: boolean;
+  /** Callback to notify parent to refresh all related cards in the row */
+  onRefresh?: () => void;
 };
 
 export function ClosedInLastTwoHoursCard({
@@ -39,15 +42,24 @@ export function ClosedInLastTwoHoursCard({
   dateRange,
   onDateRangeChange,
   isLoading,
+  isFetching,
+  onRefresh,
 }: ClosedInLastTwoHoursCardProps) {
+  const isRefreshing = isLoading || isFetching;
   const safeCount = count ?? 0;
   const safeTotalClosed = totalClosed ?? 0;
   const closedWithinTwoHoursPct =
     safeTotalClosed > 0 ? (safeCount / safeTotalClosed) * 100 : 0;
   const [closedWithInTwohours, setClosedWithInTowhours] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const queryClient = useQueryClient();
   const handleRefresh = async () => {
-    await queryClient.refetchQueries({ queryKey: ["closed-notified-data"] });
+    setRefreshing(true);
+    // Notify parent to refresh all related cards
+    onRefresh?.();
+    // Also invalidate the base query key as fallback
+    await queryClient.invalidateQueries({ queryKey: ["closed-notified-data"] });
+    setTimeout(() => setRefreshing(false), 500);
   };
 
   const handleClick = () => {
@@ -104,7 +116,7 @@ export function ClosedInLastTwoHoursCard({
                 >
                   <RefreshCw
                     className={`h-3.5 w-3.5 bg-background text-white ${
-                      isLoading ? "animate-spin" : ""
+                      isLoading || refreshing || isFetching ? "animate-spin" : ""
                     }`}
                   />
                 </button>

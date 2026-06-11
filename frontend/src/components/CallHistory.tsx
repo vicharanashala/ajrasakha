@@ -2,10 +2,17 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { Button } from "./atoms/button";
 import { Badge } from "./atoms/badge";
-import { Phone, Filter, ChevronLeft, ChevronRight, RefreshCw, Eye, MessageSquare } from "lucide-react";
+import {
+  Phone,
+  Filter,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
+  Eye,
+  MessageSquare,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { plivoApi } from "@/hooks/api/plivo/api";
-import { whatsappApi } from "@/hooks/api/whatsapp/api";
 import type { CallHistoryItem } from "@/hooks/api/plivo/api";
 import { format } from "date-fns";
 import { FarmerDetails } from "./FarmerDetails";
@@ -27,12 +34,15 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
   const limit = 20;
 
   // Farmer Details
-  const [selectedCallForDetails, setSelectedCallForDetails] = useState<string | null>(null);
+  const [selectedCallForDetails, setSelectedCallForDetails] = useState<
+    string | null
+  >(null);
 
   // Message
   const [messageRow, setMessageRow] = useState<string | null>(null);
   const [messageText, setMessageText] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
+  const MAX_MESSAGE_LENGTH = 150;
 
   // Filters
   const [showFilters, setShowFilters] = useState(false);
@@ -56,7 +66,9 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
       });
       setCalls(data);
       // Note: Backend doesn't return total count, so we'll estimate based on returned data
-      setTotalCalls(data.length === limit ? (page + 2) * limit : (page + 1) * limit);
+      setTotalCalls(
+        data.length === limit ? (page + 2) * limit : (page + 1) * limit,
+      );
     } catch (err: any) {
       setError(err.message || "Failed to fetch call history");
       console.error("Error fetching call history:", err);
@@ -94,97 +106,118 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
   //   }
   // };
 
-  const handleSendMessage = async (destination: string) => {
+  const handleSendMessage = async (CallHistoryItem: any) => {
+    const { from, to } = CallHistoryItem;
+
+    // Designated numbers to check
+    const designatedNumbers = [
+      "918031150392",
+      "sip:annamuser1293525305518427216@phone.plivo.com",
+    ];
+
+    // // Determine which number to call
+    let numbertomsg; // Default to calling the 'to' number
+
+    // // If 'from' contains any of the designated numbers, call the opposite (to)
+    if (designatedNumbers.some((dn) => from?.includes(dn))) {
+      numbertomsg = to;
+    }
+    // // If 'to' contains any of the designated numbers, call the opposite (from)
+    else if (designatedNumbers.some((dn) => to?.includes(dn))) {
+      numbertomsg = from;
+    }
     if (!messageText.trim()) return;
+    if (messageText.length > MAX_MESSAGE_LENGTH) {
+      toast.error(`Message exceeds ${MAX_MESSAGE_LENGTH} character limit`);
+      return;
+    }
     setSendingMessage(true);
     try {
-      await whatsappApi.sendMessage(destination, messageText);
-      toast.success("WhatsApp message sent successfully!");
+      numbertomsg = numbertomsg.replace(/^91/, "");
+      await plivoApi.sendMessage("numbertomsg", messageText);
+      toast.success("SMS sent successfully!");
       setMessageRow(null);
       setMessageText("");
     } catch (err: any) {
-      toast.error(`Failed to send WhatsApp message: ${err.message || "Unknown error"}`);
+      toast.error(`Failed to send SMS: ${err.message || "Unknown error"}`);
     } finally {
       setSendingMessage(false);
     }
   };
 
-  
+  const handleRedial = async (CallHistoryItem: any) => {
+    // const { from, to } = CallHistoryItem;
 
-    const handleRedial = async (CallHistoryItem: any) => {
-      // const { from, to } = CallHistoryItem;
+    // // Designated numbers to check
+    // const designatedNumbers = ["918031150392", "sip:annamuser1293525305518427216@phone.plivo.com"];
 
-      // // Designated numbers to check
-      // const designatedNumbers = ["918031150392", "sip:annamuser1293525305518427216@phone.plivo.com"];
+    // // Determine which number to call
+    let numberToCall = "+919606751041"; // Default to calling the 'to' number
 
-      // // Determine which number to call
-      let numberToCall = "+919606751041"; // Default to calling the 'to' number
+    // // If 'from' contains any of the designated numbers, call the opposite (to)
+    // if (designatedNumbers.some(dn => from?.includes(dn))) {
+    //   numberToCall = to;
+    // }
+    // // If 'to' contains any of the designated numbers, call the opposite (from)
+    // else if (designatedNumbers.some(dn => to?.includes(dn))) {
+    //   numberToCall = from;
+    // }
 
-      // // If 'from' contains any of the designated numbers, call the opposite (to)
-      // if (designatedNumbers.some(dn => from?.includes(dn))) {
-      //   numberToCall = to;
-      // }
-      // // If 'to' contains any of the designated numbers, call the opposite (from)
-      // else if (designatedNumbers.some(dn => to?.includes(dn))) {
-      //   numberToCall = from;
-      // }
+    // Preserved for redial hook implementation
 
-      // Preserved for redial hook implementation
-
-
-      let plivoClientRef;
-      const options = {
-        debug: "DEBUG" as const,
-        permOnClick: true,
-        enableTracking: true
-      };
-
-      const client = new Plivo(options);
-      plivoClientRef = client;
-      try {
-        const extraHeaders = {
-          'X-PH-destination': "+919606751041"
-        };
-        const result = plivoClientRef.client.call("+919606751041", extraHeaders);
-        toast.success(`Redialing ${numberToCall}. Call UUID: ${result}`);
-      } catch (error: any) {
-        toast.error(error.message || "Failed to initiate call");
-      }
+    let plivoClientRef;
+    const options = {
+      debug: "DEBUG" as const,
+      permOnClick: true,
+      enableTracking: true,
     };
+
+    const client = new Plivo(options);
+    plivoClientRef = client;
+    try {
+      const extraHeaders = {
+        "X-PH-destination": "+919606751041",
+      };
+      const result = plivoClientRef.client.call("+919606751041", extraHeaders);
+      toast.success(`Redialing ${numberToCall}. Call UUID: ${result}`);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to initiate call");
+    }
+  };
 
   const getStatusColor = (status: string) => {
     if (!status) {
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+      return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
     }
     switch (status.toLowerCase()) {
-      case 'completed':
-      case 'answered':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
-      case 'failed':
-      case 'no answer':
-      case 'busy':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
-      case 'in-progress':
-      case 'ringing':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-      case 'queued':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      case "completed":
+      case "answered":
+        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+      case "failed":
+      case "no answer":
+      case "busy":
+        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
+      case "in-progress":
+      case "ringing":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
+      case "queued":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
     }
   };
 
   const getDirectionColor = (direction: string) => {
     if (!direction) {
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+      return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
     }
     switch (direction.toLowerCase()) {
-      case 'inbound':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
-      case 'outbound':
-        return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+      case "inbound":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
+      case "outbound":
+        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
     }
   };
 
@@ -196,8 +229,10 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
   };
 
   const formatPhoneNumber = (phoneNumber: string) => {
-    if (phoneNumber.includes('sip:annamuser1293525305518427216@phone.plivo.com')) {
-      return 'Expert';
+    if (
+      phoneNumber.includes("sip:annamuser1293525305518427216@phone.plivo.com")
+    ) {
+      return "Expert";
     }
     return phoneNumber;
   };
@@ -318,32 +353,56 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b bg-muted/50">
-                      <th className="px-4 py-3 text-left text-sm font-medium">Direction</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium">From</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium">To</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium">Status</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium">Duration</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium">Actions</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium">
+                        Direction
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-medium">
+                        From
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-medium">
+                        To
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-medium">
+                        Status
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-medium">
+                        Duration
+                      </th>
+                      <th className="px-4 py-3 text-left text-sm font-medium">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {calls.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                        <td
+                          colSpan={6}
+                          className="px-4 py-8 text-center text-muted-foreground"
+                        >
                           No calls found
                         </td>
                       </tr>
                     ) : (
                       calls.map((call) => (
                         <>
-                          <tr key={call.uuid} className="border-b hover:bg-muted/50">
+                          <tr
+                            key={call.uuid}
+                            className="border-b hover:bg-muted/50"
+                          >
                             <td className="px-4 py-3">
-                              <Badge className={getDirectionColor(call.direction)}>
+                              <Badge
+                                className={getDirectionColor(call.direction)}
+                              >
                                 {call.direction}
                               </Badge>
                             </td>
-                            <td className="px-4 py-3 text-sm">{formatPhoneNumber(call.from)}</td>
-                            <td className="px-4 py-3 text-sm">{formatPhoneNumber(call.to)}</td>
+                            <td className="px-4 py-3 text-sm">
+                              {formatPhoneNumber(call.from)}
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              {formatPhoneNumber(call.to)}
+                            </td>
                             <td className="px-4 py-3">
                               <div className="flex flex-col gap-1">
                                 <Badge className={getStatusColor(call.status)}>
@@ -351,12 +410,17 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                 </Badge>
                                 {call.startTime && (
                                   <span className="text-xs text-muted-foreground">
-                                    {format(new Date(call.startTime), 'MMM dd, HH:mm')}
+                                    {format(
+                                      new Date(call.startTime),
+                                      "MMM dd, HH:mm",
+                                    )}
                                   </span>
                                 )}
                               </div>
                             </td>
-                            <td className="px-4 py-3 text-sm">{formatDuration(call.duration)}</td>
+                            <td className="px-4 py-3 text-sm">
+                              {formatDuration(call.duration)}
+                            </td>
                             <td className="px-4 py-3">
                               <div className="flex gap-2">
                                 <Button
@@ -372,22 +436,34 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                   size="sm"
                                   variant="outline"
                                   onClick={() => {
-                                    setMessageRow(messageRow === call.uuid ? null : call.uuid);
+                                    setMessageRow(
+                                      messageRow === call.uuid
+                                        ? null
+                                        : call.uuid,
+                                    );
                                     setMessageText("");
                                   }}
                                   className="gap-3"
                                 >
                                   <MessageSquare className="h-4 w-4" />
-                                  Message 
+                                  Message
                                 </Button>
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => setSelectedCallForDetails(selectedCallForDetails === call.uuid ? null : call.uuid)}
+                                  onClick={() =>
+                                    setSelectedCallForDetails(
+                                      selectedCallForDetails === call.uuid
+                                        ? null
+                                        : call.uuid,
+                                    )
+                                  }
                                   className="gap-2"
                                 >
                                   <Eye className="h-4 w-4" />
-                                  {selectedCallForDetails === call.uuid ? 'Hide' : 'View'}
+                                  {selectedCallForDetails === call.uuid
+                                    ? "Hide"
+                                    : "View"}
                                 </Button>
                               </div>
                             </td>
@@ -407,36 +483,69 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                     {call.callDetails ? (
                                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div className="bg-white dark:bg-zinc-900 rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 shadow-sm">
-                                          <h4 className="font-semibold text-sm mb-3 text-indigo-600 dark:text-indigo-400">Farmer</h4>
+                                          <h4 className="font-semibold text-sm mb-3 text-indigo-600 dark:text-indigo-400">
+                                            Farmer
+                                          </h4>
                                           <div className="space-y-3 text-sm">
                                             <div>
-                                              <span className="font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Original ({call.callDetails.caller?.detectedLanguage || 'unknown'})</span>
-                                              <p className="mt-1 leading-relaxed text-zinc-700 dark:text-zinc-300 italic">{call.callDetails.caller?.transcript || 'N/A'}</p>
+                                              <span className="font-medium text-[11px] text-muted-foreground uppercase tracking-wider">
+                                                Original (
+                                                {call.callDetails.caller
+                                                  ?.detectedLanguage ||
+                                                  "unknown"}
+                                                )
+                                              </span>
+                                              <p className="mt-1 leading-relaxed text-zinc-700 dark:text-zinc-300 italic">
+                                                {call.callDetails.caller
+                                                  ?.transcript || "N/A"}
+                                              </p>
                                             </div>
                                             <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800">
-                                              <span className="font-medium text-[11px] text-muted-foreground uppercase tracking-wider">English Translation</span>
-                                              <p className="mt-1 leading-relaxed font-medium">{call.callDetails.caller?.translation || 'N/A'}</p>
+                                              <span className="font-medium text-[11px] text-muted-foreground uppercase tracking-wider">
+                                                English Translation
+                                              </span>
+                                              <p className="mt-1 leading-relaxed font-medium">
+                                                {call.callDetails.caller
+                                                  ?.translation || "N/A"}
+                                              </p>
                                             </div>
                                           </div>
                                         </div>
 
                                         <div className="bg-gradient-to-br from-indigo-50 to-white dark:from-zinc-900 dark:to-zinc-900 rounded-xl p-4 border border-indigo-100 dark:border-zinc-800 shadow-sm">
-                                          <h4 className="font-semibold text-sm mb-3 text-indigo-700 dark:text-indigo-400">Expert</h4>
+                                          <h4 className="font-semibold text-sm mb-3 text-indigo-700 dark:text-indigo-400">
+                                            Expert
+                                          </h4>
                                           <div className="space-y-3 text-sm">
                                             <div>
-                                              <span className="font-medium text-[11px] text-muted-foreground uppercase tracking-wider">Original ({call.callDetails.agent?.detectedLanguage || 'unknown'})</span>
-                                              <p className="mt-1 leading-relaxed text-zinc-700 dark:text-zinc-300 italic">{call.callDetails.agent?.transcript || 'N/A'}</p>
+                                              <span className="font-medium text-[11px] text-muted-foreground uppercase tracking-wider">
+                                                Original (
+                                                {call.callDetails.agent
+                                                  ?.detectedLanguage ||
+                                                  "unknown"}
+                                                )
+                                              </span>
+                                              <p className="mt-1 leading-relaxed text-zinc-700 dark:text-zinc-300 italic">
+                                                {call.callDetails.agent
+                                                  ?.transcript || "N/A"}
+                                              </p>
                                             </div>
                                             <div className="pt-2 border-t border-indigo-100 dark:border-zinc-800">
-                                              <span className="font-medium text-[11px] text-muted-foreground uppercase tracking-wider">English Translation</span>
-                                              <p className="mt-1 leading-relaxed font-medium">{call.callDetails.agent?.translation || 'N/A'}</p>
+                                              <span className="font-medium text-[11px] text-muted-foreground uppercase tracking-wider">
+                                                English Translation
+                                              </span>
+                                              <p className="mt-1 leading-relaxed font-medium">
+                                                {call.callDetails.agent
+                                                  ?.translation || "N/A"}
+                                              </p>
                                             </div>
                                           </div>
                                         </div>
                                       </div>
                                     ) : (
                                       <div className="text-sm text-muted-foreground text-center py-6 bg-white/50 dark:bg-zinc-900/50 rounded-xl border border-dashed">
-                                        No transcript data available for this call
+                                        No transcript data available for this
+                                        call
                                       </div>
                                     )}
                                   </div>
@@ -448,14 +557,32 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                             <tr key={`message-${call.uuid}`}>
                               <td colSpan={6} className="px-4 py-4 bg-muted/10">
                                 <div className="flex flex-col gap-2 max-w-md">
-                                  <h4 className="text-sm font-semibold">Send WhatsApp Message to {call.direction === 'inbound' ? call.from : call.to}</h4>
+                                  <h4 className="text-sm font-semibold">
+                                    Send SMS to{" "}
+                                    {call.direction === "inbound"
+                                      ? call.from
+                                      : call.to}
+                                  </h4>
                                   <textarea
                                     className="w-full p-2 border rounded-md text-sm bg-background"
                                     rows={3}
-                                    placeholder="Type your WhatsApp message here..."
+                                    placeholder="Type your SMS message here..."
                                     value={messageText}
-                                    onChange={(e) => setMessageText(e.target.value)}
+                                    onChange={(e) => {
+                                      if (e.target.value.length <= MAX_MESSAGE_LENGTH) {
+                                        setMessageText(e.target.value);
+                                      }
+                                    }}
+                                    maxLength={MAX_MESSAGE_LENGTH}
                                   />
+                                  <div className="flex justify-between items-center mt-1">
+                                    <span className={cn(
+                                      "text-xs",
+                                      messageText.length >= MAX_MESSAGE_LENGTH ? "text-red-500 font-semibold" : "text-muted-foreground"
+                                    )}>
+                                      {messageText.length}/{MAX_MESSAGE_LENGTH} characters
+                                    </span>
+                                  </div>
                                   <div className="flex justify-end gap-2 mt-2">
                                     <Button
                                       size="sm"
@@ -466,12 +593,14 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                     </Button>
                                     <Button
                                       size="sm"
-                                      onClick={() => handleSendMessage(call.direction === 'inbound' ? call.from : call.to)}
-                                      disabled={!messageText.trim() || sendingMessage}
+                                      onClick={() => handleSendMessage(call)}
+                                      disabled={!messageText.trim() || sendingMessage || messageText.length > MAX_MESSAGE_LENGTH}
                                       className="gap-2"
                                     >
-                                      {sendingMessage && <RefreshCw className="h-3 w-3 animate-spin" />}
-                                      Send WhatsApp
+                                      {sendingMessage && (
+                                        <RefreshCw className="h-3 w-3 animate-spin" />
+                                      )}
+                                      Send SMS
                                     </Button>
                                   </div>
                                 </div>
@@ -490,7 +619,9 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
             {calls.length > 0 && (
               <div className="flex items-center justify-between">
                 <div className="text-sm text-muted-foreground">
-                  Showing {page * limit + 1} to {Math.min((page + 1) * limit, totalCalls)} of {totalCalls} calls
+                  Showing {page * limit + 1} to{" "}
+                  {Math.min((page + 1) * limit, totalCalls)} of {totalCalls}{" "}
+                  calls
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
@@ -502,9 +633,7 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                     <ChevronLeft className="h-4 w-4" />
                     Previous
                   </Button>
-                  <div className="text-sm">
-                    Page {page + 1}
-                  </div>
+                  <div className="text-sm">Page {page + 1}</div>
                   <Button
                     variant="outline"
                     size="sm"

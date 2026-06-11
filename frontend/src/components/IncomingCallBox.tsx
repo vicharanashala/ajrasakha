@@ -146,6 +146,20 @@ export const IncomingCallBox = ({
       return;
     }
 
+    // Check if Plivo credentials are configured (not dummy values)
+    const endpointUsername = env.plivo.endpointUsername();
+    const endpointPassword = env.plivo.endpointPassword();
+
+    if (
+      endpointUsername?.includes("dummy") ||
+      endpointPassword?.includes("dummy")
+    ) {
+      console.warn(
+        "⚠️ Plivo credentials not configured (using dummy values). Skipping Plivo initialization.",
+      );
+      return;
+    }
+
     // Prevent multiple initializations
     if (plivoClientRef.current) {
       console.log("⚠️ Plivo client already exists, skipping initialization...");
@@ -591,11 +605,11 @@ export const IncomingCallBox = ({
           </CardTitle>
         </CardHeader>
 
-        {isAdmin ? (
+        {!currentUser?.isCallAgentActive ? (
           <CardContent className="p-1">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Phone className="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
-              <span className="text-sm font-medium">Admin access only</span>
+              <span className="text-sm font-medium">Agent access only</span>
             </div>
           </CardContent>
         ) : (callStatus === "idle" || callStatus === "ended") &&

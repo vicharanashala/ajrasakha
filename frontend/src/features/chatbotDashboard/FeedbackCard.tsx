@@ -314,7 +314,7 @@ function FeedbackCard({
                   {/* Center */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <p className="text-4xl font-bold tracking-tight text-foreground tabular-nums">
-                      {total}
+                      <CountUp end={total} duration={1.5} preserveValue />
                     </p>
                     <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-1">
                       Feedbacks
