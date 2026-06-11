@@ -66,6 +66,34 @@ export interface IQuestionService {
   getCallSummary(
     query: string,
   ): Promise<any>;
+
+  /** HIL Flow: Create thread for ACC Agent */
+  createAccAgentThread(): Promise<{ thread_id: string }>;
+
+  /** HIL Flow: Extract data from transcript */
+  extractAccAgentData(
+    threadId: string,
+    transcript: string
+  ): Promise<{
+    extracted_query: string;
+    extracted_crop: string;
+    extracted_state: string;
+    extracted_district: string;
+  }>;
+
+  /** HIL Flow: Update state with human corrections */
+  updateAccAgentState(
+    threadId: string,
+    correctedData: {
+      query: string;
+      crop: string;
+      state: string;
+      district: string;
+    }
+  ): Promise<void>;
+
+  /** HIL Flow: Resume and get final answer */
+  resumeAccAgentAndGetAnswer(threadId: string): Promise<{ final_answer: string }>;
   /** Manually trigger duplicate check for a question without a reference */
   manualCheckDuplicate(
     questionId: string,
