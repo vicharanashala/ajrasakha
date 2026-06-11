@@ -291,17 +291,8 @@ def _resolve_state_deterministic(
     location: Optional[dict],
     prev_entities: Optional[PlannerEntities] = None,
 ) -> Optional[str]:
-    """Deterministically resolve state from previous turns or latest text (do NOT fallback to GPS here)."""
-    # Priority 0: State from previous planner turns (carry-over from clarification)
-    if prev_entities and prev_entities.get("state"):
-        state = prev_entities.get("state")
-        trace_resolution(
-            "planner_state_hint",
-            state=state,
-            state_source="prev_entities (incomplete_clarify_carryover)",
-        )
-        return state
-    # Priority 1: Latest message only
+    """Deterministically resolve state from latest text or previous turn (do NOT fallback to GPS here)."""
+    # Priority 0: State from latest message text (explicit mention in current query)
     latest_text = latest_human_text(messages)
     state_from_latest = extract_state_from_text(latest_text)
     if state_from_latest:
@@ -312,10 +303,19 @@ def _resolve_state_deterministic(
             text_preview=latest_text[:120] if latest_text else None,
         )
         return state_from_latest
+    # Priority 1: State from previous turn (thread carry-over - always check this)
+    if prev_entities and prev_entities.get("state"):
+        state = prev_entities.get("state")
+        trace_resolution(
+            "planner_state_hint",
+            state=state,
+            state_source="prev_entities (thread_carryover)",
+        )
+        return state
     trace_resolution(
         "planner_state_hint",
         state=None,
-        state_source="unresolved (no_prev_entities_no_text; GPS not used here)",
+        state_source="unresolved (no_current_text_no_prev_entities; GPS not used here)",
     )
     return None
 
@@ -510,8 +510,9 @@ async def planner_node(
     location = state.get("location")
     # Extract previous entities BEFORE LLM call so state can be carried forward
     prev_plan = state.get("plan") or {}
+    # Always carry forward entities from previous turn for thread-level state persistence
     prev_entities: PlannerEntities = {}
-    if prev_plan and not prev_plan.get("is_complete", True):
+    if prev_plan:
         prev_entities = dict(prev_plan.get("entities") or {})
 
     trace_thread_location(
