@@ -735,6 +735,7 @@ export interface IChatbotRepository {
     userId: string,
     source: string,
     newPassword: string,
+    keepLoggedIn: boolean,
   ): Promise<boolean>;
   addUser(
     source: string,

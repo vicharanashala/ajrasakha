@@ -1261,6 +1261,7 @@ export class ChatbotController {
     @Body()
     body: {
       newPassword: string;
+      keepLoggedIn: boolean;
     },
     @CurrentUser() user: IUser,
   ) {
@@ -1303,6 +1304,7 @@ export class ChatbotController {
         userId,
         source,
         body.newPassword,
+        body.keepLoggedIn
       );
 
       auditPayload = {

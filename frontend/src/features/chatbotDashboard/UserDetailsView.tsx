@@ -448,12 +448,14 @@ export function UserDetailsView({
 
   const handleChangeViewedUserPassword = async (payload: {
     newPassword: string;
+    keepLoggedIn: boolean;
   }) => {
     if (!userToView) return;
     await changeUserPasswordMutation.mutateAsync({
       userId: userToView.userId,
       source,
       newPassword: payload.newPassword,
+      keepLoggedIn: payload.keepLoggedIn,
     });
   };
 
