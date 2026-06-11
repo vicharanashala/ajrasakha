@@ -50,26 +50,21 @@ import {getFirebaseAuth} from '#root/config/firebaseAdmin.js';
 
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import {COORDINATOR_ROLES} from '#root/shared/constants/roles.js';
 
-const COORDINATOR_USER_ROLES = [
-  'district_coordinator',
-  'block_coordinator',
-  'village_volunteer',
-] as const;
-
-const EXTERNAL_USER_ROLES = ['FARMER', ...COORDINATOR_USER_ROLES] as const;
+const EXTERNAL_USER_ROLES = ['FARMER', ...COORDINATOR_ROLES] as const;
 
 const buildExternalUserMatch = () => ({
   $or: [
     {userRole: {$in: EXTERNAL_USER_ROLES}},
-    {role: {$in: COORDINATOR_USER_ROLES}},
+    {role: {$in: COORDINATOR_ROLES}},
   ],
 });
 
 const buildExternalJoinedUserMatch = (prefix: string) => ({
   $or: [
     {[`${prefix}.userRole`]: {$in: EXTERNAL_USER_ROLES}},
-    {[`${prefix}.role`]: {$in: COORDINATOR_USER_ROLES}},
+    {[`${prefix}.role`]: {$in: COORDINATOR_ROLES}},
   ],
 });
 
@@ -77,8 +72,8 @@ const isExternalUserRole = (userRole?: string, role?: string) =>
   EXTERNAL_USER_ROLES.includes(
     userRole as (typeof EXTERNAL_USER_ROLES)[number],
   ) ||
-  COORDINATOR_USER_ROLES.includes(
-    role as (typeof COORDINATOR_USER_ROLES)[number],
+  COORDINATOR_ROLES.includes(
+    role as (typeof COORDINATOR_ROLES)[number],
   );
 
 interface IUser {
