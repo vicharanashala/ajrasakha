@@ -47,10 +47,10 @@ export const appConfig = {
   WEB_WEBHOOK_API_KEY: env("WEB_WEBHOOK_API_KEY") || "",
   langGraphUrl: `http://${env('LANGRAPH_SERVER_IP')}:${env('LANGRAPH_SERVER_PORT')}`,
   plivo: {
-    streamUrl: env('PLIVO_STREAM_URL'),
-    authId: env('PLIVO_AUTH_ID'),
-    authToken: env('PLIVO_AUTH_TOKEN'),
-    plivo_number: env('PLIVO_NUMBER'),
+    streamUrl: env('PLIVO_STREAM_URL') || 'wss://dummy-stream-url.example.com',
+    authId: env('PLIVO_AUTH_ID') || 'dummy-plivo-auth-id',
+    authToken: env('PLIVO_AUTH_TOKEN') || 'dummy-plivo-auth-token',
+    plivo_number: env('PLIVO_NUMBER') || '+15551234567',
   },
   fast2sms: {
     apiKey: env('FAST2SMS_API_KEY'),

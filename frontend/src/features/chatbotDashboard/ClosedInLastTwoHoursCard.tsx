@@ -10,38 +10,61 @@ import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/atoms/skeleton";
 import CountUp from "react-countup";
 import { useQueryClient } from "@tanstack/react-query";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/atoms/popover";
 import { Button } from "@/components/atoms/button";
 import { format } from "date-fns";
 import { Calendar } from "@/components/atoms/calendar";
-
+import { useState } from "react";
+import { QueryCategoryQuestionsModal } from "./components/QueryCategoryQuestionsModal";
 
 type ClosedInLastTwoHoursCardProps = {
-  source: string;
+  source?: "vicharanashala" | "annam" | "whatsapp";
+  userType: string;
   count: number;
   totalClosed: number;
   dateRange?: DateRange;
   onDateRangeChange?: (range: DateRange | undefined) => void;
   isLoading?: boolean;
+  isFetching?: boolean;
+  /** Callback to notify parent to refresh all related cards in the row */
+  onRefresh?: () => void;
 };
 
 export function ClosedInLastTwoHoursCard({
-  source,
+  source = "annam",
+  userType,
   count,
   totalClosed,
   dateRange,
   onDateRangeChange,
   isLoading,
+  isFetching,
+  onRefresh,
 }: ClosedInLastTwoHoursCardProps) {
+  const isRefreshing = isLoading || isFetching;
   const safeCount = count ?? 0;
   const safeTotalClosed = totalClosed ?? 0;
   const closedWithinTwoHoursPct =
     safeTotalClosed > 0 ? (safeCount / safeTotalClosed) * 100 : 0;
-
+  const [closedWithInTwohours, setClosedWithInTowhours] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const queryClient = useQueryClient();
-  const handleRefresh = async ()=>{
-    await queryClient.refetchQueries({ queryKey: ["closed-notified-data"] });
-  }
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    // Notify parent to refresh all related cards
+    onRefresh?.();
+    // Also invalidate the base query key as fallback
+    await queryClient.invalidateQueries({ queryKey: ["closed-notified-data"] });
+    setTimeout(() => setRefreshing(false), 500);
+  };
+
+  const handleClick = () => {
+    setClosedWithInTowhours(true);
+  };
 
   return (
     <motion.div
@@ -93,7 +116,7 @@ export function ClosedInLastTwoHoursCard({
                 >
                   <RefreshCw
                     className={`h-3.5 w-3.5 bg-background text-white ${
-                      isLoading ? "animate-spin" : ""
+                      isLoading || refreshing || isFetching ? "animate-spin" : ""
                     }`}
                   />
                 </button>
@@ -172,7 +195,7 @@ export function ClosedInLastTwoHoursCard({
                 font-bold
                 tracking-tight
                 ${isLoading ? "opacity-50" : ""}
-                `}
+                hover:cursor-pointer`}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{
@@ -182,6 +205,7 @@ export function ClosedInLastTwoHoursCard({
                     stiffness: 200,
                   }}
                   key={`${count ?? 0}-${totalClosed ?? 0}`}
+                  onClick={handleClick}
                 >
                   <CountUp end={safeCount ?? 0} duration={1.5} preserveValue />{" "}
                   /{" "}
@@ -210,6 +234,16 @@ export function ClosedInLastTwoHoursCard({
           )}
         </CardHeader>
       </Card>
+      {closedWithInTwohours && (
+        <QueryCategoryQuestionsModal
+          source={source}
+          userType={userType}
+          onClose={() => setClosedWithInTowhours(false)}
+          closedWithInTwohours={closedWithInTwohours}
+          startDate={dateRange?.from}
+          endDate={dateRange?.to}
+        />
+      )}
     </motion.div>
   );
 }

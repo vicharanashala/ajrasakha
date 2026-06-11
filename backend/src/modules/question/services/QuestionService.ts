@@ -48,7 +48,15 @@ import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
 import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
 import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
 import { CORE_TYPES } from '#root/modules/core/types.js';
-import { IQuestionService } from '../interfaces/IQuestionService.js';
+import {
+  IQuestionService,
+  QueueDetailsResponse,
+  QueueQuestionItem,
+  QueueExpertItem,
+  QueueSectionName,
+  QueueSectionResult,
+  RawQueueQuestionRow,
+} from '../interfaces/IQuestionService.js';
 import { isToday } from '#root/utils/date.utils.js';
 import { UserService } from '#root/modules/user/services/UserService.js';
 import { IReRouteRepository } from '#root/shared/database/interfaces/IReRouteRepository.js';
@@ -5665,10 +5673,43 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // 3. Get current time-bound workload per expert (single DB call)
       const timeBoundCounts = await this.questionSubmissionRepo.getTimeBoundActiveCountPerExpert();
-      console.log(timeBoundCounts + "this is from my console");
       const MAX_TIME_BOUND = 1; // Each expert handles at most 1 active time-bound question
       // Track provisional additions during this run to respect cap within batch
       const provisionalCounts = new Map<string, number>(timeBoundCounts);
+
+      // ── Full diagnostic dump: every question to allocate + every expert + availability ──
+      const summarizeSub = (s: any) => ({
+        questionId: (s.questionId ?? s._id)?.toString(),
+        status: s.question?.status,
+        source: s.question?.source,
+        queueLen: (s.queue ?? []).length,
+        historyLen: (s.history ?? []).length,
+        queue: (s.queue ?? []).map((q: any) => q?.toString()),
+        createdAt: s.question?.createdAt ?? s.createdAt,
+      });
+      console.log('[TimeBound][diag] stuck:', JSON.stringify(stuckSubmissions.map(summarizeSub)));
+      console.log('[TimeBound][diag] unallocated:', JSON.stringify(unallocatedSubmissions.map(summarizeSub)));
+      console.log('[TimeBound][diag] needsReviewer:', JSON.stringify(answeredNeedingReviewer.map(summarizeSub)));
+
+      const expertDiag = allExperts.map((e: any) => {
+        const id = e._id.toString();
+        const active = provisionalCounts.get(id) ?? 0;
+        return {
+          id,
+          name: `${e.firstName ?? ''} ${e.lastName ?? ''}`.trim(),
+          email: e.email,
+          isBlocked: e.isBlocked === true,
+          stf: e.special_task_force === true,
+          reputation: e.reputation_score,
+          activeTimeBound: active,
+          free: active < MAX_TIME_BOUND,
+        };
+      });
+      console.log(
+        `[TimeBound][diag] experts=${allExperts.length}, free=${expertDiag.filter(x => x.free).length}, ` +
+        `freeSTF=${expertDiag.filter(x => x.free && x.stf).length}, busyMapSize=${timeBoundCounts.size}`,
+      );
+      console.log('[TimeBound][diag] experts:', JSON.stringify(expertDiag));
 
       // ── Merge all three lists into one priority queue ordered by question.createdAt ──
       type WorkType = 'stuck' | 'unallocated' | 'needsReviewer';
@@ -5889,5 +5930,305 @@ export class QuestionService extends BaseService implements IQuestionService {
       console.error('[TimeBound] reallocateTimeBoundQuestions failed:', error?.message);
       throw new InternalServerError(`Failed to reallocate time-bound questions: ${error?.message}`);
     }
+  }
+
+  // ── Queue Details helpers ────────────────────────────────────────────────
+
+  /** Current assignee the cron would penalise/replace (used for STUCK items). */
+  private deriveCurrentExpertId(
+    queue: (ObjectId | string)[] = [],
+    history: {updatedBy?: ObjectId | string; status?: string}[] = [],
+  ): string | null {
+    if (!queue?.length) return null;
+    if (!history?.length) return queue[0]?.toString() ?? null;
+    const last = history[history.length - 1];
+    if (last?.status === 'in-review') return last.updatedBy?.toString() ?? null;
+    return queue[history.length]?.toString() ?? null;
+  }
+
+  /** Queue member still holding pending work — identical rule to
+   *  getTimeBoundActiveCountPerExpert's `isPending`. Returns null when every
+   *  assigned expert has finished their step (author answered, awaiting reviewer). */
+  private derivePendingAssigneeId(
+    queue: (ObjectId | string)[] = [],
+    history: {answer?: unknown; status?: string}[] = [],
+  ): string | null {
+    if (!queue?.length) return null;
+    for (let i = 0; i < queue.length; i++) {
+      const ch = history?.[i];
+      const pending = i === 0 ? !ch || !ch.answer : !ch || ch.status === 'in-review';
+      if (pending) return queue[i]?.toString() ?? null;
+    }
+    return null;
+  }
+
+  private queueCropName(crop: unknown): string | undefined {
+    if (!crop) return undefined;
+    if (typeof crop === 'string') return crop;
+    if (typeof crop === 'object' && 'name' in (crop as any)) {
+      return (crop as any).name?.toString();
+    }
+    return undefined;
+  }
+
+  private rawToQueueItem(row: RawQueueQuestionRow): QueueQuestionItem {
+    return {
+      _id: row._id?.toString(),
+      question: row.question ?? '',
+      status: row.status ?? '',
+      source: row.source ?? '',
+      priority: row.priority,
+      createdAt: row.createdAt,
+      state: row.state,
+      district: row.district,
+      crop: this.queueCropName(row.crop),
+    };
+  }
+
+  /** Map a joined submission (with `.question`) into a lean question item. */
+  private submissionToQueueItem(sub: any): QueueQuestionItem {
+    const q = sub.question || {};
+    return {
+      _id: (q._id ?? sub.questionId)?.toString(),
+      question: q.question ?? '',
+      status: q.status ?? '',
+      source: q.source ?? '',
+      priority: q.priority,
+      createdAt: q.createdAt,
+      state: q.details?.state,
+      district: q.details?.district,
+      crop: this.queueCropName(q.details?.crop),
+    };
+  }
+
+  /** Resolve expert ids → display names in a single batched lookup. */
+  private async resolveExpertNames(ids: string[]): Promise<Map<string, string>> {
+    const map = new Map<string, string>();
+    const unique = [...new Set(ids.filter(Boolean))];
+    if (!unique.length) return map;
+    const users = await this.userRepo.getUsersByIds(unique);
+    for (const u of users) {
+      const name = `${(u as any).firstName ?? ''} ${(u as any).lastName ?? ''}`.trim();
+      map.set(u._id.toString(), name || (u as any).email || 'Unknown');
+    }
+    return map;
+  }
+
+  /** Server-side paginated single Queue-Details section: exact total `count`
+   *  plus only the requested page of `items` (default 50). Touches no allocation
+   *  state and reuses the same queries the reallocation cron relies on. */
+  async getQueueSection(
+    section: QueueSectionName,
+    page = 1,
+    limit = 50,
+    startTime?: Date,
+    endTime?: Date,
+  ): Promise<QueueSectionResult> {
+    const safePage = Math.max(1, Math.floor(page) || 1);
+    const safeLimit = Math.min(Math.max(1, Math.floor(limit) || 50), 200);
+    const skip = (safePage - 1) * safeLimit;
+
+    switch (section) {
+      case 'received':
+      case 'autoAllocateOff': {
+        const kind = section === 'received' ? 'received' : 'autoOff';
+        const {count, items} = await this.questionRepo.getQueueQuestionSection(
+          kind,
+          skip,
+          safeLimit,
+          startTime,
+          endTime,
+        );
+        return {count, items: items.map(r => this.rawToQueueItem(r))};
+      }
+
+      case 'allocated': {
+        const {count, items} = await this.questionRepo.getQueueQuestionSection(
+          'allocated',
+          skip,
+          safeLimit,
+          startTime,
+          endTime,
+        );
+        const byQuestion = new Map<string, string | null>();
+        const ids: string[] = [];
+        for (const r of items) {
+          const id = this.derivePendingAssigneeId(r.queue, r.history as any);
+          byQuestion.set(r._id?.toString() ?? '', id);
+          if (id) ids.push(id);
+        }
+        const names = await this.resolveExpertNames(ids);
+        return {
+          count,
+          items: items.map(r => {
+            const id = byQuestion.get(r._id?.toString() ?? '');
+            return {
+              ...this.rawToQueueItem(r),
+              expertName: id ? names.get(id) ?? 'Unknown' : undefined,
+            };
+          }),
+        };
+      }
+
+      case 'waiting': {
+        // Same method (and therefore the same number) the cron logs as
+        // "Never-allocated". No date filter / no DB-side limit — paginate the
+        // full list in memory so the count always matches the console.
+        const subs = (await this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions()) as any[];
+        const pageSubs = subs.slice(skip, skip + safeLimit);
+        return {count: subs.length, items: pageSubs.map(s => this.submissionToQueueItem(s))};
+      }
+
+      case 'freeExperts': {
+        const [allExperts, busyMap] = await Promise.all([
+          this.userRepo.findExpertsByReputationScore({} as any),
+          this.questionSubmissionRepo.getTimeBoundActiveCountPerExpert(),
+        ]);
+        // Free = experts with no active time-bound allocation. busyMap is the
+        // authoritative "currently holding pending work" set the cron uses.
+        const free = (allExperts as any[]).filter(e => !busyMap.has(e._id.toString()));
+        const items: QueueExpertItem[] = free.slice(skip, skip + safeLimit).map(e => ({
+          _id: e._id.toString(),
+          name: `${e.firstName ?? ''} ${e.lastName ?? ''}`.trim() || e.email || 'Unknown',
+          email: e.email,
+          reputationScore: e.reputation_score,
+          role: e.role,
+          isSpecialTaskForce: e.special_task_force === true,
+        }));
+        return {count: free.length, items};
+      }
+
+      case 'stuck': {
+        // Same method (and therefore the same number) the cron logs as "Stuck".
+        // No date filter so the count always matches the console.
+        const stuckSubs = (await this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation()) as any[];
+        const count = stuckSubs.length;
+        const pageSubs = stuckSubs.slice(skip, skip + safeLimit);
+        const byQuestion = new Map<string, string | null>();
+        const ids: string[] = [];
+        for (const sub of pageSubs) {
+          const id = this.deriveCurrentExpertId(sub.queue, sub.history);
+          const qId = (sub.question?._id ?? sub.questionId)?.toString() ?? '';
+          byQuestion.set(qId, id);
+          if (id) ids.push(id);
+        }
+        const names = await this.resolveExpertNames(ids);
+        const now = Date.now();
+        const items: QueueQuestionItem[] = pageSubs.map(sub => {
+          const item = this.submissionToQueueItem(sub);
+          const id = byQuestion.get(item._id ?? '');
+          const allocatedAt = sub.currentExpertAllocatedAt ?? null;
+          return {
+            ...item,
+            expertName: id ? names.get(id) ?? 'Unknown' : undefined,
+            allocatedAt,
+            minutesSinceAllocated: allocatedAt
+              ? Math.floor((now - new Date(allocatedAt).getTime()) / 60000)
+              : undefined,
+          };
+        });
+        return {count, items};
+      }
+
+      case 'needsReviewer': {
+        // Same method (and therefore the same number) the cron logs as
+        // "NeedReviewer": answered/reviewed questions still awaiting the next
+        // reviewer. No date filter so the count always matches the console.
+        const subs = (await this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer()) as any[];
+        const count = subs.length;
+        const pageSubs = subs.slice(skip, skip + safeLimit);
+        // Show who completed the last step (the author/reviewer in the last history entry).
+        const byQuestion = new Map<string, string | null>();
+        const ids: string[] = [];
+        for (const sub of pageSubs) {
+          const last = (sub.history ?? [])[sub.history?.length - 1];
+          const id = last?.updatedBy?.toString() ?? null;
+          const qId = (sub.question?._id ?? sub.questionId)?.toString() ?? '';
+          byQuestion.set(qId, id);
+          if (id) ids.push(id);
+        }
+        const names = await this.resolveExpertNames(ids);
+        const items: QueueQuestionItem[] = pageSubs.map(sub => {
+          const item = this.submissionToQueueItem(sub);
+          const id = byQuestion.get(item._id ?? '');
+          return {...item, expertName: id ? names.get(id) ?? 'Unknown' : undefined};
+        });
+        return {count, items};
+      }
+
+      case 'totalWork': {
+        // Everything the time-bound cron acts on: stuck + unallocated + needsReviewer,
+        // mirroring reallocateTimeBoundQuestions' `totalWork`. The date range is ignored
+        // (same as the cron) so this includes ALL such questions. Each item is tagged
+        // with its workType so the UI can show which bucket it came from.
+        const [stuckSubs, unallocatedSubs, reviewerSubs] = await Promise.all([
+          this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(),
+          this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(),
+          this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(),
+        ]);
+
+        type Tagged = {sub: any; workType: 'stuck' | 'unallocated' | 'needsReviewer'};
+        const tagged: Tagged[] = [
+          ...(stuckSubs as any[]).map(sub => ({sub, workType: 'stuck' as const})),
+          ...(unallocatedSubs as any[]).map(sub => ({sub, workType: 'unallocated' as const})),
+          ...(reviewerSubs as any[]).map(sub => ({sub, workType: 'needsReviewer' as const})),
+        ];
+
+        // Dedupe by questionId (the three states are mutually exclusive, but be safe).
+        const byId = new Map<string, Tagged>();
+        for (const t of tagged) {
+          const qid = (t.sub.questionId ?? t.sub._id)?.toString();
+          if (qid && !byId.has(qid)) byId.set(qid, t);
+        }
+
+        const all = Array.from(byId.values()).sort((a, b) => {
+          const at = new Date(a.sub.question?.createdAt ?? a.sub.createdAt ?? 0).getTime();
+          const bt = new Date(b.sub.question?.createdAt ?? b.sub.createdAt ?? 0).getTime();
+          return bt - at;
+        });
+
+        const count = all.length;
+        const pageSubs = all.slice(skip, skip + safeLimit);
+        const items: QueueQuestionItem[] = pageSubs.map(t => ({
+          ...this.submissionToQueueItem(t.sub),
+          workType: t.workType,
+        }));
+        return {count, items};
+      }
+
+      default:
+        return {count: 0, items: []};
+    }
+  }
+
+  /** Moderator/admin "Queue Details" — counts for all sections plus the first
+   *  page (50) of each. Subsequent pages are fetched via getQueueSection.
+   *  Touches no allocation state. The time-bound sections (waiting, stuck,
+   *  needsReviewer) ignore the date range so their counts match the cron logs. */
+  async getQueueDetails(startTime?: Date, endTime?: Date): Promise<QueueDetailsResponse> {
+    const PAGE = 1;
+    const LIMIT = 50;
+    const [received, autoAllocateOff, allocated, waiting, freeExperts, stuck, needsReviewer, totalWork] =
+      await Promise.all([
+        this.getQueueSection('received', PAGE, LIMIT, startTime, endTime),
+        this.getQueueSection('autoAllocateOff', PAGE, LIMIT, startTime, endTime),
+        this.getQueueSection('allocated', PAGE, LIMIT, startTime, endTime),
+        this.getQueueSection('waiting', PAGE, LIMIT, startTime, endTime),
+        this.getQueueSection('freeExperts', PAGE, LIMIT, startTime, endTime),
+        this.getQueueSection('stuck', PAGE, LIMIT, startTime, endTime),
+        this.getQueueSection('needsReviewer', PAGE, LIMIT, startTime, endTime),
+        this.getQueueSection('totalWork', PAGE, LIMIT, startTime, endTime),
+      ]);
+
+    return {
+      received: received as QueueDetailsResponse['received'],
+      autoAllocateOff: autoAllocateOff as QueueDetailsResponse['autoAllocateOff'],
+      allocated: allocated as QueueDetailsResponse['allocated'],
+      waiting: waiting as QueueDetailsResponse['waiting'],
+      freeExperts: freeExperts as QueueDetailsResponse['freeExperts'],
+      stuck: stuck as QueueDetailsResponse['stuck'],
+      needsReviewer: needsReviewer as QueueDetailsResponse['needsReviewer'],
+      totalWork: totalWork as QueueDetailsResponse['totalWork'],
+    };
   }
 }

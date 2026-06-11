@@ -6,21 +6,20 @@ import json
 import logging
 import re
 import uuid
-from typing import Any, Optional
+from typing import Any, NamedTuple, Optional
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig, patch_config
 
 from ajrasakha.agents.location_context import (
-    extract_location_updates_from_new_tool_messages,
-    extract_state_from_text,
-    gps_state_from_location,
-    has_gps_coordinates,
-    merge_location_dict,
     forward_geocode,
+    gps_state_from_location,
+    merge_location_dict,
 )
 from ajrasakha.agents.language import text_matches_user_language
 from ajrasakha.agents.config import resolve_question_source, resolve_thread_id
+from ajrasakha.agents.resolution_trace import trace_resolution, trace_thread_location
+from ajrasakha.agents.thread_trace import trace_event
 from ajrasakha.agents.domains import reviewer_upload_domain
 from ajrasakha.agents.state import AjraSakhaState, Location, PlannerPlan
 from ajrasakha.agents.retrieval_sanitizer import gdb_has_usable_answers
@@ -79,12 +78,78 @@ def _location_has_place(loc: Optional[Location]) -> bool:
 
 
 def _needs_location_resolve(loc: Optional[Location]) -> bool:
-    if not loc:
-        return False
-    lat, lon = loc.get("latitude"), loc.get("longitude")
-    if lat is None or lon is None:
-        return False
-    return not _location_has_place(loc)
+    """Disabled — do not reverse-geocode thread GPS into place names."""
+    return False
+    # if not loc:
+    #     return False
+    # lat, lon = loc.get("latitude"), loc.get("longitude")
+    # if lat is None or lon is None:
+    #     return False
+    # return not _location_has_place(loc)
+
+
+_PLACEHOLDER_STATES = frozenset({
+    "",
+    "not specified",
+    "unknown",
+    "all",
+    "none",
+    "general",
+})
+
+
+def _plan_only_location(plan: PlannerPlan) -> dict[str, Any]:
+    """Location dict for tool runtime config — plan entities only, no GPS coords."""
+    entities = plan.get("entities") or {}
+    out: dict[str, Any] = {}
+    state = entities.get("state")
+    district = entities.get("district")
+    if state and str(state).strip().lower() not in _PLACEHOLDER_STATES:
+        out["state"] = str(state).strip()
+    if district and str(district).strip().lower() not in _PLACEHOLDER_STATES:
+        out["city"] = str(district).strip()
+    return out
+
+
+async def _coords_from_plan_entities(
+    state_name: str,
+    district: str,
+) -> tuple[Optional[float], Optional[float], Optional[str]]:
+    """Forward-geocode plan state/district — never read lat/lon from thread GPS."""
+    if state_name.strip().lower() in _PLACEHOLDER_STATES:
+        return None, None, None
+    dist: Optional[str] = district
+    if not dist or dist.strip().lower() in _PLACEHOLDER_STATES:
+        dist = None
+    geocode_res = await forward_geocode(state_name, dist)
+    if not geocode_res:
+        trace_resolution(
+            "plan_entities_geocode",
+            state=state_name,
+            state_source="plan.entities",
+            district=district,
+            district_source="plan.entities",
+            latitude=None,
+            longitude=None,
+            lat_long_source="geocode_failed",
+        )
+        return None, None, None
+    trace_resolution(
+        "plan_entities_geocode",
+        state=geocode_res.get("state") or state_name,
+        state_source="nominatim_forward_geocode",
+        district=geocode_res.get("city") or district,
+        district_source="nominatim_forward_geocode",
+        latitude=geocode_res.get("latitude"),
+        longitude=geocode_res.get("longitude"),
+        lat_long_source="nominatim_forward_geocode",
+        address=geocode_res.get("address"),
+    )
+    return (
+        geocode_res.get("latitude"),
+        geocode_res.get("longitude"),
+        geocode_res.get("address"),
+    )
 
 
 def _entity_str(
@@ -95,28 +160,136 @@ def _entity_str(
     *,
     entity_text: str = "",
 ) -> str:
+    value, _source = _entity_with_source(plan, key, loc, default)
+    return value
+
+
+def _entity_with_source(
+    plan: PlannerPlan,
+    key: str,
+    loc: Optional[Location],
+    default: str,
+) -> tuple[str, str]:
     entities = plan.get("entities") or {}
-    
-    # State and District fallbacks are fully handled in planner_rules.py.
+    loc = loc or {}
+
     if key in {"state", "district"}:
         if key in entities:
             val = entities.get(key)
-            if val is None or str(val).strip() == "":
-                return default
-            return str(val).strip()
-    
+            if val is not None and str(val).strip() != "":
+                return str(val).strip(), f"plan.entities.{key}"
+
     val = entities.get(key) if isinstance(entities, dict) else None
-    if val:
-        return str(val).strip()
-    
-    if loc:
-        if loc.get(key):
-            return str(loc[key]).strip()
-    return default
+    if val and str(val).strip():
+        return str(val).strip(), f"plan.entities.{key}"
+
+    # Do not fall back to thread GPS / reverse-geocoded place names for state or
+    # district — only plan.entities (farmer text, LLM, clarify carry-over).
+    # if key in {"state", "district"}:
+    #     if loc.get(key) and str(loc[key]).strip():
+    #         return str(loc[key]).strip(), f"location.{key}"
+
+    return default, "default"
 
 
-def _reviewer_domain(plan: PlannerPlan) -> str:
-    return reviewer_upload_domain(plan.get("domain") or "General")
+class ResolvedToolEntities(NamedTuple):
+    state: str
+    district: str
+    crop: str
+    domain: str
+    state_source: str
+    district_source: str
+    crop_source: str
+    domain_source: str
+
+
+def _resolve_reviewer_location(
+    plan: PlannerPlan,
+    loc: Optional[Location],
+    *,
+    stage: str,
+) -> ResolvedToolEntities:
+    """Resolve state, district, crop, domain for reviewer/specialist tool calls."""
+    trace_thread_location(
+        f"{stage}_input",
+        loc,
+        plan_entities=plan.get("entities") or {},
+        note="thread GPS place names are NOT used for reviewer/specialist tools",
+    )
+
+    if plan.get("is_greeting") or plan.get("reasoning") == "greeting":
+        trace_resolution(
+            stage,
+            state="Not specified",
+            state_source="greeting (no location)",
+            district="all",
+            district_source="greeting (no location)",
+            crop="all",
+            crop_source="greeting_short_circuit",
+            domain="General",
+            domain_source="greeting_short_circuit",
+        )
+        return ResolvedToolEntities(
+            state="Not specified",
+            district="all",
+            crop="all",
+            domain=reviewer_upload_domain("General"),
+            state_source="greeting (no location)",
+            district_source="greeting (no location)",
+            crop_source="greeting_short_circuit",
+            domain_source="greeting_short_circuit",
+        )
+
+    loc = loc or {}
+    state_name, state_source = _entity_with_source(plan, "state", loc, "Not specified")
+    district, district_source = _entity_with_source(plan, "district", loc, "all")
+
+    # Do not infer district from GPS reverse-geocoded city — plan.entities only.
+    # if district in {"", "Not specified", "unknown"} and has_gps_coordinates(loc) and loc.get("city"):
+    #     district = str(loc["city"])
+    #     district_source = "location.city (gps_reverse_geocode)"
+    if district in {"", "Not specified", "unknown"} and state_name.lower() not in {
+        "",
+        "not specified",
+        "unknown",
+        "all",
+        "none",
+    }:
+        district = "all"
+        district_source = "default_all_when_state_known"
+
+    crop, crop_source = _entity_with_source(plan, "crop", loc, "General")
+    domain_raw = plan.get("domain") or "General"
+    domain = reviewer_upload_domain(domain_raw)
+    if domain != domain_raw:
+        domain_source = f"reviewer_upload_domain({domain_raw!r} -> {domain!r})"
+    else:
+        domain_source = "plan.domain"
+
+    trace_resolution(
+        stage,
+        state=state_name,
+        state_source=state_source,
+        district=district,
+        district_source=district_source,
+        crop=crop,
+        crop_source=crop_source,
+        domain=domain,
+        domain_source=domain_source,
+        latitude=None,
+        longitude=None,
+        lat_long_source="unset (GPS disabled; geocode from plan.entities later)",
+    )
+    return ResolvedToolEntities(
+        state=state_name,
+        district=district,
+        crop=crop,
+        domain=domain,
+        state_source=state_source,
+        district_source=district_source,
+        crop_source=crop_source,
+        domain_source=domain_source,
+    )
 
 
 def build_reviewer_upload_calls(
@@ -128,6 +301,7 @@ def build_reviewer_upload_calls(
     reviewer_tool_name: str,
     question_source: str | None = None,
     thread_id: str | None = None,
+    resolved: ResolvedToolEntities | None = None,
 ) -> list[dict[str, Any]]:
     """Location resolve (if needed) + upload_question_to_reviewer_system only."""
     if not (question_source and str(question_source).strip()):
@@ -135,30 +309,21 @@ def build_reviewer_upload_calls(
 
     calls: list[dict[str, Any]] = []
     loc = location or {}
-    entity_text = (plan.get("rephrased_query") or "").strip() or user_query
-    state_name = _entity_str(plan, "state", loc, "Not specified", entity_text=entity_text)
-    district = _entity_str(plan, "district", loc, "all", entity_text=entity_text)
-    if district in {"", "Not specified", "unknown"} and has_gps_coordinates(loc) and loc.get("city"):
-        district = str(loc["city"])
-    elif district in {"", "Not specified", "unknown"} and state_name.lower() not in {
-        "",
-        "not specified",
-        "unknown",
-        "all",
-        "none",
-    }:
-        district = "all"
-    crop = _entity_str(plan, "crop", loc, "General", entity_text=entity_text)
-    domain = _reviewer_domain(plan)
+    if resolved is None:
+        resolved = _resolve_reviewer_location(plan, loc, stage="reviewer_upload")
+    state_name = resolved.state
+    district = resolved.district
+    crop = resolved.crop
+    domain = resolved.domain
     reviewer_question = (plan.get("rephrased_query") or "").strip() or user_query
 
-    if _needs_location_resolve(loc):
-        calls.append({
-            "name": location_tool_name,
-            "args": {"latitude": loc["latitude"], "longitude": loc["longitude"]},
-            "id": _new_tool_call_id(),
-            "type": "tool_call",
-        })
+    # Do not call location_information_tool with thread GPS coordinates.
+    # if _needs_location_resolve(loc):
+    #     calls.append({
+    #         "name": location_tool_name,
+    #         "args": {"latitude": loc["latitude"], "longitude": loc["longitude"]},
+    #         ...
+    #     })
 
     if question_source and str(question_source).strip():
         reviewer_args: dict[str, Any] = {
@@ -176,6 +341,19 @@ def build_reviewer_upload_calls(
         }
         if thread_id and str(thread_id).strip():
             reviewer_args["thread_id"] = str(thread_id).strip()
+        trace_resolution(
+            "reviewer_upload_args",
+            state=state_name,
+            state_source=resolved.state_source,
+            district=district,
+            district_source=resolved.district_source,
+            crop=crop,
+            crop_source=resolved.crop_source,
+            domain=domain,
+            domain_source=resolved.domain_source,
+            question=reviewer_question[:200],
+            reviewer_args=reviewer_args,
+        )
         calls.append({
             "name": reviewer_tool_name,
             "args": reviewer_args,
@@ -209,20 +387,16 @@ async def build_tool_calls_from_plan(
     calls: list[dict[str, Any]] = []
     loc = location or {}
     entities = plan.get("entities") or {}
-    entity_text = (plan.get("rephrased_query") or "").strip() or user_query
-    state_name = _entity_str(plan, "state", loc, "Not specified", entity_text=entity_text)
-    district = _entity_str(plan, "district", loc, "all", entity_text=entity_text)
-    if district in {"", "Not specified", "unknown"} and has_gps_coordinates(loc) and loc.get("city"):
-        district = str(loc["city"])
-    elif district in {"", "Not specified", "unknown"} and state_name.lower() not in {
-        "",
-        "not specified",
-        "unknown",
-        "all",
-        "none",
-    }:
-        district = "all"
-    crop = _entity_str(plan, "crop", loc, "General", entity_text=entity_text)
+    trace_thread_location(
+        "build_tool_calls_input",
+        loc,
+        plan_entities=entities,
+        note="compare thread location vs plan.entities before resolving tool args",
+    )
+    resolved = _resolve_reviewer_location(plan, loc, stage="tool_call_batch")
+    state_name = resolved.state
+    district = resolved.district
+    crop = resolved.crop
 
     calls.extend(
         build_reviewer_upload_calls(
@@ -233,46 +407,59 @@ async def build_tool_calls_from_plan(
             reviewer_tool_name=reviewer_tool_name,
             question_source=question_source,
             thread_id=thread_id,
+            resolved=resolved,
         )
     )
 
-    lat = loc.get("latitude")
-    lon = loc.get("longitude")
-    addr = loc.get("address")
+    # Lat/lon only from forward-geocoding plan.entities — never thread GPS.
+    lat: Optional[float] = None
+    lon: Optional[float] = None
+    addr: Optional[str] = None
+    needs_coords = bool(
+        plan.get("weather") or plan.get("knowledge_base") or plan.get("soil")
+    )
+    if needs_coords and state_name.strip().lower() not in _PLACEHOLDER_STATES:
+        lat, lon, addr = await _coords_from_plan_entities(state_name, district)
+        if out_transient_location is not None and lat is not None and lon is not None:
+            out_transient_location["state"] = state_name
+            out_transient_location["city"] = district if district != "all" else None
+            out_transient_location["latitude"] = lat
+            out_transient_location["longitude"] = lon
+            out_transient_location["address"] = addr
 
     # Transient / Query-Specific Location resolving (e.g. Varanasi vs. Faridabad)
     is_custom_location = False
     home_state = gps_state_from_location(loc) or loc.get("state")
     home_city = loc.get("city")
-    
+
     curr_state_ent = entities.get("state")
     curr_dist_ent = entities.get("district")
-    
+
     if (lat is not None and lon is not None) or (home_state or home_city):
         if curr_state_ent and home_state and curr_state_ent.strip().lower() != home_state.strip().lower():
             is_custom_location = True
         elif curr_dist_ent and home_city and curr_dist_ent.strip().lower() != home_city.strip().lower() and curr_dist_ent.strip().lower() != "all":
             is_custom_location = True
-            
+
     if is_custom_location:
-        state_to_geocode = curr_state_ent if curr_state_ent else None
-        dist_to_geocode = district if district != "all" else None
-        
+        state_to_geocode = curr_state_ent if curr_state_ent and curr_state_ent.strip().lower() not in {"all", "not specified", "unknown"} else None
+        dist_to_geocode = district if district and district.strip().lower() not in {"all", "not specified", "unknown"} else None
+
         logger.info("build_tool_calls_from_plan: Geocoding custom transient location state=%s district=%s", state_to_geocode, dist_to_geocode)
         if out_transient_location is not None:
             out_transient_location["state"] = state_to_geocode
             out_transient_location["city"] = dist_to_geocode
-            
+
         custom_res = await forward_geocode(state_to_geocode, dist_to_geocode)
         if custom_res:
             lat = custom_res.get("latitude")
             lon = custom_res.get("longitude")
             addr = custom_res.get("address")
-            
+
             resolved_state = custom_res.get("state")
             if resolved_state:
                 state_name = resolved_state
-                
+
             if out_transient_location is not None:
                 out_transient_location["state"] = state_name
                 out_transient_location["latitude"] = lat
@@ -282,6 +469,20 @@ async def build_tool_calls_from_plan(
             lat = None
             lon = None
             addr = dist_to_geocode if dist_to_geocode else state_to_geocode
+
+    trace_resolution(
+        "specialist_tools_location",
+        state=state_name,
+        state_source="final_for_specialist_tools",
+        district=district,
+        district_source="final_for_specialist_tools",
+        crop=crop,
+        crop_source="final_for_specialist_tools",
+        latitude=lat,
+        longitude=lon,
+        lat_long_source="nominatim_forward_geocode" if lat is not None else "unset",
+        address=addr,
+    )
 
     if plan.get("weather"):
         calls.append({
@@ -390,6 +591,25 @@ async def build_tool_calls_from_plan(
             "type": "tool_call",
         })
 
+    specialist_calls = [
+        {"name": c.get("name"), "args": c.get("args")}
+        for c in calls
+        if c.get("name") not in {reviewer_tool_name, location_tool_name}
+        and "upload_question" not in str(c.get("name", ""))
+    ]
+    if specialist_calls:
+        trace_resolution(
+            "specialist_tool_args",
+            specialist_calls=specialist_calls,
+            state=state_name,
+            state_source=resolved.state_source,
+            district=district,
+            district_source=resolved.district_source,
+            latitude=lat,
+            longitude=lon,
+            lat_long_source="nominatim_forward_geocode" if lat is not None else "unset",
+        )
+
     return calls
 
 
@@ -439,42 +659,71 @@ async def ensure_location_node(
     plan = state.get("plan") or {}
     entities = plan.get("entities") or {}
 
-    # Scenario 1: Coordinates exist but place names do not (Reverse Geocoding)
-    if _needs_location_resolve(loc):
-        location_tool = await get_location_tool()
-        tool_node = await get_main_tool_node()
-        ai_msg = AIMessage(
-            content="",
-            tool_calls=[{
-                "name": location_tool.name,
-                "args": {"latitude": loc["latitude"], "longitude": loc["longitude"]},
-                "id": _new_tool_call_id(),
-                "type": "tool_call",
-            }],
-        )
-        exec_state = {**state, "messages": list(state.get("messages") or []) + [ai_msg]}
-        merged_configurable = dict((config.get("configurable") or {}))
-        merged_configurable["location"] = loc
-        enriched = patch_config(config, configurable=merged_configurable)
-        result = await tool_node.ainvoke(exec_state, config=enriched)
-        new_msgs = result.get("messages") or []
-        updates = extract_location_updates_from_new_tool_messages(new_msgs, loc)
-        merged_loc = merge_location_dict(loc, updates) if updates else loc
-        return {"messages": new_msgs, "location": merged_loc}
+    trace_thread_location(
+        "ensure_location_input",
+        loc,
+        plan_entities=entities,
+        note="reverse-geocode from GPS disabled; forward-geocode only when plan.entities has state/district",
+    )
 
-    # Scenario 2: Coordinates are missing, but state/district exist in plan entities (Home Location registration)
-    lat = loc.get("latitude")
-    lon = loc.get("longitude")
+    # Scenario 1 (disabled): do not reverse-geocode thread GPS.
+    # if _needs_location_resolve(loc): ...
+
+    # Forward-geocode plan.entities when state/district are known (never use thread GPS).
     state_resolved = entities.get("state")
     district_resolved = entities.get("district")
 
-    if (lat is None or lon is None) and (state_resolved or district_resolved):
-        logger.info("ensure_location_node: Geocoding home location for state=%s district=%s", state_resolved, district_resolved)
+    if state_resolved and state_resolved.strip().lower() in {"all", "not specified", "unknown", "general", "none"}:
+        state_resolved = None
+    if district_resolved and district_resolved.strip().lower() in {"all", "not specified", "unknown", "general", "none"}:
+        district_resolved = None
+
+    if state_resolved or district_resolved:
+        logger.info(
+            "ensure_location_node: Geocoding home location for state=%s district=%s",
+            state_resolved,
+            district_resolved,
+        )
+        trace_resolution(
+            "ensure_location_forward_geocode",
+            state=state_resolved,
+            state_source="plan.entities.state",
+            district=district_resolved,
+            district_source="plan.entities.district",
+            latitude=None,
+            longitude=None,
+            lat_long_source="forward_geocode_pending (GPS not used)",
+        )
         geocode_res = await forward_geocode(state_resolved, district_resolved)
         if geocode_res:
-            merged_loc = merge_location_dict(loc, geocode_res)
+            # Merge geocode result; do not retain client GPS coords on thread location.
+            base = {k: v for k, v in (loc or {}).items() if k not in ("latitude", "longitude")}
+            merged_loc = merge_location_dict(base, geocode_res)
+            trace_resolution(
+                "ensure_location_forward_geocode_result",
+                state=merged_loc.get("state"),
+                state_source="nominatim_forward_geocode",
+                district=merged_loc.get("city"),
+                district_source="nominatim_forward_geocode",
+                latitude=merged_loc.get("latitude"),
+                longitude=merged_loc.get("longitude"),
+                lat_long_source="nominatim_forward_geocode",
+                address=merged_loc.get("address"),
+            )
             return {"location": merged_loc}
+        trace_resolution(
+            "ensure_location_forward_geocode_result",
+            state=state_resolved,
+            state_source="geocode_failed",
+            district=district_resolved,
+            district_source="geocode_failed",
+        )
+        return {}
 
+    trace_resolution(
+        "ensure_location_skip",
+        note="no forward-geocode — plan.entities missing state and district",
+    )
     return {}
 
 
@@ -513,7 +762,9 @@ async def upload_reviewer_only_node(
     tool_node = await get_main_tool_node()
     ai_msg = AIMessage(content="", tool_calls=tool_calls)
     exec_state = {**state, "messages": list(messages) + [ai_msg]}
-    enriched = patch_config(config, configurable=dict((config.get("configurable") or {})))
+    merged_configurable = dict((config.get("configurable") or {}))
+    merged_configurable["location"] = _plan_only_location(plan)
+    enriched = patch_config(config, configurable=merged_configurable)
 
     result = await tool_node.ainvoke(exec_state, config=enriched)
     new_msgs = result.get("messages") or []
@@ -537,6 +788,14 @@ async def execute_plan_node(
     user_query = _last_human_text(messages)
     loc = state.get("location")
 
+    trace_thread_location(
+        "execute_plan_input",
+        loc,
+        plan_entities=plan.get("entities") or {},
+        is_greeting=plan.get("is_greeting"),
+        plan_reasoning=plan.get("reasoning"),
+    )
+
     location_tool = await get_location_tool()
     reviewer_tool = await get_reviewer_tool()
     question_source = resolve_question_source(config)
@@ -555,12 +814,19 @@ async def execute_plan_node(
     if not tool_calls:
         return {}
 
+    trace_event(
+        "execute_plan_tool_calls",
+        tools=[{"name": tc.get("name"), "args": tc.get("args")} for tc in tool_calls],
+    )
+
     tool_node = await get_main_tool_node()
     ai_msg = AIMessage(content="", tool_calls=tool_calls)
     exec_state = {**state, "messages": list(messages) + [ai_msg]}
 
     merged_configurable = dict((config.get("configurable") or {}))
-    merged_configurable["location"] = transient_loc if transient_loc else loc
+    merged_configurable["location"] = (
+        transient_loc if transient_loc else _plan_only_location(plan)
+    )
     enriched = patch_config(config, configurable=merged_configurable)
 
     result = await tool_node.ainvoke(exec_state, config=enriched)
@@ -603,7 +869,9 @@ async def execute_plan_node(
         if chem_only:
             ai2 = AIMessage(content="", tool_calls=chem_only)
             exec2 = {**state, "messages": list(messages) + [ai_msg] + new_msgs + [ai2]}
-            loc_for_enriched2 = transient_loc2 if transient_loc2 else merged_loc
+            loc_for_enriched2 = (
+                transient_loc2 if transient_loc2 else _plan_only_location(plan)
+            )
             enriched2 = patch_config(enriched, configurable={**merged_configurable, "location": loc_for_enriched2})
             result2 = await tool_node.ainvoke(exec2, config=enriched2)
             new_msgs = (result2.get("messages") or [])[-len(chem_only):]

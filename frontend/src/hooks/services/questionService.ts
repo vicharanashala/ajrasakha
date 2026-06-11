@@ -20,6 +20,47 @@ import { auth } from "@/config/firebase";
 import { getIdToken } from "firebase/auth";
 
 const API_BASE_URL = env.apiBaseUrl();
+
+export type QueueQuestionItem = {
+  _id: string;
+  question: string;
+  status: string;
+  source: string;
+  priority?: string;
+  createdAt?: string;
+  state?: string;
+  district?: string;
+  crop?: string;
+  expertName?: string;
+  allocatedAt?: string | null;
+  minutesSinceAllocated?: number;
+  workType?: "stuck" | "unallocated" | "needsReviewer";
+};
+
+export type QueueExpertItem = {
+  _id: string;
+  name: string;
+  email?: string;
+  reputationScore?: number;
+  role?: string;
+  isSpecialTaskForce?: boolean;
+};
+
+export type QueueSectionResponse = {
+  count: number;
+  items: (QueueQuestionItem | QueueExpertItem)[];
+};
+
+export type QueueDetailsResponse = {
+  received: { count: number; items: QueueQuestionItem[] };
+  autoAllocateOff: { count: number; items: QueueQuestionItem[] };
+  allocated: { count: number; items: QueueQuestionItem[] };
+  waiting: { count: number; items: QueueQuestionItem[] };
+  freeExperts: { count: number; items: QueueExpertItem[] };
+  stuck: { count: number; items: QueueQuestionItem[] };
+  needsReviewer: { count: number; items: QueueQuestionItem[] };
+  totalWork: { count: number; items: QueueQuestionItem[] };
+};
 export class QuestionService {
   private _baseUrl = `${API_BASE_URL}/questions`;
   private _reRouteUrl = `${API_BASE_URL}/reroute`;
@@ -810,6 +851,46 @@ export class QuestionService {
     }>(`${this._baseUrl}/status-summary?${params.toString()}`, {
       method: "POST",
       body: JSON.stringify(requestBody),
+    });
+    return res?.data ?? null;
+  }
+
+  async getQueueDetails(startTime?: Date, endTime?: Date): Promise<QueueDetailsResponse | null> {
+    const params = new URLSearchParams();
+    if (startTime) {
+      params.append("startTime", startTime.toISOString());
+    }
+    if (endTime) {
+      params.append("endTime", endTime.toISOString());
+    }
+    const queryString = params.toString();
+    const res = await apiFetch<{
+      success: boolean;
+      data: QueueDetailsResponse;
+    }>(`${this._baseUrl}/queue-details${queryString ? `?${queryString}` : ""}`, {
+      method: "GET",
+    });
+    return res?.data ?? null;
+  }
+
+  async getQueueSection(
+    section: string,
+    page: number,
+    limit: number,
+    startTime?: Date,
+    endTime?: Date,
+  ): Promise<QueueSectionResponse | null> {
+    const params = new URLSearchParams();
+    params.append("section", section);
+    params.append("page", String(page));
+    params.append("limit", String(limit));
+    if (startTime) params.append("startTime", startTime.toISOString());
+    if (endTime) params.append("endTime", endTime.toISOString());
+    const res = await apiFetch<{
+      success: boolean;
+      data: QueueSectionResponse;
+    }>(`${this._baseUrl}/queue-details?${params.toString()}`, {
+      method: "GET",
     });
     return res?.data ?? null;
   }

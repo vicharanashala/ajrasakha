@@ -13,6 +13,8 @@ from ajrasakha.agents.answer_body import (
     format_non_gdb_tool_results,
     gdb_answer_body,
 )
+from ajrasakha.agents.llm_trace import trace_llm_request, trace_llm_response
+from ajrasakha.agents.thread_trace import trace_event
 from ajrasakha.agents.plan_executor import (
     _gdb_has_usable_data,
     _turn_has_specialist_tool_message,
@@ -71,9 +73,16 @@ async def assemble_answer_body_node(
             HumanMessage(content=f"Farmer's greeting (vocal={vocal_lang}, script={script_lang}):\n{user_text}")
         ]
         try:
+            trace_llm_request(
+                "greeting_synthesis",
+                model=SYNTHESIZE_MODEL,
+                messages=llm_messages,
+                vocal_language=vocal_lang,
+                script_language=script_lang,
+            )
             llm = ChatAnthropic(model=SYNTHESIZE_MODEL)
             response = await llm.ainvoke(llm_messages, config=config)
-            
+
             # Simple content extraction
             content = response.content
             answer_text = ""
@@ -92,6 +101,12 @@ async def assemble_answer_body_node(
             else:
                 answer_text = str(content).strip()
                 
+            trace_llm_response(
+                "greeting_synthesis",
+                output=answer_text,
+                vocal_language=vocal_lang,
+                script_language=script_lang,
+            )
             logger.info("Greeting synthesis complete (len=%d)", len(answer_text))
             return {
                 "messages": [AIMessage(content=answer_text)],
@@ -122,6 +137,13 @@ async def assemble_answer_body_node(
             logger.info("assemble_answer_body: empty GDB answer — empty_gdb path")
             return defer_empty_gdb_to_translate(state, plan=plan)
 
+        trace_event(
+            "assemble_answer_body_gdb",
+            is_exact=gdb_data.get("is_exact"),
+            is_similar=gdb_data.get("is_similar"),
+            body_preview=body[:1500],
+            body_len=len(body),
+        )
         logger.info(
             "assemble_answer_body: GDB %s answer (len=%d)",
             "exact" if gdb_data.get("is_exact") else "similar",

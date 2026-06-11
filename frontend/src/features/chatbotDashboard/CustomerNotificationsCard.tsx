@@ -26,6 +26,8 @@ import { format } from "date-fns";
 
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/atoms/skeleton";
+import { useState } from "react";
+import { QueryCategoryQuestionsModal } from "./components/QueryCategoryQuestionsModal";
 
 type CustomerNotificationsCardProps = {
   notified: number;
@@ -34,6 +36,11 @@ type CustomerNotificationsCardProps = {
   dateRange?: DateRange;
   onDateRangeChange?: (range: DateRange | undefined) => void;
   isLoading?: boolean;
+  isFetching?: boolean;
+  source?: "vicharanashala" | "annam" | "whatsapp";
+  userType: string;
+  /** Callback to notify parent to refresh all related cards in the row */
+  onRefresh?: () => void;
 };
 
 export function CustomerNotificationsCard({
@@ -43,6 +50,10 @@ export function CustomerNotificationsCard({
   dateRange,
   onDateRangeChange,
   isLoading,
+  isFetching,
+  source = "annam",
+  userType,
+  onRefresh,
 }: CustomerNotificationsCardProps) {
   const safeNotified = notified ?? 0;
   const safeNotNotified = notNotified ?? 0;
@@ -56,6 +67,12 @@ export function CustomerNotificationsCard({
       : 0;
   const untrackedPct =
     totalClosedQuestions > 0 ? (safeUntracked / totalClosedQuestions) * 100 : 0;
+
+  const [notificationType, setNotificationType] = useState<string | null>(null);
+
+  const handleClick = (notification: string) => {
+    setNotificationType(notification);
+  };
 
   return (
     <motion.div
@@ -189,9 +206,8 @@ export function CustomerNotificationsCard({
                 initial="hidden"
                 animate="visible"
               >
-               
                 <motion.div
-                  className="flex flex-1 flex-col"
+                  className="flex flex-1 flex-col hover:cursor-pointer"
                   variants={{
                     hidden: { opacity: 0, y: 12, scale: 0.9 },
                     visible: {
@@ -205,6 +221,7 @@ export function CustomerNotificationsCard({
                       },
                     },
                   }}
+                  onClick={() => handleClick("notified")}
                 >
                   <span className="text-xs text-muted-foreground">
                     Notified
@@ -236,7 +253,10 @@ export function CustomerNotificationsCard({
                 </motion.div>
 
                 {/* Not Notified */}
-                <motion.div className="flex flex-1 flex-col">
+                <motion.div
+                  className="flex flex-1 flex-col hover:cursor-pointer"
+                  onClick={() => handleClick("not-notified")}
+                >
                   <span className="text-xs text-muted-foreground">
                     Not Notified
                   </span>
@@ -270,7 +290,10 @@ export function CustomerNotificationsCard({
                 </motion.div>
 
                 {/* Untracked */}
-                <motion.div className="flex flex-1 flex-col">
+                <motion.div
+                  className="flex flex-1 flex-col hover:cursor-pointer"
+                  onClick={() => handleClick("untracked")}
+                >
                   <span className="text-xs text-muted-foreground">
                     Untracked
                   </span>
@@ -300,13 +323,21 @@ export function CustomerNotificationsCard({
                 </motion.div>
               </motion.div>
 
-              <div className="mb-3 h-px w-full bg-gradient-to-r " >
-
-              </div>
+              <div className="mb-3 h-px w-full bg-gradient-to-r "></div>
             </>
           )}
         </CardHeader>
       </Card>
+      {notificationType && (
+        <QueryCategoryQuestionsModal
+          notificationType={notificationType}
+          source={source}
+          userType={userType}
+          startDate={dateRange?.from}
+          endDate={dateRange?.to}
+          onClose={() => setNotificationType(null)}
+        />
+      )}
     </motion.div>
   );
 }

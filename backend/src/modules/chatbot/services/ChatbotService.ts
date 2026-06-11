@@ -917,11 +917,12 @@ export class ChatbotService extends BaseService implements IChatbotService {
     inactiveOnly = false,
     lowFeedbackOnly = false,
     userType = 'all',
+    roles = '',
     sortBy = 'totalQuestions',
     sortOrder = 'desc',
     activeTodayByProfile = false,
     missingDemographicField?: string,
-    isVerified = true,
+    isVerified?: boolean,
   ): Promise<PaginatedUserDetails> {
     try {
       const start = startDate ? new Date(startDate) : undefined;
@@ -944,6 +945,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         inactiveOnly,
         undefined,
         userType,
+        roles,
         sortBy,
         sortOrder,
         lowFeedbackOnly,
@@ -991,6 +993,12 @@ export class ChatbotService extends BaseService implements IChatbotService {
       };
     }
 
+    const threadIds =
+  await this.chatbotRepository.getUserConversationIds(
+    user.userId,
+    source,
+  );
+
     // Extract messageIds
     const messageIds = await this.chatbotRepository.getAllUserMessageIds(
       userEmail,
@@ -1014,7 +1022,11 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
     // Fetch questions using messageIds
     const questions = await this.chatbotRepository.getUserQuestionsData(
+        {
+      threadIds,
       messageIds,
+      userId: user.userId,
+    },
       source,
       userType,
       page,
@@ -1554,7 +1566,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
       // FETCH REPORT DATA
       // ─────────────────────────────────────────────────────────────
 
-      console.log('State', state);
 
       const reportData = await this.chatbotRepository.generateChatBotData(
         startDate,
@@ -1568,7 +1579,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
       if (!reportData) return null;
 
-      console.log('Excel Report', reportData);
 
       // ─────────────────────────────────────────────────────────────
       // WORKBOOK SETUP
@@ -2088,7 +2098,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
     month?: string,
   ): Promise<Buffer> {
     try {
-      console.log('PDF report generated with state', state);
       const reportData = await this.chatbotRepository.generateChatBotData(
         startDate,
         endDate,
@@ -2099,7 +2108,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
         state,
       );
 
-      console.log('reportDate', reportData);
 
       // const inactiveUsers = await this.getInactiveUsers()
       // console.log("Inactive users list", inactiveUsers);
@@ -2269,6 +2277,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getGrowth(
     source: string,
+    userType: string,
     range: number,
     startDate?: Date,
     endDate?: Date,
@@ -2290,16 +2299,19 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
       const [idsData, installsData, activeUsersData] = await Promise.all([
         this.chatbotRepository.getIdsCreated(
+          userType,
           resolvedStartDate,
           resolvedEndDate,
           session,
         ),
         this.chatbotRepository.getInstalls(
+          userType,
           resolvedStartDate,
           resolvedEndDate,
           session,
         ),
         this.chatbotRepository.getActiveUsers(
+          userType,
           resolvedStartDate,
           resolvedEndDate,
           session,
@@ -2429,12 +2441,14 @@ export class ChatbotService extends BaseService implements IChatbotService {
     userId: string,
     source: string,
     newPassword: string,
+    keepLoggedIn: boolean,
   ): Promise<boolean> {
     try {
       return await this.chatbotRepository.changeUserPassword(
         userId,
         source,
         newPassword,
+        keepLoggedIn,
       );
     } catch (error) {
       if (error instanceof BadRequestError || error instanceof NotFoundError) {
@@ -2451,6 +2465,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       name: string;
       password: string;
       userRole?: string;
+      isVerified?: boolean;
     },
   ): Promise<boolean> {
     try {
@@ -2600,7 +2615,6 @@ export class ChatbotService extends BaseService implements IChatbotService {
     message: string,
   ): Promise<any> {
     const user = await this.chatbotRepository.getUserData(userEmail, 'annam');
-    console.log('User id for notification', user.userId);
     const webhookPayload = {
       customMessage: message,
       userId: user.userId.toString(),
@@ -2794,7 +2808,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async verifyUser(userId: string, source = 'annam'): Promise<any> {
+  async verifyUser(userId: string, source = 'vicharanashala',  isVerified?: boolean,  ): Promise<any> {
     try {
       if (!userId) {
         throw new NotFoundError('User ID is required');
@@ -2803,6 +2817,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       const updatedUser = await this.chatbotRepository.verifyUser(
         userId,
         source,
+        isVerified,
       );
 
       if (!updatedUser) {
@@ -2863,20 +2878,99 @@ export class ChatbotService extends BaseService implements IChatbotService {
       }));
   }
 
-  async getQuestionsByCrop(crop: string, questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, userType?: string, search?: string): Promise<any> {
-    try{
-      return this.chatbotRepository.getQuestionsByCrop( 
+  async getQuestionsByCrop(
+    crop: string,
+    crops?: string[],
+    questionType?: QueryCategoryQuestionType,
+    page?: number,
+    limit?: number,
+    source?: string,
+    userType?: string,
+    search?: string,
+  ): Promise<any> {
+    try {
+      return this.chatbotRepository.getQuestionsByCrop(
         crop,
+        crops,
         questionType,
         page,
         limit,
         source,
         undefined,
         userType,
-        search
+        search,
+      );
+    } catch (error) {
+      throw new InternalServerError(`Internal server error ${error}`);
+    }
+  }
+
+  async getQuestionsByStatus(
+    status: string,
+    page?: number,
+    limit?: number,
+    source?: string,
+    userType?: string,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<any> {
+    try {
+      return this.chatbotRepository.getQuestionsByStatus(
+        status,
+        page,
+        limit,
+        source,
+        undefined,
+        userType,
+        search,
+        startDate,
+        endDate,
+      );
+    } catch (error) {
+      throw new InternalServerError(`Internal server error ${error}`);
+    }
+  }
+
+  async getQuestionsClosedWithinTwoHours(page?: number, limit?: number, source?: string, userType?: string, search?: string, startDate?: Date, endDate?: Date): Promise<any> {
+    try {
+      return this.chatbotRepository.getQuestionsClosedWithinTwoHours(
+        page,
+        limit,
+        source,
+        undefined,
+        userType,
+        search,
+        startDate,
+        endDate
       )
     }catch(error){
       throw new InternalServerError(`Internal server error ${error}`)
+    }
+  }
+  async getQuestionsByNotificationStatus(notificationType: string, page: number, limit: number, source: string, userType?: string, search?: string, startDate?: Date, endDate?: Date): Promise<any> {
+      try {
+      return this.chatbotRepository.getQuestionsByNotificationStatus(
+        notificationType,
+        page,
+        limit,
+        source,
+        undefined,
+        userType,
+        search,
+        startDate,
+        endDate
+      )
+    }catch(error){
+      throw new InternalServerError(`Internal server error ${error}`)
+    }
+  }
+
+  async getQueriesByPeriod(period: string, page: number, limit: number, source: string, userType?: string, search?: string): Promise<any> {
+    try{
+      return this.chatbotRepository.getQueriesByPeriod(period, page, limit, source, undefined, userType, search)
+    }catch(error){
+      throw new InternalServerError(`Internal Server Error ${error}`)
     }
   }
 }

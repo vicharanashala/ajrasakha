@@ -150,8 +150,13 @@ export const IncomingCallBox = ({
     const endpointUsername = env.plivo.endpointUsername();
     const endpointPassword = env.plivo.endpointPassword();
 
-    if (endpointUsername?.includes('dummy') || endpointPassword?.includes('dummy')) {
-      console.warn('⚠️ Plivo credentials not configured (using dummy values). Skipping Plivo initialization.');
+    if (
+      endpointUsername?.includes("dummy") ||
+      endpointPassword?.includes("dummy")
+    ) {
+      console.warn(
+        "⚠️ Plivo credentials not configured (using dummy values). Skipping Plivo initialization.",
+      );
       return;
     }
 

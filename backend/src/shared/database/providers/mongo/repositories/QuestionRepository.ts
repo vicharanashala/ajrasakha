@@ -53,6 +53,10 @@ import {
 } from '#root/modules/question/classes/validators/QuestionVaidators.js';
 import {buildReviewTimeline} from '#root/utils/buildReviewTat.js';
 import {getShiftFilter} from '#root/utils/date.utils.js';
+import {
+  QueueQuestionData,
+  RawQueueQuestionRow,
+} from '#root/modules/question/interfaces/IQuestionService.js';
 
 const VECTOR_INDEX_NAME = 'questions_vector_index';
 const EMBEDDING_FIELD = 'embedding';
@@ -451,14 +455,14 @@ export class QuestionRepository implements IQuestionRepository {
       caseInsensitiveStringFilter('source', source);
       caseInsensitiveStringFilter('priority', priority);
 
-      // --- Non-Agri tab filter ---
+      // --- Non-Agri / Dynamic tab filter ---
       // When on Non-Agri tab → only show non_agri questions.
-      // On any OTHER tab (and no explicit status filter) → exclude non_agri questions
-      // so they don't leak into AJRASAKHA / WhatsApp / Outreach / Manual tabs.
+      // On any OTHER tab (and no explicit status filter) → exclude non_agri and dynamic.
+      // Dynamic tab sends status=dynamic via caseInsensitiveStringFilter above.
       if (is_non_agri === 'true' || is_non_agri === true) {
         filter.status = 'non_agri';
       } else if (filter.status === undefined) {
-        filter.status = {$ne: 'non_agri'};
+        filter.status = {$nin: ['non_agri', 'dynamic']};
       }
       // --- State filter (from body array) ---
       if (body?.states && body.states.length > 0) {
@@ -5455,11 +5459,11 @@ export class QuestionRepository implements IQuestionRepository {
       filter.$or = [{pae_review: {$eq: false}}, {pae_review: {$exists: false}}];
     }
 
-    // Apply is_non_agri filter exactly matching findDetailedQuestions logic
+    // Apply is_non_agri / dynamic filter exactly matching findDetailedQuestions logic
     if (query.is_non_agri === 'true' || query.is_non_agri === true) {
-      filter.status = 'non_agri';
+     // filter.status = 'non_agri';
     } else if (filter.status === undefined) {
-      filter.status = {$ne: 'non_agri'};
+     // filter.status = {$nin: ['non_agri', 'dynamic']};
     }
 
     // Apply isOnHold filter exactly matching findDetailedQuestions logic
@@ -6433,5 +6437,165 @@ export class QuestionRepository implements IQuestionRepository {
       ...item,
       userId: item.userId.toString(),
     }));
+  }
+
+  /** One page (skip/limit) + exact total for a Queue-Details question section.
+   *  kind: 'received' | 'allocated' | 'autoOff'. Status scope: open/delayed/duplicate.
+   *  Optional createdAt range (startTime/endTime) scopes every kind by date. */
+  async getQueueQuestionSection(
+    kind: 'received' | 'allocated' | 'autoOff',
+    skip: number,
+    limit: number,
+    startTime?: Date,
+    endTime?: Date,
+  ): Promise<{count: number; items: RawQueueQuestionRow[]}> {
+    await this.init();
+
+    // Optional createdAt date-range filter applied to all kinds.
+    const createdAtFilter: Record<string, unknown> = {};
+    if (startTime) createdAtFilter.$gte = startTime;
+    if (endTime) createdAtFilter.$lte = endTime;
+    const dateScope = startTime || endTime ? {createdAt: createdAtFilter} : {};
+
+    const receivedMatch = {
+      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+     // isAutoAllocate: true,
+    //  status: {$in: ['open', 'delayed', 'duplicate']},
+      ...dateScope,
+    };
+    const allocatedMatch = {
+      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+      isAutoAllocate: {$eq: true},
+     // firstAllocationAt: {$exists: true, $ne: null},
+      status: {$in: ['open', 'delayed']},
+      ...dateScope,
+    };
+    const autoOffMatch = {
+      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+      isAutoAllocate: {$eq: true},
+      status: {$in: ['open', 'delayed']},
+      ...dateScope,
+    };
+
+    const lookupStages = [
+      {
+        $lookup: {
+          from: 'question_submissions',
+          localField: '_id',
+          foreignField: 'questionId',
+          as: 'sub',
+        },
+      },
+      {$addFields: {sub: {$arrayElemAt: ['$sub', 0]}}},
+    ];
+    const projectStage = {
+      $project: {
+        _id: 1,
+        question: 1,
+        status: 1,
+        source: 1,
+        priority: 1,
+        createdAt: 1,
+        firstAllocationAt: 1,
+        state: '$details.state',
+        district: '$details.district',
+        crop: '$details.crop',
+        queue: '$sub.queue',
+        history: '$sub.history',
+      },
+    };
+
+    if (kind === 'allocated') {
+      // Allocated & pending: the question is open/delayed and assigned
+      // (firstAllocationAt set), and the CURRENT expert hasn't acted yet — i.e. the
+      // latest history entry carries none of answer / approvedAnswer / modifiedAnswer
+      // / rejectedAnswer (typically a fresh 'in-review' entry). Earlier entries from
+      // prior reviewers may well have answers; only the last entry is checked. An
+      // empty history (just allocated, no entry yet) also qualifies.
+      const base: any[] = [
+        {$match: allocatedMatch},
+        ...lookupStages,
+        {$addFields: {lastHistory: {$arrayElemAt: [{$ifNull: ['$sub.history', []]}, -1]}}},
+        {
+          $match: {
+            'lastHistory.answer': {$in: [null]},
+            'lastHistory.approvedAnswer': {$in: [null]},
+            'lastHistory.modifiedAnswer': {$in: [null]},
+            'lastHistory.rejectedAnswer': {$in: [null]},
+          },
+        },
+      ];
+      const [items, countRes] = await Promise.all([
+        this.QuestionCollection.aggregate<RawQueueQuestionRow>([
+          ...base,
+          {$sort: {createdAt: -1}},
+          {$skip: skip},
+          {$limit: limit},
+          projectStage,
+        ]).toArray(),
+        this.QuestionCollection.aggregate<{count: number}>([
+          ...base,
+          {$count: 'count'},
+        ]).toArray(),
+      ]);
+      return {count: countRes[0]?.count ?? 0, items};
+    }
+
+    const match = kind === 'received' ? receivedMatch : autoOffMatch;
+    const [count, items] = await Promise.all([
+      this.QuestionCollection.countDocuments(match as any),
+      this.QuestionCollection.aggregate<RawQueueQuestionRow>([
+        {$match: match},
+        {$sort: {createdAt: -1}},
+        {$skip: skip},
+        {$limit: limit},
+        ...lookupStages,
+        projectStage,
+      ]).toArray(),
+    ]);
+   /* console.log(
+      `[getQueueQuestionSection] kind=${kind} count=${count} ` +
+      `startTime=${startTime?.toISOString() ?? 'none'} endTime=${endTime?.toISOString() ?? 'none'} ` +
+      `match=${JSON.stringify(match)}`,
+    );*/
+
+    // Why the "Auto-Allocate ON" count differs from the never-allocated queue:
+    // split the matched set by allocation state. Only (queueEmpty && !hasAllocatedAt)
+    // questions actually qualify for the never-allocated queue; the rest are already
+    // allocated/in-progress or stuck in limbo (allocatedAt set but queue cleared).
+    if (kind === 'autoOff') {
+      const breakdown = await this.QuestionCollection.aggregate([
+        {$match: match},
+        {
+          $lookup: {
+            from: 'question_submissions',
+            localField: '_id',
+            foreignField: 'questionId',
+            as: 'sub',
+          },
+        },
+        {$addFields: {sub: {$arrayElemAt: ['$sub', 0]}}},
+        {
+          $addFields: {
+            queueEmpty: {$eq: [{$size: {$ifNull: ['$sub.queue', []]}}, 0]},
+            hasAllocatedAt: {
+              $cond: [{$ifNull: ['$sub.currentExpertAllocatedAt', false]}, true, false],
+            },
+          },
+        },
+        {
+          $group: {
+            _id: {queueEmpty: '$queueEmpty', hasAllocatedAt: '$hasAllocatedAt'},
+            count: {$sum: 1},
+          },
+        },
+      ]).toArray();
+     /* console.log(
+        '[getQueueQuestionSection][autoOff breakdown] (queueEmpty & !hasAllocatedAt = never-allocated queue):',
+        JSON.stringify(breakdown),
+      );*/
+    }
+
+    return {count, items};
   }
 }

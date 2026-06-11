@@ -73,6 +73,7 @@ import {
 import ViewDropdown from "../questions/components/ViewDropdown";
 import DownloadLevelWiseReportButton from "./DownloadLevelWiseReportButton";
 import { CropManagementModal } from "./CropManagementModal";
+import { QueueDetailsModal } from "./QueueDetailsModal";
 import { ChemicalManagementModal } from "./ChemicalManagementModal";
 import { CropService } from "@/hooks/services/cropService";
 import { AnswerModeSwitcher } from "./AnswerModeSwitcher";
@@ -114,12 +115,13 @@ type QuestionsFiltersProps = {
   onAnswerModeChange?: (mode: string) => void;
 };
 
-type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae" | "non_agri" | "search";
+type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae" | "non_agri" | "dynamic" | "search";
 
 const filterToAnswerMode = (filter: AdvanceFilterValues): AnswerMode => {
   if (filter.is_non_agri === true) return "non_agri";
   if (filter.pae_review === true) return "pae";
   if (filter.status === "draft") return "draft";
+  if (filter.status === "dynamic") return "dynamic";
   if (filter.source === "AGRI_EXPERT") return "manual";
   if (filter.source === "WHATSAPP") return "whatsapp";
   if (filter.source === "OUTREACH") return "outreach";
@@ -132,7 +134,7 @@ const answerModeToSource = (
   if (answerMode === "manual") return "AGRI_EXPERT";
   if (answerMode === "whatsapp") return "WHATSAPP";
   if (answerMode === "outreach") return "OUTREACH";
-  if (answerMode === "draft" || answerMode === "pae" || answerMode === "non_agri") return "all";
+  if (answerMode === "draft" || answerMode === "pae" || answerMode === "non_agri" || answerMode === "dynamic") return "all";
   return "AJRASAKHA";
 };
 
@@ -340,6 +342,7 @@ export const QuestionsFilters = ({
       const payload = {
         question: updatedData.question?.trim() ?? "",
         priority: updatedData.priority ?? "medium",
+        status: (updatedData.status || "open") as QuestionStatus,
         source: "AGRI_EXPERT" as QuestionSource,
         details: updatedData.details,
         context: updatedData.context || "",
@@ -475,16 +478,18 @@ export const QuestionsFilters = ({
 
     if (nextAnswerMode === "non_agri") {
       nextFilters = { ...advanceFilter, source: "all", is_non_agri: true, pae_review: undefined };
-      if (answerMode === "draft") nextFilters.status = "all";
+      if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
     } else if (nextAnswerMode === "draft") {
       nextFilters = { ...advanceFilter, source: "all", status: "draft", pae_review: undefined, is_non_agri: undefined };
+    } else if (nextAnswerMode === "dynamic") {
+      nextFilters = { ...advanceFilter, source: "all", status: "dynamic", pae_review: undefined, is_non_agri: undefined };
     } else if (nextAnswerMode === "pae") {
       nextFilters = { ...advanceFilter, source: "all", pae_review: true, is_non_agri: undefined };
-      if (answerMode === "draft") nextFilters.status = "all";
+      if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
     } else {
       const source = answerModeToSource(nextAnswerMode);
       nextFilters = { ...advanceFilter, source, pae_review: undefined, is_non_agri: undefined };
-      if (answerMode === "draft") nextFilters.status = "all";
+      if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
     }
 
     prevAnswerModeRef.current = nextAnswerMode;
@@ -1208,6 +1213,11 @@ export const QuestionsFilters = ({
                 isForQA={false}
                 setIsSidebarOpen={setIsSidebarOpen}
               />
+
+              {/* queue details — moderators & admins only */}
+              {(userRole === "admin" || userRole === "moderator") && (
+                <QueueDetailsModal setIsSidebarOpen={setIsSidebarOpen} />
+              )}
             </div>
           </section>
 

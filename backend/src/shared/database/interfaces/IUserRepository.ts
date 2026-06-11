@@ -98,6 +98,7 @@ export interface IUserRepository {
   findExpertsByReputationScore(
     details: PreferenceDto,
     session?: ClientSession,
+    limit?: number,
   ): Promise<IUser[]>;
 
   /**

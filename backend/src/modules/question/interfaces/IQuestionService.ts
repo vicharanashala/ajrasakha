@@ -16,6 +16,99 @@ import {
 import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
 import { ClientSession, ObjectId } from 'mongodb';
 
+/** Lean question shape used in the moderator/admin "Queue Details" modal. */
+export interface QueueQuestionItem {
+  _id: string;
+  question: string;
+  status: string;
+  source: string;
+  priority?: string;
+  createdAt?: string | Date;
+  state?: string;
+  district?: string;
+  crop?: string;
+  /** Current assignee — present for allocated & stuck items. */
+  expertName?: string;
+  /** When the current expert was allocated — present for stuck items. */
+  allocatedAt?: string | Date | null;
+  /** Minutes since the current expert was allocated — present for stuck items. */
+  minutesSinceAllocated?: number;
+  /** Which time-bound work bucket this question falls in — present for totalWork items. */
+  workType?: 'stuck' | 'unallocated' | 'needsReviewer';
+}
+
+/** Lean expert shape for the "Experts waiting in queue" (free experts) list. */
+export interface QueueExpertItem {
+  _id: string;
+  name: string;
+  email?: string;
+  reputationScore?: number;
+  role?: string;
+  isSpecialTaskForce?: boolean;
+}
+
+export interface QueueDetailsResponse {
+  /** All time-bound (AJRASAKHA/WHATSAPP, auto-allocated) questions ever received. */
+  received: {count: number; items: QueueQuestionItem[]};
+  /** AJRASAKHA/WHATSAPP questions with auto-allocation turned OFF (handled manually). */
+  autoAllocateOff: {count: number; items: QueueQuestionItem[]};
+  /** Received questions that have been allocated to at least one expert. */
+  allocated: {count: number; items: QueueQuestionItem[]};
+  /** Received questions still awaiting their first expert allocation. */
+  waiting: {count: number; items: QueueQuestionItem[]};
+  /** Experts with no active time-bound allocation (free / waiting in queue). */
+  freeExperts: {count: number; items: QueueExpertItem[]};
+  /** Allocated > 45 min but never opened by the assigned expert. */
+  stuck: {count: number; items: QueueQuestionItem[]};
+  /** Answered/reviewed but still awaiting the next reviewer (cron "NeedReviewer"). */
+  needsReviewer: {count: number; items: QueueQuestionItem[]};
+  /** Everything the time-bound cron tries to act on this run — stuck + unallocated +
+   *  needsReviewer combined (the cron's "totalWork"). */
+  totalWork: {count: number; items: QueueQuestionItem[]};
+}
+
+/** Raw lean row returned by the repository layer for queue-details questions. */
+export interface RawQueueQuestionRow {
+  _id: ObjectId | string;
+  question?: string;
+  status?: string;
+  source?: string;
+  priority?: string;
+  createdAt?: string | Date;
+  state?: string;
+  district?: string;
+  crop?: unknown;
+  firstAllocationAt?: string | Date | null;
+  queue?: (ObjectId | string)[];
+  history?: {updatedBy?: ObjectId | string; status?: string}[];
+}
+
+export interface QueueQuestionData {
+  receivedCount: number;
+  allocatedCount: number;
+  autoOffCount: number;
+  receivedItems: RawQueueQuestionRow[];
+  allocatedItems: RawQueueQuestionRow[];
+  autoOffItems: RawQueueQuestionRow[];
+}
+
+/** The paginatable Queue-Details sections. */
+export type QueueSectionName =
+  | 'received'
+  | 'autoAllocateOff'
+  | 'allocated'
+  | 'waiting'
+  | 'freeExperts'
+  | 'stuck'
+  | 'needsReviewer'
+  | 'totalWork';
+
+/** One page of a section: exact total + the requested page's items. */
+export interface QueueSectionResult {
+  count: number;
+  items: QueueQuestionItem[] | QueueExpertItem[];
+}
+
 export interface IQuestionService {
   /** Bulk insert questions (CSV / upload / AI generated) */
   createBulkQuestions(
@@ -284,4 +377,17 @@ export interface IQuestionService {
   /** Find time-bound questions pending > 45 min (not opened) and reallocate them
    *  to experts with fewer than 3 active time-bound questions. */
   reallocateTimeBoundQuestions(): Promise<{ message: string; reallocated: number; skipped: number }>;
+
+  /** Moderator/admin "Queue Details": counts + lean lists for received, allocated,
+   *  waiting-for-expert, free experts, and stuck (allocated >45min, never opened). */
+  getQueueDetails(startTime?: Date, endTime?: Date): Promise<QueueDetailsResponse>;
+
+  /** One server-side paginated section (exact total + requested page of items). */
+  getQueueSection(
+    section: QueueSectionName,
+    page?: number,
+    limit?: number,
+    startTime?: Date,
+    endTime?: Date,
+  ): Promise<QueueSectionResult>;
 }

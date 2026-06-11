@@ -10,11 +10,13 @@ export const useVerifyUserAnalytics = () => {
     mutationFn: async ({
       userId,
       source,
+      isVerified = true,
     }: {
       userId: string;
       source: string;
+      isVerified?: boolean;
     }) => {
-      return await userService.verifyUserInAnalytics(userId, source);
+      return await userService.verifyUserInAnalytics(userId, source, isVerified);
     },
     onSuccess: () => {
       // Refresh unverified users list
