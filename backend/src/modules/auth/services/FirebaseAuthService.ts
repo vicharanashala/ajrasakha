@@ -18,6 +18,7 @@ import { error } from 'console';
 import { sendEmailNotification } from '#root/utils/mailer.js';
 import { appConfig } from '#root/config/app.js';
 import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
+import { COORDINATOR_ROLES } from '#root/shared/constants/roles.js';
 
 /**
  * Custom error thrown during password change operations.
@@ -198,13 +199,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
       throw new BadRequestError('Name is required');
     }
 
-    const allowedRoles = [
-      'district_coordinator',
-      'block_coordinator',
-      'village_coordinator',
-    ] as const;
-
-    if (!allowedRoles.includes(body.role)) {
+    if (!COORDINATOR_ROLES.includes(body.role)) {
       throw new BadRequestError('Invalid review system role');
     }
 
