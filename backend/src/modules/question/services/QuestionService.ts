@@ -5602,10 +5602,43 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // 3. Get current time-bound workload per expert (single DB call)
       const timeBoundCounts = await this.questionSubmissionRepo.getTimeBoundActiveCountPerExpert();
-      console.log(timeBoundCounts + "this is from my console");
       const MAX_TIME_BOUND = 1; // Each expert handles at most 1 active time-bound question
       // Track provisional additions during this run to respect cap within batch
       const provisionalCounts = new Map<string, number>(timeBoundCounts);
+
+      // ── Full diagnostic dump: every question to allocate + every expert + availability ──
+      const summarizeSub = (s: any) => ({
+        questionId: (s.questionId ?? s._id)?.toString(),
+        status: s.question?.status,
+        source: s.question?.source,
+        queueLen: (s.queue ?? []).length,
+        historyLen: (s.history ?? []).length,
+        queue: (s.queue ?? []).map((q: any) => q?.toString()),
+        createdAt: s.question?.createdAt ?? s.createdAt,
+      });
+      console.log('[TimeBound][diag] stuck:', JSON.stringify(stuckSubmissions.map(summarizeSub)));
+      console.log('[TimeBound][diag] unallocated:', JSON.stringify(unallocatedSubmissions.map(summarizeSub)));
+      console.log('[TimeBound][diag] needsReviewer:', JSON.stringify(answeredNeedingReviewer.map(summarizeSub)));
+
+      const expertDiag = allExperts.map((e: any) => {
+        const id = e._id.toString();
+        const active = provisionalCounts.get(id) ?? 0;
+        return {
+          id,
+          name: `${e.firstName ?? ''} ${e.lastName ?? ''}`.trim(),
+          email: e.email,
+          isBlocked: e.isBlocked === true,
+          stf: e.special_task_force === true,
+          reputation: e.reputation_score,
+          activeTimeBound: active,
+          free: active < MAX_TIME_BOUND,
+        };
+      });
+      console.log(
+        `[TimeBound][diag] experts=${allExperts.length}, free=${expertDiag.filter(x => x.free).length}, ` +
+        `freeSTF=${expertDiag.filter(x => x.free && x.stf).length}, busyMapSize=${timeBoundCounts.size}`,
+      );
+      console.log('[TimeBound][diag] experts:', JSON.stringify(expertDiag));
 
       // ── Merge all three lists into one priority queue ordered by question.createdAt ──
       type WorkType = 'stuck' | 'unallocated' | 'needsReviewer';
@@ -6052,6 +6085,46 @@ export class QuestionService extends BaseService implements IQuestionService {
         return {count, items};
       }
 
+      case 'totalWork': {
+        // Everything the time-bound cron acts on: stuck + unallocated + needsReviewer,
+        // mirroring reallocateTimeBoundQuestions' `totalWork`. The date range is ignored
+        // (same as the cron) so this includes ALL such questions. Each item is tagged
+        // with its workType so the UI can show which bucket it came from.
+        const [stuckSubs, unallocatedSubs, reviewerSubs] = await Promise.all([
+          this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(),
+          this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(),
+          this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(),
+        ]);
+
+        type Tagged = {sub: any; workType: 'stuck' | 'unallocated' | 'needsReviewer'};
+        const tagged: Tagged[] = [
+          ...(stuckSubs as any[]).map(sub => ({sub, workType: 'stuck' as const})),
+          ...(unallocatedSubs as any[]).map(sub => ({sub, workType: 'unallocated' as const})),
+          ...(reviewerSubs as any[]).map(sub => ({sub, workType: 'needsReviewer' as const})),
+        ];
+
+        // Dedupe by questionId (the three states are mutually exclusive, but be safe).
+        const byId = new Map<string, Tagged>();
+        for (const t of tagged) {
+          const qid = (t.sub.questionId ?? t.sub._id)?.toString();
+          if (qid && !byId.has(qid)) byId.set(qid, t);
+        }
+
+        const all = Array.from(byId.values()).sort((a, b) => {
+          const at = new Date(a.sub.question?.createdAt ?? a.sub.createdAt ?? 0).getTime();
+          const bt = new Date(b.sub.question?.createdAt ?? b.sub.createdAt ?? 0).getTime();
+          return bt - at;
+        });
+
+        const count = all.length;
+        const pageSubs = all.slice(skip, skip + safeLimit);
+        const items: QueueQuestionItem[] = pageSubs.map(t => ({
+          ...this.submissionToQueueItem(t.sub),
+          workType: t.workType,
+        }));
+        return {count, items};
+      }
+
       default:
         return {count: 0, items: []};
     }
@@ -6064,7 +6137,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   async getQueueDetails(startTime?: Date, endTime?: Date): Promise<QueueDetailsResponse> {
     const PAGE = 1;
     const LIMIT = 50;
-    const [received, autoAllocateOff, allocated, waiting, freeExperts, stuck, needsReviewer] =
+    const [received, autoAllocateOff, allocated, waiting, freeExperts, stuck, needsReviewer, totalWork] =
       await Promise.all([
         this.getQueueSection('received', PAGE, LIMIT, startTime, endTime),
         this.getQueueSection('autoAllocateOff', PAGE, LIMIT, startTime, endTime),
@@ -6073,6 +6146,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         this.getQueueSection('freeExperts', PAGE, LIMIT, startTime, endTime),
         this.getQueueSection('stuck', PAGE, LIMIT, startTime, endTime),
         this.getQueueSection('needsReviewer', PAGE, LIMIT, startTime, endTime),
+        this.getQueueSection('totalWork', PAGE, LIMIT, startTime, endTime),
       ]);
 
     return {
@@ -6083,6 +6157,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       freeExperts: freeExperts as QueueDetailsResponse['freeExperts'],
       stuck: stuck as QueueDetailsResponse['stuck'],
       needsReviewer: needsReviewer as QueueDetailsResponse['needsReviewer'],
+      totalWork: totalWork as QueueDetailsResponse['totalWork'],
     };
   }
 }

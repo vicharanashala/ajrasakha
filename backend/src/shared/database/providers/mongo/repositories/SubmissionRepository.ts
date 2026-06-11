@@ -3553,7 +3553,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     for (const r of result) {
       if (r._id) map.set(r._id.toString(), r.count);
     }
-    console.log('[getTimeBoundActiveCountPerExpert] result:', JSON.stringify(result), 'map:', JSON.stringify([...map]));
+   // console.log('[getTimeBoundActiveCountPerExpert] result:', JSON.stringify(result), 'map:', JSON.stringify([...map]));
     return map;
   }
 

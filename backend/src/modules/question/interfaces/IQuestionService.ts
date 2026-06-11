@@ -33,6 +33,8 @@ export interface QueueQuestionItem {
   allocatedAt?: string | Date | null;
   /** Minutes since the current expert was allocated — present for stuck items. */
   minutesSinceAllocated?: number;
+  /** Which time-bound work bucket this question falls in — present for totalWork items. */
+  workType?: 'stuck' | 'unallocated' | 'needsReviewer';
 }
 
 /** Lean expert shape for the "Experts waiting in queue" (free experts) list. */
@@ -60,6 +62,9 @@ export interface QueueDetailsResponse {
   stuck: {count: number; items: QueueQuestionItem[]};
   /** Answered/reviewed but still awaiting the next reviewer (cron "NeedReviewer"). */
   needsReviewer: {count: number; items: QueueQuestionItem[]};
+  /** Everything the time-bound cron tries to act on this run — stuck + unallocated +
+   *  needsReviewer combined (the cron's "totalWork"). */
+  totalWork: {count: number; items: QueueQuestionItem[]};
 }
 
 /** Raw lean row returned by the repository layer for queue-details questions. */
@@ -95,7 +100,8 @@ export type QueueSectionName =
   | 'waiting'
   | 'freeExperts'
   | 'stuck'
-  | 'needsReviewer';
+  | 'needsReviewer'
+  | 'totalWork';
 
 /** One page of a section: exact total + the requested page's items. */
 export interface QueueSectionResult {

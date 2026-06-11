@@ -6459,19 +6459,21 @@ export class QuestionRepository implements IQuestionRepository {
 
     const receivedMatch = {
       source: {$in: ['AJRASAKHA', 'WHATSAPP']},
-      isAutoAllocate: true,
-      status: {$in: ['open', 'delayed', 'duplicate']},
+     // isAutoAllocate: true,
+    //  status: {$in: ['open', 'delayed', 'duplicate']},
       ...dateScope,
     };
     const allocatedMatch = {
-      ...receivedMatch,
-      firstAllocationAt: {$exists: true, $ne: null},
-      status: {$nin: ['closed', 'in-review']},
+      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+      isAutoAllocate: {$eq: true},
+     // firstAllocationAt: {$exists: true, $ne: null},
+      status: {$in: ['open', 'delayed']},
+      ...dateScope,
     };
     const autoOffMatch = {
       source: {$in: ['AJRASAKHA', 'WHATSAPP']},
-      isAutoAllocate: {$ne: true},
-      status: {$in: ['open', 'delayed', 'duplicate']},
+      isAutoAllocate: {$eq: true},
+      status: {$in: ['open', 'delayed']},
       ...dateScope,
     };
 
@@ -6504,12 +6506,24 @@ export class QuestionRepository implements IQuestionRepository {
     };
 
     if (kind === 'allocated') {
-      // Allocated requires the joined submission to have history.length >= 1;
-      // the count pipeline mirrors that exactly so count never exceeds the list.
+      // Allocated & pending: the question is open/delayed and assigned
+      // (firstAllocationAt set), and the CURRENT expert hasn't acted yet — i.e. the
+      // latest history entry carries none of answer / approvedAnswer / modifiedAnswer
+      // / rejectedAnswer (typically a fresh 'in-review' entry). Earlier entries from
+      // prior reviewers may well have answers; only the last entry is checked. An
+      // empty history (just allocated, no entry yet) also qualifies.
       const base: any[] = [
         {$match: allocatedMatch},
         ...lookupStages,
-        {$match: {'sub.history': {$exists: true, $ne: null, $not: {$size: 0}}}},
+        {$addFields: {lastHistory: {$arrayElemAt: [{$ifNull: ['$sub.history', []]}, -1]}}},
+        {
+          $match: {
+            'lastHistory.answer': {$in: [null]},
+            'lastHistory.approvedAnswer': {$in: [null]},
+            'lastHistory.modifiedAnswer': {$in: [null]},
+            'lastHistory.rejectedAnswer': {$in: [null]},
+          },
+        },
       ];
       const [items, countRes] = await Promise.all([
         this.QuestionCollection.aggregate<RawQueueQuestionRow>([
@@ -6539,6 +6553,49 @@ export class QuestionRepository implements IQuestionRepository {
         projectStage,
       ]).toArray(),
     ]);
+   /* console.log(
+      `[getQueueQuestionSection] kind=${kind} count=${count} ` +
+      `startTime=${startTime?.toISOString() ?? 'none'} endTime=${endTime?.toISOString() ?? 'none'} ` +
+      `match=${JSON.stringify(match)}`,
+    );*/
+
+    // Why the "Auto-Allocate ON" count differs from the never-allocated queue:
+    // split the matched set by allocation state. Only (queueEmpty && !hasAllocatedAt)
+    // questions actually qualify for the never-allocated queue; the rest are already
+    // allocated/in-progress or stuck in limbo (allocatedAt set but queue cleared).
+    if (kind === 'autoOff') {
+      const breakdown = await this.QuestionCollection.aggregate([
+        {$match: match},
+        {
+          $lookup: {
+            from: 'question_submissions',
+            localField: '_id',
+            foreignField: 'questionId',
+            as: 'sub',
+          },
+        },
+        {$addFields: {sub: {$arrayElemAt: ['$sub', 0]}}},
+        {
+          $addFields: {
+            queueEmpty: {$eq: [{$size: {$ifNull: ['$sub.queue', []]}}, 0]},
+            hasAllocatedAt: {
+              $cond: [{$ifNull: ['$sub.currentExpertAllocatedAt', false]}, true, false],
+            },
+          },
+        },
+        {
+          $group: {
+            _id: {queueEmpty: '$queueEmpty', hasAllocatedAt: '$hasAllocatedAt'},
+            count: {$sum: 1},
+          },
+        },
+      ]).toArray();
+     /* console.log(
+        '[getQueueQuestionSection][autoOff breakdown] (queueEmpty & !hasAllocatedAt = never-allocated queue):',
+        JSON.stringify(breakdown),
+      );*/
+    }
+
     return {count, items};
   }
 }

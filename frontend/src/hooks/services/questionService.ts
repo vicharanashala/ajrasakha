@@ -34,6 +34,7 @@ export type QueueQuestionItem = {
   expertName?: string;
   allocatedAt?: string | null;
   minutesSinceAllocated?: number;
+  workType?: "stuck" | "unallocated" | "needsReviewer";
 };
 
 export type QueueExpertItem = {
@@ -58,6 +59,7 @@ export type QueueDetailsResponse = {
   freeExperts: { count: number; items: QueueExpertItem[] };
   stuck: { count: number; items: QueueQuestionItem[] };
   needsReviewer: { count: number; items: QueueQuestionItem[] };
+  totalWork: { count: number; items: QueueQuestionItem[] };
 };
 export class QuestionService {
   private _baseUrl = `${API_BASE_URL}/questions`;

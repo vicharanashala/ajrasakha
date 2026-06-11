@@ -18,7 +18,7 @@ import {
   Loader2,
   ListChecks,
   RefreshCcw,
-  PowerOff,
+  Power,
   UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -74,14 +74,25 @@ const colorClasses: Record<
   },
 };
 
+const WORK_TYPE_LABEL: Record<
+  NonNullable<QueueQuestionItem["workType"]>,
+  string
+> = {
+  stuck: "Stuck",
+  unallocated: "Unallocated",
+  needsReviewer: "Needs Reviewer",
+};
+
 const QuestionRow = ({
   item,
   showExpert,
   showStuck,
+  showWorkType,
 }: {
   item: QueueQuestionItem;
   showExpert?: boolean;
   showStuck?: boolean;
+  showWorkType?: boolean;
 }) => {
   const meta = [item.source, item.state, item.crop].filter(Boolean).join(" · ");
   return (
@@ -90,11 +101,17 @@ const QuestionRow = ({
         {item.question || "(no text)"}
       </p>
       <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-gray-500">
+        {showWorkType && item.workType && (
+          <span className="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300 font-medium uppercase tracking-wide">
+            {WORK_TYPE_LABEL[item.workType]}
+          </span>
+        )}
         {item.status && (
           <span className="px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 font-medium uppercase tracking-wide">
             {item.status}
           </span>
         )}
+        {item.priority && <span>· {item.priority}</span>}
         {meta && <span>{meta}</span>}
         {item.createdAt && <span>· {formatDate(new Date(item.createdAt))}</span>}
       </div>
@@ -125,9 +142,13 @@ const ExpertRow = ({ item }: { item: QueueExpertItem }) => (
         <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
           {item.name}
         </p>
-        {item.isSpecialTaskForce && (
+        {item.isSpecialTaskForce ? (
           <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300">
             STF
+          </span>
+        ) : (
+          <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+            Non-STF
           </span>
         )}
       </div>
@@ -446,17 +467,66 @@ export const QueueDetailsModal = ({
             />
 
             <Section<QueueQuestionItem>
-              icon={<PowerOff size={20} />}
+              icon={<Power size={20} />}
               color="slate"
-              title="Auto-Allocation OFF"
-              description="AjraSakha / WhatsApp, handled manually"
+              title="Auto-Allocate ON"
+              description="AjraSakha / WhatsApp, auto-allocated (open / delayed)"
               count={data.autoAllocateOff.count}
               section="autoAllocateOff"
               initialItems={data.autoAllocateOff.items}
               renderItem={(q) => <QuestionRow key={q._id} item={q} />}
               isOpen={openSection === "autoAllocateOff"}
               onToggle={() => toggle("autoAllocateOff")}
-              emptyText="No auto-allocation-off questions"
+              emptyText="No auto-allocate-on questions"
+              startTime={dateFilter.startTime ?? undefined}
+              endTime={dateFilter.endTime ?? undefined}
+            />
+
+            {/* ── Time-bound work, segregated by type ── */}
+            <Section<QueueQuestionItem>
+              icon={<Clock size={20} />}
+              color="amber"
+              title="Never Allocated"
+              description="Time-bound questions not yet assigned to any expert"
+              count={data.waiting.count}
+              section="waiting"
+              initialItems={data.waiting.items}
+              renderItem={(q) => <QuestionRow key={q._id} item={q} />}
+              isOpen={openSection === "waiting"}
+              onToggle={() => toggle("waiting")}
+              emptyText="Nothing waiting for allocation"
+              startTime={dateFilter.startTime ?? undefined}
+              endTime={dateFilter.endTime ?? undefined}
+            />
+
+            <Section<QueueQuestionItem>
+              icon={<AlertTriangle size={20} />}
+              color="red"
+              title="Stuck Questions (> 45 min)"
+              description="Allocated > 45 min but never opened by the expert"
+              count={data.stuck.count}
+              section="stuck"
+              initialItems={data.stuck.items}
+              renderItem={(q) => <QuestionRow key={q._id} item={q} showStuck />}
+              isOpen={openSection === "stuck"}
+              onToggle={() => toggle("stuck")}
+              emptyText="No stuck questions"
+              startTime={dateFilter.startTime ?? undefined}
+              endTime={dateFilter.endTime ?? undefined}
+            />
+
+            <Section<QueueQuestionItem>
+              icon={<UserPlus size={20} />}
+              color="violet"
+              title="Needs Reviewer"
+              description="Answered/reviewed, awaiting the next reviewer"
+              count={data.needsReviewer.count}
+              section="needsReviewer"
+              initialItems={data.needsReviewer.items}
+              renderItem={(q) => <QuestionRow key={q._id} item={q} showExpert />}
+              isOpen={openSection === "needsReviewer"}
+              onToggle={() => toggle("needsReviewer")}
+              emptyText="Nothing waiting for a reviewer"
               startTime={dateFilter.startTime ?? undefined}
               endTime={dateFilter.endTime ?? undefined}
             />
@@ -479,22 +549,6 @@ export const QueueDetailsModal = ({
               endTime={dateFilter.endTime ?? undefined}
             />
 
-            <Section<QueueQuestionItem>
-              icon={<Clock size={20} />}
-              color="amber"
-              title="Waiting for Expert"
-              description="Received but not yet allocated"
-              count={data.waiting.count}
-              section="waiting"
-              initialItems={data.waiting.items}
-              renderItem={(q) => <QuestionRow key={q._id} item={q} />}
-              isOpen={openSection === "waiting"}
-              onToggle={() => toggle("waiting")}
-              emptyText="Nothing waiting for allocation"
-              startTime={dateFilter.startTime ?? undefined}
-              endTime={dateFilter.endTime ?? undefined}
-            />
-
             <Section<QueueExpertItem>
               icon={<Users size={20} />}
               color="violet"
@@ -507,42 +561,6 @@ export const QueueDetailsModal = ({
               isOpen={openSection === "freeExperts"}
               onToggle={() => toggle("freeExperts")}
               emptyText="No free experts"
-              startTime={dateFilter.startTime ?? undefined}
-              endTime={dateFilter.endTime ?? undefined}
-            />
-
-            <Section<QueueQuestionItem>
-              icon={<AlertTriangle size={20} />}
-              color="red"
-              title="Stuck Questions"
-              description="Allocated > 45 min, never opened"
-              count={data.stuck.count}
-              section="stuck"
-              initialItems={data.stuck.items}
-              renderItem={(q) => (
-                <QuestionRow key={q._id} item={q} showStuck />
-              )}
-              isOpen={openSection === "stuck"}
-              onToggle={() => toggle("stuck")}
-              emptyText="No stuck questions"
-              startTime={dateFilter.startTime ?? undefined}
-              endTime={dateFilter.endTime ?? undefined}
-            />
-
-            <Section<QueueQuestionItem>
-              icon={<UserPlus size={20} />}
-              color="amber"
-              title="Waiting for Reviewer"
-              description="Answered, awaiting next reviewer"
-              count={data.needsReviewer.count}
-              section="needsReviewer"
-              initialItems={data.needsReviewer.items}
-              renderItem={(q) => (
-                <QuestionRow key={q._id} item={q} showExpert />
-              )}
-              isOpen={openSection === "needsReviewer"}
-              onToggle={() => toggle("needsReviewer")}
-              emptyText="Nothing waiting for a reviewer"
               startTime={dateFilter.startTime ?? undefined}
               endTime={dateFilter.endTime ?? undefined}
             />
