@@ -404,6 +404,7 @@ export class ChatbotRepository implements IChatbotRepository {
   private users!: Collection<IUser>;
   private conversations!: Collection<IConversation>;
   private messagesCollection!: Collection<any>;
+  private sessionCollection!: Collection<any>;
 
   constructor(
     // @inject(GLOBAL_TYPES.analyticsDatabase) //vicharansahsa
@@ -432,6 +433,7 @@ export class ChatbotRepository implements IChatbotRepository {
     this.users = await db.getCollection<IUser>('users');
     this.conversations = await db.getCollection<IConversation>('conversations');
     this.messagesCollection = await db.getCollection<any>('messages');
+    this.sessionCollection = await db.getCollection<any>("sessions");
   }
   private annamMessagesCollection!: Collection<any>;
 
@@ -8430,6 +8432,7 @@ const totalPages =
     userId: string,
     source: string,
     newPassword: string,
+    keepLoggedIn: boolean,
   ): Promise<boolean> {
     if (source === 'whatsapp') {
       throw new BadRequestError(
@@ -8479,6 +8482,12 @@ const totalPages =
 
       if (result.matchedCount === 0) {
         throw new NotFoundError('User not found');
+      }
+
+      if(!keepLoggedIn){
+        await this.sessionCollection.deleteMany({
+          user: new ObjectId(userId),
+        });
       }
 
       return true;
@@ -10691,7 +10700,7 @@ const totalPages =
     try {
       await this.init(source);
 
-      return await this.users.findOneAndUpdate(
+      const result = await this.users.findOneAndUpdate(
         {_id: new ObjectId(userId)},
         {
           $set: {
@@ -10701,6 +10710,13 @@ const totalPages =
         },
         {returnDocument: 'after'},
       );
+      if(!isVerified){
+        await this.sessionCollection.deleteMany({
+          user: new ObjectId(userId),
+        });
+      }
+
+      return result;
     } catch (error) {
       throw new InternalServerError(`Failed to verify user: ${error}`);
     }

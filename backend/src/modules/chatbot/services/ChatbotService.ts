@@ -2441,12 +2441,14 @@ export class ChatbotService extends BaseService implements IChatbotService {
     userId: string,
     source: string,
     newPassword: string,
+    keepLoggedIn: boolean,
   ): Promise<boolean> {
     try {
       return await this.chatbotRepository.changeUserPassword(
         userId,
         source,
         newPassword,
+        keepLoggedIn,
       );
     } catch (error) {
       if (error instanceof BadRequestError || error instanceof NotFoundError) {
