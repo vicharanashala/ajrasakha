@@ -307,13 +307,19 @@ export class UserService extends BaseService {
   async blockUnblockExperts(userId: string, action: string) {
     return await this._withTransaction(async (session: ClientSession) => {
       if (action === 'block') {
-        const nonBlockedExpertsCount =
-          await this.userRepo.countNonBlockedExperts(session);
+        // The minimum-experts guard protects the EXPERT pool only. Blocking a
+        // moderator (e.g. moderator check-out, which toggles isBlocked) must not
+        // be subject to it.
+        const target = await this.userRepo.findById(userId, session);
+        if (target?.role !== 'moderator') {
+          const nonBlockedExpertsCount =
+            await this.userRepo.countNonBlockedExperts(session);
 
-        if (nonBlockedExpertsCount <= 10) {
-          throw new BadRequestError(
-            'Minimum 10 active experts required. Cannot block more experts.',
-          );
+          if (nonBlockedExpertsCount <= 10) {
+            throw new BadRequestError(
+              'Minimum 10 active experts required. Cannot block more experts.',
+            );
+          }
         }
       }
       return await this.userRepo.updateIsBlocked(userId, action, session);
