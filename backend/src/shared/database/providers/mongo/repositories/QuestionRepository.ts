@@ -464,10 +464,12 @@ export class QuestionRepository implements IQuestionRepository {
 
       // --- Dedicated (moderator-assigned) tab filter ---
       // When filtering by moderatorId, always restrict to active statuses only
-      // (in-review or re-routed), overriding any status filter the frontend sent.
+      // (in-review, re-routed or duplicate), overriding any status filter the frontend sent.
+      // 'duplicate' is included because the moderator-queue cron now assigns duplicate
+      // questions to moderators alongside in-review ones.
       if (moderatorId) {
         filter.moderatorId = new ObjectId(moderatorId as string);
-        filter.status = { $in: ['in-review', 're-routed'] };
+        filter.status = { $in: ['in-review', 're-routed', 'duplicate'] };
       }
 
       // --- State filter (from body array) ---
@@ -6458,9 +6460,11 @@ export class QuestionRepository implements IQuestionRepository {
   /** Returns in-review questions with no moderator assigned yet, ordered oldest first. */
   async findUnassignedInReviewQuestions(): Promise<IQuestion[]> {
     await this.init();
+    // Picks up both in-review and duplicate questions so the moderator-queue cron
+    // assigns duplicates to STF moderators alongside regular in-review questions.
     return this.QuestionCollection
       .find({
-        status: 'in-review',
+        status: { $in: ['in-review', 'duplicate'] },
         $or: [{ moderatorId: { $exists: false } }, { moderatorId: null }],
       })
       .sort({ createdAt: 1 })

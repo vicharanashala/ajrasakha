@@ -592,6 +592,12 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const { mutateAsync: updateAnswer, isPending: isUpdating } = useUpdateAnswer();
     const { mutateAsync: updateQuestion, isPending: updatingQuestion } = useUpdateQuestion();
 
+    // Only the moderator the question is assigned to (by the moderator-queue cron) may
+    // act on it — Pass / Accept / Push to GDB are hidden from everyone else.
+    // The backend resolves this against the requesting user (avoids ObjectId
+    // serialization mismatches from comparing ids on the client).
+    const isAssignedModerator = question?.isAssignedModerator === true;
+
     useEffect(() => {
         const p = parseChatbotText(text);
         setEditedAnswerBody(p.answerBody);
@@ -813,7 +819,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                         </div>
                     )}
                 </div>
-                {approved === null && question && (question.source == "AJRASAKHA" || question.source == "WHATSAPP") && question.status !== "closed" && !question.aiInitialAnswer && !isQuestionAllocatedToExpert && (
+                {approved === null && question && isAssignedModerator && (question.source == "AJRASAKHA" || question.source == "WHATSAPP") && question.status !== "closed" && !question.aiInitialAnswer && !isQuestionAllocatedToExpert && (
                     <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
                         <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">Once you click on Accept, the LLM-generated answer will be set as the AI answer for this question and sent for moderation as a reference to create the initial answer for the question.</p>
                         <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">

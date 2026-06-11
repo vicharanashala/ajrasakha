@@ -507,8 +507,12 @@ export interface IQuestionFullData {
     name: string;
     email: string;
   }
+  /** Id of the moderator currently assigned to review this question (set by the moderator-queue cron). */
+  moderatorId?: string | null;
   /** Moderator currently assigned to review this question (set by the moderator-queue cron). */
   assigned_moderator?: { name: string; email: string } | null;
+  /** True when the requesting user is the moderator this question is assigned to. Gates the Pass / Accept / Push to GDB actions. */
+  isAssignedModerator?: boolean;
   /** Timestamp when a moderator was assigned. Used to calculate moderator handling time (closedAt - moderatorAssignedAt). */
   moderatorAssignedAt?: string | null;
   closedFinalAnswer?: {

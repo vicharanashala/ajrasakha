@@ -252,6 +252,9 @@ export class UserService extends BaseService {
             university: u.university ?? '',
             state: u.preference?.state ?? null,
             domain: u.preference?.domain ?? null,
+            assignedQuestionId: u.assignedQuestionId
+              ? u.assignedQuestionId.toString()
+              : null,
           })),
           totalUsers: users.length,
           totalPages: 5,
