@@ -4,18 +4,24 @@ import type { CallTranscript } from "./IncomingCallBox";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { toast } from "sonner";
 import { Button } from "./atoms/button";
-import { RotateCcw, Send, MessageSquare, Globe, CheckCircle2, AlertCircle, HelpCircle, Lightbulb, User, FileText, ChevronDown, ChevronUp } from "lucide-react";
+import { RotateCcw, Send, MessageSquare, Globe, CheckCircle2, AlertCircle, HelpCircle, Lightbulb, User, FileText, ChevronDown, ChevronUp, Edit3 } from "lucide-react";
 import { useSubmitTranscript } from "@/hooks/api/context/useSubmitTranscript";
 import { useGenerateCallQuestion } from "@/hooks/api/question/useGenerateCallQuestion";
-import { useGenerateCallSummary } from "@/hooks/api/question/useGenerateCallSummary";
+import { useAccAgentThread } from "@/hooks/api/acc-agent/useAccAgentThread";
+import { useAccAgentExtract } from "@/hooks/api/acc-agent/useAccAgentExtract";
+import { useAccAgentUpdateState } from "@/hooks/api/acc-agent/useAccAgentUpdateState";
+import { useAccAgentResume } from "@/hooks/api/acc-agent/useAccAgentResume";
 import { Badge } from "./atoms/badge";
 import { Skeleton } from "./atoms/skeleton";
 import { ScrollArea, ScrollBar } from "./atoms/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./atoms/accordion";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
 import { Checkbox } from "./atoms/checkbox";
+import { Input } from "./atoms/input";
+import { Label } from "./atoms/label";
 import type { GeneratedQuestion } from "./voice-recorder-card";
 import Plivo from "plivo-browser-sdk";
+import type { ExtractDataResponse } from "@/hooks/services/accAgentService";
 
 export const CallInterface = () => {
   const { mutateAsync: submitTranscript, isPending } = useSubmitTranscript();
@@ -26,13 +32,28 @@ export const CallInterface = () => {
   const [questions, setQuestions] = useState<GeneratedQuestion[]>([]);
   const lastTranscriptRef = useRef("");
   const { mutateAsync: generateQuestions, isPending: isGeneratingQuestions } = useGenerateCallQuestion();
-  const { mutateAsync: generateSummary, isPending: isGeneratingSummary } = useGenerateCallSummary();
+
+  // ACC Agent HITL hooks
+  const { mutateAsync: createThread } = useAccAgentThread();
+  const { mutateAsync: extractData, isPending: isExtracting } = useAccAgentExtract();
+  const { mutateAsync: updateState } = useAccAgentUpdateState();
+  const { mutateAsync: resumeAndGetAnswer, isPending: isResuming } = useAccAgentResume();
+  
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(true);
   const [editableSummaryText, setEditableSummaryText] = useState("");
   const [extractedState, setExtractedState] = useState("");
   const [extractedCrop, setExtractedCrop] = useState("");
   const [hasGeneratedQuestions, setHasGeneratedQuestions] = useState(false);
+  
+  // HITL state
+  const [threadId, setThreadId] = useState<string | null>(null);
+  const [extractedData, setExtractedData] = useState<ExtractDataResponse | null>(null);
+  const [isHumanVerificationMode, setIsHumanVerificationMode] = useState(false);
+  const [editableQuery, setEditableQuery] = useState("");
+  const [editableCrop, setEditableCrop] = useState("");
+  const [editableState, setEditableState] = useState("");
+  const [editableDistrict, setEditableDistrict] = useState("");
 
   // Auto-scroll to bottom of chat bubbles
   useEffect(() => {
@@ -93,6 +114,14 @@ export const CallInterface = () => {
     setExtractedState("");
     setExtractedCrop("");
     setHasGeneratedQuestions(false);
+    // Reset HITL state
+    setThreadId(null);
+    setExtractedData(null);
+    setIsHumanVerificationMode(false);
+    setEditableQuery("");
+    setEditableCrop("");
+    setEditableState("");
+    setEditableDistrict("");
   };
 
   const handleResetConversation = () => {
@@ -103,6 +132,14 @@ export const CallInterface = () => {
     setExtractedState("");
     setExtractedCrop("");
     setHasGeneratedQuestions(false);
+    // Reset HITL state
+    setThreadId(null);
+    setExtractedData(null);
+    setIsHumanVerificationMode(false);
+    setEditableQuery("");
+    setEditableCrop("");
+    setEditableState("");
+    setEditableDistrict("");
     toast.success("Conversation cleared");
   };
 
@@ -132,14 +169,11 @@ export const CallInterface = () => {
     }
   };
 
-  const handleSummarize = async () => {
+  const handleExtractWithHITL = async () => {
     if (transcriptsList.length === 0) {
-      toast.info("No transcripts available to summarize.");
+      toast.info("No transcripts available to extract.");
       return;
     }
-    setIsSummaryOpen(true);
-    setIsSummaryExpanded(true);
-    setHasGeneratedQuestions(false);
 
     const allTranscriptText = transcriptsList
       .map(t => {
@@ -150,13 +184,87 @@ export const CallInterface = () => {
       .join("\n");
 
     try {
-      const summary = await generateSummary(allTranscriptText);
-      setEditableSummaryText(summary?.extracted_question || "");
-      setExtractedState(summary?.extracted_state || "");
-      setExtractedCrop(summary?.extracted_crop || "");
+      // Step 1: Create thread
+      const thread = await createThread();
+      setThreadId(thread.thread_id);
+
+      // Step 2: Extract data
+      const data = await extractData({
+        threadId: thread.thread_id,
+        transcript: allTranscriptText
+      });
+      setExtractedData(data);
+      
+      // Initialize editable fields with extracted data
+      setEditableQuery(data.extracted_query);
+      setEditableCrop(data.extracted_crop);
+      setEditableState(data.extracted_state);
+      setEditableDistrict(data.extracted_district);
+      
+      setIsHumanVerificationMode(true);
+      setIsSummaryOpen(true);
+      setIsSummaryExpanded(true);
+      
+      // Also set the old format for backward compatibility
+      setEditableSummaryText(data.extracted_query);
+      setExtractedState(data.extracted_state);
+      setExtractedCrop(data.extracted_crop);
+      
+      toast.success("Data extracted successfully. Please review and edit if needed.");
     } catch (err) {
-      console.error("Error generating summary", err);
-      toast.error("Failed to generate summary.");
+      console.error("Error in HITL extraction", err);
+      toast.error("Failed to extract data. Please try again.");
+    }
+  };
+
+  const handleApproveAndResume = async () => {
+    if (!threadId) {
+      toast.error("No active thread. Please extract data first.");
+      return;
+    }
+
+    try {
+      // Check if data was edited
+      const wasEdited = 
+        editableQuery !== extractedData?.extracted_query ||
+        editableCrop !== extractedData?.extracted_crop ||
+        editableState !== extractedData?.extracted_state ||
+        editableDistrict !== extractedData?.extracted_district;
+
+      if (wasEdited) {
+        // Step 3: Update state with corrections
+        await updateState({
+          threadId,
+          correctedData: {
+            query: editableQuery,
+            crop: editableCrop,
+            state: editableState,
+            district: editableDistrict
+          }
+        });
+        toast.info("Updated extracted data with your corrections.");
+      }
+
+      // Step 4: Resume and get answer
+      const result = await resumeAndGetAnswer(threadId);
+      setIsHumanVerificationMode(false);
+      
+      // Convert final answer to question format
+      const generatedQuestion: GeneratedQuestion = {
+        question: editableQuery,
+        answer: result.final_answer,
+        agri_specialist: "ACC_AGENT",
+        referenceSource: "acc_agent_hitl",
+        id: Date.now().toString()
+      };
+      
+      setQuestions([generatedQuestion]);
+      setHasGeneratedQuestions(true);
+      
+      toast.success("Final answer generated successfully!");
+    } catch (err) {
+      console.error("Error in resume", err);
+      toast.error("Failed to generate final answer.");
     }
   };
 
@@ -220,12 +328,12 @@ export const CallInterface = () => {
                   </span>
                 )}
                 <Button
-                  onClick={handleSummarize}
-                  disabled={isGeneratingSummary || transcriptsList.length === 0}
+                  onClick={handleExtractWithHITL}
+                  disabled={isExtracting || transcriptsList.length === 0}
                   size="sm"
                   className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
                 >
-                  {isGeneratingSummary ? "Summarizing..." : "Summarize"}
+                  {isExtracting ? "Extracting..." : "Extract & Verify"}
                 </Button>
                 <Button
                   onClick={handleResetConversation}
@@ -337,11 +445,95 @@ export const CallInterface = () => {
               </CardHeader>
               <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isSummaryExpanded ? "max-h-[800px] opacity-100" : "max-h-0 opacity-0"}`}>
                 <CardContent className="p-6 bg-zinc-50/20 dark:bg-zinc-950/20 space-y-4">
-                  {isGeneratingSummary ? (
+                  {isExtracting ? (
                     <div className="flex flex-col space-y-3">
                       <Skeleton className="h-4 w-3/4 rounded-md" />
                       <Skeleton className="h-4 w-full rounded-md" />
                       <Skeleton className="h-4 w-5/6 rounded-md" />
+                    </div>
+                  ) : isHumanVerificationMode ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Edit3 className="h-4 w-4 text-indigo-600" />
+                        <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+                          Review & Edit Extracted Data
+                        </span>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div>
+                          <Label htmlFor="query" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
+                            Query / Question
+                          </Label>
+                          <Input
+                            id="query"
+                            value={editableQuery}
+                            onChange={(e) => setEditableQuery(e.target.value)}
+                            className="text-sm"
+                            placeholder="Extracted question..."
+                          />
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label htmlFor="crop" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
+                              Crop
+                            </Label>
+                            <Input
+                              id="crop"
+                              value={editableCrop}
+                              onChange={(e) => setEditableCrop(e.target.value)}
+                              className="text-sm"
+                              placeholder="Crop..."
+                            />
+                          </div>
+                          
+                          <div>
+                            <Label htmlFor="state" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
+                              State
+                            </Label>
+                            <Input
+                              id="state"
+                              value={editableState}
+                              onChange={(e) => setEditableState(e.target.value)}
+                              className="text-sm"
+                              placeholder="State..."
+                            />
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="district" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
+                            District
+                          </Label>
+                          <Input
+                            id="district"
+                            value={editableDistrict}
+                            onChange={(e) => setEditableDistrict(e.target.value)}
+                            className="text-sm"
+                            placeholder="District..."
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="flex justify-end gap-2 mt-4">
+                        <Button
+                          onClick={() => setIsHumanVerificationMode(false)}
+                          variant="outline"
+                          size="sm"
+                          className="text-xs"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleApproveAndResume}
+                          disabled={isResuming || !editableQuery.trim()}
+                          size="sm"
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+                        >
+                          {isResuming ? "Generating..." : "Approve & Generate Answer"}
+                        </Button>
+                      </div>
                     </div>
                   ) : (
                     <textarea
@@ -355,11 +547,11 @@ export const CallInterface = () => {
                       placeholder="Conversation summary will appear here..."
                     />
                   )}
-                  {!hasGeneratedQuestions && (
+                  {!hasGeneratedQuestions && !isHumanVerificationMode && (
                     <div className="flex justify-end mt-4">
                       <Button
                         onClick={handleGenerateQuestions}
-                        disabled={isGeneratingQuestions || !editableSummaryText.trim() || isGeneratingSummary}
+                        disabled={isGeneratingQuestions || !editableSummaryText.trim()}
                         size="sm"
                         className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 transition-all font-medium h-9 px-4 rounded-lg"
                       >

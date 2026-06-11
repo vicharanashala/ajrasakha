@@ -162,6 +162,23 @@ export class PlivoService {
       throw error;
     }
   }
+
+  async sendMessage(destination: string, text: string): Promise<{ success: boolean; messageUuid?: string }> {
+    const url = `${this._baseUrl}/send-message`;
+    try {
+      const response = await apiFetch<{ success: boolean; messageUuid?: string }>(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ destination, text }),
+      });
+      return response || { success: false };
+    } catch (error) {
+      console.error(`PlivoService.sendMessage: Error sending message to ${destination}:`, error);
+      throw error;
+    }
+  }
 }
 
 export const plivoService = new PlivoService();

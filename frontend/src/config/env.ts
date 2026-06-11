@@ -31,7 +31,10 @@ type EnvKey =
   | "VITE_TARGET_USER_ID"
   // FAQ / POP processing servers
   | "VITE_FAQ_API_URL"
-  | "VITE_POP_API_URL";
+  | "VITE_POP_API_URL"
+
+  // Call Agent Management
+  | "VITE_CALL_AGENT_MANAGER_USER_IDS";
 
 /**
  * Internal getter (single source of truth)
@@ -72,13 +75,17 @@ export const env = {
   vapidPublicKey: () => getEnv("VITE_VAPID_PUBLIC_KEY", true, "dummy-vapid-public-key"),
 
   plivo: {
-    endpointUsername: () => getEnv("VITE_PLIVO_ENDPOINT_USERNAME", false, "dummy-plivo-username"),
-    endpointPassword: () => getEnv("VITE_PLIVO_ENDPOINT_PASSWORD", false, "dummy-plivo-password"),
-    streamUrl: () => getEnv("VITE_PLIVO_STREAM_URL", true, "wss://dummy-stream-url.example.com"),
-    targetUserId: () => getEnv("VITE_TARGET_USER_ID", false, "dummy-target-user-id"),
+    endpointUsername: () => getEnv("VITE_PLIVO_ENDPOINT_USERNAME", false, "dummy_endpoint_username"),
+    endpointPassword: () => getEnv("VITE_PLIVO_ENDPOINT_PASSWORD", false, "dummy_endpoint_password"),
+    streamUrl: () => getEnv("VITE_PLIVO_STREAM_URL", false, "wss://dummy-stream-url.plivo.com"),
   },
 
   internalApiKey: () => getEnv("VITE_INTERNAL_API_KEY", true, "dummy-internal-api-key"),
   faqApiUrl: () => getEnv("VITE_FAQ_API_URL", false, "/api/faq"),
   popApiUrl: () => getEnv("VITE_POP_API_URL", false, "/api/pop"),
+
+  callAgentManagerUserIds: () => {
+    const ids = getEnv("VITE_CALL_AGENT_MANAGER_USER_IDS", false, "");
+    return ids ? ids.split(",").map(id => id.trim()) : [];
+  },
 };

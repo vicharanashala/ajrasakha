@@ -77,12 +77,16 @@ import {
 } from '#root/shared/constants/general.js';
 import { toTitleCase } from '#root/utils/ToTitlecase.js';
 import axios from 'axios';
+import { AccAgentService } from '#root/modules/acc-agent/services/AccAgentService.js';
 
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
   constructor(
     @inject(CORE_TYPES.AIService)
     private readonly aiService: AiService,
+
+    @inject(GLOBAL_TYPES.AccAgentService)
+    private readonly accAgentService: AccAgentService,
 
     @inject(GLOBAL_TYPES.ContextRepository)
     private readonly contextRepo: IContextRepository,
@@ -581,6 +585,73 @@ export class QuestionService extends BaseService implements IQuestionService {
     } catch (error) {
       console.error('Failed to generate call summary:', error);
       throw new InternalServerError('Failed to generate call summary');
+    }
+  }
+
+  /**
+   * HIL Flow: Create thread for ACC Agent
+   */
+  async createAccAgentThread(): Promise<{ thread_id: string }> {
+    try {
+      const result = await this.accAgentService.createThread();
+      return result;
+    } catch (error) {
+      console.error('[QuestionService] createAccAgentThread: Error', error);
+      throw new InternalServerError('Failed to create ACC Agent thread');
+    }
+  }
+
+  /**
+   * HIL Flow: Extract data from transcript
+   */
+  async extractAccAgentData(
+    threadId: string,
+    transcript: string
+  ): Promise<{
+    extracted_query: string;
+    extracted_crop: string;
+    extracted_state: string;
+    extracted_district: string;
+  }> {
+    try {
+      const result = await this.accAgentService.extractData(threadId, transcript);
+      return result;
+    } catch (error) {
+      console.error('[QuestionService] extractAccAgentData: Error', error);
+      throw new InternalServerError('Failed to extract data using ACC Agent');
+    }
+  }
+
+  /**
+   * HIL Flow: Update state with human corrections
+   */
+  async updateAccAgentState(
+    threadId: string,
+    correctedData: {
+      query: string;
+      crop: string;
+      state: string;
+      district: string;
+    }
+  ): Promise<void> {
+    try {
+      await this.accAgentService.updateState(threadId, correctedData);
+    } catch (error) {
+      console.error('[QuestionService] updateAccAgentState: Error', error);
+      throw new InternalServerError('Failed to update ACC Agent state');
+    }
+  }
+
+  /**
+   * HIL Flow: Resume and get final answer
+   */
+  async resumeAccAgentAndGetAnswer(threadId: string): Promise<{ final_answer: string }> {
+    try {
+      const result = await this.accAgentService.resumeAndGetAnswer(threadId);
+      return result;
+    } catch (error) {
+      console.error('[QuestionService] resumeAccAgentAndGetAnswer: Error', error);
+      throw new InternalServerError('Failed to get final answer from ACC Agent');
     }
   }
 
