@@ -450,156 +450,7 @@ expect(res.body.deletedCount).toBe(1);
 
 Question was successfully deleted from the system.
 
----
-
-# Documentation: Retrieve Deleted Question E2E
-
-**Test Name:** `deleted question is no longer retrievable`
-
-### Purpose
-
-Verify that a deleted question cannot be retrieved using the Question Details endpoint.
-
----
-
-### Preconditions
-
-- Question has been successfully deleted.
-- Valid moderator token available.
-- Deleted question ID available.
-
----
-
-### Endpoint
-
-```http
-GET /api/questions/:questionId/full
-```
-
----
-
-### Authentication
-
-```http
-Authorization: Bearer <moderator_token>
-```
-
----
-
-### Expected Behavior
-
-The API should return:
-
-```http
-404 Not Found
-```
-
-indicating that the requested question no longer exists.
-
----
-
-### Actual Behavior
-
-The API returned:
-
-```http
-500 Internal Server Error
-```
-
-Response:
-
-```json
-{
-  "name": "TypeError",
-  "message": "Cannot destructure property 'question' of '(intermediate value)' as it is null."
-}
-```
-
----
-
-### Root Cause Analysis
-
-The controller assumes that a question is always returned from:
-
-```ts
-this.questionService.getQuestionFullData(questionId, userId);
-```
-
-Current implementation:
-
-```ts
-const {question, approved_moderator} =
-  await this.questionService.getQuestionFullData(questionId, userId);
-```
-
-When the question has been deleted, the service returns:
-
-```ts
-null;
-```
-
-which results in:
-
-```ts
-const {question, approved_moderator} = null;
-```
-
-causing a runtime exception and a 500 response.
-
----
-
-### Expected Fix
-
-Controller should validate the service response before destructuring:
-
-```ts
-const result = await this.questionService.getQuestionFullData(
-  questionId,
-  userId,
-);
-
-if (!result) {
-  throw new NotFoundError(`Question with id ${questionId} not found`);
-}
-
-const {question, approved_moderator} = result;
-```
-
----
-
-### Expected Result
-
-| Check                      | Expected           |
-| -------------------------- | ------------------ |
-| HTTP Status                | 404                |
-| Error Message              | Question not found |
-| Internal Exception Exposed | No                 |
-
----
-
-### Actual Result
-
-| Check                      | Actual    |
-| -------------------------- | --------- |
-| HTTP Status                | 500       |
-| Error Message              | TypeError |
-| Internal Exception Exposed | Yes       |
-
----
-
-### Status
-
-❌ **FAILED**
-
----
-
-### Severity
-
-**Medium**
-
-The delete operation succeeds, but retrieval of a deleted resource returns an incorrect status code and exposes an internal implementation error.
-
----
+# FAILED TESTS AND THEIR REASON
 
 ## Documentation: Bulk Delete Questions E2E
 
@@ -693,3 +544,477 @@ expect(deleteRes.status).toBe(200);
 Multiple questions were successfully deleted using a single bulk delete request.
 
 ---
+
+# Documentation: Bulk Delete Questions E2E
+
+**Test Name:** `moderator bulk deletes questions`
+
+## Purpose
+
+Verify that an authenticated moderator can submit a bulk delete request for multiple questions and receive a background job identifier.
+
+This test validates request acceptance only. It does **not** validate completion of the deletion process.
+
+---
+
+## Architecture Overview
+
+Bulk deletion is implemented as an asynchronous background operation.
+
+Flow:
+
+```text
+Client
+  ↓
+DELETE /api/questions/bulk
+  ↓
+QuestionController
+  ↓
+QuestionService.bulkDeleteQuestions()
+  ↓
+startBulkDeleteWorker()
+  ↓
+Returns Job ID Immediately
+  ↓
+Background Worker Executes Later
+```
+
+The endpoint does not wait for deletion to finish before returning a response.
+
+---
+
+## Preconditions
+
+- Backend is running.
+- Firebase authentication is configured.
+- Moderator account exists.
+- Moderator token is valid.
+- At least two questions exist and can be deleted.
+
+---
+
+## Endpoint
+
+```http
+DELETE /api/questions/bulk
+```
+
+---
+
+## Authentication
+
+```http
+Authorization: Bearer <moderator_token>
+```
+
+---
+
+## Request Payload
+
+```json
+{
+  "questionIds": ["question_id_1", "question_id_2"]
+}
+```
+
+---
+
+## Test Setup
+
+### Step 1
+
+Create Question #1
+
+```http
+POST /api/questions
+```
+
+Capture:
+
+```ts
+questionId1;
+```
+
+---
+
+### Step 2
+
+Create Question #2
+
+```http
+POST /api/questions
+```
+
+Capture:
+
+```ts
+questionId2;
+```
+
+---
+
+### Step 3
+
+Submit bulk delete request
+
+```json
+{
+  "questionIds": [
+    questionId1,
+    questionId2
+  ]
+}
+```
+
+---
+
+## Validation Performed
+
+Verified that:
+
+- Moderator can access endpoint.
+- Multiple question IDs are accepted.
+- Background deletion job is created.
+- API returns a valid job identifier.
+- Request is accepted successfully.
+
+---
+
+## Expected Response
+
+```json
+{
+  "jobId": "delete_1781005292958",
+  "message": "Your bulk delete request for 2 question(s) is being processed in the background. Estimated time: ~ 2 sec."
+}
+```
+
+---
+
+## Assertions
+
+```ts
+expect(deleteRes.status).toBe(200);
+
+expect(deleteRes.body.jobId).toBeDefined();
+
+expect(deleteRes.body.message).toContain('being processed in the background');
+```
+
+---
+
+## Expected Result
+
+| Check            | Expected |
+| ---------------- | -------- |
+| HTTP Status      | 200      |
+| Job Created      | Yes      |
+| Job ID Returned  | Yes      |
+| Request Accepted | Yes      |
+
+---
+
+## Result
+
+✅ **PASSED**
+
+Bulk delete request was accepted and a background worker job was successfully created.
+
+---
+
+## Coverage Achieved
+
+This test validates:
+
+```text
+Authentication
+    ↓
+Controller
+    ↓
+Service
+    ↓
+Background Worker Scheduling
+```
+
+This test does NOT validate:
+
+```text
+Worker Execution
+Question Deletion
+Database Cleanup
+Completion Status
+```
+
+because the endpoint returns before deletion finishes.
+
+---
+
+# Documentation: Bulk Deleted Questions Are Not Retrievable
+
+**Test Name:** `bulk deleted questions are not retrievable`
+
+---
+
+## Purpose
+
+Attempt to verify that questions submitted for bulk deletion can no longer be retrieved.
+
+---
+
+## Current Status
+
+⚠️ **Test is currently invalid against the existing API contract.**
+
+---
+
+## Why The Test Fails
+
+The bulk delete endpoint is asynchronous.
+
+Current implementation:
+
+```ts
+async bulkDeleteQuestions(
+  userId: string,
+  questionIds: string[],
+) {
+  const jobId = startBulkDeleteWorker(
+    questionIds,
+    userId,
+  );
+
+  return {
+    jobId,
+    message,
+  };
+}
+```
+
+The endpoint only schedules a worker:
+
+```text
+DELETE Request
+      ↓
+Job Created
+      ↓
+Response Returned
+      ↓
+Worker Starts
+      ↓
+Worker Deletes Questions
+```
+
+Because the API returns immediately, there is no guarantee that deletion has completed when the next test executes.
+
+---
+
+## Observed Failure
+
+The test performs:
+
+```ts
+DELETE / api / questions / bulk;
+```
+
+followed immediately by:
+
+```ts
+GET /api/questions/:id/full
+```
+
+and receives:
+
+```http
+200 OK
+```
+
+instead of:
+
+```http
+404 Not Found
+```
+
+because the worker has not finished deleting the question yet.
+
+---
+
+## Example Timeline
+
+```text
+T+0ms
+Bulk Delete Request Sent
+
+T+50ms
+API Returns 200 + JobId
+
+T+60ms
+Next Test Starts
+
+T+100ms
+GET Question
+→ Question Still Exists
+
+T+500ms
+Worker Deletes Question
+```
+
+The retrieval request races ahead of the worker.
+
+---
+
+## Actual Test Output
+
+```text
+Question <id> status: 200
+```
+
+Assertion:
+
+```ts
+expect([404, 500]).toContain(res.status);
+```
+
+fails because:
+
+```text
+200 ∉ [404, 500]
+```
+
+---
+
+## Root Cause
+
+The API does not expose any mechanism to determine whether the worker has completed.
+
+Current API:
+
+```text
+DELETE /questions/bulk
+```
+
+returns:
+
+```json
+{
+  "jobId": "..."
+}
+```
+
+but there is no endpoint to check:
+
+```text
+running
+completed
+failed
+```
+
+status of the job.
+
+---
+
+## Missing Capability
+
+A status endpoint is required:
+
+```http
+GET /api/questions/bulk/status/:jobId
+```
+
+which would return:
+
+```json
+{
+  "status": "running"
+}
+```
+
+or
+
+```json
+{
+  "status": "completed"
+}
+```
+
+---
+
+## Correct Future Test Flow
+
+```text
+Create Questions
+      ↓
+Bulk Delete
+      ↓
+Receive JobId
+      ↓
+Poll Job Status
+      ↓
+Status = completed
+      ↓
+Verify Questions Removed
+```
+
+---
+
+## Why Waiting With setTimeout Is Not Reliable
+
+Using:
+
+```ts
+await new Promise(resolve => setTimeout(resolve, 5000));
+```
+
+is not deterministic because:
+
+- Worker execution time varies.
+- Machine load varies.
+- CI environments are slower.
+- Database operations may take longer.
+
+A fixed delay can still fail intermittently.
+
+---
+
+## Current Recommendation
+
+Do not assert deletion completion in E2E tests until a job-status endpoint exists.
+
+Current E2E coverage should stop at:
+
+```text
+Bulk Delete Request Accepted
+```
+
+which is the only behavior guaranteed by the API contract today.
+
+---
+
+## Defect / Gap Identified
+
+### QUESTION-E2E-002
+
+**Bulk Delete Completion Cannot Be Verified**
+
+Severity: Medium
+
+Description:
+
+The bulk delete endpoint returns immediately after scheduling a worker and does not expose any API to determine when deletion has completed. This prevents deterministic E2E validation of deletion success.
+
+---
+
+## Current Coverage Status
+
+```text
+Question CRUD
+
+Create Question                     ✓
+Get Question By ID                  ✓
+Update Question                     ✓
+Verify Updated Question             ✓
+Delete Question                     ✓
+Retrieve Deleted Question           ✗ Bug Found (QUESTION-E2E-001)
+
+Bulk Delete Request Accepted        ✓
+Bulk Delete Completion Verified     ✗ Not Currently Testable
+```
