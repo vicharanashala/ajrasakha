@@ -85,7 +85,7 @@ export const AuthForm = ({
     const newErrors: Record<string, string> = {};
     if (!formData.email) {
       newErrors.email = "Email is required";
-    } else if (!/^[^\s@]+@annam\.ai$/.test(formData.email) && !isDevelopment) {
+    } else if (mode === "signup" && !/^[^\s@]+@annam\.ai$/.test(formData.email) && !isDevelopment) {
       newErrors.email = "Please enter a valid email";
     }
 

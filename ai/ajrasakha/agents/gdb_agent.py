@@ -11,6 +11,7 @@ from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 
 from ajrasakha.agents.config import GOLDEN_API_URL
+from ajrasakha.agents.resolution_trace import trace_resolution
 from ajrasakha.agents.thread_trace import trace_event
 
 load_dotenv()
@@ -196,6 +197,20 @@ async def gdb(
     resolved_crop = _standardize_label(clean_fallback(crop))
     resolved_state = _standardize_label(clean_fallback(state))
     resolved_rephrased = (rephrased_query or "").strip()
+
+    trace_resolution(
+        "gdb_search",
+        crop=resolved_crop,
+        crop_source="tool_args (standardized)",
+        state=resolved_state,
+        state_source="tool_args (standardized)",
+        latitude=latitude,
+        longitude=longitude,
+        lat_long_source="tool_args" if latitude is not None and longitude is not None else "unset",
+        address=address,
+        input_crop=crop,
+        input_state=state,
+    )
 
     search_url = _golden_search_url()
 

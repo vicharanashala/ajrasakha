@@ -132,7 +132,13 @@ class VerifyUserBody {
   isVerified: boolean;
 }
 
-export const USER_VALIDATORS = [PreferenceDto, UsersNameResponseDto, UserDto, NotificationDeletePreferenceDTO, UpdatePenaltyAndIncentive, BlockUnblockBody, VerifyUserBody];
+export class VerificationRequestDto {
+  @IsString()
+  @IsNotEmpty({ message: 'Identifier cannot be empty' })
+  identifier: string;
+}
+
+export const USER_VALIDATORS = [PreferenceDto, UsersNameResponseDto, UserDto, NotificationDeletePreferenceDTO, UpdatePenaltyAndIncentive, BlockUnblockBody, VerifyUserBody, VerificationRequestDto];
 
 class UpdateUserDto {
   @IsOptional()
@@ -150,7 +156,7 @@ class UpdateUserDto {
   lastName?: string;
 
   @IsOptional()
-  @IsEnum(['expert', 'moderator', 'admin', 'pae_expert', 'tester'],)
+  @IsEnum(['expert', 'moderator', 'admin', 'pae_expert', 'tester', 'district_coordinator', 'block_coordinator', 'village_coordinator', ],)
   role?: UserRole;
   @IsOptional()
   @IsString()

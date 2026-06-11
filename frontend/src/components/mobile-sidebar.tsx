@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { isCoordinatorRole } from "@/lib/roles";
 import { Sheet, SheetContent, SheetTrigger } from "./atoms/sheet";
 
 const SidebarButton = ({
@@ -67,6 +68,7 @@ export const MobileSidebar = ({
   const [activeTab, setActiveTab] = useState(
     user?.role !== "expert" ? "performance" : "questions"
   );
+  const isCoordinator = isCoordinatorRole(user?.role);
   const handleClick = (value: string) => {
     if (value === "chatbotanalytics") {
       setTab("chatbotanalytics");
@@ -129,8 +131,8 @@ export const MobileSidebar = ({
       ? [{ id: "data_processing", label: "Data Processing", icon: Database }]
       : []),
 
-    ...(user ? [{ id: "history", label: "History", icon: History }] : []),
-    ...(user ? [{ id: "whatsapp_history", label: "WhatsApp History", icon: MessageSquare }] : []),
+    ...(user && !isCoordinator? [{ id: "history", label: "History", icon: History }] : []),
+    ...(user && !isCoordinator? [{ id: "whatsapp_history", label: "WhatsApp History", icon: MessageSquare }] : []),
   ];
 
   return (

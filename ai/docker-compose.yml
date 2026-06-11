@@ -51,8 +51,11 @@ services:
       - AEGRA_CONFIG=aegra.json
       - AUTH_TYPE=${AUTH_TYPE:-noop}
       - PORT=${PORT:-2026}
+      # socket_timeout must exceed worker BLPOP timeout (5s); default redis-py
+      # socket timeout is shorter and raises RedisError on idle BLPOP, which
+      # breaks job dequeue and SSE pub/sub (stream hangs until client timeout).
       - REDIS_BROKER_ENABLED=true
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=redis://redis:6379/0?socket_timeout=10
     depends_on:
       postgres:
         condition: service_healthy
@@ -64,9 +67,9 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
-    volumes:
-      - ./src:/app/src:ro
-      - ./aegra.json:/app/aegra.json:ro
+    # Bind-mounting single files (e.g. aegra.json) fails when the Docker daemon
+    # cannot see the host path (common in devbox/remote Docker). Config and code
+    # are already COPY'd into the image by the Dockerfile.
 
 volumes:
   postgres_data:
