@@ -444,7 +444,7 @@ export function UserDetailsView({
     userRole?: string;
     role?: "district_coordinator" | "block_coordinator" | "village_volunteer";
     isVerified?: boolean;
-    target: "web_app" | "review_system";
+    target: "web_app" | "review_system" | "both";
   }) => {
     await addUserMutation.mutateAsync({
       source,

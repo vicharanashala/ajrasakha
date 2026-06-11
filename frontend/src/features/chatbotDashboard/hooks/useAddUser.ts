@@ -19,9 +19,40 @@ export function useAddUser() {
         userRole?: string;
         role?: 'district_coordinator' | 'block_coordinator' | 'village_volunteer';
         isVerified?: boolean;
-        target?: 'web_app' | 'review_system';
+        target?: 'web_app' | 'review_system' | 'both';
       };
     }) => {
+      if (data.target === 'both') {
+        await apiFetch<any>(
+          `${env.apiBaseUrl()}/auth/admin/review-users`,
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              email: data.email,
+              name: data.name,
+              password: data.password,
+              role: data.role,
+              isVerified: data.isVerified,
+            }),
+          },
+        );
+
+        const result = await apiFetch<any>(
+          `${env.apiBaseUrl()}/analytics/users?source=${source}`,
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              email: data.email,
+              name: data.name,
+              password: data.password,
+              isVerified: data.isVerified,
+              userRole: data.userRole
+            }),
+          },
+        );
+        return result;
+      }
+
       if (data.target === 'review_system') {
         const result = await apiFetch<any>(
           `${env.apiBaseUrl()}/auth/admin/review-users`,
@@ -50,12 +81,17 @@ export function useAddUser() {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['user-details'] });
-      if (variables.data.target === 'review_system') {
+      if (variables.data.target === 'review_system' || variables.data.target === 'both') {
         queryClient.invalidateQueries({ queryKey: ['admin'] });
-        toast.success('Review system user added successfully');
-        return;
       }
-      toast.success('Farmer added successfully');
+      
+      if (variables.data.target === 'both') {
+        toast.success('Coordinator added to both databases successfully');
+      } else if (variables.data.target === 'review_system') {
+        toast.success('Review system user added successfully');
+      } else {
+        toast.success('Farmer added successfully');
+      }
     },
     onError: (error: any) => {
       toast.error(error?.message || 'Failed to add user');

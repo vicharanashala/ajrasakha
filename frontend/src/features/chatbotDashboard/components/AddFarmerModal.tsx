@@ -28,6 +28,7 @@ const REVIEW_SYSTEM_ROLES = [
 ] as const;
 
 type ModalMode = "web_app" | "review_system";
+type ModalTarget = ModalMode | "both";
 type WebAppRole = (typeof WEB_APP_ROLES)[number]["value"];
 type ReviewSystemRole = (typeof REVIEW_SYSTEM_ROLES)[number]["value"];
 type UserRole = WebAppRole | ReviewSystemRole;
@@ -43,7 +44,7 @@ interface AddFarmerModalProps {
     userRole?: string;
     role?: ReviewSystemRole;
     isVerified?: boolean;
-    target: ModalMode;
+    target: ModalTarget;
   }) => void | Promise<void>;
 }
 
@@ -63,6 +64,7 @@ export function AddFarmerModal({
   const [role, setRole] = useState<UserRole>("FARMER");
   const [mode, setMode] = useState<ModalMode>("web_app");
   const [isVerified, setIsVerified] = useState(true);
+  const [createInBoth, setCreateInBoth] = useState(false);
   const roleOptions = mode === "web_app" ? WEB_APP_ROLES : REVIEW_SYSTEM_ROLES;
   const selectedRoleLabel =
     roleOptions.find((userRole) => userRole.value === role)?.label ??
@@ -82,6 +84,7 @@ export function AddFarmerModal({
       setMode("web_app");
       setRole("FARMER");
       setIsVerified(true);
+      setCreateInBoth(false);
       setErrors({});
     }
   }, [open]);
@@ -101,6 +104,7 @@ export function AddFarmerModal({
     setMode("web_app");
     setRole("FARMER");
     setIsVerified(true);
+    setCreateInBoth(false);
     setErrors({});
     setShowPassword(false);
     setShowConfirmPassword(false);
@@ -154,14 +158,18 @@ export function AddFarmerModal({
 
   const handleSave = async () => {
     if (!validate()) return;
+    
+    const isCoordinatorRole = ["district_coordinator", "block_coordinator", "village_volunteer"].includes(role as string);
+    const targetMode: ModalTarget = createInBoth && (mode === "review_system" || isCoordinatorRole) ? "both" : mode;
+
     await onSave({
       name: name.trim(),
       email: email.trim(),
       password,
-      userRole: mode === "web_app" ? role : undefined,
-      role: mode === "review_system" ? (role as ReviewSystemRole) : undefined,
+      userRole: role as string,
+      role: role as ReviewSystemRole,
       isVerified,
-      target: mode,
+      target: targetMode,
     });
   };
 
@@ -457,6 +465,27 @@ export function AddFarmerModal({
                       ))}
                     </RadioGroup>
                   </motion.div>
+
+                  <AnimatePresence>
+                    {((mode === "web_app" && ["district_coordinator", "block_coordinator", "village_volunteer"].includes(role as string)) || mode === "review_system") && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="flex flex-col gap-1.5 overflow-hidden"
+                      >
+                        <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200 cursor-pointer p-2 border rounded-xl border-border hover:bg-primary/5 transition-all">
+                          <input
+                            type="checkbox"
+                            checked={createInBoth}
+                            onChange={(e) => setCreateInBoth(e.target.checked)}
+                            className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                          />
+                          Create Coordinator in both databases (Web App & Review System)
+                        </label>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
                   <motion.div
                     custom={5}
