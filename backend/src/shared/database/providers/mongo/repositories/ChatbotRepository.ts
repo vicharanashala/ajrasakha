@@ -972,6 +972,36 @@ export class ChatbotRepository implements IChatbotRepository {
     };
   }
 
+  /**
+   * Transforms a user doc filter (potentially containing $or expressions)
+   * to be applied on a joined document by prefixing field paths with the given prefix.
+   * Handles special operators like $or by recursively transforming their conditions.
+   */
+  private buildJoinedUserDocFilter(
+    userDocFilter: Record<string, any>,
+    prefix: string,
+  ): Record<string, any> {
+    const result: Record<string, any> = {};
+
+    for (const [key, value] of Object.entries(userDocFilter)) {
+      if (key === '$or') {
+        // Transform $or conditions by prefixing field paths
+        const transformedOr = (value as any[]).map(condition => {
+          const transformedCondition: Record<string, any> = {};
+          for (const [field, fieldValue] of Object.entries(condition as Record<string, any>)) {
+            transformedCondition[`${prefix}.${field}`] = fieldValue;
+          }
+          return transformedCondition;
+        });
+        result['$or'] = transformedOr;
+      } else {
+        result[`${prefix}.${key}`] = value;
+      }
+    }
+
+    return result;
+  }
+
   // private buildQuestionUserTypeLookupStages(userType: string): any[] {
   //   if (userType === 'all') return [];
 
@@ -3584,11 +3614,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const userDocFilter = this.buildUserDocFilter(userType);
 
-      const userTypeMatch: Record<string, any> = {};
-
-      for (const key of Object.keys(userDocFilter)) {
-        userTypeMatch[`userDetails.${key}`] = userDocFilter[key];
-      }
+      const userTypeMatch = this.buildJoinedUserDocFilter(userDocFilter, 'userDetails');
 
       // ============================================
       // MATCH WEATHER AI RESPONSES
