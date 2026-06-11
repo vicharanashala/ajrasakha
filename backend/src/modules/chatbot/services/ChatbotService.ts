@@ -2853,6 +2853,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
         ajrasakhaPushedToReviewer: 0,
         whatsappAnsweredWithin120Min: 0,
         ajrasakhaAnsweredWithin120Min: 0,
+        whatsappPassedQuestions: 0,
+        ajrasakhaPassedQuestions: 0,
         whatsappMarkedDuplicate: 0,
         ajrasakhaMarkedDuplicate: 0,
         whatsappDynamicWeather: 0,

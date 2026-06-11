@@ -1102,6 +1102,8 @@ export interface ResponseAdherenceTable {
   ajrasakhaPushedToReviewer: number;
   whatsappAnsweredWithin120Min: number;
   ajrasakhaAnsweredWithin120Min: number;
+  whatsappPassedQuestions: number;
+  ajrasakhaPassedQuestions: number;
   whatsappMarkedDuplicate: number;
   ajrasakhaMarkedDuplicate: number;
   whatsappDynamicWeather: number;

@@ -76,8 +76,10 @@ export interface IQuestion {
   metrics: IQuestionMetrics | null;
   text?: string;
   closedAt?: Date;
+  passedAt?: Date | null;
   createdAt?: Date;
   updatedAt?: Date;
+  isClosed?: boolean;
   isHidden?: false;
   passingRemark?: string;
   isOnHold?: boolean;
