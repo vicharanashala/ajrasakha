@@ -33,6 +33,10 @@ export interface QueueQuestionItem {
   allocatedAt?: string | Date | null;
   /** Minutes since the current expert was allocated — present for stuck items. */
   minutesSinceAllocated?: number;
+  /** When the current expert opened the question — present for opened-but-idle items. */
+  openedAt?: string | Date | null;
+  /** Minutes since the current expert opened it — present for opened-but-idle items. */
+  minutesSinceOpened?: number;
   /** Which time-bound work bucket this question falls in — present for totalWork items. */
   workType?: 'stuck' | 'unallocated' | 'needsReviewer';
 }
@@ -65,6 +69,8 @@ export interface QueueDetailsResponse {
   /** Everything the time-bound cron tries to act on this run — stuck + unallocated +
    *  needsReviewer combined (the cron's "totalWork"). */
   totalWork: {count: number; items: QueueQuestionItem[]};
+  /** Opened by the current expert > 45 min ago but still no answer produced. */
+  openedIdle: {count: number; items: QueueQuestionItem[]};
 }
 
 /** Raw lean row returned by the repository layer for queue-details questions. */
@@ -101,7 +107,8 @@ export type QueueSectionName =
   | 'freeExperts'
   | 'stuck'
   | 'needsReviewer'
-  | 'totalWork';
+  | 'totalWork'
+  | 'openedIdle';
 
 /** One page of a section: exact total + the requested page's items. */
 export interface QueueSectionResult {

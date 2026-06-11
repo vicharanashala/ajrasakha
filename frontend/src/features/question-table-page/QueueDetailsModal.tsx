@@ -88,11 +88,13 @@ const QuestionRow = ({
   showExpert,
   showStuck,
   showWorkType,
+  showOpenedIdle,
 }: {
   item: QueueQuestionItem;
   showExpert?: boolean;
   showStuck?: boolean;
   showWorkType?: boolean;
+  showOpenedIdle?: boolean;
 }) => {
   const meta = [item.source, item.state, item.crop].filter(Boolean).join(" · ");
   return (
@@ -129,6 +131,12 @@ const QuestionRow = ({
         <p className="mt-1 text-[11px] font-medium text-red-600 dark:text-red-400">
           {item.expertName ? `${item.expertName} · ` : ""}
           stuck {item.minutesSinceAllocated ?? "?"} min (never opened)
+        </p>
+      )}
+      {showOpenedIdle && (
+        <p className="mt-1 text-[11px] font-medium text-orange-600 dark:text-orange-400">
+          {item.expertName ? `${item.expertName} · ` : ""}
+          opened {item.minutesSinceOpened ?? "?"} min ago · no answer yet
         </p>
       )}
     </div>
@@ -511,6 +519,22 @@ export const QueueDetailsModal = ({
               isOpen={openSection === "stuck"}
               onToggle={() => toggle("stuck")}
               emptyText="No stuck questions"
+              startTime={dateFilter.startTime ?? undefined}
+              endTime={dateFilter.endTime ?? undefined}
+            />
+
+            <Section<QueueQuestionItem>
+              icon={<Clock size={20} />}
+              color="amber"
+              title="Opened but Idle (> 45 min)"
+              description="Opened by the expert > 45 min ago but still no answer"
+              count={data.openedIdle.count}
+              section="openedIdle"
+              initialItems={data.openedIdle.items}
+              renderItem={(q) => <QuestionRow key={q._id} item={q} showOpenedIdle />}
+              isOpen={openSection === "openedIdle"}
+              onToggle={() => toggle("openedIdle")}
+              emptyText="No opened-but-idle questions"
               startTime={dateFilter.startTime ?? undefined}
               endTime={dateFilter.endTime ?? undefined}
             />

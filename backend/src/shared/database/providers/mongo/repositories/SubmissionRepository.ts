@@ -3349,6 +3349,55 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     ]).toArray();
   }
 
+  /** Time-bound questions the current expert OPENED more than 45 min ago but still
+   *  hasn't produced an answer for — i.e. the latest history entry carries no
+   *  answer / approvedAnswer / modifiedAnswer / rejectedAnswer (an empty history,
+   *  meaning opened-but-no-entry, also qualifies). Distinct from "stuck", which is
+   *  allocated-but-NEVER-opened. */
+  async findOpenedButIdleTimeBoundQuestions(): Promise<IQuestionSubmission[]> {
+    await this.init();
+    const fortyFiveMinAgo = new Date(Date.now() - 45 * 60 * 1000);
+
+    return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>([
+      {
+        $match: {
+          currentExpertOpenedAt: { $exists: true, $ne: null, $lte: fortyFiveMinAgo },
+        },
+      },
+      {
+        $addFields: {
+          lastHistory: { $arrayElemAt: [{ $ifNull: ['$history', []] }, -1] },
+        },
+      },
+      {
+        $match: {
+          'lastHistory.answer': { $in: [null] },
+          'lastHistory.approvedAnswer': { $in: [null] },
+          'lastHistory.modifiedAnswer': { $in: [null] },
+          'lastHistory.rejectedAnswer': { $in: [null] },
+        },
+      },
+      {
+        $lookup: {
+          from: 'questions',
+          localField: 'questionId',
+          foreignField: '_id',
+          as: 'question',
+        },
+      },
+      { $unwind: '$question' },
+      {
+        $match: {
+          'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
+          'question.status': { $in: ['open', 'delayed'] },
+          'question.isOnHold': { $ne: true },
+          'question.isAutoAllocate': { $eq: true },
+        },
+      },
+      { $sort: { 'question.createdAt': 1 } },
+    ]).toArray();
+  }
+
   async findUnallocatedTimeBoundQuestions(): Promise<IQuestionSubmission[]> {
     await this.init();
 
