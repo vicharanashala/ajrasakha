@@ -21,6 +21,10 @@ import {
   Loader2,
   ChevronRight,
 } from "lucide-react";
+import type { DateRange } from "react-day-picker";
+import { useClosedAndNotifedData } from "../../hooks/useActiveUsersAnalytics";
+import { useUserDetails, type PaginatedUserDetailsResponse } from "../../hooks/useUserDetails";
+import { useQueryClient } from "@tanstack/react-query";
 
 /* ============================================================
    TYPES
@@ -274,12 +278,12 @@ const fmt = (n: number) =>
     ? `${(n / 1_000_000).toFixed(1)}M`
     : n >= 1000
       ? `${(n / 1000).toFixed(1)}k`
-      : n.toString();
+      : `${n}`;
 
 /* ============================================================
    MAIN
 ============================================================ */
-export default function IndiaAnalyticsMap() {
+export default function IndiaAnalyticsMap({source, userType, questionStatusData, todayActiveFarmersData}: {source: string, userType: string, questionStatusData: any; todayActiveFarmersData: PaginatedUserDetailsResponse}) {
   const dark = useIsDark();
 
   const [statesGeo, setStatesGeo] = useState<any>(null);
@@ -294,6 +298,67 @@ export default function IndiaAnalyticsMap() {
   const [flyTarget, setFlyTarget] = useState<L.LatLngBoundsExpression | null>(
     null,
   );
+
+    const [questionStatusDateRange, setQuestionStatusDateRange] = useState<
+      DateRange | undefined
+    >(undefined);
+
+
+      const getISOStringsForDateRange = useCallback((range?: DateRange) => {
+        if (!range || !range.from)
+          return { startTime: undefined, endTime: undefined };
+    
+        const startTime = new Date(range.from);
+        startTime.setHours(0, 0, 0, 0);
+    
+        const endDate = range.to ? new Date(range.to) : new Date(range.from);
+        const endTime = new Date(endDate);
+        const now = new Date();
+        const isSelectedToday =
+          endDate.getFullYear() === now.getFullYear() &&
+          endDate.getMonth() === now.getMonth() &&
+          endDate.getDate() === now.getDate();
+    
+        if (isSelectedToday) {
+          endTime.setHours(
+            now.getHours(),
+            now.getMinutes(),
+            now.getSeconds(),
+            now.getMilliseconds(),
+          );
+        } else {
+          endTime.setHours(23, 59, 59, 999);
+        }
+        return {
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+        };
+      }, []);
+
+          const todayStart = new Date();
+          todayStart.setHours(0, 0, 0, 0);
+        
+          const todayEnd = new Date();
+          todayEnd.setHours(23, 59, 59, 999);
+            const { data: allUsers } = useUserDetails(
+          undefined,
+          undefined,
+            1,
+            1,
+            "",
+            source as any,
+            "",
+            "",
+            "all",
+            false,
+            false,
+            userType as any,
+            "totalQuestions",
+            "desc",
+            false,
+            undefined,
+            true
+          )
 
   // Initial load
   useEffect(() => {
@@ -820,37 +885,70 @@ export default function IndiaAnalyticsMap() {
               <div className="grid grid-cols-2 gap-2">
                 <StatCard
                   label="Questions"
-                  value={fmt(a.questions)}
+                  value={fmt(questionStatusData?.closedVsTotalQuestions.totalQuestions)}
                   icon={<Activity className="h-3.5 w-3.5" />}
                 />
                 <StatCard
                   label="Answers"
-                  value={fmt(a.answers)}
+                  value={fmt(questionStatusData?.closedVsTotalQuestions.closedQuestions)}
                   icon={<Activity className="h-3.5 w-3.5" />}
                 />
                 <StatCard
                   label="Users"
-                  value={fmt(a.users)}
+                  value={fmt(allUsers.totalUsers)}
                   icon={<Users className="h-3.5 w-3.5" />}
                 />
                 <StatCard
                   label="Active"
-                  value={fmt(a.activeUsers)}
+                  value={fmt(todayActiveFarmersData.totalUsers)}
                   icon={<Users className="h-3.5 w-3.5" />}
                 />
                 <StatCard
                   label="Coordinators"
-                  value={fmt(a.coordinators)}
+                  value={fmt(todayActiveFarmersData.userRoleCounts?.coordinator)}
                   icon={<Building2 className="h-3.5 w-3.5" />}
                 />
                 <StatCard
                   label="Avg closure"
-                  value={`${districtAnalytics || stateAnalytics ? a.closureHrs : Math.round(a.closureHrs / (statesWithData?.features.length || 1))}h`}
+                  value={`${districtAnalytics || stateAnalytics ? a.closureHrs : ((questionStatusData?.closedVsTotalQuestions?.avgCloseTimeMinutes)/60).toFixed(2)}h`}
                   icon={<Activity className="h-3.5 w-3.5" />}
                 />
               </div>
             );
           })()}
+
+                        {/* <div className="grid grid-cols-2 gap-2">
+                <StatCard
+                  label="Questions"
+                  value={fmt(questionStatusData?.closedVsTotalQuestions.totalQuestions)}
+                  icon={<Activity className="h-3.5 w-3.5" />}
+                />
+                <StatCard
+                  label="Answers"
+                  value={fmt(questionStatusData?.closedVsTotalQuestions.closedQuestions)}
+                  icon={<Activity className="h-3.5 w-3.5" />}
+                />
+                <StatCard
+                  label="Users"
+                  value={fmt(allUsers.totalUsers)}
+                  icon={<Users className="h-3.5 w-3.5" />}
+                />
+                <StatCard
+                  label="Active"
+                  value={fmt(todayActiveFarmersData.totalUsers)}
+                  icon={<Users className="h-3.5 w-3.5" />}
+                />
+                <StatCard
+                  label="Coordinators"
+                  value={fmt(todayActiveFarmersData.userRoleCounts?.coordinator)}
+                  icon={<Building2 className="h-3.5 w-3.5" />}
+                />
+                <StatCard
+                  label="Avg closure"
+                  value={`${districtAnalytics || stateAnalytics ? a.closureHrs : ((questionStatusData?.closedVsTotalQuestions?.avgCloseTimeMinutes)/60).toFixed(2)}h`}
+                  icon={<Activity className="h-3.5 w-3.5" />}
+                />
+              </div> */}
 
           {/* Drill content */}
           {!selectedState && statesWithData && (

@@ -4682,6 +4682,28 @@ export class ChatbotRepository implements IChatbotRepository {
       }
 
       const allUsers = await this.users.find(userFilter, {session}).toArray();
+
+      const userRoleCounts = {
+  farmer: 0,
+  coordinator: 0,
+  internal: 0,
+};
+
+for (const user of allUsers) {
+  switch (user.userRole) {
+    case 'FARMER':
+      userRoleCounts.farmer++;
+      break;
+
+    case 'COORDINATOR':
+      userRoleCounts.coordinator++;
+      break;
+
+    case 'INTERNAL':
+      userRoleCounts.internal++;
+      break;
+  }
+}
       // console.log('useres::',allUsers)
       // console.log('type of isverified:', isVerfied);
       // Merge
@@ -4803,6 +4825,7 @@ export class ChatbotRepository implements IChatbotRepository {
         users,
         totalUsers,
         totalPages,
+        userRoleCounts,
         // activeUsers,
         // inactiveUsers,
         // totalQuestions,
@@ -9545,5 +9568,13 @@ export class ChatbotRepository implements IChatbotRepository {
       throw new InternalServerError('Failed to fetch unverified users');
     }
   }
-
+  async getStateQuestions(state: string, source: string, userType: string): Promise<any>{
+    try{
+      this.initReviewSystem();
+      const sourceType = source === "whatsapp" ? "WHATSAPP" : "AJRASAKHA"
+      
+    }catch(error){
+      throw new InternalServerError(`Something went wrong ${error}`)
+    }
+  }
 }

@@ -210,6 +210,7 @@ export interface PaginatedUserDetails {
   users: UserDetailEntry[];
   totalUsers: number;
   totalPages: number;
+  userRoleCounts?: {farmer: number, coordinator: number, internal: number}
   activeUsers?: number;
   inactiveUsers?: number;
   totalQuestions?: number;

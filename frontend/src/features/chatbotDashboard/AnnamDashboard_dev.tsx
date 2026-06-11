@@ -614,7 +614,7 @@ const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLo
 
 
 
-return <AnalyticsMap/>  
+return <AnalyticsMap source={source} userType={filters.userType} questionStatusData={questionStatusData} todayActiveFarmersData={todayActiveFarmersData}/>  
 return (
     <div className={cn("flex flex-col min-h-screen bg-background", className)}>
       {/* Keyframe animations required by child components (seg-pulse, slideIn) */}
