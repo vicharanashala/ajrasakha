@@ -199,6 +199,8 @@ export function UserDetailsView({
   // }, []);
 
   // Apply initialFilters when they change (e.g. clicking from AlertCard in overview)
+  // Note: We don't auto-scroll here because the parent dashboard handles scrolling
+  // via the scrollTo function when handlers are called
   useEffect(() => {
     if (initialFilters) {
       setFilters((prev) => ({
@@ -210,9 +212,6 @@ export function UserDetailsView({
           (userType === "internal" ? "all" : prev.profileCompleted),
       }));
       setCurrentPage(1);
-      if (initialFilters.inactiveOnly || initialFilters.lowFeedbackOnly) {
-        scrollToTable();
-      }
     }
   }, [initialFilters, userType]);
 
