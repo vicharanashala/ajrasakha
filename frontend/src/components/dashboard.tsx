@@ -37,7 +37,6 @@ import { PerformaneService } from "@/hooks/services/performanceService";
 import { toast } from "sonner";
 import { TopRightBadge } from "./NewBadge";
 import { QuestionsAnsweredAfter120MinProps } from "./dashboard/questions-answered-after-120min";
-import { useQueryClient } from "@tanstack/react-query";
 import { Clock, CheckCircle } from "lucide-react";
 import { useCheckIn } from "@/hooks/api/performance/useCheckIn";
 import { useBlockUser } from "@/hooks/api/user/useBlockUser";
@@ -51,21 +50,37 @@ export type ViewType = "year" | "month" | "week" | "day";
  *  Reuses the existing check-in + block/unblock endpoints; for a moderator,
  *  isBlocked is the availability flag (checked-in = not blocked). */
 const ModeratorCheckInControl = ({ user }: { user?: IUser | null }) => {
-  const queryClient = useQueryClient();
   const { checkIn, isPending: isCheckingIn } = useCheckIn();
   const blockUser = useBlockUser();
-  const [timer, setTimer] = useState("00:00:00");
 
   const isModerator = user?.role === "moderator";
-  const checkedIn = isModerator && user?.isBlocked === false;
+
+  // Local, optimistic state seeded from the server. Check-in/checkout updates
+  // ONLY this state (no global ["user"] invalidation), so just this control
+  // re-renders — the dashboard and its cards are never re-rendered/re-animated.
+  const [checkedIn, setCheckedIn] = useState(
+    () => isModerator && user?.isBlocked === false,
+  );
+  const [checkedInAt, setCheckedInAt] = useState<number | null>(() =>
+    user?.lastCheckInAt ? new Date(user.lastCheckInAt).getTime() : null,
+  );
+  const [timer, setTimer] = useState("00:00:00");
   const busy = isCheckingIn || blockUser.isPending;
 
+  // Re-sync with the server only when /me genuinely changes (initial load,
+  // window-focus refetch, etc.) — not on our own optimistic toggles.
   useEffect(() => {
-    if (!checkedIn || !user?.lastCheckInAt) {
+    setCheckedIn(isModerator && user?.isBlocked === false);
+    setCheckedInAt(
+      user?.lastCheckInAt ? new Date(user.lastCheckInAt).getTime() : null,
+    );
+  }, [isModerator, user?.isBlocked, user?.lastCheckInAt]);
+
+  useEffect(() => {
+    if (!checkedIn || !checkedInAt) {
       setTimer("00:00:00");
       return;
     }
-    const checkedInAt = new Date(user.lastCheckInAt).getTime();
     const tick = () => {
       const diff = Date.now() - checkedInAt;
       const f = (n: number) => Math.max(0, n).toString().padStart(2, "0");
@@ -78,7 +93,7 @@ const ModeratorCheckInControl = ({ user }: { user?: IUser | null }) => {
     tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [checkedIn, user?.lastCheckInAt]);
+  }, [checkedIn, checkedInAt]);
 
   if (!isModerator) return null;
 
@@ -87,7 +102,8 @@ const ModeratorCheckInControl = ({ user }: { user?: IUser | null }) => {
     try {
       await blockUser.mutateAsync({ userId: user._id, action: "unblock" });
       await checkIn();
-      queryClient.invalidateQueries({ queryKey: ["user"] });
+      setCheckedInAt(Date.now());
+      setCheckedIn(true);
     } catch {
       /* errors surfaced via the hooks' toasts */
     }
@@ -97,7 +113,7 @@ const ModeratorCheckInControl = ({ user }: { user?: IUser | null }) => {
     if (!user?._id || busy) return;
     try {
       await blockUser.mutateAsync({ userId: user._id, action: "block" });
-      queryClient.invalidateQueries({ queryKey: ["user"] });
+      setCheckedIn(false);
     } catch {
       /* errors surfaced via the hooks' toasts */
     }
