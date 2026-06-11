@@ -1563,10 +1563,6 @@ function RoleBadge({ role }: { role?: string }) {
       icon: <User className="h-3 w-3" />,
       className: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 border border-green-200 dark:border-green-800",
     },
-    coordinator: {
-      icon: <UsersRound className="h-3 w-3" />,
-      className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
-    },
     district_coordinator: {
       icon: <UsersRound className="h-3 w-3" />,
       className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800",

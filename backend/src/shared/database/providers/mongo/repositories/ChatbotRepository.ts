@@ -1032,7 +1032,7 @@ export class ChatbotRepository implements IChatbotRepository {
   //     userType === 'external'
   //       ? {
   //           '_userDoc.userRole': {
-  //             $in: ['FARMER', 'COORDINATOR'],
+  //             $in: EXTERNAL_USER_ROLES,
   //           },
   //         }
   //       : {
