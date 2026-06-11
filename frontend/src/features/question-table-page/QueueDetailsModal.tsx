@@ -19,6 +19,7 @@ import {
   ListChecks,
   RefreshCcw,
   PowerOff,
+  UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGetQueueDetails } from "@/hooks/api/question/useGetQueueDetails";
@@ -524,6 +525,24 @@ export const QueueDetailsModal = ({
               isOpen={openSection === "stuck"}
               onToggle={() => toggle("stuck")}
               emptyText="No stuck questions"
+              startTime={dateFilter.startTime ?? undefined}
+              endTime={dateFilter.endTime ?? undefined}
+            />
+
+            <Section<QueueQuestionItem>
+              icon={<UserPlus size={20} />}
+              color="amber"
+              title="Waiting for Reviewer"
+              description="Answered, awaiting next reviewer"
+              count={data.needsReviewer.count}
+              section="needsReviewer"
+              initialItems={data.needsReviewer.items}
+              renderItem={(q) => (
+                <QuestionRow key={q._id} item={q} showExpert />
+              )}
+              isOpen={openSection === "needsReviewer"}
+              onToggle={() => toggle("needsReviewer")}
+              emptyText="Nothing waiting for a reviewer"
               startTime={dateFilter.startTime ?? undefined}
               endTime={dateFilter.endTime ?? undefined}
             />

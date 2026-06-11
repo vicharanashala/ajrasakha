@@ -3349,36 +3349,19 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     ]).toArray();
   }
 
-  /** Build the match stages shared by the unallocated-time-bound list + count. */
-  private buildUnallocatedTimeBoundMatch(startTime?: Date, endTime?: Date) {
-    const createdAtFilter: Record<string, unknown> = {};
-    if (startTime) createdAtFilter.$gte = startTime;
-    if (endTime) createdAtFilter.$lte = endTime;
-    const hasDateFilter = startTime || endTime;
-
-    const matchStage: Record<string, unknown> = {
-      queue: { $size: 0 },
-      $or: [
-        { currentExpertAllocatedAt: { $exists: false } },
-        { currentExpertAllocatedAt: null },
-      ],
-    };
-    const questionMatchStage: Record<string, unknown> = {
-      'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
-      'question.status': { $in: ['open', 'delayed', 'duplicate'] },
-      'question.isOnHold': { $ne: true },
-      'question.isAutoAllocate': { $eq: true },
-    };
-    if (hasDateFilter) questionMatchStage['question.createdAt'] = createdAtFilter;
-    return { matchStage, questionMatchStage };
-  }
-
-  async findUnallocatedTimeBoundQuestions(limit: number = 100, skip: number = 0, startTime?: Date, endTime?: Date): Promise<IQuestionSubmission[]> {
+  async findUnallocatedTimeBoundQuestions(): Promise<IQuestionSubmission[]> {
     await this.init();
-    const { matchStage, questionMatchStage } = this.buildUnallocatedTimeBoundMatch(startTime, endTime);
 
     return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>([
-      { $match: matchStage },
+      {
+        $match: {
+          queue: { $size: 0 },
+          $or: [
+            { currentExpertAllocatedAt: { $exists: false } },
+            { currentExpertAllocatedAt: null },
+          ],
+        },
+      },
       {
         $lookup: {
           from: 'questions',
@@ -3388,33 +3371,16 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         },
       },
       { $unwind: '$question' },
-      { $match: questionMatchStage },
+      {
+        $match: {
+          'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
+          'question.status': { $in: ['open', 'delayed', 'duplicate'] },
+          'question.isOnHold': { $ne: true },
+          'question.isAutoAllocate': { $eq: true },
+        },
+      },
       { $sort: { 'question.createdAt': -1 } },
-      { $skip: skip },
-      { $limit: limit },
     ]).toArray();
-  }
-
-  /** Exact total of unallocated time-bound questions (for pagination counts). */
-  async countUnallocatedTimeBoundQuestions(startTime?: Date, endTime?: Date): Promise<number> {
-    await this.init();
-    const { matchStage, questionMatchStage } = this.buildUnallocatedTimeBoundMatch(startTime, endTime);
-
-    const res = await this.QuestionSubmissionCollection.aggregate<{ count: number }>([
-      { $match: matchStage },
-      {
-        $lookup: {
-          from: 'questions',
-          localField: 'questionId',
-          foreignField: '_id',
-          as: 'question',
-        },
-      },
-      { $unwind: '$question' },
-      { $match: questionMatchStage },
-      { $count: 'count' },
-    ]).toArray();
-    return res[0]?.count ?? 0;
   }
 
   /** Find time-bound (AJRASAKHA/WHATSAPP) submissions where the current expert

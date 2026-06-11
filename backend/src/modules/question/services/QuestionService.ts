@@ -5967,11 +5967,12 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
 
       case 'waiting': {
-        const [count, subs] = await Promise.all([
-          this.questionSubmissionRepo.countUnallocatedTimeBoundQuestions(startTime, endTime),
-          this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(safeLimit, skip, startTime, endTime),
-        ]);
-        return {count, items: (subs as any[]).map(s => this.submissionToQueueItem(s))};
+        // Same method (and therefore the same number) the cron logs as
+        // "Never-allocated". No date filter / no DB-side limit — paginate the
+        // full list in memory so the count always matches the console.
+        const subs = (await this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions()) as any[];
+        const pageSubs = subs.slice(skip, skip + safeLimit);
+        return {count: subs.length, items: pageSubs.map(s => this.submissionToQueueItem(s))};
       }
 
       case 'freeExperts': {
@@ -5994,18 +5995,9 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
 
       case 'stuck': {
-        let stuckSubs = (await this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation()) as any[];
-        // Apply the selected createdAt date range (same scope as other sections).
-        if (startTime || endTime) {
-          const from = startTime ? new Date(startTime).getTime() : -Infinity;
-          const to = endTime ? new Date(endTime).getTime() : Infinity;
-          stuckSubs = stuckSubs.filter(s => {
-            const created = s.question?.createdAt;
-            if (!created) return false;
-            const t = new Date(created).getTime();
-            return t >= from && t <= to;
-          });
-        }
+        // Same method (and therefore the same number) the cron logs as "Stuck".
+        // No date filter so the count always matches the console.
+        const stuckSubs = (await this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation()) as any[];
         const count = stuckSubs.length;
         const pageSubs = stuckSubs.slice(skip, skip + safeLimit);
         const byQuestion = new Map<string, string | null>();
@@ -6034,18 +6026,45 @@ export class QuestionService extends BaseService implements IQuestionService {
         return {count, items};
       }
 
+      case 'needsReviewer': {
+        // Same method (and therefore the same number) the cron logs as
+        // "NeedReviewer": answered/reviewed questions still awaiting the next
+        // reviewer. No date filter so the count always matches the console.
+        const subs = (await this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer()) as any[];
+        const count = subs.length;
+        const pageSubs = subs.slice(skip, skip + safeLimit);
+        // Show who completed the last step (the author/reviewer in the last history entry).
+        const byQuestion = new Map<string, string | null>();
+        const ids: string[] = [];
+        for (const sub of pageSubs) {
+          const last = (sub.history ?? [])[sub.history?.length - 1];
+          const id = last?.updatedBy?.toString() ?? null;
+          const qId = (sub.question?._id ?? sub.questionId)?.toString() ?? '';
+          byQuestion.set(qId, id);
+          if (id) ids.push(id);
+        }
+        const names = await this.resolveExpertNames(ids);
+        const items: QueueQuestionItem[] = pageSubs.map(sub => {
+          const item = this.submissionToQueueItem(sub);
+          const id = byQuestion.get(item._id ?? '');
+          return {...item, expertName: id ? names.get(id) ?? 'Unknown' : undefined};
+        });
+        return {count, items};
+      }
+
       default:
         return {count: 0, items: []};
     }
   }
 
-  /** Moderator/admin "Queue Details" — counts for all six sections plus the
-   *  first page (50) of each. Subsequent pages are fetched via getQueueSection.
-   *  Touches no allocation state. */
+  /** Moderator/admin "Queue Details" — counts for all sections plus the first
+   *  page (50) of each. Subsequent pages are fetched via getQueueSection.
+   *  Touches no allocation state. The time-bound sections (waiting, stuck,
+   *  needsReviewer) ignore the date range so their counts match the cron logs. */
   async getQueueDetails(startTime?: Date, endTime?: Date): Promise<QueueDetailsResponse> {
     const PAGE = 1;
     const LIMIT = 50;
-    const [received, autoAllocateOff, allocated, waiting, freeExperts, stuck] =
+    const [received, autoAllocateOff, allocated, waiting, freeExperts, stuck, needsReviewer] =
       await Promise.all([
         this.getQueueSection('received', PAGE, LIMIT, startTime, endTime),
         this.getQueueSection('autoAllocateOff', PAGE, LIMIT, startTime, endTime),
@@ -6053,6 +6072,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         this.getQueueSection('waiting', PAGE, LIMIT, startTime, endTime),
         this.getQueueSection('freeExperts', PAGE, LIMIT, startTime, endTime),
         this.getQueueSection('stuck', PAGE, LIMIT, startTime, endTime),
+        this.getQueueSection('needsReviewer', PAGE, LIMIT, startTime, endTime),
       ]);
 
     return {
@@ -6062,6 +6082,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       waiting: waiting as QueueDetailsResponse['waiting'],
       freeExperts: freeExperts as QueueDetailsResponse['freeExperts'],
       stuck: stuck as QueueDetailsResponse['stuck'],
+      needsReviewer: needsReviewer as QueueDetailsResponse['needsReviewer'],
     };
   }
 }

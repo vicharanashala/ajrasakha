@@ -58,6 +58,8 @@ export interface QueueDetailsResponse {
   freeExperts: {count: number; items: QueueExpertItem[]};
   /** Allocated > 45 min but never opened by the assigned expert. */
   stuck: {count: number; items: QueueQuestionItem[]};
+  /** Answered/reviewed but still awaiting the next reviewer (cron "NeedReviewer"). */
+  needsReviewer: {count: number; items: QueueQuestionItem[]};
 }
 
 /** Raw lean row returned by the repository layer for queue-details questions. */
@@ -85,14 +87,15 @@ export interface QueueQuestionData {
   autoOffItems: RawQueueQuestionRow[];
 }
 
-/** The six paginatable Queue-Details sections. */
+/** The paginatable Queue-Details sections. */
 export type QueueSectionName =
   | 'received'
   | 'autoAllocateOff'
   | 'allocated'
   | 'waiting'
   | 'freeExperts'
-  | 'stuck';
+  | 'stuck'
+  | 'needsReviewer';
 
 /** One page of a section: exact total + the requested page's items. */
 export interface QueueSectionResult {

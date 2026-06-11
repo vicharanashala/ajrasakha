@@ -57,6 +57,7 @@ export type QueueDetailsResponse = {
   waiting: { count: number; items: QueueQuestionItem[] };
   freeExperts: { count: number; items: QueueExpertItem[] };
   stuck: { count: number; items: QueueQuestionItem[] };
+  needsReviewer: { count: number; items: QueueQuestionItem[] };
 };
 export class QuestionService {
   private _baseUrl = `${API_BASE_URL}/questions`;
