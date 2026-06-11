@@ -765,24 +765,39 @@ export class UserRepository implements IUserRepository {
   async findExpertsByReputationScore(
     details: PreferenceDto,
     session?: ClientSession,
+    limit?: number,
   ): Promise<IUser[]> {
     await this.init();
 
-    // 1. Fetch all experts
-    const allUsersRaw = await this.usersCollection
-      .find({ role: 'expert', isBlocked: false }, { session })
-      .toArray();
+    // 1. Fetch all experts (include role and isBlocked for queue details)
+    const query: any = { role: 'expert', isBlocked: false };
+    const cursor = this.usersCollection.find(query, { session });
+    if (limit) cursor.limit(limit);
+    const allUsersRaw = await cursor.toArray();
 
     // 2. Remove duplicates based on email
     const uniqueUsersMap = new Map<string, IUser>();
+    const droppedByDedup: string[] = [];
+    const noEmail: string[] = [];
     for (const user of allUsersRaw) {
-      if (!user.email) continue;
+      if (!user.email) { noEmail.push(user._id?.toString()); continue; }
       if (!uniqueUsersMap.has(user.email)) uniqueUsersMap.set(user.email, user);
+      else droppedByDedup.push(user._id?.toString());
     }
     let allUsers = Array.from(uniqueUsersMap.values());
     allUsers.sort((a, b) => {
       return a.reputation_score - b.reputation_score;
     });
+
+    // Funnel diagnostic: total unblocked expert docs → eligible after email dedup.
+    // Shows how many real experts are dropped (and their ids) so we can tell whether
+    // a "missing" available expert is being collapsed away by the dedup.
+   /* console.log(
+      `[findExpertsByReputationScore] unblockedExpertDocs=${allUsersRaw.length}, ` +
+      `eligibleAfterDedup=${allUsers.length}, droppedByEmailDedup=${droppedByDedup.length}, ` +
+      `noEmail=${noEmail.length}`,
+      JSON.stringify({ droppedByDedup, noEmail }),
+    );*/
 
     return allUsers;
   }

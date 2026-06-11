@@ -3374,12 +3374,12 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       {
         $match: {
           'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
-          'question.status': { $nin: ['closed', 'pass', 'duplicate', 'draft', 'non_agri'] },
+          'question.status': { $in: ['open', 'delayed', 'duplicate'] },
           'question.isOnHold': { $ne: true },
-          'question.isAutoAllocate': {$eq: true}
+          'question.isAutoAllocate': { $eq: true },
         },
       },
-      { $sort: { 'question.createdAt': 1 } },
+      { $sort: { 'question.createdAt': -1 } },
     ]).toArray();
   }
 
@@ -3553,7 +3553,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     for (const r of result) {
       if (r._id) map.set(r._id.toString(), r.count);
     }
-    console.log('[getTimeBoundActiveCountPerExpert] result:', JSON.stringify(result), 'map:', JSON.stringify([...map]));
+   // console.log('[getTimeBoundActiveCountPerExpert] result:', JSON.stringify(result), 'map:', JSON.stringify([...map]));
     return map;
   }
 
