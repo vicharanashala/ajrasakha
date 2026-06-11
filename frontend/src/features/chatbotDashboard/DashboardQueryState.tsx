@@ -27,6 +27,7 @@ import { Skeleton } from "@/components/atoms/skeleton";
 
 import { ChevronsUpDown, Check, InfoIcon, RefreshCw } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
+import { QueryCategoryQuestionsModal } from "./components/QueryCategoryQuestionsModal";
 import { useQueryClient } from "@tanstack/react-query";
 
 // ─── TYPES ─────────────────────────────────────────────
@@ -75,6 +76,8 @@ interface ProgressBarProps {
   pct: number;
 
   color: string;
+
+  onClick?: ()=> void;
 }
 
 const ProgressBar: React.FC<ProgressBarProps> = ({
@@ -84,6 +87,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
   duplicateQuestions,
   pct,
   color,
+  onClick
 }) => {
   return (
     <div
@@ -97,6 +101,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
         transition-all
         duration-300
       "
+      onClick={onClick}
     >
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1.5 mb-1.5">
         <span
@@ -199,17 +204,23 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
 
 // ─── MAIN COMPONENT ────────────────────────────────────
 
-export const DashboardStateWiseAnalytics = (
-  source: "annam" | "vicharanashala" | "whatsapp",
-  userType: "all" | "external" | "internal",
-) => {
+interface DashboardStateWiseAnalyticsProps {
+  source: "annam" | "vicharanashala" | "whatsapp";
+  userType: "all" | "external" | "internal";
+}
+
+export const DashboardStateWiseAnalytics = ({
+  source,
+  userType,
+}: DashboardStateWiseAnalyticsProps) => {
   const [selectedState, setSelectedState] = useState("Punjab");
+  const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
 
   const [open, setOpen] = useState(false);
 
   const { data, isLoading } = useStateWiseAnalytics(
     selectedState,
-    source.source,
+    source,
     userType,
   );
 
@@ -410,11 +421,22 @@ export const DashboardStateWiseAnalytics = (
                   duplicateQuestions={district.duplicateQuestions}
                   pct={pct}
                   color={PREMIUM_PALETTE[index % PREMIUM_PALETTE.length]}
+                  onClick= {() => setSelectedDistrict(district.district)}
                 />
               );
             })}
           </ScrollArea>
         )}
+         {selectedDistrict && (
+            <QueryCategoryQuestionsModal
+              district={selectedDistrict}
+              state= {selectedState}
+              source={source}
+              userType={userType}
+              isQueryCategory = {false}
+              onClose={() => setSelectedDistrict(null)}
+            />
+          )}
       </CardContent>
     </Card>
   );

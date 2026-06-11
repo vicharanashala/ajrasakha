@@ -34,16 +34,22 @@ export function MissingDemographicsModal({
     search,
     source,
     "", // crop
+    [], // primaryCrops
+    [], // secondaryCrops
     "", // village
+    "", // state
+    "", // district
+    "", // block
     "all", // profileCompleted
     false, // inactiveOnly
     false, // lowFeedbackOnly
     userType,
+    [], // roles
     "name", // sortBy
     "asc", // sortOrder
     false, // activeTodayByProfile
     fieldKey, // missingDemographicField
-    true,
+    "verified",
   );
 
   const users = data?.users || [];

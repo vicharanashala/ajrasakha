@@ -222,6 +222,20 @@ export class QuestionService {
     });
   }
 
+  async generateQuestionsFromCallContext(query: string, state?: string, crop?: string): Promise<GeneratedQuestion[] | null> {
+    return apiFetch<GeneratedQuestion[] | null>(`${this._baseUrl}/generate-by-call-context`, {
+      method: "POST",
+      body: JSON.stringify({ query, state, crop }),
+    });
+  }
+
+  async generateCallSummary(query: string): Promise<{ extracted_question: string, extracted_state: string, extracted_crop: string } | null> {
+    return apiFetch<{ extracted_question: string, extracted_state: string, extracted_crop: string } | null>(`${this._baseUrl}/call-summary`, {
+      method: "POST",
+      body: JSON.stringify({ query }),
+    });
+  }
+
   async addQuestion(
     newQuestionData: Partial<IDetailedQuestion> | FormData,
     isFormData = false,

@@ -1,6 +1,6 @@
 import {ObjectId} from 'mongodb';
 
-export type UserRole = 'admin' | 'moderator' | 'expert' | 'pae_expert' | 'tester';
+export type UserRole = 'admin' | 'moderator' | 'expert' | 'pae_expert' | 'tester'| 'district_coordinator' | 'block_coordinator' | 'village_coordinator';
 export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold' | 'pae_submitted' | 'draft' | 'pass' | 'duplicate' | 'non_agri' | 'pending';
 export interface IPreference {
   state: string;
@@ -33,6 +33,8 @@ export interface IUser {
   mobile?: string;
   university?: string;
   isVerified?: boolean;
+  isCallAgent?: boolean;
+  isCallAgentActive?: boolean;
 }
 
 export type IQuestionPriority = 'low' | 'medium' | 'high' | 'critical';
@@ -103,6 +105,7 @@ export interface IQuestion {
   }>;
   popContext?: string;
   isCustomerNotified?: boolean;
+  isDuplicateChecked?: boolean;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';

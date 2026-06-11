@@ -114,15 +114,20 @@ export const ActiveUsersChart = ({
   };
 
   const formatCohortLabel = (value: string, requestType: ActiveUserType) => {
+    if (!value) return "";
     if (requestType === "monthly") {
-      return format(new Date(`${value}-01`), "MMM yyyy");
+      const date = new Date(`${value}-01`);
+      return isNaN(date.getTime()) ? value : format(date, "MMM yyyy");
     }
     if (requestType === "weekly") {
-      const [year, week] = value.split("-W");
+      const parts = value.split("-W");
+      if (parts.length < 2) return value;
+      const [year, week] = parts;
       return `W${week} ${year}`;
     }
     if (requestType === "daily") {
-      return format(new Date(value), "dd-MM-yy");
+      const date = new Date(value);
+      return isNaN(date.getTime()) ? value : format(date, "dd-MM-yy");
     }
     return value;
   };

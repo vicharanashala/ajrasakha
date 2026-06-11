@@ -90,8 +90,8 @@ def test_route_after_execute_empty_when_all_answers_dropped():
     assert route_after_execute(state) == "empty_gdb_reply"
 
 
-def test_route_after_execute_synthesize_when_weather_tool_has_content():
-    """Empty GDB + weather answer → synthesize from specialist tools."""
+def test_route_after_execute_assemble_when_weather_tool_has_content():
+    """Empty GDB + weather answer → assemble_answer_body from specialist tools."""
     state: AjraSakhaState = {
         "messages": [
             HumanMessage(content="Weather and crop?"),
@@ -104,4 +104,4 @@ def test_route_after_execute_synthesize_when_weather_tool_has_content():
         ],
         "plan": {"knowledge_base": True, "weather": True},
     }
-    assert route_after_execute(state) == "synthesize"
+    assert route_after_execute(state) == "assemble_answer_body"

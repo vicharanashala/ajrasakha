@@ -217,6 +217,62 @@ def test_is_greeting_message():
     assert is_greeting_message("What is the weather in Punjab?") is False
 
 
+@pytest.mark.asyncio
+async def test_greeting_reviewer_ignores_thread_gps_state():
+    """Greeting upload must not use GPS/reverse-geocoded state on thread location."""
+    plan = {
+        "domain": "General",
+        "weather": False,
+        "mandi": False,
+        "soil": False,
+        "schemes": False,
+        "chemical_checker": False,
+        "knowledge_base": False,
+        "is_greeting": True,
+        "is_complete": True,
+        "reasoning": "greeting",
+        "entities": {"crop": "all"},
+        "rephrased_query": "Hi",
+    }
+    calls = await build_tool_calls_from_plan(
+        plan,
+        "Hi",
+        {
+            "latitude": 32.7,
+            "longitude": 74.8,
+            "state": "Jammu and Kashmir",
+            "city": "Kathua",
+        },
+        location_tool_name="location_information_tool",
+        reviewer_tool_name="upload_question_to_reviewer_system",
+        question_source="AJRASAKHA",
+    )
+    reviewer = next(c for c in calls if c["name"] == "upload_question_to_reviewer_system")
+    assert reviewer["args"]["state_name"] == "Not specified"
+    assert reviewer["args"]["details"]["state"] == "Not specified"
+    assert reviewer["args"]["details"]["district"] == "all"
+    assert reviewer["args"]["crop"] == "all"
+
+
+def test_merge_plan_replaces_stale_entities_on_new_planner_turn():
+    from ajrasakha.agents.state import merge_plan
+
+    old = {
+        "reasoning": "old_turn",
+        "entities": {"state": "Jammu and Kashmir", "crop": "wheat"},
+        "is_complete": True,
+    }
+    new = {
+        "reasoning": "greeting",
+        "entities": {"crop": "all"},
+        "is_greeting": True,
+        "is_complete": True,
+    }
+    merged = merge_plan(old, new)
+    assert merged["entities"] == {"crop": "all"}
+    assert merged["entities"].get("state") is None
+
+
 def test_extract_chemicals_from_text():
     found = extract_chemicals_from_text("Can I use Monocrotophos on cotton?")
     assert any("monocrotophos" in c.lower() for c in found)
@@ -334,6 +390,8 @@ def test_format_tool_results_omits_gdb_author_and_source():
 def test_compiled_graph_uses_planner_pipeline_by_default():
     assert use_planner_graph() is True
     assert "planner" in graph.nodes
+    assert "upload_reviewer_only" in graph.nodes
     assert "execute_plan" in graph.nodes
-    assert "gdb_passthrough" in graph.nodes
-    assert "synthesize" in graph.nodes
+    assert "assemble_answer_body" in graph.nodes
+    assert "synthesize" not in graph.nodes
+    assert "translate_answer" in graph.nodes

@@ -31,8 +31,14 @@ from ajrasakha.agents.plan_executor import (
     ensure_location_node,
     execute_plan_node,
     route_after_execute,
+    upload_reviewer_only_node,
 )
-from ajrasakha.agents.planner import clarify_node, planner_node, route_after_planner
+from ajrasakha.agents.planner import (
+    clarify_node,
+    planner_node,
+    route_after_ensure_location,
+    route_after_planner,
+)
 from ajrasakha.agents.prompts import (
     EMPTY_GDB_REPLY,
     EXPERT_QUEUE_REPLY_MARKER,
@@ -41,12 +47,16 @@ from ajrasakha.agents.prompts import (
     WHATSAPP_SYSTEM_PROMPT,
 )
 from ajrasakha.agents.state import AjraSakhaState, Location
-from ajrasakha.agents.gdb_passthrough import gdb_passthrough_node
-from ajrasakha.agents.synthesizer import synthesize_node
+from ajrasakha.agents.assemble_answer_body import assemble_answer_body_node
 from ajrasakha.agents.tool_registry import get_main_tool_node
 
 load_dotenv()
 
+from ajrasakha.agents.crop_chemical_resolver import ensure_crop_master_loaded
+from ajrasakha.agents.thread_logging import setup_thread_file_logging, with_thread_logging
+
+ensure_crop_master_loaded()
+setup_thread_file_logging()
 
 MCP_SERVERS = {
     "golden_db":        {"url": MCP_URLS["gdb"],       "transport": "http"},
@@ -195,11 +205,8 @@ async def tools_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
 
 
 def route_after_tools_planner(state: AjraSakhaState) -> str:
-    """After execute_plan: synthesize, empty gdb short-circuit, or END."""
-    routed = route_after_execute(state)
-    if routed == "end":
-        return END
-    return routed
+    """After execute_plan: assemble body, translate, or empty gdb sheet path."""
+    return route_after_execute(state)
 
 
 def _tool_message_text(message: ToolMessage) -> str:
@@ -319,7 +326,7 @@ def route_after_ajrasakha(state: AjraSakhaState) -> str:
 def sanitize_answer_node(state: AjraSakhaState) -> dict:
     """Adjust the 2-hour reviewer disclaimer on the final farmer-facing answer.
 
-    Disabled in _build_graph() (synthesize goes directly to END). Re-enable by
+    Disabled in _build_graph() (planner graph ends at translate_answer). Re-enable by
     uncommenting the sanitize_answer node and edges below.
 
     - GDB returned real data (gdb_has_data=True): ALWAYS strip the 2-hour disclaimer.
@@ -390,21 +397,19 @@ def sanitize_answer_node(state: AjraSakhaState) -> dict:
 
 def _build_graph():
     builder = StateGraph(AjraSakhaState)
-    builder.add_node("empty_gdb_reply", empty_gdb_reply_node)
+    builder.add_node("empty_gdb_reply", with_thread_logging(empty_gdb_reply_node))
     # builder.add_node("sanitize_answer", sanitize_answer_node)  # disabled: 2-hour disclaimer post-process
 
     if use_planner_graph():
-        builder.add_node("planner", planner_node)
-        builder.add_node("clarify", clarify_node)
-        builder.add_node("ensure_location", ensure_location_node)
-        builder.add_node("execute_plan", execute_plan_node)
-        # GDB: Golden API + Gemma already picked the expert answer — no synthesizer LLM.
-        builder.add_node("gdb_passthrough", gdb_passthrough_node)
-        # Weather/mandi/soil/schemes when GDB has no usable answer (keep this node).
-        builder.add_node("synthesize", synthesize_node)
+        builder.add_node("planner", with_thread_logging(planner_node))
+        builder.add_node("clarify", with_thread_logging(clarify_node))
+        builder.add_node("ensure_location", with_thread_logging(ensure_location_node))
+        builder.add_node("upload_reviewer_only", with_thread_logging(upload_reviewer_only_node))
+        builder.add_node("execute_plan", with_thread_logging(execute_plan_node))
+        builder.add_node("assemble_answer_body", with_thread_logging(assemble_answer_body_node))
         from ajrasakha.agents.translate_answer import translate_answer_node
 
-        builder.add_node("translate_answer", translate_answer_node)
+        builder.add_node("translate_answer", with_thread_logging(translate_answer_node))
 
         builder.add_edge(START, "planner")
         builder.add_conditional_edges(
@@ -413,19 +418,25 @@ def _build_graph():
             {"clarify": "clarify", "ensure_location": "ensure_location"},
         )
         builder.add_edge("clarify", END)
-        builder.add_edge("ensure_location", "execute_plan")
+        builder.add_conditional_edges(
+            "ensure_location",
+            route_after_ensure_location,
+            {
+                "upload_reviewer_only": "upload_reviewer_only",
+                "execute_plan": "execute_plan",
+            },
+        )
+        builder.add_edge("upload_reviewer_only", "empty_gdb_reply")
         builder.add_conditional_edges(
             "execute_plan",
             route_after_tools_planner,
             {
-                END: END,
-                "gdb_passthrough": "gdb_passthrough",
-                "synthesize": "synthesize",
+                "assemble_answer_body": "assemble_answer_body",
+                "translate_answer": "translate_answer",
                 "empty_gdb_reply": "empty_gdb_reply",
             },
         )
-        builder.add_edge("gdb_passthrough", "translate_answer")
-        builder.add_edge("synthesize", "translate_answer")
+        builder.add_edge("assemble_answer_body", "translate_answer")
         builder.add_edge("translate_answer", END)
         builder.add_edge("empty_gdb_reply", "translate_answer")
         # builder.add_edge("translate_answer", "sanitize_answer")

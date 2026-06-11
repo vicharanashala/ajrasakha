@@ -4,7 +4,9 @@ import { X, Copy, Check } from "lucide-react";
 import { Badge } from "@/components/atoms/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/atoms/tabs";
 import {
-  useQueryCategoryQuestions,
+  // useDistrictQuestion,
+  // useQueryCategoryQuestions,
+  useQuestionFilter,
   type QueryCategoryQuestionEntry,
   type QueryCategoryQuestionType,
 } from "../hooks/useActiveUsersAnalytics";
@@ -49,9 +51,21 @@ const CopyableIdCell = ({ id }: { id?: string }) => {
 };
 
 interface QueryCategoryQuestionsModalProps {
-  category: string;
-  source: "vicharanashala" | "annam" | "whatsapp";
+  category?: string;
+  district?: string;
+  state?: string;
+  crop?: string;
+  crops?: string[];
+  status?: string; 
+  closedWithInTwohours?: boolean;
+  notificationType?: string;
+  period?: string;
+  source?: "vicharanashala" | "annam" | "whatsapp";
+  // source? : string;
   userType?: string;
+  isQueryCategory?: boolean;
+  startDate?: Date;
+  endDate?: Date;
   onClose: () => void;
 }
 
@@ -59,61 +73,205 @@ const PAGE_SIZE = 10;
 
 export function QueryCategoryQuestionsModal({
   category,
+  district,
+  state,
+  crop,
+  crops,
+  status,
+  closedWithInTwohours,
+  notificationType,
+  period,
   source,
   userType = "all",
+  isQueryCategory,
+  startDate,
+  endDate,
   onClose,
 }: QueryCategoryQuestionsModalProps) {
   const [questionType, setQuestionType] =
     useState<QueryCategoryQuestionType>("all");
   const [page, setPage] = useState(1);
 
+  console.log("StartDate", startDate);
+  console.log("EndDate", endDate);
+
+  const [searchTerm, setSearchTerm] = useState("");
+
   useEffect(() => {
     setPage(1);
     setQuestionType("all");
   }, [category]);
 
-  const { data, isLoading, isError, isFetching } = useQueryCategoryQuestions({
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setPage(1);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  const { data, isLoading, isError, isFetching } = useQuestionFilter({
     category,
+    district,
+    state,
+    crop,
+    crops,
+    status,
+    closedWithInTwohours,
+    notificationType,
+    period,
     questionType,
     page,
     limit: PAGE_SIZE,
     source,
     userType,
+    startDate,
+    endDate,
+    search: debouncedSearch,
     enabled: true,
   });
 
-  const columns = useMemo<QuestionListColumn<QueryCategoryQuestionEntry>[]>(
-    () => [
-      {
-        key: "questionId",
-        label: "Question ID",
-        sortable: true,
-        sortAccessor: (row) => row.questionId,
-        className: "w-[12%]",
-        cellClassName: "text-xs text-gray-500",
-        render: (row) => <CopyableIdCell id={row.questionId} />,
-      },
+  // const columns = useMemo<QuestionListColumn<QueryCategoryQuestionEntry>[]>(
+  //   () => [
+  //     {
+  //       key: "questionId",
+  //       label: "Question ID",
+  //       sortable: true,
+  //       sortAccessor: (row) => row.questionId,
+  //       className: "w-[12%]",
+  //       cellClassName: "text-xs text-gray-500",
+  //       render: (row) => <CopyableIdCell id={row.questionId} />,
+  //     },
+  //     {
+  //       key: "email",
+  //       label: "Email",
+  //       sortable: true,
+  //       sortAccessor: (row) => row.email || "N/A",
+  //       className: "w-[16%]",
+  //       cellClassName: "truncate",
+  //       accessor: (row) => row.email || "N/A",
+  //     },
+  //     {
+  //       key: "name",
+  //       label: "Name",
+  //       sortable: true,
+  //       sortAccessor: (row) => row.name || row.farmerName || "N/A",
+  //       className: "w-[14%]",
+  //       cellClassName: "truncate",
+  //       accessor: (row) => row.name || row.farmerName || "N/A",
+  //     },
+  //     {
+  //       key: "question",
+  //       label: "Question",
+  //       sortable: true,
+  //       sortAccessor: (row) => row.question,
+  //       className: "w-[32%]",
+  //       cellClassName: "overflow-hidden",
+  //       render: (row) => (
+  //         <TranslatableText
+  //           text={row.question ?? ""}
+  //           showTooltip
+  //           textClassName="text-xs line-clamp-2"
+  //         />
+  //       ),
+  //     },
+  //     {
+  //       key: "createdAt",
+  //       label: "Created At",
+  //       sortable: true,
+  //       sortAccessor: (row) => (row.createdAt ? new Date(row.createdAt) : null),
+  //       className: "w-[10%]",
+  //       cellClassName: "whitespace-normal break-words text-[11px]",
+  //       render: (row) =>
+  //         row.createdAt
+  //           ? new Date(row.createdAt).toLocaleString(undefined, {
+  //               dateStyle: "short",
+  //               timeStyle: "short",
+  //             })
+  //           : undefined,
+  //     },
+  //     {
+  //       key: "questionType",
+  //       label: "Type",
+  //       align: "center",
+  //       sortable: true,
+  //       sortAccessor: (row) => row.questionType,
+  //       className: "w-[8%]",
+  //       render: (row) => (
+  //         <Badge
+  //           variant={
+  //             row.questionType === "duplicate" ? "destructive" : "secondary"
+  //           }
+  //           className="justify-center capitalize"
+  //         >
+  //           {row.questionType}
+  //         </Badge>
+  //       ),
+  //     },
+  //     {
+  //       key: "status",
+  //       label: "Status",
+  //       align: "center",
+  //       sortable: true,
+  //       sortAccessor: (row) => row.status ?? "",
+  //       className: "w-[8%]",
+  //       render: (row) => (
+  //         <Badge
+  //           variant="outline"
+  //           className="justify-center capitalize text-gray-500"
+  //         >
+  //           {row.status}
+  //         </Badge>
+  //       ),
+  //     },
+  //   ],
+  //   [],
+  // );
+
+  const columns = useMemo<
+    QuestionListColumn<QueryCategoryQuestionEntry>[]
+  >(() => {
+    const baseColumns: QuestionListColumn<QueryCategoryQuestionEntry>[] = [
+     {
+  key: period ? "messageId" : "questionId",
+  label: period ? "Message ID" : "Question ID",
+  sortable: true,
+  sortAccessor: (row) => row.questionId || row.messageId,
+  className: "w-[12%]",
+  cellClassName: "text-xs text-gray-500",
+  render: (row) => (
+    <CopyableIdCell
+      id={period ? row.messageId : row.questionId}
+    />
+  ),
+},
+
       {
         key: "email",
         label: "Email",
         sortable: true,
-        sortAccessor: (row) => row.email ?? "",
+        sortAccessor: (row) => row.email || "N/A",
         className: "w-[16%]",
         cellClassName: "truncate",
-        accessor: (row) => row.email,
+        accessor: (row) => row.email || "N/A",
       },
+
       {
         key: "name",
         label: "Name",
         sortable: true,
-        sortAccessor: (row) => row.name ?? row.farmerName ?? "",
+        sortAccessor: (row) => row.name || row.farmerName || "N/A",
         className: "w-[14%]",
         cellClassName: "truncate",
-        accessor: (row) => row.name ?? row.farmerName,
+        accessor: (row) => row.name || row.farmerName || "N/A",
       },
+
       {
         key: "question",
-        label: "Question",
+        label: period ? "Query" : "Question",
         sortable: true,
         sortAccessor: (row) => row.question,
         className: "w-[32%]",
@@ -126,6 +284,7 @@ export function QueryCategoryQuestionsModal({
           />
         ),
       },
+
       {
         key: "createdAt",
         label: "Created At",
@@ -141,7 +300,11 @@ export function QueryCategoryQuestionsModal({
               })
             : undefined,
       },
-      {
+    ];
+
+    // Show Type column only when status modal is NOT opened
+    if (!status && !closedWithInTwohours && !notificationType && !period) {
+      baseColumns.push({
         key: "questionType",
         label: "Type",
         align: "center",
@@ -150,34 +313,41 @@ export function QueryCategoryQuestionsModal({
         className: "w-[8%]",
         render: (row) => (
           <Badge
-            variant={row.questionType === "duplicate" ? "destructive" : "secondary"}
+            variant={
+              row.questionType === "duplicate" ? "destructive" : "secondary"
+            }
             className="justify-center capitalize"
           >
             {row.questionType}
           </Badge>
         ),
-      },
-      {
-        key: "status",
-        label: "Status",
-        align: "center",
-        sortable: true,
-        sortAccessor: (row) => row.status ?? "",
-        className: "w-[8%]",
-        render: (row) => (
-          <Badge
-            variant="outline"
-            className="justify-center capitalize text-gray-500"
-          >
-            {row.status}
-          </Badge>
-        ),
-      },
-    ],
-    [],
-  );
+      });
+    }
+
+    if (!period) {
+  baseColumns.push({
+    key: "status",
+    label: "Status",
+    align: "center",
+    sortable: true,
+    sortAccessor: (row) => row.status ?? "",
+    className: "w-[8%]",
+    render: (row) => (
+      <Badge
+        variant="outline"
+        className="justify-center capitalize text-gray-500"
+      >
+        {row.status}
+      </Badge>
+    ),
+  });
+}
+
+    return baseColumns;
+  }, [status, closedWithInTwohours, notificationType]);
 
   const questions = data?.questions ?? [];
+
   const total = data?.total ?? 0;
 
   return createPortal(
@@ -189,19 +359,34 @@ export function QueryCategoryQuestionsModal({
         }
       }}
     >
-      <div
-        className="flex max-h-[88vh] w-full max-w-6xl flex-col rounded-xl bg-white shadow-2xl dark:bg-[#1a1a1a]"
-      >
+      <div className="flex max-h-[88vh] w-full max-w-6xl flex-col rounded-xl bg-white shadow-2xl dark:bg-[#1a1a1a]">
         <div className="flex shrink-0 items-center justify-between gap-4 border-b border-gray-100 px-6 py-4 dark:border-[#2a2a2a]">
           <div className="min-w-0">
             <h2 className="truncate text-base font-semibold text-gray-900 dark:text-gray-100">
               {category}
             </h2>
             <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-              Questions in this query category
+              {isQueryCategory
+                ? "Questions in this query category"
+                : crop
+                  ? `Question related to crop of type ${crop}`
+                  : status
+                    ? "Question related to Question Stats"
+                    : closedWithInTwohours
+                      ? "Question that closed with in 2 hours"
+                      : notificationType
+                        ? "Question related to Notification users"
+                        : period? `Question related to the ${period}` : `Question releated to the ${district}`}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-3">
+            <input
+              type="text"
+              placeholder="Search by name or email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-64 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-[#2a2a2a]"
+            />
             <Tabs
               value={questionType}
               onValueChange={(value) => {
@@ -209,11 +394,13 @@ export function QueryCategoryQuestionsModal({
                 setPage(1);
               }}
             >
-              <TabsList>
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="unique">Unique</TabsTrigger>
-                <TabsTrigger value="duplicate">Duplicate</TabsTrigger>
-              </TabsList>
+              {!status && !closedWithInTwohours && !notificationType && !period &&(
+                <TabsList>
+                  <TabsTrigger value="all">All</TabsTrigger>
+                  <TabsTrigger value="unique">Unique</TabsTrigger>
+                  <TabsTrigger value="duplicate">Duplicate</TabsTrigger>
+                </TabsList>
+              )}
             </Tabs>
             <button
               type="button"
@@ -237,7 +424,7 @@ export function QueryCategoryQuestionsModal({
               : undefined
           }
           emptyMessage="No questions found for this category."
-          getRowKey={(row) => row.questionId}
+          getRowKey={(row) => row.questionId || row.messageId}
           pagination={{
             page,
             pageSize: PAGE_SIZE,

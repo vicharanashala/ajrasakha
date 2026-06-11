@@ -17,8 +17,28 @@ export function useAddUser() {
         name: string;
         password: string
         userRole?: string;
+        role?: 'district_coordinator' | 'block_coordinator' | 'village_coordinator';
+        isVerified?: boolean;
+        target?: 'web_app' | 'review_system';
       };
     }) => {
+      if (data.target === 'review_system') {
+        const result = await apiFetch<any>(
+          `${env.apiBaseUrl()}/auth/admin/review-users`,
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              email: data.email,
+              name: data.name,
+              password: data.password,
+              role: data.role,
+              isVerified: data.isVerified,
+            }),
+          },
+        );
+        return result;
+      }
+
       const result = await apiFetch<any>(
         `${env.apiBaseUrl()}/analytics/users?source=${source}`,
         {
@@ -28,12 +48,17 @@ export function useAddUser() {
       );
       return result;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['user-details'] });
+      if (variables.data.target === 'review_system') {
+        queryClient.invalidateQueries({ queryKey: ['admin'] });
+        toast.success('Review system user added successfully');
+        return;
+      }
       toast.success('Farmer added successfully');
     },
     onError: (error: any) => {
-      toast.error(error?.message || 'Failed to add farmer');
+      toast.error(error?.message || 'Failed to add user');
     },
   });
 }

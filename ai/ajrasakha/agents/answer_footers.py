@@ -15,71 +15,84 @@ from ajrasakha.agents.translation_catalog import (
 )
 
 
-SOURCES_HEADER_EN = (
-    "The answer I provided is sourced only from the following approved materials."
-)
-SOURCE_PREFIX_EN = "📚 Source:"
-EXPERT_PREFIX_EN = "👨‍🌾 Agri Expert:"
+SOURCES_HEADER_EN = "📚 Sources:"
+EXPERT_PREFIX_EN = "👤 Answered by:"
+SOURCE_LINK_PREFIX = "🔗"
 
 
-def _format_source_attribution(details: dict) -> str:
-    """Format source name (with embedded link) + author name for final output (English-only).
+def _format_source_line(details: dict) -> str:
+    """Format source line with 🔗 prefix.
 
-    When source_name is "Database Document", only show the link — hide the label.
+    When source_name is "Database Document" or not available, only show the link.
+    Format: 🔗 SourceName: https://link OR 🔗 https://link
     """
-    lines: list[str] = []
     source_name = details.get("source_name")
     source_link = details.get("source_link")
-    author_name = details.get("author_name")
 
     is_db_doc = (source_name or "").strip().lower() == "database document"
 
-    if is_db_doc:
-        # Only show the link, skip the "Database Document" label entirely
+    if is_db_doc or not source_name:
+        # Only show the link
         if source_link:
-            lines.append(f"{SOURCE_PREFIX_EN} {source_link}")
+            return f"{SOURCE_LINK_PREFIX} {source_link}"
     elif source_name and source_link:
-        lines.append(f"{SOURCE_PREFIX_EN} {source_name} ({source_link})")
+        return f"{SOURCE_LINK_PREFIX} {source_name}: {source_link}"
     elif source_name:
-        lines.append(f"{SOURCE_PREFIX_EN} {source_name}")
+        return f"{SOURCE_LINK_PREFIX} {source_name}"
     elif source_link:
-        lines.append(f"{SOURCE_PREFIX_EN} {source_link}")
+        return f"{SOURCE_LINK_PREFIX} {source_link}"
 
-    if author_name:
-        lines.append(f"{EXPERT_PREFIX_EN} {author_name}")
-
-    return "\n".join(lines)
+    return ""
 
 
 def collect_all_sources(gdb_data: dict) -> str:
     """Collect source attribution (English-only) from exact match and all similar pairs.
 
     Handles details as both a single dict (legacy) and a list of dicts (new format).
-    Deduplicates by (source_name, source_link, author_name) to avoid collapsing
-    different sources that share the same name.
-    """
-    seen: set[tuple] = set()
-    attribution_lines: list[str] = []
+    - Collects unique authors separately (deduplicated)
+    - Collects unique sources separately (deduplicated)
+    Output format:
+        👤 Answered by: Author1, Author2
 
-    def _add_details(details: dict) -> None:
+        📚 Sources:
+        🔗 SourceName: https://link
+        🔗 https://link
+    """
+    seen_sources: set[tuple] = set()
+    seen_authors: set[str] = set()
+    source_lines: list[str] = []
+    author_names: list[str] = []
+
+    def _process_details(details: dict) -> None:
         if not details:
             return
-        key = (details.get("source_name"), details.get("source_link"), details.get("author_name"))
-        if key in seen:
-            return
-        seen.add(key)
-        line = _format_source_attribution(details)
-        if line:
-            attribution_lines.append(line)
+
+        source_name = details.get("source_name")
+        source_link = details.get("source_link")
+        author_name = details.get("author_name")
+
+        # Handle source deduplication
+        source_key = (source_name, source_link)
+        if source_key not in seen_sources:
+            seen_sources.add(source_key)
+            line = _format_source_line(details)
+            if line:
+                source_lines.append(line)
+
+        # Handle author deduplication
+        if author_name and author_name.strip():
+            if author_name not in seen_authors:
+                seen_authors.add(author_name)
+                author_names.append(author_name)
 
     def _process_details_field(details_raw) -> None:
         """Handle details as a list of dicts or a single dict."""
         if isinstance(details_raw, list):
             for d in details_raw:
                 if isinstance(d, dict):
-                    _add_details(d)
+                    _process_details(d)
         elif isinstance(details_raw, dict):
-            _add_details(details_raw)
+            _process_details(details_raw)
 
     exact = gdb_data.get("exact_match") or {}
     if (exact.get("answer") or "").strip():
@@ -94,11 +107,24 @@ def collect_all_sources(gdb_data: dict) -> str:
         ):
             _process_details_field(pair.get("details") or {})
 
-    if not attribution_lines:
+    if not source_lines and not author_names:
         return ""
 
-    # Header and prefixes are fixed English strings by design.
-    return f"{SOURCES_HEADER_EN}\n\n" + "\n\n".join(attribution_lines)
+    parts: list[str] = []
+
+    # Add authors section
+    if author_names:
+        authors_str = ", ".join(author_names)
+        parts.append(f"{EXPERT_PREFIX_EN} {authors_str}")
+
+    # Add sources section
+    if source_lines:
+        if parts:
+            parts.append("")  # Empty line between sections
+        parts.append(SOURCES_HEADER_EN)
+        parts.extend(source_lines)
+
+    return "\n".join(parts)
 
 
 def build_expert_queue_content(script_language: str, vocal_language: str) -> str:
@@ -114,10 +140,13 @@ def finalize_synthesis_answer(
     script_language: str,
     vocal_language: str,
     gdb_data: Optional[dict],
+    is_greeting: bool = False,
 ) -> str:
     """Synthesize path: translated body → GDB sources (author) → testing disclaimer only."""
     out = (body or "").strip()
     if not out:
+        return out
+    if is_greeting:
         return out
     if gdb_data and gdb_has_usable_answers(gdb_data):
         source_block = collect_all_sources(gdb_data)

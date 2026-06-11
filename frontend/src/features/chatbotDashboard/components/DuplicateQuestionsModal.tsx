@@ -19,12 +19,16 @@ import { TranslatableText } from './TranslatableText';
 
 interface DuplicateQuestionsModalProps {
   onClose: () => void;
-  source?: 'vicharanashala' | 'annam' | 'whatsapp';
+  source?: 'annam' | 'whatsapp';
+  userType: string;
 }
 
 const DEFAULT_FILTERS: UserDetailsFilters = {
   search: '',
   crop: '',
+  primaryCrops: [],
+  secondaryCrops: [],
+  roles: [],
   village: '',
   block: '',
   district: '',
@@ -35,10 +39,11 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
   inactiveOnly: false,
   lowFeedbackOnly: false,
   userType: 'all',
+  isVerified: true,
 };
 
-export function DuplicateQuestionsModal({ onClose, source = 'annam' }: DuplicateQuestionsModalProps) {
-  const { data, isLoading, isError } = useDuplicateQuestions(true, source);
+export function DuplicateQuestionsModal({ onClose, source = 'annam', userType }: DuplicateQuestionsModalProps) {
+  const { data, isLoading, isError } = useDuplicateQuestions(true, source, userType);
   const [filters, setFilters] = useState<UserDetailsFilters>(DEFAULT_FILTERS);
 
   const filtered = useMemo(() => {
@@ -239,7 +244,7 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
             <UserDetailsPreferenceFilter
               filters={filters}
               onApply={setFilters}
-              hideFields={["crop", "inactive", "profile"]}
+              hideFields={["crop", "inactive", "profile", "roles"]}
             />
             <button
               onClick={onClose}

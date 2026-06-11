@@ -198,7 +198,14 @@ export class WhatsAppService implements IWhatsAppService {
     messageText: string,
   ): Promise<void> {
     try {
+      console.log('[WhatsAppService] sendMessage called with:', {
+        userId,
+        phoneNumber,
+        messageText,
+      });
+
       const user = await this.userRepo.findById(userId);
+      console.log('[WhatsAppService] User found:', user ? user._id : 'null');
 
       if (!user || user.role == 'expert')
         throw new UnauthorizedError(
@@ -207,20 +214,32 @@ export class WhatsAppService implements IWhatsAppService {
 
       const sendBy = user.firstName + ' ' + user.lastName;
 
-      const response = await fetch(appConfig.WA_SEND_MESSAGE_WEBHOOK_API_URL, {
+      const webhookUrl = appConfig.WA_SEND_MESSAGE_WEBHOOK_API_URL;
+      console.log('[WhatsAppService] Webhook URL:', webhookUrl);
+      console.log('[WhatsAppService] Webhook API Key configured:', !!appConfig.WA_WEBHOOK_API_KEY);
+
+      const payload = {
+        phoneNumber,
+        messageText,
+        sendBy,
+        userId: user._id.toString(),
+      };
+      console.log('[WhatsAppService] Sending payload to webhook:', payload);
+
+      const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-internal-api-key': appConfig.WA_WEBHOOK_API_KEY,
         },
-        body: JSON.stringify({
-          phoneNumber,
-          messageText,
-          sendBy,
-          userId: user._id.toString(),
-        }),
+        body: JSON.stringify(payload),
       });
+
+      console.log('[WhatsAppService] Webhook response status:', response.status);
+      console.log('[WhatsAppService] Webhook response ok:', response.ok);
+
       const contentType = response.headers.get('content-type');
+      console.log('[WhatsAppService] Response content-type:', contentType);
 
       let responseData;
 
@@ -230,16 +249,21 @@ export class WhatsAppService implements IWhatsAppService {
         responseData = await response.text();
       }
 
+      console.log('[WhatsAppService] Webhook response data:', responseData);
+
       if (!response.ok) {
         throw new Error(
           `Failed to send message: ${response.status} - ${responseData}`,
         );
       }
+
+      console.log('[WhatsAppService] Message sent successfully via webhook');
     } catch (error: any) {
       console.error(
-        `Error sending WhatsApp message to ${phoneNumber}:`,
+        `[WhatsAppService] Error sending WhatsApp message to ${phoneNumber}:`,
         error.response?.data || error.message,
       );
+      console.error('[WhatsAppService] Full error:', error);
       const detail = error.response?.data?.message || error.message;
       throw new InternalServerError(`WhatsApp API Error: ${detail}`);
     }

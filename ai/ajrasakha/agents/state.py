@@ -9,6 +9,7 @@ from langgraph.graph.message import add_messages
 from typing_extensions import TypedDict
 
 from ajrasakha.agents.location_context import merge_location_dict
+from ajrasakha.agents.resolution_trace import trace_resolution
 
 
 class Location(TypedDict, total=False):
@@ -75,6 +76,8 @@ class PlannerPlan(TypedDict, total=False):
     schemes: bool
     chemical_checker: bool
     knowledge_base: bool
+    is_agriculture_related: bool
+    is_greeting: bool
     is_complete: bool
     missing_info: list[str]
     follow_up_question: Optional[str]
@@ -102,7 +105,27 @@ def merge_plan(
         return left
     if left is None:
         return right
-    return {**left, **right}
+    # Planner sets ``reasoning`` every turn — treat as a full replacement so stale
+    # checkpoint entities (e.g. GPS-derived state) do not leak via shallow merge.
+    if right.get("reasoning") is not None:
+        trace_resolution(
+            "plan_replaced",
+            old_entities=left.get("entities"),
+            new_entities=right.get("entities"),
+            plan_reasoning=right.get("reasoning"),
+            is_greeting=right.get("is_greeting"),
+            note="new planner turn replaces prior plan entirely",
+        )
+        return right
+    merged = {**left, **right}
+    trace_resolution(
+        "plan_patched",
+        old_entities=left.get("entities"),
+        new_entities=merged.get("entities"),
+        patched_keys=sorted(k for k in right if k != "entities"),
+        note="partial plan update — entities kept from left unless right sets entities",
+    )
+    return merged
 
 
 def replace_sanitizer_audit(

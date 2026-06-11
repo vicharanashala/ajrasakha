@@ -39,7 +39,7 @@ def test_current_message_kerala_overrides_old_karnataka():
     assert resolve_state_for_turn(latest_human_text(messages), None) == "Kerala"
 
 
-def test_gps_state_used_when_latest_message_has_no_state():
+def test_gps_not_used_when_latest_message_has_no_state():
     messages = [HumanMessage(content="What is PM-KISAN eligibility?")]
     location = {
         "latitude": 30.9,
@@ -53,8 +53,9 @@ def test_gps_state_used_when_latest_message_has_no_state():
         messages,
         location,
     )
-    assert plan["entities"]["state"] == "Punjab"
-    assert plan["is_complete"] is True
+    assert plan["entities"].get("state") is None
+    assert plan["is_complete"] is False
+    assert "location" in (plan.get("missing_info") or [])
 
 
 def test_stale_city_not_used_as_district_without_gps():
@@ -97,12 +98,12 @@ async def test_gdb_uses_kerala_from_rephrased_plan_not_stale_gps_punjab():
     assert gdb["args"]["state"] == "Kerala"
 
 
-def test_state_does_not_leak_on_new_question_with_gps():
+@pytest.mark.asyncio
+async def test_state_does_not_leak_on_new_question_with_gps():
     from ajrasakha.agents.planner import planner_node
     from langchain_core.runnables import RunnableConfig
-    
-    # Simulate a thread where the previous turn was complete
-    # and the user asks a new question without mentioning any state.
+
+    # Previous turn complete; new question has no state — GPS must not fill it in.
     state: AjraSakhaState = {
         "messages": [
             HumanMessage(content="Wheat disease control in Karnataka"),
@@ -117,28 +118,22 @@ def test_state_does_not_leak_on_new_question_with_gps():
         },
         "plan": {
             "domain": "Plant Protection",
-            "is_complete": True,  # PREVIOUS TURN WAS COMPLETE
+            "is_complete": True,
             "entities": {"crop": "wheat", "state": "Karnataka"},
-        }
+        },
     }
-    
-    import asyncio
-    loop = asyncio.get_event_loop()
-    res = loop.run_until_complete(planner_node(state, RunnableConfig()))
-    
+
+    res = await planner_node(state, RunnableConfig())
     new_plan = res["plan"]
-    # Karnataka should not carry over!
-    assert new_plan["entities"].get("state") == "Haryana"
-    assert new_plan["entities"].get("district") == "Faridabad"
-    assert new_plan["entities"].get("crop") == "Paddy"
+    assert new_plan["entities"].get("state") is None
+    assert new_plan["entities"].get("district") is None
 
 
-def test_state_carries_forward_during_clarify_loop():
+@pytest.mark.asyncio
+async def test_state_carries_forward_during_clarify_loop():
     from ajrasakha.agents.planner import planner_node
     from langchain_core.runnables import RunnableConfig
-    
-    # Simulate a thread where the previous turn was INCOMPLETE (clarification loop)
-    # and the user responds to it.
+
     state: AjraSakhaState = {
         "messages": [
             HumanMessage(content="What is mandi price in Karnataka?"),
@@ -153,17 +148,13 @@ def test_state_carries_forward_during_clarify_loop():
         },
         "plan": {
             "domain": "Market Prices",
-            "is_complete": False,  # PREVIOUS TURN WAS INCOMPLETE (clarification)
+            "is_complete": False,
             "entities": {"state": "Karnataka"},
-        }
+        },
     }
-    
-    import asyncio
-    loop = asyncio.get_event_loop()
-    res = loop.run_until_complete(planner_node(state, RunnableConfig()))
-    
+
+    res = await planner_node(state, RunnableConfig())
     new_plan = res["plan"]
-    # Karnataka should carry over since the previous turn was incomplete!
     assert new_plan["entities"].get("state") == "Karnataka"
     assert new_plan["entities"].get("crop") == "Onion"
 

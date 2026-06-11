@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { isCoordinatorRole } from "@/lib/roles";
 import { Sheet, SheetContent, SheetTrigger } from "./atoms/sheet";
 
 const SidebarButton = ({
@@ -60,13 +61,14 @@ export const MobileSidebar = ({
 }: {
   user: IUser;
   setTab: (value: string) => void;
-  setChatbotSource: (value: "vicharanashala" | "annam") => void;
+  setChatbotSource: (value: "whatsapp" | "annam") => void;
 }) => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(
     user?.role !== "expert" ? "performance" : "questions"
   );
+  const isCoordinator = isCoordinatorRole(user?.role);
   const handleClick = (value: string) => {
     if (value === "chatbotanalytics") {
       setTab("chatbotanalytics");
@@ -125,12 +127,12 @@ export const MobileSidebar = ({
         ]
       : []),
 
-    ...(user && (user.role === "moderator" || user.role === "tester" || user.role === "admin")
+    ...(user && user.role === "admin"
       ? [{ id: "data_processing", label: "Data Processing", icon: Database }]
       : []),
 
-    ...(user ? [{ id: "history", label: "History", icon: History }] : []),
-    ...(user ? [{ id: "whatsapp_history", label: "WhatsApp History", icon: MessageSquare }] : []),
+    ...(user && !isCoordinator? [{ id: "history", label: "History", icon: History }] : []),
+    ...(user && !isCoordinator? [{ id: "whatsapp_history", label: "WhatsApp History", icon: MessageSquare }] : []),
   ];
 
   return (

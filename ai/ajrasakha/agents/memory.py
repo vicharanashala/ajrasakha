@@ -26,13 +26,13 @@ async def load_long_term_summary(store: BaseStore | None, config: RunnableConfig
     thread_id = configurable.get("thread_id") or configurable.get("thread")
     user_id = configurable.get("user_id") or configurable.get("phone_number")
 
-    namespace = ("ajrasakha", "daily_summaries", str(user_id or "unknown_user"))
+    namespace = ("farmer_profiles", str(user_id or "unknown_user"))
     summary_parts: list[str] = []
 
     if thread_id:
         maybe_get = getattr(store, "aget", None)
         if callable(maybe_get):
-            item = await maybe_get(namespace, str(thread_id))
+            item = await maybe_get(namespace, str(thread_id))  # type: ignore
             text = _coerce_store_text(getattr(item, "value", item))
             if text:
                 summary_parts.append(text)
@@ -47,7 +47,7 @@ async def load_long_term_summary(store: BaseStore | None, config: RunnableConfig
     if not summary_parts:
         maybe_search = getattr(store, "asearch", None)
         if callable(maybe_search):
-            results = await maybe_search(namespace, limit=5)
+            results = await maybe_search(namespace, limit=5)  # type: ignore
         else:
             maybe_sync_search = getattr(store, "search", None)
             results = maybe_sync_search(namespace, limit=5) if callable(maybe_sync_search) else []

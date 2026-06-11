@@ -37,7 +37,7 @@ class User implements IUser {
   updatedAt?: Date;
 
   @Expose()
-  role: 'admin' | 'moderator' | 'expert' | 'pae_expert' | 'tester';
+  role: 'admin' | 'moderator' | 'expert' | 'pae_expert' | 'tester' | 'district_coordinator'| 'block_coordinator' | 'village_coordinator';
 
   @Expose()
   status: 'active' | 'in-active' ;
@@ -54,8 +54,14 @@ class User implements IUser {
   @Expose()
   university?: string;
 
-  
+  @Expose()
   isVerified: boolean;
+
+  @Expose()
+  isCallAgent?: boolean;
+
+  @Expose()
+  isCallAgentActive?: boolean;
 
   constructor(data: Partial<IUser>) {
     this._id = data?._id ? new ObjectId(data?._id) : null;
@@ -76,8 +82,10 @@ class User implements IUser {
     this.notificationRetention=data.notificationRetention;
     this.createdAt = data?.createdAt || new Date();
     this.updatedAt = data?.updatedAt || new Date();
-    this.mobile = data?.mobile || ''; 
+    this.mobile = data?.mobile || '';
     this.university = data?.university || '';
+    this.isCallAgent = data?.isCallAgent;
+    this.isCallAgentActive = data?.isCallAgentActive;
   }
 }
 
