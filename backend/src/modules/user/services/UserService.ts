@@ -629,7 +629,7 @@ export class UserService extends BaseService {
                       <tr>
                         <td style="padding: 24px 40px 32px;">
                           <p style="margin: 0; font-size: 12px; color: #9a9a95; line-height: 1.6; font-family: 'Outfit', sans-serif;">
-                            This is an automated notification from the <strong style="color: #6b6b66;">Ajrasakha Reviewer System</strong>.
+                            This is an automated notification from the <strong style="color: #6b6b66;">Ajrasakha Web Application</strong>.
                             Please do not reply to this email. If you believe this was sent in error, you can safely ignore it
                             or contact your system administrator.
                           </p>
