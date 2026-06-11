@@ -160,7 +160,7 @@ export function AnnamDashboard_dev({
   const {
     sectionRefs,
     growthRef,
-    // queryInsightsRef,
+    queryInsightsRef,
     responseAdherenceRef,
     trendsRef,
     faqsRef,
@@ -214,7 +214,7 @@ export function AnnamDashboard_dev({
   } = visibilityFlags;
   
   // ─── Additional Data Queries ───────────────────────────────────────────────
-  const { data: queryCategories } = useQueryCategories(source, filters.userType, shouldLoadQueryInsights);
+  const { data: queryCategories, isLoading: isLoadingQueryCategories } = useQueryCategories(source, filters.userType, shouldLoadQueryInsights);
   const { data: faqsData, isLoading: faqsLoading } = useTopFaqs(source, faqsFilters.userType, faqsFilters.startTime, faqsFilters.endTime, shouldLoadFaqs);
   const { data: responseAdherenceData, isLoading: isResponseAdherenceLoading, isFetching: isResponseAdherenceFetching } = useResponseAdherenceTable(
     source, filters.userType, responseAdherenceFilters.startTime, responseAdherenceFilters.endTime, shouldLoadResponseAdherence
@@ -495,15 +495,18 @@ export function AnnamDashboard_dev({
               </div>
               
               {/* Query Insights */}
-              <QueryInsightsSection
-                queryCategories={queryCategories}
-                topCrops={topCrops}
-                isLoadingTopCrops={isLoadingTopCrops}
-                errorLoadingtopCrops={errorLoadingtopCrops}
-                shouldLoadQueryInsights={shouldLoadQueryInsights}
-                source={source}
-                userType={filters.userType}
-              />
+              <div ref={(el) => { queryInsightsRef.current = el; }}>
+                <QueryInsightsSection
+                  queryCategories={queryCategories}
+                  topCrops={topCrops}
+                  isLoadingQueryCategories={isLoadingQueryCategories}
+                  isLoadingTopCrops={isLoadingTopCrops}
+                  errorLoadingtopCrops={errorLoadingtopCrops}
+                  shouldLoadQueryInsights={shouldLoadQueryInsights}
+                  source={source}
+                  userType={filters.userType}
+                />
+              </div>
               
               {/* Daily Trends */}
               <div ref={(el) => { trendsRef.current = el; }} className="grid grid-cols-1 lg:grid-cols-1 gap-3 mb-4 mt-6">
