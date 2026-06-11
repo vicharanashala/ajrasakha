@@ -201,7 +201,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
     const allowedRoles = [
       'district_coordinator',
       'block_coordinator',
-      'village_coordinator',
+      'village_volunteer',
     ] as const;
 
     if (!allowedRoles.includes(body.role)) {

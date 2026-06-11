@@ -131,8 +131,8 @@ class AdminCreateReviewUserBody {
     example: 'district_coordinator',
     type: 'string',
   })
-  @IsIn(['district_coordinator', 'block_coordinator', 'village_coordinator'])
-  role: 'district_coordinator' | 'block_coordinator' | 'village_coordinator';
+  @IsIn(['district_coordinator', 'block_coordinator', 'village_volunteer'])
+  role: 'district_coordinator' | 'block_coordinator' | 'village_volunteer';
 
   @JSONSchema({
     title: 'Verification Status',

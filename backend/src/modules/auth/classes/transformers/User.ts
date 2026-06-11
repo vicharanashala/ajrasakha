@@ -37,7 +37,7 @@ class User implements IUser {
   updatedAt?: Date;
 
   @Expose()
-  role: 'admin' | 'moderator' | 'expert' | 'pae_expert' | 'tester' | 'district_coordinator'| 'block_coordinator' | 'village_coordinator';
+  role: 'admin' | 'moderator' | 'expert' | 'pae_expert' | 'tester' | 'district_coordinator'| 'block_coordinator' | 'village_volunteer';
 
   @Expose()
   status: 'active' | 'in-active' ;

@@ -114,7 +114,14 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
 };
 
 const rolesForUserType = (value: "all" | "external" | "internal"): string[] => {
-  if (value === "external") return ["Farmer", "Coordinator"];
+  if (value === "external") {
+    return [
+      "Farmer",
+      "district_coordinator",
+      "block_coordinator",
+      "village_volunteer",
+    ];
+  }
   if (value === "internal") return ["Internal"];
   return [];
 };
@@ -435,7 +442,7 @@ export function UserDetailsView({
     name: string;
     password: string;
     userRole?: string;
-    role?: "district_coordinator" | "block_coordinator" | "village_coordinator";
+    role?: "district_coordinator" | "block_coordinator" | "village_volunteer";
     isVerified?: boolean;
     target: "web_app" | "review_system";
   }) => {
@@ -1557,6 +1564,18 @@ function RoleBadge({ role }: { role?: string }) {
       className: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 border border-green-200 dark:border-green-800",
     },
     coordinator: {
+      icon: <UsersRound className="h-3 w-3" />,
+      className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
+    },
+    district_coordinator: {
+      icon: <UsersRound className="h-3 w-3" />,
+      className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
+    },
+    block_coordinator: {
+      icon: <UsersRound className="h-3 w-3" />,
+      className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
+    },
+    village_volunteer: {
       icon: <UsersRound className="h-3 w-3" />,
       className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
     },
