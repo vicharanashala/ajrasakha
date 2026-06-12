@@ -50,6 +50,31 @@ import {getFirebaseAuth} from '#root/config/firebaseAdmin.js';
 
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import {COORDINATOR_ROLES} from '#root/shared/constants/roles.js';
+
+const EXTERNAL_USER_ROLES = ['FARMER', ...COORDINATOR_ROLES] as const;
+
+const buildExternalUserMatch = () => ({
+  $or: [
+    {userRole: {$in: EXTERNAL_USER_ROLES}},
+    {role: {$in: COORDINATOR_ROLES}},
+  ],
+});
+
+const buildExternalJoinedUserMatch = (prefix: string) => ({
+  $or: [
+    {[`${prefix}.userRole`]: {$in: EXTERNAL_USER_ROLES}},
+    {[`${prefix}.role`]: {$in: COORDINATOR_ROLES}},
+  ],
+});
+
+const isExternalUserRole = (userRole?: string, role?: string) =>
+  EXTERNAL_USER_ROLES.includes(
+    userRole as (typeof EXTERNAL_USER_ROLES)[number],
+  ) ||
+  COORDINATOR_ROLES.includes(
+    role as (typeof COORDINATOR_ROLES)[number],
+  );
 
 interface IUser {
   _id?: any;
@@ -903,11 +928,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
     const userRoleMatch =
       userType === 'external'
-        ? {
-            '_userDoc.userRole': {
-              $in: ['FARMER', 'COORDINATOR'],
-            },
-          }
+        ? buildExternalJoinedUserMatch('_userDoc')
         : {
             '_userDoc.userRole': 'INTERNAL',
           };
@@ -946,13 +967,41 @@ export class ChatbotRepository implements IChatbotRepository {
   private buildUserDocFilter(userType: string): Record<string, any> {
     if (userType === 'all') return {};
     if (userType === 'external') {
-      return {
-        userRole: {$in: ['FARMER', 'COORDINATOR']},
-      };
+      return buildExternalUserMatch();
     }
     return {
       userRole: 'INTERNAL',
     };
+  }
+
+  /**
+   * Transforms a user doc filter (potentially containing $or expressions)
+   * to be applied on a joined document by prefixing field paths with the given prefix.
+   * Handles special operators like $or by recursively transforming their conditions.
+   */
+  private buildJoinedUserDocFilter(
+    userDocFilter: Record<string, any>,
+    prefix: string,
+  ): Record<string, any> {
+    const result: Record<string, any> = {};
+
+    for (const [key, value] of Object.entries(userDocFilter)) {
+      if (key === '$or') {
+        // Transform $or conditions by prefixing field paths
+        const transformedOr = (value as any[]).map(condition => {
+          const transformedCondition: Record<string, any> = {};
+          for (const [field, fieldValue] of Object.entries(condition as Record<string, any>)) {
+            transformedCondition[`${prefix}.${field}`] = fieldValue;
+          }
+          return transformedCondition;
+        });
+        result['$or'] = transformedOr;
+      } else {
+        result[`${prefix}.${key}`] = value;
+      }
+    }
+
+    return result;
   }
 
   // private buildQuestionUserTypeLookupStages(userType: string): any[] {
@@ -1010,7 +1059,7 @@ export class ChatbotRepository implements IChatbotRepository {
   //     userType === 'external'
   //       ? {
   //           '_userDoc.userRole': {
-  //             $in: ['FARMER', 'COORDINATOR'],
+  //             $in: EXTERNAL_USER_ROLES,
   //           },
   //         }
   //       : {
@@ -2737,11 +2786,7 @@ export class ChatbotRepository implements IChatbotRepository {
                   {
                     $match:
                       userType === 'external'
-                        ? {
-                            '_userDoc.userRole': {
-                              $in: ['FARMER', 'COORDINATOR'],
-                            },
-                          }
+                        ? buildExternalJoinedUserMatch('_userDoc')
                         : {'_userDoc.userRole': 'INTERNAL'},
                   },
                 ]),
@@ -2893,7 +2938,7 @@ export class ChatbotRepository implements IChatbotRepository {
         if (userType !== 'all') {
           const matchesUserType =
             userType === 'external'
-              ? ['FARMER', 'COORDINATOR'].includes(userDoc.userRole)
+              ? isExternalUserRole(userDoc.userRole, userDoc.role)
               : userDoc.userRole === 'INTERNAL';
           if (!matchesUserType) return [];
         }
@@ -3571,11 +3616,7 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const userDocFilter = this.buildUserDocFilter(userType);
 
-      const userTypeMatch: Record<string, any> = {};
-
-      for (const key of Object.keys(userDocFilter)) {
-        userTypeMatch[`userDetails.${key}`] = userDocFilter[key];
-      }
+      const userTypeMatch = this.buildJoinedUserDocFilter(userDocFilter, 'userDetails');
 
       // ============================================
       // MATCH WEATHER AI RESPONSES
@@ -5581,7 +5622,11 @@ export class ChatbotRepository implements IChatbotRepository {
         .split(',')
         .map(role => role.trim())
         .filter(Boolean);
-      const normalizedUserRoles = roleValues.map(role => role.toUpperCase());
+      const normalizedUserRoles = roleValues.flatMap(role => [
+        role,
+        role.toUpperCase(),
+        role.toLowerCase(),
+      ]);
       const normalizedRoles = roleValues.flatMap(role => [
         role,
         role.toUpperCase(),
@@ -5617,7 +5662,10 @@ export class ChatbotRepository implements IChatbotRepository {
       if (search && search.trim()) {
         const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const regex = {$regex: escaped, $options: 'i'};
-        userFilter.$or = [{name: regex}, {username: regex}, {email: regex}];
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          {$or: [{name: regex}, {username: regex}, {email: regex}]},
+        ];
       }
       if (crop && crop.trim()) {
         const cropRegex = {
@@ -7600,11 +7648,7 @@ const totalPages =
         userType === 'all'
           ? {}
           : userType === 'external'
-            ? {
-                userRole: {
-                  $in: ['FARMER', 'COORDINATOR'],
-                },
-              }
+            ? buildExternalUserMatch()
             : {
                 userRole: 'INTERNAL',
               };
@@ -7647,11 +7691,7 @@ const totalPages =
         userType === 'all'
           ? {}
           : userType === 'external'
-            ? {
-                userRole: {
-                  $in: ['FARMER', 'COORDINATOR'],
-                },
-              }
+            ? buildExternalUserMatch()
             : {
                 userRole: 'INTERNAL',
               };
@@ -8627,9 +8667,10 @@ const totalPages =
         };
       }
       if (userType === 'external') {
-        matchStage.userRole = {
-          $in: ['FARMER', 'COORDINATOR'],
-        };
+        matchStage.$and = [
+          ...(matchStage.$and ?? []),
+          buildExternalUserMatch(),
+        ];
       }
 
       if (userType === 'internal') {
@@ -10113,9 +10154,7 @@ const totalPages =
 
     let userMatchStage: any = {};
     if (userType === 'external') {
-      userMatchStage['userDetails.userRole'] = {
-        $in: ['FARMER', 'COORDINATOR'],
-      };
+      userMatchStage = buildExternalJoinedUserMatch('userDetails');
     }
 
     if (userType === 'internal') {
@@ -10842,11 +10881,7 @@ const totalPages =
     }
     const userMatch =
       userType === 'external'
-        ? {
-            userRole: {
-              $in: ['FARMER', 'COORDINATOR'],
-            },
-          }
+        ? buildExternalUserMatch()
         : {
             userRole: 'INTERNAL',
           };

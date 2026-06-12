@@ -3,7 +3,7 @@ import type { UserRole } from "@/types";
 export const COORDINATOR_ROLES = [
   "district_coordinator",
   "block_coordinator",
-  "village_coordinator",
+  "village_volunteer",
 ] as const;
 
 export type CoordinatorRole = (typeof COORDINATOR_ROLES)[number];

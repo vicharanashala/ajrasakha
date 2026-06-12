@@ -15,14 +15,16 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/atoms/tabs";
 
 const WEB_APP_ROLES = [
   { label: "Farmer", value: "FARMER" },
-  { label: "Coordinator", value: "COORDINATOR" },
+  { label: "District Coordinator", value: "district_coordinator" },
+  { label: "Block Coordinator", value: "block_coordinator" },
+  { label: "Village Volunteer", value: "village_volunteer" },
   { label: "Internal", value: "INTERNAL" },
 ] as const;
 
 const REVIEW_SYSTEM_ROLES = [
   { label: "District", value: "district_coordinator" },
   { label: "Block", value: "block_coordinator" },
-  { label: "Village", value: "village_coordinator" },
+  { label: "Village Volunteer", value: "village_volunteer" },
 ] as const;
 
 type ModalMode = "web_app" | "review_system";
@@ -67,8 +69,8 @@ export function AddFarmerModal({
     (mode === "web_app" ? "Farmer" : "Coordinator");
   const addButtonLabel =
     mode === "review_system"
-      ? `Add ${role === "district_coordinator" ? "District" : role === "block_coordinator" ? "Block" : "Village"} Coordinator`
-      : `Add ${role === "FARMER" ? "Farmer" : role === "COORDINATOR" ? "Coordinator" : "User"}`;
+      ? `Add ${selectedRoleLabel}`
+      : `Add ${selectedRoleLabel}`;
 
   // Reset form when modal opens/closes
   useEffect(() => {
@@ -210,21 +212,19 @@ export function AddFarmerModal({
             transition={{ duration: 0.2 }}
             className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
           />
-          <DialogContent className="max-h-[90vh] w-[85vw] max-w-[600px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-0 shadow-xl dark:border-[#2a2a2a] dark:bg-[#1a1a1a] [&>div]:flex [&>div]:flex-col [&>div]:gap-0 [&>div]:min-h-0 [&>div]:flex-1 sm:max-w-[600px]">
+          <DialogContent className="flex h-[90vh] w-[85vw] max-w-[600px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-0 shadow-xl dark:border-[#2a2a2a] dark:bg-[#1a1a1a] sm:max-w-[600px]">
             <motion.div
               initial="hidden"
               animate="visible"
               exit="exit"
               variants={modalVariants}
-              className="flex flex-1 flex-col gap-0 overflow-hidden"
+              className="flex min-h-0 flex-1 flex-col gap-0 overflow-hidden"
             >
               <DialogHeader className="shrink-0 px-5 pb-3 pt-5">
                 <div className="flex flex-row items-center justify-between pr-8">
                   <div>
                     <DialogTitle className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                      {mode === "review_system"
-                        ? `Add ${role === "district_coordinator" ? "District" : role === "block_coordinator" ? "Block" : "Village"} Coordinator`
-                        : `Add ${role === "FARMER" ? "Farmer" : role === "COORDINATOR" ? "Coordinator" : "User"}`}
+                      {addButtonLabel}
                     </DialogTitle>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                       Create a new{" "}
@@ -378,7 +378,7 @@ export function AddFarmerModal({
                     <RadioGroup
                       value={role}
                       onValueChange={(value) => setRole(value as UserRole)}
-                      className="grid grid-cols-3 gap-3"
+                      className="grid grid-cols-1 gap-3 sm:grid-cols-2"
                     >
                       {roleOptions.map((item) => (
                         <motion.label

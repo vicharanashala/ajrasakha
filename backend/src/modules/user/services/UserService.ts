@@ -307,13 +307,19 @@ export class UserService extends BaseService {
   async blockUnblockExperts(userId: string, action: string) {
     return await this._withTransaction(async (session: ClientSession) => {
       if (action === 'block') {
-        const nonBlockedExpertsCount =
-          await this.userRepo.countNonBlockedExperts(session);
+        // The minimum-experts guard protects the EXPERT pool only. Blocking a
+        // moderator (e.g. moderator check-out, which toggles isBlocked) must not
+        // be subject to it.
+        const target = await this.userRepo.findById(userId, session);
+        if (target?.role !== 'moderator') {
+          const nonBlockedExpertsCount =
+            await this.userRepo.countNonBlockedExperts(session);
 
-        if (nonBlockedExpertsCount <= 10) {
-          throw new BadRequestError(
-            'Minimum 10 active experts required. Cannot block more experts.',
-          );
+          if (nonBlockedExpertsCount <= 10) {
+            throw new BadRequestError(
+              'Minimum 10 active experts required. Cannot block more experts.',
+            );
+          }
         }
       }
       return await this.userRepo.updateIsBlocked(userId, action, session);
@@ -517,15 +523,134 @@ export class UserService extends BaseService {
           const adminEmails = admins.map(admin => admin.email).filter(Boolean);
           if (adminEmails.length > 0) {
             const subject = 'New Verification Request';
+            // const htmlMessage = `
+            //   <div style="font-family: Arial, sans-serif; padding: 20px;">
+            //     <h2 style="color: #4F46E5;">Verification Request</h2>
+            //     <p>Hello Admin,</p>
+            //     <p>A user with the following identifier has requested account verification:</p>
+            //     <p><strong>${identifier}</strong></p>
+            //     <br />
+            //     <p>Please review their request in the admin dashboard.</p>
+            //   </div>
+            // `;
             const htmlMessage = `
-              <div style="font-family: Arial, sans-serif; padding: 20px;">
-                <h2 style="color: #4F46E5;">Verification Request</h2>
-                <p>Hello Admin,</p>
-                <p>A user with the following identifier has requested account verification:</p>
-                <p><strong>${identifier}</strong></p>
-                <br />
-                <p>Please review their request in the admin dashboard.</p>
-              </div>
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta charset="UTF-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+              <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&display=swap" rel="stylesheet" />
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f2f2f0; font-family: 'Outfit', sans-serif;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f2f2f0; padding: 40px 20px;">
+                <tr>
+                  <td align="center">
+                    <table width="600" cellpadding="0" cellspacing="0" style="background-color: #fdfdfb; border-radius: 8px; overflow: hidden; border: 1px solid #e8e8e4;">
+
+                      <!-- Header -->
+                      <tr>
+                        <td style="background-color: #c5eedb; padding: 32px 40px; text-align: center; border-bottom: 1px solid #b0e4ca;">
+                          <h1 style="margin: 0; color: #2d6650; font-size: 22px; font-weight: 600; font-family: 'Outfit', sans-serif; letter-spacing: 0.025em;">
+                            Ajrasakha Reviewer System
+                          </h1>
+                          <p style="margin: 6px 0 0; color: #4a8c72; font-size: 13px; font-family: 'Outfit', sans-serif;">
+                            desk.vicharanashala.ai
+                          </p>
+                        </td>
+                      </tr>
+
+                      <!-- Body -->
+                      <tr>
+                        <td style="padding: 36px 40px 24px;">
+
+                          <p style="margin: 0 0 4px; font-size: 12px; color: #8a8a85; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; font-family: 'Outfit', sans-serif;">
+                            Action Required
+                          </p>
+                          <h2 style="margin: 0 0 20px; font-size: 20px; color: #1a1a17; font-weight: 600; font-family: 'Outfit', sans-serif; letter-spacing: 0.025em;">
+                            New Verification Request
+                          </h2>
+
+                          <p style="margin: 0 0 16px; font-size: 15px; color: #3a3a35; line-height: 1.6; font-family: 'Outfit', sans-serif;">
+                            Hello Admin,
+                          </p>
+                          <p style="margin: 0 0 28px; font-size: 15px; color: #3a3a35; line-height: 1.6; font-family: 'Outfit', sans-serif;">
+                            A user has submitted a verification request on the Ajrasakha Reviewer System and is awaiting your approval. Please review the details below and take the appropriate action.
+                          </p>
+
+                          <!-- User Info Card -->
+                          <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f2; border: 1px solid #e8e8e4; border-radius: 8px; margin-bottom: 28px;">
+                            <tr>
+                              <td style="padding: 20px 24px;">
+
+                                <p style="margin: 0 0 3px; font-size: 11px; color: #9a9a95; text-transform: uppercase; letter-spacing: 0.07em; font-family: 'Outfit', sans-serif;">
+                                  Requesting User
+                                </p>
+                                <p style="margin: 0 0 18px; font-size: 18px; color: #1a1a17; font-weight: 600; font-family: 'Outfit', sans-serif;">
+                                  ${identifier}
+                                </p>
+
+                                <table cellpadding="0" cellspacing="0">
+                                  <tr>
+                                    <td style="padding-right: 32px;">
+                                      <p style="margin: 0 0 2px; font-size: 11px; color: #9a9a95; text-transform: uppercase; letter-spacing: 0.07em; font-family: 'Outfit', sans-serif;">Request Date</p>
+                                      <p style="margin: 0; font-size: 14px; color: #3a3a35; font-family: 'Outfit', sans-serif;">
+                                        ${new Date().toLocaleDateString('en-IN', {day: 'numeric', month: 'long', year: 'numeric'})}
+                                      </p>
+                                    </td>
+                                    <td>
+                                      <p style="margin: 0 0 2px; font-size: 11px; color: #9a9a95; text-transform: uppercase; letter-spacing: 0.07em; font-family: 'Outfit', sans-serif;">Status</p>
+                                      <p style="margin: 0; font-size: 14px; font-weight: 600; font-family: 'Outfit', sans-serif;">
+                                        <span style="display: inline-block; background-color: #fef9ec; color: #a0721a; border: 1px solid #f5dfa0; border-radius: 4px; padding: 2px 10px; font-size: 13px;">
+                                          Pending Review
+                                        </span>
+                                      </p>
+                                    </td>
+                                  </tr>
+                                </table>
+
+                              </td>
+                            </tr>
+                          </table>
+
+                          <!-- Dashboard Link -->
+                          <p style="margin: 0 0 6px; font-size: 14px; color: #6b6b66; line-height: 1.6; font-family: 'Outfit', sans-serif;">
+                            Or review all pending requests in the admin dashboard:
+                          </p>
+                          <a href="https://desk.vicharanashala.ai"
+                            style="font-size: 14px; color: #4a8c72; text-decoration: underline; font-family: 'Outfit', sans-serif;">
+                            Open Admin Dashboard →
+                          </a>
+
+                        </td>
+                      </tr>
+
+                      <!-- Divider -->
+                      <tr>
+                        <td style="padding: 0 40px;">
+                          <hr style="border: none; border-top: 1px solid #e8e8e4; margin: 0;" />
+                        </td>
+                      </tr>
+
+                      <!-- Footer -->
+                      <tr>
+                        <td style="padding: 24px 40px 32px;">
+                          <p style="margin: 0; font-size: 12px; color: #9a9a95; line-height: 1.6; font-family: 'Outfit', sans-serif;">
+                            This is an automated notification from the <strong style="color: #6b6b66;">Ajrasakha Web Application</strong>.
+                            Please do not reply to this email. If you believe this was sent in error, you can safely ignore it
+                            or contact your system administrator.
+                          </p>
+                          <p style="margin: 10px 0 0; font-size: 12px; color: #b8b8b3; font-family: 'Outfit', sans-serif;">
+                            © ${new Date().getFullYear()} Annam.Ai · desk.vicharanashala.ai
+                          </p>
+                        </td>
+                      </tr>
+
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
             `;
             await sendEmailNotification(
               adminEmails,

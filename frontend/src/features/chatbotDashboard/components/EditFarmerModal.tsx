@@ -452,7 +452,9 @@ const UserInformationSection = ({
 
             <option value="INTERNAL">INTERNAL</option>
 
-            <option value="COORDINATOR">COORDINATOR</option>
+            <option value="district_coordinator">district_coordinator</option>
+            <option value="block_coordinator">block_coordinator</option>
+            <option value="village_volunteer">village_volunteer</option>
           </select>
         </div>
       </div>

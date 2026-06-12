@@ -17,7 +17,7 @@ export function useAddUser() {
         name: string;
         password: string
         userRole?: string;
-        role?: 'district_coordinator' | 'block_coordinator' | 'village_coordinator';
+        role?: 'district_coordinator' | 'block_coordinator' | 'village_volunteer';
         isVerified?: boolean;
         target?: 'web_app' | 'review_system';
       };

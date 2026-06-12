@@ -63,7 +63,7 @@ import { ContextIdParam } from '#root/modules/context/classes/validators/Context
 import { QuestionService } from '../services/QuestionService.js';
 import { UploadFileOptions } from '#root/modules/question/classes/validators/fileUploadOptions.js';
 import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
-import { IQuestionService } from '../interfaces/IQuestionService.js';
+import { IQuestionService, QueueSectionName } from '../interfaces/IQuestionService.js';
 import { FlexibleAuth } from '#root/shared/functions/flexibleAuth.js';
 import { InternalApiAuth } from '#root/shared/index.js';
 import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
@@ -104,6 +104,45 @@ export class QuestionController {
     @Body() body: DetailedQuestionsBodyDto,
   ) {
     const data = await this.questionService.getQuestionStatusSummary(query, body);
+    return { success: true, data };
+  }
+
+  @Get('/queue-details')
+  @HttpCode(200)
+  @Authorized(['admin', 'moderator'])
+  @OpenAPI({
+    summary:
+      'Queue details for moderators/admins. No params → all sections (counts + page 1). With ?section=&page= → one paginated section (exact count + that page of items).',
+  })
+  async getQueueDetails(
+    @QueryParams()
+    query: {
+      section?: QueueSectionName;
+      page?: string;
+      limit?: string;
+      startTime?: string;
+      endTime?: string;
+    },
+  ) {
+    const startTime = query.startTime ? new Date(query.startTime) : undefined;
+    const endTime = query.endTime ? new Date(query.endTime) : undefined;
+
+    // Single-section paginated mode (?section=&page=&limit=)
+    if (query.section) {
+      const page = query.page ? parseInt(query.page, 10) : 1;
+      const limit = query.limit ? parseInt(query.limit, 10) : 50;
+      const data = await this.questionService.getQueueSection(
+        query.section,
+        page,
+        limit,
+        startTime,
+        endTime,
+      );
+      return { success: true, data };
+    }
+
+    // Full snapshot: all sections, page 1.
+    const data = await this.questionService.getQueueDetails(startTime, endTime);
     return { success: true, data };
   }
 
@@ -194,6 +233,82 @@ export class QuestionController {
     @Body() body: GenerateQuestionsBody,
   ): Promise<any> {
     return this.questionService.getCallSummary(body.query);
+  }
+
+  // HITL Flow Endpoints
+  @Post('/acc-agent/thread')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Create ACC Agent thread for HITL flow' })
+  async createAccAgentThread(): Promise<{ thread_id: string }> {
+    try {
+      const result = await this.questionService.createAccAgentThread();
+      return result;
+    } catch (error) {
+      console.error('[QuestionController] createAccAgentThread: Error', error);
+      throw error;
+    }
+  }
+
+  @Post('/acc-agent/extract')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Extract data from transcript using ACC Agent' })
+  async extractAccAgentData(
+    @Body() body: { threadId: string; transcript: string }
+  ): Promise<{
+    extracted_query: string;
+    extracted_crop: string;
+    extracted_state: string;
+    extracted_district: string;
+  }> {
+    try {
+      const result = await this.questionService.extractAccAgentData(body.threadId, body.transcript);
+      return result;
+    } catch (error) {
+      console.error('[QuestionController] extractAccAgentData: Error', error);
+      throw error;
+    }
+  }
+
+  @Post('/acc-agent/update-state')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Update ACC Agent state with human corrections' })
+  async updateAccAgentState(
+    @Body() body: {
+      threadId: string;
+      correctedData: {
+        query: string;
+        crop: string;
+        state: string;
+        district: string;
+      };
+    }
+  ): Promise<{ success: boolean }> {
+    try {
+      await this.questionService.updateAccAgentState(body.threadId, body.correctedData);
+      return { success: true };
+    } catch (error) {
+      console.error('[QuestionController] updateAccAgentState: Error', error);
+      throw error;
+    }
+  }
+
+  @Post('/acc-agent/resume')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Resume ACC Agent and get final answer' })
+  async resumeAccAgentAndGetAnswer(
+    @Body() body: { threadId: string }
+  ): Promise<{ final_answer: string }> {
+    try {
+      const result = await this.questionService.resumeAccAgentAndGetAnswer(body.threadId);
+      return result;
+    } catch (error) {
+      console.error('[QuestionController] resumeAccAgentAndGetAnswer: Error', error);
+      throw error;
+    }
   }
 
   @Post('/')

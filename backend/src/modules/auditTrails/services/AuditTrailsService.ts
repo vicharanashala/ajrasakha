@@ -227,4 +227,24 @@ export class AuditTrailsService
       shift,
     );
   }
+
+  async getAuditTrailsByQuestionId(
+    questionId: string,
+    page?: number,
+    limit?: number,
+    action?: string | null,
+    order?: "asc" | "desc"
+  ): Promise<{ data: ModeratorAuditTrail[]; totalDocuments: number }> {
+    const result = await this.auditTrailsRepository.getAuditTrailsByQuestionId(
+      questionId,
+      page,
+      limit,
+      action,
+      order
+    );
+    return {
+      data: result.data.map(audit => this.normalizeAudit(audit)),
+      totalDocuments: result.totalDocuments,
+    };
+  }
 }

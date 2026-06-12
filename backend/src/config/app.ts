@@ -52,4 +52,7 @@ export const appConfig = {
     authToken: env('PLIVO_AUTH_TOKEN') || 'dummy-plivo-auth-token',
     plivo_number: env('PLIVO_NUMBER') || '+15551234567',
   },
+  fast2sms: {
+    apiKey: env('FAST2SMS_API_KEY'),
+  },
 };

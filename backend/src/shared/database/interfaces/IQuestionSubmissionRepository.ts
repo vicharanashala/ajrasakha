@@ -217,7 +217,12 @@ export interface IQuestionSubmissionRepository {
   /** Find all time-bound (WHATSAPP/AJRASAKHA) submissions that were never
    *  allocated — queue is empty and currentExpertAllocatedAt is null/missing.
    *  question is not on hold, not closed/pass/duplicate/draft */
-  findUnallocatedTimeBoundQuestions(): Promise<IQuestionSubmission[]>;
+  findUnallocatedTimeBoundQuestions(limit?: number, skip?: number, startTime?: Date, endTime?: Date): Promise<IQuestionSubmission[]>;
+
+  /** Find time-bound submissions the current expert opened > 45 min ago but still
+   *  hasn't answered (latest history entry has no answer/approved/modified/rejected).
+   *  Distinct from stuck (allocated but never opened). */
+  findOpenedButIdleTimeBoundQuestions(): Promise<IQuestionSubmission[]>;
 
   /** Find time-bound submissions where the initial answer was submitted (last
    *  history entry has an answer) but status is still open/delayed — needs a reviewer. */
