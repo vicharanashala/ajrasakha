@@ -71,10 +71,7 @@ const buildExternalJoinedUserMatch = (prefix: string) => ({
 const isExternalUserRole = (userRole?: string, role?: string) =>
   EXTERNAL_USER_ROLES.includes(
     userRole as (typeof EXTERNAL_USER_ROLES)[number],
-  ) ||
-  COORDINATOR_ROLES.includes(
-    role as (typeof COORDINATOR_ROLES)[number],
-  );
+  ) || COORDINATOR_ROLES.includes(role as (typeof COORDINATOR_ROLES)[number]);
 
 interface IUser {
   _id?: any;
@@ -458,7 +455,7 @@ export class ChatbotRepository implements IChatbotRepository {
     this.users = await db.getCollection<IUser>('users');
     this.conversations = await db.getCollection<IConversation>('conversations');
     this.messagesCollection = await db.getCollection<any>('messages');
-    this.sessionCollection = await db.getCollection<any>("sessions");
+    this.sessionCollection = await db.getCollection<any>('sessions');
   }
   private annamMessagesCollection!: Collection<any>;
 
@@ -483,6 +480,8 @@ export class ChatbotRepository implements IChatbotRepository {
       .trim()
       .toLowerCase();
   }
+
+  private readonly coordinatorsRoles = COORDINATOR_ROLES;
 
   private async getSourceAdherenceStats(
     source: 'WHATSAPP' | 'AJRASAKHA',
@@ -990,7 +989,9 @@ export class ChatbotRepository implements IChatbotRepository {
         // Transform $or conditions by prefixing field paths
         const transformedOr = (value as any[]).map(condition => {
           const transformedCondition: Record<string, any> = {};
-          for (const [field, fieldValue] of Object.entries(condition as Record<string, any>)) {
+          for (const [field, fieldValue] of Object.entries(
+            condition as Record<string, any>,
+          )) {
             transformedCondition[`${prefix}.${field}`] = fieldValue;
           }
           return transformedCondition;
@@ -2245,6 +2246,15 @@ export class ChatbotRepository implements IChatbotRepository {
                 0,
               ],
             },
+            isClosed: {
+              $cond: [
+                {
+                  $eq: ['$status', 'closed'],
+                },
+                1,
+                0,
+              ],
+            },
           },
         },
 
@@ -2254,6 +2264,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
             totalQuestions: {
               $sum: 1,
+            },
+
+            closedQuestions: {
+              $sum: '$isClosed',
             },
 
             duplicateQuestions: {
@@ -2279,11 +2293,80 @@ export class ChatbotRepository implements IChatbotRepository {
         session,
       }).toArray();
 
+      await this.init(_source);
+
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+
+      const districtUsers = await this.users
+        .aggregate([
+          {
+            $match: {
+              isVerified: true,
+              'farmerProfile.state': {
+                $regex: `^${state}$`,
+                $options: 'i',
+              },
+              'farmerProfile.district': {
+                $exists: true,
+                $ne: null,
+              },
+            },
+          },
+          {
+            $group: {
+              _id: '$farmerProfile.district',
+
+              totalUsers: {
+                $sum: 1,
+              },
+
+              activeUsers: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        {$gte: ['$lastActiveAt', todayStart]},
+                        {$lte: ['$lastActiveAt', todayEnd]},
+                      ],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
+
+              coordinators: {
+                $sum: {
+                  $cond: [
+                    {
+                      $eq: ['$userRole', this.coordinatorsRoles],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+        ])
+        .toArray();
+
+      const userMap = new Map();
+
+      for (const item of districtUsers) {
+        userMap.set(this.normalizeDistrictName(item._id), item);
+      }
+
       const districtMap = new Map<
         string,
         {
           district: string;
           totalQuestions: number;
+          closedQuestions: number;
           uniqueQuestions: number;
           duplicateQuestions: number;
         }
@@ -2301,6 +2384,8 @@ export class ChatbotRepository implements IChatbotRepository {
         if (existing) {
           existing.totalQuestions += item.totalQuestions;
 
+          existing.closedQuestions += item.closedQuestions;
+
           existing.uniqueQuestions += item.uniqueQuestions;
 
           existing.duplicateQuestions += item.duplicateQuestions;
@@ -2309,6 +2394,8 @@ export class ChatbotRepository implements IChatbotRepository {
             district: item._id,
 
             totalQuestions: item.totalQuestions,
+
+            closedQuestions: item.closedQuestions,
 
             uniqueQuestions: item.uniqueQuestions,
 
@@ -2322,17 +2409,37 @@ export class ChatbotRepository implements IChatbotRepository {
 
         const existing = districtMap.get(normalizedDistrict);
 
-        return (
-          existing || {
-            district,
+        // return (
+        //   existing || {
+        //     district,
 
-            totalQuestions: 0,
+        //     totalQuestions: 0,
 
-            uniqueQuestions: 0,
+        //     uniqueQuestions: 0,
 
-            duplicateQuestions: 0,
-          }
-        );
+        //     duplicateQuestions: 0,
+        //   }
+        // );
+
+        const userData = userMap.get(normalizedDistrict);
+
+        return {
+          district,
+
+          totalQuestions: existing?.totalQuestions ?? 0,
+
+          closedQuestions: existing?.closedQuestions ?? 0,
+
+          uniqueQuestions: existing?.uniqueQuestions ?? 0,
+
+          duplicateQuestions: existing?.duplicateQuestions ?? 0,
+
+          totalUsers: userData?.totalUsers ?? 0,
+
+          activeUsers: userData?.activeUsers ?? 0,
+
+          coordinators: userData?.coordinators ?? 0,
+        };
       });
 
       const data = result.sort((a, b) => {
@@ -3616,7 +3723,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const userDocFilter = this.buildUserDocFilter(userType);
 
-      const userTypeMatch = this.buildJoinedUserDocFilter(userDocFilter, 'userDetails');
+      const userTypeMatch = this.buildJoinedUserDocFilter(
+        userDocFilter,
+        'userDetails',
+      );
 
       // ============================================
       // MATCH WEATHER AI RESPONSES
@@ -5785,27 +5895,29 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const allUsers = await this.users.find(userFilter, {session}).toArray();
 
+      const coordinatorRoles = [
+        'district_coordinator',
+        'block_coordinator',
+        'village_volunteer',
+      ];
+
       const userRoleCounts = {
-  farmer: 0,
-  coordinator: 0,
-  internal: 0,
-};
+        farmer: 0,
+        coordinator: 0,
+        internal: 0,
+      };
 
-for (const user of allUsers) {
-  switch (user.userRole) {
-    case 'FARMER':
-      userRoleCounts.farmer++;
-      break;
+      for (const user of allUsers) {
+        const role = (user.userRole || '').toLowerCase();
 
-    case 'COORDINATOR':
-      userRoleCounts.coordinator++;
-      break;
-
-    case 'INTERNAL':
-      userRoleCounts.internal++;
-      break;
-  }
-}
+        if (role === 'farmer') {
+          userRoleCounts.farmer++;
+        } else if (coordinatorRoles.includes(role)) {
+          userRoleCounts.coordinator++;
+        } else if (role === 'internal') {
+          userRoleCounts.internal++;
+        }
+      }
       // console.log('useres::',allUsers)
       // console.log('type of isverified:', isVerfied);
       // Merge
@@ -6181,282 +6293,249 @@ for (const user of allUsers) {
   // }
 
   async getUserQuestionsData(
-  identifiers: {
-    threadIds?: string[];
-    messageIds?: string[];
-    userId?: string;
-  },
-  source: string,
-  userType = 'all',
-  page = 1,
-  limit = 10,
-) {
-  try {
-    await this.initReviewSystem();
+    identifiers: {
+      threadIds?: string[];
+      messageIds?: string[];
+      userId?: string;
+    },
+    source: string,
+    userType = 'all',
+    page = 1,
+    limit = 10,
+  ) {
+    try {
+      await this.initReviewSystem();
 
-    const sourceType =
-      source === 'whatsapp'
-        ? 'WHATSAPP'
-        : 'AJRASAKHA';
+      const sourceType = source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
 
-    const orConditions: any[] = [];
-
-    /**
-     * ThreadId matches
-     */
-    if (
-      identifiers.threadIds &&
-      identifiers.threadIds.length > 0
-    ) {
-      orConditions.push({
-        threadId: {
-          $in: identifiers.threadIds,
-        },
-      });
-    }
-
-    /**
-     * MessageId matches
-     */
-    if (
-      identifiers.messageIds &&
-      identifiers.messageIds.length > 0
-    ) {
-      orConditions.push({
-        messageId: {
-          $in: identifiers.messageIds,
-        },
-      });
-    }
-
-    /**
-     * UserId matches
-     */
-    if (identifiers.userId) {
-      orConditions.push({
-        userId: new ObjectId(
-          identifiers.userId,
-        ),
-      });
-    }
-
-    /**
-     * Nothing to search
-     */
-    if (!orConditions.length) {
-      return {
-        total: 0,
-        totalPages: 0,
-        currentPage: page,
-        limit,
-        items: [],
-      };
-    }
-
-    const matchQuery: any = {
-      source: sourceType,
-
-      $or: orConditions,
+      const orConditions: any[] = [];
 
       /**
-       * Handle both old and new values
+       * ThreadId matches
        */
-      status: {
-        $nin: ['non_agri', 'NO_AGRI'],
-      },
+      if (identifiers.threadIds && identifiers.threadIds.length > 0) {
+        orConditions.push({
+          threadId: {
+            $in: identifiers.threadIds,
+          },
+        });
+      }
 
-      $and: [
+      /**
+       * MessageId matches
+       */
+      if (identifiers.messageIds && identifiers.messageIds.length > 0) {
+        orConditions.push({
+          messageId: {
+            $in: identifiers.messageIds,
+          },
+        });
+      }
+
+      /**
+       * UserId matches
+       */
+      if (identifiers.userId) {
+        orConditions.push({
+          userId: new ObjectId(identifiers.userId),
+        });
+      }
+
+      /**
+       * Nothing to search
+       */
+      if (!orConditions.length) {
+        return {
+          total: 0,
+          totalPages: 0,
+          currentPage: page,
+          limit,
+          items: [],
+        };
+      }
+
+      const matchQuery: any = {
+        source: sourceType,
+
+        $or: orConditions,
+
+        /**
+         * Handle both old and new values
+         */
+        status: {
+          $nin: ['non_agri', 'NO_AGRI'],
+        },
+
+        $and: [
           {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         ],
-    };
+      };
 
-    const query =
-      await this.buildQuestionUserTypeMatchQuery(
+      const query = await this.buildQuestionUserTypeMatchQuery(
         source,
         userType,
       );
 
-    if (
-      query &&
-      Object.keys(query).length > 0
-    ) {
-       matchQuery.$and.push(query);
-    }
+      if (query && Object.keys(query).length > 0) {
+        matchQuery.$and.push(query);
+      }
 
-    const skip = (page - 1) * limit;
+      const skip = (page - 1) * limit;
 
-    const pipeline = [
-      {
-        $match: matchQuery,
-      },
-
-      {
-        $sort: {
-          createdAt: -1,
+      const pipeline = [
+        {
+          $match: matchQuery,
         },
-      },
 
-      {
-        $group: {
-          _id: {
-            $toLower: {
-              $trim: {
-                input: '$question',
+        {
+          $sort: {
+            createdAt: -1,
+          },
+        },
+
+        {
+          $group: {
+            _id: {
+              $toLower: {
+                $trim: {
+                  input: '$question',
+                },
               },
             },
-          },
 
-          repeatedCount: {
-            $sum: 1,
-          },
-
-          latestQuestion: {
-            $first: '$question',
-          },
-
-          latestStatus: {
-            $first: '$status',
-          },
-
-          latestCreatedAt: {
-            $first: '$createdAt',
-          },
-
-          latestUpdatedAt: {
-            $first: '$updatedAt',
-          },
-
-          latestMessageId: {
-            $first: '$messageId',
-          },
-
-          latestThreadId: {
-            $first: '$threadId',
-          },
-
-          latestUserId: {
-            $first: '$userId',
-          },
-
-          allCreatedAt: {
-            $push: '$createdAt',
-          },
-        },
-      },
-
-      {
-        $project: {
-          _id: 0,
-
-          messageId: '$latestMessageId',
-
-          threadId: '$latestThreadId',
-
-          userId: '$latestUserId',
-
-          question: {
-            $trim: {
-              input: '$latestQuestion',
-            },
-          },
-
-          status: '$latestStatus',
-
-          createdAt: '$latestCreatedAt',
-
-          updatedAt: '$latestUpdatedAt',
-
-          repeatedCount: '$repeatedCount',
-
-          repeatedAt: '$allCreatedAt',
-
-          isDuplicate: {
-            $gt: ['$repeatedCount', 1],
-          },
-        },
-      },
-
-      {
-        $sort: {
-          createdAt: -1,
-        },
-      },
-
-      {
-        $facet: {
-          metadata: [
-            {
-              $count: 'total',
-            },
-          ],
-
-          data: [
-            {
-              $skip: skip,
+            repeatedCount: {
+              $sum: 1,
             },
 
-            {
-              $limit: limit,
+            latestQuestion: {
+              $first: '$question',
             },
-          ],
-        },
-      },
-    ];
 
-    const result =
-      await this.QuestionCollection.aggregate(
-        pipeline,
+            latestStatus: {
+              $first: '$status',
+            },
+
+            latestCreatedAt: {
+              $first: '$createdAt',
+            },
+
+            latestUpdatedAt: {
+              $first: '$updatedAt',
+            },
+
+            latestMessageId: {
+              $first: '$messageId',
+            },
+
+            latestThreadId: {
+              $first: '$threadId',
+            },
+
+            latestUserId: {
+              $first: '$userId',
+            },
+
+            allCreatedAt: {
+              $push: '$createdAt',
+            },
+          },
+        },
+
         {
-          allowDiskUse: true,
+          $project: {
+            _id: 0,
+
+            messageId: '$latestMessageId',
+
+            threadId: '$latestThreadId',
+
+            userId: '$latestUserId',
+
+            question: {
+              $trim: {
+                input: '$latestQuestion',
+              },
+            },
+
+            status: '$latestStatus',
+
+            createdAt: '$latestCreatedAt',
+
+            updatedAt: '$latestUpdatedAt',
+
+            repeatedCount: '$repeatedCount',
+
+            repeatedAt: '$allCreatedAt',
+
+            isDuplicate: {
+              $gt: ['$repeatedCount', 1],
+            },
+          },
         },
-      ).toArray();
 
-    const totalQuestions =
-      result[0]?.metadata?.[0]?.total || 0;
+        {
+          $sort: {
+            createdAt: -1,
+          },
+        },
 
-    const questions =
-      result[0]?.data || [];
+        {
+          $facet: {
+            metadata: [
+              {
+                $count: 'total',
+              },
+            ],
 
-    questions.forEach((q: any) => {
-      q.question = q.question
-        ?.replace(
-          /^\s*\([^)]*\)\s*/,
-          '',
-        )
-        ?.trim();
+            data: [
+              {
+                $skip: skip,
+              },
 
-      q.repeatedAt = (
-        q.repeatedAt || []
-      ).sort(
-        (a: string, b: string) =>
-          new Date(b).getTime() -
-          new Date(a).getTime(),
-      );
-    });
+              {
+                $limit: limit,
+              },
+            ],
+          },
+        },
+      ];
 
-    const totalPages = Math.ceil(
-      totalQuestions / limit,
-    );
+      const result = await this.QuestionCollection.aggregate(pipeline, {
+        allowDiskUse: true,
+      }).toArray();
 
-    return {
-      total: totalQuestions,
+      const totalQuestions = result[0]?.metadata?.[0]?.total || 0;
 
-      totalPages,
+      const questions = result[0]?.data || [];
 
-      currentPage: page,
+      questions.forEach((q: any) => {
+        q.question = q.question?.replace(/^\s*\([^)]*\)\s*/, '')?.trim();
 
-      limit,
+        q.repeatedAt = (q.repeatedAt || []).sort(
+          (a: string, b: string) =>
+            new Date(b).getTime() - new Date(a).getTime(),
+        );
+      });
 
-      items: questions,
-    };
-  } catch (err) {
-    throw new InternalServerError(
-      `Failed to get question data: ${err}`,
-    );
+      const totalPages = Math.ceil(totalQuestions / limit);
+
+      return {
+        total: totalQuestions,
+
+        totalPages,
+
+        currentPage: page,
+
+        limit,
+
+        items: questions,
+      };
+    } catch (err) {
+      throw new InternalServerError(`Failed to get question data: ${err}`);
+    }
   }
-}
 
   async getUsersMessages(
     email: string,
@@ -6589,39 +6668,36 @@ for (const user of allUsers) {
       //   .toArray();
 
       const result = await this.messagesCollection
-  .aggregate([
-    ...pipeline,
-
-    {
-      $facet: {
-        metadata: [
-          {
-            $count: 'total',
-          },
-        ],
-
-        data: [
-          {
-            $skip: skip,
-          },
+        .aggregate([
+          ...pipeline,
 
           {
-            $limit: limit,
+            $facet: {
+              metadata: [
+                {
+                  $count: 'total',
+                },
+              ],
+
+              data: [
+                {
+                  $skip: skip,
+                },
+
+                {
+                  $limit: limit,
+                },
+              ],
+            },
           },
-        ],
-      },
-    },
-  ])
-  .toArray();
+        ])
+        .toArray();
 
-    const totalMessages =
-  result[0]?.metadata?.[0]?.total || 0;
+      const totalMessages = result[0]?.metadata?.[0]?.total || 0;
 
-const messages =
-  result[0]?.data || [];
+      const messages = result[0]?.data || [];
 
-const totalPages =
-  Math.ceil(totalMessages / limit);
+      const totalPages = Math.ceil(totalMessages / limit);
 
       // Paginated messages
 
@@ -8547,7 +8623,7 @@ const totalPages =
         throw new NotFoundError('User not found');
       }
 
-      if(!keepLoggedIn){
+      if (!keepLoggedIn) {
         await this.sessionCollection.deleteMany({
           user: new ObjectId(userId),
         });
@@ -10772,7 +10848,7 @@ const totalPages =
         },
         {returnDocument: 'after'},
       );
-      if(!isVerified){
+      if (!isVerified) {
         await this.sessionCollection.deleteMany({
           user: new ObjectId(userId),
         });
@@ -10869,7 +10945,6 @@ const totalPages =
       throw new InternalServerError('Failed to fetch unverified users');
     }
   }
-
 
   private async getUserIdsByUserType(
     source: string,
@@ -12459,220 +12534,277 @@ const totalPages =
     }
   }
 
-  async getUserConversationIds(
-  userId: string,
-  source = 'annam',
-): Promise<any> {
-  try {
-    await this.init(source);
+  async getUserConversationIds(userId: string, source = 'annam'): Promise<any> {
+    try {
+      await this.init(source);
 
-    const conversations = await this.conversations
-      .find(
-        {
-          user: userId,
-        },
-        {
-          projection: {
-            conversationId: 1,
+      const conversations = await this.conversations
+        .find(
+          {
+            user: userId,
           },
-        },
-      )
-      .toArray();
-
-    return conversations
-      .map((c: any) => c.conversationId)
-      .filter(Boolean);
-  } catch (error) {
-    throw new InternalServerError(
-      `Failed to get user conversation ids: ${error}`,
-    );
-  }
-}
-
-private normalizeState(state: string) {
-      const stateAliases: Record<string, string> = {
-  'andra pradesh': 'andhra pradesh',
-  'jammu and kashmir': 'jammu and kashmir',
-  'uttaranchal': 'uttarakhand',
-  'orissa': 'odisha'
-  }
-
-  const key = state.trim().toLowerCase();
-  return stateAliases[key] || key;
-}
-
-async getAllStatesQuestionsAndUsersData(
-  source: string,
-  userType: string,
-): Promise<any> {
-  try {
-    await this.initReviewSystem();
-    await this.init(source);
-
-    const sourceType =
-      source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
-
-    const questionsByState = await this.QuestionCollection.aggregate([
-      {
-        $match: {
-          source: sourceType,
-          'details.state': {
-      $nin: [
-        null,
-        '',
-        'all',
-        '<unknown>',
-        'Not Specified',
-        'All'
-      ],
-    },
-        },
-      },
-      {
-        $group: {
-          _id: '$details.state',
-          closedQuestions: { $sum: 1 },
-        },
-      },
-    ]).toArray();
-
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
-
-    const usersByState = await this.users.aggregate([
-      {
-        $match: {
-          isVerified: true,
-          'farmerProfile.state': { $exists: true },
-        },
-      },
-      {
-        $group: {
-          _id: '$farmerProfile.state',
-          totalUsers: { $sum: 1 },
-          activeUsers: {
-            $sum: {
-              $cond: [
-                {
-                  $and: [
-                    { $gte: ['$lastActiveAt', todayStart] },
-                    { $lte: ['$lastActiveAt', todayEnd] },
-                  ],
-                },
-                1,
-                0,
-              ],
+          {
+            projection: {
+              conversationId: 1,
             },
           },
-        },
-      },
-    ]).toArray();
+        )
+        .toArray();
 
-
-
-    const stateMap = new Map();
-
-    // Add question counts
-   for (const q of questionsByState) {
-  const key = this.normalizeState(String(q._id));
-
-  stateMap.set(key, {
-    state: q._id,
-    closedQuestions: q.closedQuestions,
-    totalUsers: 0,
-    activeUsers: 0,
-  });
-}
-
-    // Merge user counts
-    for (const u of usersByState) {
-      const key = this.normalizeState(String(u._id));
-
-      if (stateMap.has(key)) {
-        const existing = stateMap.get(key);
-
-        existing.totalUsers = u.totalUsers;
-        existing.activeUsers = u.activeUsers;
-      } else {
-        stateMap.set(key, {
-          state: u._id,
-          closedQuestions: 0,
-          totalUsers: u.totalUsers,
-          activeUsers: u.activeUsers,
-        });
-      }
+      return conversations.map((c: any) => c.conversationId).filter(Boolean);
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get user conversation ids: ${error}`,
+      );
     }
-
-    return Array.from(stateMap.values());
-  } catch (error) {
-    throw new InternalServerError(
-      `Internal server error ${error}`,
-    );
   }
-}
 
-async getStateQuestionsAndUsersData(
-  state: string,
-  source: string,
-  userType: string,
-): Promise<any> {
-  try {
-    await this.initReviewSystem();
-    await this.init(source);
-
-    const sourceType =
-      source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
-
-    const closedQuestions =
-      await this.QuestionCollection.countDocuments({
-      source: sourceType,
-      'details.state': {
-        $regex: `^${state}$`,
-        $options: 'i',
-      },
-    });
-
-    const totalUsers = await this.users.countDocuments({
-      isVerified: true,
-      'farmerProfile.state': {
-        $regex: `^${state}$`,
-        $options: 'i',
-      },
-    });
-
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
-
-    const activeUsers = await this.users.countDocuments({
-      isVerified: true,
-      'farmerProfile.state': {
-        $regex: `^${state}$`,
-        $options: 'i',
-      },
-      lastActiveAt: {
-        $gte: todayStart,
-        $lte: todayEnd,
-      },
-    });
-
-    return {
-      state,
-      closedQuestions,
-      totalUsers,
-      activeUsers,
+  private normalizeState(state: string) {
+    const stateAliases: Record<string, string> = {
+      'andhra pradesh': 'andra pradesh',
+      'jammu and kashmir': 'jammu and kashmir',
+      uttaranchal: 'uttarakhand',
+      orissa: 'odisha',
     };
-  } catch (error) {
-    throw new InternalServerError(
-      `Something went wrong ${error}`,
-    );
+
+    const key = state.trim().toLowerCase();
+    return stateAliases[key] || key;
   }
+
+  async getAllStatesQuestionsAndUsersData(
+    source: string,
+    userType: string,
+  ): Promise<any> {
+    try {
+      await this.initReviewSystem();
+      await this.init(source);
+
+      const sourceType = source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
+
+      const questionsByState = await this.QuestionCollection.aggregate([
+        {
+          $match: {
+            source: sourceType,
+            'details.state': {
+              $nin: [null, '', 'all', '<unknown>', 'Not Specified', 'All'],
+            },
+            status: {$ne: 'non_agri'},
+          },
+        },
+        {
+          $group: {
+            _id: '$details.state',
+
+            totalQuestions: {
+              $sum: 1,
+            },
+
+            closedQuestions: {
+              $sum: {
+                $cond: [{$eq: ['$status', 'closed']}, 1, 0],
+              },
+            },
+
+            totalCloseTimeMs: {
+      $sum: {
+        $cond: [
+          {
+            $and: [
+              { $eq: ['$status', 'closed'] },
+              { $ne: ['$closedAt', null] },
+            ],
+          },
+          {
+            $subtract: [
+              '$closedAt',
+              '$createdAt',
+            ],
+          },
+          0,
+        ],
+      },
+    }
+          },
+        },
+        {
+  $project: {
+    totalQuestions: 1,
+    closedQuestions: 1,
+
+    avgCloseTimeHours: {
+      $cond: [
+        { $gt: ['$closedQuestions', 0] },
+        {
+          $divide: [
+            {
+              $divide: [
+                '$totalCloseTimeMs',
+                '$closedQuestions',
+              ],
+            },
+            1000 * 60 * 60,
+          ],
+        },
+        0,
+      ],
+    },
+  },
 }
+      ]).toArray();
+
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+
+      const usersByState = await this.users
+        .aggregate([
+          {
+            $match: {
+              isVerified: true,
+              'farmerProfile.state': {$exists: true},
+            },
+          },
+          {
+            $group: {
+              _id: '$farmerProfile.state',
+              totalUsers: {$sum: 1},
+              activeUsers: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        {$gte: ['$lastActiveAt', todayStart]},
+                        {$lte: ['$lastActiveAt', todayEnd]},
+                      ],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+        ])
+        .toArray();
+
+      const totalActiveFromStates = usersByState.reduce(
+        (sum, s) => sum + s.activeUsers,
+        0,
+      );
+
+      console.log('State active total:', totalActiveFromStates);
+
+      const stateMap = new Map();
+
+      // Add question counts
+      for (const q of questionsByState) {
+        const key = this.normalizeState(String(q._id));
+
+        stateMap.set(key, {
+  state: q._id,
+  totalQuestions: q.totalQuestions,
+  closedQuestions: q.closedQuestions,
+  avgCloseTimeHours: q.avgCloseTimeHours,
+  totalUsers: 0,
+  activeUsers: 0,
+});;
+      }
+
+      // Merge user counts
+      for (const u of usersByState) {
+        const key = this.normalizeState(String(u._id));
+
+        if (stateMap.has(key)) {
+          const existing = stateMap.get(key);
+
+          existing.totalUsers += u.totalUsers;
+          existing.activeUsers += u.activeUsers;
+        } else {
+          stateMap.set(key, {
+  state: u._id,
+  totalQuestions: 0,
+  closedQuestions: 0,
+  avgCloseTimeHours: 0,
+  totalUsers: u.totalUsers,
+  activeUsers: u.activeUsers,
+});
+        }
+      }
+
+      return Array.from(stateMap.values());
+    } catch (error) {
+      throw new InternalServerError(`Internal server error ${error}`);
+    }
+  }
+
+  async getStateQuestionsAndUsersData(
+    state: string,
+    source: string,
+    userType: string,
+  ): Promise<any> {
+    try {
+      await this.initReviewSystem();
+      await this.init(source);
+
+      const sourceType = source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
+
+      const totalQuestions = await this.QuestionCollection.countDocuments({
+        source: sourceType,
+        'details.state': {
+          $regex: `^${state}$`,
+          $options: 'i',
+        },
+        status: {$ne: 'non_agri'},
+      });
+
+      const closedQuestions = await this.QuestionCollection.countDocuments({
+        source: sourceType,
+        'details.state': {
+          $regex: `^${state}$`,
+          $options: 'i',
+        },
+        status: 'closed',
+      });
+
+      const totalUsers = await this.users.countDocuments({
+        isVerified: true,
+        'farmerProfile.state': {
+          $regex: `^${state}$`,
+          $options: 'i',
+        },
+      });
+
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+
+      const activeUsers = await this.users.countDocuments({
+        isVerified: true,
+        'farmerProfile.state': {
+          $regex: `^${state}$`,
+          $options: 'i',
+        },
+        lastActiveAt: {
+          $gte: todayStart,
+          $lte: todayEnd,
+        },
+      });
+
+      return {
+        state,
+        totalQuestions,
+        closedQuestions,
+        totalUsers,
+        activeUsers,
+      };
+    } catch (error) {
+      throw new InternalServerError(`Something went wrong ${error}`);
+    }
+  }
 
   async findMatchingMessages(data: {
     question: string;

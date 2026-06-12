@@ -7,6 +7,7 @@ import type { Analytics, LevelKey } from "../lib/types";
 import { mockAnalytics, mockDistrictDetails } from "../lib/mockData";
 import { useQuery } from "@tanstack/react-query";
 import { ChatbotService } from "@/hooks/services/chatbotService";
+import type { DistrictAnalyticsResponse } from "@/features/chatbotDashboard/hooks/useStateQueryData";
 
 interface UseMapAnalyticsProps {
   statesGeo: unknown;
@@ -15,6 +16,7 @@ interface UseMapAnalyticsProps {
   selectedState: string | null;
   selectedDistrict: string | null;
   allStatesData?: any[];
+  districtAnalytics?: DistrictAnalyticsResponse;
 }
 
 const normalizeState = (state: string) => {
@@ -22,7 +24,7 @@ const normalizeState = (state: string) => {
 
   const aliases: Record<string, string> = {
     "uttaranchal": "uttarakhand",
-    "andra pradesh": "andhra pradesh",
+    "andhra pradesh": "andra pradesh",
     "jammu and kashmir": "jammu and kashmir",
     'orissa': 'odisha'
   };
@@ -36,7 +38,8 @@ export function useMapAnalytics({
   level,
   selectedState,
   selectedDistrict,
-  allStatesData
+  allStatesData,
+  districtAnalytics
 }: UseMapAnalyticsProps) {
   // Attach analytics to states
   // const statesWithData = useMemo(() => {
@@ -98,12 +101,12 @@ const statesWithData = useMemo(() => {
           ...f.properties,
           _name: stateName,
           _analytics: {
-            questions: analytics?.closedQuestions ?? 0,
-            answers: 0,
+            questions: analytics?.totalQuestions ?? 0,
+            answers: analytics?.closedQuestions ?? 0,
             users: analytics?.totalUsers ?? 0,
             activeUsers: analytics?.activeUsers ?? 0,
             coordinators: 0,
-            closureHrs: 0,
+            closureHrs: analytics?.avgCloseTimeHours ?? 0,
           },
         },
       };
@@ -111,29 +114,71 @@ const statesWithData = useMemo(() => {
   };
 }, [statesGeo, analyticsMap]);
 
+
+  const districtMap = useMemo(() => {
+  if (!districtAnalytics) return new Map();
+
+  return new Map(
+    districtAnalytics.map((item) => [
+      item.district.toLowerCase(),
+      item,
+    ]),
+  );
+}, [districtAnalytics]);
+
   // Filter districts by selected state
+
   const districtsOfState = useMemo(() => {
-    if (!districtsAll || !selectedState) return null;
-    const geo = districtsAll as {
+  if (!districtsAll || !selectedState) return null;
+
+  const geo = districtsAll as {
+    type?: string;
+    features: Array<{
       type?: string;
-      features: Array<{ type?: string; geometry?: unknown; properties: Record<string, unknown> }>;
-    };
-    const features = geo.features
-      .filter((f) => f.properties.NAME_1 === selectedState)
-      .map((f) => ({
+      geometry?: unknown;
+      properties: Record<string, unknown>;
+    }>;
+  };
+
+  const features = geo.features
+    .filter((f) => f.properties.NAME_1 === selectedState)
+    .map((f) => {
+      const districtName = String(f.properties.NAME_2);
+
+      const analytics = districtMap.get(
+        districtName.toLowerCase(),
+      );
+
+      return {
         type: f.type ?? "Feature",
         geometry: f.geometry,
         properties: {
           ...f.properties,
-          _name: f.properties.NAME_2 as string,
+          _name: districtName,
           _parent: f.properties.NAME_1 as string,
-          _analytics: mockAnalytics(
-            `dist:${f.properties.NAME_1}:${f.properties.NAME_2}`,
-          ),
+          _analytics: {
+            questions: analytics?.totalQuestions ?? 0,
+            answers: analytics?.closedQuestions?? 0,
+            users: analytics?.totalUsers ?? 0,
+            activeUsers: analytics?.activeUsers ?? 0,
+            coordinators: analytics?.coordinators ?? 0,
+            closureHrs: 0,
+          },
         },
-      }));
-    return { type: "FeatureCollection", features };
-  }, [districtsAll, selectedState]);
+      };
+    });
+
+  return {
+    type: "FeatureCollection",
+    features,
+  };
+}, [
+  districtsAll,
+  selectedState,
+  districtMap,
+]);
+
+
 
   // Active geo to render
   const activeGeo =

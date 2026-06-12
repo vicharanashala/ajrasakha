@@ -5,8 +5,12 @@ import { useQuery } from "@tanstack/react-query";
 interface DistrictAnalyticsEntry {
   district: string;
   totalQuestions: number;
+  closedQuestions: number;
   uniqueQuestions: number;
   duplicateQuestions: number;
+  totalUsers: number;
+  activeUsers: number;
+  coordinators: number;
 }
 
 export interface DistrictAnalyticsResponse {
@@ -18,7 +22,7 @@ export interface DistrictAnalyticsResponse {
 
 export function useStateWiseAnalytics(
   state?: string,
-  source: "vicharanashala" | "annam" | "whatsapp"= "vicharanashala",
+  source: "vicharanashala" | "annam" | "whatsapp"= "annam",
   userType: "all" | "external" | "internal" = "all",
 ) {
   const { data, isLoading, error } = useQuery<

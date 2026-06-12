@@ -79,8 +79,9 @@ export function DetailSidebar({
     : null;
 
   const activeAnalytics = districtAnalytics ?? stateAnalytics ?? countryAnalytics;
-
+      const isIndiaView = !selectedState && !selectedDistrict;
   const {data: allUsers} = useUserDetails(undefined, undefined, 1, 1, "", source as any, "", [], [], "", "", "", "", "all",false, false, userType as any, [], "totalQuestions", "desc", false, "", "verified", true)
+
 
   const getTitle = () => {
     if (level === "india") return "Country overview";
@@ -114,35 +115,54 @@ export function DetailSidebar({
         {activeAnalytics && (
           <div className="grid grid-cols-2 gap-2">
             <StatCard
-              label="Questions"
-              value={fmt(questionStatusData?.closedVsTotalQuestions.totalQuestions)}
-              icon={<Activity className="h-3.5 w-3.5" />}
-            />
+  label="Questions"
+  value={fmt(
+    isIndiaView
+      ? questionStatusData?.closedVsTotalQuestions.totalQuestions
+      : activeAnalytics.questions
+  )}
+  icon={<Activity className="h-3.5 w-3.5" />}
+/>
+          <StatCard
+  label="Answers"
+  value={fmt(
+    isIndiaView
+      ? questionStatusData?.closedVsTotalQuestions.closedQuestions
+      : activeAnalytics.answers
+  )}
+  icon={<Activity className="h-3.5 w-3.5" />}
+/>
             <StatCard
-              label="Answers"
-              value={fmt(questionStatusData?.closedVsTotalQuestions.closedQuestions)}
-              icon={<Activity className="h-3.5 w-3.5" />}
-            />
+  label="Users"
+  value={fmt(
+    isIndiaView
+      ? allUsers.totalUsers
+      : activeAnalytics.users
+  )}
+  icon={<Users className="h-3.5 w-3.5" />}
+/>
             <StatCard
-              label="Users"
-              value={fmt(allUsers.totalUsers)}
-              icon={<Users className="h-3.5 w-3.5" />}
-            />
-            <StatCard
-              label="Active"
-              value={fmt(todayActiveFarmersData?.totalUsers)}
-              icon={<Users className="h-3.5 w-3.5" />}
-            />
-            <StatCard
-              label="Coordinators"
-              value={fmt(todayActiveFarmersData?.userRoleCounts?.coordinator)}
-              icon={<Building2 className="h-3.5 w-3.5" />}
-            />
+  label="Active"
+  value={fmt(
+    isIndiaView
+      ? todayActiveFarmersData?.totalUsers
+      : activeAnalytics.activeUsers
+  )}
+  icon={<Users className="h-3.5 w-3.5" />}
+/><StatCard
+  label="Coordinators"
+  value={fmt(
+    isIndiaView
+      ? todayActiveFarmersData?.userRoleCounts?.coordinator
+      : activeAnalytics.coordinators
+  )}
+  icon={<Building2 className="h-3.5 w-3.5" />}
+/>
             <StatCard
               label="Avg closure"
               value={`${
                 districtAnalytics || stateAnalytics
-                  ? activeAnalytics.closureHrs
+                  ? (activeAnalytics.closureHrs / 60).toFixed(2)
                   : (questionStatusData?.closedVsTotalQuestions.avgCloseTimeMinutes / 60).toFixed(2)
               }h`}
               icon={<Activity className="h-3.5 w-3.5" />}

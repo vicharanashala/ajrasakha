@@ -29,11 +29,17 @@ import { SearchBar } from "./components/SearchBar";
 import { MapLegend } from "./components/MapLegend";
 import { DetailSidebar } from "./components/DetailSidebar";
 import { useAllStatesandUserData } from "./hooks/useMapAnalytics";
+import { useStateWiseAnalytics } from "../../hooks/useStateQueryData";
 
 /* ============================================================
    MAIN COMPONENT
 ============================================================ */
-export default function IndiaAnalyticsMap({source, userType, questionStatusData, todayActiveFarmersData}: any) {
+export default function IndiaAnalyticsMap({
+  source,
+  userType,
+  questionStatusData,
+  todayActiveFarmersData,
+}: any) {
   // Hooks
   const dark = useIsDark();
   const { statesGeo, districtsAll, loading } = useGeoJson();
@@ -50,10 +56,19 @@ export default function IndiaAnalyticsMap({source, userType, questionStatusData,
   } = useMapNavigation();
 
   const { data: allStatesData } = useAllStatesandUserData({
-  source: source as string,
-  userType: userType as string,
-  enabled: true
-});
+    source: source as string,
+    userType: userType as string,
+    enabled: true,
+  });
+
+  const { data: districtAnalytics } = useStateWiseAnalytics(
+    selectedState ?? undefined,
+    source,
+    userType,
+  );
+
+  console.log("District Analytics of state", selectedState, " is ", districtAnalytics)
+    console.log("District Analytics of state", allStatesData)
 
   const {
     statesWithData,
@@ -68,8 +83,11 @@ export default function IndiaAnalyticsMap({source, userType, questionStatusData,
     level,
     selectedState,
     selectedDistrict,
-    allStatesData
+    allStatesData,
+    districtAnalytics,
   });
+
+  
 
   // Fly target state
   const [flyTarget, setFlyTarget] = useState<L.LatLngBoundsExpression | null>(
@@ -77,8 +95,6 @@ export default function IndiaAnalyticsMap({source, userType, questionStatusData,
   );
   const state = selectedState;
   // const {data: stateAndUserData} = useMapandUserData({state, source, userType})
-
-  console.log(`Found the data for the states`, allStatesData)
 
   // Fly to helper
   const handleFlyTo = useCallback((feature: unknown) => {
@@ -143,10 +159,6 @@ export default function IndiaAnalyticsMap({source, userType, questionStatusData,
       feat: { properties: { _name: string; _analytics: Analytics } },
       layer: L.Layer,
     ) => {
-      console.log(
-  "FEATURE ANALYTICS",
-  feat.properties._analytics
-);
       const name = feat.properties._name;
       const a: Analytics = feat.properties._analytics;
       const tip = `

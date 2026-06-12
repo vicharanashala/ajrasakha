@@ -87,8 +87,12 @@ export interface PaginatedQueryCategoryQuestions {
 export interface DistrictAnalyticsEntry {
   district: string;
   totalQuestions: number;
+  closedQuestions: number;
   uniqueQuestions: number;
   duplicateQuestions: number;
+  totalUsers: number
+  activeUsers: number
+  coordinators: number
 }
 
 export interface WeatherConcernAnalyticsFilters {
