@@ -6534,13 +6534,14 @@ export class QuestionRepository implements IQuestionRepository {
       isAutoAllocate: {$eq: true},
      // firstAllocationAt: {$exists: true, $ne: null},
       status: {$in: ['open', 'delayed']},
-      ...dateScope,
+      // ...dateScope,
+
     };
     const autoOffMatch = {
       source: {$in: ['AJRASAKHA', 'WHATSAPP']},
       isAutoAllocate: {$eq: true},
       status: {$in: ['open', 'delayed']},
-      ...dateScope,
+      // ...dateScope,
     };
 
     const lookupStages = [
@@ -6581,6 +6582,7 @@ export class QuestionRepository implements IQuestionRepository {
       const base: any[] = [
         {$match: allocatedMatch},
         ...lookupStages,
+        {$match: {'sub.queue.0': {$exists: true}}},
         {$addFields: {lastHistory: {$arrayElemAt: [{$ifNull: ['$sub.history', []]}, -1]}}},
         {
           $match: {
