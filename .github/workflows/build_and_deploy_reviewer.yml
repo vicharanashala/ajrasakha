@@ -19,7 +19,7 @@
 #   VITE_API_BASE_URL          (default: /api)
 #   VITE_ENABLE_MOCKS            (default: false)
 
-name: Dockerhub Reviewer App Deployment
+name: Reviewer App Deployment
 
 on:
   workflow_dispatch:
