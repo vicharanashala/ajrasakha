@@ -1471,7 +1471,7 @@ export class QuestionRepository implements IQuestionRepository {
         str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
       const filter: any = {
-        status: {$nin: ['closed', 'in-review', 're-routed']},
+        status: {$nin: ['closed', 'in-review']},
         _id: {$in: questionIdsToAttempt},
       };
 
