@@ -3317,7 +3317,34 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     );
   }
 
-  async findTimeBoundQuestionsForReallocation(): Promise<IQuestionSubmission[]> {
+  /** Source eligibility for the time-bound queue. `category`:
+   *   - 'timeBound' → AJRASAKHA/WHATSAPP (auto-allocated),
+   *   - 'manual'    → AGRI_EXPERT questions that aren't pae_review,
+   *   - 'all'       → either (used by the cron, which processes both).
+   *  Returns a fragment to merge into an aggregation `$match`. `prefix` is the joined
+   *  question field path ('question' or 'q'); `requireAutoAllocate` toggles the
+   *  AJRASAKHA/WHATSAPP isAutoAllocate constraint (off for the active-count aggregation). */
+  private timeBoundSourceMatch(
+    prefix: 'question' | 'q' = 'question',
+    requireAutoAllocate = true,
+    category: 'all' | 'timeBound' | 'manual' = 'all',
+  ): Record<string, unknown> {
+    const timeBoundBranch: Record<string, unknown> = {
+      [`${prefix}.source`]: { $in: ['WHATSAPP', 'AJRASAKHA'] },
+    };
+    if (requireAutoAllocate) {
+      timeBoundBranch[`${prefix}.isAutoAllocate`] = { $eq: true };
+    }
+    const manualBranch: Record<string, unknown> = {
+      [`${prefix}.source`]: 'AGRI_EXPERT',
+      [`${prefix}.pae_review`]: { $ne: true },
+    };
+    if (category === 'timeBound') return timeBoundBranch;
+    if (category === 'manual') return manualBranch;
+    return { $or: [timeBoundBranch, manualBranch] };
+  }
+
+  async findTimeBoundQuestionsForReallocation(category: 'all' | 'timeBound' | 'manual' = 'all'): Promise<IQuestionSubmission[]> {
     await this.init();
     const fortyFiveMinAgo = new Date(Date.now() - 45 * 60 * 1000);
 
@@ -3342,10 +3369,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       { $unwind: '$question' },
       {
         $match: {
-          'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
+          ...this.timeBoundSourceMatch('question', true, category),
           'question.status': { $nin: ['closed', 'in-review', 'pae_submitted', 'pass', 'duplicate', 'draft', 'non_agri'] },
           'question.isOnHold': { $ne: true },
-          'question.isAutoAllocate': {$eq: true}
         },
       },
       { $sort: { 'question.createdAt': 1 } },
@@ -3357,7 +3383,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
    *  answer / approvedAnswer / modifiedAnswer / rejectedAnswer (an empty history,
    *  meaning opened-but-no-entry, also qualifies). Distinct from "stuck", which is
    *  allocated-but-NEVER-opened. */
-  async findOpenedButIdleTimeBoundQuestions(): Promise<IQuestionSubmission[]> {
+  async findOpenedButIdleTimeBoundQuestions(category: 'all' | 'timeBound' | 'manual' = 'all'): Promise<IQuestionSubmission[]> {
     await this.init();
     const fortyFiveMinAgo = new Date(Date.now() - 45 * 60 * 1000);
 
@@ -3391,17 +3417,16 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       { $unwind: '$question' },
       {
         $match: {
-          'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
+          ...this.timeBoundSourceMatch('question', true, category),
           'question.status': { $in: ['open', 'delayed'] },
           'question.isOnHold': { $ne: true },
-          'question.isAutoAllocate': { $eq: true },
         },
       },
       { $sort: { 'question.createdAt': 1 } },
     ]).toArray();
   }
 
-  async findUnallocatedTimeBoundQuestions(): Promise<IQuestionSubmission[]> {
+  async findUnallocatedTimeBoundQuestions(category: 'all' | 'timeBound' | 'manual' = 'all'): Promise<IQuestionSubmission[]> {
     await this.init();
 
     return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>([
@@ -3425,10 +3450,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       { $unwind: '$question' },
       {
         $match: {
-          'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
+          ...this.timeBoundSourceMatch('question', true, category),
           'question.status': { $in: ['open', 'delayed', 'duplicate'] },
           'question.isOnHold': { $ne: true },
-          'question.isAutoAllocate': { $eq: true },
         },
       },
       { $sort: { 'question.createdAt': -1 } },
@@ -3443,7 +3467,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
    *  AND the last expert completed their work:
    *    - Position 0 (author): history[0].answer exists (submitted their answer)
    *    - Position >= 1 (reviewer): last history status !== 'in-review' (completed review) */
-  async findAnsweredQuestionsNeedingReviewer(): Promise<IQuestionSubmission[]> {
+  async findAnsweredQuestionsNeedingReviewer(category: 'all' | 'timeBound' | 'manual' = 'all'): Promise<IQuestionSubmission[]> {
     await this.init();
     return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>([
       {
@@ -3489,10 +3513,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       { $unwind: '$question' },
       {
         $match: {
-          'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
+          ...this.timeBoundSourceMatch('question', true, category),
           'question.status': { $in: ['open', 'delayed'] },
           'question.isOnHold': { $ne: true },
-          'question.isAutoAllocate': {$eq:true}
         },
       },
     ]).toArray();
@@ -3528,8 +3551,17 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     );
   }
 
-  async getTimeBoundActiveCountPerExpert(): Promise<Map<string, number>> {
+  async getTimeBoundActiveCountPerExpert(
+    category: 'timeBound' | 'manual' = 'timeBound',
+  ): Promise<Map<string, number>> {
     await this.init();
+    // Caps are per-category: an expert may hold 1 time-bound (AJRASAKHA/WHATSAPP)
+    // AND 1 manual (AGRI_EXPERT) question at once, so each category is counted
+    // independently.
+    const sourceMatch =
+      category === 'manual'
+        ? { 'q.source': 'AGRI_EXPERT', 'q.pae_review': { $ne: true } }
+        : { 'q.source': { $in: ['WHATSAPP', 'AJRASAKHA'] } };
     // Pipeline: join with questions, filter to time-bound, unwind queue with index,
     // and determine whether the expert at each position still has pending work.
     //
@@ -3547,7 +3579,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       { $unwind: '$q' },
       {
         $match: {
-          'q.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
+          ...sourceMatch,
           'q.status': { $in: ['open', 'delayed'] },
           'q.isOnHold': { $ne: true },
         },

@@ -15,6 +15,7 @@ export const useGetQueueSection = (
   enabled: boolean,
   startTime?: Date,
   endTime?: Date,
+  category: "timeBound" | "manual" = "timeBound",
 ) => {
   return useQuery<QueueSectionResponse | null, Error>({
     queryKey: [
@@ -22,11 +23,12 @@ export const useGetQueueSection = (
       section,
       page,
       limit,
+      category,
       startTime?.toISOString(),
       endTime?.toISOString(),
     ],
     queryFn: () =>
-      questionService.getQueueSection(section, page, limit, startTime, endTime),
+      questionService.getQueueSection(section, page, limit, startTime, endTime, category),
     enabled,
     staleTime: 30_000,
     placeholderData: keepPreviousData,

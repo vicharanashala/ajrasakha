@@ -212,21 +212,21 @@ export interface IQuestionSubmissionRepository {
    *  - currentExpertAllocatedAt > 45 min ago
    *  - currentExpertOpenedAt is null (expert has NOT opened the question)
    *  - question is not on hold, not closed/pass/duplicate/draft */
-  findTimeBoundQuestionsForReallocation(): Promise<IQuestionSubmission[]>;
+  findTimeBoundQuestionsForReallocation(category?: 'all' | 'timeBound' | 'manual'): Promise<IQuestionSubmission[]>;
 
   /** Find all time-bound (WHATSAPP/AJRASAKHA) submissions that were never
    *  allocated — queue is empty and currentExpertAllocatedAt is null/missing.
    *  question is not on hold, not closed/pass/duplicate/draft */
-  findUnallocatedTimeBoundQuestions(limit?: number, skip?: number, startTime?: Date, endTime?: Date): Promise<IQuestionSubmission[]>;
+  findUnallocatedTimeBoundQuestions(category?: 'all' | 'timeBound' | 'manual'): Promise<IQuestionSubmission[]>;
 
   /** Find time-bound submissions the current expert opened > 45 min ago but still
    *  hasn't answered (latest history entry has no answer/approved/modified/rejected).
    *  Distinct from stuck (allocated but never opened). */
-  findOpenedButIdleTimeBoundQuestions(): Promise<IQuestionSubmission[]>;
+  findOpenedButIdleTimeBoundQuestions(category?: 'all' | 'timeBound' | 'manual'): Promise<IQuestionSubmission[]>;
 
   /** Find time-bound submissions where the initial answer was submitted (last
    *  history entry has an answer) but status is still open/delayed — needs a reviewer. */
-  findAnsweredQuestionsNeedingReviewer(): Promise<IQuestionSubmission[]>;
+  findAnsweredQuestionsNeedingReviewer(category?: 'all' | 'timeBound' | 'manual'): Promise<IQuestionSubmission[]>;
 
   /** Atomically push reviewer into queue, add an in-review history entry, and
    *  reset the 45-min allocation clock (currentExpertAllocatedAt/OpenedAt). */
@@ -234,5 +234,5 @@ export interface IQuestionSubmissionRepository {
 
   /** Single aggregation: returns a Map<expertId, count> of active time-bound
    *  questions per expert. Used to enforce the 3-question hard cap. */
-  getTimeBoundActiveCountPerExpert(): Promise<Map<string, number>>;
+  getTimeBoundActiveCountPerExpert(category?: 'timeBound' | 'manual'): Promise<Map<string, number>>;
 }

@@ -6514,12 +6514,34 @@ export class QuestionRepository implements IQuestionRepository {
   /** One page (skip/limit) + exact total for a Queue-Details question section.
    *  kind: 'received' | 'allocated' | 'autoOff'. Status scope: open/delayed/duplicate.
    *  Optional createdAt range (startTime/endTime) scopes every kind by date. */
+  /** Source eligibility for the time-bound queue dashboard: AJRASAKHA/WHATSAPP
+   *  (auto-allocated) OR manual AGRI_EXPERT questions that aren't pae_review. Returns a
+   *  top-level `$or` fragment. `requireAutoAllocate` toggles the AJRASAKHA/WHATSAPP
+   *  isAutoAllocate constraint (off for the plain "received" count). */
+  private timeBoundSourceMatch(
+    requireAutoAllocate = true,
+    category: 'all' | 'timeBound' | 'manual' = 'all',
+  ): Record<string, unknown> {
+    const timeBoundBranch: Record<string, unknown> = {
+      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+    };
+    if (requireAutoAllocate) timeBoundBranch.isAutoAllocate = {$eq: true};
+    const manualBranch: Record<string, unknown> = {
+      source: 'AGRI_EXPERT',
+      pae_review: {$ne: true},
+    };
+    if (category === 'timeBound') return timeBoundBranch;
+    if (category === 'manual') return manualBranch;
+    return {$or: [timeBoundBranch, manualBranch]};
+  }
+
   async getQueueQuestionSection(
     kind: 'received' | 'allocated' | 'autoOff',
     skip: number,
     limit: number,
     startTime?: Date,
     endTime?: Date,
+    category: 'all' | 'timeBound' | 'manual' = 'all',
   ): Promise<{count: number; items: RawQueueQuestionRow[]}> {
     await this.init();
 
@@ -6530,22 +6552,26 @@ export class QuestionRepository implements IQuestionRepository {
     const dateScope = startTime || endTime ? {createdAt: createdAtFilter} : {};
 
     const receivedMatch = {
-      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+      ...this.timeBoundSourceMatch(false, category),
      // isAutoAllocate: true,
     //  status: {$in: ['open', 'delayed', 'duplicate']},
       ...dateScope,
+       pae_review:{$exist:false,$eq:false}
+
     };
     const allocatedMatch = {
-      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
-      isAutoAllocate: {$eq: true},
+      ...this.timeBoundSourceMatch(true, category),
      // firstAllocationAt: {$exists: true, $ne: null},
       status: {$in: ['open', 'delayed']},
+       pae_review:{$exist:false,$eq:false}
+
       // ...dateScope,
     };
     const autoOffMatch = {
-      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
-      isAutoAllocate: {$eq: true},
+      ...this.timeBoundSourceMatch(true, category),
       status: {$in: ['open', 'delayed']},
+      pae_review:{$exist:false,$eq:false}
+
     //  ...dateScope,
     };
 

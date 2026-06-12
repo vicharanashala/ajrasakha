@@ -206,6 +206,7 @@ type SectionProps<T> = {
   emptyText: string;
   startTime?: Date;
   endTime?: Date;
+  category: "timeBound" | "manual";
 };
 
 function Section<T>({
@@ -222,6 +223,7 @@ function Section<T>({
   emptyText,
   startTime,
   endTime,
+  category,
 }: SectionProps<T>) {
   const c = colorClasses[color];
   const [page, setPage] = useState(1);
@@ -243,6 +245,7 @@ function Section<T>({
     needFetch,
     startTime,
     endTime,
+    category,
   );
 
   const pageItems: T[] =
@@ -364,7 +367,8 @@ export const QueueDetailsModal = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [openSection, setOpenSection] = useState<string | null>("received");
-  
+  const [category, setCategory] = useState<"timeBound" | "manual">("timeBound");
+
   // Date filter state - default to current date
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -381,6 +385,7 @@ export const QueueDetailsModal = ({
       open,
       dateFilter.startTime ?? undefined,
       dateFilter.endTime ?? undefined,
+      category,
     );
 
   const toggle = (key: string) =>
@@ -423,9 +428,33 @@ export const QueueDetailsModal = ({
             Queue Details
           </DialogTitle>
           <p className="text-sm text-muted-foreground">
-            Time-bound questions (AjraSakha &amp; WhatsApp, auto-allocated)
+            {category === "manual"
+              ? "Manual questions (Agri Expert)"
+              : "Time-bound questions (AjraSakha & WhatsApp, auto-allocated)"}
           </p>
         </DialogHeader>
+
+        {/* Category tabs — Time-bound (AjraSakha/WhatsApp) vs Manual (Agri Expert) */}
+        <div className="inline-flex w-fit rounded-lg border border-gray-200 dark:border-gray-800 p-0.5 bg-gray-50 dark:bg-[#141414]">
+          {(["timeBound", "manual"] as const).map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => {
+                setCategory(c);
+                setOpenSection("received");
+              }}
+              className={cn(
+                "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+                category === c
+                  ? "bg-white dark:bg-[#1a1a1a] text-blue-600 dark:text-blue-400 shadow-sm"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200",
+              )}
+            >
+              {c === "timeBound" ? "Time-bound" : "Manual"}
+            </button>
+          ))}
+        </div>
 
         {/* Controls bar — date filter + refresh, separated from the title row */}
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 dark:border-gray-800 pb-3">
@@ -487,6 +516,7 @@ export const QueueDetailsModal = ({
               emptyText="No questions received"
               startTime={dateFilter.startTime ?? undefined}
               endTime={dateFilter.endTime ?? undefined}
+              category={category}
             />
 
             <Section<QueueQuestionItem>
@@ -503,6 +533,7 @@ export const QueueDetailsModal = ({
               emptyText="No auto-allocate-on questions"
               startTime={dateFilter.startTime ?? undefined}
               endTime={dateFilter.endTime ?? undefined}
+              category={category}
             />
 
             {/* ── Time-bound work, segregated by type ── */}
@@ -520,6 +551,7 @@ export const QueueDetailsModal = ({
               emptyText="Nothing waiting for allocation"
               startTime={dateFilter.startTime ?? undefined}
               endTime={dateFilter.endTime ?? undefined}
+              category={category}
             />
 
             <Section<QueueQuestionItem>
@@ -536,6 +568,7 @@ export const QueueDetailsModal = ({
               emptyText="No stuck questions"
               startTime={dateFilter.startTime ?? undefined}
               endTime={dateFilter.endTime ?? undefined}
+              category={category}
             />
 
             <Section<QueueQuestionItem>
@@ -552,6 +585,7 @@ export const QueueDetailsModal = ({
               emptyText="No opened-but-idle questions"
               startTime={dateFilter.startTime ?? undefined}
               endTime={dateFilter.endTime ?? undefined}
+              category={category}
             />
 
             <Section<QueueQuestionItem>
@@ -568,6 +602,7 @@ export const QueueDetailsModal = ({
               emptyText="Nothing waiting for a reviewer"
               startTime={dateFilter.startTime ?? undefined}
               endTime={dateFilter.endTime ?? undefined}
+              category={category}
             />
 
             <Section<QueueQuestionItem>
@@ -586,6 +621,7 @@ export const QueueDetailsModal = ({
               emptyText="No allocated questions"
               startTime={dateFilter.startTime ?? undefined}
               endTime={dateFilter.endTime ?? undefined}
+              category={category}
             />
 
             <Section<QueueExpertItem>
@@ -602,6 +638,7 @@ export const QueueDetailsModal = ({
               emptyText="No free experts"
               startTime={dateFilter.startTime ?? undefined}
               endTime={dateFilter.endTime ?? undefined}
+              category={category}
             />
 
             {/* ── Moderator queue ── */}
@@ -627,6 +664,7 @@ export const QueueDetailsModal = ({
               emptyText="Nothing waiting for a moderator"
               startTime={dateFilter.startTime ?? undefined}
               endTime={dateFilter.endTime ?? undefined}
+              category={category}
             />
 
             <Section<QueueQuestionItem>
@@ -645,6 +683,7 @@ export const QueueDetailsModal = ({
               emptyText="No questions allocated to a moderator"
               startTime={dateFilter.startTime ?? undefined}
               endTime={dateFilter.endTime ?? undefined}
+              category={category}
             />
 
             <Section<QueueExpertItem>
@@ -661,6 +700,7 @@ export const QueueDetailsModal = ({
               emptyText="No available moderators"
               startTime={dateFilter.startTime ?? undefined}
               endTime={dateFilter.endTime ?? undefined}
+              category={category}
             />
           </div>
         ) : null}

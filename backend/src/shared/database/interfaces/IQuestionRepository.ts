@@ -35,6 +35,7 @@ export interface IQuestionRepository {
     limit: number,
     startTime?: Date,
     endTime?: Date,
+    category?: 'all' | 'timeBound' | 'manual',
   ): Promise<{count: number; items: RawQueueQuestionRow[]}>;
 
   /**

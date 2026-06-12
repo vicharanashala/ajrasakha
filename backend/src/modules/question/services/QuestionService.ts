@@ -5858,11 +5858,20 @@ export class QuestionService extends BaseService implements IQuestionService {
         return { message: 'No experts available', reallocated: 0, skipped: totalWork };
       }
 
-      // 3. Get current time-bound workload per expert (single DB call)
-      const timeBoundCounts = await this.questionSubmissionRepo.getTimeBoundActiveCountPerExpert();
-      const MAX_TIME_BOUND = 1; // Each expert handles at most 1 active time-bound question
-      // Track provisional additions during this run to respect cap within batch
-      const provisionalCounts = new Map<string, number>(timeBoundCounts);
+      // 3. Get current per-category workload per expert. Caps are independent: an
+      //    expert may hold 1 time-bound (AJRASAKHA/WHATSAPP) AND 1 manual (AGRI_EXPERT)
+      //    question at once.
+      const [timeBoundCounts, manualCounts] = await Promise.all([
+        this.questionSubmissionRepo.getTimeBoundActiveCountPerExpert('timeBound'),
+        this.questionSubmissionRepo.getTimeBoundActiveCountPerExpert('manual'),
+      ]);
+      const MAX_TIME_BOUND = 1; // at most 1 active question per category per expert
+      // Track provisional additions during this run to respect each cap within the batch.
+      const provisionalTimeBound = new Map<string, number>(timeBoundCounts);
+      const provisionalManual = new Map<string, number>(manualCounts);
+      // Returns the provisional-count map for a question's category.
+      const countsFor = (q: any) =>
+        q?.source === 'AGRI_EXPERT' ? provisionalManual : provisionalTimeBound;
 
       // ── Full diagnostic dump: every question to allocate + every expert + availability ──
       const summarizeSub = (s: any) => ({
@@ -5880,7 +5889,8 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       const expertDiag = allExperts.map((e: any) => {
         const id = e._id.toString();
-        const active = provisionalCounts.get(id) ?? 0;
+        const activeTimeBound = provisionalTimeBound.get(id) ?? 0;
+        const activeManual = provisionalManual.get(id) ?? 0;
         return {
           id,
           name: `${e.firstName ?? ''} ${e.lastName ?? ''}`.trim(),
@@ -5888,13 +5898,17 @@ export class QuestionService extends BaseService implements IQuestionService {
           isBlocked: e.isBlocked === true,
           stf: e.special_task_force === true,
           reputation: e.reputation_score,
-          activeTimeBound: active,
-          free: active < MAX_TIME_BOUND,
+          activeTimeBound,
+          activeManual,
+          freeTimeBound: activeTimeBound < MAX_TIME_BOUND,
+          freeManual: activeManual < MAX_TIME_BOUND,
         };
       });
       console.log(
-        `[TimeBound][diag] experts=${allExperts.length}, free=${expertDiag.filter(x => x.free).length}, ` +
-        `freeSTF=${expertDiag.filter(x => x.free && x.stf).length}, busyMapSize=${timeBoundCounts.size}`,
+        `[TimeBound][diag] experts=${allExperts.length}, ` +
+        `freeTimeBound=${expertDiag.filter(x => x.freeTimeBound).length}, ` +
+        `freeManual=${expertDiag.filter(x => x.freeManual).length}, ` +
+        `freeSTF(timeBound)=${expertDiag.filter(x => x.freeTimeBound && x.stf).length}`,
       );
       console.log('[TimeBound][diag] experts:', JSON.stringify(expertDiag));
 
@@ -5927,9 +5941,14 @@ export class QuestionService extends BaseService implements IQuestionService {
       for (const { type, submission } of workQueue) {
         const questionId = submission.questionId?.toString();
         const question = submission.question;
-        const sourceLabel = question?.source === 'AJRASAKHA' ? 'Ajrasakha' : 'WhatsApp';
+        const sourceLabel =
+          question?.source === 'AJRASAKHA' ? 'Ajrasakha'
+          : question?.source === 'AGRI_EXPERT' ? 'Agri Expert'
+          : 'WhatsApp';
         const history: any[] = submission.history || [];
         const queue: any[] = submission.queue || [];
+        // Cap map for this question's category (time-bound vs manual AGRI_EXPERT).
+        const counts = countsFor(question);
 
         if (type === 'stuck' || type === 'openedIdle') {
           // Determine current stuck expert
@@ -5953,10 +5972,10 @@ export class QuestionService extends BaseService implements IQuestionService {
             if (historyExpertIds.has(expertId)) continue;
             if (queueExpertIds.has(expertId)) continue;
             if (!history.length && expert?.special_task_force !== true) continue;
-            const currentCount = provisionalCounts.get(expertId) ?? 0;
+            const currentCount = counts.get(expertId) ?? 0;
             if (currentCount >= MAX_TIME_BOUND) continue;
             assignedExpert = expertId;
-            provisionalCounts.set(expertId, currentCount + 1);
+            counts.set(expertId, currentCount + 1);
             break;
           }
 
@@ -5980,10 +5999,10 @@ export class QuestionService extends BaseService implements IQuestionService {
           for (const expert of allExperts) {
             if (expert?.special_task_force !== true) continue;
             const expertId = expert._id.toString();
-            const currentCount = provisionalCounts.get(expertId) ?? 0;
+            const currentCount = counts.get(expertId) ?? 0;
             if (currentCount >= MAX_TIME_BOUND) continue;
             assignedExpert = expertId;
-            provisionalCounts.set(expertId, currentCount + 1);
+            counts.set(expertId, currentCount + 1);
             break;
           }
 
@@ -6024,10 +6043,10 @@ export class QuestionService extends BaseService implements IQuestionService {
             const expertId = expert._id.toString();
             if (historyExpertIds.has(expertId)) continue;
             if (queueExpertIds.has(expertId)) continue;
-            const currentCount = provisionalCounts.get(expertId) ?? 0;
+            const currentCount = counts.get(expertId) ?? 0;
             if (currentCount >= MAX_TIME_BOUND) continue;
             assignedReviewer = expertId;
-            provisionalCounts.set(expertId, currentCount + 1);
+            counts.set(expertId, currentCount + 1);
             break;
           }
 
@@ -6217,6 +6236,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     limit = 50,
     startTime?: Date,
     endTime?: Date,
+    category: 'timeBound' | 'manual' = 'timeBound',
   ): Promise<QueueSectionResult> {
     const safePage = Math.max(1, Math.floor(page) || 1);
     const safeLimit = Math.min(Math.max(1, Math.floor(limit) || 50), 200);
@@ -6232,6 +6252,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           safeLimit,
           startTime,
           endTime,
+          category,
         );
         return {count, items: items.map(r => this.rawToQueueItem(r))};
       }
@@ -6243,6 +6264,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           safeLimit,
           startTime,
           endTime,
+          category,
         );
         const byQuestion = new Map<string, string | null>();
         const ids: string[] = [];
@@ -6268,7 +6290,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         // Same method (and therefore the same number) the cron logs as
         // "Never-allocated". No date filter / no DB-side limit — paginate the
         // full list in memory so the count always matches the console.
-        const subs = (await this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions()) as any[];
+        const subs = (await this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(category)) as any[];
         const pageSubs = subs.slice(skip, skip + safeLimit);
         return {count: subs.length, items: pageSubs.map(s => this.submissionToQueueItem(s))};
       }
@@ -6276,7 +6298,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       case 'freeExperts': {
         const [allExperts, busyMap] = await Promise.all([
           this.userRepo.findExpertsByReputationScore({} as any),
-          this.questionSubmissionRepo.getTimeBoundActiveCountPerExpert(),
+          this.questionSubmissionRepo.getTimeBoundActiveCountPerExpert(category),
         ]);
         // Free = experts with no active time-bound allocation. busyMap is the
         // authoritative "currently holding pending work" set the cron uses.
@@ -6295,7 +6317,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       case 'stuck': {
         // Same method (and therefore the same number) the cron logs as "Stuck".
         // No date filter so the count always matches the console.
-        const stuckSubs = (await this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation()) as any[];
+        const stuckSubs = (await this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(category)) as any[];
         const count = stuckSubs.length;
         const pageSubs = stuckSubs.slice(skip, skip + safeLimit);
         const byQuestion = new Map<string, string | null>();
@@ -6327,7 +6349,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       case 'openedIdle': {
         // Opened by the current expert > 45 min ago but still no answer. No date
         // filter, mirroring the other time-bound sections.
-        const subs = (await this.questionSubmissionRepo.findOpenedButIdleTimeBoundQuestions()) as any[];
+        const subs = (await this.questionSubmissionRepo.findOpenedButIdleTimeBoundQuestions(category)) as any[];
         const count = subs.length;
         const pageSubs = subs.slice(skip, skip + safeLimit);
         const byQuestion = new Map<string, string | null>();
@@ -6360,7 +6382,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         // Same method (and therefore the same number) the cron logs as
         // "NeedReviewer": answered/reviewed questions still awaiting the next
         // reviewer. No date filter so the count always matches the console.
-        const subs = (await this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer()) as any[];
+        const subs = (await this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(category)) as any[];
         const count = subs.length;
         const pageSubs = subs.slice(skip, skip + safeLimit);
         // Show who completed the last step (the author/reviewer in the last history entry).
@@ -6388,9 +6410,9 @@ export class QuestionService extends BaseService implements IQuestionService {
         // (same as the cron) so this includes ALL such questions. Each item is tagged
         // with its workType so the UI can show which bucket it came from.
         const [stuckSubs, unallocatedSubs, reviewerSubs] = await Promise.all([
-          this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(),
-          this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(),
-          this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(),
+          this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(category),
+          this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(category),
+          this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(category),
         ]);
 
         type Tagged = {sub: any; workType: 'stuck' | 'unallocated' | 'needsReviewer'};
@@ -6477,14 +6499,18 @@ export class QuestionService extends BaseService implements IQuestionService {
    *  page (50) of each. Subsequent pages are fetched via getQueueSection.
    *  Touches no allocation state. The time-bound sections (waiting, stuck,
    *  needsReviewer) ignore the date range so their counts match the cron logs. */
-  async getQueueDetails(startTime?: Date, endTime?: Date): Promise<QueueDetailsResponse> {
+  async getQueueDetails(
+    startTime?: Date,
+    endTime?: Date,
+    category: 'timeBound' | 'manual' = 'timeBound',
+  ): Promise<QueueDetailsResponse> {
     const PAGE = 1;
     const LIMIT = 50;
     // Run each section independently so one failing section logs which one broke and
     // returns an empty result, rather than 500ing the whole queue-details endpoint.
     const safe = async (section: QueueSectionName): Promise<QueueSectionResult> => {
       try {
-        return await this.getQueueSection(section, PAGE, LIMIT, startTime, endTime);
+        return await this.getQueueSection(section, PAGE, LIMIT, startTime, endTime, category);
       } catch (err: any) {
         console.error(
           `[getQueueDetails] section '${section}' failed:`,

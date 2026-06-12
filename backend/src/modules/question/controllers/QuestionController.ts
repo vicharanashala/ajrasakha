@@ -122,10 +122,13 @@ export class QuestionController {
       limit?: string;
       startTime?: string;
       endTime?: string;
+      category?: 'timeBound' | 'manual';
     },
   ) {
     const startTime = query.startTime ? new Date(query.startTime) : undefined;
     const endTime = query.endTime ? new Date(query.endTime) : undefined;
+    // 'timeBound' (AJRASAKHA/WHATSAPP) by default; 'manual' = AGRI_EXPERT questions.
+    const category = query.category === 'manual' ? 'manual' : 'timeBound';
 
     // Single-section paginated mode (?section=&page=&limit=)
     if (query.section) {
@@ -137,12 +140,13 @@ export class QuestionController {
         limit,
         startTime,
         endTime,
+        category,
       );
       return { success: true, data };
     }
 
     // Full snapshot: all sections, page 1.
-    const data = await this.questionService.getQueueDetails(startTime, endTime);
+    const data = await this.questionService.getQueueDetails(startTime, endTime, category);
     return { success: true, data };
   }
 

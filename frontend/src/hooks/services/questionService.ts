@@ -880,13 +880,16 @@ export class QuestionService {
     return res?.data ?? null;
   }
 
-  async getQueueDetails(startTime?: Date, endTime?: Date): Promise<QueueDetailsResponse | null> {
+  async getQueueDetails(startTime?: Date, endTime?: Date, category?: "timeBound" | "manual"): Promise<QueueDetailsResponse | null> {
     const params = new URLSearchParams();
     if (startTime) {
       params.append("startTime", startTime.toISOString());
     }
     if (endTime) {
       params.append("endTime", endTime.toISOString());
+    }
+    if (category) {
+      params.append("category", category);
     }
     const queryString = params.toString();
     const res = await apiFetch<{
@@ -904,6 +907,7 @@ export class QuestionService {
     limit: number,
     startTime?: Date,
     endTime?: Date,
+    category?: "timeBound" | "manual",
   ): Promise<QueueSectionResponse | null> {
     const params = new URLSearchParams();
     params.append("section", section);
@@ -911,6 +915,7 @@ export class QuestionService {
     params.append("limit", String(limit));
     if (startTime) params.append("startTime", startTime.toISOString());
     if (endTime) params.append("endTime", endTime.toISOString());
+    if (category) params.append("category", category);
     const res = await apiFetch<{
       success: boolean;
       data: QueueSectionResponse;
