@@ -33,6 +33,7 @@ export function useAddUser() {
               password: data.password,
               role: data.role,
               isVerified: data.isVerified,
+              linkedWithWebApp: true,
             }),
           },
         );
@@ -64,6 +65,7 @@ export function useAddUser() {
               password: data.password,
               role: data.role,
               isVerified: data.isVerified,
+              linkedWithWebApp: false,
             }),
           },
         );

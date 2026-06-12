@@ -63,6 +63,9 @@ class User implements IUser {
   @Expose()
   isCallAgentActive?: boolean;
 
+  @Expose()
+  linkedWithWebApp?: boolean;
+
   constructor(data: Partial<IUser>) {
     this._id = data?._id ? new ObjectId(data?._id) : null;
     this.firebaseUID = data?.firebaseUID;
@@ -77,6 +80,7 @@ class User implements IUser {
     this.isBlocked = data?.isBlocked ?? false;
     this.lastCheckInAt = data?.lastCheckInAt;
     this.isVerified = data?.isVerified ?? false;
+    this.linkedWithWebApp = data?.linkedWithWebApp ?? false;
     this.preference = {
       crop: data?.preference?.crop || 'all',
       state: data?.preference?.state || 'all',

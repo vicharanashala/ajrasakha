@@ -268,6 +268,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
               isVerified,
               isBlocked: false,
               status: 'active',
+              linkedWithWebApp: body.linkedWithWebApp ?? false,
             },
             session,
           );
@@ -284,6 +285,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
           lastName,
           role: body.role,
           isVerified,
+          linkedWithWebApp: body.linkedWithWebApp ?? false,
         });
 
         const createdId = await this.userRepository.create(newUser, session);

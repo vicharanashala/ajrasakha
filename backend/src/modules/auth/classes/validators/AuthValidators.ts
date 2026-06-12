@@ -144,6 +144,16 @@ class AdminCreateReviewUserBody {
   @IsOptional()
   @IsBoolean()
   isVerified?: boolean;
+
+  @JSONSchema({
+    title: 'Linked with Web App',
+    description: 'Whether the review system user is also created in the client app databases',
+    example: true,
+    type: 'boolean',
+  })
+  @IsOptional()
+  @IsBoolean()
+  linkedWithWebApp?: boolean;
 }
 
 class VerifySignUpProviderBody {

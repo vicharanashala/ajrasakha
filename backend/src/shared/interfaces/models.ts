@@ -34,6 +34,7 @@ export interface IUser {
   university?: string;
   isVerified?: boolean;
   isCallAgentActive?: boolean;
+  linkedWithWebApp?: boolean;
 }
 
 export type IQuestionPriority = 'low' | 'medium' | 'high' | 'critical';
