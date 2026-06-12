@@ -28,10 +28,14 @@ const userService = new UserService()
 export const loginWithEmail = async (email: string, password: string) => {
   try {
     const user = await userService.Getuser(email)
-    if (user?.isBlocked) {
+    // Moderators are gated by activity status (isBlocked is their check-in/
+    // checkout availability flag); every other role is gated by isBlocked, as before.
+    const isModerator = user?.role === "moderator";
+    const deniedLogin = isModerator ? user?.status === "in-active" : !!user?.isBlocked;
+    if (deniedLogin) {
       throw new Error("User Is Blocked Please Contact Moderator")
     }
-    if (!user?.isBlocked || user === null) {
+    if (!deniedLogin || user === null) {
       const result = await signInWithEmailAndPassword(auth, email, password);
 
       // Enforce email verification
