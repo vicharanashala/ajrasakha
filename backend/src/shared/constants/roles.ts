@@ -10,6 +10,7 @@ export const USER_ROLES = [
   'admin',
   'pae_expert',
   'tester',
+  'call_agent',
   ...COORDINATOR_ROLES,
 ] as const;
 

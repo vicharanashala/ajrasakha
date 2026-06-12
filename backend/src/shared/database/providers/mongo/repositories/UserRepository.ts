@@ -9,7 +9,7 @@ import { instanceToPlain } from 'class-transformer';
 import { injectable, inject } from 'inversify';
 import { Collection, MongoClient, ClientSession, ObjectId } from 'mongodb';
 import { MongoDatabase } from '../MongoDatabase.js';
-import { InternalServerError, NotFoundError } from 'routing-controllers';
+import { InternalServerError, NotFoundError, BadRequestError } from 'routing-controllers';
 import { GLOBAL_TYPES } from '#root/types.js';
 import { User } from '#auth/classes/transformers/User.js';
 import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
@@ -1541,8 +1541,7 @@ export class UserRepository implements IUserRepository {
       const agents = await this.usersCollection
         .find(
           {
-            isCallAgent: true,
-            role: { $in: ['expert', 'moderator'] },
+            role: 'call_agent' as any,
           },
           { session },
         )
@@ -1566,13 +1565,21 @@ export class UserRepository implements IUserRepository {
   ): Promise<IUser> {
     try {
       await this.init();
+      
+      // When setting as call agent, change role from expert to call_agent
+      // When removing call agent, change role from call_agent back to expert
+      const newRole = isCallAgent ? ('call_agent' as any) : 'expert';
+      
       const result = await this.usersCollection.findOneAndUpdate(
         { _id: new ObjectId(userId) },
         {
           $set: {
-            isCallAgent,
+            role: newRole,
             isCallAgentActive,
             updatedAt: new Date(),
+          },
+          $unset: {
+            isCallAgent: 1,
           },
         },
         { returnDocument: 'after', session },
@@ -1586,6 +1593,7 @@ export class UserRepository implements IUserRepository {
         _id: result._id.toString(),
       } as IUser;
     } catch (error) {
+      console.error('setCallAgentStatus - error:', error);
       throw new InternalServerError('Failed to set call agent status');
     }
   }
@@ -1602,6 +1610,10 @@ export class UserRepository implements IUserRepository {
       );
       if (!user) {
         throw new NotFoundError('User not found');
+      }
+      // Only allow toggling active status for call_agent role
+      if (user.role !== ('call_agent' as any)) {
+        throw new BadRequestError('User is not a call agent');
       }
       const newStatus = !user.isCallAgentActive;
       const result = await this.usersCollection.findOneAndUpdate(

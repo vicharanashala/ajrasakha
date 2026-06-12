@@ -2,7 +2,7 @@ import {
   ObjectIdToString,
   StringToObjectId,
 } from '#shared/constants/transformerConstants.js';
-import {IPreference, IUser, NotificationRetentionType} from '#shared/interfaces/models.js';
+import {IPreference, IUser, NotificationRetentionType, UserRole} from '#shared/interfaces/models.js';
 import {Expose, Transform} from 'class-transformer';
 import {ObjectId} from 'mongodb';
 
@@ -37,7 +37,7 @@ class User implements IUser {
   updatedAt?: Date;
 
   @Expose()
-  role: 'admin' | 'moderator' | 'expert' | 'pae_expert' | 'tester' | 'district_coordinator'| 'block_coordinator' | 'village_volunteer';
+  role: UserRole;
 
   @Expose()
   status: 'active' | 'in-active' ;
@@ -59,9 +59,6 @@ class User implements IUser {
 
   @Expose()
   isVerified: boolean;
-
-  @Expose()
-  isCallAgent?: boolean;
 
   @Expose()
   isCallAgentActive?: boolean;
@@ -91,7 +88,6 @@ class User implements IUser {
     this.updatedAt = data?.updatedAt || new Date();
     this.mobile = data?.mobile || '';
     this.university = data?.university || '';
-    this.isCallAgent = data?.isCallAgent;
     this.isCallAgentActive = data?.isCallAgentActive;
   }
 }

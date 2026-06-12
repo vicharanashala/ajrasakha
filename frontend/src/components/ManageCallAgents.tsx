@@ -107,7 +107,6 @@ export const ManageCallAgents = () => {
   const filteredUsers = allUsers.filter(
     (u) =>
       u.role === "expert" &&
-      !u.isCallAgent &&
       (u.firstName?.toLowerCase().includes(search.toLowerCase()) ||
         u.lastName?.toLowerCase().includes(search.toLowerCase()) ||
         u.email?.toLowerCase().includes(search.toLowerCase()))
@@ -156,7 +155,10 @@ export const ManageCallAgents = () => {
                   </div>
                   <div className="flex items-center gap-2 mt-1">
                     <span
-                      className={`text-xs px-2 py-1 rounded-full ${agent.role === "moderator"
+                      className={`text-xs px-2 py-1 rounded-full ${
+                        agent.role === "call_agent"
+                          ? "bg-green-100 text-green-700"
+                          : agent.role === "moderator"
                           ? "bg-purple-100 text-purple-700"
                           : "bg-blue-100 text-blue-700"
                         }`}
