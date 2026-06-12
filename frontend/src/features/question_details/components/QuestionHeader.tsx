@@ -259,6 +259,16 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                 </Button>
               )
             )}
+            {/* View Audit Button */}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setAuditModalOpen(true)}
+              className="gap-1.5"
+            >
+              <History className="h-4 w-4" />
+              View Audit
+            </Button>
             {!isDuplicate && (
               <>
                 <Badge
@@ -330,16 +340,6 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
         </div>
       )}
 
-          {/* View Audit Button */}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setAuditModalOpen(true)}
-            className="gap-1.5"
-          >
-            <History className="h-4 w-4" />
-            View Audit
-          </Button>
         </div>
 
         {/* Created / Updated */}
