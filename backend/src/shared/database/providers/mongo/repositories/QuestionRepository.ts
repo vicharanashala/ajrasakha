@@ -945,6 +945,11 @@ export class QuestionRepository implements IQuestionRepository {
       }
 
       if (search && search.trim() !== '') {
+        // Search spans ALL questions regardless of status/source — drop those filters
+        // so a matching question surfaces no matter which tab/status it's in.
+        delete filter.status;
+        delete filter.source;
+
         // Escape special regex characters so literal strings like "How to control weeds?"
         // are matched as-is rather than being interpreted as regex patterns.
         const escapedSearch = escapeRegex(search.trim());
@@ -953,6 +958,7 @@ export class QuestionRepository implements IQuestionRepository {
           {'details.crop': {$regex: escapedSearch, $options: 'i'}},
           {'details.state': {$regex: escapedSearch, $options: 'i'}},
           {'details.domain': {$regex: escapedSearch, $options: 'i'}},
+          {threadId: {$regex: escapedSearch, $options: 'i'}},
           {
             $expr: {
               $regexMatch: {
