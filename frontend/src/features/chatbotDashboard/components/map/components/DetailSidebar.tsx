@@ -9,6 +9,7 @@ import { StatCard } from "./StatCard";
 import { StateList } from "./StateList";
 import { DistrictList } from "./DistrictList";
 import { DistrictDetails } from "./DistrictDetails";
+import { useUserDetails, type PaginatedUserDetailsResponse } from "@/features/chatbotDashboard/hooks/useUserDetails";
 
 interface MapFeatureBase {
   type: string;
@@ -29,6 +30,10 @@ interface DetailSidebarProps {
   districtDetails: DistrictDetailsType | null;
   onSelectState: (name: string, feature: GeoFeature) => void;
   onSelectDistrict: (name: string, feature: GeoFeature) => void;
+  source: string;
+  userType: string;
+  questionStatusData: any;
+  todayActiveFarmersData: PaginatedUserDetailsResponse
 }
 
 export function DetailSidebar({
@@ -40,6 +45,10 @@ export function DetailSidebar({
   districtDetails,
   onSelectState,
   onSelectDistrict,
+  source,
+  userType,
+  questionStatusData,
+  todayActiveFarmersData
 }: DetailSidebarProps) {
   // Calculate aggregated analytics
   const stateAnalytics = selectedState && statesWithData
@@ -70,6 +79,8 @@ export function DetailSidebar({
     : null;
 
   const activeAnalytics = districtAnalytics ?? stateAnalytics ?? countryAnalytics;
+
+  const {data: allUsers} = useUserDetails(undefined, undefined, 1, 1, "", source as any, "", [], [], "", "", "", "", "all",false, false, userType as any, [], "totalQuestions", "desc", false, "", "verified", true)
 
   const getTitle = () => {
     if (level === "india") return "Country overview";
@@ -104,27 +115,27 @@ export function DetailSidebar({
           <div className="grid grid-cols-2 gap-2">
             <StatCard
               label="Questions"
-              value={fmt(activeAnalytics.questions)}
+              value={fmt(questionStatusData?.closedVsTotalQuestions.totalQuestions)}
               icon={<Activity className="h-3.5 w-3.5" />}
             />
             <StatCard
               label="Answers"
-              value={fmt(activeAnalytics.answers)}
+              value={fmt(questionStatusData?.closedVsTotalQuestions.closedQuestions)}
               icon={<Activity className="h-3.5 w-3.5" />}
             />
             <StatCard
               label="Users"
-              value={fmt(activeAnalytics.users)}
+              value={fmt(allUsers.totalUsers)}
               icon={<Users className="h-3.5 w-3.5" />}
             />
             <StatCard
               label="Active"
-              value={fmt(activeAnalytics.activeUsers)}
+              value={fmt(todayActiveFarmersData?.totalUsers)}
               icon={<Users className="h-3.5 w-3.5" />}
             />
             <StatCard
               label="Coordinators"
-              value={fmt(activeAnalytics.coordinators)}
+              value={fmt(todayActiveFarmersData?.userRoleCounts?.coordinator)}
               icon={<Building2 className="h-3.5 w-3.5" />}
             />
             <StatCard
@@ -132,7 +143,7 @@ export function DetailSidebar({
               value={`${
                 districtAnalytics || stateAnalytics
                   ? activeAnalytics.closureHrs
-                  : Math.round(activeAnalytics.closureHrs / (statesWithData?.features.length || 1))
+                  : (questionStatusData?.closedVsTotalQuestions.avgCloseTimeMinutes / 60).toFixed(2)
               }h`}
               icon={<Activity className="h-3.5 w-3.5" />}
             />

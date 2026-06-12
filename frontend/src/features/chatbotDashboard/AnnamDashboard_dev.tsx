@@ -284,6 +284,7 @@ export function AnnamDashboard_dev({
   }, [source]);
   
   // ─── Render ────────────────────────────────────────────────────────────────
+  return <AnalyticsMap source={source} userType={filters.userType} questionStatusData={questionStatusData} todayActiveFarmersData= {todayActiveFarmersData}/>
   return (
     <div className={cn("flex flex-col min-h-screen bg-background", className)}>
       <style>{CSS_KEYFRAMES}</style>

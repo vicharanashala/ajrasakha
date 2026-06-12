@@ -12454,15 +12454,190 @@ const totalPages =
   }
 }
 
-  async getStateQuestions(state: string, source: string, userType: string): Promise<any>{
-    try{
-      this.initReviewSystem();
-      const sourceType = source === "whatsapp" ? "WHATSAPP" : "AJRASAKHA"
-      
-    }catch(error){
-      throw new InternalServerError(`Something went wrong ${error}`)
-    }
+private normalizeState(state: string) {
+      const stateAliases: Record<string, string> = {
+  'andra pradesh': 'andhra pradesh',
+  'jammu and kashmir': 'jammu and kashmir',
+  'uttaranchal': 'uttarakhand',
+  'orissa': 'odisha'
   }
+
+  const key = state.trim().toLowerCase();
+  return stateAliases[key] || key;
+}
+
+async getAllStatesQuestionsAndUsersData(
+  source: string,
+  userType: string,
+): Promise<any> {
+  try {
+    await this.initReviewSystem();
+    await this.init(source);
+
+    const sourceType =
+      source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
+
+    const questionsByState = await this.QuestionCollection.aggregate([
+      {
+        $match: {
+          source: sourceType,
+          'details.state': {
+      $nin: [
+        null,
+        '',
+        'all',
+        '<unknown>',
+        'Not Specified',
+        'All'
+      ],
+    },
+        },
+      },
+      {
+        $group: {
+          _id: '$details.state',
+          closedQuestions: { $sum: 1 },
+        },
+      },
+    ]).toArray();
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const usersByState = await this.users.aggregate([
+      {
+        $match: {
+          isVerified: true,
+          'farmerProfile.state': { $exists: true },
+        },
+      },
+      {
+        $group: {
+          _id: '$farmerProfile.state',
+          totalUsers: { $sum: 1 },
+          activeUsers: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $gte: ['$lastActiveAt', todayStart] },
+                    { $lte: ['$lastActiveAt', todayEnd] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+        },
+      },
+    ]).toArray();
+
+
+
+    const stateMap = new Map();
+
+    // Add question counts
+   for (const q of questionsByState) {
+  const key = this.normalizeState(String(q._id));
+
+  stateMap.set(key, {
+    state: q._id,
+    closedQuestions: q.closedQuestions,
+    totalUsers: 0,
+    activeUsers: 0,
+  });
+}
+
+    // Merge user counts
+    for (const u of usersByState) {
+      const key = this.normalizeState(String(u._id));
+
+      if (stateMap.has(key)) {
+        const existing = stateMap.get(key);
+
+        existing.totalUsers = u.totalUsers;
+        existing.activeUsers = u.activeUsers;
+      } else {
+        stateMap.set(key, {
+          state: u._id,
+          closedQuestions: 0,
+          totalUsers: u.totalUsers,
+          activeUsers: u.activeUsers,
+        });
+      }
+    }
+
+    return Array.from(stateMap.values());
+  } catch (error) {
+    throw new InternalServerError(
+      `Internal server error ${error}`,
+    );
+  }
+}
+
+async getStateQuestionsAndUsersData(
+  state: string,
+  source: string,
+  userType: string,
+): Promise<any> {
+  try {
+    await this.initReviewSystem();
+    await this.init(source);
+
+    const sourceType =
+      source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
+
+    const closedQuestions =
+      await this.QuestionCollection.countDocuments({
+      source: sourceType,
+      'details.state': {
+        $regex: `^${state}$`,
+        $options: 'i',
+      },
+    });
+
+    const totalUsers = await this.users.countDocuments({
+      isVerified: true,
+      'farmerProfile.state': {
+        $regex: `^${state}$`,
+        $options: 'i',
+      },
+    });
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const activeUsers = await this.users.countDocuments({
+      isVerified: true,
+      'farmerProfile.state': {
+        $regex: `^${state}$`,
+        $options: 'i',
+      },
+      lastActiveAt: {
+        $gte: todayStart,
+        $lte: todayEnd,
+      },
+    });
+
+    return {
+      state,
+      closedQuestions,
+      totalUsers,
+      activeUsers,
+    };
+  } catch (error) {
+    throw new InternalServerError(
+      `Something went wrong ${error}`,
+    );
+  }
+}
 
   async findMatchingMessages(data: {
     question: string;

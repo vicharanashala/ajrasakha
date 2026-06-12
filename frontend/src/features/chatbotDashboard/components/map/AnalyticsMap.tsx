@@ -28,11 +28,12 @@ import { Breadcrumbs } from "./components/Breadcrumbs";
 import { SearchBar } from "./components/SearchBar";
 import { MapLegend } from "./components/MapLegend";
 import { DetailSidebar } from "./components/DetailSidebar";
+import { useAllStatesandUserData } from "./hooks/useMapAnalytics";
 
 /* ============================================================
    MAIN COMPONENT
 ============================================================ */
-export default function IndiaAnalyticsMap() {
+export default function IndiaAnalyticsMap({source, userType, questionStatusData, todayActiveFarmersData}: any) {
   // Hooks
   const dark = useIsDark();
   const { statesGeo, districtsAll, loading } = useGeoJson();
@@ -48,6 +49,12 @@ export default function IndiaAnalyticsMap() {
     crumbs,
   } = useMapNavigation();
 
+  const { data: allStatesData } = useAllStatesandUserData({
+  source: source as string,
+  userType: userType as string,
+  enabled: true
+});
+
   const {
     statesWithData,
     districtsOfState,
@@ -61,12 +68,17 @@ export default function IndiaAnalyticsMap() {
     level,
     selectedState,
     selectedDistrict,
+    allStatesData
   });
 
   // Fly target state
   const [flyTarget, setFlyTarget] = useState<L.LatLngBoundsExpression | null>(
     null,
   );
+  const state = selectedState;
+  // const {data: stateAndUserData} = useMapandUserData({state, source, userType})
+
+  console.log(`Found the data for the states`, allStatesData)
 
   // Fly to helper
   const handleFlyTo = useCallback((feature: unknown) => {
@@ -131,6 +143,10 @@ export default function IndiaAnalyticsMap() {
       feat: { properties: { _name: string; _analytics: Analytics } },
       layer: L.Layer,
     ) => {
+      console.log(
+  "FEATURE ANALYTICS",
+  feat.properties._analytics
+);
       const name = feat.properties._name;
       const a: Analytics = feat.properties._analytics;
       const tip = `
@@ -283,6 +299,10 @@ export default function IndiaAnalyticsMap() {
         districtDetails={districtDetails}
         onSelectState={handleSelectState}
         onSelectDistrict={handleSelectDistrict}
+        source={source}
+        userType={userType}
+        questionStatusData={questionStatusData}
+        todayActiveFarmersData={todayActiveFarmersData}
       />
     </div>
   );

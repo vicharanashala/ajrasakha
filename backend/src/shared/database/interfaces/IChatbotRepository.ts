@@ -863,6 +863,22 @@ export interface IChatbotRepository {
     search?: string,
   ): Promise<any>
 
+
+  getStateQuestionsAndUsersData(
+  state: string,
+  source: string,
+  userType: string,
+  session?: string
+): Promise<any> 
+
+  getAllStatesQuestionsAndUsersData(
+    source: string,
+    userType: string,
+    session?: string
+  ): Promise<any>
+
+
+
   getUserConversationIds(
     userId: string,
     source: string,

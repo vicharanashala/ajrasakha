@@ -5,6 +5,8 @@
 import { useMemo } from "react";
 import type { Analytics, LevelKey } from "../lib/types";
 import { mockAnalytics, mockDistrictDetails } from "../lib/mockData";
+import { useQuery } from "@tanstack/react-query";
+import { ChatbotService } from "@/hooks/services/chatbotService";
 
 interface UseMapAnalyticsProps {
   statesGeo: unknown;
@@ -12,7 +14,21 @@ interface UseMapAnalyticsProps {
   level: LevelKey;
   selectedState: string | null;
   selectedDistrict: string | null;
+  allStatesData?: any[];
 }
+
+const normalizeState = (state: string) => {
+  const key = state.trim().toLowerCase();
+
+  const aliases: Record<string, string> = {
+    "uttaranchal": "uttarakhand",
+    "andra pradesh": "andhra pradesh",
+    "jammu and kashmir": "jammu and kashmir",
+    'orissa': 'odisha'
+  };
+
+  return aliases[key] || key;
+};
 
 export function useMapAnalytics({
   statesGeo,
@@ -20,27 +36,80 @@ export function useMapAnalytics({
   level,
   selectedState,
   selectedDistrict,
+  allStatesData
 }: UseMapAnalyticsProps) {
   // Attach analytics to states
-  const statesWithData = useMemo(() => {
-    if (!statesGeo) return null;
-    const geo = statesGeo as {
+  // const statesWithData = useMemo(() => {
+  //   if (!statesGeo) return null;
+  //   const geo = statesGeo as {
+  //     type?: string;
+  //     features: Array<{ type?: string; geometry?: unknown; properties: Record<string, unknown> }>;
+  //   };
+  //   return {
+  //     type: geo.type ?? "FeatureCollection",
+  //     features: geo.features.map((f) => ({
+  //       type: f.type ?? "Feature",
+  //       geometry: f.geometry,
+  //       properties: {
+  //         ...f.properties,
+  //         _name: f.properties.NAME_1 as string,
+  //         _analytics: mockAnalytics(`state:${f.properties.NAME_1}`),
+  //       },
+  //     })),
+  //   };
+  // }, [statesGeo]);
+
+  const analyticsMap = useMemo(() => {
+  if (!allStatesData) return new Map();
+
+  return new Map(
+    allStatesData.map((item) => [
+      String(item.state).toLowerCase(),
+      item,
+    ]),
+  );
+}, [allStatesData]);
+
+const statesWithData = useMemo(() => {
+  if (!statesGeo) return null;
+
+  const geo = statesGeo as {
+    type?: string;
+    features: Array<{
       type?: string;
-      features: Array<{ type?: string; geometry?: unknown; properties: Record<string, unknown> }>;
-    };
-    return {
-      type: geo.type ?? "FeatureCollection",
-      features: geo.features.map((f) => ({
+      geometry?: unknown;
+      properties: Record<string, unknown>;
+    }>;
+  };
+
+  return {
+    type: geo.type ?? "FeatureCollection",
+    features: geo.features.map((f) => {
+      const stateName = String(f.properties.NAME_1);
+
+      const analytics = analyticsMap.get(
+        normalizeState(stateName)
+      );
+
+      return {
         type: f.type ?? "Feature",
         geometry: f.geometry,
         properties: {
           ...f.properties,
-          _name: f.properties.NAME_1 as string,
-          _analytics: mockAnalytics(`state:${f.properties.NAME_1}`),
+          _name: stateName,
+          _analytics: {
+            questions: analytics?.closedQuestions ?? 0,
+            answers: 0,
+            users: analytics?.totalUsers ?? 0,
+            activeUsers: analytics?.activeUsers ?? 0,
+            coordinators: 0,
+            closureHrs: 0,
+          },
         },
-      })),
-    };
-  }, [statesGeo]);
+      };
+    }),
+  };
+}, [statesGeo, analyticsMap]);
 
   // Filter districts by selected state
   const districtsOfState = useMemo(() => {
@@ -142,3 +211,89 @@ export function useMapAnalytics({
     activeAnalytics,
   };
 }
+
+const chatbotService = new ChatbotService();
+
+export const useAllStatesandUserData = ({
+  // category,
+  // district,
+  // state,
+  // crop,
+  // crops,
+  // status,
+  // closedWithInTwohours,
+  // notificationType,
+  // period,
+  // questionType,
+  // page,
+  // limit,
+  source,
+  userType,
+  // startDate,
+  // endDate,
+  // search = "",
+  enabled = true,
+}: {
+  // category?: string;
+  // district?: string;
+  // state: string
+  // crop?: string
+  // crops?: string[]
+  // status?: string
+  // closedWithInTwohours?: boolean
+  // notificationType?: string
+  // period?: string
+  // questionType: QueryCategoryQuestionType;
+  // page: number;
+  // limit: number;
+  source: string;
+  userType: string;
+  // startDate?: Date;
+  // endDate?: Date;
+  // search?: string;
+  enabled: boolean;
+}) => {
+  return useQuery<any>({
+  queryKey: [
+    "get-user-and-map-data",
+    // category,
+    // district,
+    // state,
+    // crop,
+    // crops?.join(","),
+    // status,
+    // closedWithInTwohours,
+    // notificationType,
+    // period,
+    // questionType,
+    // page,
+    // limit,
+    source,
+    userType,
+    // stringStartDate,
+    // stringEndDate,
+    // search,
+  ],
+    queryFn: () =>
+      chatbotService.getAllStatesQuestionsAndUsersData({
+        // category: category ?? "",
+        // district: district ?? "",
+        // state: state ?? "",
+        // crop: crop ?? "",
+        // crops: crops ?? [],
+        // status: status,
+        // closedWithInTwohours: closedWithInTwohours,
+        // notificationType: notificationType ?? "",
+        // period: period,
+        // questionType,
+        // page,
+        // limit,
+        source,
+        userType,
+        // stringStartDate,
+        // stringEndDate,
+        // search
+      }),
+    enabled: enabled && Boolean(true),
+  });
+};

@@ -1771,4 +1771,17 @@ export class ChatbotController {
       endDate,
     );
   }
+
+  @Get('/state-user-data')
+  @HttpCode(200)
+  @Authorized()
+  async getAllStatesQuestionsAndUsersData(
+        @QueryParams()
+    query: {
+      source: string,
+      userType: string,
+    }
+  ): Promise<any>{
+    return this.chatbotService.getAllStatesQuestionsAndUsersData(query.source, query.userType)
+  }
 }
