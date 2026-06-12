@@ -1542,13 +1542,13 @@ export class QuestionService extends BaseService implements IQuestionService {
               return;
             }
 
-            await this.questionRepo.updateQuestion(questionId, { status: 'open' });
+            await this.questionRepo.updateQuestion(questionId, { status: 'open',isAutoAllocate:true });
           } catch (pipelineError: any) {
             console.error(
               '[processQuestionInBackground] Duplicate check pipeline failed, proceeding as open:',
               pipelineError?.message,
             );
-            await this.questionRepo.updateQuestion(questionId, { status: 'open' });
+            await this.questionRepo.updateQuestion(questionId, { status: 'open' ,isAutoAllocate:true });
           }
         }
 
