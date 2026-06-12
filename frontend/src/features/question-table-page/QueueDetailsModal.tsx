@@ -20,6 +20,9 @@ import {
   RefreshCcw,
   Power,
   UserPlus,
+  Hourglass,
+  ShieldCheck,
+  ShieldUser,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGetQueueDetails } from "@/hooks/api/question/useGetQueueDetails";
@@ -89,12 +92,14 @@ const QuestionRow = ({
   showStuck,
   showWorkType,
   showOpenedIdle,
+  showModerator,
 }: {
   item: QueueQuestionItem;
   showExpert?: boolean;
   showStuck?: boolean;
   showWorkType?: boolean;
   showOpenedIdle?: boolean;
+  showModerator?: boolean;
 }) => {
   const meta = [item.source, item.state, item.crop].filter(Boolean).join(" · ");
   return (
@@ -139,6 +144,16 @@ const QuestionRow = ({
           opened {item.minutesSinceOpened ?? "?"} min ago · no answer yet
         </p>
       )}
+      {showModerator &&
+        (item.moderatorName ? (
+          <p className="mt-1 text-[11px] font-medium text-gray-700 dark:text-gray-300">
+            Moderator: {item.moderatorName}
+          </p>
+        ) : (
+          <p className="mt-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+            Awaiting moderator assignment
+          </p>
+        ))}
     </div>
   );
 };
@@ -585,6 +600,65 @@ export const QueueDetailsModal = ({
               isOpen={openSection === "freeExperts"}
               onToggle={() => toggle("freeExperts")}
               emptyText="No free experts"
+              startTime={dateFilter.startTime ?? undefined}
+              endTime={dateFilter.endTime ?? undefined}
+            />
+
+            {/* ── Moderator queue ── */}
+            <div className="flex items-center gap-3 pt-2">
+              <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                Moderator Queue
+              </span>
+              <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
+            </div>
+
+            <Section<QueueQuestionItem>
+              icon={<Hourglass size={20} />}
+              color="amber"
+              title="Waiting for Moderator"
+              description="In-review questions with no moderator assigned yet"
+              count={data.moderatorWaiting.count}
+              section="moderatorWaiting"
+              initialItems={data.moderatorWaiting.items}
+              renderItem={(q) => <QuestionRow key={q._id} item={q} />}
+              isOpen={openSection === "moderatorWaiting"}
+              onToggle={() => toggle("moderatorWaiting")}
+              emptyText="Nothing waiting for a moderator"
+              startTime={dateFilter.startTime ?? undefined}
+              endTime={dateFilter.endTime ?? undefined}
+            />
+
+            <Section<QueueQuestionItem>
+              icon={<ShieldCheck size={20} />}
+              color="green"
+              title="Allocated to Moderator"
+              description="Assigned to a moderator (includes re-routed questions)"
+              count={data.moderatorAllocated.count}
+              section="moderatorAllocated"
+              initialItems={data.moderatorAllocated.items}
+              renderItem={(q) => (
+                <QuestionRow key={q._id} item={q} showModerator />
+              )}
+              isOpen={openSection === "moderatorAllocated"}
+              onToggle={() => toggle("moderatorAllocated")}
+              emptyText="No questions allocated to a moderator"
+              startTime={dateFilter.startTime ?? undefined}
+              endTime={dateFilter.endTime ?? undefined}
+            />
+
+            <Section<QueueExpertItem>
+              icon={<ShieldUser size={20} />}
+              color="violet"
+              title="Available Moderators"
+              description="STF moderators free with no question assigned"
+              count={data.availableModerators.count}
+              section="availableModerators"
+              initialItems={data.availableModerators.items}
+              renderItem={(e) => <ExpertRow key={e._id} item={e} />}
+              isOpen={openSection === "availableModerators"}
+              onToggle={() => toggle("availableModerators")}
+              emptyText="No available moderators"
               startTime={dateFilter.startTime ?? undefined}
               endTime={dateFilter.endTime ?? undefined}
             />

@@ -29,6 +29,8 @@ export interface QueueQuestionItem {
   crop?: string;
   /** Current assignee — present for allocated & stuck items. */
   expertName?: string;
+  /** Assigned moderator's name — present for moderator-allocated items. */
+  moderatorName?: string;
   /** When the current expert was allocated — present for stuck items. */
   allocatedAt?: string | Date | null;
   /** Minutes since the current expert was allocated — present for stuck items. */
@@ -71,6 +73,15 @@ export interface QueueDetailsResponse {
   totalWork: {count: number; items: QueueQuestionItem[]};
   /** Opened by the current expert > 45 min ago but still no answer produced. */
   openedIdle: {count: number; items: QueueQuestionItem[]};
+  /** In-review/duplicate questions with no moderator yet — the pool the
+   *  moderator-queue cron picks from (findUnassignedInReviewQuestions). */
+  moderatorWaiting: {count: number; items: QueueQuestionItem[]};
+  /** Questions currently assigned to a moderator (moderatorId set), including
+   *  re-routed questions. Each item carries the assigned moderator's name. */
+  moderatorAllocated: {count: number; items: QueueQuestionItem[]};
+  /** STF moderators with no question assigned — the pool the moderator-queue
+   *  cron assigns from (findAvailableStfModerators). */
+  availableModerators: {count: number; items: QueueExpertItem[]};
 }
 
 /** Raw lean row returned by the repository layer for queue-details questions. */
@@ -108,7 +119,10 @@ export type QueueSectionName =
   | 'stuck'
   | 'needsReviewer'
   | 'totalWork'
-  | 'openedIdle';
+  | 'openedIdle'
+  | 'moderatorWaiting'
+  | 'moderatorAllocated'
+  | 'availableModerators';
 
 /** One page of a section: exact total + the requested page's items. */
 export interface QueueSectionResult {

@@ -6422,6 +6422,52 @@ export class QuestionService extends BaseService implements IQuestionService {
         return {count, items};
       }
 
+      case 'moderatorWaiting': {
+        // Same method (and therefore the same number) the moderator-queue cron uses:
+        // in-review/duplicate questions with no moderator assigned yet. No date
+        // filter so the count always matches what the cron picks up.
+        const qs = (await this.questionRepo.findUnassignedInReviewQuestions()) as any[];
+        const count = qs.length;
+        const pageQs = qs.slice(skip, skip + safeLimit);
+        // Map a full question doc through the submission mapper (wraps it as `.question`).
+        return {count, items: pageQs.map(q => this.submissionToQueueItem({question: q}))};
+      }
+
+      case 'moderatorAllocated': {
+        // Questions currently assigned to a moderator (moderatorId set). Re-routed
+        // questions always carry a moderatorId, so they appear here too. Each item
+        // is tagged with the assigned moderator's name.
+        const qs = (await this.questionRepo.findModeratorAssignedQuestions()) as any[];
+        const count = qs.length;
+        const pageQs = qs.slice(skip, skip + safeLimit);
+        const ids = pageQs
+          .map(q => q.moderatorId?.toString())
+          .filter(Boolean) as string[];
+        const names = await this.resolveExpertNames(ids);
+        const items: QueueQuestionItem[] = pageQs.map(q => ({
+          ...this.submissionToQueueItem({question: q}),
+          moderatorName: q.moderatorId
+            ? names.get(q.moderatorId.toString()) ?? 'Unknown'
+            : undefined,
+        }));
+        return {count, items};
+      }
+
+      case 'availableModerators': {
+        // Same method (and therefore the same pool) the moderator-queue cron assigns
+        // from: STF moderators with no question currently assigned.
+        const mods = (await this.userRepo.findAvailableStfModerators()) as any[];
+        const items: QueueExpertItem[] = mods.slice(skip, skip + safeLimit).map(m => ({
+          _id: m._id.toString(),
+          name: `${m.firstName ?? ''} ${m.lastName ?? ''}`.trim() || m.email || 'Unknown',
+          email: m.email,
+          reputationScore: m.reputation_score,
+          role: m.role,
+          isSpecialTaskForce: m.special_task_force === true,
+        }));
+        return {count: mods.length, items};
+      }
+
       default:
         return {count: 0, items: []};
     }
@@ -6434,7 +6480,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   async getQueueDetails(startTime?: Date, endTime?: Date): Promise<QueueDetailsResponse> {
     const PAGE = 1;
     const LIMIT = 50;
-    const [received, autoAllocateOff, allocated, waiting, freeExperts, stuck, needsReviewer, totalWork, openedIdle] =
+    const [received, autoAllocateOff, allocated, waiting, freeExperts, stuck, needsReviewer, totalWork, openedIdle, moderatorWaiting, moderatorAllocated, availableModerators] =
       await Promise.all([
         this.getQueueSection('received', PAGE, LIMIT, startTime, endTime),
         this.getQueueSection('autoAllocateOff', PAGE, LIMIT, startTime, endTime),
@@ -6445,6 +6491,9 @@ export class QuestionService extends BaseService implements IQuestionService {
         this.getQueueSection('needsReviewer', PAGE, LIMIT, startTime, endTime),
         this.getQueueSection('totalWork', PAGE, LIMIT, startTime, endTime),
         this.getQueueSection('openedIdle', PAGE, LIMIT, startTime, endTime),
+        this.getQueueSection('moderatorWaiting', PAGE, LIMIT, startTime, endTime),
+        this.getQueueSection('moderatorAllocated', PAGE, LIMIT, startTime, endTime),
+        this.getQueueSection('availableModerators', PAGE, LIMIT, startTime, endTime),
       ]);
 
     return {
@@ -6457,6 +6506,9 @@ export class QuestionService extends BaseService implements IQuestionService {
       needsReviewer: needsReviewer as QueueDetailsResponse['needsReviewer'],
       totalWork: totalWork as QueueDetailsResponse['totalWork'],
       openedIdle: openedIdle as QueueDetailsResponse['openedIdle'],
+      moderatorWaiting: moderatorWaiting as QueueDetailsResponse['moderatorWaiting'],
+      moderatorAllocated: moderatorAllocated as QueueDetailsResponse['moderatorAllocated'],
+      availableModerators: availableModerators as QueueDetailsResponse['availableModerators'],
     };
   }
 }

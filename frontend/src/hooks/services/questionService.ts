@@ -32,6 +32,7 @@ export type QueueQuestionItem = {
   district?: string;
   crop?: string;
   expertName?: string;
+  moderatorName?: string;
   allocatedAt?: string | null;
   minutesSinceAllocated?: number;
   openedAt?: string | null;
@@ -63,6 +64,9 @@ export type QueueDetailsResponse = {
   needsReviewer: { count: number; items: QueueQuestionItem[] };
   totalWork: { count: number; items: QueueQuestionItem[] };
   openedIdle: { count: number; items: QueueQuestionItem[] };
+  moderatorWaiting: { count: number; items: QueueQuestionItem[] };
+  moderatorAllocated: { count: number; items: QueueQuestionItem[] };
+  availableModerators: { count: number; items: QueueExpertItem[] };
 };
 export class QuestionService {
   private _baseUrl = `${API_BASE_URL}/questions`;

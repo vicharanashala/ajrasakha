@@ -529,5 +529,6 @@ export interface IQuestionRepository {
   ): Promise<any>
 
   findUnassignedInReviewQuestions(): Promise<IQuestion[]>
+  findModeratorAssignedQuestions(): Promise<IQuestion[]>
   updateModeratorId(questionId: string, moderatorId: string | null): Promise<void>
 }

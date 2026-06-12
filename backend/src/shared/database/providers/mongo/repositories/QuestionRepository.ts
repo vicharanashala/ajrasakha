@@ -6475,6 +6475,21 @@ export class QuestionRepository implements IQuestionRepository {
       .toArray();
   }
 
+  /** Questions currently assigned to a moderator (moderatorId set). Includes
+   *  in-review, re-routed and duplicate statuses — mirrors the moderator-assigned
+   *  tab filter, so re-routed questions (which always carry a moderatorId) show up
+   *  here too. Oldest first. */
+  async findModeratorAssignedQuestions(): Promise<IQuestion[]> {
+    await this.init();
+    return this.QuestionCollection
+      .find({
+        status: { $in: ['in-review', 're-routed', 'duplicate'] },
+        moderatorId: { $exists: true, $ne: null },
+      })
+      .sort({ createdAt: 1 })
+      .toArray();
+  }
+
   /** Sets or clears moderatorId on a question document. Also stamps moderatorAssignedAt when assigning. */
   async updateModeratorId(questionId: string, moderatorId: string | null): Promise<void> {
     await this.init();
