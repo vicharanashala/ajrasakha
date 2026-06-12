@@ -43,6 +43,7 @@ import axios from 'axios';
 import {WHATSAPP_TYPES} from '#root/modules/whatsapp/types.js';
 import {IWhatsAppService} from '#root/modules/whatsapp/interfaces/IWhatsAppService.js';
 import {triggerWebhook} from '#root/modules/answer/utils/triggerWebhook.js';
+import {sendEmailNotification} from '#root/utils/mailer.js';
 
 @injectable()
 export class ChatbotService extends BaseService implements IChatbotService {
@@ -2823,6 +2824,92 @@ export class ChatbotService extends BaseService implements IChatbotService {
       if (!updatedUser) {
         throw new NotFoundError(`User not found`);
       }
+
+      const subject = 'Annam Verification Request Approved';
+      const htmlMessage = ` 
+      <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8" />
+          <title>Account Verified</title>
+        </head>
+        <body style="margin:0;padding:0;background:#f5f7fb;font-family:Arial,Helvetica,sans-serif;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fb;padding:40px 0;">
+            <tr>
+              <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;">
+                  
+                  <tr>
+                    <td style="background:#16a34a;padding:24px;text-align:center;">
+                      <h1 style="margin:0;color:#ffffff;font-size:28px;">
+                        Account Verified
+                      </h1>
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td style="padding:40px;">
+                      <p style="font-size:16px;color:#333333;line-height:1.6;">
+                        Hello <strong>${updatedUser.name}</strong>,
+                      </p>
+
+                      <p style="font-size:16px;color:#333333;line-height:1.6;">
+                        Your account verification request has been approved by our administrators.
+                      </p>
+
+                      <p style="font-size:16px;color:#333333;line-height:1.6;">
+                        You can now log in and access all features available on Ajrasakha.
+                      </p>
+
+                      <div style="text-align:center;margin:35px 0;">
+                        <a
+                          href="https://chat.annam.ai/login"
+                          style="
+                            display:inline-block;
+                            background:#16a34a;
+                            color:#ffffff;
+                            text-decoration:none;
+                            padding:14px 30px;
+                            border-radius:8px;
+                            font-size:16px;
+                            font-weight:bold;
+                          "
+                        >
+                          Login Now
+                        </a>
+                      </div>
+
+                      <p style="font-size:16px;color:#333333;line-height:1.6;">
+                        If you experience any issues accessing your account, please contact our support team.
+                      </p>
+
+                      <p style="font-size:16px;color:#333333;line-height:1.6;">
+                        Thank you,<br />
+                        <strong>Ajrasakha Team</strong>
+                      </p>
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td style="background:#f8fafc;padding:20px;text-align:center;color:#64748b;font-size:12px;">
+                      © ${new Date().getFullYear()} Annam.Ai
+                    </td>
+                  </tr>
+
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>
+      `;
+      await sendEmailNotification(
+        updatedUser.email,
+        subject,
+        '',
+        htmlMessage
+      );
+
       return updatedUser;
     } catch (error) {
       throw new InternalServerError(
