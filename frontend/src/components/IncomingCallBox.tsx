@@ -140,7 +140,7 @@ export const IncomingCallBox = ({
     }
 
     // Check if current user is authorized to use Plivo
-    if (currentUser?.role !== 'call_agent' || !currentUser?.isCallAgentActive) {
+    if (currentUser?.role !== "call_agent" || !currentUser?.isCallAgentActive) {
       return;
     }
 
@@ -603,7 +603,8 @@ export const IncomingCallBox = ({
           </CardTitle>
         </CardHeader>
 
-        {!currentUser?.isCallAgentActive || currentUser?.role !== 'call_agent' ? (
+        {!currentUser?.isCallAgentActive ||
+        currentUser?.role !== "call_agent" ? (
           <CardContent className="p-1">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Phone className="h-4 w-4 text-zinc-400 dark:text-zinc-500" />

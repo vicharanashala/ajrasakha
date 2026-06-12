@@ -1542,13 +1542,13 @@ export class QuestionService extends BaseService implements IQuestionService {
               return;
             }
 
-            await this.questionRepo.updateQuestion(questionId, { status: 'open' });
+            await this.questionRepo.updateQuestion(questionId, { status: 'open',isAutoAllocate:true });
           } catch (pipelineError: any) {
             console.error(
               '[processQuestionInBackground] Duplicate check pipeline failed, proceeding as open:',
               pipelineError?.message,
             );
-            await this.questionRepo.updateQuestion(questionId, { status: 'open' });
+            await this.questionRepo.updateQuestion(questionId, { status: 'open' ,isAutoAllocate:true });
           }
         }
 
@@ -5642,11 +5642,15 @@ export class QuestionService extends BaseService implements IQuestionService {
   async reallocateTimeBoundQuestions(): Promise<{ message: string; reallocated: number; skipped: number }> {
     console.log('[TimeBound] Starting reallocation + initial-allocation + reviewer-assignment check...');
     try {
-      // 1. Fetch all three cases in parallel
-      const [stuckSubmissions, unallocatedSubmissions, answeredNeedingReviewer] = await Promise.all([
+      // 1. Fetch all cases in parallel. "openedIdle" = current expert opened the
+      // question > 45 min ago but produced no answer; these are reallocated exactly
+      // like stuck (replace the current expert) — and being author-level, only an STF
+      // expert is eligible (enforced in the stuck branch when history is empty).
+      const [stuckSubmissions, unallocatedSubmissions, answeredNeedingReviewer, openedIdleSubmissions] = await Promise.all([
         this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(),
         this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(),
         this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(),
+        this.questionSubmissionRepo.findOpenedButIdleTimeBoundQuestions(),
       ]);
 
       const byCreatedAt = (a: any, b: any) =>
@@ -5656,14 +5660,15 @@ export class QuestionService extends BaseService implements IQuestionService {
       stuckSubmissions.sort(byCreatedAt);
       unallocatedSubmissions.sort(byCreatedAt);
       answeredNeedingReviewer.sort(byCreatedAt);
+      openedIdleSubmissions.sort(byCreatedAt);
 
-      const totalWork = stuckSubmissions.length + unallocatedSubmissions.length + answeredNeedingReviewer.length;
+      const totalWork = stuckSubmissions.length + unallocatedSubmissions.length + answeredNeedingReviewer.length + openedIdleSubmissions.length;
       console.log("the total work coming====", totalWork)
       if (!totalWork) {
         return { message: 'No time-bound questions need attention', reallocated: 0, skipped: 0 };
       }
 
-      console.log(`[TimeBound] Stuck: ${stuckSubmissions.length}, Never-allocated: ${unallocatedSubmissions.length}, NeedReviewer: ${answeredNeedingReviewer.length}`);
+      console.log(`[TimeBound] Stuck: ${stuckSubmissions.length}, Never-allocated: ${unallocatedSubmissions.length}, NeedReviewer: ${answeredNeedingReviewer.length}, OpenedIdle: ${openedIdleSubmissions.length}`);
 
       // 2. Get all non-blocked experts ordered by workload (lowest first)
       const allExperts = await this.userRepo.findExpertsByReputationScore({} as any);
@@ -5711,10 +5716,16 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
       console.log('[TimeBound][diag] experts:', JSON.stringify(expertDiag));
 
-      // ── Merge all three lists into one priority queue ordered by question.createdAt ──
-      type WorkType = 'stuck' | 'unallocated' | 'needsReviewer';
+      // ── Merge all lists into one priority queue ordered by question.createdAt ──
+      type WorkType = 'stuck' | 'openedIdle' | 'unallocated' | 'needsReviewer';
       const workQueue: { type: WorkType; submission: any }[] = [
         ...stuckSubmissions.map((s: any) => ({ type: 'stuck' as WorkType, submission: s })),
+        // Opened-but-idle questions are replaced the same way as stuck ones (the
+        // current expert opened but never answered). Author-level → STF-only is
+        // enforced by the stuck branch's empty-history check. Unlike stuck, the idle
+        // expert is NOT penalised — they're only freed from the question (workload
+        // decremented via the queue replacement).
+        ...openedIdleSubmissions.map((s: any) => ({ type: 'openedIdle' as WorkType, submission: s })),
         ...unallocatedSubmissions.map((s: any) => ({ type: 'unallocated' as WorkType, submission: s })),
         ...answeredNeedingReviewer.map((s: any) => ({ type: 'needsReviewer' as WorkType, submission: s })),
       ];
@@ -5725,7 +5736,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         return aTime - bTime;
       });
 
-      const flatAssignments: { submissionId: string; expertId: string; appendExpert?: boolean }[] = [];
+      const flatAssignments: { submissionId: string; expertId: string; appendExpert?: boolean; skipPenalty?: boolean }[] = [];
       const reallocationInfo: { questionId: string; oldExpertId: string; newExpertId: string; sourceLabel: string; questionText: string }[] = [];
       let skipped = 0;
       let initialAllocated = 0;
@@ -5738,7 +5749,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         const history: any[] = submission.history || [];
         const queue: any[] = submission.queue || [];
 
-        if (type === 'stuck') {
+        if (type === 'stuck' || type === 'openedIdle') {
           // Determine current stuck expert
           let currentExpertId: string | null = null;
           if (history.length === 0) {
@@ -5768,11 +5779,12 @@ export class QuestionService extends BaseService implements IQuestionService {
           }
 
           if (!assignedExpert) {
-            console.log(`[TimeBound] No eligible expert for stuck submission ${submission._id} — skipping`);
+            console.log(`[TimeBound] No eligible expert for ${type} submission ${submission._id} — skipping`);
             skipped++;
             continue;
           }
-          flatAssignments.push({ submissionId: submission._id.toString(), expertId: assignedExpert, appendExpert: false });
+          // openedIdle → reassign but don't penalise the idle expert (skipPenalty).
+          flatAssignments.push({ submissionId: submission._id.toString(), expertId: assignedExpert, appendExpert: false, skipPenalty: type === 'openedIdle' });
           reallocationInfo.push({
             questionId,
             oldExpertId: currentExpertId ?? 'Unknown',
@@ -6130,6 +6142,38 @@ export class QuestionService extends BaseService implements IQuestionService {
         return {count, items};
       }
 
+      case 'openedIdle': {
+        // Opened by the current expert > 45 min ago but still no answer. No date
+        // filter, mirroring the other time-bound sections.
+        const subs = (await this.questionSubmissionRepo.findOpenedButIdleTimeBoundQuestions()) as any[];
+        const count = subs.length;
+        const pageSubs = subs.slice(skip, skip + safeLimit);
+        const byQuestion = new Map<string, string | null>();
+        const ids: string[] = [];
+        for (const sub of pageSubs) {
+          const id = this.deriveCurrentExpertId(sub.queue, sub.history);
+          const qId = (sub.question?._id ?? sub.questionId)?.toString() ?? '';
+          byQuestion.set(qId, id);
+          if (id) ids.push(id);
+        }
+        const names = await this.resolveExpertNames(ids);
+        const now = Date.now();
+        const items: QueueQuestionItem[] = pageSubs.map(sub => {
+          const item = this.submissionToQueueItem(sub);
+          const id = byQuestion.get(item._id ?? '');
+          const openedAt = sub.currentExpertOpenedAt ?? null;
+          return {
+            ...item,
+            expertName: id ? names.get(id) ?? 'Unknown' : undefined,
+            openedAt,
+            minutesSinceOpened: openedAt
+              ? Math.floor((now - new Date(openedAt).getTime()) / 60000)
+              : undefined,
+          };
+        });
+        return {count, items};
+      }
+
       case 'needsReviewer': {
         // Same method (and therefore the same number) the cron logs as
         // "NeedReviewer": answered/reviewed questions still awaiting the next
@@ -6208,7 +6252,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   async getQueueDetails(startTime?: Date, endTime?: Date): Promise<QueueDetailsResponse> {
     const PAGE = 1;
     const LIMIT = 50;
-    const [received, autoAllocateOff, allocated, waiting, freeExperts, stuck, needsReviewer, totalWork] =
+    const [received, autoAllocateOff, allocated, waiting, freeExperts, stuck, needsReviewer, totalWork, openedIdle] =
       await Promise.all([
         this.getQueueSection('received', PAGE, LIMIT, startTime, endTime),
         this.getQueueSection('autoAllocateOff', PAGE, LIMIT, startTime, endTime),
@@ -6218,6 +6262,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         this.getQueueSection('stuck', PAGE, LIMIT, startTime, endTime),
         this.getQueueSection('needsReviewer', PAGE, LIMIT, startTime, endTime),
         this.getQueueSection('totalWork', PAGE, LIMIT, startTime, endTime),
+        this.getQueueSection('openedIdle', PAGE, LIMIT, startTime, endTime),
       ]);
 
     return {
@@ -6229,6 +6274,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       stuck: stuck as QueueDetailsResponse['stuck'],
       needsReviewer: needsReviewer as QueueDetailsResponse['needsReviewer'],
       totalWork: totalWork as QueueDetailsResponse['totalWork'],
+      openedIdle: openedIdle as QueueDetailsResponse['openedIdle'],
     };
   }
 }

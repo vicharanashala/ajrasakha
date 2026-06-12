@@ -9,6 +9,9 @@ interface AssignmentJob {
   submissionId: string;
   expertId: string;
   appendExpert?: boolean;
+  /** When true the previous expert is NOT reputation-penalised — only freed from the
+   *  question (queue replacement still decrements their workload). */
+  skipPenalty?: boolean;
 }
 
 interface WorkerData {
@@ -183,21 +186,23 @@ async function getExpertDisplayName(expertId?: string | null): Promise<string> {
         // Append the new expert instead of replacing the stuck one so the full
         // allocation history is preserved.
 
-        // Penalize the stuck expert
-        if (history.length === 0) {
-          // No history yet — penalize queue[0] who was allocated but never answered
-          const firstExpert = queue[0]?.toString();
-          if (firstExpert) {
-            await userRepo.updateReputationScore(firstExpert, false);
-            affectedExpertIds.add(firstExpert);
-          }
-        } else {
-          const lastHistory = history[history.length - 1];
-          if (lastHistory?.status === 'in-review') {
-            const stuckExpertId = lastHistory.updatedBy?.toString();
-            if (stuckExpertId) {
-              await userRepo.updateReputationScore(stuckExpertId, false);
-              affectedExpertIds.add(stuckExpertId);
+        // Penalize the stuck expert — skipped for no-penalty (opened-but-idle) jobs.
+        if (!job.skipPenalty) {
+          if (history.length === 0) {
+            // No history yet — penalize queue[0] who was allocated but never answered
+            const firstExpert = queue[0]?.toString();
+            if (firstExpert) {
+              await userRepo.updateReputationScore(firstExpert, false);
+              affectedExpertIds.add(firstExpert);
+            }
+          } else {
+            const lastHistory = history[history.length - 1];
+            if (lastHistory?.status === 'in-review') {
+              const stuckExpertId = lastHistory.updatedBy?.toString();
+              if (stuckExpertId) {
+                await userRepo.updateReputationScore(stuckExpertId, false);
+                affectedExpertIds.add(stuckExpertId);
+              }
             }
           }
         }
@@ -250,17 +255,20 @@ async function getExpertDisplayName(expertId?: string | null): Promise<string> {
           }
         }
 
-        // 2. Penalize the expert who was stuck
-        if (history.length > 0) {
-          // Reviewer case: penalize only 'in-review' experts — 'reviewed' experts already completed their work
-          const lastHistory = history[history.length - 1];
-          if (lastHistory?.status === 'in-review') {
-            const stuckExpertId = lastHistory.updatedBy?.toString();
-            if (stuckExpertId) await userRepo.updateReputationScore(stuckExpertId, false);
+        // 2. Penalize the expert who was stuck — unless this is a no-penalty
+        //    reallocation (opened-but-idle), where we only free them from the question.
+        if (!job.skipPenalty) {
+          if (history.length > 0) {
+            // Reviewer case: penalize only 'in-review' experts — 'reviewed' experts already completed their work
+            const lastHistory = history[history.length - 1];
+            if (lastHistory?.status === 'in-review') {
+              const stuckExpertId = lastHistory.updatedBy?.toString();
+              if (stuckExpertId) await userRepo.updateReputationScore(stuckExpertId, false);
+            }
+          } else {
+            // Author case: penalize author who never answered
+            if (currentExpertId) await userRepo.updateReputationScore(currentExpertId, false);
           }
-        } else {
-          // Author case: penalize author who never answered
-          if (currentExpertId) await userRepo.updateReputationScore(currentExpertId, false);
         }
 
         // 3. Save updates to Submission
