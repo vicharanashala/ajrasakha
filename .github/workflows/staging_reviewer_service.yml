@@ -32,8 +32,9 @@ jobs:
           ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} << 'EOF'
             whoami
             hostname
+            hostname -I
             pwd
-            ls -ld /home/bibint2918 || true
+            ls -la /home
           EOF
       
       - name: Deploy Staging
