@@ -6480,20 +6480,34 @@ export class QuestionService extends BaseService implements IQuestionService {
   async getQueueDetails(startTime?: Date, endTime?: Date): Promise<QueueDetailsResponse> {
     const PAGE = 1;
     const LIMIT = 50;
+    // Run each section independently so one failing section logs which one broke and
+    // returns an empty result, rather than 500ing the whole queue-details endpoint.
+    const safe = async (section: QueueSectionName): Promise<QueueSectionResult> => {
+      try {
+        return await this.getQueueSection(section, PAGE, LIMIT, startTime, endTime);
+      } catch (err: any) {
+        console.error(
+          `[getQueueDetails] section '${section}' failed:`,
+          err?.message,
+          err?.stack?.split('\n')?.slice(0, 4)?.join('\n'),
+        );
+        return {count: 0, items: []};
+      }
+    };
     const [received, autoAllocateOff, allocated, waiting, freeExperts, stuck, needsReviewer, totalWork, openedIdle, moderatorWaiting, moderatorAllocated, availableModerators] =
       await Promise.all([
-        this.getQueueSection('received', PAGE, LIMIT, startTime, endTime),
-        this.getQueueSection('autoAllocateOff', PAGE, LIMIT, startTime, endTime),
-        this.getQueueSection('allocated', PAGE, LIMIT, startTime, endTime),
-        this.getQueueSection('waiting', PAGE, LIMIT, startTime, endTime),
-        this.getQueueSection('freeExperts', PAGE, LIMIT, startTime, endTime),
-        this.getQueueSection('stuck', PAGE, LIMIT, startTime, endTime),
-        this.getQueueSection('needsReviewer', PAGE, LIMIT, startTime, endTime),
-        this.getQueueSection('totalWork', PAGE, LIMIT, startTime, endTime),
-        this.getQueueSection('openedIdle', PAGE, LIMIT, startTime, endTime),
-        this.getQueueSection('moderatorWaiting', PAGE, LIMIT, startTime, endTime),
-        this.getQueueSection('moderatorAllocated', PAGE, LIMIT, startTime, endTime),
-        this.getQueueSection('availableModerators', PAGE, LIMIT, startTime, endTime),
+        safe('received'),
+        safe('autoAllocateOff'),
+        safe('allocated'),
+        safe('waiting'),
+        safe('freeExperts'),
+        safe('stuck'),
+        safe('needsReviewer'),
+        safe('totalWork'),
+        safe('openedIdle'),
+        safe('moderatorWaiting'),
+        safe('moderatorAllocated'),
+        safe('availableModerators'),
       ]);
 
     return {
