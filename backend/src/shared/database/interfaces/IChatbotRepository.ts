@@ -866,6 +866,8 @@ export interface IChatbotRepository {
     userId: string,
     source: string,
   ): Promise<any>
+
+  getUserProfile(userId) : Promise<any>
 }
 
 export interface ChatbotConversationData {

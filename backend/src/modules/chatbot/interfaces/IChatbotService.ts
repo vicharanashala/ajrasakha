@@ -339,4 +339,6 @@ export interface IChatbotService {
       userType?: string,
       search?: string,
     ): Promise<any>
+
+  getUserProfile(userId: string): Promise<any>
 }

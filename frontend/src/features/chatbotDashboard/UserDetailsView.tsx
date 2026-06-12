@@ -87,6 +87,7 @@ import { useDebounce } from "@/hooks/ui/useDebounce";
 import { useVerifyUserAnalytics } from "@/hooks/api/user/useVerifyUserAnalytics";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 
 const EMPTY_VALUE = "Not provided";
 
@@ -137,6 +138,7 @@ export function UserDetailsView({
   initialFilters,
   userType = "all",
 }: UserDetailsViewProps) {
+  const navigate = useNavigate();
   const { data: currentUser } = useGetCurrentUser({});
   const verifyUserMutation = useVerifyUserAnalytics();
   const verifyingUserId = verifyUserMutation.isPending
@@ -1190,7 +1192,18 @@ export function UserDetailsView({
 
                                 <TableCell className="align-middle font-medium whitespace-nowrap">
                                   <div className="inline-flex items-center justify-center gap-1.5">
-                                    <span>{user.name || <EmptyValue />}</span>
+                                  <span
+                                    className="cursor-pointer text-primary hover:underline"
+                                    onClick={() =>
+                                      navigate({
+                                        to: "/user/$userId",
+                                        params: {
+                                          userId: user.userId,
+                                        },
+                                      })
+                                    }
+                                  >{user.name || <EmptyValue />}
+                                  </span>
                                     {!isUserVerified && (
                                       <Tooltip>
                                         <TooltipTrigger asChild>

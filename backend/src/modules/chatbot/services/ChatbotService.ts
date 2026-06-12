@@ -3060,4 +3060,12 @@ export class ChatbotService extends BaseService implements IChatbotService {
       throw new InternalServerError(`Internal Server Error ${error}`)
     }
   }
+
+  async getUserProfile(userId: string){
+    try{
+      return this.chatbotRepository.getUserProfile(userId)
+    }catch(error){
+      throw new InternalServerError(`Internal Server Error ${error}`)
+    }
+  }
 }

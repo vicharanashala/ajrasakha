@@ -12472,4 +12472,25 @@ const totalPages =
     questionId: string;
     messageId?: string | undefined;
   }) {}
+
+  async getUserProfile (userId: string) : Promise<any>{
+    try{
+      await this.init("annam");
+      const users = await this.users
+        .find({
+          _id: new ObjectId(userId),
+        })
+        .toArray();
+      if(users?.length === 0){
+        throw new InternalServerError(
+          `No user found for Id: ${userId}`,
+        );
+      }
+      return  users[0];
+    }catch(error){
+      throw new InternalServerError(
+        `Failed to get user profile: ${error}`,
+      );
+    }
+  }
 }
