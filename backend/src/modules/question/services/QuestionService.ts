@@ -22,6 +22,7 @@ import {
 import {
   BadRequestError,
   ForbiddenError,
+  HttpError,
   InternalServerError,
   NotFoundError,
   UnauthorizedError,
@@ -1078,6 +1079,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     if (question.referenceQuestionId) {
       return { message: 'Question already has a reference question assigned.', isDuplicate: true };
     }
+
+    if(question.status === 'closed') throw new HttpError(409,'Question is closed')
 
     const logData: Record<string, any> = { questionId, manual: true };
     const result = await this.runDuplicateCheckPipeline(question, question.details, logData);

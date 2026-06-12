@@ -251,7 +251,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                       onSuccess: (res) => {
                         toast.success(res?.message ?? "Duplicate check complete.");
                       },
-                      onError: () => toast.error("Duplicate check failed"),
+                      onError: (err:any) => toast.error(err?.message==="Question is closed"?err.message:"Duplicate check failed")
                     })
                   }
                 >
