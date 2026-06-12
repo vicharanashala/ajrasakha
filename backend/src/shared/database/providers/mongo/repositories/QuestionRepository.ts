@@ -6507,14 +6507,16 @@ export class QuestionRepository implements IQuestionRepository {
 
     if (kind === 'allocated') {
       // Allocated & pending: the question is open/delayed and assigned
-      // (firstAllocationAt set), and the CURRENT expert hasn't acted yet — i.e. the
-      // latest history entry carries none of answer / approvedAnswer / modifiedAnswer
-      // / rejectedAnswer (typically a fresh 'in-review' entry). Earlier entries from
-      // prior reviewers may well have answers; only the last entry is checked. An
-      // empty history (just allocated, no entry yet) also qualifies.
+      // (firstAllocationAt set), the submission has at least one history entry
+      // (history.length >= 1 — excludes freshly-allocated "awaiting reviewer
+      // assignment" docs with no entry yet), and the CURRENT expert hasn't acted yet —
+      // i.e. the latest history entry carries none of answer / approvedAnswer /
+      // modifiedAnswer / rejectedAnswer (typically a fresh 'in-review' entry). Earlier
+      // entries from prior reviewers may well have answers; only the last entry checked.
       const base: any[] = [
         {$match: allocatedMatch},
         ...lookupStages,
+        {$match: {'sub.history.0': {$exists: true}}},
         {$addFields: {lastHistory: {$arrayElemAt: [{$ifNull: ['$sub.history', []]}, -1]}}},
         {
           $match: {
