@@ -33,7 +33,7 @@ jobs:
             whoami
             hostname
             pwd
-            ls -la /home
+            ls -ld /home/bibint2918 || true
           EOF
       
       - name: Deploy Staging
