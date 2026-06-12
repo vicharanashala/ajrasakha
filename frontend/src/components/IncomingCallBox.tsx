@@ -19,7 +19,6 @@ import { env } from "@/config/env";
 import Plivo from "plivo-browser-sdk";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { FarmerDetails } from "./FarmerDetails";
-import { toast } from "sonner";
 
 interface IncomingCall {
   uuid: string;
@@ -60,7 +59,6 @@ export const IncomingCallBox = ({
   console.log(" [IncomingCallBox] Component mounting...");
 
   const { data: currentUser, isLoading: isUserLoading } = useGetCurrentUser();
-  const isAdmin = currentUser?.role === "admin";
 
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
   const [callStatus, setCallStatus] = useState<
@@ -142,7 +140,7 @@ export const IncomingCallBox = ({
     }
 
     // Check if current user is authorized to use Plivo
-    if (!currentUser?.isCallAgent || !currentUser?.isCallAgentActive) {
+    if (currentUser?.role !== 'call_agent' || !currentUser?.isCallAgentActive) {
       return;
     }
 
@@ -605,7 +603,7 @@ export const IncomingCallBox = ({
           </CardTitle>
         </CardHeader>
 
-        {!currentUser?.isCallAgentActive ? (
+        {!currentUser?.isCallAgentActive || currentUser?.role !== 'call_agent' ? (
           <CardContent className="p-1">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Phone className="h-4 w-4 text-zinc-400 dark:text-zinc-500" />

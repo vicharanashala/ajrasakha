@@ -6,6 +6,16 @@ export const COORDINATOR_ROLES = [
   "village_volunteer",
 ] as const;
 
+export const USER_ROLES = [
+  "admin",
+  "moderator",
+  "expert",
+  "pae_expert",
+  "tester",
+  "call_agent",
+  ...COORDINATOR_ROLES,
+] as const;
+
 export type CoordinatorRole = (typeof COORDINATOR_ROLES)[number];
 
 export const isCoordinatorRole = (
