@@ -14,6 +14,7 @@ import {
 import type { AuthError, AuthFormData, UseAuthFormReturn } from "../types";
 import { isDevelopment } from "@/shared/app";
 import { isCoordinatorRole } from "@/lib/roles";
+import { logout } from "@/lib/firebase";
 
 /**
  * Custom hook to manage the state and behavior of an Auth form
@@ -41,6 +42,7 @@ export const useAuthForm = (
   const [showConfirmPassword, setShowConfirmPassword] = useState(false); // confirm password visibility
   const [hasSubmitted, setHasSubmitted] = useState(false); // tracks if the form has been submitted
   const [isEmailSent, setIsEmailSent] = useState(false); // tracks if verification email was sent
+  const [showNotLinkedModal, setShowNotLinkedModal] = useState(false); // tracks if coordinator isn't linked
 
   const { setUser } = useAuthStore(); // global auth store
   const { mutateAsync: signupMutation } = useSignup(); // signup API hook
@@ -137,6 +139,14 @@ export const useAuthForm = (
       } else {
         // Login API
         result = await loginWithEmail(email, password);
+
+        // Check if user is a coordinator but not linked with web app
+        if (isCoordinatorRole(result?.appUser?.role) && result?.appUser?.linkedWithWebApp === false) {
+          setShowNotLinkedModal(true);
+          logout();
+          setIsLoading(false);
+          return;
+        }
       }
 
       // Save user info in global store
@@ -220,5 +230,7 @@ export const useAuthForm = (
     handleSubmit,
     hasSubmitted,
     isEmailSent,
+    showNotLinkedModal,
+    setShowNotLinkedModal,
   };
 };

@@ -32,9 +32,11 @@ export type UseAuthFormReturn = {
   };
   hasSubmitted: boolean;
   isEmailSent: boolean;
+  showNotLinkedModal: boolean;
 
   setShowPassword: Dispatch<SetStateAction<boolean>>;
   setShowConfirmPassword: Dispatch<SetStateAction<boolean>>;
+  setShowNotLinkedModal: Dispatch<SetStateAction<boolean>>;
 
   handleModeChange: (mode: "login" | "signup" | "forgot") => void;
   handleInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;

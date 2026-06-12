@@ -11,6 +11,7 @@ import { AuthFields } from "./AuthFields";
 import { PasswordStrength } from "./PasswordStrength";
 import { AuthModeSwitch } from "./AuthModeSwitch";
 import { AuthSubmitButton } from "./AuthSubmitButton";
+import { NotLinkedModal } from "./NotLinkedModal";
 import { Check, ArrowLeft } from "lucide-react";
 
 interface AuthFormProps extends ComponentProps<"div"> {
@@ -34,6 +35,8 @@ export const AuthForm = ({ mode: initialMode = "login" }: AuthFormProps) => {
     handleSubmit,
     hasSubmitted,
     isEmailSent,
+    showNotLinkedModal,
+    setShowNotLinkedModal,
   } = useAuthForm(initialMode);
 
   // Toggle visibility for password fields
@@ -52,6 +55,7 @@ export const AuthForm = ({ mode: initialMode = "login" }: AuthFormProps) => {
   };
 
   return (
+    <>
     <AuthLayout>
       <Card className="w-full max-w-md z-10">
         <AuthCardHeader mode={mode} /> {/* Header showing current mode */}
@@ -166,5 +170,11 @@ export const AuthForm = ({ mode: initialMode = "login" }: AuthFormProps) => {
         </CardContent>
       </Card>
     </AuthLayout>
+
+    <NotLinkedModal
+      open={showNotLinkedModal}
+      onOpenChange={setShowNotLinkedModal}
+    />
+    </>
   );
 };
