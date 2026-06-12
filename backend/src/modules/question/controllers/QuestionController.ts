@@ -1050,8 +1050,68 @@ export class QuestionController {
     if (!moderatorId) {
       throw new BadRequestError('moderatorId is required');
     }
-    await this.questionService.changeQuestionModerator(questionId, moderatorId);
-    return { success: true, message: 'Moderator updated successfully' };
+
+    let questionDetails: any;
+    let prevModerator: any;
+    let newModerator: any;
+    const moderatorLabel = (m: any) =>
+      m ? `${m.firstName ?? ''} ${m.lastName ?? ''}`.trim() + (m.email ? ` (${m.email})` : '') : null;
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.EXPERTS_CATEGORY,
+      action: AuditAction.SELECT_MODERATOR,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: { questionId },
+      changes: {},
+      outcome: { status: OutComeStatus.SUCCESS },
+    };
+
+    try {
+      questionDetails = await this.questionService.getQuestionDataById(questionId);
+      const prevModeratorId = (questionDetails as any)?.moderatorId?.toString();
+      [prevModerator, newModerator] = await Promise.all([
+        prevModeratorId ? this.userService.getUserById(prevModeratorId) : null,
+        this.userService.getUserById(moderatorId),
+      ]);
+
+      await this.questionService.changeQuestionModerator(questionId, moderatorId);
+
+      auditPayload = {
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: {
+          before: { moderator: moderatorLabel(prevModerator) ?? 'Unassigned' },
+          after: { moderator: moderatorLabel(newModerator) ?? moderatorId },
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return { success: true, message: 'Moderator updated successfully' };
+    } catch (err: any) {
+      auditPayload = {
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: {
+          before: { moderator: moderatorLabel(prevModerator) ?? 'Unassigned' },
+        },
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to change moderator',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      if (err instanceof InternalServerError) {
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(err?.message || 'Failed to change moderator');
+    }
   }
 
   @Post('/bulk-pae-allocate')
