@@ -245,7 +245,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                 <Button
                   size="sm"
                   disabled={isCheckingDuplicate}
-                  className="bg-green-600 hover:bg-green-700 text-white"
+                  className="bg-primary"
                   onClick={() =>
                     checkDuplicate(question._id!, {
                       onSuccess: (res) => {
