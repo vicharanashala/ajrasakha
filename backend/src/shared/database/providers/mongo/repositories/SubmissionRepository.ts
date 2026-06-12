@@ -166,9 +166,12 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
             queue: new ObjectId(expertId),
             history: { updatedBy: new ObjectId(expertId) },
           },
+          // Reset all time-bound tracking tied to the removed expert so they're fully
+          // freed from this question (clears the 45-min allocation/open clocks).
           $set: {
             reviewDelayNotificationSent: false,
             currentExpertAllocatedAt: null,
+            currentExpertOpenedAt: null,
           },
         },
         { session },

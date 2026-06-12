@@ -307,13 +307,19 @@ export class UserService extends BaseService {
   async blockUnblockExperts(userId: string, action: string) {
     return await this._withTransaction(async (session: ClientSession) => {
       if (action === 'block') {
-        const nonBlockedExpertsCount =
-          await this.userRepo.countNonBlockedExperts(session);
+        // The minimum-experts guard protects the EXPERT pool only. Blocking a
+        // moderator (e.g. moderator check-out, which toggles isBlocked) must not
+        // be subject to it.
+        const target = await this.userRepo.findById(userId, session);
+        if (target?.role !== 'moderator') {
+          const nonBlockedExpertsCount =
+            await this.userRepo.countNonBlockedExperts(session);
 
-        if (nonBlockedExpertsCount <= 10) {
-          throw new BadRequestError(
-            'Minimum 10 active experts required. Cannot block more experts.',
-          );
+          if (nonBlockedExpertsCount <= 10) {
+            throw new BadRequestError(
+              'Minimum 10 active experts required. Cannot block more experts.',
+            );
+          }
         }
       }
       return await this.userRepo.updateIsBlocked(userId, action, session);
@@ -683,10 +689,16 @@ export class UserService extends BaseService {
       if (!user) {
         throw new NotFoundError(`User with ID ${userId} not found`);
       }
-      // Only experts and moderators can be call agents
-      if (isCallAgent && user.role !== 'expert' && user.role !== 'moderator') {
+      // Only experts can be converted to call agents
+      if (isCallAgent && user.role !== 'expert') {
         throw new BadRequestError(
-          'Only experts and moderators can be set as call agents',
+          'Only experts can be set as call agents',
+        );
+      }
+      // When removing call agent status, user must be a call_agent
+      if (!isCallAgent && user.role !== ('call_agent' as any)) {
+        throw new BadRequestError(
+          'User is not a call agent',
         );
       }
       const res = await this.userRepo.setCallAgentStatus(
@@ -712,7 +724,7 @@ export class UserService extends BaseService {
         throw new NotFoundError(`User with ID ${userId} not found`);
       }
 
-      if (!user.isCallAgent) {
+      if (user.role !== ('call_agent' as any)) {
         throw new BadRequestError('User is not a call agent');
       }
       return await this.userRepo.toggleCallAgentActive(userId, session);

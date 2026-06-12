@@ -945,6 +945,11 @@ export class QuestionRepository implements IQuestionRepository {
       }
 
       if (search && search.trim() !== '') {
+        // Search spans ALL questions regardless of status/source — drop those filters
+        // so a matching question surfaces no matter which tab/status it's in.
+        delete filter.status;
+        delete filter.source;
+
         // Escape special regex characters so literal strings like "How to control weeds?"
         // are matched as-is rather than being interpreted as regex patterns.
         const escapedSearch = escapeRegex(search.trim());
@@ -953,6 +958,7 @@ export class QuestionRepository implements IQuestionRepository {
           {'details.crop': {$regex: escapedSearch, $options: 'i'}},
           {'details.state': {$regex: escapedSearch, $options: 'i'}},
           {'details.domain': {$regex: escapedSearch, $options: 'i'}},
+          {threadId: {$regex: escapedSearch, $options: 'i'}},
           {
             $expr: {
               $regexMatch: {
@@ -6468,13 +6474,13 @@ export class QuestionRepository implements IQuestionRepository {
       isAutoAllocate: {$eq: true},
      // firstAllocationAt: {$exists: true, $ne: null},
       status: {$in: ['open', 'delayed']},
-      ...dateScope,
+    //  ...dateScope,
     };
     const autoOffMatch = {
       source: {$in: ['AJRASAKHA', 'WHATSAPP']},
       isAutoAllocate: {$eq: true},
       status: {$in: ['open', 'delayed']},
-      ...dateScope,
+    //  ...dateScope,
     };
 
     const lookupStages = [
@@ -6507,14 +6513,16 @@ export class QuestionRepository implements IQuestionRepository {
 
     if (kind === 'allocated') {
       // Allocated & pending: the question is open/delayed and assigned
-      // (firstAllocationAt set), and the CURRENT expert hasn't acted yet — i.e. the
-      // latest history entry carries none of answer / approvedAnswer / modifiedAnswer
-      // / rejectedAnswer (typically a fresh 'in-review' entry). Earlier entries from
-      // prior reviewers may well have answers; only the last entry is checked. An
-      // empty history (just allocated, no entry yet) also qualifies.
+      // (firstAllocationAt set), the submission has at least one history entry
+      // (history.length >= 1 — excludes freshly-allocated "awaiting reviewer
+      // assignment" docs with no entry yet), and the CURRENT expert hasn't acted yet —
+      // i.e. the latest history entry carries none of answer / approvedAnswer /
+      // modifiedAnswer / rejectedAnswer (typically a fresh 'in-review' entry). Earlier
+      // entries from prior reviewers may well have answers; only the last entry checked.
       const base: any[] = [
         {$match: allocatedMatch},
         ...lookupStages,
+        {$match: {'sub.queue.0': {$exists: true}}},
         {$addFields: {lastHistory: {$arrayElemAt: [{$ifNull: ['$sub.history', []]}, -1]}}},
         {
           $match: {
