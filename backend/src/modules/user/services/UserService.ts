@@ -692,10 +692,16 @@ export class UserService extends BaseService {
       if (!user) {
         throw new NotFoundError(`User with ID ${userId} not found`);
       }
-      // Only experts and moderators can be call agents
-      if (isCallAgent && user.role !== 'expert' && user.role !== 'moderator') {
+      // Only experts can be converted to call agents
+      if (isCallAgent && user.role !== 'expert') {
         throw new BadRequestError(
-          'Only experts and moderators can be set as call agents',
+          'Only experts can be set as call agents',
+        );
+      }
+      // When removing call agent status, user must be a call_agent
+      if (!isCallAgent && user.role !== ('call_agent' as any)) {
+        throw new BadRequestError(
+          'User is not a call agent',
         );
       }
       const res = await this.userRepo.setCallAgentStatus(
@@ -721,7 +727,7 @@ export class UserService extends BaseService {
         throw new NotFoundError(`User with ID ${userId} not found`);
       }
 
-      if (!user.isCallAgent) {
+      if (user.role !== ('call_agent' as any)) {
         throw new BadRequestError('User is not a call agent');
       }
       return await this.userRepo.toggleCallAgentActive(userId, session);

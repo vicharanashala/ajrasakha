@@ -1,6 +1,6 @@
 import {ObjectId} from 'mongodb';
 
-export type UserRole = 'admin' | 'moderator' | 'expert' | 'pae_expert' | 'tester'| 'district_coordinator' | 'block_coordinator' | 'village_volunteer';
+export type UserRole = 'admin' | 'moderator' | 'expert' | 'pae_expert' | 'tester'| 'district_coordinator' | 'block_coordinator' | 'village_volunteer' | 'call_agent';
 export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold' | 'pae_submitted' | 'draft' | 'pass' | 'duplicate' | 'non_agri' | 'pending';
 export interface IPreference {
   state: string;
@@ -33,7 +33,6 @@ export interface IUser {
   mobile?: string;
   university?: string;
   isVerified?: boolean;
-  isCallAgent?: boolean;
   isCallAgentActive?: boolean;
   /** The question currently assigned to this moderator for review.
    *  Set by the moderator-queue cron; cleared when the moderator closes the question. */
