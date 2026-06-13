@@ -6556,21 +6556,21 @@ export class QuestionRepository implements IQuestionRepository {
      // isAutoAllocate: true,
     //  status: {$in: ['open', 'delayed', 'duplicate']},
       ...dateScope,
-       pae_review:{$exist:false,$eq:false}
+       pae_review:{$ne:true}
 
     };
     const allocatedMatch = {
       ...this.timeBoundSourceMatch(true, category),
      // firstAllocationAt: {$exists: true, $ne: null},
       status: {$in: ['open', 'delayed']},
-       pae_review:{$exist:false,$eq:false}
+       pae_review:{$ne:true}
 
       // ...dateScope,
     };
     const autoOffMatch = {
       ...this.timeBoundSourceMatch(true, category),
       status: {$in: ['open', 'delayed']},
-      pae_review:{$exist:false,$eq:false}
+    pae_review:{$ne:true}
 
     //  ...dateScope,
     };
