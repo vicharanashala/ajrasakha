@@ -370,7 +370,7 @@ export function AnnamDashboard_dev({
                     <ClosedQuestionsCard
                       closedQuestions={questionStatusData?.closedVsTotalQuestions?.closedQuestions}
                       totalQuestions={questionStatusData?.closedVsTotalQuestions?.totalQuestions}
-                      inReview={questionStatusData?.closedVsTotalQuestions?.inReviewQuestions}
+                      passedQuestions={questionStatusData?.closedVsTotalQuestions?.pass}
                       dateRange={questionStatusDateRange}
                       onDateRangeChange={setQuestionStatusDateRange}
                       isLoading={false}
