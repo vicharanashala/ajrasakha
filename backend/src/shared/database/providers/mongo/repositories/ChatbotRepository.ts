@@ -497,6 +497,7 @@ export class ChatbotRepository implements IChatbotRepository {
   ): Promise<{
     questionAsked: number;
     closedQuestionsCount: number;
+    passedQuestionsCount: number;
     answeredWithin120Min: number;
     averageResponseMinutes: number;
     inReviewCount: number;
@@ -535,6 +536,71 @@ export class ChatbotRepository implements IChatbotRepository {
     const result = await this.QuestionCollection.aggregate(
       [
         {$match: matchQuery},
+        {
+          $addFields: {
+            _statusLower: {$toLower: {$ifNull: ['$status', '']}},
+            _isGdbDuplicate: {
+              $and: [
+                {$eq: [{$toLower: {$ifNull: ['$status', '']}}, 'duplicate']},
+                {
+                  $regexMatch: {
+                    input: {$ifNull: ['$referenceSource', '']},
+                    regex: '^golden$',
+                    options: 'i',
+                  },
+                },
+              ],
+            },
+            _isDynamicCategory: {
+              $regexMatch: {
+                input: {
+                  $concat: [
+                    {$ifNull: ['$details.domain', '']},
+                    ' ',
+                    {$ifNull: ['$details.category', '']},
+                    ' ',
+                    {$ifNull: ['$question', '']},
+                  ],
+                },
+                regex: '(weather|market|scheme|schemes)',
+                options: 'i',
+              },
+            },
+          },
+        },
+        {
+          $addFields: {
+            _isPassed: {$eq: ['$_statusLower', 'pass']},
+            _operationalCompletionAt: {
+              $switch: {
+                branches: [
+                  {
+                    case: {$eq: ['$_statusLower', 'pass']},
+                    then: '$passedAt',
+                  },
+                  {
+                    case: '$_isGdbDuplicate',
+                    then: '$passedAt',
+                  },
+                  {
+                    case: {
+                      $and: [
+                        '$_isDynamicCategory',
+                        {$ne: [{$ifNull: ['$passedAt', null]}, null]},
+                      ],
+                    },
+                    then: '$passedAt',
+                  },
+                  {
+                    case: {$eq: ['$_statusLower', 'closed']},
+                    then: '$closedAt',
+                  },
+                ],
+                default: null,
+              },
+            },
+          },
+        },
         // ...userTypeLookupStages,
         // ...userTypeLookupStages,
         {
@@ -543,7 +609,18 @@ export class ChatbotRepository implements IChatbotRepository {
             closedQuestions: [
               {
                 $match: {
-                  status: 'closed',
+                  $or: [
+                    {_statusLower: 'closed'},
+                    {_isPassed: true},
+                  ],
+                },
+              },
+              {$count: 'count'},
+            ],
+            passedQuestions: [
+              {
+                $match: {
+                  _isPassed: true,
                 },
               },
               {$count: 'count'},
@@ -551,19 +628,22 @@ export class ChatbotRepository implements IChatbotRepository {
             answeredWithin120Min: [
               {
                 $match: {
-                  status: 'closed',
-                  closedAt: {$exists: true},
-                  totalAnswersCount: {$gt: 0},
+                  _operationalCompletionAt: {$ne: null},
                 },
               },
               {
                 $match: {
                   $expr: {
                     $and: [
-                      {$gte: ['$closedAt', '$createdAt']},
+                      {$gte: ['$_operationalCompletionAt', '$createdAt']},
                       {
                         $lte: [
-                          {$subtract: ['$closedAt', '$createdAt']},
+                          {
+                            $subtract: [
+                              '$_operationalCompletionAt',
+                              '$createdAt',
+                            ],
+                          },
                           120 * 60 * 1000,
                         ],
                       },
@@ -576,19 +656,21 @@ export class ChatbotRepository implements IChatbotRepository {
             averageResponse: [
               {
                 $match: {
-                  status: 'closed',
-                  closedAt: {$exists: true},
-                  totalAnswersCount: {$gt: 0},
+                  _operationalCompletionAt: {$ne: null},
                 },
               },
-              {$match: {$expr: {$gte: ['$closedAt', '$createdAt']}}},
+              {
+                $match: {
+                  $expr: {$gte: ['$_operationalCompletionAt', '$createdAt']},
+                },
+              },
               {
                 $group: {
                   _id: null,
                   avgMinutes: {
                     $avg: {
                       $divide: [
-                        {$subtract: ['$closedAt', '$createdAt']},
+                        {$subtract: ['$_operationalCompletionAt', '$createdAt']},
                         60 * 1000,
                       ],
                     },
@@ -602,8 +684,7 @@ export class ChatbotRepository implements IChatbotRepository {
             markedDuplicateGdb: [
               {
                 $match: {
-                  status: 'duplicate',
-                  referenceSource: {$regex: '^golden$', $options: 'i'},
+                  _isGdbDuplicate: true,
                 },
               },
               {$count: 'count'},
@@ -618,6 +699,7 @@ export class ChatbotRepository implements IChatbotRepository {
     return {
       questionAsked: row.questionAsked?.[0]?.count ?? 0,
       closedQuestionsCount: row.closedQuestions?.[0]?.count ?? 0,
+      passedQuestionsCount: row.passedQuestions?.[0]?.count ?? 0,
       answeredWithin120Min: row.answeredWithin120Min?.[0]?.count ?? 0,
       averageResponseMinutes: row.averageResponse?.[0]?.avgMinutes ?? 0,
       inReviewCount: row.inReview?.[0]?.count ?? 0,
@@ -838,6 +920,8 @@ export class ChatbotRepository implements IChatbotRepository {
         ajrasakhaPushedToReviewer: ajrasakha.questionAsked,
         whatsappAnsweredWithin120Min: whatsapp.answeredWithin120Min,
         ajrasakhaAnsweredWithin120Min: ajrasakha.answeredWithin120Min,
+        whatsappPassedQuestions: whatsapp.passedQuestionsCount,
+        ajrasakhaPassedQuestions: ajrasakha.passedQuestionsCount,
         whatsappMarkedDuplicate: whatsapp.markedDuplicateGdbCount,
         ajrasakhaMarkedDuplicate: ajrasakha.markedDuplicateGdbCount,
         whatsappDynamicWeather,
@@ -9773,21 +9857,63 @@ const totalPages =
 
       const avgCloseTimeStages = [
         {
+          $addFields: {
+            _statusLower: {$toLower: {$ifNull: ['$status', '']}},
+            _operationalCompletionAt: {
+              $cond: [
+                {
+                  $in: [
+                    {$toLower: {$ifNull: ['$status', '']}},
+                    ['pass'],
+                  ],
+                },
+                '$passedAt',
+                '$closedAt',
+              ],
+            },
+          },
+        },
+        {
           $group: {
             _id: null,
             totalQuestions: {$sum: 1},
+            completedQuestions: {
+              $sum: {
+                $cond: [
+                  {$in: ['$_statusLower', ['closed', 'pass']]},
+                  1,
+                  0,
+                ],
+              },
+            },
+            timedCompletedQuestions: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$in: ['$_statusLower', ['closed', 'pass']]},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$_operationalCompletionAt', null]},
+                      {$gte: ['$_operationalCompletionAt', '$createdAt']},
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
             closeTimeSumMs: {
               $sum: {
                 $cond: [
                   {
                     $and: [
-                      {$eq: ['$status', 'closed']},
+                      {$in: ['$_statusLower', ['closed', 'pass']]},
                       {$ne: ['$createdAt', null]},
-                      {$ne: ['$closedAt', null]},
-                      {$gte: ['$closedAt', '$createdAt']},
+                      {$ne: ['$_operationalCompletionAt', null]},
+                      {$gte: ['$_operationalCompletionAt', '$createdAt']},
                     ],
                   },
-                  {$subtract: ['$closedAt', '$createdAt']},
+                  {$subtract: ['$_operationalCompletionAt', '$createdAt']},
                   0,
                 ],
               },
@@ -9799,13 +9925,13 @@ const totalPages =
             _id: 0,
             avgCloseTimeMinutes: {
               $cond: [
-                {$gt: ['$totalQuestions', 0]},
+                {$gt: ['$timedCompletedQuestions', 0]},
                 {
                   $round: [
                     {
                       $divide: [
                         '$closeTimeSumMs',
-                        {$multiply: ['$totalQuestions', 60000]},
+                        {$multiply: ['$timedCompletedQuestions', 60000]},
                       ],
                     },
                     2,
@@ -9824,12 +9950,33 @@ const totalPages =
             $match: matchStage,
           },
           {
+            $addFields: {
+              _statusLower: {$toLower: {$ifNull: ['$status', '']}},
+              _operationalCompletionAt: {
+                $cond: [
+                  {
+                    $in: [
+                      {$toLower: {$ifNull: ['$status', '']}},
+                      ['pass'],
+                    ],
+                  },
+                  '$passedAt',
+                  '$closedAt',
+                ],
+              },
+            },
+          },
+          {
             $group: {
               _id: null,
               totalQuestions: {$sum: 1},
               closedQuestions: {
                 $sum: {
-                  $cond: [{$eq: ['$status', 'closed']}, 1, 0],
+                  $cond: [
+                    {$in: ['$_statusLower', ['closed', 'pass']]},
+                    1,
+                    0,
+                  ],
                 },
               },
               inReviewQuestions: {
@@ -9882,7 +10029,7 @@ const totalPages =
 
               pass: {
                 $sum: {
-                  $cond: [{$eq: ['$status', 'pass']}, 1, 0],
+                  $cond: [{$eq: ['$_statusLower', 'pass']}, 1, 0],
                 },
               },
 
@@ -9902,13 +10049,29 @@ const totalPages =
                   $cond: [
                     {
                       $and: [
-                        {$eq: ['$status', 'closed']},
+                        {$in: ['$_statusLower', ['closed', 'pass']]},
                         {$ne: ['$createdAt', null]},
-                        {$ne: ['$closedAt', null]},
-                        {$gte: ['$closedAt', '$createdAt']},
+                        {$ne: ['$_operationalCompletionAt', null]},
+                        {$gte: ['$_operationalCompletionAt', '$createdAt']},
                       ],
                     },
-                    {$subtract: ['$closedAt', '$createdAt']},
+                    {$subtract: ['$_operationalCompletionAt', '$createdAt']},
+                    0,
+                  ],
+                },
+              },
+              timedCompletedQuestions: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        {$in: ['$_statusLower', ['closed', 'pass']]},
+                        {$ne: ['$createdAt', null]},
+                        {$ne: ['$_operationalCompletionAt', null]},
+                        {$gte: ['$_operationalCompletionAt', '$createdAt']},
+                      ],
+                    },
+                    1,
                     0,
                   ],
                 },
@@ -9934,13 +10097,13 @@ const totalPages =
               nonAgri: 1,
               avgCloseTimeMinutes: {
                 $cond: [
-                  {$gt: ['$totalQuestions', 0]},
+                  {$gt: ['$timedCompletedQuestions', 0]},
                   {
                     $round: [
                       {
                         $divide: [
                           '$closeTimeSumMs',
-                          {$multiply: ['$totalQuestions', 60000]},
+                          {$multiply: ['$timedCompletedQuestions', 60000]},
                         ],
                       },
                       2,
@@ -10094,16 +10257,12 @@ const totalPages =
         source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
 
       const matchStage: any = {
-        status: 'closed',
         source: finalSource,
         $and: [
           {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         ],
-        $expr: {
-          $lte: [{$subtract: ['$closedAt', '$createdAt']}, 2 * 60 * 60 * 1000],
-        },
       };
 
       if (startDate || endDate) {
@@ -10120,7 +10279,45 @@ const totalPages =
         matchStage.$and.push(query);
       }
 
-      const count = await this.QuestionCollection.countDocuments(matchStage);
+      const result = await this.QuestionCollection.aggregate([
+        {$match: matchStage},
+        {
+          $addFields: {
+            _statusLower: {$toLower: {$ifNull: ['$status', '']}},
+            _operationalCompletionAt: {
+              $cond: [
+                {
+                  $in: [
+                    {$toLower: {$ifNull: ['$status', '']}},
+                    ['pass'],
+                  ],
+                },
+                '$passedAt',
+                '$closedAt',
+              ],
+            },
+          },
+        },
+        {
+          $match: {
+            _statusLower: {$in: ['closed', 'pass']},
+            _operationalCompletionAt: {$ne: null},
+            $expr: {
+              $and: [
+                {$gte: ['$_operationalCompletionAt', '$createdAt']},
+                {
+                  $lte: [
+                    {$subtract: ['$_operationalCompletionAt', '$createdAt']},
+                    2 * 60 * 60 * 1000,
+                  ],
+                },
+              ],
+            },
+          },
+        },
+        {$count: 'count'},
+      ]).toArray();
+      const count = result[0]?.count ?? 0;
       return count;
     } catch (error) {
       throw new InternalServerError(
@@ -11801,16 +11998,6 @@ const totalPages =
 
     const matchQuery: any = {
       source: sourceType,
-      status: 'closed',
-
-      $expr: {
-        $lte: [
-          {
-            $subtract: ['$closedAt', '$createdAt'],
-          },
-          2 * 60 * 60 * 1000,
-        ],
-      },
       $and: [
         {
           $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
@@ -11892,6 +12079,35 @@ const totalPages =
         $match: matchQuery,
       },
       {
+        $addFields: {
+          _statusLower: {$toLower: {$ifNull: ['$status', '']}},
+          _operationalCompletionAt: {
+            $cond: [
+              {$eq: [{$toLower: {$ifNull: ['$status', '']}}, 'pass']},
+              '$passedAt',
+              '$closedAt',
+            ],
+          },
+        },
+      },
+      {
+        $match: {
+          _statusLower: {$in: ['closed', 'pass']},
+          _operationalCompletionAt: {$ne: null},
+          $expr: {
+            $and: [
+              {$gte: ['$_operationalCompletionAt', '$createdAt']},
+              {
+                $lte: [
+                  {$subtract: ['$_operationalCompletionAt', '$createdAt']},
+                  2 * 60 * 60 * 1000,
+                ],
+              },
+            ],
+          },
+        },
+      },
+      {
         $sort: {
           createdAt: -1,
         },
@@ -11915,6 +12131,7 @@ const totalPages =
                 status: 1,
                 createdAt: 1,
                 closedAt: 1,
+                passedAt: 1,
                 district: '$details.district',
                 crop: '$details.crop',
                 village: '$details.village',

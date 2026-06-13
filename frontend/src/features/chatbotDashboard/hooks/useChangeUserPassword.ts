@@ -1,12 +1,17 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/hooks/api/api-fetch";
 import { env } from "@/config/env";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 
 export function useChangeUserPassword() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    onMutate: ()=>{
+      const toastId = toast.loading('changing password...')
+
+      return {toastId}
+    },
     mutationFn: async ({
       userId,
       source,
@@ -32,11 +37,13 @@ export function useChangeUserPassword() {
 
       return result;
     },
-    onSuccess: () => {
+    onSuccess: (_,__,context) => {
       queryClient.invalidateQueries({ queryKey: ["user-details"] });
+      if (context?.toastId)toast.dismiss(context.toastId)
       toast.success("Password changed successfully");
     },
-    onError: (error: any) => {
+    onError: (error: any,_,context) => {
+      if (context?.toastId)toast.dismiss(context.toastId)
       toast.error(error?.message || "Failed to change password");
     },
   });

@@ -2214,6 +2214,21 @@ export class QuestionRepository implements IQuestionRepository {
         updates.closedAt = new Date(updates.closedAt);
       }
 
+      const nextStatus = String((updates as any).status ?? '').toLowerCase();
+      const isPassStatus = nextStatus === 'pass';
+      if (isPassStatus) {
+        const existingQuestion = await this.QuestionCollection.findOne(
+          {_id: new ObjectId(questionId)},
+          {projection: {passedAt: 1}, session},
+        );
+        updates.isClosed = true;
+        if (!existingQuestion?.passedAt) {
+          updates.passedAt = new Date();
+        } else {
+          delete (updates as any).passedAt;
+        }
+      }
+
       if (updates.referenceQuestionId) {
         const rid = updates.referenceQuestionId as any;
         if (rid instanceof ObjectId) {
@@ -2458,6 +2473,17 @@ export class QuestionRepository implements IQuestionRepository {
   ): Promise<void> {
     await this.init();
     const update: any = {status, updatedAt: new Date()};
+    const nextStatus = String(status).toLowerCase();
+    if (nextStatus === 'pass') {
+      update.isClosed = true;
+      const existingQuestion = await this.QuestionCollection.findOne(
+        {_id: new ObjectId(id)},
+        {projection: {passedAt: 1}, session},
+      );
+      if (!existingQuestion?.passedAt) {
+        update.passedAt = update.updatedAt;
+      }
+    }
     if (errorMessage) update.errorMessage = errorMessage;
     await this.QuestionCollection.updateOne(
       {_id: new ObjectId(id)},
@@ -3061,7 +3087,7 @@ export class QuestionRepository implements IQuestionRepository {
 
       return [
         {status: 'open', count: getCount('open')},
-        {status: 'passed', count: getCount('pass')},
+        {status: 'pass', count: getCount('pass')},
         {status: 'delayed', count: getCount('delayed')},
       ];
     };

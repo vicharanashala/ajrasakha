@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import type { IUser } from "@/types";
 import { Button } from "./atoms/button";
-import { toast } from "sonner";
 import { Search, Plus, Trash2, ToggleLeft, ToggleRight, Check, X } from "lucide-react";
 import { Input } from "./atoms/input";
 import { UserService } from "@/hooks/services/userService";
+import { toast } from "@/shared/components/toast";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { env } from "@/config/env";
 
@@ -51,11 +51,15 @@ export const ManageCallAgents = () => {
   };
 
   const handleToggleActive = async (userId: string) => {
+    let toastId;
     try {
+      toastId = toast.loading('action in progress....')
       await userService.toggleCallAgentActive(userId);
+      toast.dismiss(toastId)
       toast.success("Call agent status toggled successfully");
       fetchCallAgents();
     } catch (error: any) {
+      toast.dismiss(toastId)
       toast.error(error.message || "Failed to toggle call agent status");
     }
   };
@@ -64,12 +68,15 @@ export const ManageCallAgents = () => {
     if (!confirm("Are you sure you want to remove this user as a call agent?")) {
       return;
     }
-
+    let toastId;
     try {
+      toastId = toast.loading('removing call agent...')
       await userService.setCallAgentStatus(userId, false, false);
+      toast.dismiss(toastId)
       toast.success("Call agent removed successfully");
       fetchCallAgents();
     } catch (error: any) {
+      toast.dismiss(toastId)
       toast.error(error.message || "Failed to remove call agent");
     }
   };
@@ -83,16 +90,19 @@ export const ManageCallAgents = () => {
       toast.error("Please select a user to add as a call agent");
       return;
     }
-
+    let toastId;
     try {
+      toastId = toast.loading('adding call agent...')
       setAddingAgents(true);
       await userService.setCallAgentStatus(selectedUserId, true, false);
+      toast.dismiss(toastId)
       toast.success("Call agent added successfully");
 
       setSelectedUserId(null);
       setShowAddModal(false);
       fetchCallAgents();
     } catch (error: any) {
+      toast.dismiss(toastId)
       toast.error(error.message || "Failed to add call agent");
     } finally {
       setAddingAgents(false);
