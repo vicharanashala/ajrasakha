@@ -87,6 +87,22 @@ def extract_state_from_text(text: str) -> Optional[str]:
     return None
 
 
+def normalize_state_name(state: str | None) -> Optional[str]:
+    """Map a state string to the canonical Indian state name, if recognized."""
+    if not state:
+        return None
+    cleaned = " ".join(str(state).strip().split())
+    if not cleaned or cleaned.lower() in _PLACEHOLDER_LOCATION_VALUES:
+        return None
+    for name, _pattern in _STATE_PATTERNS:
+        if cleaned.lower() == name.lower():
+            return name
+    from_text = extract_state_from_text(cleaned)
+    if from_text:
+        return from_text
+    return cleaned.title()
+
+
 def _message_to_text(message: BaseMessage) -> str:
     content = message.content
     if content is None:

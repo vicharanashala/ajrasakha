@@ -5,6 +5,7 @@ Never passed through the translate LLM; keyed by (script_language, vocal_languag
 
 from __future__ import annotations
 
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from ajrasakha.agents.retrieval_sanitizer import gdb_has_usable_answers
@@ -13,6 +14,42 @@ from ajrasakha.agents.translation_catalog import (
     get_two_hour_disclaimer,
     synthesis_lang_label,
 )
+
+# IST timezone (UTC+5:30)
+IST = timezone(timedelta(hours=5, minutes=30))
+
+# Hardcoded time-based disclaimers (English only)
+_DISCLAIMER_LATE_NIGHT = (
+    "Your question has been forwarded to our agri expert. "
+    "You will receive a response by tomorrow, 8:00 AM."
+)
+
+_DISCLAIMER_VERY_EARLY_MORNING = (
+    "Your question has been forwarded to our agri expert. "
+    "You will receive a response by today, 8:00 AM."
+)
+
+
+def get_time_aware_expert_disclaimer(script_language: str, vocal_language: str) -> str:
+    """Return the appropriate expert queue disclaimer based on current IST time.
+
+    - 10:01 PM - 11:59 PM (hour 22-23): response by tomorrow 8:00 AM
+    - 12:00 AM - 5:59 AM (hour 0-5): response by today 8:00 AM
+    - Otherwise: use the sheet-localized 2-hour disclaimer
+    """
+    now_ist = datetime.now(IST)
+    hour = now_ist.hour
+
+    # Scenario 1: 10:01 PM - 11:59 PM (hours 22-23)
+    if 22 <= hour <= 23:
+        return _DISCLAIMER_LATE_NIGHT
+
+    # Scenario 2: 12:00 AM - 5:59 AM (hours 0-5)
+    if 0 <= hour <= 5:
+        return _DISCLAIMER_VERY_EARLY_MORNING
+
+    # Default: use sheet-localized 2-hour disclaimer
+    return get_two_hour_disclaimer(script_language, vocal_language)
 
 
 SOURCES_HEADER_EN = "📚 Sources:"
@@ -128,8 +165,14 @@ def collect_all_sources(gdb_data: dict) -> str:
 
 
 def build_expert_queue_content(script_language: str, vocal_language: str) -> str:
-    """Sheet-localized 2-hour expert-queue text + testing disclaimer (no LLM)."""
-    body = get_two_hour_disclaimer(script_language, vocal_language)
+    """Time-aware expert-queue text + testing disclaimer (no LLM).
+
+    Uses conditional disclaimer based on current IST time:
+    - 10:01 PM - 11:59 PM: response by tomorrow 8:00 AM
+    - 12:00 AM - 5:59 AM: response by today 8:00 AM
+    - Otherwise: sheet-localized 2-hour disclaimer
+    """
+    body = get_time_aware_expert_disclaimer(script_language, vocal_language)
     testing = get_testing_disclaimer(script_language, vocal_language)
     return f"{body}\n\n{testing}"
 

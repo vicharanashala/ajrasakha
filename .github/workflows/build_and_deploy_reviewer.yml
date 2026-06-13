@@ -11,9 +11,6 @@
 #   VITE_FIREBASE_APP_ID
 #   VITE_SARVAM_API_KEY
 #   VITE_VAPID_PUBLIC_KEY
-#   VITE_PLIVO_ENDPOINT_USERNAME
-#   VITE_PLIVO_ENDPOINT_PASSWORD
-#   VITE_PLIVO_STREAM_URL
 #
 # Optional repository secrets:
 #   VITE_FIREBASE_MEASUREMENT_ID
@@ -22,7 +19,7 @@
 #   VITE_API_BASE_URL          (default: /api)
 #   VITE_ENABLE_MOCKS            (default: false)
 
-name: Dockerhub Reviewer App Deployment
+name: Reviewer App Deployment
 
 on:
   workflow_dispatch:
@@ -141,7 +138,42 @@ jobs:
             VITE_FIREBASE_MEASUREMENT_ID=${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
             VITE_SARVAM_API_KEY=${{ secrets.VITE_SARVAM_API_KEY }}
             VITE_VAPID_PUBLIC_KEY=${{ secrets.VITE_VAPID_PUBLIC_KEY }}
-            VITE_PLIVO_STREAM_URL=${{secrets.VITE_PLIVO_STREAM_URL}}
-            VITE_PLIVO_ENDPOINT_USERNAME=${{secrets.VITE_PLIVO_ENDPOINT_USERNAME}}
-            VITE_PLIVO_ENDPOINT_PASSWORD=${{secrets.VITE_PLIVO_ENDPOINT_PASSWORD}}
-            VITE_CALL_AGENT_MANAGER_USER_IDS=${{secrets.VITE_CALL_AGENT_MANAGER_USER_IDS}}
+
+  deploy:
+    name: Deploy to VM
+    needs: build-and-push
+    runs-on: ubuntu-latest
+  
+    steps:
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TS_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_CLIENT_SECRET }}
+          tags: tag:ci-cd
+  
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
+  
+      - name: Deploy via Docker Compose on VM
+        run: |
+          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} << 'EOF'
+            set -e
+  
+            cd /opt/reviewer
+  
+            echo "Pulling latest images..."
+            docker compose pull
+  
+            echo "Restarting stack..."
+            docker compose up -d --remove-orphans
+  
+            echo "Cleaning unused images..."
+            docker image prune -f
+  
+            echo "Deployment completed successfully"
+          EOF
