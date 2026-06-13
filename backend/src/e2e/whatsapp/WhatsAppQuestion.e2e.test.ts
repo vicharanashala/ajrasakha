@@ -160,6 +160,38 @@ async function waitForQuestion(
   );
 }
 
+// Drains the background pipeline's FINAL step (moderator notifications) before
+// teardown. processQuestionInBackground sets status='open' and THEN writes
+// notifications in the same async chain (QuestionService.ts:1555-1576); the
+// duplicate / non_agri / isTesting branches return BEFORE that block, so only
+// 'open' questions notify. Most open-path tests assert as soon as status flips
+// to 'open' and return, leaving that write in flight. It then races afterAll's
+// db.disconnect() and logs a swallowed "Cannot read properties of null
+// (reading 'collection')". Waiting here (before the deletes, so a late write
+// can't orphan a notification row) makes teardown deterministic.
+async function drainOpenQuestionNotifications(
+  questionIds: string[],
+  { timeoutMs = 5000, intervalMs = 300 } = {},
+): Promise<void> {
+  const [questions, notifications] = await Promise.all([
+    db.getCollection('questions'),
+    db.getCollection('notifications'),
+  ]);
+  for (const id of questionIds) {
+    const q = await questions.findOne({ _id: new ObjectId(id) });
+    if (q?.status !== 'open') continue; // only 'open' questions reach the notify step
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const notif = await notifications.findOne({
+        enitity_id: new ObjectId(id),
+        type: 'question_from_whatsapp',
+      });
+      if (notif) break;
+      await sleep(intervalMs);
+    }
+  }
+}
+
 beforeAll(async () => {
   // Warm-up: AnswerService imports CORE_TYPES from the core *barrel*
   // (#root/modules/core/index.js), which re-exports CORE_TYPES only on its last
@@ -240,6 +272,10 @@ afterEach(() => {
 afterAll(async () => {
   // Remove everything this run wrote to the real DB.
   if (db && createdQuestionIds.length) {
+    // Let any in-flight background notification writes finish before we delete
+    // and disconnect, so they don't race the disconnect or orphan a row.
+    await drainOpenQuestionNotifications(createdQuestionIds);
+
     const oids = createdQuestionIds.map(id => new ObjectId(id));
     const [questions, submissions, notifications, duplicates] = await Promise.all([
       db.getCollection('questions'),
@@ -458,7 +494,11 @@ describe('WhatsApp ingestion — question NOT FOUND (common pipeline -> open)', 
 
     expect(doc.source).toBe('WHATSAPP');
     expect(doc.priority).toBe('high'); // forced for time-bound sources
-    expect(doc.isAutoAllocate).toBe(false); // not auto-allocated on ingestion
+    // isAutoAllocate is false at ingestion (line 1336) but flipped to true when
+    // the background pipeline drives the question to 'open' (QuestionService.ts:1545,
+    // commit 03c55740 "Added auto allocation on for open questions"). Allocation
+    // itself still happens later via the time-bound cron, not at ingestion.
+    expect(doc.isAutoAllocate).toBe(true); // auto-allocate enabled on 'open'
     expect(dummyAi.searchGdb).toHaveBeenCalled();
     expect(checkConceptDuplicateMock).toHaveBeenCalled();
 

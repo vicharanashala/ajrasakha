@@ -18,6 +18,12 @@ function buildMocks() {
       getAnswerByQuestionDetails: vi.fn(),
       fetchWhatsAppMessage: vi.fn(),
     },
+    mockAccAgentService: {
+      createThread: vi.fn(),
+      extractData: vi.fn(),
+      updateState: vi.fn(),
+      resumeAndGetAnswer: vi.fn(),
+    },
     mockContextRepo: {
       addContext: vi.fn(),
     },
@@ -122,6 +128,7 @@ function buildMocks() {
 function buildService(mocks: ReturnType<typeof buildMocks>): QuestionService {
   return new QuestionService(
     mocks.mockAiService as any,
+    mocks.mockAccAgentService as any,
     mocks.mockContextRepo as any,
     mocks.mockQuestionRepo as any,
     mocks.mockUserRepo as any,
