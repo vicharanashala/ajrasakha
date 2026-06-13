@@ -98,7 +98,7 @@ export const QuestionDetails = ({
 
   const { mutate: generateAIAnswer, isPending: isGeneratingAI } =
     useGenerateInitialAnswer(currentUser._id?.toString());
-  const submissionExists = question.submission.history.length > 0 || false;
+  const submissionExists = question?.submission?.queue?.length > 0 || false;
 
   const handleGenerateAI = () => {
     if (!question?._id) return;
