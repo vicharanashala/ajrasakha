@@ -17,12 +17,12 @@ import {
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import { useBulkDeleteQuestions } from "@/hooks/api/question/useBulkDeleteQuestions";
 import { useBulkAllocatePaeExperts } from "@/hooks/api/question/useBulkAllocatePaeExperts";
-import { toast } from "sonner";
 import Spinner from "./atoms/spinner";
 import { ReviewLevelsTable } from "@/features/questions/components/review-level/ReviewLevelsTable";
 import { useGetQuestionsAndLevel } from "@/features/questions/hooks/useGetQuestionsAndLevel";
 import { mapReviewQuestionToRow } from "@/features/questions/utils/mapReviewLevel";
 import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
+import { useToast } from "@/shared/components/toast";
 
 export const QuestionsPage = ({
   currentUser,
@@ -38,6 +38,8 @@ export const QuestionsPage = ({
     setSelectedCommentId: setRouteCommentId,
     setSelectedQuestionType,
   } = useSelectedQuestion();
+
+  const { success: toastSuccess, error: toastError, loading:toastLoading, dismiss: toastDismiss} = useToast();
 
   const getInitialSource = (): QuestionSourceFilter => {
     const sourceFromUrl = new URLSearchParams(window.location.search).get(
@@ -466,7 +468,7 @@ export const QuestionsPage = ({
 
   const handleBulkDelete = async () => {
     if (!selectedQuestionIds || selectedQuestionIds.length <= 0) {
-      toast.error("No questions found to delete. Please try again!");
+      toastError("No questions found to delete. Please try again!");
       return;
     }
 
@@ -481,10 +483,13 @@ export const QuestionsPage = ({
 
   const handleBulkAllocateToPae = async (paeExpertId: string) => {
     if (!selectedQuestionIds || selectedQuestionIds.length === 0) {
-      toast.error("No questions selected.");
+      toastError("No questions selected.");
       return;
     }
 
+    const toastId = toastLoading('allocating...',{
+      desc: "please wait while allocating"
+    })
     try {
       // Send all selected IDs directly — the worker validates draft status per question
       // and skips non-draft ones. We must NOT filter through questionData (current page only).
@@ -492,12 +497,14 @@ export const QuestionsPage = ({
       setSelectedQuestionIds([]);
       setIsSelectionModeOn(false);
       setTimeout(() => refetch(), 3000);
-      toast.success(
+      toastDismiss(toastId)
+      toastSuccess(
         `Allocating ${selectedQuestionIds.length} question(s) to PAE in background.`,
       );
     } catch (error) {
+      toastDismiss(toastId)
       console.error("Bulk PAE allocate error:", error);
-      toast.error("Failed to start PAE allocation. Please try again.");
+      toastError("Failed to start PAE allocation. Please try again.");
     }
   };
 

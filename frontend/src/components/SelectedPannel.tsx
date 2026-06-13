@@ -2,7 +2,6 @@ import AvatarComponent from "./avatar-component";
 import type { ReRouteStatus, SourceItem } from "@/types";
 import { useState } from "react";
 import { useUpdateAnswer } from "@/hooks/api/answer/useUpdateAnswer";
-import { toast } from "sonner";
 import { ApproveAnswerDialog } from "@/features/question_details/components/answer_item/ApproveAnswerDialog";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import { useGetReRouteAllocation } from "@/hooks/api/question/useGetReRouteAllocation";
@@ -11,6 +10,7 @@ import { ReRouteDialog } from "@/features/question_details/components/answer_ite
 import { useReRouteRejectQuestion } from "@/hooks/api/question/useReRouteRejectQuestion";
 import { RejectReRouteDialog } from "@/features/question_details/components/answer_item/RejectReRouteDialog";
 import { CommentsSection } from "./comments-section";
+import { toast } from "@/shared/components/toast";
 
 export default function SelectedAnswerPanel({
   answer,
@@ -59,6 +59,7 @@ export default function SelectedAnswerPanel({
   )?.updatedBy;
 
   const handleUpdateAnswer = async () => {
+    let toastId;
     try {
       if (!editableAnswer || editableAnswer.trim().length <= 3) {
         toast.error("Updated answer should be at least more than 3 characters");
@@ -76,18 +77,19 @@ export default function SelectedAnswerPanel({
         toast.error("Answer ID not found. Cannot update.");
         return;
       }
-
+      toastId =toast.loading('approving the answer...')
       await updateAnswer({
         updatedAnswer: editableAnswer,
         sources,
         answerId,
       });
-
+      toast.dismiss(toastId)
       toast.success(
         "Answer approved successfully! The question is now closed. Thank you!",
       );
       setEditOpen(false);
     } catch (error: any) {
+      toast.dismiss(toastId)
       console.error("Failed to edit answer:", error);
       let errorMessage = error?.message || error?.msg || "Unknown error";
       errorMessage = errorMessage.replace(/this answer:.+?,/, "this answer,");
@@ -101,6 +103,7 @@ export default function SelectedAnswerPanel({
     : null;
 
   const handleSubmit = async () => {
+    let toastId;
     if (selectedExperts.length === 0) {
       toast.error("Please select an expert.");
       return;
@@ -112,6 +115,7 @@ export default function SelectedAnswerPanel({
     }
 
     try {
+      toastId=toast.loading('Re Routing the question...')
       await allocateExpert({
         questionId: question._id,
         experts: selectedExperts[0],
@@ -122,8 +126,10 @@ export default function SelectedAnswerPanel({
       });
       setSelectedExperts([]);
       refechrerouteSelectedQuestion();
+      toast.dismiss(toastId)
       toast.success("You have successfully Re Routed the question");
     } catch (error: any) {
+      toast.dismiss(toastId)
       console.error("Error allocating experts:", error);
       toast.error(
         error?.message || "Failed to allocate experts. Please try again.",
@@ -175,8 +181,9 @@ export default function SelectedAnswerPanel({
     const rerouteId = rerouteQuestion[0]._id;
     const moderatorId = lastReroutedTo.reroutedTo._id;
     const userId = lastReroutedTo.reroutedTo._id;
-
+    let toastId;
     try {
+      toastId = toast.loading('rejecting Re Route...')
       await rejectReRoute({
         reason,
         rerouteId: rerouteId,
@@ -185,9 +192,11 @@ export default function SelectedAnswerPanel({
         expertId: userId,
         role: "moderator",
       });
+      toast.dismiss(toastId)
       refechrerouteSelectedQuestion();
       toast.success("You have successfully rejected the Re Route Question");
     } catch (error: any) {
+      toast.dismiss(toastId)
       console.error("Failed to reject reroute question:", error);
       const message =
         error?.response?.data?.message ||

@@ -21,11 +21,11 @@ import { useAllocateExpert } from "@/hooks/api/question/useAllocateExperts";
 import { useToggleAutoAllocateQuestion } from "@/hooks/api/question/useToggleAutoAllocateQuestion";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import { initializeNotifications } from "@/services/pushService";
+import { toast } from "@/shared/components/toast";
 import type { IQuestionFullData, ISubmission, IUser } from "@/types";
 import { DialogTitle } from "@radix-ui/react-dialog";
 import { Info, Loader2, User, UserPlus, Users, X } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
 
 interface AllocationQueueHeaderProps {
   question: IQuestionFullData;
@@ -110,6 +110,7 @@ export const AllocationQueueHeader = ({
   };
 
   const handleSubmit = async () => {
+    let toastId;
     try {
       if (question.status === "in-review" || question.status == "closed") {
         toast.error(
@@ -117,6 +118,7 @@ export const AllocationQueueHeader = ({
         );
         return;
       }
+      toastId = toast.loading('allocating...')
       await allocateExpert({
         questionId: question._id,
         experts: selectedExperts,
@@ -124,8 +126,10 @@ export const AllocationQueueHeader = ({
       setSelectedExperts([]);
       setIsModalOpen(false);
       await initializeNotifications();
+      toast.dismiss(toastId)
       toast.success("Experts allocated successfully!");
     } catch (error: any) {
+      toast.dismiss(toastId)
       console.error("Error allocating experts:", error);
       toast.error(
         error?.message || "Failed to allocate experts. Please try again."

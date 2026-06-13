@@ -32,13 +32,14 @@ import {
   PlusCircle,
 } from "lucide-react";
 import { useSendOutreachReport } from "@/hooks/api/question/useSendOutreachReport";
-import { toast } from "sonner";
+import { useToast } from "@/shared/components/toast";
 
 // Simple email validation regex
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const OutreachReportModal = ({setIsSidebarOpen}:{setIsSidebarOpen:(value:boolean) => void}) => {
   const [open, setOpen] = useState(false);
+  const {error: toastError} = useToast()
   
   // Date states - default to last 7 days
   const [startDate, setStartDate] = useState<Date>(subDays(new Date(), 7));
@@ -98,15 +99,15 @@ export const OutreachReportModal = ({setIsSidebarOpen}:{setIsSidebarOpen:(value:
 
   const handleSubmit = async () => {
     if (!startDate || !endDate) {
-      toast.error("Please select both start and end dates");
+      toastError("Please select both start and end dates");
       return;
     }
     if (startDate > endDate) {
-      toast.error("Start date cannot be after end date");
+      toastError("Start date cannot be after end date");
       return;
     }
     if (emails.length === 0) {
-      toast.error("Please add at least one recipient email");
+      toastError("Please add at least one recipient email");
       return;
     }
 
@@ -118,8 +119,8 @@ export const OutreachReportModal = ({setIsSidebarOpen}:{setIsSidebarOpen:(value:
       });
       setOpen(false);
       setTimeout(resetForm, 300);
-    } catch (error) {
-      toast.error("Failed to send report. Please try again.");
+    } catch (error:any) {
+      console.error("Failed to send report",error.message);
     }
   };
 

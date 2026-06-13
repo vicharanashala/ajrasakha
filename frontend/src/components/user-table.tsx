@@ -42,6 +42,7 @@ import { useUpdateActivity } from "@/hooks/api/user/useUpdateActivity";
 import { useVerifyUser } from "@/hooks/api/user/useVerifyUser";
 import { useToggleSTF } from "@/hooks/api/user/useToggleSTF";
 import AvatarComponent from "./avatar-component";
+import { toast } from "@/shared/components/toast";
 
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
@@ -83,15 +84,28 @@ export const UsersTable = ({
 }: UserTableProps) => {
   const [userIdToBlock, setUserIdToBlock] = useState<string>("");
   const [isCurrentlyBlocked, setIsCurrentlyBlocked] = useState<boolean>(false);
-  const { mutate: blockExpert } = useBlockUser();
-  const { mutate: toggleUserRole } = useToggleRole();
+  const { mutateAsync: blockExpert } = useBlockUser(userRole === "admin" ? { isAdmin: true } : {});
+  const { mutateAsync: toggleUserRole } = useToggleRole();
   const handleBlock = async () => {
     const action = isCurrentlyBlocked ? "unblock" : "block";
-    blockExpert({ userId: userIdToBlock, action: action });
+    await toast.promise(blockExpert({ userId: userIdToBlock, action: action }),{
+      loading: isCurrentlyBlocked ? "Unblocking user..." : "Blocking user...",
+      success: isCurrentlyBlocked ? "User unblocked successfully" : "User blocked successfully",
+      error: (error: any) => error?.message || `Failed to ${isCurrentlyBlocked ? "unblock" : "block"} user`
+    })
+    
   };
-  const handleToggleRole = (userId: string, userRole: string, selectedRole?: string) => {
+  const handleToggleRole = async(userId: string, userRole: string, selectedRole?: string) => {
     console.log("Users data is", { userId, userRole, selectedRole })
-    toggleUserRole({ userId, currentUserRole: userRole!, selectedRole: selectedRole });
+    await toast.promise(toggleUserRole({ userId, currentUserRole: userRole!, selectedRole: selectedRole }),{
+      loading: "Switching user role...",
+      success: (updatedUser: any) => {
+      const name = updatedUser?.user?.firstName || "User";
+      const role = updatedUser?.user?.role || "new role";
+      return `Role of user ${name} switched successfully to ${role}`;
+    },
+      error: "Failed to switch user role"
+    })
   };
   const isAdmin = userRole === "admin";
 
@@ -262,9 +276,9 @@ const UserRow: React.FC<UserRowProps> = ({
   showSensitive = false,
 }) => {
   const isBlocked = u.isBlocked || false;
-  const { mutate: updateActivity } = useUpdateActivity();
+  const { mutateAsync: updateActivity } = useUpdateActivity();
   const { mutate: verifyUser } = useVerifyUser();
-  const { mutate: toggleSTF } = useToggleSTF();
+  const { mutateAsync: toggleSTF } = useToggleSTF();
 
   //expert block/unblock modal state
   type ConfirmAction = "block" | "unblock" | "switch-role" | "verify" | "make-stf" | "remove-stf" | null;
@@ -283,10 +297,14 @@ const UserRow: React.FC<UserRowProps> = ({
     }
   };
 
-  const handleActivityToggle = () => {
+  const handleActivityToggle = async() => {
     const nextStatus = u.status === 'in-active' ? 'active' : 'in-active';
     setIsOpen(false);
-    updateActivity({ userId: u._id!, status: nextStatus });
+    await toast.promise(updateActivity({ userId: u._id!, status: nextStatus }),{
+      loading: "Activity status updating...",
+      success: "Activity status updated successfully",
+      error: (error: any) => error?.message || "Failed to update activity status"
+    });
   };
 
   const ROLE_LABELS: Record<string, string> = {
@@ -706,16 +724,24 @@ const UserRow: React.FC<UserRowProps> = ({
             }
             cancelText="Cancel"
             type={confirmAction === "block" ? "delete" : "default"}
-            onConfirm={() => {
+            onConfirm={async () => {
               if (confirmAction === "switch-role") {
                 handleToggleRole(actionUserId, actionRole, selectRole);
                 setSelectRole("");
               } else if (confirmAction === "verify") {
                 verifyUser({ userId: actionUserId, isVerified: true });
               } else if (confirmAction === "make-stf") {
-                toggleSTF({ userId: u._id!, action: 'assign' });
+                await toast.promise(toggleSTF({ userId: u._id!, action: 'assign' }),{
+                  loading: "Assigning STF status...",
+                  success: "STF status assigned successfully",
+                  error: "Failed to assign STF status"
+                });
               } else if (confirmAction === "remove-stf") {
-                toggleSTF({ userId: u._id!, action: 'remove' });
+                await toast.promise(toggleSTF({ userId: u._id!, action: 'remove' }),{
+                  loading: "Removing STF status...",
+                  success: "STF status removed successfully",
+                  error: "Failed to remove STF status"
+                });
               } else {
                 handleBlock();
               }

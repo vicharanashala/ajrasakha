@@ -11,7 +11,6 @@ import {
 } from "@/hooks/api/question/useGetAllocatedQuestions";
 import { useGetQuestionById } from "@/hooks/api/question/useGetQuestionById";
 import { QuestionService } from "@/hooks/services/questionService";
-import { toast } from "sonner";
 import { SourceUrlManager } from "../../components/source-url-manager";
 import {
   type QuestionDateRangeFilter,
@@ -38,6 +37,7 @@ import { ReRouteResponseTimeline } from "./ReRouteResponseTimeline";
 import { AnswerCreateDialog } from "./AnswerCreateDialog";
 import { QaHeader } from "./QaHeader";
 import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
+import { useToast } from "@/shared/components/toast";
 
 export type QuestionFilter =
   | "newest"
@@ -56,6 +56,7 @@ export const QAInterface = ({
   onManualSelectQuestionType: (type: string | null) => void;
 }) => {
 
+  const { error: toastError } = useToast();
   //translation state
   const [translatedText, setTranslatedText] = useState<string>("");
   const [translatedDraftText, setTranslatedDraftText] = useState<string>("");
@@ -537,7 +538,7 @@ export const QAInterface = ({
 
     // Validate sources only where needed
     if (requiresSources && sources.length === 0) {
-      toast.error("At least one source is required!");
+      toastError("At least one source is required!");
       return;
     }
 
@@ -587,8 +588,6 @@ export const QAInterface = ({
       });
       setSelectedQuestion(null);
       handleReset();
-
-      toast.success("Your response has been submitted. Thank you!");
     } catch (error) {
       console.error("Failed to submit:", error);
     }

@@ -17,7 +17,7 @@ import type { CallHistoryItem } from "@/hooks/api/plivo/api";
 import { format } from "date-fns";
 import { FarmerDetails } from "./FarmerDetails";
 import Plivo from "plivo-browser-sdk";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 
 interface CallHistoryProps {
   onRedial?: (phoneNumber: string) => void;

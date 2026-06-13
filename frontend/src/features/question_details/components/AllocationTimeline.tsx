@@ -6,7 +6,6 @@ import type {
   IUser,
 } from "@/types";
 import { useCallback, useEffect, useState } from "react";
-import { toast } from "sonner";
 import { AllocationQueueHeader } from "./AllocationQueueHeader";
 import { ClosedFinalAnswerModal } from "./ClosedFinalAnswerModal";
 import {
@@ -26,6 +25,7 @@ import { ConfirmationModal } from "@/components/confirmation-modal";
 import { Button } from "@/components/atoms/button";
 import { getStatusStyles } from "../constants/allocationStatusStyleConfig";
 import { formatDuration } from "../utils/formatDate";
+import { toast } from "@/shared/components/toast";
 
 interface AllocationTimelineProps {
   queue: ISubmission["queue"];
@@ -149,11 +149,15 @@ export const AllocationTimeline = ({
 
   const handleRemoveAllocation = useCallback(
     async (index: number) => {
+      let toastId;
       try {
+        toastId = toast.loading('removing allocation...')
         setSelectedAllocationIndex(index);
         await removeAllocation({ questionId: question._id, index });
+        toast.dismiss(toastId)
         toast.success("Allocation removed successfully.");
       } catch (error) {
+        toast.dismiss(toastId)
         console.error("Error removing allocation:", error);
         toast.error("Error removing allocation. Please try again.");
       } finally {

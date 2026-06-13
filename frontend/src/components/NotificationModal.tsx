@@ -34,7 +34,6 @@ import { useMarkAsReadNotification } from "@/hooks/api/notification/useUpdateNot
 import { useMarkAllAsReadNotification } from "@/hooks/api/notification/useMarkAllAsRead";
 import { useAutoDeletePreference } from "@/hooks/api/user/useAutoDeleteNotifications";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
-import { toast } from "sonner";
 import { formatDate } from "@/utils/formatDate";
 import {
     useNavigateToComment,
@@ -43,6 +42,7 @@ import {
     useNavigateToHistory
 } from "@/hooks/api/question/useNavigateToQuestion";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/shared/components/toast";
 
 export interface Notification {
     _id: string;
@@ -59,6 +59,7 @@ interface NotificationModalProps {
 }
 
 export function NotificationModal({ trigger }: NotificationModalProps) {
+    const { success: toastSuccess, error: toastError} = useToast();
     const [open, setOpen] = useState(false);
     const [filter, setFilter] = useState<"all" | "unread" | "read">("all");
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -107,6 +108,7 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
     const unreadCount = notifications.filter((n) => !n.is_read).length;
 
     const handleNotificationClick = async (notification: Notification) => {
+
         const { type, enitity_id, _id } = notification;
         await markAsRead(_id);
         setOpen(false);
@@ -134,7 +136,7 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
     const handleMarkAllAsRead = async () => {
         try {
             await markAllAsRead();
-            toast.success("All notifications marked as read!");
+            toastSuccess("All notifications marked as read!");
         } catch (error) {
             console.error("Error: ", error);
         }
@@ -144,7 +146,7 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
         e.stopPropagation();
         try {
             await deleteNotification(notificationId);
-            toast.success("Notification deleted");
+            toastSuccess("Notification deleted");
         } catch (error) {
             console.error("Error: ", error);
         }
@@ -154,9 +156,9 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
         setDeletePreference(value);
         try {
             await autoDeletePreference(value);
-            toast.success("Preference Updated");
+            toastSuccess("Preference Updated");
         } catch (error) {
-            toast.error("Error updating Preference");
+            toastError("Error updating Preference");
         }
     };
 
