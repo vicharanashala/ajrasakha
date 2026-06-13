@@ -53,6 +53,8 @@ export interface IUser {
   university?: string;
   isVerified?: boolean;
   isCallAgentActive?: boolean;
+  unAssigned?: any;
+  assigned?: any;
 }
 
 export interface IUnverifiedUser {

@@ -2903,12 +2903,14 @@ export class ChatbotService extends BaseService implements IChatbotService {
         </body>
         </html>
       `;
-      await sendEmailNotification(
-        updatedUser.email,
-        subject,
-        '',
-        htmlMessage
-      );
+      if(isVerified === true){
+        await sendEmailNotification(
+          updatedUser.email,
+          subject,
+          '',
+          htmlMessage
+        );
+      }
 
       return updatedUser;
     } catch (error) {
@@ -3058,6 +3060,30 @@ export class ChatbotService extends BaseService implements IChatbotService {
   async getQueriesByPeriod(period: string, page: number, limit: number, source: string, userType?: string, search?: string): Promise<any> {
     try{
       return this.chatbotRepository.getQueriesByPeriod(period, page, limit, source, undefined, userType, search)
+    }catch(error){
+      throw new InternalServerError(`Internal Server Error ${error}`)
+    }
+  }
+
+  async getUserProfile(userId: string){
+    try{
+      return this.chatbotRepository.getUserProfile(userId)
+    }catch(error){
+      throw new InternalServerError(`Internal Server Error ${error}`)
+    }
+  }
+
+  async assignUsers(userId: string, targetIds: string[]): Promise<any>{
+    try{
+      return this.chatbotRepository.assignUsers(userId, targetIds)
+    }catch(error){
+      throw new InternalServerError(`Internal Server Error ${error}`)
+    }
+  }
+  
+  async unAssignUsers(userId: string, targetIds: string[]): Promise<any>{
+    try{
+      return this.chatbotRepository.unAssignUsers(userId, targetIds)
     }catch(error){
       throw new InternalServerError(`Internal Server Error ${error}`)
     }

@@ -56,6 +56,7 @@ import {
   GrowthResponse,
   RetentionMetricsQuery,
   TopFaqsQuery,
+  userProfileQuery,
 } from '../types/chatbot.type.js';
 import {IActiveUser} from '#root/shared/database/providers/mongo/repositories/ChatbotRepository.js';
 import {
@@ -1769,6 +1770,43 @@ export class ChatbotController {
       userType,
       startDate,
       endDate,
+    );
+  }
+
+  @Get('/user-profile')
+  @HttpCode(200)
+  @Authorized()
+  async getUserProfile(
+    @QueryParams() query: userProfileQuery
+  ) {
+    return await this.chatbotService.getUserProfile(
+      query.userId,
+    );
+  }
+
+  @Patch('/assign-users/:userId')
+  @HttpCode(200)
+  @Authorized(['admin'])
+  async assignUsers(
+    @Param('userId') userId: string,
+    @Body() body: {userIds: string[]},
+  ) {
+    return await this.chatbotService.assignUsers(
+      userId,
+      body.userIds,
+    );
+  }
+
+  @Patch('/unassign-users/:userId')
+  @HttpCode(200)
+  @Authorized(['admin'])
+  async unAssignUsers(
+    @Param('userId') userId: string,
+    @Body() body: {userIds: string[]},
+  ) {
+    return await this.chatbotService.unAssignUsers(
+      userId,
+      body.userIds,
     );
   }
 }
