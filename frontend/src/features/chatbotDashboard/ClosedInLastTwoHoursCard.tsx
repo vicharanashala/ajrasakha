@@ -115,7 +115,7 @@ export function ClosedInLastTwoHoursCard({
                 title="Refresh"
               >
                 <RefreshCw
-                  className={`h-3.5 w-3.5 bg-background text-white ${
+                  className={`h-3.5 w-3.5 bg-background  text-black dark:text-white ${
                     isLoading || refreshing || isFetching ? "animate-spin" : ""
                   }`}
                 />
