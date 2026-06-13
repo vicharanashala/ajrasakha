@@ -44,6 +44,7 @@ import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
 import { DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT } from '#root/shared/constants/general.js';
 import { th } from '@faker-js/faker';
 import { triggerWebhook } from '../utils/triggerWebhook.js';
+import { threadId } from 'worker_threads';
 
 @injectable()
 export class AnswerService extends BaseService implements IAnswerService {
@@ -2017,6 +2018,7 @@ answer: ${updates.answer}`;
               ...webhookPayload,
               question: question.question,
               messageId: question.messageId,
+              threadId:question.threadId
             },
             'Browser',
           );
