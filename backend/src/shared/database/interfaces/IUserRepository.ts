@@ -330,4 +330,8 @@ export interface IUserRepository {
   findAvailableStfModerators(): Promise<IUser[]>;
   setAssignedQuestion(moderatorId: string, questionId: string): Promise<void>;
   clearAssignedQuestion(moderatorId: string): Promise<void>;
+  clearAssignedQuestionByQuestionId(
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<void>;
 }

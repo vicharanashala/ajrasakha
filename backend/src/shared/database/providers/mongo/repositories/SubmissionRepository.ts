@@ -3359,6 +3359,13 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         },
       },
       {
+        $addFields: {
+          histLen: { $size: { $ifNull: ['$history', []] } },
+          queueLen: { $size: { $ifNull: ['$queue', []] } },
+          lastHistory: { $arrayElemAt: [{ $ifNull: ['$history', []] }, -1] },
+        },
+      },
+      {
         $lookup: {
           from: 'questions',
           localField: 'questionId',
@@ -3369,9 +3376,24 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       { $unwind: '$question' },
       {
         $match: {
-          ...this.timeBoundSourceMatch('question', true, category),
           'question.status': { $nin: ['closed', 'in-review', 'pae_submitted', 'pass', 'duplicate', 'draft', 'non_agri'] },
           'question.isOnHold': { $ne: true },
+          $and: [
+            this.timeBoundSourceMatch('question', true, category),
+            // Only genuinely stuck submissions: there is a CURRENT expert still
+            // pending — either someone is allocated at a queue position with no
+            // history entry yet (histLen < queueLen), or the last reviewer is
+            // mid-review (status 'in-review'). A fully answered+reviewed question
+            // (histLen >= queueLen and last entry complete) is NOT stuck; its
+            // stale currentExpertAllocatedAt must not pull it into the stuck path,
+            // otherwise it steals the free expert from the needs-reviewer path.
+            {
+              $or: [
+                { $expr: { $lt: ['$histLen', '$queueLen'] } },
+                { 'lastHistory.status': 'in-review' },
+              ],
+            },
+          ],
         },
       },
       { $sort: { 'question.createdAt': 1 } },

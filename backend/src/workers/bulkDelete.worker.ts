@@ -114,7 +114,11 @@ async function deleteQuestion(questionId: string) {
     await requestRepo.deleteByEntityId(questionId, session);
     await duplicateRepo.deleteByReferenceQuestionId(questionId, session);
 
-    // 5. Finally delete question
+    // 5. Free any moderator pinned to this question so they don't stay "busy"
+    // (assignedQuestionId pointing at a now-deleted question).
+    await userRepo.clearAssignedQuestionByQuestionId(questionId, session);
+
+    // 6. Finally delete question
     return questionRepo.deleteQuestion(questionId, session);
   });
 }

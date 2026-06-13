@@ -878,6 +878,22 @@ export class UserRepository implements IUserRepository {
     );
   }
 
+  /** Frees any moderator whose assignedQuestionId points to this question.
+   *  Called when a question is deleted so the moderator isn't left pinned to a
+   *  non-existent question (which would make the moderator-queue cron treat them
+   *  as permanently busy). */
+  async clearAssignedQuestionByQuestionId(
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    await this.usersCollection.updateMany(
+      { assignedQuestionId: new ObjectId(questionId) },
+      { $set: { assignedQuestionId: null, updatedAt: new Date() } },
+      { session },
+    );
+  }
+
   async findAdmins(session?: ClientSession): Promise<IUser[]> {
     await this.init();
     return await this.usersCollection.find({ role: 'admin' }, { session }).toArray();

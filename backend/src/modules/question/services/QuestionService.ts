@@ -1420,37 +1420,37 @@ export class QuestionService extends BaseService implements IQuestionService {
     const { questionId, source, details, baseQuestion, logData } = params;
     try {
       if (source === 'AGRI_EXPERT') {
-        const users = await this.userRepo.findExpertsByPreference(
-          details as PreferenceDto,
-        );
-        const initialUsersToAllocate = users.slice(
-          0,
-          DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT,
-        );
-        const queue: ObjectId[] = initialUsersToAllocate.map(
-          u => new ObjectId(u._id.toString()),
-        );
+        // const users = await this.userRepo.findExpertsByPreference(
+        //   details as PreferenceDto,
+        // );
+        // const initialUsersToAllocate = users.slice(
+        //   0,
+        //   DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT,
+        // );
+        // const queue: ObjectId[] = initialUsersToAllocate.map(
+        //   u => new ObjectId(u._id.toString()),
+        // );
 
-        await this.questionSubmissionRepo.updateQueue(questionId, queue);
+        // await this.questionSubmissionRepo.updateQueue(questionId, queue);
 
-        if (initialUsersToAllocate[0]) {
-          await Promise.all([
-            this.userRepo.updateReputationScore(
-              initialUsersToAllocate[0]._id.toString(),
-              true,
-            ),
-            this.notificationService.saveTheNotifications(
-              `A Question has been assigned for answering`,
-              'Answer Creation Assigned',
-              questionId,
-              initialUsersToAllocate[0]._id.toString(),
-              'answer_creation',
-            ),
-            this.questionRepo.updateQuestion(questionId, {
-              firstAllocationAt: new Date(),
-            }),
-          ]);
-        }
+        // if (initialUsersToAllocate[0]) {
+        //   await Promise.all([
+        //     this.userRepo.updateReputationScore(
+        //       initialUsersToAllocate[0]._id.toString(),
+        //       true,
+        //     ),
+        //     this.notificationService.saveTheNotifications(
+        //       `A Question has been assigned for answering`,
+        //       'Answer Creation Assigned',
+        //       questionId,
+        //       initialUsersToAllocate[0]._id.toString(),
+        //       'answer_creation',
+        //     ),
+        //     this.questionRepo.updateQuestion(questionId, {
+        //       firstAllocationAt: new Date(),
+        //     }),
+        //   ]);
+        // }
       } else {
         const isTimeBoundedQuestion =
           source === 'AJRASAKHA' || source === 'WHATSAPP';
@@ -1919,7 +1919,10 @@ export class QuestionService extends BaseService implements IQuestionService {
     if (
       EXISTING_QUEUE_COUNT < DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT ||
       (EXISTING_QUEUE_COUNT === EXISTING_HISTORY_COUNT &&
-        EXISTING_QUEUE_COUNT <= allExpertIds.length)
+        EXISTING_QUEUE_COUNT <= allExpertIds.length) ||
+      // No experts available at all and someone has already responded —
+      // escalate to the moderator instead of silently doing nothing.
+      (allExpertIds.length === 0 && EXISTING_HISTORY_COUNT > 0)
     ) {
       const answeredExperts = new Set(
         questionSubmission.history.map(h => h.updatedBy.toString()),
@@ -1946,7 +1949,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
 
       const lastSubmission = questionSubmission.history.at(-1);
-      if (filteredExperts.length === 0) {
+      if (filteredExperts.length === 0 && lastSubmission) {
         await this.questionRepo.updateQuestion(
           questionId,
           { status: 'in-review' },
@@ -3408,6 +3411,13 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // Delete duplicate question records referencing this question
       await this.duplicateQuestionRepository.deleteByReferenceQuestionId(
+        questionId,
+        activeSession,
+      );
+
+      // Free any moderator pinned to this question so they don't stay "busy"
+      // (assignedQuestionId pointing at a now-deleted question).
+      await this.userRepo.clearAssignedQuestionByQuestionId(
         questionId,
         activeSession,
       );
