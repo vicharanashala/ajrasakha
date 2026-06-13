@@ -9,7 +9,7 @@ import { instanceToPlain } from 'class-transformer';
 import { injectable, inject } from 'inversify';
 import { Collection, MongoClient, ClientSession, ObjectId } from 'mongodb';
 import { MongoDatabase } from '../MongoDatabase.js';
-import { InternalServerError, NotFoundError } from 'routing-controllers';
+import { InternalServerError, NotFoundError, BadRequestError } from 'routing-controllers';
 import { GLOBAL_TYPES } from '#root/types.js';
 import { User } from '#auth/classes/transformers/User.js';
 import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
@@ -365,6 +365,11 @@ export class UserRepository implements IUserRepository {
                     { case: { $eq: ['$role', 'admin'] }, then: 1 },
                     { case: { $eq: ['$role', 'moderator'] }, then: 2 },
                     { case: { $eq: ['$role', 'expert'] }, then: 3 },
+                    { case: { $eq: ['$role', 'pae_expert'] }, then: 4 },
+                    { case: { $eq: ['$role', 'district_coordinator'] }, then: 5 },
+                    { case: { $eq: ['$role', 'block_coordinator'] }, then: 6 },
+                    { case: { $eq: ['$role', 'village_volunteer'] }, then: 7 },
+                    { case: { $eq: ['$role', 'tester'] }, then: 8 },
                   ],
                   default: 99,
                 },
@@ -760,24 +765,39 @@ export class UserRepository implements IUserRepository {
   async findExpertsByReputationScore(
     details: PreferenceDto,
     session?: ClientSession,
+    limit?: number,
   ): Promise<IUser[]> {
     await this.init();
 
-    // 1. Fetch all experts
-    const allUsersRaw = await this.usersCollection
-      .find({ role: 'expert', isBlocked: false }, { session })
-      .toArray();
+    // 1. Fetch all experts (include role and isBlocked for queue details)
+    const query: any = { role: 'expert', isBlocked: false };
+    const cursor = this.usersCollection.find(query, { session });
+    if (limit) cursor.limit(limit);
+    const allUsersRaw = await cursor.toArray();
 
     // 2. Remove duplicates based on email
     const uniqueUsersMap = new Map<string, IUser>();
+    const droppedByDedup: string[] = [];
+    const noEmail: string[] = [];
     for (const user of allUsersRaw) {
-      if (!user.email) continue;
+      if (!user.email) { noEmail.push(user._id?.toString()); continue; }
       if (!uniqueUsersMap.has(user.email)) uniqueUsersMap.set(user.email, user);
+      else droppedByDedup.push(user._id?.toString());
     }
     let allUsers = Array.from(uniqueUsersMap.values());
     allUsers.sort((a, b) => {
       return a.reputation_score - b.reputation_score;
     });
+
+    // Funnel diagnostic: total unblocked expert docs → eligible after email dedup.
+    // Shows how many real experts are dropped (and their ids) so we can tell whether
+    // a "missing" available expert is being collapsed away by the dedup.
+   /* console.log(
+      `[findExpertsByReputationScore] unblockedExpertDocs=${allUsersRaw.length}, ` +
+      `eligibleAfterDedup=${allUsers.length}, droppedByEmailDedup=${droppedByDedup.length}, ` +
+      `noEmail=${noEmail.length}`,
+      JSON.stringify({ droppedByDedup, noEmail }),
+    );*/
 
     return allUsers;
   }
@@ -1383,6 +1403,12 @@ export class UserRepository implements IUserRepository {
                     branches: [
                       { case: { $eq: ['$_id', 'expert'] }, then: 'Experts' },
                       { case: { $eq: ['$_id', 'moderator'] }, then: 'Moderators' },
+                      { case: { $eq: ['$_id', 'admin'] }, then: 'Admins' },
+                      { case: { $eq: ['$_id', 'pae_expert'] }, then: 'PAE Experts' },
+                      { case: { $eq: ['$_id', 'district_coordinator'] }, then: 'District Coordinators' },
+                      { case: { $eq: ['$_id', 'block_coordinator'] }, then: 'Block Coordinators' },
+                      { case: { $eq: ['$_id', 'village_volunteer'] }, then: 'Village Volunteers' },
+                      { case: { $eq: ['$_id', 'tester'] }, then: 'Testers' },
                     ],
                     default: 'Others',
                   },
@@ -1515,8 +1541,7 @@ export class UserRepository implements IUserRepository {
       const agents = await this.usersCollection
         .find(
           {
-            isCallAgent: true,
-            role: { $in: ['expert', 'moderator'] },
+            role: 'call_agent' as any,
           },
           { session },
         )
@@ -1540,13 +1565,21 @@ export class UserRepository implements IUserRepository {
   ): Promise<IUser> {
     try {
       await this.init();
+      
+      // When setting as call agent, change role from expert to call_agent
+      // When removing call agent, change role from call_agent back to expert
+      const newRole = isCallAgent ? ('call_agent' as any) : 'expert';
+      
       const result = await this.usersCollection.findOneAndUpdate(
         { _id: new ObjectId(userId) },
         {
           $set: {
-            isCallAgent,
+            role: newRole,
             isCallAgentActive,
             updatedAt: new Date(),
+          },
+          $unset: {
+            isCallAgent: 1,
           },
         },
         { returnDocument: 'after', session },
@@ -1560,6 +1593,7 @@ export class UserRepository implements IUserRepository {
         _id: result._id.toString(),
       } as IUser;
     } catch (error) {
+      console.error('setCallAgentStatus - error:', error);
       throw new InternalServerError('Failed to set call agent status');
     }
   }
@@ -1576,6 +1610,10 @@ export class UserRepository implements IUserRepository {
       );
       if (!user) {
         throw new NotFoundError('User not found');
+      }
+      // Only allow toggling active status for call_agent role
+      if (user.role !== ('call_agent' as any)) {
+        throw new BadRequestError('User is not a call agent');
       }
       const newStatus = !user.isCallAgentActive;
       const result = await this.usersCollection.findOneAndUpdate(

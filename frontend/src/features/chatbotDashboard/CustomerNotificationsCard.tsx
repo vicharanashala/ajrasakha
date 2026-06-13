@@ -36,8 +36,11 @@ type CustomerNotificationsCardProps = {
   dateRange?: DateRange;
   onDateRangeChange?: (range: DateRange | undefined) => void;
   isLoading?: boolean;
+  isFetching?: boolean;
   source?: "vicharanashala" | "annam" | "whatsapp";
   userType: string;
+  /** Callback to notify parent to refresh all related cards in the row */
+  onRefresh?: () => void;
 };
 
 export function CustomerNotificationsCard({
@@ -47,8 +50,10 @@ export function CustomerNotificationsCard({
   dateRange,
   onDateRangeChange,
   isLoading,
+  isFetching,
   source = "annam",
   userType,
+  onRefresh,
 }: CustomerNotificationsCardProps) {
   const safeNotified = notified ?? 0;
   const safeNotNotified = notNotified ?? 0;

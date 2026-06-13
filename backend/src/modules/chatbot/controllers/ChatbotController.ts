@@ -345,7 +345,6 @@ export class ChatbotController {
   @HttpCode(200)
   @Authorized()
   async getQueryCategories(@QueryParams() query: SourceQueryDto) {
-    console.log('-------/query-categories', query.userType);
     return this.chatbotService.getQueryCategories(query.source, query.userType);
   }
 
@@ -726,7 +725,7 @@ export class ChatbotController {
   async verifyUser(
     @Param('userId') userId: string,
     @Body() body: {isVerified?: boolean},
-    @QueryParam('source') source: string = 'vicharanashala',
+    @QueryParam('source') source: string = 'annam',
     @CurrentUser() currentUser: IUser,
   ) {
     if (!userId) {
@@ -1011,7 +1010,7 @@ export class ChatbotController {
     @CurrentUser() user: IUser,
   ) {
     if (!source) {
-      source = 'vicharanashala';
+      source = 'annam';
     }
 
     const actorPayload = user
@@ -1142,9 +1141,9 @@ export class ChatbotController {
     @CurrentUser() user: IUser,
   ) {
     if (!source) {
-      source = 'vicharanashala';
+      source = 'annam';
     }
-    console.log('Body---------', body);
+    // console.log('Body---------', body);
 
     const actorPayload = user
       ? {
@@ -1262,11 +1261,12 @@ export class ChatbotController {
     @Body()
     body: {
       newPassword: string;
+      keepLoggedIn: boolean;
     },
     @CurrentUser() user: IUser,
   ) {
     if (!source) {
-      source = 'vicharanashala';
+      source = 'annam';
     }
     this.assertStrongPassword(body.newPassword);
 
@@ -1304,6 +1304,7 @@ export class ChatbotController {
         userId,
         source,
         body.newPassword,
+        body.keepLoggedIn
       );
 
       auditPayload = {
@@ -1361,7 +1362,7 @@ export class ChatbotController {
   @OpenAPI({
     summary: 'Add a new farmer',
     description:
-      'Creates a new farmer in the selected database source (restricted to annam/vicharanashala).',
+      'Creates a new farmer in the selected database source (restricted to annam).',
   })
   @Post('/users')
   @HttpCode(201)
@@ -1379,7 +1380,7 @@ export class ChatbotController {
     @CurrentUser() user: IUser,
   ) {
     if (!source) {
-      source = 'vicharanashala';
+      source = 'annam';
     }
     if (source === 'whatsapp') {
       throw new BadRequestError(
@@ -1573,7 +1574,7 @@ export class ChatbotController {
     @QueryParam('userEmail') userEmail: string,
 
     @QueryParam('source')
-    source: string = 'vicharanashala',
+    source: string = 'annam',
 
     @QueryParam('userType')
     userType: string = 'all',
@@ -1620,7 +1621,7 @@ export class ChatbotController {
   @Authorized()
   async getClosedAndNotifedData(
     @QueryParam('source')
-    source: string = 'vicharanashala',
+    source: string = 'annam',
     @QueryParam('userType')
     userType: string = 'all',
     @QueryParam('startDate')
@@ -1641,7 +1642,7 @@ export class ChatbotController {
   @Authorized()
   async getMonthlyChurnRate(
     @QueryParam('source')
-    source: string = 'vicharanashala',
+    source: string = 'annam',
 
     @QueryParam('userType')
     userType: string = 'all',

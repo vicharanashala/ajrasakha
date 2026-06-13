@@ -2,8 +2,14 @@
 
 import logging
 from pathlib import Path
+import pytest
 
 from ajrasakha.agents import thread_logging as tl
+
+
+@pytest.fixture(autouse=True)
+def _disable_mongo_by_default(monkeypatch):
+    monkeypatch.setattr(tl, "mongo_thread_log_enabled", lambda: False)
 
 
 def test_sanitize_thread_id():
@@ -84,3 +90,147 @@ def test_thread_file_handler_routes_by_context(tmp_path: Path):
     assert "HTTP Request" not in abc_text
     assert "Received session ID" not in abc_text
     assert (tmp_path / "thread-xyz.txt").read_text(encoding="utf-8").count("hello from thread xyz") == 1
+
+
+def test_end_conversation_turn_syncs_turn_to_mongo(tmp_path: Path, monkeypatch):
+    sync_calls: list[tuple[str, dict, str | None]] = []
+
+    def _capture_sync(
+        thread_id: str,
+        turn_record: dict,
+        *,
+        full_logs: str | None = None,
+        background=True,
+    ):
+        sync_calls.append((thread_id, turn_record, full_logs))
+
+    monkeypatch.setattr(tl, "thread_log_dir", lambda: tmp_path)
+    monkeypatch.setattr(tl, "mongo_thread_log_enabled", lambda: True)
+    monkeypatch.setattr(tl, "sync_turn_to_mongo", _capture_sync)
+
+    tl.set_thread_log_context("thread-mongo")
+    tl.begin_conversation_turn("Hi")
+    tl.end_conversation_turn("Hello!", outcome="answer")
+    tl.clear_thread_log_context()
+
+    assert len(sync_calls) == 1
+    thread_id, turn_record, full_logs = sync_calls[0]
+    assert thread_id == "thread-mongo"
+    assert turn_record["turn"] == 1
+    assert turn_record["user_message"] == "Hi"
+    assert turn_record["bot_message"] == "Hello!"
+    assert turn_record["outcome"] == "answer"
+    assert "FARMER MESSAGE" in turn_record["log_text"]
+    assert "BOT MESSAGE" in turn_record["log_text"]
+    assert "END TURN 1" in turn_record["log_text"]
+    assert full_logs is not None
+    assert "END TURN 1" in full_logs
+    assert (tmp_path / "thread-mongo.txt").is_file()
+
+
+def test_turn_state_survives_node_context_reset(tmp_path: Path, monkeypatch):
+    """Simulate LangGraph: planner sets turn, later node clears ContextVar but ends turn."""
+    sync_calls: list[dict] = []
+
+    def _capture_sync(
+        thread_id: str,
+        turn_record: dict,
+        *,
+        full_logs: str | None = None,
+        background=True,
+    ):
+        sync_calls.append(turn_record)
+
+    monkeypatch.setattr(tl, "thread_log_dir", lambda: tmp_path)
+    monkeypatch.setattr(tl, "mongo_thread_log_enabled", lambda: True)
+    monkeypatch.setattr(tl, "sync_turn_to_mongo", _capture_sync)
+
+    tl.set_thread_log_context("thread-nodes")
+    tl.begin_conversation_turn("hii")
+    tl.clear_thread_log_context()
+
+    tl.set_thread_log_context("thread-nodes")
+    tl.end_conversation_turn("Hi there!", outcome="answer")
+    tl.clear_thread_log_context()
+
+    assert len(sync_calls) == 1
+    assert sync_calls[0]["user_message"] == "hii"
+    assert "hii" in sync_calls[0]["log_text"]
+    assert "Hi there!" in sync_calls[0]["log_text"]
+    assert "END TURN 1" in sync_calls[0]["log_text"]
+
+
+def test_turn_buffer_captures_handler_logs(tmp_path: Path, monkeypatch):
+    sync_calls: list[dict] = []
+
+    def _capture_sync(
+        thread_id: str,
+        turn_record: dict,
+        *,
+        full_logs: str | None = None,
+        background=True,
+    ):
+        sync_calls.append(turn_record)
+
+    monkeypatch.setattr(tl, "thread_log_dir", lambda: tmp_path)
+    monkeypatch.setattr(tl, "mongo_thread_log_enabled", lambda: True)
+    monkeypatch.setattr(tl, "sync_turn_to_mongo", _capture_sync)
+
+    handler = tl.ThreadFileLogHandler(tmp_path)
+    handler.addFilter(tl.ThreadLogFilter())
+    logger = logging.getLogger("ajrasakha.agents.tests.turn_buffer")
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+    tl.set_thread_log_context("thread-buffer")
+    tl.begin_conversation_turn("Weather?")
+    logger.info("planner resolved state=Punjab")
+    tl.end_conversation_turn("It will rain.", outcome="answer")
+    tl.clear_thread_log_context()
+    logger.removeHandler(handler)
+
+    assert len(sync_calls) == 1
+    assert "planner resolved state=Punjab" in sync_calls[0]["log_text"]
+    assert "Weather?" in sync_calls[0]["log_text"]
+
+
+def test_handler_emit_writes_file_only_not_mongo_per_line(tmp_path: Path, monkeypatch):
+    sync_calls: list[str] = []
+
+    def _capture_sync(thread_id: str, *, file_path, background=True):
+        sync_calls.append(thread_id)
+
+    monkeypatch.setattr(tl, "mongo_thread_log_enabled", lambda: True)
+    monkeypatch.setattr(tl, "sync_turn_to_mongo", _capture_sync)
+
+    handler = tl.ThreadFileLogHandler(tmp_path)
+    handler.addFilter(tl.ThreadLogFilter())
+    logger = logging.getLogger("ajrasakha.agents.tests.thread_logging_mongo")
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+    tl.set_thread_log_context("thread-handler-mongo")
+    logger.info("file only line")
+    tl.clear_thread_log_context()
+    logger.removeHandler(handler)
+
+    file_text = (tmp_path / "thread-handler-mongo.txt").read_text(encoding="utf-8")
+    assert "file only line" in file_text
+    assert sync_calls == []
+
+
+def test_max_turn_from_log_uses_local_file_only(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(tl, "thread_log_dir", lambda: tmp_path)
+    monkeypatch.setattr(tl, "mongo_thread_log_enabled", lambda: True)
+    monkeypatch.setattr(
+        tl,
+        "read_thread_log_text",
+        lambda thread_id: "\n  END TURN 99\n",
+    )
+
+    # No local file → do not block on Mongo for turn numbering.
+    assert tl._max_turn_from_log("thread-mongo-only") == 0
+
+    log_file = tmp_path / "thread-local.txt"
+    log_file.write_text("\n  END TURN 3\n", encoding="utf-8")
+    assert tl._max_turn_from_log("thread-local") == 3

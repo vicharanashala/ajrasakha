@@ -17,6 +17,7 @@ import { Route as NotificationsIndexRouteImport } from './routes/notifications/i
 import { Route as HomeIndexRouteImport } from './routes/home/index'
 import { Route as HistoryIndexRouteImport } from './routes/history/index'
 import { Route as FlagsReportedIndexRouteImport } from './routes/flags-reported/index'
+import { Route as CoordinatorIndexRouteImport } from './routes/coordinator/index'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as AuditIndexRouteImport } from './routes/audit/index'
 
@@ -60,6 +61,11 @@ const FlagsReportedIndexRoute = FlagsReportedIndexRouteImport.update({
   path: '/flags-reported/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CoordinatorIndexRoute = CoordinatorIndexRouteImport.update({
+  id: '/coordinator/',
+  path: '/coordinator/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthIndexRoute = AuthIndexRouteImport.update({
   id: '/auth/',
   path: '/auth/',
@@ -76,6 +82,7 @@ export interface FileRoutesByFullPath {
   '/whatsapp-history': typeof WhatsappHistoryRoute
   '/audit': typeof AuditIndexRoute
   '/auth': typeof AuthIndexRoute
+  '/coordinator': typeof CoordinatorIndexRoute
   '/flags-reported': typeof FlagsReportedIndexRoute
   '/history': typeof HistoryIndexRoute
   '/home': typeof HomeIndexRoute
@@ -88,6 +95,7 @@ export interface FileRoutesByTo {
   '/whatsapp-history': typeof WhatsappHistoryRoute
   '/audit': typeof AuditIndexRoute
   '/auth': typeof AuthIndexRoute
+  '/coordinator': typeof CoordinatorIndexRoute
   '/flags-reported': typeof FlagsReportedIndexRoute
   '/history': typeof HistoryIndexRoute
   '/home': typeof HomeIndexRoute
@@ -101,6 +109,7 @@ export interface FileRoutesById {
   '/whatsapp-history': typeof WhatsappHistoryRoute
   '/audit/': typeof AuditIndexRoute
   '/auth/': typeof AuthIndexRoute
+  '/coordinator/': typeof CoordinatorIndexRoute
   '/flags-reported/': typeof FlagsReportedIndexRoute
   '/history/': typeof HistoryIndexRoute
   '/home/': typeof HomeIndexRoute
@@ -115,6 +124,7 @@ export interface FileRouteTypes {
     | '/whatsapp-history'
     | '/audit'
     | '/auth'
+    | '/coordinator'
     | '/flags-reported'
     | '/history'
     | '/home'
@@ -127,6 +137,7 @@ export interface FileRouteTypes {
     | '/whatsapp-history'
     | '/audit'
     | '/auth'
+    | '/coordinator'
     | '/flags-reported'
     | '/history'
     | '/home'
@@ -139,6 +150,7 @@ export interface FileRouteTypes {
     | '/whatsapp-history'
     | '/audit/'
     | '/auth/'
+    | '/coordinator/'
     | '/flags-reported/'
     | '/history/'
     | '/home/'
@@ -152,6 +164,7 @@ export interface RootRouteChildren {
   WhatsappHistoryRoute: typeof WhatsappHistoryRoute
   AuditIndexRoute: typeof AuditIndexRoute
   AuthIndexRoute: typeof AuthIndexRoute
+  CoordinatorIndexRoute: typeof CoordinatorIndexRoute
   FlagsReportedIndexRoute: typeof FlagsReportedIndexRoute
   HistoryIndexRoute: typeof HistoryIndexRoute
   HomeIndexRoute: typeof HomeIndexRoute
@@ -218,6 +231,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FlagsReportedIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/coordinator/': {
+      id: '/coordinator/'
+      path: '/coordinator'
+      fullPath: '/coordinator'
+      preLoaderRoute: typeof CoordinatorIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth/': {
       id: '/auth/'
       path: '/auth'
@@ -240,6 +260,7 @@ const rootRouteChildren: RootRouteChildren = {
   WhatsappHistoryRoute: WhatsappHistoryRoute,
   AuditIndexRoute: AuditIndexRoute,
   AuthIndexRoute: AuthIndexRoute,
+  CoordinatorIndexRoute: CoordinatorIndexRoute,
   FlagsReportedIndexRoute: FlagsReportedIndexRoute,
   HistoryIndexRoute: HistoryIndexRoute,
   HomeIndexRoute: HomeIndexRoute,
