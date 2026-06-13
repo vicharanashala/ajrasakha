@@ -1042,6 +1042,31 @@ export class ChatbotService extends BaseService implements IChatbotService {
     };
   }
 
+  async getFarmerQuestionMetrics(
+    userId: string,
+    source = 'annam',
+    userType = 'all',
+  ) {
+    const user = await this.chatbotRepository.getUserById(userId, source);
+    const threadIds = await this.chatbotRepository.getUserConversationIds(
+      userId,
+      source,
+    );
+    const messageIds = user?.email
+      ? await this.chatbotRepository.getAllUserMessageIds(user.email, source)
+      : [];
+
+    return this.chatbotRepository.getFarmerQuestionMetrics(
+      {
+        threadIds,
+        messageIds,
+        userId,
+      },
+      source,
+      userType,
+    );
+  }
+
   async getAvgSessionDurationV2(source = 'annam', userType = 'all') {
     try {
       return await this.chatbotRepository.getAvgSessionDurationV2(

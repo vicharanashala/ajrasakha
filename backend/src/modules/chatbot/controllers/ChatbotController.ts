@@ -1606,6 +1606,25 @@ export class ChatbotController {
     );
   }
 
+  @Get('/farmers/:userId/question-metrics')
+  @HttpCode(200)
+  @Authorized()
+  async getFarmerQuestionMetrics(
+    @Param('userId') userId: string,
+
+    @QueryParam('source')
+    source: string = 'annam',
+
+    @QueryParam('userType')
+    userType: string = 'all',
+  ): Promise<any> {
+    return await this.chatbotService.getFarmerQuestionMetrics(
+      userId,
+      source,
+      userType,
+    );
+  }
+
   @Post('/notify-user')
   @HttpCode(200)
   @Authorized()

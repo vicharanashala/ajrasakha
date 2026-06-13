@@ -281,6 +281,19 @@ export interface PaginatedUserDetails {
   totalQuestions?: number;
 }
 
+export interface FarmerQuestionMetrics {
+  totalQuestionsAsked: number;
+  questionsClosed: number;
+  questionsInReview: number;
+  questionsPending: number;
+  duplicateQuestions: number;
+  nonDuplicateQuestions: number;
+  questionsClosedWithin2Hours: number;
+  carryForwardQuestions: number;
+  questionsAwaitingReview: number;
+  statusBreakdown: Record<string, number>;
+}
+
 export interface UnverifiedUserEntry {
   _id: string;
   name: string;
@@ -586,6 +599,16 @@ export interface IChatbotRepository {
     page?: number,
     limit?: number,
   ): Promise<any>;
+
+  getFarmerQuestionMetrics(
+    identifiers: {
+      threadIds?: string[];
+      messageIds?: string[];
+      userId?: string;
+    },
+    source?: string,
+    userType?: string,
+  ): Promise<FarmerQuestionMetrics>;
 
   getUsersMessages(
     email: string,

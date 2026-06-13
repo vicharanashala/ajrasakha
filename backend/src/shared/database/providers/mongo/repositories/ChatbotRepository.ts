@@ -42,6 +42,7 @@ import type {
   FarmerHeatMapBucket,
   FarmerHeatMapRow,
   FarmerHeatMapMetricTotals,
+  FarmerQuestionMetrics,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {IQuestion, QuestionSource} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
@@ -6445,6 +6446,247 @@ export class ChatbotRepository implements IChatbotRepository {
     );
   }
 }
+
+  async getFarmerQuestionMetrics(
+    identifiers: {
+      threadIds?: string[];
+      messageIds?: string[];
+      userId?: string;
+    },
+    source = 'annam',
+    userType = 'all',
+  ): Promise<FarmerQuestionMetrics> {
+    try {
+      await this.initReviewSystem();
+
+      const sourceType = source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
+      const orConditions: any[] = [];
+
+      if (identifiers.threadIds?.length) {
+        orConditions.push({threadId: {$in: identifiers.threadIds}});
+      }
+
+      if (identifiers.messageIds?.length) {
+        orConditions.push({messageId: {$in: identifiers.messageIds}});
+      }
+
+      if (identifiers.userId && ObjectId.isValid(identifiers.userId)) {
+        orConditions.push({userId: new ObjectId(identifiers.userId)});
+        orConditions.push({userId: identifiers.userId});
+      }
+
+      const emptyMetrics: FarmerQuestionMetrics = {
+        totalQuestionsAsked: 0,
+        questionsClosed: 0,
+        questionsInReview: 0,
+        questionsPending: 0,
+        duplicateQuestions: 0,
+        nonDuplicateQuestions: 0,
+        questionsClosedWithin2Hours: 0,
+        carryForwardQuestions: 0,
+        questionsAwaitingReview: 0,
+        statusBreakdown: {},
+      };
+
+      if (!orConditions.length) {
+        return emptyMetrics;
+      }
+
+      const matchQuery: any = {
+        source: sourceType,
+        $or: orConditions,
+        status: {$nin: ['non_agri', 'NO_AGRI']},
+        $and: [
+          {
+            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+          },
+        ],
+      };
+
+      const userTypeQuery = await this.buildQuestionUserTypeMatchQuery(
+        source,
+        userType,
+      );
+
+      if (userTypeQuery && Object.keys(userTypeQuery).length > 0) {
+        matchQuery.$and.push(userTypeQuery);
+      }
+
+      const carryForwardWindowStart = new Date();
+      carryForwardWindowStart.setDate(carryForwardWindowStart.getDate() - 1);
+      carryForwardWindowStart.setHours(22, 30, 0, 0);
+
+      const carryForwardWindowEnd = new Date();
+      carryForwardWindowEnd.setHours(0, 0, 0, 0);
+
+      const [result] = await this.QuestionCollection.aggregate([
+        {$match: matchQuery},
+        {
+          $addFields: {
+            _statusLower: {$toLower: {$ifNull: ['$status', '']}},
+            _completionAt: {
+              $cond: [
+                {$eq: [{$toLower: {$ifNull: ['$status', '']}}, 'pass']},
+                '$passedAt',
+                '$closedAt',
+              ],
+            },
+          },
+        },
+        {
+          $facet: {
+            summary: [
+              {
+                $group: {
+                  _id: null,
+                  totalQuestionsAsked: {$sum: 1},
+                  questionsClosed: {
+                    $sum: {
+                      $cond: [
+                        {$in: ['$_statusLower', ['closed', 'pass']]},
+                        1,
+                        0,
+                      ],
+                    },
+                  },
+                  questionsInReview: {
+                    $sum: {
+                      $cond: [{$eq: ['$_statusLower', 'in-review']}, 1, 0],
+                    },
+                  },
+                  questionsPending: {
+                    $sum: {
+                      $cond: [
+                        {
+                          $in: [
+                            '$_statusLower',
+                            [
+                              'pending',
+                              'open',
+                              'delayed',
+                              'hold',
+                              'draft',
+                              're-routed',
+                              'pae_submitted',
+                            ],
+                          ],
+                        },
+                        1,
+                        0,
+                      ],
+                    },
+                  },
+                  duplicateQuestions: {
+                    $sum: {
+                      $cond: [{$eq: ['$_statusLower', 'duplicate']}, 1, 0],
+                    },
+                  },
+                  questionsClosedWithin2Hours: {
+                    $sum: {
+                      $cond: [
+                        {
+                          $and: [
+                            {$in: ['$_statusLower', ['closed', 'pass']]},
+                            {$ne: ['$createdAt', null]},
+                            {$ne: ['$_completionAt', null]},
+                            {$gte: ['$_completionAt', '$createdAt']},
+                            {
+                              $lte: [
+                                {$subtract: ['$_completionAt', '$createdAt']},
+                                2 * 60 * 60 * 1000,
+                              ],
+                            },
+                          ],
+                        },
+                        1,
+                        0,
+                      ],
+                    },
+                  },
+                  carryForwardQuestions: {
+                    $sum: {
+                      $cond: [
+                        {
+                          $and: [
+                            {$gte: ['$createdAt', carryForwardWindowStart]},
+                            {$lt: ['$createdAt', carryForwardWindowEnd]},
+                            {
+                              $not: [
+                                {
+                                  $in: [
+                                    '$_statusLower',
+                                    ['closed', 'pass', 'non_agri', 'no_agri'],
+                                  ],
+                                },
+                              ],
+                            },
+                          ],
+                        },
+                        1,
+                        0,
+                      ],
+                    },
+                  },
+                  questionsAwaitingReview: {
+                    $sum: {
+                      $cond: [
+                        {$in: ['$_statusLower', ['pending', 'pae_submitted']]},
+                        1,
+                        0,
+                      ],
+                    },
+                  },
+                },
+              },
+              {
+                $project: {
+                  _id: 0,
+                  totalQuestionsAsked: 1,
+                  questionsClosed: 1,
+                  questionsInReview: 1,
+                  questionsPending: 1,
+                  duplicateQuestions: 1,
+                  nonDuplicateQuestions: {
+                    $subtract: ['$totalQuestionsAsked', '$duplicateQuestions'],
+                  },
+                  questionsClosedWithin2Hours: 1,
+                  carryForwardQuestions: 1,
+                  questionsAwaitingReview: 1,
+                },
+              },
+            ],
+            statusBreakdown: [
+              {
+                $group: {
+                  _id: '$_statusLower',
+                  count: {$sum: 1},
+                },
+              },
+            ],
+          },
+        },
+      ]).toArray();
+
+      const summary = result?.summary?.[0] ?? emptyMetrics;
+      const statusBreakdown = (result?.statusBreakdown ?? []).reduce(
+        (acc: Record<string, number>, item: {_id: string; count: number}) => {
+          acc[item._id || 'unknown'] = item.count;
+          return acc;
+        },
+        {},
+      );
+
+      return {
+        ...emptyMetrics,
+        ...summary,
+        statusBreakdown,
+      };
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get farmer question metrics: ${error}`,
+      );
+    }
+  }
 
   async getUsersMessages(
     email: string,
