@@ -546,11 +546,11 @@ export class ChatbotRepository implements IChatbotRepository {
                 branches: [
                   {
                     case: {$eq: ['$_statusLower', 'pass']},
-                    then: {$ifNull: ['$passedAt', '$updatedAt']},
+                    then: '$passedAt',
                   },
                   {
                     case: '$_isGdbDuplicate',
-                    then: {$ifNull: ['$passedAt', '$updatedAt']},
+                    then: '$passedAt',
                   },
                   {
                     case: {
@@ -9814,7 +9814,7 @@ const totalPages =
                     ['pass'],
                   ],
                 },
-                {$ifNull: ['$passedAt', '$updatedAt']},
+                '$passedAt',
                 '$closedAt',
               ],
             },
@@ -9828,6 +9828,22 @@ const totalPages =
               $sum: {
                 $cond: [
                   {$in: ['$_statusLower', ['closed', 'pass']]},
+                  1,
+                  0,
+                ],
+              },
+            },
+            timedCompletedQuestions: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$in: ['$_statusLower', ['closed', 'pass']]},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$_operationalCompletionAt', null]},
+                      {$gte: ['$_operationalCompletionAt', '$createdAt']},
+                    ],
+                  },
                   1,
                   0,
                 ],
@@ -9856,13 +9872,13 @@ const totalPages =
             _id: 0,
             avgCloseTimeMinutes: {
               $cond: [
-                {$gt: ['$completedQuestions', 0]},
+                {$gt: ['$timedCompletedQuestions', 0]},
                 {
                   $round: [
                     {
                       $divide: [
                         '$closeTimeSumMs',
-                        {$multiply: ['$completedQuestions', 60000]},
+                        {$multiply: ['$timedCompletedQuestions', 60000]},
                       ],
                     },
                     2,
@@ -9891,7 +9907,7 @@ const totalPages =
                       ['pass'],
                     ],
                   },
-                  {$ifNull: ['$passedAt', '$updatedAt']},
+                  '$passedAt',
                   '$closedAt',
                 ],
               },
@@ -9991,6 +10007,22 @@ const totalPages =
                   ],
                 },
               },
+              timedCompletedQuestions: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        {$in: ['$_statusLower', ['closed', 'pass']]},
+                        {$ne: ['$createdAt', null]},
+                        {$ne: ['$_operationalCompletionAt', null]},
+                        {$gte: ['$_operationalCompletionAt', '$createdAt']},
+                      ],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
             },
           },
           {
@@ -10012,13 +10044,13 @@ const totalPages =
               nonAgri: 1,
               avgCloseTimeMinutes: {
                 $cond: [
-                  {$gt: ['$closedQuestions', 0]},
+                  {$gt: ['$timedCompletedQuestions', 0]},
                   {
                     $round: [
                       {
                         $divide: [
                           '$closeTimeSumMs',
-                          {$multiply: ['$closedQuestions', 60000]},
+                          {$multiply: ['$timedCompletedQuestions', 60000]},
                         ],
                       },
                       2,
@@ -10207,7 +10239,7 @@ const totalPages =
                     ['pass'],
                   ],
                 },
-                {$ifNull: ['$passedAt', '$updatedAt']},
+                '$passedAt',
                 '$closedAt',
               ],
             },
@@ -11912,16 +11944,6 @@ const totalPages =
 
     const matchQuery: any = {
       source: sourceType,
-      status: 'closed',
-
-      $expr: {
-        $lte: [
-          {
-            $subtract: ['$closedAt', '$createdAt'],
-          },
-          2 * 60 * 60 * 1000,
-        ],
-      },
       $and: [
         {
           $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
@@ -12003,6 +12025,35 @@ const totalPages =
         $match: matchQuery,
       },
       {
+        $addFields: {
+          _statusLower: {$toLower: {$ifNull: ['$status', '']}},
+          _operationalCompletionAt: {
+            $cond: [
+              {$eq: [{$toLower: {$ifNull: ['$status', '']}}, 'pass']},
+              '$passedAt',
+              '$closedAt',
+            ],
+          },
+        },
+      },
+      {
+        $match: {
+          _statusLower: {$in: ['closed', 'pass']},
+          _operationalCompletionAt: {$ne: null},
+          $expr: {
+            $and: [
+              {$gte: ['$_operationalCompletionAt', '$createdAt']},
+              {
+                $lte: [
+                  {$subtract: ['$_operationalCompletionAt', '$createdAt']},
+                  2 * 60 * 60 * 1000,
+                ],
+              },
+            ],
+          },
+        },
+      },
+      {
         $sort: {
           createdAt: -1,
         },
@@ -12026,6 +12077,7 @@ const totalPages =
                 status: 1,
                 createdAt: 1,
                 closedAt: 1,
+                passedAt: 1,
                 district: '$details.district',
                 crop: '$details.crop',
                 village: '$details.village',
