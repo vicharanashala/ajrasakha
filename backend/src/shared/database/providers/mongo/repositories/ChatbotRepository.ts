@@ -12473,8 +12473,12 @@ const totalPages =
     messageId?: string | undefined;
   }) {}
 
-  async getUserProfile (userId: string) : Promise<any>{
+  async getUserProfile (userId: string, session?: ClientSession) : Promise<any>{
     try{
+      const dateMatch: Record<string, any> = {
+        isCreatedByUser: true,
+        isDeleted: {$ne: true},
+      };
       await this.init("annam");
       const users = await this.users
         .find({
@@ -12486,7 +12490,33 @@ const totalPages =
           `No user found for Id: ${userId}`,
         );
       }
-      return  users[0];
+      const messageCounts = await this.messagesCollection
+        .aggregate(
+          [
+            {$match: dateMatch},
+            {
+              $group: {
+                _id: '$user',
+                totalQuestions: {$sum: 1},
+              },
+            },
+          ],
+          {session},
+        )
+        .toArray();
+      // console.log("user--", users[0]);
+      return  {
+        userId: users[0]._id,
+        name: users[0].name,
+        username: users[0].username,
+        email: users[0].email,
+        role: users[0].role,
+        farmerProfile: users[0].farmerProfile,
+        createdAt: users[0].createdAt,
+        isVerified: users[0].isVerified,
+        userRole: users[0].userRole,
+        totalQuestions: messageCounts?.length,
+      };
     }catch(error){
       throw new InternalServerError(
         `Failed to get user profile: ${error}`,
