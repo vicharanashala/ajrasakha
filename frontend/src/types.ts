@@ -1,7 +1,7 @@
 import type { UserCredential } from "firebase/auth";
 import type { DemographicEntry } from "./features/chatbotDashboard/types";
 
-export type UserRole = "admin" | "moderator" | "expert" | "pae_expert" | "tester";
+export type UserRole = "admin" | "moderator" | "expert" | "pae_expert" | "tester"| "district_coordinator"| "block_coordinator" | "village_volunteer" | "call_agent";
 
 export interface ExtendedUserCredential extends UserCredential {
   _tokenResponse?: {
@@ -45,13 +45,13 @@ export interface IUser {
   rankPosition?: number;
   expertRank?: number;
   status?: 'active' | 'in-active';
+  lastCheckInAt?: string | Date;
   avatar?: string;
   special_task_force?: boolean;
   special_task_force_moderator?: boolean
   mobile?: string;
   university?: string;
   isVerified?: boolean;
-  isCallAgent?: boolean;
   isCallAgentActive?: boolean;
 }
 
@@ -1102,6 +1102,8 @@ export interface ResponseAdherenceTable {
   ajrasakhaPushedToReviewer: number;
   whatsappAnsweredWithin120Min: number;
   ajrasakhaAnsweredWithin120Min: number;
+  whatsappPassedQuestions: number;
+  ajrasakhaPassedQuestions: number;
   whatsappMarkedDuplicate: number;
   ajrasakhaMarkedDuplicate: number;
   whatsappDynamicWeather: number;

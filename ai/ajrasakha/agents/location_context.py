@@ -9,6 +9,8 @@ from typing import Any, Optional
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
+from ajrasakha.agents.resolution_trace import trace_resolution
+
 # Canonical state names and common spellings in farmer queries (longest match first).
 _STATE_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("Andaman and Nicobar Islands", re.compile(r"\bandaman\b", re.I)),
@@ -85,6 +87,22 @@ def extract_state_from_text(text: str) -> Optional[str]:
     return None
 
 
+def normalize_state_name(state: str | None) -> Optional[str]:
+    """Map a state string to the canonical Indian state name, if recognized."""
+    if not state:
+        return None
+    cleaned = " ".join(str(state).strip().split())
+    if not cleaned or cleaned.lower() in _PLACEHOLDER_LOCATION_VALUES:
+        return None
+    for name, _pattern in _STATE_PATTERNS:
+        if cleaned.lower() == name.lower():
+            return name
+    from_text = extract_state_from_text(cleaned)
+    if from_text:
+        return from_text
+    return cleaned.title()
+
+
 def _message_to_text(message: BaseMessage) -> str:
     content = message.content
     if content is None:
@@ -153,8 +171,27 @@ def resolve_state_for_turn(
     """Current message state first, then GPS-resolved thread state — never old messages."""
     state_from_text = extract_state_from_text(latest_text)
     if state_from_text:
+        trace_resolution(
+            "state_for_turn",
+            state=state_from_text,
+            state_source="latest_message_text",
+        )
         return state_from_text
-    return gps_state_from_location(location)
+    # Do not fall back to thread GPS for state — farmer text / plan entities only.
+    # gps_state = gps_state_from_location(location)
+    # if gps_state:
+    #     trace_resolution(
+    #         "state_for_turn",
+    #         state=gps_state,
+    #         state_source="location.state (thread_gps)",
+    #     )
+    #     return gps_state
+    trace_resolution(
+        "state_for_turn",
+        state=None,
+        state_source="unresolved (GPS fallback disabled)",
+    )
+    return None
 
 
 def merge_location_dict(
@@ -222,6 +259,18 @@ def updates_from_location_information_tool(
 
     base = dict(prev or {})
     patch = merge_location_dict(base, patch)
+    if patch:
+        trace_resolution(
+            "location_information_tool",
+            state=patch.get("state"),
+            state_source="reverse_geocode",
+            district=patch.get("city"),
+            district_source="reverse_geocode",
+            latitude=base.get("latitude"),
+            longitude=base.get("longitude"),
+            lat_long_source="thread_location",
+            address=patch.get("address"),
+        )
     return patch if patch else None
 
 
@@ -341,11 +390,19 @@ async def forward_geocode(state: Optional[str], district: Optional[str] = None) 
     """Forward geocode state and district to latitude/longitude using OpenStreetMap Nominatim."""
     import logging
     import httpx
-    
+
     logger = logging.getLogger(__name__)
-    
+
     if not state and not district:
         return None
+
+    trace_resolution(
+        "forward_geocode_request",
+        state=state,
+        state_source="caller_input",
+        district=district,
+        district_source="caller_input",
+    )
         
     url = "https://nominatim.openstreetmap.org/search"
     # Try structured query first since it is more reliable
@@ -375,13 +432,25 @@ async def forward_geocode(state: Optional[str], district: Optional[str] = None) 
                 lon = float(item["lon"])
                 display_name = item.get("display_name")
                 resolved_state = item.get("address", {}).get("state") or state
-                return {
+                result = {
                     "latitude": lat,
                     "longitude": lon,
                     "state": resolved_state,
                     "city": district or item.get("name"),
                     "address": display_name
                 }
+                trace_resolution(
+                    "forward_geocode_result",
+                    state=resolved_state,
+                    state_source="nominatim_structured",
+                    district=result["city"],
+                    district_source="nominatim_structured",
+                    latitude=lat,
+                    longitude=lon,
+                    lat_long_source="nominatim_structured",
+                    address=display_name,
+                )
+                return result
     except Exception as e:
         logger.error("Structured forward geocoding failed: %s", e)
         
@@ -412,14 +481,33 @@ async def forward_geocode(state: Optional[str], district: Optional[str] = None) 
                 lon = float(item["lon"])
                 display_name = item.get("display_name")
                 resolved_state = item.get("address", {}).get("state") or state
-                return {
+                result = {
                     "latitude": lat,
                     "longitude": lon,
                     "state": resolved_state,
                     "city": district or item.get("name"),
                     "address": display_name
                 }
+                trace_resolution(
+                    "forward_geocode_result",
+                    state=resolved_state,
+                    state_source="nominatim_fallback_query",
+                    district=result["city"],
+                    district_source="nominatim_fallback_query",
+                    latitude=lat,
+                    longitude=lon,
+                    lat_long_source="nominatim_fallback_query",
+                    address=display_name,
+                )
+                return result
     except Exception as e:
         logger.error("Fallback forward geocoding failed: %s", e)
-        
+
+    trace_resolution(
+        "forward_geocode_result",
+        state=state,
+        state_source="failed",
+        district=district,
+        district_source="failed",
+    )
     return None

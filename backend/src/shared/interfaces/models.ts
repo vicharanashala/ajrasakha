@@ -1,6 +1,6 @@
 import {ObjectId} from 'mongodb';
 
-export type UserRole = 'admin' | 'moderator' | 'expert' | 'pae_expert' | 'tester';
+export type UserRole = 'admin' | 'moderator' | 'expert' | 'pae_expert' | 'tester'| 'district_coordinator' | 'block_coordinator' | 'village_volunteer' | 'call_agent';
 export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold' | 'pae_submitted' | 'draft' | 'pass' | 'duplicate' | 'non_agri' | 'pending';
 export interface IPreference {
   state: string;
@@ -33,7 +33,6 @@ export interface IUser {
   mobile?: string;
   university?: string;
   isVerified?: boolean;
-  isCallAgent?: boolean;
   isCallAgentActive?: boolean;
 }
 
@@ -76,8 +75,10 @@ export interface IQuestion {
   metrics: IQuestionMetrics | null;
   text?: string;
   closedAt?: Date;
+  passedAt?: Date | null;
   createdAt?: Date;
   updatedAt?: Date;
+  isClosed?: boolean;
   isHidden?: false;
   passingRemark?: string;
   isOnHold?: boolean;

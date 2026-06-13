@@ -499,13 +499,21 @@ export class ResponseAdherenceTableResponse {
   @IsNumber()
   ajrasakhaQuestionAsked: number;
 
-  @JSONSchema({ description: 'WhatsApp questions answered within 120 minutes', example: 37, type: 'number', readOnly: true })
+  @JSONSchema({ description: 'WhatsApp questions completed within 120 minutes', example: 37, type: 'number', readOnly: true })
   @IsNumber()
   whatsappAnsweredWithin120Min: number;
 
-  @JSONSchema({ description: 'Ajrasakha questions answered within 120 minutes', example: 41, type: 'number', readOnly: true })
+  @JSONSchema({ description: 'Ajrasakha questions completed within 120 minutes', example: 41, type: 'number', readOnly: true })
   @IsNumber()
   ajrasakhaAnsweredWithin120Min: number;
+
+  @JSONSchema({ description: 'WhatsApp questions passed to the GDB', example: 12, type: 'number', readOnly: true })
+  @IsNumber()
+  whatsappPassedQuestions: number;
+
+  @JSONSchema({ description: 'Ajrasakha questions passed to the GDB', example: 14, type: 'number', readOnly: true })
+  @IsNumber()
+  ajrasakhaPassedQuestions: number;
 
   @JSONSchema({ description: 'Average WhatsApp response time in minutes', example: 102, type: 'number', readOnly: true })
   @IsNumber()

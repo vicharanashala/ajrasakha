@@ -5,6 +5,8 @@ import { Search, Plus, Trash2, ToggleLeft, ToggleRight, Check, X } from "lucide-
 import { Input } from "./atoms/input";
 import { UserService } from "@/hooks/services/userService";
 import { toast } from "@/shared/components/toast";
+import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
+import { env } from "@/config/env";
 
 const userService = new UserService();
 
@@ -16,6 +18,11 @@ export const ManageCallAgents = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [addingAgents, setAddingAgents] = useState(false);
+
+  const { data: currentUser } = useGetCurrentUser({ enabled: true });
+  const allowedManagerIds = env.callAgentManagerUserIds();
+
+  const canManageCallAgents = currentUser?._id && allowedManagerIds.includes(String(currentUser._id));
 
   useEffect(() => {
     fetchCallAgents();
@@ -110,7 +117,6 @@ export const ManageCallAgents = () => {
   const filteredUsers = allUsers.filter(
     (u) =>
       u.role === "expert" &&
-      !u.isCallAgent &&
       (u.firstName?.toLowerCase().includes(search.toLowerCase()) ||
         u.lastName?.toLowerCase().includes(search.toLowerCase()) ||
         u.email?.toLowerCase().includes(search.toLowerCase()))
@@ -128,10 +134,12 @@ export const ManageCallAgents = () => {
     <div className="w-full max-w-6xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Manage Call Agents</h1>
-        <Button onClick={() => setShowAddModal(true)} className="gap-2">
-          <Plus className="w-4 h-4" />
-          Add Call Agent
-        </Button>
+        {canManageCallAgents && (
+          <Button onClick={() => setShowAddModal(true)} className="gap-2">
+            <Plus className="w-4 h-4" />
+            Add Call Agent
+          </Button>
+        )}
       </div>
 
       {/* Call Agents List */}
@@ -157,7 +165,10 @@ export const ManageCallAgents = () => {
                   </div>
                   <div className="flex items-center gap-2 mt-1">
                     <span
-                      className={`text-xs px-2 py-1 rounded-full ${agent.role === "moderator"
+                      className={`text-xs px-2 py-1 rounded-full ${
+                        agent.role === "call_agent"
+                          ? "bg-green-100 text-green-700"
+                          : agent.role === "moderator"
                           ? "bg-purple-100 text-purple-700"
                           : "bg-blue-100 text-blue-700"
                         }`}
@@ -174,35 +185,37 @@ export const ManageCallAgents = () => {
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleToggleActive(String(agent._id))}
-                    className="gap-2"
-                  >
-                    {agent.isCallAgentActive ? (
-                      <>
-                        <ToggleRight className="w-4 h-4" />
-                        Deactivate
-                      </>
-                    ) : (
-                      <>
-                        <ToggleLeft className="w-4 h-4" />
-                        Activate
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleRemoveAgent(String(agent._id))}
-                    className="gap-2 text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Remove
-                  </Button>
-                </div>
+                {canManageCallAgents && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleToggleActive(String(agent._id))}
+                      className="gap-2"
+                    >
+                      {agent.isCallAgentActive ? (
+                        <>
+                          <ToggleRight className="w-4 h-4" />
+                          Deactivate
+                        </>
+                      ) : (
+                        <>
+                          <ToggleLeft className="w-4 h-4" />
+                          Activate
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveAgent(String(agent._id))}
+                      className="gap-2 text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Remove
+                    </Button>
+                  </div>
+                )}
               </div>
             ))}
           </div>

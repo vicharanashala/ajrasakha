@@ -62,6 +62,15 @@ class Question implements IQuestion {
   source: QuestionSource;
 
   @Expose()
+  closedAt?: Date;
+
+  @Expose()
+  passedAt?: Date | null;
+
+  @Expose()
+  isClosed?: boolean;
+
+  @Expose()
   isAutoAllocate: boolean;
 
   @Expose()

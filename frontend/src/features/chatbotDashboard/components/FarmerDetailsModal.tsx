@@ -157,7 +157,7 @@ interface FarmerDetailsModalProps {
   onEdit: (user: UserDetail) => void;
   onDelete: (user: UserDetail) => void;
   isChangingPassword?: boolean;
-  onChangePassword?: (payload: {newPassword: string}) => void | Promise<void>;
+  onChangePassword?: (payload: {newPassword: string, keepLoggedIn: boolean}) => void | Promise<void>;
   isUpdatingVerification?: boolean;
   onVerificationChange?: (isVerified: boolean) => void | Promise<void>;
 }
@@ -186,6 +186,7 @@ export function FarmerDetailsModal({
   );
   const [confirmPasswordChangeOpen, setConfirmPasswordChangeOpen] =
     useState(false);
+  const [keepLoggedIn, setKeepLoggedIn] = useState(true);
 
   useEffect(() => {
     if (!open) {
@@ -238,7 +239,7 @@ export function FarmerDetailsModal({
     if (!onChangePassword || !validatePasswordFields()) return;
 
     try {
-      await onChangePassword({newPassword});
+      await onChangePassword({newPassword, keepLoggedIn});
       setNewPassword("");
       setConfirmPassword("");
       setPasswordErrors({});
@@ -432,6 +433,18 @@ export function FarmerDetailsModal({
                               setShowConfirmPassword((prev) => !prev)
                             }
                           />
+                        </div>
+
+                        <div className="flex items-center gap-2 mt-4">
+                          <input
+                            id="keepLoggedIn"
+                            type="checkbox"
+                            checked={keepLoggedIn}
+                            onChange={(e) => setKeepLoggedIn(e.target.checked)}
+                          />
+                          <label htmlFor="keepLoggedIn">
+                            Keep user logged in for active sessions
+                          </label>
                         </div>
 
                         <div className="mt-3 grid gap-2 sm:grid-cols-2">

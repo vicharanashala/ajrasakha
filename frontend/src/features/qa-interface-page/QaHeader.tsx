@@ -409,12 +409,34 @@ const QaQuestionItem = ({
                 PAE Reroute
               </span>
             )}
-            <Label
-              htmlFor={question?.id}
-              className="text-sm md:text-base font-medium leading-relaxed cursor-pointer text-foreground group-hover:text-foreground/90 transition-colors block"
-            >
-              {question?.text}
-            </Label>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Label
+                htmlFor={question?.id}
+                className="text-sm md:text-base font-medium leading-relaxed cursor-pointer text-foreground group-hover:text-foreground/90 transition-colors block"
+              >
+                {question?.text}
+              </Label>
+              {question?.status && ['non_agri', 'dynamic'].includes(question.status.toLowerCase()) && (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    flexShrink: 0,
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    padding: '2px 8px',
+                    borderRadius: '9999px',
+                    border: '1px solid',
+                    borderColor: question.status.toLowerCase() === 'non_agri' ? '#fdba74' : '#d8b4fe',
+                    backgroundColor: question.status.toLowerCase() === 'non_agri' ? '#fff7ed' : '#faf5ff',
+                    color: question.status.toLowerCase() === 'non_agri' ? '#c2410c' : '#7e22ce',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {question.status.toLowerCase() === 'non_agri' ? 'Non Agri' : 'Dynamic'}
+                </span>
+              )}
+            </div>
             {question.totalAnswersCount === 0 && (
               <div className="mt-2 flex items-center gap-2">
                 <Select

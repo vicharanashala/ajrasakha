@@ -12,9 +12,10 @@ import { useHoldQuestion } from "@/hooks/api/question/useHoldQuestion";
 import { useManualCheckDuplicate } from "@/hooks/api/question/useManualCheckDuplicate";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/atoms/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/atoms/dialog";
-import { CircleCheck, GitCompareArrows } from "lucide-react";
+import { CircleCheck, GitCompareArrows, History } from "lucide-react";
 import { diffWords } from "@/utils/wordDifference";
 import { toast } from "@/shared/components/toast";
+import { AuditTrailModal } from "./AuditTrailModal";
 
 interface QuestionHeaderProps {
   question: IQuestionFullData;
@@ -44,6 +45,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
   );
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [compareMode, setCompareMode] = useState(false);
+  const [auditModalOpen, setAuditModalOpen] = useState(false);
 
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
@@ -310,7 +312,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
             )} */}
           {question?.status === "closed" &&
             (currentUser.role === "moderator" ||
-              currentUser.role === "admin") &&
+              currentUser.role === "admin" || currentUser.role ==='tester') &&
             question?.closedAt && (
               <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <CircleCheck className="h-3.5 w-3.5 text-primary" />
@@ -321,11 +323,22 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                   </span>
                 </span>
 
-                <span>•</span>
+          <span>•</span>
 
-                <span>{new Date(question.closedAt).toLocaleString()}</span>
-              </div>
-            )}
+          <span>{new Date(question.closedAt).toLocaleString()}</span>
+        </div>
+      )}
+
+          {/* View Audit Button */}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setAuditModalOpen(true)}
+            className="gap-1.5"
+          >
+            <History className="h-4 w-4" />
+            View Audit
+          </Button>
         </div>
 
         {/* Created / Updated */}
@@ -338,7 +351,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
           <div>
             {question?.status === "closed" &&
               (currentUser.role === "moderator" ||
-                currentUser.role === "admin") && (
+                currentUser.role === "admin" || currentUser.role === 'tester') && (
                 <div className="text-sm">
                   {question?.closedAt && (
                     <div>
@@ -665,6 +678,12 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AuditTrailModal
+        open={auditModalOpen}
+        onClose={() => setAuditModalOpen(false)}
+        questionId={question._id!}
+      />
     </>
   );
 };

@@ -18,6 +18,7 @@ from ajrasakha.agents.location_context import (
     latest_human_text,
     recent_human_text,
 )
+from ajrasakha.agents.resolution_trace import trace_resolution
 from ajrasakha.agents.state import Location, PlannerEntities, PlannerPlan
 from ajrasakha.agents.translation_catalog import (
     get_crop_follow_up,
@@ -155,6 +156,27 @@ def format_conversation_for_planner(
     return "\n".join(lines) if lines else latest_human_text(messages)
 
 
+def format_last_queries_for_rephrasing(
+    messages: list[BaseMessage],
+    *,
+    max_turns: int = 5,
+) -> str:
+    """Extract only the last N human messages for rephrasing context.
+    
+    This provides a focused context for the LLM to rephrase the query
+    based on recent conversation history, without including bot responses.
+    """
+    lines: list[str] = []
+    for msg in messages:
+        if isinstance(msg, HumanMessage):
+            text = _message_to_text(msg)
+            if text:
+                lines.append(text)
+    if len(lines) > max_turns:
+        lines = lines[-max_turns:]
+    return "\n".join(lines) if lines else latest_human_text(messages)
+
+
 def is_crop_clarify_turn(messages: list[BaseMessage]) -> bool:
     """True when the farmer's latest reply follows an AI crop clarify question."""
     last_human_idx: int | None = None
@@ -203,6 +225,12 @@ def apply_crop_one_shot_fallback(
     if was_crop_clarify_asked(messages) and not has_specific_crop(crop):
         out = dict(entities)
         out["crop"] = "all"
+        trace_resolution(
+            "crop_one_shot_fallback",
+            crop="all",
+            crop_source="one_shot_clarify_exhausted",
+            domains=domains,
+        )
         return out
     return entities
 
@@ -215,7 +243,15 @@ def resolve_crop_for_turn(messages: list[BaseMessage]) -> Optional[str]:
         text = latest_human_text(messages)
     crop = extract_crop_from_text(text)
     if crop:
-        return crop[0].upper() + crop[1:].lower()
+        resolved = crop[0].upper() + crop[1:].lower()
+        source = "recent_human_text" if is_crop_clarify_turn(messages) else "latest_human_text"
+        trace_resolution(
+            "crop_from_text",
+            crop=resolved,
+            crop_source=source,
+            text_preview=text[:120] if text else None,
+        )
+        return resolved
     return None
 
 
@@ -239,26 +275,39 @@ def merge_entities_from_rephrased_query(
     messages: list[BaseMessage],
     location: Optional[Location],
     prev_entities: Optional[PlannerEntities] = None,
+    *,
+    stored_location: Optional[dict[str, str]] = None,
+    sources_out: Optional[dict[str, str | None]] = None,
 ) -> PlannerEntities:
-    """Resolve state/crop/district from farmer text and planner LLM entities only (no GPS).
+    """Resolve state/crop/district from farmer text, LLM entities, stored profile, or clarify carry-over.
 
     State/district never come from device coordinates — only from rephrased query text,
-    LLM entity fields, or ``prev_entities`` during an incomplete clarification turn.
+    LLM entity fields, stored user location, or ``prev_entities`` during clarification.
     """
     # Start with previous entities, override with new plan entities
     merged: PlannerEntities = {**(prev_entities or {}), **dict(plan.get("entities") or {})}
     text = entity_text_from_plan(plan, messages)
 
     # --- Crop Resolution ---
+    crop_source: str | None = None
     if is_crop_clarify_turn(messages):
-        turn_crop = extract_crop_from_text(text) or resolve_crop_for_turn(messages)
+        turn_crop = extract_crop_from_text(text)
+        if turn_crop:
+            crop_source = "rephrased_query_text (crop_clarify_turn)"
+        else:
+            turn_crop = resolve_crop_for_turn(messages)
+            if turn_crop:
+                crop_source = "recent_human_text (crop_clarify_turn)"
     else:
         turn_crop = extract_crop_from_text(text)
+        if turn_crop:
+            crop_source = "rephrased_query_text"
     if turn_crop:
         merged["crop"] = turn_crop[0].upper() + turn_crop[1:].lower()
     elif merged.get("crop") and not is_crop_placeholder(merged.get("crop")):
         c = str(merged["crop"])
         merged["crop"] = c[0].upper() + c[1:].lower()
+        crop_source = crop_source or "plan.entities.crop (llm_or_carryover)"
 
     # --- State/District Resolution (farmer text + LLM entities + clarify carry-over) ---
     state_from_text = extract_state_from_text(text)
@@ -267,31 +316,64 @@ def merge_entities_from_rephrased_query(
 
     extracted_state = state_from_text or llm_state
     extracted_district = llm_district
+    state_source: str | None = None
+    district_source: str | None = None
 
     if extracted_state and extracted_district:
         merged["state"] = extracted_state
         merged["district"] = extracted_district
+        state_source = "rephrased_query_text" if state_from_text else "plan.entities.state (llm)"
+        district_source = "plan.entities.district (llm)"
     elif extracted_district and not extracted_state:
         merged["district"] = extracted_district
         merged.pop("state", None)
+        district_source = "plan.entities.district (llm)"
+        state_source = "cleared (district_only_without_state)"
     elif extracted_state and not extracted_district:
         merged["state"] = extracted_state
         merged["district"] = "all"
+        state_source = "rephrased_query_text" if state_from_text else "plan.entities.state (llm)"
+        district_source = "default_all_when_state_only"
+    elif stored_location and stored_location.get("state"):
+        merged["state"] = stored_location["state"]
+        merged["district"] = stored_location.get("district") or "all"
+        state_source = "stored_user_location"
+        district_source = "stored_user_location"
     elif prev_entities and prev_entities.get("state"):
         merged["state"] = prev_entities.get("state")
+        state_source = "prev_entities (incomplete_clarify_carryover)"
         if prev_entities.get("district"):
             merged["district"] = prev_entities["district"]
+            district_source = "prev_entities.district (incomplete_clarify_carryover)"
         else:
             merged.pop("district", None)
+            district_source = "unset (prev_entities had state only)"
     else:
         merged.pop("state", None)
         merged.pop("district", None)
+        state_source = "unresolved (no_text_no_llm_no_prev)"
+        district_source = "unresolved (no_text_no_llm_no_prev)"
 
     chems = merged.get("chemicals")
     if chems:
         merged["chemicals"] = canonicalize_chemical_names(list(chems))
     elif prev_entities and prev_entities.get("chemicals"):
         merged["chemicals"] = canonicalize_chemical_names(list(prev_entities["chemicals"]))
+
+    trace_resolution(
+        "planner_entities_merge",
+        state=merged.get("state"),
+        state_source=state_source,
+        district=merged.get("district"),
+        district_source=district_source,
+        crop=merged.get("crop"),
+        crop_source=crop_source,
+        entity_text=text[:200] if text else None,
+    )
+
+    if sources_out is not None:
+        sources_out["state_source"] = state_source
+        sources_out["district_source"] = district_source
 
     return merged
 
@@ -373,8 +455,18 @@ def _merge_entities(
     messages: list[BaseMessage],
     location: Optional[Location],
     prev_entities: Optional[PlannerEntities] = None,
+    *,
+    stored_location: Optional[dict[str, str]] = None,
+    sources_out: Optional[dict[str, str | None]] = None,
 ) -> PlannerEntities:
-    return merge_entities_from_rephrased_query(plan, messages, location, prev_entities)
+    return merge_entities_from_rephrased_query(
+        plan,
+        messages,
+        location,
+        prev_entities,
+        stored_location=stored_location,
+        sources_out=sources_out,
+    )
 
 
 def _location_status(
@@ -440,6 +532,9 @@ def apply_planner_completeness_rules(
     messages: list[BaseMessage],
     location: Optional[Location],
     prev_entities: Optional[PlannerEntities] = None,
+    *,
+    stored_location: Optional[dict[str, str]] = None,
+    sources_out: Optional[dict[str, str | None]] = None,
 ) -> PlannerPlan:
     """Post-process planner output: merge entities, enforce scheme overrides.
 
@@ -454,7 +549,14 @@ def apply_planner_completeness_rules(
     """
     out: PlannerPlan = dict(plan)
     latest = latest_human_text(messages)
-    entities = _merge_entities(out, messages, location, prev_entities)
+    entities = _merge_entities(
+        out,
+        messages,
+        location,
+        prev_entities,
+        stored_location=stored_location,
+        sources_out=sources_out,
+    )
     domains_for_crop = list(out.get("domains") or [normalize_domain(out.get("domain") or "General")])
     entities = apply_crop_one_shot_fallback(messages, entities, domains_for_crop)
     out["entities"] = entities

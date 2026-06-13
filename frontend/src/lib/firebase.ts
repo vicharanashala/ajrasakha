@@ -28,10 +28,14 @@ const userService = new UserService()
 export const loginWithEmail = async (email: string, password: string) => {
   try {
     const user = await userService.Getuser(email)
-    if (user?.isBlocked) {
+    // Moderators are gated by activity status (isBlocked is their check-in/
+    // checkout availability flag); every other role is gated by isBlocked, as before.
+    const isModerator = user?.role === "moderator";
+    const deniedLogin = isModerator ? user?.status === "in-active" : !!user?.isBlocked;
+    if (deniedLogin) {
       throw new Error("User Is Blocked Please Contact Moderator")
     }
-    if (!user?.isBlocked || user === null) {
+    if (!deniedLogin || user === null) {
       const result = await signInWithEmailAndPassword(auth, email, password);
 
       // Enforce email verification
@@ -48,9 +52,9 @@ export const loginWithEmail = async (email: string, password: string) => {
 
       // Sync user with backend database
       const idToken = await result.user.getIdToken();
-      await authService.accountSync(idToken);
+      const syncResponse = await authService.accountSync(idToken);
 
-      return result;
+      return Object.assign(result, { appUser: syncResponse?.user });
     }
   } catch (error: unknown) {
     // If it's a "User Is Blocked" error, re-throw it
@@ -62,7 +66,9 @@ export const loginWithEmail = async (email: string, password: string) => {
     if (error instanceof Error && (error.message.includes("Request failed") || error.message.includes("Failed to"))) {
       try {
         const result = await signInWithEmailAndPassword(auth, email, password);
-        return result;
+        const idToken = await result.user.getIdToken();
+        const syncResponse = await authService.accountSync(idToken);
+        return Object.assign(result, { appUser: syncResponse?.user });
       } catch (authError) {
         throw authError;
       }

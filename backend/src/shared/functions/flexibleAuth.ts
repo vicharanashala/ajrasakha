@@ -33,7 +33,14 @@ export class FlexibleAuth implements ExpressMiddlewareInterface {
       const firebaseAuthService = getFromContainer(FirebaseAuthService);
       const decoded = await firebaseAuthService.getCurrentUserFromToken(token);
 
-      if (!decoded?.firebaseUID || decoded.isBlocked) {
+      // Moderators only: access is gated by activity status, NOT isBlocked
+      // (their check-in/checkout availability flag). Every other role is
+      // unchanged: isBlocked denies access as before.
+      const deniedAccess =
+        decoded.role === 'moderator'
+          ? decoded.status === 'in-active'
+          : decoded.isBlocked;
+      if (!decoded?.firebaseUID || deniedAccess) {
         return res.status(401).json({ success: false, message: 'Unauthorized' });
       }
 

@@ -25,19 +25,32 @@ from typing import Any, Callable, TypeVar
 from langchain_core.runnables import RunnableConfig
 
 from ajrasakha.agents.config import resolve_thread_id
+from ajrasakha.agents.thread_log_mongo import (
+    mongo_thread_log_enabled,
+    read_thread_log_text,
+    sync_turn_to_mongo,
+)
 
 F = TypeVar("F", bound=Callable[..., Any])
 
 _thread_id_ctx: ContextVar[str | None] = ContextVar("thread_id", default=None)
 _turn_num_ctx: ContextVar[int | None] = ContextVar("turn_num", default=None)
+_turn_buffer_ctx: ContextVar[list[str] | None] = ContextVar("turn_buffer", default=None)
+_turn_meta_ctx: ContextVar[dict[str, Any] | None] = ContextVar("turn_meta", default=None)
 
 _handler_installed = False
 _handler_lock = threading.Lock()
 _turn_counts: dict[str, int] = {}
 _turn_counts_lock = threading.Lock()
+# Cross-node turn state (ContextVars do not survive LangGraph node boundaries).
+_active_turns: dict[str, dict[str, Any]] = {}
 
 _UNSAFE_FILENAME = re.compile(r"[^\w.\-]+", re.UNICODE)
 _END_TURN_RE = re.compile(r"END TURN (\d+)", re.MULTILINE)
+_FARMER_MESSAGE_RE = re.compile(
+    r"┏━ FARMER MESSAGE ━+\n(.*?)\n┗━",
+    re.DOTALL,
+)
 _BOX_WIDTH = 76
 
 # Thread log files: application logs only (skip httpx / MCP transport noise).
@@ -93,17 +106,96 @@ def _thread_log_path(thread_id: str) -> Path:
     return thread_log_dir() / f"{safe}.txt"
 
 
-def _max_turn_from_log(thread_id: str) -> int:
-    """Read highest completed turn from the thread log (survives process restart)."""
+def _read_local_thread_log_text(thread_id: str) -> str:
+    """Read accumulated log text from the local file only (never blocks on MongoDB)."""
     path = _thread_log_path(thread_id)
     if not path.is_file():
-        return 0
+        return ""
     try:
-        text = path.read_text(encoding="utf-8")
+        return path.read_text(encoding="utf-8")
     except OSError:
+        return ""
+
+
+def _read_thread_log_text(thread_id: str) -> str:
+    """Read log text: local file first, then MongoDB (for offline/admin reads only)."""
+    text = _read_local_thread_log_text(thread_id)
+    if text:
+        return text
+    if mongo_thread_log_enabled():
+        return read_thread_log_text(thread_id)
+    return ""
+
+
+def _max_turn_from_log(thread_id: str) -> int:
+    """Read highest completed turn from the local thread log file."""
+    text = _read_local_thread_log_text(thread_id)
+    if not text:
         return 0
     turns = [int(m) for m in _END_TURN_RE.findall(text)]
     return max(turns) if turns else 0
+
+
+def _get_active_turn(thread_id: str | None) -> dict[str, Any] | None:
+    if not thread_id:
+        return None
+    return _active_turns.get(thread_id)
+
+
+def _extract_turn_text_from_file(thread_id: str, turn: int) -> str:
+    """Extract one turn block from the local log file (authoritative for Mongo log_text)."""
+    text = _read_local_thread_log_text(thread_id)
+    if not text or turn <= 0:
+        return ""
+
+    start_marker = f"#  TURN {turn} "
+    start_idx = text.find(start_marker)
+    if start_idx == -1:
+        return ""
+
+    end_marker = f"  END TURN {turn}\n"
+    end_idx = text.find(end_marker, start_idx)
+    if end_idx == -1:
+        return text[start_idx:]
+
+    # Include the closing ====== line after END TURN N.
+    line_end = text.find("\n", end_idx + len(end_marker))
+    if line_end == -1:
+        return text[start_idx:]
+    return text[start_idx : line_end + 1]
+
+
+def _extract_user_message_from_log(log_text: str) -> str:
+    match = _FARMER_MESSAGE_RE.search(log_text)
+    if not match:
+        return ""
+    raw = match.group(1)
+    lines = [
+        line[2:] if line.startswith("┃ ") else line.lstrip("┃")
+        for line in raw.splitlines()
+    ]
+    return "\n".join(lines).strip()
+
+
+def _append_to_turn_buffer(text: str, *, thread_id: str | None = None) -> None:
+    """Append text to the in-memory turn buffer for the active turn."""
+    tid = thread_id or _thread_id_ctx.get()
+    active = _get_active_turn(tid)
+    if active is None:
+        return
+    block = text if text.endswith("\n") else f"{text}\n"
+    active["buffer"].append(block)
+
+
+def _append_to_file(thread_id: str, text: str) -> None:
+    """Append text to the local thread log file only (fast path during request)."""
+    block = text if text.endswith("\n") else f"{text}\n"
+    path = _thread_log_path(thread_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with _turn_counts_lock:
+        with path.open("a", encoding="utf-8") as fh:
+            fh.write(block)
+    _append_to_turn_buffer(block, thread_id=thread_id)
 
 
 def append_thread_block(text: str, *, thread_id: str | None = None) -> None:
@@ -111,12 +203,7 @@ def append_thread_block(text: str, *, thread_id: str | None = None) -> None:
     tid = thread_id or _thread_id_ctx.get()
     if not tid:
         return
-    path = _thread_log_path(tid)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    block = text if text.endswith("\n") else f"{text}\n"
-    with _turn_counts_lock:
-        with path.open("a", encoding="utf-8") as fh:
-            fh.write(block)
+    _append_to_file(tid, text)
 
 
 def begin_conversation_turn(farmer_message: str) -> int:
@@ -125,14 +212,30 @@ def begin_conversation_turn(farmer_message: str) -> int:
     if not thread_id:
         return 0
 
+    # Local file only — never call MongoDB here (sync I/O would block the async graph).
+    prior_from_log = _max_turn_from_log(thread_id)
     with _turn_counts_lock:
-        # In-memory counter for same process; log file for restart / hot-reload.
-        prior = max(_turn_counts.get(thread_id, 0), _max_turn_from_log(thread_id))
+        prior = max(_turn_counts.get(thread_id, 0), prior_from_log)
         turn = prior + 1
         _turn_counts[thread_id] = turn
 
     _turn_num_ctx.set(turn)
     ts = datetime.now(_IST).strftime("%Y-%m-%d %H:%M:%S IST")
+    with _turn_counts_lock:
+        _active_turns[thread_id] = {
+            "turn": turn,
+            "user_message": farmer_message,
+            "started_at": ts,
+            "buffer": [],
+        }
+    _turn_buffer_ctx.set([])
+    _turn_meta_ctx.set(
+        {
+            "turn": turn,
+            "user_message": farmer_message,
+            "started_at": ts,
+        }
+    )
     farmer_box = _wrap_box_lines(farmer_message)
 
     block = f"""
@@ -179,6 +282,34 @@ def end_conversation_turn(
 
 """
     append_thread_block(block, thread_id=tid)
+
+    with _turn_counts_lock:
+        active = _active_turns.pop(tid, {})
+
+    log_text = _extract_turn_text_from_file(tid, turn)
+    if not log_text.strip():
+        log_text = "".join(active.get("buffer") or [])
+
+    user_message = (active.get("user_message") or "").strip()
+    if not user_message:
+        user_message = _extract_user_message_from_log(log_text)
+
+    turn_record = {
+        "turn": turn,
+        "user_message": user_message,
+        "bot_message": bot_message,
+        "outcome": outcome,
+        "started_at": active.get("started_at") or "",
+        "ended_at": ts,
+        "log_text": log_text,
+    }
+    _turn_buffer_ctx.set(None)
+    _turn_meta_ctx.set(None)
+    _turn_num_ctx.set(None)
+
+    if mongo_thread_log_enabled():
+        full_logs = _read_local_thread_log_text(tid)
+        sync_turn_to_mongo(tid, turn_record, full_logs=full_logs)
 
 
 def _resolve_config_thread_id(config: RunnableConfig | dict[str, Any] | None) -> str | None:
@@ -227,8 +358,10 @@ class ThreadFileLogHandler(logging.Handler):
                 _THREAD_LOG_LOGGER_PREFIX
             ):
                 msg = "\n".join(f"  │ {line}" for line in msg.splitlines())
-            fh.stream.write(msg + fh.terminator)
+            line = msg + fh.terminator
+            fh.stream.write(line)
             fh.flush()
+            _append_to_turn_buffer(line, thread_id=thread_id)
         except Exception:
             self.handleError(record)
 
