@@ -1783,4 +1783,30 @@ export class ChatbotController {
       query.userId,
     );
   }
+
+  @Patch('/assign-users/:userId')
+  @HttpCode(200)
+  @Authorized(['admin'])
+  async assignUsers(
+    @Param('userId') userId: string,
+    @Body() body: {userIds: string[]},
+  ) {
+    return await this.chatbotService.assignUsers(
+      userId,
+      body.userIds,
+    );
+  }
+
+  @Patch('/unassign-users/:userId')
+  @HttpCode(200)
+  @Authorized(['admin'])
+  async unAssignUsers(
+    @Param('userId') userId: string,
+    @Body() body: {userIds: string[]},
+  ) {
+    return await this.chatbotService.unAssignUsers(
+      userId,
+      body.userIds,
+    );
+  }
 }

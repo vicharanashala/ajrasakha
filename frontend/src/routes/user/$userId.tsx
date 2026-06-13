@@ -10,12 +10,23 @@ import {
   type UserDetail,
 } from "@/features/chatbotDashboard/hooks/useUserDetails";
 import { FarmerDetailsContent } from "@/components/user/FarmerDetailsContent";
-import { AlertCircle, Home, Loader2, ShieldX, UserCheck2 } from "lucide-react";
+import {
+  AlertCircle,
+  ChevronDown,
+  Home,
+  Loader2,
+  ShieldX,
+  UserCheck2,
+} from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import Spinner from "@/components/atoms/spinner";
 import { useVerifyUserAnalytics } from "@/hooks/api/user/useVerifyUserAnalytics";
 import { useDeleteUser } from "@/features/chatbotDashboard/hooks/useDeleteUser";
-import { useUpdateUser } from "@/features/chatbotDashboard/hooks/useUpdateUser";
+import {
+  useAssignUsers,
+  useUnassignUsers,
+  useUpdateUser,
+} from "@/features/chatbotDashboard/hooks/useUpdateUser";
 import { useChangeUserPassword } from "@/features/chatbotDashboard/hooks/useChangeUserPassword";
 import { EditFarmerModal } from "@/features/chatbotDashboard/components/EditFarmerModal";
 import {
@@ -29,12 +40,15 @@ import {
   AlertDialogTitle,
 } from "@/components/atoms/alert-dialog";
 import { Input } from "@/components/atoms/input";
+import { AnimatePresence, motion } from "framer-motion";
+import { useQueryClient } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/user/$userId")({
   component: RouteComponent,
 });
 
 function RouteComponent() {
+  const queryClient = useQueryClient();
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const { data: currentUser, isLoading } = useGetCurrentUser({
@@ -53,15 +67,16 @@ function RouteComponent() {
       navigate({ to: "/auth" });
       return;
     }
-
     if (
       currentUser &&
       currentUser?.role !== "admin" &&
       !isCoordinatorRole(currentUser.role)
     ) {
       navigate({ to: "/home" });
+      return;
     }
   }, [user, currentUser, navigate]);
+
   const verifyUserMutation = useVerifyUserAnalytics();
   const deleteUserMutation = useDeleteUser();
   const updateUserMutation = useUpdateUser();
@@ -120,14 +135,13 @@ function RouteComponent() {
 
   const handleConfirmVerificationChange = async () => {
     if (!verificationToConfirm) return;
-
     await verifyUserMutation.mutateAsync({
       userId: verificationToConfirm.userId,
       source: verificationToConfirm.source,
       isVerified: verificationToConfirm.isVerified,
     });
-
     setVerificationToConfirm(null);
+    await queryClient.invalidateQueries({ queryKey: ["user-profile"] });
   };
 
   const handleSaveEditedUser = async (payload: {
@@ -166,7 +180,130 @@ function RouteComponent() {
     setUserToEdit(null);
   };
 
-  if (!user || userProfileLoading || userProfileFetching) {
+  const [availableOpen, setAvailableOpen] = useState(true);
+  const [assignedOpen, setAssignedOpen] = useState(true);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const assignUsersMutation = useAssignUsers();
+  const unassignUsersMutation = useUnassignUsers();
+  const [assigning, setAssigning] = useState(false);
+
+  const availableUsers = userProfile?.unAssigned ?? [];
+
+  const allSelected =
+    availableUsers.length > 0 && selectedUsers.length === availableUsers.length;
+
+  const toggleUser = (userId: string) => {
+    setSelectedUsers((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId],
+    );
+  };
+
+  const selectAll = () => {
+    setSelectedUsers(availableUsers.map((u) => u._id));
+  };
+
+  const clearSelection = () => {
+    setSelectedUsers([]);
+  };
+
+  const handleAssignSelected = async () => {
+    try {
+      setAssigning(true);
+      await assignUsersMutation.mutateAsync({
+        userId: userProfile.userId,
+        userIds: availableUsers.map((u) => u._id),
+      });
+      setSelectedUsers([]);
+      setAssigning(false);
+      await queryClient.invalidateQueries({
+        queryKey: ["user-profile"],
+      });
+    } catch (err) {
+      setSelectedUsers([]);
+      setAssigning(false);
+    }
+  };
+
+  const handleAssignUser = async (targetUserId: string) => {
+    try {
+      setAssigning(true);
+      await assignUsersMutation.mutateAsync({
+        userId: userProfile.userId,
+        userIds: [targetUserId],
+      });
+      setAssigning(false);
+      await queryClient.invalidateQueries({
+        queryKey: ["user-profile"],
+      });
+    } finally {
+      setSelectedUsers([]);
+      setAssigning(false);
+    }
+  };
+
+  const [selectedAssignedUsers, setSelectedAssignedUsers] = useState<string[]>(
+    [],
+  );
+
+  const assignedUsers = userProfile?.assigned ?? [];
+
+  const allAssignedSelected =
+    assignedUsers.length > 0 &&
+    selectedAssignedUsers.length === assignedUsers.length;
+
+  const toggleAssignedUser = (userId: string) => {
+    setSelectedAssignedUsers((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId],
+    );
+  };
+
+  const selectAllAssigned = () => {
+    setSelectedAssignedUsers(assignedUsers.map((u) => u._id));
+  };
+
+  const clearAssignedSelection = () => {
+    setSelectedAssignedUsers([]);
+  };
+
+  const handleUnassignSelected = async () => {
+    try {
+      setAssigning(true);
+      await unassignUsersMutation.mutateAsync({
+        userId: userProfile.userId,
+        userIds: selectedAssignedUsers,
+      });
+      setSelectedAssignedUsers([]);
+      await queryClient.invalidateQueries({
+        queryKey: ["user-profile"],
+      });
+    } finally {
+      setSelectedAssignedUsers([]);
+      setAssigning(false);
+    }
+  };
+
+  const handleUnassignUser = async (targetUserId: string) => {
+    try {
+      setAssigning(true);
+      await unassignUsersMutation.mutateAsync({
+        userId: userProfile.userId,
+        userIds: [targetUserId],
+      });
+      setSelectedAssignedUsers([]);
+      await queryClient.invalidateQueries({
+        queryKey: ["user-profile"],
+      });
+    } finally {
+      setSelectedAssignedUsers([]);
+      setAssigning(false);
+    }
+  };
+
+  if (!user || userProfileLoading) {
     return (
       <>
         <Spinner />
@@ -205,6 +342,190 @@ function RouteComponent() {
           }
           onChangePassword={handleChangeViewedUserPassword}
         />
+        {currentUser?.role === "admin" && (
+          <>
+            <section className="rounded-md border bg-card/60 overflow-hidden my-4">
+              <motion.button
+                type="button"
+                onClick={() => setAvailableOpen((prev) => !prev)}
+                className="flex w-full items-center justify-between p-4"
+              >
+                <div className="flex flex-col items-start justify-center">
+                  <p className="font-semibold">Available Users</p>
+                  <p className="text-xs text-muted-foreground">
+                    Users that can be assigned to this coordinator
+                  </p>
+                </div>
+
+                <motion.div animate={{ rotate: availableOpen ? 180 : 0 }}>
+                  <ChevronDown className="h-4 w-4" />
+                </motion.div>
+              </motion.button>
+
+              <AnimatePresence initial={false}>
+                {availableOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="border-t p-4 space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={allSelected ? clearSelection : selectAll}
+                            disabled={assigning}
+                          >
+                            {allSelected ? "Clear All" : "Select All"}
+                          </Button>
+
+                          <span className="text-sm text-muted-foreground">
+                            {selectedUsers.length} selected
+                          </span>
+                        </div>
+
+                        <Button
+                          size="sm"
+                          disabled={
+                            selectedUsers.length === 0 || assigning == true
+                          }
+                          onClick={handleAssignSelected}
+                        >
+                          Assign Selected
+                        </Button>
+                      </div>
+
+                      {availableUsers.map((u) => (
+                        <div
+                          key={u._id}
+                          className="flex items-center justify-between rounded-md border p-3"
+                        >
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="checkbox"
+                              checked={selectedUsers.includes(u._id)}
+                              onChange={() => toggleUser(u._id)}
+                            />
+
+                            <div>
+                              <p className="font-medium">{u.name}</p>
+                            </div>
+                          </div>
+
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleAssignUser(u._id)}
+                            disabled={assigning}
+                          >
+                            Assign
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </section>
+
+            <section className="rounded-md border bg-card/60 overflow-hidden my-4">
+              <motion.button
+                type="button"
+                onClick={() => setAssignedOpen((prev) => !prev)}
+                className="flex w-full items-center justify-between p-4"
+              >
+                <div className="flex flex-col items-start justify-center">
+                  <p className="font-semibold">Assigned Users</p>
+                  <p className="text-xs text-muted-foreground">
+                    Users currently assigned to this coordinator
+                  </p>
+                </div>
+
+                <motion.div animate={{ rotate: assignedOpen ? 180 : 0 }}>
+                  <ChevronDown className="h-4 w-4" />
+                </motion.div>
+              </motion.button>
+
+              <AnimatePresence initial={false}>
+                {assignedOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="border-t p-4 space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={
+                              allAssignedSelected
+                                ? clearAssignedSelection
+                                : selectAllAssigned
+                            }
+                          >
+                            {allAssignedSelected ? "Clear All" : "Select All"}
+                          </Button>
+
+                          <span className="text-sm text-muted-foreground">
+                            {selectedAssignedUsers.length} selected
+                          </span>
+                        </div>
+
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          disabled={
+                            selectedAssignedUsers.length === 0 || assigning
+                          }
+                          onClick={handleUnassignSelected}
+                        >
+                          Unassign Selected
+                        </Button>
+                      </div>
+
+                      {assignedUsers.map((u) => (
+                        <div
+                          key={u._id}
+                          className="flex items-center justify-between rounded-md border p-3"
+                        >
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="checkbox"
+                              checked={selectedAssignedUsers.includes(u._id)}
+                              onChange={() => toggleAssignedUser(u._id)}
+                            />
+
+                            <div>
+                              <p className="font-medium">{u.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {u.userRole}
+                              </p>
+                            </div>
+                          </div>
+
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleUnassignUser(u._id)}
+                            disabled={assigning}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </section>
+          </>
+        )}
       </div>
       <EditFarmerModal
         open={!!userToEdit}
@@ -302,6 +623,7 @@ function RouteComponent() {
             </AlertDialogCancel>
             <AlertDialogAction
               disabled={verifyUserMutation.isPending}
+              // onClick={handleConfirmVerificationChange}
               onClick={(event) => {
                 event.preventDefault();
                 void handleConfirmVerificationChange();

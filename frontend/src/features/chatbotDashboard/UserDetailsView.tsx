@@ -1193,14 +1193,21 @@ export function UserDetailsView({
                                 <TableCell className="align-middle font-medium whitespace-nowrap">
                                   <div className="inline-flex items-center justify-center gap-1.5">
                                   <span
-                                    className="cursor-pointer text-primary hover:underline"
-                                    onClick={() =>
-                                      navigate({
-                                        to: "/user/$userId",
-                                        params: {
-                                          userId: user.userId,
-                                        },
-                                      })
+                                    className={
+                                      currentUser?.role !== "admin"
+                                        ? ""
+                                        : "cursor-pointer text-primary hover:underline"
+                                    }
+                                    onClick={
+                                      currentUser?.role !== "admin"
+                                        ? undefined
+                                        : () =>
+                                            navigate({
+                                              to: "/user/$userId",
+                                              params: {
+                                                userId: user.userId,
+                                              },
+                                            })
                                     }
                                   >{user.name || <EmptyValue />}
                                   </span>

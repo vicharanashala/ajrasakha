@@ -867,7 +867,9 @@ export interface IChatbotRepository {
     source: string,
   ): Promise<any>
 
-  getUserProfile(userId) : Promise<any>
+  getUserProfile(userId: string) : Promise<any>
+  assignUsers(userId: string, targetIds: string[]): Promise<any>
+  unAssignUsers(userId: string, targetIds: string[]): Promise<any>
 }
 
 export interface ChatbotConversationData {

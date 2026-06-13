@@ -51,6 +51,7 @@ import {getFirebaseAuth} from '#root/config/firebaseAdmin.js';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import {COORDINATOR_ROLES} from '#root/shared/constants/roles.js';
+import { BLOCKS, VILLAGES } from '#root/metaData.js';
 
 const EXTERNAL_USER_ROLES = ['FARMER', ...COORDINATOR_ROLES] as const;
 
@@ -115,6 +116,8 @@ interface IUser {
       longitude: number;
     };
   };
+  assignedTo?: ObjectId;
+  assignedCoordinators?: ObjectId[];
 }
 
 interface IConversation {
@@ -12504,7 +12507,89 @@ const totalPages =
           {session},
         )
         .toArray();
-      // console.log("user--", users[0]);
+      let unAssigned = [];
+      let assigned = [];
+      if ( [
+            'district_coordinator',
+            'block_coordinator',
+            'village_volunteer',
+          ].includes(
+          users[0]?.userRole
+        )) {
+        const district = users[0]?.farmerProfile?.district;
+        const block = users[0]?.farmerProfile?.blockName;
+        const nextRoleMap: Record<string, string> = {
+          district_coordinator: "block_coordinator",
+          block_coordinator: "village_volunteer",
+          village_volunteer: "farmer",
+        };
+        const nextRole = nextRoleMap[users[0].userRole];
+        const filter: any = {
+          assignedTo: null,
+        };
+        if (users[0].userRole === "district_coordinator") {
+          filter["farmerProfile.district"] = district;
+          const districtBlocks = BLOCKS[district] || [];
+          filter["farmerProfile.blockName"] = {
+            $in: districtBlocks,
+          };
+          filter["userRole"] = nextRole;
+        }
+        if (users[0].userRole === "block_coordinator") {
+          filter["farmerProfile.district"] = district;
+          filter["farmerProfile.blockName"] = block;
+          const blockVillages = VILLAGES[block] || [];
+          filter["farmerProfile.villageName"] = {
+            $in: blockVillages,
+          };
+          filter["userRole"] = nextRole;
+        }
+        if (users[0].userRole === "village_volunteer") {
+          filter["farmerProfile.district"] = district;
+          const districtBlocks = BLOCKS[district] || [];
+          const districtVillages = districtBlocks.flatMap(
+            (blockName) => VILLAGES[blockName] || [],
+          );
+          filter["farmerProfile.villageName"] = {
+            $in: districtVillages,
+          };
+          filter["userRole"] = {
+            $nin: [
+              "district_coordinator",
+              "block_coordinator",
+              "village_volunteer",
+            ],
+          };
+        }
+
+        unAssigned = await this.users
+          .find(filter, {
+            projection: {
+              _id: 1,
+              name: 1,
+            },
+          })
+          .toArray();
+
+        if(users[0]?.assignedCoordinators?.length > 0){
+          assigned = await this.users.find(
+            {
+              _id: {
+                $in: users[0].assignedCoordinators,
+              },
+            },
+            {
+              projection: {
+                _id: 1,
+                name: 1,
+                userRole: 1,
+              },
+            },
+          ).toArray();
+        }
+
+      }
+
       return  {
         userId: users[0]._id,
         name: users[0].name,
@@ -12516,11 +12601,95 @@ const totalPages =
         isVerified: users[0].isVerified,
         userRole: users[0].userRole,
         totalQuestions: messageCounts?.length,
+        unAssigned : unAssigned ?? [],
+        assigned: assigned ?? [],
       };
     }catch(error){
       throw new InternalServerError(
         `Failed to get user profile: ${error}`,
       );
+    }
+  }
+
+  async assignUsers(
+    coordinatorId: string,
+    targetIds: string[],
+  ): Promise<any> {
+    try{
+      await this.init("annam");
+
+      const targetObjectIds = targetIds.map(
+        (id) => new ObjectId(id),
+      );
+
+      await this.users.updateMany(
+        {
+          _id: {
+            $in: targetObjectIds,
+          },
+        },
+        {
+          $set: {
+            assignedTo: new ObjectId(coordinatorId),
+          },
+        },
+      );
+
+      const result = await this.users.updateOne(
+        {
+          _id: new ObjectId(coordinatorId),
+        },
+        {
+          $addToSet: {
+            assignedCoordinators: {
+              $each: targetObjectIds,
+            },
+          },
+        },
+      );
+
+      return result;
+    }catch(error){
+      throw new InternalServerError(error);
+    }
+  }
+
+  async unAssignUsers(
+    coordinatorId: string,
+    targetIds: string[],
+  ): Promise<any> {
+    try {
+      await this.init("annam");
+
+      const targetObjectIds = targetIds.map(
+        (id) => new ObjectId(id),
+      );
+
+      // Remove coordinator from users
+      await this.users.updateMany(
+        {
+          _id: { $in: targetObjectIds },
+        },
+        {
+          $set: { assignedTo: null }
+        },
+      );
+
+      // Remove users from coordinator
+      const result = await this.users.updateOne(
+        {
+          _id: new ObjectId(coordinatorId),
+        },
+        {
+          $pullAll: {
+            assignedCoordinators: targetObjectIds,
+          },
+        },
+      );
+
+      return result;
+    } catch (error) {
+      throw new InternalServerError(error);
     }
   }
 }
