@@ -30,7 +30,8 @@
  *   resolved via @CurrentUser() — userId comes from the authenticated user, not body
  * - source stored as 'AJRASAKHA'
  * - notification type: 'question_from_ajrasakha'
- * - priority forced to 'high'; isAutoAllocate=false (same as WHATSAPP)
+ * - priority forced to 'high'; isAutoAllocate=false at ingestion, flipped to
+ *   true once the question reaches 'open' (same as WHATSAPP)
  *
  * STRATEGY
  * --------
@@ -175,6 +176,32 @@ async function waitForQuestion(
   throw new Error(
     `Timed out waiting for question ${questionId}. Last status='${last?.status}', isTesting=${last?.isTesting}`,
   );
+}
+
+// Drains the background pipeline's FINAL step (moderator notifications) for an
+// 'open' question. processQuestionInBackground sets status='open' and THEN writes
+// notifications in the same async chain (QuestionService.ts:1555-1576); duplicate
+// and non_agri branches return BEFORE that block, so only 'open' questions notify.
+// Tests that assert as soon as status flips to 'open' otherwise leave that write
+// in flight, which races afterAll's db.disconnect() and logs a swallowed
+// "Cannot read properties of null (reading 'collection')". Awaiting this drains it.
+async function waitForNotification(
+  questionId: string,
+  type: string,
+  { timeoutMs = 5000, intervalMs = 300 } = {},
+): Promise<any> {
+  const notifications = await db.getCollection('notifications');
+  const deadline = Date.now() + timeoutMs;
+  let notif: any = null;
+  while (Date.now() < deadline) {
+    notif = await notifications.findOne({
+      enitity_id: new ObjectId(questionId),
+      type,
+    });
+    if (notif) return notif;
+    await sleep(intervalMs);
+  }
+  return null;
 }
 
 beforeAll(async () => {
@@ -339,26 +366,18 @@ describe('Ajrasakha ingestion — happy path (open, agri, thread valid)', () => 
     expect(doc.status).toBe('open');
     expect(doc.source).toBe('AJRASAKHA');
     expect(doc.priority).toBe('high');
-    expect(doc.isAutoAllocate).toBe(false);
+    // false at ingestion, flipped to true on the 'open' transition
+    // (QuestionService.ts:1545, commit 03c55740). Same behavior as WHATSAPP.
+    expect(doc.isAutoAllocate).toBe(true);
     expect(doc.userId?.toString()).toBe(currentTestUser._id.toString());
     expect(dummyAi.fetchWhatsAppMessage).toHaveBeenCalled();
     expect(dummyAi.searchGdb).toHaveBeenCalled();
     expect(checkConceptDuplicateMock).toHaveBeenCalled();
 
     // Moderator notifications should use the Ajrasakha-specific type.
-    // Notifications are written after the status update in the same async
-    // chain, so poll briefly until one appears.
-    const notifications = await db.getCollection('notifications');
-    const deadline = Date.now() + 5000;
-    let notif: any = null;
-    while (Date.now() < deadline) {
-      notif = await notifications.findOne({
-        enitity_id: new ObjectId(questionId),
-        type: 'question_from_ajrasakha',
-      });
-      if (notif) break;
-      await sleep(300);
-    }
+    // Notifications are written after the status update in the same async chain,
+    // so poll briefly until one appears (this also drains the background pipeline).
+    const notif = await waitForNotification(questionId, 'question_from_ajrasakha');
     expect(notif).not.toBeNull();
   }, 90000);
 });
@@ -516,5 +535,9 @@ describe('Ajrasakha ingestion — LLM failure degrades gracefully to open', () =
     expect(doc.status).toBe('open');
     expect(dummyAi.searchGdb).toHaveBeenCalled();
     expect(checkConceptDuplicateMock).toHaveBeenCalled();
+
+    // Drain the background pipeline's notification write so it doesn't race
+    // afterAll's disconnect (see waitForNotification).
+    await waitForNotification(questionId, 'question_from_ajrasakha');
   }, 90000);
 });

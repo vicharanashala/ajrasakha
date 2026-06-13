@@ -36,9 +36,12 @@ begins.
 (`reallocateTimeBoundQuestions`, cron-driven) is the COMMON path shared by every
 time-bound source (WHATSAPP/AJRASAKHA). It is deliberately left for a dedicated
 common-path test rather than duplicated per source. A fresh WhatsApp question is
-created with `isAutoAllocate=false`, so it is not even an allocation candidate
-until a moderator enables it — confirming the WhatsApp flow legitimately ends at
-the `open`/unallocated-submission boundary.
+created with `isAutoAllocate=false`; once the background pipeline drives it to
+`open`, `isAutoAllocate` is flipped to `true` (commit `03c55740`, see below), but
+allocation itself is NOT performed at ingestion — the submission is still created
+unallocated (empty queue). The WhatsApp flow legitimately ends at the
+`open`/unallocated-submission boundary; the cron later picks the question up
+because `isAutoAllocate` is now `true`.
 
 ---
 
@@ -107,7 +110,10 @@ The test rebinds `CORE_TYPES.AIService` to a dummy and `vi.mock`s
 
 ```text
 - WhatsApp/Ajrasakha questions are time-bound: forced priority='high',
-  status='pending', isAutoAllocate=false on ingestion.
+  status='pending', isAutoAllocate=false on ingestion. When the background
+  pipeline resolves the question to status='open', isAutoAllocate is flipped to
+  true (QuestionService.ts:1545 / :1551, commit 03c55740). Questions that end as
+  'duplicate' / 'non_agri' / isTesting keep isAutoAllocate=false.
 - Thread validation: if the WhatsApp thread can't be matched (API reachable but
   no message), the question is flagged isTesting=true and dropped.
 - "Question found" = GDB exact_match/selected_match -> status='duplicate' with
@@ -115,8 +121,10 @@ The test rebinds `CORE_TYPES.AIService` to a dummy and `vi.mock`s
   (this is the link to the already-answered question).
 - No GDB match -> LLM decides: non-agri -> status='non_agri'; agri -> status='open'.
 - Expert allocation is NOT done at ingestion. The 2-min time-bound cron
-  (reallocateTimeBoundQuestions) only picks up questions with isAutoAllocate=true,
-  so a moderator must enable auto-allocate first.
+  (reallocateTimeBoundQuestions) only picks up questions with isAutoAllocate=true.
+  As of commit 03c55740, reaching status='open' auto-sets isAutoAllocate=true, so
+  'open' questions become cron candidates WITHOUT a moderator manually enabling it
+  (previously a moderator had to toggle it on).
 - extractObjectId (QuestionService.ts:1056) accepts both plain hex strings AND
   MongoDB extended-JSON format ({$oid: "..."}).
 ```
@@ -229,7 +237,7 @@ Notes:
 | 3 | PAYLOAD: missing district field → 400 | ✅ pass | 27 ms |
 | 4 | FOUND: GDB exact_match → duplicate, isExact=true | ✅ pass | 1422 ms |
 | 5 | SIMILAR: GDB selected_match → duplicate, isExact=false | ✅ pass | 234 ms |
-| 6 | NOT FOUND (agri): → open, unallocated submission | ✅ pass | 323 ms |
+| 6 | NOT FOUND (agri): → open, unallocated submission (isAutoAllocate=true) | ✅ pass | 1510 ms |
 | 7 | NON-AGRI: LLM says non-agri → non_agri | ✅ pass | 231 ms |
 | 8 | THREAD INVALID: empty threadId → isTesting=true, pending | ✅ pass | 229 ms |
 | 9 | LLM FAILURE: classifier throws → open (graceful degrade) | ✅ pass | 232 ms |
@@ -256,7 +264,47 @@ Notes:
   Under vitest this leaves CORE_TYPES undefined, so the test warms up the module
   graph by importing AnswerService BEFORE loadAppModules('all'). Fixing the
   import in AnswerService would remove the need for the warm-up.
+- TEARDOWN RACE (handled): processQuestionInBackground sets status='open' and
+  THEN writes moderator notifications in the same setImmediate chain. Open-path
+  tests assert as soon as status flips to 'open' and return, leaving that write
+  in flight. When afterAll then called db.disconnect(), the late write hit a
+  null DB handle and logged (swallowed) "Cannot read properties of null
+  (reading 'collection')" — harmless to assertions but noisy. afterAll now calls
+  drainOpenQuestionNotifications() (waits for each 'open' question's notification
+  BEFORE the deletes/disconnect), so teardown is deterministic. The Ajrasakha
+  suite handles the same race per-test via waitForNotification(). Root cause of
+  the null deref is in MongoDatabase: after disconnect() nulls this.database, a
+  re-connect() returns the cached connectingPromise WITHOUT repopulating
+  this.database, so getCollection() dereferences null. Not fixed here (infra
+  change out of scope; only reachable when disconnect races in-flight work,
+  which production never does).
 ```
+
+---
+
+# Behavior Changes
+
+## CHG-001 — open questions now auto-enable `isAutoAllocate` (2026-06-12)
+
+**Commit:** `03c55740` — "Added auto allocation on for open questions" (mamatha12-reddy).
+
+**What changed:** In `processQuestionInBackground`, both `open`-transition paths
+(`QuestionService.ts:1545` success path and `:1551` pipeline-error path) now write
+`{ status: 'open', isAutoAllocate: true }` instead of just `{ status: 'open' }`.
+
+**Effect:** Time-bound (WHATSAPP/AJRASAKHA) questions are still inserted with
+`isAutoAllocate=false`, but as soon as the pipeline resolves them to `open`, the
+flag flips to `true`. They therefore become candidates for the
+`reallocateTimeBoundQuestions` cron immediately, without a moderator manually
+toggling auto-allocate. Questions that terminate as `duplicate` / `non_agri` /
+`isTesting` keep `isAutoAllocate=false`.
+
+**Test impact:** Test #6 (NOT FOUND agri → open) previously asserted
+`isAutoAllocate=false` and started failing (`expected true to be false`,
+`WhatsAppQuestion.e2e.test.ts:461`) after this commit. The assertion was updated to
+`true`. The matching Ajrasakha open-path assertion
+(`AjrasakhaQuestion.e2e.test.ts:342`) was updated the same way. This was a
+deliberate product change, not a regression — no code fix is needed.
 
 ---
 

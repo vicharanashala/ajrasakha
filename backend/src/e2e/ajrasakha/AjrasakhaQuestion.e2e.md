@@ -123,7 +123,10 @@ The test rebinds `CORE_TYPES.AIService` to a vi.fn() double and `vi.mock`s
 
 ```text
 - AJRASAKHA questions are time-bound: forced priority='high', status='pending',
-  isAutoAllocate=false on ingestion (same as WHATSAPP).
+  isAutoAllocate=false on ingestion (same as WHATSAPP). When the pipeline resolves
+  the question to status='open', isAutoAllocate is flipped to true
+  (QuestionService.ts:1545, commit 03c55740). 'duplicate'/'non_agri'/isTesting
+  outcomes keep isAutoAllocate=false.
 - userId is taken from @CurrentUser(), NOT body.userId. A webapp user must be
   authenticated; questions have a real userId linked to their account.
 - Thread validation: same validateTimeBoundQuestionThread as WHATSAPP.
@@ -159,7 +162,7 @@ AUTH
 
 HAPPY PATH
   ✓  valid auth, thread valid, no GDB match, agri → open
-       - source='AJRASAKHA', priority='high', isAutoAllocate=false
+       - source='AJRASAKHA', priority='high', isAutoAllocate=true (flipped on 'open')
        - userId from @CurrentUser() (not from body)
        - notification type='question_from_ajrasakha'
 
@@ -214,6 +217,21 @@ Notes:
   and injected via `currentUserChecker` stub — no Firebase token exchange needed.
 - Background processing runs via `setImmediate`; tests SUBMIT then POLL.
 - All documents created during a run are deleted in `afterAll` (tracked by `RUN_TAG`).
+- TEARDOWN RACE (handled): `processQuestionInBackground` sets status='open' and
+  THEN writes moderator notifications in the same async chain
+  (`QuestionService.ts:1555-1576`); duplicate/non_agri/isTesting branches return
+  before that block, so only 'open' questions notify. The LLM-failure open-path
+  test asserted on status and returned, leaving the notification write in flight
+  to race `afterAll`'s `db.disconnect()` and log a swallowed
+  `Cannot read properties of null (reading 'collection')`. Both open-path tests
+  now `await waitForNotification(questionId, 'question_from_ajrasakha')` to drain
+  the pipeline before ending. (The WhatsApp suite has more open-path tests and
+  drains once in `afterAll` via `drainOpenQuestionNotifications` instead.) Root
+  cause of the null deref is in `MongoDatabase`: after `disconnect()` nulls
+  `this.database`, a re-`connect()` returns the cached `connectingPromise`
+  without repopulating `this.database`, so `getCollection()` dereferences null.
+  Not fixed here — infra change, and only reachable when disconnect races
+  in-flight work (production never disconnects mid-request).
 
 ---
 

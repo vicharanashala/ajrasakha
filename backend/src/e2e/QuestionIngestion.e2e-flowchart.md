@@ -121,7 +121,8 @@ flowchart TD
     ✓ WA  ✓ AJ" --> NONAGRI["status = 'non_agri'"]:::warn
 
     LLM -- "isNonAgri = false
-    ✓ WA  ✓ AJ" --> OPEN["status = 'open'"]:::ok
+    ✓ WA  ✓ AJ" --> OPEN["status = 'open'
+    isAutoAllocate = true  ← flipped on 'open' (03c55740)"]:::ok
 
     LLM -- "❌ LLM throws → proceeds
     ✓ WA  ✓ AJ" --> OPEN
