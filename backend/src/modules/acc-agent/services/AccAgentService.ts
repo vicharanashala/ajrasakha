@@ -93,7 +93,7 @@ export class AccAgentService {
   ): Promise<void> {
 
     try {
-      await axios.post(
+     const result=  await axios.post(
         `${this.BASE_URL}/threads/${threadId}/state`,
         {
           values: {
@@ -108,9 +108,29 @@ export class AccAgentService {
           timeout: this.TIMEOUT,
         }
       );
+
+      console.log("from update state id function",result)
     } catch (error) {
       console.error('[AccAgentService] updateState: Error calling LangGraph API', error);
       throw new InternalServerError('Failed to update ACC Agent thread state');
+    }
+  }
+
+
+  async checkpointId(threadId: string){
+    try {
+     const result=  await axios.post(
+        `${this.BASE_URL}/threads/${threadId}/state`,
+        {
+          headers: { 'Content-Type': 'application/json' },
+          timeout: this.TIMEOUT,
+        }
+      );
+
+      console.log("from checkpoint id function",result)
+    } catch (error) {
+      console.error('[AccAgentService] checkpointId: Error calling LangGraph API', error);
+      throw new InternalServerError('Failed to get checkpoint ID from ACC Agent');
     }
   }
 
@@ -119,12 +139,16 @@ export class AccAgentService {
    */
   async resumeAndGetAnswer(threadId: string): Promise<{ final_answer: string }> {
 
+
+    const checkpointId = await this.checkpointId(threadId);
     try {
       const response = await axios.post(
         `${this.BASE_URL}/threads/${threadId}/runs/wait`,
         {
           assistant_id: this.ASSISTANT_ID,
-          command: { resume: null },
+          checkpoint: {
+            checkpoint_id: checkpointId
+          }
         },
         {
           headers: { 'Content-Type': 'application/json' },
