@@ -5556,6 +5556,7 @@ export class ChatbotRepository implements IChatbotRepository {
     page = 1,
     limit = 10,
     search = '',
+    userId = '',
     source = 'annam',
     crop = '',
     primaryCrops = '',
@@ -5615,6 +5616,16 @@ export class ChatbotRepository implements IChatbotRepository {
       const userFilter: Record<string, any> = {
         ...this.buildUserDocFilter(userType),
       };
+      if (userId && userId.trim()) {
+        if (!ObjectId.isValid(userId.trim())) {
+          return {
+            users: [],
+            totalUsers: 0,
+            totalPages: 1,
+          };
+        }
+        userFilter._id = new ObjectId(userId.trim());
+      }
       if (isVerfied !== undefined) {
         userFilter.isVerified = isVerfied;
       }
@@ -7918,6 +7929,7 @@ const totalPages =
         const user = userMap.get(userId);
         results.push({
           questionId: q._id.toString(),
+          userId,
           question: q.question,
           referenceQuestion: q.referenceQuestion || q.originalQuestion || '',
           similarityScore: Number(q.similarityScore) || 0,

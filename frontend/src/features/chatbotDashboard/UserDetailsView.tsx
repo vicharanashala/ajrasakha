@@ -21,7 +21,9 @@ import {
   Shield,
   Briefcase,
   UsersRound,
+  LayoutDashboard,
 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/atoms/button";
 import {
   Tooltip,
@@ -137,6 +139,7 @@ export function UserDetailsView({
   initialFilters,
   userType = "all",
 }: UserDetailsViewProps) {
+  const navigate = useNavigate();
   const { data: currentUser } = useGetCurrentUser({});
   const verifyUserMutation = useVerifyUserAnalytics();
   const verifyingUserId = verifyUserMutation.isPending
@@ -469,6 +472,14 @@ export function UserDetailsView({
   const handleEditUser = (user: UserDetail) => {
     setUserToView(null);
     setUserToEdit(user);
+  };
+
+  const handleOpenFarmerDashboard = (user: UserDetail) => {
+    navigate({
+      to: "/farmers/$userId/dashboard",
+      params: { userId: user.userId },
+      search: { source: source === "whatsapp" ? "whatsapp" : "annam" },
+    });
   };
 
   const handleUpdateVerification = async (
@@ -1270,6 +1281,17 @@ export function UserDetailsView({
                                               size="icon"
                                               className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
                                               onClick={() =>
+                                                handleOpenFarmerDashboard(user)
+                                              }
+                                              title="Open farmer dashboard"
+                                            >
+                                              <LayoutDashboard className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
+                                              onClick={() =>
                                                 handleEditUser(user)
                                               }
                                               title="Edit farmer"
@@ -1307,6 +1329,15 @@ export function UserDetailsView({
 
                             {isAdmin && (
                               <ContextMenuContent className="w-40">
+                                <ContextMenuItem
+                                  className="cursor-pointer gap-2"
+                                  onSelect={() =>
+                                    handleOpenFarmerDashboard(user)
+                                  }
+                                >
+                                  <LayoutDashboard className="h-4 w-4" />
+                                  Dashboard
+                                </ContextMenuItem>
                                 <ContextMenuItem
                                   className="cursor-pointer gap-2"
                                   onSelect={() => setUserToEdit(user)}
@@ -1382,6 +1413,7 @@ export function UserDetailsView({
               isAdmin={isAdmin}
               onEdit={handleEditUser}
               onDelete={handleDeleteUser}
+              onOpenDashboard={handleOpenFarmerDashboard}
               isChangingPassword={changeUserPasswordMutation.isPending}
               onChangePassword={handleChangeViewedUserPassword}
               isUpdatingVerification={verifyUserMutation.isPending}

@@ -167,6 +167,11 @@ export class UserDetailsQueryDto {
   @IsString()
   search: string = '';
 
+  @JSONSchema({ example: '665f4c3a2f4b4f0012345678', description: 'Filter by a single farmer user ID' })
+  @IsOptional()
+  @IsString()
+  userId?: string;
+
   @JSONSchema({ example: 'annam', description: 'Data source to query' })
   @IsOptional()
   @IsIn([ 'annam', 'whatsapp'])

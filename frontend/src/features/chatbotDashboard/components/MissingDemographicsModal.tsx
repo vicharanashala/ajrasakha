@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useUserDetails } from "../hooks/useUserDetails";
 import { useUpdateUser } from "../hooks/useUpdateUser"; 
-import { X, Pencil, Check, Loader2 } from "lucide-react";
+import { X, Pencil, Check, Loader2, LayoutDashboard } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 
 interface MissingDemographicsModalProps {
   fieldTitle: string;
@@ -18,6 +19,7 @@ export function MissingDemographicsModal({
   userType,
   onClose,
 }: MissingDemographicsModalProps) {
+  const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const limit = 10;
@@ -267,14 +269,33 @@ export function MissingDemographicsModal({
                             </button>
                           </div>
                         ) : (
-                          <button
-                            onClick={() => startEdit(user)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md bg-primary/5 text-primary hover:bg-primary/10 transition-colors"
-                            title={`Edit ${fieldTitle}`}
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                            Edit
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() =>
+                                navigate({
+                                  to: "/farmers/$userId/dashboard",
+                                  params: { userId: user.userId },
+                                  search: {
+                                    source:
+                                      source === "whatsapp" ? "whatsapp" : "annam",
+                                  },
+                                })
+                              }
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md bg-primary/5 text-primary hover:bg-primary/10 transition-colors"
+                              title="Open farmer dashboard"
+                            >
+                              <LayoutDashboard className="w-3.5 h-3.5" />
+                              Dashboard
+                            </button>
+                            <button
+                              onClick={() => startEdit(user)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md bg-primary/5 text-primary hover:bg-primary/10 transition-colors"
+                              title={`Edit ${fieldTitle}`}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                              Edit
+                            </button>
+                          </div>
                         )}
                     </td>
                   </tr>

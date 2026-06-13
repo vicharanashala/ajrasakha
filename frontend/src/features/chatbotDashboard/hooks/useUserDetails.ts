@@ -75,6 +75,7 @@ export function useUserDetails(
   activeTodayByProfile = false,
   missingDemographicField = '',
   verificationStatus: 'all' | 'verified' | 'unverified' = 'all',
+  userId = '',
   enabled = true,
 ) {
   const startISO = startDate?.toISOString();
@@ -85,7 +86,7 @@ export function useUserDetails(
     : undefined;
 
   const { data, isLoading, error, refetch } = useQuery<PaginatedUserDetailsResponse, Error>({
-    queryKey: ['user-details', startISO, endISO, page, limit, search, source, crop, primaryCrops, secondaryCrops, village, state, district, block, profileCompleted, inactiveOnly, lowFeedbackOnly, userType, roles, sortBy, sortOrder, activeTodayByProfile, missingDemographicField, verificationStatus],
+    queryKey: ['user-details', startISO, endISO, page, limit, search, source, crop, primaryCrops, secondaryCrops, village, state, district, block, profileCompleted, inactiveOnly, lowFeedbackOnly, userType, roles, sortBy, sortOrder, activeTodayByProfile, missingDemographicField, verificationStatus, userId],
     staleTime: 30 * 1000,
     enabled,
     queryFn: async () => {
@@ -96,6 +97,7 @@ export function useUserDetails(
       params.set('page', String(page));
       params.set('limit', String(limit));
       if (search.trim()) params.set('search', search.trim());
+      if (userId.trim()) params.set('userId', userId.trim());
       params.set('source', source);
       if (crop.trim()) params.set('crop', crop.trim());
       if (primaryCrops.length) params.set('primaryCrops', primaryCrops.join(','));

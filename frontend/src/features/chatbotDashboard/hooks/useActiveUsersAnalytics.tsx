@@ -95,6 +95,7 @@ export const useQueryCategories = (source: string, userType: string, enabled: bo
 export type QueryCategoryQuestionType = "all" | "unique" | "duplicate";
 
 export interface QueryCategoryQuestionEntry {
+  userId?: string;
   questionId?: string;
   messageId?: string;
   question: string;

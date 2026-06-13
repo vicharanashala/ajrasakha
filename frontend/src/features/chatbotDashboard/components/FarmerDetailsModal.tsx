@@ -5,6 +5,7 @@ import {
   Eye,
   EyeOff,
   KeyRound,
+  LayoutDashboard,
   MapPin,
   Pencil,
   Trash2,
@@ -156,6 +157,7 @@ interface FarmerDetailsModalProps {
   isAdmin: boolean;
   onEdit: (user: UserDetail) => void;
   onDelete: (user: UserDetail) => void;
+  onOpenDashboard?: (user: UserDetail) => void;
   isChangingPassword?: boolean;
   onChangePassword?: (payload: {newPassword: string, keepLoggedIn: boolean}) => void | Promise<void>;
   isUpdatingVerification?: boolean;
@@ -169,6 +171,7 @@ export function FarmerDetailsModal({
   isAdmin,
   onEdit,
   onDelete,
+  onOpenDashboard,
   isChangingPassword = false,
   onChangePassword,
   isUpdatingVerification = false,
@@ -324,6 +327,14 @@ export function FarmerDetailsModal({
                       {isUserVerified ? "Set Unverified" : "Set Verified"}
                     </Button>
                   )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onOpenDashboard?.(user)}
+                  >
+                    <LayoutDashboard className="h-4 w-4" />
+                    Dashboard
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"

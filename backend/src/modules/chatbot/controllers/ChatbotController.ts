@@ -651,6 +651,7 @@ export class ChatbotController {
       query.page,
       query.limit,
       query.search,
+      query.userId,
       query.source,
       query.crop,
       query.primaryCrops,

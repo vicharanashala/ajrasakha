@@ -1,4 +1,5 @@
-import { Loader2 } from "lucide-react";
+import { LayoutDashboard, Loader2 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { useUserDetails } from "../hooks/useUserDetails";
 
 interface ActiveFarmersTableProps {
@@ -10,6 +11,7 @@ export function ActiveFarmersTable({
   source = "vicharanashala",
   userType = "all",
 }: ActiveFarmersTableProps) {
+  const navigate = useNavigate();
   // Get today's start and end date
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
@@ -73,12 +75,15 @@ export function ActiveFarmersTable({
             <th className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
               Total Queries Today
             </th>
+            <th className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">
+              Dashboard
+            </th>
           </tr>
         </thead>
         <tbody>
           {activeUsersToday.length === 0 ? (
             <tr>
-              <td colSpan={3} className="px-3 py-2 text-center text-gray-500">
+              <td colSpan={4} className="px-3 py-2 text-center text-gray-500">
                 No active farmers today
               </td>
             </tr>
@@ -96,6 +101,24 @@ export function ActiveFarmersTable({
                 </td>
                 <td className="px-3 py-2 text-right font-medium text-gray-900 dark:text-gray-100">
                   {user.totalQuestions.toLocaleString()}
+                </td>
+                <td className="px-3 py-2 text-right">
+                  <button
+                    type="button"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-primary/10 hover:text-primary"
+                    title="Open farmer dashboard"
+                    onClick={() =>
+                      navigate({
+                        to: "/farmers/$userId/dashboard",
+                        params: { userId: user.userId },
+                        search: {
+                          source: source === "whatsapp" ? "whatsapp" : "annam",
+                        },
+                      })
+                    }
+                  >
+                    <LayoutDashboard className="h-4 w-4" />
+                  </button>
                 </td>
               </tr>
             ))

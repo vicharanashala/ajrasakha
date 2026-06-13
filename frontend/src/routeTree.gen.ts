@@ -20,6 +20,7 @@ import { Route as FlagsReportedIndexRouteImport } from './routes/flags-reported/
 import { Route as CoordinatorIndexRouteImport } from './routes/coordinator/index'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as AuditIndexRouteImport } from './routes/audit/index'
+import { Route as FarmersUserIdDashboardRouteImport } from './routes/farmers/$userId/dashboard'
 
 const WhatsappHistoryRoute = WhatsappHistoryRouteImport.update({
   id: '/whatsapp-history',
@@ -76,6 +77,11 @@ const AuditIndexRoute = AuditIndexRouteImport.update({
   path: '/audit/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FarmersUserIdDashboardRoute = FarmersUserIdDashboardRouteImport.update({
+  id: '/farmers/$userId/dashboard',
+  path: '/farmers/$userId/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -89,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/notifications': typeof NotificationsIndexRoute
   '/pae-expert': typeof PaeExpertIndexRoute
   '/profile': typeof ProfileIndexRoute
+  '/farmers/$userId/dashboard': typeof FarmersUserIdDashboardRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -102,6 +109,7 @@ export interface FileRoutesByTo {
   '/notifications': typeof NotificationsIndexRoute
   '/pae-expert': typeof PaeExpertIndexRoute
   '/profile': typeof ProfileIndexRoute
+  '/farmers/$userId/dashboard': typeof FarmersUserIdDashboardRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -116,6 +124,7 @@ export interface FileRoutesById {
   '/notifications/': typeof NotificationsIndexRoute
   '/pae-expert/': typeof PaeExpertIndexRoute
   '/profile/': typeof ProfileIndexRoute
+  '/farmers/$userId/dashboard': typeof FarmersUserIdDashboardRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -131,6 +140,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/pae-expert'
     | '/profile'
+    | '/farmers/$userId/dashboard'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -144,6 +154,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/pae-expert'
     | '/profile'
+    | '/farmers/$userId/dashboard'
   id:
     | '__root__'
     | '/'
@@ -157,6 +168,7 @@ export interface FileRouteTypes {
     | '/notifications/'
     | '/pae-expert/'
     | '/profile/'
+    | '/farmers/$userId/dashboard'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -171,6 +183,7 @@ export interface RootRouteChildren {
   NotificationsIndexRoute: typeof NotificationsIndexRoute
   PaeExpertIndexRoute: typeof PaeExpertIndexRoute
   ProfileIndexRoute: typeof ProfileIndexRoute
+  FarmersUserIdDashboardRoute: typeof FarmersUserIdDashboardRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -252,6 +265,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuditIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/farmers/$userId/dashboard': {
+      id: '/farmers/$userId/dashboard'
+      path: '/farmers/$userId/dashboard'
+      fullPath: '/farmers/$userId/dashboard'
+      preLoaderRoute: typeof FarmersUserIdDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -267,6 +287,7 @@ const rootRouteChildren: RootRouteChildren = {
   NotificationsIndexRoute: NotificationsIndexRoute,
   PaeExpertIndexRoute: PaeExpertIndexRoute,
   ProfileIndexRoute: ProfileIndexRoute,
+  FarmersUserIdDashboardRoute: FarmersUserIdDashboardRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

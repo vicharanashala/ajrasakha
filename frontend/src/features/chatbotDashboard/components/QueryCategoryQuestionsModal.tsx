@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { X, Copy, Check } from "lucide-react";
+import { X, Copy, Check, LayoutDashboard } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { Badge } from "@/components/atoms/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/atoms/tabs";
 import {
@@ -11,7 +12,6 @@ import {
   type QueryCategoryQuestionType,
 } from "../hooks/useActiveUsersAnalytics";
 import {
-  FarmerInfoCell,
   QuestionListTable,
   type QuestionListColumn,
 } from "./QuestionListTable";
@@ -88,6 +88,7 @@ export function QueryCategoryQuestionsModal({
   endDate,
   onClose,
 }: QueryCategoryQuestionsModalProps) {
+  const navigate = useNavigate();
   const [questionType, setQuestionType] =
     useState<QueryCategoryQuestionType>("all");
   const [page, setPage] = useState(1);
@@ -126,7 +127,7 @@ export function QueryCategoryQuestionsModal({
     questionType,
     page,
     limit: PAGE_SIZE,
-    source,
+    source: source ?? "annam",
     userType,
     startDate,
     endDate,
@@ -235,6 +236,31 @@ export function QueryCategoryQuestionsModal({
     QuestionListColumn<QueryCategoryQuestionEntry>[]
   >(() => {
     const baseColumns: QuestionListColumn<QueryCategoryQuestionEntry>[] = [
+      {
+        key: "dashboard",
+        label: "",
+        align: "center",
+        className: "w-[5%]",
+        render: (row) =>
+          row.userId ? (
+            <button
+              type="button"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-[#3AAA5A]/10 hover:text-[#3AAA5A]"
+              title="Open farmer dashboard"
+              onClick={() =>
+                navigate({
+                  to: "/farmers/$userId/dashboard",
+                  params: { userId: row.userId! },
+                  search: {
+                    source: source === "whatsapp" ? "whatsapp" : "annam",
+                  },
+                })
+              }
+            >
+              <LayoutDashboard className="h-4 w-4" />
+            </button>
+          ) : null,
+      },
      {
   key: period ? "messageId" : "questionId",
   label: period ? "Message ID" : "Question ID",
@@ -344,7 +370,7 @@ export function QueryCategoryQuestionsModal({
 }
 
     return baseColumns;
-  }, [status, closedWithInTwohours, notificationType]);
+  }, [status, closedWithInTwohours, notificationType, period, navigate, source]);
 
   const questions = data?.questions ?? [];
 
@@ -424,7 +450,7 @@ export function QueryCategoryQuestionsModal({
               : undefined
           }
           emptyMessage="No questions found for this category."
-          getRowKey={(row) => row.questionId || row.messageId}
+          getRowKey={(row, index) => row.questionId || row.messageId || index}
           pagination={{
             page,
             pageSize: PAGE_SIZE,

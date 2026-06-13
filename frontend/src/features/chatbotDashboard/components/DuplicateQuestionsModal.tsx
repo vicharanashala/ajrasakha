@@ -1,6 +1,7 @@
 import { createPortal } from 'react-dom';
 import { useState, useMemo } from 'react';
-import { X } from 'lucide-react';
+import { LayoutDashboard, X } from 'lucide-react';
+import { useNavigate } from '@tanstack/react-router';
 import {
   useDuplicateQuestions,
   type DuplicateQuestionEntry,
@@ -39,10 +40,11 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
   inactiveOnly: false,
   lowFeedbackOnly: false,
   userType: 'all',
-  isVerified: true,
+  verificationStatus: 'verified',
 };
 
 export function DuplicateQuestionsModal({ onClose, source = 'annam', userType }: DuplicateQuestionsModalProps) {
+  const navigate = useNavigate();
   const { data, isLoading, isError } = useDuplicateQuestions(true, source, userType);
   const [filters, setFilters] = useState<UserDetailsFilters>(DEFAULT_FILTERS);
 
@@ -122,6 +124,30 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam', userType }:
           ) : (
             <FarmerInfoCell primary={row.farmerName} />
           ),
+      },
+      {
+        key: "dashboard",
+        label: "",
+        visible: source !== "whatsapp",
+        align: "center",
+        className: "w-[5%]",
+        render: (row) =>
+          row.userId ? (
+            <button
+              type="button"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-[#3AAA5A]/10 hover:text-[#3AAA5A]"
+              title="Open farmer dashboard"
+              onClick={() =>
+                navigate({
+                  to: "/farmers/$userId/dashboard",
+                  params: { userId: row.userId! },
+                  search: { source },
+                })
+              }
+            >
+              <LayoutDashboard className="h-4 w-4" />
+            </button>
+          ) : null,
       },
       {
         key: "username",
@@ -219,7 +245,7 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam', userType }:
         render: (row) => scoreBadge(row.similarityScore),
       },
     ];
-  }, [source]);
+  }, [navigate, source]);
 
   return createPortal(
     <div

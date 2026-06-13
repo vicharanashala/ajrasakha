@@ -20,6 +20,7 @@ export interface KpiSummary {
 
 export interface DuplicateQuestionEntry {
   questionId: string;
+  userId?: string;
   question: string;
   referenceQuestion: string;
   similarityScore: number;
@@ -61,6 +62,7 @@ export interface QueryCategoryEntry {
 export type QueryCategoryQuestionType = 'all' | 'unique' | 'duplicate';
 
 export interface QueryCategoryQuestionEntry {
+  userId?: string;
   questionId: string;
   question: string;
   status: string;
@@ -551,6 +553,7 @@ export interface IChatbotRepository {
     page?: number,
     limit?: number,
     search?: string,
+    userId?: string,
     source?: string,
     crop?: string,
     primaryCrops?: string,
