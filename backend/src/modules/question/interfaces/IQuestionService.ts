@@ -29,6 +29,9 @@ export interface QueueQuestionItem {
   crop?: string;
   /** Current assignee — present for allocated & stuck items. */
   expertName?: string;
+  /** All experts who have completed a step on this question, in turn order —
+   *  present for needs-reviewer items. */
+  completedExpertNames?: string[];
   /** When the current expert was allocated — present for stuck items. */
   allocatedAt?: string | Date | null;
   /** Minutes since the current expert was allocated — present for stuck items. */

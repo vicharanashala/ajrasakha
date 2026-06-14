@@ -447,6 +447,9 @@ export interface ISubmission {
   lastRespondedBy: IUserRef | null;
   queue: IUserRef[];
   history: ISubmissionHistory[];
+  /** When the current (first-queue) expert was allocated. Used to show an
+   *  "Assigned" time before that expert has produced any history entry. */
+  currentExpertAllocatedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

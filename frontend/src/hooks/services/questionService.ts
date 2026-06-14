@@ -32,6 +32,8 @@ export type QueueQuestionItem = {
   district?: string;
   crop?: string;
   expertName?: string;
+  /** All experts who completed a step on the question, in turn order — needs-reviewer items. */
+  completedExpertNames?: string[];
   allocatedAt?: string | null;
   minutesSinceAllocated?: number;
   openedAt?: string | null;

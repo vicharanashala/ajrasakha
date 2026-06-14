@@ -124,7 +124,12 @@ const QuestionRow = ({
         {item.createdAt && <span>· {formatDate(new Date(item.createdAt))}</span>}
       </div>
       {showExpert &&
-        (item.expertName ? (
+        (item.completedExpertNames && item.completedExpertNames.length > 0 ? (
+          <p className="mt-1 text-[11px] font-medium text-gray-700 dark:text-gray-300">
+            {item.completedExpertNames.length > 1 ? "Completed by" : "Expert"}:{" "}
+            {item.completedExpertNames.join(", ")}
+          </p>
+        ) : item.expertName ? (
           <p className="mt-1 text-[11px] font-medium text-gray-700 dark:text-gray-300">
             Expert: {item.expertName}
           </p>
@@ -354,8 +359,12 @@ export const QueueDetailsModal = ({
   setIsSidebarOpen?: (v: boolean) => void;
 }) => {
   const [open, setOpen] = useState(false);
-  const [openSection, setOpenSection] = useState<string | null>("received");
-  
+  // Sections are independently collapsible — opening one no longer closes the others,
+  // so the user can view e.g. "Never Allocated" and "Available Experts" at the same time.
+  const [openSections, setOpenSections] = useState<Set<string>>(
+    () => new Set(["received"]),
+  );
+
   // Date filter state - default to current date
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -376,13 +385,30 @@ export const QueueDetailsModal = ({
 
   const { goToQuestion } = useNavigateToQuestion();
 
+  // Opening a question unmounts this modal (the list view is replaced by the
+  // question detail). Leave a one-shot flag so that when the user exits the
+  // question and the modal remounts, it reopens where they left off.
+  useEffect(() => {
+    if (sessionStorage.getItem("reopenQueueDetails") === "1") {
+      sessionStorage.removeItem("reopenQueueDetails");
+      setOpen(true);
+      setIsSidebarOpen?.(false);
+    }
+  }, [setIsSidebarOpen]);
+
   const handleQuestionClick = (item: QueueQuestionItem) => {
+    sessionStorage.setItem("reopenQueueDetails", "1");
     setOpen(false);
     goToQuestion(item._id, "moderator_queue");
   };
 
   const toggle = (key: string) =>
-    setOpenSection((prev) => (prev === key ? null : key));
+    setOpenSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   const handleDateFilterChange = (key: string, value: Date | undefined) => {
     setDateFilter((prev) => ({ ...prev, [key]: value }));
@@ -486,7 +512,7 @@ export const QueueDetailsModal = ({
                   onClick={() => handleQuestionClick(q)}
                 />
               )}
-              isOpen={openSection === "received"}
+              isOpen={openSections.has("received")}
               onToggle={() => toggle("received")}
               emptyText="No questions received"
               startTime={dateFilter.startTime ?? undefined}
@@ -508,7 +534,7 @@ export const QueueDetailsModal = ({
                   onClick={() => handleQuestionClick(q)}
                 />
               )}
-              isOpen={openSection === "autoAllocateOff"}
+              isOpen={openSections.has("autoAllocateOff")}
               onToggle={() => toggle("autoAllocateOff")}
               emptyText="No auto-allocate-on questions"
               startTime={dateFilter.startTime ?? undefined}
@@ -531,7 +557,7 @@ export const QueueDetailsModal = ({
                   onClick={() => handleQuestionClick(q)}
                 />
               )}
-              isOpen={openSection === "waiting"}
+              isOpen={openSections.has("waiting")}
               onToggle={() => toggle("waiting")}
               emptyText="Nothing waiting for allocation"
               startTime={dateFilter.startTime ?? undefined}
@@ -554,7 +580,7 @@ export const QueueDetailsModal = ({
                   onClick={() => handleQuestionClick(q)}
                 />
               )}
-              isOpen={openSection === "stuck"}
+              isOpen={openSections.has("stuck")}
               onToggle={() => toggle("stuck")}
               emptyText="No stuck questions"
               startTime={dateFilter.startTime ?? undefined}
@@ -577,7 +603,7 @@ export const QueueDetailsModal = ({
                   onClick={() => handleQuestionClick(q)}
                 />
               )}
-              isOpen={openSection === "openedIdle"}
+              isOpen={openSections.has("openedIdle")}
               onToggle={() => toggle("openedIdle")}
               emptyText="No opened-but-idle questions"
               startTime={dateFilter.startTime ?? undefined}
@@ -600,7 +626,7 @@ export const QueueDetailsModal = ({
                   onClick={() => handleQuestionClick(q)}
                 />
               )}
-              isOpen={openSection === "needsReviewer"}
+              isOpen={openSections.has("needsReviewer")}
               onToggle={() => toggle("needsReviewer")}
               emptyText="Nothing waiting for a reviewer"
               startTime={dateFilter.startTime ?? undefined}
@@ -623,7 +649,7 @@ export const QueueDetailsModal = ({
                   onClick={() => handleQuestionClick(q)}
                 />
               )}
-              isOpen={openSection === "allocated"}
+              isOpen={openSections.has("allocated")}
               onToggle={() => toggle("allocated")}
               emptyText="No allocated questions"
               startTime={dateFilter.startTime ?? undefined}
@@ -639,7 +665,7 @@ export const QueueDetailsModal = ({
               section="freeExperts"
               initialItems={data.freeExperts.items}
               renderItem={(e) => <ExpertRow key={e._id} item={e} />}
-              isOpen={openSection === "freeExperts"}
+              isOpen={openSections.has("freeExperts")}
               onToggle={() => toggle("freeExperts")}
               emptyText="No free experts"
               startTime={dateFilter.startTime ?? undefined}
