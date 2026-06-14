@@ -6034,6 +6034,20 @@ export class QuestionService extends BaseService implements IQuestionService {
     };
   }
 
+  /** Build the full queue as "Name (Level)" entries — Author for position 0,
+   *  then Reviewer 1, Reviewer 2, … — resolving names from a pre-fetched map. */
+  private buildQueueExpertNames(
+    queue: any[] | undefined,
+    names: Map<string, string>,
+  ): string[] {
+    return (queue ?? []).map((q, i) => {
+      const id = q?.toString();
+      const name = (id && names.get(id)) || 'Unknown';
+      const level = i === 0 ? 'Author' : `Reviewer ${i}`;
+      return `${name} (${level})`;
+    });
+  }
+
   /** Resolve expert ids → display names in a single batched lookup. */
   private async resolveExpertNames(ids: string[]): Promise<Map<string, string>> {
     const map = new Map<string, string>();
@@ -6089,15 +6103,23 @@ export class QuestionService extends BaseService implements IQuestionService {
           const id = this.derivePendingAssigneeId(r.queue, r.history as any);
           byQuestion.set(r._id?.toString() ?? '', id);
           if (id) ids.push(id);
+          for (const q of r.queue ?? []) ids.push(q?.toString());
         }
         const names = await this.resolveExpertNames(ids);
         return {
           count,
           items: items.map(r => {
             const id = byQuestion.get(r._id?.toString() ?? '');
+            // Allocated: show plain names (no Author/Reviewer level) and a single
+            // status for the current person — 'completed' if no one is pending,
+            // otherwise 'waiting' for that person's response.
             return {
               ...this.rawToQueueItem(r),
               expertName: id ? names.get(id) ?? 'Unknown' : undefined,
+              queueExpertNames: (r.queue ?? []).map(
+                q => names.get(q?.toString()) ?? 'Unknown',
+              ),
+              lastPersonStatus: id ? 'waiting' : 'completed',
             };
           }),
         };
@@ -6144,6 +6166,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           const qId = (sub.question?._id ?? sub.questionId)?.toString() ?? '';
           byQuestion.set(qId, id);
           if (id) ids.push(id);
+          for (const q of sub.queue ?? []) ids.push(q?.toString());
         }
         const names = await this.resolveExpertNames(ids);
         const now = Date.now();
@@ -6154,6 +6177,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           return {
             ...item,
             expertName: id ? names.get(id) ?? 'Unknown' : undefined,
+            queueExpertNames: this.buildQueueExpertNames(sub.queue, names),
             allocatedAt,
             minutesSinceAllocated: allocatedAt
               ? Math.floor((now - new Date(allocatedAt).getTime()) / 60000)
@@ -6176,6 +6200,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           const qId = (sub.question?._id ?? sub.questionId)?.toString() ?? '';
           byQuestion.set(qId, id);
           if (id) ids.push(id);
+          for (const q of sub.queue ?? []) ids.push(q?.toString());
         }
         const names = await this.resolveExpertNames(ids);
         const now = Date.now();
@@ -6186,6 +6211,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           return {
             ...item,
             expertName: id ? names.get(id) ?? 'Unknown' : undefined,
+            queueExpertNames: this.buildQueueExpertNames(sub.queue, names),
             openedAt,
             minutesSinceOpened: openedAt
               ? Math.floor((now - new Date(openedAt).getTime()) / 60000)
@@ -6213,6 +6239,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           const qId = (sub.question?._id ?? sub.questionId)?.toString() ?? '';
           byQuestion.set(qId, completedIds);
           ids.push(...completedIds);
+          for (const q of sub.queue ?? []) ids.push(q?.toString());
         }
         const names = await this.resolveExpertNames(ids);
         const items: QueueQuestionItem[] = pageSubs.map(sub => {
@@ -6222,6 +6249,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           return {
             ...item,
             completedExpertNames,
+            queueExpertNames: this.buildQueueExpertNames(sub.queue, names),
             // Keep expertName as the most recent completer for backward compatibility.
             expertName: completedExpertNames[completedExpertNames.length - 1],
           };
