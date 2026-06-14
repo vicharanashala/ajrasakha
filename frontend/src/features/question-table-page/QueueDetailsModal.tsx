@@ -123,13 +123,28 @@ const QuestionRow = ({
         {meta && <span>{meta}</span>}
         {item.createdAt && <span>· {formatDate(new Date(item.createdAt))}</span>}
       </div>
+      {/* Full queue with levels (Author, Reviewer 1, …) — shown for any section
+          whose question has an allocation queue. Allocated shows plain names plus
+          a single status for the current person (Completed / Waiting). */}
+      {item.queueExpertNames && item.queueExpertNames.length > 0 && (
+        <p className="mt-1 text-[11px] font-medium text-gray-700 dark:text-gray-300 flex flex-wrap items-center gap-1.5">
+          <span>Queue: {item.queueExpertNames.join(", ")}</span>
+          {item.lastPersonStatus && (
+            <span
+              className={
+                item.lastPersonStatus === "completed"
+                  ? "px-1.5 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-300 uppercase tracking-wide"
+                  : "px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300 uppercase tracking-wide"
+              }
+            >
+              {item.lastPersonStatus === "completed" ? "Completed" : "Waiting"}
+            </span>
+          )}
+        </p>
+      )}
       {showExpert &&
-        (item.completedExpertNames && item.completedExpertNames.length > 0 ? (
-          <p className="mt-1 text-[11px] font-medium text-gray-700 dark:text-gray-300">
-            {item.completedExpertNames.length > 1 ? "Completed by" : "Expert"}:{" "}
-            {item.completedExpertNames.join(", ")}
-          </p>
-        ) : item.expertName ? (
+        !(item.queueExpertNames && item.queueExpertNames.length > 0) &&
+        (item.expertName ? (
           <p className="mt-1 text-[11px] font-medium text-gray-700 dark:text-gray-300">
             Expert: {item.expertName}
           </p>
