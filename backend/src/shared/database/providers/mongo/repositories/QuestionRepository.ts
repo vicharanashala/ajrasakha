@@ -1942,6 +1942,9 @@ export class QuestionRepository implements IQuestionRepository {
         })),
         authorTimeline: reviewTimeline[0],
         history: combinedHistory,
+        // When the current (first-queue) expert was allocated — used by the UI to
+        // show an "Assigned" time before that expert has any history entry.
+        currentExpertAllocatedAt: submission?.currentExpertAllocatedAt ?? null,
         createdAt: submission?.createdAt,
         updatedAt: submission?.updatedAt,
       };
