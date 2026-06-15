@@ -68,10 +68,14 @@ function RouteComponent() {
       return;
     }
     if (currentUser && currentUser?.role !== "admin") {
+      const currentUserId = currentUser?._id || user.uid;
+      if (isCoordinatorRole(currentUser?.role) && userId === currentUserId) {
+        return;
+      }
       navigate({ to: "/home" });
       return;
     }
-  }, [user, currentUser, navigate]);
+  }, [user, currentUser, navigate, userId]);
 
   const verifyUserMutation = useVerifyUserAnalytics();
   const deleteUserMutation = useDeleteUser();
@@ -304,6 +308,18 @@ function RouteComponent() {
       <>
         <Spinner />
       </>
+    );
+  }
+
+  if (!userProfile) {
+    return (
+      <div className="flex h-screen w-full flex-col items-center justify-center bg-background text-foreground">
+        <h1 className="text-2xl font-bold">User Not Found</h1>
+        <p className="mt-2 text-muted-foreground">The requested user profile could not be found or failed to load.</p>
+        <Button className="mt-6" onClick={() => navigate({ to: "/home" })}>
+          Return to Home
+        </Button>
+      </div>
     );
   }
 
