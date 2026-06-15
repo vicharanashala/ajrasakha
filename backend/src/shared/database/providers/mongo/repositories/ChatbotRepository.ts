@@ -2084,6 +2084,11 @@ export class ChatbotRepository implements IChatbotRepository {
 
         return {
           ...question,
+          userId:
+            resolvedUserId ??
+            (question.userId?.toString
+              ? question.userId.toString()
+              : question.userId),
 
           farmerName: user?.farmerProfile?.farmerName ?? user?.name ?? null,
 
@@ -8005,6 +8010,7 @@ const totalPages =
         const user = userMap.get(userId);
         results.push({
           questionId: q._id.toString(),
+          userId,
           question: q.question,
           referenceQuestion: q.referenceQuestion || q.originalQuestion || '',
           similarityScore: Number(q.similarityScore) || 0,

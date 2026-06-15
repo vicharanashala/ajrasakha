@@ -1,7 +1,6 @@
 import { UserProfileActions } from "@/components/atoms/user-profile-actions";
 import { ThemeToggleCompact } from "@/components/atoms/ThemeToggle";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
-import { isCoordinatorRole } from "@/lib/roles";
 import { useAuthStore } from "@/stores/auth-store";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
@@ -42,25 +41,36 @@ import {
 import { Input } from "@/components/atoms/input";
 import { AnimatePresence, motion } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
+import { FarmerNameLink } from "@/features/chatbotDashboard/components/FarmerNameLink";
 
 export const Route = createFileRoute("/user/$userId")({
   component: RouteComponent,
 });
 
+const isLikelyObjectId = (value?: string | null) =>
+  Boolean(value && /^[a-f\d]{24}$/i.test(value));
+
+type AssignableUser = {
+  _id: string;
+  name: string;
+  userRole?: string;
+};
+
 function RouteComponent() {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
   const navigate = useNavigate();
-  const { data: currentUser, isLoading } = useGetCurrentUser({
+  const { data: currentUser } = useGetCurrentUser({
     enabled: !!user,
   });
   const { userId } = Route.useParams();
+  const canFetchProfile = isLikelyObjectId(userId);
 
   const {
     data: userProfile,
-    isFetching: userProfileFetching,
     isLoading: userProfileLoading,
-  } = useUserProfile(userId);
+    error: userProfileError,
+  } = useUserProfile(userId, canFetchProfile);
 
   useEffect(() => {
     if (!user) {
@@ -183,7 +193,7 @@ function RouteComponent() {
   const unassignUsersMutation = useUnassignUsers();
   const [assigning, setAssigning] = useState(false);
 
-  const availableUsers = userProfile?.unAssigned ?? [];
+  const availableUsers: AssignableUser[] = userProfile?.unAssigned ?? [];
 
   const allSelected =
     availableUsers.length > 0 && selectedUsers.length === availableUsers.length;
@@ -243,7 +253,7 @@ function RouteComponent() {
     [],
   );
 
-  const assignedUsers = userProfile?.assigned ?? [];
+  const assignedUsers: AssignableUser[] = userProfile?.assigned ?? [];
 
   const allAssignedSelected =
     assignedUsers.length > 0 &&
@@ -299,11 +309,31 @@ function RouteComponent() {
     }
   };
 
-  if (!user || userProfileLoading) {
+  if (!user || (canFetchProfile && userProfileLoading)) {
     return (
       <>
         <Spinner />
       </>
+    );
+  }
+
+  if (!canFetchProfile) {
+    return (
+      <DashboardMessage
+        title="Invalid farmer ID"
+        description="Please open this dashboard from a farmer name in the listing."
+        onBack={() => navigate({ to: "/home" })}
+      />
+    );
+  }
+
+  if (userProfileError || !userProfile?.userId) {
+    return (
+      <DashboardMessage
+        title="Farmer not found"
+        description="This farmer profile could not be loaded. The user may have been removed or the ID is incorrect."
+        onBack={() => navigate({ to: "/home" })}
+      />
     );
   }
 
@@ -412,7 +442,9 @@ function RouteComponent() {
                               />
 
                               <div>
-                                <p className="font-medium">{u.name}</p>
+                                <FarmerNameLink userId={u._id} className="font-medium">
+                                  {u.name}
+                                </FarmerNameLink>
                               </div>
                             </div>
 
@@ -503,7 +535,9 @@ function RouteComponent() {
                               />
 
                               <div>
-                                <p className="font-medium">{u.name}</p>
+                                <FarmerNameLink userId={u._id} className="font-medium">
+                                  {u.name}
+                                </FarmerNameLink>
                                 <p className="text-xs text-muted-foreground">
                                   {u.userRole}
                                 </p>
@@ -644,6 +678,42 @@ function RouteComponent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+function DashboardMessage({
+  title,
+  description,
+  onBack,
+}: {
+  title: string;
+  description: string;
+  onBack: () => void;
+}) {
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <header className="flex items-center justify-between border-b border-border px-8 py-2">
+        <Button variant="outline" size="sm" onClick={onBack}>
+          <Home className="h-4 w-4 mr-2" />
+          Home
+        </Button>
+        <h1 className="text-base font-semibold">User Dashboard</h1>
+        <div className="flex items-center gap-2">
+          <ThemeToggleCompact />
+          <UserProfileActions />
+        </div>
+      </header>
+      <div className="mx-auto flex max-w-xl flex-col items-center justify-center px-6 py-20 text-center">
+        <div className="mb-4 rounded-full bg-destructive/10 p-3">
+          <AlertCircle className="h-6 w-6 text-destructive" />
+        </div>
+        <h2 className="text-xl font-semibold">{title}</h2>
+        <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+        <Button className="mt-6" onClick={onBack}>
+          Back to dashboard
+        </Button>
+      </div>
     </div>
   );
 }

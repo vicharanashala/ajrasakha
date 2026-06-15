@@ -11,11 +11,11 @@ import {
   type QueryCategoryQuestionType,
 } from "../hooks/useActiveUsersAnalytics";
 import {
-  FarmerInfoCell,
   QuestionListTable,
   type QuestionListColumn,
 } from "./QuestionListTable";
 import { TranslatableText } from "./TranslatableText";
+import { FarmerNameLink } from "./FarmerNameLink";
 
 const CopyableIdCell = ({ id }: { id?: string }) => {
   const [copied, setCopied] = useState(false);
@@ -266,7 +266,11 @@ export function QueryCategoryQuestionsModal({
         sortAccessor: (row) => row.name || row.farmerName || "N/A",
         className: "w-[14%]",
         cellClassName: "truncate",
-        accessor: (row) => row.name || row.farmerName || "N/A",
+        render: (row) => (
+          <FarmerNameLink userId={row.userId}>
+            {row.name || row.farmerName || "N/A"}
+          </FarmerNameLink>
+        ),
       },
 
       {

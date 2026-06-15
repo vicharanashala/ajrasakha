@@ -1,5 +1,6 @@
 import { Loader2 } from "lucide-react";
 import { useUserDetails } from "../hooks/useUserDetails";
+import { FarmerNameLink } from "./FarmerNameLink";
 
 interface ActiveFarmersTableProps {
   source: string;
@@ -88,8 +89,13 @@ export function ActiveFarmersTable({
                 key={user.userId}
                 className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
               >
-                <td className="px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap truncate max-w-[150px]" title={user.name}>
-                  {user.name}
+                <td className="px-3 py-2 whitespace-nowrap truncate max-w-[150px]" title={user.name}>
+                  <FarmerNameLink
+                    userId={user.userId}
+                    className="font-medium"
+                  >
+                    {user.name}
+                  </FarmerNameLink>
                 </td>
                 <td className="px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap truncate max-w-[150px]" title={user.email}>
                   {user.email || 'N/A'}

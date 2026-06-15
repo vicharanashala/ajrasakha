@@ -16,6 +16,7 @@ import {
 } from './QuestionListTable';
 import WhatsappHistoryLink from './WhatsappHistoryLink';
 import { TranslatableText } from './TranslatableText';
+import { FarmerNameLink } from './FarmerNameLink';
 
 interface DuplicateQuestionsModalProps {
   onClose: () => void;
@@ -120,7 +121,9 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam', userType }:
           source === "whatsapp" ? (
             <WhatsappHistoryLink mobileNumber={row.mobileNumber} />
           ) : (
-            <FarmerInfoCell primary={row.farmerName} />
+            <FarmerNameLink userId={row.userId} className="block w-full">
+              <FarmerInfoCell primary={row.farmerName} />
+            </FarmerNameLink>
           ),
       },
       {
