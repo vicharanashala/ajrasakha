@@ -7,7 +7,7 @@ import { appConfig } from '#root/config/app.js';
 // Run every 2 minutes, all day — time-bound questions can arrive at any hour
 if(!appConfig.isDevelopment){
 cron.schedule(
-  '0 */2 * * * *',
+  '0 */1 * * * *',
   async () => {
     console.log('<<CRON>> [TimeBound] Running 2-min time-bound reallocation job...');
     try {
