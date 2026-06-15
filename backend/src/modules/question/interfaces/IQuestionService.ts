@@ -31,6 +31,17 @@ export interface QueueQuestionItem {
   expertName?: string;
   /** Assigned moderator's name — present for moderator-allocated items. */
   moderatorName?: string;
+  /** All experts who have completed a step on this question, in turn order —
+   *  present for needs-reviewer items. */
+  completedExpertNames?: string[];
+  /** Full queue for the question, each entry as "Name (Level)" where level is
+   *  Author (position 0) then Reviewer 1, Reviewer 2, … Present for any section
+   *  whose questions have an allocation queue. For the allocated section the
+   *  level suffix is omitted (plain names) — see `lastPersonStatus`. */
+  queueExpertNames?: string[];
+  /** Status of the current/last expert in the queue — 'completed' when every
+   *  queue member has finished, otherwise 'waiting'. Present for allocated items. */
+  lastPersonStatus?: 'completed' | 'waiting';
   /** When the current expert was allocated — present for stuck items. */
   allocatedAt?: string | Date | null;
   /** Minutes since the current expert was allocated — present for stuck items. */

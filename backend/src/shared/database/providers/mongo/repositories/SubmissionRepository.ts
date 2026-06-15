@@ -3308,11 +3308,15 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     );
   }
 
-  async clearCurrentExpertOpenedAt(questionId: string, session?: ClientSession): Promise<void> {
+  /** Clear the current-expert tracking timestamps once the expert has submitted
+   *  their response — both the allocated-at and opened-at clocks are reset so the
+   *  time-bound stuck/idle cron won't flag the question until the next expert is
+   *  allocated (which sets currentExpertAllocatedAt afresh). */
+  async clearCurrentExpertTracking(questionId: string, session?: ClientSession): Promise<void> {
     await this.init();
     await this.QuestionSubmissionCollection.updateOne(
       { questionId: new ObjectId(questionId) },
-      { $set: { currentExpertOpenedAt: null, updatedAt: new Date() } },
+      { $set: { currentExpertAllocatedAt: null, currentExpertOpenedAt: null, updatedAt: new Date() } },
       { session },
     );
   }
@@ -3343,7 +3347,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       {
         $match: {
           'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
-          'question.status': { $nin: ['closed', 'in-review', 'pae_submitted', 'pass', 'duplicate', 'draft', 'non_agri'] },
+          // 're-routed' questions are owned by the reroute flow (moderators handle them),
+          // not the time-bound cron — exclude them so they don't consume STF capacity.
+          'question.status': { $nin: ['closed', 'in-review', 'pae_submitted', 'pass', 'duplicate', 'draft', 'non_agri', 're-routed'] },
           'question.isOnHold': { $ne: true },
           'question.isAutoAllocate': {$eq: true}
         },
