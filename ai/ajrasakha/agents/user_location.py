@@ -10,7 +10,11 @@ from ajrasakha.agents.location_context import (
     _PLACEHOLDER_LOCATION_VALUES,
     normalize_state_name,
 )
-from ajrasakha.agents.user_location_mongo import get_user_location, save_user_location
+from ajrasakha.agents.user_location_mongo import (
+    get_user_location,
+    save_last_rephrased_query,
+    save_user_location,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +123,32 @@ def maybe_persist_resolved_location(
         threading.Thread(
             target=_save,
             name=f"user-location-save-{user_id[:12]}",
+            daemon=True,
+        ).start()
+    else:
+        _save()
+
+
+def maybe_persist_rephrased_query(
+    user_id: str | None,
+    rephrased_query: str | None,
+    *,
+    background: bool = True,
+) -> None:
+    """Persist the rephrased query when it's explicitly set from the current query."""
+    if not user_id:
+        return
+    query = (rephrased_query or "").strip()
+    if not query:
+        return
+
+    def _save() -> None:
+        save_last_rephrased_query(user_id, query)
+
+    if background:
+        threading.Thread(
+            target=_save,
+            name=f"rephrased-query-save-{user_id[:12]}",
             daemon=True,
         ).start()
     else:
