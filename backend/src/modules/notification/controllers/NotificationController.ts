@@ -91,7 +91,7 @@ export class NotificationController {
     const page = Number(query.page) ?? 1;
     const limit = Number(query.limit) ?? 10;
     const userId = user._id.toString();
-    return this.notificationService.getNotifications(userId,page,limit)
+    return this.notificationService.getNotifications(userId,page,limit,user.role)
   }
 
   @OpenAPI({

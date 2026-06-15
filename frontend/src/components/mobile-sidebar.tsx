@@ -122,10 +122,10 @@ export const MobileSidebar = ({
       ? [{ id: "upload", label: "Agents Interface", icon: Upload }]
       : []),
 
-    ...(user && user.role === "call_agent" && user.isCallAgentActive
+    ...(user && user.role === "call_agent"
       ? [
           { id: "call_interface", label: "Call Interface", icon: Phone },
-          { id: "call_history", label: "Call History", icon: Clock },
+          ...(user.isCallAgentActive ? [{ id: "call_history", label: "Call History", icon: Clock }] : []),
         ]
       : []),
 

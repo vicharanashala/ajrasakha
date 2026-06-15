@@ -3,13 +3,14 @@ import { IncomingCallBox } from "./IncomingCallBox";
 import type { CallTranscript } from "./IncomingCallBox";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { Button } from "./atoms/button";
-import { RotateCcw, Send, MessageSquare, Globe, CheckCircle2, AlertCircle, HelpCircle, Lightbulb, User, FileText, ChevronDown, ChevronUp, Edit3 } from "lucide-react";
+import { RotateCcw, Send, MessageSquare, Globe, CheckCircle2, AlertCircle, HelpCircle, Lightbulb, User, FileText, ChevronDown, ChevronUp, Edit3, Power, PowerOff } from "lucide-react";
 import { useSubmitTranscript } from "@/hooks/api/context/useSubmitTranscript";
 import { useGenerateCallQuestion } from "@/hooks/api/question/useGenerateCallQuestion";
 import { useAccAgentThread } from "@/hooks/api/acc-agent/useAccAgentThread";
 import { useAccAgentExtract } from "@/hooks/api/acc-agent/useAccAgentExtract";
 import { useAccAgentUpdateState } from "@/hooks/api/acc-agent/useAccAgentUpdateState";
 import { useAccAgentResume } from "@/hooks/api/acc-agent/useAccAgentResume";
+import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { Badge } from "./atoms/badge";
 import { Skeleton } from "./atoms/skeleton";
 import { ScrollArea, ScrollBar } from "./atoms/scroll-area";
@@ -22,8 +23,12 @@ import type { GeneratedQuestion } from "./voice-recorder-card";
 import Plivo from "plivo-browser-sdk";
 import { toast } from "@/shared/components/toast";
 import type { ExtractDataResponse } from "@/hooks/services/accAgentService";
+import { UserService } from "@/hooks/services/userService";
+
+const userService = new UserService();
 
 export const CallInterface = () => {
+  const { data: currentUser, refetch: refetchCurrentUser } = useGetCurrentUser();
   const { mutateAsync: submitTranscript, isPending } = useSubmitTranscript();
   const [editableTranslatedTranscript, setEditableTranslatedTranscript] = useState("");
   const [transcriptsList, setTranscriptsList] = useState<CallTranscript[]>([]);
@@ -304,8 +309,45 @@ export const CallInterface = () => {
     }
   };
 
+  const handleToggleAgentStatus = async (online: boolean) => {
+    try {
+      await userService.toggleAgentStatus(online);
+      toast.success(online ? "You are now online and ready to receive calls" : "You are now offline");
+      // Refetch current user to update UI without page reload
+      refetchCurrentUser();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update status");
+    }
+  };
+
   return (
-    <div className="space-y-4 w-full max-w-full px-4 md:px-6 py-2">
+    <div className="space-y-4 w-full max-w-full px-4 md:px-6 py-2 relative">
+        {/* Agent Status Toggle - Top Right Corner */}
+        {currentUser?.role === 'call_agent' && (
+          <div className="absolute -top-6 right-4 md:right-6 z-10">
+            {currentUser?.agent && currentUser.agent !== 'not_available' ? (
+              <Button
+                onClick={() => handleToggleAgentStatus(false)}
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs border-red-300 hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950/20 text-red-700 dark:text-red-400"
+              >
+                <PowerOff className="h-3 w-3 mr-1" />
+                Go Offline
+              </Button>
+            ) : (
+              <Button
+                onClick={() => handleToggleAgentStatus(true)}
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs border-green-300 hover:bg-green-50 dark:border-green-900 dark:hover:bg-green-950/20 text-green-700 dark:text-green-400"
+              >
+                <Power className="h-3 w-3 mr-1" />
+                Go Online
+              </Button>
+            )}
+          </div>
+        )}
       {/* Incoming Call Box - Top Section */}
       <IncomingCallBox
         onTranscriptChange={() => { }} // Not using direct strings anymore

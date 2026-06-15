@@ -21,7 +21,9 @@ import { inject, injectable } from 'inversify';
 import plivo from 'plivo';
 import axios from 'axios';
 import { PLIVO_TYPES } from '../types.js';
+import { GLOBAL_TYPES } from '#root/types.js';
 import type { ICallDetailsRepository } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
+import type { IUser } from '#root/shared/interfaces/models.js';
 
 
 @OpenAPI({
@@ -34,21 +36,77 @@ export class PlivoController {
   private client = new plivo.Client(process.env.PLIVO_AUTH_ID, process.env.PLIVO_AUTH_TOKEN, { timeout: 30000 });
 
   constructor(
-    @inject(PLIVO_TYPES.CallDetailsRepository) private callDetailsRepository: ICallDetailsRepository
-  ) { }
+    @inject(PLIVO_TYPES.CallDetailsRepository) private callDetailsRepository: ICallDetailsRepository,
+    @inject(GLOBAL_TYPES.UserService) private userService: any
+  ) {}
 
 
   @Post('/answer')
   @HttpCode(200)
   @OpenAPI({ summary: 'Handle inbound call answer from Plivo' })
-  answer(@Req() req: Request, @Res() res: Response): void {
+  async answer(@Req() req: Request, @Res() res: Response): Promise<void> {
     try {
       const streamUrl = appConfig.plivo.streamUrl;
-      const endpointUser = process.env.PLIVO_ENDPOINT_USERNAME;
       const myPlivoNumber = appConfig.plivo.plivo_number;
+      const callUuid = req.body?.CallUUID || req.query?.CallUUID;
+
+      // console.log('📞 [PLIVO-CONTROLLER] Answer endpoint called with:', {
+      //   body: req.body,
+      //   query: req.query,
+      //   callUuid
+      // });
+
+      // Find the next available agent
+      const availableAgent = await this.userService.findAvailableAgent();
+  
+      // console.log('🔍 [PLIVO-CONTROLLER] Available agent found:', availableAgent ? {
+      //   id: availableAgent._id,
+      //   name: `${availableAgent.firstName} ${availableAgent.lastName}`,
+      //   agent: availableAgent.agent,
+      //   isBusy: availableAgent.isBusy,
+      //   isCallAgentActive: availableAgent.isCallAgentActive
+      // } : null);
+      
+      let endpointUser: string;
+      let fallbackMessage: string;
+
+      if (availableAgent && availableAgent.agent) {
+        // Get the Plivo endpoint credentials for this agent
+        const agentNumber = availableAgent.agent; // e.g., "agent_1"
+        const credentials = appConfig.plivo.getAgentCredentials(agentNumber);
+        endpointUser = credentials.username;
+        
+        // // console.log(`🔐 [PLIVO-CONTROLLER] Agent credentials for ${agentNumber}:`, {
+        //   username: credentials.username,
+        //   hasPassword: !!credentials.password
+        // });
+        
+        // Mark the agent as busy and track the call
+        // console.log(`⏳ [PLIVO-CONTROLLER] Marking agent ${availableAgent._id} as busy with call ${callUuid}`);
+        const updatedAgent = await this.userService.markAgentAsBusy(
+          availableAgent._id.toString(),
+          callUuid
+        );
+        
+          // console.log(`✅ [PLIVO-CONTROLLER] Agent marked as busy:`, {
+          //   isBusy: updatedAgent.isBusy,
+          //   currentCallUuid: updatedAgent.currentCallUuid
+          // });
+        
+        // console.log(`✅ [PLIVO-CONTROLLER] Routing call ${callUuid} to ${agentNumber} (${availableAgent.firstName} ${availableAgent.lastName})`);
+        fallbackMessage = 'The specialist is busy. Please stay on the line.';
+      } else {
+        // No available agents - play busy message
+        endpointUser = '';
+        fallbackMessage = 'All agents are busy. Please call back later.';
+        // console.log(`⚠️ [PLIVO-CONTROLLER] No available agents for call ${callUuid}`);
+      }
 
       // FIXED XML Structure: Stream outside Dial, proper fallback handling
-      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+      let xml: string;
+      
+      if (endpointUser) {
+        xml = `<?xml version="1.0" encoding="UTF-8"?>
                     <Response>
                               <Stream contentType="audio/x-l16;rate=16000"
           noiseCancellation="true" audioTrack="both" noise_cancellation_level="85"
@@ -56,9 +114,18 @@ export class PlivoController {
                               <Dial timeout="40" callerId="${myPlivoNumber}">
                                         <User>${endpointUser}</User>
                               </Dial>
-                              <Speak>The specialist is busy. Please stay on the line.</Speak>
+                              <Speak>${fallbackMessage}</Speak>
                               <Wait length="10" />
                     </Response>`;
+      } else {
+        // All agents busy - just play the message
+        xml = `<?xml version="1.0" encoding="UTF-8"?>
+                    <Response>
+                              <Speak>${fallbackMessage}</Speak>
+                              <Hangup />
+                    </Response>`;
+      }
+      
       res.set('Content-Type', 'text/xml');
       res.send(xml);
     } catch (error: any) {

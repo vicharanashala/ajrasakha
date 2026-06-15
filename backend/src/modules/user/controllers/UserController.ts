@@ -1033,6 +1033,37 @@ export class UserController {
   }
 
   @OpenAPI({
+    summary: 'Toggle call agent online/offline status',
+    description: 'Sets a call agent as online or offline. Online agents are assigned an agent number and can receive calls. Offline agents release their agent number. Call agents can control their own status.',
+  })
+  @ResponseSchema(UserEntryResponse, {
+    statusCode: 200,
+    description: 'Call agent status updated successfully',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - User is not a call agent',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @Post('/call-agents/toggle-status')
+  @HttpCode(200)
+  @Authorized(['call_agent'])
+  async toggleAgentStatus(
+    @Body() body: { online: boolean },
+    @CurrentUser() currentUser: IUser,
+  ): Promise<IUser> {
+    const userId = currentUser._id.toString();
+    if (body.online) {
+      return await this.userService.setAgentOnline(userId);
+    } else {
+      return await this.userService.setAgentOffline(userId);
+    }
+  }
+
+  @OpenAPI({
     summary: 'Request account verification',
     description: 'Allows unverified users to send a verification request to all system admins.',
   })

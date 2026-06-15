@@ -11,6 +11,7 @@ import {
   Volume2,
   Mic,
   MicOff,
+  Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PlivoWebSocketService } from "@/hooks/services/plivoWebSocketService";
@@ -19,6 +20,8 @@ import { env } from "@/config/env";
 import Plivo from "plivo-browser-sdk";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { FarmerDetails } from "./FarmerDetails";
+import { plivoApi } from "@/hooks/api/plivo/api";
+import { toast } from "sonner";
 
 interface IncomingCall {
   uuid: string;
@@ -67,6 +70,9 @@ export const IncomingCallBox = ({
   const [transcripts, setTranscripts] = useState<CallTranscript[]>([]);
   const [isMuted, setIsMuted] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [messageText, setMessageText] = useState("");
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [lastCallNumber, setLastCallNumber] = useState<string | null>(null);
 
   const wsRef = useRef<PlivoWebSocketService | null>(null);
   const plivoClientRef = useRef<any>(null);
@@ -78,6 +84,19 @@ export const IncomingCallBox = ({
     onTranscriptChange,
     onTranscriptsListChange,
   });
+
+  // Helper function to get agent-specific Plivo credentials
+  const getAgentCredentials = () => {
+    const agentNumber = currentUser?.agent;
+    if (!agentNumber || agentNumber === 'not_available') {
+      // Fallback to old credentials if no agent assigned
+      return {
+        username: env.plivo.endpointUsername(),
+        password: env.plivo.endpointPassword(),
+      };
+    }
+    return env.plivo.getAgentCredentials(agentNumber);
+  };
 
   useEffect(() => {
     callbacksRef.current = {
@@ -144,10 +163,10 @@ export const IncomingCallBox = ({
       return;
     }
 
-    // Check if Plivo credentials are configured (not dummy values)
-    const endpointUsername = env.plivo.endpointUsername();
-    const endpointPassword = env.plivo.endpointPassword();
+    // Get agent-specific Plivo credentials
+    const { username: endpointUsername, password: endpointPassword } = getAgentCredentials();
 
+    // Check if Plivo credentials are configured (not dummy values)
     if (
       endpointUsername?.includes("dummy") ||
       endpointPassword?.includes("dummy")
@@ -195,9 +214,8 @@ export const IncomingCallBox = ({
     const client = new Plivo(options);
     plivoClientRef.current = client;
 
-    // Login to endpoint
-    const endpointUsername = env.plivo.endpointUsername();
-    const endpointPassword = env.plivo.endpointPassword();
+    // Get agent-specific Plivo credentials
+    const { username: endpointUsername, password: endpointPassword } = getAgentCredentials();
 
     console.log("🔑 Attempting Plivo login with username:", endpointUsername);
     console.log("🌐 Plivo SDK loaded successfully");
@@ -239,6 +257,7 @@ export const IncomingCallBox = ({
           number: callerName,
           timestamp: new Date().toISOString(),
         });
+        setLastCallNumber(callerName);
         setCallStatus("incoming");
         // WebSocket will connect when call is answered, not here
       },
@@ -516,6 +535,27 @@ export const IncomingCallBox = ({
     }
   };
 
+  const handleSendMessage = async () => {
+    const phoneNumber = incomingCall?.number || lastCallNumber;
+    if (!messageText.trim() || !phoneNumber) {
+      return;
+    }
+
+    setIsSendingMessage(true);
+    try {
+      // Remove country code if present (matching CallHistory logic)
+      const sanitizedNumber = phoneNumber.replace(/^91/, "");
+      await plivoApi.sendMessage(sanitizedNumber, messageText.trim());
+      toast.success("SMS sent successfully!");
+      setMessageText("");
+    } catch (error) {
+      console.error("Failed to send SMS:", error);
+      toast.error("Failed to send SMS");
+    } finally {
+      setIsSendingMessage(false);
+    }
+  };
+
   return (
     <div
       className={cn(
@@ -606,12 +646,52 @@ export const IncomingCallBox = ({
         ) : (callStatus === "idle" || callStatus === "ended") &&
           !incomingCall ? (
           <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Phone className="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
-              <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                No active calls
-              </span>
-            </div>
+            {lastCallNumber ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Phone className="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
+                  <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                    Call ended with {lastCallNumber}
+                  </span>
+                </div>
+                <div className="border border-zinc-200/40 dark:border-zinc-800/40 bg-zinc-50/20 dark:bg-zinc-900/10 p-4 rounded-xl">
+                  <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-2">
+                    Send SMS to {lastCallNumber}
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={messageText}
+                      onChange={(e) => setMessageText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
+                      }}
+                      placeholder="Type your SMS..."
+                      className="flex-1 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      disabled={isSendingMessage}
+                    />
+                    <Button
+                      onClick={handleSendMessage}
+                      disabled={!messageText.trim() || isSendingMessage}
+                      size="sm"
+                      className="px-3 h-9 bg-primary hover:bg-primary/90 text-white"
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Phone className="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
+                <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                  No active calls
+                </span>
+              </div>
+            )}
           </CardContent>
         ) : (
           <CardContent className="p-4">
@@ -777,13 +857,46 @@ export const IncomingCallBox = ({
                 </div>
               </div>
 
-              {/* Right Column: Farmer Details */}
-              <div className="flex flex-col justify-start">
+              {/* Right Column: Farmer Details and Message Input */}
+              <div className="flex flex-col justify-start space-y-4">
                 {incomingCall && (
                   <FarmerDetails
                     phoneNo={incomingCall.number}
-                    className="h-full border border-zinc-200/40 dark:border-zinc-800/40 bg-zinc-50/20 dark:bg-zinc-900/10"
+                    className="border border-zinc-200/40 dark:border-zinc-800/40 bg-zinc-50/20 dark:bg-zinc-900/10"
                   />
+                )}
+                
+                {/* Message Input - Available during and after call */}
+                {(callStatus === "connected" || callStatus === "held" || callStatus === "ended") && (incomingCall || lastCallNumber) && (
+                  <div className="border border-zinc-200/40 dark:border-zinc-800/40 bg-zinc-50/20 dark:bg-zinc-900/10 p-4 rounded-xl">
+                    <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-2">
+                      Send SMS to {incomingCall?.number || lastCallNumber}
+                    </p>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={messageText}
+                        onChange={(e) => setMessageText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendMessage();
+                          }
+                        }}
+                        placeholder="Type your SMS..."
+                        className="flex-1 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        disabled={isSendingMessage}
+                      />
+                      <Button
+                        onClick={handleSendMessage}
+                        disabled={!messageText.trim() || isSendingMessage}
+                        size="sm"
+                        className="px-3 h-9 bg-primary hover:bg-primary/90 text-white"
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>

@@ -1,7 +1,7 @@
 import type { UserCredential } from "firebase/auth";
 import type { DemographicEntry } from "./features/chatbotDashboard/types";
 
-export type UserRole = "admin" | "moderator" | "expert" | "pae_expert" | "tester"| "district_coordinator"| "block_coordinator" | "village_volunteer" | "call_agent";
+export type UserRole = "admin" | "moderator" | "expert" | "pae_expert" | "tester" | "district_coordinator" | "block_coordinator" | "village_volunteer" | "call_agent";
 
 export interface ExtendedUserCredential extends UserCredential {
   _tokenResponse?: {
@@ -53,6 +53,9 @@ export interface IUser {
   university?: string;
   isVerified?: boolean;
   isCallAgentActive?: boolean;
+  agent?: string; // "not_available" or "agent_1", "agent_2", etc.
+  isBusy?: boolean; // true if agent is currently in a call
+  currentCallUuid?: string | null; // UUID of the current call being handled
 }
 
 export interface IUnverifiedUser {
@@ -373,7 +376,7 @@ export interface SourceItem {
   sourceType?: SourceType;
   sourceName?: string;
   source: string;
-  page?: string|number;
+  page?: string | number;
 }
 export interface PreviousAnswersItem {
   modifiedBy: string
@@ -503,7 +506,7 @@ export interface IQuestionFullData {
   closedAt?: string;
   threadId?: string;
   messageId?: string;
-  approved_moderator:{
+  approved_moderator: {
     name: string;
     email: string;
   }
@@ -1077,11 +1080,11 @@ export interface FeedbackEntry {
   tag: string;
 }
 
-export interface FeedbackData{
+export interface FeedbackData {
   positiveFeedbacks: FeedbackEntry[];
   negativeFeedbacks: FeedbackEntry[];
-  positiveFeedbackCounts: {tag: string, count: any}[],
-  negativeFeedbackCounts: {tag: string, count: any}[],
+  positiveFeedbackCounts: { tag: string, count: any }[],
+  negativeFeedbackCounts: { tag: string, count: any }[],
   stats: {
     "_id"?: null | string,
     positiveCount: number,

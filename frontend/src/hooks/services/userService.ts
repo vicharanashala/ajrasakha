@@ -139,6 +139,13 @@ export class UserService {
       method: "PATCH",
     });
   }
+
+  async toggleAgentStatus(online: boolean): Promise<IUser | null> {
+    return apiFetch<IUser>(`${this._baseUrl}/call-agents/toggle-status`, {
+      method: "POST",
+      body: JSON.stringify({ online }),
+    });
+  }
   /**
    * Get unverified users with search capability
    * @param page - Page number (default: 1)

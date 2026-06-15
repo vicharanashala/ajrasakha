@@ -60,6 +60,7 @@ export class NotificationService extends BaseService {
     userId: string,
     page: number,
     limit: number,
+    userRole?: string,
   ): Promise<{
     notifications: NotificationResponse[];
     page: number;
@@ -67,12 +68,43 @@ export class NotificationService extends BaseService {
     totalPages: number;
   }> {
     return this._withTransaction(async (session: ClientSession) => {
-      return await this.notificationRepository.getNotifications(
+      const result = await this.notificationRepository.getNotifications(
         userId,
         page,
         limit,
         session,
       );
+
+      // Filter out question status notifications for call_agent role
+      if (userRole === 'call_agent') {
+        const questionStatusTypes = [
+          'answer_creation',
+          'peer_review',
+          're-routed',
+          'question_from_whatsapp',
+          'question_from_ajrasakha',
+          'question_delayed',
+          'moderator_approval',
+          'review_rejected',
+          'review_modified',
+          're-routed-answer-created',
+          're-routed-rejected-expert',
+          're-routed-rejected-moderator'
+        ];
+        
+        const filteredNotifications = result.notifications.filter(
+          (n) => !questionStatusTypes.includes(n.type)
+        );
+        
+        return {
+          ...result,
+          notifications: filteredNotifications,
+          totalCount: filteredNotifications.length,
+          totalPages: Math.ceil(filteredNotifications.length / limit)
+        };
+      }
+
+      return result;
     });
   }
 
