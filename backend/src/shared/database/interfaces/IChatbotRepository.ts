@@ -868,12 +868,12 @@ export interface IChatbotRepository {
   ): Promise<any>
 
 
-  getStateQuestionsAndUsersData(
-  state: string,
-  source: string,
-  userType: string,
-  session?: string
-): Promise<any> 
+//   getStateQuestionsAndUsersData(
+//   state: string,
+//   source: string,
+//   userType: string,
+//   session?: string
+// ): Promise<any> 
 
   getAllStatesQuestionsAndUsersData(
     source: string,

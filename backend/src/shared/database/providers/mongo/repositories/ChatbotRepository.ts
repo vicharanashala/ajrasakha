@@ -2178,107 +2178,450 @@ export class ChatbotRepository implements IChatbotRepository {
   //   }
   // }
 
+//   async getDistrictAnalyticsByState(
+//     _source = 'annam',
+//     state: string,
+//     session?: ClientSession,
+//     userType = 'all',
+//   ): Promise<DistrictAnalyticsEntry[]> {
+//     try {
+//       await this.initReviewSystem();
+
+//       const source = _source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
+
+//       const districts = ['All', ...(DISTRICTS[state] || [])];
+
+//       if (!districts || districts.length === 0) {
+//         return [];
+//       }
+
+//       const normalizedDistricts = districts.map(d =>
+//         this.normalizeDistrictName(d),
+//       );
+
+//       const matchQuery: any = {
+//         source,
+//         'details.state': state,
+//         'details.district': {
+//           $exists: true,
+//           $ne: null,
+//         },
+//         $and: [
+//           {
+//             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+//           },
+//         ],
+//         status: {$ne: 'non_agri'},
+//       };
+
+//       const query = await this.buildQuestionUserTypeMatchQuery(
+//         _source,
+//         userType,
+//       );
+
+//       if (query && Object.keys(query).length > 0) {
+//         matchQuery.$and.push(query);
+//       }
+
+//       // const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
+
+//       const pipeline = [
+//         {
+//           $match: matchQuery,
+//         },
+
+//         // ...lookupStages,
+//         // ...lookupStages,
+
+//         {
+//           $project: {
+//             district: '$details.district',
+
+//             isDuplicate: {
+//               $cond: [
+//                 {
+//                   $eq: ['$status', 'duplicate'],
+//                 },
+//                 1,
+//                 0,
+//               ],
+//             },
+//             isClosed: {
+//               $cond: [
+//                 {
+//                   $eq: ['$status', 'closed'],
+//                 },
+//                 1,
+//                 0,
+//               ],
+//             },
+//           },
+//         },
+
+//         {
+//           $group: {
+//             _id: '$district',
+
+//             totalQuestions: {
+//               $sum: 1,
+//             },
+
+//             closedQuestions: {
+//               $sum: '$isClosed',
+//             },
+
+//             duplicateQuestions: {
+//               $sum: '$isDuplicate',
+//             },
+
+//             uniqueQuestions: {
+//               $sum: {
+//                 $cond: [
+//                   {
+//                     $eq: ['$isDuplicate', 0],
+//                   },
+//                   1,
+//                   0,
+//                 ],
+//               },
+//             },
+//           },
+//         },
+//       ];
+
+//       const raw = await this.QuestionCollection.aggregate(pipeline, {
+//         session,
+//       }).toArray();
+
+//       const rawDistrictTotal = raw.reduce(
+//   (sum, d) => sum + d.totalQuestions,
+//   0,
+// );
+
+// console.log(
+//   'Raw district total:',
+//   rawDistrictTotal,
+// );
+
+//       const missingDistrictCount =
+//   await this.QuestionCollection.countDocuments({
+//     source,
+//     'details.state': state,
+//     $or: [
+//       { 'details.district': { $exists: false } },
+//       { 'details.district': null },
+//       { 'details.district': '' },
+//     ],
+//     status: { $ne: 'non_agri' },
+//   });
+
+// console.log(
+//   'Questions without district:',
+//   missingDistrictCount,
+// );
+
+
+
+//       await this.init(_source);
+
+//       const todayStart = new Date();
+//       todayStart.setHours(0, 0, 0, 0);
+
+//       const todayEnd = new Date();
+//       todayEnd.setHours(23, 59, 59, 999);
+
+//       const districtUsers = await this.users
+//         .aggregate([
+//           {
+//             $match: {
+//               isVerified: true,
+//               'farmerProfile.state': {
+//                 $regex: `^${state}$`,
+//                 $options: 'i',
+//               },
+//               'farmerProfile.district': {
+//                 $exists: true,
+//                 $ne: null,
+//               },
+//             },
+//           },
+//           {
+//             $group: {
+//               _id: '$farmerProfile.district',
+
+//               totalUsers: {
+//                 $sum: 1,
+//               },
+
+//               activeUsers: {
+//                 $sum: {
+//                   $cond: [
+//                     {
+//                       $and: [
+//                         {$gte: ['$lastActiveAt', todayStart]},
+//                         {$lte: ['$lastActiveAt', todayEnd]},
+//                       ],
+//                     },
+//                     1,
+//                     0,
+//                   ],
+//                 },
+//               },
+
+//               coordinators: {
+//   $sum: {
+//     $cond: [
+//       {
+//         $in: [
+//           '$userRole',
+//           this.coordinatorsRoles,
+//         ],
+//       },
+//       1,
+//       0,
+//     ],
+//   },
+// }
+//             },
+//           },
+//         ])
+//         .toArray();
+
+//       const userMap = new Map();
+
+//       for (const item of districtUsers) {
+//         userMap.set(this.normalizeDistrictName(item._id), item);
+//       }
+
+
+//       const districtMap = new Map<
+//   string,
+//   {
+//     district: string;
+//     totalQuestions: number;
+//     closedQuestions: number;
+//     uniqueQuestions: number;
+//     duplicateQuestions: number;
+//   }
+// >();
+
+// const skippedDistricts: Array<{
+//   district: string;
+//   totalQuestions: number;
+//   closedQuestions: number;
+//   uniqueQuestions: number;
+//   duplicateQuestions: number;
+// }> = [];
+
+// for (const item of raw) {
+//   const normalizedDistrict = this.normalizeDistrictName(
+//     item._id,
+//   );
+
+//   if (
+//     !normalizedDistricts.includes(
+//       normalizedDistrict,
+//     )
+//   ) {
+//     skippedDistricts.push({
+//       district: item._id,
+//       totalQuestions: item.totalQuestions,
+//       closedQuestions: item.closedQuestions,
+//       uniqueQuestions: item.uniqueQuestions,
+//       duplicateQuestions: item.duplicateQuestions,
+//     });
+
+//     continue;
+//   }
+
+//   districtMap.set(normalizedDistrict, {
+//     district: item._id,
+//     totalQuestions: item.totalQuestions,
+//     closedQuestions: item.closedQuestions,
+//     uniqueQuestions: item.uniqueQuestions,
+//     duplicateQuestions: item.duplicateQuestions,
+//   });
+// }
+
+//     const others = skippedDistricts.reduce(
+//   (acc, item) => ({
+//     totalQuestions:
+//       acc.totalQuestions + item.totalQuestions,
+
+//     closedQuestions:
+//       acc.closedQuestions + item.closedQuestions,
+
+//     uniqueQuestions:
+//       acc.uniqueQuestions + item.uniqueQuestions,
+
+//     duplicateQuestions:
+//       acc.duplicateQuestions +
+//       item.duplicateQuestions,
+//   }),
+//   {
+//     totalQuestions: 0,
+//     closedQuestions: 0,
+//     uniqueQuestions: 0,
+//     duplicateQuestions: 0,
+//   },
+// );
+
+// const result: DistrictAnalyticsEntry[] =
+//   districts.map(district => {
+//     const normalizedDistrict =
+//       this.normalizeDistrictName(district);
+
+//     const existing =
+//       districtMap.get(normalizedDistrict);
+
+//     const userData =
+//       userMap.get(normalizedDistrict);
+
+//     return {
+//       district,
+
+//       totalQuestions:
+//         existing?.totalQuestions ?? 0,
+
+//       closedQuestions:
+//         existing?.closedQuestions ?? 0,
+
+//       uniqueQuestions:
+//         existing?.uniqueQuestions ?? 0,
+
+//       duplicateQuestions:
+//         existing?.duplicateQuestions ?? 0,
+
+//       totalUsers:
+//         userData?.totalUsers ?? 0,
+
+//       activeUsers:
+//         userData?.activeUsers ?? 0,
+
+//       coordinators:
+//         userData?.coordinators ?? 0,
+//     };
+//   });
+// if (others.totalQuestions > 0) {
+//   result.push({
+//     district: 'Others',
+
+//     totalQuestions:
+//       others.totalQuestions,
+
+//     closedQuestions:
+//       others.closedQuestions,
+
+//     uniqueQuestions:
+//       others.uniqueQuestions,
+
+//     duplicateQuestions:
+//       others.duplicateQuestions,
+
+//     totalUsers: 0,
+//     activeUsers: 0,
+//     coordinators: 0,
+//   });
+// }
+
+//       const data = result.sort((a, b) => {
+//         if (a.district.toLowerCase() === 'all') return 1;
+//         if (b.district.toLowerCase() === 'all') return -1;
+
+//         return b.totalQuestions - a.totalQuestions;
+//       });
+//       return data;
+//     } catch (error) {
+//       throw new Error('Failed to fetch district analytics: ${error}');
+//     }
+//   }
+
+
   async getDistrictAnalyticsByState(
-    _source = 'annam',
-    state: string,
-    session?: ClientSession,
-    userType = 'all',
-  ): Promise<DistrictAnalyticsEntry[]> {
-    try {
-      await this.initReviewSystem();
+  _source = 'annam',
+  state: string,
+  session?: ClientSession,
+  userType = 'all',
+): Promise<DistrictAnalyticsEntry[]> {
+  try {
+    await this.initReviewSystem();
 
-      const source = _source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
+    const source =
+      _source === 'whatsapp'
+        ? 'WHATSAPP'
+        : 'AJRASAKHA';
 
-      const districts = ['All', ...(DISTRICTS[state] || [])];
+    const districts = [...(DISTRICTS[state] || [])];
 
-      if (!districts || districts.length === 0) {
-        return [];
-      }
+    if (!districts.length) {
+      return [];
+    }
 
-      const normalizedDistricts = districts.map(d =>
-        this.normalizeDistrictName(d),
-      );
+    const normalizedDistricts = districts.map(d =>
+      this.normalizeDistrictName(d),
+    );
 
-      const matchQuery: any = {
-        source,
-        'details.state': state,
-        'details.district': {
-          $exists: true,
-          $ne: null,
+    const matchQuery: any = {
+      source,
+      'details.state': state,
+      'details.district': {
+        $exists: true,
+        $ne: null,
+      },
+      $and: [
+        {
+          $or: [
+            {isTesting: {$exists: false}},
+            {isTesting: {$ne: true}},
+          ],
         },
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-        ],
-        status: {$ne: 'non_agri'},
-      };
+      ],
+      status: {$ne: 'non_agri'},
+    };
 
-      const query = await this.buildQuestionUserTypeMatchQuery(
+    const query =
+      await this.buildQuestionUserTypeMatchQuery(
         _source,
         userType,
       );
 
-      if (query && Object.keys(query).length > 0) {
-        matchQuery.$and.push(query);
-      }
+    if (
+      query &&
+      Object.keys(query).length > 0
+    ) {
+      matchQuery.$and.push(query);
+    }
 
-      // const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
-
-      const pipeline = [
-        {
-          $match: matchQuery,
-        },
-
-        // ...lookupStages,
-        // ...lookupStages,
-
-        {
-          $project: {
-            district: '$details.district',
-
-            isDuplicate: {
-              $cond: [
-                {
-                  $eq: ['$status', 'duplicate'],
-                },
-                1,
-                0,
-              ],
-            },
-            isClosed: {
-              $cond: [
-                {
-                  $eq: ['$status', 'closed'],
-                },
-                1,
-                0,
-              ],
-            },
+    const raw =
+      await this.QuestionCollection.aggregate(
+        [
+          {
+            $match: matchQuery,
           },
-        },
+          {
+            $project: {
+              district: '$details.district',
 
-        {
-          $group: {
-            _id: '$district',
-
-            totalQuestions: {
-              $sum: 1,
-            },
-
-            closedQuestions: {
-              $sum: '$isClosed',
-            },
-
-            duplicateQuestions: {
-              $sum: '$isDuplicate',
-            },
-
-            uniqueQuestions: {
-              $sum: {
+              isDuplicate: {
                 $cond: [
                   {
-                    $eq: ['$isDuplicate', 0],
+                    $eq: [
+                      '$status',
+                      'duplicate',
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+
+              isClosed: {
+                $cond: [
+                  {
+                    $eq: [
+                      '$status',
+                      'closed',
+                    ],
                   },
                   1,
                   0,
@@ -2286,30 +2629,75 @@ export class ChatbotRepository implements IChatbotRepository {
               },
             },
           },
-        },
-      ];
+          {
+            $group: {
+              _id: '$district',
 
-      const raw = await this.QuestionCollection.aggregate(pipeline, {
-        session,
-      }).toArray();
+              totalQuestions: {
+                $sum: 1,
+              },
 
-      await this.init(_source);
+              closedQuestions: {
+                $sum: '$isClosed',
+              },
 
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
+              duplicateQuestions: {
+                $sum: '$isDuplicate',
+              },
 
-      const todayEnd = new Date();
-      todayEnd.setHours(23, 59, 59, 999);
+              uniqueQuestions: {
+                $sum: {
+                  $cond: [
+                    {
+                      $eq: [
+                        '$isDuplicate',
+                        0,
+                      ],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+        ],
+        {session},
+      ).toArray();
 
-      const districtUsers = await this.users
+
+
+
+    await this.init(_source);
+
+    const todayStart = new Date();
+    todayStart.setHours(
+      0,
+      0,
+      0,
+      0,
+    );
+
+    const todayEnd = new Date();
+    todayEnd.setHours(
+      23,
+      59,
+      59,
+      999,
+    );
+
+    const districtUsers =
+      await this.users
         .aggregate([
           {
             $match: {
               isVerified: true,
+
               'farmerProfile.state': {
                 $regex: `^${state}$`,
                 $options: 'i',
               },
+
               'farmerProfile.district': {
                 $exists: true,
                 $ne: null,
@@ -2329,8 +2717,18 @@ export class ChatbotRepository implements IChatbotRepository {
                   $cond: [
                     {
                       $and: [
-                        {$gte: ['$lastActiveAt', todayStart]},
-                        {$lte: ['$lastActiveAt', todayEnd]},
+                        {
+                          $gte: [
+                            '$lastActiveAt',
+                            todayStart,
+                          ],
+                        },
+                        {
+                          $lte: [
+                            '$lastActiveAt',
+                            todayEnd,
+                          ],
+                        },
                       ],
                     },
                     1,
@@ -2343,7 +2741,10 @@ export class ChatbotRepository implements IChatbotRepository {
                 $sum: {
                   $cond: [
                     {
-                      $eq: ['$userRole', this.coordinatorsRoles],
+                      $in: [
+                        '$userRole',
+                        this.coordinatorsRoles,
+                      ],
                     },
                     1,
                     0,
@@ -2355,104 +2756,262 @@ export class ChatbotRepository implements IChatbotRepository {
         ])
         .toArray();
 
-      const userMap = new Map();
+    const userMap = new Map();
 
-      for (const item of districtUsers) {
-        userMap.set(this.normalizeDistrictName(item._id), item);
-      }
+    for (const item of districtUsers) {
+      userMap.set(
+        this.normalizeDistrictName(
+          item._id,
+        ),
+        item,
+      );
+    }
 
-      const districtMap = new Map<
-        string,
+const districtMap = new Map<
+  string,
+  {
+    district: string;
+    totalQuestions: number;
+    closedQuestions: number;
+    uniqueQuestions: number;
+    duplicateQuestions: number;
+  }
+>();
+
+const skippedDistricts: Array<{
+  district: string;
+  totalQuestions: number;
+  closedQuestions: number;
+  uniqueQuestions: number;
+  duplicateQuestions: number;
+}> = [];
+
+const duplicateKeys = new Map<
+  string,
+  string[]
+>();
+
+for (const item of raw) {
+  const normalizedDistrict =
+    this.normalizeDistrictName(
+      item._id,
+    );
+
+  // Track duplicate normalized keys
+  if (
+    duplicateKeys.has(
+      normalizedDistrict,
+    )
+  ) {
+    duplicateKeys
+      .get(normalizedDistrict)!
+      .push(item._id);
+  } else {
+    duplicateKeys.set(
+      normalizedDistrict,
+      [item._id],
+    );
+  }
+
+  // District not present in master list
+  if (
+    !normalizedDistricts.includes(
+      normalizedDistrict,
+    )
+  ) {
+    skippedDistricts.push({
+      district: item._id,
+      totalQuestions:
+        item.totalQuestions,
+      closedQuestions:
+        item.closedQuestions,
+      uniqueQuestions:
+        item.uniqueQuestions,
+      duplicateQuestions:
+        item.duplicateQuestions,
+    });
+
+    continue;
+  }
+
+
+
+  // IMPORTANT:
+  // Merge duplicates instead of overwriting
+  const existing =
+    districtMap.get(
+      normalizedDistrict,
+    );
+
+  if (existing) {
+    existing.totalQuestions +=
+      item.totalQuestions;
+
+    existing.closedQuestions +=
+      item.closedQuestions;
+
+    existing.uniqueQuestions +=
+      item.uniqueQuestions;
+
+    existing.duplicateQuestions +=
+      item.duplicateQuestions;
+  } else {
+    districtMap.set(
+      normalizedDistrict,
+      {
+        district: item._id,
+        totalQuestions:
+          item.totalQuestions,
+        closedQuestions:
+          item.closedQuestions,
+        uniqueQuestions:
+          item.uniqueQuestions,
+        duplicateQuestions:
+          item.duplicateQuestions,
+      },
+    );
+  }
+}
+
+
+    const others =
+      skippedDistricts.reduce(
+        (acc, item) => ({
+          totalQuestions:
+            acc.totalQuestions +
+            item.totalQuestions,
+
+          closedQuestions:
+            acc.closedQuestions +
+            item.closedQuestions,
+
+          uniqueQuestions:
+            acc.uniqueQuestions +
+            item.uniqueQuestions,
+
+          duplicateQuestions:
+            acc.duplicateQuestions +
+            item.duplicateQuestions,
+        }),
         {
-          district: string;
-          totalQuestions: number;
-          closedQuestions: number;
-          uniqueQuestions: number;
-          duplicateQuestions: number;
-        }
-      >();
+          totalQuestions: 0,
+          closedQuestions: 0,
+          uniqueQuestions: 0,
+          duplicateQuestions: 0,
+        },
+      );
 
-      for (const item of raw) {
-        const normalizedDistrict = this.normalizeDistrictName(item._id);
 
-        if (!normalizedDistricts.includes(normalizedDistrict)) {
-          continue;
-        }
+      const otherQuestions =
+  await this.QuestionCollection.find(
+    {
+      source,
+      'details.state': state,
+      status: { $ne: 'non_agri' },
+    },
+    {
+      projection: {
+        question: 1,
+        'details.district': 1,
+        'details.state' : 1,
+      },
+    },
+  ).toArray();
 
-        const existing = districtMap.get(normalizedDistrict);
+    const result: DistrictAnalyticsEntry[] =
+      districts.map(district => {
+        const normalizedDistrict =
+          this.normalizeDistrictName(
+            district,
+          );
 
-        if (existing) {
-          existing.totalQuestions += item.totalQuestions;
+        const existing =
+          districtMap.get(
+            normalizedDistrict,
+          );
 
-          existing.closedQuestions += item.closedQuestions;
-
-          existing.uniqueQuestions += item.uniqueQuestions;
-
-          existing.duplicateQuestions += item.duplicateQuestions;
-        } else {
-          districtMap.set(normalizedDistrict, {
-            district: item._id,
-
-            totalQuestions: item.totalQuestions,
-
-            closedQuestions: item.closedQuestions,
-
-            uniqueQuestions: item.uniqueQuestions,
-
-            duplicateQuestions: item.duplicateQuestions,
-          });
-        }
-      }
-
-      const result: DistrictAnalyticsEntry[] = districts.map(district => {
-        const normalizedDistrict = this.normalizeDistrictName(district);
-
-        const existing = districtMap.get(normalizedDistrict);
-
-        // return (
-        //   existing || {
-        //     district,
-
-        //     totalQuestions: 0,
-
-        //     uniqueQuestions: 0,
-
-        //     duplicateQuestions: 0,
-        //   }
-        // );
-
-        const userData = userMap.get(normalizedDistrict);
+        const userData =
+          userMap.get(
+            normalizedDistrict,
+          );
 
         return {
           district,
 
-          totalQuestions: existing?.totalQuestions ?? 0,
+          totalQuestions:
+            existing?.totalQuestions ??
+            0,
 
-          closedQuestions: existing?.closedQuestions ?? 0,
+          closedQuestions:
+            existing?.closedQuestions ??
+            0,
 
-          uniqueQuestions: existing?.uniqueQuestions ?? 0,
+          uniqueQuestions:
+            existing?.uniqueQuestions ??
+            0,
 
-          duplicateQuestions: existing?.duplicateQuestions ?? 0,
+          duplicateQuestions:
+            existing?.duplicateQuestions ??
+            0,
 
-          totalUsers: userData?.totalUsers ?? 0,
+          totalUsers:
+            userData?.totalUsers ?? 0,
 
-          activeUsers: userData?.activeUsers ?? 0,
+          activeUsers:
+            userData?.activeUsers ?? 0,
 
-          coordinators: userData?.coordinators ?? 0,
+          coordinators:
+            userData?.coordinators ??
+            0,
         };
       });
 
-      const data = result.sort((a, b) => {
-        if (a.district.toLowerCase() === 'all') return 1;
-        if (b.district.toLowerCase() === 'all') return -1;
+    if (others.totalQuestions > 0) {
+      result.push({
+        district: 'Others',
 
-        return b.totalQuestions - a.totalQuestions;
+        totalQuestions:
+          others.totalQuestions,
+
+        closedQuestions:
+          others.closedQuestions,
+
+        uniqueQuestions:
+          others.uniqueQuestions,
+
+        duplicateQuestions:
+          others.duplicateQuestions,
+
+        totalUsers: 0,
+        activeUsers: 0,
+        coordinators: 0,
       });
-      return data;
-    } catch (error) {
-      throw new Error('Failed to fetch district analytics: ${error}');
     }
+
+    return result.sort((a, b) => {
+      if (
+        a.district.toLowerCase() ===
+        'all'
+      )
+        return 1;
+
+      if (
+        b.district.toLowerCase() ===
+        'all'
+      )
+        return -1;
+
+      return (
+        b.totalQuestions -
+        a.totalQuestions
+      );
+    });
+  } catch (error) {
+    throw new Error(
+      `Failed to fetch district analytics: ${error}`,
+    );
   }
+}
 
   async getQuestionFromDistrict(
     district: string,
@@ -12581,15 +13140,32 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const sourceType = source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
 
-      const questionsByState = await this.QuestionCollection.aggregate([
-        {
-          $match: {
-            source: sourceType,
-            'details.state': {
+      
+      const matchQuery: any = {
+        source: sourceType,
+        'details.state': {
               $nin: [null, '', 'all', '<unknown>', 'Not Specified', 'All'],
             },
-            status: {$ne: 'non_agri'},
+        $and: [
+          {
+            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
+        ],
+        status: {$ne: 'non_agri'},
+      };
+
+      const query = await this.buildQuestionUserTypeMatchQuery(
+        sourceType,
+        userType,
+      );
+
+       if (query && Object.keys(query).length > 0) {
+        matchQuery.$and.push(query);
+      }
+
+      const questionsByState = await this.QuestionCollection.aggregate([
+        {
+          $match: matchQuery,
         },
         {
           $group: {
@@ -12700,8 +13276,8 @@ export class ChatbotRepository implements IChatbotRepository {
 
       // Add question counts
       for (const q of questionsByState) {
-        const key = this.normalizeState(String(q._id));
-
+        // const key = this.normalizeState(String(q._id));
+        const key = String(q._id).toLowerCase();
         stateMap.set(key, {
   state: q._id,
   totalQuestions: q.totalQuestions,
@@ -12714,8 +13290,8 @@ export class ChatbotRepository implements IChatbotRepository {
 
       // Merge user counts
       for (const u of usersByState) {
-        const key = this.normalizeState(String(u._id));
-
+        // const key = this.normalizeState(String(u._id));
+        const key = String(u._id).toLowerCase();
         if (stateMap.has(key)) {
           const existing = stateMap.get(key);
 
@@ -12733,78 +13309,85 @@ export class ChatbotRepository implements IChatbotRepository {
         }
       }
 
+      
+console.log(
+  'Questions By State:',
+  Array.from(stateMap.values()),
+);
+      
+
       return Array.from(stateMap.values());
     } catch (error) {
       throw new InternalServerError(`Internal server error ${error}`);
     }
   }
 
-  async getStateQuestionsAndUsersData(
-    state: string,
-    source: string,
-    userType: string,
-  ): Promise<any> {
-    try {
-      await this.initReviewSystem();
-      await this.init(source);
+  // async getStateQuestionsAndUsersData(
+  //   state: string,
+  //   source: string,
+  //   userType: string,
+  // ): Promise<any> {
+  //   try {
+  //     await this.initReviewSystem();
+  //     await this.init(source);
 
-      const sourceType = source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
+  //     const sourceType = source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
 
-      const totalQuestions = await this.QuestionCollection.countDocuments({
-        source: sourceType,
-        'details.state': {
-          $regex: `^${state}$`,
-          $options: 'i',
-        },
-        status: {$ne: 'non_agri'},
-      });
+  //     const totalQuestions = await this.QuestionCollection.countDocuments({
+  //       source: sourceType,
+  //       'details.state': {
+  //         $regex: `^${state}$`,
+  //         $options: 'i',
+  //       },
+  //       status: {$ne: 'non_agri'},
+  //     });
 
-      const closedQuestions = await this.QuestionCollection.countDocuments({
-        source: sourceType,
-        'details.state': {
-          $regex: `^${state}$`,
-          $options: 'i',
-        },
-        status: 'closed',
-      });
+  //     const closedQuestions = await this.QuestionCollection.countDocuments({
+  //       source: sourceType,
+  //       'details.state': {
+  //         $regex: `^${state}$`,
+  //         $options: 'i',
+  //       },
+  //       status: 'closed',
+  //     });
 
-      const totalUsers = await this.users.countDocuments({
-        isVerified: true,
-        'farmerProfile.state': {
-          $regex: `^${state}$`,
-          $options: 'i',
-        },
-      });
+  //     const totalUsers = await this.users.countDocuments({
+  //       isVerified: true,
+  //       'farmerProfile.state': {
+  //         $regex: `^${state}$`,
+  //         $options: 'i',
+  //       },
+  //     });
 
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
+  //     const todayStart = new Date();
+  //     todayStart.setHours(0, 0, 0, 0);
 
-      const todayEnd = new Date();
-      todayEnd.setHours(23, 59, 59, 999);
+  //     const todayEnd = new Date();
+  //     todayEnd.setHours(23, 59, 59, 999);
 
-      const activeUsers = await this.users.countDocuments({
-        isVerified: true,
-        'farmerProfile.state': {
-          $regex: `^${state}$`,
-          $options: 'i',
-        },
-        lastActiveAt: {
-          $gte: todayStart,
-          $lte: todayEnd,
-        },
-      });
+  //     const activeUsers = await this.users.countDocuments({
+  //       isVerified: true,
+  //       'farmerProfile.state': {
+  //         $regex: `^${state}$`,
+  //         $options: 'i',
+  //       },
+  //       lastActiveAt: {
+  //         $gte: todayStart,
+  //         $lte: todayEnd,
+  //       },
+  //     });
 
-      return {
-        state,
-        totalQuestions,
-        closedQuestions,
-        totalUsers,
-        activeUsers,
-      };
-    } catch (error) {
-      throw new InternalServerError(`Something went wrong ${error}`);
-    }
-  }
+  //     return {
+  //       state,
+  //       totalQuestions,
+  //       closedQuestions,
+  //       totalUsers,
+  //       activeUsers,
+  //     };
+  //   } catch (error) {
+  //     throw new InternalServerError(`Something went wrong ${error}`);
+  //   }
+  // }
 
   async findMatchingMessages(data: {
     question: string;

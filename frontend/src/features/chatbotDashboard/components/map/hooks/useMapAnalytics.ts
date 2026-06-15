@@ -19,18 +19,18 @@ interface UseMapAnalyticsProps {
   districtAnalytics?: DistrictAnalyticsResponse;
 }
 
-const normalizeState = (state: string) => {
-  const key = state.trim().toLowerCase();
+// const normalizeState = (state: string) => {
+//   const key = state.trim().toLowerCase();
 
-  const aliases: Record<string, string> = {
-    "uttaranchal": "uttarakhand",
-    "andhra pradesh": "andra pradesh",
-    "jammu and kashmir": "jammu and kashmir",
-    'orissa': 'odisha'
-  };
+//   const aliases: Record<string, string> = {
+//     "uttaranchal": "uttarakhand",
+//     "andhra pradesh": "andra pradesh",
+//     "jammu and kashmir": "jammu and kashmir",
+//     'orissa': 'odisha'
+//   };
 
-  return aliases[key] || key;
-};
+//   return aliases[key] || key;
+// };
 
 export function useMapAnalytics({
   statesGeo,
@@ -91,7 +91,7 @@ const statesWithData = useMemo(() => {
       const stateName = String(f.properties.NAME_1);
 
       const analytics = analyticsMap.get(
-        normalizeState(stateName)
+        stateName.trim().toLowerCase()
       );
 
       return {

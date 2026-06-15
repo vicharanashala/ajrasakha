@@ -3069,11 +3069,11 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getStateQuestionsAndUsersData(state: string, source: string, userType: string): Promise<any> {
-    try {
-      return this.chatbotRepository.getStateQuestionsAndUsersData(state, source, userType, undefined);
-    }catch(error){
-      throw new InternalServerError(`Internal server error ${error}`)
-    }
-  }
+  // async getStateQuestionsAndUsersData(state: string, source: string, userType: string): Promise<any> {
+  //   try {
+  //     return this.chatbotRepository.getStateQuestionsAndUsersData(state, source, userType, undefined);
+  //   }catch(error){
+  //     throw new InternalServerError(`Internal server error ${error}`)
+  //   }
+  // }
 }

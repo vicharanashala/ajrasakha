@@ -66,9 +66,7 @@ export default function IndiaAnalyticsMap({
     source,
     userType,
   );
-
-  console.log("District Analytics of state", selectedState, " is ", districtAnalytics)
-    console.log("District Analytics of state", allStatesData)
+    console.log("Analytics of all state", allStatesData)
 
   const {
     statesWithData,
@@ -86,8 +84,6 @@ export default function IndiaAnalyticsMap({
     allStatesData,
     districtAnalytics,
   });
-
-  
 
   // Fly target state
   const [flyTarget, setFlyTarget] = useState<L.LatLngBoundsExpression | null>(
