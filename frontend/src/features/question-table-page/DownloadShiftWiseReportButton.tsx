@@ -159,6 +159,13 @@ const DownloadShiftWiseReportButton = ({
   );
   const overviewCards = [
     {
+      title: "CarryAway Questions",
+      value: shiftWiseData?.carryAwayQuestions ?? 0,
+      toolTip: "Total Questions that doesn't answered before 12.",
+      additional:`${shiftWiseData?.questionsAnsweredAfterTwelve ?? 0} answered after 12.`
+    },
+
+    {
       title: "Questions Added",
       value: shiftWiseData?.questionsAdded ?? 0,
       toolTip: "Total questions added during selected shift and date range.",
@@ -466,7 +473,7 @@ const DownloadShiftWiseReportButton = ({
             <div className="w-full max-w-none space-y-6 p-6">
               {/* Overview Cards */}
               <section className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
                   {overviewCards.map((card) => (
                     <Card key={card.title} title={card.title}>
                       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -498,7 +505,14 @@ const DownloadShiftWiseReportButton = ({
                         {isShiftWiseDataLoading ? (
                           <Skeleton className="h-8 w-20" />
                         ) : (
+                        <div className="flex flex-col space-y-2 pt-1">
                           <div className="text-3xl font-bold">{card.value}</div>
+                          {card.additional && (
+                            <div className="inline-flex w-fit items-center rounded-md bg-green-100 px-2 py-1 text-xs font-medium text-green-700 border border-green-200">
+                              {card.additional}
+                            </div>
+                          )}
+                        </div>
                         )}
                       </CardContent>
                     </Card>
