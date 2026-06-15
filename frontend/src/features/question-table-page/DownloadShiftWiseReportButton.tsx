@@ -160,9 +160,9 @@ const DownloadShiftWiseReportButton = ({
   const overviewCards = [
     {
       title: "CarryAway Questions",
-      value: shiftWiseData?.carryAwayQuestions ?? 0,
-      toolTip: "Total Questions that doesn't answered before 12.",
-      additional:`${shiftWiseData?.questionsAnsweredAfterTwelve ?? 0} answered after 12.`
+      value: shiftWiseData?.openAtMidnight ?? 0,
+      toolTip: "Total Questions that doesn't answered before 12am.",
+      additional:`${shiftWiseData?.closedBetween12And6 ?? 0} answered after 12am.`
     },
 
     {
