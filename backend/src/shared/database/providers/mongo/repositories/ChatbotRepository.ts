@@ -12851,14 +12851,6 @@ const totalPages =
           .map(([date, count]) => ({date, count}));
       };
 
-      const statusBreakdown = userQuestions.reduce<Record<string, number>>(
-        (acc, question: any) => {
-          const status = normalizeStatus(question.status);
-          acc[status] = (acc[status] || 0) + 1;
-          return acc;
-        },
-        {},
-      );
       const closedStatuses = new Set(['closed', 'pass']);
       const inReviewStatuses = new Set(['in-review']);
       const pendingStatuses = new Set(['open', 'pending', 'draft']);
@@ -12981,7 +12973,6 @@ const totalPages =
           questionsAwaitingReview: userQuestions.filter((question: any) =>
             awaitingReviewStatuses.has(normalizeStatus(question.status)),
           ).length,
-          statusBreakdown,
         },
         messagingMetrics: {
           totalMessagesSent: totalMessages,
