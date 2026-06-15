@@ -38,6 +38,7 @@ export interface IAnswerService {
     limit: number,
     dateRange?: { from: string | undefined; to: string | undefined },
     selectedHistoryId?: string | undefined,
+    expertId?: string | undefined,
   ): Promise<SubmissionResponse[]>;
 
   getFinalAnswerQuestions(

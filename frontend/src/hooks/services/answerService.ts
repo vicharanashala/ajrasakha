@@ -137,6 +137,7 @@ export class AnswerService {
     limit: number,
     dateRange: any,
     selectedHistoryId?: string,
+    expertId?: string,
   ): Promise<any> {
     const params = new URLSearchParams();
     params.append("page", String(pageParam));
@@ -146,6 +147,7 @@ export class AnswerService {
     if (dateRange?.end) params.append("end", dateRange.end);
     if (selectedHistoryId)
       params.append("selectedHistoryId", selectedHistoryId);
+    if (expertId) params.append("expertId", expertId);
 
     return apiFetch<any>(`${this._baseUrl}/submissions?${params.toString()}`);
   }

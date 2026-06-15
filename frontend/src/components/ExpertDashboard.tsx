@@ -10,7 +10,9 @@ import {
   Target,
   CheckCircle,
   AlertCircle,
+  History,
 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useGetReviewLevel } from "@/hooks/api/user/useGetReviewLevel";
 import { useGetAllExperts } from "@/hooks/api/user/useGetAllUsers";
@@ -48,6 +50,7 @@ interface ExpertDashboardProps {
   rankPosition?: number;
   expertDetailsList?: any;
   currentUserRole?: string;
+  selectedUserRole?: string;
 }
 interface DateRange {
   startTime?: Date;
@@ -60,9 +63,11 @@ export const ExpertDashboard = ({
   rankPosition,
   expertDetailsList,
   currentUserRole,
+  selectedUserRole,
 }: ExpertDashboardProps) => {
   localStorage.removeItem("animationsEnabled");
 
+  const navigate = useNavigate();
   const shouldFetch = !expertDetailsList;
   const [expertDate, setExpertDate] = useState<DateRange>({
     startTime: undefined,
@@ -335,7 +340,27 @@ export const ExpertDashboard = ({
       className={`min-h-screen bg-background ${isLoading ? "opacity-40" : ""}`}
     >
       {expertId ? (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          {/* History is available for experts/moderators only — never for admins. */}
+          {selectedUserRole !== "admin" && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="inline-flex items-center justify-center gap-1 whitespace-nowrap p-2"
+              onClick={() =>
+                navigate({
+                  to: "/history",
+                  search: (prev: Record<string, unknown>) => ({
+                    ...prev,
+                    expertId: expertId.toString(),
+                  }),
+                })
+              }
+            >
+              <History className="w-4 h-4" />
+              <span className="leading-none">View History</span>
+            </Button>
+          )}
           <Button
             size="sm"
             variant="outline"

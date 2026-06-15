@@ -130,6 +130,9 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
           rankPosition={rankPostion}
           expertDetailsList={expertDetails}
           currentUserRole={currentUser?.role}
+          selectedUserRole={
+            (tableItems as any[]).find((u) => u._id === selectExpertId)?.role
+          }
         />
       ) : (
         <>

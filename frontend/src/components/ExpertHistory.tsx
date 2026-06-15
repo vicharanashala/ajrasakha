@@ -302,8 +302,10 @@ const ViewContextModal = ({
 
 export default function UserActivityHistory({
   selectedHistoryId,
+  expertId,
 }: {
   selectedHistoryId?: string | null;
+  expertId?: string | null;
 }) {
   const [dateRange, setDateRange] = useState({
     // start: new Date(),
@@ -313,10 +315,10 @@ export default function UserActivityHistory({
   });
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [limit, setLimit] = useState(12);
+  const [limit, setLimit] = useState(15);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [selectedQuestionId, setSelectedQuestionId] = useState("");
-  const { data, isLoading } = useGetSubmissions(currentPage, limit, dateRange,selectedHistoryId?.toString());
+  const { data, isLoading } = useGetSubmissions(currentPage, limit, dateRange,selectedHistoryId?.toString(),expertId?.toString());
   const {
     data: questionDetails,
     refetch: refechSelectedQuestion,
