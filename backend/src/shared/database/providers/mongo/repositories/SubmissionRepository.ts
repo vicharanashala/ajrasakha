@@ -3308,11 +3308,15 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     );
   }
 
-  async clearCurrentExpertOpenedAt(questionId: string, session?: ClientSession): Promise<void> {
+  /** Clear the current-expert tracking timestamps once the expert has submitted
+   *  their response — both the allocated-at and opened-at clocks are reset so the
+   *  time-bound stuck/idle cron won't flag the question until the next expert is
+   *  allocated (which sets currentExpertAllocatedAt afresh). */
+  async clearCurrentExpertTracking(questionId: string, session?: ClientSession): Promise<void> {
     await this.init();
     await this.QuestionSubmissionCollection.updateOne(
       { questionId: new ObjectId(questionId) },
-      { $set: { currentExpertOpenedAt: null, updatedAt: new Date() } },
+      { $set: { currentExpertAllocatedAt: null, currentExpertOpenedAt: null, updatedAt: new Date() } },
       { session },
     );
   }
