@@ -5778,6 +5778,7 @@ export class QuestionRepository implements IQuestionRepository {
     const end = new Date(`${startDate}T23:59:59.999+05:30`);
 
     const midnight = new Date(start);
+    midnight.setDate(midnight.getDate() + 1);
     midnight.setHours(0, 0, 0, 0);
 
     const sixAM = new Date(start);
