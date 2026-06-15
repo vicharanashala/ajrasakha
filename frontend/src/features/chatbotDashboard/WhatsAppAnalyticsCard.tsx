@@ -28,6 +28,7 @@ type AnalyticsItem = {
   rerouted?: number;
   carryForward?: number;
   nonAgri?: number;
+  statuses?: Record<string, number>;
 };
 
 type WhatsAppAnalyticsCardProps = {
@@ -143,7 +144,7 @@ export function WhatsAppAnalyticsCard({
             tracking-tight
           "
             >
-              {(refreshing || isLoading) ? (<Skeleton/>) : totalQueries}
+              {refreshing || isLoading ? <Skeleton /> : totalQueries}
             </div>
             <TooltipProvider>
               <Tooltip>
@@ -167,21 +168,23 @@ export function WhatsAppAnalyticsCard({
               </Tooltip>
             </TooltipProvider>
           </div>
-        {granularity === "daily" && <button
-          onClick={handleRefresh}
-          className="absolute top-15 right-12 z-50 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
-          title="Refresh"
-        >
-          <RefreshCw
-            className={`h-3.5 w-3.5 bg-background ${
-              refreshing ? "animate-spin" : ""
-            }`}
-          />
-        </button>}
+          {granularity === "daily" && (
+            <button
+              onClick={handleRefresh}
+              className="absolute top-15 right-12 z-50 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
+              title="Refresh"
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 bg-background ${
+                  refreshing ? "animate-spin" : ""
+                }`}
+              />
+            </button>
+          )}
         </CardHeader>
 
         <CardContent>
-          {(refreshing || isLoading) ? (
+          {refreshing || isLoading ? (
             <div className="space-y-4">
               {/* Header Number */}
               <Skeleton className="h-6 w-15" />
@@ -267,150 +270,68 @@ export function WhatsAppAnalyticsCard({
                       "
                         >
                           <div className="space-y-2">
-                            <div className="font-semibold">
-                              {formatLabel(item.period)}
-                            </div>
-
                             <div className="flex justify-between gap-6">
                               <span className="text-muted-foreground">
-                                Total Questions opened
+                                Total Questions Opened
                               </span>
-
                               <span className="font-medium">
                                 {item.totalQuestions}
                               </span>
                             </div>
 
+                            {Object.entries(item.statuses ?? {})
+                              .sort(([, a], [, b]) => b - a)
+                              .map(([status, count]) => (
+                                <div
+                                  key={status}
+                                  className="flex justify-between gap-6"
+                                >
+                                  <span className="text-muted-foreground">
+                                    {status
+                                      .replace(/[_-]/g, " ")
+                                      .replace(/\b\w/g, (char) =>
+                                        char.toUpperCase(),
+                                      )}
+                                  </span>
+
+                                  <span className="font-medium">{count}</span>
+                                </div>
+                              ))}
+
                             <div className="flex justify-between gap-6">
                               <span className="text-muted-foreground">
-                                Questions closed
+                                Avg Closure Time
                               </span>
 
                               <span className="font-medium">
-                                {item.closedQuestions}
+                                {formatCloseTime(
+                                  item.averageCloseTimeMinutes ?? 0,
+                                )}
                               </span>
                             </div>
 
                             <div className="flex justify-between gap-6">
                               <span className="text-muted-foreground">
-                                Questions Delayed
+                                Total Questions Closed (For selected time)
                               </span>
 
                               <span className="font-medium">
-                                {item.delayed}
+                                {item.closedInPeriod ?? 0}
                               </span>
                             </div>
 
-                            <div className="flex justify-between gap-6">
-                              <span className="text-muted-foreground">
-                                Questions in draft
-                              </span>
-
-                              <span className="font-medium">{item.draft}</span>
-                            </div>
-
-                            <div className="flex justify-between gap-6">
-                              <span className="text-muted-foreground">
-                                Duplicate Questions
-                              </span>
-
-                              <span className="font-medium">
-                                {item.duplicate}
-                              </span>
-                            </div>
-
-                            <div className="flex justify-between gap-6">
-                              <span className="text-muted-foreground">
-                                Questions in hold
-                              </span>
-
-                              <span className="font-medium">{item.hold}</span>
-                            </div>
-
-                            <div className="flex justify-between gap-6">
-                              <span className="text-muted-foreground">
-                                Questions in Review
-                              </span>
-
-                              <span className="font-medium">
-                                {item.inReview}
-                              </span>
-                            </div>
-
-                            <div className="flex justify-between gap-6">
-                              <span className="text-muted-foreground">
-                                Questions open
-                              </span>
-
-                              <span className="font-medium">{item.open}</span>
-                            </div>
-
-                            <div className="flex justify-between gap-6">
-                              <span className="text-muted-foreground">
-                                Questions paeSubmitted
-                              </span>
-
-                              <span className="font-medium">
-                                {item.paeSubmitted}
-                              </span>
-                            </div>
-
-                            <div className="flex justify-between gap-6">
-                              <span className="text-muted-foreground">
-                                Questions pass
-                              </span>
-
-                              <span className="font-medium">{item.pass}</span>
-                            </div>
-                            <div className="flex justify-between gap-6">
-                              <span className="text-muted-foreground">
-                                Questions rerouted
-                              </span>
-
-                              <span className="font-medium">
-                                {item.rerouted}
-                              </span>
-                            </div>
-                            <div className="flex justify-between gap-6">
-                              <span className="text-muted-foreground">
-                                Non agri Questions
-                              </span>
-
-                              <span className="font-medium">
-                                {item.nonAgri}
-                              </span>
-                            </div>
-                            {index == analytics.length - 1 &&
-                              granularity === "daily" && (
+                            {granularity === "daily" &&
+                              index === analytics.length - 1 && (
                                 <div className="flex justify-between gap-6">
                                   <span className="text-muted-foreground">
-                                    Questions CarryForward
+                                    Questions Carry Forward
                                   </span>
 
                                   <span className="font-medium">
-                                    {item.carryForward}
+                                    {item.carryForward ?? 0}
                                   </span>
                                 </div>
                               )}
-                            <div className="flex justify-between gap-6">
-                              <span className="text-muted-foreground">
-                                Avg Closure time
-                              </span>
-
-                              <span className="font-medium">
-                                {formatCloseTime(item.averageCloseTimeMinutes)}
-                              </span>
-                            </div>
-
-                            <div className="flex justify-between gap-6">
-                              <span className="text-muted-foreground">
-                                Total Questions closed(For selected time)
-                              </span>
-
-                              <span className="font-medium">
-                                {item?.closedInPeriod}
-                              </span>
-                            </div>
                           </div>
                         </TooltipContent>
                       </Tooltip>

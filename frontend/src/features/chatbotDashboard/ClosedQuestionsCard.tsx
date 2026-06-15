@@ -185,7 +185,7 @@ export function ClosedQuestionsCard({
         </CardHeader>
       </Card>
       {status && (
-        <QueryCategoryQuestionsModal status={status} source={source} userType={userType} onClose={() => setStatus(null)} isQueryCategory={false} startDate={dateRange?.from} endDate={dateRange?.to} />
+        <QueryCategoryQuestionsModal status={status} source={"both"} userType={userType} onClose={() => setStatus(null)} isQueryCategory={false} startDate={dateRange?.from} endDate={dateRange?.to} />
       )}
     </motion.div>
   );

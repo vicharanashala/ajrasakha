@@ -331,7 +331,7 @@ export function CustomerNotificationsCard({
       {notificationType && (
         <QueryCategoryQuestionsModal
           notificationType={notificationType}
-          source={source}
+          source={"both"}
           userType={userType}
           startDate={dateRange?.from}
           endDate={dateRange?.to}

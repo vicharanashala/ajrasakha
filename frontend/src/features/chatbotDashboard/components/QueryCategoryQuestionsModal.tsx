@@ -60,7 +60,7 @@ interface QueryCategoryQuestionsModalProps {
   closedWithInTwohours?: boolean;
   notificationType?: string;
   period?: string;
-  source?: "vicharanashala" | "annam" | "whatsapp";
+  source?: "both" | "annam" | "whatsapp";
   // source? : string;
   userType?: string;
   isQueryCategory?: boolean;

@@ -238,7 +238,7 @@ export function ClosedInLastTwoHoursCard({
       </Card>
       {closedWithInTwohours && (
         <QueryCategoryQuestionsModal
-          source={source}
+          source={"both"}
           userType={userType}
           onClose={() => setClosedWithInTowhours(false)}
           closedWithInTwohours={closedWithInTwohours}

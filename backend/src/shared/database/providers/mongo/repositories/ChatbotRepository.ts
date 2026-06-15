@@ -9016,19 +9016,17 @@ const totalPages =
 
     const carryForwardWindowEnd = new Date(end);
     carryForwardWindowEnd.setHours(0, 0, 0, 0);
-
+    const baseMatch = buildBaseQuestionMatch("whatsapp");
     const [closedInSelectedTime, analytics, carryForward] = await Promise.all([
       // Closed during selected period
       this.QuestionCollection.aggregate([
         {
           $match: {
-            source: 'WHATSAPP',
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+            ...baseMatch,
             closedAt: {
               $gte: start,
               $lt: end,
             },
-            status: {$ne: 'non_agri'},
           },
         },
         {
@@ -9046,110 +9044,44 @@ const totalPages =
       ]).toArray(),
 
       // Daily analytics
-      this.QuestionCollection.aggregate([
+      await this.QuestionCollection.aggregate([
         {
           $match: {
-            source: 'WHATSAPP',
+            ...baseMatch,
             createdAt: {
               $gte: start,
               $lt: end,
             },
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-            status: {$ne: 'non_agri'},
           },
         },
+        // Group by period + status
         {
           $group: {
             _id: {
-              $dateToString: {
-                format: '%Y-%m-%d',
-                date: '$createdAt',
-                timezone: '+05:30',
+              period: {
+                $dateToString: {
+                  format: "%Y-%m-%d",
+                  date: "$createdAt",
+                  timezone: "+05:30",
+                },
               },
+              status: "$status",
             },
-
-            totalQuestions: {$sum: 1},
-
-            queryCount: {$sum: 1},
-
-            closedQuestions: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'closed']}, 1, 0],
-              },
+            count: {
+              $sum: 1,
             },
-
-            open: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'open']}, 1, 0],
-              },
-            },
-
-            inReview: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'in-review']}, 1, 0],
-              },
-            },
-
-            delayed: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'delayed']}, 1, 0],
-              },
-            },
-
-            rerouted: {
-              $sum: {
-                $cond: [{$eq: ['$status', 're-routed']}, 1, 0],
-              },
-            },
-
-            hold: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'hold']}, 1, 0],
-              },
-            },
-
-            paeSubmitted: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'pae_submitted']}, 1, 0],
-              },
-            },
-
-            draft: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'draft']}, 1, 0],
-              },
-            },
-
-            pass: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'pass']}, 1, 0],
-              },
-            },
-
-            duplicate: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'duplicate']}, 1, 0],
-              },
-            },
-
-            nonAgri: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'non_agri']}, 1, 0],
-              },
-            },
-
-            averageCloseTimeMinutes: {
+            avgCloseTime: {
               $avg: {
                 $cond: [
                   {
                     $and: [
-                      {$eq: ['$status', 'closed']},
-                      {$ne: ['$closedAt', null]},
+                      { $eq: ["$status", "closed"] },
+                      { $ne: ["$closedAt", null] },
                     ],
                   },
                   {
                     $divide: [
-                      {$subtract: ['$closedAt', '$createdAt']},
+                      { $subtract: ["$closedAt", "$createdAt"] },
                       1000 * 60,
                     ],
                   },
@@ -9159,27 +9091,39 @@ const totalPages =
             },
           },
         },
+        // Group by period
+        {
+          $group: {
+            _id: "$_id.period",
+            totalQuestions: {
+              $sum: "$count",
+            },
+            statuses: {
+              $push: {
+                k: "$_id.status",
+                v: "$count",
+              },
+            },
+            averageCloseTimeMinutes: {
+              $max: "$avgCloseTime",
+            },
+          },
+        },
         {
           $project: {
             _id: 0,
-            period: '$_id',
-
+            period: "$_id",
             totalQuestions: 1,
-            closedQuestions: 1,
-
-            open: 1,
-            inReview: 1,
-            delayed: 1,
-            rerouted: 1,
-            hold: 1,
-            paeSubmitted: 1,
-            draft: 1,
-            pass: 1,
-            duplicate: 1,
-            nonAgri: 1,
-
+            statuses: {
+              $arrayToObject: "$statuses",
+            },
             averageCloseTimeMinutes: {
-              $ifNull: [{$round: ['$averageCloseTimeMinutes', 2]}, 0],
+              $ifNull: [
+                {
+                  $round: ["$averageCloseTimeMinutes", 2],
+                },
+                0,
+              ],
             },
           },
         },
@@ -9190,18 +9134,15 @@ const totalPages =
         },
       ]).toArray(),
 
-      this.QuestionCollection.countDocuments({
-        source: 'WHATSAPP',
-
+      await this.QuestionCollection.countDocuments({
+        ...baseMatch,
         createdAt: {
           $gte: carryForwardWindowStart,
           $lt: carryForwardWindowEnd,
         },
-
         status: {
-          $nin: ['closed', 'non_agri'],
+          $nin: ['closed', 'non_agri', 'dynamic'],
         },
-        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
       }),
     ]);
 
@@ -9218,25 +9159,22 @@ const totalPages =
     if (result.length) {
       result[result.length - 1].carryForward = carryForward;
     }
-
     return result;
   }
 
   async getWeeklyAnalyticsForWhatsApp(start: Date, end: Date): Promise<any[]> {
     await this.initReviewSystem();
-
+    const baseMatch = buildBaseQuestionMatch("whatsapp");
     const [closedInSelectedTime, analytics] = await Promise.all([
       // Closed during selected period
       this.QuestionCollection.aggregate([
         {
           $match: {
-            source: 'WHATSAPP',
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+            ...baseMatch,
             closedAt: {
               $gte: start,
               $lt: end,
             },
-            status: {$ne: 'non_agri'},
           },
         },
         {
@@ -9259,99 +9197,33 @@ const totalPages =
       this.QuestionCollection.aggregate([
         {
           $match: {
-            source: 'WHATSAPP',
+            ...baseMatch,
             createdAt: {
               $gte: start,
               $lt: end,
             },
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-            status: {$ne: 'non_agri'},
           },
         },
 
+        // Group by week + status
         {
           $group: {
             _id: {
-              $dateToString: {
-                format: '%G-W%V',
-                date: '$createdAt',
-                timezone: '+05:30',
+              period: {
+                $dateToString: {
+                  format: '%G-W%V',
+                  date: '$createdAt',
+                  timezone: '+05:30',
+                },
               },
+              status: '$status',
             },
 
-            totalQuestions: {
+            count: {
               $sum: 1,
             },
 
-            queryCount: {$sum: 1},
-
-            closedQuestions: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'closed']}, 1, 0],
-              },
-            },
-
-            open: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'open']}, 1, 0],
-              },
-            },
-
-            inReview: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'in-review']}, 1, 0],
-              },
-            },
-
-            delayed: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'delayed']}, 1, 0],
-              },
-            },
-
-            rerouted: {
-              $sum: {
-                $cond: [{$eq: ['$status', 're-routed']}, 1, 0],
-              },
-            },
-
-            hold: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'hold']}, 1, 0],
-              },
-            },
-
-            paeSubmitted: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'pae_submitted']}, 1, 0],
-              },
-            },
-
-            draft: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'draft']}, 1, 0],
-              },
-            },
-
-            pass: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'pass']}, 1, 0],
-              },
-            },
-
-            duplicate: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'duplicate']}, 1, 0],
-              },
-            },
-
-            nonAgri: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'non_agri']}, 1, 0],
-              },
-            },
-
-            averageCloseTimeMinutes: {
+            avgCloseTime: {
               $avg: {
                 $cond: [
                   {
@@ -9362,9 +9234,7 @@ const totalPages =
                   },
                   {
                     $divide: [
-                      {
-                        $subtract: ['$closedAt', '$createdAt'],
-                      },
+                      {$subtract: ['$closedAt', '$createdAt']},
                       1000 * 60,
                     ],
                   },
@@ -9375,27 +9245,39 @@ const totalPages =
           },
         },
 
+        // Group by week
+        {
+          $group: {
+            _id: '$_id.period',
+
+            totalQuestions: {
+              $sum: '$count',
+            },
+
+            statuses: {
+              $push: {
+                k: '$_id.status',
+                v: '$count',
+              },
+            },
+
+            averageCloseTimeMinutes: {
+              $max: '$avgCloseTime',
+            },
+          },
+        },
+
         {
           $project: {
             _id: 0,
 
             period: '$_id',
 
-            queryCount: 1,
-
             totalQuestions: 1,
-            closedQuestions: 1,
 
-            open: 1,
-            inReview: 1,
-            delayed: 1,
-            rerouted: 1,
-            hold: 1,
-            paeSubmitted: 1,
-            draft: 1,
-            pass: 1,
-            duplicate: 1,
-            nonAgri: 1,
+            statuses: {
+              $arrayToObject: '$statuses',
+            },
 
             averageCloseTimeMinutes: {
               $ifNull: [
@@ -9427,17 +9309,16 @@ const totalPages =
   }
 
   async getMonthlyAnalyticsForWhatsApp(): Promise<any[]> {
+    const baseMatch = buildBaseQuestionMatch("whatsapp");
     const [closedInSelectedTime, analytics] = await Promise.all([
       // Closed in month
       this.QuestionCollection.aggregate([
         {
           $match: {
-            source: 'WHATSAPP',
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+            ...baseMatch,
             closedAt: {
               $ne: null,
             },
-            status: {$ne: 'non_agri'},
           },
         },
         {
@@ -9460,93 +9341,29 @@ const totalPages =
       this.QuestionCollection.aggregate([
         {
           $match: {
-            source: 'WHATSAPP',
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-            status: {$ne: 'non_agri'},
+            ...baseMatch,
           },
         },
 
+        // Group by month + status
         {
           $group: {
             _id: {
-              $dateToString: {
-                format: '%Y-%m',
-                date: '$createdAt',
-                timezone: '+05:30',
+              period: {
+                $dateToString: {
+                  format: '%Y-%m',
+                  date: '$createdAt',
+                  timezone: '+05:30',
+                },
               },
+              status: '$status',
             },
 
-            totalQuestions: {$sum: 1},
-
-            queryCount: {$sum: 1},
-
-            closedQuestions: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'closed']}, 1, 0],
-              },
+            count: {
+              $sum: 1,
             },
 
-            open: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'open']}, 1, 0],
-              },
-            },
-
-            inReview: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'in-review']}, 1, 0],
-              },
-            },
-
-            delayed: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'delayed']}, 1, 0],
-              },
-            },
-
-            rerouted: {
-              $sum: {
-                $cond: [{$eq: ['$status', 're-routed']}, 1, 0],
-              },
-            },
-
-            hold: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'hold']}, 1, 0],
-              },
-            },
-
-            paeSubmitted: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'pae_submitted']}, 1, 0],
-              },
-            },
-
-            draft: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'draft']}, 1, 0],
-              },
-            },
-
-            pass: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'pass']}, 1, 0],
-              },
-            },
-
-            duplicate: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'duplicate']}, 1, 0],
-              },
-            },
-
-            nonAgri: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'non_agri']}, 1, 0],
-              },
-            },
-
-            averageCloseTimeMinutes: {
+            avgCloseTime: {
               $avg: {
                 $cond: [
                   {
@@ -9557,9 +9374,7 @@ const totalPages =
                   },
                   {
                     $divide: [
-                      {
-                        $subtract: ['$closedAt', '$createdAt'],
-                      },
+                      {$subtract: ['$closedAt', '$createdAt']},
                       1000 * 60,
                     ],
                   },
@@ -9570,27 +9385,39 @@ const totalPages =
           },
         },
 
+        // Group by month
+        {
+          $group: {
+            _id: '$_id.period',
+
+            totalQuestions: {
+              $sum: '$count',
+            },
+
+            statuses: {
+              $push: {
+                k: '$_id.status',
+                v: '$count',
+              },
+            },
+
+            averageCloseTimeMinutes: {
+              $max: '$avgCloseTime',
+            },
+          },
+        },
+
         {
           $project: {
             _id: 0,
 
             period: '$_id',
 
-            queryCount: 1,
-
             totalQuestions: 1,
-            closedQuestions: 1,
 
-            open: 1,
-            inReview: 1,
-            delayed: 1,
-            rerouted: 1,
-            hold: 1,
-            paeSubmitted: 1,
-            draft: 1,
-            pass: 1,
-            duplicate: 1,
-            nonAgri: 1,
+            statuses: {
+              $arrayToObject: '$statuses',
+            },
 
             averageCloseTimeMinutes: {
               $ifNull: [
@@ -9825,6 +9652,9 @@ const totalPages =
       if (query && Object.keys(query).length > 0) {
         matchStage.$and.push(query);
       }
+      matchStage.source = {
+        $in: ["WHATSAPP", "AJRASAKHA"],
+      };
 
       const previousMonthReferenceDate = startDate ?? new Date();
       const previousMonthStart = new Date(
@@ -10163,34 +9993,24 @@ const totalPages =
   ): Promise<any> {
     try {
       await this.initReviewSystem();
-
-      const matchStage: any = {
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-        ],
-        status: {$ne: 'non_agri'},
-      };
-      const dbSource = source;
-      if (source !== 'whatsapp') {
-        source = 'AJRASAKHA';
-      }
-      matchStage.source = source.toUpperCase();
-
+      const matchStage = buildBaseQuestionMatch(source);
       if (startDate || endDate) {
         matchStage.createdAt = {};
         if (startDate) matchStage.createdAt.$gte = startDate;
         if (endDate) matchStage.createdAt.$lte = endDate;
       }
       const query = await this.buildQuestionUserTypeMatchQuery(
-        dbSource,
+        source,
         userType,
       );
 
       if (query && Object.keys(query).length > 0) {
         matchStage.$and.push(query);
       }
+
+      matchStage.source = {
+        $in: ["WHATSAPP", "AJRASAKHA"],
+      };
 
       const [result] = await this.QuestionCollection.aggregate([
         {
@@ -10204,7 +10024,7 @@ const totalPages =
                 $cond: [
                   {
                     $and: [
-                      {$eq: ['$status', 'closed']},
+                      {$in: ['$status', ['closed', 'pass']]},
                       {$eq: ['$isCustomerNotified', false]},
                     ],
                   },
@@ -10218,7 +10038,7 @@ const totalPages =
                 $cond: [
                   {
                     $and: [
-                      {$eq: ['$status', 'closed']},
+                      {$in: ['$status', ['closed', 'pass']]},
                       {$eq: ['$isCustomerNotified', true]},
                     ],
                   },
@@ -10241,7 +10061,9 @@ const totalPages =
       const untrackedClosedQuestions =
         await this.QuestionCollection.countDocuments({
           ...matchStage,
-          status: 'closed',
+          status: {
+            $in: ['closed', 'pass'],
+          },
           isCustomerNotified: {$exists: false},
         });
 
@@ -10267,18 +10089,7 @@ const totalPages =
   ): Promise<any> {
     try {
       await this.initReviewSystem();
-
-      const finalSource: QuestionSource =
-        source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
-
-      const matchStage: any = {
-        source: finalSource,
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-        ],
-      };
+      const matchStage = buildBaseQuestionMatch(source);
 
       if (startDate || endDate) {
         matchStage.createdAt = {};
@@ -10293,6 +10104,9 @@ const totalPages =
       if (query && Object.keys(query).length > 0) {
         matchStage.$and.push(query);
       }
+      matchStage.source = {
+        $in: ["WHATSAPP", "AJRASAKHA"],
+      };
 
       const result = await this.QuestionCollection.aggregate([
         {$match: matchStage},
@@ -10494,27 +10308,18 @@ const totalPages =
   ): Promise<any> {
     try {
       await this.initReviewSystem();
-      const matchStage: any = {
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-        ],
-        status: {$ne: 'non_agri'},
-      };
-      const dbSource = source;
-      if (source !== 'whatsapp') {
-        source = 'AJRASAKHA';
-      }
-      matchStage.source = source.toUpperCase();
+      const matchStage = buildBaseQuestionMatch(source);
       const query = await this.buildQuestionUserTypeMatchQuery(
-        dbSource,
+        source,
         userType,
       );
 
       if (query && Object.keys(query).length > 0) {
         matchStage.$and.push(query);
       }
+      matchStage.source = {
+        $in: ["WHATSAPP", "AJRASAKHA"],
+      };
       const carryForwardWindowStart = new Date(
         new Date().toLocaleString('en-US', {
           timeZone: 'Asia/Kolkata',
@@ -11801,16 +11606,24 @@ const totalPages =
 
       const sourceType = source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
 
-      const matchQuery: any = {
-        source: sourceType,
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-        ],
-        status: {$ne: 'non_agri'},
-      };
+      const matchQuery = buildBaseQuestionMatch(sourceType);
 
+            // Apply status filter
+      if (status !== 'all') {
+        matchQuery.status = status;
+      }
+
+      if(source === "both"){
+        matchQuery.source = {
+          $in: ["AJRASAKHA", "WHATSAPP"],
+        };
+      }
+      if(status === "closed"){
+        matchQuery.status = {
+          $in: ["closed", "pass"],
+        };
+      }
+console.log("matchq---", matchQuery)
       // Apply date range
 
       const validStartDate =
@@ -11832,11 +11645,6 @@ const totalPages =
 
           matchQuery.createdAt.$lte = endOfDay;
         }
-      }
-
-      // Apply status filter
-      if (status !== 'all') {
-        matchQuery.status = status;
       }
 
       // Apply user type filter
@@ -12003,23 +11811,23 @@ const totalPages =
     endDate?: Date,
   ): Promise<any> {
     await this.initReviewSystem();
-    await this.init(source);
+    await this.init("annam");
 
     const safePage = Math.max(Number(page) || 1, 1);
     const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
     const skip = (safePage - 1) * safeLimit;
 
     const sourceType = source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
+    const matchQuery = buildBaseQuestionMatch(sourceType);
+    if(source === "both"){
+      matchQuery.source = {
+        $in: ["AJRASAKHA", "WHATSAPP"],
+      };
+    }
 
-    const matchQuery: any = {
-      source: sourceType,
-      $and: [
-        {
-          $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-        },
-      ],
+    matchQuery.status = { 
+      $in: ["closed", "pass"],
     };
-
     const validStartDate =
       startDate instanceof Date && !isNaN(startDate.getTime());
 
@@ -12219,7 +12027,7 @@ const totalPages =
   ): Promise<any> {
     try {
       await this.initReviewSystem();
-      await this.init(source);
+      await this.init("annam");
 
       const safePage = Math.max(Number(page) || 1, 1);
       const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
@@ -12227,14 +12035,14 @@ const totalPages =
 
       const sourceType = source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
 
-      const matchQuery: any = {
-        source: sourceType,
-        status: 'closed',
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-        ],
+      const matchQuery = buildBaseQuestionMatch(sourceType);
+      if(source === "both"){
+        matchQuery.source = {
+          $in: ["AJRASAKHA", "WHATSAPP"],
+        };
+      }
+      matchQuery.status = {
+        $in: ["closed", "pass"],
       };
 
       // Date range
@@ -12475,7 +12283,7 @@ const totalPages =
     search?: string,
   ): Promise<any> {
     try {
-      await this.init(source);
+      await this.init("annam");
 
       const safePage = Math.max(Number(page) || 1, 1);
       const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);

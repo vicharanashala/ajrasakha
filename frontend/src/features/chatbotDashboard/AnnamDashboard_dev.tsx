@@ -299,6 +299,47 @@ export function AnnamDashboard_dev({
             />
             
             <div className="flex-1 overflow-y-auto px-5 pb-5">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                <ClosedInLastTwoHoursCard
+                  source={source}
+                  userType={filters.userType}
+                  count={closed2hData?.closedInLastTwoHours}
+                  totalClosed={closed2hData?.closedVsTotalQuestions?.closedQuestions}
+                  dateRange={closed2hDateRange}
+                  onDateRangeChange={setClosed2hDateRange}
+                  isLoading={false}
+                  isFetching={isClosed2hFetching}
+                  onRefresh={handleRefreshStatsCards}
+                />
+                <ClosedQuestionsCard
+                  closedQuestions={questionStatusData?.closedVsTotalQuestions?.closedQuestions}
+                  totalQuestions={questionStatusData?.closedVsTotalQuestions?.totalQuestions}
+                  inReview={questionStatusData?.closedVsTotalQuestions?.inReviewQuestions}
+                  dateRange={questionStatusDateRange}
+                  onDateRangeChange={setQuestionStatusDateRange}
+                  isLoading={false}
+                  isFetching={false}
+                  carryForward={questionStatusData?.carryForward}
+                  avgCloseTimeMinutes={questionStatusData?.closedVsTotalQuestions?.avgCloseTimeMinutes}
+                  previousMonthAvgCloseTimeMinutes={questionStatusData?.closedVsTotalQuestions?.previousMonthAvgCloseTimeMinutes}
+                  statusBreakup={questionStatusData?.closedVsTotalQuestions}
+                  source={source}
+                  userType={filters.userType}
+                  onRefresh={handleRefreshStatsCards}
+                />
+                <CustomerNotificationsCard
+                  notified={customerNotificationsData?.notifiedVsClosed?.notified}
+                  notNotified={customerNotificationsData?.notifiedVsClosed?.notNotified}
+                  untrackedClosedQuestions={customerNotificationsData?.notifiedVsClosed?.untrackedClosedQuestions}
+                  dateRange={customerNotificationsDateRange}
+                  onDateRangeChange={setCustomerNotificationsDateRange}
+                  isLoading={false}
+                  isFetching={false}
+                  source={source}
+                  userType={filters.userType}
+                  onRefresh={handleRefreshStatsCards}
+                />
+              </div>
               {/* Source Selection Tabs & Refresh */}
               <SourceTabsHeader
                 source={source}
@@ -356,45 +397,7 @@ export function AnnamDashboard_dev({
                       />
                     )}
 
-                    <ClosedInLastTwoHoursCard
-                      source={source}
-                      userType={filters.userType}
-                      count={closed2hData?.closedInLastTwoHours}
-                      totalClosed={closed2hData?.closedVsTotalQuestions?.closedQuestions}
-                      dateRange={closed2hDateRange}
-                      onDateRangeChange={setClosed2hDateRange}
-                      isLoading={false}
-                      isFetching={isClosed2hFetching}
-                      onRefresh={handleRefreshStatsCards}
-                    />
-                    <ClosedQuestionsCard
-                      closedQuestions={questionStatusData?.closedVsTotalQuestions?.closedQuestions}
-                      totalQuestions={questionStatusData?.closedVsTotalQuestions?.totalQuestions}
-                      inReview={questionStatusData?.closedVsTotalQuestions?.inReviewQuestions}
-                      dateRange={questionStatusDateRange}
-                      onDateRangeChange={setQuestionStatusDateRange}
-                      isLoading={false}
-                      isFetching={false}
-                      carryForward={questionStatusData?.carryForward}
-                      avgCloseTimeMinutes={questionStatusData?.closedVsTotalQuestions?.avgCloseTimeMinutes}
-                      previousMonthAvgCloseTimeMinutes={questionStatusData?.closedVsTotalQuestions?.previousMonthAvgCloseTimeMinutes}
-                      statusBreakup={questionStatusData?.closedVsTotalQuestions}
-                      source={source}
-                      userType={filters.userType}
-                      onRefresh={handleRefreshStatsCards}
-                    />
-                    <CustomerNotificationsCard
-                      notified={customerNotificationsData?.notifiedVsClosed?.notified}
-                      notNotified={customerNotificationsData?.notifiedVsClosed?.notNotified}
-                      untrackedClosedQuestions={customerNotificationsData?.notifiedVsClosed?.untrackedClosedQuestions}
-                      dateRange={customerNotificationsDateRange}
-                      onDateRangeChange={setCustomerNotificationsDateRange}
-                      isLoading={false}
-                      isFetching={false}
-                      source={source}
-                      userType={filters.userType}
-                      onRefresh={handleRefreshStatsCards}
-                    />
+
                   </div>
                   
                   {/* Response Adherence Table */}
