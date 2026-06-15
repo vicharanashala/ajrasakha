@@ -1362,10 +1362,18 @@ export class QuestionService extends BaseService implements IQuestionService {
           baseQuestion,
           session,
         );
-
+       
         if (!savedQuestion?._id) {
           throw new InternalServerError(`Failed to save question to database`);
         }
+         if(!body.threadId)
+        {
+           await this.questionRepo.updateQuestion(savedQuestion._id.toString(), {
+              isTesting: true,
+            });
+          return
+        }
+
 
         // 🔹 Create bare submission record (expert queue populated in background)
         const submissionData: IQuestionSubmission = {
@@ -1380,6 +1388,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           submissionData,
           session,
         );
+        
 
         // 🔹 Kick off background processing (duplicate check, expert allocation, notifications)
         const questionId = savedQuestion._id.toString();
