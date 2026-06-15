@@ -79,6 +79,14 @@ import { toTitleCase } from '#root/utils/ToTitlecase.js';
 import axios from 'axios';
 import { AccAgentService } from '#root/modules/acc-agent/services/AccAgentService.js';
 
+/**
+ * Module-level guard so two time-bound reallocation runs never overlap. The cron
+ * fires every 2 min regardless of whether the previous run (and its detached
+ * persistence workers) finished; without this lock an in-flight assignment that
+ * hasn't been written yet still looks "free" in the DB and gets double-allocated.
+ */
+let isReallocatingTimeBound = false;
+
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
   constructor(
@@ -1354,10 +1362,18 @@ export class QuestionService extends BaseService implements IQuestionService {
           baseQuestion,
           session,
         );
-
+       
         if (!savedQuestion?._id) {
           throw new InternalServerError(`Failed to save question to database`);
         }
+         if(!body.threadId)
+        {
+           await this.questionRepo.updateQuestion(savedQuestion._id.toString(), {
+              isTesting: true,
+            });
+          return
+        }
+
 
         // 🔹 Create bare submission record (expert queue populated in background)
         const submissionData: IQuestionSubmission = {
@@ -1372,6 +1388,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           submissionData,
           session,
         );
+        
 
         // 🔹 Kick off background processing (duplicate check, expert allocation, notifications)
         const questionId = savedQuestion._id.toString();
@@ -5640,6 +5657,11 @@ export class QuestionService extends BaseService implements IQuestionService {
    *  B) Question never allocated → initial assignment.
    *  C) Initial answer submitted, status still open/delayed → assign reviewer. */
   async reallocateTimeBoundQuestions(): Promise<{ message: string; reallocated: number; skipped: number }> {
+    if (isReallocatingTimeBound) {
+      console.log('[TimeBound] Previous run still in progress — skipping this tick to avoid double-allocation.');
+      return { message: 'Reallocation already in progress', reallocated: 0, skipped: 0 };
+    }
+    isReallocatingTimeBound = true;
     console.log('[TimeBound] Starting reallocation + initial-allocation + reviewer-assignment check...');
     try {
       // 1. Fetch all cases in parallel. "openedIdle" = current expert opened the
@@ -5877,8 +5899,14 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
 
       if (flatAssignments.length) {
-        startBalanceWorkloadWorkers(flatAssignments);
-        console.log(`[TimeBound] Triggered reallocation for ${flatAssignments.length} stuck submission(s)`);
+        // Await the workers so the run (and its lock) stays open until the queue
+        // writes land — otherwise the next tick could re-reserve an expert whose
+        // assignment hasn't been persisted yet.
+        const workerResult = await startBalanceWorkloadWorkers(flatAssignments);
+        console.log(
+          `[TimeBound] Triggered reallocation for ${flatAssignments.length} stuck submission(s); ` +
+          `workers persisted=${workerResult.processed}, failedWorkers=${workerResult.failedWorkers}`,
+        );
 
         //   // Notify all moderators and admins about stuck-question reallocations
         //   try {
@@ -5941,6 +5969,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     } catch (error: any) {
       console.error('[TimeBound] reallocateTimeBoundQuestions failed:', error?.message);
       throw new InternalServerError(`Failed to reallocate time-bound questions: ${error?.message}`);
+    } finally {
+      isReallocatingTimeBound = false;
     }
   }
 
@@ -6013,6 +6043,20 @@ export class QuestionService extends BaseService implements IQuestionService {
     };
   }
 
+  /** Build the full queue as "Name (Level)" entries — Author for position 0,
+   *  then Reviewer 1, Reviewer 2, … — resolving names from a pre-fetched map. */
+  private buildQueueExpertNames(
+    queue: any[] | undefined,
+    names: Map<string, string>,
+  ): string[] {
+    return (queue ?? []).map((q, i) => {
+      const id = q?.toString();
+      const name = (id && names.get(id)) || 'Unknown';
+      const level = i === 0 ? 'Author' : `Reviewer ${i}`;
+      return `${name} (${level})`;
+    });
+  }
+
   /** Resolve expert ids → display names in a single batched lookup. */
   private async resolveExpertNames(ids: string[]): Promise<Map<string, string>> {
     const map = new Map<string, string>();
@@ -6068,15 +6112,23 @@ export class QuestionService extends BaseService implements IQuestionService {
           const id = this.derivePendingAssigneeId(r.queue, r.history as any);
           byQuestion.set(r._id?.toString() ?? '', id);
           if (id) ids.push(id);
+          for (const q of r.queue ?? []) ids.push(q?.toString());
         }
         const names = await this.resolveExpertNames(ids);
         return {
           count,
           items: items.map(r => {
             const id = byQuestion.get(r._id?.toString() ?? '');
+            // Allocated: show plain names (no Author/Reviewer level) and a single
+            // status for the current person — 'completed' if no one is pending,
+            // otherwise 'waiting' for that person's response.
             return {
               ...this.rawToQueueItem(r),
               expertName: id ? names.get(id) ?? 'Unknown' : undefined,
+              queueExpertNames: (r.queue ?? []).map(
+                q => names.get(q?.toString()) ?? 'Unknown',
+              ),
+              lastPersonStatus: id ? 'waiting' : 'completed',
             };
           }),
         };
@@ -6123,6 +6175,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           const qId = (sub.question?._id ?? sub.questionId)?.toString() ?? '';
           byQuestion.set(qId, id);
           if (id) ids.push(id);
+          for (const q of sub.queue ?? []) ids.push(q?.toString());
         }
         const names = await this.resolveExpertNames(ids);
         const now = Date.now();
@@ -6133,6 +6186,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           return {
             ...item,
             expertName: id ? names.get(id) ?? 'Unknown' : undefined,
+            queueExpertNames: this.buildQueueExpertNames(sub.queue, names),
             allocatedAt,
             minutesSinceAllocated: allocatedAt
               ? Math.floor((now - new Date(allocatedAt).getTime()) / 60000)
@@ -6155,6 +6209,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           const qId = (sub.question?._id ?? sub.questionId)?.toString() ?? '';
           byQuestion.set(qId, id);
           if (id) ids.push(id);
+          for (const q of sub.queue ?? []) ids.push(q?.toString());
         }
         const names = await this.resolveExpertNames(ids);
         const now = Date.now();
@@ -6165,6 +6220,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           return {
             ...item,
             expertName: id ? names.get(id) ?? 'Unknown' : undefined,
+            queueExpertNames: this.buildQueueExpertNames(sub.queue, names),
             openedAt,
             minutesSinceOpened: openedAt
               ? Math.floor((now - new Date(openedAt).getTime()) / 60000)
@@ -6181,21 +6237,31 @@ export class QuestionService extends BaseService implements IQuestionService {
         const subs = (await this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer()) as any[];
         const count = subs.length;
         const pageSubs = subs.slice(skip, skip + safeLimit);
-        // Show who completed the last step (the author/reviewer in the last history entry).
-        const byQuestion = new Map<string, string | null>();
+        // Show every expert who completed a step on the question, in turn order (each
+        // history entry's `updatedBy`), rather than only the last completer.
+        const byQuestion = new Map<string, string[]>();
         const ids: string[] = [];
         for (const sub of pageSubs) {
-          const last = (sub.history ?? [])[sub.history?.length - 1];
-          const id = last?.updatedBy?.toString() ?? null;
+          const completedIds = (sub.history ?? [])
+            .map((h: any) => h?.updatedBy?.toString())
+            .filter((id: string | undefined): id is string => Boolean(id));
           const qId = (sub.question?._id ?? sub.questionId)?.toString() ?? '';
-          byQuestion.set(qId, id);
-          if (id) ids.push(id);
+          byQuestion.set(qId, completedIds);
+          ids.push(...completedIds);
+          for (const q of sub.queue ?? []) ids.push(q?.toString());
         }
         const names = await this.resolveExpertNames(ids);
         const items: QueueQuestionItem[] = pageSubs.map(sub => {
           const item = this.submissionToQueueItem(sub);
-          const id = byQuestion.get(item._id ?? '');
-          return {...item, expertName: id ? names.get(id) ?? 'Unknown' : undefined};
+          const completedIds = byQuestion.get(item._id ?? '') ?? [];
+          const completedExpertNames = completedIds.map(id => names.get(id) ?? 'Unknown');
+          return {
+            ...item,
+            completedExpertNames,
+            queueExpertNames: this.buildQueueExpertNames(sub.queue, names),
+            // Keep expertName as the most recent completer for backward compatibility.
+            expertName: completedExpertNames[completedExpertNames.length - 1],
+          };
         });
         return {count, items};
       }

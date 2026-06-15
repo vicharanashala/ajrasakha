@@ -338,7 +338,20 @@ class QuestionResponse {
   @IsString()
   userId?: string;
 
-  @IsEnum(['open', 'answered', 'closed'])
+  @IsEnum([
+    'open',
+    'answered',
+    'closed',
+    'delayed',
+    're-routed',
+    'hold',
+    'pae_submitted',
+    'draft',
+    'pass',
+    'duplicate',
+    'non_agri',
+    'pending',
+  ])
   status?: QuestionStatus;
 
   @IsEnum(['AJRASAKHA', 'AGRI_EXPERT', "WHATSAPP", "OUTREACH"])

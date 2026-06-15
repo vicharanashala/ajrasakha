@@ -2903,12 +2903,14 @@ export class ChatbotService extends BaseService implements IChatbotService {
         </body>
         </html>
       `;
-      await sendEmailNotification(
-        updatedUser.email,
-        subject,
-        '',
-        htmlMessage
-      );
+      if(isVerified === true){
+        await sendEmailNotification(
+          updatedUser.email,
+          subject,
+          '',
+          htmlMessage
+        );
+      }
 
       return updatedUser;
     } catch (error) {
@@ -2942,6 +2944,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
         ajrasakhaPushedToReviewer: 0,
         whatsappAnsweredWithin120Min: 0,
         ajrasakhaAnsweredWithin120Min: 0,
+        whatsappPassedQuestions: 0,
+        ajrasakhaPassedQuestions: 0,
         whatsappMarkedDuplicate: 0,
         ajrasakhaMarkedDuplicate: 0,
         whatsappDynamicWeather: 0,
@@ -3068,6 +3072,14 @@ export class ChatbotService extends BaseService implements IChatbotService {
       throw new InternalServerError(`Internal Server Error ${error}`)
     }
   }
+  
+  async getUserProfile(userId: string){
+    try{
+      return this.chatbotRepository.getUserProfile(userId)
+    }catch(error){
+      throw new InternalServerError(`Internal Server Error ${error}`)
+    }
+  }
 
   // async getStateQuestionsAndUsersData(state: string, source: string, userType: string): Promise<any> {
   //   try {
@@ -3076,4 +3088,19 @@ export class ChatbotService extends BaseService implements IChatbotService {
   //     throw new InternalServerError(`Internal server error ${error}`)
   //   }
   // }
+  async assignUsers(userId: string, targetIds: string[]): Promise<any>{
+    try{
+      return this.chatbotRepository.assignUsers(userId, targetIds)
+    }catch(error){
+      throw new InternalServerError(`Internal Server Error ${error}`)
+    }
+  }
+  
+  async unAssignUsers(userId: string, targetIds: string[]): Promise<any>{
+    try{
+      return this.chatbotRepository.unAssignUsers(userId, targetIds)
+    }catch(error){
+      throw new InternalServerError(`Internal Server Error ${error}`)
+    }
+  }
 }

@@ -85,8 +85,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/atoms/badge";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import { useVerifyUserAnalytics } from "@/hooks/api/user/useVerifyUserAnalytics";
-import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "@/shared/components/toast";
+import { useNavigate } from "@tanstack/react-router";
 
 const EMPTY_VALUE = "Not provided";
 
@@ -137,6 +138,7 @@ export function UserDetailsView({
   initialFilters,
   userType = "all",
 }: UserDetailsViewProps) {
+  const navigate = useNavigate();
   const { data: currentUser } = useGetCurrentUser({});
   const verifyUserMutation = useVerifyUserAnalytics();
   const verifyingUserId = verifyUserMutation.isPending
@@ -470,20 +472,22 @@ export function UserDetailsView({
     setUserToView(null);
     setUserToEdit(user);
   };
-
+    
   const handleUpdateVerification = async (
     userId: string,
     source: string,
     isVerified: boolean,
   ) => {
+    let toastId;
     try {
+      toastId = toast.loading('verifying user...')
       const response = await verifyUserMutation.mutateAsync({
         userId,
         source,
         isVerified,
       });
-
-      toast.success(
+      toast.dismiss(toastId)
+       toast.success(
         response?.message ||
           (isVerified
             ? "User verified successfully"
@@ -493,8 +497,9 @@ export function UserDetailsView({
         current?.userId === userId ? { ...current, isVerified } : current,
       );
     } catch (error: any) {
-      toast.error(error?.message || "Failed to update verification status");
-    }
+      toast.dismiss(toastId)
+      toast.error(error?.message || "Failed to update verification status");    
+    } 
   };
 
   const requestVerificationChange = (user: UserDetail, nextStatus: boolean) => {
@@ -1190,7 +1195,25 @@ export function UserDetailsView({
 
                                 <TableCell className="align-middle font-medium whitespace-nowrap">
                                   <div className="inline-flex items-center justify-center gap-1.5">
-                                    <span>{user.name || <EmptyValue />}</span>
+                                  <span
+                                    className={
+                                      currentUser?.role !== "admin"
+                                        ? ""
+                                        : "cursor-pointer text-primary hover:underline"
+                                    }
+                                    onClick={
+                                      currentUser?.role !== "admin"
+                                        ? undefined
+                                        : () =>
+                                            navigate({
+                                              to: "/user/$userId",
+                                              params: {
+                                                userId: user.userId,
+                                              },
+                                            })
+                                    }
+                                  >{user.name || <EmptyValue />}
+                                  </span>
                                     {!isUserVerified && (
                                       <Tooltip>
                                         <TooltipTrigger asChild>

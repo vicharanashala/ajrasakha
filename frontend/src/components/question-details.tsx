@@ -31,9 +31,9 @@ import MessageDetail from "./MessageDetail";
 import { AiGeneratedAnswerCard } from "./AiGeneratedAnswerCard";
 import { useGenerateInitialAnswer } from "@/hooks/api/question/useGenerateInitialAnswer";
 import { useApproveAIAnswer } from "@/hooks/api/question/useApproveInitialAnswer";
-import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { SubmissionHistoryModal } from "./submission-history-model";
+import { toast } from "@/shared/components/toast";
 
 interface QuestionDetailProps {
   question: IQuestionFullData;
@@ -87,7 +87,7 @@ export const QuestionDetails = ({
   const [tempAiAnswer, setTempAiAnswer] = useState<string>("");
   const [open, setOpen] = useState(false);
 
-  const { mutate: approveAIAnswer, isPending: isApproving } =
+  const { mutateAsync: approveAIAnswer, isPending: isApproving } =
     useApproveAIAnswer();
 
   // const { data: submissionCheck } = useQuery({
@@ -96,40 +96,43 @@ export const QuestionDetails = ({
   //   enabled: !!question?._id && ["AJRASAKHA", "WHATSAPP", "AGRI_EXPERT", "OUTREACH"].includes(question.source),
   // });
 
-  const { mutate: generateAIAnswer, isPending: isGeneratingAI } =
+  const { mutateAsync: generateAIAnswer, isPending: isGeneratingAI } =
     useGenerateInitialAnswer(currentUser._id?.toString());
-  const submissionExists = question.submission.history.length > 0 || false;
+  const submissionExists = question?.submission?.queue?.length > 0 || false;
 
-  const handleGenerateAI = () => {
+  const handleGenerateAI = async() => {
     if (!question?._id) return;
 
-    generateAIAnswer(question._id, {
-      onSuccess: (data) => {
+    await toast.promise(generateAIAnswer(question._id),{
+      loading: "generating AI answer...",
+      success: (data:any) => {
         setTempAiAnswer(data.aiInitialAnswer);
+        return 'AI answer generated'
       },
-      onError: (err) => {
+      error: (err:any) => {
         console.error(err);
-        toast.error(err.message || "Failed to generate answer");
+        return err.message || "Failed to generate answer"
       },
     });
   };
 
-  const handleApproveAI = () => {
+  const handleApproveAI = async() => {
     if (!question?._id || !tempAiAnswer) return;
 
-    approveAIAnswer(
-      { questionId: question._id, answer: tempAiAnswer },
-      {
-        onSuccess: () => {
+    await toast.promise(approveAIAnswer(
+      { questionId: question._id, answer: tempAiAnswer }
+    ),{
+        loading:"approving AI answer...",
+        success: () => {
           setTempAiAnswer("");
           refetchAnswers();
+          return 'approved AI answer'
         },
-        onError: (err) => {
+        error: (err:any) => {
           console.error(err);
-          toast.error(err.message || "Failed approve answer");
+          return err.message || "Failed approve answer"
         },
-      },
-    );
+      },);
   };
 
   useEffect(() => {

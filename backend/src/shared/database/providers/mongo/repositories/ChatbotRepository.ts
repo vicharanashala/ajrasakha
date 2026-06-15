@@ -51,6 +51,7 @@ import {getFirebaseAuth} from '#root/config/firebaseAdmin.js';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import {COORDINATOR_ROLES} from '#root/shared/constants/roles.js';
+import { BLOCKS, VILLAGES } from '#root/metaData.js';
 
 const EXTERNAL_USER_ROLES = ['FARMER', ...COORDINATOR_ROLES] as const;
 
@@ -112,6 +113,8 @@ interface IUser {
       longitude: number;
     };
   };
+  assignedTo?: ObjectId;
+  assignedCoordinators?: ObjectId[];
 }
 
 interface IConversation {
@@ -493,6 +496,7 @@ export class ChatbotRepository implements IChatbotRepository {
   ): Promise<{
     questionAsked: number;
     closedQuestionsCount: number;
+    passedQuestionsCount: number;
     answeredWithin120Min: number;
     averageResponseMinutes: number;
     inReviewCount: number;
@@ -531,6 +535,71 @@ export class ChatbotRepository implements IChatbotRepository {
     const result = await this.QuestionCollection.aggregate(
       [
         {$match: matchQuery},
+        {
+          $addFields: {
+            _statusLower: {$toLower: {$ifNull: ['$status', '']}},
+            _isGdbDuplicate: {
+              $and: [
+                {$eq: [{$toLower: {$ifNull: ['$status', '']}}, 'duplicate']},
+                {
+                  $regexMatch: {
+                    input: {$ifNull: ['$referenceSource', '']},
+                    regex: '^golden$',
+                    options: 'i',
+                  },
+                },
+              ],
+            },
+            _isDynamicCategory: {
+              $regexMatch: {
+                input: {
+                  $concat: [
+                    {$ifNull: ['$details.domain', '']},
+                    ' ',
+                    {$ifNull: ['$details.category', '']},
+                    ' ',
+                    {$ifNull: ['$question', '']},
+                  ],
+                },
+                regex: '(weather|market|scheme|schemes)',
+                options: 'i',
+              },
+            },
+          },
+        },
+        {
+          $addFields: {
+            _isPassed: {$eq: ['$_statusLower', 'pass']},
+            _operationalCompletionAt: {
+              $switch: {
+                branches: [
+                  {
+                    case: {$eq: ['$_statusLower', 'pass']},
+                    then: '$passedAt',
+                  },
+                  {
+                    case: '$_isGdbDuplicate',
+                    then: '$passedAt',
+                  },
+                  {
+                    case: {
+                      $and: [
+                        '$_isDynamicCategory',
+                        {$ne: [{$ifNull: ['$passedAt', null]}, null]},
+                      ],
+                    },
+                    then: '$passedAt',
+                  },
+                  {
+                    case: {$eq: ['$_statusLower', 'closed']},
+                    then: '$closedAt',
+                  },
+                ],
+                default: null,
+              },
+            },
+          },
+        },
         // ...userTypeLookupStages,
         // ...userTypeLookupStages,
         {
@@ -539,7 +608,18 @@ export class ChatbotRepository implements IChatbotRepository {
             closedQuestions: [
               {
                 $match: {
-                  status: 'closed',
+                  $or: [
+                    {_statusLower: 'closed'},
+                    {_isPassed: true},
+                  ],
+                },
+              },
+              {$count: 'count'},
+            ],
+            passedQuestions: [
+              {
+                $match: {
+                  _isPassed: true,
                 },
               },
               {$count: 'count'},
@@ -547,19 +627,22 @@ export class ChatbotRepository implements IChatbotRepository {
             answeredWithin120Min: [
               {
                 $match: {
-                  status: 'closed',
-                  closedAt: {$exists: true},
-                  totalAnswersCount: {$gt: 0},
+                  _operationalCompletionAt: {$ne: null},
                 },
               },
               {
                 $match: {
                   $expr: {
                     $and: [
-                      {$gte: ['$closedAt', '$createdAt']},
+                      {$gte: ['$_operationalCompletionAt', '$createdAt']},
                       {
                         $lte: [
-                          {$subtract: ['$closedAt', '$createdAt']},
+                          {
+                            $subtract: [
+                              '$_operationalCompletionAt',
+                              '$createdAt',
+                            ],
+                          },
                           120 * 60 * 1000,
                         ],
                       },
@@ -572,19 +655,21 @@ export class ChatbotRepository implements IChatbotRepository {
             averageResponse: [
               {
                 $match: {
-                  status: 'closed',
-                  closedAt: {$exists: true},
-                  totalAnswersCount: {$gt: 0},
+                  _operationalCompletionAt: {$ne: null},
                 },
               },
-              {$match: {$expr: {$gte: ['$closedAt', '$createdAt']}}},
+              {
+                $match: {
+                  $expr: {$gte: ['$_operationalCompletionAt', '$createdAt']},
+                },
+              },
               {
                 $group: {
                   _id: null,
                   avgMinutes: {
                     $avg: {
                       $divide: [
-                        {$subtract: ['$closedAt', '$createdAt']},
+                        {$subtract: ['$_operationalCompletionAt', '$createdAt']},
                         60 * 1000,
                       ],
                     },
@@ -598,8 +683,7 @@ export class ChatbotRepository implements IChatbotRepository {
             markedDuplicateGdb: [
               {
                 $match: {
-                  status: 'duplicate',
-                  referenceSource: {$regex: '^golden$', $options: 'i'},
+                  _isGdbDuplicate: true,
                 },
               },
               {$count: 'count'},
@@ -614,6 +698,7 @@ export class ChatbotRepository implements IChatbotRepository {
     return {
       questionAsked: row.questionAsked?.[0]?.count ?? 0,
       closedQuestionsCount: row.closedQuestions?.[0]?.count ?? 0,
+      passedQuestionsCount: row.passedQuestions?.[0]?.count ?? 0,
       answeredWithin120Min: row.answeredWithin120Min?.[0]?.count ?? 0,
       averageResponseMinutes: row.averageResponse?.[0]?.avgMinutes ?? 0,
       inReviewCount: row.inReview?.[0]?.count ?? 0,
@@ -834,6 +919,8 @@ export class ChatbotRepository implements IChatbotRepository {
         ajrasakhaPushedToReviewer: ajrasakha.questionAsked,
         whatsappAnsweredWithin120Min: whatsapp.answeredWithin120Min,
         ajrasakhaAnsweredWithin120Min: ajrasakha.answeredWithin120Min,
+        whatsappPassedQuestions: whatsapp.passedQuestionsCount,
+        ajrasakhaPassedQuestions: ajrasakha.passedQuestionsCount,
         whatsappMarkedDuplicate: whatsapp.markedDuplicateGdbCount,
         ajrasakhaMarkedDuplicate: ajrasakha.markedDuplicateGdbCount,
         whatsappDynamicWeather,
@@ -10428,21 +10515,63 @@ for (const item of raw) {
 
       const avgCloseTimeStages = [
         {
+          $addFields: {
+            _statusLower: {$toLower: {$ifNull: ['$status', '']}},
+            _operationalCompletionAt: {
+              $cond: [
+                {
+                  $in: [
+                    {$toLower: {$ifNull: ['$status', '']}},
+                    ['pass'],
+                  ],
+                },
+                '$passedAt',
+                '$closedAt',
+              ],
+            },
+          },
+        },
+        {
           $group: {
             _id: null,
             totalQuestions: {$sum: 1},
+            completedQuestions: {
+              $sum: {
+                $cond: [
+                  {$in: ['$_statusLower', ['closed', 'pass']]},
+                  1,
+                  0,
+                ],
+              },
+            },
+            timedCompletedQuestions: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$in: ['$_statusLower', ['closed', 'pass']]},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$_operationalCompletionAt', null]},
+                      {$gte: ['$_operationalCompletionAt', '$createdAt']},
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
             closeTimeSumMs: {
               $sum: {
                 $cond: [
                   {
                     $and: [
-                      {$eq: ['$status', 'closed']},
+                      {$in: ['$_statusLower', ['closed', 'pass']]},
                       {$ne: ['$createdAt', null]},
-                      {$ne: ['$closedAt', null]},
-                      {$gte: ['$closedAt', '$createdAt']},
+                      {$ne: ['$_operationalCompletionAt', null]},
+                      {$gte: ['$_operationalCompletionAt', '$createdAt']},
                     ],
                   },
-                  {$subtract: ['$closedAt', '$createdAt']},
+                  {$subtract: ['$_operationalCompletionAt', '$createdAt']},
                   0,
                 ],
               },
@@ -10454,13 +10583,13 @@ for (const item of raw) {
             _id: 0,
             avgCloseTimeMinutes: {
               $cond: [
-                {$gt: ['$totalQuestions', 0]},
+                {$gt: ['$timedCompletedQuestions', 0]},
                 {
                   $round: [
                     {
                       $divide: [
                         '$closeTimeSumMs',
-                        {$multiply: ['$totalQuestions', 60000]},
+                        {$multiply: ['$timedCompletedQuestions', 60000]},
                       ],
                     },
                     2,
@@ -10479,12 +10608,33 @@ for (const item of raw) {
             $match: matchStage,
           },
           {
+            $addFields: {
+              _statusLower: {$toLower: {$ifNull: ['$status', '']}},
+              _operationalCompletionAt: {
+                $cond: [
+                  {
+                    $in: [
+                      {$toLower: {$ifNull: ['$status', '']}},
+                      ['pass'],
+                    ],
+                  },
+                  '$passedAt',
+                  '$closedAt',
+                ],
+              },
+            },
+          },
+          {
             $group: {
               _id: null,
               totalQuestions: {$sum: 1},
               closedQuestions: {
                 $sum: {
-                  $cond: [{$eq: ['$status', 'closed']}, 1, 0],
+                  $cond: [
+                    {$in: ['$_statusLower', ['closed', 'pass']]},
+                    1,
+                    0,
+                  ],
                 },
               },
               inReviewQuestions: {
@@ -10537,7 +10687,7 @@ for (const item of raw) {
 
               pass: {
                 $sum: {
-                  $cond: [{$eq: ['$status', 'pass']}, 1, 0],
+                  $cond: [{$eq: ['$_statusLower', 'pass']}, 1, 0],
                 },
               },
 
@@ -10557,13 +10707,29 @@ for (const item of raw) {
                   $cond: [
                     {
                       $and: [
-                        {$eq: ['$status', 'closed']},
+                        {$in: ['$_statusLower', ['closed', 'pass']]},
                         {$ne: ['$createdAt', null]},
-                        {$ne: ['$closedAt', null]},
-                        {$gte: ['$closedAt', '$createdAt']},
+                        {$ne: ['$_operationalCompletionAt', null]},
+                        {$gte: ['$_operationalCompletionAt', '$createdAt']},
                       ],
                     },
-                    {$subtract: ['$closedAt', '$createdAt']},
+                    {$subtract: ['$_operationalCompletionAt', '$createdAt']},
+                    0,
+                  ],
+                },
+              },
+              timedCompletedQuestions: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        {$in: ['$_statusLower', ['closed', 'pass']]},
+                        {$ne: ['$createdAt', null]},
+                        {$ne: ['$_operationalCompletionAt', null]},
+                        {$gte: ['$_operationalCompletionAt', '$createdAt']},
+                      ],
+                    },
+                    1,
                     0,
                   ],
                 },
@@ -10589,13 +10755,13 @@ for (const item of raw) {
               nonAgri: 1,
               avgCloseTimeMinutes: {
                 $cond: [
-                  {$gt: ['$totalQuestions', 0]},
+                  {$gt: ['$timedCompletedQuestions', 0]},
                   {
                     $round: [
                       {
                         $divide: [
                           '$closeTimeSumMs',
-                          {$multiply: ['$totalQuestions', 60000]},
+                          {$multiply: ['$timedCompletedQuestions', 60000]},
                         ],
                       },
                       2,
@@ -10749,16 +10915,12 @@ for (const item of raw) {
         source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
 
       const matchStage: any = {
-        status: 'closed',
         source: finalSource,
         $and: [
           {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
         ],
-        $expr: {
-          $lte: [{$subtract: ['$closedAt', '$createdAt']}, 2 * 60 * 60 * 1000],
-        },
       };
 
       if (startDate || endDate) {
@@ -10775,7 +10937,45 @@ for (const item of raw) {
         matchStage.$and.push(query);
       }
 
-      const count = await this.QuestionCollection.countDocuments(matchStage);
+      const result = await this.QuestionCollection.aggregate([
+        {$match: matchStage},
+        {
+          $addFields: {
+            _statusLower: {$toLower: {$ifNull: ['$status', '']}},
+            _operationalCompletionAt: {
+              $cond: [
+                {
+                  $in: [
+                    {$toLower: {$ifNull: ['$status', '']}},
+                    ['pass'],
+                  ],
+                },
+                '$passedAt',
+                '$closedAt',
+              ],
+            },
+          },
+        },
+        {
+          $match: {
+            _statusLower: {$in: ['closed', 'pass']},
+            _operationalCompletionAt: {$ne: null},
+            $expr: {
+              $and: [
+                {$gte: ['$_operationalCompletionAt', '$createdAt']},
+                {
+                  $lte: [
+                    {$subtract: ['$_operationalCompletionAt', '$createdAt']},
+                    2 * 60 * 60 * 1000,
+                  ],
+                },
+              ],
+            },
+          },
+        },
+        {$count: 'count'},
+      ]).toArray();
+      const count = result[0]?.count ?? 0;
       return count;
     } catch (error) {
       throw new InternalServerError(
@@ -12456,16 +12656,6 @@ for (const item of raw) {
 
     const matchQuery: any = {
       source: sourceType,
-      status: 'closed',
-
-      $expr: {
-        $lte: [
-          {
-            $subtract: ['$closedAt', '$createdAt'],
-          },
-          2 * 60 * 60 * 1000,
-        ],
-      },
       $and: [
         {
           $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
@@ -12547,6 +12737,35 @@ for (const item of raw) {
         $match: matchQuery,
       },
       {
+        $addFields: {
+          _statusLower: {$toLower: {$ifNull: ['$status', '']}},
+          _operationalCompletionAt: {
+            $cond: [
+              {$eq: [{$toLower: {$ifNull: ['$status', '']}}, 'pass']},
+              '$passedAt',
+              '$closedAt',
+            ],
+          },
+        },
+      },
+      {
+        $match: {
+          _statusLower: {$in: ['closed', 'pass']},
+          _operationalCompletionAt: {$ne: null},
+          $expr: {
+            $and: [
+              {$gte: ['$_operationalCompletionAt', '$createdAt']},
+              {
+                $lte: [
+                  {$subtract: ['$_operationalCompletionAt', '$createdAt']},
+                  2 * 60 * 60 * 1000,
+                ],
+              },
+            ],
+          },
+        },
+      },
+      {
         $sort: {
           createdAt: -1,
         },
@@ -12570,6 +12789,7 @@ for (const item of raw) {
                 status: 1,
                 createdAt: 1,
                 closedAt: 1,
+                passedAt: 1,
                 district: '$details.district',
                 crop: '$details.crop',
                 village: '$details.village',
@@ -13396,4 +13616,221 @@ console.log(
     questionId: string;
     messageId?: string | undefined;
   }) {}
+
+  async getUserProfile (userId: string, session?: ClientSession) : Promise<any>{
+    try{
+      const dateMatch: Record<string, any> = {
+        isCreatedByUser: true,
+        isDeleted: {$ne: true},
+      };
+      await this.init("annam");
+      const users = await this.users
+        .find({
+          _id: new ObjectId(userId),
+        })
+        .toArray();
+      if(users?.length === 0){
+        throw new InternalServerError(
+          `No user found for Id: ${userId}`,
+        );
+      }
+      const messageCounts = await this.messagesCollection
+        .aggregate(
+          [
+            {$match: dateMatch},
+            {
+              $group: {
+                _id: '$user',
+                totalQuestions: {$sum: 1},
+              },
+            },
+          ],
+          {session},
+        )
+        .toArray();
+      let unAssigned = [];
+      let assigned = [];
+      if ( [
+            'district_coordinator',
+            'block_coordinator',
+            'village_volunteer',
+          ].includes(
+          users[0]?.userRole
+        )) {
+        const district = users[0]?.farmerProfile?.district;
+        const block = users[0]?.farmerProfile?.blockName;
+        const nextRoleMap: Record<string, string> = {
+          district_coordinator: "block_coordinator",
+          block_coordinator: "village_volunteer",
+          village_volunteer: "farmer",
+        };
+        const nextRole = nextRoleMap[users[0].userRole];
+        const filter: any = {
+          assignedTo: null,
+        };
+        if (users[0].userRole === "district_coordinator") {
+          filter["farmerProfile.district"] = district;
+          const districtBlocks = BLOCKS[district] || [];
+          filter["farmerProfile.blockName"] = {
+            $in: districtBlocks,
+          };
+          filter["userRole"] = nextRole;
+        }
+        if (users[0].userRole === "block_coordinator") {
+          filter["farmerProfile.district"] = district;
+          filter["farmerProfile.blockName"] = block;
+          const blockVillages = VILLAGES[block] || [];
+          filter["farmerProfile.villageName"] = {
+            $in: blockVillages,
+          };
+          filter["userRole"] = nextRole;
+        }
+        if (users[0].userRole === "village_volunteer") {
+          filter["farmerProfile.district"] = district;
+          const districtBlocks = BLOCKS[district] || [];
+          const districtVillages = districtBlocks.flatMap(
+            (blockName) => VILLAGES[blockName] || [],
+          );
+          filter["farmerProfile.villageName"] = {
+            $in: districtVillages,
+          };
+          filter["userRole"] = {
+            $nin: [
+              "district_coordinator",
+              "block_coordinator",
+              "village_volunteer",
+            ],
+          };
+        }
+
+        unAssigned = await this.users
+          .find(filter, {
+            projection: {
+              _id: 1,
+              name: 1,
+            },
+          })
+          .toArray();
+
+        if(users[0]?.assignedCoordinators?.length > 0){
+          assigned = await this.users.find(
+            {
+              _id: {
+                $in: users[0].assignedCoordinators,
+              },
+            },
+            {
+              projection: {
+                _id: 1,
+                name: 1,
+                userRole: 1,
+              },
+            },
+          ).toArray();
+        }
+
+      }
+
+      return  {
+        userId: users[0]._id,
+        name: users[0].name,
+        username: users[0].username,
+        email: users[0].email,
+        role: users[0].role,
+        farmerProfile: users[0].farmerProfile,
+        createdAt: users[0].createdAt,
+        isVerified: users[0].isVerified,
+        userRole: users[0].userRole,
+        totalQuestions: messageCounts?.length,
+        unAssigned : unAssigned ?? [],
+        assigned: assigned ?? [],
+      };
+    }catch(error){
+      throw new InternalServerError(
+        `Failed to get user profile: ${error}`,
+      );
+    }
+  }
+
+  async assignUsers(
+    coordinatorId: string,
+    targetIds: string[],
+  ): Promise<any> {
+    try{
+      await this.init("annam");
+
+      const targetObjectIds = targetIds.map(
+        (id) => new ObjectId(id),
+      );
+
+      await this.users.updateMany(
+        {
+          _id: {
+            $in: targetObjectIds,
+          },
+        },
+        {
+          $set: {
+            assignedTo: new ObjectId(coordinatorId),
+          },
+        },
+      );
+
+      const result = await this.users.updateOne(
+        {
+          _id: new ObjectId(coordinatorId),
+        },
+        {
+          $addToSet: {
+            assignedCoordinators: {
+              $each: targetObjectIds,
+            },
+          },
+        },
+      );
+
+      return result;
+    }catch(error){
+      throw new InternalServerError(error);
+    }
+  }
+
+  async unAssignUsers(
+    coordinatorId: string,
+    targetIds: string[],
+  ): Promise<any> {
+    try {
+      await this.init("annam");
+
+      const targetObjectIds = targetIds.map(
+        (id) => new ObjectId(id),
+      );
+
+      // Remove coordinator from users
+      await this.users.updateMany(
+        {
+          _id: { $in: targetObjectIds },
+        },
+        {
+          $set: { assignedTo: null }
+        },
+      );
+
+      // Remove users from coordinator
+      const result = await this.users.updateOne(
+        {
+          _id: new ObjectId(coordinatorId),
+        },
+        {
+          $pullAll: {
+            assignedCoordinators: targetObjectIds,
+          },
+        },
+      );
+
+      return result;
+    } catch (error) {
+      throw new InternalServerError(error);
+    }
+  }
 }

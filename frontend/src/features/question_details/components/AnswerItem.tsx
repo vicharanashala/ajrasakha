@@ -16,12 +16,12 @@ import type {
   UserRole,
 } from "@/types";
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { toast } from "sonner";
 import { AnswerItemHeader } from "./answer_item/AnswerItemHeader";
 import { AnswerContent } from "./answer_item/AnswerContent";
 import { AnswerActions } from "./answer_item/AnswerActions";
 import { CommentsSection } from "@/components/comments-section";
 import { useGetReRoutedQuestionFullData } from "@/hooks/api/question/useGetReRoutedQuestionFullData";
+import { toast } from "@/shared/components/toast";
 
 interface AnswerItemProps {
   answer: IAnswer;
@@ -96,6 +96,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   });
 
   const handleUpdateAnswer = async () => {
+    let toastId;
     if (isSubmittingAnswerRef.current || isSubmittingAnswer || isUpdatingAnswer) {
       return;
     }
@@ -120,18 +121,19 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         toast.error("Answer ID not found. Cannot update.");
         return;
       }
-
+      toastId = toast.loading('approving answer...')
       await updateAnswer({
         updatedAnswer: editableAnswer,
         sources,
         answerId,
       });
-
+      toast.dismiss(toastId)
       toast.success(
         "Answer approved successfully! The question is now closed. Thank you!"
       );
       setEditOpen(false);
     } catch (error: any) {
+      toast.dismiss(toastId)
       console.error("Failed to edit answer:", error);
       let errorMessage = error?.message || error?.msg || "Unknown error";
       errorMessage = errorMessage.replace(/this answer:.+?,/, "this answer,");
@@ -146,6 +148,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   };
 
   const handleEditFinalAnswer = async () => {
+    let toastId;
     if (isEditingFinalRef.current || isEditingFinal || isUpdatingAnswer) {
       return;
     }
@@ -169,16 +172,17 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         toast.error("Answer ID not found. Cannot update.");
         return;
       }
-
+      toastId = toast.loading('updating answer...')
       await updateAnswer({
         updatedAnswer: editFinalAnswer,
         sources: editFinalSources,
         answerId,
       });
-
+      toast.dismiss(toastId)
       toast.success("Final answer updated successfully.");
       setEditFinalOpen(false);
     } catch (error: any) {
+      toast.dismiss(toastId)
       console.error("Failed to edit final answer:", error);
       const errorMessage = error?.message || error?.msg || "Unknown error";
       toast.error(`Failed to update final answer. ${errorMessage}`);
@@ -199,6 +203,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   };
 
   const handleSubmit = async () => {
+    let toastId;
     if (selectedExperts.length === 0) {
       toast.error("Please select an expert.");
       return;
@@ -210,6 +215,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
     }
 
     try {
+      toastId= toast.loading('Re Routing the question...')
       await allocateExpert({
         questionId: props.questionId,
         experts: selectedExperts[0],
@@ -220,8 +226,10 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
       });
       setSelectedExperts([]);
       refechrerouteSelectedQuestion();
+      toast.dismiss(toastId)
       toast.success("You have successfully Re Routed the question");
     } catch (error: any) {
+      toast.dismiss(toastId)
       console.error("Error allocating experts:", error);
       toast.error(
         error?.message || "Failed to allocate experts. Please try again."
@@ -232,6 +240,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   };
 
   const handleRejectReRouteAnswer = async (reason: string) => {
+    let toastId;
     if (reason.trim() === "") {
       toast.error("No reason provided for rejection");
       return;
@@ -262,6 +271,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
     const userId = lastReroutedTo.reroutedTo._id;
 
     try {
+      toastId = toast.loading('rejecting Re Route...')
       await rejectReRoute({
         reason,
         rerouteId: rerouteId,
@@ -271,8 +281,10 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         role: "moderator",
       });
       refechrerouteSelectedQuestion();
+      toast.dismiss(toastId)
       toast.success("You have successfully rejected the Re Route Question");
     } catch (error: any) {
+      toast.dismiss(toastId)
       console.error("Failed to reject reroute question:", error);
       const message =
         error?.response?.data?.message ||

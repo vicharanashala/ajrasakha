@@ -44,6 +44,7 @@ import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
 import { DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT } from '#root/shared/constants/general.js';
 import { th } from '@faker-js/faker';
 import { triggerWebhook } from '../utils/triggerWebhook.js';
+import { threadId } from 'worker_threads';
 
 @injectable()
 export class AnswerService extends BaseService implements IAnswerService {
@@ -487,6 +488,7 @@ export class AnswerService extends BaseService implements IAnswerService {
             );
             // Decrement workload: PAE expert was incremented on allocation and is now done
             await this.userRepo.updateReputationScore(userId, false, session);
+            await this.questionSubmissionRepo.clearCurrentExpertTracking(questionId, session);
             return;
           }
         }
@@ -558,6 +560,7 @@ export class AnswerService extends BaseService implements IAnswerService {
               session,
             );
 
+            await this.questionSubmissionRepo.clearCurrentExpertTracking(questionId, session);
             return { message: 'Your response recorded successfully, thank you!' };
           }
         }
@@ -815,8 +818,9 @@ export class AnswerService extends BaseService implements IAnswerService {
           }
         }
 
-        // Clear opened-at timestamp now that expert has submitted their response
-        await this.questionSubmissionRepo.clearCurrentExpertOpenedAt(questionId, session);
+        // Reset current-expert tracking now that the expert has submitted their
+        // response — both allocated-at and opened-at are cleared.
+        await this.questionSubmissionRepo.clearCurrentExpertTracking(questionId, session);
 
         // Decrement the reputation score of user since the user reviewed
         const IS_INCREMENT = false;
@@ -2017,6 +2021,7 @@ answer: ${updates.answer}`;
               ...webhookPayload,
               question: question.question,
               messageId: question.messageId,
+              threadId:question.threadId
             },
             'Browser',
           );

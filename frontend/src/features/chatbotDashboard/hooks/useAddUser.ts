@@ -1,12 +1,16 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '@/hooks/api/api-fetch';
 import { env } from '@/config/env';
-import { toast } from 'sonner';
+import { toast } from '@/shared/components/toast';
 
 export function useAddUser() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    onMutate: ()=>{
+      const toastId = toast.loading('adding user...')
+      return {toastId}
+    },
     mutationFn: async ({
       source,
       data,
@@ -48,7 +52,8 @@ export function useAddUser() {
       );
       return result;
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: (_data, variables,context) => {
+      if(context?.toastId)toast.dismiss(context.toastId)
       queryClient.invalidateQueries({ queryKey: ['user-details'] });
       if (variables.data.target === 'review_system') {
         queryClient.invalidateQueries({ queryKey: ['admin'] });
@@ -57,7 +62,8 @@ export function useAddUser() {
       }
       toast.success('Farmer added successfully');
     },
-    onError: (error: any) => {
+    onError: (error: any,_,context) => {
+      if(context?.toastId)toast.dismiss(context.toastId)
       toast.error(error?.message || 'Failed to add user');
     },
   });

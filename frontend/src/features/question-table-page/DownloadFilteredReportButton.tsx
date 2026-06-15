@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Button } from "../../components/atoms/button";
 import { Download, Loader2, Filter, Sprout } from "lucide-react";
-import { toast } from "sonner";
 import { QuestionService } from "@/hooks/services/questionService";
 import {
   Dialog,
@@ -25,6 +24,7 @@ import { Checkbox } from "@/components/atoms/checkbox";
 import { STATES, CROPS, SEASONS, DOMAINS, STATUS } from "@/components/MetaData";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
+import { toast } from "@/shared/components/toast";
 
 const getDefaultDates = () => {
   const today = new Date();
@@ -75,10 +75,10 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
       toast.error("Start date cannot be after end date");
       return;
     }
-
+    let toastId;
     try {
       setIsDownloading(true);
-      toast.info("Preparing download...");
+      toastId=toast.loading("Preparing download...");
 
       const blob = await questionService.downloadFilteredReport({
         ...filters,
@@ -109,10 +109,11 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-
+      toast.dismiss(toastId)
       toast.success("Filtered report downloaded successfully!");
       setIsDialogOpen(false);
     } catch (error) {
+      toast.dismiss(toastId)
       console.error("Download error:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to download filtered report";
       toast.error(errorMessage);

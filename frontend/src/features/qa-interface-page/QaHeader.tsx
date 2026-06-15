@@ -27,7 +27,7 @@ import { TimerDisplay } from "../../components/timer-display";
 import { getTimerStartTime } from "@/utils/getTimerStartTime";
 import { useFetchAnswer } from "@/hooks/api/answer/useGetAiInitialAnswer";
 import type { SourceItem } from "@/types";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 
 type AiAnswerResponse = {
   answer?: string;
@@ -70,6 +70,7 @@ type QaHeaderProps = {
   onToggleCollapse: () => void;
   onAiAnswerFetched?: (questionId: string, answer: string, sources: SourceItem[]) => void;
   hideControls?: boolean;
+  hasTimeboundQuestions?: boolean;
 }
 
 const normalizeAiAnswerSources = (result: AiAnswerResponse | null | undefined): SourceItem[] => {
@@ -278,6 +279,7 @@ const QaQuestionItem = ({
   selectedState,
   onStateChange,
   onAiAnswerFetched,
+  hasTimeboundQuestions = false,
 }: {
   question: any;
   selectedQuestion: string | null;
@@ -287,12 +289,14 @@ const QaQuestionItem = ({
   selectedState: string;
   onStateChange: (state: string) => void;
   onAiAnswerFetched?: (questionId: string, answer: string, sources: SourceItem[]) => void;
+  hasTimeboundQuestions?: boolean;
 }) => {
   const { mutate: fetchAnswer, isPending } = useFetchAnswer();
   const states = STATES;
   const fetchAiInitialAnswer = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     onQuestionSelect(question.id);
+    const toastId = toast.loading('fetching answer...')
     fetchAnswer(
       {
         query: question.text,
@@ -302,6 +306,7 @@ const QaQuestionItem = ({
       {
         onSuccess: (result: AiAnswerResponse | null) => {
           if (!result?.answer) {
+            toast.dismiss(toastId)
             toast.error("AI answer was not returned.");
             return;
           }
@@ -311,9 +316,11 @@ const QaQuestionItem = ({
             result.answer,
             normalizeAiAnswerSources(result),
           );
+          toast.dismiss(toastId)
           toast.success("AI answer added to draft.");
         },
         onError: () => {
+          toast.dismiss(toastId)
           toast.error("Failed to fetch AI answer.");
         },
       },
@@ -351,6 +358,10 @@ const QaQuestionItem = ({
     sourceStyles[question.source as keyof typeof sourceStyles] ||
     sourceStyles.DEFAULT;
 
+  // Check if this is a non-timebound question that should be disabled
+  const isTimeboundQuestion = question.source === "AJRASAKHA" || question.source === "WHATSAPP";
+  const shouldDisable = hasTimeboundQuestions && !isTimeboundQuestion;
+
   // Get correct timer start time based on user role (Author vs Level Expert)
   const timerStartTime = getTimerStartTime(question);
   const { timer } = useQuestionTimer(
@@ -374,6 +385,7 @@ const QaQuestionItem = ({
           ? `${currentStyle.selected} shadow-md ring-2`
           : `bg-card ${currentStyle.hover} hover:bg-accent/20 hover:shadow-sm`
         }
+    ${shouldDisable ? "opacity-50 cursor-not-allowed select-none" : ""}
   `}
     >
       {selectedQuestion === question?.id && (
@@ -396,7 +408,8 @@ const QaQuestionItem = ({
           <RadioGroupItem
             value={question?.id || ""}
             id={question?.id}
-            className="mt-1  w-5 h-5 rounded-full border-2 border-gray-400 dark:border-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 checked:bg-green-600 dark:checked:bg-green-400"
+            disabled={shouldDisable}
+            className={`mt-1 w-5 h-5 rounded-full border-2 border-gray-400 dark:border-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 checked:bg-green-600 dark:checked:bg-green-400 ${shouldDisable ? "cursor-not-allowed opacity-50" : ""}`}
           />
 
           <div className="flex-1 min-w-0">
@@ -405,12 +418,35 @@ const QaQuestionItem = ({
                 PAE Reroute
               </span>
             )}
-            <Label
-              htmlFor={question?.id}
-              className="text-sm md:text-base font-medium leading-relaxed cursor-pointer text-foreground group-hover:text-foreground/90 transition-colors block"
-            >
-              {question?.text}
-            </Label>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Label
+                htmlFor={question?.id}
+                // className="text-sm md:text-base font-medium leading-relaxed cursor-pointer text-foreground group-hover:text-foreground/90 transition-colors block"
+                className={`text-sm md:text-base font-medium leading-relaxed text-foreground group-hover:text-foreground/90 transition-colors block ${shouldDisable ? "cursor-not-allowed" : "cursor-pointer"}`}
+              >
+                {question?.text}
+              </Label>
+              {question?.status && ['non_agri', 'dynamic'].includes(question.status.toLowerCase()) && (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    flexShrink: 0,
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    padding: '2px 8px',
+                    borderRadius: '9999px',
+                    border: '1px solid',
+                    borderColor: question.status.toLowerCase() === 'non_agri' ? '#fdba74' : '#d8b4fe',
+                    backgroundColor: question.status.toLowerCase() === 'non_agri' ? '#fff7ed' : '#faf5ff',
+                    color: question.status.toLowerCase() === 'non_agri' ? '#c2410c' : '#7e22ce',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {question.status.toLowerCase() === 'non_agri' ? 'Non Agri' : 'Dynamic'}
+                </span>
+              )}
+            </div>
             {question.totalAnswersCount === 0 && (
               <div className="mt-2 flex items-center gap-2">
                 <Select
@@ -557,6 +593,7 @@ export const QaHeader = ({ questions,
   onToggleCollapse,
   onAiAnswerFetched,
   hideControls = false,
+  hasTimeboundQuestions = false,
 }: QaHeaderProps) => {
   const [questionStates, setQuestionStates] = useState<
     Record<string, string>
@@ -725,6 +762,7 @@ export const QaHeader = ({ questions,
                     }))
                   }
                   onAiAnswerFetched={onAiAnswerFetched}
+                  hasTimeboundQuestions={hasTimeboundQuestions}
                 />
               ))}
             </RadioGroup>

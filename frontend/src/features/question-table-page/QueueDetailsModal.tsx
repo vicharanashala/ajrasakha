@@ -24,6 +24,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useGetQueueDetails } from "@/hooks/api/question/useGetQueueDetails";
 import { useGetQueueSection } from "@/hooks/api/question/useGetQueueSection";
+import { useNavigateToQuestion } from "@/hooks/api/question/useNavigateToQuestion";
 import type {
   QueueQuestionItem,
   QueueExpertItem,
@@ -89,16 +90,21 @@ const QuestionRow = ({
   showStuck,
   showWorkType,
   showOpenedIdle,
+  onClick,
 }: {
   item: QueueQuestionItem;
   showExpert?: boolean;
   showStuck?: boolean;
   showWorkType?: boolean;
   showOpenedIdle?: boolean;
+  onClick?: () => void;
 }) => {
   const meta = [item.source, item.state, item.crop].filter(Boolean).join(" · ");
   return (
-    <div className="px-3 py-2.5 border-b border-gray-100 dark:border-gray-800 last:border-0">
+    <div
+      onClick={onClick}
+      className="px-3 py-2.5 border-b border-gray-100 dark:border-gray-800 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+    >
       <p className="text-sm text-gray-900 dark:text-gray-100 line-clamp-2">
         {item.question || "(no text)"}
       </p>
@@ -117,7 +123,27 @@ const QuestionRow = ({
         {meta && <span>{meta}</span>}
         {item.createdAt && <span>· {formatDate(new Date(item.createdAt))}</span>}
       </div>
+      {/* Full queue with levels (Author, Reviewer 1, …) — shown for any section
+          whose question has an allocation queue. Allocated shows plain names plus
+          a single status for the current person (Completed / Waiting). */}
+      {item.queueExpertNames && item.queueExpertNames.length > 0 && (
+        <p className="mt-1 text-[11px] font-medium text-gray-700 dark:text-gray-300 flex flex-wrap items-center gap-1.5">
+          <span>Queue: {item.queueExpertNames.join(", ")}</span>
+          {item.lastPersonStatus && (
+            <span
+              className={
+                item.lastPersonStatus === "completed"
+                  ? "px-1.5 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-300 uppercase tracking-wide"
+                  : "px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300 uppercase tracking-wide"
+              }
+            >
+              {item.lastPersonStatus === "completed" ? "Completed" : "Waiting"}
+            </span>
+          )}
+        </p>
+      )}
       {showExpert &&
+        !(item.queueExpertNames && item.queueExpertNames.length > 0) &&
         (item.expertName ? (
           <p className="mt-1 text-[11px] font-medium text-gray-700 dark:text-gray-300">
             Expert: {item.expertName}
@@ -348,8 +374,12 @@ export const QueueDetailsModal = ({
   setIsSidebarOpen?: (v: boolean) => void;
 }) => {
   const [open, setOpen] = useState(false);
-  const [openSection, setOpenSection] = useState<string | null>("received");
-  
+  // Sections are independently collapsible — opening one no longer closes the others,
+  // so the user can view e.g. "Never Allocated" and "Available Experts" at the same time.
+  const [openSections, setOpenSections] = useState<Set<string>>(
+    () => new Set(["received"]),
+  );
+
   // Date filter state - default to current date
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -368,8 +398,32 @@ export const QueueDetailsModal = ({
       dateFilter.endTime ?? undefined,
     );
 
+  const { goToQuestion } = useNavigateToQuestion();
+
+  // Opening a question unmounts this modal (the list view is replaced by the
+  // question detail). Leave a one-shot flag so that when the user exits the
+  // question and the modal remounts, it reopens where they left off.
+  useEffect(() => {
+    if (sessionStorage.getItem("reopenQueueDetails") === "1") {
+      sessionStorage.removeItem("reopenQueueDetails");
+      setOpen(true);
+      setIsSidebarOpen?.(false);
+    }
+  }, [setIsSidebarOpen]);
+
+  const handleQuestionClick = (item: QueueQuestionItem) => {
+    sessionStorage.setItem("reopenQueueDetails", "1");
+    setOpen(false);
+    goToQuestion(item._id, "moderator_queue");
+  };
+
   const toggle = (key: string) =>
-    setOpenSection((prev) => (prev === key ? null : key));
+    setOpenSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   const handleDateFilterChange = (key: string, value: Date | undefined) => {
     setDateFilter((prev) => ({ ...prev, [key]: value }));
@@ -466,8 +520,14 @@ export const QueueDetailsModal = ({
               count={data.received.count}
               section="received"
               initialItems={data.received.items}
-              renderItem={(q) => <QuestionRow key={q._id} item={q} />}
-              isOpen={openSection === "received"}
+              renderItem={(q) => (
+                <QuestionRow
+                  key={q._id}
+                  item={q}
+                  onClick={() => handleQuestionClick(q)}
+                />
+              )}
+              isOpen={openSections.has("received")}
               onToggle={() => toggle("received")}
               emptyText="No questions received"
               startTime={dateFilter.startTime ?? undefined}
@@ -482,8 +542,14 @@ export const QueueDetailsModal = ({
               count={data.autoAllocateOff.count}
               section="autoAllocateOff"
               initialItems={data.autoAllocateOff.items}
-              renderItem={(q) => <QuestionRow key={q._id} item={q} />}
-              isOpen={openSection === "autoAllocateOff"}
+              renderItem={(q) => (
+                <QuestionRow
+                  key={q._id}
+                  item={q}
+                  onClick={() => handleQuestionClick(q)}
+                />
+              )}
+              isOpen={openSections.has("autoAllocateOff")}
               onToggle={() => toggle("autoAllocateOff")}
               emptyText="No auto-allocate-on questions"
               startTime={dateFilter.startTime ?? undefined}
@@ -499,8 +565,14 @@ export const QueueDetailsModal = ({
               count={data.waiting.count}
               section="waiting"
               initialItems={data.waiting.items}
-              renderItem={(q) => <QuestionRow key={q._id} item={q} />}
-              isOpen={openSection === "waiting"}
+              renderItem={(q) => (
+                <QuestionRow
+                  key={q._id}
+                  item={q}
+                  onClick={() => handleQuestionClick(q)}
+                />
+              )}
+              isOpen={openSections.has("waiting")}
               onToggle={() => toggle("waiting")}
               emptyText="Nothing waiting for allocation"
               startTime={dateFilter.startTime ?? undefined}
@@ -515,8 +587,15 @@ export const QueueDetailsModal = ({
               count={data.stuck.count}
               section="stuck"
               initialItems={data.stuck.items}
-              renderItem={(q) => <QuestionRow key={q._id} item={q} showStuck />}
-              isOpen={openSection === "stuck"}
+              renderItem={(q) => (
+                <QuestionRow
+                  key={q._id}
+                  item={q}
+                  showStuck
+                  onClick={() => handleQuestionClick(q)}
+                />
+              )}
+              isOpen={openSections.has("stuck")}
               onToggle={() => toggle("stuck")}
               emptyText="No stuck questions"
               startTime={dateFilter.startTime ?? undefined}
@@ -531,8 +610,15 @@ export const QueueDetailsModal = ({
               count={data.openedIdle.count}
               section="openedIdle"
               initialItems={data.openedIdle.items}
-              renderItem={(q) => <QuestionRow key={q._id} item={q} showOpenedIdle />}
-              isOpen={openSection === "openedIdle"}
+              renderItem={(q) => (
+                <QuestionRow
+                  key={q._id}
+                  item={q}
+                  showOpenedIdle
+                  onClick={() => handleQuestionClick(q)}
+                />
+              )}
+              isOpen={openSections.has("openedIdle")}
               onToggle={() => toggle("openedIdle")}
               emptyText="No opened-but-idle questions"
               startTime={dateFilter.startTime ?? undefined}
@@ -547,8 +633,15 @@ export const QueueDetailsModal = ({
               count={data.needsReviewer.count}
               section="needsReviewer"
               initialItems={data.needsReviewer.items}
-              renderItem={(q) => <QuestionRow key={q._id} item={q} showExpert />}
-              isOpen={openSection === "needsReviewer"}
+              renderItem={(q) => (
+                <QuestionRow
+                  key={q._id}
+                  item={q}
+                  showExpert
+                  onClick={() => handleQuestionClick(q)}
+                />
+              )}
+              isOpen={openSections.has("needsReviewer")}
               onToggle={() => toggle("needsReviewer")}
               emptyText="Nothing waiting for a reviewer"
               startTime={dateFilter.startTime ?? undefined}
@@ -564,9 +657,14 @@ export const QueueDetailsModal = ({
               section="allocated"
               initialItems={data.allocated.items}
               renderItem={(q) => (
-                <QuestionRow key={q._id} item={q} showExpert />
+                <QuestionRow
+                  key={q._id}
+                  item={q}
+                  showExpert
+                  onClick={() => handleQuestionClick(q)}
+                />
               )}
-              isOpen={openSection === "allocated"}
+              isOpen={openSections.has("allocated")}
               onToggle={() => toggle("allocated")}
               emptyText="No allocated questions"
               startTime={dateFilter.startTime ?? undefined}
@@ -582,7 +680,7 @@ export const QueueDetailsModal = ({
               section="freeExperts"
               initialItems={data.freeExperts.items}
               renderItem={(e) => <ExpertRow key={e._id} item={e} />}
-              isOpen={openSection === "freeExperts"}
+              isOpen={openSections.has("freeExperts")}
               onToggle={() => toggle("freeExperts")}
               emptyText="No free experts"
               startTime={dateFilter.startTime ?? undefined}

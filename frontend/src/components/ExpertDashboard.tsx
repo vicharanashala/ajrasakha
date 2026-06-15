@@ -28,6 +28,12 @@ import { Input } from "@/components/atoms/input";
 import { Pagination } from "@/components/pagination";
 import { Button } from "./atoms/button";
 import { DateRangeFilter } from "./DateRangeFilter";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/atoms/tooltip";
 import { Badge } from "./atoms/badge";
 import { ConfirmationModal } from "./confirmation-modal";
 import { useRemoveExpertAllocations } from "@/hooks/api/Admin/useRemoveExpertAllocations";
@@ -35,6 +41,7 @@ import { useGetAllocatedQuestions } from "@/hooks/api/question/useGetAllocatedQu
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import type { IQuestion } from "@/types";
 import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
+import { toast } from "@/shared/components/toast";
 interface ExpertDashboardProps {
   expertId?: string | null;
   goBack?: () => void;
@@ -377,7 +384,11 @@ export const ExpertDashboard = ({
                 type="delete"
                 isLoading={removingAllocations}
                 onConfirm={async () => {
-                  await removeExpertAllocations(expertId);
+                  await toast.promise(removeExpertAllocations(expertId),{
+                    loading: 'Removing allocations...',
+                    success:(resp:any) => `Allocations removed successfully from ${resp?.questionsAffected ?? 0} question(s).`,
+                    error:(err:any) =>  err?.message || "Failed to remove allocations. Please try again."
+                  });
                 }}
                 trigger={
                   <div className="relative inline-block">
@@ -734,6 +745,7 @@ export const ExpertDashboard = ({
                       <TableHead className="text-center w-12">Sl.No</TableHead>
                       <TableHead className="text-center w-12">Source</TableHead>
                       <TableHead className="text-left">Question Text</TableHead>
+                      <TableHead className="text-center w-32">Status</TableHead>
                       <TableHead className="text-center w-52">Review Level</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -741,14 +753,14 @@ export const ExpertDashboard = ({
                   <TableBody>
                     {isQuestionsLoading ? (
                       <TableRow>
-                        <TableCell colSpan={3} className="text-center py-10">
+                        <TableCell colSpan={5} className="text-center py-10">
                           <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />
                         </TableCell>
                       </TableRow>
                     ) : paginatedQuestions.length === 0 ? (
                       <TableRow>
                         <TableCell
-                          colSpan={3}
+                          colSpan={5}
                           className="text-center py-10 text-muted-foreground"
                         >
                           No questions found
@@ -761,16 +773,34 @@ export const ExpertDashboard = ({
                             {(questionsPage - 1) * questionsLimit + index + 1}
                           </TableCell>
                           <TableCell className={` ${question.source === "AJRASAKHA"
-                              ? "text-red-500 "
-                              : question.source === "WHATSAPP"
-                                ? "text-green-500"
-                                : question.source === "OUTREACH"
-                                  ? "text-orange-500"
-                                  : question.source === "AGRI_EXPERT"
-                                    ? "text-gray-500"
-                                    : "text-yellow-500"
+                            ? "text-red-500 "
+                            : question.source === "WHATSAPP"
+                              ? "text-green-500"
+                              : question.source === "OUTREACH"
+                                ? "text-orange-500"
+                                : question.source === "AGRI_EXPERT"
+                                  ? "text-gray-500"
+                                  : "text-yellow-500"
                             }`}>{question.source}</TableCell>
-                          <TableCell className="align-top">{question.text}</TableCell>
+                          <TableCell className="align-top max-w-[300px]">
+                            {question.text.length > 80 ? (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="line-clamp-2 cursor-default">{question.text}</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="bottom" className="max-w-sm text-sm">
+                                    {question.text}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : (
+                              <span>{question.text}</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="align-top text-center">
+                            {question.status || '—'}
+                          </TableCell>
                           <TableCell className="align-top text-center">
                             {formatReviewLevel(question.review_level_number)}
                           </TableCell>

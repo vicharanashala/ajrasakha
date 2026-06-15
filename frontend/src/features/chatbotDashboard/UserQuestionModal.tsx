@@ -398,7 +398,7 @@ function UserActivityDialog({
   latestMessageId,
 }: UserActivityDialogProps) {
   const totalPages = activeData?.totalPages ?? 1;
-console.log(user, "UserActivityDialog render");
+// console.log(user, "UserActivityDialog render");
   const { mutate: notifyUser, isPending } = useNotifyUser();
   const queryClient = useQueryClient();
   const handleRefresh = async ()=>{

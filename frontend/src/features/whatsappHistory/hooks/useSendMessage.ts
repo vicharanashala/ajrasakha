@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '@/hooks/api/api-fetch';
 import { env } from '@/config/env';
-import { toast } from 'sonner';
 import type { Message } from '../types';
+import { toast } from '@/shared/components/toast';
 
 export function useSendMessage(threadId: string | undefined, phoneNumber: string | undefined) {
   const queryClient = useQueryClient();
@@ -21,6 +21,8 @@ export function useSendMessage(threadId: string | undefined, phoneNumber: string
       return response;
     },
     onMutate: async (messageText: string) => {
+
+      const toastId = toast.loading('senting message...')
       // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
       await queryClient.cancelQueries({ queryKey: ['whatsapp-thread-details', threadId] });
 
@@ -39,14 +41,16 @@ export function useSendMessage(threadId: string | undefined, phoneNumber: string
         queryClient.setQueryData(['whatsapp-thread-details', threadId], [...previousMessages, optimisticMessage]);
       }
 
-      return { previousMessages };
+      return { previousMessages,toastId };
     },
-    onSuccess: () => {
+    onSuccess: (_,__,context) => {
+      if(context?.toastId)toast.dismiss(context.toastId);
       toast.success('Message sent to user successfully!');
       queryClient.invalidateQueries({ queryKey: ['whatsapp-thread-details', threadId] });
       queryClient.invalidateQueries({ queryKey: ['whatsapp-threads'] });
     },
     onError: (err, newMessage, context) => {
+      if(context?.toastId)toast.dismiss(context.toastId);
       toast.error(`Failed to send message to user: ${err.message}`);
       // Rollback to the previous value
       if (context?.previousMessages) {

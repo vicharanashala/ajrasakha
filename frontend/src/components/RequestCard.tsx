@@ -40,7 +40,6 @@ import type { IRequest, RequestStatus } from "@/types";
 import { useGetRequestDiff } from "@/hooks/api/request/useGetRequestDiff";
 import { ScrollArea } from "./atoms/scroll-area";
 import { useUpdateRequestStatus } from "@/hooks/api/request/useUpdateRequestStatus";
-import { toast } from "sonner";
 import { Separator } from "./atoms/separator";
 import {
   Dialog,
@@ -49,6 +48,7 @@ import {
   DialogTitle,
 } from "./atoms/dialog";
 import { ReqDetailsDiff } from "./ReqDetailsDiff";
+import { toast, useToast } from "@/shared/components/toast";
 
 const initials = (name: string) => {
   return name
@@ -123,6 +123,7 @@ export const RequestCard = ({
   isHighlighted = false,
   id,
 }: RequestCardProps) => {
+  const { error: toastError} = useToast();
   const [diffOpen, setDiffOpen] = useState(false);
   const [newStatus, setNewStatus] = useState<RequestStatus>("pending");
   const [response, setResponse] = useState<string>("");
@@ -144,21 +145,23 @@ export const RequestCard = ({
   const handleSubmit = async () => {
     try {
       if (!newStatus || newStatus === req.status) {
-        toast.error(
+        toastError(
           "Please select a new status different from the current one.",
         );
         return;
       }
       if (!response || response.trim().length < 8) {
-        toast.error("Response must be at least 8 characters long.");
+        toastError("Response must be at least 8 characters long.");
         return;
       }
-      await updateStatus({ status: newStatus, requestId: req._id, response });
-      toast.success("Request updated successfully.");
+      await toast.promise(updateStatus({ status: newStatus, requestId: req._id, response }),{
+        loading:"updating the Request...",
+        success:"Request updated successfully.",
+        error: "Failed to update the request. Please try again."
+      });
       setDiffOpen(false);
     } catch (error) {
       console.error("Error updating request:", error);
-      toast.error("Failed to update the request. Please try again.");
     }
   };
 
@@ -219,15 +222,20 @@ export const RequestCard = ({
           isLoading={deleting}
           onConfirm={async () => {
             try {
-              await softDelete(req._id);
-              queryClient.removeQueries({
+              await toast.promise(softDelete(req._id),{
+                loading:'deleting the request...',
+                success: ()=>{
+                   queryClient.removeQueries({
                 queryKey: ["request_diff", req._id],
               });
               queryClient.invalidateQueries({ queryKey: ["requests"] });
-              toast.success("Request deleted successfully.");
+              return "Request deleted successfully."
+                },
+                error:"Failed to delete request."
+              });
               setDeleteModalOpen(false);
-            } catch {
-              toast.error("Failed to delete request.");
+            } catch(err:any) {
+              console.error(err)
             }
           }}
           trigger={

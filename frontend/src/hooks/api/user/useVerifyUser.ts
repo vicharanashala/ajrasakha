@@ -1,11 +1,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { UserService } from "../../services/userService";
-import { toast } from "sonner";
+import { useToast } from "@/shared/components/toast";
 
 const userService = new UserService();
 
 export const useVerifyUser = () => {
   const queryClient = useQueryClient();
+  const {success: toastSuccess, error: toastError } = useToast();
   return useMutation({
     mutationKey: ["verify_user"],
     mutationFn: async ({ userId, isVerified }: { userId: string; isVerified: boolean }) => {
@@ -29,10 +30,10 @@ export const useVerifyUser = () => {
         queryKey: ["admin"],
         exact: false,
       });
-      toast.success("User verified successfully");
+      toastSuccess("User verified successfully");
     },
     onError: (error: any) => {
-      toast.error(error?.message || "Failed to verify user");
+      toastError(error?.message || "Failed to verify user");
     },
   });
 };

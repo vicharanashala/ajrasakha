@@ -16,13 +16,13 @@ import {
 import { Plus, Cpu, Wheat, Pencil, X, Loader2, Check, Languages, Trash2, Search, FlaskConical, LayoutGrid, Upload } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
-import { toast } from "sonner";
 import { useCreateCrop } from "@/hooks/api/crop/useCreateCrop";
 import { useUpdateCrop } from "@/hooks/api/crop/useUpdateCrop";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import { useBulkUploadCrops } from "@/hooks/api/crop/useBulkUploadCrops";
 import type { ICropAlias, ICropResponse } from "@/hooks/services/cropService";
 import { CropMultiSelect } from "@/components/atoms/CropMultiSelect";
+import { toast } from "@/shared/components/toast";
 
 type EntryType = "crop" | "chemical" | "other";
 
@@ -343,6 +343,7 @@ const AliasManagerModal = ({
   const handleSave = async () => {
     if (!crop._id) return;
     if (!window.confirm(`Update "${crop.name}"?`)) return;
+    let toastId;
     try {
       const payload: { aliases: (ICropAliasObject | string)[]; status?: string; crops?: string[] } = {
         aliases: [...legacyAliases, ...structuredAliases],
@@ -351,12 +352,15 @@ const AliasManagerModal = ({
         payload.status = chemicalStatus;
         payload.crops = chemicalCrops;
       }
+      toastId = toast.loading('updating crop...')
       const res = await updateCrop({ cropId: crop._id, payload });
       if (res?.success) {
+        toast.dismiss(toastId)
         toast.success(`"${crop.name}" updated successfully!`);
         onClose();
       }
     } catch (error: any) {
+      toast.dismiss(toastId)
       toast.error(error?.message || "Failed to update");
     }
   };
@@ -722,7 +726,9 @@ export const CropManagementModal = ({
     const name = newCropName.trim();
     if (!name) return;
     if (!window.confirm(`Are you sure you want to create "${name}"?`)) return;
+    let toastId;
     try {
+      toastId=toast.loading('creating crop...')
       const res = await createCrop({
         name,
         type: entryType === "other" && otherType.trim() ? otherType.trim() : entryType,
@@ -730,10 +736,12 @@ export const CropManagementModal = ({
         aliases: newAliases.length > 0 ? newAliases : undefined,
       });
       if (res?.success) {
+        toast.dismiss(toastId)
         toast.success(`"${name}" added successfully!`);
         resetAddForm();
       }
     } catch (error: any) {
+      toast.dismiss(toastId)
       toast.error(error?.message || "Failed to add entry");
     }
   };
@@ -753,12 +761,16 @@ export const CropManagementModal = ({
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
+    let toastId;
     try {
+      toastId = toast.loading('bulk uploading crops....')
       const res = await bulkUploadCrops({ file, type: entryType as "crop" | "chemical" });
       if (res?.success) {
+        toast.dismiss(toastId)
         toast.success(`${res.count} rows are being processed in the background. The list will refresh shortly.`);
       }
     } catch (err: any) {
+      toast.dismiss(toastId)
       toast.error(err?.message || "Failed to upload CSV");
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';

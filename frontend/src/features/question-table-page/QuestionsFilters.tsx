@@ -49,7 +49,6 @@ import type {
   QuestionStatus,
   UserRole,
 } from "@/types";
-import { toast } from "sonner";
 import { ConfirmationModal } from "../../components/confirmation-modal";
 import { OutreachReportModal } from "@/features/question_details/components/OutreachReport";
 import { useAddQuestion } from "@/hooks/api/question/useAddQuestion";
@@ -83,6 +82,7 @@ import { ReallocationManualModal } from "../../components/ReallocationManualModa
 
 import { TopRightBadge } from "@/components/NewBadge";
 import DownloadShiftWiseReportButton from "./DownloadShiftWiseReportButton";
+import { toast } from "@/shared/components/toast";
 
 type QuestionsFiltersProps = {
   search: string;
@@ -221,56 +221,59 @@ export const QuestionsFilters = ({
     }
   }, [isReAllocateOpen, pendingReallocateType]);
 
-  const handleReAllocateLessWorkload = async (type?: string) => {
-    try {
-      setIsReAllocateDisabled(true);
-      const res = await reAllocateLessWorkload(type);
+  // const handleReAllocateLessWorkload = async (type?: string) => {
+  //   try {
+  //     setIsReAllocateDisabled(true);
+  //     const res = await reAllocateLessWorkload(type);
 
-      if (!res) {
-        toast.error("No response from server");
-        setIsReAllocateDisabled(false);
-        return;
-      }
-      if (res.message === "Workload balancing started in background" || res.message === "Inactive-to-Active reallocation started in background") {
-        toast.success(
-          "Workload balancing has started in the background. Please wait 50 seconds before reallocating again.",
-        );
+  //     if (!res) {
+  //       toast.error("No response from server");
+  //       setIsReAllocateDisabled(false);
+  //       return;
+  //     }
+  //     if (res.message === "Workload balancing started in background" || res.message === "Inactive-to-Active reallocation started in background") {
+  //       toast.success(
+  //         "Workload balancing has started in the background. Please wait 50 seconds before reallocating again.",
+  //       );
 
-        // Show detailed toast if it was an inactive-to-active reallocation
-        if (type === "inactive") {
-          toast.info(
-            `Found ${res.inactiveExpertsFound || 0} inactive experts. Reallocating ${res.submissionsProcessed || 0} tasks to ${res.expertsInvolved || 0} active experts.`,
-            { duration: 6000 }
-          );
-        }
+  //       // Show detailed toast if it was an inactive-to-active reallocation
+  //       if (type === "inactive") {
+  //         toast.info(
+  //           `Found ${res.inactiveExpertsFound || 0} inactive experts. Reallocating ${res.submissionsProcessed || 0} tasks to ${res.expertsInvolved || 0} active experts.`,
+  //           { duration: 6000 }
+  //         );
+  //       }
 
-        // Re-enable button after 50 seconds
-        setTimeout(() => {
-          setIsReAllocateDisabled(false);
-        }, 50000);
-        // Any other message from backend
-        toast.success(res.message);
-        setIsReAllocateDisabled(false);
-      }
-      refetch();
-    } catch (error) {
-      toast.error(
-        "Failed to reAllocate question for those who has less workload",
-      );
-      console.error(
-        "Error reAllocating question who has less workload question:",
-        error,
-      );
-      setIsReAllocateDisabled(false);
-    }
-  };
+  //       // Re-enable button after 50 seconds
+  //       setTimeout(() => {
+  //         setIsReAllocateDisabled(false);
+  //       }, 50000);
+  //       // Any other message from backend
+  //       toast.success(res.message);
+  //       setIsReAllocateDisabled(false);
+  //     }
+  //     refetch();
+  //   } catch (error) {
+  //     toast.error(
+  //       "Failed to reAllocate question for those who has less workload",
+  //     );
+  //     console.error(
+  //       "Error reAllocating question who has less workload question:",
+  //       error,
+  //     );
+  //     setIsReAllocateDisabled(false);
+  //   }
+  // };
 
   //reAllocate selected questions to experts with less workload
   const handleReAllocateSelectedQuestions = async () => {
+    let toastId;
     try {
+      toastId = toast.loading('reallocating...')
       setIsReAllocateDisabled(true);
-      const res = await reAllocateExpertsSelectedQuestions(selectedQuestionIds);
 
+      const res = await reAllocateExpertsSelectedQuestions(selectedQuestionIds);
+      toast.dismiss(toastId)
       if (!res) {
         toast.error("No response from server");
         return;
@@ -300,6 +303,7 @@ export const QuestionsFilters = ({
       }
       refetch();
     } catch (error) {
+      toast.dismiss(toastId)
       toast.error(
         "Failed to reAllocate selected question",
       );
@@ -321,6 +325,7 @@ export const QuestionsFilters = ({
     _status?: QuestionStatus,
     formData?: FormData,
   ) => {
+    let toastId;
     try {
       if (mode !== "add") return;
       if (formData) {
@@ -417,8 +422,11 @@ export const QuestionsFilters = ({
 
   const handleDownloadCrops = async () => {
     setIsDownloadingCrops(true);
+    let toastId;
     try {
+      toastId = toast.loading('downloading...')
       const blob = await cropService.downloadList('crop');
+      toast.dismiss(toastId)
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -426,6 +434,7 @@ export const QuestionsFilters = ({
       a.click();
       URL.revokeObjectURL(url);
     } catch {
+      toast.dismiss(toastId)
       toast.error("Failed to download crops list.");
     } finally {
       setIsDownloadingCrops(false);
@@ -433,9 +442,12 @@ export const QuestionsFilters = ({
   };
 
   const handleDownloadChemicals = async () => {
+    let toastId;
     setIsDownloadingChemicals(true);
     try {
+      toastId = toast.loading('downlading...')
       const blob = await cropService.downloadList('chemical');
+      toast.dismiss(toastId)
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -443,6 +455,7 @@ export const QuestionsFilters = ({
       a.click();
       URL.revokeObjectURL(url);
     } catch {
+      toast.dismiss(toastId)
       toast.error("Failed to download chemicals list.");
     } finally {
       setIsDownloadingChemicals(false);

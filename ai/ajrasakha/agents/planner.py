@@ -21,7 +21,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from langchain_core.runnables import RunnableConfig, patch_config
 from pydantic import BaseModel, Field
 
-from ajrasakha.agents.config import PLANNER_MODEL
+from ajrasakha.agents.config import PLANNER_MODEL, resolve_user_id
 from ajrasakha.agents.thread_logging import (
     begin_conversation_turn,
     end_conversation_turn,
@@ -67,6 +67,7 @@ from ajrasakha.agents.planner_rules import (
 )
 from ajrasakha.agents.prompts import PLANNER_SYSTEM_PROMPT
 from ajrasakha.agents.state import AjraSakhaState, PlannerEntities, PlannerPlan
+from ajrasakha.agents.user_location import load_user_location, maybe_persist_resolved_location
 
 logger = logging.getLogger(__name__)
 
@@ -465,6 +466,13 @@ async def planner_node(
     begin_conversation_turn(user_text)
 
     if is_greeting_message(user_text):
+        prev_plan = state.get("plan") or {}
+        prev_entities: PlannerEntities = dict(prev_plan.get("entities") or {})
+        greeting_entities: PlannerEntities = {"crop": "all"}
+        for key in ("state", "district"):
+            if prev_entities.get(key):
+                greeting_entities[key] = prev_entities[key]
+
         plan: PlannerPlan = {
             "domain": "General",
             "weather": False,
@@ -479,7 +487,7 @@ async def planner_node(
             "missing_info": [],
             "follow_up_question": None,
             "reasoning": "greeting",
-            "entities": {"crop": "all"},
+            "entities": greeting_entities,
             "skip_synthesize": False,
             "rephrased_query": user_text,
             "original_query_en": user_text,
@@ -606,7 +614,23 @@ async def planner_node(
         if not plan.get("original_query_en"):
             plan["original_query_en"] = user_text
 
-        entities = merge_entities_from_rephrased_query(plan, messages, location, prev_entities)
+        user_id = resolve_user_id(config)
+        stored_location = load_user_location(user_id)
+        location_sources: dict[str, str | None] = {}
+        trace_event(
+            "planner_user_location_lookup",
+            user_id=user_id,
+            stored_location=stored_location,
+            configurable_user_id=(config.get("configurable") or {}).get("user_id"),
+        )
+        entities = merge_entities_from_rephrased_query(
+            plan,
+            messages,
+            location,
+            prev_entities,
+            stored_location=stored_location,
+            sources_out=location_sources,
+        )
         plan["entities"] = entities
         trace_event("planner_entities_merged", entities=entities)
 
@@ -646,7 +670,24 @@ async def planner_node(
         plan["missing_info"] = missing
         plan["follow_up_question"] = follow_up
 
-        plan = apply_planner_completeness_rules(plan, messages, location, prev_entities)
+        plan = apply_planner_completeness_rules(
+            plan,
+            messages,
+            location,
+            prev_entities,
+            stored_location=stored_location,
+            sources_out=location_sources,
+        )
+
+        if plan.get("is_complete"):
+            final_entities = plan.get("entities") or {}
+            maybe_persist_resolved_location(
+                user_id,
+                final_entities.get("state"),
+                final_entities.get("district"),
+                state_source=location_sources.get("state_source"),
+                district_source=location_sources.get("district_source"),
+            )
 
         trace_event(
             "planner_final_plan",

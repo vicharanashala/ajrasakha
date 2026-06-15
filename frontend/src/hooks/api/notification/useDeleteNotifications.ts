@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import {toast} from "sonner";
 import { NotificationService } from "@/hooks/services/notificationService";
+import { toast } from "@/shared/components/toast";
 
 const notificationService = new NotificationService();
 

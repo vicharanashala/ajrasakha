@@ -335,6 +335,8 @@ export interface ResponseAdherenceTable {
   ajrasakhaPushedToReviewer: number;
   whatsappAnsweredWithin120Min: number;
   ajrasakhaAnsweredWithin120Min: number;
+  whatsappPassedQuestions: number;
+  ajrasakhaPassedQuestions: number;
   whatsappMarkedDuplicate: number;
   ajrasakhaMarkedDuplicate: number;
   whatsappDynamicWeather: number;
@@ -887,6 +889,10 @@ export interface IChatbotRepository {
     userId: string,
     source: string,
   ): Promise<any>
+
+  getUserProfile(userId: string) : Promise<any>
+  assignUsers(userId: string, targetIds: string[]): Promise<any>
+  unAssignUsers(userId: string, targetIds: string[]): Promise<any>
 }
 
 export interface ChatbotConversationData {

@@ -181,7 +181,13 @@ async function getExpertDisplayName(expertId?: string | null): Promise<string> {
       }
       */
 
-      if (job.appendExpert) {
+      // No current expert to replace (queue fully consumed and the tail isn't
+      // in-review, so currentExpertIndex points past the end of the queue). There's no
+      // slot to swap, so fall back to appending the new expert — otherwise this job
+      // would silently no-op while the main process has already spent the expert's slot.
+      const appendNewExpert = job.appendExpert || (!modified && !currentExpertId);
+
+      if (appendNewExpert) {
         // ── PUSH MODE (time-bound reallocation) ──────────────────────────────
         // Append the new expert instead of replacing the stuck one so the full
         // allocation history is preserved.

@@ -350,4 +350,7 @@ export interface IChatbotService {
       source: string,
       userType: string,
     ): Promise<any>
+  getUserProfile(userId: string): Promise<any>
+  assignUsers(userId: string, targetIds: string[]): Promise<any>
+  unAssignUsers(userId: string, targetIds: string[]): Promise<any>
 }

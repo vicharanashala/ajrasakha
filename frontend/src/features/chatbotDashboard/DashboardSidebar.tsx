@@ -12,7 +12,6 @@ import { Button } from "@/components/atoms/button";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Download, Loader2, CalendarIcon, Shapes, Info, UserCheck } from "lucide-react";
-import { toast } from "sonner";
 import { ChatbotService } from "@/hooks/services/chatbotService";
 import {
   Tooltip,
@@ -23,6 +22,7 @@ import {
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 
 import { STATES } from "../../components/MetaData";
+import { toast } from "@/shared/components/toast";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -385,10 +385,10 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
     }
 
     setIsDownloading(true);
+    let toastId;
 
     try {
-      toast.info("Preparing download...");
-
+      toast.loading('Preparing download...')
       const svc = new ChatbotService();
 
       const from = format(fromDate, "yyyy-MM-dd");
@@ -417,13 +417,14 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
       document.body.removeChild(a);
 
       URL.revokeObjectURL(url);
-
+      toast.dismiss(toastId)
       toast.success("Report downloaded successfully!");
 
       setIsDownloadDialogOpen(false);
 
       setDownloadDateRange(undefined);
     } catch (e) {
+      toast.dismiss(toastId)
       toast.error(e instanceof Error ? e.message : "Download failed");
     } finally {
       setIsDownloading(false);

@@ -53,9 +53,9 @@ import { STATES, CROPS, DOMAINS, SEASONS, DISTRICTS } from "../../components/Met
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import { Label } from "@/components/atoms/label";
 import { Switch } from "@/components/atoms/switch";
-import { toast } from "sonner";
 import { TopLeftBadge, TopRightBadge } from "@/components/NewBadge";
 import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
+import { toast } from "@/shared/components/toast";
 
 
 

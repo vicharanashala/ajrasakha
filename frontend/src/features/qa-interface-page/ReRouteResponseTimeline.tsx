@@ -4,7 +4,6 @@ import type {
   SourceItem
 } from "@/types";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
 import {
   MessageCircle,
   XCircle,
@@ -17,6 +16,7 @@ import { ScrollArea } from "../../components/atoms/scroll-area";
 import { QuestionDetailsDialog } from "./QuestionDetailsDialog";
 import { ReviewHistoryTimeline } from "./ReviewHistoryTimeline";
 import { ReviewResponseDialog } from "./ReviewResponseDialog";
+import { toast } from "@/shared/components/toast";
 
 
 interface ReRouteResponseTimelineProps {

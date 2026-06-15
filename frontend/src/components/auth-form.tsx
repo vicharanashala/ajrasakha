@@ -1,4 +1,4 @@
-import React, { useEffect, useState, type FormEvent } from "react";
+import React, { useState, type FormEvent } from "react";
 import { cn } from "@/lib/utils";
 
 import { useAuthStore } from "@/stores/auth-store";
@@ -6,12 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { Button } from "./atoms/button";
 import { Label } from "./atoms/label";
 import { Input } from "./atoms/input";
-import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
 import { Check, Eye, EyeOff } from "lucide-react";
 import { loginWithEmail } from "@/lib/firebase";
 import { useSignup } from "@/hooks/api/auth/useSignup";
 import { isDevelopment } from "@/shared/app";
+import { useToast } from "@/shared/components/toast";
 
 interface AuthFormProps extends React.ComponentProps<"div"> {
   mode?: "login" | "signup";
@@ -41,6 +41,9 @@ export const AuthForm = ({
   onModeChange,
   ...props
 }: AuthFormProps) => {
+
+  //custom toast
+  const {error:toastError,warning:toastWarning} = useToast();
   const [mode, setMode] = useState<"login" | "signup">(initialMode);
   const [formData, setFormData] = useState({
     email: "",
@@ -120,7 +123,7 @@ export const AuthForm = ({
     const isValid = validateForm();
 
     if (Object.keys(errors).length)
-      toast.error("Please fix form errors before continuing.");
+      toastError("Please fix form errors before continuing.");
     if (!isValid) {
       return;
     }
@@ -166,13 +169,13 @@ export const AuthForm = ({
 
       const code = error.code || error.message;
       if (code === "auth/email-already-in-use" || code === "EMAIL_EXISTS") {
-        toast.error("This email is already registered. Please log in instead.");
+        toastError("This email is already registered. Please log in instead.");
       } else if (
         code === "auth/invalid-credential" ||
         code === "auth/wrong-password" ||
         code === "INVALID_LOGIN_CREDENTIALS"
       ) {
-        toast.error("Incorrect email or password.");
+        toastError("Incorrect email or password.");
       } else {
         let message = error.message || "Something went wrong. Please try again.";
 
@@ -192,9 +195,9 @@ export const AuthForm = ({
 
         console.error(error);
         if (message === 'User Is Blocked Please Contact Moderator') {
-          toast.warning(error.message)
+          toastWarning(error.message)
         } else {
-          toast.error(message);
+          toastError(message);
         }
       }
     } finally {

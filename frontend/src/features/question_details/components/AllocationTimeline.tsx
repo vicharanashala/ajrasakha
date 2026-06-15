@@ -6,7 +6,6 @@ import type {
   IUser,
 } from "@/types";
 import { useCallback, useEffect, useState } from "react";
-import { toast } from "sonner";
 import { AllocationQueueHeader } from "./AllocationQueueHeader";
 import { ClosedFinalAnswerModal } from "./ClosedFinalAnswerModal";
 import {
@@ -26,6 +25,7 @@ import { ConfirmationModal } from "@/components/confirmation-modal";
 import { Button } from "@/components/atoms/button";
 import { getStatusStyles } from "../constants/allocationStatusStyleConfig";
 import { formatDuration } from "../utils/formatDate";
+import { toast } from "@/shared/components/toast";
 
 interface AllocationTimelineProps {
   queue: ISubmission["queue"];
@@ -149,11 +149,15 @@ export const AllocationTimeline = ({
 
   const handleRemoveAllocation = useCallback(
     async (index: number) => {
+      let toastId;
       try {
+        toastId = toast.loading('removing allocation...')
         setSelectedAllocationIndex(index);
         await removeAllocation({ questionId: question._id, index });
+        toast.dismiss(toastId)
         toast.success("Allocation removed successfully.");
       } catch (error) {
+        toast.dismiss(toastId)
         console.error("Error removing allocation:", error);
         toast.error("Error removing allocation. Please try again.");
       } finally {
@@ -252,6 +256,14 @@ export const AllocationTimeline = ({
           {displayedQueue?.map((user, index) => {
             const status = getStatus(index);
             const userSubmission = getUserSubmission(user._id);
+            // The first-queue expert may be assigned but have no history entry yet
+            // (e.g. currently reviewing). Fall back to the submission's
+            // currentExpertAllocatedAt so the "Assigned" time still shows.
+            const assignedAt =
+              userSubmission?.assignedAt ??
+              (index === 0
+                ? question.submission?.currentExpertAllocatedAt
+                : null);
             const styles = getStatusStyles(status);
             const isLast = index === displayedQueue?.length - 1;
             const isCurrentUserWaiting =
@@ -446,7 +458,7 @@ export const AllocationTimeline = ({
                         </div>
                         {/* timeline*/}
                         {/* ========================= PREMIUM TIMELINE SECTION ========================= */}
-                        {userSubmission?.assignedAt && currentUser.role != "expert" && (
+                        {assignedAt && currentUser.role != "expert" && (
                           <div className="w-full mt-3 rounded-2xl border border-border/50 bg-gradient-to-br from-muted/40 to-muted/20 backdrop-blur-sm px-3 py-3 shadow-sm">
                         
                             {/* <div className="flex items-center gap-2 mb-3">
@@ -473,7 +485,7 @@ export const AllocationTimeline = ({
                                   </span>
 
                                   <span className="text-[11px] font-semibold text-foreground break-words leading-snug">
-                                    {new Date(userSubmission.assignedAt).toLocaleString()}
+                                    {new Date(assignedAt).toLocaleString()}
                                   </span>
                                 </div>
                               </div>
@@ -482,14 +494,14 @@ export const AllocationTimeline = ({
                               <div className="flex items-start gap-2 rounded-lg bg-background/40 border border-border/30 px-2.5 py-2">
                                 <div
                                   className={`mt-0.5 flex h-6 w-6 items-center justify-center rounded-full ${
-                                    userSubmission.completedAt
+                                    userSubmission?.completedAt
                                       ? "bg-green-500/10"
                                       : "bg-amber-500/10"
                                   }`}
                                 >
                                   <CheckCheck
                                     className={`w-3.5 h-3.5 ${
-                                      userSubmission.completedAt
+                                      userSubmission?.completedAt
                                         ? "text-green-500"
                                         : "text-amber-500"
                                     }`}
@@ -502,7 +514,7 @@ export const AllocationTimeline = ({
                                   </span>
 
                                   <span className="text-[11px] font-semibold text-foreground break-words leading-snug">
-                                    {userSubmission.completedAt
+                                    {userSubmission?.completedAt
                                       ? new Date(
                                           userSubmission.completedAt
                                         ).toLocaleString()
@@ -523,7 +535,7 @@ export const AllocationTimeline = ({
                                   </span>
 
                                   <span className="text-xs font-bold text-primary leading-snug">
-                                    {userSubmission.timeTakenMs
+                                    {userSubmission?.timeTakenMs
                                       ? formatDuration(userSubmission.timeTakenMs)
                                       : "Ongoing"}
                                   </span>

@@ -1218,7 +1218,7 @@ export class QuestionController {
           ...auditPayload,
           changes: {
             before: { status: prevQuestion.status, question: prevQuestion.text },
-            after: { status: 'pass' },
+            after: { status: updates.status },
           },
           outcome: { status: OutComeStatus.SUCCESS },
         });

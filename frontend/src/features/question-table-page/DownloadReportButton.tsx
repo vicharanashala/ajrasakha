@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Button } from "../../components/atoms/button";
 import { Download, Loader2, CalendarIcon } from "lucide-react";
-import { toast } from "sonner";
 import { QuestionService } from "@/hooks/services/questionService";
 import {
   Dialog,
@@ -16,6 +15,7 @@ import { Calendar } from "@/components/atoms/calendar";
 import { formatDateLocal } from "@/utils/formatDate";
 import type { DateRange } from "react-day-picker";
 import { format } from "date-fns";
+import { toast } from "@/shared/components/toast";
 
 export const DownloadReportButton = ({ onOpenDialog }: { onOpenDialog?: () => void }) => {
   const questionService = new QuestionService();
@@ -44,10 +44,10 @@ export const DownloadReportButton = ({ onOpenDialog }: { onOpenDialog?: () => vo
       );
       return;
     }
-
+    let toastId;
     try {
       setIsDownloading(true);
-      toast.info("Preparing download...");
+      toastId=toast.loading("Preparing download...");
 
       const startDate = formatDateLocal(downloadDateRange.from);
       const endDate = formatDateLocal(downloadDateRange.to);
@@ -68,10 +68,11 @@ export const DownloadReportButton = ({ onOpenDialog }: { onOpenDialog?: () => vo
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-
+      toast.dismiss(toastId)
       toast.success("Report downloaded successfully!");
       setIsDateDialogOpen(false);
     } catch (error) {
+      toast.dismiss(toastId)
       console.error("Download error:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to download report";
       toast.error(errorMessage);

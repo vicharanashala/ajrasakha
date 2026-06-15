@@ -1,12 +1,13 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { UserService } from "../../services/userService";
 import type { IUser } from "@/types";
-import {toast} from "sonner";
 import { useAuthStore } from "@/stores/auth-store";
+import { useToast } from "@/shared/components/toast";
 
 const userService = new UserService();
 
 export const useEditUser = () => {
+  const { error: toastError } = useToast();
   const queryClient = useQueryClient();
   return useMutation({
     mutationKey: ["edit_user"],
@@ -32,25 +33,27 @@ export const useEditUser = () => {
       });
     },
     onError: () => {
-      toast.error("Failed to update, try again!");
+      toastError("Failed to update, try again!");
     },
   });
 };
 
 
 
-export const useBlockUser = (userId:string,action:string) => {
-  const queryClient =useQueryClient();
-  return useMutation({
-    mutationKey:['block_users'],
-    mutationFn: async (): Promise<void | null> => {
-     return await userService.isBlockUser(userId,action)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({queryKey:['users']})
-    },
-    onError:() => {
-      toast.error(`Failed to ${action} Expert`)
-    }
-  })
-}
+//reduntant code, not in use, can be deleted after confirmation
+// export const useBlockUser = (userId:string,action:string) => {
+//   const { error: toastError } = useToast();
+//   const queryClient =useQueryClient();
+//   return useMutation({
+//     mutationKey:['block_users'],
+//     mutationFn: async (): Promise<void | null> => {
+//      return await userService.isBlockUser(userId,action)
+//     },
+//     onSuccess: () => {
+//       queryClient.invalidateQueries({queryKey:['users']})
+//     },
+//     onError:() => {
+//       toastError(`Failed to ${action} Expert`)
+//     }
+//   })
+// }

@@ -10,11 +10,11 @@ import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
 import { useState } from "react";
 import { useHoldQuestion } from "@/hooks/api/question/useHoldQuestion";
 import { useManualCheckDuplicate } from "@/hooks/api/question/useManualCheckDuplicate";
-import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/atoms/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/atoms/dialog";
 import { CircleCheck, GitCompareArrows, History } from "lucide-react";
 import { diffWords } from "@/utils/wordDifference";
+import { toast } from "@/shared/components/toast";
 import { AuditTrailModal } from "./AuditTrailModal";
 
 interface QuestionHeaderProps {
@@ -60,15 +60,19 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
     setConfirmDialog({ open: true, type: question.isOnHold ? "unhold" : "hold", });
   };
   const doHold = async () => {
+    let toastId;
     try {
+      toastId = toast.loading(`${question.isOnHold ? "releasing" : "holding"} the question...`)
       await holdQuestion({
         questionId: question._id!,
         action: question.isOnHold ? "unhold" : "hold",
       });
+      toast.dismiss(toastId)
       toast.success(`Question ${question.isOnHold ? "released from hold" : "put on hold"} successfully`);
       goBack();
     } catch (error) {
       console.error(error);
+      toast.dismiss(toastId)
       toast.error("Failed to hold question");
     }
   };
@@ -145,7 +149,6 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
       .filter(Boolean)
       .join(" ");
   })();
-
   return (
     <>
       <header className="grid gap-3 w-full">
@@ -166,7 +169,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
             <div className="flex flex-wrap justify-end gap-2">
               {currentUser.role != "expert" &&
                 currentUser.role !== "tester" &&
-                isQuestionAllocatedToExpert &&
+                (isQuestionOnHold || isQuestionAllocatedToExpert) &&
                 question.status !== "closed" && (
                   <Button
                     size="sm"
@@ -247,12 +250,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                   disabled={isCheckingDuplicate}
                   className="bg-green-600 hover:bg-green-700 text-white"
                   onClick={() =>
-                    checkDuplicate(question._id!, {
-                      onSuccess: (res) => {
-                        toast.success(res?.message ?? "Duplicate check complete.");
-                      },
-                      onError: () => toast.error("Duplicate check failed"),
-                    })
+                    checkDuplicate(question._id!)
                   }
                 >
                   {isCheckingDuplicate ? "Checking..." : "Check Duplicate"}

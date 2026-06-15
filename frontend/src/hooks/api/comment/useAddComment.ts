@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import {toast} from "sonner";
 import { CommentService } from "../../services/commentService";
+import { toast } from "@/shared/components/toast";
 
 const commentService = new CommentService();
 

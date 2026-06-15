@@ -1,8 +1,8 @@
 """MongoDB sink for per-thread conversation logs.
 
 During a request, logs are written only to the local file (THREAD_LOG_DIR).
-When a turn completes, the turn record is pushed to ``turns[]`` on the thread
-document (one document per thread_id, no top-level ``text`` field).
+When a turn completes, the turn record is pushed to ``turns[]`` and the
+document-level ``full_logs`` field is refreshed from the local ``.txt`` file.
 """
 
 from __future__ import annotations
@@ -89,19 +89,28 @@ def _get_collection() -> Collection | None:
     return _collection
 
 
-def _sync_turn_to_mongo(thread_id: str, turn_record: dict[str, Any]) -> None:
-    """Push one turn to turns[] on the thread document."""
+def _sync_turn_to_mongo(
+    thread_id: str,
+    turn_record: dict[str, Any],
+    *,
+    full_logs: str | None = None,
+) -> None:
+    """Push one turn to turns[] and refresh document-level full_logs from the txt file."""
     col = _get_collection()
     if col is None:
         return
 
     now = datetime.now(timezone.utc)
+    set_fields: dict[str, Any] = {"updated_at": now}
+    if full_logs is not None:
+        set_fields["full_logs"] = full_logs
+
     try:
         col.update_one(
             {"_id": thread_id},
             {
                 "$push": {"turns": turn_record},
-                "$set": {"updated_at": now},
+                "$set": set_fields,
                 "$unset": {"text": ""},
                 "$setOnInsert": {"created_at": now},
             },
@@ -115,25 +124,27 @@ def sync_turn_to_mongo(
     thread_id: str,
     turn_record: dict[str, Any],
     *,
-    background: bool = True,
+    full_logs: str | None = None,
+    background: bool = False,
 ) -> None:
     """Push a completed turn to MongoDB turns[] on the thread document.
 
-    When ``background`` is True (default), runs in a daemon thread so the graph
-    response is never blocked on MongoDB.
+    By default runs synchronously so the write completes before the graph returns.
+    Set ``THREAD_LOG_MONGO_BACKGROUND=true`` or ``background=True`` for async writes.
     """
     if not thread_id or not mongo_thread_log_enabled():
         return
 
-    if background:
+    if background or _env_flag("THREAD_LOG_MONGO_BACKGROUND"):
         threading.Thread(
             target=_sync_turn_to_mongo,
             args=(thread_id, turn_record),
+            kwargs={"full_logs": full_logs},
             name=f"thread-log-mongo-turn-{thread_id[:8]}",
             daemon=True,
         ).start()
     else:
-        _sync_turn_to_mongo(thread_id, turn_record)
+        _sync_turn_to_mongo(thread_id, turn_record, full_logs=full_logs)
 
 
 def read_thread_turns(thread_id: str) -> list[dict[str, Any]]:
@@ -161,7 +172,7 @@ def read_thread_turns(thread_id: str) -> list[dict[str, Any]]:
 
 
 def read_thread_log_text(thread_id: str) -> str:
-    """Read accumulated log text for a thread (concatenated turns[].log_text)."""
+    """Read accumulated log text for a thread (full_logs, then turns[], then legacy text)."""
     if not thread_id:
         return ""
 
@@ -172,11 +183,15 @@ def read_thread_log_text(thread_id: str) -> str:
     try:
         doc = col.find_one(
             {"_id": thread_id},
-            {"turns": 1, "text": 1},
+            {"turns": 1, "text": 1, "full_logs": 1},
             max_time_ms=_MONGO_OP_TIMEOUT_MS,
         )
         if not doc:
             return ""
+
+        full_logs = doc.get("full_logs")
+        if isinstance(full_logs, str) and full_logs.strip():
+            return full_logs
 
         turns = doc.get("turns")
         if isinstance(turns, list) and turns:
