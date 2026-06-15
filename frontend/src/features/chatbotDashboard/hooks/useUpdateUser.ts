@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '@/hooks/api/api-fetch';
 import { env } from '@/config/env';
-import { toast } from 'sonner';
+import { toast } from '@/shared/components/toast';
 
 type FarmerProfileUpdate = {
   farmerName?: string;
@@ -30,6 +30,10 @@ export function useUpdateUser() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    onMutate: ()=>{
+      const toastId = toast.loading('updating farmer...')
+      return {toastId}
+    },
     mutationFn: async ({
       userId,
       source,
@@ -52,12 +56,74 @@ export function useUpdateUser() {
       );
       return result;
     },
-    onSuccess: () => {
+    onSuccess: (_,__,context) => {
       queryClient.invalidateQueries({ queryKey: ['user-details'] });
+      if(context?.toastId)toast.dismiss(context.toastId)
       toast.success('Farmer updated successfully');
     },
-    onError: (error: any) => {
+    onError: (error: any,_,context) => {
+      if(context?.toastId)toast.dismiss(context.toastId)
       toast.error(error?.message || 'Failed to update farmer');
+    },
+  });
+}
+
+export function useAssignUsers() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      userId,
+      userIds,
+    }: {
+      userId: string;
+      userIds: string[];
+    }) => {
+      return apiFetch(
+        `${env.apiBaseUrl()}/analytics/assign-users/${userId}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            userIds,
+          }),
+        },
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["assign-users"],
+      });
+      toast.success("Users assigned successfully");
+    },
+  });
+}
+
+export function useUnassignUsers() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      userId,
+      userIds,
+    }: {
+      userId: string;
+      userIds: string[];
+    }) => {
+      return apiFetch(
+        `${env.apiBaseUrl()}/analytics/unassign-users/${userId}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            userIds,
+          }),
+        },
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["unassign-users"],
+      });
+      toast.success("Users unassigned successfully");
     },
   });
 }

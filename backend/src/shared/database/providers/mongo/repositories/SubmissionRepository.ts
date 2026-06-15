@@ -3343,7 +3343,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       {
         $match: {
           'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
-          'question.status': { $nin: ['closed', 'in-review', 'pae_submitted', 'pass', 'duplicate', 'draft', 'non_agri'] },
+          // 're-routed' questions are owned by the reroute flow (moderators handle them),
+          // not the time-bound cron — exclude them so they don't consume STF capacity.
+          'question.status': { $nin: ['closed', 'in-review', 'pae_submitted', 'pass', 'duplicate', 'draft', 'non_agri', 're-routed'] },
           'question.isOnHold': { $ne: true },
           'question.isAutoAllocate': {$eq: true}
         },

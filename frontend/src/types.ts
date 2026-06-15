@@ -53,6 +53,8 @@ export interface IUser {
   university?: string;
   isVerified?: boolean;
   isCallAgentActive?: boolean;
+  unAssigned?: any;
+  assigned?: any;
 }
 
 export interface IUnverifiedUser {
@@ -445,6 +447,9 @@ export interface ISubmission {
   lastRespondedBy: IUserRef | null;
   queue: IUserRef[];
   history: ISubmissionHistory[];
+  /** When the current (first-queue) expert was allocated. Used to show an
+   *  "Assigned" time before that expert has produced any history entry. */
+  currentExpertAllocatedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1102,6 +1107,8 @@ export interface ResponseAdherenceTable {
   ajrasakhaPushedToReviewer: number;
   whatsappAnsweredWithin120Min: number;
   ajrasakhaAnsweredWithin120Min: number;
+  whatsappPassedQuestions: number;
+  ajrasakhaPassedQuestions: number;
   whatsappMarkedDuplicate: number;
   ajrasakhaMarkedDuplicate: number;
   whatsappDynamicWeather: number;

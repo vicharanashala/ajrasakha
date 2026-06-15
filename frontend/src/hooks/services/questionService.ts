@@ -32,6 +32,13 @@ export type QueueQuestionItem = {
   district?: string;
   crop?: string;
   expertName?: string;
+  /** All experts who completed a step on the question, in turn order — needs-reviewer items. */
+  completedExpertNames?: string[];
+  /** Full queue, each entry as "Name (Level)" (Author, Reviewer 1, …) — any section with a queue.
+   *  For the allocated section the level suffix is omitted (plain names). */
+  queueExpertNames?: string[];
+  /** Current/last expert status — 'completed' or 'waiting'. Present for allocated items. */
+  lastPersonStatus?: "completed" | "waiting";
   allocatedAt?: string | null;
   minutesSinceAllocated?: number;
   openedAt?: string | null;

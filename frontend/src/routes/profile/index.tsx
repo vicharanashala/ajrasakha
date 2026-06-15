@@ -1,4 +1,4 @@
-import { CROPS, STATES, pae_domains as DOMAINS } from "@/components/MetaData";
+import { STATES, pae_domains as DOMAINS } from "@/components/MetaData";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/atoms/avatar";
 import { MultiSelect } from "@/components/atoms/MultiSelect";
 import { Button } from "@/components/atoms/button";
@@ -19,7 +19,6 @@ import { useAuthStore } from "@/stores/auth-store";
 import type { IUser } from "@/types";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useState, useRef } from "react";
-import { toast } from "sonner";
 import {
   Edit2,
   ArrowLeft,
@@ -48,6 +47,7 @@ import {
 } from "@/components/atoms/dialog";
 import { updateUserPassword, verifyCurrentPassword } from "@/lib/firebase";
 import { calculatePasswordStrength } from "@/components/auth-form";
+import { toast, useToast } from "@/shared/components/toast";
 
 export const Route = createFileRoute("/profile/")({
   component: ProfilePage,
@@ -56,14 +56,25 @@ export const Route = createFileRoute("/profile/")({
 export default function ProfilePage() {
   const { data: user, isLoading } = useGetCurrentUser({});
   const { mutateAsync: updateUser, isPending: isUpdating } = useEditUser();
+  const { success: toastSuccess, loading:toastLoading, dismiss: toastDismiss} = useToast();
 
-  const handleSubmit = async (data: IUser, showToast: boolean = true) => {
+  const handleSubmit = async (data: IUser, showToast: boolean = true, id?: string) => {
+    let currentToastId;
+    if (showToast) {
+      currentToastId = toastLoading("Saving profile...", {
+        desc: "Please wait while we update your details.",
+      });
+    } else {
+      currentToastId = id;
+    }
     try {
       await updateUser(data);
+      toastDismiss(currentToastId);
       if (showToast) {
-        toast.success("Profile updated!");
+        toastSuccess("Profile updated!");
       }
     } catch (error) {
+      toastDismiss(currentToastId);
       console.error(error);
       throw error;
     }
@@ -133,7 +144,7 @@ export default function ProfilePage() {
 
 type ProfileFormProps = {
   user: IUser;
-  onSubmit?: (data: IUser, showToast?: boolean) => Promise<void> | void;
+  onSubmit?: (data: IUser, showToast?: boolean, id?: string) => Promise<void> | void;
   isUpdating: boolean;
 };
 
@@ -203,6 +214,7 @@ const validateUniversity = (value: string) => {
 };
 
 const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
+  const { success: toastSuccess, error: toastError, loading:toastLoading} = useToast();
   const [formData, setFormData] = useState<IUser>({
     ...user,
     preference: {
@@ -272,11 +284,11 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      toast.error("Please select a valid image file");
+      toastError("Please select a valid image file");
       return;
     }
     if (file.size > 70 * 1024) {
-      toast.error("Image size must be less than 70KB");
+      toastError("Image size must be less than 70KB");
       return;
     }
     const reader = new FileReader();
@@ -285,12 +297,15 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
       setAvatarPreview(base64);
       handleChange("avatar", base64);
       setIsUploadingAvatar(true);
+      const toastId = toastLoading("Updating profile Picture...", {
+        desc: "Please wait while we update your details.",
+      })
       try {
-        await onSubmit?.({ ...formData, avatar: base64 }, false);
+        await onSubmit?.({ ...formData, avatar: base64 }, false,toastId);
         useAuthStore.getState().updateUser({ avatar: base64 });
-        toast.success("Profile picture updated!");
+        toastSuccess("Profile picture updated!");
       } catch (error) {
-        toast.error("Failed to update profile picture");
+        toastError("Failed to update profile picture");
         setAvatarPreview(userFromStore?.avatar || "");
         if (fileInputRef.current) fileInputRef.current.value = "";
       } finally {
@@ -301,17 +316,20 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
   };
 
  const handleRemoveAvatar = async () => {
+  const toastId = toastLoading("Removing profile Picture...", {
+        desc: "Please wait while we update your details.",
+      })
    try {
      setIsRemovingAvatar(true);
      const updatedData = { ...formData, avatar: "" };
      setAvatarPreview("");
      setFormData(updatedData);
-     await onSubmit?.(updatedData, false);
+     await onSubmit?.(updatedData, false, toastId);
      useAuthStore.getState().updateUser({ avatar: "" });
      if (fileInputRef.current) fileInputRef.current.value = "";
-     toast.success("Profile picture removed!");
+     toastSuccess("Profile picture removed!");
    } catch (error) {
-     toast.error("Failed to remove profile picture");
+     toastError("Failed to remove profile picture");
    } finally {
      setIsRemovingAvatar(false);
    }
@@ -343,7 +361,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
           university: universityError,
         });
 
-        toast.error(mobileError || universityError);
+        toastError(mobileError || universityError);
         return;
       }
 
@@ -354,7 +372,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
 
         if (customDomainError) {
           setDomainError(customDomainError);
-          toast.error(customDomainError);
+          toastError(customDomainError);
           return;
         }
       }
@@ -363,7 +381,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
         const err = validateCustomDomain(paeOtherDomain);
         if (err) {
           setPaeOtherDomainError(err);
-          toast.error(err);
+          toastError(err);
           return;
         }
       }
@@ -516,7 +534,11 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
     }
 
     // -------- UPDATE PASSWORD --------
-    const update = await updateUserPassword(newPassword);
+    const update = await toast.promise(updateUserPassword(newPassword),{
+      loading: "Updating password...",
+      success: "Password updated successfully!",
+      error: "Failed to update password. Try again!",
+    });
 
     if (!update.success) {
       setPasswordErrors((prev) => ({
@@ -528,7 +550,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
     }
 
     // Success
-    toast.success("Password updated successfully!");
+    // toastSuccess("Password updated successfully!");
     setPasswordErrors({
       currentPassword: "",
       newPassword: "",
@@ -1255,7 +1277,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                   onClick={(e) => {
                     if (!formData.firstName.trim()) {
                       e.preventDefault();
-                      toast.error("First name cannot be blank space");
+                      toastError("First name cannot be blank space");
                       return;
                     }
 
@@ -1270,7 +1292,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                         mobile: mobileError,
                         university: universityError,
                       });
-                      toast.error(mobileError || universityError);
+                      toastError(mobileError || universityError);
                       return;
                     }
 
@@ -1280,7 +1302,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                       if (customDomainError) {
                         e.preventDefault();
                         setDomainError(customDomainError);
-                        toast.error(customDomainError);
+                        toastError(customDomainError);
                       }
                     }
                   }}
