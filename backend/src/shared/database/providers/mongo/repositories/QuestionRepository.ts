@@ -5764,6 +5764,8 @@ export class QuestionRepository implements IQuestionRepository {
     shift: 'morning' | 'evening' | 'all',
     session?: ClientSession,
   ): Promise<{
+    openAtMidnight: number;
+    closedBetween12And6: number;
     questionsAdded: number;
     questionsClosed: number;
     averageClosureTimeInMinutes: number;
@@ -5775,16 +5777,56 @@ export class QuestionRepository implements IQuestionRepository {
 
     const end = new Date(`${startDate}T23:59:59.999+05:30`);
 
+    const midnight = new Date(start);
+    midnight.setHours(0, 0, 0, 0);
+
+    const sixAM = new Date(start);
+    sixAM.setDate(sixAM.getDate() + 1);
+    sixAM.setHours(6, 0, 0, 0);
+
     const createdAtShiftFilter = getShiftFilter('createdAt', shift);
 
     const closedAtShiftFilter = getShiftFilter('closedAt', shift);
 
     const [
+      openAtMidnight,
+      closedBetween12And6,
       questionsAdded,
       questionsClosed,
       averageClosureTimeResult,
       totalReroutedQuestions,
     ] = await Promise.all([
+
+      // Questions that were not closed before 12:00 AM
+      this.QuestionCollection.countDocuments(
+        {
+          createdAt: {
+            $gte: start,
+            $lte: end,
+          },
+          $or: [
+            { closedAt: null },
+            { closedAt: { $gte: midnight } },
+          ],
+        },
+        { session },
+      ),
+
+      // Questions that were closed between 12:00 AM and 6:00 AM
+      this.QuestionCollection.countDocuments(
+        {
+          createdAt: {
+            $gte: start,
+            $lte: end,
+          },
+          closedAt: {
+            $gte: midnight,
+            $lt: sixAM,
+          },
+        },
+        { session },
+      ),
+
       /**
        * Questions Added
        */
@@ -5892,9 +5934,24 @@ export class QuestionRepository implements IQuestionRepository {
         ],
         {session},
       ).toArray(),
+
+      /**
+       * CarryAway Questions
+       */
+      this.QuestionCollection.countDocuments(
+        {
+          createdAt: {
+            $gte: start,
+            $lte: end,
+          },
+        },
+        {session},
+      ),
     ]);
 
     return {
+      openAtMidnight,
+      closedBetween12And6,
       questionsAdded,
       questionsClosed,
       averageClosureTimeInMinutes: Number(
