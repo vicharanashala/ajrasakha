@@ -104,56 +104,21 @@ export function ClosedQuestionsCard({
                     <TooltipTrigger asChild>
                       <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help ml-1" />
                     </TooltipTrigger>
-                    <TooltipContent side="top" className="min-w-[240px] rounded-xl p-4 max-h-[35vh] overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-emerald-700 hover:scrollbar-thumb-emerald-600">
+                    <TooltipContent
+                      side="top"
+                      className="min-w-[240px] rounded-xl p-4 max-h-[35vh] overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-emerald-700 hover:scrollbar-thumb-emerald-600"
+                    >
                       <div className="space-y-2">
-                        <div className="flex justify-between gap-6">
-                          <span className="text-muted-foreground">Total Questions opened</span>
-                          <span className="font-medium">{statusBreakup?.totalQuestions}</span>
-                        </div>
-                        <div className="flex justify-between gap-6">
-                          <span className="text-muted-foreground">Questions closed</span>
-                          <span className="font-medium">{statusBreakup?.closedQuestions}</span>
-                        </div>
-                        <div className="flex justify-between gap-6">
-                          <span className="text-muted-foreground">Questions Delayed</span>
-                          <span className="font-medium">{statusBreakup?.delayed}</span>
-                        </div>
-                        <div className="flex justify-between gap-6">
-                          <span className="text-muted-foreground">Questions in draft</span>
-                          <span className="font-medium">{statusBreakup?.draft}</span>
-                        </div>
-                        <div className="flex justify-between gap-6">
-                          <span className="text-muted-foreground">Duplicate Questions</span>
-                          <span className="font-medium">{statusBreakup?.duplicate}</span>
-                        </div>
-                        <div className="flex justify-between gap-6">
-                          <span className="text-muted-foreground">Questions in hold</span>
-                          <span className="font-medium">{statusBreakup?.hold}</span>
-                        </div>
-                        <div className="flex justify-between gap-6">
-                          <span className="text-muted-foreground">Questions in Review</span>
-                          <span className="font-medium">{statusBreakup?.inReview}</span>
-                        </div>
-                        <div className="flex justify-between gap-6">
-                          <span className="text-muted-foreground">Questions open</span>
-                          <span className="font-medium">{statusBreakup?.open}</span>
-                        </div>
-                        <div className="flex justify-between gap-6">
-                          <span className="text-muted-foreground">Questions paeSubmitted</span>
-                          <span className="font-medium">{statusBreakup?.paeSubmitted}</span>
-                        </div>
-                        <div className="flex justify-between gap-6">
-                          <span className="text-muted-foreground">Questions pass</span>
-                          <span className="font-medium">{statusBreakup?.pass}</span>
-                        </div>
-                        <div className="flex justify-between gap-6">
-                          <span className="text-muted-foreground">Questions rerouted</span>
-                          <span className="font-medium">{statusBreakup?.rerouted}</span>
-                        </div>
-                        <div className="flex justify-between gap-6">
-                          <span className="text-muted-foreground">Non agri Questions</span>
-                          <span className="font-medium">{statusBreakup?.nonAgri}</span>
-                        </div>
+                        {Object.entries(statusBreakup?.statuses ?? {}).map(([key, value]) => (
+                          <div key={key} className="flex justify-between gap-6">
+                            <span className="text-muted-foreground">
+                              {key
+                                .replace(/[_-]/g, " ")
+                                .replace(/\b\w/g, (char) => char.toUpperCase())}
+                            </span>
+                            <span className="font-medium">{value}</span>
+                          </div>
+                        ))}
                       </div>
                     </TooltipContent>
                   </Tooltip>

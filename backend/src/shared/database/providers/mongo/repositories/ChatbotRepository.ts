@@ -52,6 +52,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import {COORDINATOR_ROLES} from '#root/shared/constants/roles.js';
 import { BLOCKS, VILLAGES } from '#root/metaData.js';
+import { buildBaseQuestionMatch } from '#root/utils/dashboard-filters.js';
 
 const EXTERNAL_USER_ROLES = ['FARMER', ...COORDINATOR_ROLES] as const;
 
@@ -9808,26 +9809,16 @@ const totalPages =
   ): Promise<any> {
     try {
       await this.initReviewSystem();
-      const matchStage: any = {
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-        ],
-        status: {$ne: 'non_agri'},
-      };
-      const dbSource = source;
-      if (source !== 'whatsapp') {
-        source = 'AJRASAKHA';
-      }
-      matchStage.source = source.toUpperCase();
+
+      const matchStage = buildBaseQuestionMatch(source);
+
       if (startDate || endDate) {
         matchStage.createdAt = {};
         if (startDate) matchStage.createdAt.$gte = startDate;
         if (endDate) matchStage.createdAt.$lte = endDate;
       }
       const query = await this.buildQuestionUserTypeMatchQuery(
-        dbSource,
+        source,
         userType,
       );
 
@@ -9951,159 +9942,181 @@ const totalPages =
           },
           {
             $addFields: {
-              _statusLower: {$toLower: {$ifNull: ['$status', '']}},
+              _statusLower: {
+                $toLower: {
+                  $ifNull: ["$status", ""],
+                },
+              },
               _operationalCompletionAt: {
                 $cond: [
                   {
-                    $in: [
-                      {$toLower: {$ifNull: ['$status', '']}},
-                      ['pass'],
+                    $eq: [
+                      {
+                        $toLower: {
+                          $ifNull: ["$status", ""],
+                        },
+                      },
+                      "pass",
                     ],
                   },
-                  '$passedAt',
-                  '$closedAt',
+                  "$passedAt",
+                  "$closedAt",
                 ],
               },
             },
           },
           {
-            $group: {
-              _id: null,
-              totalQuestions: {$sum: 1},
-              closedQuestions: {
-                $sum: {
-                  $cond: [
-                    {$in: ['$_statusLower', ['closed', 'pass']]},
-                    1,
-                    0,
-                  ],
-                },
-              },
-              inReviewQuestions: {
-                $sum: {
-                  $cond: [{$eq: ['$status', 'in-review']}, 1, 0],
-                },
-              },
-
-              open: {
-                $sum: {
-                  $cond: [{$eq: ['$status', 'open']}, 1, 0],
-                },
-              },
-
-              inReview: {
-                $sum: {
-                  $cond: [{$eq: ['$status', 'in-review']}, 1, 0],
-                },
-              },
-
-              delayed: {
-                $sum: {
-                  $cond: [{$eq: ['$status', 'delayed']}, 1, 0],
-                },
-              },
-
-              rerouted: {
-                $sum: {
-                  $cond: [{$eq: ['$status', 're-routed']}, 1, 0],
-                },
-              },
-
-              hold: {
-                $sum: {
-                  $cond: [{$eq: ['$status', 'hold']}, 1, 0],
-                },
-              },
-
-              paeSubmitted: {
-                $sum: {
-                  $cond: [{$eq: ['$status', 'pae_submitted']}, 1, 0],
-                },
-              },
-
-              draft: {
-                $sum: {
-                  $cond: [{$eq: ['$status', 'draft']}, 1, 0],
-                },
-              },
-
-              pass: {
-                $sum: {
-                  $cond: [{$eq: ['$_statusLower', 'pass']}, 1, 0],
-                },
-              },
-
-              duplicate: {
-                $sum: {
-                  $cond: [{$eq: ['$status', 'duplicate']}, 1, 0],
-                },
-              },
-
-              nonAgri: {
-                $sum: {
-                  $cond: [{$eq: ['$status', 'non_agri']}, 1, 0],
-                },
-              },
-              closeTimeSumMs: {
-                $sum: {
-                  $cond: [
-                    {
-                      $and: [
-                        {$in: ['$_statusLower', ['closed', 'pass']]},
-                        {$ne: ['$createdAt', null]},
-                        {$ne: ['$_operationalCompletionAt', null]},
-                        {$gte: ['$_operationalCompletionAt', '$createdAt']},
-                      ],
+            $facet: {
+              metrics: [
+                {
+                  $group: {
+                    _id: null,
+                    totalQuestions: {
+                      $sum: 1,
                     },
-                    {$subtract: ['$_operationalCompletionAt', '$createdAt']},
-                    0,
-                  ],
-                },
-              },
-              timedCompletedQuestions: {
-                $sum: {
-                  $cond: [
-                    {
-                      $and: [
-                        {$in: ['$_statusLower', ['closed', 'pass']]},
-                        {$ne: ['$createdAt', null]},
-                        {$ne: ['$_operationalCompletionAt', null]},
-                        {$gte: ['$_operationalCompletionAt', '$createdAt']},
-                      ],
+                    closedQuestions: {
+                      $sum: {
+                        $cond: [
+                          {
+                            $in: ["$_statusLower", ["closed", "pass"]],
+                          },
+                          1,
+                          0,
+                        ],
+                      },
                     },
-                    1,
-                    0,
-                  ],
+                    timedCompletedQuestions: {
+                      $sum: {
+                        $cond: [
+                          {
+                            $and: [
+                              {
+                                $in: ["$_statusLower", ["closed", "pass"]],
+                              },
+                              {
+                                $ne: ["$createdAt", null],
+                              },
+                              {
+                                $ne: ["$_operationalCompletionAt", null],
+                              },
+                              {
+                                $gte: [
+                                  "$_operationalCompletionAt",
+                                  "$createdAt",
+                                ],
+                              },
+                            ],
+                          },
+                          1,
+                          0,
+                        ],
+                      },
+                    },
+                    closeTimeSumMs: {
+                      $sum: {
+                        $cond: [
+                          {
+                            $and: [
+                              {
+                                $in: ["$_statusLower", ["closed", "pass"]],
+                              },
+                              {
+                                $ne: ["$createdAt", null],
+                              },
+                              {
+                                $ne: ["$_operationalCompletionAt", null],
+                              },
+                              {
+                                $gte: [
+                                  "$_operationalCompletionAt",
+                                  "$createdAt",
+                                ],
+                              },
+                            ],
+                          },
+                          {
+                            $subtract: [
+                              "$_operationalCompletionAt",
+                              "$createdAt",
+                            ],
+                          },
+                          0,
+                        ],
+                      },
+                    },
+                  },
                 },
+              ],
+              statuses: [
+                {
+                  $group: {
+                    _id: "$_statusLower",
+                    count: {
+                      $sum: 1,
+                    },
+                  },
+                },
+                {
+                  $group: {
+                    _id: null,
+                    statuses: {
+                      $push: {
+                        k: "$_id",
+                        v: "$count",
+                      },
+                    },
+                  },
+                },
+                {
+                  $project: {
+                    _id: 0,
+                    statuses: {
+                      $arrayToObject: "$statuses",
+                    },
+                  },
+                },
+              ],
+            },
+          },
+          {
+            $project: {
+              metrics: {
+                $arrayElemAt: ["$metrics", 0],
+              },
+              statuses: {
+                $ifNull: [
+                  {
+                    $arrayElemAt: ["$statuses.statuses", 0],
+                  },
+                  {},
+                ],
               },
             },
           },
           {
             $project: {
               _id: 0,
-              totalQuestions: 1,
-              closedQuestions: 1,
-              inReviewQuestions: 1,
-
-              open: 1,
-              inReview: 1,
-              delayed: 1,
-              rerouted: 1,
-              hold: 1,
-              paeSubmitted: 1,
-              draft: 1,
-              pass: 1,
-              duplicate: 1,
-              nonAgri: 1,
+              totalQuestions: "$metrics.totalQuestions",
+              closedQuestions: "$metrics.closedQuestions",
               avgCloseTimeMinutes: {
                 $cond: [
-                  {$gt: ['$timedCompletedQuestions', 0]},
+                  {
+                    $gt: [
+                      "$metrics.timedCompletedQuestions",
+                      0,
+                    ],
+                  },
                   {
                     $round: [
                       {
                         $divide: [
-                          '$closeTimeSumMs',
-                          {$multiply: ['$timedCompletedQuestions', 60000]},
+                          "$metrics.closeTimeSumMs",
+                          {
+                            $multiply: [
+                              "$metrics.timedCompletedQuestions",
+                              60000,
+                            ],
+                          },
                         ],
                       },
                       2,
@@ -10112,9 +10125,11 @@ const totalPages =
                   0,
                 ],
               },
+              statuses: 1,
             },
           },
         ]).toArray(),
+        
         this.QuestionCollection.aggregate([
           {
             $match: previousMonthMatchStage,

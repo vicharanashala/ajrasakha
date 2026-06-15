@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { QuestionService } from "../../services/questionService";
-import type { AdvanceFilterValues } from "../../components/advanced-question-filter";
+import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
+// import type { AdvanceFilterValues } from "../../components/advanced-question-filter";
 
 const questionService = new QuestionService();
 
