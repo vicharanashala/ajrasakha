@@ -3,7 +3,8 @@ import { ThemeToggleCompact } from "@/components/atoms/ThemeToggle";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useAuthStore } from "@/stores/auth-store";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { Fragment, useEffect, useState } from "react";
 import {
   useUserProfile,
   type UserDetail,
@@ -11,13 +12,30 @@ import {
 import { FarmerDetailsContent } from "@/components/user/FarmerDetailsContent";
 import {
   AlertCircle,
+  BarChart3,
   ChevronDown,
   Home,
   Loader2,
+  MessageSquareText,
   ShieldX,
   UserCheck2,
 } from "lucide-react";
 import { Button } from "@/components/atoms/button";
+import { Badge } from "@/components/atoms/badge";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/atoms/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/atoms/table";
 import Spinner from "@/components/atoms/spinner";
 import { useVerifyUserAnalytics } from "@/hooks/api/user/useVerifyUserAnalytics";
 import { useDeleteUser } from "@/features/chatbotDashboard/hooks/useDeleteUser";
@@ -42,6 +60,7 @@ import { Input } from "@/components/atoms/input";
 import { AnimatePresence, motion } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
 import { FarmerNameLink } from "@/features/chatbotDashboard/components/FarmerNameLink";
+import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
 
 export const Route = createFileRoute("/user/$userId")({
   component: RouteComponent,
@@ -54,6 +73,51 @@ type AssignableUser = {
   _id: string;
   name: string;
   userRole?: string;
+};
+
+type TrendGranularity = "daily" | "weekly" | "monthly";
+
+type DashboardMessageEntry = {
+  id: string;
+  text: string;
+  isCreatedByUser: boolean;
+  createdAt?: string;
+  messageId?: string;
+};
+
+type DashboardQuestion = {
+  id: string;
+  question: string;
+  status?: string;
+  crop?: string;
+  category?: string;
+  source?: string;
+  createdAt?: string;
+  closedAt?: string | null;
+  isDuplicate?: boolean;
+  conversationKey?: string;
+  messages?: DashboardMessageEntry[];
+};
+
+type DashboardConversation = {
+  conversationKey: string;
+  threadId?: string;
+  conversationDate?: string;
+  messageCount: number;
+  questionGenerated: boolean;
+  latestMessage?: string;
+  messages?: DashboardMessageEntry[];
+};
+
+type FarmerDashboardData = {
+  questionMetrics?: Record<string, any>;
+  messagingMetrics?: Record<string, any>;
+  engagementTrends?: Record<TrendGranularity, {
+    questions?: { date: string; count: number }[];
+    messages?: { date: string; count: number }[];
+  }>;
+  recentQuestions?: DashboardQuestion[];
+  recentConversations?: DashboardConversation[];
 };
 
 function RouteComponent() {
@@ -368,6 +432,9 @@ function RouteComponent() {
           }
           onChangePassword={handleChangeViewedUserPassword}
         />
+        <FarmerDashboardAnalytics
+          dashboard={userProfile?.farmerDashboard as FarmerDashboardData}
+        />
         {currentUser?.role === "admin" &&
           [
             "district_coordinator",
@@ -680,6 +747,406 @@ function RouteComponent() {
       </AlertDialog>
     </div>
   );
+}
+
+function FarmerDashboardAnalytics({
+  dashboard,
+}: {
+  dashboard?: FarmerDashboardData;
+}) {
+  const [trendGranularity, setTrendGranularity] =
+    useState<TrendGranularity>("daily");
+  const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(
+    null,
+  );
+  const [expandedConversationKey, setExpandedConversationKey] = useState<
+    string | null
+  >(null);
+
+  const questionMetrics = dashboard?.questionMetrics ?? {};
+  const messagingMetrics = dashboard?.messagingMetrics ?? {};
+  const selectedTrend = dashboard?.engagementTrends?.[trendGranularity];
+  const recentQuestions = dashboard?.recentQuestions ?? [];
+  const recentConversations = dashboard?.recentConversations ?? [];
+
+  const questionMetricCards: [string, any][] = [
+    ["Total Questions Asked", questionMetrics.totalQuestionsAsked],
+    ["Questions Closed", questionMetrics.questionsClosed],
+    ["Questions in Review", questionMetrics.questionsInReview],
+    ["Questions Pending", questionMetrics.questionsPending],
+    ["Duplicate Questions", questionMetrics.duplicateQuestions],
+    ["Non-Duplicate Questions", questionMetrics.nonDuplicateQuestions],
+    [
+      "Questions Closed Within 2 Hours",
+      questionMetrics.questionsClosedWithin2Hours,
+    ],
+    ["Carry-Forward Questions", questionMetrics.carryForwardQuestions],
+    ["Questions Awaiting Review", questionMetrics.questionsAwaitingReview],
+  ];
+  const messagingMetricCards: [string, any][] = [
+    ["Total Messages Sent", messagingMetrics.totalMessagesSent],
+    ["User Messages", messagingMetrics.userMessages],
+    ["Bot Responses Received", messagingMetrics.botResponsesReceived],
+    ["Conversation Threads", messagingMetrics.conversationThreads],
+    [
+      "Average Messages per Conversation",
+      messagingMetrics.averageMessagesPerConversation,
+    ],
+    ["Longest Conversation", messagingMetrics.longestConversation],
+    ["Latest Conversation Date", formatDate(messagingMetrics.latestConversationDate)],
+    [
+      "Questions Derived from Messages",
+      messagingMetrics.questionsDerivedFromMessages,
+    ],
+  ];
+
+  return (
+    <div className="mt-6 space-y-6">
+      <DashboardSection
+        icon={<BarChart3 className="h-4 w-4 text-primary" />}
+        title="Question Metrics"
+      >
+        <MetricGrid metrics={questionMetricCards} />
+      </DashboardSection>
+
+      <DashboardSection
+        icon={<MessageSquareText className="h-4 w-4 text-primary" />}
+        title="Messaging Metrics"
+      >
+        <MetricGrid metrics={messagingMetricCards} />
+      </DashboardSection>
+
+      <DashboardSection
+        icon={<BarChart3 className="h-4 w-4 text-primary" />}
+        title="Engagement Trends"
+      >
+        <div className="mb-4 flex flex-wrap gap-2">
+          {(["daily", "weekly", "monthly"] as TrendGranularity[]).map(
+            (granularity) => (
+              <Button
+                key={granularity}
+                size="sm"
+                variant={
+                  trendGranularity === granularity ? "default" : "outline"
+                }
+                onClick={() => setTrendGranularity(granularity)}
+              >
+                {toTitleCase(granularity)}
+              </Button>
+            ),
+          )}
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <TrendBars
+            title={`${toTitleCase(trendGranularity)} Question Activity`}
+            data={selectedTrend?.questions ?? []}
+          />
+          <TrendBars
+            title={`${toTitleCase(trendGranularity)} Messaging Trend`}
+            data={selectedTrend?.messages ?? []}
+          />
+        </div>
+      </DashboardSection>
+
+      <DashboardSection title="Recent Questions">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Question</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Crop</TableHead>
+              <TableHead>Category</TableHead>
+              <TableHead>Source</TableHead>
+              <TableHead>Created Date</TableHead>
+              <TableHead>Closed Date</TableHead>
+              <TableHead>Duplicate</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {recentQuestions.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} className="py-6 text-center text-muted-foreground">
+                  No recent questions found.
+                </TableCell>
+              </TableRow>
+            ) : (
+              recentQuestions.map((question) => {
+                const expanded = expandedQuestionId === question.id;
+                return (
+                  <Fragment key={question.id}>
+                    <TableRow>
+                      <TableCell className="min-w-[280px] max-w-[420px] whitespace-normal">
+                        <button
+                          type="button"
+                          className="text-left font-medium text-primary hover:underline"
+                          onClick={() =>
+                            setExpandedQuestionId(expanded ? null : question.id)
+                          }
+                        >
+                          {question.question || "Not provided"}
+                        </button>
+                        <div className="mt-2">
+                          <TranslatableText text={question.question} />
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{question.status || "N/A"}</Badge>
+                      </TableCell>
+                      <TableCell>{question.crop || "N/A"}</TableCell>
+                      <TableCell>{question.category || "N/A"}</TableCell>
+                      <TableCell>{question.source || "N/A"}</TableCell>
+                      <TableCell>{formatDate(question.createdAt)}</TableCell>
+                      <TableCell>{formatDate(question.closedAt)}</TableCell>
+                      <TableCell>
+                        {question.isDuplicate ? (
+                          <Badge variant="destructive">Yes</Badge>
+                        ) : (
+                          <Badge variant="secondary">No</Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                    {expanded && (
+                      <TableRow key={`${question.id}-conversation`}>
+                        <TableCell colSpan={8} className="bg-muted/30">
+                          <ConversationMessages
+                            messages={question.messages ?? []}
+                            emptyText="No conversation messages linked to this question."
+                          />
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </DashboardSection>
+
+      <DashboardSection title="Recent Conversations">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Conversation Date</TableHead>
+              <TableHead>Thread ID</TableHead>
+              <TableHead>Message Count</TableHead>
+              <TableHead>Question Generated</TableHead>
+              <TableHead>Latest Message</TableHead>
+              <TableHead>Action</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {recentConversations.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">
+                  No recent conversations found.
+                </TableCell>
+              </TableRow>
+            ) : (
+              recentConversations.map((conversation) => {
+                const expanded =
+                  expandedConversationKey === conversation.conversationKey;
+                return (
+                  <Fragment key={conversation.conversationKey}>
+                    <TableRow>
+                      <TableCell>{formatDate(conversation.conversationDate)}</TableCell>
+                      <TableCell className="max-w-[220px] truncate">
+                        {conversation.threadId || "Missing thread ID"}
+                      </TableCell>
+                      <TableCell>{conversation.messageCount}</TableCell>
+                      <TableCell>
+                        {conversation.questionGenerated ? (
+                          <Badge>Yes</Badge>
+                        ) : (
+                          <Badge variant="secondary">No</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="min-w-[260px] max-w-[420px] whitespace-normal">
+                        <TranslatableText text={conversation.latestMessage} />
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            setExpandedConversationKey(
+                              expanded ? null : conversation.conversationKey,
+                            )
+                          }
+                        >
+                          View Conversation
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    {expanded && (
+                      <TableRow key={`${conversation.conversationKey}-messages`}>
+                        <TableCell colSpan={6} className="bg-muted/30">
+                          <ConversationMessages
+                            messages={conversation.messages ?? []}
+                            emptyText="No messages available for this conversation."
+                          />
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </DashboardSection>
+    </div>
+  );
+}
+
+function DashboardSection({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <Card className="rounded-md">
+      <CardHeader className="border-b pb-4">
+        <CardTitle className="flex items-center gap-2 text-base">
+          {icon}
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-4">{children}</CardContent>
+    </Card>
+  );
+}
+
+function MetricGrid({ metrics }: { metrics: [string, any][] }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {metrics.map(([label, value]) => (
+        <div key={label} className="rounded-md border bg-background p-4">
+          <p className="text-xs font-medium uppercase text-muted-foreground">
+            {label}
+          </p>
+          <p className="mt-2 text-2xl font-semibold">
+            {formatMetricValue(value)}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TrendBars({
+  title,
+  data,
+}: {
+  title: string;
+  data: { date: string; count: number }[];
+}) {
+  const max = Math.max(...data.map((item) => item.count), 0);
+
+  return (
+    <div className="rounded-md border p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="font-medium">{title}</p>
+        <Badge variant="secondary">
+          Total {data.reduce((sum, item) => sum + item.count, 0)}
+        </Badge>
+      </div>
+      <div className="space-y-2">
+        {data.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            No activity in this view.
+          </p>
+        ) : (
+          data.slice(-12).map((item) => (
+            <div
+              key={item.date}
+              className="grid grid-cols-[110px_1fr_42px] items-center gap-3 text-sm"
+            >
+              <span className="truncate text-muted-foreground">{item.date}</span>
+              <div className="h-2 rounded-full bg-muted">
+                <div
+                  className="h-2 rounded-full bg-primary"
+                  style={{
+                    width: `${max > 0 ? Math.max((item.count / max) * 100, 4) : 0}%`,
+                  }}
+                />
+              </div>
+              <span className="text-right font-medium">{item.count}</span>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ConversationMessages({
+  messages,
+  emptyText,
+}: {
+  messages: DashboardMessageEntry[];
+  emptyText: string;
+}) {
+  if (messages.length === 0) {
+    return <p className="py-3 text-sm text-muted-foreground">{emptyText}</p>;
+  }
+
+  return (
+    <div className="space-y-3 py-2">
+      {messages.map((message) => (
+        <div key={message.id} className="rounded-md border bg-background p-3">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <Badge variant={message.isCreatedByUser ? "default" : "secondary"}>
+              {message.isCreatedByUser ? "User" : "Bot"}
+            </Badge>
+            <span className="text-xs text-muted-foreground">
+              {formatDate(message.createdAt)}
+            </span>
+          </div>
+          <TranslatableText text={message.text} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TranslatableText({ text }: { text?: string }) {
+  const [translatedText, setTranslatedText] = useState("");
+  const displayText = translatedText || text || "Not provided";
+
+  return (
+    <div className="space-y-2">
+      <p className="whitespace-pre-wrap text-sm text-foreground/90">
+        {displayText}
+      </p>
+      {text ? (
+        <SarvamTranslateDropdown
+          query={text}
+          onTranslate={(result) => setTranslatedText(result)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function formatMetricValue(value: any) {
+  if (value === undefined || value === null || value === "") return "0";
+  return String(value);
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return "N/A";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return date.toLocaleString();
+}
+
+function toTitleCase(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function DashboardMessage({
