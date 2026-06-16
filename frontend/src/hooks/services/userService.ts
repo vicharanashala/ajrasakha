@@ -17,6 +17,13 @@ export class UserService {
     return apiFetch<IUsersNameResponse>(`${this._baseUrl}/all`);
   }
 
+  /** All moderators ({_id, name, email}) — used for the report's moderator filter. */
+  async getModerators(): Promise<{ _id: string; name: string; email: string }[] | null> {
+    return apiFetch<{ _id: string; name: string; email: string }[]>(
+      `${this._baseUrl}/moderators`,
+    );
+  }
+
 
   async edit(user: Partial<IUser>): Promise<void | null> {
     return apiFetch<void>(`${this._baseUrl}/`, {

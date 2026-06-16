@@ -97,6 +97,7 @@ export type QueryCategoryQuestionType = "all" | "unique" | "duplicate";
 export interface QueryCategoryQuestionEntry {
   questionId?: string;
   messageId?: string;
+  userId?: string;
   question: string;
   status: string;
   questionType: "unique" | "duplicate";

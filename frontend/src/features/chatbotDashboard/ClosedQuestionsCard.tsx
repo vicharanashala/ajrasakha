@@ -15,7 +15,7 @@ import {
   PopoverTrigger,
 } from "@/components/atoms/popover";
 import { CalendarIcon, Clock3, X, InfoIcon, RefreshCw } from "lucide-react";
-import { format, isSameDay } from "date-fns";
+import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { useState } from "react";
@@ -24,12 +24,12 @@ import { QueryCategoryQuestionsModal } from "./components/QueryCategoryQuestions
 type ClosedQuestionsCardProps = {
   closedQuestions: number;
   totalQuestions: number;
-  inReview: number;
+  passedQuestions?: number;
   dateRange?: DateRange;
   onDateRangeChange?: (range: DateRange | undefined) => void;
   isLoading?: boolean;
   isFetching?: boolean;
-  carryForward: number;
+  carryForward?: number;
   statusBreakup: any;
   avgCloseTimeMinutes?: number;
   previousMonthAvgCloseTimeMinutes?: number;
@@ -41,12 +41,11 @@ type ClosedQuestionsCardProps = {
 export function ClosedQuestionsCard({
   closedQuestions,
   totalQuestions,
-  inReview,
+  passedQuestions,
   dateRange,
   onDateRangeChange,
   isLoading,
   isFetching,
-  carryForward,
   statusBreakup,
   avgCloseTimeMinutes = 0,
   previousMonthAvgCloseTimeMinutes = 0,
@@ -54,15 +53,6 @@ export function ClosedQuestionsCard({
   userType,
   onRefresh,
 }: ClosedQuestionsCardProps) {
-  const today = new Date();
-
-  const isTodaySelected = Boolean(
-    dateRange?.from &&
-    dateRange?.to &&
-    isSameDay(dateRange.from, today) &&
-    isSameDay(dateRange.to, today),
-  );
-
   const [status, setStatus] = useState<string | null>(null);
 
   const handleClick = (status: string) => {
@@ -155,21 +145,21 @@ export function ClosedQuestionsCard({
                     <CountUp end={closedQuestions ?? 0} duration={1.5} preserveValue />
                   </motion.span>
                 </motion.div>
-                <motion.div className="flex flex-1 flex-col hover:cursor-pointer" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }} onClick={() => handleClick("in-review")}>
+                <motion.div className="flex flex-1 flex-col hover:cursor-pointer" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }} onClick={() => handleClick("pass")}>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <motion.span whileHover={{ scale: 1.05 }} className="text-xs text-muted-foreground cursor-help w-full whitespace-nowrap">
-                          {isTodaySelected ? "Carry Forward" : "In review"}
+                          Passed
                         </motion.span>
                       </TooltipTrigger>
                       <TooltipContent>
-                        {isTodaySelected ? <p>The questions that were carry forwarded from last day (10:30 PM to 12:00 AM)</p> : <p>The count of questions that are currently in review by the moderators.</p>}
+                        <p>The count of questions with pass status.</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
-                  <motion.span key={isTodaySelected ? `cf-${carryForward ?? 0}` : `ir-${inReview ?? 0}`} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.35, ease: "easeOut" }} className="text-3xl font-bold tracking-tight">
-                    <CountUp end={isTodaySelected ? Math.max(carryForward ?? 0, 0) : Math.max(inReview ?? 0, 0)} duration={1.5} preserveValue />
+                  <motion.span key={`pass-${passedQuestions ?? 0}`} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.35, ease: "easeOut" }} className="text-3xl font-bold tracking-tight">
+                    <CountUp end={Math.max(passedQuestions ?? 0, 0)} duration={1.5} preserveValue />
                   </motion.span>
                 </motion.div>
               </div>

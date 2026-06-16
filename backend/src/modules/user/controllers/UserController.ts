@@ -260,6 +260,14 @@ export class UserController {
     );
   }
 
+  @Get('/moderators')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'List all moderators ({_id, name, email}) for filter dropdowns' })
+  async getModerators() {
+    return await this.userService.getModeratorsList();
+  }
+
   @OpenAPI({
     summary: 'Update notification auto-delete preference',
     description: 'Updates the notification auto-delete preference for the current user (3d, 1w, 2w, 1m, never).',

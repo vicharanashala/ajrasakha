@@ -2085,6 +2085,11 @@ export class ChatbotRepository implements IChatbotRepository {
 
         return {
           ...question,
+          userId:
+            resolvedUserId ??
+            (question.userId?.toString
+              ? question.userId.toString()
+              : question.userId),
 
           farmerName: user?.farmerProfile?.farmerName ?? user?.name ?? null,
 
@@ -8006,6 +8011,7 @@ const totalPages =
         const user = userMap.get(userId);
         results.push({
           questionId: q._id.toString(),
+          userId,
           question: q.question,
           referenceQuestion: q.referenceQuestion || q.originalQuestion || '',
           similarityScore: Number(q.similarityScore) || 0,
@@ -12518,35 +12524,340 @@ console.log("matchq---", matchQuery)
 
   async getUserProfile (userId: string, session?: ClientSession) : Promise<any>{
     try{
-      const dateMatch: Record<string, any> = {
-        isCreatedByUser: true,
-        isDeleted: {$ne: true},
-      };
       await this.init("annam");
-      const users = await this.users
-        .find({
-          _id: new ObjectId(userId),
-        })
-        .toArray();
+      await this.initReviewSystem();
+      
+      let users = [];
+      const isValidObjectId = ObjectId.isValid(userId) && String(new ObjectId(userId)) === userId;
+      
+      if (isValidObjectId) {
+        users = await this.users.find({ _id: new ObjectId(userId) }).toArray();
+      } else {
+        users = await this.users.find({ $or: [{ firebaseUID: userId }, { email: userId }] }).toArray();
+      }
+
+      if (users.length === 0 && isValidObjectId) {
+        const reviewSystemCollection = await this.db.getCollection<IUser>('users');
+        const centralUser = await reviewSystemCollection.findOne({ _id: new ObjectId(userId) });
+        
+        if (centralUser) {
+          const orConditions = [];
+          if (centralUser.firebaseUID) orConditions.push({ firebaseUID: centralUser.firebaseUID });
+          if (centralUser.email) orConditions.push({ email: centralUser.email });
+          
+          if (orConditions.length > 0) {
+            users = await this.users.find({ $or: orConditions }).toArray();
+          }
+        }
+      }
+
       if(users?.length === 0){
         throw new InternalServerError(
           `No user found for Id: ${userId}`,
         );
       }
-      const messageCounts = await this.messagesCollection
-        .aggregate(
-          [
-            {$match: dateMatch},
-            {
-              $group: {
-                _id: '$user',
-                totalQuestions: {$sum: 1},
-              },
-            },
-          ],
+
+      const userObjectId =
+        users[0]._id instanceof ObjectId
+          ? users[0]._id
+          : new ObjectId(users[0]._id);
+      const userIdString = userObjectId.toString();
+
+      const userMessages = await this.messagesCollection
+        .find(
+          {
+            user: userIdString,
+            isDeleted: {$ne: true},
+          },
           {session},
         )
+        .project({
+          _id: 1,
+          text: 1,
+          messageId: 1,
+          threadId: 1,
+          conversationId: 1,
+          isCreatedByUser: 1,
+          createdAt: 1,
+        })
+        .sort({createdAt: 1})
         .toArray();
+
+      const userMessageIds = [
+        ...new Set(
+          userMessages.map((message: any) => message.messageId).filter(Boolean),
+        ),
+      ];
+      const userThreadIds = [
+        ...new Set(
+          userMessages
+            .map((message: any) => message.threadId || message.conversationId)
+            .filter(Boolean),
+        ),
+      ];
+      const questionUserMatches: any[] = [
+        {userId: userIdString},
+        {userId: userObjectId},
+      ];
+      if (userMessageIds.length > 0) {
+        questionUserMatches.push({messageId: {$in: userMessageIds}});
+      }
+      if (userThreadIds.length > 0) {
+        questionUserMatches.push({threadId: {$in: userThreadIds}});
+      }
+
+      const userQuestionFilter: any = {
+        $and: [
+          {$or: questionUserMatches},
+          {
+            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+          },
+          {status: {$nin: ['non_agri', 'NO_AGRI', 'no_agri']}},
+        ],
+        source: 'AJRASAKHA',
+      };
+
+      const userQuestions = await this.QuestionCollection.find(
+        userQuestionFilter,
+        {session},
+      )
+        .project({
+          _id: 1,
+          question: 1,
+          status: 1,
+          source: 1,
+          details: 1,
+          createdAt: 1,
+          updatedAt: 1,
+          closedAt: 1,
+          passedAt: 1,
+          messageId: 1,
+          threadId: 1,
+          similarityScore: 1,
+          referenceQuestionId: 1,
+          referenceQuestion: 1,
+          isExact: 1,
+        })
+        .sort({createdAt: -1})
+        .toArray();
+
+      const normalizeStatus = (status?: string) =>
+        String(status || 'unknown')
+          .trim()
+          .toLowerCase()
+          .replace(/_/g, '-');
+      const toDate = (value?: Date | string | null) =>
+        value ? new Date(value) : null;
+      const isValidDate = (value: Date | null) =>
+        value instanceof Date && !Number.isNaN(value.getTime());
+      const isDuplicateQuestion = (question: any) =>
+        normalizeStatus(question.status) === 'duplicate';
+      const getOperationalCompletionAt = (question: any) =>
+        normalizeStatus(question.status) === 'pass'
+          ? toDate(question.passedAt)
+          : toDate(question.closedAt);
+      const getConversationKey = (record: any) =>
+        record.threadId ||
+        record.conversationId ||
+        record.messageId ||
+        record._id?.toString?.() ||
+        String(record._id || '');
+      const formatBucketDate = (date: Date) => date.toISOString().slice(0, 10);
+      const startOfWeek = (date: Date) => {
+        const copy = new Date(date);
+        copy.setHours(0, 0, 0, 0);
+        const day = copy.getDay();
+        copy.setDate(copy.getDate() + (day === 0 ? -6 : 1 - day));
+        return copy;
+      };
+      const getTrendKey = (
+        date: Date,
+        granularity: 'daily' | 'weekly' | 'monthly',
+      ) => {
+        if (granularity === 'monthly') {
+          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        }
+        if (granularity === 'weekly') {
+          return formatBucketDate(startOfWeek(date));
+        }
+        return formatBucketDate(date);
+      };
+      const buildTrend = (
+        records: any[],
+        granularity: 'daily' | 'weekly' | 'monthly',
+      ) => {
+        const counts = new Map<string, number>();
+        records.forEach(record => {
+          const createdAt = toDate(record.createdAt);
+          if (!isValidDate(createdAt)) return;
+          const key = getTrendKey(createdAt!, granularity);
+          counts.set(key, (counts.get(key) || 0) + 1);
+        });
+        return [...counts.entries()]
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([date, count]) => ({date, count}));
+      };
+
+      const closedStatuses = new Set(['closed', 'pass']);
+      const inReviewStatuses = new Set(['in-review']);
+      const pendingStatuses = new Set(['open', 'pending', 'draft']);
+      const carryForwardStatuses = new Set(['delayed', 're-routed', 'hold']);
+      const awaitingReviewStatuses = new Set(['pae-submitted']);
+      const duplicateQuestions = userQuestions.filter(isDuplicateQuestion).length;
+      const closedQuestions = userQuestions.filter((question: any) =>
+        closedStatuses.has(normalizeStatus(question.status)),
+      ).length;
+      const questionsClosedWithin2Hours = userQuestions.filter((question: any) => {
+        if (!closedStatuses.has(normalizeStatus(question.status))) return false;
+        const createdAt = toDate(question.createdAt);
+        const completedAt = getOperationalCompletionAt(question);
+        if (!isValidDate(createdAt) || !isValidDate(completedAt)) return false;
+        const completionMs = completedAt!.getTime() - createdAt!.getTime();
+        return completionMs >= 0 && completionMs <= 2 * 60 * 60 * 1000;
+      }).length;
+
+      const conversationsByKey = new Map<string, any[]>();
+      userMessages.forEach((message: any) => {
+        const key = getConversationKey(message);
+        if (!conversationsByKey.has(key)) conversationsByKey.set(key, []);
+        conversationsByKey.get(key)!.push(message);
+      });
+
+      const recentConversations = [...conversationsByKey.entries()]
+        .map(([conversationKey, messages]) => {
+          const sortedMessages = [...messages].sort(
+            (a, b) =>
+              new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+          );
+          const latestMessage = sortedMessages[sortedMessages.length - 1];
+          const relatedQuestion = userQuestions.find(
+            (question: any) =>
+              (question.threadId && question.threadId === conversationKey) ||
+              (question.messageId &&
+                sortedMessages.some(
+                  (message: any) => message.messageId === question.messageId,
+                )),
+          );
+          return {
+            conversationKey,
+            threadId:
+              latestMessage?.threadId ||
+              latestMessage?.conversationId ||
+              conversationKey,
+            conversationDate: latestMessage?.createdAt,
+            messageCount: sortedMessages.length,
+            questionGenerated: Boolean(relatedQuestion),
+            latestMessage: latestMessage?.text || '',
+            messages: sortedMessages.map((message: any) => ({
+              id: message._id?.toString?.() || String(message._id),
+              text: message.text || '',
+              isCreatedByUser: Boolean(message.isCreatedByUser),
+              createdAt: message.createdAt,
+              messageId: message.messageId,
+            })),
+          };
+        })
+        .sort(
+          (a, b) =>
+            new Date(b.conversationDate || 0).getTime() -
+            new Date(a.conversationDate || 0).getTime(),
+        )
+        .slice(0, 10);
+
+      const conversationLookup = new Map(
+        recentConversations.map(conversation => [
+          conversation.conversationKey,
+          conversation,
+        ]),
+      );
+      const recentQuestions = userQuestions.slice(0, 10).map((question: any) => {
+        const conversationKey = getConversationKey(question);
+        const matchedConversation =
+          conversationLookup.get(conversationKey) ||
+          recentConversations.find(conversation =>
+            conversation.messages.some(
+              (message: any) => message.messageId === question.messageId,
+            ),
+          );
+        return {
+          id: question._id?.toString?.() || String(question._id),
+          question: question.question,
+          status: question.status,
+          crop:
+            question.details?.normalised_crop ||
+            question.details?.crop?.name ||
+            question.details?.crop ||
+            '',
+          category: question.details?.domain || question.details?.category || '',
+          source: question.source,
+          createdAt: question.createdAt,
+          closedAt: getOperationalCompletionAt(question),
+          isDuplicate: isDuplicateQuestion(question),
+          conversationKey: matchedConversation?.conversationKey || conversationKey,
+          messages: matchedConversation?.messages || [],
+        };
+      });
+      const totalMessages = userMessages.length;
+      const conversationCounts = recentConversations.map(
+        conversation => conversation.messageCount,
+      );
+      const farmerDashboard = {
+        questionMetrics: {
+          totalQuestionsAsked: userQuestions.length,
+          questionsClosed: closedQuestions,
+          questionsInReview: userQuestions.filter((question: any) =>
+            inReviewStatuses.has(normalizeStatus(question.status)),
+          ).length,
+          questionsPending: userQuestions.filter((question: any) =>
+            pendingStatuses.has(normalizeStatus(question.status)),
+          ).length,
+          duplicateQuestions,
+          nonDuplicateQuestions: userQuestions.length - duplicateQuestions,
+          questionsClosedWithin2Hours,
+          carryForwardQuestions: userQuestions.filter((question: any) =>
+            carryForwardStatuses.has(normalizeStatus(question.status)),
+          ).length,
+          questionsAwaitingReview: userQuestions.filter((question: any) =>
+            awaitingReviewStatuses.has(normalizeStatus(question.status)),
+          ).length,
+        },
+        messagingMetrics: {
+          totalMessagesSent: totalMessages,
+          userMessages: userMessages.filter(
+            (message: any) => message.isCreatedByUser === true,
+          ).length,
+          botResponsesReceived: userMessages.filter(
+            (message: any) => message.isCreatedByUser === false,
+          ).length,
+          conversationThreads: conversationsByKey.size,
+          averageMessagesPerConversation:
+            conversationsByKey.size > 0
+              ? Number((totalMessages / conversationsByKey.size).toFixed(2))
+              : 0,
+          longestConversation:
+            conversationCounts.length > 0 ? Math.max(...conversationCounts) : 0,
+          latestConversationDate: recentConversations[0]?.conversationDate || null,
+          questionsDerivedFromMessages: userQuestions.filter(
+            (question: any) => question.messageId || question.threadId,
+          ).length,
+        },
+        engagementTrends: {
+          daily: {
+            questions: buildTrend(userQuestions, 'daily'),
+            messages: buildTrend(userMessages, 'daily'),
+          },
+          weekly: {
+            questions: buildTrend(userQuestions, 'weekly'),
+            messages: buildTrend(userMessages, 'weekly'),
+          },
+          monthly: {
+            questions: buildTrend(userQuestions, 'monthly'),
+            messages: buildTrend(userMessages, 'monthly'),
+          },
+        },
+        recentQuestions,
+        recentConversations,
+      };
       let unAssigned = [];
       let assigned = [];
       if ( [
@@ -12640,7 +12951,8 @@ console.log("matchq---", matchQuery)
         createdAt: users[0].createdAt,
         isVerified: users[0].isVerified,
         userRole: users[0].userRole,
-        totalQuestions: messageCounts?.length,
+        totalQuestions: farmerDashboard.questionMetrics.totalQuestionsAsked,
+        farmerDashboard,
         unAssigned : unAssigned ?? [],
         assigned: assigned ?? [],
       };

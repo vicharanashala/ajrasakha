@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useUserDetails } from "../hooks/useUserDetails";
 import { useUpdateUser } from "../hooks/useUpdateUser"; 
 import { X, Pencil, Check, Loader2 } from "lucide-react";
+import { FarmerNameLink } from "./FarmerNameLink";
 
 interface MissingDemographicsModalProps {
   fieldTitle: string;
@@ -195,6 +196,7 @@ export function MissingDemographicsModal({
           <table className="w-full text-sm text-left">
             <thead className="bg-gray-50 dark:bg-gray-800/50 sticky top-0 z-10">
               <tr>
+                <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Name</th>
                 <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Email</th>
                 <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400">Phone Number</th>
                 <th className="px-4 py-3 font-medium text-gray-500 dark:text-gray-400 min-w-[160px]">{fieldTitle}</th>
@@ -205,13 +207,13 @@ export function MissingDemographicsModal({
             <tbody className="divide-y dark:divide-gray-800">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
                     Loading users...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
                     No users found.
                   </td>
                 </tr>
@@ -224,6 +226,11 @@ export function MissingDemographicsModal({
                       key={user.userId}
                       className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20"
                     >
+                      <td className="px-4 py-3 font-medium">
+                        <FarmerNameLink userId={user.userId}>
+                          {user.name || user.farmerProfile?.farmerName || "Not provided"}
+                        </FarmerNameLink>
+                      </td>
                       <td className="px-4 py-3">{user.email}</td>
                       <td className="px-4 py-3">
                         {user.farmerProfile?.phoneNo || "-"}

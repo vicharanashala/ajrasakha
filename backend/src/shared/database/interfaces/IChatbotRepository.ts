@@ -20,6 +20,7 @@ export interface KpiSummary {
 
 export interface DuplicateQuestionEntry {
   questionId: string;
+  userId?: string;
   question: string;
   referenceQuestion: string;
   similarityScore: number;
