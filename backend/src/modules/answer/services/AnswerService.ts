@@ -1772,8 +1772,14 @@ export class AnswerService extends BaseService implements IAnswerService {
         throw new BadRequestError(`Question with ID ${questionId} not found`);
       }
 
-      // Block approval if normalised_crop is missing or not registered in the crop list
-      const normalisedCrop = question.details?.normalised_crop?.trim();
+      // Block approval only if the crop genuinely isn't registered. If normalised_crop
+      // is missing but the raw crop now exists in the crop master (e.g. registered in
+      // Agri Tech Management after the question was created, or missed by the backfill),
+      // this resolves and persists it so approval isn't blocked unnecessarily.
+      const normalisedCrop = await this.questionService.ensureNormalisedCrop(
+        questionId,
+        session,
+      );
       if (!normalisedCrop) {
         throw new BadRequestError(
           `This question does not have a normalised crop. Please add the respective crop from the Agri Tech Management section before approving this answer.`,

@@ -1674,6 +1674,39 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
   }
 
+  /**
+   * Resolve a question's normalised crop. If it's already set, return it. Otherwise
+   * try to resolve it from the crop master using the raw crop (same lookup used at
+   * question creation) and persist it on the question, so a crop registered in Agri
+   * Tech Management after the question was created (or missed by the backfill, which
+   * skips empty-string values and non-matching spellings) doesn't block approval.
+   * Returns the normalised crop name, or null if the raw crop isn't registered.
+   */
+  async ensureNormalisedCrop(
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<string | null> {
+    const question = await this.questionRepo.getById(questionId, session);
+    const existing = question.details?.normalised_crop?.trim();
+    if (existing) return existing;
+
+    const rawCrop =
+      typeof question.details?.crop === 'string'
+        ? question.details.crop
+        : (question.details?.crop as any)?.name;
+    if (!rawCrop?.trim()) return null;
+
+    const resolved = await this.cropRepository.findByNameOrAlias(rawCrop);
+    if (!resolved?.name) return null;
+
+    await this.questionRepo.updateQuestion(
+      questionId,
+      { 'details.normalised_crop': resolved.name } as any,
+      session,
+    );
+    return resolved.name;
+  }
+
   async getQuestionById(questionId: string): Promise<QuestionResponse> {
     try {
       return this._withTransaction(async (session: ClientSession) => {
