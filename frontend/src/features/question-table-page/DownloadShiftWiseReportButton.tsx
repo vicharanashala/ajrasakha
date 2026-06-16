@@ -62,6 +62,7 @@ const DownloadShiftWiseReportButton = ({
   userRole: any;
 }) => {
   const [isDownloading, setIsDownloading] = useState(false);
+  const [source, setSource] = useState<"annam" | "whatsapp" | 'agri_expert'>('annam');
 
   const defaultStartDate = new Date(Date.now());
   // const defaultEndDate = new Date(Date.now());
@@ -90,6 +91,7 @@ const DownloadShiftWiseReportButton = ({
       fromDate: startDate,
       // toDate: endDate,
       shift: selectedShift,
+      source,
     });
 
   const { data: shiftWiseTrends, isFetching: isShiftWiseTrendsLoading } =
@@ -97,6 +99,7 @@ const DownloadShiftWiseReportButton = ({
       fromDate: startDate,
       // toDate: endDate,
       shift: selectedShift,
+      source,
     });
 
   const {
@@ -106,6 +109,7 @@ const DownloadShiftWiseReportButton = ({
     fromDate: startDate,
     // toDate: endDate,
     shift: selectedShift,
+    source,
   });
 
   const {
@@ -115,6 +119,7 @@ const DownloadShiftWiseReportButton = ({
     fromDate: startDate,
     // toDate: endDate,
     shift: selectedShift,
+    source,
   });
 
   const { data: topExperts, isFetching: isTopExpertsLoading } =
@@ -122,6 +127,7 @@ const DownloadShiftWiseReportButton = ({
       fromDate: startDate,
       // toDate: endDate,
       shift: selectedShift,
+      source,
     });
 
   const { data: topApprovingExperts, isFetching: isTopApproversLoading } =
@@ -129,6 +135,7 @@ const DownloadShiftWiseReportButton = ({
       fromDate: startDate,
       // toDate: endDate,
       shift: selectedShift,
+      source,
     });
 
   const { data: auditActionCounts, isFetching: isAuditActionCountsLoading } =
@@ -387,6 +394,33 @@ const DownloadShiftWiseReportButton = ({
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Select Source
+                </label>
+
+                <select
+                  value={source}
+                  onChange={(e) =>
+                    setSource(
+                      e.target.value as "annam" | "whatsapp" | "agri_expert",
+                    )
+                  }
+                  className="
+                          h-7
+                          rounded-md
+                          border
+                          bg-background
+                          px-3
+                          text-sm
+                        "
+                >
+                  <option value="annam">Annam</option>
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="agri_expert">AgriExpert</option>
+                </select>
+              </div>
+              
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-muted-foreground">
                   Select Shift

@@ -148,6 +148,7 @@ export const useShiftBasedMetrics = (
     fromDate: string;
     // toDate: string;
     shift: string;
+    source: string;
   }
 ) => {
   return useQuery({
@@ -157,13 +158,15 @@ export const useShiftBasedMetrics = (
       query.fromDate,
       // query.toDate,
       query.shift,
+      query.source
     ],
 
     queryFn: () =>
       performaceService.getShiftBasedMetrics(
         query.fromDate,
         // query.toDate,
-        query.shift
+        query.shift,
+        query.source,
       ),
 
     placeholderData: keepPreviousData,
@@ -175,6 +178,7 @@ export const useShiftBasedTrends = (
     fromDate: string;
     // toDate: string;
     shift: string;
+    source: string;
   }
 ) => {
   return useQuery({
@@ -184,13 +188,15 @@ export const useShiftBasedTrends = (
       query.fromDate,
       // query.toDate,
       query.shift,
+      query.source,
     ],
 
     queryFn: () =>
       performaceService.getShiftWiseTrends(
         query.fromDate,
         // query.toDate,
-        query.shift
+        query.shift,
+        query.source
       ),
 
     placeholderData: keepPreviousData,
@@ -202,6 +208,7 @@ export const useShiftBasedStatusDistribution = (
     fromDate: string;
     // toDate: string;
     shift: string;
+    source: string;
   }
 ) => {
   return useQuery({
@@ -211,13 +218,15 @@ export const useShiftBasedStatusDistribution = (
       query.fromDate,
       // query.toDate,
       query.shift,
+      query.source
     ],
 
     queryFn: () =>
       performaceService.getStatusDistribution(
         query.fromDate,
         // query.toDate,
-        query.shift
+        query.shift,
+        query.source,
       ),
 
     placeholderData: keepPreviousData,
@@ -230,6 +239,7 @@ export const useShiftBasedLevelDistribution = (
     fromDate: string;
     // toDate: string;
     shift: string;
+    source: string;
   }
 ) => {
   return useQuery({
@@ -239,13 +249,15 @@ export const useShiftBasedLevelDistribution = (
       query.fromDate,
       // query.toDate,
       query.shift,
+      query.source,
     ],
 
     queryFn: () =>
       performaceService.getLevelDistribution(
         query.fromDate,
         // query.toDate,
-        query.shift
+        query.shift,
+        query.source,
       ),
 
     placeholderData: keepPreviousData,
@@ -257,6 +269,7 @@ export const useShiftBasedTopExperts = (
     fromDate: string;
     // toDate: string;
     shift: string;
+    source: string;
   }
 ) => {
   return useQuery({
@@ -266,13 +279,15 @@ export const useShiftBasedTopExperts = (
       query.fromDate,
       // query.toDate,
       query.shift,
+      query.source,
     ],
 
     queryFn: () =>
       performaceService.getShiftBasedTopExperts(
         query.fromDate,
         // query.toDate,
-        query.shift
+        query.shift,
+        query.source,
       ),
 
     placeholderData: keepPreviousData,
@@ -285,6 +300,7 @@ export const useShiftBasedTopApprovingExperts = (
     fromDate: string;
     // toDate: string;
     shift: string;
+    source: string;
   }
 ) => {
   return useQuery({
@@ -294,13 +310,15 @@ export const useShiftBasedTopApprovingExperts = (
       query.fromDate,
       // query.toDate,
       query.shift,
+      query.source,
     ],
 
     queryFn: () =>
       performaceService.getShiftBasedTopApprovingExperts(
         query.fromDate,
         // query.toDate,
-        query.shift
+        query.shift,
+        query.source,
       ),
 
     placeholderData: keepPreviousData,
