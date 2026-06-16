@@ -1715,6 +1715,7 @@ const AuditPage = () => {
     SEND_OUTREACH_REPORT = "Send Outreach Report",
     DOWNLOAD = "Download",
     APPROVE_ANSWER = "Approve Answer",
+    PUSH_TO_GDB = "Push To Gdb",
     REROUTE_ANSWER = "Reroute Answer",
     REROUTE_REJECTION = "Reroute Rejection",
     SEND_DASHBOARD_REPORT = "Send Dashboard Report",

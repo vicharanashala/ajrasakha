@@ -44,6 +44,7 @@ const actionLabels: Record<string, string> = {
   ASSIGN_STF: "STF Assigned",
   REMOVE_STF: "STF Removed",
   APPROVE_ANSWER: "Answer Approved",
+  PUSH_TO_GDB: "Push To Gdb",
   EDIT_FINAL_ANSWER: "Final Answer Edited",
   REROUTE_ANSWER: "Answer Rerouted",
   REROUTE_REJECTION: "Reroute Rejected",

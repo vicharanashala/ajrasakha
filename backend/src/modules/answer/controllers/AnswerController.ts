@@ -344,7 +344,7 @@ export class AnswerController {
     let questionData;
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.ANSWER,
-      action: AuditAction.APPROVE_ANSWER,
+      action: AuditAction.PUSH_TO_GDB,
       actor: {
         id: userId,
         name: `${user.firstName} ${user.lastName}`,
