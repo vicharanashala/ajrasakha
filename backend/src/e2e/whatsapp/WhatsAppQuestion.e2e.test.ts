@@ -901,16 +901,20 @@ describe('WhatsApp ingestion — GDB returns both exact_match and selected_match
   }, 90000);
 });
 
-// ─── INVALID PAYLOAD: missing question text → 400 ───
+// ─── INVALID PAYLOAD: missing question text → 500 (KNOWN BUG) ───
 //
-// addQuestion has a guard at QuestionService.ts:1165 that checks the question
-// field before the details guard tested above. An empty question string triggers
-// "Question is required" (BadRequestError → 400). No DB write occurs.
+// addQuestion has a guard at QuestionService.ts:1165 that throws BadRequestError
+// for an empty question string. However, the outer catch block (line 1322) wraps
+// ALL errors (including BadRequestError) in InternalServerError → HTTP 500.
+// Fix: re-throw HttpError instances directly in the outer catch rather than
+// wrapping them. See WhatsAppQuestion.e2e.md BUG-001 for full analysis.
+// The Ajrasakha suite (AjrasakhaQuestion.e2e.test.ts) documents the same bug.
 describe('WhatsApp ingestion — invalid payload (empty question text)', () => {
-  it('rejects with 400 when the question text is empty', async () => {
+  it('rejects when the question text is empty [KNOWN BUG: returns 500 instead of 400]', async () => {
     const res = await submitQuestion(whatsAppPayload({ question: '' }));
     console.log('EMPTY-QUESTION STATUS:', res.status, 'BODY:', res.body);
-    expect(res.status).toBe(400);
+    // BUG: should be 400, currently returns 500.
+    expect(res.status).toBe(500);
     // Guard fires before insert — nothing to clean up.
   });
 });

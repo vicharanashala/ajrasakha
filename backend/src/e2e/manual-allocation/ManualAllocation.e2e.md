@@ -139,3 +139,42 @@ This is triggered by BUG-002's empty-queue scenario and is the direct cause of t
 
 **Intended behavior:** 400 "no expert at that index"  
 **Fix:** Guard `questionDetails?.text` in the catch block, and validate that `getExprtIdByIndex` returned a non-null value before calling `getUserById`.
+
+---
+
+## Last Test Run Results
+
+**Date:** 2026-06-15  
+**Total:** 10 tests — **4 passed, 6 failed**
+
+| # | Group | Test | Result | Error |
+|---|-------|------|--------|-------|
+| 1 | AUTH | No user → 401 (allocate-experts) | ✅ | — |
+| 2 | AUTH | Expert tries to allocate → 400 | ✅ | — |
+| **3** | **ALLOCATE** | **Moderator allocates expert1 → 200** | ❌ FAIL | Response was not 200; expert1 not added to queue |
+| **4** | **ALLOCATE** | **DB: queue contains expert1 after allocation** | ❌ FAIL | `QUEUE AFTER EXPERT1: []` — queue empty |
+| **5** | **ALLOCATE** | **DB: `firstAllocationAt` set after first allocation** | ❌ FAIL | `firstAllocationAt: undefined` |
+| **6** | **ALLOCATE** | **Moderator allocates expert2 → 200, queue length 2** | ❌ FAIL | Queue has 1 entry (expert2 only); expert1 missing |
+| 7 | VALIDATION | Re-allocate expert1 (duplicate) → 200 (known BUG-001) | ✅ | — |
+| 8 | VALIDATION | Non-existent questionId → 500 (known behavior) | ✅ | — |
+| **9** | **REMOVE** | **Moderator removes expert at index 0 → 200** | ❌ FAIL | `expected 500 to be 200` |
+| **10** | **REMOVE** | **DB: queue shrinks to 1, expert2 remains** | ❌ FAIL | Queue empty after failed remove (BUG-003 cascade) |
+
+---
+
+## Failing Paths (2026-06-15)
+
+### Expert1 allocation silently fails (tests #3-6)
+
+The `POST /allocate-experts` call for `EXPERT_EMAIL` returned a non-200 status. No success log was observed for expert1, but expert2 allocation (`ALLOCATE-EXPERT2 STATUS: 200`) succeeds and shows `queue: [ { buffer: [Object] } ]` — only 1 expert instead of the expected 2.
+
+Possible causes:
+- `EXPERT_EMAIL` in `.env.test` does not resolve to a valid user in the current DB (user deleted or email changed)
+- A new validation in `allocateExperts` that rejects expert1's ID specifically
+- The expert user's role or `isBlocked` flag has changed
+
+**Effect:** Tests #4-6 all cascade from this root failure. Test #9 (remove) then hits BUG-003 (empty queue at the expected index → 500) because expert1 was never added.
+
+### Remove fails with 500 (test #9)
+
+Because expert1 was never in the queue, `getExprtIdByIndex(questionId, 0)` returns `null`. Passing `null` to `getUserById` throws inside the controller's catch block, and the secondary `questionDetails.text` access in the catch body triggers a `TypeError` → HTTP 500. This is BUG-003 documented above.
