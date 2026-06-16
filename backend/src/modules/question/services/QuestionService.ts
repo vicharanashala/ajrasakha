@@ -1366,13 +1366,13 @@ export class QuestionService extends BaseService implements IQuestionService {
         if (!savedQuestion?._id) {
           throw new InternalServerError(`Failed to save question to database`);
         }
-         if(!body.threadId)
+        /* if(!body.threadId)
         {
            await this.questionRepo.updateQuestion(savedQuestion._id.toString(), {
               isTesting: true,
             });
           return
-        }
+        }*/
 
 
         // 🔹 Create bare submission record (expert queue populated in background)
