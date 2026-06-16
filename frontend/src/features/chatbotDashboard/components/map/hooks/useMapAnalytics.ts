@@ -4,7 +4,7 @@
 
 import { useMemo } from "react";
 import type { Analytics, LevelKey } from "../lib/types";
-import { mockAnalytics, mockDistrictDetails } from "../lib/mockData";
+// import { mockAnalytics, mockDistrictDetails } from "../lib/mockData";
 import { useQuery } from "@tanstack/react-query";
 import { ChatbotService } from "@/hooks/services/chatbotService";
 import type { DistrictAnalyticsResponse } from "@/features/chatbotDashboard/hooks/useStateQueryData";
@@ -226,10 +226,10 @@ if (othersAnalytics) {
         : districtsOfState;
 
   // District details
-  const districtDetails = useMemo(
-    () => (selectedDistrict ? mockDistrictDetails(selectedDistrict) : null),
-    [selectedDistrict],
-  );
+  // const districtDetails = useMemo(
+  //   () => (selectedDistrict ? mockDistrictDetails(selectedDistrict) : null),
+  //   [selectedDistrict],
+  // );
 
   // Min/max for color ramp
   const [minV, maxV] = useMemo(() => {
@@ -286,7 +286,7 @@ if (othersAnalytics) {
   return {
     statesWithData,
     districtsOfState,
-    districtDetails,
+    // districtDetails,
     activeGeo,
     minV,
     maxV,

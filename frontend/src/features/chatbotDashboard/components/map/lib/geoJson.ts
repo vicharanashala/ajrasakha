@@ -117,6 +117,10 @@ export async function fetchDistricts(): Promise<unknown> {
       feature.properties.NAME_1 =
         'Uttarakhand';
     }
+
+    if(districtName === "Naini Tal"){
+      feature.properties.NAME_2 = "Nainital"
+    }
   });
 
   // Add missing districts

@@ -67,12 +67,12 @@ export default function IndiaAnalyticsMap({
     userType,
   );
     // console.log("Analytics of all state", allStatesData)
-    console.log("District analytics of data", districtAnalytics)
+    // console.log("District analytics of data", districtAnalytics)
 
   const {
     statesWithData,
     districtsOfState,
-    districtDetails,
+    // districtDetails,
     activeGeo,
     minV,
     maxV,
@@ -305,7 +305,7 @@ export default function IndiaAnalyticsMap({
         selectedDistrict={selectedDistrict}
         statesWithData={statesWithData}
         districtsOfState={districtsOfState}
-        districtDetails={districtDetails}
+        districtDetails={null}
         onSelectState={handleSelectState}
         onSelectDistrict={handleSelectDistrict}
         source={source}
