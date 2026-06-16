@@ -24,7 +24,6 @@ export function DistrictDetails({
   const villagesDetails = VILLAGES[selectedDistrict];
   const kvksDetails = KVKS[selectedDistrict];
   // console.log("Selected District", selectedDistrict);
-  console.log("District details", blocksDetails);
   const VILLAGES_PER_PAGE = 10;
 
   const [currentPage, setCurrentPage] = useState(1);
