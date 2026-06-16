@@ -690,10 +690,12 @@ export class QuestionService {
     season?: string;
     domain?: string;
     status?: string;
+    source?: string;
     hiddenQuestions?: boolean;
     duplicateQuestions?: boolean;
     startDate?: string;
     endDate?: string;
+    moderator?: string;
   }): Promise<Blob> {
     const params = new URLSearchParams();
     if (filters.startDate) {
@@ -720,11 +722,17 @@ export class QuestionService {
     if (filters.status && filters.status !== "all") {
       params.append("status", filters.status);
     }
+    if (filters.source && filters.source !== "all") {
+      params.append("source", filters.source);
+    }
     if (filters.hiddenQuestions) {
       params.append("hiddenQuestions", String(filters.hiddenQuestions));
     }
     if (filters.duplicateQuestions) {
       params.append("duplicateQuestions", String(filters.duplicateQuestions));
+    }
+    if (filters.moderator && filters.moderator !== "all") {
+      params.append("moderator", filters.moderator);
     }
 
     // Get the current Firebase user and token

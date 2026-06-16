@@ -267,3 +267,46 @@ def save_user_location(user_id: str, district: str, state: str) -> bool:
         state,
     )
     return True
+
+
+def save_last_rephrased_query(user_id: str, rephrased_query: str) -> bool:
+    """Save the last rephrased query for the user."""
+    normalized_id = _normalize_user_id(user_id)
+    if not normalized_id:
+        return False
+
+    query = (rephrased_query or "").strip()
+    if not query:
+        return False
+
+    col = _get_collection()
+    if col is None:
+        return False
+
+    now = datetime.now(timezone.utc)
+
+    try:
+        col.update_one(
+            {"user_id": normalized_id},
+            {
+                "$set": {
+                    "last_rephrased_query": query,
+                    "updated_at": now,
+                },
+                "$setOnInsert": {
+                    "user_id": normalized_id,
+                    "created_at": now,
+                },
+            },
+            upsert=True,
+        )
+    except Exception:
+        logger.exception("Failed to save last rephrased query for user_id=%s", normalized_id)
+        return False
+
+    logger.info(
+        "Saved last rephrased query for user_id=%s: %s",
+        normalized_id,
+        query[:100] + "..." if len(query) > 100 else query,
+    )
+    return True
