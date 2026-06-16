@@ -89,11 +89,30 @@ async function getExpertDisplayName(expertId?: string | null): Promise<string> {
       const now = new Date();
       const newExpertId = job.expertId;
 
-      // Identify who is CURRENTLY working
-      // If history ends in 'in-review', the stuck person is at index (history.length - 1)
-      // Otherwise, the next person to work is at index history.length
+      // Distinguish a genuinely stuck expert from an author who has already done
+      // their work. An in-review history entry that carries an `answer` is the
+      // AUTHOR's submission awaiting review — they are NOT stuck and their
+      // authorship must never be reassigned. An in-review entry WITHOUT an answer
+      // is an assigned expert who hasn't acted yet and may be replaced.
+      const lastHistoryEntry =
+        history.length > 0 ? history[history.length - 1] : null;
+      const authorAwaitingReview =
+        !!lastHistoryEntry &&
+        lastHistoryEntry.status === 'in-review' &&
+        lastHistoryEntry.answer != null;
+
+      // Identify who is CURRENTLY working.
+      // If history ends in an in-review entry with NO answer, that assigned expert
+      // is stuck → their slot (history.length - 1) can be replaced.
+      // Otherwise (entry already completed, or it's an author awaiting review) the
+      // slot is treated as consumed and the incoming expert is appended as the next
+      // reviewer at index history.length — never overwriting the author.
       let currentExpertIndex;
-      if (history.length > 0 && history[history.length - 1].status === 'in-review') {
+      if (
+        history.length > 0 &&
+        lastHistoryEntry!.status === 'in-review' &&
+        !authorAwaitingReview
+      ) {
         currentExpertIndex = history.length - 1;
       } else {
         currentExpertIndex = history.length;
@@ -203,7 +222,10 @@ async function getExpertDisplayName(expertId?: string | null): Promise<string> {
             }
           } else {
             const lastHistory = history[history.length - 1];
-            if (lastHistory?.status === 'in-review') {
+            // Only penalise a genuinely stuck expert (in-review with NO answer). An
+            // author awaiting review has completed their work — appending a reviewer
+            // is normal progress, not a missed turn.
+            if (lastHistory?.status === 'in-review' && lastHistory.answer == null) {
               const stuckExpertId = lastHistory.updatedBy?.toString();
               if (stuckExpertId) {
                 await userRepo.updateReputationScore(stuckExpertId, false);
@@ -237,21 +259,28 @@ async function getExpertDisplayName(expertId?: string | null): Promise<string> {
         });
 
         affectedExpertIds.add(newExpertId);
+        // When an authored answer is awaiting review, the appended expert is a
+        // REVIEWER (not the author) — notify with review semantics.
         await notificationService.saveTheNotifications(
-          'A time-bound question has been reassigned to you',
-          'Question Reassigned',
+          authorAwaitingReview
+            ? 'A time-bound question needs your review'
+            : 'A time-bound question has been reassigned to you',
+          authorAwaitingReview ? 'New Review Assigned' : 'Question Reassigned',
           submission.questionId.toString(),
           newExpertId,
-          'answer_creation',
+          authorAwaitingReview ? 'peer_review' : 'answer_creation',
         );
       } else if (modified) {
         // ── REPLACE MODE (default workload balancing) ─────────────────────────
         const updatedHistory = [...history];
 
-        // 1. If the expert currently in-review was replaced, update the history entry to the new expert
+        // 1. If the expert currently in-review was replaced, update the history entry
+        //    to the new expert. Never rewrite an entry that already carries an
+        //    `answer`: that is the author's submission and reassigning `updatedBy`
+        //    would misattribute authorship (the answer's authorId is the real author).
         if (currentExpertIndex === history.length - 1 && history.length > 0) {
           const lastHistory = history[history.length - 1];
-          if (lastHistory?.status === 'in-review') {
+          if (lastHistory?.status === 'in-review' && lastHistory.answer == null) {
             updatedHistory[updatedHistory.length - 1] = {
               ...lastHistory,
               updatedBy: new ObjectId(newExpertId),
@@ -265,9 +294,11 @@ async function getExpertDisplayName(expertId?: string | null): Promise<string> {
         //    reallocation (opened-but-idle), where we only free them from the question.
         if (!job.skipPenalty) {
           if (history.length > 0) {
-            // Reviewer case: penalize only 'in-review' experts — 'reviewed' experts already completed their work
+            // Reviewer case: penalize only 'in-review' experts who produced NO answer.
+            // 'reviewed' experts already completed their work, and an in-review entry
+            // WITH an answer is the author awaiting review (work done) — neither is penalised.
             const lastHistory = history[history.length - 1];
-            if (lastHistory?.status === 'in-review') {
+            if (lastHistory?.status === 'in-review' && lastHistory.answer == null) {
               const stuckExpertId = lastHistory.updatedBy?.toString();
               if (stuckExpertId) await userRepo.updateReputationScore(stuckExpertId, false);
             }
