@@ -13052,40 +13052,67 @@ const totalPages =
           village_volunteer: "farmer",
         };
         const nextRole = nextRoleMap[users[0].userRole];
+        const normalizeLocation = (value?: string) =>
+          (value || '').trim().toLowerCase();
+        const escapeRegex = (value: string) =>
+          value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const exactRegex = (value?: string) =>
+          new RegExp(`^${escapeRegex((value || '').trim())}$`, 'i');
+        const findMetadataKey = (
+          source: Record<string, string[]>,
+          value?: string,
+        ) => {
+          const normalizedValue = normalizeLocation(value);
+          return Object.keys(source).find(
+            key => normalizeLocation(key) === normalizedValue,
+          );
+        };
+        const districtKey = findMetadataKey(BLOCKS, district);
+        const blockKey = findMetadataKey(VILLAGES, block);
         const filter: any = {
-          assignedTo: null,
+          $and: [
+            {
+              $or: [
+                {assignedTo: null},
+                {assignedTo: {$exists: false}},
+              ],
+            },
+          ],
         };
         if (users[0].userRole === "district_coordinator") {
-          filter["farmerProfile.district"] = district;
-          const districtBlocks = BLOCKS[district] || [];
+          filter["farmerProfile.district"] = exactRegex(district);
+          const districtBlocks = districtKey ? BLOCKS[districtKey] || [] : [];
           filter["farmerProfile.blockName"] = {
-            $in: districtBlocks,
+            $in: districtBlocks.map(blockName => exactRegex(blockName)),
           };
-          filter["userRole"] = nextRole;
+          filter["userRole"] = exactRegex(nextRole);
         }
         if (users[0].userRole === "block_coordinator") {
-          filter["farmerProfile.district"] = district;
-          filter["farmerProfile.blockName"] = block;
-          const blockVillages = VILLAGES[block] || [];
+          filter["farmerProfile.district"] = exactRegex(district);
+          filter["farmerProfile.blockName"] = exactRegex(block);
+          const blockVillages = blockKey ? VILLAGES[blockKey] || [] : [];
           filter["farmerProfile.villageName"] = {
-            $in: blockVillages,
+            $in: blockVillages.map(villageName => exactRegex(villageName)),
           };
-          filter["userRole"] = nextRole;
+          filter["userRole"] = exactRegex(nextRole);
         }
         if (users[0].userRole === "village_volunteer") {
-          filter["farmerProfile.district"] = district;
-          const districtBlocks = BLOCKS[district] || [];
+          filter["farmerProfile.district"] = exactRegex(district);
+          const districtBlocks = districtKey ? BLOCKS[districtKey] || [] : [];
           const districtVillages = districtBlocks.flatMap(
-            (blockName) => VILLAGES[blockName] || [],
+            (blockName) => {
+              const villageBlockKey = findMetadataKey(VILLAGES, blockName);
+              return villageBlockKey ? VILLAGES[villageBlockKey] || [] : [];
+            },
           );
           filter["farmerProfile.villageName"] = {
-            $in: districtVillages,
+            $in: districtVillages.map(villageName => exactRegex(villageName)),
           };
           filter["userRole"] = {
             $nin: [
-              "district_coordinator",
-              "block_coordinator",
-              "village_volunteer",
+              exactRegex("district_coordinator"),
+              exactRegex("block_coordinator"),
+              exactRegex("village_volunteer"),
             ],
           };
         }
