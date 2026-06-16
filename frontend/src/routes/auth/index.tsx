@@ -17,9 +17,14 @@ function RouteComponent() {
 
   useEffect(() => {
     if (!user) return;
-    navigate({
-      to: isCoordinatorRole(currentUser?.role) ? "/coordinator" : "/home",
-    });
+    if (isCoordinatorRole(currentUser?.role)) {
+      navigate({
+        to: "/user/$userId",
+        params: { userId: currentUser?._id || user.uid },
+      });
+    } else {
+      navigate({ to: "/home" });
+    }
   }, [user, currentUser, navigate]);
 
   return <AuthForm />;

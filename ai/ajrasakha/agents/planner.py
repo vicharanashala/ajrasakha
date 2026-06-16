@@ -67,7 +67,11 @@ from ajrasakha.agents.planner_rules import (
 )
 from ajrasakha.agents.prompts import PLANNER_SYSTEM_PROMPT
 from ajrasakha.agents.state import AjraSakhaState, PlannerEntities, PlannerPlan
-from ajrasakha.agents.user_location import load_user_location, maybe_persist_resolved_location
+from ajrasakha.agents.user_location import (
+    load_user_location,
+    maybe_persist_rephrased_query,
+    maybe_persist_resolved_location,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -688,6 +692,15 @@ async def planner_node(
                 state_source=location_sources.get("state_source"),
                 district_source=location_sources.get("district_source"),
             )
+            # Save the rephrased query for future context-aware rewriting
+            rephrased = plan.get("rephrased_query")
+            if rephrased:
+                maybe_persist_rephrased_query(user_id, rephrased)
+                trace_event(
+                    "planner_rephrased_query_saved",
+                    user_id=user_id,
+                    rephrased_query=rephrased,
+                )
 
         trace_event(
             "planner_final_plan",
