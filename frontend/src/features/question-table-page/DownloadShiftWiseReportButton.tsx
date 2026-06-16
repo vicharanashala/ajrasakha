@@ -54,6 +54,21 @@ import {
 import { TopRightBadge } from "@/components/NewBadge";
 import { toast } from "@/shared/components/toast";
 
+
+//shift based time range
+const shiftBasedTimeRange = {
+  morning: { id: 'morning', min: '06:00', max: '15:00' },
+  all: { id: 'wholeDay', label: 'All Day', min: '00:00', max: '23:59', },
+  evening: { id: 'evening', label: 'Night', min: '15:00', max: '23:59' }
+};
+
+// Helper to format 24h to 12h for readable toast messages
+const formatTime = (timeStr: string) => {
+  const [h, m] = timeStr.split(':');
+  const hour = parseInt(h, 10);
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  return `${hour % 12 || 12}:${m} ${ampm}`;
+};
 const DownloadShiftWiseReportButton = ({
   closeSideBar,
   userRole,
@@ -85,6 +100,55 @@ const DownloadShiftWiseReportButton = ({
   // const endDate = downloadDateRange?.to
   //   ? formatDateLocal(downloadDateRange.to)
   //   : "";
+
+  const [timeRange, setTimeRange] = useState({
+    from: shiftBasedTimeRange.all.min,
+    to: shiftBasedTimeRange.all.max
+  });
+
+  // Handler to update specific parts of the time range with boundary validation
+  const handleTimeChange = (field: string, value: string) => {
+  if (!value) return;
+
+  const currentShift: any = shiftBasedTimeRange[selectedShift];
+  let validTime = value;
+  let alertMessage: string | null = null;
+
+  if (validTime < currentShift.min) {
+    validTime = currentShift.min;
+    alertMessage = `Time adjusted: Earliest time for ${currentShift.id} is ${formatTime(currentShift.min)}`;
+  } else if (validTime > currentShift.max) {
+    validTime = currentShift.max;
+    alertMessage = `Time adjusted: Latest time for ${currentShift.id} is ${formatTime(currentShift.max)}`;
+  }
+
+  setTimeRange((prev) => {
+    let newFrom = field === 'from' ? validTime : prev.from;
+    let newTo = field === 'to' ? validTime : prev.to;
+
+    if (newFrom > newTo) {
+      if (field === 'from') {
+        newTo = newFrom;
+        if (!alertMessage) {
+          alertMessage =
+            '"From" time cannot be later than "To" time. Adjusted.';
+        }
+      } else {
+        newFrom = newTo;
+        if (!alertMessage) {
+          alertMessage =
+            '"To" time cannot be earlier than "From" time. Adjusted.';
+        }
+      }
+    }
+
+    return { from: newFrom, to: newTo };
+  });
+
+  if (alertMessage) {
+    toast.warning(alertMessage);
+  }
+};
 
   const { data: shiftWiseData, isFetching: isShiftWiseDataLoading } =
     useShiftBasedMetrics({
@@ -428,11 +492,16 @@ const DownloadShiftWiseReportButton = ({
 
                 <select
                   value={selectedShift}
-                  onChange={(e) =>
-                    setSelectedShift(
-                      e.target.value as "morning" | "evening" | "all",
-                    )
-                  }
+                  onChange={(e) => {
+                    const newShiftId = e.target.value as "morning" | "evening" | "all";
+
+                    setSelectedShift(newShiftId);
+
+                    setTimeRange({
+                      from: shiftBasedTimeRange[newShiftId].min,
+                      to: shiftBasedTimeRange[newShiftId].max,
+                    });
+                  }}
                   className="
                           h-7
                           rounded-md
@@ -472,6 +541,61 @@ const DownloadShiftWiseReportButton = ({
                           "
                 />
               </div>
+
+              {/* --- Start of the Custom Time Filter --- */}
+
+
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Select Time Range
+                </label>
+
+                <div className="flex items-end gap-1">
+                  {/* FROM Input */}
+                  <div className="flex flex-col gap-1 flex-1">
+                    <input
+                      type="time"
+                      min={shiftBasedTimeRange[selectedShift].min}
+                      max={shiftBasedTimeRange[selectedShift].max}
+                      value={timeRange.from}
+                      onChange={(e) => handleTimeChange('from', e.target.value)}
+                      className="
+                      h-7
+                      rounded-md
+                      border
+                      bg-background
+                      px-3
+                      text-sm
+                      "
+                    />
+                  </div>
+
+                  <div className="h-7 flex items-center justify-center text-neutral-300 pb-1">
+                    —
+                  </div>
+
+                  {/* TO Input */}
+                  <div className="flex flex-col gap-1 flex-1">
+                    <input
+                      type="time"
+                      min={shiftBasedTimeRange[selectedShift].min}
+                      max={shiftBasedTimeRange[selectedShift].max}
+                      value={timeRange.to}
+                      onChange={(e) => handleTimeChange('to', e.target.value)}
+                      className="
+                      h-7
+                      rounded-md
+                      border
+                      bg-background
+                      px-3
+                      text-sm
+                      "
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* --- End of the Custom Time Filter --- */}
 
               {/* <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-muted-foreground">
