@@ -13122,6 +13122,9 @@ const totalPages =
             projection: {
               _id: 1,
               name: 1,
+              email: 1,
+              firebaseUID: 1,
+              userRole: 1,
             },
           })
           .toArray();
@@ -13137,6 +13140,8 @@ const totalPages =
               projection: {
                 _id: 1,
                 name: 1,
+                email: 1,
+                firebaseUID: 1,
                 userRole: 1,
               },
             },
@@ -13167,6 +13172,76 @@ const totalPages =
     }
   }
 
+  private normalizeLocation(value?: string) {
+    return (value || '').trim().toLowerCase();
+  }
+
+  private exactRegex(value?: string) {
+    return new RegExp(`^${this.escapeRegex((value || '').trim())}$`, 'i');
+  }
+
+  private findMetadataKey(source: Record<string, string[]>, value?: string) {
+    const normalizedValue = this.normalizeLocation(value);
+    return Object.keys(source).find(
+      key => this.normalizeLocation(key) === normalizedValue,
+    );
+  }
+
+  private buildHierarchyTargetFilter(coordinator: any, requireUnassigned = false) {
+    const district = coordinator?.farmerProfile?.district;
+    const block = coordinator?.farmerProfile?.blockName;
+    const role = coordinator?.userRole;
+    const nextRoleMap: Record<string, string> = {
+      district_coordinator: 'block_coordinator',
+      block_coordinator: 'village_volunteer',
+      village_volunteer: 'farmer',
+    };
+    const nextRole = nextRoleMap[role];
+
+    if (!nextRole) {
+      throw new BadRequestError('This user role cannot manage assignments');
+    }
+
+    const filter: any = {
+      userRole: this.exactRegex(nextRole),
+    };
+
+    if (requireUnassigned) {
+      filter.$and = [
+        {
+          $or: [
+            {assignedTo: null},
+            {assignedTo: {$exists: false}},
+          ],
+        },
+      ];
+    }
+
+    if (role === 'district_coordinator') {
+      const districtKey = this.findMetadataKey(BLOCKS, district);
+      const districtBlocks = districtKey ? BLOCKS[districtKey] || [] : [];
+
+      filter['farmerProfile.district'] = this.exactRegex(district);
+      filter['farmerProfile.blockName'] = {
+        $in: districtBlocks.map(blockName => this.exactRegex(blockName)),
+      };
+    }
+
+    if (role === 'block_coordinator') {
+      filter['farmerProfile.district'] = this.exactRegex(district);
+      filter['farmerProfile.blockName'] = this.exactRegex(block);
+    }
+
+    if (role === 'village_volunteer') {
+      const village = coordinator?.farmerProfile?.villageName;
+      filter['farmerProfile.district'] = this.exactRegex(district);
+      filter['farmerProfile.blockName'] = this.exactRegex(block);
+      filter['farmerProfile.villageName'] = this.exactRegex(village);
+    }
+
+    return filter;
+  }
+
   async assignUsers(
     coordinatorId: string,
     targetIds: string[],
@@ -13177,6 +13252,25 @@ const totalPages =
       const targetObjectIds = targetIds.map(
         (id) => new ObjectId(id),
       );
+      const coordinator = await this.users.findOne({
+        _id: new ObjectId(coordinatorId),
+      });
+
+      if (!coordinator) {
+        throw new BadRequestError('Coordinator not found');
+      }
+
+      const allowedFilter = this.buildHierarchyTargetFilter(coordinator, true);
+      const validTargetsCount = await this.users.countDocuments({
+        ...allowedFilter,
+        _id: {$in: targetObjectIds},
+      });
+
+      if (validTargetsCount !== targetObjectIds.length) {
+        throw new BadRequestError(
+          'One or more selected users are outside this coordinator hierarchy',
+        );
+      }
 
       await this.users.updateMany(
         {
@@ -13220,6 +13314,16 @@ const totalPages =
       const targetObjectIds = targetIds.map(
         (id) => new ObjectId(id),
       );
+      const validTargetsCount = await this.users.countDocuments({
+        _id: {$in: targetObjectIds},
+        assignedTo: new ObjectId(coordinatorId),
+      });
+
+      if (validTargetsCount !== targetObjectIds.length) {
+        throw new BadRequestError(
+          'One or more selected users are not assigned to this coordinator',
+        );
+      }
 
       // Remove coordinator from users
       await this.users.updateMany(
