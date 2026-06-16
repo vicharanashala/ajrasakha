@@ -2723,23 +2723,53 @@ export class QuestionRepository implements IQuestionRepository {
       end.setDate(end.getDate() + 1);
     }
 
-    // Get moderator breakdown
-    const moderatorBreakdown = (await this.AnswersCollection.aggregate(
+    // A question enters the Golden DB when it is CLOSED, so the count is driven by
+    // `closedAt` on the questions collection — a write-once timestamp set at closure.
+    // The previous implementation counted approved answers by `updatedAt`, which is
+    // bumped by ANY later write to the answer (e.g. bulk maintenance scripts), so it
+    // massively over-reported "added today" (a single bulk update re-dated thousands
+    // of old answers into "today"). The per-moderator breakdown is attributed via
+    // each closed question's approved final answer (`approvedBy`).
+    const rows = (await this.QuestionCollection.aggregate(
       [
         {
           $match: {
-            status: 'approved',
-            isFinalAnswer: true,
-            updatedAt: {
-              $gte: start,
-              $lt: end,
-            },
-            approvedBy: {$exists: true, $ne: null},
+            status: 'closed',
+            closedAt: {$gte: start, $lt: end},
+          },
+        },
+        {
+          $lookup: {
+            from: 'answers',
+            let: {qid: '$_id'},
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      {$eq: ['$questionId', '$$qid']},
+                      {$eq: ['$isFinalAnswer', true]},
+                      {$eq: ['$status', 'approved']},
+                    ],
+                  },
+                },
+              },
+              {$project: {approvedBy: 1}},
+            ],
+            as: 'approvedAnswer',
+          },
+        },
+        {
+          $unwind: {
+            path: '$approvedAnswer',
+            // Keep the question even if no approved answer is matched so the headline
+            // count reflects every closed question (those rows land in the null bucket).
+            preserveNullAndEmptyArrays: true,
           },
         },
         {
           $group: {
-            _id: '$approvedBy',
+            _id: '$approvedAnswer.approvedBy',
             count: {$sum: 1},
           },
         },
@@ -2754,34 +2784,52 @@ export class QuestionRepository implements IQuestionRepository {
         {
           $unwind: {
             path: '$moderator',
-            preserveNullAndEmptyArrays: false,
+            preserveNullAndEmptyArrays: true,
           },
         },
         {
           $project: {
             _id: 0,
+            approverId: '$_id',
             moderatorName: {
-              $concat: [
-                '$moderator.firstName',
-                ' ',
-                {$ifNull: ['$moderator.lastName', '']},
+              $cond: [
+                {$ifNull: ['$moderator', false]},
+                {
+                  $trim: {
+                    input: {
+                      $concat: [
+                        {$ifNull: ['$moderator.firstName', '']},
+                        ' ',
+                        {$ifNull: ['$moderator.lastName', '']},
+                      ],
+                    },
+                  },
+                },
+                null,
               ],
             },
             count: 1,
           },
         },
-        {
-          $sort: {count: -1},
-        },
+        {$sort: {count: -1}},
       ],
       {session},
-    ).toArray()) as {moderatorName: string; count: number}[];
+    ).toArray()) as {
+      approverId: ObjectId | null;
+      moderatorName: string | null;
+      count: number;
+    }[];
 
-    // Calculate total from the breakdown
-    const totalApproved = moderatorBreakdown.reduce(
-      (sum, item) => sum + item.count,
-      0,
-    );
+    // Headline = every closed question in range (independent of approver resolution).
+    const totalApproved = rows.reduce((sum, item) => sum + item.count, 0);
+
+    // Breakdown only includes rows that resolved to a real moderator.
+    const moderatorBreakdown = rows
+      .filter(item => item.approverId != null && !!item.moderatorName)
+      .map(item => ({
+        moderatorName: item.moderatorName as string,
+        count: item.count,
+      }));
 
     return {
       todayApproved: totalApproved,
