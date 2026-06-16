@@ -1583,9 +1583,37 @@ export class AnswerService extends BaseService implements IAnswerService {
     limit: number,
     dateRange?: { from: string | undefined; to: string | undefined },
     selectedHistoryId?: string | undefined,
+    expertId?: string | undefined,
   ): Promise<SubmissionResponse[]> {
     return await this._withTransaction(async (session: ClientSession) => {
       const user = await this.userRepo.findById(userId);
+      // Moderator/admin viewing another user's activity history. Route by the
+      // TARGET user's role (expert vs moderator pipelines differ), and never
+      // expose an admin's history.
+      if (expertId && (user.role === 'moderator' || user.role === 'admin')) {
+        const target = await this.userRepo.findById(expertId);
+        if (!target || target.role === 'admin') {
+          return [];
+        }
+        if (target.role === 'moderator') {
+          return await this.answerRepo.getModeratorActivityHistory(
+            expertId,
+            page,
+            limit,
+            dateRange,
+            selectedHistoryId,
+            session,
+          );
+        }
+        return await this.questionSubmissionRepo.getUserActivityHistory(
+          expertId,
+          page,
+          limit,
+          dateRange,
+          session,
+          selectedHistoryId,
+        );
+      }
       if (user.role === 'expert') {
         return await this.questionSubmissionRepo.getUserActivityHistory(
           userId,
