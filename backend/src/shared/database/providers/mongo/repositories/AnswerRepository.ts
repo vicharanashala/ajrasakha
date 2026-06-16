@@ -1877,4 +1877,28 @@ export class AnswerRepository implements IAnswerRepository {
       );
     }
   }
+
+  async getFinalAnswerQuestionIdsByApprover(
+    moderatorIds: string[],
+    session?: ClientSession,
+  ): Promise<string[]> {
+    try {
+      await this.init();
+      if (!moderatorIds?.length) return [];
+      const answers = await this.AnswerCollection.find(
+        {
+          approvedBy: { $in: moderatorIds.map(id => new ObjectId(id)) },
+          isFinalAnswer: true,
+        },
+        { projection: { questionId: 1 }, session },
+      ).toArray();
+      return answers
+        .map(a => a.questionId?.toString())
+        .filter((id): id is string => Boolean(id));
+    } catch (error) {
+      throw new InternalServerError(
+        `Error fetching final answers by approver: ${error}`,
+      );
+    }
+  }
 }

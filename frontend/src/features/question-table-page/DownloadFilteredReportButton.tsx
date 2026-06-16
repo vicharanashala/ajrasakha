@@ -24,6 +24,7 @@ import { Separator } from "@/components/atoms/separator";
 import { Checkbox } from "@/components/atoms/checkbox";
 import { STATES, SEASONS, DOMAINS, STATUS, SOURCES } from "@/components/MetaData";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
+import { useGetModerators } from "@/hooks/api/user/useGetModerators";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import { cn } from "@/lib/utils";
 
@@ -42,8 +43,10 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isCropPopoverOpen, setIsCropPopoverOpen] = useState(false);
+  const [isModeratorPopoverOpen, setIsModeratorPopoverOpen] = useState(false);
   const { data: cropsData } = useGetAllCrops({ type: "crop", limit: 500 });
   const dbCrops = cropsData?.crops ?? [];
+  const { data: moderators } = useGetModerators(isDialogOpen);
 
   const [filters, setFilters] = useState<{
     state: string;
@@ -53,6 +56,7 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
     domain: string;
     status: string;
     source: string;
+    moderator: string[];
     hiddenQuestions: boolean;
     duplicateQuestions: boolean;
     startTime: Date | undefined;
@@ -65,6 +69,7 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
     domain: "all",
     status: "all",
     source: "all",
+    moderator: [],
     hiddenQuestions: false,
     duplicateQuestions: false,
     ...getDefaultDates(),
@@ -92,6 +97,7 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
         domain: filters.domain,
         status: filters.status,
         source: filters.source,
+        moderator: filters.moderator.length > 0 ? filters.moderator.join(",") : "all",
         hiddenQuestions: filters.hiddenQuestions,
         duplicateQuestions: filters.duplicateQuestions,
         startDate: toDateString(filters.startTime),
@@ -156,6 +162,27 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
     });
   };
 
+  const handleModeratorToggle = (moderatorId: string) => {
+    setFilters(prev => {
+      const current = prev.moderator;
+      return current.includes(moderatorId)
+        ? { ...prev, moderator: current.filter(id => id !== moderatorId) }
+        : { ...prev, moderator: [...current, moderatorId] };
+    });
+  };
+
+  const getModeratorDisplayText = () => {
+    if (filters.moderator.length === 0) return "All Moderators";
+    const list = moderators ?? [];
+    const names = filters.moderator
+      .map(id => list.find(m => m._id === id)?.name)
+      .filter(Boolean);
+    if (names.length === 0) return `${filters.moderator.length} selected`;
+    return names.length <= 2
+      ? names.join(", ")
+      : `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
+  };
+
   const handleReset = () => {
     setFilters({
       state: "all",
@@ -165,6 +192,7 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
       domain: "all",
       status: "all",
       source: "all",
+      moderator: [],
       hiddenQuestions: false,
       duplicateQuestions: false,
       ...getDefaultDates(),
@@ -427,6 +455,100 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Moderator (approved by)</Label>
+              <div className="relative">
+                <Button
+                  type="button"
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={isModeratorPopoverOpen}
+                  onClick={() => setIsModeratorPopoverOpen((open) => !open)}
+                  className={cn(
+                    "h-9 w-full justify-between px-3 font-normal",
+                    filters.moderator.length === 0 && "text-muted-foreground"
+                  )}
+                >
+                  <span className="truncate">{getModeratorDisplayText()}</span>
+                  <ChevronDown
+                    className={cn(
+                      "h-4 w-4 shrink-0 opacity-50 transition-transform",
+                      isModeratorPopoverOpen && "rotate-180"
+                    )}
+                  />
+                </Button>
+                {isModeratorPopoverOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setIsModeratorPopoverOpen(false)}
+                    />
+                    <div className="absolute left-0 top-full z-50 mt-1 w-[250px] rounded-md border bg-popover text-popover-foreground shadow-md">
+                      <div className="flex flex-col max-h-[300px] overflow-y-auto p-1">
+                        <div
+                          className="relative flex items-center px-2 py-1.5 cursor-pointer rounded-sm hover:bg-accent hover:text-accent-foreground"
+                          onClick={() => setFilters(prev => ({ ...prev, moderator: [] }))}
+                        >
+                          <div className={cn(
+                            "flex items-center justify-center border rounded-sm h-4 w-4 mr-2",
+                            filters.moderator.length === 0 && "bg-primary border-primary"
+                          )}>
+                            {filters.moderator.length === 0 && (
+                              <svg className="h-3 w-3 text-primary-foreground" viewBox="0 0 12 12" fill="none">
+                                <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                            )}
+                          </div>
+                          <span className="text-sm">All Moderators</span>
+                        </div>
+                        {(moderators ?? []).map((m) => (
+                          <div
+                            key={m._id}
+                            className="relative flex items-center px-2 py-1.5 cursor-pointer rounded-sm hover:bg-accent hover:text-accent-foreground"
+                            onClick={() => handleModeratorToggle(m._id)}
+                          >
+                            <div className={cn(
+                              "flex items-center justify-center border rounded-sm h-4 w-4 mr-2",
+                              filters.moderator.includes(m._id) && "bg-primary border-primary"
+                            )}>
+                              {filters.moderator.includes(m._id) && (
+                                <svg className="h-3 w-3 text-primary-foreground" viewBox="0 0 12 12" fill="none">
+                                  <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                              )}
+                            </div>
+                            <span className="text-sm">{m.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+              {filters.moderator.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {filters.moderator.map(id => {
+                    const name = (moderators ?? []).find(m => m._id === id)?.name ?? id;
+                    return (
+                      <span
+                        key={id}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary text-xs rounded-md"
+                      >
+                        <span>{name}</span>
+                        <X
+                          className="h-3 w-3 cursor-pointer hover:text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleModeratorToggle(id);
+                          }}
+                        />
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Separator */}

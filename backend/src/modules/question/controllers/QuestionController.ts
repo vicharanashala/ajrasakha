@@ -773,6 +773,7 @@ export class QuestionController {
       duplicateQuestions?: string;
       startDate?: string;
       endDate?: string;
+      moderator?: string;
     },
     @CurrentUser() user: IUser,
     @Res() response: any,
@@ -809,6 +810,7 @@ export class QuestionController {
         duplicateQuestions: query.duplicateQuestions,
         startDate: query.startDate,
         endDate: query.endDate,
+        moderator: query.moderator,
       });
     } catch (err: any) {
       auditPayload = {

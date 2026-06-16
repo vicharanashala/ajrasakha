@@ -4714,6 +4714,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     duplicateQuestions?: string;
     startDate?: string;
     endDate?: string;
+    /** Moderator (= final answer's approvedBy) to filter closed questions by. */
+    moderator?: string;
   }): Promise<ArrayBuffer | null> {
     return this._withTransaction(async session => {
       // Build filter query
@@ -4784,7 +4786,29 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // Check if this is a closed status report - if so, limit to 50 questions
       const isClosedStatus = filters.status === 'closed' || filters.status === 'pae_closed';
-      const questionLimit = isClosedStatus ? 50 : undefined;
+      // `moderator` is a comma-separated list of moderator (approvedBy) ids.
+      const moderatorIds =
+        filters.moderator && filters.moderator !== 'all'
+          ? filters.moderator.split(',').map(s => s.trim()).filter(Boolean)
+          : [];
+      const filterByModerator = moderatorIds.length > 0;
+      // Answer / Sources / Moderator details only exist on a closed question's final
+      // answer, so they are included for closed reports or when filtering by moderator.
+      const includeAnswerDetails = isClosedStatus || filterByModerator;
+      const questionLimit = includeAnswerDetails ? 50 : undefined;
+
+      // Moderator filter (= final answer's approvedBy): restrict to the closed questions
+      // those moderators approved. Final answers only exist for closed questions, so this
+      // also scopes the report to closed questions.
+      if (filterByModerator) {
+        const approvedQuestionIds =
+          await this.answerRepo.getFinalAnswerQuestionIdsByApprover(moderatorIds, session);
+        if (!approvedQuestionIds.length) {
+          console.log('No closed questions approved by the selected moderator(s)');
+          return null;
+        }
+        query._id = { $in: approvedQuestionIds.map((id: string) => new ObjectId(id)) };
+      }
 
       // Get questions from repository
       const questions = await this.questionRepo.getQuestionsByFilters(
@@ -4799,18 +4823,27 @@ export class QuestionService extends BaseService implements IQuestionService {
         return null;
       }
 
-      // For closed status, fetch final answers for each question
-      let questionAnswers: Map<string, string> = new Map();
-      if (isClosedStatus) {
+      // For closed questions, fetch the final answer (text + sources + approving moderator).
+      const questionAnswers = new Map<string, string>();
+      const questionSources = new Map<string, string>();
+      const questionModerator = new Map<string, string>();
+      if (includeAnswerDetails) {
         const questionIds = questions.map(q => q._id.toString());
-        // Fetch all final answers for these questions
         const answers = await this.answerRepo.getFinalAnswersByQuestionIds(questionIds, session);
-        
-        // Create a map of questionId -> answer
+
+        // Resolve approving-moderator ids → display names in one batch.
+        const approverIds = [
+          ...new Set(answers.map(a => a.approvedBy?.toString()).filter(Boolean) as string[]),
+        ];
+        const moderatorNames = await this.resolveExpertNames(approverIds);
+
         answers.forEach(answer => {
-          if (answer.questionId) {
-            questionAnswers.set(answer.questionId.toString(), answer.answer);
-          }
+          if (!answer.questionId) return;
+          const qId = answer.questionId.toString();
+          questionAnswers.set(qId, answer.answer ?? '');
+          questionSources.set(qId, this.formatAnswerSources(answer.sources));
+          const approverId = answer.approvedBy?.toString();
+          if (approverId) questionModerator.set(qId, moderatorNames.get(approverId) ?? '');
         });
       }
 
@@ -4832,12 +4865,17 @@ export class QuestionService extends BaseService implements IQuestionService {
         { header: 'Source', key: 'source', width: 15 },
       ];
 
-      // Add Answer column for closed status
-      if (isClosedStatus) {
+      // Add Answer / Sources / Moderator columns for closed questions.
+      if (includeAnswerDetails) {
         columns.push({ header: 'Answer', key: 'answer', width: 80 });
+        columns.push({ header: 'Sources', key: 'sources', width: 50 });
+        columns.push({ header: 'Moderator', key: 'moderator', width: 25 });
       }
 
       sheet.columns = columns;
+      if (includeAnswerDetails) {
+        sheet.getColumn('sources').alignment = { wrapText: true, vertical: 'top' };
+      }
 
       // Add data rows
       questions.forEach(q => {
@@ -4854,9 +4892,12 @@ export class QuestionService extends BaseService implements IQuestionService {
           source: q.source,
         };
 
-        // Add answer for closed status
-        if (isClosedStatus) {
-          rowData.answer = questionAnswers.get(q._id.toString()) || '';
+        // Add answer / sources / moderator for closed questions.
+        if (includeAnswerDetails) {
+          const qId = q._id.toString();
+          rowData.answer = questionAnswers.get(qId) || '';
+          rowData.sources = questionSources.get(qId) || '';
+          rowData.moderator = questionModerator.get(qId) || '';
         }
 
         sheet.addRow(rowData);
@@ -6105,6 +6146,23 @@ export class QuestionService extends BaseService implements IQuestionService {
       const level = i === 0 ? 'Author' : `Reviewer ${i}`;
       return `${name} (${level})`;
     });
+  }
+
+  /** Format an answer's sources into a newline-separated cell for the Excel report. */
+  private formatAnswerSources(
+    sources?: { source: string; sourceName?: string; page?: string | number }[],
+  ): string {
+    if (!sources?.length) return '';
+    return sources
+      .map(s => {
+        const label = s.sourceName?.trim();
+        const page = s.page != null && String(s.page).trim() ? ` (p.${s.page})` : '';
+        const src = (s.source ?? '').toString().trim();
+        if (!label && !src) return '';
+        return label ? `${label}: ${src}${page}` : `${src}${page}`;
+      })
+      .filter(Boolean)
+      .join('\n');
   }
 
   /** Resolve expert ids → display names in a single batched lookup. */
