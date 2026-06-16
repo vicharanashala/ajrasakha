@@ -77,13 +77,22 @@ export const AllocationTimeline = ({
   };
 
   const getUserSubmission = (
-    userId: string
+    userId: string,
+    index?: number
   ): ISubmissionHistory | undefined => {
+    // Prefer the position-aligned history entry (queue[index] ↔ history[index]) so
+    // a user who appears at multiple queue positions — e.g. as author at index 0
+    // and reviewer at index 1 — is read per position, not collapsed to the first
+    // entry. Fall back to a by-id lookup when no aligned entry exists.
+    if (typeof index === "number") {
+      const atIndex = history[index];
+      if (atIndex && atIndex.updatedBy?._id === userId) return atIndex;
+    }
     return history.find((h) => h.updatedBy?._id === userId);
   };
 
-  const getUserActivityText = (userId: string): string => {
-    const submission = getUserSubmission(userId);
+  const getUserActivityText = (userId: string, index?: number): string => {
+    const submission = getUserSubmission(userId, index);
     if (!submission) {
       if (currentUser.role !== "expert") {
         return `${queue[0].name} is reviewing the question!!`
@@ -188,7 +197,7 @@ export const AllocationTimeline = ({
   );
   const getStatus = (index: number) => {
     const user = queue[index];
-    const activityText = getUserActivityText(user._id);
+    const activityText = getUserActivityText(user._id, index);
     const hasSubmitted =
       submittedUserIds.has(user._id) || submittedUserEmails.has(user.email);
 
@@ -255,7 +264,7 @@ export const AllocationTimeline = ({
         <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6   transition-all duration-500 ease-in-out">
           {displayedQueue?.map((user, index) => {
             const status = getStatus(index);
-            const userSubmission = getUserSubmission(user._id);
+            const userSubmission = getUserSubmission(user._id, index);
             // The first-queue expert may be assigned but have no history entry yet
             // (e.g. currently reviewing). Fall back to the submission's
             // currentExpertAllocatedAt so the "Assigned" time still shows.
@@ -451,9 +460,9 @@ export const AllocationTimeline = ({
 
                           <p
                             className="text-xs sm:text-sm font-semibold leading-relaxed text-foreground break-words max-w-full"
-                            title={getUserActivityText(user._id)}
+                            title={getUserActivityText(user._id, index)}
                           >
-                            {getUserActivityText(user._id)}
+                            {getUserActivityText(user._id, index)}
                           </p>
                         </div>
                         {/* timeline*/}
