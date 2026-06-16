@@ -2728,6 +2728,19 @@ export class QuestionService extends BaseService implements IQuestionService {
           Number(index),
           session,
         );
+        if(updated){  
+          let entityId = questionId;
+            let message: string = `You have been removed from the Allocated question`;
+            let title: string = 'Allocation Removed';
+            let type: INotificationType = 'allocation_removal';
+            await this.notificationService.saveTheNotifications(
+              message,
+              title,
+              entityId,
+              expertId,
+              type,
+            );
+        }
       /*  if(updated)
           {
             const IS_INCREMENT = true;
