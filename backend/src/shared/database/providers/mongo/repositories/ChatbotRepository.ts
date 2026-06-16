@@ -12702,14 +12702,31 @@ const totalPages =
   async getUserProfile (userId: string, session?: ClientSession) : Promise<any>{
     try{
       await this.init("annam");
-      await this.initReviewSystem();
-      const userObjectId = new ObjectId(userId);
-      const userIdString = userObjectId.toString();
-      const users = await this.users
-        .find({
-          _id: userObjectId,
-        })
-        .toArray();
+      
+      let users = [];
+      const isValidObjectId = ObjectId.isValid(userId) && String(new ObjectId(userId)) === userId;
+      
+      if (isValidObjectId) {
+        users = await this.users.find({ _id: new ObjectId(userId) }).toArray();
+      } else {
+        users = await this.users.find({ $or: [{ firebaseUID: userId }, { email: userId }] }).toArray();
+      }
+
+      if (users.length === 0 && isValidObjectId) {
+        const reviewSystemCollection = await this.db.getCollection<IUser>('users');
+        const centralUser = await reviewSystemCollection.findOne({ _id: new ObjectId(userId) });
+        
+        if (centralUser) {
+          const orConditions = [];
+          if (centralUser.firebaseUID) orConditions.push({ firebaseUID: centralUser.firebaseUID });
+          if (centralUser.email) orConditions.push({ email: centralUser.email });
+          
+          if (orConditions.length > 0) {
+            users = await this.users.find({ $or: orConditions }).toArray();
+          }
+        }
+      }
+
       if(users?.length === 0){
         throw new InternalServerError(
           `No user found for Id: ${userId}`,

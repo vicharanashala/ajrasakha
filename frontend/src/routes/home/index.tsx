@@ -32,7 +32,11 @@ function RouteComponent() {
       return;
     }
     if (isCoordinatorRole(currentUser?.role)) {
-      navigate({ to: "/coordinator" });
+      navigate({
+        to: "/user/$userId",
+        params: { userId: currentUser?._id || user.uid },
+      });
+      return;
     }
   }, [user, currentUser, navigate]);
 

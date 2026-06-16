@@ -142,10 +142,14 @@ function RouteComponent() {
       return;
     }
     if (currentUser && currentUser?.role !== "admin") {
+      const currentUserId = currentUser?._id || user.uid;
+      if (isCoordinatorRole(currentUser?.role) && userId === currentUserId) {
+        return;
+      }
       navigate({ to: "/home" });
       return;
     }
-  }, [user, currentUser, navigate]);
+  }, [user, currentUser, navigate, userId]);
 
   const verifyUserMutation = useVerifyUserAnalytics();
   const deleteUserMutation = useDeleteUser();
