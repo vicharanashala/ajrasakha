@@ -12702,6 +12702,7 @@ const totalPages =
   async getUserProfile (userId: string, session?: ClientSession) : Promise<any>{
     try{
       await this.init("annam");
+      await this.initReviewSystem();
       
       let users = [];
       const isValidObjectId = ObjectId.isValid(userId) && String(new ObjectId(userId)) === userId;
@@ -12732,6 +12733,12 @@ const totalPages =
           `No user found for Id: ${userId}`,
         );
       }
+
+      const userObjectId =
+        users[0]._id instanceof ObjectId
+          ? users[0]._id
+          : new ObjectId(users[0]._id);
+      const userIdString = userObjectId.toString();
 
       const userMessages = await this.messagesCollection
         .find(

@@ -61,6 +61,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
 import { FarmerNameLink } from "@/features/chatbotDashboard/components/FarmerNameLink";
 import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
+import { isCoordinatorRole } from "@/lib/roles";
 
 export const Route = createFileRoute("/user/$userId")({
   component: RouteComponent,
