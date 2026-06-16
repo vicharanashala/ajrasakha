@@ -139,7 +139,7 @@ export function AnnamDashboard_dev({
   const { data: closed2hData, isFetching: isClosed2hFetching } = useClosedAndNotifedData(source, filters.userType, closed2hRange.startTime, closed2hRange.endTime);
   const { data: questionStatusData } = useClosedAndNotifedData(source, filters.userType, questionStatusRange.startTime, questionStatusRange.endTime);
   const { data: customerNotificationsData } = useClosedAndNotifedData(source, filters.userType, customerNotificationsRange.startTime, customerNotificationsRange.endTime);
-  
+  console.log("questionStatusData------", questionStatusData);
   // Filter date range data
   const trendsFilters = useMemo(() => ({ ...filters, startTime: trendsDateRange?.from, endTime: trendsDateRange?.to }), [filters, trendsDateRange]);
   const faqsFilters = useMemo(() => ({ ...filters, startTime: faqsDateRange?.from, endTime: faqsDateRange?.to }), [filters, faqsDateRange]);

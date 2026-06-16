@@ -4306,6 +4306,7 @@ export class ChatbotRepository implements IChatbotRepository {
       // ============================================
       // QUESTIONS COLLECTION DATA
       // ============================================
+      const baseQuestionQuery = buildBaseQuestionMatch(source);
 
       const questionData = await this.QuestionCollection.aggregate(
         [
@@ -4318,6 +4319,7 @@ export class ChatbotRepository implements IChatbotRepository {
               ...monthDateMatch,
               ...questionUserTypeLookupStages,
               status: {$ne: 'non_agri'},
+              ...baseQuestionQuery
             },
           },
           // ...userTypeLookupStages,
@@ -4435,6 +4437,24 @@ export class ChatbotRepository implements IChatbotRepository {
           });
         }
       }
+
+      const dayStart = new Date('2026-06-11T00:00:00+05:30');
+      const dayEnd = new Date('2026-06-12T00:00:00+05:30');
+
+      const queries = await this.messagesCollection.countDocuments({
+        createdAt: { $gte: dayStart, $lt: dayEnd },
+        isCreatedByUser: true,
+        isDeleted: { $ne: true }
+      });
+
+      const questions = await this.QuestionCollection.countDocuments({
+        createdAt: { $gte: dayStart, $lt: dayEnd },
+        source: 'AJRASAKHA',
+        status: { $ne: 'non_agri' },
+        isTesting: { $ne: true },
+      });
+
+console.log("queries, questions",{ queries, questions });
 
       return Array.from(mergedMap.values()).sort((a, b) =>
         a.period.localeCompare(b.period),
@@ -9681,6 +9701,7 @@ const totalPages =
           $lt: previousMonthEnd,
         },
       };
+console.log("getClosedVsTotalQuestions matchQuery,startDate, endDate, source, userType", JSON.stringify(matchStage, null, 2),startDate, endDate, source, userType)
 
       const avgCloseTimeStages = [
         {
@@ -9981,6 +10002,7 @@ const totalPages =
           inReviewQuestions: 0,
           avgCloseTimeMinutes: 0,
         }),
+        inReviewQuestions: result[0]?.statuses?."in-review"
         previousMonthAvgCloseTimeMinutes:
           previousMonthResult[0]?.avgCloseTimeMinutes || 0,
       };
@@ -10113,7 +10135,9 @@ const totalPages =
       matchStage.source = {
         $in: ["WHATSAPP", "AJRASAKHA"],
       };
-
+      matchStage.status = { 
+        $in: ["closed", "pass"],
+      };
       const result = await this.QuestionCollection.aggregate([
         {$match: matchStage},
         {
@@ -10339,15 +10363,17 @@ const totalPages =
         }),
       );
       carryForwardWindowEnd.setHours(0, 0, 0, 0);
+      matchStage.status = { $ne: 'closed' }
+      console.log("getCarryForwardQuestions matchQuery,carryForwardWindowStart, carryForwardWindowEnd, source, userType", JSON.stringify(matchStage, null, 2),carryForwardWindowStart,carryForwardWindowEnd, source, userType)
       const count = await this.QuestionCollection.countDocuments({
         ...matchStage,
         createdAt: {
           $gte: carryForwardWindowStart,
           $lt: carryForwardWindowEnd,
         },
-        status: {
-          $ne: 'closed',
-        },
+        // status: {
+        //   $ne: 'closed',
+        // },
       });
       return count;
     } catch (error) {
@@ -11629,7 +11655,7 @@ const totalPages =
           $in: ["closed", "pass"],
         };
       }
-console.log("matchq---", matchQuery)
+console.log("status----", status)
       // Apply date range
 
       const validStartDate =
@@ -11662,6 +11688,7 @@ console.log("matchq---", matchQuery)
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
       }
+console.log(status," getQuestionsByStatus matchQuery,startDate, endDate, source, userType", JSON.stringify(matchQuery, null, 2),startDate, endDate, source, userType)
 
       // Search by name/email
       if (search?.trim()) {
@@ -11764,7 +11791,7 @@ console.log("matchq---", matchQuery)
       const total = result[0]?.metadata?.[0]?.total ?? 0;
 
       const questions = result[0]?.data ?? [];
-
+console.log(source,"questions---", questions.length, startDate, endDate);
       const {userMap, questionUserMap} =
         await this.resolveQuestionUsers(questions);
 

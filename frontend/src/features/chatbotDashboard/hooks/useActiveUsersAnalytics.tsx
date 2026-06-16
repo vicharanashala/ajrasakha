@@ -285,7 +285,7 @@ export const useAllWhatsappUsers = () => {
 export const useClosedAndNotifedData = (source: string, userType: string, startDate?: string, endDate?: string, enabled: boolean = true)=>{
   return useQuery({
     queryKey: ["closed-notified-data",
-      source,
+      // source,
       userType,
       startDate,
       endDate,
