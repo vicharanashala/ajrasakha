@@ -795,6 +795,82 @@ describe('Post-allocation — PAE expert submission', () => {
 });
 
 // ════════════════════════════════════════════════════════════════════════
+// 8. APPROVAL COUNT THRESHOLD GUARD
+//
+// The design requires exactly 3 peer-review acceptances before the question
+// escalates to the moderator. This suite explicitly pins that 2 acceptances
+// are NOT enough to trigger escalation — a regression guard for the reported
+// production symptom "after 2 consecutive approvals it goes to moderator level."
+// ════════════════════════════════════════════════════════════════════════
+
+describe('Post-allocation — approvalCount=2 does NOT escalate to moderator', () => {
+  let qId: string;
+  let answerId: string;
+
+  beforeAll(async () => {
+    // 3 experts in queue so we can drive approvalCount to 2 and stop there.
+    qId = await seedAllocatedQuestion({
+      queue: experts.slice(0, 3),
+      label: 'approval-threshold',
+    });
+
+    // e1 authors the first answer.
+    as(experts[0]);
+    await apiPost(`${ROUTE_PREFIX}/answers/review`).send({
+      questionId: qId,
+      answer: `${RUN_TAG} answer for approval-threshold test`,
+      sources: [],
+    });
+    const ans = await getAuthorAnswer(qId, experts[0]);
+    answerId = ans._id.toString();
+  });
+
+  it('after 1 acceptance (approvalCount=1): question.status is still "open"', async () => {
+    as(experts[1]);
+    const res = await apiPost(`${ROUTE_PREFIX}/answers/review`).send({
+      questionId: qId,
+      status: 'accepted',
+      approvedAnswer: answerId,
+      parameters: REVIEW_PARAMS,
+    });
+    expect(res.status).toBe(201);
+
+    const q = await getQuestion(qId);
+    console.log('[G8-1] status after approvalCount=1:', q?.status);
+    expect(q.status).toBe('open');
+  });
+
+  it('after 2 acceptances (approvalCount=2): question.status is STILL "open" (not "in-review")', async () => {
+    as(experts[2]);
+    const res = await apiPost(`${ROUTE_PREFIX}/answers/review`).send({
+      questionId: qId,
+      status: 'accepted',
+      approvedAnswer: answerId,
+      parameters: REVIEW_PARAMS,
+    });
+    expect(res.status).toBe(201);
+
+    const q = await getQuestion(qId);
+    const answers = await db.getCollection('answers');
+    const ans = await answers.findOne({ _id: new ObjectId(answerId) });
+    console.log('[G8-2] status after approvalCount=2:', q?.status, 'approvalCount:', ans?.approvalCount);
+    expect(ans.approvalCount).toBe(2);
+    expect(q.status).toBe('open');
+    expect(ans.status).toBe('in-review');
+  });
+
+  it('after 2 acceptances: no moderator_approval notification has been sent', async () => {
+    const notifications = await db.getCollection('notifications');
+    const notif = await notifications.findOne({
+      enitity_id: new ObjectId(qId),
+      type: 'moderator_approval',
+    });
+    console.log('[G8-3] moderator_approval notif at approvalCount=2:', notif ? 'found (BAD)' : 'absent (OK)');
+    expect(notif).toBeNull();
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════
 // 7. DELETE ANSWER
 // ════════════════════════════════════════════════════════════════════════
 

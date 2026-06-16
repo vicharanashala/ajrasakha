@@ -22,6 +22,7 @@ flowchart TD
   classDef err     fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
   classDef warn    fill:#fef9c3,stroke:#d97706,color:#78350f
   classDef decide  fill:#faf5ff,stroke:#7c3aed,color:#3b0764
+  classDef fail    fill:#fdba74,stroke:#ea580c,color:#7c2d12,font-weight:bold
 
   START["✅ Question ALLOCATED
   status = 'open'
@@ -49,7 +50,8 @@ flowchart TD
     ─────────────────────────
     answer.status = 'in-review'
     submission.history += e1 entry
-    totalAnswersCount += 1"]:::expert
+    totalAnswersCount += 1
+    ⚠ FAILING: timeout 5000ms (test #4)"]:::fail
 
     FIRST --> PAEQ{"e1 role =
     pae_expert ?"}:::decide
@@ -79,8 +81,12 @@ flowchart TD
 
     ACC --> ACCQ{"approvalCount ≥ 3
     OR 10 reviews ?"}:::decide
-    ACCQ -- "no" --> NEXT["assign next queued expert
-    notify type='peer_review'"]:::expert
+    ACCQ -- "no (1 or 2 approvals)
+    ⚠ must stay 'open'
+    tests #25–#27" --> NEXT["assign next queued expert
+    notify type='peer_review'
+    question stays 'open'
+    answer stays 'in-review'"]:::expert
     NEXT --> REVIEW
     ACCQ -- "yes (3 approvals)" --> READY["answer.status='pending-with-moderator'
     question.status = 'in-review'
@@ -90,7 +96,8 @@ flowchart TD
     REVIEW -- "rejected (+ new answer)" --> REJ["author penalised
     old answer.status='rejected'
     reviewer's new answer = live (in-review)
-    author notified type='review_rejected'"]:::warn
+    author notified type='review_rejected'
+    ⚠ FAILING: timeout 5000ms (test #13); notif null (test #14)"]:::fail
     REJ -. "identical answer
     ⚠ guard → 500 (KNOWN)" .-> RJ500["500"]:::err
     REJ --> REVIEW
@@ -197,8 +204,74 @@ These are pinned as expected results in the suite and flagged `KNOWN`.
 | 22 | PAE expert submits → `pae_submitted` (peer skipped)¹ | `POST /answers/review` | 201 |
 | 23 | Moderator approves a `pae_submitted` question → `closed`¹ | `PUT /answers` | 200 |
 | 24 | Delete non-final answer → removed, count decremented | `DELETE /answers/:qId/:aId` | 200 |
+| 25 | After approvalCount=1: `question.status` is still `'open'` | `POST /answers/review` | `status='open'` |
+| 26 | After approvalCount=2: `question.status` is STILL `'open'` (NOT `'in-review'`) | `POST /answers/review` | `status='open'` |
+| 27 | After approvalCount=2: no `moderator_approval` notification sent | (DB) | notif absent |
 
 ¹ PAE cases self-`skip()` if no `pae_expert` user exists in the DB.
+
+---
+
+---
+
+## Last Test Run Results
+
+**Date:** 2026-06-15  
+**Total:** 27 tests — **20 passed, 7 failed**
+
+| # | Test | Result | Error |
+|---|------|--------|-------|
+| 1 | 401 when no user is logged in | ✅ | — |
+| 2 | Moderator cannot author/review → 500 (KNOWN) | ✅ | — |
+| 3 | Expert not at queue[0] cannot submit first answer → 500 (KNOWN) | ✅ | — |
+| **4** | **e1 (queue[0]) submits first answer → in-review, e2 assigned** | ❌ **FAIL** | **Test timed out in 5000ms** |
+| 5 | e1 submits again → 500 (KNOWN: already submitted) | ✅ | — |
+| **6** | **e2 accepts → approvalCount 1, e3 assigned** | ❌ FAIL | `expected 400 to be 201` — cascade from #4 |
+| **7** | **e3 accepts → approvalCount 2, e4 assigned** | ❌ FAIL | `expected 400 to be 201` — cascade from #4 |
+| **8** | **e4 accepts → 3 approvals → question in-review** | ❌ FAIL | `expected 400 to be 201` — cascade from #4 |
+| 9 | Expert cannot do final approval → 400 | ✅ | — |
+| **10** | **Moderator approves → question closed, answer finalised** | ❌ FAIL | `expected 400 to be 200` — cascade from #4 |
+| 11 | Add answer to already-closed question → 500 (KNOWN) | ✅ | — |
+| 12 | Reject with identical answer → 500 (KNOWN) | ✅ | — |
+| **13** | **e2 rejects with new answer → author penalised** | ❌ FAIL | **Test timed out in 5000ms** |
+| **14** | **Author notified review_rejected** | ❌ FAIL | `expected null not to be null` — cascade from #13 |
+| 15 | Modify with identical answer → 500 (KNOWN) | ✅ | — |
+| 16 | e2 modifies → text updated, approvalCount reset | ✅ | — |
+| 17 | Author notified review_modified | ✅ | — |
+| 18 | Approve when question still open → 400 | ✅ | — |
+| 19 | Approve with no normalised_crop → 400 | ✅ | — |
+| 20 | LLM approve with non AJRASAKHA/WHATSAPP source → 400 | ✅ | — |
+| 21 | Edit finalised answer on closed question → 200 | ✅ | — |
+| 22 | PAE expert submits → `pae_submitted` | ✅ | — |
+| 23 | Moderator approves `pae_submitted` → closed | ✅ | — |
+| 24 | Delete non-final answer → removed, count decremented | ✅ | — |
+| 25 | approvalCount=1: question still `'open'` | ✅ | — |
+| 26 | approvalCount=2: question still `'open'` (not `'in-review'`) | ✅ | — |
+| 27 | approvalCount=2: no `moderator_approval` notification sent | ✅ | — |
+
+---
+
+## Failing Paths (2026-06-15)
+
+### 1. e1 first-answer submission times out (test #4) — cascades to tests #6-8 and #10
+
+`POST /answers/review` (no status, first submission) hangs and never returns within 5000ms.
+Tests #6, #7, #8 subsequently receive **400** (the question's submission state wasn't updated
+so e2/e3/e4 are not recognised as the next reviewer) and #10 receives **400** (question never
+reached `in-review` status so `approveAnswer` rejects it).
+
+The fact that the modify path (test #16, uses the same endpoint with `status='modified'`) passes
+suggests the timeout is specific to the **first-submission branch** (no `status` field, goes
+through `handleFirstSubmission`). Investigate `AnswerService.reviewAnswer` → `handleFirstSubmission`
+for a hanging await (DB call, AI call, notification write, etc.).
+
+### 2. Reviewer rejection times out (test #13) — cascades to test #14
+
+`POST /answers/review` with `status='rejected'` also hangs.
+Notification for `review_rejected` is `null` (test #14) because the submission never completed.
+The rejection branch uses `handleReviewerRejection` — investigate that path for a hanging await.
+Note: the modify path (`handleReviewerModification`) works fine (test #16 passes), isolating
+the timeout to `handleFirstSubmission` and `handleReviewerRejection` specifically.
 
 ---
 

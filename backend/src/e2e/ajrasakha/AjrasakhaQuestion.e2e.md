@@ -185,7 +185,8 @@ DEGRADATION
 
 # Last Test Run Results
 
-**Date:** 2026-06-11
+## 2026-06-11 (baseline — all passing)
+
 **Vitest version:** 3.2.4
 **Total:** 9 tests — **9 passed, 0 failed**
 **Duration:** ~7 s
@@ -201,6 +202,39 @@ DEGRADATION
 | 7 | PAYLOAD: empty question → 500 (known bug) | ✅ pass | 22 ms |
 | 8 | THREAD: empty threadId → isTesting=true, no pipeline calls | ✅ pass | ~240 ms |
 | 9 | LLM FAILURE: classifier throws → open (graceful degrade) | ✅ pass | 1016 ms |
+
+---
+
+## 2026-06-15 (1 new failure)
+
+**Total:** 9 tests — **8 passed, 1 failed**
+
+| # | Test | Result | Error |
+|---|------|--------|-------|
+| 1 | AUTH: no auth header → 401 | ✅ | — |
+| 2 | AUTH: wrong internal API key → 401 | ✅ | — |
+| 3 | HAPPY PATH: open, source/userId/priority/notification verified | ✅ | — |
+| 4 | FOUND: GDB exact_match → duplicate, isExact=true | ✅ | — |
+| 5 | NON-AGRI: LLM says non-agri → non_agri | ✅ | — |
+| 6 | PAYLOAD: missing district → 400 | ✅ | — |
+| 7 | PAYLOAD: empty question → 500 (known bug) | ✅ | — |
+| **8** | **THREAD: empty threadId → isTesting=true** | ❌ FAIL | `isTesting` not set on the saved question document |
+| 9 | LLM FAILURE: classifier throws → open (graceful degrade) | ✅ | — |
+
+### Failure detail (test #8)
+
+`threadValidation` correctly returns `{ isValid: false, reason: 'THREAD_ID_MISSING' }` and
+logs "Npt valid" (existing log statement). The submit returns `201`. But the question document
+retrieved after the submit does NOT have `isTesting: true`.
+
+The WhatsApp source equivalent (same test in `WhatsAppQuestion.e2e.test.ts`) **passes** and
+returns `{ status: 'pending', isTesting: true }`. This means the `isTesting=true` write path
+is specific to how AJRASAKHA source handles the `THREAD_ID_MISSING` case.
+
+Likely cause: a recent change in `processQuestionInBackground` (or `addQuestion`) conditioned
+the `isTesting=true` branch on `source === 'WHATSAPP'` instead of applying it to all time-bound
+sources (`WHATSAPP` | `AJRASAKHA`). Or the AJRASAKHA source path now skips
+`validateTimeBoundQuestionThread` entirely for empty `threadId`.
 
 ---
 
