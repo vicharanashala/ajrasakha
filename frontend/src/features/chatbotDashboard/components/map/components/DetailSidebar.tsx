@@ -11,6 +11,12 @@ import { DistrictList } from "./DistrictList";
 import { DistrictDetails } from "./DistrictDetails";
 import { useUserDetails, type PaginatedUserDetailsResponse } from "@/features/chatbotDashboard/hooks/useUserDetails";
 
+import { Tooltip,  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+ } from "@/components/atoms/tooltip";
+
+ import { InfoIcon } from "lucide-react";
 interface MapFeatureBase {
   type: string;
   properties: Record<string, unknown>;
@@ -149,8 +155,50 @@ export function DetailSidebar({
       : activeAnalytics.activeUsers
   )}
   icon={<Users className="h-3.5 w-3.5" />}
-/><StatCard
+/>
+{/* <StatCard
   label="Coordinators"
+  value={fmt(
+    isIndiaView
+      ? todayActiveFarmersData?.userRoleCounts?.coordinator
+      : activeAnalytics.coordinators
+  )}
+  icon={<Building2 className="h-3.5 w-3.5" />}
+/> */}
+
+<StatCard
+  label={
+    <div className="flex items-center gap-1">
+      <span>Coordinators</span>
+
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <InfoIcon className="h-3 w-3 cursor-pointer text-muted-foreground" />
+          </TooltipTrigger>
+
+          <TooltipContent side="top">
+            <div className="space-y-1 text-xs">
+              <div>
+                District Coordinators:{" "}
+                {todayActiveFarmersData?.userRoleCounts?.district_coordinator ?? 0}
+              </div>
+
+              <div>
+                Block Coordinators:{" "}
+                {todayActiveFarmersData?.userRoleCounts?.block_coordinator ?? 0}
+              </div>
+
+              <div>
+                Village Volunteers:{" "}
+                {todayActiveFarmersData?.userRoleCounts?.village_volunteer ?? 0}
+              </div>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </div>
+  }
   value={fmt(
     isIndiaView
       ? todayActiveFarmersData?.userRoleCounts?.coordinator

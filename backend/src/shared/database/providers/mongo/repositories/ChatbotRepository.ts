@@ -2686,36 +2686,44 @@ export class ChatbotRepository implements IChatbotRepository {
             $match: matchQuery,
           },
           {
-            $project: {
-              district: '$details.district',
+  $project: {
+    district: '$details.district',
 
-              isDuplicate: {
-                $cond: [
-                  {
-                    $eq: [
-                      '$status',
-                      'duplicate',
-                    ],
-                  },
-                  1,
-                  0,
-                ],
-              },
+    isDuplicate: {
+      $cond: [
+        { $eq: ['$status', 'duplicate'] },
+        1,
+        0,
+      ],
+    },
 
-              isClosed: {
-                $cond: [
-                  {
-                    $eq: [
-                      '$status',
-                      'closed',
-                    ],
-                  },
-                  1,
-                  0,
-                ],
-              },
-            },
-          },
+    isClosed: {
+      $cond: [
+        { $eq: ['$status', 'closed'] },
+        1,
+        0,
+      ],
+    },
+
+    closeTimeMs: {
+      $cond: [
+        {
+          $and: [
+            { $eq: ['$status', 'closed'] },
+            { $ne: ['$closedAt', null] },
+          ],
+        },
+        {
+          $subtract: [
+            '$closedAt',
+            '$createdAt',
+          ],
+        },
+        0,
+      ],
+    },
+  },
+},
           {
             $group: {
               _id: '$district',
@@ -2745,6 +2753,9 @@ export class ChatbotRepository implements IChatbotRepository {
                     0,
                   ],
                 },
+              },
+              totalCloseTimeMs: {
+                $sum: '$closeTimeMs',
               },
             },
           },
@@ -2838,6 +2849,37 @@ export class ChatbotRepository implements IChatbotRepository {
                   ],
                 },
               },
+
+              stateCoordinator: {
+  $sum: {
+    $cond: [
+      { $eq: ['$userRole', 'state_coordinator'] },
+      1,
+      0,
+    ],
+  },
+},
+
+districtCoordinator: {
+  $sum: {
+    $cond: [
+      { $eq: ['$userRole', 'district_coordinator'] },
+      1,
+      0,
+    ],
+  },
+},
+
+blockCoordinator: {
+  $sum: {
+    $cond: [
+      { $eq: ['$userRole', 'block_coordinator'] },
+      1,
+      0,
+    ],
+  },
+},
+
             },
           },
         ])
@@ -2862,6 +2904,7 @@ const districtMap = new Map<
     closedQuestions: number;
     uniqueQuestions: number;
     duplicateQuestions: number;
+      avgCloseTimeHours: number;
   }
 >();
 
@@ -2942,6 +2985,9 @@ for (const item of raw) {
 
     existing.duplicateQuestions +=
       item.duplicateQuestions;
+
+      existing.avgCloseTimeHours +=
+  item.totalCloseTimeMs;
   } else {
     districtMap.set(
       normalizedDistrict,
@@ -2955,6 +3001,14 @@ for (const item of raw) {
           item.uniqueQuestions,
         duplicateQuestions:
           item.duplicateQuestions,
+              avgCloseTimeHours:
+      item.closedQuestions > 0
+        ? item.totalCloseTimeMs /
+          item.closedQuestions /
+          1000 /
+          60 /
+          60
+        : 0,
       },
     );
   }
@@ -3050,6 +3104,16 @@ for (const item of raw) {
           coordinators:
             userData?.coordinators ??
             0,
+          avgClosingMsTime: existing?.avgCloseTimeHours ?? 0
+
+              stateCoordinator:
+      userData?.stateCoordinator ?? 0,
+
+    districtCoordinator:
+      userData?.districtCoordinator ?? 0,
+
+    blockCoordinator:
+      userData?.blockCoordinator ?? 0,
         };
       });
 
@@ -13463,25 +13527,74 @@ for (const item of raw) {
             },
           },
           {
-            $group: {
-              _id: '$farmerProfile.state',
-              totalUsers: {$sum: 1},
-              activeUsers: {
-                $sum: {
-                  $cond: [
-                    {
-                      $and: [
-                        {$gte: ['$lastActiveAt', todayStart]},
-                        {$lte: ['$lastActiveAt', todayEnd]},
-                      ],
-                    },
-                    1,
-                    0,
-                  ],
-                },
-              },
-            },
+  $group: {
+    _id: '$farmerProfile.state',
+
+    totalUsers: {
+      $sum: 1,
+    },
+
+    activeUsers: {
+      $sum: {
+        $cond: [
+          {
+            $and: [
+              {$gte: ['$lastActiveAt', todayStart]},
+              {$lte: ['$lastActiveAt', todayEnd]},
+            ],
           },
+          1,
+          0,
+        ],
+      },
+    },
+
+    districtCoordinators: {
+      $sum: {
+        $cond: [
+          {
+            $eq: [
+              '$userRole',
+              'district_coordinator',
+            ],
+          },
+          1,
+          0,
+        ],
+      },
+    },
+
+    blockCoordinators: {
+      $sum: {
+        $cond: [
+          {
+            $eq: [
+              '$userRole',
+              'block_coordinator',
+            ],
+          },
+          1,
+          0,
+        ],
+      },
+    },
+
+    villageVolunteers: {
+      $sum: {
+        $cond: [
+          {
+            $eq: [
+              '$userRole',
+              'village_volunteer',
+            ],
+          },
+          1,
+          0,
+        ],
+      },
+    },
+  },
+}
         ])
         .toArray();
 
@@ -13505,6 +13618,12 @@ for (const item of raw) {
   avgCloseTimeHours: q.avgCloseTimeHours,
   totalUsers: 0,
   activeUsers: 0,
+
+  districtCoordinators: 0,
+  blockCoordinators: 0,
+  villageVolunteers: 0,
+
+  coordinators: 0,
 });;
       }
 
@@ -13517,6 +13636,20 @@ for (const item of raw) {
 
           existing.totalUsers += u.totalUsers;
           existing.activeUsers += u.activeUsers;
+
+          existing.districtCoordinators =
+  u.districtCoordinators ?? 0;
+
+existing.blockCoordinators =
+  u.blockCoordinators ?? 0;
+
+existing.villageVolunteers =
+  u.villageVolunteers ?? 0;
+
+existing.coordinators =
+  (u.districtCoordinators ?? 0) +
+  (u.blockCoordinators ?? 0) +
+  (u.villageVolunteers ?? 0);
         } else {
           stateMap.set(key, {
   state: u._id,
@@ -13525,15 +13658,24 @@ for (const item of raw) {
   avgCloseTimeHours: 0,
   totalUsers: u.totalUsers,
   activeUsers: u.activeUsers,
+
+   districtCoordinators:
+    u.districtCoordinators ?? 0,
+
+  blockCoordinators:
+    u.blockCoordinators ?? 0,
+
+  villageVolunteers:
+    u.villageVolunteers ?? 0,
+
+  coordinators:
+    (u.districtCoordinators ?? 0) +
+    (u.blockCoordinators ?? 0) +
+    (u.villageVolunteers ?? 0),
 });
         }
       }
 
-      
-console.log(
-  'Questions By State:',
-  Array.from(stateMap.values()),
-);
       
 
       return Array.from(stateMap.values());

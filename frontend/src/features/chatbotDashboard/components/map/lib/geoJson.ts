@@ -3,6 +3,7 @@
 ============================================================ */
 
 import telanganaState from "../../../../../geojson/State.json"
+import districtPatches from "../../../../../geojson/District.json"
 
 // export const STATES_URL =
 //  "/geojson/State.json";
@@ -32,8 +33,19 @@ export async function fetchStates(): Promise<unknown> {
   if (statesCache) return statesCache;
 
   const res = await fetch(STATES_URL);
-
   const data = await res.json();
+
+  data.features.forEach((feature: any) => {
+    const stateName = feature.properties?.NAME_1;
+
+    if (stateName === "Orissa") {
+      feature.properties.NAME_1 = "Odisha";
+    }
+
+    if (stateName === "Uttaranchal") {
+      feature.properties.NAME_1 = "Uttarakhand";
+    }
+  });
 
   const telanganaExists = data.features.some(
     (feature: any) =>
@@ -76,13 +88,16 @@ export async function fetchDistricts(): Promise<unknown> {
   if (districtsCache) return districtsCache;
 
   const res = await fetch(DISTRICTS_URL);
-
   const data = await res.json();
 
   data.features.forEach((feature: any) => {
     const districtName =
       feature.properties?.NAME_2;
 
+    const stateName =
+      feature.properties?.NAME_1;
+
+    // Telangana fix
     if (
       TELANGANA_DISTRICTS.has(
         districtName,
@@ -91,12 +106,29 @@ export async function fetchDistricts(): Promise<unknown> {
       feature.properties.NAME_1 =
         'Telangana';
     }
+
+    // State renames
+    if (stateName === 'Orissa') {
+      feature.properties.NAME_1 =
+        'Odisha';
+    }
+
+    if (stateName === 'Uttaranchal') {
+      feature.properties.NAME_1 =
+        'Uttarakhand';
+    }
   });
+
+  // Add missing districts
+  data.features.push(
+    districtPatches,
+  );
 
   districtsCache = data;
 
   return districtsCache;
 }
+
 
 /**
  * Clear caches (useful for testing or refresh)

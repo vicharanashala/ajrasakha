@@ -162,11 +162,48 @@ const statesWithData = useMemo(() => {
             users: analytics?.totalUsers ?? 0,
             activeUsers: analytics?.activeUsers ?? 0,
             coordinators: analytics?.coordinators ?? 0,
-            closureHrs: 0,
+            closureHrs: analytics?.avgClosingMsTime ?? 0,
           },
         },
       };
     });
+
+    const othersAnalytics =
+  districtMap.get("others");
+
+if (othersAnalytics) {
+  features.push({
+    type: "Feature",
+    geometry: null,
+    properties: {
+      _name: "Others",
+      _parent: selectedState,
+      _analytics: {
+        questions:
+          othersAnalytics.totalQuestions ??
+          0,
+
+        answers:
+          othersAnalytics.closedQuestions ??
+          0,
+
+        users:
+          othersAnalytics.totalUsers ??
+          0,
+
+        activeUsers:
+          othersAnalytics.activeUsers ??
+          0,
+
+        coordinators:
+          othersAnalytics.coordinators ??
+          0,
+
+        closureHrs: 0,
+      },
+    },
+  });
+}
 
   return {
     type: "FeatureCollection",
