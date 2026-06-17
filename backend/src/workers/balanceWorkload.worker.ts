@@ -238,6 +238,13 @@ async function getExpertDisplayName(expertId?: string | null): Promise<string> {
 
         affectedExpertIds.add(newExpertId);
         await notificationService.saveTheNotifications(
+          'You have been replaced from the Allocated question. The question has been reassigned to another expert.',
+          'Allocation Removed',
+          submission.questionId.toString(),
+          currentExpertId,
+          'allocation_removal',
+        );
+        await notificationService.saveTheNotifications(
           'A time-bound question has been reassigned to you',
           'Question Reassigned',
           submission.questionId.toString(),
@@ -302,6 +309,21 @@ async function getExpertDisplayName(expertId?: string | null): Promise<string> {
           newExpertId,
           isAuthorPosition ? 'answer_creation' : 'peer_review',
         );
+
+        // 4.1 Notify the old expert that they have been removed from the allocation
+        if (currentExpertId) {
+          const rawQuestionText = (question as any)?.question?.toString().trim() || '';
+          const truncatedQuestion = rawQuestionText.length > 50
+            ? `${rawQuestionText.slice(0, 50)}...`
+            : rawQuestionText;
+          await notificationService.saveTheNotifications(
+            `You have been replaced from the Allocated question. The question has been reassigned to another expert.`,
+            'Allocation Removed',
+            submission.questionId.toString(),
+            currentExpertId,
+            'allocation_removal',
+          );
+        }
 
         // 5. Notify all moderators and admins about the reallocation
         try {
