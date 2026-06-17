@@ -1836,6 +1836,7 @@ export class QuestionRepository implements IQuestionRepository {
         submission?.queue || [],
         question?.createdAt,
         question.status,
+        question?.firstAllocationAt,
       );
 
       // 7 Populate submissions manually
@@ -5181,6 +5182,7 @@ export class QuestionRepository implements IQuestionRepository {
     filters: any,
     session?: ClientSession,
     useDuplicateCollection = false,
+    limit?: number,
   ): Promise<IQuestion[]> {
     await this.init();
 
@@ -5190,10 +5192,13 @@ export class QuestionRepository implements IQuestionRepository {
     //   :
     const collection = this.QuestionCollection;
 
-    return await collection
-      .find(filters, {session})
-      .sort({createdAt: -1})
-      .toArray();
+    let query = collection.find(filters, {session}).sort({createdAt: -1});
+    
+    if (limit) {
+      query = query.limit(limit);
+    }
+    
+    return await query.toArray();
   }
   async getAllQuestionEmbeddings(
     session?: ClientSession,

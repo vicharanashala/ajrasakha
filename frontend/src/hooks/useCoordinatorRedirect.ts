@@ -18,7 +18,10 @@ export const useCoordinatorRedirect = () => {
     }
 
     if (isCoordinatorRole(currentUser?.role)) {
-      navigate({ to: "/coordinator" });
+      navigate({
+        to: "/user/$userId",
+        params: { userId: currentUser?._id || user.uid },
+      });
     }
   }, [user, currentUser, navigate]);
 
