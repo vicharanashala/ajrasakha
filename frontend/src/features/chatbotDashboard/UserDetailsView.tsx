@@ -80,6 +80,7 @@ import UserQuestionsModal from "./UserQuestionModal";
 import { EditFarmerModal } from "./components/EditFarmerModal";
 import { AddFarmerModal } from "./components/AddFarmerModal";
 import { FarmerDetailsModal } from "./components/FarmerDetailsModal";
+import { FarmerNameLink } from "./components/FarmerNameLink";
 import { useAddUser } from "./hooks/useAddUser";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/atoms/badge";
@@ -1195,25 +1196,13 @@ export function UserDetailsView({
 
                                 <TableCell className="align-middle font-medium whitespace-nowrap">
                                   <div className="inline-flex items-center justify-center gap-1.5">
-                                  <span
-                                    className={
-                                      currentUser?.role !== "admin"
-                                        ? ""
-                                        : "cursor-pointer text-primary hover:underline"
-                                    }
-                                    onClick={
-                                      currentUser?.role !== "admin"
-                                        ? undefined
-                                        : () =>
-                                            navigate({
-                                              to: "/user/$userId",
-                                              params: {
-                                                userId: user.userId,
-                                              },
-                                            })
-                                    }
-                                  >{user.name || <EmptyValue />}
-                                  </span>
+                                    {currentUser?.role === "admin" ? (
+                                      <FarmerNameLink userId={user.userId}>
+                                        {user.name || <EmptyValue />}
+                                      </FarmerNameLink>
+                                    ) : (
+                                      <span>{user.name || <EmptyValue />}</span>
+                                    )}
                                     {!isUserVerified && (
                                       <Tooltip>
                                         <TooltipTrigger asChild>

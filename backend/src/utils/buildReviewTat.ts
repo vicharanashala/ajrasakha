@@ -4,15 +4,20 @@ export const buildReviewTimeline = (
   queue: any[] = [],
   questionCreatedAt: Date,
   questionStatus: string,
+  firstAllocationAt?: Date | null,
 ) => {
   const now = new Date();
+  // The author (queue/history index 0) is "assigned" when the question was first
+  // allocated to them, not when the question was created. Fall back to createdAt
+  // only when firstAllocationAt is missing (older/never-allocated questions).
+  const authorAssignedAt = firstAllocationAt ?? questionCreatedAt;
   //author reviewing
   if (!history.length && queue.length > 0) {
     return [
       {
         reviewerId: queue[0]?.toString(),
 
-        assignedAt: questionCreatedAt,
+        assignedAt: authorAssignedAt,
 
         completedAt: null,
 
@@ -27,7 +32,7 @@ export const buildReviewTimeline = (
   history.forEach((currentHistory, index) => {
     const nextHistory = history[index + 1];
     const assignedAt =
-      index === 0 ? questionCreatedAt : currentHistory.createdAt;
+      index === 0 ? authorAssignedAt : currentHistory.createdAt;
 
     if (nextHistory) {
       const completedAt = nextHistory.createdAt;
