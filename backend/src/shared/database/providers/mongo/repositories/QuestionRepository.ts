@@ -1506,12 +1506,51 @@ export class QuestionRepository implements IQuestionRepository {
           priorityOrder: {
             $switch: {
               branches: [
-                {case: {$eq: ['$priority', 'critical']}, then: 1},
-                {case: {$eq: ['$priority', 'high']}, then: 2},
-                {case: {$eq: ['$priority', 'medium']}, then: 3},
-                {case: {$eq: ['$priority', 'low']}, then: 4},
+                // AJRASAKHA / WHATSAPP
+                {
+                  case: {
+                    $and: [
+                      { $eq: ['$priority', 'critical'] },
+                      { $in: ['$source', ['AJRASAKHA', 'WHATSAPP']] },
+                    ],
+                  },
+                  then: 1,
+                },
+                {
+                  case: {
+                    $and: [
+                      { $eq: ['$priority', 'high'] },
+                      { $in: ['$source', ['AJRASAKHA', 'WHATSAPP']] },
+                    ],
+                  },
+                  then: 2,
+                },
+                {
+                  case: {
+                    $and: [
+                      { $eq: ['$priority', 'medium'] },
+                      { $in: ['$source', ['AJRASAKHA', 'WHATSAPP']] },
+                    ],
+                  },
+                  then: 3,
+                },
+                {
+                  case: {
+                    $and: [
+                      { $eq: ['$priority', 'low'] },
+                      { $in: ['$source', ['AJRASAKHA', 'WHATSAPP']] },
+                    ],
+                  },
+                  then: 4,
+                },
+
+                // Other sources
+                { case: { $eq: ['$priority', 'critical'] }, then: 5 },
+                { case: { $eq: ['$priority', 'high'] }, then: 6 },
+                { case: { $eq: ['$priority', 'medium'] }, then: 7 },
+                { case: { $eq: ['$priority', 'low'] }, then: 8 },
               ],
-              default: 5,
+              default: 9,
             },
           },
         },
@@ -1836,6 +1875,7 @@ export class QuestionRepository implements IQuestionRepository {
         submission?.queue || [],
         question?.createdAt,
         question.status,
+        question?.firstAllocationAt,
       );
 
       // 7 Populate submissions manually
