@@ -52,6 +52,18 @@ export interface Notification {
     is_read: boolean;
     type: string;
     createdAt: string;
+    sender?: {
+        _id: string;
+        name?: string;
+        email?: string;
+        role?: string;
+    } | null;
+    recipient?: {
+        _id: string;
+        name?: string;
+        email?: string;
+        role?: string;
+    } | null;
 }
 
 interface NotificationModalProps {
@@ -300,7 +312,7 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-start justify-between mb-1">
                                             <h4 className="font-bold text-sm text-foreground truncate pr-2">
-                                                {n.title || "Update Received"}
+                                                {getNotificationDisplayTitle(n)}
                                             </h4>
                                         </div>
                                         <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-3">
@@ -344,4 +356,15 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
             </SheetContent>
         </Sheet>
     );
+}
+
+function getNotificationDisplayTitle(notification: Notification) {
+    if (
+        notification.sender?.role === "admin" &&
+        notification.title === "Message from coordinator"
+    ) {
+        return "Message from admin";
+    }
+
+    return notification.title || "Update Received";
 }

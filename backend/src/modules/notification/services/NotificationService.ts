@@ -106,17 +106,28 @@ export class NotificationService extends BaseService {
     totalPages: number;
   }> {
     const receiver = await this.resolveReviewUserFromDashboardUser(targetUserId);
-    return this.getNotifications(receiver._id!.toString(), page, limit);
+    return this._withTransaction(async (session: ClientSession) => {
+      return await this.notificationRepository.getUserNotificationHistory(
+        receiver._id!.toString(),
+        page,
+        limit,
+        session,
+      );
+    });
   }
 
   async sendUserNotification(
     targetUserId: string,
     currentUser: IUser,
     message: string,
-    title = 'Message from coordinator',
+    title?: string,
   ): Promise<{ insertedId: string }> {
     const cleanMessage = message?.trim();
-    const cleanTitle = title?.trim() || 'Message from coordinator';
+    const defaultTitle =
+      currentUser?.role === 'admin'
+        ? 'Message from admin'
+        : 'Message from coordinator';
+    const cleanTitle = title?.trim() || defaultTitle;
 
     if (!targetUserId || !ObjectId.isValid(targetUserId)) {
       throw new BadRequestError('Invalid target user id');

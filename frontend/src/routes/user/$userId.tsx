@@ -164,6 +164,7 @@ type UserNotification = {
     email?: string;
     role?: string;
   } | null;
+  direction?: "sent" | "received";
 };
 
 function RouteComponent() {
@@ -793,6 +794,11 @@ function RouteComponent() {
         user={notificationTargetUser}
         open={!!notificationTargetUser}
         isSending={sendNotificationMutation.isPending}
+        defaultTitle={
+          currentUser?.role === "admin"
+            ? "Message from admin"
+            : "Message from coordinator"
+        }
         onOpenChange={(open) => !open && setNotificationTargetUser(null)}
         onSend={handleSendAssignedUserNotification}
       />
@@ -1320,24 +1326,26 @@ function CoordinatorNotificationDialog({
   user,
   open,
   isSending,
+  defaultTitle,
   onOpenChange,
   onSend,
 }: {
   user: AssignableUser | null;
   open: boolean;
   isSending: boolean;
+  defaultTitle: string;
   onOpenChange: (open: boolean) => void;
   onSend: (payload: { title: string; message: string }) => Promise<void>;
 }) {
-  const [title, setTitle] = useState("Message from coordinator");
+  const [title, setTitle] = useState(defaultTitle);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
     if (open) {
-      setTitle("Message from coordinator");
+      setTitle(defaultTitle);
       setMessage("");
     }
-  }, [open, user?._id]);
+  }, [defaultTitle, open, user?._id]);
 
   const canSend = message.trim().length > 0 && !isSending;
 
@@ -1494,11 +1502,8 @@ function UserNotificationHistorySheet({
                 <div className="mb-2 flex items-start justify-between gap-3">
                   <div>
                     <h4 className="text-sm font-semibold">
-                      {notification.title || "Notification"}
+                      {getNotificationDisplayTitle(notification)}
                     </h4>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {formatDate(notification.createdAt)}
-                    </p>
                   </div>
                   <Badge variant={notification.is_read ? "outline" : "default"}>
                     {notification.is_read ? "Read" : "Unread"}
@@ -1546,6 +1551,24 @@ function UserNotificationHistorySheet({
       </SheetContent>
     </Sheet>
   );
+}
+
+function getNotificationDisplayTitle(notification: UserNotification) {
+  if (notification.direction === "sent") {
+    const recipient =
+      notification.recipient?.name || notification.recipient?.email;
+
+    return recipient ? `Message sent to ${recipient}` : "Message sent";
+  }
+
+  if (
+    notification.sender?.role === "admin" &&
+    notification.title === "Message from coordinator"
+  ) {
+    return "Message from admin";
+  }
+
+  return notification.title || "Notification";
 }
 
 function DashboardMessage({
