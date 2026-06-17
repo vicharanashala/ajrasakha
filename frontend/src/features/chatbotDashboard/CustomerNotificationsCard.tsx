@@ -89,7 +89,7 @@ export function CustomerNotificationsCard({
       rounded-2xl
       bg-background/80
       backdrop-blur
-      h-fit      
+      h-full
       bg-gradient-to-br from-card to-card/50
       shadow-sm
       hover:shadow-md

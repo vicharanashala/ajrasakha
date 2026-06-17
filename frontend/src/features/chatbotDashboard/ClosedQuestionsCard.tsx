@@ -36,6 +36,7 @@ type ClosedQuestionsCardProps = {
   source?: "vicharanashala" | "annam" | "whatsapp"
   userType?: string;
   onRefresh?: () => void;
+  avgPassTimeMinutes?: number;
 };
 
 export function ClosedQuestionsCard({
@@ -52,6 +53,7 @@ export function ClosedQuestionsCard({
   source = "annam",
   userType,
   onRefresh,
+  avgPassTimeMinutes = 0,
 }: ClosedQuestionsCardProps) {
   const [status, setStatus] = useState<string | null>(null);
 
@@ -167,7 +169,7 @@ export function ClosedQuestionsCard({
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Clock3 className="h-4 w-4 text-primary" />
                   <span className="font-medium">Average Resolution Time:</span>
-                  <span className="font-semibold">{formatDurationFromMinutes(avgCloseTimeMinutes)}</span>
+                  <span className="font-semibold">Closed: {formatDurationFromMinutes(avgCloseTimeMinutes)}</span><span className="font-semibold">Passed: {formatDurationFromMinutes(avgPassTimeMinutes)}</span>
                 </div>
               </div>
             </>

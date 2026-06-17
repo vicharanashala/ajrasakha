@@ -4432,43 +4432,43 @@ export class ChatbotRepository implements IChatbotRepository {
         }
       }
 
-      const dayStart = new Date('2026-06-14T00:00:00+05:30');
-      const dayEnd = new Date('2026-06-15T00:00:00+05:30');
+//       const dayStart = new Date('2026-06-14T00:00:00+05:30');
+//       const dayEnd = new Date('2026-06-15T00:00:00+05:30');
 
-const [{ count = 0 } = {}] = await this.messagesCollection
-  .aggregate([
-    {
-      $match: {
-        createdAt: { $gte: dayStart, $lt: dayEnd },
-        isCreatedByUser: true,
-        isDeleted: { $ne: true },
-      },
-    },
-    ...userTypeLookupStages,
-    {
-      $count: 'count',
-    },
-  ])
-  .toArray();
+// const [{ count = 0 } = {}] = await this.messagesCollection
+//   .aggregate([
+//     {
+//       $match: {
+//         createdAt: { $gte: dayStart, $lt: dayEnd },
+//         isCreatedByUser: true,
+//         isDeleted: { $ne: true },
+//       },
+//     },
+//     ...userTypeLookupStages,
+//     {
+//       $count: 'count',
+//     },
+//   ])
+//   .toArray();
 
-// console.log(count);
+// // console.log(count);
 
-const aggQuestionCount = await this.QuestionCollection.countDocuments({
-  createdAt: { $gte: dayStart, $lt: dayEnd },
-  source: 'AJRASAKHA',
-  $or: [
-    { isTesting: { $exists: false } },
-    { isTesting: { $ne: true } }
-  ],
-  status: { $ne: 'non_agri' },
-  ...baseQuestionQuery,
-  ...questionUserTypeLookupStages,
-});
+// const aggQuestionCount = await this.QuestionCollection.countDocuments({
+//   createdAt: { $gte: dayStart, $lt: dayEnd },
+//   source: 'AJRASAKHA',
+//   $or: [
+//     { isTesting: { $exists: false } },
+//     { isTesting: { $ne: true } }
+//   ],
+//   status: { $ne: 'non_agri' },
+//   ...baseQuestionQuery,
+//   ...questionUserTypeLookupStages,
+// });
 
-console.log("aggQuestionCount------", JSON.stringify(baseQuestionQuery, null, 2), )
+// console.log("aggQuestionCount------", JSON.stringify(baseQuestionQuery, null, 2), )
 
 
-console.log("queries, aggQuestionCount", count, aggQuestionCount );
+// console.log("queries, aggQuestionCount", count, aggQuestionCount );
 
       return Array.from(mergedMap.values()).sort((a, b) =>
         a.period.localeCompare(b.period),
@@ -9807,7 +9807,7 @@ const totalPages =
       ];
 
       const [result, previousMonthResult] = await Promise.all([
-        this.QuestionCollection.aggregate([
+        await this.QuestionCollection.aggregate([
           {
             $match: matchStage,
           },
@@ -9815,24 +9815,8 @@ const totalPages =
             $addFields: {
               _statusLower: {
                 $toLower: {
-                  $ifNull: ["$status", ""],
+                  $ifNull: ['$status', ''],
                 },
-              },
-              _operationalCompletionAt: {
-                $cond: [
-                  {
-                    $eq: [
-                      {
-                        $toLower: {
-                          $ifNull: ["$status", ""],
-                        },
-                      },
-                      "pass",
-                    ],
-                  },
-                  "$passedAt",
-                  "$closedAt",
-                ],
               },
             },
           },
@@ -9848,34 +9832,66 @@ const totalPages =
                     closedQuestions: {
                       $sum: {
                         $cond: [
+                          {$eq: ['$_statusLower', 'closed']},
+                          1,
+                          0,
+                        ],
+                      },
+                    },
+                    passedQuestions: {
+                      $sum: {
+                        $cond: [
+                          {$eq: ['$_statusLower', 'pass']},
+                          1,
+                          0,
+                        ],
+                      },
+                    },
+                    // Closed metrics
+                    closedTimedQuestions: {
+                      $sum: {
+                        $cond: [
                           {
-                            $in: ["$_statusLower", ["closed", "pass"]],
+                            $and: [
+                              {$eq: ['$_statusLower', 'closed']},
+                              {$ne: ['$createdAt', null]},
+                              {$ne: ['$closedAt', null]},
+                              {$gte: ['$closedAt', '$createdAt']},
+                            ],
                           },
                           1,
                           0,
                         ],
                       },
                     },
-                    timedCompletedQuestions: {
+                    closedTimeSumMs: {
                       $sum: {
                         $cond: [
                           {
                             $and: [
-                              {
-                                $in: ["$_statusLower", ["closed", "pass"]],
-                              },
-                              {
-                                $ne: ["$createdAt", null],
-                              },
-                              {
-                                $ne: ["$_operationalCompletionAt", null],
-                              },
-                              {
-                                $gte: [
-                                  "$_operationalCompletionAt",
-                                  "$createdAt",
-                                ],
-                              },
+                              {$eq: ['$_statusLower', 'closed']},
+                              {$ne: ['$createdAt', null]},
+                              {$ne: ['$closedAt', null]},
+                              {$gte: ['$closedAt', '$createdAt']},
+                            ],
+                          },
+                          {
+                            $subtract: ['$closedAt', '$createdAt'],
+                          },
+                          0,
+                        ],
+                      },
+                    },
+                    // Pass metrics
+                    passedTimedQuestions: {
+                      $sum: {
+                        $cond: [
+                          {
+                            $and: [
+                              {$eq: ['$_statusLower', 'pass']},
+                              {$ne: ['$createdAt', null]},
+                              {$ne: ['$updatedAt', null]},
+                              {$gte: ['$updatedAt', '$createdAt']},
                             ],
                           },
                           1,
@@ -9883,33 +9899,19 @@ const totalPages =
                         ],
                       },
                     },
-                    closeTimeSumMs: {
+                    passedTimeSumMs: {
                       $sum: {
                         $cond: [
                           {
                             $and: [
-                              {
-                                $in: ["$_statusLower", ["closed", "pass"]],
-                              },
-                              {
-                                $ne: ["$createdAt", null],
-                              },
-                              {
-                                $ne: ["$_operationalCompletionAt", null],
-                              },
-                              {
-                                $gte: [
-                                  "$_operationalCompletionAt",
-                                  "$createdAt",
-                                ],
-                              },
+                              {$eq: ['$_statusLower', 'pass']},
+                              {$ne: ['$createdAt', null]},
+                              {$ne: ['$updatedAt', null]},
+                              {$gte: ['$updatedAt', '$createdAt']},
                             ],
                           },
                           {
-                            $subtract: [
-                              "$_operationalCompletionAt",
-                              "$createdAt",
-                            ],
+                            $subtract: ['$updatedAt', '$createdAt'],
                           },
                           0,
                         ],
@@ -9921,7 +9923,7 @@ const totalPages =
               statuses: [
                 {
                   $group: {
-                    _id: "$_statusLower",
+                    _id: '$_statusLower',
                     count: {
                       $sum: 1,
                     },
@@ -9932,8 +9934,8 @@ const totalPages =
                     _id: null,
                     statuses: {
                       $push: {
-                        k: "$_id",
-                        v: "$count",
+                        k: '$_id',
+                        v: '$count',
                       },
                     },
                   },
@@ -9942,7 +9944,7 @@ const totalPages =
                   $project: {
                     _id: 0,
                     statuses: {
-                      $arrayToObject: "$statuses",
+                      $arrayToObject: '$statuses',
                     },
                   },
                 },
@@ -9952,12 +9954,12 @@ const totalPages =
           {
             $project: {
               metrics: {
-                $arrayElemAt: ["$metrics", 0],
+                $arrayElemAt: ['$metrics', 0],
               },
               statuses: {
                 $ifNull: [
                   {
-                    $arrayElemAt: ["$statuses.statuses", 0],
+                    $arrayElemAt: ['$statuses.statuses', 0],
                   },
                   {},
                 ],
@@ -9967,34 +9969,60 @@ const totalPages =
           {
             $project: {
               _id: 0,
-              totalQuestions: "$metrics.totalQuestions",
-              closedQuestions: "$metrics.closedQuestions",
-              avgCloseTimeMinutes: {
-                $cond: [
-                  {
-                    $gt: [
-                      "$metrics.timedCompletedQuestions",
-                      0,
-                    ],
-                  },
-                  {
-                    $round: [
-                      {
-                        $divide: [
-                          "$metrics.closeTimeSumMs",
-                          {
-                            $multiply: [
-                              "$metrics.timedCompletedQuestions",
-                              60000,
-                            ],
-                          },
-                        ],
-                      },
-                      2,
-                    ],
-                  },
-                  0,
-                ],
+              totalQuestions: '$metrics.totalQuestions',
+              closed: {
+                count: '$metrics.closedQuestions',
+                avgTimeMinutes: {
+                  $cond: [
+                    {
+                      $gt: ['$metrics.closedTimedQuestions', 0],
+                    },
+                    {
+                      $round: [
+                        {
+                          $divide: [
+                            '$metrics.closedTimeSumMs',
+                            {
+                              $multiply: [
+                                '$metrics.closedTimedQuestions',
+                                60000,
+                              ],
+                            },
+                          ],
+                        },
+                        2,
+                      ],
+                    },
+                    0,
+                  ],
+                },
+              },
+              pass: {
+                count: '$metrics.passedQuestions',
+                avgTimeMinutes: {
+                  $cond: [
+                    {
+                      $gt: ['$metrics.passedTimedQuestions', 0],
+                    },
+                    {
+                      $round: [
+                        {
+                          $divide: [
+                            '$metrics.passedTimeSumMs',
+                            {
+                              $multiply: [
+                                '$metrics.passedTimedQuestions',
+                                60000,
+                              ],
+                            },
+                          ],
+                        },
+                        2,
+                      ],
+                    },
+                    0,
+                  ],
+                },
               },
               statuses: 1,
             },
@@ -10008,7 +10036,7 @@ const totalPages =
           ...avgCloseTimeStages,
         ]).toArray(),
       ]);
-
+// console.log("result---", result)
       return {
         ...(result[0] || {
           totalQuestions: 0,
@@ -10052,7 +10080,7 @@ const totalPages =
       matchStage.source = {
         $in: ["WHATSAPP", "AJRASAKHA"],
       };
-console.log("getNotifiedVsClosed", source, userType, JSON.stringify(matchStage, null, 2))
+// console.log("getNotifiedVsClosed", source, userType, JSON.stringify(matchStage, null, 2))
 
       const [result] = await this.QuestionCollection.aggregate([
         {
@@ -10066,7 +10094,7 @@ console.log("getNotifiedVsClosed", source, userType, JSON.stringify(matchStage, 
                 $cond: [
                   {
                     $and: [
-                      {$in: ['$status', ['closed', 'pass']]},
+                      {$in: ['$status', ['closed']]},
                       {$eq: ['$isCustomerNotified', false]},
                     ],
                   },
@@ -10080,7 +10108,7 @@ console.log("getNotifiedVsClosed", source, userType, JSON.stringify(matchStage, 
                 $cond: [
                   {
                     $and: [
-                      {$in: ['$status', ['closed', 'pass']]},
+                      {$in: ['$status', ['closed']]},
                       {$eq: ['$isCustomerNotified', true]},
                     ],
                   },
@@ -10104,7 +10132,7 @@ console.log("getNotifiedVsClosed", source, userType, JSON.stringify(matchStage, 
         await this.QuestionCollection.countDocuments({
           ...matchStage,
           status: {
-            $in: ['closed', 'pass'],
+            $in: ['closed'],
           },
           isCustomerNotified: {$exists: false},
         });
@@ -10160,12 +10188,12 @@ console.log("getNotifiedVsClosed", source, userType, JSON.stringify(matchStage, 
             _operationalCompletionAt: {
               $cond: [
                 {
-                  $in: [
+                  $eq: [
                     {$toLower: {$ifNull: ['$status', '']}},
-                    ['pass'],
+                    'pass',
                   ],
                 },
-                '$passedAt',
+                '$updatedAt',
                 '$closedAt',
               ],
             },
@@ -10188,9 +10216,36 @@ console.log("getNotifiedVsClosed", source, userType, JSON.stringify(matchStage, 
             },
           },
         },
-        {$count: 'count'},
+        {
+          $group: {
+            _id: null,
+            closedCount: {
+              $sum: {
+                $cond: [
+                  {$eq: ['$_statusLower', 'closed']},
+                  1,
+                  0,
+                ],
+              },
+            },
+            passCount: {
+              $sum: {
+                $cond: [
+                  {$eq: ['$_statusLower', 'pass']},
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
       ]).toArray();
-      const count = result[0]?.count ?? 0;
+      const count = result[0] || {
+        _id: null,
+        closedCount: 0,
+        passCount: 0,
+      };
+
       return count;
     } catch (error) {
       throw new InternalServerError(
@@ -11666,7 +11721,7 @@ console.log("getNotifiedVsClosed", source, userType, JSON.stringify(matchStage, 
       }
       if(status === "closed"){
         matchQuery.status = {
-          $in: ["closed", "pass"],
+          $in: ["closed"],
         };
       }
 // console.log("status----", status)
@@ -12090,7 +12145,7 @@ console.log("getNotifiedVsClosed", source, userType, JSON.stringify(matchStage, 
         };
       }
       matchQuery.status = {
-        $in: ["closed", "pass"],
+        $in: ["closed"],
       };
 
       // Date range
@@ -12119,7 +12174,7 @@ console.log("getNotifiedVsClosed", source, userType, JSON.stringify(matchStage, 
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
       }
-console.log("getQuestionsByNotificationStatus", notificationType, JSON.stringify(matchQuery, null, 2))
+// console.log("getQuestionsByNotificationStatus", notificationType, JSON.stringify(matchQuery, null, 2))
       // Notification filter
       switch (notificationType) {
         case 'notified':

@@ -8,7 +8,7 @@ export function buildBaseQuestionMatch(source?: string) {
         isOnHold: { $ne: true },
       },
       {
-        status: { $nin: ['non_agri', 'dynamic'] }
+        status: { $nin: ['non_agri'] }
       }
     ],
   };
