@@ -116,9 +116,6 @@ export function isToday(date?: Date): boolean {
     },
   };
   export function getShiftFilter (field: string, shift: "morning" | "evening" | "all", from?:string, to?:string) {
-    console.log('shift:',shift)
-    console.log('from:',from)
-    console.log('to:',to)
     const startTime = from ?? defaults[shift].from;
     const endTime = to ?? defaults[shift].to;
     const [fromHour, fromMinute] = startTime.split(':').map(Number);
