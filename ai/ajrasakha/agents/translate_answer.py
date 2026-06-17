@@ -11,7 +11,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from langchain_core.runnables import RunnableConfig
 
 from ajrasakha.agents.answer_footers import build_expert_queue_content, finalize_synthesis_answer
-from ajrasakha.agents.config import TRANSLATE_MODEL
+from ajrasakha.agents.config import TRANSLATE_MODEL, resolve_question_source
 from ajrasakha.agents.state import AjraSakhaState, TRANSLATE_PATH_EMPTY_GDB
 from ajrasakha.agents.translation_catalog import language_pair_from_plan, needs_translation
 from ajrasakha.agents.llm_trace import trace_llm_request, trace_llm_response
@@ -157,6 +157,7 @@ async def translate_answer_node(
 
     final_msg = _last_farmer_facing_ai(messages)
     gdb_data = _extract_gdb_from_messages(messages)
+    question_source = resolve_question_source(config)
 
     # Path A: empty_gdb_reply only — sheet 2-hour + testing (no translate LLM)
     if plan.get("translate_path") == TRANSLATE_PATH_EMPTY_GDB:
@@ -204,6 +205,7 @@ async def translate_answer_node(
             vocal_language=vocal,
             gdb_data=gdb_data,
             is_greeting=plan.get("is_greeting", False),
+            question_source=question_source,
         )
         trace_event(
             "translate_answer_final",
@@ -220,6 +222,7 @@ async def translate_answer_node(
             vocal_language=vocal,
             gdb_data=gdb_data,
             is_greeting=plan.get("is_greeting", False),
+            question_source=question_source,
         )
         return _finish_turn_reply(content, final_msg, state, outcome="answer_fallback")
     except APIStatusError as exc:
@@ -233,5 +236,6 @@ async def translate_answer_node(
             vocal_language=vocal,
             gdb_data=gdb_data,
             is_greeting=plan.get("is_greeting", False),
+            question_source=question_source,
         )
         return _finish_turn_reply(content, final_msg, state, outcome="answer_fallback")
