@@ -125,6 +125,8 @@ export function AnnamDashboard_dev({
   // Hover states for Knowledge Awareness Donuts
   const [hovered, setHovered] = useState<string | null>(null);
   const [agriHovered, setAgriHovered] = useState<string | null>(null);
+
+  const [mapView, setMapView] = useState<boolean>(false)
   
   // User details initial filters
   const [userDetailsInitialFilters, setUserDetailsInitialFilters] = useState<Partial<UserDetailsFilters> | undefined>(undefined);
@@ -284,7 +286,7 @@ export function AnnamDashboard_dev({
   }, [source]);
   
   // ─── Render ────────────────────────────────────────────────────────────────
-  return <AnalyticsMap source={source} userType={filters.userType} questionStatusData={questionStatusData} todayActiveFarmersData= {todayActiveFarmersData}/>
+  // return <AnalyticsMap source={source} userType={filters.userType} questionStatusData={questionStatusData} todayActiveFarmersData= {todayActiveFarmersData}/>
   return (
     <div className={cn("flex flex-col min-h-screen bg-background", className)}>
       <style>{CSS_KEYFRAMES}</style>
@@ -298,13 +300,13 @@ export function AnnamDashboard_dev({
       {!error && data && (
         <>
           <div className="flex flex-1 overflow-hidden">
-            <DashboardSidebar
+            {mapView === false && <DashboardSidebar
               activeView={activeView}
               onViewChange={handleViewChange}
               healthScore={70}
               healthLabel="Moderate · needs improvement"
               source={source}
-            />
+            />}
             
             <div className="flex-1 overflow-y-auto px-5 pb-5">
               {/* Source Selection Tabs & Refresh */}
@@ -315,10 +317,19 @@ export function AnnamDashboard_dev({
                 onFilterChange={setFilters}
                 invalidating={invalidating}
                 onRefresh={handleRefreshAll}
+                mapView= {mapView}
+                setMapView= {setMapView}
               />
               
               <DashboardFilters filters={filters} onFilterChange={setFilters} />
-              
+              {mapView ? (
+  <AnalyticsMap
+    source={source}
+    userType={filters.userType}
+    questionStatusData={questionStatusData}
+    todayActiveFarmersData={todayActiveFarmersData}
+  />
+) :(<>
               {(source === "annam" || source === "whatsapp") && (
                 <div ref={(el) => { sectionRefs.current["overview"] = el; }} className="relative">
                   {activeSegment && <SegmentDetailBanner seg={activeSegment} onClose={() => setActiveSegment(null)} />}
@@ -594,6 +605,7 @@ export function AnnamDashboard_dev({
                   <WhatsAppUsersView />
                 </div>
               )}
+              </>)}
             </div>
           </div>
         </>

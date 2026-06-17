@@ -1,10 +1,13 @@
 // ─── Source Tabs Header Component ────────────────────────────────────────────
-import React from "react";
+// import React from "react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { RefreshCw } from "lucide-react";
 import { SearchableSelect } from "@/components/atoms/SearchableSelect";
 import type { DashboardFilterValues } from "../DashboardFilters";
+// import { Button } from "@/components/atoms/button";
+import { Switch } from "@/components/atoms/switch";
+import { Label } from "@/components/atoms/label";
 
 interface SourceTabsHeaderProps {
   source: "annam" | "whatsapp";
@@ -13,6 +16,8 @@ interface SourceTabsHeaderProps {
   onFilterChange: (filters: DashboardFilterValues) => void;
   invalidating: boolean;
   onRefresh: () => void;
+  mapView: boolean;
+  setMapView: ()=>boolean
 }
 
 export function SourceTabsHeader({
@@ -22,6 +27,8 @@ export function SourceTabsHeader({
   onFilterChange,
   invalidating,
   onRefresh,
+  mapView,
+  setMapView
 }: SourceTabsHeaderProps) {
   return (
     <motion.div
@@ -60,12 +67,28 @@ export function SourceTabsHeader({
       </div>
 
       <div className="flex items-center ml-auto gap-4">
+
+           <div className="flex justify-end gap-2 items-center">
+              <Label htmlFor="map-view-toggle">
+    Map View
+  </Label>
+
+  <Switch
+    id="map-view-toggle"
+    checked={mapView}
+    onCheckedChange={setMapView}
+  />
+          </div>
+
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={onRefresh}
           className="z-50 flex items-center gap-2 rounded-lg px-3 py-1.5 shadow-sm backdrop-blur-sm border transition-colors duration-200"
         >
+
+         
+
           <motion.div
             animate={{ rotate: invalidating ? 360 : 0 }}
             transition={{

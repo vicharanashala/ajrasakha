@@ -2772,6 +2772,8 @@ export class ChatbotRepository implements IChatbotRepository {
 
 
     await this.init(_source);
+         const userDocFilter =
+  this.buildUserDocFilter(userType);
 
     const todayStart = new Date();
     todayStart.setHours(
@@ -2805,8 +2807,10 @@ export class ChatbotRepository implements IChatbotRepository {
                 $exists: true,
                 $ne: null,
               },
+              ...userDocFilter
             },
           },
+    
           {
             $group: {
               _id: '$farmerProfile.district',
@@ -13430,7 +13434,8 @@ for (const item of raw) {
 
       const sourceType = source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
 
-      
+     const userDocFilter =
+  this.buildUserDocFilter(userType);
       const matchQuery: any = {
         source: sourceType,
         'details.state': {
@@ -13530,6 +13535,7 @@ for (const item of raw) {
             $match: {
               isVerified: true,
               'farmerProfile.state': {$exists: true},
+              ...userDocFilter,
             },
           },
           {
@@ -13603,6 +13609,11 @@ for (const item of raw) {
 }
         ])
         .toArray();
+
+        console.log(
+  'usersByState',
+  JSON.stringify(usersByState, null, 2),
+);
 
       const totalActiveFromStates = usersByState.reduce(
         (sum, s) => sum + s.activeUsers,
@@ -13681,8 +13692,6 @@ existing.coordinators =
 });
         }
       }
-
-      
 
       return Array.from(stateMap.values());
     } catch (error) {
@@ -14298,7 +14307,8 @@ existing.coordinators =
   try{
     await this.init(source)
     console.log("State", state, "district", district);
-    const query = await this.buildUserTypeLookupStages(userType)
+  const userDocFilter =
+  this.buildUserDocFilter(userType);
     const data =  await this.users
     .aggregate([
       {
@@ -14319,8 +14329,9 @@ existing.coordinators =
             $exists: true,
             $ne: null,
           },
-          ...query,
+          ...userDocFilter,
         },
+        
       },
 
       {
