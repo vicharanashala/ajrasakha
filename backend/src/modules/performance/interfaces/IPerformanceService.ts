@@ -64,15 +64,15 @@ export interface IPerformanceService {
 
   getLevelWiseReport(startDate:string, endDate:string): Promise<ArrayBuffer | null>;
 
-  getShiftBasedMetrics(startDate:string, shift: string, source: string):  Promise<any>;
+  getShiftBasedMetrics(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
 
-  getShiftBasedTrends(startDate:string, shift: string, source: string):  Promise<any>;
+  getShiftBasedTrends(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
 
-  getQuestionStatusDistribution(startDate:string, shift: string, source: string):  Promise<any>;
+  getQuestionStatusDistribution(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
 
-  getQuestionLevelDistribution(startDate:string, shift: string, source: string):  Promise<any>;
+  getQuestionLevelDistribution(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
 
-  getShiftBasedTopExperts(startDate:string, shift: string, source: string):  Promise<any>;
+  getShiftBasedTopExperts(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
 
-  getShiftBasedTopApprovingExperts(startDate:string, shift: string, source: string):  Promise<any>;
+  getShiftBasedTopApprovingExperts(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
 }

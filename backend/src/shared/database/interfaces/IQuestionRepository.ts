@@ -490,6 +490,8 @@ export interface IQuestionRepository {
     // endDate:string,
     shift: string,
     source: string,
+    from: string,
+    to: string,
     session?: ClientSession
   ): Promise<any>;
 
@@ -498,6 +500,8 @@ export interface IQuestionRepository {
     // endDate:string,
     shift: string,
     source: string,
+    from: string,
+    to: string,
     session?: ClientSession
   ): Promise<any>;
 
@@ -506,6 +510,8 @@ export interface IQuestionRepository {
     // endDate: string,
     shift: string,
     source: string,
+    from: string,
+    to: string,
     session?: ClientSession,
   ): Promise<any>;
 
@@ -514,6 +520,8 @@ export interface IQuestionRepository {
     // endDate: string,
     shift: string,
     source: string,
+    from: string,
+    to: string,
     session?: ClientSession
   ): Promise<any>
 
@@ -522,6 +530,8 @@ export interface IQuestionRepository {
     // endDate: string,
     shift: string,
     source: string,
+    from: string,
+    to: string,
     session?: ClientSession
   ): Promise<any> 
 
@@ -530,6 +540,8 @@ export interface IQuestionRepository {
     // endDate: string,
     shift: string,
     source: string,
+    from: string,
+    to: string,
     session?: ClientSession
   ): Promise<any>
 }

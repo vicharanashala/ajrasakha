@@ -5763,6 +5763,8 @@ export class QuestionRepository implements IQuestionRepository {
     // endDate: string,
     shift: 'morning' | 'evening' | 'all',
     source: 'annam' | 'whatsapp' | 'agri_expert',
+    from: string,
+    to:string,
     session?: ClientSession,
   ): Promise<{
     openAtMidnight: number;
@@ -5786,9 +5788,9 @@ export class QuestionRepository implements IQuestionRepository {
     sixAM.setDate(sixAM.getDate() + 1);
     sixAM.setHours(6, 0, 0, 0);
 
-    const createdAtShiftFilter = getShiftFilter('createdAt', shift);
+    const createdAtShiftFilter = getShiftFilter('createdAt', shift, from, to);
 
-    const closedAtShiftFilter = getShiftFilter('closedAt', shift);
+    const closedAtShiftFilter = getShiftFilter('closedAt', shift, from, to);
 
     const sourceFilter =
       source === 'annam'
@@ -5977,6 +5979,8 @@ export class QuestionRepository implements IQuestionRepository {
     // endDate: string,
     shift: 'morning' | 'evening' | 'all',
     source: 'annam' | 'whatsapp' | 'agri_expert',
+    from: string,
+    to:string,
     session?: ClientSession,
   ): Promise<
     {
@@ -6010,7 +6014,7 @@ export class QuestionRepository implements IQuestionRepository {
               $lte: end,
             },
              source: sourceFilter,
-            ...getShiftFilter('createdAt', shift),
+            ...getShiftFilter('createdAt', shift, from, to),
           },
         },
 
@@ -6051,7 +6055,7 @@ export class QuestionRepository implements IQuestionRepository {
               $lte: end,
             },
              source: sourceFilter,
-            ...getShiftFilter('closedAt', shift),
+            ...getShiftFilter('closedAt', shift, from, to),
           },
         },
 
@@ -6137,6 +6141,8 @@ export class QuestionRepository implements IQuestionRepository {
     // endDate: string,
     shift: 'morning' | 'evening' | 'all',
     source: 'annam' | 'whatsapp' | 'agri_expert',
+    from: string,
+    to:string,
     session?: ClientSession,
   ): Promise<
     {
@@ -6169,7 +6175,7 @@ export class QuestionRepository implements IQuestionRepository {
               $lte: end,
             },
              source: sourceFilter,
-            ...getShiftFilter('createdAt', shift),
+            ...getShiftFilter('createdAt', shift, from, to),
           },
         },
 
@@ -6208,6 +6214,8 @@ export class QuestionRepository implements IQuestionRepository {
     // endDate: string,
     shift: 'morning' | 'evening' | 'all',
     source: 'annam' | 'whatsapp' | 'agri_expert',
+    from: string,
+    to:string,
     session?: ClientSession,
   ): Promise<
     {
@@ -6239,7 +6247,7 @@ export class QuestionRepository implements IQuestionRepository {
               $gte: start,
               $lte: end,
             },
-            ...getShiftFilter('createdAt', shift),
+            ...getShiftFilter('createdAt', shift, from, to),
           },
         },
 
@@ -6353,6 +6361,8 @@ export class QuestionRepository implements IQuestionRepository {
     // endDate: string,
     shift: 'morning' | 'evening' | 'all',
     source: 'annam' | 'whatsapp' | 'agri_expert',
+    from: string,
+    to:string,
     session?: ClientSession,
   ): Promise<
     {
@@ -6435,7 +6445,7 @@ export class QuestionRepository implements IQuestionRepository {
               $gte: start,
               $lte: end,
             },
-            ...getShiftFilter('history.createdAt', shift),
+            ...getShiftFilter('history.createdAt', shift, from, to),
             /**
              * Either:
              * - answer exists
@@ -6534,6 +6544,8 @@ export class QuestionRepository implements IQuestionRepository {
     // endDate: string,
     shift: 'morning' | 'evening' | 'all',
     source: 'annam' | 'whatsapp' | 'agri_expert',
+    from: string,
+    to:string,
     session?: ClientSession,
   ): Promise<
     {
@@ -6568,7 +6580,7 @@ export class QuestionRepository implements IQuestionRepository {
               $gte: start,
               $lte: end,
             },
-            ...getShiftFilter('updatedAt', shift),
+            ...getShiftFilter('updatedAt', shift, from, to),
           },
         },
 
