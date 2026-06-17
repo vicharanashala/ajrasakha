@@ -799,6 +799,14 @@ export class QuestionService {
     });
   }
 
+  async removeModerator(
+    questionId: string,
+  ): Promise<{ success: boolean; message: string } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/moderator`, {
+      method: "DELETE",
+    });
+  }
+
   async getQuestionStatusSummary(
     filter: AdvanceFilterValues,
     search: string,

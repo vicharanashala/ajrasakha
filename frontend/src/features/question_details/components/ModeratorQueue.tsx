@@ -12,8 +12,10 @@ import { Input } from "@/components/atoms/input";
 import { Label } from "@/components/atoms/label";
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import { useChangeModerator } from "@/hooks/api/question/useChangeModerator";
+import { useRemoveModerator } from "@/hooks/api/question/useRemoveModerator";
 import { useGetStfModerators } from "@/hooks/api/user/useGetStfModerators";
-import { Loader2, User, UserCheck, UserPlus, UserX, X } from "lucide-react";
+import { ConfirmationModal } from "@/components/confirmation-modal";
+import { Loader2, Trash2, User, UserCheck, UserPlus, UserX, X } from "lucide-react";
 
 interface ModeratorQueueProps {
   question: IQuestionFullData;
@@ -36,6 +38,8 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
     useGetStfModerators(isModalOpen);
   const { mutate: changeModerator, isPending: changingModerator } =
     useChangeModerator();
+  const { mutate: removeModerator, isPending: removingModerator } =
+    useRemoveModerator();
 
   const filteredModerators = useMemo(() => {
     const term = searchTerm.toLowerCase();
@@ -52,6 +56,11 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
   }
 
   const assignedModerator = question.assigned_moderator;
+
+  // A moderator is only relevant once the question has reached the review stage.
+  // Until then (draft/open/pae_submitted/etc.) hide the "Select Moderator" action.
+  const canSelectModerator =
+    question.status === "in-review" || question.status === "re-routed";
 
   // Closed → the moderation is finalized (green). Otherwise it's still pending (amber).
   const isClosed = question.status === "closed";
@@ -87,6 +96,10 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
     );
   };
 
+  const handleRemove = () => {
+    removeModerator({ questionId: question._id });
+  };
+
   return (
     <div className="w-full space-y-6 my-6">
       {/* Header — same treatment as the Allocation Queue header */}
@@ -109,23 +122,42 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
             </div>
           </div>
 
-          {/* RIGHT SECTION — Select moderator (always available so moderators can
-              assign on a priority basis, whether or not one is already assigned) */}
-          <Button
-            variant="default"
-            className="gap-2 w-full sm:w-auto"
-            onClick={() => setIsModalOpen(true)}
-          >
-            <UserPlus className="w-4 h-4" />
-            Select Moderator
-          </Button>
+          {/* RIGHT SECTION — Select moderator. Only available once the question has
+              reached the review stage (in-review / re-routed); hidden before then. */}
+          {canSelectModerator && (
+            <Button
+              variant="default"
+              className="gap-2 w-full sm:w-auto"
+              onClick={() => setIsModalOpen(true)}
+            >
+              <UserPlus className="w-4 h-4" />
+              Select Moderator
+            </Button>
+          )}
         </div>
       </div>
 
       {/* Assigned moderator — circular node, same style as the expert allocation cards */}
       {assignedModerator?.name ? (
         <div className="flex flex-wrap gap-6">
-          <div className="relative w-42 h-42 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-44 lg:h-44">
+          <div className="group relative w-42 h-42 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-44 lg:h-44">
+            {/* Remove moderator — hover-revealed trash icon, mirrors the expert allocation removal */}
+            <div className="absolute -top-1 right-0 w-6 h-6 flex items-center justify-center cursor-pointer pointer-events-auto hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+              <ConfirmationModal
+                title="Remove Moderator?"
+                description={`Are you sure you want to remove ${assignedModerator.name}'s assignment from this question? This action cannot be undone.`}
+                confirmText="Remove"
+                cancelText="Cancel"
+                type="delete"
+                isLoading={removingModerator}
+                onConfirm={handleRemove}
+                trigger={
+                  <div className="w-6 h-6 bg-black/10 dark:bg-white/10 backdrop-blur-sm rounded-md flex items-center justify-center cursor-pointer hover:text-red-500">
+                    <Trash2 className="w-4 h-4 transition-colors duration-300" />
+                  </div>
+                }
+              />
+            </div>
             <div
               className={`absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 rounded-full border-2 transition-all duration-300 hover:shadow-lg hover:scale-105 ${nodeStyles.container}`}
             >

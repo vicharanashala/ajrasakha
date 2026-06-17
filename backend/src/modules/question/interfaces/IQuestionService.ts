@@ -312,6 +312,9 @@ export interface IQuestionService {
   /** Manually (re)assign the moderator for a question. */
   changeQuestionModerator(questionId: string, moderatorId: string): Promise<void>;
 
+  /** Remove the moderator currently assigned to a question (frees the moderator and nulls the question's moderator fields). */
+  removeQuestionModerator(questionId: string): Promise<void>;
+
   /** Get expert’s allocated question page */
   getAllocatedQuestionPage(userId: string, questionId: string): Promise<any>;
 

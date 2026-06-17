@@ -3580,6 +3580,25 @@ export class QuestionService extends BaseService implements IQuestionService {
     await this.userRepo.setAssignedQuestion(moderatorId, questionId);
   }
 
+  /**
+   * Remove the moderator currently assigned to a question.
+   * - Frees the assigned moderator's user doc (assignedQuestionId = null), so the cron's
+   *   "is this moderator free?" check stays accurate.
+   * - Nulls moderatorId and moderatorAssignedAt on the question (handled in the repo).
+   */
+  async removeQuestionModerator(questionId: string): Promise<void> {
+    const question = await this.questionRepo.getById(questionId);
+    const previousModeratorId = (question as any)?.moderatorId?.toString();
+
+    // Null out moderatorId and moderatorAssignedAt on the question.
+    await this.questionRepo.updateModeratorId(questionId, null);
+
+    // Free the previously assigned moderator.
+    if (previousModeratorId) {
+      await this.userRepo.clearAssignedQuestion(previousModeratorId);
+    }
+  }
+
   async getAllocatedQuestionPage(userId: string, questionId: string) {
     return this._withTransaction(async session => {
       return this.questionRepo.getAllocatedQuestionPage(
