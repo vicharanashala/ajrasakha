@@ -313,16 +313,11 @@ See `src/e2e/whatsapp/WhatsAppQuestion.e2e.md` BUG-001 for the full analysis.
 
 ## Last Run
 
-**Date:** 2026-06-16 &nbsp;|&nbsp; **Result:** ❌ 5 failed / 4 passed &nbsp;|&nbsp; **Duration:** 20.2 s
+**Date:** 2026-06-17 &nbsp;|&nbsp; **Result:** ✅ all 9 passed &nbsp;|&nbsp; **Duration:** 27.7 s
+
+> ⚠ Vitest only printed 2 of 9 test lines (passing suites are truncated in the output).
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
-| 1 | Ajrasakha ingestion — authentication (FlexibleAuth) > rejects ingestion when no auth he... | ✅ | — |
-| 2 | Ajrasakha ingestion — authentication (FlexibleAuth) > rejects ingestion when an incorre... | ✅ | — |
-| 3 | Ajrasakha ingestion — happy path (open, agri, thread valid) > creates an open question ... | ❌ | expected 400 to be 201 // Object.is equality |
-| 4 | Ajrasakha ingestion — question FOUND (GDB exact match → duplicate) > marks the question... | ❌ | expected 400 to be 201 // Object.is equality |
-| 5 | Ajrasakha ingestion — non-agricultural question (LLM filter) > marks the question as no... | ❌ | expected 400 to be 201 // Object.is equality |
-| 6 | Ajrasakha ingestion — invalid payload (missing required detail field) > rejects with 40... | ✅ | — |
-| 7 | Ajrasakha ingestion — invalid payload (empty question text) > rejects when the question... | ✅ | — |
-| 8 | Ajrasakha ingestion — invalid thread (empty threadId → isTesting) > flags the question ... | ❌ | expected 400 to be 201 // Object.is equality |
-| 9 | Ajrasakha ingestion — LLM failure degrades gracefully to open > still opens the questio... | ❌ | expected 400 to be 201 // Object.is equality |
+| 1 | Ajrasakha ingestion — happy path (open, agri, thread valid) > creates an open question ... | ✅ | — |
+| 2 | Ajrasakha ingestion — LLM failure degrades gracefully to open > still opens the questio... | ✅ | — |

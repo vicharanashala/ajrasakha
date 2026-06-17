@@ -342,20 +342,20 @@ seeded questions, submissions, answers, reviews and notifications in `afterAll`.
 
 ## Last Run
 
-**Date:** 2026-06-16 &nbsp;|&nbsp; **Result:** ❌ 2 failed / 25 passed &nbsp;|&nbsp; **Duration:** 52.9 s
+**Date:** 2026-06-17 &nbsp;|&nbsp; **Result:** ❌ 2 failed / 25 passed &nbsp;|&nbsp; **Duration:** 42.4 s
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
 | 1 | Post-allocation — authorization guards > 401 when no user is logged in | ✅ | — |
 | 2 | Post-allocation — authorization guards > moderator cannot author/review an answer → 500... | ✅ | — |
 | 3 | Post-allocation — authorization guards > expert NOT at queue[0] cannot submit the first... | ✅ | — |
-| 4 | Post-allocation — happy path (peer review → moderator approval) > e1 (queue[0]) submits... | ❌ | Test timed out in 5000ms. |
+| 4 | Post-allocation — happy path (peer review → moderator approval) > e1 (queue[0]) submits... | ✅ | — |
 | 5 | Post-allocation — happy path (peer review → moderator approval) > e1 cannot submit a se... | ✅ | — |
 | 6 | Post-allocation — happy path (peer review → moderator approval) > e2 accepts → approval... | ✅ | — |
 | 7 | Post-allocation — happy path (peer review → moderator approval) > e3 accepts → approval... | ✅ | — |
 | 8 | Post-allocation — happy path (peer review → moderator approval) > e4 accepts → 3 approv... | ✅ | — |
 | 9 | Post-allocation — happy path (peer review → moderator approval) > expert cannot do the ... | ✅ | — |
-| 10 | Post-allocation — happy path (peer review → moderator approval) > moderator approves → ... | ✅ | — |
+| 10 | Post-allocation — happy path (peer review → moderator approval) > moderator approves → ... | ❌ | expected 500 to be 200 // Object.is equality |
 | 11 | Post-allocation — happy path (peer review → moderator approval) > cannot add an answer ... | ✅ | — |
 | 12 | Post-allocation — reviewer rejects the author answer > rejecting with an identical answ... | ✅ | — |
 | 13 | Post-allocation — reviewer rejects the author answer > e2 rejects with a new answer → a... | ✅ | — |
