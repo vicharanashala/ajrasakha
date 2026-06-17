@@ -56,7 +56,7 @@ flowchart TD
     A6["reputationScore(queue[0]) +1
     notify queue[0]  type='answer_creation'
     firstAllocationAt = now()
-    ⚠ FAILING: notification not sent (test #4)"]:::fail
+    BUG: notification not sent (test #4) — service bug"]:::warn
     A1 --> A2 --> A3 --> A4 --> A5 --> A6
   end
 
@@ -127,12 +127,10 @@ flowchart TD
     E4["updateQueue([ stfExpert ])
     firstAllocationAt = now()
     currentExpertAllocatedAt = now()
-    reputationScore +1
-    ⚠ FAILING: queue stays empty (tests #13-16, #18-21, #31)"]:::fail
+    reputationScore +1"]:::ok
     E5["notify stfExpert
     type='answer_creation'
-    msg: 'WhatsApp' or 'Ajrasakha'
-    ⚠ FAILING: notification not sent (tests #17, #20)"]:::fail
+    msg: 'WhatsApp' or 'Ajrasakha'"]:::ok
 
     F1["stuck: allocated >45 min, never opened
     startBalanceWorkloadWorkers()"]:::warn
@@ -274,11 +272,11 @@ guard with `if (!stfExperts.length) return;` as a last-resort fallback if promot
 - **STF auto-promotion:** if fewer than 3 experts have `special_task_force=true`, the shortfall is
   promoted via `users.updateMany(...)` before tests run (lowest `reputation_score` first, so
   preference-scoring test #5 is not disturbed)
-- **Leftover cleanup:** `getTimeBoundActiveCountPerExpert` is a full DB scan — leftover open
-  WHATSAPP/AJRASAKHA questions from incomplete previous runs make STF experts appear busy before
-  any test data is seeded. `beforeAll` finds all submissions with STF experts in queue whose
-  questions are still `open`/`delayed`, temporarily sets those questions to `closed`, and tracks
-  them in `temporarilyClosedIds` for restoration in `afterAll`
+- **Leftover cleanup (two passes):**
+  1. Closes questions with STF expert already in queue (status `open`/`delayed`) — these make `getTimeBoundActiveCountPerExpert` count them as active even before our test seeds run.
+  2. Closes unallocated (`queue=[]`) WHATSAPP/AJRASAKHA questions with `isAutoAllocate=true` from previous incomplete runs — these would consume the STF expert's capacity during the cron run before our question is processed.
+  Both sets are tracked in `temporarilyClosedIds` and restored to `status='open'` in `afterAll`.
+- **Per-group afterAlls (G5, G6, G8):** After each time-bound group's tests complete, its seeded question is set to `status='closed'`, freeing the STF expert's capacity for the next group's cron run. Without this, G5's allocated question would keep the expert busy during G6 and G8's crons.
 - STF experts fetched after promotion and cleanup:
   `users.find({ role: 'expert', isBlocked: false, special_task_force: true })`
 
@@ -464,64 +462,48 @@ Asserts `experttest1` is allocated for `state=Punjab, domain=Crop Protection, cr
 
 ## Last Test Run Results
 
-**Date:** 2026-06-15  
-**Total:** 44 tests — **33 passed, 11 failed**
+**Pre-fix run (2026-06-15):** 33 passed, 11 failed.  
+**Fixes applied (2026-06-16):**
+- Added `afterAll` inside G5, G6, G8 to close their seeded questions after each group's tests complete, freeing the STF expert before the next group's cron run.
+- Extended `beforeAll` cleanup to also close pre-existing unallocated WHATSAPP/AJRASAKHA questions (not just ones with STF experts already in queue).
+- Reordered G9/G10 to appear before G11/G12 in the source file (cosmetic; matches the documented group order).
+- Converted `ChemicalCrud.e2e.test.ts` and `QuestionCreate.e2e.test.ts` from the old external-server (`localhost:4000` + Firebase) pattern to the standard in-process harness.
+- Fixed group ordering in `PostAllocation.e2e.test.ts` (Group 7 before Group 8).
 
-| # | Group | Test | Result | Error |
-|---|-------|------|--------|-------|
-| 1 | G1 | question is immediately open with `isAutoAllocate=true` | ✅ | — |
-| 2 | G1 | background populates queue with exactly 1 expert | ✅ | — |
-| 3 | G1 | `firstAllocationAt` stamped after background allocation | ✅ | — |
-| 4 | G1 | `answer_creation` notification sent to queue[0] | ❌ FAIL | `expected null not to be null` — notification not created |
-| 5 | G2 | `queue[0]` is `experttest1` (preference scoring) | ✅ | — |
-| 6-8 | G3 | OUTREACH: queue empty at creation and after wait | ✅ | — |
-| 9 | G4 | No user → 401 | ✅ | — |
-| 10 | G4 | OFF→ON: flag flips, queue filled | ✅ | — |
-| 11 | G4 | ON→OFF: flag flips, queue untouched | ✅ | — |
-| 12 | G5 | WHATSAPP time-bound: `reallocateTimeBoundQuestions` reports ≥1 allocated | ✅ | — |
-| 13 | G5 | WHATSAPP time-bound: queue has exactly 1 expert | ❌ FAIL | `expected [] to have a length of 1 but got +0` |
-| 14 | G5 | WHATSAPP time-bound: allocated expert has `special_task_force=true` | ❌ FAIL | `Cannot read properties of undefined (reading 'toString')` |
-| 15 | G5 | WHATSAPP time-bound: `firstAllocationAt` stamped | ❌ FAIL | `expected undefined to be an instance of Date` |
-| 16 | G5 | WHATSAPP time-bound: `currentExpertAllocatedAt` set | ❌ FAIL | `expected undefined to be an instance of Date` |
-| 17 | G5 | WHATSAPP time-bound: `answer_creation` notification sent | ❌ FAIL | `expected null not to be null` |
-| 18 | G6 | AJRASAKHA time-bound: reports ≥1 initially allocated | ❌ FAIL | `expected 0 to be greater than or equal to 1` |
-| 19 | G6 | AJRASAKHA time-bound: queue has 1 STF expert | ❌ FAIL | `expected [] to have a length of 1 but got +0` |
-| 20 | G6 | AJRASAKHA time-bound: notification mentions "Ajrasakha" | ❌ FAIL | `expected null not to be null` |
-| 21 | G6 | AJRASAKHA time-bound: `firstAllocationAt` stamped | ❌ FAIL | `expected undefined to be an instance of Date` |
-| 22-28 | G7 | Negative cases: questions NOT picked up | ✅ (all 7) | — |
-| 29 | G8 | Busy STF expert NOT assigned to new question | ✅ | — |
-| 30 | G8 | Only 1 STF expert (now busy) → new question skipped | ✅ | — |
-| 31 | G8 | 2+ STF experts → new question allocated to different free one | ❌ FAIL | `expected [] to have a length of 1 but got +0` |
-| 32 | G9 | Concurrent guard returns early with "in progress" | ✅ | — |
-| 33-38 | G10 | Reviewer assignment path (6 tests) | ✅ (all 6) | — |
-| 39-41 | G11 | Reviewer-stage question not re-processed by cron (3 tests) | ✅ (all 3) | — |
-| 42-44 | G12 | Toggle sequential ON→OFF→ON (3 tests) | ✅ (all 3) | — |
+**Actual result (2026-06-16):** 36 passed, 8 failed. G5–G12 fixes worked as intended.
+G1–G3 regressed due to a new bug in `addQuestion` (unrelated to this fix).
+
+| # | Group | Test | Pre-fix (2026-06-15) | Actual (2026-06-16) |
+|---|-------|------|----------------------|---------------------|
+| 1 | G1 | question is immediately open with `isAutoAllocate=true` | ✅ | ❌ addQuestion returns 400 |
+| 2 | G1 | background populates queue with exactly 1 expert | ✅ | ❌ cascade from #1 |
+| 3 | G1 | `firstAllocationAt` stamped after background allocation | ✅ | ❌ cascade from #1 |
+| 4 | G1 | `answer_creation` notification sent to queue[0] | ❌ service bug | ❌ cascade from #1 (also service bug) |
+| 5 | G2 | `queue[0]` is `experttest1` (preference scoring) | ✅ | ❌ addQuestion returns 400 |
+| 6-8 | G3 | OUTREACH: queue empty at creation and after wait | ✅ | ❌ addQuestion returns 400 for OUTREACH too |
+| 9-11 | G4 | Toggle auto-allocate (3 tests) | ✅ | ✅ |
+| 12 | G5 | WHATSAPP time-bound: reports ≥1 allocated | ✅ | ✅ |
+| 13-17 | G5 | WHATSAPP time-bound: queue/timestamps/notification (5 tests) | ❌ STF capacity exhausted | ✅ G5 afterAll frees expert |
+| 18-21 | G6 | AJRASAKHA time-bound (4 tests) | ❌ STF capacity exhausted | ✅ |
+| 22-28 | G7 | Negative cases: questions NOT picked up | ✅ | ✅ |
+| 29-30 | G8 | Capacity: busy expert skipped / single-expert skip | ✅ | ✅ |
+| 31 | G8 | 2+ STF experts → new question to different free expert | ❌ capacity issue | ✅ G6 afterAll frees expert |
+| 32 | G9 | Concurrent guard | ✅ | ✅ |
+| 33-38 | G10 | Reviewer assignment path | ✅ | ✅ |
+| 39-41 | G11 | Reviewer-stage question not re-processed | ✅ | ✅ |
+| 42-44 | G12 | Toggle sequential ON→OFF→ON | ✅ | ✅ |
+
+**G1–G3:** Expected 201 from `POST /api/questions`, got 400 (`"Cannot read properties of undefined (reading 'data')"`) for all sources (AGRI_EXPERT and OUTREACH). Same failure as WhatsApp, Ajrasakha, and QuestionCreate suites. G4–G12 seed questions directly into the DB and are unaffected.
 
 ---
 
-## Failing Paths (2026-06-15)
+## Known Service Bug (not a test bug)
 
-### 1. AGRI_EXPERT `answer_creation` notification not sent (test #4)
+### AGRI_EXPERT `answer_creation` notification not sent (test #4)
 
 Path: `A5 → A6`. `firstAllocationAt` IS stamped (test #3 passes) and queue IS populated (test #2 passes), but the `answer_creation` notification is not created in the DB.
 
-Root cause investigation: `processQuestionInBackground` allocates the expert and stamps timestamps, but the notification write (`NotificationService.addNotification` or similar) is either silently throwing or the notification type/userId lookup is failing.
-
-### 2. Time-bound STF initial allocation fails for WHATSAPP and AJRASAKHA (tests #13-21, #31)
-
-Path: `E2 → E4 → E5` — the "free STF expert found" branch is never taken.
-
-The `beforeAll` closed 3 leftover active questions to free STF experts, and `STF experts: 3` was logged. Yet after calling `reallocateTimeBoundQuestions()`:
-- WHATSAPP: the cron reports "≥1 allocated" (test #12 passes) but the actual test question's queue stays empty. This suggests the cron allocated a **different** pre-existing question, not the one seeded by this test.
-- AJRASAKHA: the cron reports "0 allocated" — the AJRASAKHA question was not picked up at all.
-
-The `freeSTF=0` in later diagnostic output (G9) confirms that by the time G9 runs, all STF experts are busy — they consumed their `MAX_TIME_BOUND=1` capacity on earlier questions.
-
-Likely root cause: the `beforeAll` cleanup only closed questions already in the DB before the run. If the current test session's own earlier allocations (from G5, G6, G8) used up STF capacity, later STF tests within the same run fail. A more robust cleanup would reassert free status after each group.
-
-### 3. WHATSAPP test #12 passes but tests #13-17 fail (paradox)
-
-`reallocateTimeBoundQuestions()` returns `reallocated >= 1`, but the queue of the **test-seeded question** is empty. The cron is allocating a pre-existing unallocated question (leftover from a prior test run) and counting that as "initially allocated." The test question is being skipped ("No eligible expert" log) because all STF experts are already at capacity.
+Root cause: `processQuestionInBackground` allocates the expert and stamps timestamps, but the notification write (`NotificationService.addNotification` or similar) is either silently throwing or the notification type/userId lookup is failing. This is a bug in the service, not in the test harness.
 
 ---
 
@@ -531,3 +513,56 @@ Likely root cause: the `beforeAll` cleanup only closed questions already in the 
 # From backend/  (~25 s against the real Atlas DB in .env)
 pnpm exec vitest run src/e2e/auto-allocation/AutoAllocation.e2e.test.ts
 ```
+
+---
+
+## Last Run
+
+**Date:** 2026-06-16 &nbsp;|&nbsp; **Result:** ❌ 8 failed / 36 passed &nbsp;|&nbsp; **Duration:** 33.5 s
+
+| # | Test | Result | Failure reason |
+|---|------|:------:|----------------|
+| 1 | Auto allocation — AGRI_EXPERT question: background allocates one expert > question is i... | ❌ | [G1] beforeAll: POST /questions returned 400 — test cannot run |
+| 2 | Auto allocation — AGRI_EXPERT question: background allocates one expert > background pr... | ❌ | [G1] beforeAll: POST /questions returned 400 — test cannot run |
+| 3 | Auto allocation — AGRI_EXPERT question: background allocates one expert > question has ... | ❌ | [G1] beforeAll: POST /questions returned 400 — test cannot run |
+| 4 | Auto allocation — AGRI_EXPERT question: background allocates one expert > answer_creati... | ❌ | [G1] beforeAll: POST /questions returned 400 — test cannot run |
+| 5 | Auto allocation — AGRI_EXPERT: preference scoring allocates the best expert > queue[0] ... | ❌ | [G2] beforeAll: POST /questions returned 400 — test cannot run |
+| 6 | Auto allocation — OUTREACH question: queue stays empty at creation > question is open w... | ❌ | [G3] beforeAll: POST /questions returned 400 — test cannot run |
+| 7 | Auto allocation — OUTREACH question: queue stays empty at creation > submission queue i... | ❌ | [G3] beforeAll: POST /questions returned 400 — test cannot run |
+| 8 | Auto allocation — OUTREACH question: queue stays empty at creation > queue remains empt... | ❌ | [G3] beforeAll: POST /questions returned 400 — test cannot run |
+| 9 | Auto allocation — toggle-auto-allocate endpoint > returns 401 when no user is logged in | ✅ | — |
+| 10 | Auto allocation — toggle-auto-allocate endpoint > OFF → ON: toggles flag to true and fi... | ✅ | — |
+| 11 | Auto allocation — toggle-auto-allocate endpoint > ON → OFF: toggles flag to false and l... | ✅ | — |
+| 12 | Time-bound allocation — WHATSAPP unallocated question → STF expert assigned > reports a... | ✅ | — |
+| 13 | Time-bound allocation — WHATSAPP unallocated question → STF expert assigned > submissio... | ✅ | — |
+| 14 | Time-bound allocation — WHATSAPP unallocated question → STF expert assigned > allocated... | ✅ | — |
+| 15 | Time-bound allocation — WHATSAPP unallocated question → STF expert assigned > question ... | ✅ | — |
+| 16 | Time-bound allocation — WHATSAPP unallocated question → STF expert assigned > submissio... | ✅ | — |
+| 17 | Time-bound allocation — WHATSAPP unallocated question → STF expert assigned > answer_cr... | ✅ | — |
+| 18 | Time-bound allocation — AJRASAKHA unallocated question → STF expert assigned > AJRASAKH... | ✅ | — |
+| 19 | Time-bound allocation — AJRASAKHA unallocated question → STF expert assigned > submissi... | ✅ | — |
+| 20 | Time-bound allocation — AJRASAKHA unallocated question → STF expert assigned > notifica... | ✅ | — |
+| 21 | Time-bound allocation — AJRASAKHA unallocated question → STF expert assigned > firstAll... | ✅ | — |
+| 22 | Time-bound allocation — questions that must NOT be picked up by reallocateTimeBoundQues... | ✅ | — |
+| 23 | Time-bound allocation — questions that must NOT be picked up by reallocateTimeBoundQues... | ✅ | — |
+| 24 | Time-bound allocation — questions that must NOT be picked up by reallocateTimeBoundQues... | ✅ | — |
+| 25 | Time-bound allocation — questions that must NOT be picked up by reallocateTimeBoundQues... | ✅ | — |
+| 26 | Time-bound allocation — questions that must NOT be picked up by reallocateTimeBoundQues... | ✅ | — |
+| 27 | Time-bound allocation — questions that must NOT be picked up by reallocateTimeBoundQues... | ✅ | — |
+| 28 | Time-bound allocation — questions that must NOT be picked up by reallocateTimeBoundQues... | ✅ | — |
+| 29 | Time-bound allocation — MAX_TIME_BOUND=1 expert capacity enforcement > busy STF expert ... | ✅ | — |
+| 30 | Time-bound allocation — MAX_TIME_BOUND=1 expert capacity enforcement > if only 1 STF ex... | ✅ | — |
+| 31 | Time-bound allocation — MAX_TIME_BOUND=1 expert capacity enforcement > if 2+ STF expert... | ✅ | — |
+| 32 | Time-bound allocation — concurrent run guard prevents double-allocation > second concur... | ✅ | — |
+| 33 | Time-bound allocation — answered question gets reviewer assigned (needsReviewer path) >... | ✅ | — |
+| 34 | Time-bound allocation — answered question gets reviewer assigned (needsReviewer path) >... | ✅ | — |
+| 35 | Time-bound allocation — answered question gets reviewer assigned (needsReviewer path) >... | ✅ | — |
+| 36 | Time-bound allocation — answered question gets reviewer assigned (needsReviewer path) >... | ✅ | — |
+| 37 | Time-bound allocation — answered question gets reviewer assigned (needsReviewer path) >... | ✅ | — |
+| 38 | Time-bound allocation — answered question gets reviewer assigned (needsReviewer path) >... | ✅ | — |
+| 39 | Time-bound allocation — reviewer-stage question is not re-processed by cron > queue sti... | ✅ | — |
+| 40 | Time-bound allocation — reviewer-stage question is not re-processed by cron > queue[0] ... | ✅ | — |
+| 41 | Time-bound allocation — reviewer-stage question is not re-processed by cron > queue[1] ... | ✅ | — |
+| 42 | Toggle auto-allocate — sequential ON → OFF → ON same question leaves no duplicate exper... | ✅ | — |
+| 43 | Toggle auto-allocate — sequential ON → OFF → ON same question leaves no duplicate exper... | ✅ | — |
+| 44 | Toggle auto-allocate — sequential ON → OFF → ON same question leaves no duplicate exper... | ✅ | — |

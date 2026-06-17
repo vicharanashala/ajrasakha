@@ -795,6 +795,38 @@ describe('Post-allocation — PAE expert submission', () => {
 });
 
 // ════════════════════════════════════════════════════════════════════════
+// 7. DELETE ANSWER
+// ════════════════════════════════════════════════════════════════════════
+
+describe('Post-allocation — delete answer', () => {
+  it('deleting a non-final answer removes it and decrements the answer count', async () => {
+    const qId = await seedAllocatedQuestion({
+      queue: experts,
+      label: 'delete',
+      status: 'in-review',
+    });
+    // seed an answer + bump totalAnswersCount to 1
+    const answerId = await seedAnswer(qId, experts[0], { isFinalAnswer: false });
+    const questions = await db.getCollection('questions');
+    await questions.updateOne(
+      { _id: new ObjectId(qId) },
+      { $set: { totalAnswersCount: 1 } },
+    );
+
+    as(moderatorUser);
+    const res = await apiDelete(`${ROUTE_PREFIX}/answers/${qId}/${answerId}`);
+    expect(res.status).toBe(200);
+
+    const answers = await db.getCollection('answers');
+    const ans = await answers.findOne({ _id: new ObjectId(answerId) });
+    expect(ans).toBeNull();
+
+    const q = await getQuestion(qId);
+    expect(q.totalAnswersCount).toBe(0);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════
 // 8. APPROVAL COUNT THRESHOLD GUARD
 //
 // The design requires exactly 3 peer-review acceptances before the question
@@ -867,37 +899,5 @@ describe('Post-allocation — approvalCount=2 does NOT escalate to moderator', (
     });
     console.log('[G8-3] moderator_approval notif at approvalCount=2:', notif ? 'found (BAD)' : 'absent (OK)');
     expect(notif).toBeNull();
-  });
-});
-
-// ════════════════════════════════════════════════════════════════════════
-// 7. DELETE ANSWER
-// ════════════════════════════════════════════════════════════════════════
-
-describe('Post-allocation — delete answer', () => {
-  it('deleting a non-final answer removes it and decrements the answer count', async () => {
-    const qId = await seedAllocatedQuestion({
-      queue: experts,
-      label: 'delete',
-      status: 'in-review',
-    });
-    // seed an answer + bump totalAnswersCount to 1
-    const answerId = await seedAnswer(qId, experts[0], { isFinalAnswer: false });
-    const questions = await db.getCollection('questions');
-    await questions.updateOne(
-      { _id: new ObjectId(qId) },
-      { $set: { totalAnswersCount: 1 } },
-    );
-
-    as(moderatorUser);
-    const res = await apiDelete(`${ROUTE_PREFIX}/answers/${qId}/${answerId}`);
-    expect(res.status).toBe(200);
-
-    const answers = await db.getCollection('answers');
-    const ans = await answers.findOne({ _id: new ObjectId(answerId) });
-    expect(ans).toBeNull();
-
-    const q = await getQuestion(qId);
-    expect(q.totalAnswersCount).toBe(0);
   });
 });

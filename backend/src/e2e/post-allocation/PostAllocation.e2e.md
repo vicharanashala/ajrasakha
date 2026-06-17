@@ -216,7 +216,60 @@ These are pinned as expected results in the suite and flagged `KNOWN`.
 
 ## Last Test Run Results
 
-**Date:** 2026-06-15  
+### 2026-06-16
+
+**Total:** 27 tests — **25 passed, 2 failed**
+
+Significant improvement over 2026-06-15 (20 passed → 25 passed). The reviewer-rejection
+timeout (#13) and its cascades (#14) are resolved. One pre-existing failure (first-answer
+timeout #4) persists, and one new regression appeared in the normalised_crop edge case (#19).
+
+| # | Test | Result | Error |
+|---|------|--------|-------|
+| 1 | 401 when no user is logged in | ✅ | — |
+| 2 | Moderator cannot author/review → 500 (KNOWN) | ✅ | — |
+| 3 | Expert not at queue[0] cannot submit first answer → 500 (KNOWN) | ✅ | — |
+| **4** | **e1 (queue[0]) submits first answer → in-review, e2 assigned** | ❌ **FAIL** | **Timeout 5009ms** — answer IS saved (server completes the write), but response exceeds the 5 s vitest timeout |
+| 5 | e1 submits again → 500 (KNOWN: already submitted) | ✅ | Passes because #4's write completed despite timeout |
+| 6 | e2 accepts → approvalCount 1, e3 assigned | ✅ | — |
+| 7 | e3 accepts → approvalCount 2, e4 assigned | ✅ | — |
+| 8 | e4 accepts → 3 approvals → question in-review | ✅ | — |
+| 9 | Expert cannot do final approval → 400 | ✅ | — |
+| 10 | Moderator approves → question closed, answer finalised | ✅ | — |
+| 11 | Add answer to already-closed question → 500 (KNOWN) | ✅ | — |
+| 12 | Reject with identical answer → 500 (KNOWN) | ✅ | — |
+| 13 | e2 rejects with new answer → author penalised | ✅ | Previously timed out — now resolved |
+| 14 | Author notified review_rejected | ✅ | — |
+| 15 | Modify with identical answer → 500 (KNOWN) | ✅ | — |
+| 16 | e2 modifies → text updated, approvalCount reset | ✅ | — |
+| 17 | Author notified review_modified | ✅ | — |
+| 18 | Approve when question still open → 400 | ✅ | — |
+| **19** | **Approve with no normalised_crop → 400** | ❌ **FAIL** | **2030ms — NEW regression**: returned non-400 status; previously passed |
+| 20 | LLM approve with non AJRASAKHA/WHATSAPP source → 400 | ✅ | — |
+| 21 | Edit finalised answer on closed question → 200 | ✅ | — |
+| 22 | PAE expert submits → `pae_submitted` | ✅ | — |
+| 23 | Moderator approves `pae_submitted` → closed | ✅ | — |
+| 24 | Delete non-final answer → removed, count decremented | ✅ | — |
+| 25 | approvalCount=1: question still `'open'` | ✅ | — |
+| 26 | approvalCount=2: question still `'open'` (not `'in-review'`) | ✅ | — |
+| 27 | approvalCount=2: no `moderator_approval` notification sent | ✅ | — |
+
+**Open issues (2026-06-16):**
+
+**Test #4 (first-answer timeout):** `handleFirstSubmission` exceeds 5 s. The write completes
+server-side (downstream tests pass), so this is likely a slow notification dispatch or push
+notification lookup (`No subscription found for user …` appears in stderr). Investigate
+`AnswerService.handleFirstSubmission` for blocking awaits on notification paths.
+
+**Test #19 (normalised_crop regression):** `POST /answers/moderator/approve` no longer returns 400
+when `question.normalised_crop` is absent. A recent commit (`fix #819` navigation, `fix #814`
+account sync) may have altered the crop-normalisation guard in `approveAnswer`. Investigate
+`AnswerService.approveAnswer` validation of `normalised_crop`.
+
+---
+
+### 2026-06-15
+
 **Total:** 27 tests — **20 passed, 7 failed**
 
 | # | Test | Result | Error |
@@ -284,3 +337,39 @@ pnpm exec vitest run src/e2e/post-allocation/PostAllocation.e2e.test.ts
 
 The suite seeds every question it needs (tagged `E2E_PA_<ts>`) and deletes all
 seeded questions, submissions, answers, reviews and notifications in `afterAll`.
+
+---
+
+## Last Run
+
+**Date:** 2026-06-16 &nbsp;|&nbsp; **Result:** ❌ 2 failed / 25 passed &nbsp;|&nbsp; **Duration:** 52.9 s
+
+| # | Test | Result | Failure reason |
+|---|------|:------:|----------------|
+| 1 | Post-allocation — authorization guards > 401 when no user is logged in | ✅ | — |
+| 2 | Post-allocation — authorization guards > moderator cannot author/review an answer → 500... | ✅ | — |
+| 3 | Post-allocation — authorization guards > expert NOT at queue[0] cannot submit the first... | ✅ | — |
+| 4 | Post-allocation — happy path (peer review → moderator approval) > e1 (queue[0]) submits... | ❌ | Test timed out in 5000ms. |
+| 5 | Post-allocation — happy path (peer review → moderator approval) > e1 cannot submit a se... | ✅ | — |
+| 6 | Post-allocation — happy path (peer review → moderator approval) > e2 accepts → approval... | ✅ | — |
+| 7 | Post-allocation — happy path (peer review → moderator approval) > e3 accepts → approval... | ✅ | — |
+| 8 | Post-allocation — happy path (peer review → moderator approval) > e4 accepts → 3 approv... | ✅ | — |
+| 9 | Post-allocation — happy path (peer review → moderator approval) > expert cannot do the ... | ✅ | — |
+| 10 | Post-allocation — happy path (peer review → moderator approval) > moderator approves → ... | ✅ | — |
+| 11 | Post-allocation — happy path (peer review → moderator approval) > cannot add an answer ... | ✅ | — |
+| 12 | Post-allocation — reviewer rejects the author answer > rejecting with an identical answ... | ✅ | — |
+| 13 | Post-allocation — reviewer rejects the author answer > e2 rejects with a new answer → a... | ✅ | — |
+| 14 | Post-allocation — reviewer rejects the author answer > author (e1) was notified that th... | ✅ | — |
+| 15 | Post-allocation — reviewer modifies the author answer > modifying with an identical ans... | ✅ | — |
+| 16 | Post-allocation — reviewer modifies the author answer > e2 modifies → answer text updat... | ✅ | — |
+| 17 | Post-allocation — reviewer modifies the author answer > author (e1) was notified that t... | ✅ | — |
+| 18 | Post-allocation — moderator approval edge cases > approve when question is still "open"... | ✅ | — |
+| 19 | Post-allocation — moderator approval edge cases > approve when question has no normalis... | ❌ | expected 200 to be 400 // Object.is equality |
+| 20 | Post-allocation — moderator approval edge cases > moderator/approve (LLM) rejects a non... | ✅ | — |
+| 21 | Post-allocation — moderator approval edge cases > moderator can edit an already-finalis... | ✅ | — |
+| 22 | Post-allocation — PAE expert submission > pae_expert submits → question becomes pae_sub... | ✅ | — |
+| 23 | Post-allocation — PAE expert submission > moderator approves a pae_submitted question →... | ✅ | — |
+| 24 | Post-allocation — delete answer > deleting a non-final answer removes it and decrements... | ✅ | — |
+| 25 | Post-allocation — approvalCount=2 does NOT escalate to moderator > after 1 acceptance (... | ✅ | — |
+| 26 | Post-allocation — approvalCount=2 does NOT escalate to moderator > after 2 acceptances ... | ✅ | — |
+| 27 | Post-allocation — approvalCount=2 does NOT escalate to moderator > after 2 acceptances:... | ✅ | — |

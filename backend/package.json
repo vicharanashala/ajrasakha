@@ -14,6 +14,7 @@
     "test": "NODE_ENV=test vitest --ui",
     "test:watch": "NODE_ENV=test vitest run --watch",
     "test:ci": "NODE_ENV=test vitest run --coverage --reporter=html",
+    "test:e2e": "NODE_ENV=test vitest run src/e2e 2>&1 | tee src/e2e/last-run.log",
     "sentry:sourcemaps": "sentry-cli sourcemaps inject --org vicharana-shala --project vibe-server ./build && sentry-cli sourcemaps upload --org vicharana-shala --project vibe-server ./build"
   },
   "imports": {
