@@ -5412,6 +5412,28 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (submission.queue?.length) {
         const firstUserId = submission.queue[0].toString();
         await this.userRepo.updateReputationScore(firstUserId, false, session);
+
+        // Send notification to the expert that they have been removed from allocation
+        try {
+          const question = await this.questionRepo.getById(questionId, session);
+          const truncatedQuestionText = question?.question
+            ? question.question.length > 50
+              ? question.question.substring(0, 50) + '...'
+              : question.question
+            : 'Question';
+          await this.notificationService.saveTheNotifications(
+            `You have been removed from the allocation. The question has been put on hold.`,
+            'Allocation Removed',
+            questionId,
+            firstUserId,
+            'allocation_removal',
+          );
+        } catch (notificationError) {
+          console.error(
+            `[_handleSubmissionOnHold] ❌ Failed to send notification to expert ${firstUserId}:`,
+            notificationError,
+          );
+        }
       }
 
       await this.questionSubmissionRepo.updateSubmissionState(
@@ -5439,6 +5461,28 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     if (updatedById) {
       await this.userRepo.updateReputationScore(updatedById, false, session);
+
+      // Send notification to the expert that they have been removed from allocation
+      try {
+        const question = await this.questionRepo.getById(questionId, session);
+        const truncatedQuestionText = question?.question
+          ? question.question.length > 50
+            ? question.question.substring(0, 50) + '...'
+            : question.question
+          : 'Question';
+        await this.notificationService.saveTheNotifications(
+          `You have been removed from the allocation. The question has been put on hold.`,
+          'Allocation Removed',
+          questionId,
+          updatedById,
+          'allocation_removal',
+        );
+      } catch (notificationError) {
+        console.error(
+          `[_handleSubmissionOnHold] ❌ Failed to send notification to expert ${updatedById}:`,
+          notificationError,
+        );
+      }
     }
     await this.questionSubmissionRepo.updateSubmissionState(
       questionId,
