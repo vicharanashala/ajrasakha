@@ -67,6 +67,14 @@ from ajrasakha.agents.planner_rules import (
 )
 from ajrasakha.agents.prompts import PLANNER_SYSTEM_PROMPT
 from ajrasakha.agents.state import AjraSakhaState, PlannerEntities, PlannerPlan
+<<<<<<< HEAD
+=======
+from ajrasakha.agents.user_location import (
+    load_user_location,
+    maybe_persist_rephrased_query,
+    maybe_persist_resolved_location,
+)
+>>>>>>> origin/main
 
 logger = logging.getLogger(__name__)
 
@@ -646,7 +654,37 @@ async def planner_node(
         plan["missing_info"] = missing
         plan["follow_up_question"] = follow_up
 
+<<<<<<< HEAD
         plan = apply_planner_completeness_rules(plan, messages, location, prev_entities)
+=======
+        plan = apply_planner_completeness_rules(
+            plan,
+            messages,
+            location,
+            prev_entities,
+            stored_location=stored_location,
+            sources_out=location_sources,
+        )
+
+        if plan.get("is_complete"):
+            final_entities = plan.get("entities") or {}
+            maybe_persist_resolved_location(
+                user_id,
+                final_entities.get("state"),
+                final_entities.get("district"),
+                state_source=location_sources.get("state_source"),
+                district_source=location_sources.get("district_source"),
+            )
+            # Save the rephrased query for future context-aware rewriting
+            rephrased = plan.get("rephrased_query")
+            if rephrased:
+                maybe_persist_rephrased_query(user_id, rephrased)
+                trace_event(
+                    "planner_rephrased_query_saved",
+                    user_id=user_id,
+                    rephrased_query=rephrased,
+                )
+>>>>>>> origin/main
 
         trace_event(
             "planner_final_plan",

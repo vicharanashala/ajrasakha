@@ -147,7 +147,14 @@ export const useAuthForm = (
         avatar: result!.user.photoURL || "",
       });
 
-      navigate({ to: isCoordinatorRole(result?.appUser?.role) ? "/coordinator" : "/home", });
+      if (isCoordinatorRole(result?.appUser?.role)) {
+        navigate({
+          to: "/user/$userId",
+          params: { userId: result?.appUser?._id || result!.user.uid },
+        });
+      } else {
+        navigate({ to: "/home" });
+      }
     } catch (error: unknown) {
       const authError = error as AuthError;
       console.error("Auth failed", error);

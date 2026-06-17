@@ -21,6 +21,7 @@ export interface QuickStatsData {
       closedQuestions?: number;
       totalQuestions?: number;
       inReviewQuestions?: number;
+      pass?: number;
       avgCloseTimeMinutes?: number;
       previousMonthAvgCloseTimeMinutes?: number;
     };
@@ -127,7 +128,7 @@ export function QuickStatsCards({
       <ClosedQuestionsCard
         closedQuestions={data.questionStatusData?.closedVsTotalQuestions?.closedQuestions}
         totalQuestions={data.questionStatusData?.closedVsTotalQuestions?.totalQuestions}
-        inReview={data.questionStatusData?.closedVsTotalQuestions?.inReviewQuestions}
+        passedQuestions={data.questionStatusData?.closedVsTotalQuestions?.pass}
         dateRange={questionStatusDateRange}
         onDateRangeChange={onQuestionStatusDateRangeChange}
         isLoading={isQuestionStatusFetching || isLoading}

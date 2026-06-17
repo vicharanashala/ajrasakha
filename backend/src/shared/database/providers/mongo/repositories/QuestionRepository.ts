@@ -1848,6 +1848,7 @@ export class QuestionRepository implements IQuestionRepository {
         submission?.queue || [],
         question?.createdAt,
         question.status,
+        question?.firstAllocationAt,
       );
 
       // 7 Populate submissions manually

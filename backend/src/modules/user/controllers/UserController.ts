@@ -260,6 +260,14 @@ export class UserController {
     );
   }
 
+  @Get('/moderators')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'List all moderators ({_id, name, email}) for filter dropdowns' })
+  async getModerators() {
+    return await this.userService.getModeratorsList();
+  }
+
   @OpenAPI({
     summary: 'Get STF moderators',
     description: 'Returns non-blocked moderators that have Special Task Force enabled.',

@@ -268,4 +268,10 @@ export interface IAnswerRepository {
     questionIds: string[],
     session?: ClientSession,
   ): Promise<IAnswer[]>;
+
+  /** Question ids whose final answer was approved by any of the given moderators (approvedBy). */
+  getFinalAnswerQuestionIdsByApprover(
+    moderatorIds: string[],
+    session?: ClientSession,
+  ): Promise<string[]>;
 }

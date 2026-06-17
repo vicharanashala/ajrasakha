@@ -47,6 +47,18 @@ export class UserService extends BaseService {
     super(mongoDatabase);
   }
 
+  /** Lean list of all moderators ({_id, name, email}) for filter dropdowns. */
+  async getModeratorsList(): Promise<{ _id: string; name: string; email: string }[]> {
+    const moderators = await this.userRepo.findModerators();
+    return moderators
+      .map(m => ({
+        _id: m._id?.toString() ?? '',
+        name: `${m.firstName ?? ''} ${m.lastName ?? ''}`.trim() || m.email || 'Unknown',
+        email: m.email ?? '',
+      }))
+      .filter(m => m._id);
+  }
+
   async getUserById(userId: string): Promise<IUser> {
     try {
       if (!userId) throw new NotFoundError('User ID is required');
