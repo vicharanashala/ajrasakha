@@ -27,6 +27,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useGetQueueDetails } from "@/hooks/api/question/useGetQueueDetails";
 import { useGetQueueSection } from "@/hooks/api/question/useGetQueueSection";
+import { useNavigateToQuestion } from "@/hooks/api/question/useNavigateToQuestion";
 import type {
   QueueQuestionItem,
   QueueExpertItem,
@@ -93,6 +94,7 @@ const QuestionRow = ({
   showWorkType,
   showOpenedIdle,
   showModerator,
+  onClick,
 }: {
   item: QueueQuestionItem;
   showExpert?: boolean;
@@ -100,10 +102,18 @@ const QuestionRow = ({
   showWorkType?: boolean;
   showOpenedIdle?: boolean;
   showModerator?: boolean;
+  onClick?: () => void;
 }) => {
   const meta = [item.source, item.state, item.crop].filter(Boolean).join(" · ");
   return (
-    <div className="px-3 py-2.5 border-b border-gray-100 dark:border-gray-800 last:border-0">
+    <div
+      onClick={onClick}
+      className={cn(
+        "px-3 py-2.5 border-b border-gray-100 dark:border-gray-800 last:border-0",
+        onClick &&
+          "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors",
+      )}
+    >
       <p className="text-sm text-gray-900 dark:text-gray-100 line-clamp-2">
         {item.question || "(no text)"}
       </p>
@@ -364,7 +374,26 @@ export const QueueDetailsModal = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [openSection, setOpenSection] = useState<string | null>("received");
-  
+  const { goToQuestion } = useNavigateToQuestion();
+
+  // Opening a question unmounts this modal (the list view is replaced by the question
+  // detail). Leave a one-shot flag so when the user exits the question and the modal
+  // remounts, it reopens where they left off.
+  useEffect(() => {
+    if (sessionStorage.getItem("reopenQueueDetails") === "1") {
+      sessionStorage.removeItem("reopenQueueDetails");
+      setOpen(true);
+      setIsSidebarOpen?.(false);
+    }
+  }, [setIsSidebarOpen]);
+
+  // Close the modal and open the clicked question's detail page.
+  const handleQuestionClick = (item: QueueQuestionItem) => {
+    sessionStorage.setItem("reopenQueueDetails", "1");
+    setOpen(false);
+    goToQuestion(item._id, "moderator_queue");
+  };
+
   // Date filter state - default to current date
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -481,7 +510,7 @@ export const QueueDetailsModal = ({
               count={data.received.count}
               section="received"
               initialItems={data.received.items}
-              renderItem={(q) => <QuestionRow key={q._id} item={q} />}
+              renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
               isOpen={openSection === "received"}
               onToggle={() => toggle("received")}
               emptyText="No questions received"
@@ -497,7 +526,7 @@ export const QueueDetailsModal = ({
               count={data.autoAllocateOff.count}
               section="autoAllocateOff"
               initialItems={data.autoAllocateOff.items}
-              renderItem={(q) => <QuestionRow key={q._id} item={q} />}
+              renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
               isOpen={openSection === "autoAllocateOff"}
               onToggle={() => toggle("autoAllocateOff")}
               emptyText="No auto-allocate-on questions"
@@ -514,7 +543,7 @@ export const QueueDetailsModal = ({
               count={data.waiting.count}
               section="waiting"
               initialItems={data.waiting.items}
-              renderItem={(q) => <QuestionRow key={q._id} item={q} />}
+              renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
               isOpen={openSection === "waiting"}
               onToggle={() => toggle("waiting")}
               emptyText="Nothing waiting for allocation"
@@ -530,7 +559,7 @@ export const QueueDetailsModal = ({
               count={data.stuck.count}
               section="stuck"
               initialItems={data.stuck.items}
-              renderItem={(q) => <QuestionRow key={q._id} item={q} showStuck />}
+              renderItem={(q) => <QuestionRow key={q._id} item={q} showStuck onClick={() => handleQuestionClick(q)} />}
               isOpen={openSection === "stuck"}
               onToggle={() => toggle("stuck")}
               emptyText="No stuck questions"
@@ -546,7 +575,7 @@ export const QueueDetailsModal = ({
               count={data.openedIdle.count}
               section="openedIdle"
               initialItems={data.openedIdle.items}
-              renderItem={(q) => <QuestionRow key={q._id} item={q} showOpenedIdle />}
+              renderItem={(q) => <QuestionRow key={q._id} item={q} showOpenedIdle onClick={() => handleQuestionClick(q)} />}
               isOpen={openSection === "openedIdle"}
               onToggle={() => toggle("openedIdle")}
               emptyText="No opened-but-idle questions"
@@ -562,7 +591,7 @@ export const QueueDetailsModal = ({
               count={data.needsReviewer.count}
               section="needsReviewer"
               initialItems={data.needsReviewer.items}
-              renderItem={(q) => <QuestionRow key={q._id} item={q} showExpert />}
+              renderItem={(q) => <QuestionRow key={q._id} item={q} showExpert onClick={() => handleQuestionClick(q)} />}
               isOpen={openSection === "needsReviewer"}
               onToggle={() => toggle("needsReviewer")}
               emptyText="Nothing waiting for a reviewer"
@@ -579,7 +608,7 @@ export const QueueDetailsModal = ({
               section="allocated"
               initialItems={data.allocated.items}
               renderItem={(q) => (
-                <QuestionRow key={q._id} item={q} showExpert />
+                <QuestionRow key={q._id} item={q} showExpert onClick={() => handleQuestionClick(q)} />
               )}
               isOpen={openSection === "allocated"}
               onToggle={() => toggle("allocated")}
@@ -621,7 +650,7 @@ export const QueueDetailsModal = ({
               count={data.moderatorWaiting.count}
               section="moderatorWaiting"
               initialItems={data.moderatorWaiting.items}
-              renderItem={(q) => <QuestionRow key={q._id} item={q} />}
+              renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
               isOpen={openSection === "moderatorWaiting"}
               onToggle={() => toggle("moderatorWaiting")}
               emptyText="Nothing waiting for a moderator"
@@ -638,7 +667,7 @@ export const QueueDetailsModal = ({
               section="moderatorAllocated"
               initialItems={data.moderatorAllocated.items}
               renderItem={(q) => (
-                <QuestionRow key={q._id} item={q} showModerator />
+                <QuestionRow key={q._id} item={q} showModerator onClick={() => handleQuestionClick(q)} />
               )}
               isOpen={openSection === "moderatorAllocated"}
               onToggle={() => toggle("moderatorAllocated")}
