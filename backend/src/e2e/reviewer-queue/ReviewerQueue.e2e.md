@@ -161,7 +161,30 @@ Reviewer state: `queue=[e1, e2]`, `history=[{e1 answer, status='reviewed'}, {e2 
 
 ## Last Test Run Results
 
-**Date:** 2026-06-15  
+### 2026-06-16
+
+**Total:** 9 tests — **5 passed, 4 failed** (unchanged from 2026-06-15)
+
+Same 4 failures remain. No regressions, no fixes.
+
+| # | Group | Test | Result | Error |
+|---|-------|------|--------|-------|
+| **1** | **G1** | **question appears in POST /allocated for queue[0] (author slot)** | ❌ FAIL | `expected undefined to be defined` — question not in response |
+| **2** | **G1** | **review_level_number is `'Author'` (historyCount = 0)** | ❌ FAIL | `expected undefined to be 'Author'` |
+| **3** | **G1** | **notification entity_id matches question in POST /allocated** | ❌ FAIL | `expected undefined to be defined` |
+| 4 | G1 | closed question with same expert NOT returned | ✅ pass | — |
+| 5 | G2 | reviewer (expertUser2) sees question in POST /allocated | ✅ pass | — |
+| **6** | **G2** | **review_level_number is `'Level 1'` (historyCount = 2)** | ❌ FAIL | `expected 1 to be 'Level 1'` — returns number, not string |
+| 7 | G2 | completed author (expertUser1) NOT visible after submitting | ✅ pass | — |
+| 8 | G3 | in-review question NOT visible to any expert | ✅ pass | — |
+| 9 | G3 | expert NOT in queue cannot see question | ✅ pass | — |
+
+Both bugs from 2026-06-15 are still present (see Failing Paths section below).
+
+---
+
+### 2026-06-15
+
 **Total:** 9 tests — **5 passed, 4 failed**
 
 | # | Group | Test | Result | Error |
@@ -212,3 +235,21 @@ to be applied in the query, not just checked in the application layer.
 # From backend/  (~15 s against the real Atlas DB in .env)
 pnpm exec vitest run src/e2e/reviewer-queue/ReviewerQueue.e2e.test.ts
 ```
+
+---
+
+## Last Run
+
+**Date:** 2026-06-16 &nbsp;|&nbsp; **Result:** ❌ 4 failed / 5 passed &nbsp;|&nbsp; **Duration:** 20.7 s
+
+| # | Test | Result | Failure reason |
+|---|------|:------:|----------------|
+| 1 | Reviewer queue — author slot visibility > question appears in POST /allocated for the a... | ❌ | expected undefined to be defined |
+| 2 | Reviewer queue — author slot visibility > review_level_number is "Author" for the autho... | ❌ | expected undefined to be 'Author' // Object.is equality |
+| 3 | Reviewer queue — author slot visibility > answer_creation notification entity_id matche... | ❌ | expected undefined to be defined |
+| 4 | Reviewer queue — author slot visibility > a closed question with the same expert in que... | ✅ | — |
+| 5 | Reviewer queue — reviewer slot visibility > reviewer (expertUser2) sees the question in... | ✅ | — |
+| 6 | Reviewer queue — reviewer slot visibility > review_level_number is "Level 1" for the re... | ❌ | expected 1 to be 'Level 1' // Object.is equality |
+| 7 | Reviewer queue — reviewer slot visibility > completed author (expertUser1) does NOT see... | ✅ | — |
+| 8 | Reviewer queue — status exclusion and wrong-user guard > question with status="in-revie... | ✅ | — |
+| 9 | Reviewer queue — status exclusion and wrong-user guard > expert NOT in queue cannot see... | ✅ | — |

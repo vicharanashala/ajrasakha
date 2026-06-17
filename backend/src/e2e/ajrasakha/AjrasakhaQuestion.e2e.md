@@ -205,6 +205,31 @@ DEGRADATION
 
 ---
 
+## 2026-06-16 (addQuestion regression — 5 failed)
+
+**Total:** 9 tests — **4 passed, 5 failed**
+
+| # | Test | Result | Error |
+|---|------|--------|-------|
+| 1 | AUTH: no auth header → 401 | ✅ | — |
+| 2 | AUTH: wrong internal API key → 401 | ✅ | — |
+| **3** | **HAPPY PATH: open question created** | ❌ FAIL | 400 — `Cannot read properties of undefined (reading 'data')` at `QuestionController.addQuestion:467` |
+| **4** | **FOUND: GDB exact_match → duplicate** | ❌ FAIL | 400 — same regression |
+| **5** | **NON-AGRI: LLM says non-agri → non_agri** | ❌ FAIL | 400 — same regression |
+| 6 | PAYLOAD: missing district → 400 | ✅ | Blocked by class-validator before service |
+| 7 | PAYLOAD: empty question → 500 (known bug) | ✅ | Still returns 500 as expected |
+| **8** | **THREAD: empty threadId → isTesting=true** | ❌ FAIL | 400 — same regression (never reaches isTesting logic) |
+| **9** | **LLM FAILURE: classifier throws → open** | ❌ FAIL | 400 — same regression |
+
+Same failure as WhatsApp, QuestionCreate, AutoAllocation G1-G3: expected 201, got 400
+(`"Cannot read properties of undefined (reading 'data')"`) for every call that reaches the
+question-save path.
+
+The isTesting failure (test #8) was a pre-existing bug from 2026-06-15. In this run it
+returns 400 before the isTesting logic is even reached, so the bug is masked by the regression.
+
+---
+
 ## 2026-06-15 (1 new failure)
 
 **Total:** 9 tests — **8 passed, 1 failed**
@@ -283,3 +308,21 @@ empty question text, but the outer `catch` block wraps ALL errors in
 (those with `httpCode < 500`) directly rather than wrapping them.
 
 See `src/e2e/whatsapp/WhatsAppQuestion.e2e.md` BUG-001 for the full analysis.
+
+---
+
+## Last Run
+
+**Date:** 2026-06-16 &nbsp;|&nbsp; **Result:** ❌ 5 failed / 4 passed &nbsp;|&nbsp; **Duration:** 20.2 s
+
+| # | Test | Result | Failure reason |
+|---|------|:------:|----------------|
+| 1 | Ajrasakha ingestion — authentication (FlexibleAuth) > rejects ingestion when no auth he... | ✅ | — |
+| 2 | Ajrasakha ingestion — authentication (FlexibleAuth) > rejects ingestion when an incorre... | ✅ | — |
+| 3 | Ajrasakha ingestion — happy path (open, agri, thread valid) > creates an open question ... | ❌ | expected 400 to be 201 // Object.is equality |
+| 4 | Ajrasakha ingestion — question FOUND (GDB exact match → duplicate) > marks the question... | ❌ | expected 400 to be 201 // Object.is equality |
+| 5 | Ajrasakha ingestion — non-agricultural question (LLM filter) > marks the question as no... | ❌ | expected 400 to be 201 // Object.is equality |
+| 6 | Ajrasakha ingestion — invalid payload (missing required detail field) > rejects with 40... | ✅ | — |
+| 7 | Ajrasakha ingestion — invalid payload (empty question text) > rejects when the question... | ✅ | — |
+| 8 | Ajrasakha ingestion — invalid thread (empty threadId → isTesting) > flags the question ... | ❌ | expected 400 to be 201 // Object.is equality |
+| 9 | Ajrasakha ingestion — LLM failure degrades gracefully to open > still opens the questio... | ❌ | expected 400 to be 201 // Object.is equality |

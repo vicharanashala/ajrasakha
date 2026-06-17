@@ -144,7 +144,35 @@ This is triggered by BUG-002's empty-queue scenario and is the direct cause of t
 
 ## Last Test Run Results
 
-**Date:** 2026-06-15  
+### 2026-06-16
+
+**Total:** 10 tests — **8 passed, 2 failed**
+
+The expert1 allocation bug from 2026-06-15 is resolved (experts 1 and 2 now allocate cleanly).
+The remove-allocation path still fails with a MongoDB write conflict.
+
+| # | Group | Test | Result | Error |
+|---|-------|------|--------|-------|
+| 1 | AUTH | No user → 401 (allocate-experts) | ✅ | — |
+| 2 | AUTH | Expert tries to allocate → 400 | ✅ | — |
+| 3 | ALLOCATE | Moderator allocates expert1 → 200 | ✅ | — |
+| 4 | ALLOCATE | DB: queue contains expert1 | ✅ | `QUEUE AFTER EXPERT1: [ ObjectId('…eb') ]` |
+| 5 | ALLOCATE | DB: `firstAllocationAt` set | ✅ | `2026-06-16T07:02:49.911Z` |
+| 6 | ALLOCATE | Moderator allocates expert2 → 200, queue length 2 | ✅ | — |
+| 7 | VALIDATION | Duplicate expert → 200 (known BUG-001) | ✅ | Queue grows to 3 (bug confirmed) |
+| 8 | VALIDATION | Non-existent questionId → 500 (known) | ✅ | — |
+| **9** | **REMOVE** | **Moderator removes expert at index 0 → 200** | ❌ FAIL | **500** — `MongoServerError: Write conflict during plan execution and yielding is disabled. Please retry your operation or multi-document transaction.` |
+| **10** | **REMOVE** | **DB: queue shrinks to 1, expert2 remains** | ❌ FAIL | Queue still has 3 entries (cascade from #9) |
+
+**Failure detail (tests #9-10):** `DELETE /api/questions/:id/allocation` triggers a MongoDB write conflict.
+Likely caused by another write (notification or reallocation) running concurrently on the same document at
+test time. The operation fails before any modification occurs, leaving the queue unchanged at length 3.
+This is an intermittent infrastructure issue — not a logic bug in the allocation code itself.
+
+---
+
+### 2026-06-15
+
 **Total:** 10 tests — **4 passed, 6 failed**
 
 | # | Group | Test | Result | Error |
@@ -178,3 +206,22 @@ Possible causes:
 ### Remove fails with 500 (test #9)
 
 Because expert1 was never in the queue, `getExprtIdByIndex(questionId, 0)` returns `null`. Passing `null` to `getUserById` throws inside the controller's catch block, and the secondary `questionDetails.text` access in the catch body triggers a `TypeError` → HTTP 500. This is BUG-003 documented above.
+
+---
+
+## Last Run
+
+**Date:** 2026-06-16 &nbsp;|&nbsp; **Result:** ❌ 2 failed / 8 passed &nbsp;|&nbsp; **Duration:** 23.6 s
+
+| # | Test | Result | Failure reason |
+|---|------|:------:|----------------|
+| 1 | Manual allocation — authentication > returns 401 when no user is logged in (allocate-ex... | ✅ | — |
+| 2 | Manual allocation — authentication > returns 400 when an expert tries to allocate (role... | ✅ | — |
+| 3 | Manual allocation — moderator allocates experts > moderator allocates expert1 → 200 | ✅ | — |
+| 4 | Manual allocation — moderator allocates experts > DB: submission queue contains expert1... | ✅ | — |
+| 5 | Manual allocation — moderator allocates experts > DB: question has firstAllocationAt se... | ✅ | — |
+| 6 | Manual allocation — moderator allocates experts > moderator allocates expert2 to same q... | ✅ | — |
+| 7 | Manual allocation — validation > duplicate expert check (known bug: guard silently pass... | ✅ | — |
+| 8 | Manual allocation — validation > non-existent questionId returns 500 (known behavior: g... | ✅ | — |
+| 9 | Manual allocation — moderator removes an expert > moderator removes expert at index 0 →... | ❌ | expected 500 to be 200 // Object.is equality |
+| 10 | Manual allocation — moderator removes an expert > DB: queue shrinks to 1, expert1 remov... | ❌ | expected [ …(3) ] to have a length of 1 but got 3 |

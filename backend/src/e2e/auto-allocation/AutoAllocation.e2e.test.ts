@@ -52,7 +52,7 @@ import express from 'express';
 import request from 'supertest';
 import { useExpressServer } from 'routing-controllers';
 import { ObjectId } from 'mongodb';
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 
 const ROUTE_PREFIX = '/api';
 const RUN_TAG = `E2E_AA_${Date.now()}`;
@@ -178,35 +178,72 @@ beforeAll(async () => {
   // have STF experts in their queue from previous incomplete test runs.
   // getTimeBoundActiveCountPerExpert counts ALL such questions in the DB, so
   // leftovers make freeSTF=0 and block G5/G6/G8 from running.
-  if (stfExperts.length > 0) {
-    const stfIds = stfExperts.map((e: any) => e._id);
+  {
     const questionsCol = await db.getCollection('questions');
     const submissionsCol = await db.getCollection('question_submissions');
 
-    const leftoverSubs = await submissionsCol
-      .find({ queue: { $elemMatch: { $in: stfIds } } })
+    if (stfExperts.length > 0) {
+      const stfIds = stfExperts.map((e: any) => e._id);
+
+      const leftoverSubs = await submissionsCol
+        .find({ queue: { $elemMatch: { $in: stfIds } } })
+        .toArray();
+
+      if (leftoverSubs.length > 0) {
+        const leftoverQIds = leftoverSubs.map((s: any) => s.questionId);
+        const leftoverActiveQs = await questionsCol
+          .find({
+            _id: { $in: leftoverQIds },
+            source: { $in: ['WHATSAPP', 'AJRASAKHA'] },
+            status: { $in: ['open', 'delayed'] },
+          })
+          .toArray();
+
+        if (leftoverActiveQs.length > 0) {
+          const toClose = leftoverActiveQs.map((q: any) => q._id);
+          await questionsCol.updateMany(
+            { _id: { $in: toClose } },
+            { $set: { status: 'closed' } },
+          );
+          temporarilyClosedIds.push(...toClose);
+          console.log(
+            `[setup] Temporarily closed ${toClose.length} leftover allocated time-bound question(s) ` +
+            `(STF expert in queue) to free STF experts for testing.`,
+          );
+        }
+      }
+    }
+
+    // Also close any unallocated (queue=[]) WHATSAPP/AJRASAKHA questions still
+    // open from previous incomplete runs. They have no STF expert yet but would
+    // be consumed by the cron BEFORE our seeded test questions because the cron
+    // processes all eligible questions and capacity might run out.
+    const unallocSubs = await submissionsCol
+      .find({ queue: { $size: 0 } })
       .toArray();
 
-    if (leftoverSubs.length > 0) {
-      const leftoverQIds = leftoverSubs.map((s: any) => s.questionId);
-      const leftoverActiveQs = await questionsCol
+    if (unallocSubs.length > 0) {
+      const unallocQIds = unallocSubs.map((s: any) => s.questionId);
+      const unallocTimeBound = await questionsCol
         .find({
-          _id: { $in: leftoverQIds },
+          _id: { $in: unallocQIds },
           source: { $in: ['WHATSAPP', 'AJRASAKHA'] },
-          status: { $in: ['open', 'delayed'] },
+          status: { $in: ['open', 'delayed', 'duplicate'] },
+          isAutoAllocate: { $eq: true },
+          isOnHold: { $ne: true },
         })
         .toArray();
 
-      if (leftoverActiveQs.length > 0) {
-        const toClose = leftoverActiveQs.map((q: any) => q._id);
+      if (unallocTimeBound.length > 0) {
+        const toClose2 = unallocTimeBound.map((q: any) => q._id);
         await questionsCol.updateMany(
-          { _id: { $in: toClose } },
+          { _id: { $in: toClose2 } },
           { $set: { status: 'closed' } },
         );
-        temporarilyClosedIds.push(...toClose);
+        temporarilyClosedIds.push(...toClose2);
         console.log(
-          `[setup] Temporarily closed ${toClose.length} leftover active time-bound question(s) ` +
-          `to free STF experts for testing.`,
+          `[setup] Also closed ${toClose2.length} unallocated time-bound question(s) from previous runs ` +
+          `to prevent them from consuming STF capacity.`,
         );
       }
     }
@@ -297,7 +334,8 @@ const AGRI_EXPERT_DETAILS = {
 // ════════════════════════════════════════════════════════════════════════════
 
 describe('Auto allocation — AGRI_EXPERT question: background allocates one expert', () => {
-  let questionId: string;
+  let questionId: string = '';
+  let createStatus: number = 0;
 
   beforeAll(async () => {
     as(moderatorUser);
@@ -308,10 +346,16 @@ describe('Auto allocation — AGRI_EXPERT question: background allocates one exp
       details: AGRI_EXPERT_DETAILS,
     });
     console.log('[G1] CREATE STATUS:', res.status, 'BODY:', JSON.stringify(res.body));
-    expect(res.status).toBe(201);
-    questionId = res.body.question_id;
-    createdQuestionIds.push(new ObjectId(questionId));
+    createStatus = res.status;
+    if (res.status === 201) {
+      questionId = res.body.question_id;
+      createdQuestionIds.push(new ObjectId(questionId));
+    }
   }, 30000);
+
+  beforeEach(() => {
+    if (!questionId) throw new Error(`[G1] beforeAll: POST /questions returned ${createStatus} — test cannot run`);
+  });
 
   it('question is immediately open with isAutoAllocate=true', async () => {
     const q = await getQuestion(questionId);
@@ -356,7 +400,8 @@ describe('Auto allocation — AGRI_EXPERT question: background allocates one exp
 // ════════════════════════════════════════════════════════════════════════════
 
 describe('Auto allocation — AGRI_EXPERT: preference scoring allocates the best expert', () => {
-  let questionId: string;
+  let questionId: string = '';
+  let createStatus: number = 0;
 
   beforeAll(async () => {
     // experttest1 (EXPERT_EMAIL) is expected to have preferences matching
@@ -370,7 +415,8 @@ describe('Auto allocation — AGRI_EXPERT: preference scoring allocates the best
       priority: 'medium',
       details: AGRI_EXPERT_DETAILS,
     });
-    expect(res.status).toBe(201);
+    createStatus = res.status;
+    if (res.status !== 201) return;
     questionId = res.body.question_id;
     createdQuestionIds.push(new ObjectId(questionId));
 
@@ -380,6 +426,10 @@ describe('Auto allocation — AGRI_EXPERT: preference scoring allocates the best
       return (sub?.queue?.length ?? 0) > 0;
     });
   }, 30000);
+
+  beforeEach(() => {
+    if (!questionId) throw new Error(`[G2] beforeAll: POST /questions returned ${createStatus} — test cannot run`);
+  });
 
   it('queue[0] is experttest1 (highest-scoring for Punjab / Crop Protection / Brinjal)', async () => {
     const sub = await getSubmission(questionId);
@@ -394,7 +444,8 @@ describe('Auto allocation — AGRI_EXPERT: preference scoring allocates the best
 // ════════════════════════════════════════════════════════════════════════════
 
 describe('Auto allocation — OUTREACH question: queue stays empty at creation', () => {
-  let questionId: string;
+  let questionId: string = '';
+  let createStatus: number = 0;
 
   beforeAll(async () => {
     as(moderatorUser);
@@ -405,10 +456,16 @@ describe('Auto allocation — OUTREACH question: queue stays empty at creation',
       details: AGRI_EXPERT_DETAILS,
     });
     console.log('[G3] CREATE STATUS:', res.status);
-    expect(res.status).toBe(201);
-    questionId = res.body.question_id;
-    createdQuestionIds.push(new ObjectId(questionId));
+    createStatus = res.status;
+    if (res.status === 201) {
+      questionId = res.body.question_id;
+      createdQuestionIds.push(new ObjectId(questionId));
+    }
   }, 30000);
+
+  beforeEach(() => {
+    if (!questionId) throw new Error(`[G3] beforeAll: POST /questions returned ${createStatus} — test cannot run`);
+  });
 
   it('question is open with isAutoAllocate=true (flag only — no background expert assignment)', async () => {
     const q = await getQuestion(questionId);
@@ -661,6 +718,19 @@ describe('Time-bound allocation — WHATSAPP unallocated question → STF expert
     console.log('[G5] answer_creation notif:', notif ? 'found' : 'missing', notif?.message);
     expect(notif).not.toBeNull();
   });
+
+  afterAll(async () => {
+    // Close waQuestionId so the STF expert is no longer counted as "active"
+    // (getTimeBoundActiveCountPerExpert skips closed questions). This frees
+    // the expert's slot before G6 and G8 run their crons.
+    if (!db || !waQuestionId) return;
+    const questions = await db.getCollection('questions');
+    await questions.updateOne(
+      { _id: new ObjectId(waQuestionId) },
+      { $set: { status: 'closed' } },
+    );
+    console.log('[G5] afterAll: closed waQuestionId — STF expert freed for G6/G8');
+  }, 15000);
 });
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -753,6 +823,18 @@ describe('Time-bound allocation — AJRASAKHA unallocated question → STF exper
     const q = await getQuestion(ajQuestionId);
     expect(q.firstAllocationAt).toBeInstanceOf(Date);
   });
+
+  afterAll(async () => {
+    // Close ajQuestionId so the STF expert is no longer counted as "active"
+    // before G8 runs. Without this, G8 sees no free STF expert and test #31 fails.
+    if (!db || !ajQuestionId) return;
+    const questions = await db.getCollection('questions');
+    await questions.updateOne(
+      { _id: new ObjectId(ajQuestionId) },
+      { $set: { status: 'closed' } },
+    );
+    console.log('[G6] afterAll: closed ajQuestionId — STF expert freed for G8');
+  }, 15000);
 });
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -889,6 +971,7 @@ describe('Time-bound allocation — questions that must NOT be picked up by real
 
 describe('Time-bound allocation — MAX_TIME_BOUND=1 expert capacity enforcement', () => {
   let newQuestionId: string;
+  let busyQuestionId: string; // tracked for G8 afterAll cleanup
   let busyExpert: any;
   let allocResult: any;
 
@@ -921,6 +1004,7 @@ describe('Time-bound allocation — MAX_TIME_BOUND=1 expert capacity enforcement
       createdAt: new Date(Date.now() - 10_000), // created a bit earlier so it sorts first
       updatedAt: new Date(),
     });
+    busyQuestionId = busyQ.insertedId.toString();
     createdQuestionIds.push(busyQ.insertedId);
     await submissions.insertOne({
       questionId: busyQ.insertedId,
@@ -991,6 +1075,158 @@ describe('Time-bound allocation — MAX_TIME_BOUND=1 expert capacity enforcement
     console.log('[G8] new question queue:', sub?.queue?.map((q: any) => q.toString()));
     expect(sub.queue).toHaveLength(1);
     expect(sub.queue[0].toString()).not.toBe(busyExpert._id.toString());
+  });
+
+  afterAll(async () => {
+    // Close both G8 questions so the STF expert (busyExpert) is no longer
+    // counted as active by subsequent groups. Global afterAll will delete them.
+    if (!db) return;
+    const questions = await db.getCollection('questions');
+    const toClose = [busyQuestionId, newQuestionId].filter(Boolean);
+    for (const id of toClose) {
+      await questions.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { status: 'closed' } },
+      ).catch(() => {});
+    }
+    console.log(`[G8] afterAll: closed ${toClose.length} G8 question(s) — STF expert freed`);
+  }, 15000);
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 9. Time-bound allocation — concurrent run guard
+//
+// isReallocatingTimeBound is a module-level boolean set synchronously on line
+// 5655 before the first await. A second call fired immediately after the first
+// sees it as true and returns early without doing any DB work.
+// ════════════════════════════════════════════════════════════════════════════
+
+describe('Time-bound allocation — concurrent run guard prevents double-allocation', () => {
+  it('second concurrent call returns early with "Reallocation already in progress"', async () => {
+    // Start the first call WITHOUT awaiting — it sets isReallocatingTimeBound=true
+    // synchronously before its first await, so the guard check fires immediately.
+    const firstCall = questionService.reallocateTimeBoundQuestions();
+    const secondResult = await questionService.reallocateTimeBoundQuestions();
+
+    console.log('[G9-guard] secondResult:', JSON.stringify(secondResult));
+    expect(secondResult.message).toBe('Reallocation already in progress');
+    expect(secondResult.reallocated).toBe(0);
+    expect(secondResult.skipped).toBe(0);
+
+    // Let the first call settle so the lock is released before the next group runs.
+    await firstCall;
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 10. Time-bound allocation — needsReviewer path
+//
+// findAnsweredQuestionsNeedingReviewer picks up WHATSAPP/AJRASAKHA questions
+// where:
+//   - queue.length >= 1 (at least one expert assigned)
+//   - history.length >= queue.length (all assigned experts have entries)
+//   - Either: position-0 author has submitted an answer (lastHistory.answer exists)
+//             OR: last reviewer has finished (lastHistory.status != 'in-review')
+//
+// The cron then calls assignTimeBoundReviewer → pushes reviewer into queue +
+// history[status='in-review'], resets currentExpertAllocatedAt clock.
+// ════════════════════════════════════════════════════════════════════════════
+
+describe('Time-bound allocation — answered question gets reviewer assigned (needsReviewer path)', () => {
+  let reviewQuestionId: string;
+  let allocResult: any;
+
+  beforeAll(async () => {
+    const questions = await db.getCollection('questions');
+    const submissions = await db.getCollection('question_submissions');
+
+    // Seed: WHATSAPP question where the author (expertUser1) already submitted
+    // an answer → findAnsweredQuestionsNeedingReviewer picks it up.
+    const { insertedId } = await questions.insertOne({
+      userId: moderatorUser._id,
+      question: `${RUN_TAG} reviewer-needed paddy stem rot brown lesions how to treat`,
+      status: 'open',
+      priority: 'high',
+      source: 'WHATSAPP',
+      isAutoAllocate: true,
+      isOnHold: false,
+      totalAnswersCount: 1,
+      embedding: [],
+      metrics: null,
+      firstAllocationAt: new Date(),
+      details: { state: 'Punjab', district: 'Ludhiana', crop: 'Paddy', season: 'Kharif', domain: 'Crop Protection' },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    reviewQuestionId = insertedId.toString();
+    createdQuestionIds.push(insertedId);
+
+    await submissions.insertOne({
+      questionId: insertedId,
+      lastRespondedBy: expertUser1._id,
+      // queue has 1 member (the author); history has 1 matching entry with an answer
+      // → histLen(1) >= queueLen(1) + lastHistory.answer exists → query matches
+      queue: [expertUser1._id],
+      history: [{
+        updatedBy: expertUser1._id,
+        answer: 'Apply copper oxychloride fungicide at 2.5 g/L water and improve field drainage.',
+        status: 'reviewed',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }],
+      currentExpertAllocatedAt: new Date(),
+      currentExpertOpenedAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    allocResult = await questionService.reallocateTimeBoundQuestions();
+    console.log('[G10] allocResult:', JSON.stringify(allocResult));
+  }, 30000);
+
+  it('reports at least 1 reviewer assigned', () => {
+    expect(allocResult.reallocated).toBeGreaterThanOrEqual(1);
+  });
+
+  it('submission queue grows from 1 to 2 experts', async () => {
+    const sub = await getSubmission(reviewQuestionId);
+    console.log('[G10] queue after reviewer assignment:', sub?.queue?.map((q: any) => q.toString()));
+    expect(sub.queue).toHaveLength(2);
+  });
+
+  it('reviewer is a different expert from the author (expertUser1)', async () => {
+    const sub = await getSubmission(reviewQuestionId);
+    const reviewerId = sub.queue[1].toString();
+    console.log('[G10] reviewer:', reviewerId, 'author:', expertUser1._id.toString());
+    expect(reviewerId).not.toBe(expertUser1._id.toString());
+  });
+
+  it('history has a new in-review entry for the reviewer', async () => {
+    const sub = await getSubmission(reviewQuestionId);
+    console.log('[G10] history length:', sub?.history?.length, JSON.stringify(sub?.history?.[1]));
+    expect(sub.history).toHaveLength(2);
+    expect(sub.history[1].status).toBe('in-review');
+    expect(sub.history[1].updatedBy.toString()).toBe(sub.queue[1].toString());
+  });
+
+  it('peer_review notification sent to the reviewer', async () => {
+    const sub = await getSubmission(reviewQuestionId);
+    const reviewerId = sub.queue[1];
+    const notifications = await db.getCollection('notifications');
+    const notif = await notifications.findOne({
+      enitity_id: new ObjectId(reviewQuestionId),
+      userId: reviewerId,
+      type: 'peer_review',
+    });
+    console.log('[G10] peer_review notif:', notif ? 'found' : 'missing', notif?.message);
+    expect(notif).not.toBeNull();
+  });
+
+  it('currentExpertAllocatedAt is reset and currentExpertOpenedAt is cleared (reviewer clock starts fresh)', async () => {
+    const sub = await getSubmission(reviewQuestionId);
+    console.log('[G10] currentExpertAllocatedAt:', sub?.currentExpertAllocatedAt, 'openedAt:', sub?.currentExpertOpenedAt);
+    expect(sub.currentExpertAllocatedAt).toBeInstanceOf(Date);
+    expect(sub.currentExpertOpenedAt).toBeNull();
   });
 });
 
@@ -1171,142 +1407,5 @@ describe('Toggle auto-allocate — sequential ON → OFF → ON same question le
     const uniqueIds = new Set(ids);
     console.log('[G12] queue after second ON:', ids, 'unique:', uniqueIds.size);
     expect(uniqueIds.size).toBe(ids.length);
-  });
-});
-
-// ════════════════════════════════════════════════════════════════════════════
-// 9. Time-bound allocation — concurrent run guard
-//
-// isReallocatingTimeBound is a module-level boolean set synchronously on line
-// 5655 before the first await. A second call fired immediately after the first
-// sees it as true and returns early without doing any DB work.
-// ════════════════════════════════════════════════════════════════════════════
-
-describe('Time-bound allocation — concurrent run guard prevents double-allocation', () => {
-  it('second concurrent call returns early with "Reallocation already in progress"', async () => {
-    // Start the first call WITHOUT awaiting — it sets isReallocatingTimeBound=true
-    // synchronously before its first await, so the guard check fires immediately.
-    const firstCall = questionService.reallocateTimeBoundQuestions();
-    const secondResult = await questionService.reallocateTimeBoundQuestions();
-
-    console.log('[G9-guard] secondResult:', JSON.stringify(secondResult));
-    expect(secondResult.message).toBe('Reallocation already in progress');
-    expect(secondResult.reallocated).toBe(0);
-    expect(secondResult.skipped).toBe(0);
-
-    // Let the first call settle so the lock is released before the next group runs.
-    await firstCall;
-  });
-});
-
-// ════════════════════════════════════════════════════════════════════════════
-// 10. Time-bound allocation — needsReviewer path
-//
-// findAnsweredQuestionsNeedingReviewer picks up WHATSAPP/AJRASAKHA questions
-// where:
-//   - queue.length >= 1 (at least one expert assigned)
-//   - history.length >= queue.length (all assigned experts have entries)
-//   - Either: position-0 author has submitted an answer (lastHistory.answer exists)
-//             OR: last reviewer has finished (lastHistory.status != 'in-review')
-//
-// The cron then calls assignTimeBoundReviewer → pushes reviewer into queue +
-// history[status='in-review'], resets currentExpertAllocatedAt clock.
-// ════════════════════════════════════════════════════════════════════════════
-
-describe('Time-bound allocation — answered question gets reviewer assigned (needsReviewer path)', () => {
-  let reviewQuestionId: string;
-  let allocResult: any;
-
-  beforeAll(async () => {
-    const questions = await db.getCollection('questions');
-    const submissions = await db.getCollection('question_submissions');
-
-    // Seed: WHATSAPP question where the author (expertUser1) already submitted
-    // an answer → findAnsweredQuestionsNeedingReviewer picks it up.
-    const { insertedId } = await questions.insertOne({
-      userId: moderatorUser._id,
-      question: `${RUN_TAG} reviewer-needed paddy stem rot brown lesions how to treat`,
-      status: 'open',
-      priority: 'high',
-      source: 'WHATSAPP',
-      isAutoAllocate: true,
-      isOnHold: false,
-      totalAnswersCount: 1,
-      embedding: [],
-      metrics: null,
-      firstAllocationAt: new Date(),
-      details: { state: 'Punjab', district: 'Ludhiana', crop: 'Paddy', season: 'Kharif', domain: 'Crop Protection' },
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-    reviewQuestionId = insertedId.toString();
-    createdQuestionIds.push(insertedId);
-
-    await submissions.insertOne({
-      questionId: insertedId,
-      lastRespondedBy: expertUser1._id,
-      // queue has 1 member (the author); history has 1 matching entry with an answer
-      // → histLen(1) >= queueLen(1) + lastHistory.answer exists → query matches
-      queue: [expertUser1._id],
-      history: [{
-        updatedBy: expertUser1._id,
-        answer: 'Apply copper oxychloride fungicide at 2.5 g/L water and improve field drainage.',
-        status: 'reviewed',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }],
-      currentExpertAllocatedAt: new Date(),
-      currentExpertOpenedAt: new Date(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-
-    allocResult = await questionService.reallocateTimeBoundQuestions();
-    console.log('[G10] allocResult:', JSON.stringify(allocResult));
-  }, 30000);
-
-  it('reports at least 1 reviewer assigned', () => {
-    expect(allocResult.reallocated).toBeGreaterThanOrEqual(1);
-  });
-
-  it('submission queue grows from 1 to 2 experts', async () => {
-    const sub = await getSubmission(reviewQuestionId);
-    console.log('[G10] queue after reviewer assignment:', sub?.queue?.map((q: any) => q.toString()));
-    expect(sub.queue).toHaveLength(2);
-  });
-
-  it('reviewer is a different expert from the author (expertUser1)', async () => {
-    const sub = await getSubmission(reviewQuestionId);
-    const reviewerId = sub.queue[1].toString();
-    console.log('[G10] reviewer:', reviewerId, 'author:', expertUser1._id.toString());
-    expect(reviewerId).not.toBe(expertUser1._id.toString());
-  });
-
-  it('history has a new in-review entry for the reviewer', async () => {
-    const sub = await getSubmission(reviewQuestionId);
-    console.log('[G10] history length:', sub?.history?.length, JSON.stringify(sub?.history?.[1]));
-    expect(sub.history).toHaveLength(2);
-    expect(sub.history[1].status).toBe('in-review');
-    expect(sub.history[1].updatedBy.toString()).toBe(sub.queue[1].toString());
-  });
-
-  it('peer_review notification sent to the reviewer', async () => {
-    const sub = await getSubmission(reviewQuestionId);
-    const reviewerId = sub.queue[1];
-    const notifications = await db.getCollection('notifications');
-    const notif = await notifications.findOne({
-      enitity_id: new ObjectId(reviewQuestionId),
-      userId: reviewerId,
-      type: 'peer_review',
-    });
-    console.log('[G10] peer_review notif:', notif ? 'found' : 'missing', notif?.message);
-    expect(notif).not.toBeNull();
-  });
-
-  it('currentExpertAllocatedAt is reset and currentExpertOpenedAt is cleared (reviewer clock starts fresh)', async () => {
-    const sub = await getSubmission(reviewQuestionId);
-    console.log('[G10] currentExpertAllocatedAt:', sub?.currentExpertAllocatedAt, 'openedAt:', sub?.currentExpertOpenedAt);
-    expect(sub.currentExpertAllocatedAt).toBeInstanceOf(Date);
-    expect(sub.currentExpertOpenedAt).toBeNull();
   });
 });

@@ -225,7 +225,41 @@ Notes:
 
 # Last Test Run Results
 
-**Date:** 2026-06-11  
+## 2026-06-16 (addQuestion regression — 14 failed)
+
+**Total:** 18 tests — **4 passed, 14 failed**  
+**Duration:** ~22 s
+
+Every test that calls `POST /api/questions` expected 201 and got 400
+(`"Cannot read properties of undefined (reading 'data')"` at `QuestionController.addQuestion:467`).
+Tests that pass are the two auth gates, the class-validator payload rejection, and the known-500 empty-question test — none of which reach the question-save path.
+
+| # | Test | Result | Error |
+|---|------|--------|-------|
+| 1 | AUTH: no internal API key → 401 | ✅ | — |
+| 2 | AUTH: wrong internal API key → 401 | ✅ | — |
+| 3 | PAYLOAD: missing district field → 400 | ✅ | class-validator fires before service |
+| **4** | **FOUND: GDB exact_match → duplicate, isExact=true** | ❌ FAIL | 400 — addQuestion regression |
+| **5** | **SIMILAR: GDB selected_match → duplicate, isExact=false** | ❌ FAIL | 400 |
+| **6** | **NOT FOUND (agri): → open, unallocated submission** | ❌ FAIL | 400 |
+| **7** | **NON-AGRI: LLM says non-agri → non_agri** | ❌ FAIL | 400 |
+| **8** | **THREAD INVALID: empty threadId → isTesting=true** | ❌ FAIL | 400 |
+| **9** | **LLM FAILURE: classifier throws → open** | ❌ FAIL | 400 |
+| **10** | **THREAD NOT-FOUND: all retries fail → isTesting** | ❌ FAIL | 400 |
+| **11** | **THREAD DOWN: API unreachable → open** | ❌ FAIL | 400 |
+| **12** | **GDB FAILURE: searchGdb throws → open** | ❌ FAIL | 400 |
+| **13** | **RETRY SUCCEEDS: first attempt fails, retry → open** | ❌ FAIL | 400 |
+| **14** | **INVALID exact_match ID: non-ObjectId → open** | ❌ FAIL | 400 |
+| **15** | **INVALID selected_match ID: non-ObjectId → open** | ❌ FAIL | 400 |
+| **16** | **OID FORMAT: exact_match.question_id as {$oid} → duplicate** | ❌ FAIL | 400 |
+| **17** | **PRIORITY: both exact+selected → exact_match wins** | ❌ FAIL | 400 |
+| 18 | PAYLOAD: empty question text → 500 (known bug) | ✅ | Still returns 500 as documented |
+
+
+---
+
+## 2026-06-11 (baseline — 17 passed, 1 failed)
+
 **Vitest version:** 3.2.4  
 **Total:** 18 tests — **17 passed, 1 failed**  
 **Duration:** ~59 s (dominated by the two 21-s retry tests + one 3-s transient-retry test)
@@ -338,3 +372,30 @@ The controller (QuestionController.ts:332-354) catches service errors and re-thr
 **Why the "missing district" test was fixed:** `QuestionDetailsDto` has `@IsNotEmpty()` (or equivalent) validation on `district`. When `district` is missing, `routing-controllers`' class-validator fires BEFORE the service is called, returning 400 directly without ever entering `addQuestion`. The service's faulty outer catch is never reached.
 
 **Note:** The comment in the test file for the "missing district" case is now outdated — it says "this 400 does NOT come from class-validator". It now DOES come from class-validator on `QuestionDetailsDto`. The comment should be updated if/when BUG-001 is fully fixed.
+
+---
+
+## Last Run
+
+**Date:** 2026-06-16 &nbsp;|&nbsp; **Result:** ❌ 14 failed / 4 passed &nbsp;|&nbsp; **Duration:** 22.2 s
+
+| # | Test | Result | Failure reason |
+|---|------|:------:|----------------|
+| 1 | WhatsApp ingestion — authentication (FlexibleAuth / internal key) > rejects ingestion w... | ✅ | — |
+| 2 | WhatsApp ingestion — authentication (FlexibleAuth / internal key) > rejects ingestion w... | ✅ | — |
+| 3 | WhatsApp ingestion — invalid payload (missing required detail field) > rejects with 400... | ✅ | — |
+| 4 | WhatsApp ingestion — question FOUND (GDB duplicate, reference answer linked) > marks th... | ❌ | expected 400 to be 201 // Object.is equality |
+| 5 | WhatsApp ingestion — question SIMILAR (GDB selected_match, non-exact duplicate) > marks... | ❌ | expected 400 to be 201 // Object.is equality |
+| 6 | WhatsApp ingestion — question NOT FOUND (common pipeline -> open) > opens the question ... | ❌ | expected 400 to be 201 // Object.is equality |
+| 7 | WhatsApp ingestion — non-agricultural question (LLM filter) > marks the question as non... | ❌ | expected 400 to be 201 // Object.is equality |
+| 8 | WhatsApp ingestion — invalid thread (time-bound thread validation fails) > flags the qu... | ❌ | expected 400 to be 201 // Object.is equality |
+| 9 | WhatsApp ingestion — LLM failure degrades gracefully to open > still opens the question... | ❌ | expected 400 to be 201 // Object.is equality |
+| 10 | WhatsApp ingestion — valid threadId, API returns "not found" on all retries → isTesting... | ❌ | expected 400 to be 201 // Object.is equality |
+| 11 | WhatsApp ingestion — WhatsApp API completely unreachable → question proceeds to open > ... | ❌ | expected 400 to be 201 // Object.is equality |
+| 12 | WhatsApp ingestion — GDB service throws → degrades gracefully to open > still opens the... | ❌ | expected 400 to be 201 // Object.is equality |
+| 13 | WhatsApp ingestion — transient thread API failure then retry succeeds → open > proceeds... | ❌ | expected 400 to be 201 // Object.is equality |
+| 14 | WhatsApp ingestion — GDB exact_match has invalid question_id → falls through to open > ... | ❌ | expected 400 to be 201 // Object.is equality |
+| 15 | WhatsApp ingestion — GDB selected_match has invalid question_id → falls through to open... | ❌ | expected 400 to be 201 // Object.is equality |
+| 16 | WhatsApp ingestion — GDB exact_match uses $oid format → marked duplicate > marks the qu... | ❌ | expected 400 to be 201 // Object.is equality |
+| 17 | WhatsApp ingestion — GDB returns both exact_match and selected_match → exact_match wins... | ❌ | expected 400 to be 201 // Object.is equality |
+| 18 | WhatsApp ingestion — invalid payload (empty question text) > rejects when the question ... | ✅ | — |
