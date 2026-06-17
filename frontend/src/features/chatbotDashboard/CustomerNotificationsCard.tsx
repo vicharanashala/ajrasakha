@@ -28,6 +28,7 @@ import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { useState } from "react";
 import { QueryCategoryQuestionsModal } from "./components/QueryCategoryQuestionsModal";
+import { getISOStringsForDateRange } from "./utils/dateUtils";
 
 type CustomerNotificationsCardProps = {
   notified: number;
@@ -55,6 +56,7 @@ export function CustomerNotificationsCard({
   userType,
   onRefresh,
 }: CustomerNotificationsCardProps) {
+  const normalizedRange = getISOStringsForDateRange(dateRange);
   const safeNotified = notified ?? 0;
   const safeNotNotified = notNotified ?? 0;
   const safeUntracked = untrackedClosedQuestions ?? 0;
@@ -333,8 +335,16 @@ export function CustomerNotificationsCard({
           notificationType={notificationType}
           source={"both"}
           userType={userType}
-          startDate={dateRange?.from}
-          endDate={dateRange?.to}
+          startDate={
+            normalizedRange.startTime
+              ? new Date(normalizedRange.startTime)
+              : undefined
+          }
+          endDate={
+            normalizedRange.endTime
+              ? new Date(normalizedRange.endTime)
+              : undefined
+          }
           onClose={() => setNotificationType(null)}
         />
       )}

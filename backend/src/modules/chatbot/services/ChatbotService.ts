@@ -2670,7 +2670,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       ),
       this.chatbotRepository.getCarryForwardQuestions(source, userType),
     ]);
-console.log("closedVsTotalQuestions---", closedVsTotalQuestions); 
+// console.log("closedVsTotalQuestions---", closedVsTotalQuestions); 
     return {
       closedVsTotalQuestions,
       notifiedVsClosed,

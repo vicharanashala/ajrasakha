@@ -4264,17 +4264,13 @@ export class ChatbotRepository implements IChatbotRepository {
             {
               $match: {
                 ...monthDateMatch,
-
                 isCreatedByUser: true,
-
                 isDeleted: {
                   $ne: true,
                 },
               },
             },
-
             ...userTypeLookupStages,
-
             {
               $group: {
                 _id: {
@@ -4284,13 +4280,11 @@ export class ChatbotRepository implements IChatbotRepository {
                     timezone: '+05:30',
                   },
                 },
-
                 queryCount: {
                   $sum: 1,
                 },
               },
             },
-
             {
               $project: {
                 _id: 0,
@@ -4438,23 +4432,43 @@ export class ChatbotRepository implements IChatbotRepository {
         }
       }
 
-      const dayStart = new Date('2026-06-11T00:00:00+05:30');
-      const dayEnd = new Date('2026-06-12T00:00:00+05:30');
+      const dayStart = new Date('2026-06-14T00:00:00+05:30');
+      const dayEnd = new Date('2026-06-15T00:00:00+05:30');
 
-      const queries = await this.messagesCollection.countDocuments({
+const [{ count = 0 } = {}] = await this.messagesCollection
+  .aggregate([
+    {
+      $match: {
         createdAt: { $gte: dayStart, $lt: dayEnd },
         isCreatedByUser: true,
-        isDeleted: { $ne: true }
-      });
+        isDeleted: { $ne: true },
+      },
+    },
+    ...userTypeLookupStages,
+    {
+      $count: 'count',
+    },
+  ])
+  .toArray();
 
-      const questions = await this.QuestionCollection.countDocuments({
-        createdAt: { $gte: dayStart, $lt: dayEnd },
-        source: 'AJRASAKHA',
-        status: { $ne: 'non_agri' },
-        isTesting: { $ne: true },
-      });
+// console.log(count);
 
-console.log("queries, questions",{ queries, questions });
+const aggQuestionCount = await this.QuestionCollection.countDocuments({
+  createdAt: { $gte: dayStart, $lt: dayEnd },
+  source: 'AJRASAKHA',
+  $or: [
+    { isTesting: { $exists: false } },
+    { isTesting: { $ne: true } }
+  ],
+  status: { $ne: 'non_agri' },
+  ...baseQuestionQuery,
+  ...questionUserTypeLookupStages,
+});
+
+console.log("aggQuestionCount------", JSON.stringify(baseQuestionQuery, null, 2), )
+
+
+console.log("queries, aggQuestionCount", count, aggQuestionCount );
 
       return Array.from(mergedMap.values()).sort((a, b) =>
         a.period.localeCompare(b.period),
@@ -9701,7 +9715,7 @@ const totalPages =
           $lt: previousMonthEnd,
         },
       };
-console.log("getClosedVsTotalQuestions matchQuery,startDate, endDate, source, userType", JSON.stringify(matchStage, null, 2),startDate, endDate, source, userType)
+// console.log("getClosedVsTotalQuestions matchQuery,startDate, endDate, source, userType", JSON.stringify(matchStage, null, 2),startDate, endDate, source, userType)
 
       const avgCloseTimeStages = [
         {
@@ -10002,7 +10016,6 @@ console.log("getClosedVsTotalQuestions matchQuery,startDate, endDate, source, us
           inReviewQuestions: 0,
           avgCloseTimeMinutes: 0,
         }),
-        inReviewQuestions: result[0]?.statuses?."in-review"
         previousMonthAvgCloseTimeMinutes:
           previousMonthResult[0]?.avgCloseTimeMinutes || 0,
       };
@@ -10039,6 +10052,7 @@ console.log("getClosedVsTotalQuestions matchQuery,startDate, endDate, source, us
       matchStage.source = {
         $in: ["WHATSAPP", "AJRASAKHA"],
       };
+console.log("getNotifiedVsClosed", source, userType, JSON.stringify(matchStage, null, 2))
 
       const [result] = await this.QuestionCollection.aggregate([
         {
@@ -10364,7 +10378,7 @@ console.log("getClosedVsTotalQuestions matchQuery,startDate, endDate, source, us
       );
       carryForwardWindowEnd.setHours(0, 0, 0, 0);
       matchStage.status = { $ne: 'closed' }
-      console.log("getCarryForwardQuestions matchQuery,carryForwardWindowStart, carryForwardWindowEnd, source, userType", JSON.stringify(matchStage, null, 2),carryForwardWindowStart,carryForwardWindowEnd, source, userType)
+      // console.log("getCarryForwardQuestions matchQuery,carryForwardWindowStart, carryForwardWindowEnd, source, userType", JSON.stringify(matchStage, null, 2),carryForwardWindowStart,carryForwardWindowEnd, source, userType)
       const count = await this.QuestionCollection.countDocuments({
         ...matchStage,
         createdAt: {
@@ -11655,7 +11669,7 @@ console.log("getClosedVsTotalQuestions matchQuery,startDate, endDate, source, us
           $in: ["closed", "pass"],
         };
       }
-console.log("status----", status)
+// console.log("status----", status)
       // Apply date range
 
       const validStartDate =
@@ -11688,7 +11702,7 @@ console.log("status----", status)
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
       }
-console.log(status," getQuestionsByStatus matchQuery,startDate, endDate, source, userType", JSON.stringify(matchQuery, null, 2),startDate, endDate, source, userType)
+// console.log(status," getQuestionsByStatus matchQuery,startDate, endDate, source, userType", JSON.stringify(matchQuery, null, 2),startDate, endDate, source, userType)
 
       // Search by name/email
       if (search?.trim()) {
@@ -11791,7 +11805,7 @@ console.log(status," getQuestionsByStatus matchQuery,startDate, endDate, source,
       const total = result[0]?.metadata?.[0]?.total ?? 0;
 
       const questions = result[0]?.data ?? [];
-console.log(source,"questions---", questions.length, startDate, endDate);
+// console.log(source,"questions---", questions.length, startDate, endDate);
       const {userMap, questionUserMap} =
         await this.resolveQuestionUsers(questions);
 
@@ -12059,6 +12073,7 @@ console.log(source,"questions---", questions.length, startDate, endDate);
     endDate?: Date,
   ): Promise<any> {
     try {
+      // console.log("startdate enddate-------", startDate, endDate);
       await this.initReviewSystem();
       await this.init("annam");
 
@@ -12104,7 +12119,7 @@ console.log(source,"questions---", questions.length, startDate, endDate);
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
       }
-
+console.log("getQuestionsByNotificationStatus", notificationType, JSON.stringify(matchQuery, null, 2))
       // Notification filter
       switch (notificationType) {
         case 'notified':
