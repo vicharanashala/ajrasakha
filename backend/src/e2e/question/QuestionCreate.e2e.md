@@ -115,15 +115,15 @@ NODE_ENV=test pnpm exec vitest run src/e2e/question/QuestionCreate.e2e.test.ts
 
 ## Last Run
 
-**Date:** 2026-06-16 &nbsp;|&nbsp; **Result:** ❌ 6 failed / 2 passed &nbsp;|&nbsp; **Duration:** 19.1 s
+**Date:** 2026-06-17 &nbsp;|&nbsp; **Result:** ❌ 2 failed / 6 passed &nbsp;|&nbsp; **Duration:** 26.2 s
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
-| 1 | Question Create E2E > moderator creates question successfully | ❌ | expected 400 to be 201 // Object.is equality |
-| 2 | Question Create E2E > moderator gets created question by id | ❌ | expected 404 to be 200 // Object.is equality |
-| 3 | Question Create E2E > moderator updates question successfully | ❌ | expected 404 to be 200 // Object.is equality |
-| 4 | Question Create E2E > question reflects updated values | ❌ | expected 404 to be 200 // Object.is equality |
-| 5 | Question Create E2E > moderator deletes question successfully | ❌ | expected 404 to be 200 // Object.is equality |
-| 6 | Question Create E2E > deleted question is no longer retrievable | ✅ | — |
-| 7 | Question Create E2E > moderator bulk deletes questions | ❌ | expected 400 to be 200 // Object.is equality |
-| 8 | Question Create E2E > bulk deleted questions are not retrievable | ✅ | — |
+| 1 | Question Create E2E > moderator creates question successfully | ✅ | — |
+| 2 | Question Create E2E > moderator gets created question by id | ✅ | — |
+| 3 | Question Create E2E > moderator updates question successfully | ✅ | — |
+| 4 | Question Create E2E > question reflects updated values | ✅ | — |
+| 5 | Question Create E2E > moderator deletes question successfully | ✅ | — |
+| 6 | Question Create E2E > deleted question is no longer retrievable | ❌ | expected [ 400, 404 ] to include 500 |
+| 7 | Question Create E2E > moderator bulk deletes questions | ✅ | — |
+| 8 | Question Create E2E > bulk deleted questions are not retrievable | ❌ | expected [ 400, 404 ] to include 200 |

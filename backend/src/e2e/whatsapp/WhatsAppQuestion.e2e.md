@@ -377,25 +377,20 @@ The controller (QuestionController.ts:332-354) catches service errors and re-thr
 
 ## Last Run
 
-**Date:** 2026-06-16 &nbsp;|&nbsp; **Result:** ❌ 14 failed / 4 passed &nbsp;|&nbsp; **Duration:** 22.2 s
+**Date:** 2026-06-17 &nbsp;|&nbsp; **Result:** ✅ all 18 passed &nbsp;|&nbsp; **Duration:** 1.6 min
+
+> ⚠ Vitest only printed 11 of 18 test lines (passing suites are truncated in the output).
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
-| 1 | WhatsApp ingestion — authentication (FlexibleAuth / internal key) > rejects ingestion w... | ✅ | — |
-| 2 | WhatsApp ingestion — authentication (FlexibleAuth / internal key) > rejects ingestion w... | ✅ | — |
-| 3 | WhatsApp ingestion — invalid payload (missing required detail field) > rejects with 400... | ✅ | — |
-| 4 | WhatsApp ingestion — question FOUND (GDB duplicate, reference answer linked) > marks th... | ❌ | expected 400 to be 201 // Object.is equality |
-| 5 | WhatsApp ingestion — question SIMILAR (GDB selected_match, non-exact duplicate) > marks... | ❌ | expected 400 to be 201 // Object.is equality |
-| 6 | WhatsApp ingestion — question NOT FOUND (common pipeline -> open) > opens the question ... | ❌ | expected 400 to be 201 // Object.is equality |
-| 7 | WhatsApp ingestion — non-agricultural question (LLM filter) > marks the question as non... | ❌ | expected 400 to be 201 // Object.is equality |
-| 8 | WhatsApp ingestion — invalid thread (time-bound thread validation fails) > flags the qu... | ❌ | expected 400 to be 201 // Object.is equality |
-| 9 | WhatsApp ingestion — LLM failure degrades gracefully to open > still opens the question... | ❌ | expected 400 to be 201 // Object.is equality |
-| 10 | WhatsApp ingestion — valid threadId, API returns "not found" on all retries → isTesting... | ❌ | expected 400 to be 201 // Object.is equality |
-| 11 | WhatsApp ingestion — WhatsApp API completely unreachable → question proceeds to open > ... | ❌ | expected 400 to be 201 // Object.is equality |
-| 12 | WhatsApp ingestion — GDB service throws → degrades gracefully to open > still opens the... | ❌ | expected 400 to be 201 // Object.is equality |
-| 13 | WhatsApp ingestion — transient thread API failure then retry succeeds → open > proceeds... | ❌ | expected 400 to be 201 // Object.is equality |
-| 14 | WhatsApp ingestion — GDB exact_match has invalid question_id → falls through to open > ... | ❌ | expected 400 to be 201 // Object.is equality |
-| 15 | WhatsApp ingestion — GDB selected_match has invalid question_id → falls through to open... | ❌ | expected 400 to be 201 // Object.is equality |
-| 16 | WhatsApp ingestion — GDB exact_match uses $oid format → marked duplicate > marks the qu... | ❌ | expected 400 to be 201 // Object.is equality |
-| 17 | WhatsApp ingestion — GDB returns both exact_match and selected_match → exact_match wins... | ❌ | expected 400 to be 201 // Object.is equality |
-| 18 | WhatsApp ingestion — invalid payload (empty question text) > rejects when the question ... | ✅ | — |
+| 1 | WhatsApp ingestion — question FOUND (GDB duplicate, reference answer linked) > marks th... | ✅ | — |
+| 2 | WhatsApp ingestion — question NOT FOUND (common pipeline -> open) > opens the question ... | ✅ | — |
+| 3 | WhatsApp ingestion — non-agricultural question (LLM filter) > marks the question as non... | ✅ | — |
+| 4 | WhatsApp ingestion — valid threadId, API returns "not found" on all retries → isTesting... | ✅ | — |
+| 5 | WhatsApp ingestion — WhatsApp API completely unreachable → question proceeds to open > ... | ✅ | — |
+| 6 | WhatsApp ingestion — GDB service throws → degrades gracefully to open > still opens the... | ✅ | — |
+| 7 | WhatsApp ingestion — transient thread API failure then retry succeeds → open > proceeds... | ✅ | — |
+| 8 | WhatsApp ingestion — GDB exact_match has invalid question_id → falls through to open > ... | ✅ | — |
+| 9 | WhatsApp ingestion — GDB selected_match has invalid question_id → falls through to open... | ✅ | — |
+| 10 | WhatsApp ingestion — GDB exact_match uses $oid format → marked duplicate > marks the qu... | ✅ | — |
+| 11 | WhatsApp ingestion — GDB returns both exact_match and selected_match → exact_match wins... | ✅ | — |
