@@ -464,8 +464,8 @@ const DownloadShiftWiseReportButton = ({
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex flex-col gap-1">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-4 mr-2">
+              <div className="flex flex-col gap-1 ml-2">
                 <label className="text-xs font-medium text-muted-foreground">
                   Select Source
                 </label>
@@ -552,7 +552,7 @@ const DownloadShiftWiseReportButton = ({
               {/* --- Start of the Custom Time Filter --- */}
 
 
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 ml-2">
                 <label className="text-xs font-medium text-muted-foreground">
                   Select Time Range
                 </label>
