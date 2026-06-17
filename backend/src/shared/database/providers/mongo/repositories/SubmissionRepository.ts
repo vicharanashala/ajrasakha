@@ -13,6 +13,7 @@ import {
 import { ClientSession, Collection, ObjectId } from 'mongodb';
 import { MongoDatabase } from '../MongoDatabase.js';
 import { GLOBAL_TYPES } from '#root/types.js';
+import { TIME_BOUND_SOURCES, MANUAL_SOURCES } from '#root/shared/constants/general.js';
 import { inject } from 'inversify';
 import {
   BadRequestError,
@@ -3319,7 +3320,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
 
   /** Source eligibility for the time-bound queue. `category`:
    *   - 'timeBound' → AJRASAKHA/WHATSAPP (auto-allocated),
-   *   - 'manual'    → AGRI_EXPERT questions that aren't pae_review,
+   *   - 'manual'    → AGRI_EXPERT/OUTREACH questions that aren't pae_review,
    *   - 'all'       → either (used by the cron, which processes both).
    *  Returns a fragment to merge into an aggregation `$match`. `prefix` is the joined
    *  question field path ('question' or 'q'); `requireAutoAllocate` toggles the
@@ -3330,13 +3331,13 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     category: 'all' | 'timeBound' | 'manual' = 'all',
   ): Record<string, unknown> {
     const timeBoundBranch: Record<string, unknown> = {
-      [`${prefix}.source`]: { $in: ['WHATSAPP', 'AJRASAKHA'] },
+      [`${prefix}.source`]: { $in: [...TIME_BOUND_SOURCES] },
     };
     if (requireAutoAllocate) {
       timeBoundBranch[`${prefix}.isAutoAllocate`] = { $eq: true };
     }
     const manualBranch: Record<string, unknown> = {
-      [`${prefix}.source`]: 'AGRI_EXPERT',
+      [`${prefix}.source`]: { $in: [...MANUAL_SOURCES] },
       [`${prefix}.pae_review`]: { $ne: true },
     };
     if (category === 'timeBound') return timeBoundBranch;
@@ -3578,12 +3579,12 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
   ): Promise<Map<string, number>> {
     await this.init();
     // Caps are per-category: an expert may hold 1 time-bound (AJRASAKHA/WHATSAPP)
-    // AND 1 manual (AGRI_EXPERT) question at once, so each category is counted
-    // independently.
+    // AND 1 manual (AGRI_EXPERT/OUTREACH) question at once, so each category is
+    // counted independently.
     const sourceMatch =
       category === 'manual'
-        ? { 'q.source': 'AGRI_EXPERT', 'q.pae_review': { $ne: true } }
-        : { 'q.source': { $in: ['WHATSAPP', 'AJRASAKHA'] } };
+        ? { 'q.source': { $in: [...MANUAL_SOURCES] }, 'q.pae_review': { $ne: true } }
+        : { 'q.source': { $in: [...TIME_BOUND_SOURCES] } };
     // Pipeline: join with questions, filter to time-bound, unwind queue with index,
     // and determine whether the expert at each position still has pending work.
     //

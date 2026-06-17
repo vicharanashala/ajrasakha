@@ -12,6 +12,7 @@ import {
   ICheckStatusResponse,
 } from '#root/shared/interfaces/models.js';
 import {GLOBAL_TYPES} from '#root/types.js';
+import {TIME_BOUND_SOURCES, MANUAL_SOURCES} from '#root/shared/constants/general.js';
 import {inject} from 'inversify';
 import {ClientSession, Collection, ObjectId} from 'mongodb';
 import {MongoDatabase} from '../MongoDatabase.js';
@@ -6515,19 +6516,19 @@ export class QuestionRepository implements IQuestionRepository {
    *  kind: 'received' | 'allocated' | 'autoOff'. Status scope: open/delayed/duplicate.
    *  Optional createdAt range (startTime/endTime) scopes every kind by date. */
   /** Source eligibility for the time-bound queue dashboard: AJRASAKHA/WHATSAPP
-   *  (auto-allocated) OR manual AGRI_EXPERT questions that aren't pae_review. Returns a
-   *  top-level `$or` fragment. `requireAutoAllocate` toggles the AJRASAKHA/WHATSAPP
-   *  isAutoAllocate constraint (off for the plain "received" count). */
+   *  (auto-allocated) OR manual AGRI_EXPERT/OUTREACH questions that aren't pae_review.
+   *  Returns a top-level `$or` fragment. `requireAutoAllocate` toggles the
+   *  AJRASAKHA/WHATSAPP isAutoAllocate constraint (off for the plain "received" count). */
   private timeBoundSourceMatch(
     requireAutoAllocate = true,
     category: 'all' | 'timeBound' | 'manual' = 'all',
   ): Record<string, unknown> {
     const timeBoundBranch: Record<string, unknown> = {
-      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+      source: {$in: [...TIME_BOUND_SOURCES]},
     };
     if (requireAutoAllocate) timeBoundBranch.isAutoAllocate = {$eq: true};
     const manualBranch: Record<string, unknown> = {
-      source: 'AGRI_EXPERT',
+      source: {$in: [...MANUAL_SOURCES]},
       pae_review: {$ne: true},
     };
     if (category === 'timeBound') return timeBoundBranch;

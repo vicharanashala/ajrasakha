@@ -74,6 +74,7 @@ import { checkDuplicateQuestionHelper } from '../helpers/duplicateQuestionHelper
 import {
   DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT,
   TOTAL_EXPERTS_LIMIT,
+  MANUAL_SOURCES,
 } from '#root/shared/constants/general.js';
 import { toTitleCase } from '#root/utils/ToTitlecase.js';
 import axios from 'axios';
@@ -5879,9 +5880,10 @@ export class QuestionService extends BaseService implements IQuestionService {
       // Track provisional additions during this run to respect each cap within the batch.
       const provisionalTimeBound = new Map<string, number>(timeBoundCounts);
       const provisionalManual = new Map<string, number>(manualCounts);
-      // Returns the provisional-count map for a question's category.
+      // Returns the provisional-count map for a question's category (manual sources
+      // = AGRI_EXPERT/OUTREACH; everything else is treated as time-bound).
       const countsFor = (q: any) =>
-        q?.source === 'AGRI_EXPERT' ? provisionalManual : provisionalTimeBound;
+        MANUAL_SOURCES.includes(q?.source) ? provisionalManual : provisionalTimeBound;
 
       // ── Full diagnostic dump: every question to allocate + every expert + availability ──
       const summarizeSub = (s: any) => ({
@@ -5953,8 +5955,9 @@ export class QuestionService extends BaseService implements IQuestionService {
         const question = submission.question;
         const sourceLabel =
           question?.source === 'AJRASAKHA' ? 'Ajrasakha'
-          : question?.source === 'AGRI_EXPERT' ? 'Agri Expert'
-          : 'WhatsApp';
+          : question?.source === 'WHATSAPP' ? 'WhatsApp'
+          : question?.source === 'OUTREACH' ? 'Outreach'
+          : 'Agri Expert';
         const history: any[] = submission.history || [];
         const queue: any[] = submission.queue || [];
         // Cap map for this question's category (time-bound vs manual AGRI_EXPERT).
