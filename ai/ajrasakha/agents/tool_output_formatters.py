@@ -452,6 +452,8 @@ def _extract_day_warning_lines(record: dict[str, Any]) -> list[str]:
 
 def _generic_record_lines(record: dict[str, Any]) -> list[str]:
     skip_keys = {k.lower() for k in record if re.match(r"day\d+_color", k, re.I)}
+    # Skip internal database IDs and metadata fields
+    skip_keys.update({"obj_id", "id", "_id", "sno", "serial_no", "created_at", "updated_at"})
     lines: list[str] = []
     for key, value in record.items():
         if key.lower() in skip_keys:

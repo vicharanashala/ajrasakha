@@ -402,7 +402,12 @@ def parse_sources(sources_raw, author_name) -> list[dict]:
             for s in sources_raw:
                 if isinstance(s, dict):
                     details.append({
-                        "source_name": s.get("source_name") or s.get("name") or None,
+                        "source_name": (
+                            s.get("source_name")
+                            or s.get("sourceName")
+                            or s.get("name")
+                            or None
+                        ),
                         "source_link": (
                             s.get("source_link")
                             or s.get("source")
