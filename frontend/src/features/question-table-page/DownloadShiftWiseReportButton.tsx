@@ -156,6 +156,7 @@ const DownloadShiftWiseReportButton = ({
       // toDate: endDate,
       shift: selectedShift,
       source,
+      timeRange: timeRange
     });
 
   const { data: shiftWiseTrends, isFetching: isShiftWiseTrendsLoading } =
@@ -164,6 +165,7 @@ const DownloadShiftWiseReportButton = ({
       // toDate: endDate,
       shift: selectedShift,
       source,
+      timeRange: timeRange
     });
 
   const {
@@ -174,6 +176,7 @@ const DownloadShiftWiseReportButton = ({
     // toDate: endDate,
     shift: selectedShift,
     source,
+    timeRange: timeRange
   });
 
   const {
@@ -184,6 +187,7 @@ const DownloadShiftWiseReportButton = ({
     // toDate: endDate,
     shift: selectedShift,
     source,
+    timeRange: timeRange
   });
 
   const { data: topExperts, isFetching: isTopExpertsLoading } =
@@ -192,6 +196,7 @@ const DownloadShiftWiseReportButton = ({
       // toDate: endDate,
       shift: selectedShift,
       source,
+      timeRange: timeRange
     });
 
   const { data: topApprovingExperts, isFetching: isTopApproversLoading } =
@@ -200,6 +205,7 @@ const DownloadShiftWiseReportButton = ({
       // toDate: endDate,
       shift: selectedShift,
       source,
+      timeRange: timeRange
     });
 
   const { data: auditActionCounts, isFetching: isAuditActionCountsLoading } =
@@ -207,6 +213,7 @@ const DownloadShiftWiseReportButton = ({
       fromDate: startDate,
       // toDate: endDate,
       shift: selectedShift,
+      timeRange: timeRange
     });
 
   const formattedAuditActionCounts = (auditActionCounts?.data ?? []).map(
