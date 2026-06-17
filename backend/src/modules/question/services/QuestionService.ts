@@ -5945,6 +5945,12 @@ export class QuestionService extends BaseService implements IQuestionService {
       let initialAllocated = 0;
       let reviewersAssigned = 0;
 
+      // Track if there are unallocated submissions to process.
+      // If unallocatedSubmissions exist, STF experts should NOT be assigned
+      // needsReviewer questions - they must be reserved for unallocated questions.
+      const hasUnallocatedSubmissions = unallocatedSubmissions.length > 0;
+      let unallocatedProcessed = 0;
+
       for (const { type, submission } of workQueue) {
         const questionId = submission.questionId?.toString();
         const question = submission.question;
@@ -6030,6 +6036,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             ]);
             console.log(`[TimeBound] Initially allocated question ${questionId} to expert ${assignedExpert}`);
             initialAllocated++;
+            unallocatedProcessed++;
           } catch (allocErr: any) {
             console.error(`[TimeBound] Failed to initially allocate question ${questionId}:`, allocErr?.message);
             skipped++;
@@ -6045,6 +6052,18 @@ export class QuestionService extends BaseService implements IQuestionService {
             const expertId = expert._id.toString();
             if (historyExpertIds.has(expertId)) continue;
             if (queueExpertIds.has(expertId)) continue;
+
+            // CRITICAL: If there are unallocated submissions pending, STF experts should NOT be
+            // assigned to reviewer tasks - they must be reserved for unallocated questions.
+            // Non-STF experts can still be assigned to needsReviewer questions.
+            if (hasUnallocatedSubmissions && unallocatedProcessed < unallocatedSubmissions.length) {
+              if (expert?.special_task_force === true) {
+                console.log(`[TimeBound] Skipping STF expert ${expertId} for needsReviewer question ${questionId} — unallocated submissions still pending (${unallocatedProcessed}/${unallocatedSubmissions.length} processed)`);
+                continue; // Skip STF experts, they should handle unallocated questions first
+              }
+              // Non-STF experts can proceed to be assigned
+            }
+
             const currentCount = provisionalCounts.get(expertId) ?? 0;
             if (currentCount >= MAX_TIME_BOUND) continue;
             assignedReviewer = expertId;
