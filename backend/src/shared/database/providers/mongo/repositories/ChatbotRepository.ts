@@ -3109,7 +3109,7 @@ for (const item of raw) {
           coordinators:
             userData?.coordinators ??
             0,
-          avgClosingMsTime: existing?.avgCloseTimeHours ?? 0
+          avgClosingMsTime: existing?.avgCloseTimeHours ?? 0,
 
               stateCoordinator:
       userData?.stateCoordinator ?? 0,
@@ -14287,4 +14287,72 @@ existing.coordinators =
       throw new InternalServerError(error);
     }
   }
+
+  async getVillageUserCounts(
+  state: string,
+  district: string,
+  source: string,
+  userType: string,
+  session?: ClientSession
+) {
+  try{
+    await this.init(source)
+    console.log("State", state, "district", district);
+    const query = await this.buildUserTypeLookupStages(userType)
+    const data =  await this.users
+    .aggregate([
+      {
+        $match: {
+          isVerified: true,
+
+          'farmerProfile.state': {
+            $regex: `^${state}$`,
+            $options: 'i',
+          },
+
+          'farmerProfile.district': {
+            $regex: `^${district}$`,
+            $options: 'i',
+          },
+
+          'farmerProfile.villageName': {
+            $exists: true,
+            $ne: null,
+          },
+          ...query,
+        },
+      },
+
+      {
+        $group: {
+          _id: '$farmerProfile.villageName',
+
+          totalUsers: {
+            $sum: 1,
+          },
+        },
+      },
+
+      {
+        $project: {
+          _id: 0,
+          village: '$_id',
+          totalUsers: 1,
+        },
+      },
+
+      {
+        $sort: {
+          totalUsers: -1,
+        },
+      },
+    ])
+    .toArray();
+    console.log("Data got it", data)
+    return data;
+  }catch(error){
+    throw new InternalServerError(`Internal Server Error ${error}`)
+  }
+  
+}
 }

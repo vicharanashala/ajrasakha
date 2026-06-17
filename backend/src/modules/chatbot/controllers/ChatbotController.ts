@@ -1822,4 +1822,19 @@ export class ChatbotController {
       body.userIds,
     );
   }
+
+    @Get('/village-data')
+  @HttpCode(200)
+  @Authorized()
+  async getVillageUserCounts(
+        @QueryParams()
+    query: {
+      state: string,
+      district: string
+      source: string,
+      userType: string,
+    }
+  ): Promise<any>{
+    return this.chatbotService.getVillageUserCounts(query.state, query.district, query.source, query.userType)
+  }
 }

@@ -894,6 +894,13 @@ export interface IChatbotRepository {
   getUserProfile(userId: string) : Promise<any>
   assignUsers(userId: string, targetIds: string[]): Promise<any>
   unAssignUsers(userId: string, targetIds: string[]): Promise<any>
+
+  getVillageUserCounts(  
+    state: string,
+    district: string,
+    source: string,
+    userType: string,
+    session?: ClientSession): Promise<any>
 }
 
 export interface ChatbotConversationData {

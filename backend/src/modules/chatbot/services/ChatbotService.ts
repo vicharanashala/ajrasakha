@@ -3103,4 +3103,12 @@ export class ChatbotService extends BaseService implements IChatbotService {
       throw new InternalServerError(`Internal Server Error ${error}`)
     }
   }
+
+  async getVillageUserCounts(state: string, district: string, source: string, userType: string): Promise<any> {
+    try {
+      return this.chatbotRepository.getVillageUserCounts(state, district, source, userType, undefined);
+    }catch(error){
+      throw new InternalServerError(`Internal Server Error ${error}`)
+    }
+  }
 }

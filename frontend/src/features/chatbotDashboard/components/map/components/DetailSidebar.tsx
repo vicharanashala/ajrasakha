@@ -240,6 +240,9 @@ export function DetailSidebar({
           <DistrictDetails
             details={districtDetails}
             selectedDistrict={selectedDistrict}
+            state = {selectedState}
+            source={source}
+            userType= {userType}
           />
         )}
       </div>

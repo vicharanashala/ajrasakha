@@ -11,18 +11,28 @@ import {
   KVKS,
 } from "@/features/chatbotDashboard/utils/metaData";
 import { useState, useEffect } from "react";
+import { useVillageUserCounts } from "../hooks/useMapAnalytics";
 interface DistrictDetailsProps {
   details?: DistrictDetailsType | null;
+  state: string;
   selectedDistrict?: string | null;
+  source: string;
+  userType: string
 }
 
 export function DistrictDetails({
   details,
+  state,
   selectedDistrict,
+  source,
+  userType
 }: DistrictDetailsProps) {
-  const blocksDetails = BLOCKS[selectedDistrict];
-  const villagesDetails = VILLAGES[selectedDistrict];
-  const kvksDetails = KVKS[selectedDistrict];
+  const district = selectedDistrict
+  const {data: villageUserCounts} = useVillageUserCounts({state, district, source, userType})
+  console.log("Village Data", villageUserCounts);
+  const blocksDetails = BLOCKS[selectedDistrict] ?? [];
+  const villagesDetails = villageUserCounts ? villageUserCounts : VILLAGES[selectedDistrict] ?? [];
+  const kvksDetails = KVKS[selectedDistrict] ?? [];
   // console.log("Selected District", selectedDistrict);
   const VILLAGES_PER_PAGE = 10;
 
@@ -71,11 +81,11 @@ export function DistrictDetails({
               key={v}
               className="flex items-center justify-between gap-2 bg-background px-3 py-2 text-sm"
             >
-              <div className="min-w-0">
-                <div className="truncate font-medium text-foreground">{v}</div>
-                {/* <div className="truncate text-[11px] text-muted-foreground">
-                  {v.block}
-                </div> */}
+              <div className="min-w-full">
+                <div className="font-medium text-foreground flex justify-between">
+                  <span>{villageUserCounts ? v?.village?.replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim().toUpperCase(): v.replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim().toUpperCase()}</span>
+                  <span className="text-foreground-muted">{v?.totalUsers ?? 0}</span>
+                </div>
               </div>
               {/* <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                 {fmt(v.analytics.users)} users
