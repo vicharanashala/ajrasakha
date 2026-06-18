@@ -31,6 +31,10 @@ export const useGetAllocatedQuestions = (
       if (lastPage && lastPage.length < limit) return undefined;
       return allPages.length + 1;
     },
+    // Periodic safety refresh. Long interval + background-paused to limit load —
+    // note an infinite query refetches every loaded page on each tick.
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
   });
 };
 
