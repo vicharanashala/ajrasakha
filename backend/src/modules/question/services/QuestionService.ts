@@ -5856,15 +5856,16 @@ export class QuestionService extends BaseService implements IQuestionService {
     isReallocatingTimeBound = true;
     console.log('[TimeBound] Starting reallocation + initial-allocation + reviewer-assignment check...');
     try {
-      // 1. Fetch all cases in parallel. "openedIdle" = current expert opened the
-      // question > 45 min ago but produced no answer; these are reallocated exactly
-      // like stuck (replace the current expert) — and being author-level, only an STF
-      // expert is eligible (enforced in the stuck branch when history is empty).
-      const [stuckSubmissions, unallocatedSubmissions, answeredNeedingReviewer, openedIdleSubmissions] = await Promise.all([
+      // 1. Fetch all cases in parallel.
+      // NOTE: opened-but-idle reallocation is intentionally DISABLED — once an expert
+      // opens a time-bound question (currentExpertOpenedAt is set) it stays with them
+      // and is never reallocated. The "stuck" path already excludes opened questions
+      // (its query requires currentExpertOpenedAt to be null), so by not fetching the
+      // openedIdle work here an opened question is reallocated by neither path.
+      const [stuckSubmissions, unallocatedSubmissions, answeredNeedingReviewer] = await Promise.all([
         this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(),
         this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(),
         this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(),
-        this.questionSubmissionRepo.findOpenedButIdleTimeBoundQuestions(),
       ]);
 
       const byCreatedAt = (a: any, b: any) =>
@@ -5874,15 +5875,14 @@ export class QuestionService extends BaseService implements IQuestionService {
       stuckSubmissions.sort(byCreatedAt);
       unallocatedSubmissions.sort(byCreatedAt);
       answeredNeedingReviewer.sort(byCreatedAt);
-      openedIdleSubmissions.sort(byCreatedAt);
 
-      const totalWork = stuckSubmissions.length + unallocatedSubmissions.length + answeredNeedingReviewer.length + openedIdleSubmissions.length;
+      const totalWork = stuckSubmissions.length + unallocatedSubmissions.length + answeredNeedingReviewer.length;
       console.log("the total work coming====", totalWork)
       if (!totalWork) {
         return { message: 'No time-bound questions need attention', reallocated: 0, skipped: 0 };
       }
 
-      console.log(`[TimeBound] Stuck: ${stuckSubmissions.length}, Never-allocated: ${unallocatedSubmissions.length}, NeedReviewer: ${answeredNeedingReviewer.length}, OpenedIdle: ${openedIdleSubmissions.length}`);
+      console.log(`[TimeBound] Stuck: ${stuckSubmissions.length}, Never-allocated: ${unallocatedSubmissions.length}, NeedReviewer: ${answeredNeedingReviewer.length}`);
 
       // 2. Get all non-blocked experts ordered by workload (lowest first)
       const allExperts = await this.userRepo.findExpertsByReputationScore({} as any);
@@ -5934,12 +5934,8 @@ export class QuestionService extends BaseService implements IQuestionService {
       type WorkType = 'stuck' | 'openedIdle' | 'unallocated' | 'needsReviewer';
       const workQueue: { type: WorkType; submission: any }[] = [
         ...stuckSubmissions.map((s: any) => ({ type: 'stuck' as WorkType, submission: s })),
-        // Opened-but-idle questions are replaced the same way as stuck ones (the
-        // current expert opened but never answered). Author-level → STF-only is
-        // enforced by the stuck branch's empty-history check. Unlike stuck, the idle
-        // expert is NOT penalised — they're only freed from the question (workload
-        // decremented via the queue replacement).
-        ...openedIdleSubmissions.map((s: any) => ({ type: 'openedIdle' as WorkType, submission: s })),
+        // Opened-but-idle reallocation disabled — see note above. Once a question is
+        // opened it stays with its current expert and is NOT added to the work queue.
         ...unallocatedSubmissions.map((s: any) => ({ type: 'unallocated' as WorkType, submission: s })),
         ...answeredNeedingReviewer.map((s: any) => ({ type: 'needsReviewer' as WorkType, submission: s })),
       ];
