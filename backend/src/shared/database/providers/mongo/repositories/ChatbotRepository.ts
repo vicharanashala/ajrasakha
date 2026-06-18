@@ -10547,8 +10547,8 @@ for (const item of raw) {
                             $and: [
                               {$eq: ['$_statusLower', 'pass']},
                               {$ne: ['$createdAt', null]},
-                              {$ne: ['$updatedAt', null]},
-                              {$gte: ['$updatedAt', '$createdAt']},
+                              {$ne: ['$passedAt', null]},
+                              {$gte: ['$passedAt', '$createdAt']},
                             ],
                           },
                           1,
@@ -10563,12 +10563,12 @@ for (const item of raw) {
                             $and: [
                               {$eq: ['$_statusLower', 'pass']},
                               {$ne: ['$createdAt', null]},
-                              {$ne: ['$updatedAt', null]},
-                              {$gte: ['$updatedAt', '$createdAt']},
+                              {$ne: ['$passedAt', null]},
+                              {$gte: ['$passedAt', '$createdAt']},
                             ],
                           },
                           {
-                            $subtract: ['$updatedAt', '$createdAt'],
+                            $subtract: ['$passedAt', '$createdAt'],
                           },
                           0,
                         ],
