@@ -1096,8 +1096,13 @@ export class QuestionService extends BaseService implements IQuestionService {
         : result.referenceQuestionId
           ? new ObjectId(String(result.referenceQuestionId))
           : null;
+      // Only flip the status to 'duplicate' when the question is still open/delayed.
+      // For any other status (in-review, closed, etc.) the workflow is already past
+      // that point, so the status must not change — we just record the reference.
+      const canMarkDuplicate =
+        question.status === 'open' || question.status === 'delayed';
       await this.questionRepo.updateQuestion(questionId, {
-        status: 'duplicate',
+        ...(canMarkDuplicate ? { status: 'duplicate' } : {}),
         similarityScore: result.similarityScore,
         referenceQuestionId: refId,
         referenceQuestion: result.referenceQuestion,
@@ -1105,7 +1110,13 @@ export class QuestionService extends BaseService implements IQuestionService {
         isDuplicateChecked: true,
         ...(result.isExact !== undefined ? { isExact: result.isExact } : {}),
       });
-      return { message: 'Duplicate detected and question updated.', isDuplicate: true, referenceQuestionId: refId?.toString() };
+      return {
+        message: canMarkDuplicate
+          ? 'Duplicate detected and question updated.'
+          : `Duplicate detected; status left unchanged (question is '${question.status}').`,
+        isDuplicate: true,
+        referenceQuestionId: refId?.toString(),
+      };
     }
 
     if (result.isNonAgri) {
@@ -2728,6 +2739,19 @@ export class QuestionService extends BaseService implements IQuestionService {
           Number(index),
           session,
         );
+        if(updated){  
+          let entityId = questionId;
+            let message: string = `You have been removed from the Allocated question`;
+            let title: string = 'Allocation Removed';
+            let type: INotificationType = 'allocation_removal';
+            await this.notificationService.saveTheNotifications(
+              message,
+              title,
+              entityId,
+              expertId,
+              type,
+            );
+        }
       /*  if(updated)
           {
             const IS_INCREMENT = true;
@@ -5461,6 +5485,28 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (submission.queue?.length) {
         const firstUserId = submission.queue[0].toString();
         await this.userRepo.updateReputationScore(firstUserId, false, session);
+
+        // Send notification to the expert that they have been removed from allocation
+        try {
+          const question = await this.questionRepo.getById(questionId, session);
+          const truncatedQuestionText = question?.question
+            ? question.question.length > 50
+              ? question.question.substring(0, 50) + '...'
+              : question.question
+            : 'Question';
+          await this.notificationService.saveTheNotifications(
+            `You have been removed from the allocation. The question has been put on hold.`,
+            'Allocation Removed',
+            questionId,
+            firstUserId,
+            'allocation_removal',
+          );
+        } catch (notificationError) {
+          console.error(
+            `[_handleSubmissionOnHold] ❌ Failed to send notification to expert ${firstUserId}:`,
+            notificationError,
+          );
+        }
       }
 
       await this.questionSubmissionRepo.updateSubmissionState(
@@ -5488,6 +5534,28 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     if (updatedById) {
       await this.userRepo.updateReputationScore(updatedById, false, session);
+
+      // Send notification to the expert that they have been removed from allocation
+      try {
+        const question = await this.questionRepo.getById(questionId, session);
+        const truncatedQuestionText = question?.question
+          ? question.question.length > 50
+            ? question.question.substring(0, 50) + '...'
+            : question.question
+          : 'Question';
+        await this.notificationService.saveTheNotifications(
+          `You have been removed from the allocation. The question has been put on hold.`,
+          'Allocation Removed',
+          questionId,
+          updatedById,
+          'allocation_removal',
+        );
+      } catch (notificationError) {
+        console.error(
+          `[_handleSubmissionOnHold] ❌ Failed to send notification to expert ${updatedById}:`,
+          notificationError,
+        );
+      }
     }
     await this.questionSubmissionRepo.updateSubmissionState(
       questionId,
@@ -6039,6 +6107,12 @@ export class QuestionService extends BaseService implements IQuestionService {
       let initialAllocated = 0;
       let reviewersAssigned = 0;
 
+      // Track if there are unallocated submissions to process.
+      // If unallocatedSubmissions exist, STF experts should NOT be assigned
+      // needsReviewer questions - they must be reserved for unallocated questions.
+      const hasUnallocatedSubmissions = unallocatedSubmissions.length > 0;
+      let unallocatedProcessed = 0;
+
       for (const { type, submission } of workQueue) {
         const questionId = submission.questionId?.toString();
         const question = submission.question;
@@ -6124,6 +6198,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             ]);
             console.log(`[TimeBound] Initially allocated question ${questionId} to expert ${assignedExpert}`);
             initialAllocated++;
+            unallocatedProcessed++;
           } catch (allocErr: any) {
             console.error(`[TimeBound] Failed to initially allocate question ${questionId}:`, allocErr?.message);
             skipped++;
@@ -6139,6 +6214,18 @@ export class QuestionService extends BaseService implements IQuestionService {
             const expertId = expert._id.toString();
             if (historyExpertIds.has(expertId)) continue;
             if (queueExpertIds.has(expertId)) continue;
+
+            // CRITICAL: If there are unallocated submissions pending, STF experts should NOT be
+            // assigned to reviewer tasks - they must be reserved for unallocated questions.
+            // Non-STF experts can still be assigned to needsReviewer questions.
+            if (hasUnallocatedSubmissions && unallocatedProcessed < unallocatedSubmissions.length) {
+              if (expert?.special_task_force === true) {
+                console.log(`[TimeBound] Skipping STF expert ${expertId} for needsReviewer question ${questionId} — unallocated submissions still pending (${unallocatedProcessed}/${unallocatedSubmissions.length} processed)`);
+                continue; // Skip STF experts, they should handle unallocated questions first
+              }
+              // Non-STF experts can proceed to be assigned
+            }
+
             const currentCount = provisionalCounts.get(expertId) ?? 0;
             if (currentCount >= MAX_TIME_BOUND) continue;
             assignedReviewer = expertId;

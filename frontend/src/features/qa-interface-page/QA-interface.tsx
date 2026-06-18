@@ -248,6 +248,7 @@ export const QAInterface = ({
     } else {
       setNewAnswer("");
       setSources([]);
+      setRemarks("")
     }
     // Reset translation state when question changes
     setTranslatedText("");

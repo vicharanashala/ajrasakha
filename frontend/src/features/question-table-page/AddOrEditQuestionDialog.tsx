@@ -774,7 +774,7 @@ export const AddOrEditQuestionDialog = ({
                           <label>Status*</label>
                         </div>
                         <Select
-                          value={updatedData?.status || "open"}
+                          value={updatedData?.status || question?.status || "open"}
                           onValueChange={(v) =>
                             setUpdatedData((prev) =>
                               prev

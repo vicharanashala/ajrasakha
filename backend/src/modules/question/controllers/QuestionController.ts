@@ -1403,84 +1403,72 @@ export class QuestionController {
       }
     }
 
-    // ─── Generic update (non-pass) — existing behavior preserved ─────────────
-    // let auditPayload: ModeratorAuditTrail = {
-    //   category: AuditCategory.QUESTION,
-    //   action: AuditAction.QUESTION_UPDATE,
-    //   actor: {
-    //     id: user._id.toString(),
-    //     name: `${user.firstName} ${user.lastName}`,
-    //     email: user.email,
-    //     role: user.role,
-    //     avatar: user?.avatar || '',
-    //   },
-    //   context: {
-    //     questionId: questionId,
-    //   },
-    //   outcome: {
-    //     status: OutComeStatus.SUCCESS,
-    //   },
-    // };
+    // ─── Generic update (non-pass) — audited as QUESTION_UPDATE ──────────────
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.QUESTION,
+      action: AuditAction.QUESTION_UPDATE,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: { questionId },
+      outcome: { status: OutComeStatus.SUCCESS },
+      createdAt: new Date(),
+    };
     try {
-      // prevQuestion = await this.questionService.getQuestionById(questionId);
-      // questionDetails = {
-      //   text: prevQuestion.text,
-      //   details: prevQuestion.details,
-      //   status: prevQuestion.status,
-      //   priority: prevQuestion.priority,
-      //   aiInitialAnswer: prevQuestion.aiInitialAnswer,
-      // }
+      // Snapshot the current values before applying the edit (for the before/after diff).
+      prevQuestion = await this.questionService.getQuestionById(questionId);
+      questionDetails = {
+        question: (prevQuestion as any)?.question,
+        text: prevQuestion?.text,
+        details: prevQuestion?.details,
+        status: prevQuestion?.status,
+        priority: prevQuestion?.priority,
+        aiInitialAnswer: (prevQuestion as any)?.aiInitialAnswer,
+      };
       response = await this.questionService.updateQuestion(questionId, updates);
-    }
-    catch (err: any) {
-      // auditPayload = {
-      //   ...auditPayload,
-      //   changes: {
-      //     before: {
-      //       question: questionDetails,
-      //     },
-      //   },
-      //   context: {
-      //     ...auditPayload.context,
-      //     question: questionDetails.text,
-      //   },
-      //   outcome: {
-      //     status: OutComeStatus.FAILED,
-      //     errorCode: err?.errorCode || 'INTERNAL_ERROR',
-      //     errorMessage: err?.message || 'Failed to update question',
-      //     errorName: err?.name || 'Error',
-      //     errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available', 
-      //   },
-      // };
-      // this.auditTrailsService.createAuditTrail(auditPayload);
+    } catch (err: any) {
+      auditPayload = {
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.text },
+        changes: questionDetails ? { before: questionDetails } : {},
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to update question',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
       if (err instanceof InternalServerError) {
         throw new InternalServerError(err.message);
       }
-      throw new BadRequestError(
-        err?.message || 'Failed to update question',
-      );
+      throw new BadRequestError(err?.message || 'Failed to update question');
     }
-    // const updatedQuestion = {
-    //   text: updates.question || questionDetails.text,
-    //   details: updates.details || questionDetails.details,
-    //   status: updates.status || questionDetails.status,
-    //   priority: updates.priority || questionDetails.priority,
-    //   aiInitialAnswer: updates.aiInitialAnswer || questionDetails.aiInitialAnswer,
-    // }
 
-    // auditPayload = {
-    //   ...auditPayload,
-    //   changes: {
-    //     before: {
-    //       question: questionDetails,
-    //     },
-    //     ...auditPayload.changes,
-    //     after: {
-    //       question: updatedQuestion,
-    //     },
-    //   },
-    // };
-    // this.auditTrailsService.createAuditTrail(auditPayload);
+    // Log only the fields that actually changed (before → after).
+    const before: Record<string, any> = {};
+    const after: Record<string, any> = {};
+    const trackedKeys = ['question', 'status', 'priority', 'aiInitialAnswer', 'details'] as const;
+    for (const key of trackedKeys) {
+      const next = (updates as any)[key];
+      const prev = (questionDetails as any)?.[key];
+      if (next !== undefined && JSON.stringify(next) !== JSON.stringify(prev)) {
+        before[key] = prev;
+        after[key] = next;
+      }
+    }
+
+    auditPayload = {
+      ...auditPayload,
+      context: { ...auditPayload.context, question: questionDetails?.text },
+      changes: { before, after },
+    };
+    this.auditTrailsService.createAuditTrail(auditPayload);
     return response;
   }
 

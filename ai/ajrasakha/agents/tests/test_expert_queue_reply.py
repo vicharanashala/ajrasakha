@@ -12,7 +12,7 @@ from ajrasakha.agents.plan_executor import (
     should_expert_queue_reply,
 )
 from ajrasakha.agents.prompts import EXPERT_QUEUE_REPLY_MARKER
-from ajrasakha.agents.answer_footers import build_expert_queue_content
+from ajrasakha.agents.answer_footers import FOOTER_SEPARATOR, build_expert_queue_content
 from ajrasakha.agents.state import TRANSLATE_PATH_EMPTY_GDB
 from ajrasakha.agents.translate_answer import translate_answer_node
 from ajrasakha.agents.translation_catalog import (
@@ -116,5 +116,6 @@ async def test_translate_answer_empty_gdb_path_content():
     assert text == expected
     assert text == (
         f"{get_two_hour_disclaimer('English', 'English')}\n\n"
+        f"{FOOTER_SEPARATOR}\n\n"
         f"{get_testing_disclaimer('English', 'English')}"
     )

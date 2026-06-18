@@ -2,6 +2,7 @@ import { inject, injectable } from 'inversify';
 import { GLOBAL_TYPES } from '#root/types.js';
 import {
   IUser,
+  INotificationType,
   NotificationRetentionType,
   UserRole,
 } from '#root/shared/interfaces/models.js';
@@ -25,6 +26,7 @@ import {getFromContainer} from 'class-validator';
 import {FirebaseAuthService} from '#root/modules/auth/services/FirebaseAuthService.js';
 import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
 import {sendEmailNotification} from '#root/utils/mailer.js';
+import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
 
 @injectable()
 export class UserService extends BaseService {
@@ -43,6 +45,9 @@ export class UserService extends BaseService {
 
     @inject(GLOBAL_TYPES.QuestionRepository)
     private readonly questionRepo: IQuestionRepository,
+
+    @inject(GLOBAL_TYPES.NotificationService)
+    private readonly notificationService: NotificationService,
   ) {
     super(mongoDatabase);
   }
@@ -511,6 +516,29 @@ export class UserService extends BaseService {
           },
           session,
         );
+
+        // Send notification to the expert that they have been removed from allocation
+        try {
+          const question = await this.questionRepo.getById(questionId, session);
+          const truncatedQuestionText = question?.question
+            ? question.question.length > 50
+              ? question.question.substring(0, 50) + '...'
+              : question.question
+            : 'Question';
+          
+          await this.notificationService.saveTheNotifications(
+            `You have been removed from the allocation. All your allocations have been cleared by an administrator.`,
+            'Allocation Removed',
+            questionId,
+            expertId,
+            'allocation_removal' as INotificationType,
+          );
+        } catch (notificationError) {
+          console.error(
+            `[removeExpertAllocations] ❌ Failed to send notification to expert ${expertId}:`,
+            notificationError,
+          );
+        }
 
         questionsAffected += 1;
         questionIds.push(submission.questionId.toString());
