@@ -1096,8 +1096,13 @@ export class QuestionService extends BaseService implements IQuestionService {
         : result.referenceQuestionId
           ? new ObjectId(String(result.referenceQuestionId))
           : null;
+      // Only flip the status to 'duplicate' when the question is still open/delayed.
+      // For any other status (in-review, closed, etc.) the workflow is already past
+      // that point, so the status must not change — we just record the reference.
+      const canMarkDuplicate =
+        question.status === 'open' || question.status === 'delayed';
       await this.questionRepo.updateQuestion(questionId, {
-        status: 'duplicate',
+        ...(canMarkDuplicate ? { status: 'duplicate' } : {}),
         similarityScore: result.similarityScore,
         referenceQuestionId: refId,
         referenceQuestion: result.referenceQuestion,
@@ -1105,7 +1110,13 @@ export class QuestionService extends BaseService implements IQuestionService {
         isDuplicateChecked: true,
         ...(result.isExact !== undefined ? { isExact: result.isExact } : {}),
       });
-      return { message: 'Duplicate detected and question updated.', isDuplicate: true, referenceQuestionId: refId?.toString() };
+      return {
+        message: canMarkDuplicate
+          ? 'Duplicate detected and question updated.'
+          : `Duplicate detected; status left unchanged (question is '${question.status}').`,
+        isDuplicate: true,
+        referenceQuestionId: refId?.toString(),
+      };
     }
 
     if (result.isNonAgri) {
