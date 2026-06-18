@@ -472,7 +472,17 @@ export class QuestionRepository implements IQuestionRepository {
       // 'duplicate' is included because the moderator-queue cron now assigns duplicate
       // questions to moderators alongside in-review ones.
       if (moderatorId) {
-        filter.moderatorId = new ObjectId(moderatorId as string);
+        const modOid = new ObjectId(moderatorId as string);
+        // Match both a correct ObjectId AND any legacy doc where moderatorId was
+        // persisted as a serialized Buffer ({ buffer: { data: [...12 bytes...] } }),
+        // so those still surface in the moderator's assignments until migrated.
+        if (!filter.$and) filter.$and = [];
+        filter.$and.push({
+          $or: [
+            { moderatorId: modOid },
+            { 'moderatorId.buffer.data': Array.from(modOid.id) },
+          ],
+        });
         filter.status = { $in: ['in-review', 're-routed', 'duplicate'] };
       }
 
@@ -2294,6 +2304,20 @@ export class QuestionRepository implements IQuestionRepository {
           );
         } else {
           updates.referenceQuestionId = new ObjectId(String(rid));
+        }
+      }
+
+      // Same normalisation for moderatorId — callers (e.g. the edit-question flow)
+      // can send it back JSON-serialized as a { buffer: { data: [...] } } object;
+      // coerce it to a real ObjectId so it isn't persisted as a Buffer.
+      if ((updates as any).moderatorId) {
+        const mid = (updates as any).moderatorId;
+        if (mid instanceof ObjectId) {
+          // already correct
+        } else if (mid?.buffer?.data) {
+          (updates as any).moderatorId = new ObjectId(Buffer.from(mid.buffer.data));
+        } else {
+          (updates as any).moderatorId = new ObjectId(String(mid));
         }
       }
 
