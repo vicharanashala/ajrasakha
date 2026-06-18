@@ -7,6 +7,10 @@ import {
 } from "@/components/atoms/tooltip";
 import { cn } from "@/lib/utils";
 
+const NON_ENGLISH_SCRIPT_PATTERN =
+  /[\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F\u0A80-\u0AFF\u0B00-\u0B7F\u0B80-\u0BFF\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F\u0D80-\u0DFF]/;
+const NON_LATIN_LETTER_PATTERN = /[^\W\d_A-Za-z]/u;
+
 interface TranslatableTextProps {
   text: string;
   textClassName?: string;
@@ -16,6 +20,21 @@ interface TranslatableTextProps {
   sourceLang?: string;
   showTooltip?: boolean;
   tooltipClassName?: string;
+}
+
+function isEnglishText(text: string, sourceLang?: string) {
+  const normalizedSourceLang = sourceLang?.trim().toLowerCase();
+
+  if (normalizedSourceLang) {
+    return normalizedSourceLang.startsWith("en");
+  }
+
+  const trimmedText = text.trim();
+  if (!trimmedText) return true;
+  if (NON_ENGLISH_SCRIPT_PATTERN.test(trimmedText)) return false;
+  if (NON_LATIN_LETTER_PATTERN.test(trimmedText)) return false;
+
+  return true;
 }
 
 export function TranslatableText({
@@ -29,13 +48,22 @@ export function TranslatableText({
   tooltipClassName,
 }: TranslatableTextProps) {
   const [translatedText, setTranslatedText] = useState("");
+  const [showOriginalText, setShowOriginalText] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const displayText = translatedText || text;
+  const displayText = translatedText && !showOriginalText ? translatedText : text;
+  const canTranslateToEnglish = !isEnglishText(text, sourceLang);
+  const isShowingTranslation = Boolean(translatedText && !showOriginalText);
 
   useEffect(() => {
     setTranslatedText("");
+    setShowOriginalText(false);
     setError(null);
   }, [text]);
+
+  const handleTranslate = (result: string) => {
+    setTranslatedText(result);
+    setShowOriginalText(false);
+  };
 
   const elementText = (
     <p
@@ -72,19 +100,37 @@ export function TranslatableText({
           ) : (
             elementText
           )}
+          {translatedText && (
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              {isShowingTranslation && (
+                <span className="inline-flex rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                  English Translation
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowOriginalText((prev) => !prev)}
+                className="inline-flex rounded-full border border-border/60 bg-background/70 px-2 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+              >
+                {showOriginalText ? "Show English translation" : "Show original"}
+              </button>
+            </div>
+          )}
         </div>
 
-        <CompactTranslateDropdown
-          query={text}
-          sourceLang={sourceLang}
-          onTranslate={setTranslatedText}
-          onError={setError}
-          buttonClassName={cn(
-            "shrink-0 gap-1 rounded-md text-[11px]",
+        {canTranslateToEnglish && !isShowingTranslation && (
+          <CompactTranslateDropdown
+            query={text}
+            sourceLang={sourceLang}
+            onTranslate={handleTranslate}
+            onError={setError}
+            buttonClassName={cn(
+              "shrink-0 gap-1 rounded-md text-[11px]",
             translateButtonClassName,
           )}
           dropdownClassName={translateDropdownClassName}
         />
+        )}
       </div>
 
       {error && (
