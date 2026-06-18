@@ -88,8 +88,12 @@ export interface PaginatedQueryCategoryQuestions {
 export interface DistrictAnalyticsEntry {
   district: string;
   totalQuestions: number;
+  closedQuestions: number;
   uniqueQuestions: number;
   duplicateQuestions: number;
+  totalUsers: number
+  activeUsers: number
+  coordinators: number
 }
 
 export interface WeatherConcernAnalyticsFilters {
@@ -275,6 +279,7 @@ export interface PaginatedUserDetails {
   users: UserDetailEntry[];
   totalUsers: number;
   totalPages: number;
+  userRoleCounts?: {farmer: number, coordinator: number, internal: number}
   activeUsers?: number;
   inactiveUsers?: number;
   totalQuestions?: number;
@@ -865,6 +870,22 @@ export interface IChatbotRepository {
     search?: string,
   ): Promise<any>
 
+
+//   getStateQuestionsAndUsersData(
+//   state: string,
+//   source: string,
+//   userType: string,
+//   session?: string
+// ): Promise<any> 
+
+  getAllStatesQuestionsAndUsersData(
+    source: string,
+    userType: string,
+    session?: string
+  ): Promise<any>
+
+
+
   getUserConversationIds(
     userId: string,
     source: string,
@@ -873,6 +894,13 @@ export interface IChatbotRepository {
   getUserProfile(userId: string) : Promise<any>
   assignUsers(userId: string, targetIds: string[]): Promise<any>
   unAssignUsers(userId: string, targetIds: string[]): Promise<any>
+
+  getVillageUserCounts(  
+    state: string,
+    district: string,
+    source: string,
+    userType: string,
+    session?: ClientSession): Promise<any>
 }
 
 export interface ChatbotConversationData {
