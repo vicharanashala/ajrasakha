@@ -93,7 +93,7 @@ flowchart TD
     C4 -- "true (ON to OFF)" --> C7
   end
 
-  subgraph P4["④ Time-bound cron  ·  G5 to G10"]
+  subgraph P4["④ Time-bound cron  ·  G5 to G14"]
     D1["reallocateTimeBoundQuestions()
     prod: cron every 2 min
     test: called directly on questionService"]:::entry
@@ -133,9 +133,36 @@ flowchart TD
     msg: 'WhatsApp' or 'Ajrasakha'"]:::ok
 
     F1["stuck: allocated >45 min, never opened
-    startBalanceWorkloadWorkers()"]:::warn
-    F2["openedIdle: opened >45 min, no answer
-    startBalanceWorkloadWorkers()"]:::warn
+    currentExpertAllocatedAt ≤ 45 min ago
+    currentExpertOpenedAt absent/null
+    source IN WHATSAPP, AJRASAKHA
+    status NOT IN closed/in-review/...
+    isAutoAllocate=true, isOnHold!=true"]:::entry
+    F2{"free STF expert?
+    not current / history / queue
+    history.length=0 → STF required
+    activeTimeBound < MAX_TIME_BOUND"}:::decide
+    F3["skipped++"]:::err
+    F4["flatAssignments += { submissionId, expertId
+    appendExpert=false, skipPenalty=false }
+    stuck expert IS penalised"]:::ok
+    F5["startBalanceWorkloadWorkers(flatAssignments)
+    worker: swaps queue, decrements old
+    workload, sends answer_creation notif
+    (mocked in tests — G13)"]:::warn
+
+    FI1["openedIdle: opened >45 min, no answer
+    currentExpertOpenedAt ≤ 45 min ago (set)
+    lastHistory has no answer fields
+    status IN open, delayed
+    isAutoAllocate=true, isOnHold!=true"]:::entry
+    FI2{"free STF expert?
+    same rules as stuck branch
+    history.length=0 → STF required"}:::decide
+    FI3["skipped++"]:::err
+    FI4["flatAssignments += { submissionId, expertId
+    appendExpert=false, skipPenalty=TRUE }
+    idle expert NOT penalised (only freed)"]:::ok
 
     G1["author answered, needs reviewer
     queue.length >= 1
@@ -162,7 +189,14 @@ flowchart TD
     E2 -- yes --> E4 --> E5
 
     D6 -- "allocated >45 min, not opened" --> F1
-    D6 -- "opened >45 min, no answer" --> F2
+    F1 --> F2
+    F2 -- no --> F3
+    F2 -- yes --> F4 --> F5
+
+    D6 -- "opened >45 min, no answer" --> FI1
+    FI1 --> FI2
+    FI2 -- no --> FI3
+    FI2 -- yes --> FI4 --> F5
 
     D6 -- "author answered, no reviewer" --> G1
     G1 --> G2 --> G3
@@ -256,8 +290,8 @@ wrapper is gated by `if (!appConfig.isDevelopment)` and never fires when `NODE_E
 
 **STF auto-promotion:** `beforeAll` checks how many experts have `special_task_force=true`. If
 fewer than 3, it promotes the shortfall number of non-STF experts (lowest `reputation_score` first)
-via a `$set` update so Groups 5–8 always have enough STF experts to run. Groups 5, 6, and 8 still
-guard with `if (!stfExperts.length) return;` as a last-resort fallback if promotion itself fails.
+via a `$set` update so Groups 5–8 and 13–14 always have enough STF experts to run. Groups 5, 6, 8,
+13, and 14 guard with `if (stfExperts.length < 2) return;` as a last-resort fallback.
 
 ---
 
@@ -276,7 +310,7 @@ guard with `if (!stfExperts.length) return;` as a last-resort fallback if promot
   1. Closes questions with STF expert already in queue (status `open`/`delayed`) — these make `getTimeBoundActiveCountPerExpert` count them as active even before our test seeds run.
   2. Closes unallocated (`queue=[]`) WHATSAPP/AJRASAKHA questions with `isAutoAllocate=true` from previous incomplete runs — these would consume the STF expert's capacity during the cron run before our question is processed.
   Both sets are tracked in `temporarilyClosedIds` and restored to `status='open'` in `afterAll`.
-- **Per-group afterAlls (G5, G6, G8):** After each time-bound group's tests complete, its seeded question is set to `status='closed'`, freeing the STF expert's capacity for the next group's cron run. Without this, G5's allocated question would keep the expert busy during G6 and G8's crons.
+- **Per-group afterAlls (G5, G6, G8, G13):** After each time-bound group's tests complete, its seeded question is set to `status='closed'`, freeing the STF expert's capacity for the next group's cron run. G13's afterAll closes the stuck question so the same STF expert is free for G14.
 - STF experts fetched after promotion and cleanup:
   `users.find({ role: 'expert', isBlocked: false, special_task_force: true })`
 
@@ -296,7 +330,7 @@ Restores any questions that were temporarily closed in `beforeAll` to `status: '
 
 ---
 
-## Test cases (44 total)
+## Test cases (54 total)
 
 ### Group 1 — AGRI_EXPERT background allocation (4 tests)
 
@@ -395,6 +429,30 @@ Restores any questions that were temporarily closed in `beforeAll` to `status: '
 | 43 | ON→OFF: `isAutoAllocate=false`, queue length preserved (not cleared) | queue same length as after ON |
 | 44 | Second OFF→ON: no duplicate expert IDs in queue | all IDs unique |
 
+### Group 13 — Stuck question (>45 min, never opened) (5 tests)
+
+*`startBalanceWorkloadWorkers` is mocked — verifies detection + expert selection, not worker DB writes. Self-skips if fewer than 2 STF experts.*
+
+| # | What | Expected |
+|---|------|----------|
+| 45 | `reallocateTimeBoundQuestions()` reports `reallocated >= 1` | stuck question detected |
+| 46 | `startBalanceWorkloadWorkers` was called | worker path triggered |
+| 47 | Worker assignment for our submission has `appendExpert=false` | replacement (not append) |
+| 48 | `skipPenalty` is falsy — stuck expert IS penalised | `skipPenalty === false` |
+| 49 | Replacement expert is STF and not the stuck expert | `special_task_force=true`, different ID |
+
+### Group 14 — Opened-but-idle question (>45 min, no answer) (5 tests)
+
+*Same worker mock as G13. Key difference: `skipPenalty=true` — idle expert is freed but not penalised. Self-skips if fewer than 2 STF experts.*
+
+| # | What | Expected |
+|---|------|----------|
+| 50 | `reallocateTimeBoundQuestions()` reports `reallocated >= 1` | idle question detected |
+| 51 | `startBalanceWorkloadWorkers` was called | worker path triggered |
+| 52 | Worker assignment for our submission has `appendExpert=false` | replacement (not append) |
+| 53 | `skipPenalty=true` — idle expert NOT penalised | `skipPenalty === true` |
+| 54 | Replacement expert is different from the idle expert | different ID |
+
 ### Group 9 — Concurrent run guard (1 test)
 
 | # | What | Expected |
@@ -444,10 +502,15 @@ immediately always sees it as `true`.
 
 `timeBoundReAllocateCron.ts` is gated by `if (!appConfig.isDevelopment)` — never fires in tests.
 
-### Stuck/idle branches spawn worker threads
+### Stuck/idle branches spawn worker threads (mocked in tests)
 
-`startBalanceWorkloadWorkers()` targets `build/workers/balanceWorkload.worker.js`. Not reliable
-when running tests against source. Those branches are not tested in this suite.
+`startBalanceWorkloadWorkers()` normally targets `build/workers/balanceWorkload.worker.js`
+and spawns Node Worker threads for parallel DB writes. In tests, this module is replaced by
+a `vi.mock()` that returns `{ processed: 1, failedWorkers: 0 }` immediately, so no Worker
+thread is spawned. G13 (stuck) and G14 (idle) verify that `reallocateTimeBoundQuestions()`
+correctly **detects** the question, **selects** the replacement expert (STF-gated, capacity-aware),
+and **builds** the right `flatAssignments` entry (correct `skipPenalty` flag). The worker's
+actual DB queue-swap and penalty writes are not re-exercised here.
 
 ---
 

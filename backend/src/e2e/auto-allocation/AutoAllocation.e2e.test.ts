@@ -52,7 +52,17 @@ import express from 'express';
 import request from 'supertest';
 import { useExpressServer } from 'routing-controllers';
 import { ObjectId } from 'mongodb';
-import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
+
+// Mock the balance-workload worker manager so the stuck/idle paths do not try
+// to spawn Node Worker threads against compiled build/ files (which don't exist
+// during a Vitest run). The mock lets reallocateTimeBoundQuestions() complete
+// its full detection + expert-selection logic and build the flatAssignments list
+// — we then inspect that list. The actual DB queue-swap is the worker's job and
+// is not re-tested here.
+vi.mock('#root/workers/balanceWorkload.manager.js', () => ({
+  startBalanceWorkloadWorkers: vi.fn().mockResolvedValue({ processed: 1, failedWorkers: 0 }),
+}));
 
 const ROUTE_PREFIX = '/api';
 const RUN_TAG = `E2E_AA_${Date.now()}`;
@@ -1407,5 +1417,236 @@ describe('Toggle auto-allocate — sequential ON → OFF → ON same question le
     const uniqueIds = new Set(ids);
     console.log('[G12] queue after second ON:', ids, 'unique:', uniqueIds.size);
     expect(uniqueIds.size).toBe(ids.length);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 13. Time-bound allocation — Stuck question (allocated >45 min, never opened)
+//
+// findTimeBoundQuestionsForReallocation() picks up WHATSAPP/AJRASAKHA questions
+// where:
+//   - currentExpertAllocatedAt <= 45 min ago (set, not null)
+//   - currentExpertOpenedAt absent or null   (expert never opened it)
+//   - question.status NOT IN closed/in-review/pae_submitted/...
+//   - question.isAutoAllocate = true, isOnHold != true
+//
+// The service selects a replacement STF expert (same STF requirement as initial
+// allocation because history.length === 0), builds a flatAssignments entry with
+// appendExpert=false and skipPenalty=false (stuck expert IS penalised), then
+// calls startBalanceWorkloadWorkers() — which is mocked here so no Worker
+// thread is spawned. We verify detection + expert selection, not the DB writes
+// (the worker's responsibility).
+// ════════════════════════════════════════════════════════════════════════════
+
+describe('Time-bound allocation — stuck question (>45 min, never opened) detected and queued for worker reallocation', () => {
+  let stuckQuestionId: string;
+  let stuckSubmissionId: string;
+  let allocResult: any;
+  let workerAssignments: any[];
+
+  beforeAll(async () => {
+    if (stfExperts.length < 2) {
+      console.warn('[G13] Fewer than 2 STF experts — stuck tests will self-skip.');
+      return;
+    }
+
+    // Reset the mock so G12's calls don't bleed into our assertions.
+    const { startBalanceWorkloadWorkers } = await import('#root/workers/balanceWorkload.manager.js');
+    const spy = vi.mocked(startBalanceWorkloadWorkers);
+    spy.mockClear();
+
+    const questions = await db.getCollection('questions');
+    const submissions = await db.getCollection('question_submissions');
+
+    // Seed: stfExperts[0] was allocated 46 min ago and never opened the question.
+    const { insertedId: qId } = await questions.insertOne({
+      userId: moderatorUser._id,
+      question: `${RUN_TAG} G13 stuck paddy leaves yellowing — never opened`,
+      status: 'open',
+      priority: 'high',
+      source: 'WHATSAPP',
+      isAutoAllocate: true,
+      isOnHold: false,
+      totalAnswersCount: 0,
+      embedding: [],
+      metrics: null,
+      firstAllocationAt: new Date(Date.now() - 46 * 60 * 1000),
+      details: { state: 'Punjab', district: 'Ludhiana', crop: 'Paddy', season: 'Kharif', domain: 'Crop Protection' },
+      createdAt: new Date(Date.now() - 46 * 60 * 1000),
+      updatedAt: new Date(),
+    });
+    stuckQuestionId = qId.toString();
+    createdQuestionIds.push(qId);
+
+    const { insertedId: subId } = await submissions.insertOne({
+      questionId: qId,
+      lastRespondedBy: null,
+      history: [],
+      queue: [stfExperts[0]._id],
+      currentExpertAllocatedAt: new Date(Date.now() - 46 * 60 * 1000), // > 45 min → stuck
+      // currentExpertOpenedAt intentionally absent — expert never opened it
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    stuckSubmissionId = subId.toString();
+
+    allocResult = await questionService.reallocateTimeBoundQuestions();
+    workerAssignments = spy.mock.calls.flatMap(([assignments]: any[]) => assignments as any[]);
+    console.log('[G13] allocResult:', JSON.stringify(allocResult), 'workerAssignments:', JSON.stringify(workerAssignments));
+  }, 30000);
+
+  it('reallocateTimeBoundQuestions reports at least 1 reallocated (stuck question detected)', () => {
+    if (stfExperts.length < 2) return;
+    expect(allocResult.reallocated).toBeGreaterThanOrEqual(1);
+  });
+
+  it('startBalanceWorkloadWorkers was called (stuck path delegates DB writes to worker)', () => {
+    if (stfExperts.length < 2) return;
+    expect(workerAssignments.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('worker assignment for our submission has appendExpert=false (replacement, not append)', () => {
+    if (stfExperts.length < 2) return;
+    const ours = workerAssignments.find((a: any) => a.submissionId === stuckSubmissionId);
+    console.log('[G13] our assignment:', JSON.stringify(ours));
+    expect(ours).toBeDefined();
+    expect(ours?.appendExpert).toBeFalsy();
+  });
+
+  it('stuck expert IS penalised: skipPenalty is falsy (false or absent)', () => {
+    if (stfExperts.length < 2) return;
+    const ours = workerAssignments.find((a: any) => a.submissionId === stuckSubmissionId);
+    expect(ours?.skipPenalty).toBeFalsy();
+  });
+
+  it('replacement expert is a different STF expert (not the stuck one)', async () => {
+    if (stfExperts.length < 2) return;
+    const ours = workerAssignments.find((a: any) => a.submissionId === stuckSubmissionId);
+    expect(ours).toBeDefined();
+    expect(ours.expertId).not.toBe(stfExperts[0]._id.toString());
+    const users = await db.getCollection('users');
+    const replacement = await users.findOne({ _id: new ObjectId(ours.expertId) });
+    console.log('[G13] replacement expert:', replacement?.email, 'STF:', replacement?.special_task_force);
+    expect(replacement?.special_task_force).toBe(true);
+  });
+
+  afterAll(async () => {
+    // Close the stuck question so stfExperts[0] is no longer counted as active
+    // before G14 runs (getTimeBoundActiveCountPerExpert includes open questions
+    // with this expert in queue; closing frees their capacity slot).
+    if (!db || !stuckQuestionId) return;
+    const questions = await db.getCollection('questions');
+    await questions.updateOne(
+      { _id: new ObjectId(stuckQuestionId) },
+      { $set: { status: 'closed' } },
+    );
+    console.log('[G13] afterAll: closed stuckQuestionId — stfExperts[0] freed for G14');
+  }, 15000);
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// 14. Time-bound allocation — Opened-but-idle question (opened >45 min, no answer)
+//
+// findOpenedButIdleTimeBoundQuestions() picks up WHATSAPP/AJRASAKHA questions
+// where:
+//   - currentExpertOpenedAt <= 45 min ago (set, not null) — expert DID open it
+//   - lastHistory has no answer/approvedAnswer/modifiedAnswer/rejectedAnswer
+//     (empty history also qualifies: $arrayElemAt of [] = null, null.answer = null)
+//   - question.status IN open, delayed
+//   - question.isAutoAllocate = true, isOnHold != true
+//
+// Distinct from stuck: the expert opened the question but produced no answer.
+// Key difference: skipPenalty=true — the idle expert is NOT penalised, only
+// replaced (they made an effort but couldn't answer). All other logic is
+// identical to the stuck branch.
+// ════════════════════════════════════════════════════════════════════════════
+
+describe('Time-bound allocation — opened-but-idle question (>45 min, no answer) detected with skipPenalty=true', () => {
+  let idleQuestionId: string;
+  let idleSubmissionId: string;
+  let allocResult: any;
+  let workerAssignments: any[];
+
+  beforeAll(async () => {
+    if (stfExperts.length < 2) {
+      console.warn('[G14] Fewer than 2 STF experts — idle tests will self-skip.');
+      return;
+    }
+
+    const { startBalanceWorkloadWorkers } = await import('#root/workers/balanceWorkload.manager.js');
+    const spy = vi.mocked(startBalanceWorkloadWorkers);
+    spy.mockClear();
+
+    const questions = await db.getCollection('questions');
+    const submissions = await db.getCollection('question_submissions');
+
+    // Seed: stfExperts[0] was allocated 47 min ago, opened it 46 min ago, wrote no answer.
+    // currentExpertOpenedAt being set (not absent) distinguishes idle from stuck.
+    const { insertedId: qId } = await questions.insertOne({
+      userId: moderatorUser._id,
+      question: `${RUN_TAG} G14 idle wheat rust — opened but no answer written`,
+      status: 'open',
+      priority: 'high',
+      source: 'WHATSAPP',
+      isAutoAllocate: true,
+      isOnHold: false,
+      totalAnswersCount: 0,
+      embedding: [],
+      metrics: null,
+      firstAllocationAt: new Date(Date.now() - 47 * 60 * 1000),
+      details: { state: 'Punjab', district: 'Ludhiana', crop: 'Wheat', season: 'Rabi', domain: 'Crop Protection' },
+      createdAt: new Date(Date.now() - 47 * 60 * 1000),
+      updatedAt: new Date(),
+    });
+    idleQuestionId = qId.toString();
+    createdQuestionIds.push(qId);
+
+    const { insertedId: subId } = await submissions.insertOne({
+      questionId: qId,
+      lastRespondedBy: null,
+      history: [], // no answer written — empty history satisfies the idle query's lastHistory.answer=null check
+      queue: [stfExperts[0]._id],
+      currentExpertAllocatedAt: new Date(Date.now() - 47 * 60 * 1000),
+      currentExpertOpenedAt: new Date(Date.now() - 46 * 60 * 1000), // > 45 min → idle (not stuck)
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    idleSubmissionId = subId.toString();
+
+    allocResult = await questionService.reallocateTimeBoundQuestions();
+    workerAssignments = spy.mock.calls.flatMap(([assignments]: any[]) => assignments as any[]);
+    console.log('[G14] allocResult:', JSON.stringify(allocResult), 'workerAssignments:', JSON.stringify(workerAssignments));
+  }, 30000);
+
+  it('reallocateTimeBoundQuestions reports at least 1 reallocated (idle question detected)', () => {
+    if (stfExperts.length < 2) return;
+    expect(allocResult.reallocated).toBeGreaterThanOrEqual(1);
+  });
+
+  it('startBalanceWorkloadWorkers was called (idle path also delegates to worker)', () => {
+    if (stfExperts.length < 2) return;
+    expect(workerAssignments.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('worker assignment for our submission has appendExpert=false (replacement, not append)', () => {
+    if (stfExperts.length < 2) return;
+    const ours = workerAssignments.find((a: any) => a.submissionId === idleSubmissionId);
+    console.log('[G14] our assignment:', JSON.stringify(ours));
+    expect(ours).toBeDefined();
+    expect(ours?.appendExpert).toBeFalsy();
+  });
+
+  it('idle expert is NOT penalised: skipPenalty=true (they opened but could not answer)', () => {
+    if (stfExperts.length < 2) return;
+    const ours = workerAssignments.find((a: any) => a.submissionId === idleSubmissionId);
+    expect(ours?.skipPenalty).toBe(true);
+  });
+
+  it('replacement expert is different from the idle expert', async () => {
+    if (stfExperts.length < 2) return;
+    const ours = workerAssignments.find((a: any) => a.submissionId === idleSubmissionId);
+    expect(ours).toBeDefined();
+    expect(ours.expertId).not.toBe(stfExperts[0]._id.toString());
+    console.log('[G14] replacement expert ID:', ours.expertId);
   });
 });
