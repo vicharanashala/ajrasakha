@@ -39,12 +39,6 @@ import {
 } from "@/components/atoms/table";
 import Spinner from "@/components/atoms/spinner";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/atoms/sheet";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -753,28 +747,34 @@ function RouteComponent() {
                               />
 
                               <div>
-                                <button
-                                  type="button"
-                                  className="font-medium text-left text-primary hover:underline"
-                                  onClick={() => setNotificationTargetUser(u)}
-                                  title="Send notification"
-                                >
-                                  {u.name}
-                                </button>
+                                <span className="font-medium">{u.name}</span>
                                 <p className="text-xs text-muted-foreground">
                                   {u.userRole}
                                 </p>
                               </div>
                             </div>
 
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => handleUnassignUser(u._id)}
-                              disabled={assigning}
-                            >
-                              Remove
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-9 w-9"
+                                onClick={() => setNotificationTargetUser(u)}
+                                title="Send notification"
+                                aria-label={`Send notification to ${u.name}`}
+                              >
+                                <BellIcon className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleUnassignUser(u._id)}
+                                disabled={assigning}
+                              >
+                                Remove
+                              </Button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -1446,39 +1446,36 @@ function UserNotificationHistorySheet({
   const notifications = data?.notifications ?? [];
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="right"
-        className="my-4 mr-4 flex h-[calc(100vh-2rem)] w-full flex-col overflow-hidden rounded-2xl border-l bg-background p-0 shadow-2xl sm:max-w-md"
-      >
-        <SheetHeader className="border-b p-6">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[calc(100vh-2rem)] w-full flex-col overflow-hidden p-0 sm:max-w-2xl">
+        <DialogHeader className="border-b p-6 pr-12">
           <div className="flex items-center gap-3">
             <div className="rounded-xl bg-primary/10 p-2">
               <BellIcon className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <SheetTitle className="text-xl font-bold">
-                Notification History
-              </SheetTitle>
+              <DialogTitle className="text-xl font-bold">
+                Activity Logs
+              </DialogTitle>
               <p className="text-sm text-muted-foreground">
                 {user?.name || user?.email || "Selected user"}
               </p>
             </div>
           </div>
-        </SheetHeader>
+        </DialogHeader>
 
         <ScrollArea className="flex-1 bg-muted/10">
           <div className="space-y-4 p-6">
             {isLoading && (
               <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Loading notifications...
+                Loading activity logs...
               </div>
             )}
 
             {isError && (
               <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-                Failed to load notification history.
+                Failed to load activity logs.
               </div>
             )}
 
@@ -1487,9 +1484,9 @@ function UserNotificationHistorySheet({
                 <div className="mb-4 rounded-full bg-muted p-4">
                   <BellIcon className="h-8 w-8 text-muted-foreground" />
                 </div>
-                <h3 className="text-base font-semibold">No notifications</h3>
+                <h3 className="text-base font-semibold">No activity logs</h3>
                 <p className="text-sm text-muted-foreground">
-                  No notification history found for this user.
+                  No activity logs found for this user.
                 </p>
               </div>
             )}
@@ -1548,8 +1545,8 @@ function UserNotificationHistorySheet({
             ))}
           </div>
         </ScrollArea>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1559,6 +1556,16 @@ function getNotificationDisplayTitle(notification: UserNotification) {
       notification.recipient?.name || notification.recipient?.email;
 
     return recipient ? `Message sent to ${recipient}` : "Message sent";
+  }
+
+  const senderName = notification.sender?.name || notification.sender?.email;
+
+  if (
+    senderName &&
+    (notification.title === "Message from coordinator" ||
+      notification.title === "Message from admin")
+  ) {
+    return `Message from ${senderName}`;
   }
 
   if (

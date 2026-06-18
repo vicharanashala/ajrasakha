@@ -186,7 +186,7 @@ export function FarmerDetailsContent({
                     onClick={() => onNotificationHistory(user)}
                   >
                     <Bell className="h-4 w-4" />
-                    Notifications
+                    Activity Logs
                   </Button>
                 )}
 

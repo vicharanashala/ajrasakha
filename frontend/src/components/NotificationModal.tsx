@@ -359,6 +359,16 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
 }
 
 function getNotificationDisplayTitle(notification: Notification) {
+    const senderName = notification.sender?.name || notification.sender?.email;
+
+    if (
+        senderName &&
+        (notification.title === "Message from coordinator" ||
+            notification.title === "Message from admin")
+    ) {
+        return `Message from ${senderName}`;
+    }
+
     if (
         notification.sender?.role === "admin" &&
         notification.title === "Message from coordinator"
