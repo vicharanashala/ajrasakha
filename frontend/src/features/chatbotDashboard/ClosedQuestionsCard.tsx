@@ -33,10 +33,12 @@ type ClosedQuestionsCardProps = {
   statusBreakup: any;
   avgCloseTimeMinutes?: number;
   previousMonthAvgCloseTimeMinutes?: number;
-  source?: "vicharanashala" | "annam" | "whatsapp"
+  source?: "vicharanashala" | "annam" | "whatsapp";
   userType?: string;
   onRefresh?: () => void;
   avgPassTimeMinutes?: number;
+  combinedCount?: number;
+  combinedAvgTime?: number;
 };
 
 export function ClosedQuestionsCard({
@@ -54,6 +56,8 @@ export function ClosedQuestionsCard({
   userType,
   onRefresh,
   avgPassTimeMinutes = 0,
+  combinedCount = 0,
+  combinedAvgTime = 0,
 }: ClosedQuestionsCardProps) {
   const [status, setStatus] = useState<string | null>(null);
 
@@ -67,7 +71,7 @@ export function ClosedQuestionsCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, ease: "easeOut" }}
     >
-      <Card className="border border-border rounded-2xl bg-background/80 h-fit bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300">
+      <Card className="border border-border rounded-2xl bg-background/80 h-full bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300">
         <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
         <CardHeader className="pb-4">
           {isLoading ? (
@@ -101,57 +105,130 @@ export function ClosedQuestionsCard({
                       className="min-w-[240px] rounded-xl p-4 max-h-[35vh] overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-emerald-700 hover:scrollbar-thumb-emerald-600"
                     >
                       <div className="space-y-2">
-                        {Object.entries(statusBreakup?.statuses ?? {}).map(([key, value]) => (
-                          <div key={key} className="flex justify-between gap-6">
-                            <span className="text-muted-foreground">
-                              {key
-                                .replace(/[_-]/g, " ")
-                                .replace(/\b\w/g, (char) => char.toUpperCase())}
-                            </span>
-                            <span className="font-medium">{value}</span>
-                          </div>
-                        ))}
+                        {Object.entries(statusBreakup?.statuses ?? {}).map(
+                          ([key, value]) => (
+                            <div
+                              key={key}
+                              className="flex justify-between gap-6"
+                            >
+                              <span className="text-muted-foreground">
+                                {key
+                                  .replace(/[_-]/g, " ")
+                                  .replace(/\b\w/g, (char) =>
+                                    char.toUpperCase(),
+                                  )}
+                              </span>
+                              <span className="font-medium">{value}</span>
+                            </div>
+                          ),
+                        )}
                       </div>
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                <div
+                  className="flex items-center gap-1.5"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" className="h-7 px-2 text-[11px] font-normal border-border/70 bg-background/80 backdrop-blur-sm shadow-sm hover:bg-muted/40 gap-1 flex items-center shrink-0">
+                      <Button
+                        variant="outline"
+                        className="h-7 px-2 text-[11px] font-normal border-border/70 bg-background/80 backdrop-blur-sm shadow-sm hover:bg-muted/40 gap-1 flex items-center shrink-0"
+                      >
                         <CalendarIcon className="h-3 w-3 text-muted-foreground" />
-                        {dateRange?.from ? dateRange.to ? `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd")}` : format(dateRange.from, "MMM dd") : "All Time"}
+                        {dateRange?.from
+                          ? dateRange.to
+                            ? `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd")}`
+                            : format(dateRange.from, "MMM dd")
+                          : "All Time"}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0 z-[100]" align="end">
-                      <Calendar initialFocus mode="range" defaultMonth={dateRange?.from ?? new Date()} selected={dateRange} onSelect={onDateRangeChange} disabled={{ after: new Date() }} className="pointer-events-auto" />
+                      <Calendar
+                        initialFocus
+                        mode="range"
+                        defaultMonth={dateRange?.from ?? new Date()}
+                        selected={dateRange}
+                        onSelect={onDateRangeChange}
+                        disabled={{ after: new Date() }}
+                        className="pointer-events-auto"
+                      />
                     </PopoverContent>
                   </Popover>
                   {dateRange && (
-                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full shrink-0" onClick={() => onDateRangeChange?.(undefined)}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full shrink-0"
+                      onClick={() => onDateRangeChange?.(undefined)}
+                    >
                       <X className="h-3 w-3" />
                     </Button>
                   )}
                 </div>
               </div>
-              <div className={`mt-5 flex items-center justify-between gap-4 ${isLoading ? "opacity-50" : ""}`}>
-                <motion.div className="flex flex-1 flex-col hover:cursor-pointer" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }} onClick={() => handleClick("all")}>
+              <div
+                className={`mt-5 flex items-center justify-between gap-4 ${isLoading ? "opacity-50" : ""}`}
+              >
+                <motion.div
+                  className="flex flex-1 flex-col hover:cursor-pointer"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, ease: "easeOut" }}
+                  onClick={() => handleClick("all")}
+                >
                   <span className="text-xs text-muted-foreground">Total</span>
-                  <motion.span key={totalQuestions ?? 0} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.35, ease: "easeOut" }} className="text-3xl font-bold tracking-tight">
-                    <CountUp end={totalQuestions ?? 0} duration={1.5} preserveValue />
+                  <motion.span
+                    key={totalQuestions ?? 0}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.35, ease: "easeOut" }}
+                    className="text-3xl font-bold tracking-tight"
+                  >
+                    <CountUp
+                      end={totalQuestions ?? 0}
+                      duration={1.5}
+                      preserveValue
+                    />
                   </motion.span>
                 </motion.div>
-                <motion.div className="flex flex-1 flex-col hover:cursor-pointer" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }} onClick={() => handleClick("closed")}>
+                <motion.div
+                  className="flex flex-1 flex-col hover:cursor-pointer"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, ease: "easeOut" }}
+                  onClick={() => handleClick("closed")}
+                >
                   <span className="text-xs text-muted-foreground">Closed</span>
-                  <motion.span key={closedQuestions ?? 0} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.35, ease: "easeOut" }} className="text-3xl font-bold tracking-tight">
-                    <CountUp end={closedQuestions ?? 0} duration={1.5} preserveValue />
+                  <motion.span
+                    key={closedQuestions ?? 0}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.35, ease: "easeOut" }}
+                    className="text-3xl font-bold tracking-tight"
+                  >
+                    <CountUp
+                      end={closedQuestions ?? 0}
+                      duration={1.5}
+                      preserveValue
+                    />
                   </motion.span>
                 </motion.div>
-                <motion.div className="flex flex-1 flex-col hover:cursor-pointer" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }} onClick={() => handleClick("pass")}>
+                <motion.div
+                  className="flex flex-1 flex-col hover:cursor-pointer"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, ease: "easeOut" }}
+                  onClick={() => handleClick("pass")}
+                >
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <motion.span whileHover={{ scale: 1.05 }} className="text-xs text-muted-foreground cursor-help w-full whitespace-nowrap">
+                        <motion.span
+                          whileHover={{ scale: 1.05 }}
+                          className="text-xs text-muted-foreground cursor-help w-full whitespace-nowrap"
+                        >
                           Passed
                         </motion.span>
                       </TooltipTrigger>
@@ -160,16 +237,68 @@ export function ClosedQuestionsCard({
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
-                  <motion.span key={`pass-${passedQuestions ?? 0}`} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.35, ease: "easeOut" }} className="text-3xl font-bold tracking-tight">
-                    <CountUp end={Math.max(passedQuestions ?? 0, 0)} duration={1.5} preserveValue />
+                  <motion.span
+                    key={`pass-${passedQuestions ?? 0}`}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.35, ease: "easeOut" }}
+                    className="text-3xl font-bold tracking-tight"
+                  >
+                    <CountUp
+                      end={Math.max(passedQuestions ?? 0, 0)}
+                      duration={1.5}
+                      preserveValue
+                    />
                   </motion.span>
                 </motion.div>
               </div>
-              <div className={`mt-3 flex flex-wrap items-center gap-3 ${isLoading ? "opacity-50" : ""}`}>
+              <div
+                className={`mt-3 flex flex-wrap items-center gap-3 ${isLoading ? "opacity-50" : ""}`}
+              >
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Clock3 className="h-4 w-4 text-primary" />
                   <span className="font-medium">Average Resolution Time:</span>
-                  <span className="font-semibold">Closed: {formatDurationFromMinutes(avgCloseTimeMinutes)}</span><span className="font-semibold">Passed: {formatDurationFromMinutes(avgPassTimeMinutes)}</span>
+
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="font-semibold cursor-help underline-offset-2 hover:underline">
+                          Combined: {formatDurationFromMinutes(combinedAvgTime)}
+                        </span>
+                      </TooltipTrigger>
+
+                      <TooltipContent className="w-64 p-4">
+                        <div className="space-y-3">
+                          <h4 className="font-semibold">
+                            Average Resolution Time
+                          </h4>
+
+                          <div className="flex justify-between">
+                            <span>Closed</span>
+                            <span>
+                              {formatDurationFromMinutes(avgCloseTimeMinutes)}
+                            </span>
+                          </div>
+
+                          <div className="flex justify-between">
+                            <span>Passed</span>
+                            <span>
+                              {formatDurationFromMinutes(avgPassTimeMinutes)}
+                            </span>
+                          </div>
+
+                          <div className="border-t pt-3">
+                            <div className="flex justify-between font-semibold">
+                              <span>Combined</span>
+                              <span>
+                                {formatDurationFromMinutes(combinedAvgTime)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
               </div>
             </>
@@ -177,7 +306,15 @@ export function ClosedQuestionsCard({
         </CardHeader>
       </Card>
       {status && (
-        <QueryCategoryQuestionsModal status={status} source={"both"} userType={userType} onClose={() => setStatus(null)} isQueryCategory={false} startDate={dateRange?.from} endDate={dateRange?.to} />
+        <QueryCategoryQuestionsModal
+          status={status}
+          source={"both"}
+          userType={userType}
+          onClose={() => setStatus(null)}
+          isQueryCategory={false}
+          startDate={dateRange?.from}
+          endDate={dateRange?.to}
+        />
       )}
     </motion.div>
   );

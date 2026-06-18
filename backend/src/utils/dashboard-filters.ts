@@ -5,9 +5,6 @@ export function buildBaseQuestionMatch(source?: string) {
         isTesting: { $ne: true },
       },
       {
-        isOnHold: { $ne: true },
-      },
-      {
         status: { $nin: ['non_agri'] }
       }
     ],

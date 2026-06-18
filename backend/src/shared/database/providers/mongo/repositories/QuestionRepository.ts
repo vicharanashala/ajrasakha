@@ -462,7 +462,7 @@ export class QuestionRepository implements IQuestionRepository {
       if (is_non_agri === 'true' || is_non_agri === true) {
         filter.status = 'non_agri';
       } else if (filter.status === undefined) {
-        filter.status = {$nin: ['non_agri', 'dynamic']};
+        filter.status = {$nin: ['non_agri']};
       }
       // --- State filter (from body array) ---
       if (body?.states && body.states.length > 0) {

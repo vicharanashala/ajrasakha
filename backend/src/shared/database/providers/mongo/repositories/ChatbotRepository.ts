@@ -4432,44 +4432,6 @@ export class ChatbotRepository implements IChatbotRepository {
         }
       }
 
-//       const dayStart = new Date('2026-06-14T00:00:00+05:30');
-//       const dayEnd = new Date('2026-06-15T00:00:00+05:30');
-
-// const [{ count = 0 } = {}] = await this.messagesCollection
-//   .aggregate([
-//     {
-//       $match: {
-//         createdAt: { $gte: dayStart, $lt: dayEnd },
-//         isCreatedByUser: true,
-//         isDeleted: { $ne: true },
-//       },
-//     },
-//     ...userTypeLookupStages,
-//     {
-//       $count: 'count',
-//     },
-//   ])
-//   .toArray();
-
-// // console.log(count);
-
-// const aggQuestionCount = await this.QuestionCollection.countDocuments({
-//   createdAt: { $gte: dayStart, $lt: dayEnd },
-//   source: 'AJRASAKHA',
-//   $or: [
-//     { isTesting: { $exists: false } },
-//     { isTesting: { $ne: true } }
-//   ],
-//   status: { $ne: 'non_agri' },
-//   ...baseQuestionQuery,
-//   ...questionUserTypeLookupStages,
-// });
-
-// console.log("aggQuestionCount------", JSON.stringify(baseQuestionQuery, null, 2), )
-
-
-// console.log("queries, aggQuestionCount", count, aggQuestionCount );
-
       return Array.from(mergedMap.values()).sort((a, b) =>
         a.period.localeCompare(b.period),
       );
@@ -10025,6 +9987,56 @@ const totalPages =
                 },
               },
               statuses: 1,
+              combined: {
+                count: {
+                  $add: [
+                    '$metrics.closedQuestions',
+                    '$metrics.passedQuestions',
+                  ],
+                },
+                avgTimeMinutes: {
+                  $cond: [
+                    {
+                      $gt: [
+                        {
+                          $add: [
+                            '$metrics.closedTimedQuestions',
+                            '$metrics.passedTimedQuestions',
+                          ],
+                        },
+                        0,
+                      ],
+                    },
+                    {
+                      $round: [
+                        {
+                          $divide: [
+                            {
+                              $add: [
+                                '$metrics.closedTimeSumMs',
+                                '$metrics.passedTimeSumMs',
+                              ],
+                            },
+                            {
+                              $multiply: [
+                                {
+                                  $add: [
+                                    '$metrics.closedTimedQuestions',
+                                    '$metrics.passedTimedQuestions',
+                                  ],
+                                },
+                                60000,
+                              ],
+                            },
+                          ],
+                        },
+                        2,
+                      ],
+                    },
+                    0,
+                  ],
+                },
+              },
             },
           },
         ]).toArray(),
@@ -10043,6 +10055,9 @@ const totalPages =
           closedQuestions: 0,
           inReviewQuestions: 0,
           avgCloseTimeMinutes: 0,
+          combined: 0,
+          closed: 0,
+          pass: 0,
         }),
         previousMonthAvgCloseTimeMinutes:
           previousMonthResult[0]?.avgCloseTimeMinutes || 0,
@@ -10245,7 +10260,7 @@ const totalPages =
         closedCount: 0,
         passCount: 0,
       };
-
+// console.log("closeinlast2hours---", result);
       return count;
     } catch (error) {
       throw new InternalServerError(
@@ -11928,7 +11943,7 @@ const totalPages =
     }
 
     matchQuery.status = { 
-      $in: ["closed", "pass"],
+      $in: ["closed"],
     };
     const validStartDate =
       startDate instanceof Date && !isNaN(startDate.getTime());
@@ -12106,7 +12121,7 @@ const totalPages =
         state: user?.farmerProfile?.state,
       };
     });
-
+// console.log("total----", total)
     return {
       questions: enrichedQuestions,
       total,

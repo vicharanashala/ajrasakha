@@ -11,7 +11,7 @@ export const MODES = [
     { id: "draft", label: "Draft", icon: FileText },
     { id: "pae", label: "PAE", icon: UserCheck },
     { id: "non_agri", label: "Non-Agri", icon: LeafyGreen },
-    { id: "dynamic", label: "Dynamic", icon: Zap },
+    // { id: "dynamic", label: "Dynamic", icon: Zap },
 ] as const
 
 const MODE_DESCRIPTIONS: Record<string, string> = {

@@ -329,6 +329,8 @@ export function AnnamDashboard_dev({
                   onRefresh={handleRefreshStatsCards}
                   passedQuestions={questionStatusData?.closedVsTotalQuestions?.statuses?.pass}
                   avgPassTimeMinutes={questionStatusData?.closedVsTotalQuestions?.pass?.avgTimeMinutes}
+                  combinedCount={questionStatusData?.closedVsTotalQuestions?.combined?.count}
+                  combinedAvgTime={questionStatusData?.closedVsTotalQuestions?.combined?.avgTimeMinutes}
                 />
                 <CustomerNotificationsCard
                   notified={customerNotificationsData?.notifiedVsClosed?.notified}

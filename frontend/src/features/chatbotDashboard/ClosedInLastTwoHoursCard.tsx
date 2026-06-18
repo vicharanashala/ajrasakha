@@ -54,6 +54,14 @@ export function ClosedInLastTwoHoursCard({
   const safeTotalClosed = totalClosed ?? 0;
   const closedWithinTwoHoursPct =
     safeTotalClosed > 0 ? (safeCount / safeTotalClosed) * 100 : 0;
+  const safePassed = passedInLastTwoHours ?? 0;
+  const safeTotalPassed = totalPassed ?? 0;
+  const passedWithinTwoHoursPct =
+    safeTotalPassed > 0 ? (safePassed / safeTotalPassed) * 100 : 0;
+  const combinedPercentage =
+    safeTotalClosed + safeTotalPassed > 0
+      ? ((safePassed + safeCount) / (safeTotalClosed + safeTotalPassed)) * 100
+      : 0;
   const [closedWithInTwohours, setClosedWithInTowhours] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const queryClient = useQueryClient();
@@ -127,9 +135,13 @@ export function ClosedInLastTwoHoursCard({
                   />
                 </button>
                 <div className="text-sm text-muted-foreground flex gap-2 items-center">
-                  <div className="flex items-center gap-2">
-                    <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
-                    Closed within 2 Hours
+                  <div>
+                    Passed with in 2 hours:
+                    <span className="font-semibold">
+                      {" "}
+                      {passedInLastTwoHours}/{totalPassed}{" "}
+                      {Number(passedWithinTwoHoursPct).toFixed(2)} %
+                    </span>
                   </div>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -138,12 +150,9 @@ export function ClosedInLastTwoHoursCard({
 
                     <TooltipContent side="top">
                       <div className="space-y-2 text-xs">
-                        <div>
-                          Passed within 2 hours:
-                          <span className="font-semibold">
-                            {" "}
-                            {passedInLastTwoHours}/{totalPassed}
-                          </span>
+                        <div className="flex items-center gap-2">
+                          <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
+                          Closed/passed with in 2 Hours
                         </div>
                       </div>
                     </TooltipContent>
@@ -266,8 +275,18 @@ export function ClosedInLastTwoHoursCard({
                     />
                   </motion.span>
                   <span className="text-[9px] mt-0.5 text-gray-500 dark:text-white/60">
-                    rate
+                    completion
                   </span>
+
+                  {/* Hover Tooltip */}
+                  <div className="absolute left-1/2 top-full z-50 mt-2 hidden min-w-[160px] -translate-x-1/2 rounded-lg border bg-white p-2 text-xs shadow-xl group-hover:block dark:bg-background">
+                    <div className="font-semibold mb-2">
+                      Combined percentage: (Closed + Passed)
+                    </div>
+                    <div>
+                      <span>{combinedPercentage.toFixed(1)}%</span>
+                    </div>
+                  </div>
                 </motion.div>
               </div>
             </>
