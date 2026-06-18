@@ -7,7 +7,7 @@ import { appConfig } from '#root/config/app.js';
 // Run every 2 minutes — assigns in-review questions to available moderators (one per moderator at a time)
 if (true) {
   cron.schedule(
-    '*/2 * * * *',
+    '0 */1 * * * *',
     async () => {
       console.log('<<CRON>> [ModeratorQueue] Running moderator queue assignment job...');
       try {
