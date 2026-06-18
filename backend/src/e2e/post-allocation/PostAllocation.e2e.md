@@ -342,7 +342,7 @@ seeded questions, submissions, answers, reviews and notifications in `afterAll`.
 
 ## Last Run
 
-**Date:** 2026-06-17 &nbsp;|&nbsp; **Result:** ❌ 2 failed / 25 passed &nbsp;|&nbsp; **Duration:** 42.4 s
+**Date:** 2026-06-18 &nbsp;|&nbsp; **Result:** ❌ 2 failed / 25 passed &nbsp;|&nbsp; **Duration:** 33.8 s
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|

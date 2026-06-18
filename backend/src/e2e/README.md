@@ -70,7 +70,7 @@ preference-scoring test (#5) to be deterministic.
 
 ## Suites at a glance
 
-| Suite | File | Tests | Last run (2026-06-17) | What it covers |
+| Suite | File | Tests | Last run (2026-06-18) | What it covers |
 |-------|------|------:|----------------------|----------------|
 | Chemical CRUD | `chemical/ChemicalCrud.e2e.test.ts` | 15 | ✅ 15/15 | Auth smoke tests, admin + moderator CRUD, role guards (expert blocked) |
 | Question CRUD | `question/QuestionCreate.e2e.test.ts` | 8 | ❌ 6/8 | Moderator create / get / update / delete / bulk-delete (OUTREACH source) |
@@ -78,9 +78,9 @@ preference-scoring test (#5) to be deterministic.
 | WhatsApp ingestion | `whatsapp/WhatsAppQuestion.e2e.test.ts` | 18 | ✅ 18/18 | Full ingestion pipeline: auth, GDB duplicate paths, LLM filter, thread validation + retry |
 | AjraSakha ingestion | `ajrasakha/AjrasakhaQuestion.e2e.test.ts` | 9 | ✅ 9/9 | AJRASAKHA-specific fields (userId from `@CurrentUser`, notification type), representative pipeline cases |
 | Manual allocation | `manual-allocation/ManualAllocation.e2e.test.ts` | 10 | ✅ 10/10 | `POST /allocate-experts` + `DELETE /allocation` on an OUTREACH question |
-| Auto allocation | `auto-allocation/AutoAllocation.e2e.test.ts` | 44 | ✅ 44/44 | AGRI_EXPERT background queue, preference scoring, toggle, time-bound allocation (WHATSAPP/AJRASAKHA), capacity, reviewer, concurrent guard |
+| Auto allocation | `auto-allocation/AutoAllocation.e2e.test.ts` | 54 | ❌ 53/54 | AGRI_EXPERT background queue, preference scoring, toggle, time-bound allocation (WHATSAPP/AJRASAKHA), capacity, reviewer, concurrent guard |
 | Post-allocation | `post-allocation/PostAllocation.e2e.test.ts` | 27 | ❌ 25/27 | Full expert peer-review → moderator-approval state machine |
-| **Total** | | **140** | **132/140** | |
+| **Total** | | **150** | **141/150** | |
 
 ---
 

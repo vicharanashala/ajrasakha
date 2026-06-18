@@ -385,6 +385,12 @@ describe('Auto allocation — AGRI_EXPERT question: background allocates one exp
   });
 
   it('question has firstAllocationAt stamped after background allocation', async () => {
+    // updateQueue() (test 2) and the Promise.all that sets firstAllocationAt run
+    // concurrently — poll until the field lands rather than reading immediately.
+    await pollUntil(async () => {
+      const q = await getQuestion(questionId);
+      return q?.firstAllocationAt != null;
+    });
     const q = await getQuestion(questionId);
     console.log('[G1] firstAllocationAt:', q?.firstAllocationAt);
     expect(q.firstAllocationAt).toBeInstanceOf(Date);

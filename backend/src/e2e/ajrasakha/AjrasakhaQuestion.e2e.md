@@ -313,7 +313,7 @@ See `src/e2e/whatsapp/WhatsAppQuestion.e2e.md` BUG-001 for the full analysis.
 
 ## Last Run
 
-**Date:** 2026-06-17 &nbsp;|&nbsp; **Result:** ✅ all 9 passed &nbsp;|&nbsp; **Duration:** 27.7 s
+**Date:** 2026-06-18 &nbsp;|&nbsp; **Result:** ✅ all 9 passed &nbsp;|&nbsp; **Duration:** 29.9 s
 
 > ⚠ Vitest only printed 2 of 9 test lines (passing suites are truncated in the output).
 
