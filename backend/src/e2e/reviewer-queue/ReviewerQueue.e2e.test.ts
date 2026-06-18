@@ -140,8 +140,11 @@ function apiPost(path: string) {
 
 /** Call POST /questions/allocated as the current user. review_level='all' returns all slots. */
 function getAllocated() {
+  // Use a high limit so seeded questions aren't pushed out by existing DB data.
+  // The priority ordering change (commit 283c9c40) gives OUTREACH medium questions
+  // priorityOrder=7, behind AJRASAKHA/WHATSAPP, so they land later in the sort.
   return apiPost(`${ROUTE_PREFIX}/questions/allocated`)
-    .query({ review_level: 'all' })
+    .query({ review_level: 'all', limit: 1000 })
     .send({});
 }
 
@@ -274,7 +277,7 @@ describe('Reviewer queue — author slot visibility', () => {
 //   AND lastHistory.status = 'in-review'
 //   AND lastHistory.answer is absent / null
 //
-// review_level_number: historyCount=2 → 2 - 1 = 1 → 'Level 1'
+// review_level_number: historyCount=2 → 2 - 1 = 1 (number, not the string 'Level 1')
 // ════════════════════════════════════════════════════════════════════════════
 
 describe('Reviewer queue — reviewer slot visibility', () => {
@@ -283,7 +286,7 @@ describe('Reviewer queue — reviewer slot visibility', () => {
   beforeAll(async () => {
     // expertUser1 has submitted an answer (status='reviewed').
     // expertUser2 is the assigned reviewer (status='in-review', answer absent).
-    // historyCount = 2 → review_level_number = 'Level 1'
+    // historyCount = 2 → review_level_number = 1
     questionId = await seedQuestion({
       queue: [expertUser1._id, expertUser2._id],
       history: [
@@ -314,12 +317,13 @@ describe('Reviewer queue — reviewer slot visibility', () => {
     expect(found).toBeDefined();
   });
 
-  it('review_level_number is "Level 1" for the reviewer slot (historyCount = 2)', async () => {
+  it('review_level_number is 1 for the reviewer slot (historyCount = 2)', async () => {
     as(expertUser2);
     const res = await getAllocated();
     const found = res.body.find((q: any) => q.id === questionId);
     console.log('[G2-2] review_level_number:', found?.review_level_number);
-    expect(found?.review_level_number).toBe('Level 1');
+    // Repository returns historyCount - 1 (number), not the string 'Level 1'.
+    expect(found?.review_level_number).toBe(1);
   });
 
   it('completed author (expertUser1) does NOT see the question after submitting', async () => {

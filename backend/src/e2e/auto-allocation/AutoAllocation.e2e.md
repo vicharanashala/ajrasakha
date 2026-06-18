@@ -581,17 +581,61 @@ pnpm exec vitest run src/e2e/auto-allocation/AutoAllocation.e2e.test.ts
 
 ## Last Run
 
-**Date:** 2026-06-17 &nbsp;|&nbsp; **Result:** ✅ all 44 passed &nbsp;|&nbsp; **Duration:** 34.6 s
-
-> ⚠ Vitest only printed 8 of 44 test lines (passing suites are truncated in the output).
+**Date:** 2026-06-18 &nbsp;|&nbsp; **Result:** ❌ 1 failed / 53 passed &nbsp;|&nbsp; **Duration:** 27.9 s
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
 | 1 | Auto allocation — AGRI_EXPERT question: background allocates one expert > question is i... | ✅ | — |
-| 2 | Auto allocation — OUTREACH question: queue stays empty at creation > question is open w... | ✅ | — |
-| 3 | Auto allocation — OUTREACH question: queue stays empty at creation > queue remains empt... | ✅ | — |
-| 4 | Auto allocation — toggle-auto-allocate endpoint > OFF → ON: toggles flag to true and fi... | ✅ | — |
-| 5 | Auto allocation — toggle-auto-allocate endpoint > ON → OFF: toggles flag to false and l... | ✅ | — |
-| 6 | Toggle auto-allocate — sequential ON → OFF → ON same question leaves no duplicate exper... | ✅ | — |
-| 7 | Toggle auto-allocate — sequential ON → OFF → ON same question leaves no duplicate exper... | ✅ | — |
-| 8 | Toggle auto-allocate — sequential ON → OFF → ON same question leaves no duplicate exper... | ✅ | — |
+| 2 | Auto allocation — AGRI_EXPERT question: background allocates one expert > background pr... | ✅ | — |
+| 3 | Auto allocation — AGRI_EXPERT question: background allocates one expert > question has ... | ❌ | expected undefined to be an instance of Date |
+| 4 | Auto allocation — AGRI_EXPERT question: background allocates one expert > answer_creati... | ✅ | — |
+| 5 | Auto allocation — AGRI_EXPERT: preference scoring allocates the best expert > queue[0] ... | ✅ | — |
+| 6 | Auto allocation — OUTREACH question: queue stays empty at creation > question is open w... | ✅ | — |
+| 7 | Auto allocation — OUTREACH question: queue stays empty at creation > submission queue i... | ✅ | — |
+| 8 | Auto allocation — OUTREACH question: queue stays empty at creation > queue remains empt... | ✅ | — |
+| 9 | Auto allocation — toggle-auto-allocate endpoint > returns 401 when no user is logged in | ✅ | — |
+| 10 | Auto allocation — toggle-auto-allocate endpoint > OFF → ON: toggles flag to true and fi... | ✅ | — |
+| 11 | Auto allocation — toggle-auto-allocate endpoint > ON → OFF: toggles flag to false and l... | ✅ | — |
+| 12 | Time-bound allocation — WHATSAPP unallocated question → STF expert assigned > reports a... | ✅ | — |
+| 13 | Time-bound allocation — WHATSAPP unallocated question → STF expert assigned > submissio... | ✅ | — |
+| 14 | Time-bound allocation — WHATSAPP unallocated question → STF expert assigned > allocated... | ✅ | — |
+| 15 | Time-bound allocation — WHATSAPP unallocated question → STF expert assigned > question ... | ✅ | — |
+| 16 | Time-bound allocation — WHATSAPP unallocated question → STF expert assigned > submissio... | ✅ | — |
+| 17 | Time-bound allocation — WHATSAPP unallocated question → STF expert assigned > answer_cr... | ✅ | — |
+| 18 | Time-bound allocation — AJRASAKHA unallocated question → STF expert assigned > AJRASAKH... | ✅ | — |
+| 19 | Time-bound allocation — AJRASAKHA unallocated question → STF expert assigned > submissi... | ✅ | — |
+| 20 | Time-bound allocation — AJRASAKHA unallocated question → STF expert assigned > notifica... | ✅ | — |
+| 21 | Time-bound allocation — AJRASAKHA unallocated question → STF expert assigned > firstAll... | ✅ | — |
+| 22 | Time-bound allocation — questions that must NOT be picked up by reallocateTimeBoundQues... | ✅ | — |
+| 23 | Time-bound allocation — questions that must NOT be picked up by reallocateTimeBoundQues... | ✅ | — |
+| 24 | Time-bound allocation — questions that must NOT be picked up by reallocateTimeBoundQues... | ✅ | — |
+| 25 | Time-bound allocation — questions that must NOT be picked up by reallocateTimeBoundQues... | ✅ | — |
+| 26 | Time-bound allocation — questions that must NOT be picked up by reallocateTimeBoundQues... | ✅ | — |
+| 27 | Time-bound allocation — questions that must NOT be picked up by reallocateTimeBoundQues... | ✅ | — |
+| 28 | Time-bound allocation — questions that must NOT be picked up by reallocateTimeBoundQues... | ✅ | — |
+| 29 | Time-bound allocation — MAX_TIME_BOUND=1 expert capacity enforcement > busy STF expert ... | ✅ | — |
+| 30 | Time-bound allocation — MAX_TIME_BOUND=1 expert capacity enforcement > if only 1 STF ex... | ✅ | — |
+| 31 | Time-bound allocation — MAX_TIME_BOUND=1 expert capacity enforcement > if 2+ STF expert... | ✅ | — |
+| 32 | Time-bound allocation — concurrent run guard prevents double-allocation > second concur... | ✅ | — |
+| 33 | Time-bound allocation — answered question gets reviewer assigned (needsReviewer path) >... | ✅ | — |
+| 34 | Time-bound allocation — answered question gets reviewer assigned (needsReviewer path) >... | ✅ | — |
+| 35 | Time-bound allocation — answered question gets reviewer assigned (needsReviewer path) >... | ✅ | — |
+| 36 | Time-bound allocation — answered question gets reviewer assigned (needsReviewer path) >... | ✅ | — |
+| 37 | Time-bound allocation — answered question gets reviewer assigned (needsReviewer path) >... | ✅ | — |
+| 38 | Time-bound allocation — answered question gets reviewer assigned (needsReviewer path) >... | ✅ | — |
+| 39 | Time-bound allocation — reviewer-stage question is not re-processed by cron > queue sti... | ✅ | — |
+| 40 | Time-bound allocation — reviewer-stage question is not re-processed by cron > queue[0] ... | ✅ | — |
+| 41 | Time-bound allocation — reviewer-stage question is not re-processed by cron > queue[1] ... | ✅ | — |
+| 42 | Toggle auto-allocate — sequential ON → OFF → ON same question leaves no duplicate exper... | ✅ | — |
+| 43 | Toggle auto-allocate — sequential ON → OFF → ON same question leaves no duplicate exper... | ✅ | — |
+| 44 | Toggle auto-allocate — sequential ON → OFF → ON same question leaves no duplicate exper... | ✅ | — |
+| 45 | Time-bound allocation — stuck question (>45 min, never opened) detected and queued for ... | ✅ | — |
+| 46 | Time-bound allocation — stuck question (>45 min, never opened) detected and queued for ... | ✅ | — |
+| 47 | Time-bound allocation — stuck question (>45 min, never opened) detected and queued for ... | ✅ | — |
+| 48 | Time-bound allocation — stuck question (>45 min, never opened) detected and queued for ... | ✅ | — |
+| 49 | Time-bound allocation — stuck question (>45 min, never opened) detected and queued for ... | ✅ | — |
+| 50 | Time-bound allocation — opened-but-idle question (>45 min, no answer) detected with ski... | ✅ | — |
+| 51 | Time-bound allocation — opened-but-idle question (>45 min, no answer) detected with ski... | ✅ | — |
+| 52 | Time-bound allocation — opened-but-idle question (>45 min, no answer) detected with ski... | ✅ | — |
+| 53 | Time-bound allocation — opened-but-idle question (>45 min, no answer) detected with ski... | ✅ | — |
+| 54 | Time-bound allocation — opened-but-idle question (>45 min, no answer) detected with ski... | ✅ | — |

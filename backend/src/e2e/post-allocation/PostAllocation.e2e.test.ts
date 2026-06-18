@@ -216,6 +216,7 @@ async function seedAllocatedQuestion(opts: {
   status?: string;
   history?: any[];
   normalisedCrop?: string | null;
+  rawCrop?: string;
   source?: string;
   isAutoAllocate?: boolean;
   label?: string;
@@ -226,7 +227,7 @@ async function seedAllocatedQuestion(opts: {
   const details: any = {
     state: 'Punjab',
     district: 'Ludhiana',
-    crop: 'Paddy',
+    crop: opts.rawCrop ?? 'Paddy',
     season: 'Kharif',
     domain: 'Crop Protection',
   };
@@ -671,11 +672,15 @@ describe('Post-allocation — moderator approval edge cases', () => {
   });
 
   it('approve when question has no normalised_crop → 400', async () => {
+    // ensureNormalisedCrop resolves 'Paddy' from the crop master even when
+    // normalised_crop is null, so we must use a crop name that genuinely has
+    // no entry in the master to exercise the 400 path.
     const qId = await seedAllocatedQuestion({
       queue: experts,
       label: 'no-crop',
       status: 'in-review',
       normalisedCrop: null,
+      rawCrop: 'UnregisteredCropE2ETest',
     });
     const answerId = await seedAnswer(qId, experts[0]);
 

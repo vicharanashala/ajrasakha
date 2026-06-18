@@ -115,7 +115,7 @@ NODE_ENV=test pnpm exec vitest run src/e2e/question/QuestionCreate.e2e.test.ts
 
 ## Last Run
 
-**Date:** 2026-06-17 &nbsp;|&nbsp; **Result:** ❌ 2 failed / 6 passed &nbsp;|&nbsp; **Duration:** 26.2 s
+**Date:** 2026-06-18 &nbsp;|&nbsp; **Result:** ❌ 2 failed / 6 passed &nbsp;|&nbsp; **Duration:** 19.2 s
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
