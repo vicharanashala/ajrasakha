@@ -247,9 +247,14 @@ def apply_crop_one_shot_fallback(
     entities: PlannerEntities,
     domains: list[str],
 ) -> PlannerEntities:
-    """After one crop clarify, default missing crop to all instead of asking again."""
+    """After one crop clarify, default missing crop to all instead of asking again.
+    
+    Note: For crop-required domains, we do NOT apply this fallback. The crop should
+    remain cleared so the completeness check asks the user for their crop.
+    """
     canonical = [normalize_domain(d) for d in (domains or [])] or ["General"]
-    if not any(domain_requires_crop(d) for d in canonical):
+    # Don't apply "all" fallback for crop-required domains - let completeness check ask
+    if any(domain_requires_crop(d) for d in canonical):
         return entities
     crop = entities.get("crop")
     if has_specific_crop(crop):
@@ -356,6 +361,11 @@ def merge_entities_from_rephrased_query(
             # Clear the crop so completeness check will ask for it
             merged.pop("crop", None)
             crop_source = "cleared (domain_requires_crop_but_prev_was_all)"
+
+    # --- Non-agriculture: force crop to "all" ---
+    if plan.get("is_agriculture_related") is False:
+        merged["crop"] = "all"
+        crop_source = "non_agriculture_forced_all"
 
     # --- State/District Resolution (farmer text + LLM entities + clarify carry-over) ---
     state_from_text = extract_state_from_text(text)
