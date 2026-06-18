@@ -1222,6 +1222,11 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (body.details) {
         body.details.state = toTitleCase(body.details.state);
         body.details.crop = toTitleCase(body.details.crop as string);
+        body.details.domain = Array.isArray(body.details.domain)
+          ? body.details.domain
+          : body.details.domain
+            ? [body.details.domain]
+            : [];
       }
       const messageId = messageIdFromBody;
       const threadId = threadIdFromBody;
@@ -1236,7 +1241,11 @@ export class QuestionService extends BaseService implements IQuestionService {
           district: b?.district || '',
           crop: b?.crop || '',
           season: b?.season || '',
-          domain: b?.domain || '',
+          domain: Array.isArray(b?.domain)
+            ? b.domain
+            : b?.domain
+              ? [b.domain]
+              : [],
         };
       }
 
@@ -4978,7 +4987,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           district: string;
           crop: string | import('#root/shared/interfaces/models.js').ICropRef;
           season: string;
-          domain: string;
+          domain: string[];
         } | null
       >();
 
