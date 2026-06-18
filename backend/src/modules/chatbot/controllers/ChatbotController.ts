@@ -1842,6 +1842,7 @@ export class ChatbotController {
         'Coordinators can only manage users from their own dashboard',
       );
     }
+  }
 
     @Get('/village-data')
   @HttpCode(200)
@@ -1849,12 +1850,12 @@ export class ChatbotController {
   async getVillageUserCounts(
         @QueryParams()
     query: {
-      state: string,
-      district: string
-      source: string,
-      userType: string,
+      state: string;
+      district: string;
+      source: string;
+      userType: string;
     }
-  ): Promise<any>{
-    return this.chatbotService.getVillageUserCounts(query.state, query.district, query.source, query.userType)
+  ): Promise<any> {
+    return this.chatbotService.getVillageUserCounts(query.state, query.district, query.source, query.userType,);
   }
 }
