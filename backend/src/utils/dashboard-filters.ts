@@ -12,7 +12,7 @@ export function buildBaseQuestionMatch(source?: string) {
 
   if (source) {
     matchStage.source =
-      source !== "whatsapp"
+      source.toLowerCase() !== "whatsapp"
         ? "AJRASAKHA"
         : source.toUpperCase();
   }

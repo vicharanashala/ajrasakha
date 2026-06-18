@@ -47,7 +47,7 @@ export function ClosedInLastTwoHoursCard({
   isFetching,
   onRefresh,
   passedInLastTwoHours,
-  totalPassed,
+  totalPassed = 0,
 }: ClosedInLastTwoHoursCardProps) {
   const isRefreshing = isLoading || isFetching;
   const safeCount = closedInLastTwoHours ?? 0;

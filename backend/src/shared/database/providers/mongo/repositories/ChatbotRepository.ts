@@ -508,16 +508,8 @@ export class ChatbotRepository implements IChatbotRepository {
     dynamicSchemesCount: number;
     markedDuplicateGdbCount: number;
   }> {
-    const matchQuery: any = {
-      source,
-      createdAt: {$exists: true},
-      $and: [
-        {
-          $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-        },
-      ],
-      status: {$ne: 'non_agri'},
-    };
+
+    const matchQuery = buildBaseQuestionMatch(source);
     if (startTime || endTime) {
       matchQuery.createdAt = {};
       if (startTime) matchQuery.createdAt.$gte = new Date(startTime);
@@ -1369,6 +1361,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const feedbackCount = (usersWithFeedback as any[])[0]?.total ?? 0;
 
       await this.initReviewSystem();
+      const matchQuery = buildBaseQuestionMatch(source);
       const query = await this.buildQuestionUserTypeMatchQuery(
         source,
         userType,
@@ -1378,15 +1371,8 @@ export class ChatbotRepository implements IChatbotRepository {
       const dupeWithMsgId = await this.QuestionCollection.find({
         similarityScore: {$exists: true},
         messageId: {$exists: true, $ne: null},
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-          {
-            ...query,
-          },
-        ],
-        status: {$ne: 'non_agri'},
+        ...matchQuery,
+        ...query,
       })
         .project<{messageId: string}>({messageId: 1})
         .toArray();
@@ -1765,19 +1751,11 @@ export class ChatbotRepository implements IChatbotRepository {
 
       // const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
       const source = _source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
+      const matchQuery = buildBaseQuestionMatch(source);
 
-      const matchQuery: any = {
-        source,
-        'details.domain': {
-          $exists: true,
-          $nin: [null, ''],
-        },
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-        ],
-        status: {$ne: 'non_agri'},
+      matchQuery['details.domain'] = {
+        $exists: true,
+        $nin: [null, ''],
       };
 
       const query = await this.buildQuestionUserTypeMatchQuery(
@@ -1896,20 +1874,14 @@ export class ChatbotRepository implements IChatbotRepository {
       const safePage = Math.max(Number(page) || 1, 1);
       const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
       const skip = (safePage - 1) * safeLimit;
-      // const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
-      const baseMatch = {
-        source: 'AJRASAKHA',
-        'details.domain': {
-          $exists: true,
-          $nin: [null, ''],
-        },
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-        ],
-        status: {$ne: 'non_agri'},
+
+      const baseMatch = buildBaseQuestionMatch(_source);
+
+      baseMatch['details.domain'] = {
+        $exists: true,
+        $nin: [null, ''],
       };
+
       const query = await this.buildQuestionUserTypeMatchQuery(
         _source,
         userType,
@@ -1918,7 +1890,6 @@ export class ChatbotRepository implements IChatbotRepository {
       if (query && Object.keys(query).length > 0) {
         baseMatch.$and.push(query);
       }
-
       const categoryLabel = category?.trim();
       if (!categoryLabel) {
         throw new BadRequestError('category is required');
@@ -3192,17 +3163,11 @@ for (const item of raw) {
       const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
       const skip = (safePage - 1) * safeLimit;
       const sourceType = source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
-      const baseMatch = {
-        source: sourceType,
-        'details.district': {
-          $exists: true,
-          $nin: [null, ''],
-        },
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-        ],
+      const baseMatch = buildBaseQuestionMatch(sourceType);
+
+      baseMatch['details.district'] = {
+        $exists: true,
+        $nin: [null, ''],
       };
       const query = await this.buildQuestionUserTypeMatchQuery(
         source,
@@ -5109,22 +5074,30 @@ for (const item of raw) {
                   ],
                 },
               },
+              passedQuestions: {
+                $sum: {
+                  $cond: [
+                    {
+                      $eq: ['$status', 'pass'],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
             },
           },
 
           {
             $project: {
               _id: 0,
-
               period: '$_id',
-
               totalQuestions: 1,
-
               closedQuestions: 1,
-
               averageCloseTimeMinutes: {
                 $round: ['$averageCloseTimeMinutes', 2],
               },
+              passedQuestions: 1,
             },
           },
         ],
@@ -5144,6 +5117,7 @@ for (const item of raw) {
           totalQuestions: 0,
           closedQuestions: 0,
           averageCloseTimeMinutes: 0,
+           passedQuestions: 0,
         });
       }
 
@@ -5156,6 +5130,7 @@ for (const item of raw) {
           existing.averageCloseTime = this.formatAverageCloseTime(
             item.averageCloseTimeMinutes || 0,
           );
+          existing.passedQuestions = item.passedQuestions;
         } else {
           mergedMap.set(item.period, {
             period: item.period,
@@ -5165,6 +5140,7 @@ for (const item of raw) {
             averageCloseTime: this.formatAverageCloseTime(
               item.averageCloseTimeMinutes || 0,
             ),
+            passedQuestions: item.passedQuestions,
           });
         }
       }
@@ -5335,6 +5311,17 @@ for (const item of raw) {
                   ],
                 },
               },
+              passedQuestions: {
+                $sum: {
+                  $cond: [
+                    {
+                      $eq: ['$status', 'pass'],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
             },
           },
 
@@ -5351,6 +5338,7 @@ for (const item of raw) {
               averageCloseTimeMinutes: {
                 $round: ['$averageCloseTimeMinutes', 2],
               },
+              passedQuestions: 1,
             },
           },
         ],
@@ -5370,6 +5358,7 @@ for (const item of raw) {
           totalQuestions: 0,
           closedQuestions: 0,
           averageCloseTimeMinutes: 0,
+          passedQuestions: 0,
         });
       }
 
@@ -5382,6 +5371,7 @@ for (const item of raw) {
           existing.averageCloseTime = this.formatAverageCloseTime(
             item.averageCloseTimeMinutes || 0,
           );
+          existing.passedQuestions = item.passedQuestions;
         } else {
           mergedMap.set(item.period, {
             period: item.period,
@@ -5391,6 +5381,7 @@ for (const item of raw) {
             averageCloseTime: this.formatAverageCloseTime(
               item.averageCloseTimeMinutes || 0,
             ),
+            passedQuestions: item.passedQuestions,
           });
         }
       }
@@ -5555,6 +5546,15 @@ for (const item of raw) {
                   ],
                 },
               },
+              passedQuestions: {
+                $sum: {
+                  $cond: [
+                    {$eq: ['$status', 'pass']},
+                    1,
+                    0,
+                  ],
+                },
+              },
             },
           },
 
@@ -5571,6 +5571,7 @@ for (const item of raw) {
               averageCloseTimeMinutes: {
                 $round: ['$averageCloseTimeMinutes', 2],
               },
+              passedQuestions: 1,
             },
           },
         ],
@@ -5590,6 +5591,7 @@ for (const item of raw) {
           totalQuestions: 0,
           closedQuestions: 0,
           averageCloseTimeMinutes: 0,
+           passedQuestions: 0,
         });
       }
 
@@ -5602,6 +5604,7 @@ for (const item of raw) {
           existing.averageCloseTime = this.formatAverageCloseTime(
             item.averageCloseTimeMinutes || 0,
           );
+          existing.passedQuestions = item.passedQuestions;
         } else {
           mergedMap.set(item.period, {
             period: item.period,
@@ -5611,6 +5614,7 @@ for (const item of raw) {
             averageCloseTime: this.formatAverageCloseTime(
               item.averageCloseTimeMinutes || 0,
             ),
+             passedQuestions: item.passedQuestions,
           });
         }
       }
@@ -7069,25 +7073,9 @@ for (const item of raw) {
           items: [],
         };
       }
+      const matchQuery: any = buildBaseQuestionMatch(sourceType);
 
-      const matchQuery: any = {
-        source: sourceType,
-
-        $or: orConditions,
-
-        /**
-         * Handle both old and new values
-         */
-        status: {
-          $nin: ['non_agri', 'NO_AGRI'],
-        },
-
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-        ],
-      };
+      matchQuery.$or = orConditions;
 
       const query = await this.buildQuestionUserTypeMatchQuery(
         source,
@@ -8900,15 +8888,7 @@ for (const item of raw) {
     try {
       await this.initReviewSystem();
 
-      let matchQuery: any = {
-        source: dbSource === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA',
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-        ],
-        status: {$ne: 'non_agri'},
-      };
+      const matchQuery = buildBaseQuestionMatch('whatsapp');
 
       if (startTime || endTime) {
         matchQuery.createdAt = {};
@@ -9060,14 +9040,7 @@ for (const item of raw) {
   ): Promise<Array<{question: string; count: number}>> {
     try {
       await this.initReviewSystem();
-      let matchQuery: any = {
-        source: dbSource !== 'whatsapp' ? 'AJRASAKHA' : 'WHATSAPP',
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-        ],
-      };
+      const matchQuery = buildBaseQuestionMatch('whatsapp');
 
       if (startTime || endTime) {
         matchQuery.createdAt = {};
@@ -10181,18 +10154,19 @@ for (const item of raw) {
   ): Promise<DuplicateQuestionEntry[]> {
     try {
       await this.initReviewSystem();
+      const matchQuery = buildBaseQuestionMatch('whatsapp');
+
+      matchQuery.similarityScore = {
+        $exists: true,
+      };
+
+      matchQuery.referenceQuestionId = {
+        $exists: true,
+      };
 
       const dupeQuestions = await this.QuestionCollection.find(
         {
-          source: 'WHATSAPP',
-          $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          similarityScore: {
-            $exists: true,
-          },
-          referenceQuestionId: {
-            $exists: true,
-          },
-          status: {$ne: 'non_agri'},
+          $match: matchQuery,
         },
         {session},
       )
@@ -10254,11 +10228,7 @@ for (const item of raw) {
     try {
       await this.initReviewSystem();
 
-      const matchQuery: any = {
-        source: 'WHATSAPP',
-        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-        status: {$ne: 'non_agri'},
-      };
+      const matchQuery = buildBaseQuestionMatch('whatsapp');
 
       // ============================================
       // DATE FILTER
@@ -10324,21 +10294,20 @@ for (const item of raw) {
   ): Promise<number> {
     try {
       await this.initReviewSystem();
+      const matchQuery = buildBaseQuestionMatch('whatsapp');
+
+      matchQuery.similarityScore = {
+        $exists: true,
+      };
+
+      matchQuery.referenceQuestionId = {
+        $exists: true,
+      };
 
       const result = await this.QuestionCollection.aggregate(
         [
           {
-            $match: {
-              source: 'WHATSAPP',
-              $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-              similarityScore: {
-                $exists: true,
-              },
-              referenceQuestionId: {
-                $exists: true,
-              },
-              status: {$ne: 'non_agri'},
-            },
+            $match: matchQuery,
           },
 
           {
@@ -11750,8 +11719,8 @@ for (const item of raw) {
     // Questions with null userId
     const questionWithNullUsers = await this.QuestionCollection.find(
       {
+        ...buildBaseQuestionMatch(source),
         userId: null,
-        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
       },
       {
         projection: {
@@ -13371,18 +13340,12 @@ for (const item of raw) {
 
      const userDocFilter =
   this.buildUserDocFilter(userType);
-      const matchQuery: any = {
-        source: sourceType,
-        'details.state': {
-              $nin: [null, '', 'all', '<unknown>', 'Not Specified', 'All'],
-            },
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-        ],
-        status: {$ne: 'non_agri'},
+      const matchQuery = buildBaseQuestionMatch(sourceType);
+
+      matchQuery['details.state'] = {
+        $nin: [null, '', 'all', '<unknown>', 'Not Specified', 'All'],
       };
+
 
       const query = await this.buildQuestionUserTypeMatchQuery(
         sourceType,
@@ -13793,16 +13756,13 @@ existing.coordinators =
         questionUserMatches.push({threadId: {$in: userThreadIds}});
       }
 
-      const userQuestionFilter: any = {
-        $and: [
-          {$or: questionUserMatches},
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-          {status: {$nin: ['non_agri', 'NO_AGRI', 'no_agri']}},
-        ],
-        source: 'AJRASAKHA',
-      };
+      const userQuestionFilter: any = buildBaseQuestionMatch('AJRASAKHA');
+
+      if (questionUserMatches.length > 0) {
+        userQuestionFilter.$and.push({
+          $or: questionUserMatches,
+        });
+      }
 
       const userQuestions = await this.QuestionCollection.find(
         userQuestionFilter,

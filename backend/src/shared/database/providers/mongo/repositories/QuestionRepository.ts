@@ -5549,8 +5549,6 @@ export class QuestionRepository implements IQuestionRepository {
     // Apply isOnHold filter exactly matching findDetailedQuestions logic
     if (query.isOnHold === 'true') {
       filter.isOnHold = {$eq: true};
-    } else {
-      filter.isOnHold = {$ne: true};
     }
 
     // Apply isHidden filter exactly matching findDetailedQuestions logic
