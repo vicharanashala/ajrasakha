@@ -660,7 +660,8 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                 success:isAcceptFlow
                     ? "LLM answer submitted successfully for author review"
                     : "Answer pushed to GDB successfully",
-                error:"Failed to approve the answer. Please try again."
+                // error:"Failed to approve the answer. Please try again."
+                    error: (error:any) => error.message ? error.message : "Failed to approve the answer. Please try again."
             });
             setApproved(true);
 

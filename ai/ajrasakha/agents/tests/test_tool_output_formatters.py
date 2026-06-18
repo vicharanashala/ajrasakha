@@ -327,6 +327,7 @@ def test_format_market_onion_missing_latest_price():
 
 
 def test_format_market_both_empty():
+    """When both market sources have no data, return empty string to trigger empty_gdb_reply."""
     payload = {
         "query_context": {
             "state": "Jammu and Kashmir",
@@ -338,9 +339,8 @@ def test_format_market_both_empty():
         "enam": {"success": True, "source": "eNAM", "data": []},
     }
     out = format_tool_output("market", json.dumps(payload))
-    assert "No mandi price data found" in out
-    assert "No price data for this date" in out
-    assert "No trade data for this date" in out
+    # Empty string triggers empty_gdb_reply path
+    assert out == ""
 
 
 def test_format_non_gdb_market_json_becomes_readable():
