@@ -3065,6 +3065,14 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
+  async getAllStatesQuestionsAndUsersData(source: string, userType: string): Promise<any> {
+    try{
+      return this.chatbotRepository.getAllStatesQuestionsAndUsersData(source, userType, undefined)
+    }catch(error){
+      throw new InternalServerError(`Internal Server Error ${error}`)
+    }
+  }
+  
   async getUserProfile(userId: string){
     try{
       return this.chatbotRepository.getUserProfile(userId)
@@ -3073,6 +3081,13 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
+  // async getStateQuestionsAndUsersData(state: string, source: string, userType: string): Promise<any> {
+  //   try {
+  //     return this.chatbotRepository.getStateQuestionsAndUsersData(state, source, userType, undefined);
+  //   }catch(error){
+  //     throw new InternalServerError(`Internal server error ${error}`)
+  //   }
+  // }
   async assignUsers(userId: string, targetIds: string[]): Promise<any>{
     try{
       return this.chatbotRepository.assignUsers(userId, targetIds)
@@ -3084,6 +3099,14 @@ export class ChatbotService extends BaseService implements IChatbotService {
   async unAssignUsers(userId: string, targetIds: string[]): Promise<any>{
     try{
       return this.chatbotRepository.unAssignUsers(userId, targetIds)
+    }catch(error){
+      throw new InternalServerError(`Internal Server Error ${error}`)
+    }
+  }
+
+  async getVillageUserCounts(state: string, district: string, source: string, userType: string): Promise<any> {
+    try {
+      return this.chatbotRepository.getVillageUserCounts(state, district, source, userType, undefined);
     }catch(error){
       throw new InternalServerError(`Internal Server Error ${error}`)
     }

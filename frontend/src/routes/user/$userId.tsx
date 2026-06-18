@@ -13,6 +13,7 @@ import { FarmerDetailsContent } from "@/components/user/FarmerDetailsContent";
 import {
   AlertCircle,
   BarChart3,
+  BellIcon,
   ChevronDown,
   Home,
   Loader2,
@@ -37,6 +38,16 @@ import {
   TableRow,
 } from "@/components/atoms/table";
 import Spinner from "@/components/atoms/spinner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/atoms/dialog";
+import { ScrollArea } from "@/components/atoms/scroll-area";
+import { Textarea } from "@/components/atoms/textarea";
 import { useVerifyUserAnalytics } from "@/hooks/api/user/useVerifyUserAnalytics";
 import { useDeleteUser } from "@/features/chatbotDashboard/hooks/useDeleteUser";
 import {
@@ -58,10 +69,14 @@ import {
 } from "@/components/atoms/alert-dialog";
 import { Input } from "@/components/atoms/input";
 import { AnimatePresence, motion } from "framer-motion";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FarmerNameLink } from "@/features/chatbotDashboard/components/FarmerNameLink";
 import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
 import { isCoordinatorRole } from "@/lib/roles";
+import { NotificationModal } from "@/components/NotificationModal";
+import { apiFetch } from "@/hooks/api/api-fetch";
+import { env } from "@/config/env";
+import { useToast } from "@/shared/components/toast";
 
 export const Route = createFileRoute("/user/$userId")({
   component: RouteComponent,
@@ -73,6 +88,7 @@ const isLikelyObjectId = (value?: string | null) =>
 type AssignableUser = {
   _id: string;
   name: string;
+  email?: string;
   userRole?: string;
 };
 
@@ -121,8 +137,33 @@ type FarmerDashboardData = {
   recentConversations?: DashboardConversation[];
 };
 
+type UserNotification = {
+  _id: string;
+  enitity_id: string;
+  message: string;
+  title: string;
+  is_read: boolean;
+  type: string;
+  createdAt: string;
+  deliveryTimestamp?: string;
+  sender?: {
+    _id: string;
+    name?: string;
+    email?: string;
+    role?: string;
+  } | null;
+  recipient?: {
+    _id: string;
+    name?: string;
+    email?: string;
+    role?: string;
+  } | null;
+  direction?: "sent" | "received";
+};
+
 function RouteComponent() {
   const queryClient = useQueryClient();
+  const { success: toastSuccess, error: toastError } = useToast();
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const { data: currentUser } = useGetCurrentUser({
@@ -143,14 +184,24 @@ function RouteComponent() {
       return;
     }
     if (currentUser && currentUser?.role !== "admin") {
-      const currentUserId = currentUser?._id || user.uid;
-      if (isCoordinatorRole(currentUser?.role) && userId === currentUserId) {
-        return;
+      if (isCoordinatorRole(currentUser?.role)) {
+        if (userProfileLoading) return;
+
+        const currentUserEmail = String(currentUser.email || user.email || "")
+          .trim()
+          .toLowerCase();
+        const viewedUserEmail = String(userProfile?.email || "")
+          .trim()
+          .toLowerCase();
+
+        if (currentUserEmail && currentUserEmail === viewedUserEmail) {
+          return;
+        }
       }
       navigate({ to: "/home" });
       return;
     }
-  }, [user, currentUser, navigate, userId]);
+  }, [user, currentUser, navigate, userProfile, userProfileLoading]);
 
   const verifyUserMutation = useVerifyUserAnalytics();
   const deleteUserMutation = useDeleteUser();
@@ -170,6 +221,34 @@ function RouteComponent() {
     email: string;
     isVerified: boolean;
   } | null>(null);
+  const [notificationHistoryUser, setNotificationHistoryUser] =
+    useState<UserDetail | null>(null);
+  const [notificationTargetUser, setNotificationTargetUser] =
+    useState<AssignableUser | null>(null);
+
+  const sendNotificationMutation = useMutation({
+    mutationFn: async (payload: {
+      userId: string;
+      title: string;
+      message: string;
+    }) =>
+      apiFetch(`${env.apiBaseUrl()}/notifications/user/${payload.userId}/send`, {
+        method: "POST",
+        body: JSON.stringify({
+          title: payload.title,
+          message: payload.message,
+        }),
+      }),
+    onSuccess: () => {
+      toastSuccess("Notification sent");
+      setNotificationTargetUser(null);
+    },
+    onError: (error) => {
+      toastError(
+        error instanceof Error ? error.message : "Failed to send notification",
+      );
+    },
+  });
 
   const handleEditUser = (user: UserDetail) => {
     setUserToEdit(user);
@@ -288,7 +367,7 @@ function RouteComponent() {
       setAssigning(true);
       await assignUsersMutation.mutateAsync({
         userId: userProfile.userId,
-        userIds: availableUsers.map((u) => u._id),
+        userIds: selectedUsers,
       });
       setSelectedUsers([]);
       setAssigning(false);
@@ -378,6 +457,18 @@ function RouteComponent() {
     }
   };
 
+  const handleSendAssignedUserNotification = async (payload: {
+    title: string;
+    message: string;
+  }) => {
+    if (!notificationTargetUser) return;
+    await sendNotificationMutation.mutateAsync({
+      userId: notificationTargetUser._id,
+      title: payload.title,
+      message: payload.message,
+    });
+  };
+
   if (!user || (canFetchProfile && userProfileLoading)) {
     return (
       <>
@@ -406,6 +497,29 @@ function RouteComponent() {
     );
   }
 
+  const coordinatorRoles = [
+    "district_coordinator",
+    "block_coordinator",
+    "village_volunteer",
+  ];
+  const viewedProfileIsCoordinator = coordinatorRoles.includes(
+    userProfile?.userRole ?? "",
+  );
+  const currentUserIsCoordinator = isCoordinatorRole(currentUser?.role);
+  const currentUserEmail = String(currentUser?.email || user?.email || "")
+    .trim()
+    .toLowerCase();
+  const viewedUserEmail = String(userProfile?.email || "")
+    .trim()
+    .toLowerCase();
+  const currentUserOwnsViewedProfile =
+    currentUserIsCoordinator &&
+    Boolean(currentUserEmail) &&
+    currentUserEmail === viewedUserEmail;
+  const canManageAssignments =
+    viewedProfileIsCoordinator &&
+    (currentUser?.role === "admin" || currentUserOwnsViewedProfile);
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="flex items-center justify-between border-b border-border px-8 py-2">
@@ -419,6 +533,27 @@ function RouteComponent() {
         </Button>
         <h1 className="text-base font-semibold">User Dashboard</h1>
         <div className="flex items-center gap-2">
+          {currentUserIsCoordinator && (
+            <NotificationModal
+              trigger={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative h-9 w-9"
+                  title="Notifications"
+                >
+                  <BellIcon className="h-5 w-5" />
+                  {(currentUser?.notifications ?? 0) > 0 && (
+                    <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
+                      {(currentUser?.notifications ?? 0) > 99
+                        ? "99+"
+                        : currentUser?.notifications}
+                    </span>
+                  )}
+                </Button>
+              }
+            />
+          )}
           <ThemeToggleCompact />
           <UserProfileActions />
         </div>
@@ -435,17 +570,17 @@ function RouteComponent() {
           onVerificationChange={(nextStatus) =>
             requestVerificationChange(userProfile, nextStatus)
           }
+          onNotificationHistory={
+            currentUser?.role === "admin"
+              ? (targetUser) => setNotificationHistoryUser(targetUser)
+              : undefined
+          }
           onChangePassword={handleChangeViewedUserPassword}
         />
         <FarmerDashboardAnalytics
           dashboard={userProfile?.farmerDashboard as FarmerDashboardData}
         />
-        {currentUser?.role === "admin" &&
-          [
-            "district_coordinator",
-            "block_coordinator",
-            "village_volunteer",
-          ].includes(userProfile?.userRole) && (
+        {canManageAssignments && (
             <>
               <section className="rounded-md border bg-card/60 overflow-hidden my-4">
                 <motion.button
@@ -517,6 +652,11 @@ function RouteComponent() {
                                 <FarmerNameLink userId={u._id} className="font-medium">
                                   {u.name}
                                 </FarmerNameLink>
+                                {u.userRole ? (
+                                  <p className="text-xs text-muted-foreground">
+                                    {u.userRole}
+                                  </p>
+                                ) : null}
                               </div>
                             </div>
 
@@ -607,23 +747,34 @@ function RouteComponent() {
                               />
 
                               <div>
-                                <FarmerNameLink userId={u._id} className="font-medium">
-                                  {u.name}
-                                </FarmerNameLink>
+                                <span className="font-medium">{u.name}</span>
                                 <p className="text-xs text-muted-foreground">
                                   {u.userRole}
                                 </p>
                               </div>
                             </div>
 
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => handleUnassignUser(u._id)}
-                              disabled={assigning}
-                            >
-                              Remove
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-9 w-9"
+                                onClick={() => setNotificationTargetUser(u)}
+                                title="Send notification"
+                                aria-label={`Send notification to ${u.name}`}
+                              >
+                                <BellIcon className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleUnassignUser(u._id)}
+                                disabled={assigning}
+                              >
+                                Remove
+                              </Button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -634,6 +785,23 @@ function RouteComponent() {
             </>
           )}
       </div>
+      <UserNotificationHistorySheet
+        user={notificationHistoryUser}
+        open={!!notificationHistoryUser}
+        onOpenChange={(open) => !open && setNotificationHistoryUser(null)}
+      />
+      <CoordinatorNotificationDialog
+        user={notificationTargetUser}
+        open={!!notificationTargetUser}
+        isSending={sendNotificationMutation.isPending}
+        defaultTitle={
+          currentUser?.role === "admin"
+            ? "Message from admin"
+            : "Message from coordinator"
+        }
+        onOpenChange={(open) => !open && setNotificationTargetUser(null)}
+        onSend={handleSendAssignedUserNotification}
+      />
       <EditFarmerModal
         open={!!userToEdit}
         onOpenChange={(open) => !open && setUserToEdit(null)}
@@ -1152,6 +1320,262 @@ function formatDate(value?: string | null) {
 
 function toTitleCase(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function CoordinatorNotificationDialog({
+  user,
+  open,
+  isSending,
+  defaultTitle,
+  onOpenChange,
+  onSend,
+}: {
+  user: AssignableUser | null;
+  open: boolean;
+  isSending: boolean;
+  defaultTitle: string;
+  onOpenChange: (open: boolean) => void;
+  onSend: (payload: { title: string; message: string }) => Promise<void>;
+}) {
+  const [title, setTitle] = useState(defaultTitle);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      setTitle(defaultTitle);
+      setMessage("");
+    }
+  }, [defaultTitle, open, user?._id]);
+
+  const canSend = message.trim().length > 0 && !isSending;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Send notification</DialogTitle>
+          <DialogDescription>
+            {user?.name ? `Send a notification to ${user.name}.` : null}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium" htmlFor="notification-title">
+              Title
+            </label>
+            <Input
+              id="notification-title"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              disabled={isSending}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium" htmlFor="notification-message">
+              Message
+            </label>
+            <Textarea
+              id="notification-message"
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              disabled={isSending}
+              className="min-h-28"
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isSending}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            disabled={!canSend}
+            onClick={() =>
+              void onSend({
+                title,
+                message,
+              })
+            }
+          >
+            {isSending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Sending...
+              </>
+            ) : (
+              "Send"
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function UserNotificationHistorySheet({
+  user,
+  open,
+  onOpenChange,
+}: {
+  user: UserDetail | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const targetUserId = user?.userId ? String(user.userId) : "";
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["user-notification-history", targetUserId],
+    enabled: open && Boolean(targetUserId),
+    queryFn: async () =>
+      apiFetch<{
+        notifications: UserNotification[];
+        page: number;
+        totalCount: number;
+        totalPages: number;
+      }>(
+        `${env.apiBaseUrl()}/notifications/user/${targetUserId}?page=1&limit=50`,
+      ),
+  });
+  const notifications = data?.notifications ?? [];
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[calc(100vh-2rem)] w-full flex-col overflow-hidden p-0 sm:max-w-2xl">
+        <DialogHeader className="border-b p-6 pr-12">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-primary/10 p-2">
+              <BellIcon className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <DialogTitle className="text-xl font-bold">
+                Activity Logs
+              </DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                {user?.name || user?.email || "Selected user"}
+              </p>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <ScrollArea className="flex-1 bg-muted/10">
+          <div className="space-y-4 p-6">
+            {isLoading && (
+              <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Loading activity logs...
+              </div>
+            )}
+
+            {isError && (
+              <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+                Failed to load activity logs.
+              </div>
+            )}
+
+            {!isLoading && !isError && notifications.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="mb-4 rounded-full bg-muted p-4">
+                  <BellIcon className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-base font-semibold">No activity logs</h3>
+                <p className="text-sm text-muted-foreground">
+                  No activity logs found for this user.
+                </p>
+              </div>
+            )}
+
+            {notifications.map((notification) => (
+              <div
+                key={notification._id}
+                className="rounded-xl border bg-card p-4 shadow-sm"
+              >
+                <div className="mb-2 flex items-start justify-between gap-3">
+                  <div>
+                    <h4 className="text-sm font-semibold">
+                      {getNotificationDisplayTitle(notification)}
+                    </h4>
+                  </div>
+                  <Badge variant={notification.is_read ? "outline" : "default"}>
+                    {notification.is_read ? "Read" : "Unread"}
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {notification.message}
+                </p>
+                <div className="mt-4 grid gap-2 rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
+                  <div className="flex justify-between gap-3">
+                    <span>Sender</span>
+                    <span className="text-right font-medium text-foreground">
+                      {notification.sender?.name || notification.sender?.email || "N/A"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span>Sender Role</span>
+                    <span className="text-right font-medium text-foreground">
+                      {notification.sender?.role || "N/A"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span>Recipient</span>
+                    <span className="text-right font-medium text-foreground">
+                      {notification.recipient?.name ||
+                        notification.recipient?.email ||
+                        user?.name ||
+                        user?.email ||
+                        "N/A"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span>Delivered</span>
+                    <span className="text-right font-medium text-foreground">
+                      {formatDate(
+                        notification.deliveryTimestamp || notification.createdAt,
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function getNotificationDisplayTitle(notification: UserNotification) {
+  if (notification.direction === "sent") {
+    const recipient =
+      notification.recipient?.name || notification.recipient?.email;
+
+    return recipient ? `Message sent to ${recipient}` : "Message sent";
+  }
+
+  const senderName = notification.sender?.name || notification.sender?.email;
+
+  if (
+    senderName &&
+    (notification.title === "Message from coordinator" ||
+      notification.title === "Message from admin")
+  ) {
+    return `Message from ${senderName}`;
+  }
+
+  if (
+    notification.sender?.role === "admin" &&
+    notification.title === "Message from coordinator"
+  ) {
+    return "Message from admin";
+  }
+
+  return notification.title || "Notification";
 }
 
 function DashboardMessage({

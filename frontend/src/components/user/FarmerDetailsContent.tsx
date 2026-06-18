@@ -4,6 +4,7 @@ import { Button } from "../atoms/button";
 import { useState } from "react";
 import { Input } from "../atoms/input";
 import {
+  Bell,
   Check,
   ChevronDown,
   Eye,
@@ -26,6 +27,7 @@ interface FarmerDetailsContentProps {
   onEdit?: (user: UserDetail) => void;
   onDelete?: (user: UserDetail) => void;
   onVerificationChange?: (nextStatus: boolean) => void;
+  onNotificationHistory?: (user: UserDetail) => void;
   onChangePassword?: (payload: {
     newPassword: string;
     keepLoggedIn: boolean;
@@ -82,6 +84,7 @@ export function FarmerDetailsContent({
   onEdit,
   onDelete,
   onVerificationChange,
+  onNotificationHistory,
   onChangePassword,
 }: FarmerDetailsContentProps) {
   const fp = user?.farmerProfile;
@@ -176,6 +179,17 @@ export function FarmerDetailsContent({
 
             {isAdmin && (
               <div className="flex gap-2">
+                {onNotificationHistory && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onNotificationHistory(user)}
+                  >
+                    <Bell className="h-4 w-4" />
+                    Activity Logs
+                  </Button>
+                )}
+
                 {onVerificationChange && (
                   <Button
                     size="sm"
