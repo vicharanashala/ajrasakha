@@ -16,8 +16,8 @@ import {
 } from "@/components/atoms/tooltip";
 import{  CROPS,
   INDIAN_LANGUAGES,
-  KVKS,
 } from "../utils/metaData";
+import { KVK } from "../utils/KVKS";
 import { 
   useGetStates, 
   useGetDistricts, 
@@ -667,7 +667,7 @@ const DemographicDetails = ({
           }}
         >
           <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select Subdistrict" />
+            <SelectValue placeholder="Select Block" />
           </SelectTrigger>
           <SelectContent>
             {blocks.map((block) => (
@@ -710,7 +710,7 @@ const DemographicDetails = ({
             <SelectValue placeholder="Select KVK" />
           </SelectTrigger>
           <SelectContent>
-            {(KVKS[form.district] || []).map((kvk) => (
+            {(KVK[form.district] || []).map((kvk) => (
               <SelectItem key={kvk} value={kvk}>
                 {kvk}
               </SelectItem>
