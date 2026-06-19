@@ -6,12 +6,22 @@ import { env } from "@/config/env";
 
 const API_BASE_URL = env.apiBaseUrl();
 
+/** One question a moderator currently holds, with its denormalised status. */
+export interface AssignedQuestion {
+  questionId: string;
+  status: string;
+}
+
+/** Statuses that mark a moderator "busy". Re-routed (and other) held questions do not. */
+export const BLOCKING_ASSIGNED_STATUSES = ["in-review", "duplicate"];
+
 export interface StfModerator {
   _id: string;
   name: string;
   email: string;
-  /** The questions this moderator is currently assigned to (empty when free). */
-  assignedQuestionIds?: string[] | null;
+  /** The questions this moderator currently holds (empty when free). A moderator is
+   *  busy only while holding an entry in a blocking status; re-routed entries don't count. */
+  assignedQuestionIds?: AssignedQuestion[] | null;
 }
 
 export class UserService {

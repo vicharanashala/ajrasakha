@@ -4,7 +4,7 @@ import {
   UserRoleOverview,
 } from '#root/modules/dashboard/validators/DashboardValidators.js';
 import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
-import { IUser, NotificationRetentionType } from '#shared/interfaces/models.js';
+import { IUser, NotificationRetentionType, QuestionStatus } from '#shared/interfaces/models.js';
 import { MongoClient, ClientSession, ObjectId } from 'mongodb';
 
 /**
@@ -328,6 +328,7 @@ export interface IUserRepository {
   ): Promise<IUser>;
   findAvailableModerators(): Promise<IUser[]>;
   findAvailableStfModerators(): Promise<IUser[]>;
-  addAssignedQuestion(moderatorId: string, questionId: string): Promise<void>;
+  addAssignedQuestion(moderatorId: string, questionId: string, status: QuestionStatus): Promise<void>;
   removeAssignedQuestion(moderatorId: string, questionId: string): Promise<void>;
+  syncAssignedQuestionStatus(questionId: string, status: QuestionStatus, session?: ClientSession): Promise<void>;
 }

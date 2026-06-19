@@ -4,6 +4,7 @@ import {
   NotificationRetentionType,
   IAnswer,
   ICropRef,
+  QuestionStatus,
 } from '#shared/interfaces/models.js';
 import { instanceToPlain } from 'class-transformer';
 import { injectable, inject } from 'inversify';
@@ -835,66 +836,100 @@ export class UserRepository implements IUserRepository {
     return await this.usersCollection.find({ role: 'moderator' }).toArray();
   }
 
-  /** Returns non-blocked moderators who have no question currently assigned to them
-   *  (i.e. their assignedQuestionIds array is missing, null or empty). */
-  async findAvailableModerators(): Promise<IUser[]> {
+  /** Statuses that keep a moderator "busy". A held question in any other status
+   *  (notably 're-routed', which is handed off to an expert but kept in the array for
+   *  history) does NOT block new assignments. */
+  static readonly BLOCKING_ASSIGNED_STATUSES: QuestionStatus[] = ['in-review', 'duplicate'];
+
+  /** Returns non-blocked moderators who can take a new question — i.e. they hold no
+   *  assignedQuestionIds entry in a blocking status. A moderator with an empty array,
+   *  or one holding only re-routed (or otherwise non-blocking) entries, is available.
+   *  `extraMatch` lets callers further restrict the set (e.g. STF only). */
+  private async findAvailableModeratorsWithMatch(extraMatch: Record<string, unknown> = {}): Promise<IUser[]> {
     await this.init();
     return this.usersCollection
       .find({
         role: 'moderator',
         isBlocked: { $ne: true },
-        $or: [
-          { assignedQuestionIds: { $exists: false } },
-          { assignedQuestionIds: null },
-          { assignedQuestionIds: { $size: 0 } },
-        ],
+        ...extraMatch,
+        // No element is in a blocking status (also true for missing/null/empty arrays).
+        assignedQuestionIds: {
+          $not: { $elemMatch: { status: { $in: UserRepository.BLOCKING_ASSIGNED_STATUSES } } },
+        },
       })
       .toArray();
+  }
+
+  /** Returns non-blocked moderators who can take a new question (see
+   *  findAvailableModeratorsWithMatch for the "available" definition). */
+  async findAvailableModerators(): Promise<IUser[]> {
+    return this.findAvailableModeratorsWithMatch();
   }
 
   /** Same as findAvailableModerators but restricted to Special Task Force moderators. */
   async findAvailableStfModerators(): Promise<IUser[]> {
-    await this.init();
-    return this.usersCollection
-      .find({
-        role: 'moderator',
-        isBlocked: { $ne: true },
-        special_task_force: true,
-        $or: [
-          { assignedQuestionIds: { $exists: false } },
-          { assignedQuestionIds: null },
-          { assignedQuestionIds: { $size: 0 } },
-        ],
-      })
-      .toArray();
+    return this.findAvailableModeratorsWithMatch({ special_task_force: true });
   }
 
-  /** Appends a question to a moderator's assigned-questions array.
-   *  Uses $addToSet so the same question is never duplicated. The cron calls this
-   *  for a free moderator (empty array); manual allocation calls it to append. */
-  async addAssignedQuestion(moderatorId: string, questionId: string): Promise<void> {
+  /** Appends a question (with its current status) to a moderator's assigned-questions
+   *  array. Pulls any stale entry for the same question first so the questionId is never
+   *  duplicated and the stored status is fresh. The cron passes 'in-review'; manual
+   *  allocation passes the question's current status. */
+  async addAssignedQuestion(
+    moderatorId: string,
+    questionId: string,
+    status: QuestionStatus,
+  ): Promise<void> {
     await this.init();
+    const qid = new ObjectId(questionId);
     await this.usersCollection.updateOne(
       { _id: new ObjectId(moderatorId) },
       {
-        $addToSet: { assignedQuestionIds: new ObjectId(questionId) },
+        $pull: { assignedQuestionIds: { questionId: qid } },
+        $set: { updatedAt: new Date() },
+      },
+    );
+    await this.usersCollection.updateOne(
+      { _id: new ObjectId(moderatorId) },
+      {
+        $push: { assignedQuestionIds: { questionId: qid, status } },
         $set: { updatedAt: new Date() },
       },
     );
   }
 
-  /** Removes a single question from a moderator's assigned-questions array.
+  /** Removes a single question's entry from a moderator's assigned-questions array.
    *  Called when the moderator acts on the question (answers/closes), or when the
-   *  question is manually removed/reassigned. The moderator becomes "free" once the
-   *  array is empty. */
+   *  question is manually removed/reassigned. */
   async removeAssignedQuestion(moderatorId: string, questionId: string): Promise<void> {
     await this.init();
     await this.usersCollection.updateOne(
       { _id: new ObjectId(moderatorId) },
       {
-        $pull: { assignedQuestionIds: new ObjectId(questionId) },
+        $pull: { assignedQuestionIds: { questionId: new ObjectId(questionId) } },
         $set: { updatedAt: new Date() },
       },
+    );
+  }
+
+  /** Keeps the denormalised status on a moderator's held question in sync with the
+   *  question document. Matches whichever moderator currently holds the question (a
+   *  question is held by at most one). No-op if no moderator holds it. Called from the
+   *  question status-write chokepoints so free/busy stays accurate across every
+   *  transition (e.g. in-review → re-routed frees the moderator). */
+  async syncAssignedQuestionStatus(
+    questionId: string,
+    status: QuestionStatus,
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    const qid = new ObjectId(questionId);
+    await this.usersCollection.updateOne(
+      { 'assignedQuestionIds.questionId': qid },
+      {
+        $set: { 'assignedQuestionIds.$[entry].status': status, updatedAt: new Date() },
+      },
+      { arrayFilters: [{ 'entry.questionId': qid }], session },
     );
   }
 

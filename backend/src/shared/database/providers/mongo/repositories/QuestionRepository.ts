@@ -2350,6 +2350,11 @@ export class QuestionRepository implements IQuestionRepository {
         {session},
       );
 
+      // Keep the denormalised status on any moderator holding this question in sync.
+      if (updates.status) {
+        await this.syncModeratorAssignedStatus(questionId, updates.status, session);
+      }
+
       if (updates.status === 'in-review') {
         const submission = await this.QuestionSubmissionCollection.findOne(
           {questionId: new ObjectId(questionId)},
@@ -2568,6 +2573,33 @@ export class QuestionRepository implements IQuestionRepository {
       {_id: new ObjectId(id)},
       {$set: update},
       {session},
+    );
+
+    // Keep the denormalised status on any moderator holding this question in sync.
+    await this.syncModeratorAssignedStatus(id, status as QuestionStatus, session);
+  }
+
+  /** Updates the denormalised status on whichever moderator currently holds this
+   *  question in their assignedQuestionIds array (a question is held by at most one).
+   *  No-op when no moderator holds it. Called from every question status-write path so
+   *  the cron's free/busy decision stays accurate (e.g. in-review → re-routed frees the
+   *  moderator; re-routed → in-review makes them busy again). */
+  private async syncModeratorAssignedStatus(
+    questionId: string,
+    status: QuestionStatus,
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    const qid = new ObjectId(questionId);
+    await this.UsersCollection.updateOne(
+      {'assignedQuestionIds.questionId': qid} as any,
+      {
+        $set: {
+          'assignedQuestionIds.$[entry].status': status,
+          updatedAt: new Date(),
+        },
+      } as any,
+      {arrayFilters: [{'entry.questionId': qid}], session},
     );
   }
 

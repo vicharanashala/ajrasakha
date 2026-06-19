@@ -18,6 +18,7 @@ import {
   ICheckStatusResponse,
   IPreviousAllocations,
   IAuthorsHistory,
+  QuestionStatus,
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
@@ -3598,11 +3599,16 @@ export class QuestionService extends BaseService implements IQuestionService {
     // Point the question at the new moderator (also stamps moderatorAssignedAt = now).
     await this.questionRepo.updateModeratorId(questionId, moderatorId);
 
-    // Pull this question from the previous moderator and append it to the new one.
+    // Pull this question from the previous moderator and append it to the new one,
+    // carrying the question's current status so free/busy stays accurate.
     if (previousModeratorId && previousModeratorId !== moderatorId) {
       await this.userRepo.removeAssignedQuestion(previousModeratorId, questionId);
     }
-    await this.userRepo.addAssignedQuestion(moderatorId, questionId);
+    await this.userRepo.addAssignedQuestion(
+      moderatorId,
+      questionId,
+      ((question as any)?.status ?? 'in-review') as QuestionStatus,
+    );
   }
 
   /**
@@ -5971,7 +5977,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           // Assign question to moderator — update both documents and notify
           await Promise.all([
             this.questionRepo.updateModeratorId(questionId, moderatorId),
-            this.userRepo.addAssignedQuestion(moderatorId, questionId),
+            // Cron only assigns unassigned in-review questions, so the held status is in-review.
+            this.userRepo.addAssignedQuestion(moderatorId, questionId, 'in-review'),
             this.notificationService.saveTheNotifications(
               'A question has been assigned to you for moderation',
               'Moderation Assigned',

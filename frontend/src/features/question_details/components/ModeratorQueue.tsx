@@ -14,6 +14,7 @@ import { ScrollArea } from "@/components/atoms/scroll-area";
 import { useChangeModerator } from "@/hooks/api/question/useChangeModerator";
 import { useRemoveModerator } from "@/hooks/api/question/useRemoveModerator";
 import { useGetStfModerators } from "@/hooks/api/user/useGetStfModerators";
+import { BLOCKING_ASSIGNED_STATUSES } from "@/hooks/services/userService";
 import { ConfirmationModal } from "@/components/confirmation-modal";
 import { Loader2, Trash2, User, UserCheck, UserPlus, UserX, X } from "lucide-react";
 
@@ -274,6 +275,12 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
               {!stfModeratorsLoading &&
                 filteredModerators.map((mod) => {
                   const isSelected = selectedModId === mod._id;
+                  // Busy only if holding a question in a blocking status (in-review /
+                  // duplicate). Re-routed (and other) held questions don't count.
+                  const blockingCount =
+                    mod.assignedQuestionIds?.filter((a) =>
+                      BLOCKING_ASSIGNED_STATUSES.includes(a.status),
+                    ).length ?? 0;
                   return (
                     <Label
                       key={mod._id}
@@ -309,16 +316,16 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
                         </div>
                       </div>
 
-                      {/* Availability — whether the moderator already has any question assigned */}
+                      {/* Availability — busy only when holding a blocking-status question */}
                       <span
                         className={`shrink-0 self-center text-[10px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap ${
-                          mod.assignedQuestionIds?.length
+                          blockingCount
                             ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
                             : "bg-green-500/10 text-green-600 dark:text-green-400"
                         }`}
                       >
-                        {mod.assignedQuestionIds?.length
-                          ? `Assigned (${mod.assignedQuestionIds.length})`
+                        {blockingCount
+                          ? `Assigned (${blockingCount})`
                           : "Available"}
                       </span>
                     </Label>
