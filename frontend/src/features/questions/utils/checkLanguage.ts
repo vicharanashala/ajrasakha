@@ -9,6 +9,7 @@ export function isEnglishCharacters(text: string): boolean {
   }
 
   // Matches standard English letters, numbers, spaces, and common punctuation
-  const englishRegex = /^[a-zA-Z0-9\s.,!?'"()\-;:_]*$/;
+  // Added ‘’“” to the character list
+  const englishRegex = /^[a-zA-Z0-9\s.,!?'"()\-;:_‘’“”]*$/;
   return englishRegex.test(text);
 }
