@@ -367,15 +367,15 @@ export function AnnamDashboard_dev({
                 setMapView= {setMapView}
               />
               
-              <DashboardFilters filters={filters} onFilterChange={setFilters} />
+              {/* <DashboardFilters filters={filters} onFilterChange={setFilters} /> */}
               {mapView ? (
-  <AnalyticsMap
-    source={source}
-    userType={filters.userType}
-    questionStatusData={questionStatusData}
-    todayActiveFarmersData={todayActiveFarmersData}
-  />
-) :(<>
+                <AnalyticsMap
+                  source={source}
+                  userType={filters.userType}
+                  questionStatusData={questionStatusData}
+                  todayActiveFarmersData={todayActiveFarmersData}
+                />
+              ) :(<>
               {(source === "annam" || source === "whatsapp") && (
                 <div ref={(el) => { sectionRefs.current["overview"] = el; }} className="relative">
                   {activeSegment && <SegmentDetailBanner seg={activeSegment} onClose={() => setActiveSegment(null)} />}

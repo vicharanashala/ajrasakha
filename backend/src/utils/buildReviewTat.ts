@@ -34,6 +34,27 @@ export const buildReviewTimeline = (
     const assignedAt =
       index === 0 ? authorAssignedAt : currentHistory.createdAt;
 
+    // Author (index 0): completion is when the author actually created their
+    // answer (history[0].createdAt), not when the next reviewer's entry began.
+    if (index === 0) {
+      const completedAt = currentHistory.createdAt;
+
+      timeline.push({
+        reviewerId: currentHistory.updatedBy?.toString(),
+
+        assignedAt,
+
+        completedAt,
+
+        timeTakenMs:
+          new Date(completedAt).getTime() - new Date(assignedAt).getTime(),
+
+        isCompleted: true,
+      });
+
+      return;
+    }
+
     if (nextHistory) {
       const completedAt = nextHistory.createdAt;
 

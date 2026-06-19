@@ -311,7 +311,10 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-start justify-between mb-1">
-                                            <h4 className="font-bold text-sm text-foreground truncate pr-2">
+                                            <h4
+                                                className="font-bold text-sm text-foreground break-words pr-2"
+                                                title={getNotificationDisplayTitle(n)}
+                                            >
                                                 {getNotificationDisplayTitle(n)}
                                             </h4>
                                         </div>

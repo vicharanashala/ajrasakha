@@ -2765,58 +2765,86 @@ export class QuestionRepository implements IQuestionRepository {
     }
 
     // Get moderator breakdown
-    const moderatorBreakdown = (await this.AnswersCollection.aggregate(
-      [
-        {
-          $match: {
-            status: 'approved',
-            isFinalAnswer: true,
-            updatedAt: {
-              $gte: start,
-              $lt: end,
-            },
-            approvedBy: {$exists: true, $ne: null},
-          },
+   const moderatorBreakdown = (await this.AnswersCollection.aggregate(
+  [
+    {
+      $match: {
+        status: 'approved',
+        isFinalAnswer: true,
+        approvedBy: {$exists: true, $ne: null},
+      },
+    },
+
+    // Lookup question
+    {
+      $lookup: {
+        from: 'questions',
+        localField: 'questionId',
+        foreignField: '_id',
+        as: 'question',
+      },
+    },
+
+    {
+      $unwind: {
+        path: '$question',
+        preserveNullAndEmptyArrays: false,
+      },
+    },
+
+    // Filter by question.closedAt
+    {
+      $match: {
+        'question.closedAt': {
+          $gte: start,
+          $lt: end,
         },
-        {
-          $group: {
-            _id: '$approvedBy',
-            count: {$sum: 1},
-          },
+      },
+    },
+
+    {
+      $group: {
+        _id: '$approvedBy',
+        count: {$sum: 1},
+      },
+    },
+
+    {
+      $lookup: {
+        from: 'users',
+        localField: '_id',
+        foreignField: '_id',
+        as: 'moderator',
+      },
+    },
+
+    {
+      $unwind: {
+        path: '$moderator',
+        preserveNullAndEmptyArrays: false,
+      },
+    },
+
+    {
+      $project: {
+        _id: 0,
+        moderatorName: {
+          $concat: [
+            '$moderator.firstName',
+            ' ',
+            {$ifNull: ['$moderator.lastName', '']},
+          ],
         },
-        {
-          $lookup: {
-            from: 'users',
-            localField: '_id',
-            foreignField: '_id',
-            as: 'moderator',
-          },
-        },
-        {
-          $unwind: {
-            path: '$moderator',
-            preserveNullAndEmptyArrays: false,
-          },
-        },
-        {
-          $project: {
-            _id: 0,
-            moderatorName: {
-              $concat: [
-                '$moderator.firstName',
-                ' ',
-                {$ifNull: ['$moderator.lastName', '']},
-              ],
-            },
-            count: 1,
-          },
-        },
-        {
-          $sort: {count: -1},
-        },
-      ],
-      {session},
-    ).toArray()) as {moderatorName: string; count: number}[];
+        count: 1,
+      },
+    },
+
+    {
+      $sort: {count: -1},
+    },
+  ],
+  {session},
+).toArray()) as {moderatorName: string; count: number}[];
 
     // Calculate total from the breakdown
     const totalApproved = moderatorBreakdown.reduce(
