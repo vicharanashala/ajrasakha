@@ -835,38 +835,63 @@ export class UserRepository implements IUserRepository {
     return await this.usersCollection.find({ role: 'moderator' }).toArray();
   }
 
-  /** Returns non-blocked moderators who have no question currently assigned to them
-   *  (i.e. their assignedQuestionIds array is missing, null or empty). */
-  async findAvailableModerators(): Promise<IUser[]> {
+  /** Statuses that keep a moderator "busy". A question still assigned to a moderator
+   *  in any other status (notably 're-routed', which is handed off to an expert but
+   *  kept in the moderator's array for history) does NOT block new assignments. */
+  private static readonly BLOCKING_ASSIGNED_STATUSES = ['in-review', 'duplicate'];
+
+  /** Returns non-blocked moderators who can take a new question — i.e. they hold no
+   *  question whose status is in BLOCKING_ASSIGNED_STATUSES. A moderator with an empty
+   *  assignedQuestionIds array, or one holding only re-routed (or otherwise non-blocking)
+   *  questions, is considered available. `extraMatch` lets callers further restrict the set. */
+  private async findAvailableModeratorsWithMatch(extraMatch: Record<string, unknown> = {}): Promise<IUser[]> {
     await this.init();
     return this.usersCollection
-      .find({
-        role: 'moderator',
-        isBlocked: { $ne: true },
-        $or: [
-          { assignedQuestionIds: { $exists: false } },
-          { assignedQuestionIds: null },
-          { assignedQuestionIds: { $size: 0 } },
-        ],
-      })
+      .aggregate<IUser>([
+        {
+          $match: {
+            role: 'moderator',
+            isBlocked: { $ne: true },
+            ...extraMatch,
+          },
+        },
+        {
+          // Pull only the assigned questions that are still "busy" statuses.
+          $lookup: {
+            from: 'questions',
+            let: { assignedIds: { $ifNull: ['$assignedQuestionIds', []] } },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $in: ['$_id', '$$assignedIds'] },
+                      { $in: ['$status', UserRepository.BLOCKING_ASSIGNED_STATUSES] },
+                    ],
+                  },
+                },
+              },
+              { $project: { _id: 1 } },
+              { $limit: 1 },
+            ],
+            as: 'blockingQuestions',
+          },
+        },
+        { $match: { blockingQuestions: { $size: 0 } } },
+        { $project: { blockingQuestions: 0 } },
+      ])
       .toArray();
+  }
+
+  /** Returns non-blocked moderators who can take a new question (see
+   *  findAvailableModeratorsWithMatch for the "available" definition). */
+  async findAvailableModerators(): Promise<IUser[]> {
+    return this.findAvailableModeratorsWithMatch();
   }
 
   /** Same as findAvailableModerators but restricted to Special Task Force moderators. */
   async findAvailableStfModerators(): Promise<IUser[]> {
-    await this.init();
-    return this.usersCollection
-      .find({
-        role: 'moderator',
-        isBlocked: { $ne: true },
-        special_task_force: true,
-        $or: [
-          { assignedQuestionIds: { $exists: false } },
-          { assignedQuestionIds: null },
-          { assignedQuestionIds: { $size: 0 } },
-        ],
-      })
-      .toArray();
+    return this.findAvailableModeratorsWithMatch({ special_task_force: true });
   }
 
   /** Appends a question to a moderator's assigned-questions array.
