@@ -11874,21 +11874,89 @@ for (const item of raw) {
   ): Promise<any> {
     try {
       await this.init(source);
+      const userObjectId = new ObjectId(userId);
+      const existingUser = await this.users.findOne({_id: userObjectId});
+
+      if (!existingUser) {
+        throw new NotFoundError('User not found');
+      }
+
+      const reviewSystemUser = await this.findMatchingReviewSystemUser(
+        existingUser,
+      );
+      const reviewSystemUsers = reviewSystemUser?._id
+        ? await this.db.getCollection<IUser>('users')
+        : null;
+      const reviewSystemUserId = reviewSystemUser?._id
+        ? new ObjectId(reviewSystemUser._id)
+        : null;
+      const verificationUpdatedAt = new Date();
+      const verificationUpdate = {
+        $set: {
+          isVerified,
+          updatedAt: verificationUpdatedAt,
+        },
+      };
 
       const result = await this.users.findOneAndUpdate(
-        {_id: new ObjectId(userId)},
-        {
-          $set: {
-            isVerified,
-            updatedAt: new Date(),
-          },
-        },
+        {_id: userObjectId},
+        verificationUpdate,
         {returnDocument: 'after'},
       );
+      if (!result) {
+        throw new NotFoundError('User not found');
+      }
+
+      try {
+        if (reviewSystemUsers && reviewSystemUserId) {
+          const reviewResult = await reviewSystemUsers.updateOne(
+            {_id: reviewSystemUserId},
+            verificationUpdate,
+          );
+
+          if (reviewResult.matchedCount === 0) {
+            throw new NotFoundError('Linked review system user not found');
+          }
+        }
+      } catch (error) {
+        const rollbackUpdate = Object.prototype.hasOwnProperty.call(
+          existingUser,
+          'isVerified',
+        )
+          ? {
+              $set: {
+                isVerified: existingUser.isVerified,
+                updatedAt: existingUser.updatedAt,
+              },
+            }
+          : {
+              $set: {
+                updatedAt: existingUser.updatedAt,
+              },
+              $unset: {
+                isVerified: '',
+              },
+            };
+
+        await this.users.updateOne(
+          {_id: userObjectId},
+          rollbackUpdate,
+        );
+        throw error;
+      }
+
       if (!isVerified) {
         await this.sessionCollection.deleteMany({
-          user: new ObjectId(userId),
+          user: userObjectId,
         });
+
+        if (reviewSystemUserId) {
+          const reviewSystemSessions =
+            await this.db.getCollection<any>('sessions');
+          await reviewSystemSessions.deleteMany({
+            user: reviewSystemUserId,
+          });
+        }
       }
 
       return result;
