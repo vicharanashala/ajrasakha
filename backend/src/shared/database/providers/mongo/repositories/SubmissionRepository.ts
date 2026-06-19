@@ -3410,35 +3410,27 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
   async findUnallocatedTimeBoundQuestions(): Promise<IQuestionSubmission[]> {
     await this.init();
 
-    return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>([
-      {
-        $match: {
-          queue: { $size: 0 },
-          $or: [
-            { currentExpertAllocatedAt: { $exists: false } },
-            { currentExpertAllocatedAt: null },
-          ],
-        },
-      },
-      {
-        $lookup: {
-          from: 'questions',
-          localField: 'questionId',
-          foreignField: '_id',
-          as: 'question',
-        },
-      },
-      { $unwind: '$question' },
-      {
-        $match: {
-          'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
-          'question.status': { $in: ['open', 'delayed', 'duplicate'] },
-          'question.isOnHold': { $ne: true },
-          'question.isAutoAllocate': { $eq: true },
-        },
-      },
-      { $sort: { 'question.createdAt': -1 } },
-    ]).toArray();
+    // Never-allocated time-bound questions sourced directly from the questions
+    // collection: time-bound + auto-allocate + still open/delayed + never had a
+    // first allocation. Shaped to the submission-like form the callers expect
+    // (.questionId / .question / .queue).
+    const questions = await this.QuestionCollection.find({
+      source: { $in: ['AJRASAKHA', 'WHATSAPP'] },
+      isAutoAllocate: true,
+      status: { $in: ['open', 'delayed'] },
+      firstAllocationAt: { $exists: false },
+      isOnHold: { $ne: true },
+    })
+      .sort({ createdAt: 1 })
+      .toArray();
+
+    return questions.map(q => ({
+      questionId: q._id,
+      question: q,
+      queue: [],
+      history: [],
+      createdAt: q.createdAt,
+    })) as unknown as IQuestionSubmission[];
   }
 
   /** Find time-bound (AJRASAKHA/WHATSAPP) submissions where the current expert

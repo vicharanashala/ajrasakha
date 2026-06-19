@@ -74,6 +74,37 @@ export class NotificationRepository implements INotificationRepository {
 
       // Convert ObjectId → string
 
+      const senderIds = notification
+        .map(n => n.enitity_id)
+        .filter((id): id is ObjectId => id instanceof ObjectId);
+      const uniqueUserIds = [
+        ...new Set([
+          userId,
+          ...senderIds.map(id => id.toString()),
+        ]),
+      ].map(id => new ObjectId(id));
+      const relatedUsers = await this.userCollection
+        .find({_id: {$in: uniqueUserIds}}, {session})
+        .toArray();
+      const userById = new Map(
+        relatedUsers
+          .filter(user => user._id)
+          .map(user => [user._id!.toString(), user]),
+      );
+      const formatUser = (id?: ObjectId | string) => {
+        if (!id) return null;
+        const userId = id.toString();
+        const user = userById.get(userId);
+        if (!user) return {_id: userId};
+        const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+        return {
+          _id: userId,
+          name: name || user.email,
+          email: user.email,
+          role: user.role,
+        };
+      };
+
       const response = notification.map((n) => ({
         _id:n._id.toString(),
         enitity_id:n.enitity_id.toString(),
@@ -81,7 +112,10 @@ export class NotificationRepository implements INotificationRepository {
         is_read:n.is_read,
         title:n.title,
         type: n.type,
-        createdAt:n.createdAt.toString()
+        createdAt:n.createdAt.toString(),
+        sender: formatUser(n.enitity_id),
+        recipient: formatUser(n.userId),
+        deliveryTimestamp: n.createdAt.toString(),
       }))
 
     return {notifications:response,page,totalCount,totalPages:Math.ceil(totalCount/limit)}
@@ -89,6 +123,78 @@ export class NotificationRepository implements INotificationRepository {
   catch(error){
       throw new InternalServerError(
         `Error while adding Notification, More/ ${error}`,
+      );
+   }
+  }
+
+  async getUserNotificationHistory(userId: string,page:number,limit:number,session?: ClientSession): Promise<{notifications:NotificationResponse[]; page:number; totalCount:number; totalPages:number}> {
+    try {
+      await this.init()
+      if (!userId || !isValidObjectId(userId)) {
+        throw new BadRequestError('Invalid or missing userId');
+      }
+
+      const userObjectId = new ObjectId(userId);
+      const filter = {
+        $or: [
+          {userId: userObjectId},
+          {enitity_id: userObjectId},
+        ],
+      };
+      const skip = (page - 1) * limit
+      const [notification,totalCount] = await Promise.all([
+        this.notificationCollection.find(filter,{session}).sort({createdAt:-1}).skip(skip).limit(limit).toArray(),
+        this.notificationCollection.countDocuments(filter)
+      ])
+      if (!notification) return null;
+
+      const relatedUserIds = notification
+        .flatMap(n => [n.userId, n.enitity_id])
+        .filter((id): id is ObjectId => id instanceof ObjectId);
+      const uniqueUserIds = [
+        ...new Set(relatedUserIds.map(id => id.toString())),
+      ].map(id => new ObjectId(id));
+      const relatedUsers = await this.userCollection
+        .find({_id: {$in: uniqueUserIds}}, {session})
+        .toArray();
+      const userById = new Map(
+        relatedUsers
+          .filter(user => user._id)
+          .map(user => [user._id!.toString(), user]),
+      );
+      const formatUser = (id?: ObjectId | string) => {
+        if (!id) return null;
+        const userId = id.toString();
+        const user = userById.get(userId);
+        if (!user) return {_id: userId};
+        const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+        return {
+          _id: userId,
+          name: name || user.email,
+          email: user.email,
+          role: user.role,
+        };
+      };
+
+      const response = notification.map((n) => ({
+        _id:n._id.toString(),
+        enitity_id:n.enitity_id.toString(),
+        message:n.message,
+        is_read:n.is_read,
+        title:n.title,
+        type: n.type,
+        createdAt:n.createdAt.toString(),
+        sender: formatUser(n.enitity_id),
+        recipient: formatUser(n.userId),
+        direction: n.enitity_id?.toString() === userObjectId.toString() ? 'sent' : 'received',
+        deliveryTimestamp: n.createdAt.toString(),
+      }))
+
+    return {notifications:response,page,totalCount,totalPages:Math.ceil(totalCount/limit)}
+    }
+  catch(error){
+      throw new InternalServerError(
+        `Error while getting notification history, More/ ${error}`,
       );
     }
   }
