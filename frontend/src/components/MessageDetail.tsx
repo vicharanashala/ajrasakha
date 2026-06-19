@@ -24,6 +24,7 @@ import {
 import { useGenerateInitialAnswer } from "@/hooks/api/question/useGenerateInitialAnswer";
 import { ScrollArea } from "./atoms/scroll-area";
 import { toast,useToast } from "@/shared/components/toast";
+import { isEnglishCharacters } from "@/features/questions/utils/checkLanguage";
 
 interface MessageDetailCardProps {
     question: IQuestionFullData;
@@ -780,10 +781,14 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                     <span className="text-sm font-semibold text-foreground">Final Answer</span>
 
                     <div className="ml-auto flex items-center gap-2">
-                        <SarvamTranslateDropdown
-                            query={editedAnswerBody}
-                            onTranslate={(result) => setTranslatedText(result)}
-                        />
+                        {
+                            editedAnswerBody?.trim() && !isEnglishCharacters(editedAnswerBody) && (
+                                <SarvamTranslateDropdown
+                                    query={editedAnswerBody}
+                                    onTranslate={(result) => setTranslatedText(result)}
+                                />
+                            )
+                        }
                         {approved === true && <span className="flex items-center gap-1 text-xs text-success font-medium"><CheckCircle className="h-3.5 w-3.5" /> Approved</span>}
                         {approved === false && <span className="flex items-center gap-1 text-xs text-destructive font-medium"><XCircle className="h-3.5 w-3.5" /> Rejected</span>}
                     </div>
@@ -1049,10 +1054,15 @@ const EditAnswerModal = ({
                         <div className="space-y-3">
                             <div className="flex items-center justify-between">
                                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Answer Text</label>
-                                <SarvamTranslateDropdown
-                                    query={editedAnswerBody}
-                                    onTranslate={(result) => setTranslatedText(result)}
-                                />
+                                
+                                {
+                                    editedAnswerBody?.trim() && !isEnglishCharacters(editedAnswerBody) && (
+                                        <SarvamTranslateDropdown
+                                            query={editedAnswerBody}
+                                            onTranslate={(result) => setTranslatedText(result)}
+                                        />
+                                    )
+                                }
                             </div>
                             <textarea
                                 value={translatedText || editedAnswerBody}
