@@ -9166,14 +9166,91 @@ for (const item of raw) {
   async deleteUser(userId: string, source: string): Promise<boolean> {
     try {
       await this.init(source);
+      const userObjectId = new ObjectId(userId);
+      const existingUser = await this.users.findOne({_id: userObjectId});
+
+      if (!existingUser) {
+        throw new NotFoundError('User not found');
+      }
+
+      const reviewSystemUser =
+        source === 'whatsapp'
+          ? null
+          : await this.findMatchingReviewSystemUser(existingUser);
+
       await this.messagesCollection.updateMany(
         {user: userId},
         {$set: {isDeleted: true}},
       );
-      const result = await this.users.deleteOne({_id: new ObjectId(userId)});
-      return result.deletedCount === 1;
+      const result = await this.users.deleteOne({_id: userObjectId});
+
+      if (result.deletedCount !== 1) {
+        return false;
+      }
+
+      if (reviewSystemUser?._id) {
+        await this.deleteReviewSystemUser(reviewSystemUser);
+      }
+
+      return true;
     } catch (error) {
+      if (error instanceof NotFoundError) {
+        throw error;
+      }
       throw new InternalServerError(`Failed to delete user: ${error}`);
+    }
+  }
+
+  private async findMatchingReviewSystemUser(user: IUser): Promise<IUser | null> {
+    const lookupConditions: any[] = [];
+
+    const email = user.email?.trim();
+    if (email) {
+      lookupConditions.push({
+        email: new RegExp(`^${this.escapeRegex(email)}$`, 'i'),
+      });
+    }
+
+    if (user.firebaseUID) {
+      lookupConditions.push({firebaseUID: user.firebaseUID});
+    }
+
+    if (lookupConditions.length === 0) {
+      return null;
+    }
+
+    const reviewSystemUsers = await this.db.getCollection<IUser>('users');
+    return await reviewSystemUsers.findOne({$or: lookupConditions});
+  }
+
+  private async deleteReviewSystemUser(user: IUser): Promise<void> {
+    if (!user._id) {
+      return;
+    }
+
+    const reviewUserId = new ObjectId(user._id);
+    const reviewSystemUsers = await this.db.getCollection<IUser>('users');
+    const reviewSystemSessions = await this.db.getCollection<any>('sessions');
+    const reviewSystemNotifications =
+      await this.db.getCollection<any>('notifications');
+    const reviewSystemSubscriptions =
+      await this.db.getCollection<any>('subscriptions');
+
+    await reviewSystemSessions.deleteMany({user: reviewUserId});
+    await reviewSystemNotifications.deleteMany({
+      $or: [{userId: reviewUserId}, {enitity_id: reviewUserId}],
+    });
+    await reviewSystemSubscriptions.deleteMany({userId: reviewUserId});
+    await reviewSystemUsers.deleteOne({_id: reviewUserId});
+
+    if (user.firebaseUID) {
+      const firebaseAuth = getFirebaseAuth();
+      await firebaseAuth.deleteUser(user.firebaseUID).catch((error: any) => {
+        if (error?.code === 'auth/user-not-found') {
+          return;
+        }
+        throw error;
+      });
     }
   }
 
