@@ -5,6 +5,7 @@ import {
   IAnswer,
   ICropRef,
   QuestionStatus,
+  QuestionSource,
 } from '#shared/interfaces/models.js';
 import { instanceToPlain } from 'class-transformer';
 import { injectable, inject } from 'inversify';
@@ -879,6 +880,7 @@ export class UserRepository implements IUserRepository {
     moderatorId: string,
     questionId: string,
     status: QuestionStatus,
+    source?: QuestionSource,
   ): Promise<void> {
     await this.init();
     const qid = new ObjectId(questionId);
@@ -892,7 +894,7 @@ export class UserRepository implements IUserRepository {
     await this.usersCollection.updateOne(
       { _id: new ObjectId(moderatorId) },
       {
-        $push: { assignedQuestionIds: { questionId: qid, status } },
+        $push: { assignedQuestionIds: { questionId: qid, status, source } },
         $set: { updatedAt: new Date() },
       },
     );
@@ -928,27 +930,6 @@ export class UserRepository implements IUserRepository {
         $set: { updatedAt: new Date() },
       },
       { session },
-    );
-  }
-
-  /** Keeps the denormalised status on a moderator's held question in sync with the
-   *  question document. Matches whichever moderator currently holds the question (a
-   *  question is held by at most one). No-op if no moderator holds it. Called from the
-   *  question status-write chokepoints so free/busy stays accurate across every
-   *  transition (e.g. in-review → re-routed frees the moderator). */
-  async syncAssignedQuestionStatus(
-    questionId: string,
-    status: QuestionStatus,
-    session?: ClientSession,
-  ): Promise<void> {
-    await this.init();
-    const qid = new ObjectId(questionId);
-    await this.usersCollection.updateOne(
-      { 'assignedQuestionIds.questionId': qid },
-      {
-        $set: { 'assignedQuestionIds.$[entry].status': status, updatedAt: new Date() },
-      },
-      { arrayFilters: [{ 'entry.questionId': qid }], session },
     );
   }
 

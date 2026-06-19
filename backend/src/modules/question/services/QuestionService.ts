@@ -3615,6 +3615,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       moderatorId,
       questionId,
       ((question as any)?.status ?? 'in-review') as QuestionStatus,
+      (question as any)?.source,
     );
   }
 
@@ -5984,8 +5985,14 @@ export class QuestionService extends BaseService implements IQuestionService {
           // Assign question to moderator — update both documents and notify
           await Promise.all([
             this.questionRepo.updateModeratorId(questionId, moderatorId),
-            // Cron only assigns unassigned in-review questions, so the held status is in-review.
-            this.userRepo.addAssignedQuestion(moderatorId, questionId, 'in-review'),
+            // Store the question's actual status (the cron assigns both in-review and
+            // duplicate questions) and its source.
+            this.userRepo.addAssignedQuestion(
+              moderatorId,
+              questionId,
+              ((nextQuestion as any)?.status ?? 'in-review') as QuestionStatus,
+              (nextQuestion as any)?.source,
+            ),
             this.notificationService.saveTheNotifications(
               'A question has been assigned to you for moderation',
               'Moderation Assigned',

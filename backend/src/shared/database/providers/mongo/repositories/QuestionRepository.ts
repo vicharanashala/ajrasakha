@@ -2589,18 +2589,27 @@ export class QuestionRepository implements IQuestionRepository {
     status: QuestionStatus,
     session?: ClientSession,
   ): Promise<void> {
-    await this.init();
-    const qid = new ObjectId(questionId);
-    await this.UsersCollection.updateOne(
-      {'assignedQuestionIds.questionId': qid} as any,
-      {
-        $set: {
-          'assignedQuestionIds.$[entry].status': status,
-          updatedAt: new Date(),
-        },
-      } as any,
-      {arrayFilters: [{'entry.questionId': qid}], session},
-    );
+    // Best-effort: this is a denormalised cache for free/busy. A failure here must not
+    // break the primary question-status update; it self-heals on the next transition.
+    try {
+      await this.init();
+      const qid = new ObjectId(questionId);
+      await this.UsersCollection.updateOne(
+        {'assignedQuestionIds.questionId': qid} as any,
+        {
+          $set: {
+            'assignedQuestionIds.$[entry].status': status,
+            updatedAt: new Date(),
+          },
+        } as any,
+        {arrayFilters: [{'entry.questionId': qid}], session},
+      );
+    } catch (err: any) {
+      console.error(
+        `[assignedQuestionIds] Failed to sync status for question ${questionId}:`,
+        err?.message,
+      );
+    }
   }
 
   async getQuestionsByStatus(

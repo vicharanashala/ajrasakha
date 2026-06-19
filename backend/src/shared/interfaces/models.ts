@@ -13,10 +13,12 @@ export type UserStatus = 'active' | 'in-active';
 /** One question currently held by a moderator. The status is denormalised from the
  *  question document so the cron can decide free/busy without a join. It is kept in
  *  sync whenever the question's status changes (see QuestionRepository) and the whole
- *  entry is pulled when the moderator acts on the question. */
+ *  entry is pulled when the moderator acts on the question. `source` is the question's
+ *  origin, stored for future use (not currently surfaced in the UI). */
 export interface IAssignedQuestion {
   questionId: ObjectId | string;
   status: QuestionStatus;
+  source?: QuestionSource;
 }
 export interface IUser {
   _id?: string | ObjectId;
