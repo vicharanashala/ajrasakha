@@ -912,6 +912,25 @@ export class UserRepository implements IUserRepository {
     );
   }
 
+  /** Pulls a question's entry from whichever moderator(s) hold it, regardless of the
+   *  moderatorId stored on the question. Used when a question is deleted so no orphan
+   *  entry is left behind keeping a moderator wrongly "busy". */
+  async removeAssignedQuestionFromAllModerators(
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    const qid = new ObjectId(questionId);
+    await this.usersCollection.updateMany(
+      { 'assignedQuestionIds.questionId': qid },
+      {
+        $pull: { assignedQuestionIds: { questionId: qid } },
+        $set: { updatedAt: new Date() },
+      },
+      { session },
+    );
+  }
+
   /** Keeps the denormalised status on a moderator's held question in sync with the
    *  question document. Matches whichever moderator currently holds the question (a
    *  question is held by at most one). No-op if no moderator holds it. Called from the

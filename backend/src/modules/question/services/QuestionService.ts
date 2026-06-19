@@ -3487,6 +3487,13 @@ export class QuestionService extends BaseService implements IQuestionService {
         activeSession,
       );
 
+      // Pull this question from any moderator's assignedQuestionIds so no orphan entry
+      // is left behind keeping them wrongly "busy" after the question is gone.
+      await this.userRepo.removeAssignedQuestionFromAllModerators(
+        questionId,
+        activeSession,
+      );
+
       // Finally, delete the question itself
       return this.questionRepo.deleteQuestion(questionId, activeSession);
     };
