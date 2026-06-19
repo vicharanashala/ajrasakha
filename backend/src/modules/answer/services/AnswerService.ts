@@ -542,7 +542,7 @@ export class AnswerService extends BaseService implements IAnswerService {
               session,
             );
 
-            const wasOpenOrDelayed = question.status === 'open' || question.status === 'delayed';
+            const wasOpenOrDelayed = question.status === 'open' || question.status === 'delayed' || question.status === 'duplicate';
             await this.questionRepo.updateQuestion(
               questionId,
               { status: 'in-review' },
@@ -807,7 +807,7 @@ export class AnswerService extends BaseService implements IAnswerService {
 
         // Check the history limit reaced, if reached then question status will be in-review
         if (currentSubmissionHistory.length == 10) {
-          const wasOpenOrDelayed = question.status === 'open' || question.status === 'delayed';
+          const wasOpenOrDelayed = question.status === 'open' || question.status === 'delayed' || question.status === 'duplicate';
           await this.questionRepo.updateQuestion(
             questionId,
             { status: 'in-review' },
@@ -969,7 +969,7 @@ export class AnswerService extends BaseService implements IAnswerService {
               'Failed to create review entry. Please try again.',
             );
           }
-          const wasOpenOrDelayed = question.status === 'open' || question.status === 'delayed';
+          const wasOpenOrDelayed = question.status === 'open' || question.status === 'delayed' || question.status === 'duplicate';
           await this.questionRepo.updateQuestion(
             questionId,
             { status: 'in-review' },
