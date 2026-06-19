@@ -2,7 +2,7 @@
    DISTRICT DETAILS - Blocks, villages, and KVK display
 ============================================================ */
 
-import { Building2, Sprout, MapPin } from "lucide-react";
+import { Building2, Sprout, MapPin, User } from "lucide-react";
 import type { DistrictDetails as DistrictDetailsType } from "../lib/types";
 import { fmt } from "../lib/formatters";
 import {
@@ -84,7 +84,7 @@ export function DistrictDetails({
               <div className="min-w-full">
                 <div className="font-medium text-foreground flex justify-between">
                   <span>{villageUserCounts ? v?.village?.replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim().toUpperCase(): v.replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim().toUpperCase()}</span>
-                  <span className="text-foreground-muted">{v?.totalUsers ?? 0}</span>
+                  <span className="text-foreground-muted flex items-center gap-0.5"><User className="h-3"/>{v?.totalUsers ?? 0}</span>
                 </div>
               </div>
               {/* <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
