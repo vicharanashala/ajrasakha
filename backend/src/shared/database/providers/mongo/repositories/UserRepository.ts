@@ -835,14 +835,19 @@ export class UserRepository implements IUserRepository {
     return await this.usersCollection.find({ role: 'moderator' }).toArray();
   }
 
-  /** Returns non-blocked moderators who have no question currently assigned to them. */
+  /** Returns non-blocked moderators who have no question currently assigned to them
+   *  (i.e. their assignedQuestionIds array is missing, null or empty). */
   async findAvailableModerators(): Promise<IUser[]> {
     await this.init();
     return this.usersCollection
       .find({
         role: 'moderator',
         isBlocked: { $ne: true },
-        $or: [{ assignedQuestionId: { $exists: false } }, { assignedQuestionId: null }],
+        $or: [
+          { assignedQuestionIds: { $exists: false } },
+          { assignedQuestionIds: null },
+          { assignedQuestionIds: { $size: 0 } },
+        ],
       })
       .toArray();
   }
@@ -855,26 +860,41 @@ export class UserRepository implements IUserRepository {
         role: 'moderator',
         isBlocked: { $ne: true },
         special_task_force: true,
-        $or: [{ assignedQuestionId: { $exists: false } }, { assignedQuestionId: null }],
+        $or: [
+          { assignedQuestionIds: { $exists: false } },
+          { assignedQuestionIds: null },
+          { assignedQuestionIds: { $size: 0 } },
+        ],
       })
       .toArray();
   }
 
-  /** Assigns a question to a moderator (sets assignedQuestionId on the user document). */
-  async setAssignedQuestion(moderatorId: string, questionId: string): Promise<void> {
+  /** Appends a question to a moderator's assigned-questions array.
+   *  Uses $addToSet so the same question is never duplicated. The cron calls this
+   *  for a free moderator (empty array); manual allocation calls it to append. */
+  async addAssignedQuestion(moderatorId: string, questionId: string): Promise<void> {
     await this.init();
     await this.usersCollection.updateOne(
       { _id: new ObjectId(moderatorId) },
-      { $set: { assignedQuestionId: new ObjectId(questionId), updatedAt: new Date() } },
+      {
+        $addToSet: { assignedQuestionIds: new ObjectId(questionId) },
+        $set: { updatedAt: new Date() },
+      },
     );
   }
 
-  /** Clears the moderator's assigned question (called when the question is closed). */
-  async clearAssignedQuestion(moderatorId: string): Promise<void> {
+  /** Removes a single question from a moderator's assigned-questions array.
+   *  Called when the moderator acts on the question (answers/closes), or when the
+   *  question is manually removed/reassigned. The moderator becomes "free" once the
+   *  array is empty. */
+  async removeAssignedQuestion(moderatorId: string, questionId: string): Promise<void> {
     await this.init();
     await this.usersCollection.updateOne(
       { _id: new ObjectId(moderatorId) },
-      { $set: { assignedQuestionId: null, updatedAt: new Date() } },
+      {
+        $pull: { assignedQuestionIds: new ObjectId(questionId) },
+        $set: { updatedAt: new Date() },
+      },
     );
   }
 

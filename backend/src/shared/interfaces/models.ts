@@ -34,9 +34,13 @@ export interface IUser {
   university?: string;
   isVerified?: boolean;
   isCallAgentActive?: boolean;
-  /** The question currently assigned to this moderator for review.
-   *  Set by the moderator-queue cron; cleared when the moderator closes the question. */
-  assignedQuestionId?: ObjectId | string | null;
+  /** Questions currently assigned to this moderator for review.
+   *  The cron assigns one question to a free (empty-array) moderator; manual
+   *  allocation appends to this array, so a moderator can hold multiple questions.
+   *  A question id is pulled when the moderator acts on it (answers/closes), or
+   *  when it is manually removed/reassigned. A moderator is "free" only when this
+   *  array is empty. */
+  assignedQuestionIds?: ObjectId[] | string[] | null;
 }
 
 export type IQuestionPriority = 'low' | 'medium' | 'high' | 'critical';

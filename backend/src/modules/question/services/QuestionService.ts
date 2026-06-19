@@ -3585,9 +3585,10 @@ export class QuestionService extends BaseService implements IQuestionService {
   /**
    * Manually (re)assign the moderator for a question.
    * - Sets moderatorId and stamps moderatorAssignedAt to now on the question (handled in the repo).
-   * - Keeps the single-allocation user docs consistent with the cron: frees the previous
-   *   moderator's assignedQuestionId and marks the new moderator as busy, so the cron's
-   *   "is this moderator free?" check (assignedQuestionId == null) stays accurate.
+   * - Keeps the user docs consistent with the cron: pulls this question from the previous
+   *   moderator's assignedQuestionIds array and appends it to the new moderator's array.
+   *   A moderator stays "busy" (not picked by the cron) as long as their array is non-empty,
+   *   so manual allocation can stack multiple questions onto one moderator.
    */
   async changeQuestionModerator(questionId: string, moderatorId: string): Promise<void> {
     // Read the currently assigned moderator (if any) so we can free them.
@@ -3597,17 +3598,17 @@ export class QuestionService extends BaseService implements IQuestionService {
     // Point the question at the new moderator (also stamps moderatorAssignedAt = now).
     await this.questionRepo.updateModeratorId(questionId, moderatorId);
 
-    // Free the previous moderator and mark the new one as busy.
+    // Pull this question from the previous moderator and append it to the new one.
     if (previousModeratorId && previousModeratorId !== moderatorId) {
-      await this.userRepo.clearAssignedQuestion(previousModeratorId);
+      await this.userRepo.removeAssignedQuestion(previousModeratorId, questionId);
     }
-    await this.userRepo.setAssignedQuestion(moderatorId, questionId);
+    await this.userRepo.addAssignedQuestion(moderatorId, questionId);
   }
 
   /**
    * Remove the moderator currently assigned to a question.
-   * - Frees the assigned moderator's user doc (assignedQuestionId = null), so the cron's
-   *   "is this moderator free?" check stays accurate.
+   * - Pulls this question from the assigned moderator's assignedQuestionIds array, so the
+   *   cron's "is this moderator free?" check (array empty) stays accurate.
    * - Nulls moderatorId and moderatorAssignedAt on the question (handled in the repo).
    */
   async removeQuestionModerator(questionId: string): Promise<void> {
@@ -3617,9 +3618,9 @@ export class QuestionService extends BaseService implements IQuestionService {
     // Null out moderatorId and moderatorAssignedAt on the question.
     await this.questionRepo.updateModeratorId(questionId, null);
 
-    // Free the previously assigned moderator.
+    // Pull this question from the previously assigned moderator's array.
     if (previousModeratorId) {
-      await this.userRepo.clearAssignedQuestion(previousModeratorId);
+      await this.userRepo.removeAssignedQuestion(previousModeratorId, questionId);
     }
   }
 
@@ -5915,18 +5916,18 @@ export class QuestionService extends BaseService implements IQuestionService {
    *
    * Logic:
    *  1. Find all in-review questions that have no moderatorId assigned.
-   *  2. Find available moderators — those whose user document has assignedQuestionId = null.
+   *  2. Find available moderators — those whose assignedQuestionIds array is empty.
    *  3. For each available moderator, assign the oldest unassigned in-review question:
    *       - Set question.moderatorId = moderatorId
-   *       - Set user.assignedQuestionId = questionId
+   *       - Append questionId to user.assignedQuestionIds
    *       - Push a moderator history entry into the submission
    *       - Notify the moderator
    *
    * De-assignment:
-   *  When the moderator closes (approves) a question, AnswerService clears:
-   *       - question.moderatorId = null
-   *       - user.assignedQuestionId = null
-   *  …making the moderator available again on the next cron run.
+   *  When the moderator closes (approves) a question, AnswerService:
+   *       - keeps question.moderatorId for history
+   *       - pulls questionId from user.assignedQuestionIds
+   *  …making the moderator available again on the next cron run once the array is empty.
    */
   async runModeratorQueueCron(): Promise<{ assigned: number; availableWaiting: number; failedAssignments: number }> {
     console.log('[ModeratorQueue] Starting moderator queue assignment check...');
@@ -5970,7 +5971,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           // Assign question to moderator — update both documents and notify
           await Promise.all([
             this.questionRepo.updateModeratorId(questionId, moderatorId),
-            this.userRepo.setAssignedQuestion(moderatorId, questionId),
+            this.userRepo.addAssignedQuestion(moderatorId, questionId),
             this.notificationService.saveTheNotifications(
               'A question has been assigned to you for moderation',
               'Moderation Assigned',

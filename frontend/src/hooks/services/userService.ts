@@ -10,8 +10,8 @@ export interface StfModerator {
   _id: string;
   name: string;
   email: string;
-  /** The question this moderator is currently assigned to (null when free). */
-  assignedQuestionId?: string | null;
+  /** The questions this moderator is currently assigned to (empty when free). */
+  assignedQuestionIds?: string[] | null;
 }
 
 export class UserService {
