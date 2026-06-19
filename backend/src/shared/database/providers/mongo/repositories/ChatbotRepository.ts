@@ -83,6 +83,8 @@ interface IUser {
   email?: string;
   firebaseUID?: string;
   password?: string;
+  passwordChangedAt?: Date;
+  refreshToken?: any[];
   role?: string;
   userRole?: string;
   isVerified?: boolean;
@@ -9378,17 +9380,28 @@ for (const item of raw) {
 
     try {
       await this.init(source);
+      const userObjectId = new ObjectId(userId);
 
       const existingUser = await this.users.findOne({
-        _id: new ObjectId(userId),
+        _id: userObjectId,
       });
       if (!existingUser) {
         throw new NotFoundError('User not found');
       }
 
+      const reviewSystemUser = await this.findMatchingReviewSystemUser(
+        existingUser,
+      );
+      const reviewSystemUsers = reviewSystemUser?._id
+        ? await this.db.getCollection<IUser>('users')
+        : null;
+      const reviewSystemUserId = reviewSystemUser?._id
+        ? new ObjectId(reviewSystemUser._id)
+        : null;
+
       if (
-        existingUser.password &&
-        bcrypt.compareSync(newPassword, existingUser.password)
+        this.passwordMatchesHash(newPassword, existingUser.password) ||
+        this.passwordMatchesHash(newPassword, reviewSystemUser?.password)
       ) {
         throw new BadRequestError(
           'New password cannot be the same as the existing password',
@@ -9396,42 +9409,156 @@ for (const item of raw) {
       }
 
       const hashedPassword = bcrypt.hashSync(newPassword, 10);
-      if (existingUser.firebaseUID) {
-        const firebaseAuth = getFirebaseAuth();
-        await firebaseAuth.updateUser(existingUser.firebaseUID, {
-          password: newPassword,
-        });
-        await firebaseAuth.revokeRefreshTokens(existingUser.firebaseUID);
-      }
-
-      const result = await this.users.updateOne(
-        {_id: new ObjectId(userId)},
-        {
-          $set: {
-            password: hashedPassword,
-            passwordChangedAt: new Date(),
-            refreshToken: [],
-            updatedAt: new Date(),
-          },
+      const passwordUpdatedAt = new Date();
+      const passwordUpdate = {
+        $set: {
+          password: hashedPassword,
+          passwordChangedAt: passwordUpdatedAt,
+          refreshToken: [],
+          updatedAt: passwordUpdatedAt,
         },
-      );
+      };
+      const firebaseUID = reviewSystemUser?.firebaseUID || existingUser.firebaseUID;
+      let sourcePasswordUpdated = false;
+      let reviewPasswordUpdated = false;
 
-      if (result.matchedCount === 0) {
-        throw new NotFoundError('User not found');
-      }
+      try {
+        const result = await this.users.updateOne(
+          {_id: userObjectId},
+          passwordUpdate,
+        );
 
-      if (!keepLoggedIn) {
-        await this.sessionCollection.deleteMany({
-          user: new ObjectId(userId),
+        if (result.matchedCount === 0) {
+          throw new NotFoundError('User not found');
+        }
+
+        sourcePasswordUpdated = true;
+
+        if (reviewSystemUsers && reviewSystemUserId) {
+          const reviewResult = await reviewSystemUsers.updateOne(
+            {_id: reviewSystemUserId},
+            passwordUpdate,
+          );
+
+          if (reviewResult.matchedCount === 0) {
+            throw new NotFoundError('Linked review system user not found');
+          }
+
+          reviewPasswordUpdated = true;
+        }
+
+        if (firebaseUID) {
+          const firebaseAuth = getFirebaseAuth();
+          await firebaseAuth.updateUser(firebaseUID, {
+            password: newPassword,
+          });
+          await firebaseAuth.revokeRefreshTokens(firebaseUID);
+        }
+
+        if (!keepLoggedIn) {
+          await this.sessionCollection.deleteMany({
+            user: userObjectId,
+          });
+
+          if (reviewSystemUserId) {
+            const reviewSystemSessions =
+              await this.db.getCollection<any>('sessions');
+            await reviewSystemSessions.deleteMany({
+              user: reviewSystemUserId,
+            });
+          }
+        }
+
+        return true;
+      } catch (error) {
+        await this.rollbackPasswordSync({
+          sourceUserId: userObjectId,
+          sourceUser: existingUser,
+          sourcePasswordUpdated,
+          reviewSystemUsers,
+          reviewSystemUserId,
+          reviewSystemUser,
+          reviewPasswordUpdated,
         });
+        throw error;
       }
-
-      return true;
     } catch (error) {
       if (error instanceof BadRequestError || error instanceof NotFoundError) {
         throw error;
       }
       throw new InternalServerError(`Failed to change user password: ${error}`);
+    }
+  }
+
+  private passwordMatchesHash(password: string, hash?: string): boolean {
+    return Boolean(hash && bcrypt.compareSync(password, hash));
+  }
+
+  private buildPasswordRollbackUpdate(user: IUser): any {
+    const setPayload: Record<string, any> = {};
+    const unsetPayload: Record<string, ''> = {};
+
+    for (const field of ['password', 'passwordChangedAt', 'refreshToken'] as const) {
+      if (Object.prototype.hasOwnProperty.call(user, field)) {
+        setPayload[field] = user[field];
+      } else {
+        unsetPayload[field] = '';
+      }
+    }
+
+    if (user.updatedAt) {
+      setPayload.updatedAt = user.updatedAt;
+    }
+
+    const update: any = {};
+    if (Object.keys(setPayload).length > 0) {
+      update.$set = setPayload;
+    }
+    if (Object.keys(unsetPayload).length > 0) {
+      update.$unset = unsetPayload;
+    }
+
+    return update;
+  }
+
+  private async rollbackPasswordSync({
+    sourceUserId,
+    sourceUser,
+    sourcePasswordUpdated,
+    reviewSystemUsers,
+    reviewSystemUserId,
+    reviewSystemUser,
+    reviewPasswordUpdated,
+  }: {
+    sourceUserId: ObjectId;
+    sourceUser: IUser;
+    sourcePasswordUpdated: boolean;
+    reviewSystemUsers: Collection<IUser> | null;
+    reviewSystemUserId: ObjectId | null;
+    reviewSystemUser?: IUser | null;
+    reviewPasswordUpdated: boolean;
+  }): Promise<void> {
+    try {
+      if (sourcePasswordUpdated) {
+        await this.users.updateOne(
+          {_id: sourceUserId},
+          this.buildPasswordRollbackUpdate(sourceUser),
+        );
+      }
+
+      if (
+        reviewPasswordUpdated &&
+        reviewSystemUsers &&
+        reviewSystemUserId &&
+        reviewSystemUser
+      ) {
+        await reviewSystemUsers.updateOne(
+          {_id: reviewSystemUserId},
+          this.buildPasswordRollbackUpdate(reviewSystemUser),
+        );
+      }
+    } catch (rollbackError) {
+      console.error('Failed to rollback password synchronization:', rollbackError);
     }
   }
 
