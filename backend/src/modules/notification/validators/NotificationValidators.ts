@@ -110,6 +110,14 @@ class NotificationResponse {
   @IsString()
   createdAt: string;
 
+  @JSONSchema({
+    description: 'Question text from the questions collection (empty if not a question entity)',
+    example: 'What is the best fertilizer for rice?',
+    type: 'string',
+  })
+  @IsString()
+  questionText: string;
+
 }
 
 class MessageBody{

@@ -146,6 +146,7 @@ type UserNotification = {
   type: string;
   createdAt: string;
   deliveryTimestamp?: string;
+  questionText?: string;
   sender?: {
     _id: string;
     name?: string;
@@ -1509,6 +1510,11 @@ function UserNotificationHistorySheet({
                 <p className="text-sm text-muted-foreground">
                   {notification.message}
                 </p>
+                {notification.questionText && (
+                  <p className="mt-2 text-xs text-primary font-medium bg-primary/5 px-2 py-1.5 rounded-md border border-primary/20">
+                    {notification.questionText}
+                  </p>
+                )}
                 <div className="mt-4 grid gap-2 rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
                   <div className="flex justify-between gap-3">
                     <span>Sender</span>

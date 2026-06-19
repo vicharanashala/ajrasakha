@@ -1,4 +1,4 @@
-import {INotification, INotificationType, ISubscription, IUser} from '#root/shared/interfaces/models.js';
+import {INotification, INotificationType, ISubscription, IUser, IQuestion} from '#root/shared/interfaces/models.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject} from 'inversify';
 import {ClientSession, Collection, ObjectId} from 'mongodb';
@@ -12,6 +12,7 @@ export class NotificationRepository implements INotificationRepository {
   private notificationCollection: Collection<INotification>;
   private subscriptionCollection: Collection<ISubscription>
   private userCollection:Collection<IUser>
+  private questionCollection: Collection<IQuestion>
   constructor(
     @inject(GLOBAL_TYPES.Database)
     private db: MongoDatabase,
@@ -21,6 +22,7 @@ export class NotificationRepository implements INotificationRepository {
     this.notificationCollection = await this.db.getCollection<INotification>('notifications');
     this.subscriptionCollection = await this.db.getCollection<ISubscription>('subscriptions');
     this.userCollection = await this.db.getCollection<IUser>('users')
+    this.questionCollection = await this.db.getCollection<IQuestion>('questions')
   }
 
   async addNotification(userId: string, enitity_id: string, type: string, message: string,title:string, session?: ClientSession): Promise<{ insertedId: string; }> {
@@ -105,6 +107,26 @@ export class NotificationRepository implements INotificationRepository {
         };
       };
 
+      // Fetch related questions for entity_ids
+      const entityIds = notification
+        .map(n => n.enitity_id)
+        .filter((id): id is ObjectId => id instanceof ObjectId);
+      const uniqueEntityIds = [...new Set(entityIds.map(id => id.toString()))].map(id => new ObjectId(id));
+      const relatedQuestions = await this.questionCollection
+        .find({_id: {$in: uniqueEntityIds}}, {session})
+        .toArray();
+      const questionById = new Map(
+        relatedQuestions
+          .filter(q => q._id)
+          .map(q => [q._id!.toString(), q]),
+      );
+      const getQuestionText = (entityId?: ObjectId | string): string => {
+        if (!entityId) return '';
+        const questionId = entityId.toString();
+        const question = questionById.get(questionId);
+        return question?.question || '';
+      };
+
       const response = notification.map((n) => ({
         _id:n._id.toString(),
         enitity_id:n.enitity_id.toString(),
@@ -116,6 +138,7 @@ export class NotificationRepository implements INotificationRepository {
         sender: formatUser(n.enitity_id),
         recipient: formatUser(n.userId),
         deliveryTimestamp: n.createdAt.toString(),
+        questionText: getQuestionText(n.enitity_id),
       }))
 
     return {notifications:response,page,totalCount,totalPages:Math.ceil(totalCount/limit)}
@@ -176,6 +199,26 @@ export class NotificationRepository implements INotificationRepository {
         };
       };
 
+      // Fetch related questions for entity_ids
+      const entityIds = notification
+        .map(n => n.enitity_id)
+        .filter((id): id is ObjectId => id instanceof ObjectId);
+      const uniqueEntityIds = [...new Set(entityIds.map(id => id.toString()))].map(id => new ObjectId(id));
+      const relatedQuestions = await this.questionCollection
+        .find({_id: {$in: uniqueEntityIds}}, {session})
+        .toArray();
+      const questionById = new Map(
+        relatedQuestions
+          .filter(q => q._id)
+          .map(q => [q._id!.toString(), q]),
+      );
+      const getQuestionText = (entityId?: ObjectId | string): string => {
+        if (!entityId) return '';
+        const questionId = entityId.toString();
+        const question = questionById.get(questionId);
+        return question?.question || '';
+      };
+
       const response = notification.map((n) => ({
         _id:n._id.toString(),
         enitity_id:n.enitity_id.toString(),
@@ -188,6 +231,7 @@ export class NotificationRepository implements INotificationRepository {
         recipient: formatUser(n.userId),
         direction: n.enitity_id?.toString() === userObjectId.toString() ? 'sent' : 'received',
         deliveryTimestamp: n.createdAt.toString(),
+        questionText: getQuestionText(n.enitity_id),
       }))
 
     return {notifications:response,page,totalCount,totalPages:Math.ceil(totalCount/limit)}

@@ -52,6 +52,7 @@ export interface Notification {
     is_read: boolean;
     type: string;
     createdAt: string;
+    questionText?: string;
     sender?: {
         _id: string;
         name?: string;
@@ -321,6 +322,11 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
                                         <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-3">
                                             {n.message}
                                         </p>
+                                        {n.questionText && (
+                                            <p className="text-xs text-primary font-medium bg-primary/5 px-2 py-1.5 rounded-md line-clamp-2 leading-relaxed mb-3 border border-primary/20">
+                                                {n.questionText}
+                                            </p>
+                                        )}
                                         <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-medium">
                                             <div className="flex items-center gap-1">
                                                 <Clock className="w-3 h-3" />
