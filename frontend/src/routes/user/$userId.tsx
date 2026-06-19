@@ -535,6 +535,7 @@ function RouteComponent() {
         <div className="flex items-center gap-2">
           {currentUserIsCoordinator && (
             <NotificationModal
+              copy="messages"
               trigger={
                 <Button
                   variant="ghost"
@@ -542,7 +543,7 @@ function RouteComponent() {
                   className="relative h-9 w-9"
                   title="Notifications"
                 >
-                  <BellIcon className="h-5 w-5" />
+                  <MessageSquareText className="h-5 w-5" />
                   {(currentUser?.notifications ?? 0) > 0 && (
                     <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
                       {(currentUser?.notifications ?? 0) > 99
@@ -764,7 +765,7 @@ function RouteComponent() {
                                 title="Send notification"
                                 aria-label={`Send notification to ${u.name}`}
                               >
-                                <BellIcon className="h-4 w-4" />
+                                <MessageSquareText className="h-4 w-4" />
                               </Button>
                               <Button
                                 variant="destructive"
@@ -794,11 +795,14 @@ function RouteComponent() {
         user={notificationTargetUser}
         open={!!notificationTargetUser}
         isSending={sendNotificationMutation.isPending}
-        defaultTitle={
-          currentUser?.role === "admin"
-            ? "Message from admin"
-            : "Message from coordinator"
-        }
+        defaultTitle={`Message from ${
+          [currentUser?.firstName, currentUser?.lastName]
+            .filter(Boolean)
+            .join(" ")
+            .trim() ||
+          currentUser?.email ||
+          "sender"
+        }`}
         onOpenChange={(open) => !open && setNotificationTargetUser(null)}
         onSend={handleSendAssignedUserNotification}
       />
@@ -1353,7 +1357,7 @@ function CoordinatorNotificationDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Send notification</DialogTitle>
+          <DialogTitle>Message</DialogTitle>
           <DialogDescription>
             {user?.name ? `Send a notification to ${user.name}.` : null}
           </DialogDescription>
