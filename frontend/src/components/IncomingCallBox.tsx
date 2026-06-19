@@ -12,6 +12,8 @@ import {
   Mic,
   MicOff,
   Send,
+  Languages,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PlivoWebSocketService } from "@/hooks/services/plivoWebSocketService";
@@ -22,6 +24,7 @@ import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { FarmerDetails } from "./FarmerDetails";
 import { plivoApi } from "@/hooks/api/plivo/api";
 import { toast } from "sonner";
+import { translateService } from "@/hooks/services/translateService";
 
 interface IncomingCall {
   uuid: string;
@@ -43,6 +46,7 @@ export interface IncomingCallBoxProps {
   onOriginalTranscriptChange?: (originalTranscript: string) => void;
   onTranscriptsListChange?: (transcripts: CallTranscript[]) => void;
   onCallStateChange?: (isActive: boolean) => void;
+  onCallUuidChange?: (callUuid: string | null) => void;
 }
 
 declare global {
@@ -58,6 +62,7 @@ export const IncomingCallBox = ({
   onOriginalTranscriptChange,
   onTranscriptsListChange,
   onCallStateChange,
+  onCallUuidChange,
 }: IncomingCallBoxProps) => {
   console.log(" [IncomingCallBox] Component mounting...");
 
@@ -73,6 +78,38 @@ export const IncomingCallBox = ({
   const [messageText, setMessageText] = useState("");
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [lastCallNumber, setLastCallNumber] = useState<string | null>(null);
+
+  // Translation
+  const [farmerDetectedLanguage, setFarmerDetectedLanguage] = useState<string | null>(null);
+  const [selectedLanguage, setSelectedLanguage] = useState<string>("hi-IN");
+  const [translatedText, setTranslatedText] = useState<string | null>(null);
+  const [translating, setTranslating] = useState(false);
+
+  const SARVAM_LANGUAGES = [
+    { code: "en-IN", name: "English" },
+    { code: "hi-IN", name: "Hindi" },
+    { code: "bn-IN", name: "Bengali" },
+    { code: "gu-IN", name: "Gujarati" },
+    { code: "kn-IN", name: "Kannada" },
+    { code: "ml-IN", name: "Malayalam" },
+    { code: "mr-IN", name: "Marathi" },
+    { code: "od-IN", name: "Odia" },
+    { code: "pa-IN", name: "Punjabi" },
+    { code: "ta-IN", name: "Tamil" },
+    { code: "te-IN", name: "Telugu" },
+    { code: "as-IN", name: "Assamese" },
+    { code: "doi-IN", name: "Dogri" },
+    { code: "kok-IN", name: "Konkani" },
+    { code: "ks-IN", name: "Kashmiri" },
+    { code: "mai-IN", name: "Maithili" },
+    { code: "mni-IN", name: "Manipuri" },
+    { code: "ne-IN", name: "Nepali" },
+    { code: "sa-IN", name: "Sanskrit" },
+    { code: "sat-IN", name: "Santali" },
+    { code: "sd-IN", name: "Sindhi" },
+    { code: "ur-IN", name: "Urdu" },
+    { code: "brx-IN", name: "Bodo" },
+  ];
 
   const wsRef = useRef<PlivoWebSocketService | null>(null);
   const plivoClientRef = useRef<any>(null);
@@ -150,6 +187,25 @@ export const IncomingCallBox = ({
       }
     };
   }, [callStatus, incomingCall]);
+
+  // Detect first inbound (farmer) transcript language and lock it
+  useEffect(() => {
+    if (farmerDetectedLanguage) return; // Already locked
+
+    const firstInboundTranscript = transcripts.find(t => t.track === "inbound" && t.detectedLanguage && t.detectedLanguage !== "unknown");
+    if (firstInboundTranscript) {
+      setFarmerDetectedLanguage(firstInboundTranscript.detectedLanguage);
+      setSelectedLanguage(firstInboundTranscript.detectedLanguage);
+    }
+  }, [transcripts, farmerDetectedLanguage]);
+
+  // Reset farmer detected language when call ends
+  useEffect(() => {
+    if (callStatus === "idle" || callStatus === "incoming") {
+      setFarmerDetectedLanguage(null);
+      setTranslatedText(null);
+    }
+  }, [callStatus]);
 
   // Initialize Plivo SDK (NPM package) - Only for call agents
   useEffect(() => {
@@ -259,6 +315,7 @@ export const IncomingCallBox = ({
         });
         setLastCallNumber(callerName);
         setCallStatus("incoming");
+        onCallUuidChange?.(callerID);
         // WebSocket will connect when call is answered, not here
       },
     );
@@ -275,6 +332,7 @@ export const IncomingCallBox = ({
       setCallStatus("ended");
       setIncomingCall(null);
       onCallStateChange?.(false);
+      onCallUuidChange?.(null);
       disconnectWebSocket();
     });
 
@@ -282,6 +340,7 @@ export const IncomingCallBox = ({
       console.log("❌ Call rejected");
       setCallStatus("idle");
       setIncomingCall(null);
+      onCallUuidChange?.(null);
     });
 
     // Additional debugging events
@@ -304,6 +363,7 @@ export const IncomingCallBox = ({
       console.log("❌ Call cancelled by caller");
       setCallStatus("idle");
       setIncomingCall(null);
+      onCallUuidChange?.(null);
       disconnectWebSocket();
     });
 
@@ -312,6 +372,7 @@ export const IncomingCallBox = ({
       console.log("📴 Incoming call ended");
       setCallStatus("idle");
       setIncomingCall(null);
+      onCallUuidChange?.(null);
       disconnectWebSocket();
     });
 
@@ -430,6 +491,7 @@ export const IncomingCallBox = ({
       setCallStatus("ended");
       setIncomingCall(null);
       onCallStateChange?.(false);
+      onCallUuidChange?.(null);
       disconnectWebSocket();
     });
 
@@ -438,6 +500,7 @@ export const IncomingCallBox = ({
       setCallStatus("ended");
       setIncomingCall(null);
       onCallStateChange?.(false);
+      onCallUuidChange?.(null);
       disconnectWebSocket();
     });
 
@@ -548,11 +611,39 @@ export const IncomingCallBox = ({
       await plivoApi.sendMessage(sanitizedNumber, messageText.trim());
       toast.success("SMS sent successfully!");
       setMessageText("");
+      setTranslatedText(null);
     } catch (error) {
       console.error("Failed to send SMS:", error);
       toast.error("Failed to send SMS");
     } finally {
       setIsSendingMessage(false);
+    }
+  };
+
+  const handleTranslate = async () => {
+    if (!messageText.trim()) {
+      toast.error("Please enter text to translate");
+      return;
+    }
+
+    const targetLanguage = farmerDetectedLanguage || selectedLanguage;
+
+    setTranslating(true);
+    try {
+      const translated = await translateService(messageText, targetLanguage, "en-IN");
+      setTranslatedText(translated);
+      toast.success("Text translated successfully!");
+    } catch (err: any) {
+      console.error("Translation error:", err);
+      if (err.message?.includes("timeout") || err.message?.includes("504") || err.name === "AbortError") {
+        toast.error("Translation request timed out. Please try again.");
+      } else if (err.message?.includes("fetch") || err.message?.includes("network")) {
+        toast.error("Network error. Please check your connection and try again.");
+      } else {
+        toast.error(`Failed to translate: ${err.message || "Unknown error"}`);
+      }
+    } finally {
+      setTranslating(false);
     }
   };
 
@@ -894,6 +985,52 @@ export const IncomingCallBox = ({
                         className="px-3 h-9 bg-primary hover:bg-primary/90 text-white"
                       >
                         <Send className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {!farmerDetectedLanguage ? (
+                      <div className="mt-2">
+                        <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 block">
+                          Select Target Language:
+                        </label>
+                        <select
+                          value={selectedLanguage}
+                          onChange={(e) => setSelectedLanguage(e.target.value)}
+                          className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        >
+                          {SARVAM_LANGUAGES.map((lang) => (
+                            <option key={lang.code} value={lang.code}>
+                              {lang.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : null}
+                    {translatedText && (
+                      <div className="mt-2 p-3 bg-indigo-50 dark:bg-indigo-950/30 rounded-lg border border-indigo-200 dark:border-indigo-800">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Languages className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                          <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+                            Translation Preview ({farmerDetectedLanguage || selectedLanguage})
+                          </span>
+                        </div>
+                        <p className="text-sm text-indigo-900 dark:text-indigo-100">
+                          {translatedText}
+                        </p>
+                      </div>
+                    )}
+                    <div className="flex justify-end gap-2 mt-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleTranslate}
+                        disabled={!messageText.trim() || translating}
+                        className="gap-2"
+                      >
+                        {translating && (
+                          <RefreshCw className="h-3 w-3 animate-spin" />
+                        )}
+                        <Languages className="h-3 w-3" />
+                        Translate
                       </Button>
                     </div>
                   </div>

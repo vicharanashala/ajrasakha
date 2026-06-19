@@ -3,6 +3,28 @@ import { env } from "@/config/env";
 
 const API_BASE_URL = env.apiBaseUrl();
 
+export interface QAMetadata {
+  extracted_query: string;
+  extracted_crop: string;
+  extracted_state: string;
+  extracted_district: string;
+  extracted_domain: string;
+  extracted_season: string;
+}
+
+export interface QAItem {
+  question: string;
+  answer: string;
+  agri_specialist: string;
+  referenceSource: string;
+  id: string;
+}
+
+export interface QAPairs {
+  metadata: QAMetadata;
+  QnA: QAItem[];
+}
+
 export interface CallHistoryItem {
   uuid: string;
   from: string;
@@ -14,6 +36,7 @@ export interface CallHistoryItem {
   callDetails?: {
     caller?: { transcript: string; translation: string; detectedLanguage: string };
     agent?: { transcript: string; translation: string; detectedLanguage: string };
+    QA_pairs?: QAPairs;
   };
 }
 

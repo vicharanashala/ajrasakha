@@ -33,6 +33,7 @@ import {
   IUser,
   IcheckStatusResponseDto
 } from '#root/shared/interfaces/models.js';
+import type { QAMetadata } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
 import { BadRequestErrorResponse } from '#shared/middleware/errorHandler.js';
 import { verifyNotTester } from '#root/shared/functions/verifyNotTester.js';
 import {
@@ -283,6 +284,8 @@ export class QuestionController {
         crop: string;
         state: string;
         district: string;
+        domain: string;
+        season: string;
       };
     }
   ): Promise<{ success: boolean }> {
@@ -300,10 +303,11 @@ export class QuestionController {
   @Authorized()
   @OpenAPI({ summary: 'Resume ACC Agent and get final answer' })
   async resumeAccAgentAndGetAnswer(
-    @Body() body: { threadId: string }
+    @Body() body: { threadId: string; callUuid?: string; metadata?: QAMetadata }
   ): Promise<{ final_answer: string }> {
     try {
-      const result = await this.questionService.resumeAccAgentAndGetAnswer(body.threadId);
+      // console.log('[QuestionController] resumeAccAgentAndGetAnswer - Received body:', JSON.stringify(body, null, 2));
+      const result = await this.questionService.resumeAccAgentAndGetAnswer(body.threadId, body.callUuid, body.metadata);
       return result;
     } catch (error) {
       console.error('[QuestionController] resumeAccAgentAndGetAnswer: Error', error);

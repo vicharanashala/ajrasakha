@@ -6,6 +6,7 @@ import { GLOBAL_TYPES } from '#root/types.js';
 import type {
   ICallDetailsRepository,
   CallDetails,
+  QAPairs,
 } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
 
 @injectable()
@@ -73,6 +74,38 @@ export class CallDetailsRepository implements ICallDetailsRepository {
     } catch (error: any) {
       console.error(`[CALL_DETAILS_FLOW] CallDetailsRepository.getAll: Error retrieving all records:`, error.stack || error);
       throw new InternalServerError(`Failed to get all call details: ${error}`);
+    }
+  }
+
+  async updateQA_Pairs(callUuid: string, qaPairs: QAPairs, session?: ClientSession): Promise<void> {
+    try {
+      await this.init();
+      // console.log(`[CallDetailsRepository] updateQA_Pairs - Updating document for callUuid: ${callUuid}`);
+      // console.log(`[CallDetailsRepository] updateQA_Pairs - Data to store:`, JSON.stringify(qaPairs, null, 2));
+
+      const result = await this.callDetailsCollection.updateOne(
+        { callUuid },
+        {
+          $set: {
+            QA_pairs: qaPairs,
+            updatedAt: new Date()
+          }
+        },
+        { session }
+      );
+
+      // console.log(`[CallDetailsRepository] updateQA_Pairs - Update result:`, {
+      //   matchedCount: result.matchedCount,
+      //   modifiedCount: result.modifiedCount,
+      //   acknowledged: result.acknowledged
+      // });
+
+      if (result.matchedCount === 0) {
+        console.warn(`[CallDetailsRepository] updateQA_Pairs - No document found with callUuid: ${callUuid}`);
+      }
+    } catch (error: any) {
+      console.error(`[CALL_DETAILS_FLOW] CallDetailsRepository.updateQA_Pairs: Error updating Q/A pairs for callUuid ${callUuid}:`, error.stack || error);
+      throw new InternalServerError(`Failed to update Q/A pairs: ${error}`);
     }
   }
 }

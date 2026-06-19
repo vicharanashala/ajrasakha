@@ -15,6 +15,7 @@ import {
 } from '../classes/validators/QuestionVaidators.js';
 import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
 import { ClientSession, ObjectId } from 'mongodb';
+import type { QAMetadata } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
 
 /** Lean question shape used in the moderator/admin "Queue Details" modal. */
 export interface QueueQuestionItem {
@@ -189,11 +190,13 @@ export interface IQuestionService {
       crop: string;
       state: string;
       district: string;
+      domain: string;
+      season: string;
     }
   ): Promise<void>;
 
   /** HIL Flow: Resume and get final answer */
-  resumeAccAgentAndGetAnswer(threadId: string): Promise<{ final_answer: string }>;
+  resumeAccAgentAndGetAnswer(threadId: string, callUuid?: string, metadata?: QAMetadata): Promise<{ final_answer: string }>;
   /** Manually trigger duplicate check for a question without a reference */
   manualCheckDuplicate(
     questionId: string,

@@ -19,6 +19,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
 import { Checkbox } from "./atoms/checkbox";
 import { Input } from "./atoms/input";
 import { Label } from "./atoms/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./atoms/select";
 import type { GeneratedQuestion } from "./voice-recorder-card";
 import Plivo from "plivo-browser-sdk";
 import { toast } from "@/shared/components/toast";
@@ -27,12 +28,62 @@ import { UserService } from "@/hooks/services/userService";
 
 const userService = new UserService();
 
+const DOMAIN_OPTIONS = [
+  "Soil Health and Nutrient Management",
+  "Irrigation and Water Management",
+  "Insect - Pest Management",
+  "Disease Management",
+  "Seed and Variety Selection",
+  "Cultural and Crop Management Practices",
+  "Organic and Natural Farming",
+  "Weed Management",
+  "Climate, Weather & Stress Management",
+  "Farm Tools & Mechanisation",
+  "Post-Harvest Management & Storage",
+  "Market Prices, MSP & Marketing",
+  "Agricultural Schemes & Subsidies",
+  "Credit, Loan & Insurance",
+  "Other"
+];
+
+const SEASON_OPTIONS = [
+  "Kharif",
+  "Rabi",
+  "Zaid"
+];
+
+// Auto-select season based on current month
+const getAutoSelectedSeason = (): string => {
+  const currentMonth = new Date().getMonth() + 1; // 1-12
+
+  // Season mapping based on Indian agricultural calendar:
+  // Kharif → Sow: Apr–Aug | Harvest: Aug–Dec
+  // Rabi → Sow: Sep–Dec | Harvest: Feb–May
+  // Zaid [Summer] → Sow: Jan–Apr | Harvest: Apr–Jul
+
+  if (currentMonth >= 4 && currentMonth <= 8) {
+    // April to August: Kharif sowing season
+    return "Kharif";
+  } else if (currentMonth >= 9 && currentMonth <= 12) {
+    // September to December: Kharif harvest / Rabi sowing
+    return "Rabi";
+  } else if (currentMonth >= 1 && currentMonth <= 3) {
+    // January to March: Rabi harvest / Zaid sowing
+    return "Rabi";
+  } else {
+    // Default fallback
+    return "Kharif";
+  }
+};
+
 export const CallInterface = () => {
   const { data: currentUser, refetch: refetchCurrentUser } = useGetCurrentUser();
   const { mutateAsync: submitTranscript, isPending } = useSubmitTranscript();
   const [editableTranslatedTranscript, setEditableTranslatedTranscript] = useState("");
   const [transcriptsList, setTranscriptsList] = useState<CallTranscript[]>([]);
   const [isCallActive, setIsCallActive] = useState(false);
+  const [callUuid, setCallUuid] = useState<string | null>(null);
+  const [lastCallUuid, setLastCallUuid] = useState<string | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
   const [questions, setQuestions] = useState<GeneratedQuestion[]>([]);
   const lastTranscriptRef = useRef("");
@@ -59,6 +110,9 @@ export const CallInterface = () => {
   const [editableCrop, setEditableCrop] = useState("");
   const [editableState, setEditableState] = useState("");
   const [editableDistrict, setEditableDistrict] = useState("");
+  const [editableDomain, setEditableDomain] = useState("");
+  const [customDomain, setCustomDomain] = useState("");
+  const [editableSeason, setEditableSeason] = useState("");
 
   // Auto-scroll to bottom of chat bubbles
   useEffect(() => {
@@ -130,6 +184,9 @@ export const CallInterface = () => {
     setEditableCrop("");
     setEditableState("");
     setEditableDistrict("");
+    setEditableDomain("");
+    setCustomDomain("");
+    setEditableSeason("");
   };
 
   const handleResetConversation = () => {
@@ -148,6 +205,9 @@ export const CallInterface = () => {
     setEditableCrop("");
     setEditableState("");
     setEditableDistrict("");
+    setEditableDomain("");
+    setCustomDomain("");
+    setEditableSeason("");
     toast.success("Conversation cleared");
   };
 
@@ -214,6 +274,13 @@ export const CallInterface = () => {
       setEditableCrop(data.extracted_crop);
       setEditableState(data.extracted_state);
       setEditableDistrict(data.extracted_district);
+
+      // Use domain from AI response if available, otherwise empty
+      setEditableDomain(data.extracted_domain || "");
+      setCustomDomain("");
+
+      // Auto-select season based on current month
+      setEditableSeason(getAutoSelectedSeason());
       
       setIsHumanVerificationMode(true);
       setIsSummaryOpen(true);
@@ -237,14 +304,36 @@ export const CallInterface = () => {
       toast.error("No active thread. Please extract data first.");
       return;
     }
+
+    // Validate domain selection
+    if (!editableDomain) {
+      toast.error("Please select a domain.");
+      return;
+    }
+
+    // Validate custom domain if "Other" is selected
+    if (editableDomain === "Other" && !customDomain.trim()) {
+      toast.error("Please enter a custom domain value.");
+      return;
+    }
+
+    // Validate season selection
+    if (!editableSeason) {
+      toast.error("Please select a season.");
+      return;
+    }
+
     let toastId;
     try {
       // Check if data was edited
-      const wasEdited = 
+      const finalDomain = editableDomain === "Other" ? customDomain : editableDomain;
+      const wasEdited =
         editableQuery !== extractedData?.extracted_query ||
         editableCrop !== extractedData?.extracted_crop ||
         editableState !== extractedData?.extracted_state ||
-        editableDistrict !== extractedData?.extracted_district;
+        editableDistrict !== extractedData?.extracted_district ||
+        finalDomain !== "" ||
+        editableSeason !== "";
 
       if (wasEdited) {
         toastId = toast.loading('updating extracted data...')
@@ -255,7 +344,9 @@ export const CallInterface = () => {
             query: editableQuery,
             crop: editableCrop,
             state: editableState,
-            district: editableDistrict
+            district: editableDistrict,
+            domain: finalDomain,
+            season: editableSeason
           }
         });
         toast.dismiss(toastId)
@@ -263,9 +354,24 @@ export const CallInterface = () => {
       }
       toastId = toast.loading('generating final answer...')
       // Step 4: Resume and get answer
-      const result = await resumeAndGetAnswer(threadId);
+      const metadata = {
+        extracted_query: editableQuery,
+        extracted_crop: editableCrop,
+        extracted_state: editableState,
+        extracted_district: editableDistrict,
+        extracted_domain: finalDomain,
+        extracted_season: editableSeason,
+      };
+      // Use lastCallUuid if call has ended, otherwise use current callUuid
+      const targetCallUuid = callUuid || lastCallUuid || undefined;
+      const result = await resumeAndGetAnswer({ threadId, callUuid: targetCallUuid, metadata });
       setIsHumanVerificationMode(false);
-      
+
+      // Reset lastCallUuid after successful Q/A storage to prevent re-association
+      if (targetCallUuid) {
+        setLastCallUuid(null);
+      }
+
       // Convert final answer to question format
       const generatedQuestion: GeneratedQuestion = {
         question: editableQuery,
@@ -274,7 +380,7 @@ export const CallInterface = () => {
         referenceSource: "acc_agent_hitl",
         id: Date.now().toString()
       };
-      
+
       setQuestions([generatedQuestion]);
       setHasGeneratedQuestions(true);
       toast.dismiss(toastId)
@@ -354,6 +460,17 @@ export const CallInterface = () => {
         onOriginalTranscriptChange={() => { }}
         onTranscriptsListChange={(list) => setTranscriptsList(list)}
         onCallStateChange={(isActive) => setIsCallActive(isActive)}
+        onCallUuidChange={(uuid) => {
+          setCallUuid(uuid);
+          // Preserve the last call's UUID when call ends for question generation
+          if (uuid === null && callUuid !== null) {
+            setLastCallUuid(callUuid);
+          }
+          // Reset lastCallUuid when a new call comes in
+          if (uuid !== null) {
+            setLastCallUuid(null);
+          }
+        }}
       />
       {/* <button onClick={() => handleRedial("+919606751041")}>Redial</button> */}
 
@@ -569,6 +686,63 @@ export const CallInterface = () => {
                             placeholder="District..."
                           />
                         </div>
+
+                        <div>
+                          <Label htmlFor="domain" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
+                            Domain
+                          </Label>
+                          <Select
+                            value={editableDomain}
+                            onValueChange={setEditableDomain}
+                          >
+                            <SelectTrigger className="text-sm">
+                              <SelectValue placeholder="Select domain..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {DOMAIN_OPTIONS.map((domain) => (
+                                <SelectItem key={domain} value={domain}>
+                                  {domain}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {editableDomain === "Other" && (
+                          <div className="md:col-span-2">
+                            <Label htmlFor="customDomain" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
+                              Custom Domain
+                            </Label>
+                            <Input
+                              id="customDomain"
+                              value={customDomain}
+                              onChange={(e) => setCustomDomain(e.target.value)}
+                              className="text-sm"
+                              placeholder="Enter custom domain..."
+                            />
+                          </div>
+                        )}
+
+                        <div>
+                          <Label htmlFor="season" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
+                            Season
+                          </Label>
+                          <Select
+                            value={editableSeason}
+                            onValueChange={setEditableSeason}
+                          >
+                            <SelectTrigger className="text-sm">
+                              <SelectValue placeholder="Select season..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {SEASON_OPTIONS.map((season) => (
+                                <SelectItem key={season} value={season}>
+                                  {season}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                       
                       <div className="flex justify-end gap-2 mt-4">
@@ -582,7 +756,7 @@ export const CallInterface = () => {
                         </Button>
                         <Button
                           onClick={handleApproveAndResume}
-                          disabled={isResuming || !editableQuery.trim()}
+                          disabled={isResuming || !editableQuery.trim() || !editableDomain || (editableDomain === "Other" && !customDomain.trim()) || !editableSeason}
                           size="sm"
                           className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
                         >

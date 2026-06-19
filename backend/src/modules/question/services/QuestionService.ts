@@ -78,6 +78,7 @@ import {
 import { toTitleCase } from '#root/utils/ToTitlecase.js';
 import axios from 'axios';
 import { AccAgentService } from '#root/modules/acc-agent/services/AccAgentService.js';
+import type { ICallDetailsRepository, QAPairs, QAMetadata } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
 
 @injectable()
 export class QuestionService extends BaseService implements IQuestionService {
@@ -129,6 +130,9 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     @inject(GLOBAL_TYPES.UserService)
     private readonly userService: UserService,
+
+    @inject(Symbol.for('CallDetailsRepository'))
+    private readonly callDetailsRepository: ICallDetailsRepository,
   ) {
     super(mongoDatabase);
   }
@@ -632,6 +636,8 @@ export class QuestionService extends BaseService implements IQuestionService {
       crop: string;
       state: string;
       district: string;
+      domain: string;
+      season: string;
     }
   ): Promise<void> {
     try {
@@ -645,9 +651,42 @@ export class QuestionService extends BaseService implements IQuestionService {
   /**
    * HIL Flow: Resume and get final answer
    */
-  async resumeAccAgentAndGetAnswer(threadId: string): Promise<{ final_answer: string }> {
+  async resumeAccAgentAndGetAnswer(
+    threadId: string,
+    callUuid?: string,
+    metadata?: QAMetadata
+  ): Promise<{ final_answer: string }> {
     try {
+      // console.log('[QuestionService] resumeAccAgentAndGetAnswer - Received params:', {
+      //   threadId,
+      //   callUuid,
+      //   metadata: metadata ? JSON.stringify(metadata, null, 2) : 'undefined'
+      // });
+
       const result = await this.accAgentService.resumeAndGetAnswer(threadId);
+
+      // If callUuid and metadata are provided, store Q/A pairs in call_details
+      if (callUuid && metadata) {
+        const qaPairs: QAPairs = {
+          metadata,
+          QnA: [
+            {
+              question: metadata.extracted_query,
+              answer: result.final_answer,
+              agri_specialist: 'ACC_AGENT',
+              referenceSource: 'acc_agent_hitl',
+              id: new ObjectId().toString()
+            }
+          ]
+        };
+
+        // console.log('[QuestionService] Storing Q/A pairs:', JSON.stringify(qaPairs, null, 2));
+        await this.callDetailsRepository.updateQA_Pairs(callUuid, qaPairs);
+        // console.log(`[QuestionService] Successfully stored Q/A pairs for callUuid: ${callUuid}`);
+      } else {
+        // console.log('[QuestionService] Skipping Q/A storage - callUuid or metadata missing');
+      }
+
       return result;
     } catch (error) {
       console.error('[QuestionService] resumeAccAgentAndGetAnswer: Error', error);

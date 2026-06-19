@@ -10,6 +10,7 @@ import {
   RefreshCw,
   Eye,
   MessageSquare,
+  Languages,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { plivoApi } from "@/hooks/api/plivo/api";
@@ -18,6 +19,8 @@ import { format } from "date-fns";
 import { FarmerDetails } from "./FarmerDetails";
 import Plivo from "plivo-browser-sdk";
 import { toast } from "@/shared/components/toast";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@radix-ui/react-accordion";
+import { translateService } from "@/hooks/services/translateService";
 
 interface CallHistoryProps {
   onRedial?: (phoneNumber: string) => void;
@@ -43,6 +46,37 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
   const [messageText, setMessageText] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
   const MAX_MESSAGE_LENGTH = 150;
+
+  // Translation
+  const [translatedText, setTranslatedText] = useState<string | null>(null);
+  const [translating, setTranslating] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState<string>("hi-IN");
+
+  const SARVAM_LANGUAGES = [
+    { code: "en-IN", name: "English" },
+    { code: "hi-IN", name: "Hindi" },
+    { code: "bn-IN", name: "Bengali" },
+    { code: "gu-IN", name: "Gujarati" },
+    { code: "kn-IN", name: "Kannada" },
+    { code: "ml-IN", name: "Malayalam" },
+    { code: "mr-IN", name: "Marathi" },
+    { code: "od-IN", name: "Odia" },
+    { code: "pa-IN", name: "Punjabi" },
+    { code: "ta-IN", name: "Tamil" },
+    { code: "te-IN", name: "Telugu" },
+    { code: "as-IN", name: "Assamese" },
+    { code: "doi-IN", name: "Dogri" },
+    { code: "kok-IN", name: "Konkani" },
+    { code: "ks-IN", name: "Kashmiri" },
+    { code: "mai-IN", name: "Maithili" },
+    { code: "mni-IN", name: "Manipuri" },
+    { code: "ne-IN", name: "Nepali" },
+    { code: "sa-IN", name: "Sanskrit" },
+    { code: "sat-IN", name: "Santali" },
+    { code: "sd-IN", name: "Sindhi" },
+    { code: "ur-IN", name: "Urdu" },
+    { code: "brx-IN", name: "Bodo" },
+  ];
 
   // Filters
   const [showFilters, setShowFilters] = useState(false);
@@ -138,10 +172,39 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
       toast.success("SMS sent successfully!");
       setMessageRow(null);
       setMessageText("");
+      setTranslatedText(null);
     } catch (err: any) {
       toast.error(`Failed to send SMS: ${err.message || "Unknown error"}`);
     } finally {
       setSendingMessage(false);
+    }
+  };
+
+  const handleTranslate = async (call: CallHistoryItem) => {
+    if (!messageText.trim()) {
+      toast.error("Please enter text to translate");
+      return;
+    }
+
+    const farmerLanguage = call.callDetails?.caller?.detectedLanguage;
+    const targetLanguage = (farmerLanguage && farmerLanguage !== "unknown") ? farmerLanguage : selectedLanguage;
+
+    setTranslating(true);
+    try {
+      const translated = await translateService(messageText, targetLanguage, "en-IN");
+      setTranslatedText(translated);
+      toast.success("Text translated successfully!");
+    } catch (err: any) {
+      console.error("Translation error:", err);
+      if (err.message?.includes("timeout") || err.message?.includes("504") || err.name === "AbortError") {
+        toast.error("Translation request timed out. Please try again.");
+      } else if (err.message?.includes("fetch") || err.message?.includes("network")) {
+        toast.error("Network error. Please check your connection and try again.");
+      } else {
+        toast.error(`Failed to translate: ${err.message || "Unknown error"}`);
+      }
+    } finally {
+      setTranslating(false);
     }
   };
 
@@ -549,6 +612,75 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                       </div>
                                     )}
                                   </div>
+
+                                  {call.callDetails?.QA_pairs && (
+                                    <div className="space-y-3">
+                                      <h3 className="text-sm font-semibold tracking-wide uppercase flex items-center gap-2">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                        Question & Answer Pairs
+                                      </h3>
+
+                                      <div className="bg-white dark:bg-zinc-900 rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 shadow-sm">
+                                        <div className="space-y-3 text-sm mb-4">
+                                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                                            <div>
+                                              <span className="font-medium text-muted-foreground">Crop:</span>
+                                              <span className="ml-1">{call.callDetails.QA_pairs.metadata.extracted_crop || "N/A"}</span>
+                                            </div>
+                                            <div>
+                                              <span className="font-medium text-muted-foreground">State:</span>
+                                              <span className="ml-1">{call.callDetails.QA_pairs.metadata.extracted_state || "N/A"}</span>
+                                            </div>
+                                            <div>
+                                              <span className="font-medium text-muted-foreground">District:</span>
+                                              <span className="ml-1">{call.callDetails.QA_pairs.metadata.extracted_district || "N/A"}</span>
+                                            </div>
+                                            <div>
+                                              <span className="font-medium text-muted-foreground">Domain:</span>
+                                              <span className="ml-1">{call.callDetails.QA_pairs.metadata.extracted_domain || "N/A"}</span>
+                                            </div>
+                                            <div>
+                                              <span className="font-medium text-muted-foreground">Season:</span>
+                                              <span className="ml-1">{call.callDetails.QA_pairs.metadata.extracted_season || "N/A"}</span>
+                                            </div>
+                                          </div>
+                                        </div>
+
+                                        <Accordion type="single" collapsible className="w-full">
+                                          {call.callDetails.QA_pairs.QnA.map((qa, index) => (
+                                            <AccordionItem key={qa.id} value={`qa-${index}`}>
+                                              <AccordionTrigger className="text-left hover:no-underline py-3">
+                                                <div className="flex items-start gap-3 w-full">
+                                                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xs font-bold">
+                                                    {index + 1}
+                                                  </span>
+                                                  <span className="font-medium text-sm text-left flex-1">
+                                                    {qa.question}
+                                                  </span>
+                                                </div>
+                                              </AccordionTrigger>
+                                              <AccordionContent className="pt-2">
+                                                <div className="pl-9 space-y-2">
+                                                  <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-lg p-3">
+                                                    <p className="text-sm leading-relaxed">
+                                                      {qa.answer}
+                                                    </p>
+                                                  </div>
+                                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                    <Badge variant="outline" className="text-[10px]">
+                                                      {qa.agri_specialist}
+                                                    </Badge>
+                                                    <span>•</span>
+                                                    <span>{qa.referenceSource}</span>
+                                                  </div>
+                                                </div>
+                                              </AccordionContent>
+                                            </AccordionItem>
+                                          ))}
+                                        </Accordion>
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -591,6 +723,37 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                       characters
                                     </span>
                                   </div>
+                                  {!call.callDetails?.caller?.detectedLanguage || call.callDetails?.caller?.detectedLanguage === "unknown" ? (
+                                    <div className="mt-2">
+                                      <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                                        Select Target Language:
+                                      </label>
+                                      <select
+                                        value={selectedLanguage}
+                                        onChange={(e) => setSelectedLanguage(e.target.value)}
+                                        className="w-full px-2 py-1.5 text-sm border rounded-md bg-background"
+                                      >
+                                        {SARVAM_LANGUAGES.map((lang) => (
+                                          <option key={lang.code} value={lang.code}>
+                                            {lang.name}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                  ) : null}
+                                  {translatedText && (
+                                    <div className="mt-2 p-3 bg-indigo-50 dark:bg-indigo-950/30 rounded-md border border-indigo-200 dark:border-indigo-800">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <Languages className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                                        <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+                                          Translation Preview ({call.callDetails?.caller?.detectedLanguage || "Unknown"})
+                                        </span>
+                                      </div>
+                                      <p className="text-sm text-indigo-900 dark:text-indigo-100">
+                                        {translatedText}
+                                      </p>
+                                    </div>
+                                  )}
                                   <div className="flex justify-end gap-2 mt-2">
                                     <Button
                                       size="sm"
@@ -598,6 +761,22 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                       onClick={() => setMessageRow(null)}
                                     >
                                       Cancel
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleTranslate(call)}
+                                      disabled={
+                                        !messageText.trim() ||
+                                        translating
+                                      }
+                                      className="gap-2"
+                                    >
+                                      {translating && (
+                                        <RefreshCw className="h-3 w-3 animate-spin" />
+                                      )}
+                                      <Languages className="h-3 w-3" />
+                                      Translate
                                     </Button>
                                     <Button
                                       size="sm"

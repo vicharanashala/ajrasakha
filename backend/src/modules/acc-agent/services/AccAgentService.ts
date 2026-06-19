@@ -45,6 +45,7 @@ export class AccAgentService {
     extracted_crop: string;
     extracted_state: string;
     extracted_district: string;
+    extracted_domain?: string;
   }> {
     try {
       const response = await axios.post(
@@ -72,6 +73,7 @@ export class AccAgentService {
         extracted_crop: data.extracted_crop || '',
         extracted_state: data.extracted_state || '',
         extracted_district: data.extracted_district || '',
+        extracted_domain: data.extracted_domain || '',
       };
     } catch (error) {
       console.error('[AccAgentService] extractData: Error calling LangGraph API', error);
@@ -89,6 +91,8 @@ export class AccAgentService {
       crop: string;
       state: string;
       district: string;
+      domain: string;
+      season: string;
     }
   ): Promise<void> {
 
@@ -101,6 +105,8 @@ export class AccAgentService {
             extracted_crop: correctedData.crop,
             extracted_state: correctedData.state,
             extracted_district: correctedData.district,
+            extracted_domain: correctedData.domain,
+            extracted_season: correctedData.season,
           },
         },
         {
