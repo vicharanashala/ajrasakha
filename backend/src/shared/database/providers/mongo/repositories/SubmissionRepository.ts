@@ -182,6 +182,31 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         );
       }
 
+      // Removing the first expert changes the question's allocation state:
+      const removedFirstExpert = index === 0;
+      const queueBecameEmpty =
+        removedFirstExpert && (questionSubmission.queue?.length ?? 0) === 1;
+      if (queueBecameEmpty) {
+        // No experts left — the question is no longer allocated to anyone. Clear
+        // firstAllocationAt so it falls back into the never-allocated queue and can
+        // be re-picked for allocation.
+        await this.QuestionCollection.updateOne(
+          { _id: new ObjectId(questionId) },
+          { $unset: { firstAllocationAt: '' } },
+          { session },
+        );
+      } else if (removedFirstExpert) {
+        // Allocation shifts to the next expert (now the head of the queue). Ensure
+        // firstAllocationAt is set if it was missing/null, so the now-allocated
+        // question isn't treated as never-allocated. Only set when absent to
+        // preserve the original first-allocation timestamp when it already exists.
+        await this.QuestionCollection.updateOne(
+          { _id: new ObjectId(questionId) },
+          { $set: { firstAllocationAt: new Date() } },
+          { session },
+        );
+      }
+
       if (shouldCreateNextHistoryEntry) {
         await this.QuestionSubmissionCollection.updateOne(
           { questionId: new ObjectId(questionId) },

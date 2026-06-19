@@ -76,22 +76,38 @@ export const AllocationTimeline = ({
     setIsFlipped(false);
   };
 
-  const getUserSubmission = (
-    userId: string
+  // Resolve the history entry for a given QUEUE position. `history` is sorted by date
+  // (not aligned to the queue), so we match by the position's user — and when an expert
+  // appears at more than one position, we disambiguate by role: the author position (0)
+  // takes that user's answer-bearing entry; reviewer positions take a review entry.
+  const getSubmissionForPosition = (
+    index: number
   ): ISubmissionHistory | undefined => {
-    return history.find((h) => h.updatedBy?._id === userId);
+    const user = queue[index];
+    if (!user) return undefined;
+    const entries = history.filter((h) => h.updatedBy?._id === user._id);
+    if (entries.length <= 1) return entries[0];
+    if (index === 0) {
+      return entries.find((h) => h.answer) ?? entries[0];
+    }
+    return (
+      entries.find(
+        (h) => h.approvedAnswer || h.rejectedAnswer || h.modifiedAnswer
+      ) ?? entries[0]
+    );
   };
 
-  const getUserActivityText = (userId: string): string => {
-    const submission = getUserSubmission(userId);
+  const getUserActivityText = (index: number): string => {
+    const submission = getSubmissionForPosition(index);
+    const positionUser = queue[index];
     if (!submission) {
       if (currentUser.role !== "expert") {
-        return `${queue[0].name} is reviewing the question!!`
+        return `${positionUser?.name ?? queue[0]?.name} is reviewing the question!!`
       }
       return "Author is reviewing the question"
     };
 
-    const userName = submission?.updatedBy?.name || "User";
+    const userName = submission?.updatedBy?.name || positionUser?.name || "User";
 
     if (
       submission.answer &&
@@ -179,28 +195,30 @@ export const AllocationTimeline = ({
   //   (q) => !submittedUserIds.has(q._id) && !submittedUserEmails.has(q.email)
   // ).length;
 
-  const nextWaitingIndex = queue?.findIndex(
-    (q) => !submittedUserIds.has(q._id) && !submittedUserEmails.has(q.email)
-  );
+  // The first queue position that hasn't acted yet (no entry, or an entry that carries
+  // neither an answer nor a completed review).
+  const nextWaitingIndex = queue?.findIndex((_, i) => {
+    const s = getSubmissionForPosition(i);
+    return !s || (!s.answer && s.status !== "reviewed" && s.status !== "approved");
+  });
+
   const getStatus = (index: number) => {
-    const user = queue[index];
-    const activityText = getUserActivityText(user._id);
+    // Status comes from this position's resolved history entry, so position 0 shows
+    // "answer created" only when the author actually has an answer-bearing entry.
+    const submission = getSubmissionForPosition(index);
     const hasSubmitted =
-      submittedUserIds.has(user._id) || submittedUserEmails.has(user.email);
+      !!submission &&
+      (!!submission.answer ||
+        submission.status === "reviewed" ||
+        submission.status === "approved");
 
     if (hasSubmitted) {
-      if (activityText.includes("created an answer")) {
+      if (submission.answer && !submission.approvedAnswer && !submission.rejectedAnswer) {
         return "answerCreated";
       }
-      if (activityText.includes("approved")) {
-        return "approved";
-      }
-      if (activityText.includes("rejected")) {
-        return "rejected";
-      }
-      if (activityText.includes("modified")) {
-        return "modified";
-      }
+      if (submission.approvedAnswer) return "approved";
+      if (submission.rejectedAnswer) return "rejected";
+      if (submission.modifiedAnswer) return "modified";
       return "submitted";
     }
 
@@ -251,7 +269,16 @@ export const AllocationTimeline = ({
         <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6   transition-all duration-500 ease-in-out">
           {displayedQueue?.map((user, index) => {
             const status = getStatus(index);
-            const userSubmission = getUserSubmission(user._id);
+            // const userSubmission = getUserSubmission(user._id);
+            const userSubmission = getSubmissionForPosition(index);
+            // The first-queue expert may be assigned but have no history entry yet
+            // (e.g. currently reviewing). Fall back to the submission's
+            // currentExpertAllocatedAt so the "Assigned" time still shows.
+            const assignedAt =
+              userSubmission?.assignedAt ??
+              (index === 0
+                ? question.submission?.currentExpertAllocatedAt
+                : null);
             const styles = getStatusStyles(status);
             const isLast = index === displayedQueue?.length - 1;
             const isCurrentUserWaiting =
@@ -439,9 +466,9 @@ export const AllocationTimeline = ({
 
                           <p
                             className="text-xs sm:text-sm font-semibold leading-relaxed text-foreground break-words max-w-full"
-                            title={getUserActivityText(user._id)}
+                            title={getUserActivityText(index)}
                           >
-                            {getUserActivityText(user._id)}
+                            {getUserActivityText(index)}
                           </p>
                         </div>
                         {/* timeline*/}
@@ -537,7 +564,7 @@ export const AllocationTimeline = ({
 
                         {/* Previous Allocations Section */}
                         {(() => {
-                          const userSubmission = getUserSubmission(user._id);
+                          const userSubmission = getSubmissionForPosition(index);
                           const prevAllocs = userSubmission?.previousAllocations;
                           if (prevAllocs && prevAllocs.length > 0) {
                             return (

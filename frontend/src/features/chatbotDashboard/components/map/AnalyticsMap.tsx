@@ -55,7 +55,7 @@ export default function IndiaAnalyticsMap({
     crumbs,
   } = useMapNavigation();
 
-  const { data: allStatesData } = useAllStatesandUserData({
+  const { data: allStatesData, isLoading, isFetching } = useAllStatesandUserData({
     source: source as string,
     userType: userType as string,
     enabled: true,
@@ -312,6 +312,7 @@ export default function IndiaAnalyticsMap({
         userType={userType}
         questionStatusData={questionStatusData}
         todayActiveFarmersData={todayActiveFarmersData}
+        isLoading = {isLoading || isFetching}
       />
     </div>
   );

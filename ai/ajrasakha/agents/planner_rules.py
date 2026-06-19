@@ -210,14 +210,51 @@ def crop_slot_satisfied(crop: str | None) -> bool:
     return crop_counts_as_resolved(crop)
 
 
+def should_inherit_crop(
+    prev_crop: Optional[str],
+    current_crop_mentioned: bool,
+    domains: list[str],
+) -> bool:
+    """Decide whether to inherit crop from previous turn.
+
+    Returns False when:
+    - Current query mentions a crop (already handled separately)
+    - Domain requires specific crop AND previous crop was 'all' (placeholder)
+
+    This prevents inheriting crop="all" from a non-crop-required domain
+    when the new query belongs to a crop-required domain.
+    """
+    if current_crop_mentioned:
+        return False
+
+    canonical_domains = [normalize_domain(d) for d in (domains or [])]
+    domain_requires_specific = any(domain_requires_crop(d) for d in canonical_domains)
+
+    if domain_requires_specific and is_crop_placeholder(prev_crop):
+        trace_resolution(
+            "crop_inheritance_blocked",
+            reason="domain_requires_crop_but_prev_was_all",
+            prev_crop=prev_crop,
+            domains=domains,
+        )
+        return False
+
+    return True
+
+
 def apply_crop_one_shot_fallback(
     messages: list[BaseMessage],
     entities: PlannerEntities,
     domains: list[str],
 ) -> PlannerEntities:
-    """After one crop clarify, default missing crop to all instead of asking again."""
+    """After one crop clarify, default missing crop to all instead of asking again.
+    
+    Note: For crop-required domains, we do NOT apply this fallback. The crop should
+    remain cleared so the completeness check asks the user for their crop.
+    """
     canonical = [normalize_domain(d) for d in (domains or [])] or ["General"]
-    if not any(domain_requires_crop(d) for d in canonical):
+    # Don't apply "all" fallback for crop-required domains - let completeness check ask
+    if any(domain_requires_crop(d) for d in canonical):
         return entities
     crop = entities.get("crop")
     if has_specific_crop(crop):
@@ -287,24 +324,45 @@ def merge_entities_from_rephrased_query(
 
     # --- Crop Resolution ---
     crop_source: str | None = None
+    domains = list(plan.get("domains") or [normalize_domain(plan.get("domain") or "General")])
+    current_crop_mentioned = False
+
     if is_crop_clarify_turn(messages):
         turn_crop = extract_crop_from_text(text)
         if turn_crop:
             crop_source = "rephrased_query_text (crop_clarify_turn)"
+            current_crop_mentioned = True
         else:
             turn_crop = resolve_crop_for_turn(messages)
             if turn_crop:
                 crop_source = "recent_human_text (crop_clarify_turn)"
+                current_crop_mentioned = True
     else:
         turn_crop = extract_crop_from_text(text)
         if turn_crop:
             crop_source = "rephrased_query_text"
+            current_crop_mentioned = True
+
     if turn_crop:
         merged["crop"] = turn_crop[0].upper() + turn_crop[1:].lower()
-    elif merged.get("crop") and not is_crop_placeholder(merged.get("crop")):
-        c = str(merged["crop"])
-        merged["crop"] = c[0].upper() + c[1:].lower()
-        crop_source = crop_source or "plan.entities.crop (llm_or_carryover)"
+    elif merged.get("crop"):
+        prev_crop = merged.get("crop")
+        # Check if we should inherit crop from previous turn
+        # Block inheritance when domain requires crop but previous was "all"
+        if should_inherit_crop(prev_crop, current_crop_mentioned, domains):
+            if not is_crop_placeholder(prev_crop):
+                c = str(prev_crop)
+                merged["crop"] = c[0].upper() + c[1:].lower()
+                crop_source = crop_source or "prev_entities.crop (inherited)"
+        else:
+            # Clear the crop so completeness check will ask for it
+            merged.pop("crop", None)
+            crop_source = "cleared (domain_requires_crop_but_prev_was_all)"
+
+    # --- Non-agriculture: force crop to "all" ---
+    if plan.get("is_agriculture_related") is False:
+        merged["crop"] = "all"
+        crop_source = "non_agriculture_forced_all"
 
     # --- State/District Resolution (farmer text + LLM entities + clarify carry-over) ---
     state_from_text = extract_state_from_text(text)

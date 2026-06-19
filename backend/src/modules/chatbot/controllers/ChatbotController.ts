@@ -15,6 +15,7 @@ import {
   Body,
   BadRequestError,
   CurrentUser,
+  ForbiddenError,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -67,6 +68,7 @@ import {
   ResponseAdherenceTable,
   UserDemographics,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
+import {COORDINATOR_ROLES} from '#root/shared/constants/roles.js';
 
 @OpenAPI({
   tags: ['analytics'],
@@ -1799,11 +1801,14 @@ export class ChatbotController {
 
   @Patch('/assign-users/:userId')
   @HttpCode(200)
-  @Authorized(['admin'])
+  @Authorized(['admin', ...COORDINATOR_ROLES])
   async assignUsers(
     @Param('userId') userId: string,
     @Body() body: {userIds: string[]},
+    @CurrentUser() currentUser: IUser,
   ) {
+    await this.assertCoordinatorOwnDashboard(userId, currentUser);
+
     return await this.chatbotService.assignUsers(
       userId,
       body.userIds,
@@ -1812,29 +1817,51 @@ export class ChatbotController {
 
   @Patch('/unassign-users/:userId')
   @HttpCode(200)
-  @Authorized(['admin'])
+  @Authorized(['admin', ...COORDINATOR_ROLES])
   async unAssignUsers(
     @Param('userId') userId: string,
     @Body() body: {userIds: string[]},
+    @CurrentUser() currentUser: IUser,
   ) {
+    await this.assertCoordinatorOwnDashboard(userId, currentUser);
+
     return await this.chatbotService.unAssignUsers(
       userId,
       body.userIds,
     );
   }
 
-    @Get('/village-data')
+  private async assertCoordinatorOwnDashboard(userId: string, currentUser: IUser) {
+    if (currentUser.role === 'admin') return;
+
+    const profile = await this.chatbotService.getUserProfile(userId);
+    const profileEmail = profile?.email?.trim().toLowerCase();
+    const currentUserEmail = currentUser.email?.trim().toLowerCase();
+
+    if (!profileEmail || !currentUserEmail || profileEmail !== currentUserEmail) {
+      throw new ForbiddenError(
+        'Coordinators can only manage users from their own dashboard',
+      );
+    }
+  }
+
+  @Get('/village-data')
   @HttpCode(200)
   @Authorized()
   async getVillageUserCounts(
-        @QueryParams()
+    @QueryParams()
     query: {
-      state: string,
-      district: string
-      source: string,
-      userType: string,
+      state: string;
+      district: string;
+      source: string;
+      userType: string;
     }
-  ): Promise<any>{
-    return this.chatbotService.getVillageUserCounts(query.state, query.district, query.source, query.userType)
+  ): Promise<any> {
+    return this.chatbotService.getVillageUserCounts(
+      query.state,
+      query.district,
+      query.source,
+      query.userType,
+    );
   }
 }
