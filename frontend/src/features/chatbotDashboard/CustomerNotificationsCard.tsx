@@ -1,5 +1,4 @@
-import { Card, CardHeader } from "@/components/atoms/card";
-import {
+  import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -14,14 +13,22 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/atoms/popover";
-import { Bell, CheckCircle2, InfoIcon, Percent, X } from "lucide-react";
+import {
+  Bell,
+  CheckCircle2,
+  InfoIcon,
+  Percent,
+  RefreshCw,
+  X,
+} from "lucide-react";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/atoms/skeleton";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { QueryCategoryQuestionsModal } from "./components/QueryCategoryQuestionsModal";
 import { getISOStringsForDateRange } from "./utils/dateUtils";
 import { cn } from "@/lib/utils";
+import { useQueryClient } from "@tanstack/react-query";
 
 type CustomerNotificationsCardProps = {
   notified: number;
@@ -31,10 +38,11 @@ type CustomerNotificationsCardProps = {
   onDateRangeChange?: (range: DateRange | undefined) => void;
   isLoading?: boolean;
   isFetching?: boolean;
-  source?: "vicharanashala" | "annam" | "whatsapp";
+  source?: "both" | "annam" | "whatsapp";
   userType: string;
   /** Callback to notify parent to refresh all related cards in the row */
   onRefresh?: () => void;
+  onSourceChange?: (source: "both" | "annam" | "whatsapp") => void;
 };
 
 export function CustomerNotificationsCard({
@@ -48,13 +56,29 @@ export function CustomerNotificationsCard({
   source = "annam",
   userType,
   onRefresh,
+  onSourceChange,
 }: CustomerNotificationsCardProps) {
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries({ queryKey: ["closed-notified-data"] });
+    setRefreshing(false);
+  }, [queryClient]);
+  const sourceOptions = [
+    { label: "Both", value: "both" },
+    { label: "Annam", value: "annam" },
+    { label: "WhatsApp", value: "whatsapp" },
+  ] as const;
+  const [sourcePopoverOpen, setSourcePopoverOpen] = useState(false);
+
   const normalizedRange = getISOStringsForDateRange(dateRange);
   const safeNotified = notified ?? 0;
   const safeNotNotified = notNotified ?? 0;
   const safeUntracked = untrackedClosedQuestions ?? 0;
   const totalClosedQuestions = safeNotified + safeNotNotified + safeUntracked;
-  const notifiedPct = totalClosedQuestions > 0 ? (safeNotified / totalClosedQuestions) * 100 : 0;
+  const notifiedPct =
+    totalClosedQuestions > 0 ? (safeNotified / totalClosedQuestions) * 100 : 0;
 
   const [notificationType, setNotificationType] = useState<string | null>(null);
 
@@ -75,7 +99,7 @@ export function CustomerNotificationsCard({
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
 
       <div className="p-5">
-        {isLoading ? (
+        {(isLoading || refreshing) ? (
           <div className="space-y-5">
             <Skeleton className="h-4 w-44" />
             <Skeleton className="h-2 w-full rounded-full" />
@@ -110,6 +134,17 @@ export function CustomerNotificationsCard({
                           </p>
                         </TooltipContent>
                       </Tooltip>
+                      <button
+                        onClick={handleRefresh}
+                        className=" rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
+                        title="Refresh"
+                      >
+                        <RefreshCw
+                          className={`h-3.5 w-3.5 bg-background ${
+                            refreshing ? "animate-spin" : ""
+                          }`}
+                        />
+                      </button>
                     </div>
                     <span className="text-[10px] text-muted-foreground">
                       {totalClosedQuestions.toLocaleString()} closed questions
@@ -122,26 +157,37 @@ export function CustomerNotificationsCard({
                   className="flex items-center gap-1.5"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <Popover>
+                  <Popover
+                    open={sourcePopoverOpen}
+                    onOpenChange={setSourcePopoverOpen}
+                  >
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
                         size="sm"
                         className="h-7 rounded-full border-border/50 bg-background/60 px-3 text-[11px] font-medium capitalize hover:bg-muted/50"
                       >
-                        {source || "All Sources"}
+                        {sourceOptions.find((s) => s.value === source)?.label ??
+                          "Both"}
                       </Button>
                     </PopoverTrigger>
+
                     <PopoverContent className="w-40 p-1.5" align="end">
                       <div className="space-y-0.5">
-                        {["All Sources", "Annam", "WhatsApp"].map((item) => (
+                        {sourceOptions.map((item) => (
                           <Button
-                            key={item}
-                            variant="ghost"
+                            key={item.value}
+                            variant={
+                              source === item.value ? "secondary" : "ghost"
+                            }
                             size="sm"
                             className="h-7 w-full justify-start text-xs"
+                            onClick={() => {
+                              onSourceChange?.(item.value);
+                              setSourcePopoverOpen(false);
+                            }}
                           >
-                            {item}
+                            {item.label}
                           </Button>
                         ))}
                       </div>
@@ -221,11 +267,22 @@ export function CustomerNotificationsCard({
                   </span>
                   <span className="flex items-center gap-1">
                     <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                    {totalClosedQuestions > 0 ? ((safeNotNotified / totalClosedQuestions) * 100).toFixed(1) : 0}% not notified
+                    {totalClosedQuestions > 0
+                      ? (
+                          (safeNotNotified / totalClosedQuestions) *
+                          100
+                        ).toFixed(1)
+                      : 0}
+                    % not notified
                   </span>
                   <span className="flex items-center gap-1">
                     <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
-                    {totalClosedQuestions > 0 ? ((safeUntracked / totalClosedQuestions) * 100).toFixed(1) : 0}% untracked
+                    {totalClosedQuestions > 0
+                      ? ((safeUntracked / totalClosedQuestions) * 100).toFixed(
+                          1,
+                        )
+                      : 0}
+                    % untracked
                   </span>
                 </div>
               </div>
@@ -281,15 +338,29 @@ export function CustomerNotificationsCard({
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Not Notified</span>
+                        <span className="text-muted-foreground">
+                          Not Notified
+                        </span>
                         <span className="tabular-nums text-amber-500">
-                          {totalClosedQuestions > 0 ? ((safeNotNotified / totalClosedQuestions) * 100).toFixed(1) : 0}%
+                          {totalClosedQuestions > 0
+                            ? (
+                                (safeNotNotified / totalClosedQuestions) *
+                                100
+                              ).toFixed(1)
+                            : 0}
+                          %
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Untracked</span>
                         <span className="tabular-nums text-muted-foreground">
-                          {totalClosedQuestions > 0 ? ((safeUntracked / totalClosedQuestions) * 100).toFixed(1) : 0}%
+                          {totalClosedQuestions > 0
+                            ? (
+                                (safeUntracked / totalClosedQuestions) *
+                                100
+                              ).toFixed(1)
+                            : 0}
+                          %
                         </span>
                       </div>
                     </div>
@@ -300,10 +371,19 @@ export function CustomerNotificationsCard({
           </TooltipProvider>
         )}
       </div>
+      {notificationType && (
+        <QueryCategoryQuestionsModal
+          source={source}
+          userType={userType}
+          notificationType={notificationType}
+          startDate={dateRange?.from}
+          endDate={dateRange?.to}
+          onClose={() => setNotificationType(null)}
+        />
+      )}
     </div>
   );
 }
-
 
 const ACCENT = {
   emerald: {
@@ -371,4 +451,3 @@ function StatTile({
     </Tooltip>
   );
 }
-

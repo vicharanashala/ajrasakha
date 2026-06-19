@@ -5,7 +5,16 @@ import {
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
 import { motion } from "framer-motion";
-import { CircleCheck, Clock, Gauge, Info, ListChecks, X } from "lucide-react";
+import {
+  CircleCheck,
+  Clock,
+  Gauge,
+  Info,
+  ListChecks,
+  Loader2,
+  RefreshCw,
+  X,
+} from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/atoms/skeleton";
 import CountUp from "react-countup";
@@ -17,13 +26,14 @@ import {
 import { Button } from "@/components/atoms/button";
 import { format } from "date-fns";
 import { Calendar } from "@/components/atoms/calendar";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { QueryCategoryQuestionsModal } from "./components/QueryCategoryQuestionsModal";
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/atoms/hover-card";
 import { cn } from "@/lib/utils";
+import { useQueryClient } from "@tanstack/react-query";
 
 type ClosedInLastTwoHoursCardProps = {
-  source?: "vicharanashala" | "annam" | "whatsapp";
+  source?: "both" | "annam" | "whatsapp";
+  onSourceChange?: (source: "both" | "annam" | "whatsapp") => void;
   userType: string;
   closedInLastTwoHours: number;
   totalClosed: number;
@@ -38,7 +48,8 @@ type ClosedInLastTwoHoursCardProps = {
 };
 
 export function ClosedInLastTwoHoursCard({
-  source = "annam",
+  source = "both",
+  onSourceChange,
   userType,
   closedInLastTwoHours,
   totalClosed,
@@ -50,16 +61,31 @@ export function ClosedInLastTwoHoursCard({
   passedInLastTwoHours,
   totalPassed = 0,
 }: ClosedInLastTwoHoursCardProps) {
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries({ queryKey: ["closed-notified-data"] });
+    setRefreshing(false);
+  }, [queryClient]);
+  const sourceOptions = [
+    { label: "Both", value: "both" },
+    { label: "Annam", value: "annam" },
+    { label: "WhatsApp", value: "whatsapp" },
+  ] as const;
+  const [sourcePopoverOpen, setSourcePopoverOpen] = useState(false);
   const safeCount = closedInLastTwoHours ?? 0;
   const safeTotalClosed = totalClosed ?? 0;
   const closedWithinTwoHoursPct =
     safeTotalClosed > 0 ? (safeCount / safeTotalClosed) * 100 : 0;
-  const passedPct = totalPassed > 0 ? (passedInLastTwoHours / totalPassed) * 100 : 0;
+  const passedPct =
+    totalPassed > 0 ? (passedInLastTwoHours / totalPassed) * 100 : 0;
+  const combinedPct =
+    ((safeCount + passedInLastTwoHours) / (safeTotalClosed + totalPassed)) *
+      100 || 0;
   const [closedWithInTwohours, setClosedWithInTowhours] = useState(false);
 
-  const handleClick = () => {
-    setClosedWithInTowhours(true);
-  };
+  const [isPassed, setIsPassed] = useState(false);
 
   return (
     <div
@@ -74,7 +100,7 @@ export function ClosedInLastTwoHoursCard({
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-500/40 to-transparent" />
 
       <div className="p-5">
-        {isLoading ? (
+        {(isLoading || refreshing) ? (
           <div className="space-y-5">
             <Skeleton className="h-4 w-40" />
             <Skeleton className="h-2 w-full rounded-full" />
@@ -108,6 +134,17 @@ export function ClosedInLastTwoHoursCard({
                           </p>
                         </TooltipContent>
                       </Tooltip>
+                      <button
+                        onClick={handleRefresh}
+                        className=" rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
+                        title="Refresh"
+                      >
+                        <RefreshCw
+                          className={`h-3.5 w-3.5 bg-background ${
+                            refreshing ? "animate-spin" : ""
+                          }`}
+                        />
+                      </button>
                     </div>
                     <span className="text-[10px] text-muted-foreground">
                       {safeCount} of {safeTotalClosed} closed cases
@@ -120,26 +157,36 @@ export function ClosedInLastTwoHoursCard({
                   className="flex items-center gap-1.5 shrink-0"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <Popover>
+                  <Popover
+                    open={sourcePopoverOpen}
+                    onOpenChange={setSourcePopoverOpen}
+                  >
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
                         size="sm"
                         className="h-7 rounded-full border-border/50 bg-background/60 px-3 text-[11px] font-medium capitalize hover:bg-muted/50"
                       >
-                        {source || "All Sources"}
+                        {sourceOptions.find((s) => s.value === source)?.label ??
+                          "Both"}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-40 p-1.5 z-[100]" align="end">
                       <div className="space-y-0.5">
-                        {["All Sources", "Annam", "WhatsApp"].map((item) => (
+                        {sourceOptions.map((item) => (
                           <Button
-                            key={item}
-                            variant="ghost"
+                            key={item.value}
+                            variant={
+                              source === item.value ? "secondary" : "ghost"
+                            }
                             size="sm"
                             className="h-7 w-full justify-start text-xs"
+                            onClick={() => {
+                              onSourceChange?.(item.value);
+                              setSourcePopoverOpen(false);
+                            }}
                           >
-                            {item}
+                            {item.label}
                           </Button>
                         ))}
                       </div>
@@ -203,7 +250,9 @@ export function ClosedInLastTwoHoursCard({
                   />
                   <motion.div
                     initial={{ width: 0 }}
-                    animate={{ width: `${Math.max(100 - closedWithinTwoHoursPct - passedPct, 0)}%` }}
+                    animate={{
+                      width: `${Math.max(100 - closedWithinTwoHoursPct - passedPct, 0)}%`,
+                    }}
                     transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
                     className="bg-muted-foreground/30"
                   />
@@ -222,7 +271,10 @@ export function ClosedInLastTwoHoursCard({
                   of={safeTotalClosed}
                   accent="emerald"
                   tooltip="Cases closed within 2 hours"
-                  onClick={handleClick}
+                  onClick={() => {
+                    setIsPassed(false);
+                    setClosedWithInTowhours(true);
+                  }}
                 />
                 <StatTile
                   label="Passed"
@@ -230,10 +282,14 @@ export function ClosedInLastTwoHoursCard({
                   of={totalPassed}
                   accent="sky"
                   tooltip="Cases passed within 2 hours"
+                  onClick={() => {
+                    setIsPassed(true);
+                    setClosedWithInTowhours(true);
+                  }}
                 />
                 <StatTile
                   label="Rate"
-                  count={closedWithinTwoHoursPct}
+                  count={combinedPct}
                   suffix="%"
                   decimals={1}
                   accent="emerald"
@@ -252,7 +308,7 @@ export function ClosedInLastTwoHoursCard({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="cursor-help text-xs font-semibold tabular-nums text-foreground underline-offset-2 hover:underline">
-                      {closedWithinTwoHoursPct.toFixed(1)}%
+                      {combinedPct.toFixed(1)}%
                     </span>
                   </TooltipTrigger>
                   <TooltipContent className="w-56 p-3">
@@ -261,13 +317,17 @@ export function ClosedInLastTwoHoursCard({
                         Resolution Rate Breakdown
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Closed in 2h</span>
+                        <span className="text-muted-foreground">
+                          Closed in 2h
+                        </span>
                         <span className="tabular-nums">
                           {closedWithinTwoHoursPct.toFixed(1)}%
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Passed in 2h</span>
+                        <span className="text-muted-foreground">
+                          Passed in 2h
+                        </span>
                         <span className="tabular-nums">
                           {passedPct.toFixed(1)}%
                         </span>
@@ -275,7 +335,7 @@ export function ClosedInLastTwoHoursCard({
                       <div className="flex justify-between border-t pt-2 font-medium">
                         <span>Combined Rate</span>
                         <span className="tabular-nums">
-                          {(closedWithinTwoHoursPct + passedPct).toFixed(1)}%
+                          {combinedPct.toFixed(1)}%
                         </span>
                       </div>
                     </div>
@@ -286,6 +346,17 @@ export function ClosedInLastTwoHoursCard({
           </TooltipProvider>
         )}
       </div>
+      {closedWithInTwohours && (
+        <QueryCategoryQuestionsModal
+          source={source}
+          userType={userType}
+          onClose={() => setClosedWithInTowhours(false)}
+          closedWithInTwohours={true}
+          startDate={dateRange?.from}
+          endDate={dateRange?.to}
+          isPassed={isPassed}
+        />
+      )}
     </div>
   );
 }
@@ -358,7 +429,13 @@ function StatTile({
           </div>
           <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
             <span className="text-lg font-bold leading-none tracking-tight tabular-nums text-foreground">
-              <CountUp end={count} duration={1.2} preserveValue decimals={decimals} suffix={suffix} />
+              <CountUp
+                end={count}
+                duration={1.2}
+                preserveValue
+                decimals={decimals}
+                suffix={suffix}
+              />
             </span>
             {of !== undefined && (
               <span className="text-[10px] leading-none text-muted-foreground whitespace-nowrap">

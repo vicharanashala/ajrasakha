@@ -1,4 +1,3 @@
-import { Card, CardHeader } from "@/components/atoms/card";
 import {
   Tooltip,
   TooltipContent,
@@ -14,13 +13,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/atoms/popover";
-import { Clock3, X, InfoIcon, ListChecks } from "lucide-react";
+import { Clock3, X, InfoIcon, ListChecks, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/atoms/skeleton";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { QueryCategoryQuestionsModal } from "./components/QueryCategoryQuestionsModal";
 import { cn } from "@/lib/utils";
+import { useQueryClient } from "@tanstack/react-query";
 
 type ClosedQuestionsCardProps = {
   closedQuestions: number;
@@ -34,12 +34,13 @@ type ClosedQuestionsCardProps = {
   statusBreakup: any;
   avgCloseTimeMinutes?: number;
   previousMonthAvgCloseTimeMinutes?: number;
-  source?: "vicharanashala" | "annam" | "whatsapp";
+  source?: "both" | "annam" | "whatsapp";
   userType?: string;
   onRefresh?: () => void;
   avgPassTimeMinutes?: number;
   combinedCount?: number;
   combinedAvgTime?: number;
+  onSourceChange?: (source: "both" | "annam" | "whatsapp") => void;
 };
 
 export function ClosedQuestionsCard({
@@ -53,12 +54,26 @@ export function ClosedQuestionsCard({
   avgCloseTimeMinutes = 0,
   avgPassTimeMinutes = 0,
   combinedAvgTime = 0,
-  source = "annam",
+  source = "both",
   userType,
   onRefresh,
+  onSourceChange,
 }: ClosedQuestionsCardProps) {
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries({ queryKey: ["closed-notified-data"] });
+    setRefreshing(false);
+  }, [queryClient]);
+  const sourceOptions = [
+    { label: "Both", value: "both" },
+    { label: "Annam", value: "annam" },
+    { label: "WhatsApp", value: "whatsapp" },
+  ] as const;
+  const [sourcePopoverOpen, setSourcePopoverOpen] = useState(false);
+  const [isPassed, setIsPassed] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
-
   const handleClick = (statusValue: string) => {
     setStatus(statusValue);
   };
@@ -76,7 +91,7 @@ export function ClosedQuestionsCard({
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
 
       <div className="p-5">
-        {isLoading ? (
+        {(isLoading || refreshing) ? (
           <div className="space-y-5">
             <Skeleton className="h-4 w-36" />
             <Skeleton className="h-2 w-full rounded-full" />
@@ -130,6 +145,17 @@ export function ClosedQuestionsCard({
                           </div>
                         </TooltipContent>
                       </Tooltip>
+                      <button
+                        onClick={handleRefresh}
+                        className=" rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
+                        title="Refresh"
+                      >
+                        <RefreshCw
+                          className={`h-3.5 w-3.5 bg-background ${
+                            refreshing ? "animate-spin" : ""
+                          }`}
+                        />
+                      </button>
                     </div>
                     <span className="text-[10px] text-muted-foreground">
                       {(totalQuestions ?? 0).toLocaleString()} total questions
@@ -142,26 +168,36 @@ export function ClosedQuestionsCard({
                   className="flex items-center gap-1.5 shrink-0"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <Popover>
+                  <Popover
+                    open={sourcePopoverOpen}
+                    onOpenChange={setSourcePopoverOpen}
+                  >
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
                         size="sm"
                         className="h-7 rounded-full border-border/50 bg-background/60 px-3 text-[11px] font-medium capitalize hover:bg-muted/50"
                       >
-                        {source || "All Sources"}
+                        {sourceOptions.find((s) => s.value === source)?.label ??
+                          "Both"}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-40 p-1.5 z-[100]" align="end">
                       <div className="space-y-0.5">
-                        {["All Sources", "Annam", "WhatsApp"].map((item) => (
+                        {sourceOptions.map((item) => (
                           <Button
-                            key={item}
-                            variant="ghost"
+                            key={item.value}
+                            variant={
+                              source === item.value ? "secondary" : "ghost"
+                            }
                             size="sm"
                             className="h-7 w-full justify-start text-xs"
+                            onClick={() => {
+                              onSourceChange?.(item.value);
+                              setSourcePopoverOpen(false);
+                            }}
                           >
-                            {item}
+                            {item.label}
                           </Button>
                         ))}
                       </div>
@@ -266,21 +302,29 @@ export function ClosedQuestionsCard({
                   count={totalQuestions ?? 0}
                   accent="primary"
                   tooltip="All questions in range"
-                  onClick={() => handleClick("all")}
+                  onClick={() => {
+                    handleClick("all");
+                  }}
                 />
                 <StatTile
                   label="Closed"
                   count={closedQuestions ?? 0}
                   accent="sky"
                   tooltip="Closed questions"
-                  onClick={() => handleClick("closed")}
+                  onClick={() => {
+                    setIsPassed(false);
+                    handleClick("closed");
+                  }}
                 />
                 <StatTile
                   label="Passed"
                   count={Math.max(passedQuestions ?? 0, 0)}
                   accent="emerald"
                   tooltip="Questions with pass status"
-                  onClick={() => handleClick("pass")}
+                  onClick={() => {
+                    setIsPassed(true);
+                    handleClick("pass");
+                  }}
                 />
               </div>
 
@@ -329,6 +373,20 @@ export function ClosedQuestionsCard({
           </TooltipProvider>
         )}
       </div>
+      {status && (
+        <QueryCategoryQuestionsModal
+          status={status}
+          source={source}
+          userType={userType}
+          startDate={dateRange?.from}
+          endDate={dateRange?.to}
+          isPassed={isPassed}
+          onClose={() => {
+            setStatus(null);
+            setIsPassed(false);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -409,7 +467,6 @@ function StatTile({
     </Tooltip>
   );
 }
-
 
 const formatDurationFromMinutes = (mins: number): string => {
   if (!mins || mins <= 0) return "0m";

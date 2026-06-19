@@ -180,6 +180,7 @@ export const useQuestionFilter = ({
   endDate,
   search = "",
   enabled = true,
+  isPassed = false,
 }: {
   category?: string;
   district?: string;
@@ -199,6 +200,7 @@ export const useQuestionFilter = ({
   endDate?: Date;
   search?: string;
   enabled?: boolean;
+  isPassed?: boolean;
 }) => {
   const stringStartDate = startDate?.toISOString()
   const stringEndDate = endDate?.toISOString()
@@ -222,6 +224,7 @@ export const useQuestionFilter = ({
     stringStartDate,
     stringEndDate,
     search,
+    isPassed,
   ],
     queryFn: () =>
       chatbotService.getQuestionByFilters({
@@ -241,7 +244,8 @@ export const useQuestionFilter = ({
         userType,
         stringStartDate,
         stringEndDate,
-        search
+        search,
+        isPassed,
       }),
     enabled: enabled && Boolean(category || district || crop || status || true),
   });
@@ -285,7 +289,7 @@ export const useAllWhatsappUsers = () => {
 export const useClosedAndNotifedData = (source: string, userType: string, startDate?: string, endDate?: string, enabled: boolean = true)=>{
   return useQuery({
     queryKey: ["closed-notified-data",
-      // source,
+      source,
       userType,
       startDate,
       endDate,

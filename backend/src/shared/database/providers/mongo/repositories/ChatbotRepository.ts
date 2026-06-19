@@ -10349,9 +10349,11 @@ for (const item of raw) {
       if (query && Object.keys(query).length > 0) {
         matchStage.$and.push(query);
       }
-      matchStage.source = {
-        $in: ["WHATSAPP", "AJRASAKHA"],
-      };
+      if(source === "both"){
+        matchStage.source = {
+          $in: ["WHATSAPP", "AJRASAKHA"],
+        };
+      }
 
       const previousMonthReferenceDate = startDate ?? new Date();
       const previousMonthStart = new Date(
@@ -10786,10 +10788,12 @@ for (const item of raw) {
       if (query && Object.keys(query).length > 0) {
         matchStage.$and.push(query);
       }
+      if(source === "both"){
+        matchStage.source = {
+          $in: ["WHATSAPP", "AJRASAKHA"],
+        };
+      }
 
-      matchStage.source = {
-        $in: ["WHATSAPP", "AJRASAKHA"],
-      };
 // console.log("getNotifiedVsClosed", source, userType, JSON.stringify(matchStage, null, 2))
 
       const [result] = await this.QuestionCollection.aggregate([
@@ -10884,79 +10888,106 @@ for (const item of raw) {
       if (query && Object.keys(query).length > 0) {
         matchStage.$and.push(query);
       }
-      matchStage.source = {
-        $in: ["WHATSAPP", "AJRASAKHA"],
-      };
+      if(source === "both"){
+        matchStage.source = {
+          $in: ["WHATSAPP", "AJRASAKHA"],
+        };
+      }
       matchStage.status = { 
         $in: ["closed", "pass"],
       };
-      const result = await this.QuestionCollection.aggregate([
-        {$match: matchStage},
-        {
-          $addFields: {
-            _statusLower: {$toLower: {$ifNull: ['$status', '']}},
-            _operationalCompletionAt: {
-              $cond: [
-                {
-                  $eq: [
-                    {$toLower: {$ifNull: ['$status', '']}},
-                    'pass',
-                  ],
-                },
-                '$updatedAt',
-                '$closedAt',
-              ],
-            },
+
+      const [totalCountResult, lastTwoHoursResult] = await Promise.all([
+        this.QuestionCollection.aggregate([
+          {
+            $match: matchStage,
           },
-        },
-        {
-          $match: {
-            _statusLower: {$in: ['closed', 'pass']},
-            _operationalCompletionAt: {$ne: null},
-            $expr: {
-              $and: [
-                {$gte: ['$_operationalCompletionAt', '$createdAt']},
-                {
-                  $lte: [
-                    {$subtract: ['$_operationalCompletionAt', '$createdAt']},
-                    2 * 60 * 60 * 1000,
-                  ],
+          {
+            $addFields: {
+              _statusLower: {
+                $toLower: {
+                  $ifNull: ['$status', ''],
                 },
-              ],
-            },
-          },
-        },
-        {
-          $group: {
-            _id: null,
-            closedCount: {
-              $sum: {
-                $cond: [
-                  {$eq: ['$_statusLower', 'closed']},
-                  1,
-                  0,
-                ],
               },
             },
-            passCount: {
-              $sum: {
+          },
+          {
+            $group: {
+              _id: null,
+              closedCount: {
+                $sum: {
+                  $cond: [{$eq: ['$_statusLower', 'closed']}, 1, 0],
+                },
+              },
+              passCount: {
+                $sum: {
+                  $cond: [{$eq: ['$_statusLower', 'pass']}, 1, 0],
+                },
+              },
+            },
+          },
+        ]).toArray(),
+
+        this.QuestionCollection.aggregate([
+          {
+            $match: matchStage,
+          },
+          {
+            $addFields: {
+              _statusLower: {$toLower: {$ifNull: ['$status', '']}},
+              _operationalCompletionAt: {
                 $cond: [
-                  {$eq: ['$_statusLower', 'pass']},
-                  1,
-                  0,
+                  {$eq: [{$toLower: {$ifNull: ['$status', '']}}, 'pass']},
+                  '$passedAt',
+                  '$closedAt',
                 ],
               },
             },
           },
-        },
-      ]).toArray();
-      const count = result[0] || {
-        _id: null,
-        closedCount: 0,
-        passCount: 0,
+          {
+            $match: {
+              _statusLower: {$in: ['closed', 'pass']},
+              _operationalCompletionAt: {$ne: null},
+              $expr: {
+                $and: [
+                  {$gte: ['$_operationalCompletionAt', '$createdAt']},
+                  {
+                    $lte: [
+                      {$subtract: ['$_operationalCompletionAt', '$createdAt']},
+                      2 * 60 * 60 * 1000,
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              closedCount: {
+                $sum: {
+                  $cond: [{$eq: ['$_statusLower', 'closed']}, 1, 0],
+                },
+              },
+              passCount: {
+                $sum: {
+                  $cond: [{$eq: ['$_statusLower', 'pass']}, 1, 0],
+                },
+              },
+            },
+          },
+        ]).toArray(),
+      ]);
+
+      return {
+        totalClosedCount: totalCountResult[0]?.closedCount ?? 0,
+        totalPassCount: totalCountResult[0]?.passCount ?? 0,
+        closedInTwoHoursCount:
+          lastTwoHoursResult[0]?.closedCount ?? 0,
+        passInTwoHoursCount:
+          lastTwoHoursResult[0]?.passCount ?? 0,
       };
-// console.log("closeinlast2hours---", result);
-      return count;
+
     } catch (error) {
       throw new InternalServerError(
         `Failed to get closed questions in last two hours: ${error}`,
@@ -12419,7 +12450,7 @@ for (const item of raw) {
 
       const matchQuery = buildBaseQuestionMatch(sourceType);
 
-            // Apply status filter
+      // Apply status filter
       if (status !== 'all') {
         matchQuery.status = status;
       }
@@ -12434,7 +12465,7 @@ for (const item of raw) {
           $in: ["closed"],
         };
       }
-// console.log("status----", status)
+
       // Apply date range
 
       const validStartDate =
@@ -12467,8 +12498,6 @@ for (const item of raw) {
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
       }
-// console.log(status," getQuestionsByStatus matchQuery,startDate, endDate, source, userType", JSON.stringify(matchQuery, null, 2),startDate, endDate, source, userType)
-
       // Search by name/email
       if (search?.trim()) {
         const matchingUsers = await this.users
@@ -12570,7 +12599,7 @@ for (const item of raw) {
       const total = result[0]?.metadata?.[0]?.total ?? 0;
 
       const questions = result[0]?.data ?? [];
-// console.log(source,"questions---", questions.length, startDate, endDate);
+
       const {userMap, questionUserMap} =
         await this.resolveQuestionUsers(questions);
 
@@ -12621,6 +12650,7 @@ for (const item of raw) {
     search?: string,
     startDate?: Date,
     endDate?: Date,
+    isPassed?: string,
   ): Promise<any> {
     await this.initReviewSystem();
     await this.init("annam");
@@ -12636,10 +12666,14 @@ for (const item of raw) {
         $in: ["AJRASAKHA", "WHATSAPP"],
       };
     }
-
     matchQuery.status = { 
       $in: ["closed"],
     };
+    if(isPassed === "true"){
+      matchQuery.status = { 
+        $in: ["pass"],
+      };
+    }
     const validStartDate =
       startDate instanceof Date && !isNaN(startDate.getTime());
 
@@ -13508,17 +13542,10 @@ for (const item of raw) {
         ])
         .toArray();
 
-        console.log(
-  'usersByState',
-  JSON.stringify(usersByState, null, 2),
-);
-
       const totalActiveFromStates = usersByState.reduce(
         (sum, s) => sum + s.activeUsers,
         0,
       );
-
-      console.log('State active total:', totalActiveFromStates);
 
       const stateMap = new Map();
 
@@ -14332,7 +14359,7 @@ existing.coordinators =
 ) {
   try{
     await this.init(source)
-    console.log("State", state, "district", district);
+    // console.log("State", state, "district", district);
   const userDocFilter =
   this.buildUserDocFilter(userType);
     const data =  await this.users
@@ -14385,7 +14412,7 @@ existing.coordinators =
       },
     ])
     .toArray();
-    console.log("Data got it", data)
+    // console.log("Data got it", data)
     return data;
   }catch(error){
     throw new InternalServerError(`Internal Server Error ${error}`)

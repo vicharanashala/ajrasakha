@@ -67,6 +67,7 @@ interface QueryCategoryQuestionsModalProps {
   startDate?: Date;
   endDate?: Date;
   onClose: () => void;
+  isPassed?: boolean;
 }
 
 const PAGE_SIZE = 10;
@@ -87,13 +88,14 @@ export function QueryCategoryQuestionsModal({
   startDate,
   endDate,
   onClose,
+  isPassed,
 }: QueryCategoryQuestionsModalProps) {
   const [questionType, setQuestionType] =
     useState<QueryCategoryQuestionType>("all");
   const [page, setPage] = useState(1);
 
-  console.log("StartDate", startDate);
-  console.log("EndDate", endDate);
+  // console.log("StartDate", startDate);
+  // console.log("EndDate", endDate);
 
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -132,6 +134,7 @@ export function QueryCategoryQuestionsModal({
     endDate,
     search: debouncedSearch,
     enabled: true,
+    isPassed,
   });
 
   // const columns = useMemo<QuestionListColumn<QueryCategoryQuestionEntry>[]>(
