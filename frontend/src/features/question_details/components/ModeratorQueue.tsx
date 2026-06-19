@@ -141,23 +141,27 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
       {assignedModerator?.name ? (
         <div className="flex flex-wrap gap-6">
           <div className="group relative w-42 h-42 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-44 lg:h-44">
-            {/* Remove moderator — hover-revealed trash icon, mirrors the expert allocation removal */}
-            <div className="absolute -top-1 right-0 w-6 h-6 flex items-center justify-center cursor-pointer pointer-events-auto hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
-              <ConfirmationModal
-                title="Remove Moderator?"
-                description={`Are you sure you want to remove ${assignedModerator.name}'s assignment from this question? This action cannot be undone.`}
-                confirmText="Remove"
-                cancelText="Cancel"
-                type="delete"
-                isLoading={removingModerator}
-                onConfirm={handleRemove}
-                trigger={
-                  <div className="w-6 h-6 bg-black/10 dark:bg-white/10 backdrop-blur-sm rounded-md flex items-center justify-center cursor-pointer hover:text-red-500">
-                    <Trash2 className="w-4 h-4 transition-colors duration-300" />
-                  </div>
-                }
-              />
-            </div>
+            {/* Remove moderator — hover-revealed trash icon, mirrors the expert allocation removal.
+                Hidden once the question is finalized (closed): there's no longer an active
+                assignment to remove. */}
+            {!isClosed && (
+              <div className="absolute -top-1 right-0 w-6 h-6 flex items-center justify-center cursor-pointer pointer-events-auto hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+                <ConfirmationModal
+                  title="Remove Moderator?"
+                  description={`Are you sure you want to remove ${assignedModerator.name}'s assignment from this question? This action cannot be undone.`}
+                  confirmText="Remove"
+                  cancelText="Cancel"
+                  type="delete"
+                  isLoading={removingModerator}
+                  onConfirm={handleRemove}
+                  trigger={
+                    <div className="w-6 h-6 bg-black/10 dark:bg-white/10 backdrop-blur-sm rounded-md flex items-center justify-center cursor-pointer hover:text-red-500">
+                      <Trash2 className="w-4 h-4 transition-colors duration-300" />
+                    </div>
+                  }
+                />
+              </div>
+            )}
             <div
               className={`absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 rounded-full border-2 transition-all duration-300 hover:shadow-lg hover:scale-105 ${nodeStyles.container}`}
             >
@@ -305,15 +309,17 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
                         </div>
                       </div>
 
-                      {/* Availability — whether the moderator already has a question assigned */}
+                      {/* Availability — whether the moderator already has any question assigned */}
                       <span
                         className={`shrink-0 self-center text-[10px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap ${
-                          mod.assignedQuestionId
+                          mod.assignedQuestionIds?.length
                             ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
                             : "bg-green-500/10 text-green-600 dark:text-green-400"
                         }`}
                       >
-                        {mod.assignedQuestionId ? "Assigned" : "Available"}
+                        {mod.assignedQuestionIds?.length
+                          ? `Assigned (${mod.assignedQuestionIds.length})`
+                          : "Available"}
                       </span>
                     </Label>
                   );

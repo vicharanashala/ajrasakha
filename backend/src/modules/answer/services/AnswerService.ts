@@ -1999,13 +1999,13 @@ answer: ${updates.answer}`;
         true,
       );
 
-      // Clear the question from the moderator's user document so the cron
-      // sees them as available immediately.
+      // Pull this question from the moderator's assignedQuestionIds array so the cron
+      // sees them as available again once their array is empty.
       if (question.moderatorId) {
         try {
-          await this.userRepo.clearAssignedQuestion(question.moderatorId.toString());
+          await this.userRepo.removeAssignedQuestion(question.moderatorId.toString(), questionId);
         } catch (err: any) {
-          console.error('[ModeratorQueue] Failed to clear assignedQuestionId from moderator:', err?.message);
+          console.error('[ModeratorQueue] Failed to pull question from moderator assignedQuestionIds:', err?.message);
         }
       }
 
@@ -2174,10 +2174,10 @@ answer: ${updates.answer}`;
         isAddTextRequired,
       );
 
-      // Free the previously-assigned moderator (clears their assignedQuestionId so the
-      // single-allocation cron sees them as available again).
+      // Pull this question from the previously-assigned moderator's assignedQuestionIds
+      // array so the cron sees them as available again once their array is empty.
       if (assignedModeratorId) {
-        await this.userRepo.clearAssignedQuestion(assignedModeratorId);
+        await this.userRepo.removeAssignedQuestion(assignedModeratorId, updates.questionId);
       }
 
     /*  if (question.status !== 'open' && question.status !== 'delayed') {
