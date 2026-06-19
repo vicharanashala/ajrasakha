@@ -95,10 +95,10 @@ try {
     ])
     .toArray();
 
-  // ---- waiting: never allocated (firstAllocationAt absent) ----
+  // ---- waiting: never allocated (firstAllocationAt absent or null) ----
   const waiting = await questions
     .find(
-      { source: SRC, isAutoAllocate: true, status: OPEN, firstAllocationAt: { $exists: false }, isOnHold: { $ne: true } },
+      { source: SRC, isAutoAllocate: true, status: OPEN, firstAllocationAt: null, isOnHold: { $ne: true } },
       { projection: { _id: 1 } },
     )
     .toArray();
