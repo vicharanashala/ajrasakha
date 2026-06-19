@@ -146,6 +146,7 @@ type UserNotification = {
   type: string;
   createdAt: string;
   deliveryTimestamp?: string;
+  questionText?: string;
   sender?: {
     _id: string;
     name?: string;

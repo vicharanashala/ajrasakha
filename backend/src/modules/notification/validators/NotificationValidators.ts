@@ -10,6 +10,7 @@ import {
   IsArray,
   ArrayNotEmpty,
   IsUrl,
+  IsOptional,
 } from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
 class AddNotificationBody {
@@ -84,7 +85,7 @@ class NotificationResponse {
     type: 'string',
   })
   @IsString()
-  title: string;
+  title?: string;
 
   @JSONSchema({
     description: 'Notification type',
@@ -109,6 +110,15 @@ class NotificationResponse {
   })
   @IsString()
   createdAt: string;
+
+  @JSONSchema({
+    description: 'Question text from the questions collection (empty if not a question entity)',
+    example: 'What is the best fertilizer for rice?',
+    type: 'string',
+  })
+  @IsString()
+  @IsOptional()
+  questionText?: string;
 
 }
 
