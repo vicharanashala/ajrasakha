@@ -5,7 +5,7 @@ import {
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
 import { motion } from "framer-motion";
-import { BadgeCheck, CalendarIcon, InfoIcon, RefreshCw, X } from "lucide-react";
+import { BadgeCheck, CalendarIcon, CircleCheck, Clock, InfoIcon, RefreshCw, X } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/atoms/skeleton";
 import CountUp from "react-countup";
@@ -20,6 +20,7 @@ import { format } from "date-fns";
 import { Calendar } from "@/components/atoms/calendar";
 import { useState } from "react";
 import { QueryCategoryQuestionsModal } from "./components/QueryCategoryQuestionsModal";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/atoms/hover-card";
 
 type ClosedInLastTwoHoursCardProps = {
   source?: "vicharanashala" | "annam" | "whatsapp";
@@ -115,34 +116,18 @@ export function ClosedInLastTwoHoursCard({
             </div>
           ) : (
             <>
-              <motion.div
-                className="text-sm text-muted-foreground flex items-center justify-between gap-2 mb-4"
+             <motion.div
+                className="mb-4 flex items-center justify-between gap-4 text-sm text-muted-foreground"
                 initial={{ opacity: 0, x: -6 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.3, delay: 0.1 }}
               >
-                <button
-                  onClick={handleRefresh}
-                  className="absolute top-1 right-1 z-20 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
-                  title="Refresh"
-                >
-                  <RefreshCw
-                    className={`h-3.5 w-3.5 bg-background  text-black dark:text-white ${
-                      isLoading || refreshing || isFetching
-                        ? "animate-spin"
-                        : ""
-                    }`}
-                  />
-                </button>
-                <div className="text-sm text-muted-foreground flex gap-2 items-center">
-                  <div>
-                    Passed with in 2 hours:
-                    <span className="font-semibold">
-                      {" "}
-                      {passedInLastTwoHours}/{totalPassed}{" "}
-                      {Number(passedWithinTwoHoursPct).toFixed(2)} %
-                    </span>
-                  </div>
+                {/* Left Side - Title */}
+                <div className="flex items-center gap-2">
+                  <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
+
+                  <span>Closed within 2 hours</span>
+
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <InfoIcon className="h-3.5 w-3.5 cursor-help text-muted-foreground" />
@@ -152,55 +137,59 @@ export function ClosedInLastTwoHoursCard({
                       <div className="space-y-2 text-xs">
                         <div className="flex items-center gap-2">
                           <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
-                          Closed/passed with in 2 Hours
+                          Closed/passed within 2 Hours
                         </div>
                       </div>
                     </TooltipContent>
                   </Tooltip>
-                  <div
-                    className="flex items-center gap-1.5"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="h-7 px-2 text-[11px] font-normal border-border/70 bg-background/80 backdrop-blur-sm shadow-sm hover:bg-muted/40 gap-1 flex items-center shrink-0"
-                        >
-                          <CalendarIcon className="h-3 w-3 text-muted-foreground" />
-                          {dateRange?.from
-                            ? dateRange.to
-                              ? `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd")}`
-                              : format(dateRange.from, "MMM dd")
-                            : "All Time"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent
-                        className="w-auto p-0 z-[100]"
-                        align="end"
-                      >
-                        <Calendar
-                          initialFocus
-                          mode="range"
-                          defaultMonth={dateRange?.from ?? new Date()}
-                          selected={dateRange}
-                          onSelect={onDateRangeChange}
-                          disabled={{ after: new Date() }}
-                          className="pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    {dateRange && (
+                </div>
+
+                {/* Right Side - Date Filter */}
+                <div
+                  className="flex items-center gap-1.5 shrink-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Popover>
+                    <PopoverTrigger asChild>
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full shrink-0"
-                        onClick={() => onDateRangeChange?.(undefined)}
+                        variant="outline"
+                        className="h-7 px-2 text-[11px] font-normal border-border/70 bg-background/80 backdrop-blur-sm shadow-sm hover:bg-muted/40"
                       >
-                        <X className="h-3 w-3" />
+                        <CalendarIcon className="h-3 w-3 text-muted-foreground" />
+                        {dateRange?.from
+                          ? dateRange.to
+                            ? `${format(dateRange.from, "MMM dd")} - ${format(
+                                dateRange.to,
+                                "MMM dd"
+                              )}`
+                            : format(dateRange.from, "MMM dd")
+                          : "All Time"}
                       </Button>
-                    )}
-                  </div>
+                    </PopoverTrigger>
+
+                    <PopoverContent className="w-auto p-0 z-[100]" align="end">
+                      <Calendar
+                        initialFocus
+                        mode="range"
+                        defaultMonth={dateRange?.from ?? new Date()}
+                        selected={dateRange}
+                        onSelect={onDateRangeChange}
+                        disabled={{ after: new Date() }}
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+
+                  {dateRange && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                      onClick={() => onDateRangeChange?.(undefined)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  )}
                 </div>
               </motion.div>
 
@@ -233,19 +222,31 @@ export function ClosedInLastTwoHoursCard({
                       preserveValue
                     />
                   </motion.div>
+                  <div className="flex items-center gap-2  mt-2 text-xs text-muted-foreground">
+                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/15">
+                      <CircleCheck className="h-3 w-3 text-primary" />
+                    </div>
 
-                  <div
-                    className={`flex items-center gap-2 text-xs text-muted-foreground ${
-                      isLoading ? "opacity-50" : ""
-                    }`}
-                  >
-                    <BadgeCheck className="h-4 w-4 text-primary" />
-                    <span>Questions closed within 2 hours of creation</span>
+                    <span>Passed within 2 hours</span>
+
+                    <span className="font-semibold text-foreground">
+                      {passedInLastTwoHours}/{totalPassed}
+                    </span>
                   </div>
+                  
                 </div>
 
                 {/* Percentage circle */}
-                <motion.div
+
+                  {/* Hover Tooltip */}
+                 <HoverCard openDelay={150}>
+                    <HoverCardTrigger asChild>
+                      {/* <div className="group cursor-help">
+                        <span className="font-semibold">
+                          {combinedPercentage.toFixed(1)}%
+                        </span>
+                      </div> */}
+                                      <motion.div
                   className={`group flex-shrink-0 h-18 w-18 pt-2 rounded-full border-2 flex flex-col items-center justify-center gap-0 cursor-pointer select-none shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg border-gray-200/80 bg-white dark:border-[#2a2a2a] dark:bg-gradient-to-br dark:from-[#1a1a1a] dark:to-[#161616] ${
                     isLoading ? "opacity-50" : ""
                   }`}
@@ -277,17 +278,40 @@ export function ClosedInLastTwoHoursCard({
                   <span className="text-[9px] mt-0.5 text-gray-500 dark:text-white/60">
                     completion
                   </span>
+                    </motion.div>
+                    </HoverCardTrigger>
 
-                  {/* Hover Tooltip */}
-                  <div className="absolute left-1/2 top-full z-50 mt-2 hidden min-w-[160px] -translate-x-1/2 rounded-lg border bg-white p-2 text-xs shadow-xl group-hover:block dark:bg-background">
-                    <div className="font-semibold mb-2">
-                      Combined percentage: (Closed + Passed)
-                    </div>
-                    <div>
-                      <span>{combinedPercentage.toFixed(1)}%</span>
-                    </div>
-                  </div>
-                </motion.div>
+                    <HoverCardContent
+                      align="center"
+                      side="bottom"
+                      className="w-[260px] p-4"
+                    >
+                      <div className="space-y-3">
+                        <div>
+                          <h4 className="text-sm font-semibold">
+                            Combined Performance
+                          </h4>
+                          <p className="text-xs text-muted-foreground">
+                            Overall performance score
+                          </p>
+                        </div>
+
+                        <div className="text-3xl font-bold text-primary">
+                          {/* {combinedPercentage.toFixed(1)}% */}
+                          {closedWithinTwoHoursPct.toFixed(1)}%
+                        </div>
+
+                        <div className="rounded-lg border bg-muted/30 p-2 text-xs text-muted-foreground">
+                          Calculated as the combined percentage of
+                          <span className="font-medium text-foreground"> Closed </span>
+                          and
+                          <span className="font-medium text-foreground"> Passed </span>
+                          cases.
+                        </div>
+                      </div>
+                    </HoverCardContent>
+                  </HoverCard>
+                
               </div>
             </>
           )}
