@@ -16,6 +16,7 @@ import { CircleCheck, GitCompareArrows, History } from "lucide-react";
 import { diffWords } from "@/utils/wordDifference";
 import { toast } from "@/shared/components/toast";
 import { AuditTrailModal } from "./AuditTrailModal";
+import { isEnglishCharacters } from "@/features/questions/utils/checkLanguage";
 
 interface QuestionHeaderProps {
   question: IQuestionFullData;
@@ -180,10 +181,14 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                     {isQuestionOnHold ? "Release Hold" : "Hold the question"}
                   </Button>
                 )}
-              <SarvamTranslateDropdown
-                query={question.question}
-                onTranslate={(result) => setTranslatedText(result)}
-              />
+              {
+                question.question?.trim() && !isEnglishCharacters(question.question) && (
+                  <SarvamTranslateDropdown
+                    query={question.question}
+                    onTranslate={(result) => setTranslatedText(result)}
+                  />
+                )
+              }
             </div>
 
             <div className="flex sm:flex-row flex-col sm:items-center items-end gap-3 sm:gap-6">
