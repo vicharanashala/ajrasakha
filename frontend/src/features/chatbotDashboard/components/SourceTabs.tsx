@@ -68,12 +68,11 @@ export function SourceTabsHeader({
 
       <div className="flex items-center ml-auto gap-4">
 
-<div
+{/* <div
   role="tablist"
   aria-label="View mode"
   className="relative inline-flex items-center p-1 rounded-full bg-muted/60 border border-border/50 backdrop-blur-md shadow-[inset_0_1px_2px_rgba(0,0,0,0.04)]"
 >
-  {/* Sliding indicator */}
   <div
     aria-hidden="true"
     className={cn(
@@ -110,7 +109,7 @@ export function SourceTabsHeader({
       <span className="tracking-tight">{label}</span>
     </button>
   ))}
-</div>
+</div> */}
 
 
 
