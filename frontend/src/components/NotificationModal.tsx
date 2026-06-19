@@ -28,6 +28,12 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/atoms/select";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/atoms/tooltip";
 import { useGetNotifications } from "@/hooks/api/notification/useGetNotifications";
 import { useDeleteNotification } from "@/hooks/api/notification/useDeleteNotifications";
 import { useMarkAsReadNotification } from "@/hooks/api/notification/useUpdateNotification";
@@ -323,9 +329,18 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
                                             {n.message}
                                         </p>
                                         {n.questionText && (
-                                            <p className="text-xs text-primary font-medium bg-primary/5 px-2 py-1.5 rounded-md line-clamp-2 leading-relaxed mb-3 border border-primary/20">
-                                                {n.questionText}
-                                            </p>
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <p className="text-xs text-primary font-medium bg-primary/5 px-2 py-1.5 rounded-md line-clamp-2 leading-relaxed mb-3 border border-primary/20 cursor-help">
+                                                            {n.questionText}
+                                                        </p>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="bottom" className="max-w-sm">
+                                                        <p className="text-sm">{n.questionText}</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
                                         )}
                                         <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-medium">
                                             <div className="flex items-center gap-1">

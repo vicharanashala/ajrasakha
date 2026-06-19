@@ -77,6 +77,12 @@ import { NotificationModal } from "@/components/NotificationModal";
 import { apiFetch } from "@/hooks/api/api-fetch";
 import { env } from "@/config/env";
 import { useToast } from "@/shared/components/toast";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/atoms/tooltip";
 
 export const Route = createFileRoute("/user/$userId")({
   component: RouteComponent,
@@ -1511,9 +1517,18 @@ function UserNotificationHistorySheet({
                   {notification.message}
                 </p>
                 {notification.questionText && (
-                  <p className="mt-2 text-xs text-primary font-medium bg-primary/5 px-2 py-1.5 rounded-md border border-primary/20">
-                    {notification.questionText}
-                  </p>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <p className="mt-2 text-xs text-primary font-medium bg-primary/5 px-2 py-1.5 rounded-md border border-primary/20 cursor-help">
+                          {notification.questionText}
+                        </p>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-sm">
+                        <p className="text-sm">{notification.questionText}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
                 <div className="mt-4 grid gap-2 rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
                   <div className="flex justify-between gap-3">
