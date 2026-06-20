@@ -46,6 +46,7 @@ export default function IndiaAnalyticsMap({
   const {
     level,
     selectedState,
+    selectedStateCode,
     selectedDistrict,
     hovered,
     setHovered,
@@ -55,19 +56,30 @@ export default function IndiaAnalyticsMap({
     crumbs,
   } = useMapNavigation();
 
-  const { data: allStatesData, isLoading, isFetching } = useAllStatesandUserData({
+  // console.log(selectedState);
+
+  // console.log(selectedStateCode);
+
+  const {
+    data: allStatesData,
+    isLoading,
+    isFetching,
+  } = useAllStatesandUserData({
     source: source as string,
     userType: userType as string,
     enabled: true,
   });
 
+  // console.log("All state data", allStatesData);
+
   const { data: districtAnalytics } = useStateWiseAnalytics(
     selectedState ?? undefined,
+    selectedStateCode,
     source,
     userType,
   );
-    // console.log("Analytics of all state", allStatesData)
-    // console.log("District analytics of data", districtAnalytics)
+  // console.log("Analytics of all state", allStatesData)
+  // console.log("District analytics of data", districtAnalytics)
 
   const {
     statesWithData,
@@ -116,7 +128,11 @@ export default function IndiaAnalyticsMap({
   // Selection handlers
   const handleSelectState = useCallback(
     (name: string, feature: GeoFeature) => {
-      navigateToState(name);
+      const stateData = allStatesData?.find((s) => s.state === name);
+
+      console.log("Selected:", name);
+      console.log("State data:", stateData);
+      navigateToState(name, stateData.stateCode);
       handleFlyTo(feature);
     },
     [navigateToState, handleFlyTo],
@@ -179,8 +195,26 @@ export default function IndiaAnalyticsMap({
         mouseover: () => setHovered(name),
         mouseout: () => setHovered((h) => (h === name ? null : h)),
         click: () => {
+
+          console.log("Clicked", name);
+
+  const stateData =
+    allStatesData?.find(
+      s => s.state === name,
+    );
+
+  console.log(stateData);
+
           if (level === "india") {
-            navigateToState(name);
+            const stateData = allStatesData?.find((s) => s.state === name);
+            console.log()
+            navigateToState(name, stateData?.stateCode);
+
+            const bounds = (layer as L.Polygon).getBounds?.();
+
+            if (bounds) {
+              setFlyTarget(bounds);
+            }
           } else {
             navigateToDistrict(name);
             const b = (
@@ -191,7 +225,7 @@ export default function IndiaAnalyticsMap({
         },
       });
     },
-    [level, navigateToState, navigateToDistrict, setHovered],
+    [level, navigateToState, navigateToDistrict, setHovered, allStatesData],
   );
 
   // GeoJSON key forces re-render on level/state change
@@ -312,7 +346,7 @@ export default function IndiaAnalyticsMap({
         userType={userType}
         questionStatusData={questionStatusData}
         todayActiveFarmersData={todayActiveFarmersData}
-        isLoading = {isLoading || isFetching}
+        isLoading={isLoading || isFetching}
       />
     </div>
   );

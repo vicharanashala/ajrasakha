@@ -47,6 +47,7 @@ export async function fetchStates(): Promise<unknown> {
     }
 
     if (stateName === "Jammu and Kashmir") {
+      feature.properties.NAME_1 = "Jammu And Kashmir"
       feature.geometry = states["Jammu and Kashmir"].geometry;
     }
   });
@@ -133,40 +134,79 @@ export async function fetchDistricts(): Promise<unknown> {
   //   }
   // });
 
-  data.features.forEach((feature: any) => {
-    const districtName = feature.properties?.NAME_2;
+ data.features.forEach((feature: any) => {
+  const districtName =
+    feature.properties?.NAME_2;
 
-    const stateName = feature.properties?.NAME_1;
+  const cleanedDistrictName =
+    districtName
+      ?.replace(/\([^)]*\)/g, "")
+      .trim();
 
-    // Telangana fix
-    if (TELANGANA_DISTRICTS.has(districtName)) {
-      feature.properties.NAME_1 = "Telangana";
-    }
+  const stateName =
+    feature.properties?.NAME_1;
 
-    // Jammu & Kashmir -> Ladakh fixes
-    if (districtName === "Kargil" || districtName === "Ladakh (Leh)") {
-      feature.properties.NAME_1 = "Ladakh";
-    }
+  // Remove brackets from all districts
+  feature.properties.NAME_2 =
+    cleanedDistrictName;
 
-    // State renames
-    if (stateName === "Orissa") {
-      feature.properties.NAME_1 = "Odisha";
-    }
+  // Telangana fix
+  if (
+    TELANGANA_DISTRICTS.has(
+      cleanedDistrictName,
+    )
+  ) {
+    feature.properties.NAME_1 =
+      "Telangana";
+  }
 
-    if (stateName === "Uttaranchal") {
-      feature.properties.NAME_1 = "Uttarakhand";
-    }
+  // Jammu & Kashmir → Ladakh
+  if (
+    cleanedDistrictName === "Kargil" ||
+    cleanedDistrictName === "Ladakh"
+  ) {
+    feature.properties.NAME_1 =
+      "Ladakh";
+  }
 
-    // District renames
-    if (districtName === "Naini Tal") {
-      feature.properties.NAME_2 = "Nainital";
-    }
+  // State renames
+  if (stateName === "Orissa") {
+    feature.properties.NAME_1 =
+      "Odisha";
+  }
 
-    if(districtName === "Ladakh (Leh)"){
-      feature.properties.NAME_2 = "Leh";
-    }
-    
-  });
+  if (stateName === "Uttaranchal") {
+    feature.properties.NAME_1 =
+      "Uttarakhand";
+  }
+
+  if (
+    stateName === "Jammu and Kashmir"
+  ) {
+    feature.properties.NAME_1 =
+      "Jammu And Kashmir";
+  }
+
+  // District renames
+  if (
+    cleanedDistrictName ===
+    "Naini Tal"
+  ) {
+    feature.properties.NAME_2 =
+      "Nainital";
+  }
+
+  if (
+    cleanedDistrictName ===
+    "Ladakh"
+  ) {
+    feature.properties.NAME_2 =
+      "Leh";
+  }
+  if( cleanedDistrictName === "Baramula"){
+    feature.properties.NAME_2 = "Baramulla"
+  }
+});
 
   // Add missing districts
   data.features.push(districtPatches);
