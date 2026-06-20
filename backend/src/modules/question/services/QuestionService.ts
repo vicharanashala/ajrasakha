@@ -8,6 +8,7 @@ import { startPaeAllocationWorker } from '#root/workers/paeAllocation.manager.js
 import { startBulkDeleteWorker } from '#root/workers/bulkDelete.manager.js';
 import {
   IQuestion,
+  IUser,
   IQuestionSubmission,
   ISubmissionHistory,
   IAnswer,
@@ -19,6 +20,9 @@ import {
   IPreviousAllocations,
   IAuthorsHistory,
   QuestionStatus,
+  QuestionSource,
+  TIME_BOUND_SOURCES,
+  MANUAL_SOURCES,
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
@@ -5946,70 +5950,89 @@ export class QuestionService extends BaseService implements IQuestionService {
   async runModeratorQueueCron(): Promise<{ assigned: number; availableWaiting: number; failedAssignments: number }> {
     console.log('[ModeratorQueue] Starting moderator queue assignment check...');
     try {
-      // 1. Available moderators (no active question in their user document)
-      const availableModerators = await this.userRepo.findAvailableStfModerators();
-      if (!availableModerators.length) {
-        console.log('[ModeratorQueue] No available moderators — all moderators are busy.');
-        return { assigned: 0, availableWaiting: 0, failedAssignments: 0 };
-      }
+      // Source-aware assignment: a moderator may hold ONE time-bound question and ONE
+      // manual (non-time-bound) question at the same time. Availability is evaluated
+      // per source group, so the two passes below are independent — a moderator free
+      // for both categories can receive one of each in a single run, while a moderator
+      // already holding (say) a time-bound question still receives a manual one.
+      const [
+        timeBoundModerators,
+        manualModerators,
+        timeBoundQuestions,
+        manualQuestions,
+      ] = await Promise.all([
+        this.userRepo.findAvailableStfModeratorsForSources(TIME_BOUND_SOURCES),
+        this.userRepo.findAvailableStfModeratorsForSources(MANUAL_SOURCES),
+        this.questionRepo.findUnassignedInReviewQuestions(TIME_BOUND_SOURCES),
+        this.questionRepo.findUnassignedInReviewQuestions(MANUAL_SOURCES),
+      ]);
 
-      // 2. Unassigned in-review questions (oldest first)
-      const unassignedQuestions = await this.questionRepo.findUnassignedInReviewQuestions();
-      if (!unassignedQuestions.length) {
-        console.log(`[ModeratorQueue] No unassigned in-review questions — ${availableModerators.length} moderator(s) available and waiting.`);
-        return { assigned: 0, availableWaiting: availableModerators.length, failedAssignments: 0 };
-      }
-
-      // Track which question IDs are claimed in this batch to avoid double-assignment
+      // Track claimed question IDs across both passes so a question is never assigned
+      // twice (the buckets are disjoint by source, but this is a cheap safety net).
       const claimedIds = new Set<string>();
       let assigned = 0;
       let availableWaiting = 0;
       let failedAssignments = 0;
 
-      for (const moderator of availableModerators) {
-        const moderatorId = moderator._id.toString();
+      // Assign one question per available moderator within a single source group.
+      const runPass = async (
+        label: string,
+        moderators: IUser[],
+        questions: IQuestion[],
+      ) => {
+        for (const moderator of moderators) {
+          const moderatorId = moderator._id!.toString();
 
-        const nextQuestion = unassignedQuestions.find(
-          (q: any) => !claimedIds.has(q._id.toString()),
-        );
-        if (!nextQuestion) {
-          // Moderator is free but no more questions left in this batch
-          availableWaiting++;
-          continue;
+          const nextQuestion = questions.find(
+            (q: any) => !claimedIds.has(q._id.toString()),
+          );
+          if (!nextQuestion) {
+            // Moderator is free for this category but no more questions left in it.
+            availableWaiting++;
+            continue;
+          }
+
+          const questionId = nextQuestion._id!.toString();
+          claimedIds.add(questionId);
+
+          try {
+            // Assign question to moderator — update both documents and notify.
+            await Promise.all([
+              this.questionRepo.updateModeratorId(questionId, moderatorId),
+              // Store the question's actual status (the cron assigns both in-review and
+              // duplicate questions) and its source (used for source-aware availability).
+              this.userRepo.addAssignedQuestion(
+                moderatorId,
+                questionId,
+                ((nextQuestion as any)?.status ?? 'in-review') as QuestionStatus,
+                (nextQuestion as any)?.source,
+              ),
+              this.notificationService.saveTheNotifications(
+                'A question has been assigned to you for moderation',
+                'Moderation Assigned',
+                questionId,
+                moderatorId,
+                'moderator_approval',
+              ),
+            ]);
+            console.log(`[ModeratorQueue] (${label}) Assigned question ${questionId} → moderator ${moderatorId}`);
+            assigned++;
+          } catch (err: any) {
+            console.error(`[ModeratorQueue] (${label}) Failed to assign ${questionId} → ${moderatorId}:`, err?.message);
+            claimedIds.delete(questionId);
+            failedAssignments++;
+          }
         }
+      };
 
-        const questionId = nextQuestion._id.toString();
-        claimedIds.add(questionId);
-
-        try {
-          // Assign question to moderator — update both documents and notify
-          await Promise.all([
-            this.questionRepo.updateModeratorId(questionId, moderatorId),
-            // Store the question's actual status (the cron assigns both in-review and
-            // duplicate questions) and its source.
-            this.userRepo.addAssignedQuestion(
-              moderatorId,
-              questionId,
-              ((nextQuestion as any)?.status ?? 'in-review') as QuestionStatus,
-              (nextQuestion as any)?.source,
-            ),
-            this.notificationService.saveTheNotifications(
-              'A question has been assigned to you for moderation',
-              'Moderation Assigned',
-              questionId,
-              moderatorId,
-              'moderator_approval',
-            ),
-          ]);
-          console.log(`[ModeratorQueue] Assigned question ${questionId} → moderator ${moderatorId}`);
-          assigned++;
-        } catch (err: any) {
-          console.error(`[ModeratorQueue] Failed to assign ${questionId} → ${moderatorId}:`, err?.message);
-          claimedIds.delete(questionId);
-          failedAssignments++;
-        }
+      if (!timeBoundModerators.length && !manualModerators.length) {
+        console.log('[ModeratorQueue] No available moderators for either category.');
       }
 
+      await runPass('time-bound', timeBoundModerators, timeBoundQuestions);
+      await runPass('manual', manualModerators, manualQuestions);
+
+      console.log(`[ModeratorQueue] Done. assigned=${assigned}, availableWaiting=${availableWaiting}, failed=${failedAssignments}`);
       return { assigned, availableWaiting, failedAssignments };
     } catch (error: any) {
       console.error('[ModeratorQueue] runModeratorQueueCron failed:', error?.message);
@@ -6771,6 +6794,75 @@ export class QuestionService extends BaseService implements IQuestionService {
         return {count: mods.length, items};
       }
 
+      // ── Source-split moderator-queue sections (time-bound vs manual) ──
+      // Same data as the three sections above, scoped to one source group so the UI
+      // can show the moderator queue split into Time-bound / Manual.
+      case 'moderatorWaitingTimeBound':
+      case 'moderatorWaitingManual': {
+        const sources =
+          section === 'moderatorWaitingTimeBound'
+            ? TIME_BOUND_SOURCES
+            : MANUAL_SOURCES;
+        const qs = (await this.questionRepo.findUnassignedInReviewQuestions(
+          sources,
+        )) as any[];
+        const count = qs.length;
+        const pageQs = qs.slice(skip, skip + safeLimit);
+        return {
+          count,
+          items: pageQs.map(q => this.submissionToQueueItem({question: q})),
+        };
+      }
+
+      case 'moderatorAllocatedTimeBound':
+      case 'moderatorAllocatedManual': {
+        const sources =
+          section === 'moderatorAllocatedTimeBound'
+            ? TIME_BOUND_SOURCES
+            : MANUAL_SOURCES;
+        const qs = (await this.questionRepo.findModeratorAssignedQuestions(
+          sources,
+        )) as any[];
+        const count = qs.length;
+        const pageQs = qs.slice(skip, skip + safeLimit);
+        const ids = pageQs
+          .map(q => q.moderatorId?.toString())
+          .filter(Boolean) as string[];
+        const names = await this.resolveExpertNames(ids);
+        const items: QueueQuestionItem[] = pageQs.map(q => ({
+          ...this.submissionToQueueItem({question: q}),
+          moderatorName: q.moderatorId
+            ? names.get(q.moderatorId.toString()) ?? 'Unknown'
+            : undefined,
+        }));
+        return {count, items};
+      }
+
+      case 'availableModeratorsTimeBound':
+      case 'availableModeratorsManual': {
+        const sources =
+          section === 'availableModeratorsTimeBound'
+            ? TIME_BOUND_SOURCES
+            : MANUAL_SOURCES;
+        const mods = (await this.userRepo.findAvailableStfModeratorsForSources(
+          sources,
+        )) as any[];
+        const items: QueueExpertItem[] = mods
+          .slice(skip, skip + safeLimit)
+          .map(m => ({
+            _id: m._id.toString(),
+            name:
+              `${m.firstName ?? ''} ${m.lastName ?? ''}`.trim() ||
+              m.email ||
+              'Unknown',
+            email: m.email,
+            reputationScore: m.reputation_score,
+            role: m.role,
+            isSpecialTaskForce: m.special_task_force === true,
+          }));
+        return {count: mods.length, items};
+      }
+
       default:
         return {count: 0, items: []};
     }
@@ -6797,7 +6889,26 @@ export class QuestionService extends BaseService implements IQuestionService {
         return {count: 0, items: []};
       }
     };
-    const [received, autoAllocateOff, allocated, waiting, freeExperts, stuck, needsReviewer, totalWork, openedIdle, moderatorWaiting, moderatorAllocated, availableModerators] =
+    const [
+      received,
+      autoAllocateOff,
+      allocated,
+      waiting,
+      freeExperts,
+      stuck,
+      needsReviewer,
+      totalWork,
+      openedIdle,
+      moderatorWaiting,
+      moderatorAllocated,
+      availableModerators,
+      moderatorWaitingTimeBound,
+      moderatorWaitingManual,
+      moderatorAllocatedTimeBound,
+      moderatorAllocatedManual,
+      availableModeratorsTimeBound,
+      availableModeratorsManual,
+    ] =
       await Promise.all([
         safe('received'),
         safe('autoAllocateOff'),
@@ -6811,6 +6922,12 @@ export class QuestionService extends BaseService implements IQuestionService {
         safe('moderatorWaiting'),
         safe('moderatorAllocated'),
         safe('availableModerators'),
+        safe('moderatorWaitingTimeBound'),
+        safe('moderatorWaitingManual'),
+        safe('moderatorAllocatedTimeBound'),
+        safe('moderatorAllocatedManual'),
+        safe('availableModeratorsTimeBound'),
+        safe('availableModeratorsManual'),
       ]);
 
     return {
@@ -6826,6 +6943,12 @@ export class QuestionService extends BaseService implements IQuestionService {
       moderatorWaiting: moderatorWaiting as QueueDetailsResponse['moderatorWaiting'],
       moderatorAllocated: moderatorAllocated as QueueDetailsResponse['moderatorAllocated'],
       availableModerators: availableModerators as QueueDetailsResponse['availableModerators'],
+      moderatorWaitingTimeBound: moderatorWaitingTimeBound as QueueDetailsResponse['moderatorWaitingTimeBound'],
+      moderatorWaitingManual: moderatorWaitingManual as QueueDetailsResponse['moderatorWaitingManual'],
+      moderatorAllocatedTimeBound: moderatorAllocatedTimeBound as QueueDetailsResponse['moderatorAllocatedTimeBound'],
+      moderatorAllocatedManual: moderatorAllocatedManual as QueueDetailsResponse['moderatorAllocatedManual'],
+      availableModeratorsTimeBound: availableModeratorsTimeBound as QueueDetailsResponse['availableModeratorsTimeBound'],
+      availableModeratorsManual: availableModeratorsManual as QueueDetailsResponse['availableModeratorsManual'],
     };
   }
 }

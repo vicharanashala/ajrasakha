@@ -328,6 +328,7 @@ export interface IUserRepository {
   ): Promise<IUser>;
   findAvailableModerators(): Promise<IUser[]>;
   findAvailableStfModerators(): Promise<IUser[]>;
+  findAvailableStfModeratorsForSources(sources: QuestionSource[]): Promise<IUser[]>;
   addAssignedQuestion(moderatorId: string, questionId: string, status: QuestionStatus, source?: QuestionSource): Promise<void>;
   removeAssignedQuestion(moderatorId: string, questionId: string): Promise<void>;
   removeAssignedQuestionFromAllModerators(questionId: string, session?: ClientSession): Promise<void>;
