@@ -115,7 +115,7 @@ NODE_ENV=test pnpm exec vitest run src/e2e/question/QuestionCreate.e2e.test.ts
 
 ## Last Run
 
-**Date:** 2026-06-18 &nbsp;|&nbsp; **Result:** ❌ 2 failed / 6 passed &nbsp;|&nbsp; **Duration:** 19.2 s
+**Date:** 2026-06-19 &nbsp;|&nbsp; **Result:** ❌ 1 failed / 7 passed &nbsp;|&nbsp; **Duration:** 19.6 s
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
@@ -124,6 +124,6 @@ NODE_ENV=test pnpm exec vitest run src/e2e/question/QuestionCreate.e2e.test.ts
 | 3 | Question Create E2E > moderator updates question successfully | ✅ | — |
 | 4 | Question Create E2E > question reflects updated values | ✅ | — |
 | 5 | Question Create E2E > moderator deletes question successfully | ✅ | — |
-| 6 | Question Create E2E > deleted question is no longer retrievable | ❌ | expected [ 400, 404 ] to include 500 |
+| 6 | Question Create E2E > deleted question is no longer retrievable | ✅ | — |
 | 7 | Question Create E2E > moderator bulk deletes questions | ✅ | — |
-| 8 | Question Create E2E > bulk deleted questions are not retrievable | ❌ | expected [ 400, 404 ] to include 200 |
+| 8 | Question Create E2E > bulk deleted questions are not retrievable | ❌ | Test timed out in 5000ms. |

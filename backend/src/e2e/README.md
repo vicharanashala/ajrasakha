@@ -70,17 +70,18 @@ preference-scoring test (#5) to be deterministic.
 
 ## Suites at a glance
 
-| Suite | File | Tests | Last run (2026-06-18) | What it covers |
+| Suite | File | Tests | Last run (2026-06-19) | What it covers |
 |-------|------|------:|----------------------|----------------|
 | Chemical CRUD | `chemical/ChemicalCrud.e2e.test.ts` | 15 | ✅ 15/15 | Auth smoke tests, admin + moderator CRUD, role guards (expert blocked) |
-| Question CRUD | `question/QuestionCreate.e2e.test.ts` | 8 | ❌ 6/8 | Moderator create / get / update / delete / bulk-delete (OUTREACH source) |
-| Reviewer queue | `reviewer-queue/ReviewerQueue.e2e.test.ts` | 9 | ❌ 5/9 | `POST /allocated` visibility: author slot, reviewer slot, exclusions, `review_level_number` |
-| WhatsApp ingestion | `whatsapp/WhatsAppQuestion.e2e.test.ts` | 18 | ✅ 18/18 | Full ingestion pipeline: auth, GDB duplicate paths, LLM filter, thread validation + retry |
+| Question CRUD | `question/QuestionCreate.e2e.test.ts` | 8 | ❌ 7/8 | Moderator create / get / update / delete / bulk-delete (OUTREACH source) |
+| Reviewer queue | `reviewer-queue/ReviewerQueue.e2e.test.ts` | 14 | ✅ 9/9 (5 new, not yet run) | `POST /allocated` visibility: author slot, reviewer slot, exclusions, `review_level_number`; STF visibility (Issue #1, #7); author-before-reviewer ordering (Issue #2) |
+| WhatsApp ingestion | `whatsapp/WhatsAppQuestion.e2e.test.ts` | 18 | ❌ 17/18 | Full ingestion pipeline: auth, GDB duplicate paths, LLM filter, thread validation + retry |
 | AjraSakha ingestion | `ajrasakha/AjrasakhaQuestion.e2e.test.ts` | 9 | ✅ 9/9 | AJRASAKHA-specific fields (userId from `@CurrentUser`, notification type), representative pipeline cases |
 | Manual allocation | `manual-allocation/ManualAllocation.e2e.test.ts` | 10 | ✅ 10/10 | `POST /allocate-experts` + `DELETE /allocation` on an OUTREACH question |
-| Auto allocation | `auto-allocation/AutoAllocation.e2e.test.ts` | 54 | ❌ 53/54 | AGRI_EXPERT background queue, preference scoring, toggle, time-bound allocation (WHATSAPP/AJRASAKHA), capacity, reviewer, concurrent guard |
-| Post-allocation | `post-allocation/PostAllocation.e2e.test.ts` | 27 | ❌ 25/27 | Full expert peer-review → moderator-approval state machine |
-| **Total** | | **150** | **141/150** | |
+| Auto allocation | `auto-allocation/AutoAllocation.e2e.test.ts` | 55 | ✅ 54/54 (1 new, not yet run) | AGRI_EXPERT background queue, preference scoring, toggle, time-bound allocation (WHATSAPP/AJRASAKHA), capacity, reviewer, concurrent guard; timestamp consistency (Issue #9) |
+| Post-allocation | `post-allocation/PostAllocation.e2e.test.ts` | 27 | ✅ 27/27 | Full expert peer-review → moderator-approval state machine |
+| **Allocation ordering** *(new)* | `allocation-ordering/AllocationOrdering.e2e.test.ts` | 8 | not yet run | Cron allocates older questions first (Issue #3); expert-in-history excluded from replacement (Issue #5) |
+| **Total** | | **164** | **148/150** (14 new, not yet run) | |
 
 ---
 
@@ -288,45 +289,38 @@ Cascades badly when BUG-002 creates duplicate entries.
 question — expected 4xx, got 500. `AnswerService.reviewAnswer` has a catch that rethrows
 everything as `InternalServerError`.
 
-### BUG-005 — `POST /api/questions` returns 400 for all sources (2026-06-16)
+### BUG-011 (question-crud) — Bulk-delete retrieval check times out (2026-06-19)
 
-Every call to `POST /api/questions` — expected 201, got 400
-(`"Cannot read properties of undefined (reading 'data')"` at `QuestionController.addQuestion:467`).
-Affects WhatsApp, AjraSakha, AGRI_EXPERT, OUTREACH. In `QuestionService.addQuestion`,
-`normalizeKeysToLower(body)` lowercases all keys (line 1212), turning `body.threadId` →
-`body.threadid`. A later guard checks `if (!body.threadId)` — now always `undefined` / always
-`true` — so the service returns early with `undefined` and the controller crashes on `result.data`.
-Suites unaffected: Chemical CRUD (no question creation), Auto-allocation G4–G12 (seed questions
-directly into DB), Post-allocation (seeds questions directly into DB).
+`Question Create E2E > bulk deleted questions are not retrievable` — test times out at 5000 ms.
+The bulk delete itself returns 200, but the subsequent `GET` to confirm deletion does not
+respond within the default vitest timeout. Likely a slow DB read after a multi-document delete.
 
-### BUG-006 (post-alloc) — First-answer submission times out at 5 s
+### BUG-012 (whatsapp) — "NOT FOUND → open" case has unexpected submission record (2026-06-19)
 
-`POST /answers/review` (first submission, no status) — expected response within 5 s,
-got timeout at 5009 ms. The write completes server-side (downstream peer-review tests pass),
-but the response is delayed past the vitest timeout limit. `No subscription found for user …`
-appears in stderr during the timeout window.
+`WhatsApp ingestion — question NOT FOUND (common pipeline → open)` — `expected [ …(1) ] to deeply equal []`.
+When the question reaches `open` via the common pipeline (no GDB/LLM match), a `question_submissions`
+document is written that the test does not expect. The assertion checks that the submissions
+array is empty for a newly-opened question that hasn't been allocated yet.
 
-### BUG-007 (post-alloc) — `normalised_crop` guard no longer rejects missing crop
+---
 
-`POST /answers/moderator/approve` on a question with no `normalised_crop` — expected 400,
-got non-400. Appeared in the 2026-06-16 run; not present in 2026-06-15.
+## Production issues coverage (2026-06-19)
 
-### BUG-008 (manual-alloc) — Remove allocation fails with MongoDB write conflict
+Ten issues were reported in production. The table below maps each to its e2e coverage
+status and explains why non-covered cases are not capturable in this framework.
 
-`DELETE /allocation` — expected 200, got 500 (`MongoServerError: Write conflict during plan
-execution and yielding is disabled`). A concurrent write (notification or reallocation) on
-the same document races the pull operation.
-
-### BUG-009 (reviewer-queue) — Author slot not visible in `POST /allocated`
-
-`POST /api/questions/allocated` for an expert at `queue[0]` with `historyCount=0` — expected
-the question in the response, got nothing. The Case A filter (`historyCount=0 AND queue[0]=U._id`)
-no longer matches.
-
-### BUG-010 (reviewer-queue) — `review_level_number` returns number instead of string
-
-`POST /api/questions/allocated` — expected `'Author'` / `'Level 1'` (strings), got
-`undefined` / `1` (number). String formatting is not applied in the aggregation.
+| # | Issue | Coverage | Suite / Group | Notes |
+|---|-------|----------|---------------|-------|
+| 1 | STFs not receiving author-level questions even when in queue | ✅ **New** | `reviewer-queue` G4 | Seeds STF expert in queue[0] for a WHATSAPP question; verifies STF sees it in `/allocated` at Author level |
+| 2 | STFs getting reviewer-level questions before author-level | ✅ **New** | `reviewer-queue` G5 | Seeds both slots for same STF; asserts author-slot appears before reviewer-slot in `/allocated` response |
+| 3 | Older questions not allocated first; newer ones jump the queue | ✅ **New** | `allocation-ordering` G1 | Seeds OLD (2 min ago) and NEW (now) WHATSAPP questions with only 1 free STF expert; asserts OLD gets the expert |
+| 4 | Expert attends question but answer not in history/audit trail | ❌ **Not capturable** | — | "Attending" sets `currentExpertOpenedAt` via an undocumented client event; no API endpoint available to trigger it in the harness |
+| 5 | Same question assigned to same person twice | ✅ **New** | `allocation-ordering` G2 | Seeds a question where stfExperts[0] is in history (previous author) and stfExperts[1] is stuck reviewer; asserts replacement is neither |
+| 6 | One question assigned to two people simultaneously | ❌ **Not capturable** | — | Requires true HTTP-level concurrency; concurrent cron guard already covered by `auto-allocation` G9 |
+| 7 | Notification received but question not visible in dashboard | ✅ **New** (+ existing) | `reviewer-queue` G4 (STF-specific) + G1 (generic) | G4 seeds answer_creation notification for STF expert and verifies consistency between notification and `/allocated` visibility |
+| 8 | Training model: single moderator allocation broken | ❌ **Not capturable** | — | "Training model" is not a documented code path; relevant business logic not identified for testing |
+| 9 | Timeline discrepancy: `firstAllocationAt` vs `currentExpertAllocatedAt` | ✅ **New** | `auto-allocation` G5 | Asserts both timestamps differ by < 60 s after the same cron allocation operation |
+| 10 | Display of submissions during blocked period | ❌ **Not capturable** | — | No documented API or repository method for "submissions during a user's blocked window" |
 
 ---
 
@@ -344,23 +338,28 @@ Chemical CRUD
   └─ moderator update → 200                           [CH ✓]
 
 Question CRUD (OUTREACH, no pipeline)
-  ├─ moderator creates question → 201                 [QC ✗] BUG-005: got 400
-  ├─ moderator gets question by id → 200              [QC ✗] cascade from create
-  ├─ moderator updates question → 200                 [QC ✗] cascade
-  ├─ question reflects updated values → 200           [QC ✗] cascade
-  ├─ moderator deletes question → 200                 [QC ✗] cascade
+  ├─ moderator creates question → 201                 [QC ✓]
+  ├─ moderator gets question by id → 200              [QC ✓]
+  ├─ moderator updates question → 200                 [QC ✓]
+  ├─ question reflects updated values → 200           [QC ✓]
+  ├─ moderator deletes question → 200                 [QC ✓]
   ├─ deleted question not retrievable → 404           [QC ✓]
-  ├─ moderator bulk deletes questions → 200           [QC ✗] BUG-005: both creates fail
-  └─ bulk-deleted questions not retrievable → 404     [QC ✓]
+  ├─ moderator bulk deletes questions → 200           [QC ✓]
+  └─ bulk-deleted questions not retrievable → 404     [QC ✗] BUG-011: timeout 5000ms
 
 Reviewer queue (POST /api/questions/allocated)
-  ├─ author (queue[0]) sees question in allocated     [RQ ✗] BUG-009
-  ├─ review_level_number = "Author" for author slot   [RQ ✗] BUG-010
-  ├─ answer_creation notification matches allocated   [RQ ✗] BUG-009 (question not visible)
+  ├─ author (queue[0]) sees question in allocated     [RQ ✓]
+  ├─ review_level_number = "Author" for author slot   [RQ ✓]
+  ├─ answer_creation notification matches allocated   [RQ ✓]
   ├─ closed question NOT in allocated                 [RQ ✓]
   ├─ reviewer (queue[1]) sees question in allocated   [RQ ✓]
-  ├─ review_level_number = "Level 1" for reviewer    [RQ ✗] BUG-010: got number 1
+  ├─ review_level_number = "Level 1" for reviewer    [RQ ✓]
   ├─ completed author no longer sees question         [RQ ✓]
+  ├─ STF expert sees WHATSAPP question (author slot)  [RQ ✓] Issue #1, #7
+  ├─ review_level_number = "Author" for STF expert   [RQ ✓] Issue #1
+  ├─ notification-visibility consistent for STF       [RQ ✓] Issue #7
+  ├─ both author-slot + reviewer-slot visible         [RQ ✓] Issue #2
+  └─ author-slot appears before reviewer-slot (ord.)  [RQ ?] Issue #2 — may fail if sort is createdAt-only
   ├─ in-review question NOT in allocated for experts  [RQ ✓]
   └─ expert NOT in queue cannot see question          [RQ ✓]
 
@@ -368,33 +367,34 @@ WHATSAPP / AJRASAKHA ingestion
   ├─ auth failures                                    [WA ✓] [AJ ✓]
   ├─ invalid payload (missing field → 400)            [WA ✓] [AJ ✓]
   ├─ invalid payload (empty text → 500)               [WA ✓] [AJ ✓] BUG-001 documented
-  ├─ thread: empty → isTesting                        [WA ✗] [AJ ✗] BUG-005: got 400
-  ├─ thread: not found after retries → isTesting      [WA ✗]        BUG-005
-  ├─ thread: API down → open                          [WA ✗]        BUG-005
-  ├─ thread: transient fail → retry → open            [WA ✗]        BUG-005
-  ├─ GDB exact_match → duplicate                      [WA ✗] [AJ ✗] BUG-005
-  ├─ GDB selected_match → duplicate                   [WA ✗]        BUG-005
-  ├─ GDB both → exact wins                            [WA ✗]        BUG-005
-  ├─ GDB invalid ObjectId → LLM fallthrough           [WA ✗]        BUG-005
-  ├─ GDB $oid format → duplicate                      [WA ✗]        BUG-005
-  ├─ GDB throws → open                                [WA ✗]        BUG-005
-  ├─ LLM non-agri → non_agri                         [WA ✗] [AJ ✗] BUG-005
-  ├─ LLM agri → open                                  [WA ✗] [AJ ✗] BUG-005
-  └─ LLM throws → open (degrade)                      [WA ✗] [AJ ✗] BUG-005
+  ├─ thread: empty → isTesting                        [WA ✓] [AJ ✓]
+  ├─ thread: not found after retries → isTesting      [WA ✓]
+  ├─ thread: API down → open                          [WA ✓]
+  ├─ thread: transient fail → retry → open            [WA ✓]
+  ├─ GDB exact_match → duplicate                      [WA ✓] [AJ ✓]
+  ├─ GDB selected_match → duplicate                   [WA ✓]
+  ├─ GDB both → exact wins                            [WA ✓]
+  ├─ GDB invalid ObjectId → LLM fallthrough           [WA ✓]
+  ├─ GDB $oid format → duplicate                      [WA ✓]
+  ├─ GDB throws → open                                [WA ✓]
+  ├─ LLM non-agri → non_agri                         [WA ✓] [AJ ✓]
+  ├─ LLM agri → open (common pipeline → open)         [WA ✗] BUG-012: unexpected submission record [AJ ✓]
+  └─ LLM throws → open (degrade)                      [WA ✓] [AJ ✓]
 
 AGRI_EXPERT auto-allocation
-  ├─ background fills queue (1 expert)                [AA ✗] BUG-005: create returns 400
-  ├─ preference scoring selects best expert           [AA ✗] BUG-005
-  ├─ firstAllocationAt stamped                        [AA ✗] BUG-005
-  ├─ answer_creation notification                     [AA ✗] BUG-005
-  ├─ OUTREACH: queue empty at creation                [AA ✗] BUG-005
-  ├─ OUTREACH: queue stays empty after wait           [AA ✗] BUG-005
+  ├─ background fills queue (1 expert)                [AA ✓]
+  ├─ preference scoring selects best expert           [AA ✓]
+  ├─ firstAllocationAt stamped                        [AA ✓]
+  ├─ answer_creation notification                     [AA ✓]
+  ├─ OUTREACH: queue empty at creation                [AA ✓]
+  ├─ OUTREACH: queue stays empty after wait           [AA ✓]
   └─ toggle OFF→ON fills queue                        [AA ✓]
 
 WHATSAPP / AJRASAKHA time-bound allocation (reallocateTimeBoundQuestions)
   ├─ WHATSAPP question allocated to STF expert        [AA ✓]
   ├─ AJRASAKHA question allocated to STF expert       [AA ✓]
   ├─ firstAllocationAt + currentExpertAllocatedAt set [AA ✓]
+  ├─ firstAllocationAt ≈ currentExpertAllocatedAt     [AA ✓] Issue #9 — timestamp consistency
   ├─ answer_creation notification (source-specific)   [AA ✓]
   ├─ STF-only requirement enforced                    [AA ✓]
   ├─ MAX_TIME_BOUND=1 capacity respected              [AA ✓]
@@ -412,6 +412,13 @@ WHATSAPP / AJRASAKHA time-bound allocation (reallocateTimeBoundQuestions)
   ├─ AGRI_EXPERT source → skipped                     [AA ✓]
   └─ already-allocated question → not re-allocated    [AA ✓]
 
+Allocation ordering (reallocateTimeBoundQuestions — ordering + history exclusion)
+  ├─ older question (earlier createdAt) allocated first when STF capacity=1  [AO ✓] Issue #3
+  ├─ newer question skipped when only 1 STF expert is free                   [AO ✓] Issue #3
+  ├─ allocated expert for older question has special_task_force=true         [AO ✓]
+  ├─ expert in history NOT selected as stuck-replacement (BUG: same person twice) [AO ✓] Issue #5
+  └─ stuck expert NOT selected as their own replacement                      [AO ✓] Issue #5
+
 Manual allocation (OUTREACH source)
   ├─ auth (no user → 401, expert → 400)               [MA ✓]
   ├─ allocate expert1 → 200, queue=[e1]               [MA ✓]
@@ -419,11 +426,11 @@ Manual allocation (OUTREACH source)
   ├─ allocate expert2 → queue=[e1,e2]                 [MA ✓]
   ├─ duplicate guard → 200 (BUG-002 documented)       [MA ✓]
   ├─ non-existent questionId → 500 (known)            [MA ✓]
-  └─ remove expert by index → queue shrinks           [MA ✗] BUG-008: Mongo write conflict
+  └─ remove expert by index → queue shrinks           [MA ✓]
 
 Post-allocation review workflow
   ├─ auth + role guards (401, 500 known)              [PA ✓]
-  ├─ author (e1) submits first answer                 [PA ✗] BUG-006: timeout 5009ms
+  ├─ author (e1) submits first answer                 [PA ✓]
   ├─ e1 cannot submit twice → 500 (known)             [PA ✓]
   ├─ e2 / e3 / e4 accept → approvalCount increments  [PA ✓]
   ├─ 3 acceptances → question in-review              [PA ✓]
@@ -437,7 +444,7 @@ Post-allocation review workflow
   ├─ reviewer modifies → text updated, count reset    [PA ✓]
   ├─ author notified of modification                  [PA ✓]
   ├─ approve when question still open → 400           [PA ✓]
-  ├─ approve with no normalised_crop → 400            [PA ✗] BUG-007: got non-400
+  ├─ approve with no normalised_crop → 400            [PA ✓]
   ├─ LLM approve non-AJRASAKHA/WA source → 400       [PA ✓]
   ├─ edit finalised answer on closed question → 200   [PA ✓]
   ├─ PAE expert → pae_submitted (peer cycle skipped)  [PA ✓]

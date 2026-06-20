@@ -735,6 +735,20 @@ describe('Time-bound allocation — WHATSAPP unallocated question → STF expert
     expect(notif).not.toBeNull();
   });
 
+  it('firstAllocationAt (question) and currentExpertAllocatedAt (submission) are stamped consistently — within 60 s of each other (Issue #9)', async () => {
+    // Both timestamps are written in the same allocation operation. A large delta
+    // (>60 s) indicates they are being set at different points in time, causing
+    // the discrepancy visible in the audit trail vs the allocation queue display.
+    if (!stfExperts.length) return;
+    const q = await getQuestion(waQuestionId);
+    const sub = await getSubmission(waQuestionId);
+    const deltaMs = Math.abs(
+      new Date(q.firstAllocationAt).getTime() - new Date(sub.currentExpertAllocatedAt).getTime(),
+    );
+    console.log('[G5] firstAllocationAt:', q?.firstAllocationAt, 'currentExpertAllocatedAt:', sub?.currentExpertAllocatedAt, 'deltaMs:', deltaMs);
+    expect(deltaMs).toBeLessThan(60_000);
+  });
+
   afterAll(async () => {
     // Close waQuestionId so the STF expert is no longer counted as "active"
     // (getTimeBoundActiveCountPerExpert skips closed questions). This frees
