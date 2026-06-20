@@ -34,6 +34,8 @@ import { Badge } from "./atoms/badge";
 import { ConfirmationModal } from "./confirmation-modal";
 import { useRemoveExpertAllocations } from "@/hooks/api/Admin/useRemoveExpertAllocations";
 import { useGetAllocatedQuestions } from "@/hooks/api/question/useGetAllocatedQuestions";
+import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
+import { QuestionDetails } from "./question-details";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import type { IQuestion } from "@/types";
 import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
@@ -133,6 +135,21 @@ export const ExpertDashboard = ({
   const [questionsSearch, setQuestionsSearch] = useState("");
   const debouncedQuestionsSearch = useDebounce(questionsSearch, 200);
 
+  // Opening a question from the Questions tab into the full details view.
+  // The logged-in viewer is always fetched here (the dashboard's own `user`
+  // query is disabled when expert data is passed in), so QuestionDetails has a
+  // currentUser regardless of how the dashboard was mounted.
+  const [selectedQuestionId, setSelectedQuestionId] = useState<string>("");
+  // Controlled so returning from a question's details keeps the user on the tab
+  // they came from (e.g. "questions") instead of resetting to "review_level".
+  const [activeTab, setActiveTab] = useState("review_level");
+  const { data: viewerUser } = useGetCurrentUser();
+  const {
+    data: selectedQuestionDetails,
+    refetch: refetchSelectedQuestion,
+    isLoading: isLoadingSelectedQuestion,
+  } = useGetQuestionFullDataById(selectedQuestionId || null);
+
   const formatReviewLevel = (rawLevel: string | number | undefined) => {
     if (rawLevel === undefined || rawLevel === null) return "N/A";
     if (typeof rawLevel === "string") return rawLevel;
@@ -174,6 +191,7 @@ export const ExpertDashboard = ({
     "allocated",
     null,
     "all",
+    true, // include reroute-pending questions in this management view
   );
 
   const allAllocatedQuestions = useMemo<
@@ -328,6 +346,31 @@ export const ExpertDashboard = ({
     }));
   };
   console.log("questtions ", paginatedQuestions)
+
+  // When a question is opened from the Questions tab, show its full details
+  // (same view used across the app) instead of the dashboard.
+  if (selectedQuestionId) {
+    return (
+      <main className="mx-auto w-full p-4 md:p-6">
+        {isLoadingSelectedQuestion || !selectedQuestionDetails?.data || !viewerUser ? (
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <Loader2 className="animate-spin w-6 h-6 text-primary" />
+          </div>
+        ) : (
+          <QuestionDetails
+            question={selectedQuestionDetails.data}
+            currentUserId={selectedQuestionDetails.currentUserId}
+            refetchAnswers={refetchSelectedQuestion}
+            isRefetching={isLoadingSelectedQuestion}
+            goBack={() => setSelectedQuestionId("")}
+            navigateToQuestionPage={() => setSelectedQuestionId("")}
+            currentUser={viewerUser!}
+          />
+        )}
+      </main>
+    );
+  }
+
   return (
     <main
       className={`min-h-screen bg-background ${isLoading ? "opacity-40" : ""}`}
@@ -641,7 +684,7 @@ export const ExpertDashboard = ({
             </CardContent>
           </Card>
         </div>
-        <Tabs defaultValue="review_level" className="mt-10">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-10">
           <TabsList>
             <TabsTrigger value="review_level">Review Level</TabsTrigger>
             <TabsTrigger value="questions">Questions</TabsTrigger>
@@ -781,7 +824,13 @@ export const ExpertDashboard = ({
                       </TableRow>
                     ) : (
                       paginatedQuestions.map((question, index: number) => (
-                        <TableRow key={question.id ?? index}>
+                        <TableRow
+                          key={question.id ?? index}
+                          onClick={() =>
+                            question.id && setSelectedQuestionId(question.id)
+                          }
+                          className="cursor-pointer hover:bg-muted/50 transition-colors"
+                        >
                           <TableCell className="align-top text-center">
                             {(questionsPage - 1) * questionsLimit + index + 1}
                           </TableCell>
