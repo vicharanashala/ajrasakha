@@ -164,6 +164,8 @@ export class AccAgentService {
 
       const data = response.data;
 
+      console.log("[ACC Agent service], data returned from AI api",data);
+
       if (!data.final_answer) {
         throw new InternalServerError('Invalid response from ACC Agent API: missing final_answer');
       }

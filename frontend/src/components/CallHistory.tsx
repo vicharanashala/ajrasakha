@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { Button } from "./atoms/button";
 import { Badge } from "./atoms/badge";
+import { Switch } from "./atoms/switch";
 import {
   Phone,
   Filter,
@@ -51,6 +52,7 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
   const [translatedText, setTranslatedText] = useState<string | null>(null);
   const [translating, setTranslating] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<string>("hi-IN");
+  const [sendTranslated, setSendTranslated] = useState(false);
 
   const SARVAM_LANGUAGES = [
     { code: "en-IN", name: "English" },
@@ -77,6 +79,13 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
     { code: "ur-IN", name: "Urdu" },
     { code: "brx-IN", name: "Bodo" },
   ];
+
+  // Reset translation state when message row is closed
+  useEffect(() => {
+    if (!messageRow) {
+      setSendTranslated(false);
+    }
+  }, [messageRow]);
 
   // Filters
   const [showFilters, setShowFilters] = useState(false);
@@ -168,11 +177,13 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
     setSendingMessage(true);
     try {
       numbertomsg = numbertomsg.replace(/^91/, "");
-      await plivoApi.sendMessage(numbertomsg, messageText);
-      toast.success("SMS sent successfully!");
+      const textToSend = sendTranslated && translatedText ? translatedText : messageText;
+      await plivoApi.sendMessage(numbertomsg, textToSend);
+      toast.success(`SMS sent successfully! (${sendTranslated ? "Translated" : "English"})`);
       setMessageRow(null);
       setMessageText("");
       setTranslatedText(null);
+      setSendTranslated(false);
     } catch (err: any) {
       toast.error(`Failed to send SMS: ${err.message || "Unknown error"}`);
     } finally {
@@ -723,24 +734,22 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                       characters
                                     </span>
                                   </div>
-                                  {!call.callDetails?.caller?.detectedLanguage || call.callDetails?.caller?.detectedLanguage === "unknown" ? (
-                                    <div className="mt-2">
-                                      <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                                        Select Target Language:
-                                      </label>
-                                      <select
-                                        value={selectedLanguage}
-                                        onChange={(e) => setSelectedLanguage(e.target.value)}
-                                        className="w-full px-2 py-1.5 text-sm border rounded-md bg-background"
-                                      >
-                                        {SARVAM_LANGUAGES.map((lang) => (
-                                          <option key={lang.code} value={lang.code}>
-                                            {lang.name}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    </div>
-                                  ) : null}
+                                  <div className="mt-2">
+                                    <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                                      Select Target Language:
+                                    </label>
+                                    <select
+                                      value={call.callDetails?.caller?.detectedLanguage && call.callDetails?.caller?.detectedLanguage !== "unknown" ? call.callDetails?.caller?.detectedLanguage : selectedLanguage}
+                                      onChange={(e) => setSelectedLanguage(e.target.value)}
+                                      className="w-full px-2 py-1.5 text-sm border rounded-md bg-background"
+                                    >
+                                      {SARVAM_LANGUAGES.map((lang) => (
+                                        <option key={lang.code} value={lang.code}>
+                                          {lang.name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
                                   {translatedText && (
                                     <div className="mt-2 p-3 bg-indigo-50 dark:bg-indigo-950/30 rounded-md border border-indigo-200 dark:border-indigo-800">
                                       <div className="flex items-center gap-2 mb-1">
@@ -754,11 +763,29 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                       </p>
                                     </div>
                                   )}
+                                  {translatedText && (
+                                    <div className="mt-2 flex items-center gap-2">
+                                      <Switch
+                                        id="send-translated"
+                                        checked={sendTranslated}
+                                        onCheckedChange={setSendTranslated}
+                                      />
+                                      <label
+                                        htmlFor="send-translated"
+                                        className="text-xs font-medium text-muted-foreground cursor-pointer"
+                                      >
+                                        Send translated text instead of English
+                                      </label>
+                                    </div>
+                                  )}
                                   <div className="flex justify-end gap-2 mt-2">
                                     <Button
                                       size="sm"
                                       variant="outline"
-                                      onClick={() => setMessageRow(null)}
+                                      onClick={() => {
+                                        setMessageRow(null);
+                                        setSendTranslated(false);
+                                      }}
                                     >
                                       Cancel
                                     </Button>

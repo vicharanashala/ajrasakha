@@ -657,11 +657,11 @@ export class QuestionService extends BaseService implements IQuestionService {
     metadata?: QAMetadata
   ): Promise<{ final_answer: string }> {
     try {
-      // console.log('[QuestionService] resumeAccAgentAndGetAnswer - Received params:', {
-      //   threadId,
-      //   callUuid,
-      //   metadata: metadata ? JSON.stringify(metadata, null, 2) : 'undefined'
-      // });
+      console.log('[QuestionService] resumeAccAgentAndGetAnswer - Received params:', {
+        threadId,
+        callUuid,
+        metadata: metadata ? JSON.stringify(metadata, null, 2) : 'undefined'
+      });
 
       const result = await this.accAgentService.resumeAndGetAnswer(threadId);
 
@@ -682,9 +682,9 @@ export class QuestionService extends BaseService implements IQuestionService {
 
         // console.log('[QuestionService] Storing Q/A pairs:', JSON.stringify(qaPairs, null, 2));
         await this.callDetailsRepository.updateQA_Pairs(callUuid, qaPairs);
-        // console.log(`[QuestionService] Successfully stored Q/A pairs for callUuid: ${callUuid}`);
+        console.log(`[QuestionService] Successfully stored Q/A pairs for callUuid: ${callUuid}`);
       } else {
-        // console.log('[QuestionService] Skipping Q/A storage - callUuid or metadata missing');
+        console.log('[QuestionService] Skipping Q/A storage - callUuid or metadata missing');
       }
 
       return result;

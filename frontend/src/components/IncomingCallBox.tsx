@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { Badge } from "./atoms/badge";
 import { Button } from "./atoms/button";
+import { Switch } from "./atoms/switch";
 import {
   Phone,
   PhoneOff,
@@ -84,6 +85,7 @@ export const IncomingCallBox = ({
   const [selectedLanguage, setSelectedLanguage] = useState<string>("hi-IN");
   const [translatedText, setTranslatedText] = useState<string | null>(null);
   const [translating, setTranslating] = useState(false);
+  const [sendTranslated, setSendTranslated] = useState(false);
 
   const SARVAM_LANGUAGES = [
     { code: "en-IN", name: "English" },
@@ -197,13 +199,14 @@ export const IncomingCallBox = ({
       setFarmerDetectedLanguage(firstInboundTranscript.detectedLanguage);
       setSelectedLanguage(firstInboundTranscript.detectedLanguage);
     }
-  }, [transcripts, farmerDetectedLanguage]);
+  }, [transcripts, farmerDetectedLanguage, setSelectedLanguage]);
 
   // Reset farmer detected language when call ends
   useEffect(() => {
     if (callStatus === "idle" || callStatus === "incoming") {
       setFarmerDetectedLanguage(null);
       setTranslatedText(null);
+      setSendTranslated(false);
     }
   }, [callStatus]);
 
@@ -600,7 +603,9 @@ export const IncomingCallBox = ({
 
   const handleSendMessage = async () => {
     const phoneNumber = incomingCall?.number || lastCallNumber;
-    if (!messageText.trim() || !phoneNumber) {
+    const textToSend = sendTranslated && translatedText ? translatedText : messageText;
+
+    if (!textToSend.trim() || !phoneNumber) {
       return;
     }
 
@@ -608,10 +613,11 @@ export const IncomingCallBox = ({
     try {
       // Remove country code if present (matching CallHistory logic)
       const sanitizedNumber = phoneNumber.replace(/^91/, "");
-      await plivoApi.sendMessage(sanitizedNumber, messageText.trim());
-      toast.success("SMS sent successfully!");
+      await plivoApi.sendMessage(sanitizedNumber, textToSend.trim());
+      toast.success(`SMS sent successfully! (${sendTranslated ? "Translated" : "English"})`);
       setMessageText("");
       setTranslatedText(null);
+      setSendTranslated(false);
     } catch (error) {
       console.error("Failed to send SMS:", error);
       toast.error("Failed to send SMS");
@@ -987,24 +993,22 @@ export const IncomingCallBox = ({
                         <Send className="h-4 w-4" />
                       </Button>
                     </div>
-                    {!farmerDetectedLanguage ? (
-                      <div className="mt-2">
-                        <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 block">
-                          Select Target Language:
-                        </label>
-                        <select
-                          value={selectedLanguage}
-                          onChange={(e) => setSelectedLanguage(e.target.value)}
-                          className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/50"
-                        >
-                          {SARVAM_LANGUAGES.map((lang) => (
-                            <option key={lang.code} value={lang.code}>
-                              {lang.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    ) : null}
+                    <div className="mt-2">
+                      <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 block">
+                        Select Target Language:
+                      </label>
+                      <select
+                        value={farmerDetectedLanguage || selectedLanguage}
+                        onChange={(e) => setSelectedLanguage(e.target.value)}
+                        className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      >
+                        {SARVAM_LANGUAGES.map((lang) => (
+                          <option key={lang.code} value={lang.code}>
+                            {lang.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                     {translatedText && (
                       <div className="mt-2 p-3 bg-indigo-50 dark:bg-indigo-950/30 rounded-lg border border-indigo-200 dark:border-indigo-800">
                         <div className="flex items-center gap-2 mb-1">
@@ -1016,6 +1020,21 @@ export const IncomingCallBox = ({
                         <p className="text-sm text-indigo-900 dark:text-indigo-100">
                           {translatedText}
                         </p>
+                      </div>
+                    )}
+                    {translatedText && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <Switch
+                          id="send-translated"
+                          checked={sendTranslated}
+                          onCheckedChange={setSendTranslated}
+                        />
+                        <label
+                          htmlFor="send-translated"
+                          className="text-xs font-medium text-zinc-500 dark:text-zinc-400 cursor-pointer"
+                        >
+                          Send translated text instead of English
+                        </label>
                       </div>
                     )}
                     <div className="flex justify-end gap-2 mt-2">
