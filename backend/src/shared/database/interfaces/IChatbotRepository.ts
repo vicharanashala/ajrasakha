@@ -848,7 +848,8 @@ export interface IChatbotRepository {
     userType?: string,
     search?: string,
     startDate?: Date,
-    endDate?: Date 
+    endDate?: Date,
+    isPassed?: string,
   ): Promise<any>
 
   getQuestionsByNotificationStatus(

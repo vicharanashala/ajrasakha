@@ -223,12 +223,19 @@ function getColumns(
       className: "font-medium text-gray-900 dark:text-gray-100",
       render: (entry) => entry.closedQuestions.toLocaleString(),
     },
+    // {
+    //   key: "averageCloseTime",
+    //   header: "Avg. Closing Time",
+    //   align: "right",
+    //   className: "font-medium text-gray-900 dark:text-gray-100",
+    //   render: (entry) => entry.averageCloseTime || "0 minutes",
+    // },
     {
-      key: "averageCloseTime",
-      header: "Avg. Closing Time",
+      key: "passedQuestions",
+      header: "Passed Questions",
       align: "right",
       className: "font-medium text-gray-900 dark:text-gray-100",
-      render: (entry) => entry.averageCloseTime || "0 minutes",
+      render: (entry) => entry.passedQuestions || "0",
     },
   ];
 }

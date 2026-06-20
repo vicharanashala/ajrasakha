@@ -2685,7 +2685,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       ),
       this.chatbotRepository.getCarryForwardQuestions(source, userType),
     ]);
-
+// console.log("closedVsTotalQuestions---", closedVsTotalQuestions); 
     return {
       closedVsTotalQuestions,
       notifiedVsClosed,
@@ -3038,7 +3038,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getQuestionsClosedWithinTwoHours(page?: number, limit?: number, source?: string, userType?: string, search?: string, startDate?: Date, endDate?: Date): Promise<any> {
+  async getQuestionsClosedWithinTwoHours(page?: number, limit?: number, source?: string, userType?: string, search?: string, startDate?: Date, endDate?: Date, isPassed?: string): Promise<any> {
     try {
       return this.chatbotRepository.getQuestionsClosedWithinTwoHours(
         page,
@@ -3048,7 +3048,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
         userType,
         search,
         startDate,
-        endDate
+        endDate,
+        isPassed
       )
     }catch(error){
       throw new InternalServerError(`Internal server error ${error}`)
