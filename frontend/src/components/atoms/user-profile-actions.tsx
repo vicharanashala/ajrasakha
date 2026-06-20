@@ -80,7 +80,7 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
   };
 
   const handleViewProfile = () => {
-    navigate({ to: "/profile" });
+    navigate({ to: isCoordinator ? "/coordinator/profile" : "/profile" });
   };
 
   const handleViewAudit = () => {
@@ -137,7 +137,7 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
           className="text-foreground focus:text-foreground cursor-pointer mb-2"
         >
           <User className="mr-2 h-4 w-4" />
-          Profile
+          {isCoordinator ? "Coordinator Profile" : "Profile"}
         </DropdownMenuItem>
 
         {(userWithRole?.role === "admin" ||

@@ -15,10 +15,11 @@ import { Separator } from "@/components/atoms/separator";
 import { ConfirmationModal } from "@/components/confirmation-modal";
 import { useEditUser } from "@/hooks/api/user/useEditUser";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
+import { isCoordinatorRole } from "@/lib/roles";
 import { useAuthStore } from "@/stores/auth-store";
 import type { IUser } from "@/types";
-import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useState, useRef } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useCallback, useState, useRef, useEffect } from "react";
 import {
   Edit2,
   ArrowLeft,
@@ -55,8 +56,15 @@ export const Route = createFileRoute("/profile/")({
 
 export default function ProfilePage() {
   const { data: user, isLoading } = useGetCurrentUser({});
+  const navigate = useNavigate();
   const { mutateAsync: updateUser, isPending: isUpdating } = useEditUser();
   const { success: toastSuccess, loading:toastLoading, dismiss: toastDismiss} = useToast();
+
+  useEffect(() => {
+    if (user && isCoordinatorRole(user.role)) {
+      navigate({ to: "/coordinator/profile" });
+    }
+  }, [navigate, user]);
 
   const handleSubmit = async (data: IUser, showToast: boolean = true, id?: string) => {
     let currentToastId;
@@ -107,7 +115,7 @@ export default function ProfilePage() {
             </p>
           </div>
         </div>
-        {user && !isLoading ? (
+        {user && !isLoading && !isCoordinatorRole(user.role) ? (
           <ProfileForm
             user={user!}
             onSubmit={handleSubmit}
