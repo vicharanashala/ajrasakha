@@ -9,6 +9,17 @@ export interface IPreference {
 }
 export type NotificationRetentionType = '3d' | '1w' | '2w' | '1m' | 'never';
 export type UserStatus = 'active' | 'in-active';
+
+/** One question currently held by a moderator. The status is denormalised from the
+ *  question document so the cron can decide free/busy without a join. It is kept in
+ *  sync whenever the question's status changes (see QuestionRepository) and the whole
+ *  entry is pulled when the moderator acts on the question. `source` is the question's
+ *  origin, stored for future use (not currently surfaced in the UI). */
+export interface IAssignedQuestion {
+  questionId: ObjectId | string;
+  status: QuestionStatus;
+  source?: QuestionSource;
+}
 export interface IUser {
   _id?: string | ObjectId;
   firebaseUID: string;
@@ -34,13 +45,14 @@ export interface IUser {
   university?: string;
   isVerified?: boolean;
   isCallAgentActive?: boolean;
-  /** Questions currently assigned to this moderator for review.
-   *  The cron assigns one question to a free (empty-array) moderator; manual
-   *  allocation appends to this array, so a moderator can hold multiple questions.
-   *  A question id is pulled when the moderator acts on it (answers/closes), or
-   *  when it is manually removed/reassigned. A moderator is "free" only when this
-   *  array is empty. */
-  assignedQuestionIds?: ObjectId[] | string[] | null;
+  /** Questions currently assigned to this moderator for review, each stored with its
+   *  denormalised status ({ questionId, status }). The cron assigns one question to a
+   *  free moderator; manual allocation appends to this array, so a moderator can hold
+   *  multiple questions. An entry is pulled when the moderator acts on it (answers/closes)
+   *  or when it is manually removed/reassigned. A moderator is "busy" only while holding
+   *  at least one entry in a blocking status (in-review / duplicate); entries that are
+   *  re-routed (handed to an expert) stay for history but do not block new work. */
+  assignedQuestionIds?: IAssignedQuestion[] | null;
 }
 
 export type IQuestionPriority = 'low' | 'medium' | 'high' | 'critical';

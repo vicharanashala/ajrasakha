@@ -270,9 +270,10 @@ export class UserService extends BaseService {
             university: u.university ?? '',
             state: u.preference?.state ?? null,
             domain: u.preference?.domain ?? null,
-            assignedQuestionIds: (u.assignedQuestionIds ?? []).map(id =>
-              id.toString(),
-            ),
+            assignedQuestionIds: (u.assignedQuestionIds ?? []).map(a => ({
+              questionId: a.questionId?.toString(),
+              status: a.status,
+            })),
           })),
           totalUsers: users.length,
           totalPages: 5,

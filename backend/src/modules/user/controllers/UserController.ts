@@ -291,8 +291,12 @@ export class UserController {
       _id: u._id?.toString(),
       name: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim(),
       email: u.email,
-      // The questions this moderator is currently assigned to (empty array when free).
-      assignedQuestionIds: (u.assignedQuestionIds ?? []).map(id => id.toString()),
+      // The questions this moderator currently holds, each with its denormalised status
+      // ({ questionId, status }). Empty when free. Re-routed entries do not mark busy.
+      assignedQuestionIds: (u.assignedQuestionIds ?? []).map((a: any) => ({
+        questionId: a.questionId?.toString(),
+        status: a.status,
+      })),
     }));
   }
 

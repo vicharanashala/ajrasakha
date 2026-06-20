@@ -18,6 +18,7 @@ import {
   ICheckStatusResponse,
   IPreviousAllocations,
   IAuthorsHistory,
+  QuestionStatus,
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
@@ -3486,6 +3487,13 @@ export class QuestionService extends BaseService implements IQuestionService {
         activeSession,
       );
 
+      // Pull this question from any moderator's assignedQuestionIds so no orphan entry
+      // is left behind keeping them wrongly "busy" after the question is gone.
+      await this.userRepo.removeAssignedQuestionFromAllModerators(
+        questionId,
+        activeSession,
+      );
+
       // Finally, delete the question itself
       return this.questionRepo.deleteQuestion(questionId, activeSession);
     };
@@ -3598,11 +3606,17 @@ export class QuestionService extends BaseService implements IQuestionService {
     // Point the question at the new moderator (also stamps moderatorAssignedAt = now).
     await this.questionRepo.updateModeratorId(questionId, moderatorId);
 
-    // Pull this question from the previous moderator and append it to the new one.
+    // Pull this question from the previous moderator and append it to the new one,
+    // carrying the question's current status so free/busy stays accurate.
     if (previousModeratorId && previousModeratorId !== moderatorId) {
       await this.userRepo.removeAssignedQuestion(previousModeratorId, questionId);
     }
-    await this.userRepo.addAssignedQuestion(moderatorId, questionId);
+    await this.userRepo.addAssignedQuestion(
+      moderatorId,
+      questionId,
+      ((question as any)?.status ?? 'in-review') as QuestionStatus,
+      (question as any)?.source,
+    );
   }
 
   /**
@@ -5971,7 +5985,14 @@ export class QuestionService extends BaseService implements IQuestionService {
           // Assign question to moderator — update both documents and notify
           await Promise.all([
             this.questionRepo.updateModeratorId(questionId, moderatorId),
-            this.userRepo.addAssignedQuestion(moderatorId, questionId),
+            // Store the question's actual status (the cron assigns both in-review and
+            // duplicate questions) and its source.
+            this.userRepo.addAssignedQuestion(
+              moderatorId,
+              questionId,
+              ((nextQuestion as any)?.status ?? 'in-review') as QuestionStatus,
+              (nextQuestion as any)?.source,
+            ),
             this.notificationService.saveTheNotifications(
               'A question has been assigned to you for moderation',
               'Moderation Assigned',
