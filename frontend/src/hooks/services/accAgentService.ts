@@ -6,7 +6,7 @@ export interface ExtractDataResponse {
   extracted_crop: string;
   extracted_state: string;
   extracted_district: string;
-  extracted_domain?: string;
+  extracted_domain?: string | string[];
 }
 
 export interface CorrectedData {
@@ -14,7 +14,7 @@ export interface CorrectedData {
   crop: string;
   state: string;
   district: string;
-  domain: string;
+  domain: string | string[];
   season: string;
 }
 
@@ -23,7 +23,7 @@ export interface QAMetadata {
   extracted_crop: string;
   extracted_state: string;
   extracted_district: string;
-  extracted_domain: string;
+  extracted_domain: string | string[];
   extracted_season: string;
 }
 const API_BASE_URL = env.apiBaseUrl();

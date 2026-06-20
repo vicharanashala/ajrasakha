@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { Button } from "./atoms/button";
 import { Badge } from "./atoms/badge";
@@ -53,6 +53,7 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
   const [translating, setTranslating] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<string>("hi-IN");
   const [sendTranslated, setSendTranslated] = useState(false);
+  const languageManuallyChangedRef = useRef(false);
 
   const SARVAM_LANGUAGES = [
     { code: "en-IN", name: "English" },
@@ -84,8 +85,19 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
   useEffect(() => {
     if (!messageRow) {
       setSendTranslated(false);
+      languageManuallyChangedRef.current = false;
     }
   }, [messageRow]);
+
+  // Initialize selectedLanguage with detected language when message row opens
+  useEffect(() => {
+    if (messageRow && !languageManuallyChangedRef.current) {
+      const call = calls.find(c => c.uuid === messageRow);
+      if (call?.callDetails?.caller?.detectedLanguage && call.callDetails?.caller?.detectedLanguage !== "unknown") {
+        setSelectedLanguage(call.callDetails.caller.detectedLanguage);
+      }
+    }
+  }, [messageRow, calls]);
 
   // Filters
   const [showFilters, setShowFilters] = useState(false);
@@ -169,17 +181,17 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
     else if (designatedNumbers.some((dn) => to?.includes(dn))) {
       numbertomsg = from;
     }
-    if (!messageText.trim()) return;
-    if (messageText.length > MAX_MESSAGE_LENGTH) {
+    const textToSend = sendTranslated && translatedText ? translatedText : messageText;
+    if (!textToSend.trim()) return;
+    if (textToSend.length > MAX_MESSAGE_LENGTH) {
       toast.error(`Message exceeds ${MAX_MESSAGE_LENGTH} character limit`);
       return;
     }
     setSendingMessage(true);
     try {
       numbertomsg = numbertomsg.replace(/^91/, "");
-      const textToSend = sendTranslated && translatedText ? translatedText : messageText;
       await plivoApi.sendMessage(numbertomsg, textToSend);
-      toast.success(`SMS sent successfully! (${sendTranslated ? "Translated" : "English"})`);
+      toast.success("SMS sent successfully!");
       setMessageRow(null);
       setMessageText("");
       setTranslatedText(null);
@@ -191,14 +203,21 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
     }
   };
 
-  const handleTranslate = async (call: CallHistoryItem) => {
+  const handleTranslate = async () => {
+    // Always check original messageText for translation, not the displayed translated text
     if (!messageText.trim()) {
       toast.error("Please enter text to translate");
       return;
     }
 
-    const farmerLanguage = call.callDetails?.caller?.detectedLanguage;
-    const targetLanguage = (farmerLanguage && farmerLanguage !== "unknown") ? farmerLanguage : selectedLanguage;
+    // Always use selectedLanguage since that's what the user manually selected
+    const targetLanguage = selectedLanguage;
+
+    // Check if source and target languages are the same
+    if (targetLanguage === "en-IN") {
+      toast.error("Cannot translate to the same language (English). Please select a different target language.");
+      return;
+    }
 
     setTranslating(true);
     try {
@@ -211,6 +230,8 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
         toast.error("Translation request timed out. Please try again.");
       } else if (err.message?.includes("fetch") || err.message?.includes("network")) {
         toast.error("Network error. Please check your connection and try again.");
+      } else if (err.message?.includes("Source and target languages must be different")) {
+        toast.error("Source and target languages must be different. Please select a different target language.");
       } else {
         toast.error(`Failed to translate: ${err.message || "Unknown error"}`);
       }
@@ -700,17 +721,35 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                             <tr key={`message-${call.uuid}`}>
                               <td colSpan={6} className="px-4 py-4 bg-muted/10">
                                 <div className="flex flex-col gap-2 max-w-md">
+                                  <div className="flex items-center gap-2 justify-between">
                                   <h4 className="text-sm font-semibold">
                                     Send SMS to{" "}
+                                    
                                     {call.direction === "inbound"
                                       ? call.from
                                       : call.to}
                                   </h4>
+                                  {translatedText && (
+                                    <div className="mt-2 flex items-center gap-2">
+                                      <Switch
+                                        id="show-translated"
+                                        checked={sendTranslated}
+                                        onCheckedChange={setSendTranslated}
+                                        />
+                                      <label
+                                        htmlFor="show-translated"
+                                        className="text-xs font-medium text-muted-foreground cursor-pointer"
+                                        >
+                                        Show translated text
+                                      </label>
+                                    </div>
+                                  )}
+                                  </div>
                                   <textarea
                                     className="w-full p-2 border rounded-md text-sm bg-background"
                                     rows={3}
                                     placeholder="Type your SMS message here..."
-                                    value={messageText}
+                                    value={sendTranslated && translatedText ? translatedText : messageText}
                                     onChange={(e) => {
                                       if (
                                         e.target.value.length <=
@@ -720,17 +759,18 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                       }
                                     }}
                                     maxLength={MAX_MESSAGE_LENGTH}
+                                    readOnly={!!(sendTranslated && translatedText)}
                                   />
                                   <div className="flex justify-between items-center mt-1">
                                     <span
                                       className={cn(
                                         "text-xs",
-                                        messageText.length >= MAX_MESSAGE_LENGTH
+                                        (sendTranslated && translatedText ? translatedText.length : messageText.length) >= MAX_MESSAGE_LENGTH
                                           ? "text-red-500 font-semibold"
                                           : "text-muted-foreground",
                                       )}
                                     >
-                                      {messageText.length}/{MAX_MESSAGE_LENGTH}{" "}
+                                      {sendTranslated && translatedText ? translatedText.length : messageText.length}/{MAX_MESSAGE_LENGTH}{" "}
                                       characters
                                     </span>
                                   </div>
@@ -739,8 +779,11 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                       Select Target Language:
                                     </label>
                                     <select
-                                      value={call.callDetails?.caller?.detectedLanguage && call.callDetails?.caller?.detectedLanguage !== "unknown" ? call.callDetails?.caller?.detectedLanguage : selectedLanguage}
-                                      onChange={(e) => setSelectedLanguage(e.target.value)}
+                                      value={selectedLanguage}
+                                      onChange={(e) => {
+                                        setSelectedLanguage(e.target.value);
+                                        languageManuallyChangedRef.current = true;
+                                      }}
                                       className="w-full px-2 py-1.5 text-sm border rounded-md bg-background"
                                     >
                                       {SARVAM_LANGUAGES.map((lang) => (
@@ -750,34 +793,6 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                       ))}
                                     </select>
                                   </div>
-                                  {translatedText && (
-                                    <div className="mt-2 p-3 bg-indigo-50 dark:bg-indigo-950/30 rounded-md border border-indigo-200 dark:border-indigo-800">
-                                      <div className="flex items-center gap-2 mb-1">
-                                        <Languages className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                                        <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
-                                          Translation Preview ({call.callDetails?.caller?.detectedLanguage || "Unknown"})
-                                        </span>
-                                      </div>
-                                      <p className="text-sm text-indigo-900 dark:text-indigo-100">
-                                        {translatedText}
-                                      </p>
-                                    </div>
-                                  )}
-                                  {translatedText && (
-                                    <div className="mt-2 flex items-center gap-2">
-                                      <Switch
-                                        id="send-translated"
-                                        checked={sendTranslated}
-                                        onCheckedChange={setSendTranslated}
-                                      />
-                                      <label
-                                        htmlFor="send-translated"
-                                        className="text-xs font-medium text-muted-foreground cursor-pointer"
-                                      >
-                                        Send translated text instead of English
-                                      </label>
-                                    </div>
-                                  )}
                                   <div className="flex justify-end gap-2 mt-2">
                                     <Button
                                       size="sm"
@@ -792,9 +807,9 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                     <Button
                                       size="sm"
                                       variant="outline"
-                                      onClick={() => handleTranslate(call)}
+                                      onClick={() => handleTranslate()}
                                       disabled={
-                                        !messageText.trim() ||
+                                        !(sendTranslated && translatedText ? translatedText : messageText).trim() ||
                                         translating
                                       }
                                       className="gap-2"
@@ -809,9 +824,9 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                       size="sm"
                                       onClick={() => handleSendMessage(call)}
                                       disabled={
-                                        !messageText.trim() ||
+                                        !(sendTranslated && translatedText ? translatedText : messageText).trim() ||
                                         sendingMessage ||
-                                        messageText.length > MAX_MESSAGE_LENGTH
+                                        (sendTranslated && translatedText ? translatedText : messageText).length > MAX_MESSAGE_LENGTH
                                       }
                                       className="gap-2"
                                     >

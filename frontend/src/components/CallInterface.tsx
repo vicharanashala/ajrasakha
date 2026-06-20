@@ -110,7 +110,7 @@ export const CallInterface = () => {
   const [editableCrop, setEditableCrop] = useState("");
   const [editableState, setEditableState] = useState("");
   const [editableDistrict, setEditableDistrict] = useState("");
-  const [editableDomain, setEditableDomain] = useState("");
+  const [editableDomain, setEditableDomain] = useState<string[]>([]);
   const [customDomain, setCustomDomain] = useState("");
   const [editableSeason, setEditableSeason] = useState("");
 
@@ -184,7 +184,7 @@ export const CallInterface = () => {
     setEditableCrop("");
     setEditableState("");
     setEditableDistrict("");
-    setEditableDomain("");
+    setEditableDomain([]);
     setCustomDomain("");
     setEditableSeason("");
   };
@@ -205,7 +205,7 @@ export const CallInterface = () => {
     setEditableCrop("");
     setEditableState("");
     setEditableDistrict("");
-    setEditableDomain("");
+    setEditableDomain([]);
     setCustomDomain("");
     setEditableSeason("");
     toast.success("Conversation cleared");
@@ -275,8 +275,14 @@ export const CallInterface = () => {
       setEditableState(data.extracted_state);
       setEditableDistrict(data.extracted_district);
 
-      // Use domain from AI response if available, otherwise empty
-      setEditableDomain(data.extracted_domain || "");
+      // Use domain from AI response if available, otherwise empty array
+      // Normalize to array (backend might return string or array)
+      const normalizedDomain = data.extracted_domain
+        ? Array.isArray(data.extracted_domain)
+          ? data.extracted_domain
+          : [data.extracted_domain]
+        : [];
+      setEditableDomain(normalizedDomain);
       setCustomDomain("");
 
       // Auto-select season based on current month
@@ -305,14 +311,14 @@ export const CallInterface = () => {
       return;
     }
 
-    // Validate domain selection
-    if (!editableDomain) {
-      toast.error("Please select a domain.");
+    // Validate domain selection - at least one domain must be selected
+    if (editableDomain.length === 0) {
+      toast.error("Please select at least one domain.");
       return;
     }
 
     // Validate custom domain if "Other" is selected
-    if (editableDomain === "Other" && !customDomain.trim()) {
+    if (editableDomain.includes("Other") && !customDomain.trim()) {
       toast.error("Please enter a custom domain value.");
       return;
     }
@@ -326,13 +332,24 @@ export const CallInterface = () => {
     let toastId;
     try {
       // Check if data was edited
-      const finalDomain = editableDomain === "Other" ? customDomain : editableDomain;
+      // Replace "Other" with customDomain if present
+      const finalDomain = editableDomain.includes("Other")
+        ? editableDomain.map(d => d === "Other" ? customDomain : d)
+        : editableDomain;
+
+      // Normalize extracted domain to array for comparison
+      const extractedDomainArray = extractedData?.extracted_domain
+        ? Array.isArray(extractedData.extracted_domain)
+          ? extractedData.extracted_domain
+          : [extractedData.extracted_domain]
+        : [];
+
       const wasEdited =
         editableQuery !== extractedData?.extracted_query ||
         editableCrop !== extractedData?.extracted_crop ||
         editableState !== extractedData?.extracted_state ||
         editableDistrict !== extractedData?.extracted_district ||
-        finalDomain !== "" ||
+        JSON.stringify(finalDomain) !== JSON.stringify(extractedDomainArray) ||
         editableSeason !== "";
 
       if (wasEdited) {
@@ -688,27 +705,35 @@ export const CallInterface = () => {
                         </div>
 
                         <div>
-                          <Label htmlFor="domain" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
-                            Domain
+                          <Label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-2 block">
+                            Domain (Select multiple)
                           </Label>
-                          <Select
-                            value={editableDomain}
-                            onValueChange={setEditableDomain}
-                          >
-                            <SelectTrigger className="text-sm">
-                              <SelectValue placeholder="Select domain..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {DOMAIN_OPTIONS.map((domain) => (
-                                <SelectItem key={domain} value={domain}>
+                          <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border border-zinc-200 dark:border-zinc-800 rounded-lg bg-zinc-50 dark:bg-zinc-900">
+                            {DOMAIN_OPTIONS.map((domain) => (
+                              <div key={domain} className="flex items-center gap-2">
+                                <Checkbox
+                                  id={`domain-${domain}`}
+                                  checked={editableDomain.includes(domain)}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      setEditableDomain([...editableDomain, domain]);
+                                    } else {
+                                      setEditableDomain(editableDomain.filter(d => d !== domain));
+                                    }
+                                  }}
+                                />
+                                <label
+                                  htmlFor={`domain-${domain}`}
+                                  className="text-xs font-medium text-zinc-700 dark:text-zinc-300 cursor-pointer"
+                                >
                                   {domain}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                                </label>
+                              </div>
+                            ))}
+                          </div>
                         </div>
 
-                        {editableDomain === "Other" && (
+                        {editableDomain.includes("Other") && (
                           <div className="md:col-span-2">
                             <Label htmlFor="customDomain" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
                               Custom Domain
@@ -756,7 +781,7 @@ export const CallInterface = () => {
                         </Button>
                         <Button
                           onClick={handleApproveAndResume}
-                          disabled={isResuming || !editableQuery.trim() || !editableDomain || (editableDomain === "Other" && !customDomain.trim()) || !editableSeason}
+                          disabled={isResuming || !editableQuery.trim() || !editableDomain || (editableDomain.includes("Other") && !customDomain.trim()) || !editableSeason}
                           size="sm"
                           className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
                         >
