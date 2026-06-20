@@ -28,6 +28,12 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/atoms/select";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/atoms/tooltip";
 import { useGetNotifications } from "@/hooks/api/notification/useGetNotifications";
 import { useDeleteNotification } from "@/hooks/api/notification/useDeleteNotifications";
 import { useMarkAsReadNotification } from "@/hooks/api/notification/useUpdateNotification";
@@ -52,6 +58,7 @@ export interface Notification {
     is_read: boolean;
     type: string;
     createdAt: string;
+    questionText?: string;
     sender?: {
         _id: string;
         name?: string;
@@ -311,13 +318,30 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-start justify-between mb-1">
-                                            <h4 className="font-bold text-sm text-foreground truncate pr-2">
+                                            <h4
+                                                className="font-bold text-sm text-foreground break-words pr-2"
+                                                title={getNotificationDisplayTitle(n)}
+                                            >
                                                 {getNotificationDisplayTitle(n)}
                                             </h4>
                                         </div>
                                         <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-3">
                                             {n.message}
                                         </p>
+                                        {n.questionText && (
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <p className="text-xs text-primary font-medium bg-primary/5 px-2 py-1.5 rounded-md line-clamp-2 leading-relaxed mb-3 border border-primary/20 cursor-help">
+                                                            {n.questionText}
+                                                        </p>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="bottom" className="max-w-sm">
+                                                        <p className="text-sm">{n.questionText}</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                        )}
                                         <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-medium">
                                             <div className="flex items-center gap-1">
                                                 <Clock className="w-3 h-3" />

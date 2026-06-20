@@ -2,7 +2,7 @@
    DISTRICT LIST - Clickable list of districts
 ============================================================ */
 
-import { MapPin } from "lucide-react";
+import { ClipboardList, MapPin, User } from "lucide-react";
 import type { GeoFeature } from "../lib/types";
 import { fmt } from "../lib/formatters";
 
@@ -43,8 +43,15 @@ export function DistrictList({
                 <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
                 {f.properties._name as string}
               </span>
-              <span className="text-xs text-muted-foreground tabular-nums">
+              <span className="flex items-center gap-3">
+              <span className="flex items-center text-xs text-muted-foreground tabular-nums">
+                <User className="h-3"/>{fmt((f.properties._analytics as {users: number}).users)}
+              </span>
+              <div>|</div>
+              <span className="flex items-center text-xs text-muted-foreground tabular-nums">
+                <ClipboardList className="h-3"/>
                 {fmt((f.properties._analytics as { questions: number }).questions)}
+              </span>
               </span>
             </button>
           </li>

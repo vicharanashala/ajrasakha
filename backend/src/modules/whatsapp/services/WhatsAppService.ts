@@ -100,11 +100,41 @@ export class WhatsAppService implements IWhatsAppService {
       }
 
       const response = await axios.get(
-        `${this.baseUrl}/threads/${threadId}/state`,
+        `${this.baseUrl}/threads/${threadId}/runs`,
+        {
+          params: { limit: 200 },
+          headers: { Accept: 'application/json' },
+        },
       );
       const data = response.data;
+      // /runs returns an array of run objects (newest first). Each run carries the
+      // LangGraph message state in output.messages (input.messages holds the turn's
+      // human input). Walk runs oldest→newest and dedupe by message id to rebuild
+      // the full conversation, tagging each message with its run timestamp.
+      const runs = (Array.isArray(data) ? data : (data?.runs ?? [])) as any[];
+      const sortedRuns = [...runs].sort(
+        (a, b) =>
+          new Date(a.created_at ?? 0).getTime() -
+          new Date(b.created_at ?? 0).getTime(),
+      );
 
-      const messages = (data.values?.messages as any[]) || [];
+      const seenIds = new Set<string>();
+      const messages: any[] = [];
+      for (const run of sortedRuns) {
+        const runTs = run.updated_at || run.created_at || Date.now();
+        const runMessages = [
+          ...((run.input?.messages as any[]) ?? []),
+          ...((run.output?.messages as any[]) ?? []),
+        ];
+        for (const msg of runMessages) {
+          if (msg?.id) {
+            if (seenIds.has(msg.id)) continue;
+            seenIds.add(msg.id);
+          }
+          messages.push({ ...msg, __ts: runTs });
+        }
+      }
+
       const formattedMessages: Message[] = [];
 
       // 1. First, map all tool responses in the entire thread
@@ -129,7 +159,7 @@ export class WhatsAppService implements IWhatsAppService {
             id: msg.id || `h-${idx}`,
             role: 'user',
             content: typeof msg.content === 'string' ? msg.content : '',
-            timestamp: new Date(data.created_at || Date.now()),
+            timestamp: new Date(msg.__ts || Date.now()),
           });
         } else if (msg.type === 'ai') {
           const toolCalls: ToolCall[] =
@@ -157,7 +187,7 @@ export class WhatsAppService implements IWhatsAppService {
               role: 'assistant',
               content:
                 content || (toolCalls.length > 0 ? 'Executing tools...' : ''),
-              timestamp: new Date(data.created_at || Date.now()),
+              timestamp: new Date(msg.__ts || Date.now()),
               toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
             });
           }

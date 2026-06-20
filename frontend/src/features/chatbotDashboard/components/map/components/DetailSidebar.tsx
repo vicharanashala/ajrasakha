@@ -10,6 +10,7 @@ import { StateList } from "./StateList";
 import { DistrictList } from "./DistrictList";
 import { DistrictDetails } from "./DistrictDetails";
 import { useUserDetails, type PaginatedUserDetailsResponse } from "@/features/chatbotDashboard/hooks/useUserDetails";
+import { Skeleton } from "@/components/atoms/skeleton";
 
 import { Tooltip,  TooltipContent,
   TooltipProvider,
@@ -40,6 +41,7 @@ interface DetailSidebarProps {
   userType: string;
   questionStatusData: any;
   todayActiveFarmersData: PaginatedUserDetailsResponse
+  isLoading: boolean
 }
 
 export function DetailSidebar({
@@ -54,7 +56,8 @@ export function DetailSidebar({
   source,
   userType,
   questionStatusData,
-  todayActiveFarmersData
+  todayActiveFarmersData,
+  isLoading = false
 }: DetailSidebarProps) {
   // Calculate aggregated analytics
   const stateAnalytics = selectedState && statesWithData
@@ -101,6 +104,18 @@ export function DetailSidebar({
     return "Click any state on the map to view its districts";
   };
 
+  const renderCardValue = (
+  value: string | number,
+) => {
+  if (isLoading) {
+    return (
+      <Skeleton className="h-6 w-16" />
+    );
+  }
+
+  return value;
+};
+
   return (
     <aside className="flex w-[380px] shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
       {/* Header */}
@@ -122,38 +137,38 @@ export function DetailSidebar({
           <div className="grid grid-cols-2 gap-2">
             <StatCard
   label="Questions"
-  value={fmt(
+  value={renderCardValue(fmt(
     isIndiaView
       ? questionStatusData?.closedVsTotalQuestions.totalQuestions
       : activeAnalytics.questions
-  )}
+  ))}
   icon={<Activity className="h-3.5 w-3.5" />}
 />
           <StatCard
   label="Answers"
-  value={fmt(
+  value={renderCardValue(fmt(
     isIndiaView
       ? questionStatusData?.closedVsTotalQuestions.closedQuestions
       : activeAnalytics.answers
-  )}
+  ))}
   icon={<Activity className="h-3.5 w-3.5" />}
 />
             <StatCard
   label="Users"
-  value={fmt(
+  value={renderCardValue(fmt(
     isIndiaView
       ? allUsers.totalUsers
       : activeAnalytics.users
-  )}
+  ))}
   icon={<Users className="h-3.5 w-3.5" />}
 />
             <StatCard
   label="Active"
-  value={fmt(
+  value={renderCardValue(fmt(
     isIndiaView
       ? todayActiveFarmersData?.totalUsers
       : activeAnalytics.activeUsers
-  )}
+  ))}
   icon={<Users className="h-3.5 w-3.5" />}
 />
 {/* <StatCard
@@ -199,11 +214,11 @@ export function DetailSidebar({
       </TooltipProvider>
     </div>
   }
-  value={fmt(
+  value={renderCardValue(fmt(
     isIndiaView
       ? todayActiveFarmersData?.userRoleCounts?.coordinator
       : activeAnalytics.coordinators
-  )}
+  ))}
   icon={<Building2 className="h-3.5 w-3.5" />}
 />
             <StatCard
@@ -223,6 +238,8 @@ export function DetailSidebar({
           <StateList
             statesWithData={statesWithData as { features: MapFeatureBase[] } | null}
             onSelectState={onSelectState}
+            isLoading = {isLoading}
+            renderCardValue= {renderCardValue}
           />
         )}
 
