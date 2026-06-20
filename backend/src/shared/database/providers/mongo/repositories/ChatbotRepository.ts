@@ -53,7 +53,7 @@ import crypto from 'crypto';
 import {COORDINATOR_ROLES} from '#root/shared/constants/roles.js';
 import {BLOCKS, VILLAGES} from '#root/metaData.js';
 import {ILocationDistrict, ILocationState} from '#root/modules/lgd/interfaces/ILocationService.js';
-import { BLOCKS, VILLAGES } from '#root/metaData.js';
+// import { BLOCKS, VILLAGES } from '#root/metaData.js';
 import { buildBaseQuestionMatch } from '#root/utils/dashboard-filters.js';
 
 const EXTERNAL_USER_ROLES = ['FARMER', ...COORDINATOR_ROLES] as const;

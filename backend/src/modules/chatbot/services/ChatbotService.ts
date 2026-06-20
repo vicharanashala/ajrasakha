@@ -702,11 +702,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
     userType = 'all',
   ) {
     try {
-      console.log('Selected State code', selectedStateCode);
       const stateCode = Number(selectedStateCode);
-      console.log("State Code is", stateCode);
       const district = await this.lgdService.getDistricts(stateCode);
-      console.log("Districts list", district);
       return await this.chatbotRepository.getDistrictAnalyticsByState(
         state,
         district,
