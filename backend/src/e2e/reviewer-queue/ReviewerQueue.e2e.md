@@ -139,6 +139,33 @@ Reviewer state: `queue=[e1, e2]`, `history=[{e1 answer, status='reviewed'}, {e2 
 | 8 | `status='in-review'` question (awaiting moderator) NOT visible to any expert | absent from response |
 | 9 | Expert NOT in queue at all cannot see the question | absent from response |
 
+### Group 4 — STF expert visibility after time-bound allocation (3 tests, Issues #1 and #7)
+
+*Seeds a WHATSAPP question with an STF expert at `queue[0]` (no history) and verifies the STF
+expert can see it in `/allocated`. Self-skips if no STF expert exists in the DB.*
+
+Production report: "STFs not receiving author level questions even when they are in queue" /
+"Despite getting a notification, question not appearing in the agri expert's dashboard."
+
+| # | What | Expected |
+|---|------|----------|
+| 10 | STF expert sees their WHATSAPP question in `POST /allocated` (author slot, no history) | question in response |
+| 11 | `review_level_number` is `'Author'` for the STF expert's authoring slot | `'Author'` |
+| 12 | `answer_creation` notification for STF expert resolves to a question visible in `POST /allocated` | `notif.enitity_id === found.id` |
+
+### Group 5 — Author-slot before reviewer-slot ordering (2 tests, Issue #2)
+
+*Seeds the same STF expert with an author-slot question (newer `createdAt`) and a reviewer-slot
+question (older `createdAt`). If the response is sorted by `createdAt` only, the reviewer question
+appears first (wrong). Correct behaviour: author-slot appears first regardless of creation time.*
+
+Production report: "STFs are getting review level questions when author level questions are available."
+
+| # | What | Expected |
+|---|------|----------|
+| 13 | Both author-slot and reviewer-slot questions are visible in `POST /allocated` | both present |
+| 14 | Author-slot question appears **before** reviewer-slot question in response | `authorIdx < reviewerIdx` — may fail if sort is createdAt-only (documents bug) |
+
 ---
 
 ## Status exclusion reference
@@ -240,16 +267,10 @@ pnpm exec vitest run src/e2e/reviewer-queue/ReviewerQueue.e2e.test.ts
 
 ## Last Run
 
-**Date:** 2026-06-18 &nbsp;|&nbsp; **Result:** ❌ 4 failed / 5 passed &nbsp;|&nbsp; **Duration:** 21.0 s
+**Date:** 2026-06-19 &nbsp;|&nbsp; **Result:** ✅ all 9 passed &nbsp;|&nbsp; **Duration:** 16.6 s
+
+> ⚠ Vitest only printed 1 of 9 test lines (passing suites are truncated in the output).
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
-| 1 | Reviewer queue — author slot visibility > question appears in POST /allocated for the a... | ❌ | expected undefined to be defined |
-| 2 | Reviewer queue — author slot visibility > review_level_number is "Author" for the autho... | ❌ | expected undefined to be 'Author' // Object.is equality |
-| 3 | Reviewer queue — author slot visibility > answer_creation notification entity_id matche... | ❌ | expected undefined to be defined |
-| 4 | Reviewer queue — author slot visibility > a closed question with the same expert in que... | ✅ | — |
-| 5 | Reviewer queue — reviewer slot visibility > reviewer (expertUser2) sees the question in... | ✅ | — |
-| 6 | Reviewer queue — reviewer slot visibility > review_level_number is "Level 1" for the re... | ❌ | expected 1 to be 'Level 1' // Object.is equality |
-| 7 | Reviewer queue — reviewer slot visibility > completed author (expertUser1) does NOT see... | ✅ | — |
-| 8 | Reviewer queue — status exclusion and wrong-user guard > question with status="in-revie... | ✅ | — |
-| 9 | Reviewer queue — status exclusion and wrong-user guard > expert NOT in queue cannot see... | ✅ | — |
+| 1 | Reviewer queue — reviewer slot visibility > reviewer (expertUser2) sees the question in... | ✅ | — |

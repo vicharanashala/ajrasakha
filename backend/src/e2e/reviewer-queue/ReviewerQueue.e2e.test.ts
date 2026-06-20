@@ -390,3 +390,216 @@ describe('Reviewer queue — status exclusion and wrong-user guard', () => {
     expect(found).toBeUndefined();
   });
 });
+
+// ════════════════════════════════════════════════════════════════════════════
+// Group 4 — STF expert sees their allocated WHATSAPP question in POST /allocated
+//           (Issues #1 and #7)
+//
+// Production report: "STFs not receiving author level questions even when they
+// are in queue" / "Despite getting a notification, question not appearing in
+// the agri expert's dashboard."
+//
+// The ReviewerQueue suite already covers generic expert visibility (G1–G3).
+// This group specifically tests time-bound (WHATSAPP/AJRASAKHA) questions
+// allocated to an expert with special_task_force=true — the user population
+// actually affected in production.
+//
+// Seeds a WHATSAPP question with an STF expert at queue[0] (no history) and
+// verifies the STF expert can see it in POST /allocated. Self-skips if no
+// STF expert exists in the DB.
+// ════════════════════════════════════════════════════════════════════════════
+
+describe('Reviewer queue — STF expert sees their allocated WHATSAPP question (Issues #1, #7)', () => {
+  let stfExpert: any;
+  let questionId: string;
+
+  beforeAll(async () => {
+    const users = await db.getCollection('users');
+    stfExpert = await users.findOne({
+      role: 'expert',
+      isBlocked: false,
+      special_task_force: true,
+    });
+    if (!stfExpert) {
+      console.warn('[G4] No STF expert found in DB — group will self-skip.');
+      return;
+    }
+
+    questionId = await seedQuestion({
+      queue: [stfExpert._id],
+      source: 'WHATSAPP',
+      // history=[] → authoring slot; STF expert must see this at author level
+    });
+    console.log(`[G4] STF expert: ${stfExpert.email} — questionId: ${questionId}`);
+  });
+
+  it('STF expert sees their WHATSAPP question in POST /allocated (author slot, no history)', async () => {
+    if (!stfExpert) return;
+    as(stfExpert);
+    const res = await getAllocated();
+    console.log('[G4-1] status:', res.status, 'count:', res.body?.length);
+    expect(res.status).toBe(200);
+    const found = res.body.find((q: any) => q.id === questionId);
+    expect(found).toBeDefined();
+  });
+
+  it('review_level_number is "Author" for the STF expert\'s authoring slot', async () => {
+    if (!stfExpert) return;
+    as(stfExpert);
+    const res = await getAllocated();
+    const found = res.body.find((q: any) => q.id === questionId);
+    console.log('[G4-2] review_level_number:', found?.review_level_number);
+    expect(found?.review_level_number).toBe('Author');
+  });
+
+  it('answer_creation notification for STF expert resolves to a question visible in POST /allocated (notification-visibility consistency)', async () => {
+    if (!stfExpert) return;
+    // Seed an answer_creation notification as the allocation path would create.
+    const notifications = await db.getCollection('notifications');
+    await notifications.insertOne({
+      enitity_id: new ObjectId(questionId),
+      userId: stfExpert._id,
+      type: 'answer_creation',
+      message: `${RUN_TAG} G4 STF expert has a new WhatsApp question`,
+      isRead: false,
+      createdAt: new Date(),
+    });
+
+    as(stfExpert);
+    const res = await getAllocated();
+    const found = res.body.find((q: any) => q.id === questionId);
+    console.log('[G4-3] STF expert sees question after notification seeded:', !!found);
+    expect(found).toBeDefined();
+
+    // The notification entity_id must match the question in /allocated —
+    // confirms "notification received" AND "question visible" are consistent.
+    const notif = await notifications.findOne({
+      enitity_id: new ObjectId(questionId),
+      userId: stfExpert._id,
+      type: 'answer_creation',
+    });
+    expect(notif).not.toBeNull();
+    expect(notif.enitity_id.toString()).toBe(found.id);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// Group 5 — Author-slot question appears before reviewer-slot question in
+//            POST /allocated for the same STF expert (Issue #2)
+//
+// Production report: "STFs are getting review level questions when author level
+// questions are available."
+//
+// When an STF expert has both:
+//   (A) an author-slot question (queue[0], no history) — highest priority work
+//   (B) a reviewer-slot question (lastHistory.in-review, no answer)
+//
+// the /allocated response must list (A) before (B) so the expert tackles author
+// work first. The endpoint sorts by (priorityOrder, createdAt ASC); seeding (A)
+// with an older createdAt makes both orderings agree.
+//
+// The FAILING variant (documenting the bug): if (A) is NEWER than (B), the
+// current sort-by-createdAt-only behaviour would place (B) first — wrong. A
+// slot-type sort would still place (A) first — correct. The test pins the
+// EXPECTED behaviour; if it fails, the display bug is confirmed.
+//
+// Self-skips if no STF expert exists in the DB.
+// ════════════════════════════════════════════════════════════════════════════
+
+describe('Reviewer queue — author-slot question appears before reviewer-slot question for STF expert (Issue #2)', () => {
+  let stfExpert: any;
+  let authorQuestionId: string;
+  let reviewerQuestionId: string;
+
+  beforeAll(async () => {
+    const users = await db.getCollection('users');
+    stfExpert = await users.findOne({
+      role: 'expert',
+      isBlocked: false,
+      special_task_force: true,
+    });
+    if (!stfExpert) {
+      console.warn('[G5] No STF expert found in DB — group will self-skip.');
+      return;
+    }
+
+    // Question A — author slot (queue[0], no history). Created NEWER (now)
+    // so that if ordering is purely by createdAt, B (older) would appear first.
+    // Correct behaviour: A (author) must still appear before B (reviewer).
+    const authorDate = new Date(); // newer
+    authorQuestionId = await seedQuestion({
+      queue: [stfExpert._id],
+      source: 'WHATSAPP',
+      // history=[] — author slot
+    });
+    // Override the createdAt to "now" by re-seeding with explicit date.
+    // (seedQuestion always uses new Date() internally; override via direct update.)
+    const questionsCol = await db.getCollection('questions');
+    await questionsCol.updateOne(
+      { _id: new ObjectId(authorQuestionId) },
+      { $set: { createdAt: authorDate } },
+    );
+
+    // Question B — reviewer slot. Created OLDER (2 min ago) so createdAt-only
+    // sort would place it first.  STF expert is the last in-review reviewer.
+    const reviewerDate = new Date(Date.now() - 120_000); // older
+    reviewerQuestionId = await seedQuestion({
+      queue: [expertUser1._id, stfExpert._id],
+      source: 'WHATSAPP',
+      history: [
+        {
+          updatedBy: expertUser1._id,
+          answer: `${RUN_TAG} G5 author answer`,
+          status: 'reviewed',
+          createdAt: reviewerDate,
+          updatedAt: reviewerDate,
+        },
+        {
+          updatedBy: stfExpert._id,
+          answer: null,
+          status: 'in-review',
+          createdAt: reviewerDate,
+          updatedAt: reviewerDate,
+        },
+      ],
+    });
+    await questionsCol.updateOne(
+      { _id: new ObjectId(reviewerQuestionId) },
+      { $set: { createdAt: reviewerDate } },
+    );
+
+    console.log(`[G5] STF expert: ${stfExpert.email}`);
+    console.log(`[G5] authorQuestion: ${authorQuestionId} (newer), reviewerQuestion: ${reviewerQuestionId} (older)`);
+  });
+
+  it('STF expert can see both the author-slot and the reviewer-slot question in POST /allocated', async () => {
+    if (!stfExpert) return;
+    as(stfExpert);
+    const res = await getAllocated();
+    console.log('[G5-1] /allocated count:', res.body?.length);
+    expect(res.status).toBe(200);
+    const foundAuthor = res.body.find((q: any) => q.id === authorQuestionId);
+    const foundReviewer = res.body.find((q: any) => q.id === reviewerQuestionId);
+    console.log('[G5-1] author visible:', !!foundAuthor, 'reviewer visible:', !!foundReviewer);
+    expect(foundAuthor).toBeDefined();
+    expect(foundReviewer).toBeDefined();
+  });
+
+  it('author-slot question appears before reviewer-slot question in the /allocated response', async () => {
+    if (!stfExpert) return;
+    as(stfExpert);
+    const res = await getAllocated();
+    const authorIdx = res.body.findIndex((q: any) => q.id === authorQuestionId);
+    const reviewerIdx = res.body.findIndex((q: any) => q.id === reviewerQuestionId);
+    console.log(
+      `[G5-2] authorIdx=${authorIdx} reviewerIdx=${reviewerIdx} — ` +
+      `author before reviewer: ${authorIdx < reviewerIdx}`,
+    );
+    // The author-slot question must appear before the reviewer-slot question.
+    // If this test fails, the /allocated sort is not accounting for slot type and
+    // STF experts will see reviewer work before their pending author work (Bug #2).
+    expect(authorIdx).toBeGreaterThanOrEqual(0);
+    expect(reviewerIdx).toBeGreaterThanOrEqual(0);
+    expect(authorIdx).toBeLessThan(reviewerIdx);
+  });
+});
