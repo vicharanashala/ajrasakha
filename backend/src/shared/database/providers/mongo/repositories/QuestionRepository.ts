@@ -348,7 +348,7 @@ export class QuestionRepository implements IQuestionRepository {
       //  const filter: any = {};
       const filter: any = {
         // isHidden: { $ne: true }, // default to exclude hidden questions
-        isOnHold: { $ne: true }, // default to exclude on hold questions
+        // isOnHold: { $ne: true }, // default to exclude on hold questions
         isTesting:{$ne:true},
       };
       if (pae_review) {
@@ -462,7 +462,7 @@ export class QuestionRepository implements IQuestionRepository {
       if (is_non_agri === 'true' || is_non_agri === true) {
         filter.status = 'non_agri';
       } else if (filter.status === undefined) {
-        filter.status = {$nin: ['non_agri', 'dynamic']};
+        filter.status = {$nin: ['non_agri']};
       }
       // --- State filter (from body array) ---
       if (body?.states && body.states.length > 0) {
@@ -1051,8 +1051,9 @@ export class QuestionRepository implements IQuestionRepository {
                   {case: {$eq: [{$toLower: '$status'}, 're-routed']}, then: 3},
                   {case: {$eq: [{$toLower: '$status'}, 'in-review']}, then: 4},
                   {case: {$eq: [{$toLower: '$status'}, 'closed']}, then: 5},
+                  {case: {$eq: [{ $toLower: "$status" }, "hold"] }, then: 6},
                 ],
-                default: 6,
+                default: 7,
               },
             },
           },
@@ -5576,8 +5577,6 @@ export class QuestionRepository implements IQuestionRepository {
     // Apply isOnHold filter exactly matching findDetailedQuestions logic
     if (query.isOnHold === 'true') {
       filter.isOnHold = {$eq: true};
-    } else {
-      filter.isOnHold = {$ne: true};
     }
 
     // Apply isHidden filter exactly matching findDetailedQuestions logic
