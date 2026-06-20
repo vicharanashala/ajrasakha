@@ -16,7 +16,19 @@ import { useRemoveModerator } from "@/hooks/api/question/useRemoveModerator";
 import { useGetStfModerators } from "@/hooks/api/user/useGetStfModerators";
 import { BLOCKING_ASSIGNED_STATUSES } from "@/hooks/services/userService";
 import { ConfirmationModal } from "@/components/confirmation-modal";
-import { Loader2, Trash2, User, UserCheck, UserPlus, UserX, X } from "lucide-react";
+import {
+  CalendarClock,
+  CheckCheck,
+  Clock,
+  Loader2,
+  Trash2,
+  User,
+  UserCheck,
+  UserPlus,
+  UserX,
+  X,
+} from "lucide-react";
+import { formatDuration } from "../utils/formatDate";
 
 interface ModeratorQueueProps {
   question: IQuestionFullData;
@@ -65,6 +77,17 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
 
   // Closed → the moderation is finalized (green). Otherwise it's still pending (amber).
   const isClosed = question.status === "closed";
+
+  // Moderator handling timeline (shown on hover-flip, mirroring the expert queue):
+  // assigned when the moderator was set, completed when the question was closed,
+  // and the duration between the two. Still open → "In Progress".
+  const moderatorAssignedAt = question.moderatorAssignedAt ?? null;
+  const moderatorCompletedAt = isClosed ? question.closedAt ?? null : null;
+  const moderatorTimeTakenMs =
+    moderatorAssignedAt && moderatorCompletedAt
+      ? new Date(moderatorCompletedAt).getTime() -
+        new Date(moderatorAssignedAt).getTime()
+      : null;
   const nodeStyles = isClosed
     ? {
         container:
@@ -138,15 +161,20 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
         </div>
       </div>
 
-      {/* Assigned moderator — circular node, same style as the expert allocation cards */}
+      {/* Assigned moderator — circular node, same style as the expert allocation cards.
+          On hover the card flips to reveal the moderation timeline (assigned / completed
+          / duration), mirroring the expert queue. */}
       {assignedModerator?.name ? (
         <div className="flex flex-wrap gap-6">
-          <div className="group relative w-42 h-42 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-44 lg:h-44">
+          <div
+            className="group relative w-42 h-42 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-44 lg:h-44"
+            style={{ perspective: "1000px" }}
+          >
             {/* Remove moderator — hover-revealed trash icon, mirrors the expert allocation removal.
-                Hidden once the question is finalized (closed): there's no longer an active
-                assignment to remove. */}
+                Sits outside the flipping element so it stays put. Hidden once the question is
+                finalized (closed): there's no longer an active assignment to remove. */}
             {!isClosed && (
-              <div className="absolute -top-1 right-0 w-6 h-6 flex items-center justify-center cursor-pointer pointer-events-auto hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+              <div className="absolute -top-1 right-0 w-6 h-6 flex items-center justify-center cursor-pointer pointer-events-auto hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
                 <ConfirmationModal
                   title="Remove Moderator?"
                   description={`Are you sure you want to remove ${assignedModerator.name}'s assignment from this question? This action cannot be undone.`}
@@ -163,37 +191,105 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
                 />
               </div>
             )}
+
             <div
-              className={`absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 rounded-full border-2 transition-all duration-300 hover:shadow-lg hover:scale-105 ${nodeStyles.container}`}
+              className="relative w-full h-full transition-transform duration-700 group-hover:[transform:rotateY(180deg)]"
+              style={{ transformStyle: "preserve-3d" }}
             >
+              {/* FRONT — assigned moderator node */}
               <div
-                className={`w-12 h-12 rounded-full flex items-center justify-center ${nodeStyles.iconBg}`}
+                className={`absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 rounded-full border-2 transition-all duration-300 hover:shadow-lg ${nodeStyles.container}`}
+                style={{ backfaceVisibility: "hidden" }}
               >
-                <UserCheck className={`w-6 h-6 ${nodeStyles.icon}`} />
+                <div
+                  className={`w-12 h-12 rounded-full flex items-center justify-center ${nodeStyles.iconBg}`}
+                >
+                  <UserCheck className={`w-6 h-6 ${nodeStyles.icon}`} />
+                </div>
+
+                <div className="text-center w-full px-2">
+                  <p
+                    className="text-xs font-semibold text-foreground truncate"
+                    title={assignedModerator.name}
+                  >
+                    {assignedModerator.name?.slice(0, 15)}
+                    {assignedModerator.name?.length > 15 ? "..." : ""}
+                  </p>
+                  <p
+                    className="text-[10px] text-muted-foreground truncate mt-0.5"
+                    title={assignedModerator.email}
+                  >
+                    {assignedModerator.email?.slice(0, 23)}
+                    {assignedModerator.email?.length > 23 ? "..." : ""}
+                  </p>
+                </div>
+
+                <span
+                  className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap ${nodeStyles.badge}`}
+                >
+                  {nodeStyles.label}
+                </span>
               </div>
 
-              <div className="text-center w-full px-2">
-                <p
-                  className="text-xs font-semibold text-foreground truncate"
-                  title={assignedModerator.name}
-                >
-                  {assignedModerator.name?.slice(0, 15)}
-                  {assignedModerator.name?.length > 15 ? "..." : ""}
-                </p>
-                <p
-                  className="text-[10px] text-muted-foreground truncate mt-0.5"
-                  title={assignedModerator.email}
-                >
-                  {assignedModerator.email?.slice(0, 23)}
-                  {assignedModerator.email?.length > 23 ? "..." : ""}
-                </p>
-              </div>
-
-              <span
-                className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap ${nodeStyles.badge}`}
+              {/* BACK — moderation timeline */}
+              <div
+                className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl border border-border/50 bg-gradient-to-br from-card to-card/95 shadow-lg overflow-hidden p-2.5"
+                style={{
+                  backfaceVisibility: "hidden",
+                  transform: "rotateY(180deg)",
+                }}
               >
-                {nodeStyles.label}
-              </span>
+                <div className="w-full space-y-1.5">
+                  {/* Assigned at */}
+                  <div className="flex items-start gap-1.5 rounded-md bg-background/40 border border-border/30 px-1.5 py-1">
+                    <CalendarClock className="w-3 h-3 text-blue-500 mt-0.5 shrink-0" />
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-[8px] uppercase tracking-wide text-muted-foreground font-medium">
+                        Assigned
+                      </span>
+                      <span className="text-[10px] font-semibold text-foreground leading-snug break-words">
+                        {moderatorAssignedAt
+                          ? new Date(moderatorAssignedAt).toLocaleString()
+                          : "—"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Completed at (closed) — otherwise still in progress */}
+                  <div className="flex items-start gap-1.5 rounded-md bg-background/40 border border-border/30 px-1.5 py-1">
+                    <CheckCheck
+                      className={`w-3 h-3 mt-0.5 shrink-0 ${
+                        moderatorCompletedAt ? "text-green-500" : "text-amber-500"
+                      }`}
+                    />
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-[8px] uppercase tracking-wide text-muted-foreground font-medium">
+                        Completed
+                      </span>
+                      <span className="text-[10px] font-semibold text-foreground leading-snug break-words">
+                        {moderatorCompletedAt
+                          ? new Date(moderatorCompletedAt).toLocaleString()
+                          : "In Progress"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Duration */}
+                  <div className="flex items-start gap-1.5 rounded-md bg-primary/5 border border-primary/10 px-1.5 py-1">
+                    <Clock className="w-3 h-3 text-primary mt-0.5 shrink-0" />
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-[8px] uppercase tracking-wide text-muted-foreground font-medium">
+                        Duration
+                      </span>
+                      <span className="text-[10px] font-bold text-primary leading-snug">
+                        {moderatorTimeTakenMs
+                          ? formatDuration(moderatorTimeTakenMs)
+                          : "Ongoing"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
