@@ -14306,6 +14306,7 @@ existing.coordinators =
       };
       let unAssigned = [];
       let assigned = [];
+      let parentCoordinator = null;
       if ( [
             'district_coordinator',
             'block_coordinator',
@@ -14419,6 +14420,40 @@ existing.coordinators =
 
       }
 
+      if (users[0]?.assignedTo && ObjectId.isValid(users[0].assignedTo)) {
+        const assignedToObjectId =
+          users[0].assignedTo instanceof ObjectId
+            ? users[0].assignedTo
+            : new ObjectId(users[0].assignedTo);
+
+        const parentUser = await this.users.findOne(
+          {
+            _id: assignedToObjectId,
+          },
+          {
+            projection: {
+              _id: 1,
+              name: 1,
+              email: 1,
+              firebaseUID: 1,
+              userRole: 1,
+              farmerProfile: 1,
+            },
+          },
+        );
+
+        if (parentUser) {
+          parentCoordinator = {
+            _id: parentUser._id,
+            name: parentUser.name,
+            email: parentUser.email,
+            firebaseUID: parentUser.firebaseUID,
+            userRole: parentUser.userRole,
+            farmerProfile: parentUser.farmerProfile,
+          };
+        }
+      }
+
       return  {
         userId: users[0]._id,
         name: users[0].name,
@@ -14433,6 +14468,7 @@ existing.coordinators =
         farmerDashboard,
         unAssigned : unAssigned ?? [],
         assigned: assigned ?? [],
+        parentCoordinator,
       };
     }catch(error){
       throw new InternalServerError(

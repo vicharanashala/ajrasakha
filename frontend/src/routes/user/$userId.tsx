@@ -92,6 +92,16 @@ type AssignableUser = {
   userRole?: string;
 };
 
+type ParentCoordinator = AssignableUser & {
+  farmerProfile?: {
+    phoneNo?: string;
+    state?: string;
+    district?: string;
+    blockName?: string;
+    villageName?: string;
+  };
+};
+
 type TrendGranularity = "daily" | "weekly" | "monthly";
 
 type DashboardMessageEntry = {
@@ -520,6 +530,10 @@ function RouteComponent() {
   const canManageAssignments =
     viewedProfileIsCoordinator &&
     (currentUser?.role === "admin" || currentUserOwnsViewedProfile);
+  const parentCoordinator = userProfile?.parentCoordinator as
+    | ParentCoordinator
+    | null
+    | undefined;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -579,6 +593,12 @@ function RouteComponent() {
           }
           onChangePassword={handleChangeViewedUserPassword}
         />
+        {parentCoordinator && (
+          <ParentCoordinatorSection
+            coordinatorRole={userProfile?.userRole}
+            parentCoordinator={parentCoordinator}
+          />
+        )}
         <FarmerDashboardAnalytics
           dashboard={userProfile?.farmerDashboard as FarmerDashboardData}
         />
@@ -925,6 +945,82 @@ function RouteComponent() {
       </AlertDialog>
     </div>
   );
+}
+
+function ParentCoordinatorSection({
+  coordinatorRole,
+  parentCoordinator,
+}: {
+  coordinatorRole?: string;
+  parentCoordinator: ParentCoordinator;
+}) {
+  const roleLabel = formatRoleLabel(parentCoordinator.userRole);
+  const heading =
+    coordinatorRole === "block_coordinator"
+      ? "Assigned District Coordinator"
+      : coordinatorRole === "village_volunteer"
+        ? "Assigned Block Coordinator"
+        : "Parent Coordinator";
+  const regionItems = [
+    parentCoordinator.farmerProfile?.state,
+    parentCoordinator.farmerProfile?.district,
+    parentCoordinator.farmerProfile?.blockName,
+    parentCoordinator.farmerProfile?.villageName,
+  ].filter(Boolean);
+  const contactItems = [
+    parentCoordinator.email,
+    parentCoordinator.farmerProfile?.phoneNo,
+  ].filter(Boolean);
+
+  return (
+    <section className="my-4 rounded-md border bg-card/60 p-4">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md border bg-background">
+            <UserCheck2 className="h-4 w-4 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">{heading}</p>
+            <p className="truncate text-base font-medium">
+              {parentCoordinator.name || "Not Provided"}
+            </p>
+            {roleLabel && (
+              <p className="text-xs text-muted-foreground">{roleLabel}</p>
+            )}
+          </div>
+        </div>
+
+        <div className="grid gap-3 text-sm sm:grid-cols-2 md:min-w-[420px]">
+          {contactItems.length > 0 && (
+            <div>
+              <p className="text-xs font-medium uppercase text-muted-foreground">
+                Contact
+              </p>
+              <p className="break-words">{contactItems.join(" / ")}</p>
+            </div>
+          )}
+          {regionItems.length > 0 && (
+            <div>
+              <p className="text-xs font-medium uppercase text-muted-foreground">
+                Assigned Region
+              </p>
+              <p className="break-words">{regionItems.join(", ")}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function formatRoleLabel(role?: string) {
+  return role
+    ? role
+        .split("_")
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ")
+    : "";
 }
 
 function FarmerDashboardAnalytics({
