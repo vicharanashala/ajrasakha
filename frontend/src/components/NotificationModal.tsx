@@ -28,6 +28,12 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/atoms/select";
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/atoms/tooltip";
 import { useGetNotifications } from "@/hooks/api/notification/useGetNotifications";
 import { useDeleteNotification } from "@/hooks/api/notification/useDeleteNotifications";
 import { useMarkAsReadNotification } from "@/hooks/api/notification/useUpdateNotification";
@@ -52,13 +58,27 @@ export interface Notification {
     is_read: boolean;
     type: string;
     createdAt: string;
+    questionText?: string;
+    sender?: {
+        _id: string;
+        name?: string;
+        email?: string;
+        role?: string;
+    } | null;
+    recipient?: {
+        _id: string;
+        name?: string;
+        email?: string;
+        role?: string;
+    } | null;
 }
 
 interface NotificationModalProps {
     trigger: React.ReactNode;
+    copy?: "notifications" | "messages";
 }
 
-export function NotificationModal({ trigger }: NotificationModalProps) {
+export function NotificationModal({ trigger, copy = "notifications" }: NotificationModalProps) {
     const { success: toastSuccess, error: toastError} = useToast();
     const [open, setOpen] = useState(false);
     const [filter, setFilter] = useState<"all" | "unread" | "read">("all");
@@ -106,6 +126,10 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
     });
 
     const unreadCount = notifications.filter((n) => !n.is_read).length;
+    const isMessagesCopy = copy === "messages";
+    const titleText = isMessagesCopy ? "Messages" : "Notifications";
+    const itemText = isMessagesCopy ? "messages" : "notifications";
+    const emptyTitleText = isMessagesCopy ? "No messages" : "No notifications";
 
     const handleNotificationClick = async (notification: Notification) => {
 
@@ -178,7 +202,7 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
                                 <BellIcon className="w-5 h-5 text-primary" />
                             </div>
                             <div>
-                                <SheetTitle className="text-xl font-bold">Notifications</SheetTitle>
+                                <SheetTitle className="text-xl font-bold">{titleText}</SheetTitle>
                                 <p className="text-sm text-muted-foreground">
                                     {notifications.length} total, {unreadCount} new
                                 </p>
@@ -276,7 +300,7 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
                                 <div className="bg-muted p-4 rounded-full mb-4">
                                     <BellIcon className="w-8 h-8 text-muted-foreground" />
                                 </div>
-                                <h3 className="font-semibold text-lg">No notifications</h3>
+                                <h3 className="font-semibold text-lg">{emptyTitleText}</h3>
                                 <p className="text-sm text-muted-foreground">You're all caught up!</p>
                             </div>
                         ) : (
@@ -299,13 +323,30 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-start justify-between mb-1">
-                                            <h4 className="font-bold text-sm text-foreground truncate pr-2">
-                                                {n.title || "Update Received"}
+                                            <h4
+                                                className="font-bold text-sm text-foreground break-words pr-2"
+                                                title={getNotificationDisplayTitle(n)}
+                                            >
+                                                {getNotificationDisplayTitle(n)}
                                             </h4>
                                         </div>
                                         <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-3">
                                             {n.message}
                                         </p>
+                                        {n.questionText && (
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <p className="text-xs text-primary font-medium bg-primary/5 px-2 py-1.5 rounded-md line-clamp-2 leading-relaxed mb-3 border border-primary/20 cursor-help">
+                                                            {n.questionText}
+                                                        </p>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="bottom" className="max-w-sm">
+                                                        <p className="text-sm">{n.questionText}</p>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                        )}
                                         <div className="flex items-center gap-3 text-[10px] text-muted-foreground font-medium">
                                             <div className="flex items-center gap-1">
                                                 <Clock className="w-3 h-3" />
@@ -330,7 +371,7 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
                                 onClick={() => fetchNextPage()}
                                 disabled={isFetchingNextPage}
                             >
-                                {isFetchingNextPage ? "Loading..." : "View previous notifications"}
+                                {isFetchingNextPage ? "Loading..." : `View previous ${itemText}`}
                             </Button>
                         )}
                     </div>
@@ -338,10 +379,31 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
 
                 <div className="p-4 bg-muted/20 text-center shrink-0 border-t">
                     <p className="text-xs font-semibold text-muted-foreground">
-                        {unreadCount} notifications require your attention
+                        {unreadCount} {itemText} require your attention
                     </p>
                 </div>
             </SheetContent>
         </Sheet>
     );
+}
+
+function getNotificationDisplayTitle(notification: Notification) {
+    const senderName = notification.sender?.name || notification.sender?.email;
+
+    if (
+        senderName &&
+        (notification.title === "Message from coordinator" ||
+            notification.title === "Message from admin")
+    ) {
+        return `Message from ${senderName}`;
+    }
+
+    if (
+        notification.sender?.role === "admin" &&
+        notification.title === "Message from coordinator"
+    ) {
+        return "Message from admin";
+    }
+
+    return notification.title || "Update Received";
 }

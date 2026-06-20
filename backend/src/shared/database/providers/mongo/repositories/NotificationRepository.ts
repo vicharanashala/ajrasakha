@@ -1,4 +1,4 @@
-import {INotification, INotificationType, ISubscription, IUser} from '#root/shared/interfaces/models.js';
+import {INotification, INotificationType, ISubscription, IUser, IQuestion} from '#root/shared/interfaces/models.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject} from 'inversify';
 import {ClientSession, Collection, ObjectId} from 'mongodb';
@@ -12,6 +12,7 @@ export class NotificationRepository implements INotificationRepository {
   private notificationCollection: Collection<INotification>;
   private subscriptionCollection: Collection<ISubscription>
   private userCollection:Collection<IUser>
+  private questionCollection: Collection<IQuestion>
   constructor(
     @inject(GLOBAL_TYPES.Database)
     private db: MongoDatabase,
@@ -21,6 +22,7 @@ export class NotificationRepository implements INotificationRepository {
     this.notificationCollection = await this.db.getCollection<INotification>('notifications');
     this.subscriptionCollection = await this.db.getCollection<ISubscription>('subscriptions');
     this.userCollection = await this.db.getCollection<IUser>('users')
+    this.questionCollection = await this.db.getCollection<IQuestion>('questions')
   }
 
   async addNotification(userId: string, enitity_id: string, type: string, message: string,title:string, session?: ClientSession): Promise<{ insertedId: string; }> {
@@ -74,6 +76,57 @@ export class NotificationRepository implements INotificationRepository {
 
       // Convert ObjectId → string
 
+      const senderIds = notification
+        .map(n => n.enitity_id)
+        .filter((id): id is ObjectId => id instanceof ObjectId);
+      const uniqueUserIds = [
+        ...new Set([
+          userId,
+          ...senderIds.map(id => id.toString()),
+        ]),
+      ].map(id => new ObjectId(id));
+      const relatedUsers = await this.userCollection
+        .find({_id: {$in: uniqueUserIds}}, {session})
+        .toArray();
+      const userById = new Map(
+        relatedUsers
+          .filter(user => user._id)
+          .map(user => [user._id!.toString(), user]),
+      );
+      const formatUser = (id?: ObjectId | string) => {
+        if (!id) return null;
+        const userId = id.toString();
+        const user = userById.get(userId);
+        if (!user) return {_id: userId};
+        const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+        return {
+          _id: userId,
+          name: name || user.email,
+          email: user.email,
+          role: user.role,
+        };
+      };
+
+      // Fetch related questions for entity_ids
+      const entityIds = notification
+        .map(n => n.enitity_id)
+        .filter((id): id is ObjectId => id instanceof ObjectId);
+      const uniqueEntityIds = [...new Set(entityIds.map(id => id.toString()))].map(id => new ObjectId(id));
+      const relatedQuestions = await this.questionCollection
+        .find({_id: {$in: uniqueEntityIds}}, {session})
+        .toArray();
+      const questionById = new Map(
+        relatedQuestions
+          .filter(q => q._id)
+          .map(q => [q._id!.toString(), q]),
+      );
+      const getQuestionText = (entityId?: ObjectId | string): string => {
+        if (!entityId) return '';
+        const questionId = entityId.toString();
+        const question = questionById.get(questionId);
+        return question?.question || '';
+      };
+
       const response = notification.map((n) => ({
         _id:n._id.toString(),
         enitity_id:n.enitity_id.toString(),
@@ -81,7 +134,11 @@ export class NotificationRepository implements INotificationRepository {
         is_read:n.is_read,
         title:n.title,
         type: n.type,
-        createdAt:n.createdAt.toString()
+        createdAt:n.createdAt.toString(),
+        sender: formatUser(n.enitity_id),
+        recipient: formatUser(n.userId),
+        deliveryTimestamp: n.createdAt.toString(),
+        questionText: getQuestionText(n.enitity_id),
       }))
 
     return {notifications:response,page,totalCount,totalPages:Math.ceil(totalCount/limit)}
@@ -89,6 +146,78 @@ export class NotificationRepository implements INotificationRepository {
   catch(error){
       throw new InternalServerError(
         `Error while adding Notification, More/ ${error}`,
+      );
+   }
+  }
+
+  async getUserNotificationHistory(userId: string,page:number,limit:number,session?: ClientSession): Promise<{notifications:NotificationResponse[]; page:number; totalCount:number; totalPages:number}> {
+    try {
+      await this.init()
+      if (!userId || !isValidObjectId(userId)) {
+        throw new BadRequestError('Invalid or missing userId');
+      }
+
+      const userObjectId = new ObjectId(userId);
+      const filter = {
+        $or: [
+          {userId: userObjectId},
+          {enitity_id: userObjectId},
+        ],
+      };
+      const skip = (page - 1) * limit
+      const [notification,totalCount] = await Promise.all([
+        this.notificationCollection.find(filter,{session}).sort({createdAt:-1}).skip(skip).limit(limit).toArray(),
+        this.notificationCollection.countDocuments(filter)
+      ])
+      if (!notification) return null;
+
+      const relatedUserIds = notification
+        .flatMap(n => [n.userId, n.enitity_id])
+        .filter((id): id is ObjectId => id instanceof ObjectId);
+      const uniqueUserIds = [
+        ...new Set(relatedUserIds.map(id => id.toString())),
+      ].map(id => new ObjectId(id));
+      const relatedUsers = await this.userCollection
+        .find({_id: {$in: uniqueUserIds}}, {session})
+        .toArray();
+      const userById = new Map(
+        relatedUsers
+          .filter(user => user._id)
+          .map(user => [user._id!.toString(), user]),
+      );
+      const formatUser = (id?: ObjectId | string) => {
+        if (!id) return null;
+        const userId = id.toString();
+        const user = userById.get(userId);
+        if (!user) return {_id: userId};
+        const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+        return {
+          _id: userId,
+          name: name || user.email,
+          email: user.email,
+          role: user.role,
+        };
+      };
+
+      const response = notification.map((n) => ({
+        _id:n._id.toString(),
+        enitity_id:n.enitity_id.toString(),
+        message:n.message,
+        is_read:n.is_read,
+        title:n.title,
+        type: n.type,
+        createdAt:n.createdAt.toString(),
+        sender: formatUser(n.enitity_id),
+        recipient: formatUser(n.userId),
+        direction: n.enitity_id?.toString() === userObjectId.toString() ? 'sent' : 'received',
+        deliveryTimestamp: n.createdAt.toString()
+      }))
+
+    return {notifications:response,page,totalCount,totalPages:Math.ceil(totalCount/limit)}
+    }
+  catch(error){
+      throw new InternalServerError(
+        `Error while getting notification history, More/ ${error}`,
       );
     }
   }

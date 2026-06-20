@@ -348,7 +348,7 @@ export class QuestionRepository implements IQuestionRepository {
       //  const filter: any = {};
       const filter: any = {
         // isHidden: { $ne: true }, // default to exclude hidden questions
-        isOnHold: { $ne: true }, // default to exclude on hold questions
+        // isOnHold: { $ne: true }, // default to exclude on hold questions
         isTesting:{$ne:true},
       };
       if (pae_review) {
@@ -462,7 +462,7 @@ export class QuestionRepository implements IQuestionRepository {
       if (is_non_agri === 'true' || is_non_agri === true) {
         filter.status = 'non_agri';
       } else if (filter.status === undefined) {
-        filter.status = {$nin: ['non_agri', 'dynamic']};
+        filter.status = {$nin: ['non_agri']};
       }
       // --- State filter (from body array) ---
       if (body?.states && body.states.length > 0) {
@@ -1051,8 +1051,9 @@ export class QuestionRepository implements IQuestionRepository {
                   {case: {$eq: [{$toLower: '$status'}, 're-routed']}, then: 3},
                   {case: {$eq: [{$toLower: '$status'}, 'in-review']}, then: 4},
                   {case: {$eq: [{$toLower: '$status'}, 'closed']}, then: 5},
+                  {case: {$eq: [{ $toLower: "$status" }, "hold"] }, then: 6},
                 ],
-                default: 6,
+                default: 7,
               },
             },
           },
@@ -2764,58 +2765,86 @@ export class QuestionRepository implements IQuestionRepository {
     }
 
     // Get moderator breakdown
-    const moderatorBreakdown = (await this.AnswersCollection.aggregate(
-      [
-        {
-          $match: {
-            status: 'approved',
-            isFinalAnswer: true,
-            updatedAt: {
-              $gte: start,
-              $lt: end,
-            },
-            approvedBy: {$exists: true, $ne: null},
-          },
+   const moderatorBreakdown = (await this.AnswersCollection.aggregate(
+  [
+    {
+      $match: {
+        status: 'approved',
+        isFinalAnswer: true,
+        approvedBy: {$exists: true, $ne: null},
+      },
+    },
+
+    // Lookup question
+    {
+      $lookup: {
+        from: 'questions',
+        localField: 'questionId',
+        foreignField: '_id',
+        as: 'question',
+      },
+    },
+
+    {
+      $unwind: {
+        path: '$question',
+        preserveNullAndEmptyArrays: false,
+      },
+    },
+
+    // Filter by question.closedAt
+    {
+      $match: {
+        'question.closedAt': {
+          $gte: start,
+          $lt: end,
         },
-        {
-          $group: {
-            _id: '$approvedBy',
-            count: {$sum: 1},
-          },
+      },
+    },
+
+    {
+      $group: {
+        _id: '$approvedBy',
+        count: {$sum: 1},
+      },
+    },
+
+    {
+      $lookup: {
+        from: 'users',
+        localField: '_id',
+        foreignField: '_id',
+        as: 'moderator',
+      },
+    },
+
+    {
+      $unwind: {
+        path: '$moderator',
+        preserveNullAndEmptyArrays: false,
+      },
+    },
+
+    {
+      $project: {
+        _id: 0,
+        moderatorName: {
+          $concat: [
+            '$moderator.firstName',
+            ' ',
+            {$ifNull: ['$moderator.lastName', '']},
+          ],
         },
-        {
-          $lookup: {
-            from: 'users',
-            localField: '_id',
-            foreignField: '_id',
-            as: 'moderator',
-          },
-        },
-        {
-          $unwind: {
-            path: '$moderator',
-            preserveNullAndEmptyArrays: false,
-          },
-        },
-        {
-          $project: {
-            _id: 0,
-            moderatorName: {
-              $concat: [
-                '$moderator.firstName',
-                ' ',
-                {$ifNull: ['$moderator.lastName', '']},
-              ],
-            },
-            count: 1,
-          },
-        },
-        {
-          $sort: {count: -1},
-        },
-      ],
-      {session},
-    ).toArray()) as {moderatorName: string; count: number}[];
+        count: 1,
+      },
+    },
+
+    {
+      $sort: {count: -1},
+    },
+  ],
+  {session},
+).toArray()) as {moderatorName: string; count: number}[];
 
     // Calculate total from the breakdown
     const totalApproved = moderatorBreakdown.reduce(
@@ -5548,8 +5577,6 @@ export class QuestionRepository implements IQuestionRepository {
     // Apply isOnHold filter exactly matching findDetailedQuestions logic
     if (query.isOnHold === 'true') {
       filter.isOnHold = {$eq: true};
-    } else {
-      filter.isOnHold = {$ne: true};
     }
 
     // Apply isHidden filter exactly matching findDetailedQuestions logic
