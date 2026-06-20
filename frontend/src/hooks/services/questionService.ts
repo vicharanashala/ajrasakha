@@ -67,6 +67,13 @@ export type QueueDetailsResponse = {
   moderatorWaiting: { count: number; items: QueueQuestionItem[] };
   moderatorAllocated: { count: number; items: QueueQuestionItem[] };
   availableModerators: { count: number; items: QueueExpertItem[] };
+  // Source-split moderator-queue sections (time-bound vs manual)
+  moderatorWaitingTimeBound: { count: number; items: QueueQuestionItem[] };
+  moderatorWaitingManual: { count: number; items: QueueQuestionItem[] };
+  moderatorAllocatedTimeBound: { count: number; items: QueueQuestionItem[] };
+  moderatorAllocatedManual: { count: number; items: QueueQuestionItem[] };
+  availableModeratorsTimeBound: { count: number; items: QueueExpertItem[] };
+  availableModeratorsManual: { count: number; items: QueueExpertItem[] };
 };
 export class QuestionService {
   private _baseUrl = `${API_BASE_URL}/questions`;

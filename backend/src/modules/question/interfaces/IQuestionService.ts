@@ -93,6 +93,20 @@ export interface QueueDetailsResponse {
   /** STF moderators with no question assigned — the pool the moderator-queue
    *  cron assigns from (findAvailableStfModerators). */
   availableModerators: {count: number; items: QueueExpertItem[]};
+
+  // ── Source-split moderator-queue sections ──
+  /** Time-bound (AJRASAKHA/WHATSAPP) questions with no moderator yet. */
+  moderatorWaitingTimeBound: {count: number; items: QueueQuestionItem[]};
+  /** Manual (AGRI_EXPERT/OUTREACH) questions with no moderator yet. */
+  moderatorWaitingManual: {count: number; items: QueueQuestionItem[]};
+  /** Time-bound questions currently assigned to a moderator. */
+  moderatorAllocatedTimeBound: {count: number; items: QueueQuestionItem[]};
+  /** Manual questions currently assigned to a moderator. */
+  moderatorAllocatedManual: {count: number; items: QueueQuestionItem[]};
+  /** STF moderators free to take a time-bound question. */
+  availableModeratorsTimeBound: {count: number; items: QueueExpertItem[]};
+  /** STF moderators free to take a manual question. */
+  availableModeratorsManual: {count: number; items: QueueExpertItem[]};
 }
 
 /** Raw lean row returned by the repository layer for queue-details questions. */
@@ -133,7 +147,14 @@ export type QueueSectionName =
   | 'openedIdle'
   | 'moderatorWaiting'
   | 'moderatorAllocated'
-  | 'availableModerators';
+  | 'availableModerators'
+  // Source-split variants (time-bound = AJRASAKHA/WHATSAPP, manual = AGRI_EXPERT/OUTREACH)
+  | 'moderatorWaitingTimeBound'
+  | 'moderatorWaitingManual'
+  | 'moderatorAllocatedTimeBound'
+  | 'moderatorAllocatedManual'
+  | 'availableModeratorsTimeBound'
+  | 'availableModeratorsManual';
 
 /** One page of a section: exact total + the requested page's items. */
 export interface QueueSectionResult {

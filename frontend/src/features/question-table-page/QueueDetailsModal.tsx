@@ -374,6 +374,10 @@ export const QueueDetailsModal = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [openSection, setOpenSection] = useState<string | null>("received");
+  // Moderator-queue sub-tab: time-bound (AjraSakha/WhatsApp) vs manual (AgriExpert/Outreach).
+  const [modCategory, setModCategory] = useState<"timeBound" | "manual">(
+    "timeBound",
+  );
   const { goToQuestion } = useNavigateToQuestion();
 
   // Opening a question unmounts this modal (the list view is replaced by the question
@@ -642,55 +646,124 @@ export const QueueDetailsModal = ({
               <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
             </div>
 
-            <Section<QueueQuestionItem>
-              icon={<Hourglass size={20} />}
-              color="amber"
-              title="Waiting for Moderator"
-              description="In-review questions with no moderator assigned yet"
-              count={data.moderatorWaiting.count}
-              section="moderatorWaiting"
-              initialItems={data.moderatorWaiting.items}
-              renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
-              isOpen={openSection === "moderatorWaiting"}
-              onToggle={() => toggle("moderatorWaiting")}
-              emptyText="Nothing waiting for a moderator"
-              startTime={dateFilter.startTime ?? undefined}
-              endTime={dateFilter.endTime ?? undefined}
-            />
+            {/* Time-bound / Manual toggle — switches all three moderator sections
+                below between the two source groups. */}
+            <div className="flex w-full items-center gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1 dark:border-gray-800 dark:bg-[#1a1a1a]">
+              {(
+                [
+                  { id: "timeBound", label: "Time-bound" },
+                  { id: "manual", label: "Manual" },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setModCategory(tab.id)}
+                  className={cn(
+                    "flex-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                    modCategory === tab.id
+                      ? "bg-white text-blue-600 shadow-sm dark:bg-gray-800 dark:text-blue-400"
+                      : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300",
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
 
-            <Section<QueueQuestionItem>
-              icon={<ShieldCheck size={20} />}
-              color="green"
-              title="Allocated to Moderator"
-              description="Assigned to a moderator (includes re-routed questions)"
-              count={data.moderatorAllocated.count}
-              section="moderatorAllocated"
-              initialItems={data.moderatorAllocated.items}
-              renderItem={(q) => (
-                <QuestionRow key={q._id} item={q} showModerator onClick={() => handleQuestionClick(q)} />
-              )}
-              isOpen={openSection === "moderatorAllocated"}
-              onToggle={() => toggle("moderatorAllocated")}
-              emptyText="No questions allocated to a moderator"
-              startTime={dateFilter.startTime ?? undefined}
-              endTime={dateFilter.endTime ?? undefined}
-            />
+            {(() => {
+              const isTB = modCategory === "timeBound";
+              const sourceLabel = isTB
+                ? "AjraSakha / WhatsApp"
+                : "AgriExpert / Outreach";
+              const cfg = isTB
+                ? {
+                    waiting: {
+                      section: "moderatorWaitingTimeBound",
+                      data: data.moderatorWaitingTimeBound,
+                    },
+                    allocated: {
+                      section: "moderatorAllocatedTimeBound",
+                      data: data.moderatorAllocatedTimeBound,
+                    },
+                    available: {
+                      section: "availableModeratorsTimeBound",
+                      data: data.availableModeratorsTimeBound,
+                    },
+                  }
+                : {
+                    waiting: {
+                      section: "moderatorWaitingManual",
+                      data: data.moderatorWaitingManual,
+                    },
+                    allocated: {
+                      section: "moderatorAllocatedManual",
+                      data: data.moderatorAllocatedManual,
+                    },
+                    available: {
+                      section: "availableModeratorsManual",
+                      data: data.availableModeratorsManual,
+                    },
+                  };
 
-            <Section<QueueExpertItem>
-              icon={<ShieldUser size={20} />}
-              color="violet"
-              title="Available Moderators"
-              description="STF moderators free with no question assigned"
-              count={data.availableModerators.count}
-              section="availableModerators"
-              initialItems={data.availableModerators.items}
-              renderItem={(e) => <ExpertRow key={e._id} item={e} />}
-              isOpen={openSection === "availableModerators"}
-              onToggle={() => toggle("availableModerators")}
-              emptyText="No available moderators"
-              startTime={dateFilter.startTime ?? undefined}
-              endTime={dateFilter.endTime ?? undefined}
-            />
+              return (
+                <>
+                  <Section<QueueQuestionItem>
+                    icon={<Hourglass size={20} />}
+                    color="amber"
+                    title="Waiting for Moderator"
+                    description={`${sourceLabel} — no moderator assigned yet`}
+                    count={cfg.waiting.data?.count ?? 0}
+                    section={cfg.waiting.section}
+                    initialItems={cfg.waiting.data?.items ?? []}
+                    renderItem={(q) => (
+                      <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />
+                    )}
+                    isOpen={openSection === cfg.waiting.section}
+                    onToggle={() => toggle(cfg.waiting.section)}
+                    emptyText="Nothing waiting for a moderator"
+                    startTime={dateFilter.startTime ?? undefined}
+                    endTime={dateFilter.endTime ?? undefined}
+                  />
+
+                  <Section<QueueQuestionItem>
+                    icon={<ShieldCheck size={20} />}
+                    color="green"
+                    title="Allocated to Moderator"
+                    description={`${sourceLabel} — assigned to a moderator (incl. re-routed)`}
+                    count={cfg.allocated.data?.count ?? 0}
+                    section={cfg.allocated.section}
+                    initialItems={cfg.allocated.data?.items ?? []}
+                    renderItem={(q) => (
+                      <QuestionRow key={q._id} item={q} showModerator onClick={() => handleQuestionClick(q)} />
+                    )}
+                    isOpen={openSection === cfg.allocated.section}
+                    onToggle={() => toggle(cfg.allocated.section)}
+                    emptyText="No questions allocated to a moderator"
+                    startTime={dateFilter.startTime ?? undefined}
+                    endTime={dateFilter.endTime ?? undefined}
+                  />
+
+                  <Section<QueueExpertItem>
+                    icon={<ShieldUser size={20} />}
+                    color="violet"
+                    title="Available Moderators"
+                    description={`STF moderators free to take a ${
+                      isTB ? "time-bound" : "manual"
+                    } question`}
+                    count={cfg.available.data?.count ?? 0}
+                    section={cfg.available.section}
+                    initialItems={cfg.available.data?.items ?? []}
+                    renderItem={(e) => <ExpertRow key={e._id} item={e} />}
+                    isOpen={openSection === cfg.available.section}
+                    onToggle={() => toggle(cfg.available.section)}
+                    emptyText="No available moderators"
+                    startTime={dateFilter.startTime ?? undefined}
+                    endTime={dateFilter.endTime ?? undefined}
+                  />
+                </>
+              );
+            })()}
           </div>
         ) : null}
       </DialogContent>

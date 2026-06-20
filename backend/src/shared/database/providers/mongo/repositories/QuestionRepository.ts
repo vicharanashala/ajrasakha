@@ -7,6 +7,7 @@ import {
   IReview,
   IUser,
   QuestionStatus,
+  QuestionSource,
   IReroute,
   ISimilarQuestion,
   ICheckStatusResponse,
@@ -6630,15 +6631,21 @@ export class QuestionRepository implements IQuestionRepository {
   }
 
   /** Returns in-review questions with no moderator assigned yet, ordered oldest first. */
-  async findUnassignedInReviewQuestions(): Promise<IQuestion[]> {
+  async findUnassignedInReviewQuestions(
+    sources?: QuestionSource[],
+  ): Promise<IQuestion[]> {
     await this.init();
     // Picks up both in-review and duplicate questions so the moderator-queue cron
     // assigns duplicates to STF moderators alongside regular in-review questions.
-    return this.QuestionCollection
-      .find({
-        status: { $in: ['in-review', 'duplicate'] },
-        $or: [{ moderatorId: { $exists: false } }, { moderatorId: null }],
-      })
+    // When `sources` is provided, restricts to that source group (time-bound / manual).
+    const filter: Record<string, unknown> = {
+      status: { $in: ['in-review', 'duplicate'] },
+      $or: [{ moderatorId: { $exists: false } }, { moderatorId: null }],
+    };
+    if (sources && sources.length > 0) {
+      filter.source = { $in: sources };
+    }
+    return this.QuestionCollection.find(filter)
       .sort({ createdAt: 1 })
       .toArray();
   }
@@ -6647,13 +6654,18 @@ export class QuestionRepository implements IQuestionRepository {
    *  in-review, re-routed and duplicate statuses — mirrors the moderator-assigned
    *  tab filter, so re-routed questions (which always carry a moderatorId) show up
    *  here too. Oldest first. */
-  async findModeratorAssignedQuestions(): Promise<IQuestion[]> {
+  async findModeratorAssignedQuestions(
+    sources?: QuestionSource[],
+  ): Promise<IQuestion[]> {
     await this.init();
-    return this.QuestionCollection
-      .find({
-        status: { $in: ['in-review', 're-routed', 'duplicate'] },
-        moderatorId: { $exists: true, $ne: null },
-      })
+    const filter: Record<string, unknown> = {
+      status: { $in: ['in-review', 're-routed', 'duplicate'] },
+      moderatorId: { $exists: true, $ne: null },
+    };
+    if (sources && sources.length > 0) {
+      filter.source = { $in: sources };
+    }
+    return this.QuestionCollection.find(filter)
       .sort({ createdAt: 1 })
       .toArray();
   }
