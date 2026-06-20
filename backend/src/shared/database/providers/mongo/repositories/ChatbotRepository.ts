@@ -84,6 +84,8 @@ interface IUser {
   email?: string;
   firebaseUID?: string;
   password?: string;
+  passwordChangedAt?: Date;
+  refreshToken?: any[];
   role?: string;
   userRole?: string;
   isVerified?: boolean;
@@ -9136,14 +9138,91 @@ for (const item of raw) {
   async deleteUser(userId: string, source: string): Promise<boolean> {
     try {
       await this.init(source);
+      const userObjectId = new ObjectId(userId);
+      const existingUser = await this.users.findOne({_id: userObjectId});
+
+      if (!existingUser) {
+        throw new NotFoundError('User not found');
+      }
+
+      const reviewSystemUser =
+        source === 'whatsapp'
+          ? null
+          : await this.findMatchingReviewSystemUser(existingUser);
+
       await this.messagesCollection.updateMany(
         {user: userId},
         {$set: {isDeleted: true}},
       );
-      const result = await this.users.deleteOne({_id: new ObjectId(userId)});
-      return result.deletedCount === 1;
+      const result = await this.users.deleteOne({_id: userObjectId});
+
+      if (result.deletedCount !== 1) {
+        return false;
+      }
+
+      if (reviewSystemUser?._id) {
+        await this.deleteReviewSystemUser(reviewSystemUser);
+      }
+
+      return true;
     } catch (error) {
+      if (error instanceof NotFoundError) {
+        throw error;
+      }
       throw new InternalServerError(`Failed to delete user: ${error}`);
+    }
+  }
+
+  private async findMatchingReviewSystemUser(user: IUser): Promise<IUser | null> {
+    const lookupConditions: any[] = [];
+
+    const email = user.email?.trim();
+    if (email) {
+      lookupConditions.push({
+        email: new RegExp(`^${this.escapeRegex(email)}$`, 'i'),
+      });
+    }
+
+    if (user.firebaseUID) {
+      lookupConditions.push({firebaseUID: user.firebaseUID});
+    }
+
+    if (lookupConditions.length === 0) {
+      return null;
+    }
+
+    const reviewSystemUsers = await this.db.getCollection<IUser>('users');
+    return await reviewSystemUsers.findOne({$or: lookupConditions});
+  }
+
+  private async deleteReviewSystemUser(user: IUser): Promise<void> {
+    if (!user._id) {
+      return;
+    }
+
+    const reviewUserId = new ObjectId(user._id);
+    const reviewSystemUsers = await this.db.getCollection<IUser>('users');
+    const reviewSystemSessions = await this.db.getCollection<any>('sessions');
+    const reviewSystemNotifications =
+      await this.db.getCollection<any>('notifications');
+    const reviewSystemSubscriptions =
+      await this.db.getCollection<any>('subscriptions');
+
+    await reviewSystemSessions.deleteMany({user: reviewUserId});
+    await reviewSystemNotifications.deleteMany({
+      $or: [{userId: reviewUserId}, {enitity_id: reviewUserId}],
+    });
+    await reviewSystemSubscriptions.deleteMany({userId: reviewUserId});
+    await reviewSystemUsers.deleteOne({_id: reviewUserId});
+
+    if (user.firebaseUID) {
+      const firebaseAuth = getFirebaseAuth();
+      await firebaseAuth.deleteUser(user.firebaseUID).catch((error: any) => {
+        if (error?.code === 'auth/user-not-found') {
+          return;
+        }
+        throw error;
+      });
     }
   }
 
@@ -9271,17 +9350,28 @@ for (const item of raw) {
 
     try {
       await this.init(source);
+      const userObjectId = new ObjectId(userId);
 
       const existingUser = await this.users.findOne({
-        _id: new ObjectId(userId),
+        _id: userObjectId,
       });
       if (!existingUser) {
         throw new NotFoundError('User not found');
       }
 
+      const reviewSystemUser = await this.findMatchingReviewSystemUser(
+        existingUser,
+      );
+      const reviewSystemUsers = reviewSystemUser?._id
+        ? await this.db.getCollection<IUser>('users')
+        : null;
+      const reviewSystemUserId = reviewSystemUser?._id
+        ? new ObjectId(reviewSystemUser._id)
+        : null;
+
       if (
-        existingUser.password &&
-        bcrypt.compareSync(newPassword, existingUser.password)
+        this.passwordMatchesHash(newPassword, existingUser.password) ||
+        this.passwordMatchesHash(newPassword, reviewSystemUser?.password)
       ) {
         throw new BadRequestError(
           'New password cannot be the same as the existing password',
@@ -9289,42 +9379,156 @@ for (const item of raw) {
       }
 
       const hashedPassword = bcrypt.hashSync(newPassword, 10);
-      if (existingUser.firebaseUID) {
-        const firebaseAuth = getFirebaseAuth();
-        await firebaseAuth.updateUser(existingUser.firebaseUID, {
-          password: newPassword,
-        });
-        await firebaseAuth.revokeRefreshTokens(existingUser.firebaseUID);
-      }
-
-      const result = await this.users.updateOne(
-        {_id: new ObjectId(userId)},
-        {
-          $set: {
-            password: hashedPassword,
-            passwordChangedAt: new Date(),
-            refreshToken: [],
-            updatedAt: new Date(),
-          },
+      const passwordUpdatedAt = new Date();
+      const passwordUpdate = {
+        $set: {
+          password: hashedPassword,
+          passwordChangedAt: passwordUpdatedAt,
+          refreshToken: [],
+          updatedAt: passwordUpdatedAt,
         },
-      );
+      };
+      const firebaseUID = reviewSystemUser?.firebaseUID || existingUser.firebaseUID;
+      let sourcePasswordUpdated = false;
+      let reviewPasswordUpdated = false;
 
-      if (result.matchedCount === 0) {
-        throw new NotFoundError('User not found');
-      }
+      try {
+        const result = await this.users.updateOne(
+          {_id: userObjectId},
+          passwordUpdate,
+        );
 
-      if (!keepLoggedIn) {
-        await this.sessionCollection.deleteMany({
-          user: new ObjectId(userId),
+        if (result.matchedCount === 0) {
+          throw new NotFoundError('User not found');
+        }
+
+        sourcePasswordUpdated = true;
+
+        if (reviewSystemUsers && reviewSystemUserId) {
+          const reviewResult = await reviewSystemUsers.updateOne(
+            {_id: reviewSystemUserId},
+            passwordUpdate,
+          );
+
+          if (reviewResult.matchedCount === 0) {
+            throw new NotFoundError('Linked review system user not found');
+          }
+
+          reviewPasswordUpdated = true;
+        }
+
+        if (firebaseUID) {
+          const firebaseAuth = getFirebaseAuth();
+          await firebaseAuth.updateUser(firebaseUID, {
+            password: newPassword,
+          });
+          await firebaseAuth.revokeRefreshTokens(firebaseUID);
+        }
+
+        if (!keepLoggedIn) {
+          await this.sessionCollection.deleteMany({
+            user: userObjectId,
+          });
+
+          if (reviewSystemUserId) {
+            const reviewSystemSessions =
+              await this.db.getCollection<any>('sessions');
+            await reviewSystemSessions.deleteMany({
+              user: reviewSystemUserId,
+            });
+          }
+        }
+
+        return true;
+      } catch (error) {
+        await this.rollbackPasswordSync({
+          sourceUserId: userObjectId,
+          sourceUser: existingUser,
+          sourcePasswordUpdated,
+          reviewSystemUsers,
+          reviewSystemUserId,
+          reviewSystemUser,
+          reviewPasswordUpdated,
         });
+        throw error;
       }
-
-      return true;
     } catch (error) {
       if (error instanceof BadRequestError || error instanceof NotFoundError) {
         throw error;
       }
       throw new InternalServerError(`Failed to change user password: ${error}`);
+    }
+  }
+
+  private passwordMatchesHash(password: string, hash?: string): boolean {
+    return Boolean(hash && bcrypt.compareSync(password, hash));
+  }
+
+  private buildPasswordRollbackUpdate(user: IUser): any {
+    const setPayload: Record<string, any> = {};
+    const unsetPayload: Record<string, ''> = {};
+
+    for (const field of ['password', 'passwordChangedAt', 'refreshToken'] as const) {
+      if (Object.prototype.hasOwnProperty.call(user, field)) {
+        setPayload[field] = user[field];
+      } else {
+        unsetPayload[field] = '';
+      }
+    }
+
+    if (user.updatedAt) {
+      setPayload.updatedAt = user.updatedAt;
+    }
+
+    const update: any = {};
+    if (Object.keys(setPayload).length > 0) {
+      update.$set = setPayload;
+    }
+    if (Object.keys(unsetPayload).length > 0) {
+      update.$unset = unsetPayload;
+    }
+
+    return update;
+  }
+
+  private async rollbackPasswordSync({
+    sourceUserId,
+    sourceUser,
+    sourcePasswordUpdated,
+    reviewSystemUsers,
+    reviewSystemUserId,
+    reviewSystemUser,
+    reviewPasswordUpdated,
+  }: {
+    sourceUserId: ObjectId;
+    sourceUser: IUser;
+    sourcePasswordUpdated: boolean;
+    reviewSystemUsers: Collection<IUser> | null;
+    reviewSystemUserId: ObjectId | null;
+    reviewSystemUser?: IUser | null;
+    reviewPasswordUpdated: boolean;
+  }): Promise<void> {
+    try {
+      if (sourcePasswordUpdated) {
+        await this.users.updateOne(
+          {_id: sourceUserId},
+          this.buildPasswordRollbackUpdate(sourceUser),
+        );
+      }
+
+      if (
+        reviewPasswordUpdated &&
+        reviewSystemUsers &&
+        reviewSystemUserId &&
+        reviewSystemUser
+      ) {
+        await reviewSystemUsers.updateOne(
+          {_id: reviewSystemUserId},
+          this.buildPasswordRollbackUpdate(reviewSystemUser),
+        );
+      }
+    } catch (rollbackError) {
+      console.error('Failed to rollback password synchronization:', rollbackError);
     }
   }
 
@@ -11600,21 +11804,89 @@ for (const item of raw) {
   ): Promise<any> {
     try {
       await this.init(source);
+      const userObjectId = new ObjectId(userId);
+      const existingUser = await this.users.findOne({_id: userObjectId});
+
+      if (!existingUser) {
+        throw new NotFoundError('User not found');
+      }
+
+      const reviewSystemUser = await this.findMatchingReviewSystemUser(
+        existingUser,
+      );
+      const reviewSystemUsers = reviewSystemUser?._id
+        ? await this.db.getCollection<IUser>('users')
+        : null;
+      const reviewSystemUserId = reviewSystemUser?._id
+        ? new ObjectId(reviewSystemUser._id)
+        : null;
+      const verificationUpdatedAt = new Date();
+      const verificationUpdate = {
+        $set: {
+          isVerified,
+          updatedAt: verificationUpdatedAt,
+        },
+      };
 
       const result = await this.users.findOneAndUpdate(
-        {_id: new ObjectId(userId)},
-        {
-          $set: {
-            isVerified,
-            updatedAt: new Date(),
-          },
-        },
+        {_id: userObjectId},
+        verificationUpdate,
         {returnDocument: 'after'},
       );
+      if (!result) {
+        throw new NotFoundError('User not found');
+      }
+
+      try {
+        if (reviewSystemUsers && reviewSystemUserId) {
+          const reviewResult = await reviewSystemUsers.updateOne(
+            {_id: reviewSystemUserId},
+            verificationUpdate,
+          );
+
+          if (reviewResult.matchedCount === 0) {
+            throw new NotFoundError('Linked review system user not found');
+          }
+        }
+      } catch (error) {
+        const rollbackUpdate = Object.prototype.hasOwnProperty.call(
+          existingUser,
+          'isVerified',
+        )
+          ? {
+              $set: {
+                isVerified: existingUser.isVerified,
+                updatedAt: existingUser.updatedAt,
+              },
+            }
+          : {
+              $set: {
+                updatedAt: existingUser.updatedAt,
+              },
+              $unset: {
+                isVerified: '',
+              },
+            };
+
+        await this.users.updateOne(
+          {_id: userObjectId},
+          rollbackUpdate,
+        );
+        throw error;
+      }
+
       if (!isVerified) {
         await this.sessionCollection.deleteMany({
-          user: new ObjectId(userId),
+          user: userObjectId,
         });
+
+        if (reviewSystemUserId) {
+          const reviewSystemSessions =
+            await this.db.getCollection<any>('sessions');
+          await reviewSystemSessions.deleteMany({
+            user: reviewSystemUserId,
+          });
+        }
       }
 
       return result;
