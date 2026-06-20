@@ -89,10 +89,10 @@ export class LocationService implements ILocationService {
   }
 
   private async makeLGDRequest(apiUrl: string, filters?: Record<string, string | number>): Promise<any[]> {
-    const apiKey = process.env.LGD_VILLAGES_API_KEY;
+    const apiKey = process.env.LGD_API_KEY;
 
     if (!apiKey) {
-      throw new InternalServerError('LGD_VILLAGES_API_KEY is not configured');
+      throw new InternalServerError('LGD_API_KEY is not configured');
     }
 
     const params: Record<string, string | number> = {
