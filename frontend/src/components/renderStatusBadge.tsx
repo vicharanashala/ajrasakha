@@ -18,6 +18,8 @@ export function renderStatusBadge(status: string) {
       ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
       : status === "closed"
       ? "bg-gray-500/10 text-gray-600 border-gray-500/30"
+      : status === "duplicate_closed"
+      ? "bg-orange-400/10 text-orange-600 border-orange-400/30"
       : "bg-muted text-foreground";
 
   return (

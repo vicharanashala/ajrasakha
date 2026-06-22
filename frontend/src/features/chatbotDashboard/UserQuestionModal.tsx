@@ -270,6 +270,7 @@ function StatusBadge({ status }: { status: string }) {
   > = {
     duplicate: { variant: "destructive", label: "Duplicate" },
     closed: { variant: "secondary", label: "Closed" },
+    duplicate_closed: { variant: "outline", label: "Duplicate Closed" },
   };
   const cfg = map[status] ?? { variant: "outline", label: status };
   return (
