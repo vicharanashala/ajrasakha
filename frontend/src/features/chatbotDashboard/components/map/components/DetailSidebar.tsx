@@ -150,7 +150,7 @@ export function DetailSidebar({
   label = {
     <div className="flex items-center gap-1">
       <span>Questions</span>
-      <TooltipProvider>
+      {!isIndiaView && <TooltipProvider>
         <Tooltip>
            <TooltipTrigger asChild>
             <InfoIcon className="h-3 w-3 cursor-pointer text-muted-foreground" />
@@ -172,7 +172,7 @@ export function DetailSidebar({
             </div>
           </TooltipContent>
         </Tooltip>
-      </TooltipProvider>
+      </TooltipProvider>}
     </div>
   }
   value={renderCardValue(fmt(
