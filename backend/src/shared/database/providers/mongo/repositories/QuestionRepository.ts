@@ -2635,6 +2635,14 @@ export class QuestionRepository implements IQuestionRepository {
       status: {$ne: 'pass'},
     };
 
+    const closedMatchCondition: any = {
+      status: 'closed',
+      closedAt: {
+        $gte: startDate,
+        $lt: endDate,
+      },
+    };
+
     // Add time filtering if provided
     if (customStartTime && customEndTime) {
       const [startHour, startMinute] = customStartTime.split(':').map(Number);
@@ -2669,6 +2677,63 @@ export class QuestionRepository implements IQuestionRepository {
                     ],
                   },
                   {$minute: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                ],
+              },
+              endHour * 60 + endMinute,
+            ],
+          },
+        ],
+      };
+
+      closedMatchCondition.$expr = {
+        $and: [
+          {
+            $gte: [
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {
+                        $hour: {
+                          date: '$closedAt',
+                          timezone: 'Asia/Kolkata',
+                        },
+                      },
+                      60,
+                    ],
+                  },
+                  {
+                    $minute: {
+                      date: '$closedAt',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
+                ],
+              },
+              startHour * 60 + startMinute,
+            ],
+          },
+          {
+            $lte: [
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {
+                        $hour: {
+                          date: '$closedAt',
+                          timezone: 'Asia/Kolkata',
+                        },
+                      },
+                      60,
+                    ],
+                  },
+                  {
+                    $minute: {
+                      date: '$closedAt',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
                 ],
               },
               endHour * 60 + endMinute,
@@ -2725,15 +2790,24 @@ export class QuestionRepository implements IQuestionRepository {
         };
       },
     );
+
+    const [closedStats] = await this.QuestionCollection.aggregate(
+      [
+        {
+          $match: closedMatchCondition,
+        },
+        {
+          $count: 'totalVerified',
+        },
+      ],
+      { session },
+    ).toArray();
     const totalEntriesByType = formattedData.reduce(
       (sum, m) => sum + m.entries,
       0,
     );
-    const totalVerifiedByType = formattedData.reduce(
-      (sum, m) => sum + m.verified,
-      0,
-    );
 
+    const totalVerifiedByType = closedStats?.totalVerified ?? 0;
     const {moderatorBreakdown} = await this.getTodayApproved(
       session,
       startDate,
@@ -3455,6 +3529,14 @@ export class QuestionRepository implements IQuestionRepository {
       status: {$ne: 'pass'},
     };
 
+    const closedMatchCondition: any = {
+      status: 'closed',
+      closedAt: {
+        $gte: startDate,
+        $lt: endDate,
+      },
+    };
+
     // Add time filtering if provided
     if (customStartTime && customEndTime) {
       const [startHour, startMinute] = customStartTime.split(':').map(Number);
@@ -3489,6 +3571,63 @@ export class QuestionRepository implements IQuestionRepository {
                     ],
                   },
                   {$minute: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                ],
+              },
+              endHour * 60 + endMinute,
+            ],
+          },
+        ],
+      };
+
+      closedMatchCondition.$expr = {
+        $and: [
+          {
+            $gte: [
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {
+                        $hour: {
+                          date: '$closedAt',
+                          timezone: 'Asia/Kolkata',
+                        },
+                      },
+                      60,
+                    ],
+                  },
+                  {
+                    $minute: {
+                      date: '$closedAt',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
+                ],
+              },
+              startHour * 60 + startMinute,
+            ],
+          },
+          {
+            $lte: [
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {
+                        $hour: {
+                          date: '$closedAt',
+                          timezone: 'Asia/Kolkata',
+                        },
+                      },
+                      60,
+                    ],
+                  },
+                  {
+                    $minute: {
+                      date: '$closedAt',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
                 ],
               },
               endHour * 60 + endMinute,
@@ -3534,14 +3673,24 @@ export class QuestionRepository implements IQuestionRepository {
         verified: match?.totalVerified ?? 0,
       };
     });
+
+    const [closedStats] = await this.QuestionCollection.aggregate(
+      [
+        {
+          $match: closedMatchCondition,
+        },
+        {
+          $count: 'totalVerified',
+        },
+      ],
+      { session },
+    ).toArray();
+
     const totalEntriesByType = weeksDataRaw.reduce(
       (acc, curr) => acc + (curr.totalEntries || 0),
       0,
     );
-    const totalVerifiedByType = weeksDataRaw.reduce(
-      (acc, curr) => acc + (curr.totalVerified || 0),
-      0,
-    );
+   const totalVerifiedByType = closedStats?.totalVerified ?? 0;
 
     const {moderatorBreakdown} = await this.getTodayApproved(
       session,
@@ -3656,6 +3805,14 @@ export class QuestionRepository implements IQuestionRepository {
       status: {$ne: 'pass'},
     };
 
+    const closedMatchCondition: any = {
+      status: 'closed',
+      closedAt: {
+        $gte: startDate,
+        $lt: endDate,
+      },
+    };
+
     // Add time filtering if provided
     if (customStartTime && customEndTime) {
       const [startHour, startMinute] = customStartTime.split(':').map(Number);
@@ -3690,6 +3847,63 @@ export class QuestionRepository implements IQuestionRepository {
                     ],
                   },
                   {$minute: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                ],
+              },
+              endHour * 60 + endMinute,
+            ],
+          },
+        ],
+      };
+
+      closedMatchCondition.$expr = {
+        $and: [
+          {
+            $gte: [
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {
+                        $hour: {
+                          date: '$closedAt',
+                          timezone: 'Asia/Kolkata',
+                        },
+                      },
+                      60,
+                    ],
+                  },
+                  {
+                    $minute: {
+                      date: '$closedAt',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
+                ],
+              },
+              startHour * 60 + startMinute,
+            ],
+          },
+          {
+            $lte: [
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {
+                        $hour: {
+                          date: '$closedAt',
+                          timezone: 'Asia/Kolkata',
+                        },
+                      },
+                      60,
+                    ],
+                  },
+                  {
+                    $minute: {
+                      date: '$closedAt',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
                 ],
               },
               endHour * 60 + endMinute,
@@ -3736,14 +3950,23 @@ export class QuestionRepository implements IQuestionRepository {
       };
     });
 
+    const [closedStats] = await this.QuestionCollection.aggregate(
+      [
+        {
+          $match: closedMatchCondition,
+        },
+        {
+          $count: 'totalVerified',
+        },
+      ],
+      { session },
+    ).toArray();
+
     const totalEntriesByType = dailyDataRaw.reduce(
       (acc, curr) => acc + curr.totalEntries,
       0,
     );
-    const totalVerifiedByType = dailyDataRaw.reduce(
-      (acc, curr) => acc + curr.totalVerified,
-      0,
-    );
+    const totalVerifiedByType = closedStats?.totalVerified ?? 0;
 
     const {moderatorBreakdown} = await this.getTodayApproved(
       session,
@@ -3873,6 +4096,14 @@ export class QuestionRepository implements IQuestionRepository {
       status: {$ne: 'pass'},
     };
 
+    const closedMatchCondition: any = {
+      status: 'closed',
+      closedAt: {
+        $gte: startDate,
+        $lt: endDate,
+      },
+    };
+
     // Add time filtering if provided
     if (customStartTime && customEndTime) {
       const [startHour, startMinute] = customStartTime.split(':').map(Number);
@@ -3914,7 +4145,65 @@ export class QuestionRepository implements IQuestionRepository {
           },
         ],
       };
+
+      closedMatchCondition.$expr = {
+    $and: [
+      {
+        $gte: [
+          {
+            $add: [
+              {
+                $multiply: [
+                  {
+                    $hour: {
+                      date: '$closedAt',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
+                  60,
+                ],
+              },
+              {
+                $minute: {
+                  date: '$closedAt',
+                  timezone: 'Asia/Kolkata',
+                },
+              },
+            ],
+          },
+          startHour * 60 + startMinute,
+        ],
+      },
+      {
+        $lte: [
+          {
+            $add: [
+              {
+                $multiply: [
+                  {
+                    $hour: {
+                      date: '$closedAt',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
+                  60,
+                ],
+              },
+              {
+                $minute: {
+                  date: '$closedAt',
+                  timezone: 'Asia/Kolkata',
+                },
+              },
+            ],
+          },
+          endHour * 60 + endMinute,
+        ],
+      },
+    ],
+  };
     }
+
 
     const answers = await this.QuestionCollection.aggregate(
       [
@@ -3996,14 +4285,38 @@ export class QuestionRepository implements IQuestionRepository {
       },
     );
 
+    const [closedStats] = await this.QuestionCollection.aggregate(
+  [
+    {
+      $match: closedMatchCondition,
+    },
+    {
+      $addFields: {
+        dayOfWeek: {
+          $dayOfWeek: {
+            date: '$closedAt',
+            timezone: 'Asia/Kolkata',
+          },
+        },
+      },
+    },
+    {
+      $match: {
+        dayOfWeek: selectedDayNum + 1,
+      },
+    },
+    {
+      $count: 'totalVerified',
+    },
+  ],
+  { session },
+).toArray();
+
     const totalEntriesByType = answers.reduce(
       (acc, curr) => acc + curr.totalEntries,
       0,
     );
-    const totalVerifiedByType = answers.reduce(
-      (acc, curr) => acc + curr.totalVerified,
-      0,
-    );
+   const totalVerifiedByType = closedStats?.totalVerified ?? 0;
 
     // Filter moderator breakdown for the specific day
     const dayStartDate = new Date(
