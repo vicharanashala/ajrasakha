@@ -30,6 +30,7 @@ import { MapLegend } from "./components/MapLegend";
 import { DetailSidebar } from "./components/DetailSidebar";
 import { useAllStatesandUserData } from "./hooks/useMapAnalytics";
 import { useStateWiseAnalytics } from "../../hooks/useStateQueryData";
+import { useClosedAndNotifedData } from "../../hooks/useActiveUsersAnalytics";
 
 /* ============================================================
    MAIN COMPONENT
@@ -37,12 +38,12 @@ import { useStateWiseAnalytics } from "../../hooks/useStateQueryData";
 export default function IndiaAnalyticsMap({
   source,
   userType,
-  questionStatusData,
   todayActiveFarmersData,
 }: any) {
   // Hooks
   const dark = useIsDark();
   const { statesGeo, districtsAll, loading } = useGeoJson();
+    const { data: questionStatusData } = useClosedAndNotifedData(source, userType, undefined, undefined);
   const {
     level,
     selectedState,
@@ -132,8 +133,7 @@ export default function IndiaAnalyticsMap({
     (name: string, feature: GeoFeature) => {
       const stateData = allStatesData?.find((s) => s.state === name);
 
-      console.log("Selected:", name);
-      console.log("State data:", stateData);
+
       navigateToState(name, stateData.stateCode);
       handleFlyTo(feature);
     },
@@ -198,18 +198,12 @@ export default function IndiaAnalyticsMap({
         mouseout: () => setHovered((h) => (h === name ? null : h)),
         click: () => {
 
-          console.log("Clicked", name);
 
-  const stateData =
-    allStatesData?.find(
-      s => s.state === name,
-    );
 
-  console.log(stateData);
+
 
           if (level === "india") {
             const stateData = allStatesData?.find((s) => s.state === name);
-            console.log()
             navigateToState(name, stateData?.stateCode);
 
             const bounds = (layer as L.Polygon).getBounds?.();
