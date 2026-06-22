@@ -424,6 +424,7 @@ export class ChatbotController {
       search?: string;
       startDate?: Date;
       endDate?: Date;
+      isPassed?: string;
     },
   ) {
     if (query.category) {
@@ -482,6 +483,7 @@ export class ChatbotController {
         query.search,
         startDate,
         endDate,
+        query.isPassed,
       );
     } else {
       if(query.period){

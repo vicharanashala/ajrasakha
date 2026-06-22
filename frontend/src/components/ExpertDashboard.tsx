@@ -17,6 +17,7 @@ import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useGetReviewLevel } from "@/hooks/api/user/useGetReviewLevel";
 import { useGetAllExperts } from "@/hooks/api/user/useGetAllUsers";
 import { useCheckIn } from "@/hooks/api/performance/useCheckIn";
+import { useBlockUser } from "@/hooks/api/user/useBlockUser";
 import {
   Table,
   TableBody,
@@ -34,6 +35,8 @@ import { Badge } from "./atoms/badge";
 import { ConfirmationModal } from "./confirmation-modal";
 import { useRemoveExpertAllocations } from "@/hooks/api/Admin/useRemoveExpertAllocations";
 import { useGetAllocatedQuestions } from "@/hooks/api/question/useGetAllocatedQuestions";
+import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
+import { QuestionDetails } from "./question-details";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import type { IQuestion } from "@/types";
 import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
@@ -126,12 +129,25 @@ export const ExpertDashboard = ({
   );
   const [userDetails, setUserDetails] = useState<any[]>([]);
   const [totalUsers, setTotalUsers] = useState<number>(0);
-  const [checkInTimer, setCheckInTimer] = useState<string>("00:00:00");
-  const [lateTimer, setLateTimer] = useState<string | null>(null);
   const [questionsPage, setQuestionsPage] = useState(1);
   const questionsLimit = 11;
   const [questionsSearch, setQuestionsSearch] = useState("");
   const debouncedQuestionsSearch = useDebounce(questionsSearch, 200);
+
+  // Opening a question from the Questions tab into the full details view.
+  // The logged-in viewer is always fetched here (the dashboard's own `user`
+  // query is disabled when expert data is passed in), so QuestionDetails has a
+  // currentUser regardless of how the dashboard was mounted.
+  const [selectedQuestionId, setSelectedQuestionId] = useState<string>("");
+  // Controlled so returning from a question's details keeps the user on the tab
+  // they came from (e.g. "questions") instead of resetting to "review_level".
+  const [activeTab, setActiveTab] = useState("review_level");
+  const { data: viewerUser } = useGetCurrentUser();
+  const {
+    data: selectedQuestionDetails,
+    refetch: refetchSelectedQuestion,
+    isLoading: isLoadingSelectedQuestion,
+  } = useGetQuestionFullDataById(selectedQuestionId || null);
 
   const formatReviewLevel = (rawLevel: string | number | undefined) => {
     if (rawLevel === undefined || rawLevel === null) return "N/A";
@@ -174,6 +190,7 @@ export const ExpertDashboard = ({
     "allocated",
     null,
     "all",
+    true, // include reroute-pending questions in this management view
   );
 
   const allAllocatedQuestions = useMemo<
@@ -224,102 +241,73 @@ export const ExpertDashboard = ({
     setUserDetails(filteredUsers);
   }, [expertArr, user?.email]);
 
-  const lastCheckIn = userDetails?.[0]?.lastCheckInAt
-    ? new Date(userDetails[0].lastCheckInAt)
-    : null;
-  useEffect(() => {
-    if (!lastCheckIn) return;
-
-    const interval = setInterval(() => {
-      const now = new Date().getTime();
-      const diff = now - lastCheckIn.getTime();
-
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff / (1000 * 60)) % 60);
-      const seconds = Math.floor((diff / 1000) % 60);
-
-      const format = (n: number) => n.toString().padStart(2, "0");
-
-      setCheckInTimer(`${format(hours)}:${format(minutes)}:${format(seconds)}`);
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [lastCheckIn]);
-
-  const isCheckInDisabled = (lastCheckIn: Date | null) => {
-    if (!lastCheckIn) return false;
-
-    const now = new Date();
-
-    const startOfToday = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      0,
-      0,
-      0,
-      0,
-    );
-
-    const endOfToday = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      23,
-      59,
-      59,
-      999,
-    );
-
-    return lastCheckIn >= startOfToday && lastCheckIn <= endOfToday;
-  };
-  const isCheckedInToday = isCheckInDisabled(lastCheckIn);
-  const isLateCheckIn = (() => {
-    if (!lastCheckIn) return false;
-    const checkInTime = new Date(lastCheckIn);
-
-    const nineAM = new Date(checkInTime);
-    nineAM.setHours(9, 0, 0, 0);
-
-    return checkInTime > nineAM;
-  })();
-
-  useEffect(() => {
-    if (isCheckedInToday) {
-      setLateTimer(null);
-      return;
-    }
-
-    const interval = setInterval(() => {
-      const now = new Date();
-      const nineAM = new Date();
-      nineAM.setHours(9, 0, 0, 0);
-
-      if (now > nineAM) {
-        const diff = now.getTime() - nineAM.getTime();
-
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        const minutes = Math.floor((diff / (1000 * 60)) % 60);
-        const seconds = Math.floor((diff / 1000) % 60);
-
-        setLateTimer(
-          `${hours.toString().padStart(2, "0")}hr ` +
-          `${minutes.toString().padStart(2, "0")}min ` +
-          `${seconds.toString().padStart(2, "0")}sec`,
-        );
-      } else {
-        setLateTimer(null);
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [isCheckedInToday]);
-
-  const { checkIn, isPending } = useCheckIn();
+  const { checkIn, isPending: isCheckingIn } = useCheckIn();
+  const blockUser = useBlockUser();
   const {
     mutateAsync: removeExpertAllocations,
     isPending: removingAllocations,
   } = useRemoveExpertAllocations();
+
+  // Check-in/checkout state for experts (same as moderator)
+  const isExpert = user?.role === "expert";
+  const [checkedIn, setCheckedIn] = useState(
+    () => isExpert && user?.isBlocked === false,
+  );
+  const [checkedInAt, setCheckedInAt] = useState<number | null>(() =>
+    user?.lastCheckInAt ? new Date(user.lastCheckInAt).getTime() : null,
+  );
+  const [expertTimer, setExpertTimer] = useState("00:00:00");
+  const busy = isCheckingIn || blockUser.isPending;
+
+  // Re-sync with the server when user data changes
+  useEffect(() => {
+    setCheckedIn(isExpert && user?.isBlocked === false);
+    setCheckedInAt(
+      user?.lastCheckInAt ? new Date(user.lastCheckInAt).getTime() : null,
+    );
+  }, [isExpert, user?.isBlocked, user?.lastCheckInAt]);
+
+  // Timer for expert check-in
+  useEffect(() => {
+    if (!checkedIn || !checkedInAt) {
+      setExpertTimer("00:00:00");
+      return;
+    }
+    const tick = () => {
+      const diff = Date.now() - checkedInAt;
+      const f = (n: number) => Math.max(0, n).toString().padStart(2, "0");
+      setExpertTimer(
+        `${f(Math.floor(diff / 3600000))}:${f(Math.floor((diff / 60000) % 60))}:${f(
+          Math.floor((diff / 1000) % 60),
+        )}`,
+      );
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [checkedIn, checkedInAt]);
+
+  const handleExpertCheckIn = async () => {
+    if (!user?._id || busy) return;
+    try {
+      await blockUser.mutateAsync({ userId: user._id, action: "unblock" });
+      await checkIn();
+      setCheckedInAt(Date.now());
+      setCheckedIn(true);
+    } catch {
+      /* errors surfaced via the hooks' toasts */
+    }
+  };
+
+  const handleExpertCheckOut = async () => {
+    if (!user?._id || busy) return;
+    try {
+      await blockUser.mutateAsync({ userId: user._id, action: "block" });
+      setCheckedIn(false);
+    } catch {
+      /* errors surfaced via the hooks' toasts */
+    }
+  };
 
   const handleDateChange = (key: string, value?: Date) => {
     setExpertDate((prev) => ({
@@ -328,6 +316,31 @@ export const ExpertDashboard = ({
     }));
   };
   console.log("questtions ", paginatedQuestions)
+
+  // When a question is opened from the Questions tab, show its full details
+  // (same view used across the app) instead of the dashboard.
+  if (selectedQuestionId) {
+    return (
+      <main className="mx-auto w-full p-4 md:p-6">
+        {isLoadingSelectedQuestion || !selectedQuestionDetails?.data || !viewerUser ? (
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <Loader2 className="animate-spin w-6 h-6 text-primary" />
+          </div>
+        ) : (
+          <QuestionDetails
+            question={selectedQuestionDetails.data}
+            currentUserId={selectedQuestionDetails.currentUserId}
+            refetchAnswers={refetchSelectedQuestion}
+            isRefetching={isLoadingSelectedQuestion}
+            goBack={() => setSelectedQuestionId("")}
+            navigateToQuestionPage={() => setSelectedQuestionId("")}
+            currentUser={viewerUser!}
+          />
+        )}
+      </main>
+    );
+  }
+
   return (
     <main
       className={`min-h-screen bg-background ${isLoading ? "opacity-40" : ""}`}
@@ -426,73 +439,30 @@ export const ExpertDashboard = ({
               />
             )}
             {user?.role === "expert" && (
-              <div className="flex flex-col items-center gap-1">
-                <div className="flex flex-col items-center gap-0.5">
-                  {isCheckedInToday && (
-                    <span className="text-lg px-1 font-semibold tracking-widest w-full text-right">
-                      {checkInTimer}
-                    </span>
+              <div className="flex flex-col items-center gap-0.5">
+                {checkedIn && (
+                  <span className="text-lg px-1 font-semibold tracking-widest w-full text-center">
+                    {expertTimer}
+                  </span>
+                )}
+                <button
+                  disabled={busy}
+                  onClick={() => (checkedIn ? handleExpertCheckOut() : handleExpertCheckIn())}
+                  className={`flex items-center gap-2 px-2 py-2 rounded-xl border transition-all duration-200 cursor-pointer ${
+                    checkedIn
+                      ? "bg-card border-red-300 text-red-600 hover:bg-red-50"
+                      : "bg-card border-green-300 text-green-600 hover:bg-green-50"
+                  } ${busy ? "opacity-60 cursor-not-allowed" : ""}`}
+                >
+                  {checkedIn ? (
+                    <CheckCircle className="w-4 h-4 text-red-500" />
+                  ) : (
+                    <Clock className="w-5 h-5 text-green-500" />
                   )}
-
-                  <div className="relative group">
-                    <button
-                      disabled={isCheckedInToday || isPending}
-                      onClick={() => {
-                        if (!isCheckedInToday) checkIn();
-                      }}
-                      className={`
-                  flex items-center gap-2 px-2 py-2 rounded-xl border
-                  transition-all duration-200 
-                  ${isCheckedInToday
-                          ? "bg-green-50 border-green-200 text-green-600 cursor-not-allowed"
-                          : "bg-card border-green-300 text-green-600 hover:bg-green-50 cursor-pointer"
-                        }
-                  ${isPending ? "opacity-60" : ""}
-                `}
-                    >
-                      {isCheckedInToday ? (
-                        <CheckCircle className="w-4 h-4 text-green-500" />
-                      ) : (
-                        <Clock className="w-5 h-5 text-green-500 " />
-                      )}
-
-                      <span className="text-sm font-medium">
-                        {isCheckedInToday ? "Checked In" : "Check In"}
-                      </span>
-                    </button>
-                    <div
-                      className="
-                    absolute top-full mt-2 left-1/2 -translate-x-[70%]
-                    hidden group-hover:block
-                    w-74 text-xs text-white bg-green-500 rounded-lg px-3 py-2
-                    shadow-lg z-50
-                  "
-                    >
-                      <p className="font-medium">
-                        ⏰<b> Check-in Policy </b>
-                      </p>
-                      <p className="mt-1">
-                        • Check in before <b>9:00 AM</b>. Late check-ins will be
-                        marked <b>absent</b> and no questions will be allocated.
-                      </p>
-                      <p className="mt-1">
-                        • No checkout is required. The system resets
-                        automatically at the end of the day.
-                      </p>
-                    </div>
-                  </div>
-                  {lateTimer && !isCheckedInToday && (
-                    <span className="text-xs font-semibold text-red-500 tracking-wide">
-                      ⏱ You are <b>{lateTimer}</b> late
-                    </span>
-                  )}
-
-                  {isLateCheckIn && isCheckedInToday && (
-                    <span className="text-xs text-red-500 px-2 font-medium w-full text-right">
-                      Late Check-in
-                    </span>
-                  )}
-                </div>
+                  <span className="text-sm font-medium">
+                    {checkedIn ? "Check Out" : "Check In"}
+                  </span>
+                </button>
               </div>
             )}
           </div>
@@ -641,7 +611,7 @@ export const ExpertDashboard = ({
             </CardContent>
           </Card>
         </div>
-        <Tabs defaultValue="review_level" className="mt-10">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-10">
           <TabsList>
             <TabsTrigger value="review_level">Review Level</TabsTrigger>
             <TabsTrigger value="questions">Questions</TabsTrigger>
@@ -781,7 +751,13 @@ export const ExpertDashboard = ({
                       </TableRow>
                     ) : (
                       paginatedQuestions.map((question, index: number) => (
-                        <TableRow key={question.id ?? index}>
+                        <TableRow
+                          key={question.id ?? index}
+                          onClick={() =>
+                            question.id && setSelectedQuestionId(question.id)
+                          }
+                          className="cursor-pointer hover:bg-muted/50 transition-colors"
+                        >
                           <TableCell className="align-top text-center">
                             {(questionsPage - 1) * questionsLimit + index + 1}
                           </TableCell>

@@ -49,13 +49,17 @@ import {
 } from "../../components/atoms/select";
 import { Separator } from "../../components/atoms/separator";
 import { Input } from "../../components/atoms/input";
-import { STATES, CROPS, DOMAINS, SEASONS, DISTRICTS } from "../../components/MetaData";
+import { CROPS, DOMAINS, SEASONS} from "../../components/MetaData";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import { Label } from "@/components/atoms/label";
 import { Switch } from "@/components/atoms/switch";
-import { toast } from "sonner";
 import { TopLeftBadge, TopRightBadge } from "@/components/NewBadge";
 import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
+import { toast } from "@/shared/components/toast";
+import { 
+  useGetStates, 
+  useGetDistricts
+} from "@/hooks/api/location/useLocations";
 
 
 
@@ -98,8 +102,6 @@ export type AddQuestionValidationErrors = Partial<
 
 type DetailField = keyof NonNullable<IDetailedQuestion["details"]>;
 const OPTIONS: Partial<Record<DetailField, string[]>> = {
-  state: STATES,
-
   crop: CROPS,
   season: SEASONS,
   domain: DOMAINS,
@@ -136,6 +138,7 @@ const CropSelect = ({
     }
   };
 
+  
   return (
     <Select
       value={value?.trim() || undefined}
@@ -192,6 +195,16 @@ export const AddOrEditQuestionDialog = ({
 
   const invalidFieldClass =
     "border-red-500 dark:border-red-400 focus-visible:ring-red-500/60";
+
+  const { data: states = [], isLoading: isLoadingStates } = useGetStates();
+  const selectedStateCode = states.find(
+    (state) => state.stateNameEnglish === updatedData?.details?.state
+  )?.stateCode;
+  const {
+    data: districts = [],
+    isLoading: isLoadingDistricts,
+  } = useGetDistricts(selectedStateCode);
+  const districtNames = districts.map((district) => district.districtNameEnglish);
 
   useEffect(() => {
     if (mode === "edit" && question) {
@@ -804,14 +817,13 @@ export const AddOrEditQuestionDialog = ({
                       "district",
                     ] as DetailField[]
                   ).map((field) => {
-                    const stateVal = updatedData?.details?.state?.trim();
-                    const districtKey = stateVal
-                      ? Object.keys(DISTRICTS).find((k) => k.toLowerCase() === stateVal.toLowerCase())
-                      : undefined;
                     const fieldOptions =
-                      field === "district"
-                        ? districtKey ? DISTRICTS[districtKey] : []
+                      field === "state"
+                        ? states.map((state) => state.stateNameEnglish)
+                        : field === "district"
+                        ? districtNames
                         : OPTIONS[field];
+
                     return (
                       <div key={field} className="flex flex-col gap-2">
                         <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -824,8 +836,10 @@ export const AddOrEditQuestionDialog = ({
                             value={
                               updatedData?.details?.[field]?.trim()
                                 ? fieldOptions.find(
-                                  (o) => o.toLowerCase() === updatedData.details![field].toLowerCase().trim()
-                                ) ?? updatedData.details[field]
+                                    (o) =>
+                                      o.toLowerCase() ===
+                                      updatedData.details![field].toLowerCase().trim()
+                                  ) ?? updatedData.details[field]
                                 : undefined
                             }
                             onValueChange={(val) => {
@@ -833,21 +847,23 @@ export const AddOrEditQuestionDialog = ({
                               setUpdatedData((prev) =>
                                 prev
                                   ? {
-                                    ...prev,
-                                    details: {
-                                      ...prev.details,
-                                      [field]: val,
-                                    },
-                                  }
+                                      ...prev,
+                                      details: {
+                                        ...prev.details,
+                                        [field]: val,
+                                        ...(field === "state" ? { district: "" } : {}),
+                                      },
+                                    }
                                   : prev
                               );
                             }}
                           >
                             <SelectTrigger
-                              className={`w-full ${mode === "add" && validationErrors?.[field as AddQuestionField]
-                                ? invalidFieldClass
-                                : ""
-                                }`}
+                              className={`w-full ${
+                                mode === "add" && validationErrors?.[field as AddQuestionField]
+                                  ? invalidFieldClass
+                                  : ""
+                              }`}
                             >
                               <SelectValue placeholder={`Select ${field}`} />
                             </SelectTrigger>
@@ -860,9 +876,12 @@ export const AddOrEditQuestionDialog = ({
                               ))}
                               {(() => {
                                 const raw = updatedData?.details?.[field]?.trim();
-                                const hasMatch = raw && fieldOptions.some((o) => o.toLowerCase() === raw.toLowerCase());
+                                const hasMatch =
+                                  raw && fieldOptions.some((o) => o.toLowerCase() === raw.toLowerCase());
                                 return raw && !hasMatch ? (
-                                  <SelectItem key={raw} value={raw}>{raw}</SelectItem>
+                                  <SelectItem key={raw} value={raw}>
+                                    {raw}
+                                  </SelectItem>
                                 ) : null;
                               })()}
                             </SelectContent>
@@ -876,12 +895,12 @@ export const AddOrEditQuestionDialog = ({
                               setUpdatedData((prev) =>
                                 prev
                                   ? {
-                                    ...prev,
-                                    details: {
-                                      ...prev.details,
-                                      district: e.target.value,
-                                    },
-                                  }
+                                      ...prev,
+                                      details: {
+                                        ...prev.details,
+                                        district: e.target.value,
+                                      },
+                                    }
                                   : prev
                               );
                             }}
@@ -965,13 +984,7 @@ export const AddOrEditQuestionDialog = ({
                       "domain",
                     ] as DetailField[]
                   ).map((field) => {
-                    const fieldOptions =
-                      field === "district"
-                        ? updatedData?.details?.state &&
-                          DISTRICTS[updatedData.details.state]
-                          ? DISTRICTS[updatedData.details.state]
-                          : []
-                        : OPTIONS[field];
+                    const fieldOptions = OPTIONS[field];
                     return (
                       <div key={field} className="flex flex-col gap-2">
                         <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">

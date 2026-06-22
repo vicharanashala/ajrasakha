@@ -52,6 +52,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import {COORDINATOR_ROLES} from '#root/shared/constants/roles.js';
 import { BLOCKS, VILLAGES } from '#root/metaData.js';
+import { buildBaseQuestionMatch } from '#root/utils/dashboard-filters.js';
 
 const EXTERNAL_USER_ROLES = ['FARMER', ...COORDINATOR_ROLES] as const;
 
@@ -83,6 +84,8 @@ interface IUser {
   email?: string;
   firebaseUID?: string;
   password?: string;
+  passwordChangedAt?: Date;
+  refreshToken?: any[];
   role?: string;
   userRole?: string;
   isVerified?: boolean;
@@ -507,16 +510,8 @@ export class ChatbotRepository implements IChatbotRepository {
     dynamicSchemesCount: number;
     markedDuplicateGdbCount: number;
   }> {
-    const matchQuery: any = {
-      source,
-      createdAt: {$exists: true},
-      $and: [
-        {
-          $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-        },
-      ],
-      status: {$ne: 'non_agri'},
-    };
+
+    const matchQuery = buildBaseQuestionMatch(source);
     if (startTime || endTime) {
       matchQuery.createdAt = {};
       if (startTime) matchQuery.createdAt.$gte = new Date(startTime);
@@ -688,6 +683,42 @@ export class ChatbotRepository implements IChatbotRepository {
               },
               {$count: 'count'},
             ],
+            dynamicWeather: [
+              {
+                $match: {
+                  status: "dynamic",
+                  $or: [
+                    {'details.domain': /weather/i},
+                    {'details.category': /weather/i},
+                  ],
+                },
+              },
+              {$count: 'count'},
+            ],
+            dynamicMarket: [
+              {
+                $match: {
+                  status: "dynamic",
+                  $or: [
+                    {'details.domain': /market/i},
+                    {'details.category': /market/i},
+                  ],
+                },
+              },
+              {$count: 'count'},
+            ],
+            dynamicSchemes: [
+              {
+                $match: {
+                  status: "dynamic",
+                  $or: [
+                    {'details.domain': /scheme/i},
+                    {'details.category': /scheme/i},
+                  ],
+                },
+              },
+              {$count: 'count'},
+            ],
           },
         },
       ],
@@ -704,9 +735,9 @@ export class ChatbotRepository implements IChatbotRepository {
       inReviewCount: row.inReview?.[0]?.count ?? 0,
       openCount: row.open?.[0]?.count ?? 0,
       delayedCount: row.delayed?.[0]?.count ?? 0,
-      dynamicWeatherCount: 0,
-      dynamicMarketCount: 0,
-      dynamicSchemesCount: 0,
+      dynamicWeatherCount: row.dynamicWeather?.[0]?.count ?? 0,
+      dynamicMarketCount: row.dynamicMarket?.[0]?.count ?? 0,
+      dynamicSchemesCount: row.dynamicSchemes?.[0]?.count ?? 0,
       markedDuplicateGdbCount: row.markedDuplicateGdb?.[0]?.count ?? 0,
     };
   }
@@ -857,22 +888,15 @@ export class ChatbotRepository implements IChatbotRepository {
         .toArray();
       const messageStats = adherenceMessageStats[0] ?? {};
       const queryCounts = messageStats.queryCounts ?? [];
-      const dynamicWeatherCounts = messageStats.dynamicWeather ?? [];
-      const dynamicMarketCounts = messageStats.dynamicMarket ?? [];
-      const dynamicSchemesCounts = messageStats.dynamicSchemes ?? [];
 
-      const whatsappDynamicWeather =
-        dynamicWeatherCounts.find(q => q._id === 'WHATSAPP')?.count ?? 0;
-      const ajrasakhaDynamicWeather =
-        dynamicWeatherCounts.find(q => q._id === 'AJRASAKHA')?.count ?? 0;
-      const whatsappDynamicMarket =
-        dynamicMarketCounts.find(q => q._id === 'WHATSAPP')?.count ?? 0;
-      const ajrasakhaDynamicMarket =
-        dynamicMarketCounts.find(q => q._id === 'AJRASAKHA')?.count ?? 0;
-      const whatsappDynamicSchemes =
-        dynamicSchemesCounts.find(q => q._id === 'WHATSAPP')?.count ?? 0;
-      const ajrasakhaDynamicSchemes =
-        dynamicSchemesCounts.find(q => q._id === 'AJRASAKHA')?.count ?? 0;
+      const whatsappDynamicWeather = whatsapp.dynamicWeatherCount;
+      const ajrasakhaDynamicWeather = ajrasakha.dynamicWeatherCount;
+
+      const whatsappDynamicMarket = whatsapp.dynamicMarketCount;
+      const ajrasakhaDynamicMarket = ajrasakha.dynamicMarketCount;
+
+      const whatsappDynamicSchemes = whatsapp.dynamicSchemesCount;
+      const ajrasakhaDynamicSchemes = ajrasakha.dynamicSchemesCount;
 
       const totalUserMessages = queryCounts[0]?.count ?? 0;
       const whatsappQueriesAsked = 0;
@@ -1368,6 +1392,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const feedbackCount = (usersWithFeedback as any[])[0]?.total ?? 0;
 
       await this.initReviewSystem();
+      const matchQuery = buildBaseQuestionMatch(source);
       const query = await this.buildQuestionUserTypeMatchQuery(
         source,
         userType,
@@ -1377,15 +1402,8 @@ export class ChatbotRepository implements IChatbotRepository {
       const dupeWithMsgId = await this.QuestionCollection.find({
         similarityScore: {$exists: true},
         messageId: {$exists: true, $ne: null},
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-          {
-            ...query,
-          },
-        ],
-        status: {$ne: 'non_agri'},
+        ...matchQuery,
+        ...query,
       })
         .project<{messageId: string}>({messageId: 1})
         .toArray();
@@ -1764,19 +1782,11 @@ export class ChatbotRepository implements IChatbotRepository {
 
       // const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
       const source = _source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
+      const matchQuery = buildBaseQuestionMatch(source);
 
-      const matchQuery: any = {
-        source,
-        'details.domain': {
-          $exists: true,
-          $nin: [null, ''],
-        },
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-        ],
-        status: {$ne: 'non_agri'},
+      matchQuery['details.domain'] = {
+        $exists: true,
+        $nin: [null, ''],
       };
 
       const query = await this.buildQuestionUserTypeMatchQuery(
@@ -1895,20 +1905,14 @@ export class ChatbotRepository implements IChatbotRepository {
       const safePage = Math.max(Number(page) || 1, 1);
       const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
       const skip = (safePage - 1) * safeLimit;
-      // const lookupStages = this.buildQuestionUserTypeLookupStages(userType);
-      const baseMatch = {
-        source: 'AJRASAKHA',
-        'details.domain': {
-          $exists: true,
-          $nin: [null, ''],
-        },
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-        ],
-        status: {$ne: 'non_agri'},
+
+      const baseMatch = buildBaseQuestionMatch(_source);
+
+      baseMatch['details.domain'] = {
+        $exists: true,
+        $nin: [null, ''],
       };
+
       const query = await this.buildQuestionUserTypeMatchQuery(
         _source,
         userType,
@@ -1917,7 +1921,6 @@ export class ChatbotRepository implements IChatbotRepository {
       if (query && Object.keys(query).length > 0) {
         baseMatch.$and.push(query);
       }
-
       const categoryLabel = category?.trim();
       if (!categoryLabel) {
         throw new BadRequestError('category is required');
@@ -3191,17 +3194,11 @@ for (const item of raw) {
       const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
       const skip = (safePage - 1) * safeLimit;
       const sourceType = source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
-      const baseMatch = {
-        source: sourceType,
-        'details.district': {
-          $exists: true,
-          $nin: [null, ''],
-        },
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-        ],
+      const baseMatch = buildBaseQuestionMatch(sourceType);
+
+      baseMatch['details.district'] = {
+        $exists: true,
+        $nin: [null, ''],
       };
       const query = await this.buildQuestionUserTypeMatchQuery(
         source,
@@ -5000,17 +4997,13 @@ for (const item of raw) {
             {
               $match: {
                 ...monthDateMatch,
-
                 isCreatedByUser: true,
-
                 isDeleted: {
                   $ne: true,
                 },
               },
             },
-
             ...userTypeLookupStages,
-
             {
               $group: {
                 _id: {
@@ -5020,13 +5013,11 @@ for (const item of raw) {
                     timezone: '+05:30',
                   },
                 },
-
                 queryCount: {
                   $sum: 1,
                 },
               },
             },
-
             {
               $project: {
                 _id: 0,
@@ -5042,6 +5033,7 @@ for (const item of raw) {
       // ============================================
       // QUESTIONS COLLECTION DATA
       // ============================================
+      const baseQuestionQuery = buildBaseQuestionMatch(source);
 
       const questionData = await this.QuestionCollection.aggregate(
         [
@@ -5054,6 +5046,7 @@ for (const item of raw) {
               ...monthDateMatch,
               ...questionUserTypeLookupStages,
               status: {$ne: 'non_agri'},
+              ...baseQuestionQuery
             },
           },
           // ...userTypeLookupStages,
@@ -5112,22 +5105,30 @@ for (const item of raw) {
                   ],
                 },
               },
+              passedQuestions: {
+                $sum: {
+                  $cond: [
+                    {
+                      $eq: ['$status', 'pass'],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
             },
           },
 
           {
             $project: {
               _id: 0,
-
               period: '$_id',
-
               totalQuestions: 1,
-
               closedQuestions: 1,
-
               averageCloseTimeMinutes: {
                 $round: ['$averageCloseTimeMinutes', 2],
               },
+              passedQuestions: 1,
             },
           },
         ],
@@ -5147,6 +5148,7 @@ for (const item of raw) {
           totalQuestions: 0,
           closedQuestions: 0,
           averageCloseTimeMinutes: 0,
+           passedQuestions: 0,
         });
       }
 
@@ -5159,6 +5161,7 @@ for (const item of raw) {
           existing.averageCloseTime = this.formatAverageCloseTime(
             item.averageCloseTimeMinutes || 0,
           );
+          existing.passedQuestions = item.passedQuestions;
         } else {
           mergedMap.set(item.period, {
             period: item.period,
@@ -5168,6 +5171,7 @@ for (const item of raw) {
             averageCloseTime: this.formatAverageCloseTime(
               item.averageCloseTimeMinutes || 0,
             ),
+            passedQuestions: item.passedQuestions,
           });
         }
       }
@@ -5338,6 +5342,17 @@ for (const item of raw) {
                   ],
                 },
               },
+              passedQuestions: {
+                $sum: {
+                  $cond: [
+                    {
+                      $eq: ['$status', 'pass'],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
             },
           },
 
@@ -5354,6 +5369,7 @@ for (const item of raw) {
               averageCloseTimeMinutes: {
                 $round: ['$averageCloseTimeMinutes', 2],
               },
+              passedQuestions: 1,
             },
           },
         ],
@@ -5373,6 +5389,7 @@ for (const item of raw) {
           totalQuestions: 0,
           closedQuestions: 0,
           averageCloseTimeMinutes: 0,
+          passedQuestions: 0,
         });
       }
 
@@ -5385,6 +5402,7 @@ for (const item of raw) {
           existing.averageCloseTime = this.formatAverageCloseTime(
             item.averageCloseTimeMinutes || 0,
           );
+          existing.passedQuestions = item.passedQuestions;
         } else {
           mergedMap.set(item.period, {
             period: item.period,
@@ -5394,6 +5412,7 @@ for (const item of raw) {
             averageCloseTime: this.formatAverageCloseTime(
               item.averageCloseTimeMinutes || 0,
             ),
+            passedQuestions: item.passedQuestions,
           });
         }
       }
@@ -5558,6 +5577,15 @@ for (const item of raw) {
                   ],
                 },
               },
+              passedQuestions: {
+                $sum: {
+                  $cond: [
+                    {$eq: ['$status', 'pass']},
+                    1,
+                    0,
+                  ],
+                },
+              },
             },
           },
 
@@ -5574,6 +5602,7 @@ for (const item of raw) {
               averageCloseTimeMinutes: {
                 $round: ['$averageCloseTimeMinutes', 2],
               },
+              passedQuestions: 1,
             },
           },
         ],
@@ -5593,6 +5622,7 @@ for (const item of raw) {
           totalQuestions: 0,
           closedQuestions: 0,
           averageCloseTimeMinutes: 0,
+           passedQuestions: 0,
         });
       }
 
@@ -5605,6 +5635,7 @@ for (const item of raw) {
           existing.averageCloseTime = this.formatAverageCloseTime(
             item.averageCloseTimeMinutes || 0,
           );
+          existing.passedQuestions = item.passedQuestions;
         } else {
           mergedMap.set(item.period, {
             period: item.period,
@@ -5614,6 +5645,7 @@ for (const item of raw) {
             averageCloseTime: this.formatAverageCloseTime(
               item.averageCloseTimeMinutes || 0,
             ),
+             passedQuestions: item.passedQuestions,
           });
         }
       }
@@ -7072,25 +7104,9 @@ for (const item of raw) {
           items: [],
         };
       }
+      const matchQuery: any = buildBaseQuestionMatch(sourceType);
 
-      const matchQuery: any = {
-        source: sourceType,
-
-        $or: orConditions,
-
-        /**
-         * Handle both old and new values
-         */
-        status: {
-          $nin: ['non_agri', 'NO_AGRI'],
-        },
-
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-        ],
-      };
+      matchQuery.$or = orConditions;
 
       const query = await this.buildQuestionUserTypeMatchQuery(
         source,
@@ -8903,15 +8919,7 @@ for (const item of raw) {
     try {
       await this.initReviewSystem();
 
-      let matchQuery: any = {
-        source: dbSource === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA',
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-        ],
-        status: {$ne: 'non_agri'},
-      };
+      const matchQuery = buildBaseQuestionMatch('whatsapp');
 
       if (startTime || endTime) {
         matchQuery.createdAt = {};
@@ -9063,14 +9071,7 @@ for (const item of raw) {
   ): Promise<Array<{question: string; count: number}>> {
     try {
       await this.initReviewSystem();
-      let matchQuery: any = {
-        source: dbSource !== 'whatsapp' ? 'AJRASAKHA' : 'WHATSAPP',
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-        ],
-      };
+      const matchQuery = buildBaseQuestionMatch('whatsapp');
 
       if (startTime || endTime) {
         matchQuery.createdAt = {};
@@ -9166,14 +9167,91 @@ for (const item of raw) {
   async deleteUser(userId: string, source: string): Promise<boolean> {
     try {
       await this.init(source);
+      const userObjectId = new ObjectId(userId);
+      const existingUser = await this.users.findOne({_id: userObjectId});
+
+      if (!existingUser) {
+        throw new NotFoundError('User not found');
+      }
+
+      const reviewSystemUser =
+        source === 'whatsapp'
+          ? null
+          : await this.findMatchingReviewSystemUser(existingUser);
+
       await this.messagesCollection.updateMany(
         {user: userId},
         {$set: {isDeleted: true}},
       );
-      const result = await this.users.deleteOne({_id: new ObjectId(userId)});
-      return result.deletedCount === 1;
+      const result = await this.users.deleteOne({_id: userObjectId});
+
+      if (result.deletedCount !== 1) {
+        return false;
+      }
+
+      if (reviewSystemUser?._id) {
+        await this.deleteReviewSystemUser(reviewSystemUser);
+      }
+
+      return true;
     } catch (error) {
+      if (error instanceof NotFoundError) {
+        throw error;
+      }
       throw new InternalServerError(`Failed to delete user: ${error}`);
+    }
+  }
+
+  private async findMatchingReviewSystemUser(user: IUser): Promise<IUser | null> {
+    const lookupConditions: any[] = [];
+
+    const email = user.email?.trim();
+    if (email) {
+      lookupConditions.push({
+        email: new RegExp(`^${this.escapeRegex(email)}$`, 'i'),
+      });
+    }
+
+    if (user.firebaseUID) {
+      lookupConditions.push({firebaseUID: user.firebaseUID});
+    }
+
+    if (lookupConditions.length === 0) {
+      return null;
+    }
+
+    const reviewSystemUsers = await this.db.getCollection<IUser>('users');
+    return await reviewSystemUsers.findOne({$or: lookupConditions});
+  }
+
+  private async deleteReviewSystemUser(user: IUser): Promise<void> {
+    if (!user._id) {
+      return;
+    }
+
+    const reviewUserId = new ObjectId(user._id);
+    const reviewSystemUsers = await this.db.getCollection<IUser>('users');
+    const reviewSystemSessions = await this.db.getCollection<any>('sessions');
+    const reviewSystemNotifications =
+      await this.db.getCollection<any>('notifications');
+    const reviewSystemSubscriptions =
+      await this.db.getCollection<any>('subscriptions');
+
+    await reviewSystemSessions.deleteMany({user: reviewUserId});
+    await reviewSystemNotifications.deleteMany({
+      $or: [{userId: reviewUserId}, {enitity_id: reviewUserId}],
+    });
+    await reviewSystemSubscriptions.deleteMany({userId: reviewUserId});
+    await reviewSystemUsers.deleteOne({_id: reviewUserId});
+
+    if (user.firebaseUID) {
+      const firebaseAuth = getFirebaseAuth();
+      await firebaseAuth.deleteUser(user.firebaseUID).catch((error: any) => {
+        if (error?.code === 'auth/user-not-found') {
+          return;
+        }
+        throw error;
+      });
     }
   }
 
@@ -9301,17 +9379,28 @@ for (const item of raw) {
 
     try {
       await this.init(source);
+      const userObjectId = new ObjectId(userId);
 
       const existingUser = await this.users.findOne({
-        _id: new ObjectId(userId),
+        _id: userObjectId,
       });
       if (!existingUser) {
         throw new NotFoundError('User not found');
       }
 
+      const reviewSystemUser = await this.findMatchingReviewSystemUser(
+        existingUser,
+      );
+      const reviewSystemUsers = reviewSystemUser?._id
+        ? await this.db.getCollection<IUser>('users')
+        : null;
+      const reviewSystemUserId = reviewSystemUser?._id
+        ? new ObjectId(reviewSystemUser._id)
+        : null;
+
       if (
-        existingUser.password &&
-        bcrypt.compareSync(newPassword, existingUser.password)
+        this.passwordMatchesHash(newPassword, existingUser.password) ||
+        this.passwordMatchesHash(newPassword, reviewSystemUser?.password)
       ) {
         throw new BadRequestError(
           'New password cannot be the same as the existing password',
@@ -9319,42 +9408,156 @@ for (const item of raw) {
       }
 
       const hashedPassword = bcrypt.hashSync(newPassword, 10);
-      if (existingUser.firebaseUID) {
-        const firebaseAuth = getFirebaseAuth();
-        await firebaseAuth.updateUser(existingUser.firebaseUID, {
-          password: newPassword,
-        });
-        await firebaseAuth.revokeRefreshTokens(existingUser.firebaseUID);
-      }
-
-      const result = await this.users.updateOne(
-        {_id: new ObjectId(userId)},
-        {
-          $set: {
-            password: hashedPassword,
-            passwordChangedAt: new Date(),
-            refreshToken: [],
-            updatedAt: new Date(),
-          },
+      const passwordUpdatedAt = new Date();
+      const passwordUpdate = {
+        $set: {
+          password: hashedPassword,
+          passwordChangedAt: passwordUpdatedAt,
+          refreshToken: [],
+          updatedAt: passwordUpdatedAt,
         },
-      );
+      };
+      const firebaseUID = reviewSystemUser?.firebaseUID || existingUser.firebaseUID;
+      let sourcePasswordUpdated = false;
+      let reviewPasswordUpdated = false;
 
-      if (result.matchedCount === 0) {
-        throw new NotFoundError('User not found');
-      }
+      try {
+        const result = await this.users.updateOne(
+          {_id: userObjectId},
+          passwordUpdate,
+        );
 
-      if (!keepLoggedIn) {
-        await this.sessionCollection.deleteMany({
-          user: new ObjectId(userId),
+        if (result.matchedCount === 0) {
+          throw new NotFoundError('User not found');
+        }
+
+        sourcePasswordUpdated = true;
+
+        if (reviewSystemUsers && reviewSystemUserId) {
+          const reviewResult = await reviewSystemUsers.updateOne(
+            {_id: reviewSystemUserId},
+            passwordUpdate,
+          );
+
+          if (reviewResult.matchedCount === 0) {
+            throw new NotFoundError('Linked review system user not found');
+          }
+
+          reviewPasswordUpdated = true;
+        }
+
+        if (firebaseUID) {
+          const firebaseAuth = getFirebaseAuth();
+          await firebaseAuth.updateUser(firebaseUID, {
+            password: newPassword,
+          });
+          await firebaseAuth.revokeRefreshTokens(firebaseUID);
+        }
+
+        if (!keepLoggedIn) {
+          await this.sessionCollection.deleteMany({
+            user: userObjectId,
+          });
+
+          if (reviewSystemUserId) {
+            const reviewSystemSessions =
+              await this.db.getCollection<any>('sessions');
+            await reviewSystemSessions.deleteMany({
+              user: reviewSystemUserId,
+            });
+          }
+        }
+
+        return true;
+      } catch (error) {
+        await this.rollbackPasswordSync({
+          sourceUserId: userObjectId,
+          sourceUser: existingUser,
+          sourcePasswordUpdated,
+          reviewSystemUsers,
+          reviewSystemUserId,
+          reviewSystemUser,
+          reviewPasswordUpdated,
         });
+        throw error;
       }
-
-      return true;
     } catch (error) {
       if (error instanceof BadRequestError || error instanceof NotFoundError) {
         throw error;
       }
       throw new InternalServerError(`Failed to change user password: ${error}`);
+    }
+  }
+
+  private passwordMatchesHash(password: string, hash?: string): boolean {
+    return Boolean(hash && bcrypt.compareSync(password, hash));
+  }
+
+  private buildPasswordRollbackUpdate(user: IUser): any {
+    const setPayload: Record<string, any> = {};
+    const unsetPayload: Record<string, ''> = {};
+
+    for (const field of ['password', 'passwordChangedAt', 'refreshToken'] as const) {
+      if (Object.prototype.hasOwnProperty.call(user, field)) {
+        setPayload[field] = user[field];
+      } else {
+        unsetPayload[field] = '';
+      }
+    }
+
+    if (user.updatedAt) {
+      setPayload.updatedAt = user.updatedAt;
+    }
+
+    const update: any = {};
+    if (Object.keys(setPayload).length > 0) {
+      update.$set = setPayload;
+    }
+    if (Object.keys(unsetPayload).length > 0) {
+      update.$unset = unsetPayload;
+    }
+
+    return update;
+  }
+
+  private async rollbackPasswordSync({
+    sourceUserId,
+    sourceUser,
+    sourcePasswordUpdated,
+    reviewSystemUsers,
+    reviewSystemUserId,
+    reviewSystemUser,
+    reviewPasswordUpdated,
+  }: {
+    sourceUserId: ObjectId;
+    sourceUser: IUser;
+    sourcePasswordUpdated: boolean;
+    reviewSystemUsers: Collection<IUser> | null;
+    reviewSystemUserId: ObjectId | null;
+    reviewSystemUser?: IUser | null;
+    reviewPasswordUpdated: boolean;
+  }): Promise<void> {
+    try {
+      if (sourcePasswordUpdated) {
+        await this.users.updateOne(
+          {_id: sourceUserId},
+          this.buildPasswordRollbackUpdate(sourceUser),
+        );
+      }
+
+      if (
+        reviewPasswordUpdated &&
+        reviewSystemUsers &&
+        reviewSystemUserId &&
+        reviewSystemUser
+      ) {
+        await reviewSystemUsers.updateOne(
+          {_id: reviewSystemUserId},
+          this.buildPasswordRollbackUpdate(reviewSystemUser),
+        );
+      }
+    } catch (rollbackError) {
+      console.error('Failed to rollback password synchronization:', rollbackError);
     }
   }
 
@@ -9747,19 +9950,17 @@ for (const item of raw) {
 
     const carryForwardWindowEnd = new Date(end);
     carryForwardWindowEnd.setHours(0, 0, 0, 0);
-
+    const baseMatch = buildBaseQuestionMatch("whatsapp");
     const [closedInSelectedTime, analytics, carryForward] = await Promise.all([
       // Closed during selected period
       this.QuestionCollection.aggregate([
         {
           $match: {
-            source: 'WHATSAPP',
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+            ...baseMatch,
             closedAt: {
               $gte: start,
               $lt: end,
             },
-            status: {$ne: 'non_agri'},
           },
         },
         {
@@ -9777,110 +9978,44 @@ for (const item of raw) {
       ]).toArray(),
 
       // Daily analytics
-      this.QuestionCollection.aggregate([
+      await this.QuestionCollection.aggregate([
         {
           $match: {
-            source: 'WHATSAPP',
+            ...baseMatch,
             createdAt: {
               $gte: start,
               $lt: end,
             },
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-            status: {$ne: 'non_agri'},
           },
         },
+        // Group by period + status
         {
           $group: {
             _id: {
-              $dateToString: {
-                format: '%Y-%m-%d',
-                date: '$createdAt',
-                timezone: '+05:30',
+              period: {
+                $dateToString: {
+                  format: "%Y-%m-%d",
+                  date: "$createdAt",
+                  timezone: "+05:30",
+                },
               },
+              status: "$status",
             },
-
-            totalQuestions: {$sum: 1},
-
-            queryCount: {$sum: 1},
-
-            closedQuestions: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'closed']}, 1, 0],
-              },
+            count: {
+              $sum: 1,
             },
-
-            open: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'open']}, 1, 0],
-              },
-            },
-
-            inReview: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'in-review']}, 1, 0],
-              },
-            },
-
-            delayed: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'delayed']}, 1, 0],
-              },
-            },
-
-            rerouted: {
-              $sum: {
-                $cond: [{$eq: ['$status', 're-routed']}, 1, 0],
-              },
-            },
-
-            hold: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'hold']}, 1, 0],
-              },
-            },
-
-            paeSubmitted: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'pae_submitted']}, 1, 0],
-              },
-            },
-
-            draft: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'draft']}, 1, 0],
-              },
-            },
-
-            pass: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'pass']}, 1, 0],
-              },
-            },
-
-            duplicate: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'duplicate']}, 1, 0],
-              },
-            },
-
-            nonAgri: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'non_agri']}, 1, 0],
-              },
-            },
-
-            averageCloseTimeMinutes: {
+            avgCloseTime: {
               $avg: {
                 $cond: [
                   {
                     $and: [
-                      {$eq: ['$status', 'closed']},
-                      {$ne: ['$closedAt', null]},
+                      { $eq: ["$status", "closed"] },
+                      { $ne: ["$closedAt", null] },
                     ],
                   },
                   {
                     $divide: [
-                      {$subtract: ['$closedAt', '$createdAt']},
+                      { $subtract: ["$closedAt", "$createdAt"] },
                       1000 * 60,
                     ],
                   },
@@ -9890,27 +10025,39 @@ for (const item of raw) {
             },
           },
         },
+        // Group by period
+        {
+          $group: {
+            _id: "$_id.period",
+            totalQuestions: {
+              $sum: "$count",
+            },
+            statuses: {
+              $push: {
+                k: "$_id.status",
+                v: "$count",
+              },
+            },
+            averageCloseTimeMinutes: {
+              $max: "$avgCloseTime",
+            },
+          },
+        },
         {
           $project: {
             _id: 0,
-            period: '$_id',
-
+            period: "$_id",
             totalQuestions: 1,
-            closedQuestions: 1,
-
-            open: 1,
-            inReview: 1,
-            delayed: 1,
-            rerouted: 1,
-            hold: 1,
-            paeSubmitted: 1,
-            draft: 1,
-            pass: 1,
-            duplicate: 1,
-            nonAgri: 1,
-
+            statuses: {
+              $arrayToObject: "$statuses",
+            },
             averageCloseTimeMinutes: {
-              $ifNull: [{$round: ['$averageCloseTimeMinutes', 2]}, 0],
+              $ifNull: [
+                {
+                  $round: ["$averageCloseTimeMinutes", 2],
+                },
+                0,
+              ],
             },
           },
         },
@@ -9921,18 +10068,15 @@ for (const item of raw) {
         },
       ]).toArray(),
 
-      this.QuestionCollection.countDocuments({
-        source: 'WHATSAPP',
-
+      await this.QuestionCollection.countDocuments({
+        ...baseMatch,
         createdAt: {
           $gte: carryForwardWindowStart,
           $lt: carryForwardWindowEnd,
         },
-
         status: {
-          $nin: ['closed', 'non_agri'],
+          $nin: ['closed', 'non_agri', 'dynamic'],
         },
-        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
       }),
     ]);
 
@@ -9949,25 +10093,22 @@ for (const item of raw) {
     if (result.length) {
       result[result.length - 1].carryForward = carryForward;
     }
-
     return result;
   }
 
   async getWeeklyAnalyticsForWhatsApp(start: Date, end: Date): Promise<any[]> {
     await this.initReviewSystem();
-
+    const baseMatch = buildBaseQuestionMatch("whatsapp");
     const [closedInSelectedTime, analytics] = await Promise.all([
       // Closed during selected period
       this.QuestionCollection.aggregate([
         {
           $match: {
-            source: 'WHATSAPP',
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+            ...baseMatch,
             closedAt: {
               $gte: start,
               $lt: end,
             },
-            status: {$ne: 'non_agri'},
           },
         },
         {
@@ -9990,99 +10131,33 @@ for (const item of raw) {
       this.QuestionCollection.aggregate([
         {
           $match: {
-            source: 'WHATSAPP',
+            ...baseMatch,
             createdAt: {
               $gte: start,
               $lt: end,
             },
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-            status: {$ne: 'non_agri'},
           },
         },
 
+        // Group by week + status
         {
           $group: {
             _id: {
-              $dateToString: {
-                format: '%G-W%V',
-                date: '$createdAt',
-                timezone: '+05:30',
+              period: {
+                $dateToString: {
+                  format: '%G-W%V',
+                  date: '$createdAt',
+                  timezone: '+05:30',
+                },
               },
+              status: '$status',
             },
 
-            totalQuestions: {
+            count: {
               $sum: 1,
             },
 
-            queryCount: {$sum: 1},
-
-            closedQuestions: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'closed']}, 1, 0],
-              },
-            },
-
-            open: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'open']}, 1, 0],
-              },
-            },
-
-            inReview: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'in-review']}, 1, 0],
-              },
-            },
-
-            delayed: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'delayed']}, 1, 0],
-              },
-            },
-
-            rerouted: {
-              $sum: {
-                $cond: [{$eq: ['$status', 're-routed']}, 1, 0],
-              },
-            },
-
-            hold: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'hold']}, 1, 0],
-              },
-            },
-
-            paeSubmitted: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'pae_submitted']}, 1, 0],
-              },
-            },
-
-            draft: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'draft']}, 1, 0],
-              },
-            },
-
-            pass: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'pass']}, 1, 0],
-              },
-            },
-
-            duplicate: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'duplicate']}, 1, 0],
-              },
-            },
-
-            nonAgri: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'non_agri']}, 1, 0],
-              },
-            },
-
-            averageCloseTimeMinutes: {
+            avgCloseTime: {
               $avg: {
                 $cond: [
                   {
@@ -10093,9 +10168,7 @@ for (const item of raw) {
                   },
                   {
                     $divide: [
-                      {
-                        $subtract: ['$closedAt', '$createdAt'],
-                      },
+                      {$subtract: ['$closedAt', '$createdAt']},
                       1000 * 60,
                     ],
                   },
@@ -10106,27 +10179,39 @@ for (const item of raw) {
           },
         },
 
+        // Group by week
+        {
+          $group: {
+            _id: '$_id.period',
+
+            totalQuestions: {
+              $sum: '$count',
+            },
+
+            statuses: {
+              $push: {
+                k: '$_id.status',
+                v: '$count',
+              },
+            },
+
+            averageCloseTimeMinutes: {
+              $max: '$avgCloseTime',
+            },
+          },
+        },
+
         {
           $project: {
             _id: 0,
 
             period: '$_id',
 
-            queryCount: 1,
-
             totalQuestions: 1,
-            closedQuestions: 1,
 
-            open: 1,
-            inReview: 1,
-            delayed: 1,
-            rerouted: 1,
-            hold: 1,
-            paeSubmitted: 1,
-            draft: 1,
-            pass: 1,
-            duplicate: 1,
-            nonAgri: 1,
+            statuses: {
+              $arrayToObject: '$statuses',
+            },
 
             averageCloseTimeMinutes: {
               $ifNull: [
@@ -10158,17 +10243,16 @@ for (const item of raw) {
   }
 
   async getMonthlyAnalyticsForWhatsApp(): Promise<any[]> {
+    const baseMatch = buildBaseQuestionMatch("whatsapp");
     const [closedInSelectedTime, analytics] = await Promise.all([
       // Closed in month
       this.QuestionCollection.aggregate([
         {
           $match: {
-            source: 'WHATSAPP',
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+            ...baseMatch,
             closedAt: {
               $ne: null,
             },
-            status: {$ne: 'non_agri'},
           },
         },
         {
@@ -10191,93 +10275,29 @@ for (const item of raw) {
       this.QuestionCollection.aggregate([
         {
           $match: {
-            source: 'WHATSAPP',
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-            status: {$ne: 'non_agri'},
+            ...baseMatch,
           },
         },
 
+        // Group by month + status
         {
           $group: {
             _id: {
-              $dateToString: {
-                format: '%Y-%m',
-                date: '$createdAt',
-                timezone: '+05:30',
+              period: {
+                $dateToString: {
+                  format: '%Y-%m',
+                  date: '$createdAt',
+                  timezone: '+05:30',
+                },
               },
+              status: '$status',
             },
 
-            totalQuestions: {$sum: 1},
-
-            queryCount: {$sum: 1},
-
-            closedQuestions: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'closed']}, 1, 0],
-              },
+            count: {
+              $sum: 1,
             },
 
-            open: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'open']}, 1, 0],
-              },
-            },
-
-            inReview: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'in-review']}, 1, 0],
-              },
-            },
-
-            delayed: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'delayed']}, 1, 0],
-              },
-            },
-
-            rerouted: {
-              $sum: {
-                $cond: [{$eq: ['$status', 're-routed']}, 1, 0],
-              },
-            },
-
-            hold: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'hold']}, 1, 0],
-              },
-            },
-
-            paeSubmitted: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'pae_submitted']}, 1, 0],
-              },
-            },
-
-            draft: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'draft']}, 1, 0],
-              },
-            },
-
-            pass: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'pass']}, 1, 0],
-              },
-            },
-
-            duplicate: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'duplicate']}, 1, 0],
-              },
-            },
-
-            nonAgri: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'non_agri']}, 1, 0],
-              },
-            },
-
-            averageCloseTimeMinutes: {
+            avgCloseTime: {
               $avg: {
                 $cond: [
                   {
@@ -10288,9 +10308,7 @@ for (const item of raw) {
                   },
                   {
                     $divide: [
-                      {
-                        $subtract: ['$closedAt', '$createdAt'],
-                      },
+                      {$subtract: ['$closedAt', '$createdAt']},
                       1000 * 60,
                     ],
                   },
@@ -10301,27 +10319,39 @@ for (const item of raw) {
           },
         },
 
+        // Group by month
+        {
+          $group: {
+            _id: '$_id.period',
+
+            totalQuestions: {
+              $sum: '$count',
+            },
+
+            statuses: {
+              $push: {
+                k: '$_id.status',
+                v: '$count',
+              },
+            },
+
+            averageCloseTimeMinutes: {
+              $max: '$avgCloseTime',
+            },
+          },
+        },
+
         {
           $project: {
             _id: 0,
 
             period: '$_id',
 
-            queryCount: 1,
-
             totalQuestions: 1,
-            closedQuestions: 1,
 
-            open: 1,
-            inReview: 1,
-            delayed: 1,
-            rerouted: 1,
-            hold: 1,
-            paeSubmitted: 1,
-            draft: 1,
-            pass: 1,
-            duplicate: 1,
-            nonAgri: 1,
+            statuses: {
+              $arrayToObject: '$statuses',
+            },
 
             averageCloseTimeMinutes: {
               $ifNull: [
@@ -10357,18 +10387,19 @@ for (const item of raw) {
   ): Promise<DuplicateQuestionEntry[]> {
     try {
       await this.initReviewSystem();
+      const matchQuery = buildBaseQuestionMatch('whatsapp');
+
+      matchQuery.similarityScore = {
+        $exists: true,
+      };
+
+      matchQuery.referenceQuestionId = {
+        $exists: true,
+      };
 
       const dupeQuestions = await this.QuestionCollection.find(
         {
-          source: 'WHATSAPP',
-          $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          similarityScore: {
-            $exists: true,
-          },
-          referenceQuestionId: {
-            $exists: true,
-          },
-          status: {$ne: 'non_agri'},
+          $match: matchQuery,
         },
         {session},
       )
@@ -10430,11 +10461,7 @@ for (const item of raw) {
     try {
       await this.initReviewSystem();
 
-      const matchQuery: any = {
-        source: 'WHATSAPP',
-        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-        status: {$ne: 'non_agri'},
-      };
+      const matchQuery = buildBaseQuestionMatch('whatsapp');
 
       // ============================================
       // DATE FILTER
@@ -10500,21 +10527,20 @@ for (const item of raw) {
   ): Promise<number> {
     try {
       await this.initReviewSystem();
+      const matchQuery = buildBaseQuestionMatch('whatsapp');
+
+      matchQuery.similarityScore = {
+        $exists: true,
+      };
+
+      matchQuery.referenceQuestionId = {
+        $exists: true,
+      };
 
       const result = await this.QuestionCollection.aggregate(
         [
           {
-            $match: {
-              source: 'WHATSAPP',
-              $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-              similarityScore: {
-                $exists: true,
-              },
-              referenceQuestionId: {
-                $exists: true,
-              },
-              status: {$ne: 'non_agri'},
-            },
+            $match: matchQuery,
           },
 
           {
@@ -10540,31 +10566,26 @@ for (const item of raw) {
   ): Promise<any> {
     try {
       await this.initReviewSystem();
-      const matchStage: any = {
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-        ],
-        status: {$ne: 'non_agri'},
-      };
-      const dbSource = source;
-      if (source !== 'whatsapp') {
-        source = 'AJRASAKHA';
-      }
-      matchStage.source = source.toUpperCase();
+
+      const matchStage = buildBaseQuestionMatch(source);
+
       if (startDate || endDate) {
         matchStage.createdAt = {};
         if (startDate) matchStage.createdAt.$gte = startDate;
         if (endDate) matchStage.createdAt.$lte = endDate;
       }
       const query = await this.buildQuestionUserTypeMatchQuery(
-        dbSource,
+        source,
         userType,
       );
 
       if (query && Object.keys(query).length > 0) {
         matchStage.$and.push(query);
+      }
+      if(source === "both"){
+        matchStage.source = {
+          $in: ["WHATSAPP", "AJRASAKHA"],
+        };
       }
 
       const previousMonthReferenceDate = startDate ?? new Date();
@@ -10586,6 +10607,7 @@ for (const item of raw) {
           $lt: previousMonthEnd,
         },
       };
+// console.log("getClosedVsTotalQuestions matchQuery,startDate, endDate, source, userType", JSON.stringify(matchStage, null, 2),startDate, endDate, source, userType)
 
       const avgCloseTimeStages = [
         {
@@ -10677,176 +10699,278 @@ for (const item of raw) {
       ];
 
       const [result, previousMonthResult] = await Promise.all([
-        this.QuestionCollection.aggregate([
+        await this.QuestionCollection.aggregate([
           {
             $match: matchStage,
           },
           {
             $addFields: {
-              _statusLower: {$toLower: {$ifNull: ['$status', '']}},
-              _operationalCompletionAt: {
-                $cond: [
-                  {
-                    $in: [
-                      {$toLower: {$ifNull: ['$status', '']}},
-                      ['pass'],
-                    ],
-                  },
-                  '$passedAt',
-                  '$closedAt',
-                ],
+              _statusLower: {
+                $toLower: {
+                  $ifNull: ['$status', ''],
+                },
               },
             },
           },
           {
-            $group: {
-              _id: null,
-              totalQuestions: {$sum: 1},
-              closedQuestions: {
-                $sum: {
-                  $cond: [
-                    {$in: ['$_statusLower', ['closed', 'pass']]},
-                    1,
-                    0,
-                  ],
-                },
-              },
-              inReviewQuestions: {
-                $sum: {
-                  $cond: [{$eq: ['$status', 'in-review']}, 1, 0],
-                },
-              },
-
-              open: {
-                $sum: {
-                  $cond: [{$eq: ['$status', 'open']}, 1, 0],
-                },
-              },
-
-              inReview: {
-                $sum: {
-                  $cond: [{$eq: ['$status', 'in-review']}, 1, 0],
-                },
-              },
-
-              delayed: {
-                $sum: {
-                  $cond: [{$eq: ['$status', 'delayed']}, 1, 0],
-                },
-              },
-
-              rerouted: {
-                $sum: {
-                  $cond: [{$eq: ['$status', 're-routed']}, 1, 0],
-                },
-              },
-
-              hold: {
-                $sum: {
-                  $cond: [{$eq: ['$status', 'hold']}, 1, 0],
-                },
-              },
-
-              paeSubmitted: {
-                $sum: {
-                  $cond: [{$eq: ['$status', 'pae_submitted']}, 1, 0],
-                },
-              },
-
-              draft: {
-                $sum: {
-                  $cond: [{$eq: ['$status', 'draft']}, 1, 0],
-                },
-              },
-
-              pass: {
-                $sum: {
-                  $cond: [{$eq: ['$_statusLower', 'pass']}, 1, 0],
-                },
-              },
-
-              duplicate: {
-                $sum: {
-                  $cond: [{$eq: ['$status', 'duplicate']}, 1, 0],
-                },
-              },
-
-              nonAgri: {
-                $sum: {
-                  $cond: [{$eq: ['$status', 'non_agri']}, 1, 0],
-                },
-              },
-              closeTimeSumMs: {
-                $sum: {
-                  $cond: [
-                    {
-                      $and: [
-                        {$in: ['$_statusLower', ['closed', 'pass']]},
-                        {$ne: ['$createdAt', null]},
-                        {$ne: ['$_operationalCompletionAt', null]},
-                        {$gte: ['$_operationalCompletionAt', '$createdAt']},
-                      ],
+            $facet: {
+              metrics: [
+                {
+                  $group: {
+                    _id: null,
+                    totalQuestions: {
+                      $sum: 1,
                     },
-                    {$subtract: ['$_operationalCompletionAt', '$createdAt']},
-                    0,
-                  ],
-                },
-              },
-              timedCompletedQuestions: {
-                $sum: {
-                  $cond: [
-                    {
-                      $and: [
-                        {$in: ['$_statusLower', ['closed', 'pass']]},
-                        {$ne: ['$createdAt', null]},
-                        {$ne: ['$_operationalCompletionAt', null]},
-                        {$gte: ['$_operationalCompletionAt', '$createdAt']},
-                      ],
+                    closedQuestions: {
+                      $sum: {
+                        $cond: [
+                          {$eq: ['$_statusLower', 'closed']},
+                          1,
+                          0,
+                        ],
+                      },
                     },
-                    1,
-                    0,
-                  ],
+                    passedQuestions: {
+                      $sum: {
+                        $cond: [
+                          {$eq: ['$_statusLower', 'pass']},
+                          1,
+                          0,
+                        ],
+                      },
+                    },
+                    // Closed metrics
+                    closedTimedQuestions: {
+                      $sum: {
+                        $cond: [
+                          {
+                            $and: [
+                              {$eq: ['$_statusLower', 'closed']},
+                              {$ne: ['$createdAt', null]},
+                              {$ne: ['$closedAt', null]},
+                              {$gte: ['$closedAt', '$createdAt']},
+                            ],
+                          },
+                          1,
+                          0,
+                        ],
+                      },
+                    },
+                    closedTimeSumMs: {
+                      $sum: {
+                        $cond: [
+                          {
+                            $and: [
+                              {$eq: ['$_statusLower', 'closed']},
+                              {$ne: ['$createdAt', null]},
+                              {$ne: ['$closedAt', null]},
+                              {$gte: ['$closedAt', '$createdAt']},
+                            ],
+                          },
+                          {
+                            $subtract: ['$closedAt', '$createdAt'],
+                          },
+                          0,
+                        ],
+                      },
+                    },
+                    // Pass metrics
+                    passedTimedQuestions: {
+                      $sum: {
+                        $cond: [
+                          {
+                            $and: [
+                              {$eq: ['$_statusLower', 'pass']},
+                              {$ne: ['$createdAt', null]},
+                              {$ne: ['$passedAt', null]},
+                              {$gte: ['$passedAt', '$createdAt']},
+                            ],
+                          },
+                          1,
+                          0,
+                        ],
+                      },
+                    },
+                    passedTimeSumMs: {
+                      $sum: {
+                        $cond: [
+                          {
+                            $and: [
+                              {$eq: ['$_statusLower', 'pass']},
+                              {$ne: ['$createdAt', null]},
+                              {$ne: ['$passedAt', null]},
+                              {$gte: ['$passedAt', '$createdAt']},
+                            ],
+                          },
+                          {
+                            $subtract: ['$passedAt', '$createdAt'],
+                          },
+                          0,
+                        ],
+                      },
+                    },
+                  },
                 },
+              ],
+              statuses: [
+                {
+                  $group: {
+                    _id: '$_statusLower',
+                    count: {
+                      $sum: 1,
+                    },
+                  },
+                },
+                {
+                  $group: {
+                    _id: null,
+                    statuses: {
+                      $push: {
+                        k: '$_id',
+                        v: '$count',
+                      },
+                    },
+                  },
+                },
+                {
+                  $project: {
+                    _id: 0,
+                    statuses: {
+                      $arrayToObject: '$statuses',
+                    },
+                  },
+                },
+              ],
+            },
+          },
+          {
+            $project: {
+              metrics: {
+                $arrayElemAt: ['$metrics', 0],
+              },
+              statuses: {
+                $ifNull: [
+                  {
+                    $arrayElemAt: ['$statuses.statuses', 0],
+                  },
+                  {},
+                ],
               },
             },
           },
           {
             $project: {
               _id: 0,
-              totalQuestions: 1,
-              closedQuestions: 1,
-              inReviewQuestions: 1,
-
-              open: 1,
-              inReview: 1,
-              delayed: 1,
-              rerouted: 1,
-              hold: 1,
-              paeSubmitted: 1,
-              draft: 1,
-              pass: 1,
-              duplicate: 1,
-              nonAgri: 1,
-              avgCloseTimeMinutes: {
-                $cond: [
-                  {$gt: ['$timedCompletedQuestions', 0]},
-                  {
-                    $round: [
-                      {
-                        $divide: [
-                          '$closeTimeSumMs',
-                          {$multiply: ['$timedCompletedQuestions', 60000]},
-                        ],
-                      },
-                      2,
-                    ],
-                  },
-                  0,
-                ],
+              totalQuestions: '$metrics.totalQuestions',
+              closed: {
+                count: '$metrics.closedQuestions',
+                avgTimeMinutes: {
+                  $cond: [
+                    {
+                      $gt: ['$metrics.closedTimedQuestions', 0],
+                    },
+                    {
+                      $round: [
+                        {
+                          $divide: [
+                            '$metrics.closedTimeSumMs',
+                            {
+                              $multiply: [
+                                '$metrics.closedTimedQuestions',
+                                60000,
+                              ],
+                            },
+                          ],
+                        },
+                        2,
+                      ],
+                    },
+                    0,
+                  ],
+                },
+              },
+              pass: {
+                count: '$metrics.passedQuestions',
+                avgTimeMinutes: {
+                  $cond: [
+                    {
+                      $gt: ['$metrics.passedTimedQuestions', 0],
+                    },
+                    {
+                      $round: [
+                        {
+                          $divide: [
+                            '$metrics.passedTimeSumMs',
+                            {
+                              $multiply: [
+                                '$metrics.passedTimedQuestions',
+                                60000,
+                              ],
+                            },
+                          ],
+                        },
+                        2,
+                      ],
+                    },
+                    0,
+                  ],
+                },
+              },
+              statuses: 1,
+              combined: {
+                count: {
+                  $add: [
+                    '$metrics.closedQuestions',
+                    '$metrics.passedQuestions',
+                  ],
+                },
+                avgTimeMinutes: {
+                  $cond: [
+                    {
+                      $gt: [
+                        {
+                          $add: [
+                            '$metrics.closedTimedQuestions',
+                            '$metrics.passedTimedQuestions',
+                          ],
+                        },
+                        0,
+                      ],
+                    },
+                    {
+                      $round: [
+                        {
+                          $divide: [
+                            {
+                              $add: [
+                                '$metrics.closedTimeSumMs',
+                                '$metrics.passedTimeSumMs',
+                              ],
+                            },
+                            {
+                              $multiply: [
+                                {
+                                  $add: [
+                                    '$metrics.closedTimedQuestions',
+                                    '$metrics.passedTimedQuestions',
+                                  ],
+                                },
+                                60000,
+                              ],
+                            },
+                          ],
+                        },
+                        2,
+                      ],
+                    },
+                    0,
+                  ],
+                },
               },
             },
           },
         ]).toArray(),
+        
         this.QuestionCollection.aggregate([
           {
             $match: previousMonthMatchStage,
@@ -10854,13 +10978,16 @@ for (const item of raw) {
           ...avgCloseTimeStages,
         ]).toArray(),
       ]);
-
+// console.log("result---", result)
       return {
         ...(result[0] || {
           totalQuestions: 0,
           closedQuestions: 0,
           inReviewQuestions: 0,
           avgCloseTimeMinutes: 0,
+          combined: 0,
+          closed: 0,
+          pass: 0,
         }),
         previousMonthAvgCloseTimeMinutes:
           previousMonthResult[0]?.avgCloseTimeMinutes || 0,
@@ -10880,34 +11007,27 @@ for (const item of raw) {
   ): Promise<any> {
     try {
       await this.initReviewSystem();
-
-      const matchStage: any = {
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-        ],
-        status: {$ne: 'non_agri'},
-      };
-      const dbSource = source;
-      if (source !== 'whatsapp') {
-        source = 'AJRASAKHA';
-      }
-      matchStage.source = source.toUpperCase();
-
+      const matchStage = buildBaseQuestionMatch(source);
       if (startDate || endDate) {
         matchStage.createdAt = {};
         if (startDate) matchStage.createdAt.$gte = startDate;
         if (endDate) matchStage.createdAt.$lte = endDate;
       }
       const query = await this.buildQuestionUserTypeMatchQuery(
-        dbSource,
+        source,
         userType,
       );
 
       if (query && Object.keys(query).length > 0) {
         matchStage.$and.push(query);
       }
+      if(source === "both"){
+        matchStage.source = {
+          $in: ["WHATSAPP", "AJRASAKHA"],
+        };
+      }
+
+// console.log("getNotifiedVsClosed", source, userType, JSON.stringify(matchStage, null, 2))
 
       const [result] = await this.QuestionCollection.aggregate([
         {
@@ -10921,7 +11041,7 @@ for (const item of raw) {
                 $cond: [
                   {
                     $and: [
-                      {$eq: ['$status', 'closed']},
+                      {$in: ['$status', ['closed']]},
                       {$eq: ['$isCustomerNotified', false]},
                     ],
                   },
@@ -10935,7 +11055,7 @@ for (const item of raw) {
                 $cond: [
                   {
                     $and: [
-                      {$eq: ['$status', 'closed']},
+                      {$in: ['$status', ['closed']]},
                       {$eq: ['$isCustomerNotified', true]},
                     ],
                   },
@@ -10958,7 +11078,9 @@ for (const item of raw) {
       const untrackedClosedQuestions =
         await this.QuestionCollection.countDocuments({
           ...matchStage,
-          status: 'closed',
+          status: {
+            $in: ['closed'],
+          },
           isCustomerNotified: {$exists: false},
         });
 
@@ -10984,18 +11106,7 @@ for (const item of raw) {
   ): Promise<any> {
     try {
       await this.initReviewSystem();
-
-      const finalSource: QuestionSource =
-        source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
-
-      const matchStage: any = {
-        source: finalSource,
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-        ],
-      };
+      const matchStage = buildBaseQuestionMatch(source);
 
       if (startDate || endDate) {
         matchStage.createdAt = {};
@@ -11010,47 +11121,106 @@ for (const item of raw) {
       if (query && Object.keys(query).length > 0) {
         matchStage.$and.push(query);
       }
+      if(source === "both"){
+        matchStage.source = {
+          $in: ["WHATSAPP", "AJRASAKHA"],
+        };
+      }
+      matchStage.status = { 
+        $in: ["closed", "pass"],
+      };
 
-      const result = await this.QuestionCollection.aggregate([
-        {$match: matchStage},
-        {
-          $addFields: {
-            _statusLower: {$toLower: {$ifNull: ['$status', '']}},
-            _operationalCompletionAt: {
-              $cond: [
-                {
-                  $in: [
-                    {$toLower: {$ifNull: ['$status', '']}},
-                    ['pass'],
-                  ],
+      const [totalCountResult, lastTwoHoursResult] = await Promise.all([
+        this.QuestionCollection.aggregate([
+          {
+            $match: matchStage,
+          },
+          {
+            $addFields: {
+              _statusLower: {
+                $toLower: {
+                  $ifNull: ['$status', ''],
                 },
-                '$passedAt',
-                '$closedAt',
-              ],
+              },
             },
           },
-        },
-        {
-          $match: {
-            _statusLower: {$in: ['closed', 'pass']},
-            _operationalCompletionAt: {$ne: null},
-            $expr: {
-              $and: [
-                {$gte: ['$_operationalCompletionAt', '$createdAt']},
-                {
-                  $lte: [
-                    {$subtract: ['$_operationalCompletionAt', '$createdAt']},
-                    2 * 60 * 60 * 1000,
-                  ],
+          {
+            $group: {
+              _id: null,
+              closedCount: {
+                $sum: {
+                  $cond: [{$eq: ['$_statusLower', 'closed']}, 1, 0],
                 },
-              ],
+              },
+              passCount: {
+                $sum: {
+                  $cond: [{$eq: ['$_statusLower', 'pass']}, 1, 0],
+                },
+              },
             },
           },
-        },
-        {$count: 'count'},
-      ]).toArray();
-      const count = result[0]?.count ?? 0;
-      return count;
+        ]).toArray(),
+
+        this.QuestionCollection.aggregate([
+          {
+            $match: matchStage,
+          },
+          {
+            $addFields: {
+              _statusLower: {$toLower: {$ifNull: ['$status', '']}},
+              _operationalCompletionAt: {
+                $cond: [
+                  {$eq: [{$toLower: {$ifNull: ['$status', '']}}, 'pass']},
+                  '$passedAt',
+                  '$closedAt',
+                ],
+              },
+            },
+          },
+          {
+            $match: {
+              _statusLower: {$in: ['closed', 'pass']},
+              _operationalCompletionAt: {$ne: null},
+              $expr: {
+                $and: [
+                  {$gte: ['$_operationalCompletionAt', '$createdAt']},
+                  {
+                    $lte: [
+                      {$subtract: ['$_operationalCompletionAt', '$createdAt']},
+                      2 * 60 * 60 * 1000,
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              closedCount: {
+                $sum: {
+                  $cond: [{$eq: ['$_statusLower', 'closed']}, 1, 0],
+                },
+              },
+              passCount: {
+                $sum: {
+                  $cond: [{$eq: ['$_statusLower', 'pass']}, 1, 0],
+                },
+              },
+            },
+          },
+        ]).toArray(),
+      ]);
+
+      return {
+        totalClosedCount: totalCountResult[0]?.closedCount ?? 0,
+        totalPassCount: totalCountResult[0]?.passCount ?? 0,
+        closedInTwoHoursCount:
+          lastTwoHoursResult[0]?.closedCount ?? 0,
+        passInTwoHoursCount:
+          lastTwoHoursResult[0]?.passCount ?? 0,
+      };
+
     } catch (error) {
       throw new InternalServerError(
         `Failed to get closed questions in last two hours: ${error}`,
@@ -11211,27 +11381,18 @@ for (const item of raw) {
   ): Promise<any> {
     try {
       await this.initReviewSystem();
-      const matchStage: any = {
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-        ],
-        status: {$ne: 'non_agri'},
-      };
-      const dbSource = source;
-      if (source !== 'whatsapp') {
-        source = 'AJRASAKHA';
-      }
-      matchStage.source = source.toUpperCase();
+      const matchStage = buildBaseQuestionMatch(source);
       const query = await this.buildQuestionUserTypeMatchQuery(
-        dbSource,
+        source,
         userType,
       );
 
       if (query && Object.keys(query).length > 0) {
         matchStage.$and.push(query);
       }
+      matchStage.source = {
+        $in: ["WHATSAPP", "AJRASAKHA"],
+      };
       const carryForwardWindowStart = new Date(
         new Date().toLocaleString('en-US', {
           timeZone: 'Asia/Kolkata',
@@ -11245,15 +11406,17 @@ for (const item of raw) {
         }),
       );
       carryForwardWindowEnd.setHours(0, 0, 0, 0);
+      matchStage.status = { $ne: 'closed' }
+      // console.log("getCarryForwardQuestions matchQuery,carryForwardWindowStart, carryForwardWindowEnd, source, userType", JSON.stringify(matchStage, null, 2),carryForwardWindowStart,carryForwardWindowEnd, source, userType)
       const count = await this.QuestionCollection.countDocuments({
         ...matchStage,
         createdAt: {
           $gte: carryForwardWindowStart,
           $lt: carryForwardWindowEnd,
         },
-        status: {
-          $ne: 'closed',
-        },
+        // status: {
+        //   $ne: 'closed',
+        // },
       });
       return count;
     } catch (error) {
@@ -11670,21 +11833,89 @@ for (const item of raw) {
   ): Promise<any> {
     try {
       await this.init(source);
+      const userObjectId = new ObjectId(userId);
+      const existingUser = await this.users.findOne({_id: userObjectId});
+
+      if (!existingUser) {
+        throw new NotFoundError('User not found');
+      }
+
+      const reviewSystemUser = await this.findMatchingReviewSystemUser(
+        existingUser,
+      );
+      const reviewSystemUsers = reviewSystemUser?._id
+        ? await this.db.getCollection<IUser>('users')
+        : null;
+      const reviewSystemUserId = reviewSystemUser?._id
+        ? new ObjectId(reviewSystemUser._id)
+        : null;
+      const verificationUpdatedAt = new Date();
+      const verificationUpdate = {
+        $set: {
+          isVerified,
+          updatedAt: verificationUpdatedAt,
+        },
+      };
 
       const result = await this.users.findOneAndUpdate(
-        {_id: new ObjectId(userId)},
-        {
-          $set: {
-            isVerified,
-            updatedAt: new Date(),
-          },
-        },
+        {_id: userObjectId},
+        verificationUpdate,
         {returnDocument: 'after'},
       );
+      if (!result) {
+        throw new NotFoundError('User not found');
+      }
+
+      try {
+        if (reviewSystemUsers && reviewSystemUserId) {
+          const reviewResult = await reviewSystemUsers.updateOne(
+            {_id: reviewSystemUserId},
+            verificationUpdate,
+          );
+
+          if (reviewResult.matchedCount === 0) {
+            throw new NotFoundError('Linked review system user not found');
+          }
+        }
+      } catch (error) {
+        const rollbackUpdate = Object.prototype.hasOwnProperty.call(
+          existingUser,
+          'isVerified',
+        )
+          ? {
+              $set: {
+                isVerified: existingUser.isVerified,
+                updatedAt: existingUser.updatedAt,
+              },
+            }
+          : {
+              $set: {
+                updatedAt: existingUser.updatedAt,
+              },
+              $unset: {
+                isVerified: '',
+              },
+            };
+
+        await this.users.updateOne(
+          {_id: userObjectId},
+          rollbackUpdate,
+        );
+        throw error;
+      }
+
       if (!isVerified) {
         await this.sessionCollection.deleteMany({
-          user: new ObjectId(userId),
+          user: userObjectId,
         });
+
+        if (reviewSystemUserId) {
+          const reviewSystemSessions =
+            await this.db.getCollection<any>('sessions');
+          await reviewSystemSessions.deleteMany({
+            user: reviewSystemUserId,
+          });
+        }
       }
 
       return result;
@@ -11820,8 +12051,8 @@ for (const item of raw) {
     // Questions with null userId
     const questionWithNullUsers = await this.QuestionCollection.find(
       {
+        ...buildBaseQuestionMatch(source),
         userId: null,
-        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
       },
       {
         projection: {
@@ -12518,15 +12749,23 @@ for (const item of raw) {
 
       const sourceType = source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
 
-      const matchQuery: any = {
-        source: sourceType,
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-        ],
-        status: {$ne: 'non_agri'},
-      };
+      const matchQuery = buildBaseQuestionMatch(sourceType);
+
+      // Apply status filter
+      if (status !== 'all') {
+        matchQuery.status = status;
+      }
+
+      if(source === "both"){
+        matchQuery.source = {
+          $in: ["AJRASAKHA", "WHATSAPP"],
+        };
+      }
+      if(status === "closed"){
+        matchQuery.status = {
+          $in: ["closed"],
+        };
+      }
 
       // Apply date range
 
@@ -12551,11 +12790,6 @@ for (const item of raw) {
         }
       }
 
-      // Apply status filter
-      if (status !== 'all') {
-        matchQuery.status = status;
-      }
-
       // Apply user type filter
       const query = await this.buildQuestionUserTypeMatchQuery(
         source,
@@ -12565,7 +12799,6 @@ for (const item of raw) {
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
       }
-
       // Search by name/email
       if (search?.trim()) {
         const matchingUsers = await this.users
@@ -12718,25 +12951,30 @@ for (const item of raw) {
     search?: string,
     startDate?: Date,
     endDate?: Date,
+    isPassed?: string,
   ): Promise<any> {
     await this.initReviewSystem();
-    await this.init(source);
+    await this.init("annam");
 
     const safePage = Math.max(Number(page) || 1, 1);
     const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
     const skip = (safePage - 1) * safeLimit;
 
     const sourceType = source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
-
-    const matchQuery: any = {
-      source: sourceType,
-      $and: [
-        {
-          $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-        },
-      ],
+    const matchQuery = buildBaseQuestionMatch(sourceType);
+    if(source === "both"){
+      matchQuery.source = {
+        $in: ["AJRASAKHA", "WHATSAPP"],
+      };
+    }
+    matchQuery.status = { 
+      $in: ["closed"],
     };
-
+    if(isPassed === "true"){
+      matchQuery.status = { 
+        $in: ["pass"],
+      };
+    }
     const validStartDate =
       startDate instanceof Date && !isNaN(startDate.getTime());
 
@@ -12913,7 +13151,7 @@ for (const item of raw) {
         state: user?.farmerProfile?.state,
       };
     });
-
+// console.log("total----", total)
     return {
       questions: enrichedQuestions,
       total,
@@ -12935,8 +13173,9 @@ for (const item of raw) {
     endDate?: Date,
   ): Promise<any> {
     try {
+      // console.log("startdate enddate-------", startDate, endDate);
       await this.initReviewSystem();
-      await this.init(source);
+      await this.init("annam");
 
       const safePage = Math.max(Number(page) || 1, 1);
       const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
@@ -12944,14 +13183,14 @@ for (const item of raw) {
 
       const sourceType = source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
 
-      const matchQuery: any = {
-        source: sourceType,
-        status: 'closed',
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-        ],
+      const matchQuery = buildBaseQuestionMatch(sourceType);
+      if(source === "both"){
+        matchQuery.source = {
+          $in: ["AJRASAKHA", "WHATSAPP"],
+        };
+      }
+      matchQuery.status = {
+        $in: ["closed"],
       };
 
       // Date range
@@ -12980,7 +13219,7 @@ for (const item of raw) {
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
       }
-
+// console.log("getQuestionsByNotificationStatus", notificationType, JSON.stringify(matchQuery, null, 2))
       // Notification filter
       switch (notificationType) {
         case 'notified':
@@ -13192,7 +13431,7 @@ for (const item of raw) {
     search?: string,
   ): Promise<any> {
     try {
-      await this.init(source);
+      await this.init("annam");
 
       const safePage = Math.max(Number(page) || 1, 1);
       const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
@@ -13436,18 +13675,12 @@ for (const item of raw) {
 
      const userDocFilter =
   this.buildUserDocFilter(userType);
-      const matchQuery: any = {
-        source: sourceType,
-        'details.state': {
-              $nin: [null, '', 'all', '<unknown>', 'Not Specified', 'All'],
-            },
-        $and: [
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-        ],
-        status: {$ne: 'non_agri'},
+      const matchQuery = buildBaseQuestionMatch(sourceType);
+
+      matchQuery['details.state'] = {
+        $nin: [null, '', 'all', '<unknown>', 'Not Specified', 'All'],
       };
+
 
       const query = await this.buildQuestionUserTypeMatchQuery(
         sourceType,
@@ -13610,17 +13843,10 @@ for (const item of raw) {
         ])
         .toArray();
 
-        console.log(
-  'usersByState',
-  JSON.stringify(usersByState, null, 2),
-);
-
       const totalActiveFromStates = usersByState.reduce(
         (sum, s) => sum + s.activeUsers,
         0,
       );
-
-      console.log('State active total:', totalActiveFromStates);
 
       const stateMap = new Map();
 
@@ -13858,16 +14084,13 @@ existing.coordinators =
         questionUserMatches.push({threadId: {$in: userThreadIds}});
       }
 
-      const userQuestionFilter: any = {
-        $and: [
-          {$or: questionUserMatches},
-          {
-            $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          },
-          {status: {$nin: ['non_agri', 'NO_AGRI', 'no_agri']}},
-        ],
-        source: 'AJRASAKHA',
-      };
+      const userQuestionFilter: any = buildBaseQuestionMatch('AJRASAKHA');
+
+      if (questionUserMatches.length > 0) {
+        userQuestionFilter.$and.push({
+          $or: questionUserMatches,
+        });
+      }
 
       const userQuestions = await this.QuestionCollection.find(
         userQuestionFilter,
@@ -14437,7 +14660,7 @@ existing.coordinators =
 ) {
   try{
     await this.init(source)
-    console.log("State", state, "district", district);
+    // console.log("State", state, "district", district);
   const userDocFilter =
   this.buildUserDocFilter(userType);
     const data =  await this.users
@@ -14490,7 +14713,7 @@ existing.coordinators =
       },
     ])
     .toArray();
-    console.log("Data got it", data)
+    // console.log("Data got it", data)
     return data;
   }catch(error){
     throw new InternalServerError(`Internal Server Error ${error}`)

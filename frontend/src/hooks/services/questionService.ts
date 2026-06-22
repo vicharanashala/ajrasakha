@@ -175,6 +175,7 @@ export class QuestionService {
     actionType: string,
     autoSelectQuestionId?: string | null,
     reviewLevel?: string,
+    includeRerouted?: boolean,
   ): Promise<IQuestion[] | ReroutedQuestionItem[] | null> {
     const params = new URLSearchParams({
       page: pageParam.toString(),
@@ -203,6 +204,10 @@ export class QuestionService {
     }
     if (reviewLevel) {
       params.append("review_level", reviewLevel);
+    }
+    // Opt-in: also surface reroute-pending questions (Expert Management dashboard).
+    if (includeRerouted) {
+      params.append("includeRerouted", "true");
     }
     if (preferences.dateRange && preferences.dateRange !== "all")
       params.append("dateRange", preferences.dateRange);

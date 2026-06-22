@@ -123,10 +123,12 @@ export class NotificationService extends BaseService {
     title?: string,
   ): Promise<{ insertedId: string }> {
     const cleanMessage = message?.trim();
-    const defaultTitle =
-      currentUser?.role === 'admin'
-        ? 'Message from admin'
-        : 'Message from coordinator';
+    const senderName =
+      [currentUser?.firstName, currentUser?.lastName].filter(Boolean).join(' ').trim() ||
+      currentUser?.email;
+    const defaultTitle = senderName
+      ? `Message from ${senderName}`
+      : 'Message';
     const cleanTitle = title?.trim() || defaultTitle;
 
     if (!targetUserId || !ObjectId.isValid(targetUserId)) {

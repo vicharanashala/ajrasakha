@@ -57,6 +57,7 @@ import {
   CircleSlash,
   Copy,
   AlertCircle,
+  Zap,
 } from "lucide-react";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import {
@@ -237,18 +238,12 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     <FileText className="h-4 w-4 text-primary" />
                     Question Status
                   </Label>
-                  <Select
-                    value={advanceFilter.isOnHold ? "hold" : advanceFilter.status}
-                    onValueChange={(v) => {
-                      if (v === "hold") {
-                        handleDialogChange("status", "all");
-                        handleDialogChange("isOnHold", true);
-                      } else {
+                    <Select
+                      value={advanceFilter.status}
+                      onValueChange={(v) => {
                         handleDialogChange("status", v);
-                        handleDialogChange("isOnHold", false);
-                      }
-                    }}
-                  >
+                      }}
+                    >
                     <SelectTrigger className="bg-background w-full relative">
                       <SelectValue />
                     </SelectTrigger>
@@ -325,6 +320,20 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                         <div className="flex items-center gap-2">
                           <Hand className="w-4 h-4 text-orange-600" />
                           <span>Hold</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="non_agri">
+                        <div className="flex items-center gap-2">
+                          <CircleSlash className="w-4 h-4 text-slate-500" />
+                          <span>Non Agri</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="dynamic">
+                        <div className="flex items-center gap-2">
+                          <Zap className="w-4 h-4 text-yellow-500" />
+                          <span>Dynamic</span>
                         </div>
                       </SelectItem>
                     </SelectContent>
