@@ -106,10 +106,13 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
 
   const assignedModerator = question.assigned_moderator;
 
-  // A moderator is only relevant once the question has reached the review stage.
-  // Until then (draft/open/pae_submitted/etc.) hide the "Select Moderator" action.
+  // A moderator is relevant once the question reaches the review stage, or when it is
+  // a duplicate (duplicates are also assigned to moderators). Until then
+  // (draft/open/pae_submitted/etc.) hide the "Select Moderator" action.
   const canSelectModerator =
-    question.status === "in-review" || question.status === "re-routed";
+    question.status === "in-review" ||
+    question.status === "re-routed" ||
+    question.status === "duplicate";
 
   // Closed → the moderation is finalized (green). Otherwise it's still pending (amber).
   const isClosed = question.status === "closed";

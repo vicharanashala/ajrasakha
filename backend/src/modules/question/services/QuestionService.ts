@@ -1883,6 +1883,16 @@ export class QuestionService extends BaseService implements IQuestionService {
         if (threadUpdate) {
           return await this.questionRepo.updateThreadId(questionId, updates.threadId!, session);
         }
+        // When a question is passed, remove it from any moderator's assignedQuestionIds
+        // so the cron sees them as available again. Keyed by questionId so a
+        // malformed/missing moderatorId can't leave an orphan entry behind.
+        if (updates.status === 'pass') {
+          try {
+            await this.userRepo.removeAssignedQuestionFromAllModerators(questionId, session);
+          } catch (err: any) {
+            console.error('[ModeratorQueue] Failed to clear passed question from moderators:', err?.message);
+          }
+        }
         return this.questionRepo.updateQuestion(questionId, updates, session);
       });
     } catch (error) {

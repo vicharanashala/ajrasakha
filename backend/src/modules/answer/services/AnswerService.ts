@@ -1983,8 +1983,10 @@ answer: ${updates.answer}`;
         session,
       );
 
-      // CLOSE QUESTION — keep moderatorId on the question for historical reference.
-      // Only clear it from the moderator's user document so the cron sees them as available.
+      // CLOSE QUESTION. For normal questions keep moderatorId on the question for
+      // historical reference and only clear the moderator's user-document entry.
+      // For DUPLICATE questions, clear the moderator details from the question too.
+      const isDuplicateApproval = question.status === 'duplicate';
       const questionEmbedding = await generateEmbedding(text);
 
       await this.questionRepo.updateQuestion(
@@ -1999,14 +2001,13 @@ answer: ${updates.answer}`;
         true,
       );
 
-      // Pull this question from the moderator's assignedQuestionIds array so the cron
-      // sees them as available again once their array is empty.
-      if (question.moderatorId) {
-        try {
-          await this.userRepo.removeAssignedQuestion(question.moderatorId.toString(), questionId);
-        } catch (err: any) {
-          console.error('[ModeratorQueue] Failed to pull question from moderator assignedQuestionIds:', err?.message);
-        }
+      // Pull this question from whichever moderator holds it so the cron sees them as
+      // available again. Keyed by questionId, so a malformed/missing moderatorId can't
+      // leave an orphan entry behind.
+      try {
+        await this.userRepo.removeAssignedQuestionFromAllModerators(questionId, session);
+      } catch (err: any) {
+        console.error('[ModeratorQueue] Failed to clear question from moderators:', err?.message);
       }
 
       // UPDATE ANSWER
