@@ -1146,15 +1146,20 @@ function FarmerDashboardAnalytics({
   const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(
     null,
   );
-  const [expandedConversationKey, setExpandedConversationKey] = useState<
-    string | null
-  >(null);
 
   const questionMetrics = dashboard?.questionMetrics ?? {};
   const messagingMetrics = dashboard?.messagingMetrics ?? {};
   const selectedTrend = dashboard?.engagementTrends?.[trendGranularity];
   const recentQuestions = (dashboard?.recentQuestions ?? []).slice(0, 10);
   const recentConversations = dashboard?.recentConversations ?? [];
+  const recentMessages = recentConversations.flatMap((conversation) =>
+    (conversation.messages ?? []).map((message) => ({
+      ...message,
+      conversationKey: conversation.conversationKey,
+      conversationDate: conversation.conversationDate,
+      threadId: conversation.threadId,
+    })),
+  ).slice(0, 10);
 
   const questionMetricCards: [string, any][] = [
     ["Total Questions Asked", questionMetrics.totalQuestionsAsked],
@@ -1310,78 +1315,37 @@ function FarmerDashboardAnalytics({
         </Table>
       </DashboardSection>
 
-      <DashboardSection title="Recent Conversations">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Conversation Date</TableHead>
-              <TableHead>Thread ID</TableHead>
-              <TableHead>Message Count</TableHead>
-              <TableHead>Question Generated</TableHead>
-              <TableHead>Latest Message</TableHead>
-              <TableHead>Action</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {recentConversations.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">
-                  No recent conversations found.
-                </TableCell>
-              </TableRow>
-            ) : (
-              recentConversations.map((conversation) => {
-                const expanded =
-                  expandedConversationKey === conversation.conversationKey;
-                return (
-                  <Fragment key={conversation.conversationKey}>
-                    <TableRow>
-                      <TableCell>{formatDate(conversation.conversationDate)}</TableCell>
-                      <TableCell className="max-w-[220px] truncate">
-                        {conversation.threadId || "Missing thread ID"}
-                      </TableCell>
-                      <TableCell>{conversation.messageCount}</TableCell>
-                      <TableCell>
-                        {conversation.questionGenerated ? (
-                          <Badge>Yes</Badge>
-                        ) : (
-                          <Badge variant="secondary">No</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="min-w-[260px] max-w-[420px] whitespace-normal">
-                        <TranslatableText text={conversation.latestMessage} />
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            setExpandedConversationKey(
-                              expanded ? null : conversation.conversationKey,
-                            )
-                          }
-                        >
-                          View Conversation
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                    {expanded && (
-                      <TableRow key={`${conversation.conversationKey}-messages`}>
-                        <TableCell colSpan={6} className="bg-muted/30">
-                          <ConversationMessages
-                            messages={conversation.messages ?? []}
-                            emptyText="No messages available for this conversation."
-                          />
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </Fragment>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </DashboardSection>
+      {recentMessages.length > 0 && (
+        <DashboardSection title="Recent Messages">
+          <div className="space-y-3">
+            {recentMessages.map((message) => (
+              <div
+                key={`${message.conversationKey}-${message.id}`}
+                className="rounded-md border bg-background p-3"
+              >
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge
+                      variant={message.isCreatedByUser ? "default" : "secondary"}
+                    >
+                      {message.isCreatedByUser ? "User" : "Bot"}
+                    </Badge>
+                    {message.threadId ? (
+                      <span className="max-w-[220px] truncate text-xs text-muted-foreground">
+                        {message.threadId}
+                      </span>
+                    ) : null}
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {formatDate(message.createdAt || message.conversationDate)}
+                  </span>
+                </div>
+                <TranslatableText text={message.text} />
+              </div>
+            ))}
+          </div>
+        </DashboardSection>
+      )}
     </div>
   );
 }
