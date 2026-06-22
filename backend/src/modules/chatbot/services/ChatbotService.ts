@@ -3080,7 +3080,13 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getAllStatesQuestionsAndUsersData(source: string, userType: string): Promise<any> {
     try{
-      const allStates = await this.lgdService.getStates();
+        console.time("LGD");
+
+    const allStates =
+      await this.lgdService.getStates();
+
+    console.timeEnd("LGD");
+    
       console.log("All states", allStates);
       return this.chatbotRepository.getAllStatesQuestionsAndUsersData(source, userType, allStates, undefined)
     }catch(error){

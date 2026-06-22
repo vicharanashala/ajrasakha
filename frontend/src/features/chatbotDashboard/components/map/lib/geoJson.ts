@@ -48,7 +48,7 @@ export async function fetchStates(): Promise<unknown> {
 
     if (stateName === "Jammu and Kashmir") {
       feature.properties.NAME_1 = "Jammu And Kashmir"
-      feature.geometry = states["Jammu and Kashmir"].geometry;
+      feature.geometry = states["Jammu And Kashmir"].geometry;
     }
   });
 
@@ -138,36 +138,58 @@ export async function fetchDistricts(): Promise<unknown> {
   const districtName =
     feature.properties?.NAME_2;
 
-  const cleanedDistrictName =
-    districtName
-      ?.replace(/\([^)]*\)/g, "")
-      .trim();
+  // const cleanedDistrictName =
+  //   districtName
+  //     ?.replace(/\([^)]*\)/g, "")
+  //     .trim();
 
   const stateName =
     feature.properties?.NAME_1;
 
   // Remove brackets from all districts
-  feature.properties.NAME_2 =
-    cleanedDistrictName;
+  // feature.properties.NAME_2 =
+  //   districtName;
 
   // Telangana fix
   if (
     TELANGANA_DISTRICTS.has(
-      cleanedDistrictName,
+      districtName,
     )
   ) {
     feature.properties.NAME_1 =
       "Telangana";
   }
 
-  // Jammu & Kashmir → Ladakh
-  if (
-    cleanedDistrictName === "Kargil" ||
-    cleanedDistrictName === "Ladakh"
+    if (
+    stateName === "Jammu and Kashmir"
   ) {
     feature.properties.NAME_1 =
-      "Ladakh";
+      "Jammu And Kashmir";
   }
+
+  // Jammu & Kashmir → Ladakh
+  if (
+    districtName === "Kargil" ||
+    districtName === "Ladakh (Leh)"
+  ) {
+  try {
+
+    feature.properties.NAME_1 =
+      "Ladakh";
+  } catch (e) {
+    console.error(e);
+  }
+}
+  
+
+//   if (
+//   districtName.includes("Kargil") ||
+//   districtName.includes("Ladakh")
+// ) {
+//   console.log(
+//     districtName,
+//   );
+// }
 
   // State renames
   if (stateName === "Orissa") {
@@ -180,16 +202,11 @@ export async function fetchDistricts(): Promise<unknown> {
       "Uttarakhand";
   }
 
-  if (
-    stateName === "Jammu and Kashmir"
-  ) {
-    feature.properties.NAME_1 =
-      "Jammu And Kashmir";
-  }
+
 
   // District renames
   if (
-    cleanedDistrictName ===
+    districtName ===
     "Naini Tal"
   ) {
     feature.properties.NAME_2 =
@@ -197,13 +214,13 @@ export async function fetchDistricts(): Promise<unknown> {
   }
 
   if (
-    cleanedDistrictName ===
-    "Ladakh"
+    districtName ===
+    "Ladakh (Leh)"
   ) {
     feature.properties.NAME_2 =
       "Leh";
   }
-  if( cleanedDistrictName === "Baramula"){
+  if( districtName === "Baramula"){
     feature.properties.NAME_2 = "Baramulla"
   }
 });
@@ -220,6 +237,10 @@ export async function fetchDistricts(): Promise<unknown> {
  * Clear caches (useful for testing or refresh)
  */
 export function clearGeoJsonCache(): void {
-  statesCache = null;
-  districtsCache = null;
+ if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    statesCache = null;
+    districtsCache = null;
+  });
+}
 }

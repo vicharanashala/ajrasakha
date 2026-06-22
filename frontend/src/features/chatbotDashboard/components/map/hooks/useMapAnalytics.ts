@@ -131,6 +131,16 @@ export function useMapAnalytics({
       }>;
     };
 
+    console.log("Selected state:", selectedState);
+
+// console.log(
+//   geo.features.filter(
+//     (f) =>
+//       f.properties.NAME_2 === "Ladakh (Leh)" ||
+//       f.properties.NAME_2 === "Kargil",
+//   ),
+// );
+
     const features = geo.features
       .filter((f) => f.properties.NAME_1 === selectedState)
       .map((f) => {
