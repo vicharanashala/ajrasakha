@@ -490,6 +490,7 @@ export interface IQuestionFullData {
   referenceQuestion?: string;
   referenceSource?: string;
   isDuplicateChecked?: boolean;
+  isDuplicateCancelled?: boolean;
   referenceQuestionData?: {
     question: string;
     status: string;
@@ -608,6 +609,9 @@ export interface IDetailedQuestion {
   referenceQuestion?: string
   referenceSource?: string;
   isDuplicateChecked?: boolean;
+  isDuplicateCancelled?: boolean;
+  duplicateCancelReason?: string;
+  isAutoAllocate?: boolean;
 }
 
 export interface IDetailedQuestionResponse {
