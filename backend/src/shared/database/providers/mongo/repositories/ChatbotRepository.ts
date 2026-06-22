@@ -683,6 +683,42 @@ export class ChatbotRepository implements IChatbotRepository {
               },
               {$count: 'count'},
             ],
+            dynamicWeather: [
+              {
+                $match: {
+                  status: "dynamic",
+                  $or: [
+                    {'details.domain': /weather/i},
+                    {'details.category': /weather/i},
+                  ],
+                },
+              },
+              {$count: 'count'},
+            ],
+            dynamicMarket: [
+              {
+                $match: {
+                  status: "dynamic",
+                  $or: [
+                    {'details.domain': /market/i},
+                    {'details.category': /market/i},
+                  ],
+                },
+              },
+              {$count: 'count'},
+            ],
+            dynamicSchemes: [
+              {
+                $match: {
+                  status: "dynamic",
+                  $or: [
+                    {'details.domain': /scheme/i},
+                    {'details.category': /scheme/i},
+                  ],
+                },
+              },
+              {$count: 'count'},
+            ],
           },
         },
       ],
@@ -699,9 +735,9 @@ export class ChatbotRepository implements IChatbotRepository {
       inReviewCount: row.inReview?.[0]?.count ?? 0,
       openCount: row.open?.[0]?.count ?? 0,
       delayedCount: row.delayed?.[0]?.count ?? 0,
-      dynamicWeatherCount: 0,
-      dynamicMarketCount: 0,
-      dynamicSchemesCount: 0,
+      dynamicWeatherCount: row.dynamicWeather?.[0]?.count ?? 0,
+      dynamicMarketCount: row.dynamicMarket?.[0]?.count ?? 0,
+      dynamicSchemesCount: row.dynamicSchemes?.[0]?.count ?? 0,
       markedDuplicateGdbCount: row.markedDuplicateGdb?.[0]?.count ?? 0,
     };
   }
@@ -852,22 +888,15 @@ export class ChatbotRepository implements IChatbotRepository {
         .toArray();
       const messageStats = adherenceMessageStats[0] ?? {};
       const queryCounts = messageStats.queryCounts ?? [];
-      const dynamicWeatherCounts = messageStats.dynamicWeather ?? [];
-      const dynamicMarketCounts = messageStats.dynamicMarket ?? [];
-      const dynamicSchemesCounts = messageStats.dynamicSchemes ?? [];
 
-      const whatsappDynamicWeather =
-        dynamicWeatherCounts.find(q => q._id === 'WHATSAPP')?.count ?? 0;
-      const ajrasakhaDynamicWeather =
-        dynamicWeatherCounts.find(q => q._id === 'AJRASAKHA')?.count ?? 0;
-      const whatsappDynamicMarket =
-        dynamicMarketCounts.find(q => q._id === 'WHATSAPP')?.count ?? 0;
-      const ajrasakhaDynamicMarket =
-        dynamicMarketCounts.find(q => q._id === 'AJRASAKHA')?.count ?? 0;
-      const whatsappDynamicSchemes =
-        dynamicSchemesCounts.find(q => q._id === 'WHATSAPP')?.count ?? 0;
-      const ajrasakhaDynamicSchemes =
-        dynamicSchemesCounts.find(q => q._id === 'AJRASAKHA')?.count ?? 0;
+      const whatsappDynamicWeather = whatsapp.dynamicWeatherCount;
+      const ajrasakhaDynamicWeather = ajrasakha.dynamicWeatherCount;
+
+      const whatsappDynamicMarket = whatsapp.dynamicMarketCount;
+      const ajrasakhaDynamicMarket = ajrasakha.dynamicMarketCount;
+
+      const whatsappDynamicSchemes = whatsapp.dynamicSchemesCount;
+      const ajrasakhaDynamicSchemes = ajrasakha.dynamicSchemesCount;
 
       const totalUserMessages = queryCounts[0]?.count ?? 0;
       const whatsappQueriesAsked = 0;
