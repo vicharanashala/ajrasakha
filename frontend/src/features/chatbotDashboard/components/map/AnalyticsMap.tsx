@@ -41,9 +41,19 @@ export default function IndiaAnalyticsMap({
   todayActiveFarmersData,
 }: any) {
   // Hooks
+
+  const [metric, setMetric] = useState<"questions" | "users" | "activeUsers">(
+    "questions",
+  );
+
   const dark = useIsDark();
   const { statesGeo, districtsAll, loading } = useGeoJson();
-    const { data: questionStatusData } = useClosedAndNotifedData(source, userType, undefined, undefined);
+  const { data: questionStatusData } = useClosedAndNotifedData(
+    source,
+    userType,
+    undefined,
+    undefined,
+  );
   const {
     level,
     selectedState,
@@ -80,26 +90,20 @@ export default function IndiaAnalyticsMap({
     userType,
   );
 
-
   // console.log("Analytics of all state", allStatesData)
   // console.log("District analytics of data", districtAnalytics)
 
-  const {
-    statesWithData,
-    districtsOfState,
-    // districtDetails,
-    activeGeo,
-    minV,
-    maxV,
-  } = useMapAnalytics({
-    statesGeo,
-    districtsAll,
-    level,
-    selectedState,
-    selectedDistrict,
-    allStatesData,
-    districtAnalytics,
-  });
+  const { statesWithData, districtsOfState, activeGeo, minV, maxV } =
+    useMapAnalytics({
+      statesGeo,
+      districtsAll,
+      level,
+      selectedState,
+      selectedDistrict,
+      allStatesData,
+      districtAnalytics,
+      metric,
+    });
 
   // Fly target state
   const [flyTarget, setFlyTarget] = useState<L.LatLngBoundsExpression | null>(
@@ -133,7 +137,6 @@ export default function IndiaAnalyticsMap({
     (name: string, feature: GeoFeature) => {
       const stateData = allStatesData?.find((s) => s.state === name);
 
-
       navigateToState(name, stateData.stateCode);
       handleFlyTo(feature);
     },
@@ -153,7 +156,14 @@ export default function IndiaAnalyticsMap({
     (feat: {
       properties: { _analytics: Analytics; _name: string };
     }): L.PathOptions => {
-      const v = feat.properties._analytics.questions;
+      const analytics = feat.properties._analytics;
+
+      const v =
+        metric === "users"
+          ? analytics.users
+          : metric === "activeUsers"
+            ? analytics.activeUsers
+            : analytics.questions;
       const name = feat.properties._name;
       const isHovered = hovered === name;
       const isSelected =
@@ -166,7 +176,7 @@ export default function IndiaAnalyticsMap({
         weight: isSelected ? 2.5 : isHovered ? 2 : 1,
       };
     },
-    [hovered, minV, maxV, dark, level, selectedState, selectedDistrict],
+    [hovered, minV, maxV, dark, level, selectedState, selectedDistrict, metric],
   );
 
   const onEach = useCallback(
@@ -197,11 +207,6 @@ export default function IndiaAnalyticsMap({
         mouseover: () => setHovered(name),
         mouseout: () => setHovered((h) => (h === name ? null : h)),
         click: () => {
-
-
-
-
-
           if (level === "india") {
             const stateData = allStatesData?.find((s) => s.state === name);
             navigateToState(name, stateData?.stateCode);
@@ -225,7 +230,9 @@ export default function IndiaAnalyticsMap({
   );
 
   // GeoJSON key forces re-render on level/state change
-  const geoKey = `${level}:${selectedState ?? ""}:${dark ? "d" : "l"}:${minV}-${maxV}:${selectedDistrict ?? ""}`;
+  // const geoKey = `${level}:${selectedState ?? ""}:${dark ? "d" : "l"}:${minV}-${maxV}:${selectedDistrict ?? ""}`;
+
+  const geoKey = `${level}:${selectedState}:${metric}:${dark}:${minV}-${maxV}:${selectedDistrict}`;
 
   // Tile layer
   const tileUrl = dark
@@ -278,6 +285,28 @@ export default function IndiaAnalyticsMap({
             onNavigate={goCrumb}
           />
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          <div className="flex overflow-hidden rounded-md border">
+            <button
+              className={`px-3 py-1 text-sm ${
+                metric === "questions"
+                  ? "bg-primary text-white"
+                  : "bg-background"
+              }`}
+              onClick={() => setMetric("questions")}
+            >
+              Questions
+            </button>
+
+            <button
+              className={`px-3 py-1 text-sm ${
+                metric === "users" ? "bg-primary text-white" : "bg-background"
+              }`}
+              onClick={() => setMetric("users")}
+            >
+              Users
+            </button>
+          </div>
+
           <SearchBar
             value={query}
             onChange={handleSearchChange}
@@ -343,7 +372,8 @@ export default function IndiaAnalyticsMap({
         questionStatusData={questionStatusData}
         todayActiveFarmersData={todayActiveFarmersData}
         isLoading={isLoading || isFetching}
-        districtAnalytic = {districtAnalytics}
+        districtAnalytic={districtAnalytics}
+        metric={metric}
       />
     </div>
   );

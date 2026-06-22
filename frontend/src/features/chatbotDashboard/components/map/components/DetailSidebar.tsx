@@ -43,6 +43,7 @@ interface DetailSidebarProps {
   todayActiveFarmersData: PaginatedUserDetailsResponse
   isLoading: boolean
   districtAnalytic?: any
+  metric: "questions" | "users" | "activeUsers"
 }
 
 export function DetailSidebar({
@@ -59,7 +60,8 @@ export function DetailSidebar({
   questionStatusData,
   todayActiveFarmersData,
   isLoading = false,
-  districtAnalytic
+  districtAnalytic,
+  metric = "questions"
 }: DetailSidebarProps) {
   // Calculate aggregated analytics
   console.log("Got the district analytics data in component SideBar", districtAnalytic)
@@ -278,6 +280,7 @@ export function DetailSidebar({
             onSelectState={onSelectState}
             isLoading = {isLoading}
             renderCardValue= {renderCardValue}
+            metric={metric}
           />
         )}
 
