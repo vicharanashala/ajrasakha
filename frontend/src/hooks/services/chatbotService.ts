@@ -246,6 +246,7 @@ export class ChatbotService {
     stringStartDate,
     stringEndDate,
     search,
+    isPassed,
   }: {
     category?: string;
     district?: string;
@@ -264,6 +265,7 @@ export class ChatbotService {
     stringStartDate?: string;
     stringEndDate?: string;
     search?: string;
+    isPassed?: boolean;
   }) {
     const params = new URLSearchParams();
     if (category) params.append("category", category);
@@ -284,6 +286,9 @@ export class ChatbotService {
     if (stringEndDate) params.append("endDate", stringEndDate);
     if (search?.trim()) {
       params.append("search", search.trim());
+    }
+    if (isPassed !== undefined) {
+      params.append("isPassed", String(isPassed));
     }
     return apiFetch<any>(
       `${this._baseUrl}/filtered-questions?${params.toString()}`,
@@ -353,6 +358,130 @@ export class ChatbotService {
     params.append("requestType", requestType);
     return apiFetch<any>(
       `${this._baseUrl}/active-users-trend?${params.toString()}`,
+    );
+  }
+
+    async getAllStatesQuestionsAndUsersData({
+    // category,
+    // district,
+    // state,
+    // crop,
+    // crops,
+    // status,
+    // closedWithInTwohours,
+    // notificationType,
+    // period,
+    // questionType,
+    // page,
+    // limit,
+    source,
+    userType,
+    // stringStartDate,
+    // stringEndDate,
+    // search,
+  }: {
+    // category?: string;
+    // district?: string;
+    // state?: string;
+    // crop?: string;
+    // crops?: string[];
+    // status?: string;
+    // closedWithInTwohours?: boolean
+    // notificationType?: string
+    // period?: string
+    // questionType: "all" | "unique" | "duplicate";
+    // page: number;
+    // limit: number;
+    source: string;
+    userType?: string;
+    // stringStartDate?: string;
+    // stringEndDate?: string;
+    // search?: string;
+  }) {
+    const params = new URLSearchParams();
+    // if (category) params.append("category", category);
+    // if (district) params.append("district", district);
+    // if (state) params.append("state", state);
+    // if (crop) params.append("crop", crop);
+    // if (crops?.length) params.append("crops", crops?.join(","));
+    // if (status) params.append("status", status);
+    // if (closedWithInTwohours) params.append("closedWithInTwohours", closedWithInTwohours.toString());
+    // if (notificationType) params.append('notificationType', notificationType);
+    // if (period) params.append('period', period)
+    // params.append("questionType", questionType);
+    // params.append("page", page.toString());
+    // params.append("limit", limit.toString());
+    params.append("source", source);
+    if (userType) params.append("userType", userType);
+    // if (stringStartDate) params.append("startDate", stringStartDate);
+    // if (stringEndDate) params.append("endDate", stringEndDate);
+    // if (search?.trim()) {
+    //   params.append("search", search.trim());
+    // }
+    return apiFetch<any>(
+      `${this._baseUrl}/state-user-data?${params.toString()}`,
+    );
+  }
+
+  async getVillageUserCounts({
+    // category,
+    state,
+    district,
+    // crop,
+    // crops,
+    // status,
+    // closedWithInTwohours,
+    // notificationType,
+    // period,
+    // questionType,
+    // page,
+    // limit,
+    source,
+    userType,
+    // stringStartDate,
+    // stringEndDate,
+    // search,
+  }: {
+    // category?: string;
+    state: string;
+    district: string;
+    // crop?: string;
+    // crops?: string[];
+    // status?: string;
+    // closedWithInTwohours?: boolean
+    // notificationType?: string
+    // period?: string
+    // questionType: "all" | "unique" | "duplicate";
+    // page: number;
+    // limit: number;
+    source: string;
+    userType?: string;
+    // stringStartDate?: string;
+    // stringEndDate?: string;
+    // search?: string;
+  }) {
+    const params = new URLSearchParams();
+    // if (category) params.append("category", category);
+    params.append("state", state);
+    params.append("district", district);
+    // if (crop) params.append("crop", crop);
+    // if (crops?.length) params.append("crops", crops?.join(","));
+    // if (status) params.append("status", status);
+    // if (closedWithInTwohours) params.append("closedWithInTwohours", closedWithInTwohours.toString());
+    // if (notificationType) params.append('notificationType', notificationType);
+    // if (period) params.append('period', period)
+    // params.append("questionType", questionType);
+    // params.append("page", page.toString());
+    // params.append("limit", limit.toString());
+    params.append("source", source);
+    if (userType) params.append("userType", userType);
+    // if (stringStartDate) params.append("startDate", stringStartDate);
+    // if (stringEndDate) params.append("endDate", stringEndDate);
+    // if (search?.trim()) {
+    //   params.append("search", search.trim());
+    // }
+    return apiFetch<any>(
+      `${this._baseUrl}/village-data?${params.toString()}`,
     );
   }
 }

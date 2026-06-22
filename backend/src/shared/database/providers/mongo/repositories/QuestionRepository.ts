@@ -348,7 +348,7 @@ export class QuestionRepository implements IQuestionRepository {
       //  const filter: any = {};
       const filter: any = {
         // isHidden: { $ne: true }, // default to exclude hidden questions
-        isOnHold: { $ne: true }, // default to exclude on hold questions
+        // isOnHold: { $ne: true }, // default to exclude on hold questions
         isTesting:{$ne:true},
       };
       if (pae_review) {
@@ -462,7 +462,7 @@ export class QuestionRepository implements IQuestionRepository {
       if (is_non_agri === 'true' || is_non_agri === true) {
         filter.status = 'non_agri';
       } else if (filter.status === undefined) {
-        filter.status = {$nin: ['non_agri', 'dynamic']};
+        filter.status = {$nin: ['non_agri']};
       }
       // --- State filter (from body array) ---
       if (body?.states && body.states.length > 0) {
@@ -1051,8 +1051,9 @@ export class QuestionRepository implements IQuestionRepository {
                   {case: {$eq: [{$toLower: '$status'}, 're-routed']}, then: 3},
                   {case: {$eq: [{$toLower: '$status'}, 'in-review']}, then: 4},
                   {case: {$eq: [{$toLower: '$status'}, 'closed']}, then: 5},
+                  {case: {$eq: [{ $toLower: "$status" }, "hold"] }, then: 6},
                 ],
-                default: 6,
+                default: 7,
               },
             },
           },
@@ -1463,17 +1464,69 @@ export class QuestionRepository implements IQuestionRepository {
         }),
       );
 
-      const questionIdsToAttempt = submissions.map(
-        sub => new ObjectId(sub?.questionId),
+      // Rerouted questions live in the `reroutes` collection, not in the
+      // submission history/queue, so the allocation logic above never surfaces
+      // them. Pull the ones still pending action for this expert and merge them
+      // in — but ONLY when the caller explicitly opts in via includeRerouted
+      // (the Expert Management dashboard). The normal answering queue
+      // (QA interface) must stay reroute-free since reroutes have their own
+      // dedicated flow. Also limit to the unfiltered ('all') or dedicated
+      // 'rerouted' level views.
+      const includeRerouted =
+        query.includeRerouted === 'true' &&
+        (query.review_level === 'all' || query.review_level === 'rerouted');
+
+      let reroutedQuestionIds: ObjectId[] = [];
+      if (includeRerouted) {
+        const reroutedDocs = await this.ReRouteCollection.find(
+          {
+            reroutes: {
+              $elemMatch: {
+                reroutedTo: userObjectId,
+                status: 'pending',
+              },
+            },
+          },
+          {projection: {questionId: 1}, session},
+        ).toArray();
+
+        reroutedQuestionIds = reroutedDocs
+          .filter(doc => doc?.questionId)
+          .map(doc => new ObjectId(doc.questionId));
+      }
+
+      const reroutedQuestionIdSet = new Set(
+        reroutedQuestionIds.map(id => id.toString()),
+      );
+
+      // De-duplicate in case a question is both a normal allocation and a reroute.
+      const questionIdsToAttempt = Array.from(
+        new Map(
+          [
+            ...submissions.map(sub => new ObjectId(sub?.questionId)),
+            ...reroutedQuestionIds,
+          ].map(id => [id.toString(), id]),
+        ).values(),
       );
 
       const escapeRegex = (str: string) =>
         str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
       const filter: any = {
-        status: {$nin: ['closed', 'in-review']},
         _id: {$in: questionIdsToAttempt},
       };
+
+      // Normal allocations must be in an open state. Rerouted questions are
+      // typically already in-review/closed, so let them bypass that restriction
+      // while preserving the original status filter for everything else.
+      if (reroutedQuestionIdSet.size > 0) {
+        filter.$or = [
+          {_id: {$in: reroutedQuestionIds}},
+          {status: {$nin: ['closed', 'in-review']}},
+        ];
+      } else {
+        filter.status = {$nin: ['closed', 'in-review']};
+      }
 
       // Apply preferences filters
       if (query.source && query.source !== 'all') {
@@ -1583,7 +1636,9 @@ export class QuestionRepository implements IQuestionRepository {
       ).toArray();
       return results.map((q: any) => ({
         ...q,
-        review_level_number: reviewLevelByQuestionId.get(q.id) ?? 'Author',
+        review_level_number: reroutedQuestionIdSet.has(q.id)
+          ? 'rerouted'
+          : reviewLevelByQuestionId.get(q.id) ?? 'Author',
       }));
     } catch (error) {
       throw new InternalServerError(
@@ -2764,58 +2819,86 @@ export class QuestionRepository implements IQuestionRepository {
     }
 
     // Get moderator breakdown
-    const moderatorBreakdown = (await this.AnswersCollection.aggregate(
-      [
-        {
-          $match: {
-            status: 'approved',
-            isFinalAnswer: true,
-            updatedAt: {
-              $gte: start,
-              $lt: end,
-            },
-            approvedBy: {$exists: true, $ne: null},
-          },
+   const moderatorBreakdown = (await this.AnswersCollection.aggregate(
+  [
+    {
+      $match: {
+        status: 'approved',
+        isFinalAnswer: true,
+        approvedBy: {$exists: true, $ne: null},
+      },
+    },
+
+    // Lookup question
+    {
+      $lookup: {
+        from: 'questions',
+        localField: 'questionId',
+        foreignField: '_id',
+        as: 'question',
+      },
+    },
+
+    {
+      $unwind: {
+        path: '$question',
+        preserveNullAndEmptyArrays: false,
+      },
+    },
+
+    // Filter by question.closedAt
+    {
+      $match: {
+        'question.closedAt': {
+          $gte: start,
+          $lt: end,
         },
-        {
-          $group: {
-            _id: '$approvedBy',
-            count: {$sum: 1},
-          },
+      },
+    },
+
+    {
+      $group: {
+        _id: '$approvedBy',
+        count: {$sum: 1},
+      },
+    },
+
+    {
+      $lookup: {
+        from: 'users',
+        localField: '_id',
+        foreignField: '_id',
+        as: 'moderator',
+      },
+    },
+
+    {
+      $unwind: {
+        path: '$moderator',
+        preserveNullAndEmptyArrays: false,
+      },
+    },
+
+    {
+      $project: {
+        _id: 0,
+        moderatorName: {
+          $concat: [
+            '$moderator.firstName',
+            ' ',
+            {$ifNull: ['$moderator.lastName', '']},
+          ],
         },
-        {
-          $lookup: {
-            from: 'users',
-            localField: '_id',
-            foreignField: '_id',
-            as: 'moderator',
-          },
-        },
-        {
-          $unwind: {
-            path: '$moderator',
-            preserveNullAndEmptyArrays: false,
-          },
-        },
-        {
-          $project: {
-            _id: 0,
-            moderatorName: {
-              $concat: [
-                '$moderator.firstName',
-                ' ',
-                {$ifNull: ['$moderator.lastName', '']},
-              ],
-            },
-            count: 1,
-          },
-        },
-        {
-          $sort: {count: -1},
-        },
-      ],
-      {session},
-    ).toArray()) as {moderatorName: string; count: number}[];
+        count: 1,
+      },
+    },
+
+    {
+      $sort: {count: -1},
+    },
+  ],
+  {session},
+).toArray()) as {moderatorName: string; count: number}[];
 
     // Calculate total from the breakdown
     const totalApproved = moderatorBreakdown.reduce(
@@ -5548,8 +5631,6 @@ export class QuestionRepository implements IQuestionRepository {
     // Apply isOnHold filter exactly matching findDetailedQuestions logic
     if (query.isOnHold === 'true') {
       filter.isOnHold = {$eq: true};
-    } else {
-      filter.isOnHold = {$ne: true};
     }
 
     // Apply isHidden filter exactly matching findDetailedQuestions logic

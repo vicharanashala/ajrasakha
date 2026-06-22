@@ -317,7 +317,8 @@ export interface IChatbotService {
     userType?: string,
     search?: string,
     startDate?: Date,
-    endDate?: Date 
+    endDate?: Date,
+    isPassed?: string,
   ) : Promise<any>
 
   getQuestionsByNotificationStatus(
@@ -340,7 +341,24 @@ export interface IChatbotService {
       search?: string,
     ): Promise<any>
 
+    // getStateQuestionsAndUsersData(  
+    //   state: string,
+    //   source: string,
+    //   userType: string
+    // ): Promise<any>
+
+    getAllStatesQuestionsAndUsersData(
+      source: string,
+      userType: string,
+    ): Promise<any>
   getUserProfile(userId: string): Promise<any>
   assignUsers(userId: string, targetIds: string[]): Promise<any>
   unAssignUsers(userId: string, targetIds: string[]): Promise<any>
+
+    getVillageUserCounts(
+    state: string,
+    district: string,
+    source: string,
+    userType: string
+  ): Promise<any>
 }

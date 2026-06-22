@@ -84,6 +84,23 @@ const WORK_TYPE_LABEL: Record<
   needsReviewer: "Needs Reviewer",
 };
 
+/** Human-readable elapsed time from a minute count:
+ *   < 1 hour   → "40 mins"
+ *   < 24 hours → "3 hour 40 mins"
+ *   >= 24 hours → "2 days 40 mins" (hours included only when non-zero) */
+const formatIdleTime = (mins?: number | null): string => {
+  if (mins == null) return "?";
+  if (mins < 60) return `${mins} mins`;
+  const m = mins % 60;
+  if (mins < 1440) {
+    const h = Math.floor(mins / 60);
+    return `${h} hour ${m} mins`;
+  }
+  const d = Math.floor(mins / 1440);
+  const h = Math.floor((mins % 1440) / 60);
+  return h > 0 ? `${d} days ${h} hour ${m} mins` : `${d} days ${m} mins`;
+};
+
 const QuestionRow = ({
   item,
   showExpert,
@@ -162,7 +179,7 @@ const QuestionRow = ({
       {showOpenedIdle && (
         <p className="mt-1 text-[11px] font-medium text-orange-600 dark:text-orange-400">
           {item.expertName ? `${item.expertName} · ` : ""}
-          opened {item.minutesSinceOpened ?? "?"} min ago · no answer yet
+          opened {formatIdleTime(item.minutesSinceOpened)} ago · no answer yet
         </p>
       )}
     </div>

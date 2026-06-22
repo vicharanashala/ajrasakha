@@ -18,6 +18,8 @@ from ajrasakha.agents.translation_catalog import (
 # IST timezone (UTC+5:30)
 IST = timezone(timedelta(hours=5, minutes=30))
 
+FOOTER_SEPARATOR = "_____________________________"
+
 # Hardcoded time-based disclaimers (English only)
 _DISCLAIMER_LATE_NIGHT = (
     "Your question has been forwarded to our agri expert. "
@@ -56,20 +58,62 @@ SOURCES_HEADER_EN = "📚 Sources:"
 EXPERT_PREFIX_EN = "👤 Answered by:"
 SOURCE_LINK_PREFIX = "🔗"
 
+_AJRASAKHA_MARKDOWN_SOURCES = frozenset({"ajrasakha", "ajrasakha_webapp"})
 
-def _format_source_line(details: dict) -> str:
-    """Format source line with 🔗 prefix.
 
-    When source_name is "Database Document" or not available, only show the link.
-    Format: 🔗 SourceName: https://link OR 🔗 https://link
-    """
+def is_ajrasakha_markdown_source_client(question_source: str | None) -> bool:
+    """True when GDB sources should render as markdown links for the client."""
+    if not question_source:
+        return False
+    return question_source.strip().lower() in _AJRASAKHA_MARKDOWN_SOURCES
+
+
+def _is_unnamed_source(source_name: object) -> bool:
+    name = (source_name or "").strip()
+    if not name:
+        return True
+    return name.lower() == "database document"
+
+
+def _source_display_name(
+    source_name: object,
+    *,
+    unnamed_index: int,
+    total_unnamed: int,
+) -> str:
+    if not _is_unnamed_source(source_name):
+        return str(source_name).strip()
+    if total_unnamed <= 1:
+        return "source"
+    return f"source_{unnamed_index}"
+
+
+def _format_source_line(
+    details: dict,
+    *,
+    question_source: str | None = None,
+    unnamed_index: int = 1,
+    total_unnamed: int = 1,
+) -> str:
+    """Format one source line — markdown for AjraSakha clients, plain text otherwise."""
     source_name = details.get("source_name")
-    source_link = details.get("source_link")
+    source_link = (details.get("source_link") or "").strip()
 
-    is_db_doc = (source_name or "").strip().lower() == "database document"
+    if is_ajrasakha_markdown_source_client(question_source):
+        if source_link:
+            label = _source_display_name(
+                source_name,
+                unnamed_index=unnamed_index,
+                total_unnamed=total_unnamed,
+            )
+            return f"[{label}]({source_link})"
+        if source_name and not _is_unnamed_source(source_name):
+            return f"[{str(source_name).strip()}]()"
+        return ""
+
+    is_db_doc = _is_unnamed_source(source_name)
 
     if is_db_doc or not source_name:
-        # Only show the link
         if source_link:
             return f"{SOURCE_LINK_PREFIX} {source_link}"
     elif source_name and source_link:
@@ -82,7 +126,23 @@ def _format_source_line(details: dict) -> str:
     return ""
 
 
-def collect_all_sources(gdb_data: dict) -> str:
+def _append_footer_block(body: str, footer_parts: list[str]) -> str:
+    """Join body and footer sections with the separator line."""
+    parts = [part.strip() for part in footer_parts if part and part.strip()]
+    if not parts:
+        return (body or "").strip()
+    footer = "\n\n".join(parts)
+    out = (body or "").strip()
+    if not out:
+        return footer
+    return f"{out}\n\n{FOOTER_SEPARATOR}\n\n{footer}"
+
+
+def collect_all_sources(
+    gdb_data: dict,
+    *,
+    question_source: str | None = None,
+) -> str:
     """Collect source attribution (English-only) from exact match and all similar pairs.
 
     Handles details as both a single dict (legacy) and a list of dicts (new format).
@@ -92,12 +152,12 @@ def collect_all_sources(gdb_data: dict) -> str:
         👤 Answered by: Author1, Author2
 
         📚 Sources:
-        🔗 SourceName: https://link
-        🔗 https://link
+        [source](https://link)   — AjraSakha clients
+        🔗 SourceName: https://link   — other channels
     """
     seen_sources: set[tuple] = set()
     seen_authors: set[str] = set()
-    source_lines: list[str] = []
+    source_entries: list[dict] = []
     author_names: list[str] = []
 
     def _process_details(details: dict) -> None:
@@ -108,15 +168,11 @@ def collect_all_sources(gdb_data: dict) -> str:
         source_link = details.get("source_link")
         author_name = details.get("author_name")
 
-        # Handle source deduplication
         source_key = (source_name, source_link)
         if source_key not in seen_sources:
             seen_sources.add(source_key)
-            line = _format_source_line(details)
-            if line:
-                source_lines.append(line)
+            source_entries.append(details)
 
-        # Handle author deduplication
         if author_name and author_name.strip():
             if author_name not in seen_authors:
                 seen_authors.add(author_name)
@@ -144,20 +200,37 @@ def collect_all_sources(gdb_data: dict) -> str:
         ):
             _process_details_field(pair.get("details") or {})
 
+    unnamed_entries = [d for d in source_entries if _is_unnamed_source(d.get("source_name"))]
+    total_unnamed = len(unnamed_entries)
+    unnamed_counter = 0
+
+    source_lines: list[str] = []
+    for details in source_entries:
+        unnamed_index = 1
+        if _is_unnamed_source(details.get("source_name")):
+            unnamed_counter += 1
+            unnamed_index = unnamed_counter
+        line = _format_source_line(
+            details,
+            question_source=question_source,
+            unnamed_index=unnamed_index,
+            total_unnamed=total_unnamed,
+        )
+        if line:
+            source_lines.append(line)
+
     if not source_lines and not author_names:
         return ""
 
     parts: list[str] = []
 
-    # Add authors section
     if author_names:
         authors_str = ", ".join(author_names)
         parts.append(f"{EXPERT_PREFIX_EN} {authors_str}")
 
-    # Add sources section
     if source_lines:
         if parts:
-            parts.append("")  # Empty line between sections
+            parts.append("")
         parts.append(SOURCES_HEADER_EN)
         parts.extend(source_lines)
 
@@ -174,7 +247,7 @@ def build_expert_queue_content(script_language: str, vocal_language: str) -> str
     """
     body = get_time_aware_expert_disclaimer(script_language, vocal_language)
     testing = get_testing_disclaimer(script_language, vocal_language)
-    return f"{body}\n\n{testing}"
+    return _append_footer_block(body, [testing])
 
 
 def finalize_synthesis_answer(
@@ -184,21 +257,28 @@ def finalize_synthesis_answer(
     vocal_language: str,
     gdb_data: Optional[dict],
     is_greeting: bool = False,
+    question_source: str | None = None,
 ) -> str:
-    """Synthesize path: translated body → GDB sources (author) → testing disclaimer only."""
+    """Synthesize path: translated body → separator → GDB sources → testing disclaimer."""
     out = (body or "").strip()
     if not out:
         return out
     if is_greeting:
         return out
+
+    footer_parts: list[str] = []
     if gdb_data and gdb_has_usable_answers(gdb_data):
-        source_block = collect_all_sources(gdb_data)
+        source_block = collect_all_sources(gdb_data, question_source=question_source)
         if source_block:
-            out = f"{out}\n\n{source_block}"
+            footer_parts.append(source_block)
+
     testing = get_testing_disclaimer(script_language, vocal_language)
     if testing.strip():
-        return f"{out}\n\n{testing}"
-    return out
+        footer_parts.append(testing)
+
+    if not footer_parts:
+        return out
+    return _append_footer_block(out, footer_parts)
 
 
 # Backward-compatible alias
