@@ -25,6 +25,7 @@ import {
   ForbiddenError,
 } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
+import { ObjectId } from 'mongodb';
 import { inject, injectable } from 'inversify';
 import { GLOBAL_TYPES } from '#root/types.js';
 import {
@@ -1076,8 +1077,12 @@ export class QuestionController {
     try {
       questionDetails = await this.questionService.getQuestionDataById(questionId);
       const prevModeratorId = (questionDetails as any)?.moderatorId?.toString();
+      // Guard against a malformed previous moderatorId so a bad stored value can't
+      // throw a BSONError when we look up the previous moderator.
       [prevModerator, newModerator] = await Promise.all([
-        prevModeratorId ? this.userService.getUserById(prevModeratorId) : null,
+        prevModeratorId && ObjectId.isValid(prevModeratorId)
+          ? this.userService.getUserById(prevModeratorId)
+          : null,
         this.userService.getUserById(moderatorId),
       ]);
 

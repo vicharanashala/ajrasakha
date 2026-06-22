@@ -485,6 +485,7 @@ export interface IQuestionFullData {
   referenceQuestion?: string;
   referenceSource?: string;
   isDuplicateChecked?: boolean;
+  autoAllocateModerator?: boolean;
   referenceQuestionData?: {
     question: string;
     status: string;
@@ -611,6 +612,7 @@ export interface IDetailedQuestion {
   referenceQuestion?: string
   referenceSource?: string;
   isDuplicateChecked?: boolean;
+  autoAllocateModerator?: boolean;
   /** Moderator currently assigned to review this question (set by the moderator-queue cron). */
   moderatorId?: string | null;
 }
