@@ -17,9 +17,13 @@ import {
   ChevronDown,
   Home,
   Loader2,
+  Mail,
   MessageSquareText,
+  Network,
+  Phone,
   ShieldX,
   UserCheck2,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Badge } from "@/components/atoms/badge";
@@ -208,6 +212,8 @@ function RouteComponent() {
         if (currentUserEmail && currentUserEmail === viewedUserEmail) {
           return;
         }
+
+        if (userProfile?.userId) return;
       }
       navigate({ to: "/home" });
       return;
@@ -527,6 +533,12 @@ function RouteComponent() {
     currentUserIsCoordinator &&
     Boolean(currentUserEmail) &&
     currentUserEmail === viewedUserEmail;
+  const isCoordinatorReadOnlyView =
+    currentUserIsCoordinator &&
+    viewedProfileIsCoordinator &&
+    !currentUserOwnsViewedProfile;
+  const showCoordinatorSummary =
+    viewedProfileIsCoordinator && currentUser?.role !== "admin";
   const canManageAssignments =
     viewedProfileIsCoordinator &&
     (currentUser?.role === "admin" || currentUserOwnsViewedProfile);
@@ -546,7 +558,9 @@ function RouteComponent() {
           <Home className="h-4 w-4 mr-2" />
           Home
         </Button>
-        <h1 className="text-base font-semibold">User Dashboard</h1>
+        <h1 className="text-base font-semibold">
+          {viewedProfileIsCoordinator ? "Coordinator Dashboard" : "User Dashboard"}
+        </h1>
         <div className="flex items-center gap-2">
           {currentUserIsCoordinator && (
             <NotificationModal
@@ -575,7 +589,14 @@ function RouteComponent() {
         </div>
       </header>
       <div className="p-6">
-        {/* <FarmerDetailsContent user={userProfile} /> */}
+        {showCoordinatorSummary ? (
+          <CoordinatorDashboardSummary
+            user={userProfile}
+            assignedCount={assignedUsers.length}
+            availableCount={availableUsers.length}
+            isReadOnly={isCoordinatorReadOnlyView}
+          />
+        ) : (
         <FarmerDetailsContent
           user={userProfile}
           isAdmin={currentUser?.role === "admin"}
@@ -593,6 +614,7 @@ function RouteComponent() {
           }
           onChangePassword={handleChangeViewedUserPassword}
         />
+        )}
         {parentCoordinator && (
           <ParentCoordinatorSection
             coordinatorRole={userProfile?.userRole}
@@ -947,6 +969,97 @@ function RouteComponent() {
   );
 }
 
+function CoordinatorDashboardSummary({
+  user,
+  assignedCount,
+  availableCount,
+  isReadOnly,
+}: {
+  user: UserDetail;
+  assignedCount: number;
+  availableCount: number;
+  isReadOnly: boolean;
+}) {
+  const roleLabel = formatRoleLabel(user.userRole);
+  const region = [
+    user.farmerProfile?.state,
+    user.farmerProfile?.district,
+    user.farmerProfile?.blockName,
+    user.farmerProfile?.villageName,
+  ].filter(Boolean);
+  const manages =
+    user.userRole === "district_coordinator"
+      ? "Block Coordinators"
+      : user.userRole === "block_coordinator"
+        ? "Village Volunteers"
+        : user.userRole === "village_volunteer"
+          ? "Farmers"
+          : "Assigned Users";
+
+  return (
+    <section className="rounded-md border bg-card/60 p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <Badge variant="outline">{roleLabel || "Coordinator"}</Badge>
+            {user.isVerified ? <Badge>Verified</Badge> : <Badge variant="secondary">Unverified</Badge>}
+            {isReadOnly ? <Badge variant="secondary">Read-only view</Badge> : null}
+          </div>
+          <h2 className="text-2xl font-semibold tracking-tight">
+            Welcome, {user.name || "Coordinator"}
+          </h2>
+          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
+            {user.email ? (
+              <span className="inline-flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                {user.email}
+              </span>
+            ) : null}
+            {user.farmerProfile?.phoneNo ? (
+              <span className="inline-flex items-center gap-2">
+                <Phone className="h-4 w-4" />
+                {user.farmerProfile.phoneNo}
+              </span>
+            ) : null}
+            {region.length > 0 ? (
+              <span className="inline-flex items-center gap-2">
+                <Network className="h-4 w-4" />
+                {region.join(", ")}
+              </span>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[520px]">
+          <CoordinatorStatCard label="Assigned" value={assignedCount} icon={<Users className="h-4 w-4" />} />
+          <CoordinatorStatCard label="Available" value={availableCount} icon={<UserCheck2 className="h-4 w-4" />} />
+          <CoordinatorStatCard label="Manages" value={manages} icon={<Network className="h-4 w-4" />} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CoordinatorStatCard({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: ReactNode;
+  icon: ReactNode;
+}) {
+  return (
+    <div className="rounded-md border bg-background p-3">
+      <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase text-muted-foreground">
+        {icon}
+        {label}
+      </div>
+      <p className="text-lg font-semibold">{value}</p>
+    </div>
+  );
+}
+
 function ParentCoordinatorSection({
   coordinatorRole,
   parentCoordinator,
@@ -1040,7 +1153,7 @@ function FarmerDashboardAnalytics({
   const questionMetrics = dashboard?.questionMetrics ?? {};
   const messagingMetrics = dashboard?.messagingMetrics ?? {};
   const selectedTrend = dashboard?.engagementTrends?.[trendGranularity];
-  const recentQuestions = dashboard?.recentQuestions ?? [];
+  const recentQuestions = (dashboard?.recentQuestions ?? []).slice(0, 10);
   const recentConversations = dashboard?.recentConversations ?? [];
 
   const questionMetricCards: [string, any][] = [
