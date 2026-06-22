@@ -225,6 +225,10 @@ export class QuestionRepository implements IQuestionRepository {
     try {
       await this.init();
       if (!question._id) question._id = new ObjectId();
+      // New questions are eligible for moderator auto-allocation by default.
+      if (question.autoAllocateModerator === undefined) {
+        question.autoAllocateModerator = true;
+      }
 
       await this.QuestionCollection.insertOne(question, {session});
 
@@ -6638,9 +6642,13 @@ export class QuestionRepository implements IQuestionRepository {
     // Picks up in-review, duplicate and pae_submitted questions so the moderator-queue
     // cron assigns them all to STF moderators (PAE-submitted questions skip the peer
     // review cycle but still need a moderator to act on them).
+    // Only questions with moderator auto-allocation explicitly ON are returned — a
+    // missing field or false both exclude the question from the moderator queue.
+    // New questions default the field to true on creation.
     // When `sources` is provided, restricts to that source group (time-bound / manual).
     const filter: Record<string, unknown> = {
       status: { $in: ['in-review', 'duplicate', 'pae_submitted'] },
+      autoAllocateModerator: true,
       $or: [{ moderatorId: { $exists: false } }, { moderatorId: null }],
     };
     if (sources && sources.length > 0) {

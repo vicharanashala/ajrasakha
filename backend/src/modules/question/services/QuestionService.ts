@@ -3552,7 +3552,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         const answers = await this.answerRepo.getByQuestionId(questionId);
         const finalizedAnswer = answers.find(answer => answer.isFinalAnswer);
 
-        if (finalizedAnswer?.approvedBy) {
+        if (finalizedAnswer?.approvedBy && ObjectId.isValid(finalizedAnswer.approvedBy)) {
           const moderator = await this.userRepo.findById(
             finalizedAnswer.approvedBy,
           );
@@ -3566,10 +3566,12 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
       }
 
-      // Resolve the currently assigned moderator (if any)
+      // Resolve the currently assigned moderator (if any). Guard against a malformed
+      // moderatorId (e.g. a serialized-Buffer object that stringifies to a non-hex
+      // value) so a bad value can't blow up the whole question fetch with a BSONError.
       let assigned_moderator: {name: string; email: string} | null = null;
       const assignedModeratorId = (question as any).moderatorId?.toString();
-      if (assignedModeratorId) {
+      if (assignedModeratorId && ObjectId.isValid(assignedModeratorId)) {
         const mod = await this.userRepo.findById(assignedModeratorId);
         if (mod) {
           assigned_moderator = {
@@ -3611,8 +3613,13 @@ export class QuestionService extends BaseService implements IQuestionService {
     await this.questionRepo.updateModeratorId(questionId, moderatorId);
 
     // Pull this question from the previous moderator and append it to the new one,
-    // carrying the question's current status so free/busy stays accurate.
-    if (previousModeratorId && previousModeratorId !== moderatorId) {
+    // carrying the question's current status so free/busy stays accurate. Guard against
+    // a malformed previous moderatorId so a bad value can't throw a BSONError.
+    if (
+      previousModeratorId &&
+      ObjectId.isValid(previousModeratorId) &&
+      previousModeratorId !== moderatorId
+    ) {
       await this.userRepo.removeAssignedQuestion(previousModeratorId, questionId);
     }
     await this.userRepo.addAssignedQuestion(
@@ -3636,8 +3643,9 @@ export class QuestionService extends BaseService implements IQuestionService {
     // Null out moderatorId and moderatorAssignedAt on the question.
     await this.questionRepo.updateModeratorId(questionId, null);
 
-    // Pull this question from the previously assigned moderator's array.
-    if (previousModeratorId) {
+    // Pull this question from the previously assigned moderator's array. Guard against
+    // a malformed previous moderatorId so a bad value can't throw a BSONError.
+    if (previousModeratorId && ObjectId.isValid(previousModeratorId)) {
       await this.userRepo.removeAssignedQuestion(previousModeratorId, questionId);
     }
   }

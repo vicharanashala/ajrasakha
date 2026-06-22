@@ -125,6 +125,10 @@ export interface IQuestion {
   saved_to_draft?: boolean;
   pae_review?: boolean;
   firstAllocationAt?: Date;
+  /** Whether this question is eligible to be auto-allocated to a moderator by the
+   *  moderator-queue cron. New questions default to true; existing questions were
+   *  backfilled to false. When false the question is never assigned to a moderator. */
+  autoAllocateModerator?: boolean;
   /** Moderator currently assigned to review this question.
    *  Set by the cron; cleared when the question is closed. */
   moderatorId?: ObjectId | string | null;

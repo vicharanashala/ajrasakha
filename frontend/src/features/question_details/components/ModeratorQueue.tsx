@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { IQuestionFullData, IUser } from "@/types";
 import { Button } from "@/components/atoms/button";
 import {
@@ -11,8 +12,11 @@ import {
 import { Input } from "@/components/atoms/input";
 import { Label } from "@/components/atoms/label";
 import { ScrollArea } from "@/components/atoms/scroll-area";
+import { Switch } from "@/components/atoms/switch";
 import { useChangeModerator } from "@/hooks/api/question/useChangeModerator";
 import { useRemoveModerator } from "@/hooks/api/question/useRemoveModerator";
+import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
+import { toast } from "sonner";
 import { useGetStfModerators } from "@/hooks/api/user/useGetStfModerators";
 import { BLOCKING_ASSIGNED_STATUSES } from "@/hooks/services/userService";
 import { ConfirmationModal } from "@/components/confirmation-modal";
@@ -20,6 +24,7 @@ import {
   CalendarClock,
   CheckCheck,
   Clock,
+  Info,
   Loader2,
   Trash2,
   User,
@@ -28,6 +33,12 @@ import {
   UserX,
   X,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/atoms/tooltip";
 import { formatDuration } from "../utils/formatDate";
 
 interface ModeratorQueueProps {
@@ -53,6 +64,31 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
     useChangeModerator();
   const { mutate: removeModerator, isPending: removingModerator } =
     useRemoveModerator();
+
+  // Moderator auto-allocation toggle. Defaults to ON when the field is absent
+  // (new questions default to true server-side); false means the moderator-queue
+  // cron will never auto-assign this question.
+  const autoAllocateModerator = question.autoAllocateModerator !== false;
+  const { mutateAsync: updateQuestion, isPending: isTogglingAutoAllocate } =
+    useUpdateQuestion();
+  const queryClient = useQueryClient();
+
+  const handleToggleAutoAllocateModerator = async (next: boolean) => {
+    let toastId;
+    try {
+      toastId = toast.loading(`Turning auto allocation ${next ? "on" : "off"}...`);
+      await updateQuestion({ _id: question._id, autoAllocateModerator: next });
+      // Refresh the question detail data so the toggle/UI reflects the new value
+      // immediately — same as the expert auto-allocate toggle.
+      await queryClient.invalidateQueries({ queryKey: ["question_full_data"] });
+      toast.dismiss(toastId);
+      toast.success(`Moderator auto allocation turned ${next ? "on" : "off"}.`);
+    } catch (error) {
+      console.error(error);
+      toast.dismiss(toastId);
+      toast.error("Failed to update auto allocation");
+    }
+  };
 
   const filteredModerators = useMemo(() => {
     const term = searchTerm.toLowerCase();
@@ -146,18 +182,63 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
             </div>
           </div>
 
-          {/* RIGHT SECTION — Select moderator. Only available once the question has
-              reached the review stage (in-review / re-routed); hidden before then. */}
-          {canSelectModerator && (
-            <Button
-              variant="default"
-              className="gap-2 w-full sm:w-auto"
-              onClick={() => setIsModalOpen(true)}
-            >
-              <UserPlus className="w-4 h-4" />
-              Select Moderator
-            </Button>
-          )}
+          {/* RIGHT SECTION — Auto-allocate toggle + Select moderator. */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Auto Allocate toggle — controls whether the moderator-queue cron may
+                auto-assign this question to a moderator. Styled to match the
+                "Auto-allocate Experts" block in the Allocation Queue header. */}
+            <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
+              <Switch
+                id="auto-allocate-moderator"
+                checked={autoAllocateModerator}
+                disabled={isTogglingAutoAllocate}
+                onCheckedChange={handleToggleAutoAllocateModerator}
+              />
+              <Label
+                htmlFor="auto-allocate-moderator"
+                className="cursor-pointer font-medium text-sm flex items-center gap-2"
+              >
+                {isTogglingAutoAllocate && (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+                Auto-allocate Moderator
+              </Label>
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <div className="space-y-1.5 text-sm">
+                      <p>
+                        <strong>ON:</strong> This question is auto-assigned to an
+                        available moderator by the queue.
+                      </p>
+                      <p>
+                        <strong>OFF:</strong> This question is never auto-assigned to
+                        a moderator.
+                      </p>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+
+            {/* Select moderator. Shown only when auto-allocation is OFF (otherwise the
+                queue assigns a moderator automatically), and once the question has
+                reached the review stage (in-review / re-routed). */}
+            {!autoAllocateModerator && canSelectModerator && (
+              <Button
+                variant="default"
+                className="gap-2 w-full sm:w-auto"
+                onClick={() => setIsModalOpen(true)}
+              >
+                <UserPlus className="w-4 h-4" />
+                Select Moderator
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -172,8 +253,8 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
           >
             {/* Remove moderator — hover-revealed trash icon, mirrors the expert allocation removal.
                 Sits outside the flipping element so it stays put. Hidden once the question is
-                finalized (closed): there's no longer an active assignment to remove. */}
-            {!isClosed && (
+                finalized (closed), and only available when auto-allocation is OFF (manual mode). */}
+            {!isClosed && !autoAllocateModerator && (
               <div className="absolute -top-1 right-0 w-6 h-6 flex items-center justify-center cursor-pointer pointer-events-auto hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
                 <ConfirmationModal
                   title="Remove Moderator?"
