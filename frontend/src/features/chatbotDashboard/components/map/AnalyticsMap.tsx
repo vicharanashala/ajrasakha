@@ -327,8 +327,13 @@ export default function IndiaAnalyticsMap({
           <MapContainer
             center={[22.5, 80]}
             zoom={5}
-            minZoom={4}
+            minZoom={4.4}
             maxZoom={11}
+              maxBounds={[
+    [5, 65],    // southwest
+    [38, 100],  // northeast
+  ]}
+  maxBoundsViscosity={1.0}
             zoomControl={false}
             style={{ height: "100%", width: "100%", background: "transparent" }}
             scrollWheelZoom
