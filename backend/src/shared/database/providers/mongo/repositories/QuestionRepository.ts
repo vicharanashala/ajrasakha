@@ -2717,6 +2717,14 @@ export class QuestionRepository implements IQuestionRepository {
       status: {$ne: 'pass'},
     };
 
+    const closedMatchCondition: any = {
+      status: 'closed',
+      closedAt: {
+        $gte: startDate,
+        $lt: endDate,
+      },
+    };
+
     // Add time filtering if provided
     if (customStartTime && customEndTime) {
       const [startHour, startMinute] = customStartTime.split(':').map(Number);
@@ -2751,6 +2759,63 @@ export class QuestionRepository implements IQuestionRepository {
                     ],
                   },
                   {$minute: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                ],
+              },
+              endHour * 60 + endMinute,
+            ],
+          },
+        ],
+      };
+
+      closedMatchCondition.$expr = {
+        $and: [
+          {
+            $gte: [
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {
+                        $hour: {
+                          date: '$closedAt',
+                          timezone: 'Asia/Kolkata',
+                        },
+                      },
+                      60,
+                    ],
+                  },
+                  {
+                    $minute: {
+                      date: '$closedAt',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
+                ],
+              },
+              startHour * 60 + startMinute,
+            ],
+          },
+          {
+            $lte: [
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {
+                        $hour: {
+                          date: '$closedAt',
+                          timezone: 'Asia/Kolkata',
+                        },
+                      },
+                      60,
+                    ],
+                  },
+                  {
+                    $minute: {
+                      date: '$closedAt',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
                 ],
               },
               endHour * 60 + endMinute,
@@ -2807,15 +2872,24 @@ export class QuestionRepository implements IQuestionRepository {
         };
       },
     );
+
+    const [closedStats] = await this.QuestionCollection.aggregate(
+      [
+        {
+          $match: closedMatchCondition,
+        },
+        {
+          $count: 'totalVerified',
+        },
+      ],
+      { session },
+    ).toArray();
     const totalEntriesByType = formattedData.reduce(
       (sum, m) => sum + m.entries,
       0,
     );
-    const totalVerifiedByType = formattedData.reduce(
-      (sum, m) => sum + m.verified,
-      0,
-    );
 
+    const totalVerifiedByType = closedStats?.totalVerified ?? 0;
     const {moderatorBreakdown} = await this.getTodayApproved(
       session,
       startDate,
@@ -3537,6 +3611,14 @@ export class QuestionRepository implements IQuestionRepository {
       status: {$ne: 'pass'},
     };
 
+    const closedMatchCondition: any = {
+      status: 'closed',
+      closedAt: {
+        $gte: startDate,
+        $lt: endDate,
+      },
+    };
+
     // Add time filtering if provided
     if (customStartTime && customEndTime) {
       const [startHour, startMinute] = customStartTime.split(':').map(Number);
@@ -3571,6 +3653,63 @@ export class QuestionRepository implements IQuestionRepository {
                     ],
                   },
                   {$minute: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                ],
+              },
+              endHour * 60 + endMinute,
+            ],
+          },
+        ],
+      };
+
+      closedMatchCondition.$expr = {
+        $and: [
+          {
+            $gte: [
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {
+                        $hour: {
+                          date: '$closedAt',
+                          timezone: 'Asia/Kolkata',
+                        },
+                      },
+                      60,
+                    ],
+                  },
+                  {
+                    $minute: {
+                      date: '$closedAt',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
+                ],
+              },
+              startHour * 60 + startMinute,
+            ],
+          },
+          {
+            $lte: [
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {
+                        $hour: {
+                          date: '$closedAt',
+                          timezone: 'Asia/Kolkata',
+                        },
+                      },
+                      60,
+                    ],
+                  },
+                  {
+                    $minute: {
+                      date: '$closedAt',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
                 ],
               },
               endHour * 60 + endMinute,
@@ -3616,14 +3755,24 @@ export class QuestionRepository implements IQuestionRepository {
         verified: match?.totalVerified ?? 0,
       };
     });
+
+    const [closedStats] = await this.QuestionCollection.aggregate(
+      [
+        {
+          $match: closedMatchCondition,
+        },
+        {
+          $count: 'totalVerified',
+        },
+      ],
+      { session },
+    ).toArray();
+
     const totalEntriesByType = weeksDataRaw.reduce(
       (acc, curr) => acc + (curr.totalEntries || 0),
       0,
     );
-    const totalVerifiedByType = weeksDataRaw.reduce(
-      (acc, curr) => acc + (curr.totalVerified || 0),
-      0,
-    );
+   const totalVerifiedByType = closedStats?.totalVerified ?? 0;
 
     const {moderatorBreakdown} = await this.getTodayApproved(
       session,
@@ -3738,6 +3887,14 @@ export class QuestionRepository implements IQuestionRepository {
       status: {$ne: 'pass'},
     };
 
+    const closedMatchCondition: any = {
+      status: 'closed',
+      closedAt: {
+        $gte: startDate,
+        $lt: endDate,
+      },
+    };
+
     // Add time filtering if provided
     if (customStartTime && customEndTime) {
       const [startHour, startMinute] = customStartTime.split(':').map(Number);
@@ -3772,6 +3929,63 @@ export class QuestionRepository implements IQuestionRepository {
                     ],
                   },
                   {$minute: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                ],
+              },
+              endHour * 60 + endMinute,
+            ],
+          },
+        ],
+      };
+
+      closedMatchCondition.$expr = {
+        $and: [
+          {
+            $gte: [
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {
+                        $hour: {
+                          date: '$closedAt',
+                          timezone: 'Asia/Kolkata',
+                        },
+                      },
+                      60,
+                    ],
+                  },
+                  {
+                    $minute: {
+                      date: '$closedAt',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
+                ],
+              },
+              startHour * 60 + startMinute,
+            ],
+          },
+          {
+            $lte: [
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {
+                        $hour: {
+                          date: '$closedAt',
+                          timezone: 'Asia/Kolkata',
+                        },
+                      },
+                      60,
+                    ],
+                  },
+                  {
+                    $minute: {
+                      date: '$closedAt',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
                 ],
               },
               endHour * 60 + endMinute,
@@ -3818,14 +4032,23 @@ export class QuestionRepository implements IQuestionRepository {
       };
     });
 
+    const [closedStats] = await this.QuestionCollection.aggregate(
+      [
+        {
+          $match: closedMatchCondition,
+        },
+        {
+          $count: 'totalVerified',
+        },
+      ],
+      { session },
+    ).toArray();
+
     const totalEntriesByType = dailyDataRaw.reduce(
       (acc, curr) => acc + curr.totalEntries,
       0,
     );
-    const totalVerifiedByType = dailyDataRaw.reduce(
-      (acc, curr) => acc + curr.totalVerified,
-      0,
-    );
+    const totalVerifiedByType = closedStats?.totalVerified ?? 0;
 
     const {moderatorBreakdown} = await this.getTodayApproved(
       session,
@@ -3955,6 +4178,14 @@ export class QuestionRepository implements IQuestionRepository {
       status: {$ne: 'pass'},
     };
 
+    const closedMatchCondition: any = {
+      status: 'closed',
+      closedAt: {
+        $gte: startDate,
+        $lt: endDate,
+      },
+    };
+
     // Add time filtering if provided
     if (customStartTime && customEndTime) {
       const [startHour, startMinute] = customStartTime.split(':').map(Number);
@@ -3996,7 +4227,65 @@ export class QuestionRepository implements IQuestionRepository {
           },
         ],
       };
+
+      closedMatchCondition.$expr = {
+    $and: [
+      {
+        $gte: [
+          {
+            $add: [
+              {
+                $multiply: [
+                  {
+                    $hour: {
+                      date: '$closedAt',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
+                  60,
+                ],
+              },
+              {
+                $minute: {
+                  date: '$closedAt',
+                  timezone: 'Asia/Kolkata',
+                },
+              },
+            ],
+          },
+          startHour * 60 + startMinute,
+        ],
+      },
+      {
+        $lte: [
+          {
+            $add: [
+              {
+                $multiply: [
+                  {
+                    $hour: {
+                      date: '$closedAt',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
+                  60,
+                ],
+              },
+              {
+                $minute: {
+                  date: '$closedAt',
+                  timezone: 'Asia/Kolkata',
+                },
+              },
+            ],
+          },
+          endHour * 60 + endMinute,
+        ],
+      },
+    ],
+  };
     }
+
 
     const answers = await this.QuestionCollection.aggregate(
       [
@@ -4078,14 +4367,38 @@ export class QuestionRepository implements IQuestionRepository {
       },
     );
 
+    const [closedStats] = await this.QuestionCollection.aggregate(
+  [
+    {
+      $match: closedMatchCondition,
+    },
+    {
+      $addFields: {
+        dayOfWeek: {
+          $dayOfWeek: {
+            date: '$closedAt',
+            timezone: 'Asia/Kolkata',
+          },
+        },
+      },
+    },
+    {
+      $match: {
+        dayOfWeek: selectedDayNum + 1,
+      },
+    },
+    {
+      $count: 'totalVerified',
+    },
+  ],
+  { session },
+).toArray();
+
     const totalEntriesByType = answers.reduce(
       (acc, curr) => acc + curr.totalEntries,
       0,
     );
-    const totalVerifiedByType = answers.reduce(
-      (acc, curr) => acc + curr.totalVerified,
-      0,
-    );
+   const totalVerifiedByType = closedStats?.totalVerified ?? 0;
 
     // Filter moderator breakdown for the specific day
     const dayStartDate = new Date(
@@ -5975,8 +6288,13 @@ export class QuestionRepository implements IQuestionRepository {
     startDate: string,
     // endDate: string,
     shift: 'morning' | 'evening' | 'all',
+    source: 'annam' | 'whatsapp' | 'agri_expert',
+    from: string,
+    to:string,
     session?: ClientSession,
   ): Promise<{
+    openAtMidnight: number;
+    closedBetween12And6: number;
     questionsAdded: number;
     questionsClosed: number;
     averageClosureTimeInMinutes: number;
@@ -5988,16 +6306,66 @@ export class QuestionRepository implements IQuestionRepository {
 
     const end = new Date(`${startDate}T23:59:59.999+05:30`);
 
-    const createdAtShiftFilter = getShiftFilter('createdAt', shift);
+    const midnight = new Date(start);
+    midnight.setDate(midnight.getDate() + 1);
+    midnight.setHours(0, 0, 0, 0);
 
-    const closedAtShiftFilter = getShiftFilter('closedAt', shift);
+    const sixAM = new Date(start);
+    sixAM.setDate(sixAM.getDate() + 1);
+    sixAM.setHours(6, 0, 0, 0);
+
+    const createdAtShiftFilter = getShiftFilter('createdAt', shift, from, to);
+
+    const closedAtShiftFilter = getShiftFilter('closedAt', shift, from, to);
+
+    const sourceFilter =
+      source === 'annam'
+        ? 'AJRASAKHA'
+        : source === 'whatsapp'
+          ? 'WHATSAPP'
+          : 'AGRI_EXPERT';
 
     const [
+      openAtMidnight,
+      closedBetween12And6,
       questionsAdded,
       questionsClosed,
       averageClosureTimeResult,
       totalReroutedQuestions,
     ] = await Promise.all([
+
+      // Questions that were not closed before 12:00 AM
+      this.QuestionCollection.countDocuments(
+        {
+          createdAt: {
+            $gte: start,
+            $lte: end,
+          },
+          source: sourceFilter,
+          $or: [
+            { closedAt: null },
+            { closedAt: { $gte: midnight } },
+          ],
+        },
+        { session },
+      ),
+
+      // Questions that were closed between 12:00 AM and 6:00 AM
+      this.QuestionCollection.countDocuments(
+        {
+          createdAt: {
+            $gte: start,
+            $lte: end,
+          },
+          source: sourceFilter,
+          closedAt: {
+            $gte: midnight,
+            $lt: sixAM,
+          },
+        },
+        { session },
+      ),
+
       /**
        * Questions Added
        */
@@ -6008,6 +6376,8 @@ export class QuestionRepository implements IQuestionRepository {
             $lte: end,
           },
 
+          source: sourceFilter,
+          
           ...createdAtShiftFilter,
         },
         {session},
@@ -6024,6 +6394,8 @@ export class QuestionRepository implements IQuestionRepository {
             $gte: start,
             $lte: end,
           },
+
+          source: sourceFilter,
 
           ...closedAtShiftFilter,
         },
@@ -6050,6 +6422,9 @@ export class QuestionRepository implements IQuestionRepository {
               closedAt: {
                 $exists: true,
               },
+
+              source: sourceFilter,
+
               ...createdAtShiftFilter,
             },
           },
@@ -6095,6 +6470,9 @@ export class QuestionRepository implements IQuestionRepository {
                 $gte: start,
                 $lte: end,
               },
+
+              source: sourceFilter,
+
               ...createdAtShiftFilter,
             },
           },
@@ -6108,6 +6486,8 @@ export class QuestionRepository implements IQuestionRepository {
     ]);
 
     return {
+      openAtMidnight,
+      closedBetween12And6,
       questionsAdded,
       questionsClosed,
       averageClosureTimeInMinutes: Number(
@@ -6124,6 +6504,9 @@ export class QuestionRepository implements IQuestionRepository {
     startDate: string,
     // endDate: string,
     shift: 'morning' | 'evening' | 'all',
+    source: 'annam' | 'whatsapp' | 'agri_expert',
+    from: string,
+    to:string,
     session?: ClientSession,
   ): Promise<
     {
@@ -6137,6 +6520,14 @@ export class QuestionRepository implements IQuestionRepository {
     const start = new Date(`${startDate}T00:00:00+05:30`);
 
     const end = new Date(`${startDate}T23:59:59.999+05:30`);
+
+    const sourceFilter =
+      source === 'annam'
+        ? 'AJRASAKHA'
+        : source === 'whatsapp'
+          ? 'WHATSAPP'
+          : 'AGRI_EXPERT';
+
     /**
      * Added Questions Aggregation
      */
@@ -6148,7 +6539,8 @@ export class QuestionRepository implements IQuestionRepository {
               $gte: start,
               $lte: end,
             },
-            ...getShiftFilter('createdAt', shift),
+             source: sourceFilter,
+            ...getShiftFilter('createdAt', shift, from, to),
           },
         },
 
@@ -6188,7 +6580,8 @@ export class QuestionRepository implements IQuestionRepository {
               $gte: start,
               $lte: end,
             },
-            ...getShiftFilter('closedAt', shift),
+             source: sourceFilter,
+            ...getShiftFilter('closedAt', shift, from, to),
           },
         },
 
@@ -6273,6 +6666,9 @@ export class QuestionRepository implements IQuestionRepository {
     startDate: string,
     // endDate: string,
     shift: 'morning' | 'evening' | 'all',
+    source: 'annam' | 'whatsapp' | 'agri_expert',
+    from: string,
+    to:string,
     session?: ClientSession,
   ): Promise<
     {
@@ -6286,6 +6682,13 @@ export class QuestionRepository implements IQuestionRepository {
 
     const end = new Date(`${startDate}T23:59:59.999+05:30`);
 
+    const sourceFilter =
+      source === 'annam'
+        ? 'AJRASAKHA'
+        : source === 'whatsapp'
+          ? 'WHATSAPP'
+          : 'AGRI_EXPERT';
+
     const result = await this.QuestionCollection.aggregate(
       [
         /**
@@ -6297,7 +6700,8 @@ export class QuestionRepository implements IQuestionRepository {
               $gte: start,
               $lte: end,
             },
-            ...getShiftFilter('createdAt', shift),
+             source: sourceFilter,
+            ...getShiftFilter('createdAt', shift, from, to),
           },
         },
 
@@ -6335,6 +6739,9 @@ export class QuestionRepository implements IQuestionRepository {
     startDate: string,
     // endDate: string,
     shift: 'morning' | 'evening' | 'all',
+    source: 'annam' | 'whatsapp' | 'agri_expert',
+    from: string,
+    to:string,
     session?: ClientSession,
   ): Promise<
     {
@@ -6348,6 +6755,13 @@ export class QuestionRepository implements IQuestionRepository {
 
     const end = new Date(`${startDate}T23:59:59.999+05:30`);
 
+    const sourceFilter =
+      source === 'annam'
+        ? 'AJRASAKHA'
+        : source === 'whatsapp'
+          ? 'WHATSAPP'
+          : 'AGRI_EXPERT';
+
     const result = await this.QuestionSubmissionCollection.aggregate(
       [
         /**
@@ -6359,7 +6773,29 @@ export class QuestionRepository implements IQuestionRepository {
               $gte: start,
               $lte: end,
             },
-            ...getShiftFilter('createdAt', shift),
+            ...getShiftFilter('createdAt', shift, from, to),
+          },
+        },
+
+        /**
+         * Join question and filter by source
+         */
+        {
+          $lookup: {
+            from: 'questions',
+            localField: 'questionId',
+            foreignField: '_id',
+            as: 'question',
+          },
+        },
+
+        {
+          $unwind: '$question',
+        },
+
+        {
+          $match: {
+            'question.source': sourceFilter,
           },
         },
 
@@ -6450,6 +6886,9 @@ export class QuestionRepository implements IQuestionRepository {
     startDate: string,
     // endDate: string,
     shift: 'morning' | 'evening' | 'all',
+    source: 'annam' | 'whatsapp' | 'agri_expert',
+    from: string,
+    to:string,
     session?: ClientSession,
   ): Promise<
     {
@@ -6467,6 +6906,13 @@ export class QuestionRepository implements IQuestionRepository {
 
     const end = new Date(`${startDate}T23:59:59.999+05:30`);
 
+    const sourceFilter =
+      source === 'annam'
+        ? 'AJRASAKHA'
+        : source === 'whatsapp'
+          ? 'WHATSAPP'
+          : 'AGRI_EXPERT';
+
     const result = await this.QuestionSubmissionCollection.aggregate<{
       userId: ObjectId;
       name: string;
@@ -6476,6 +6922,39 @@ export class QuestionRepository implements IQuestionRepository {
       penalty: number;
     }>(
       [
+        /**
+        * Join question and filter by source
+        */
+        {
+          $lookup: {
+            from: 'questions', // replace if needed
+            let: {
+              questionId: '$questionId',
+            },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $eq: ['$_id', '$$questionId'],
+                  },
+                  source: sourceFilter,
+                },
+              },
+            ],
+            as: 'question',
+          },
+        },
+
+        /**
+        * Keep only matching questions
+        */
+        {
+          $match: {
+            question: {
+              $ne: [],
+            },
+          },
+        },
         /**
          * Expand history
          */
@@ -6492,7 +6971,7 @@ export class QuestionRepository implements IQuestionRepository {
               $gte: start,
               $lte: end,
             },
-            ...getShiftFilter('history.createdAt', shift),
+            ...getShiftFilter('history.createdAt', shift, from, to),
             /**
              * Either:
              * - answer exists
@@ -6590,6 +7069,9 @@ export class QuestionRepository implements IQuestionRepository {
     startDate: string,
     // endDate: string,
     shift: 'morning' | 'evening' | 'all',
+    source: 'annam' | 'whatsapp' | 'agri_expert',
+    from: string,
+    to:string,
     session?: ClientSession,
   ): Promise<
     {
@@ -6604,6 +7086,13 @@ export class QuestionRepository implements IQuestionRepository {
 
     const end = new Date(`${startDate}T23:59:59.999+05:30`);
 
+    const sourceFilter =
+      source === 'annam'
+        ? 'AJRASAKHA'
+        : source === 'whatsapp'
+          ? 'WHATSAPP'
+          : 'AGRI_EXPERT';
+
     const result = await this.AnswersCollection.aggregate<{
       userId: ObjectId;
       name: string;
@@ -6617,9 +7106,44 @@ export class QuestionRepository implements IQuestionRepository {
               $gte: start,
               $lte: end,
             },
-            ...getShiftFilter('updatedAt', shift),
+            ...getShiftFilter('updatedAt', shift, from, to),
           },
         },
+
+        /**
+         * Join question
+         */
+        {
+          $lookup: {
+            from: 'questions', // verify collection name
+            let: {
+              questionId: '$questionId',
+            },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $eq: ['$_id', '$$questionId'],
+                  },
+                  source: sourceFilter,
+                },
+              },
+            ],
+            as: 'question',
+          },
+        },
+
+        /**
+         * Keep only answers whose question matches source
+         */
+        {
+          $match: {
+            question: {
+              $ne: [],
+            },
+          },
+        },
+
         {
           $group: {
             _id: '$approvedBy',
