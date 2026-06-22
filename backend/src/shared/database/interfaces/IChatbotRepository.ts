@@ -902,6 +902,8 @@ export interface IChatbotRepository {
     source: string,
     userType: string,
     session?: ClientSession): Promise<any>
+    
+  getQuestionLifecycle(questionId: string): Promise<any>
 }
 
 export interface ChatbotConversationData {

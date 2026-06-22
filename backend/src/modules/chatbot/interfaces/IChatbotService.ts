@@ -361,4 +361,6 @@ export interface IChatbotService {
     source: string,
     userType: string
   ): Promise<any>
+  
+  getQuestionLifecycle(questionId: string): Promise<any>
 }

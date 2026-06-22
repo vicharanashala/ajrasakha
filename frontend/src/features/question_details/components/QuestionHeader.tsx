@@ -16,6 +16,7 @@ import { CircleCheck, GitCompareArrows, History } from "lucide-react";
 import { diffWords } from "@/utils/wordDifference";
 import { toast } from "@/shared/components/toast";
 import { AuditTrailModal } from "./AuditTrailModal";
+import { QuestionLifecycleTable } from "@/features/chatbotDashboard/QuestionLifeCycle";
 
 interface QuestionHeaderProps {
   question: IQuestionFullData;
@@ -83,7 +84,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
   const isQuestionOnHold = question.isOnHold;
   const { mutate: checkDuplicate, isPending: isCheckingDuplicate } = useManualCheckDuplicate();
   const originalQuestion = question.originalQuestion?.trim();
-
+  const [lifeCycleModalOpen, setLifeCycleModalOpen] = useState(false);
   // For compare mode: reference answer (from the original/reference question)
   const referenceAnswerText = (() => {
     const text = question.referenceQuestionData?.text;
@@ -329,6 +330,18 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
       )}
 
           {/* View Audit Button */}
+          <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setLifeCycleModalOpen(true)}
+            className="gap-1.5"
+          >
+            <History className="h-4 w-4" />
+            View LifeCycle
+          </Button>
+
+          {/* View Audit Button */}
           <Button
             size="sm"
             variant="outline"
@@ -338,6 +351,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
             <History className="h-4 w-4" />
             View Audit
           </Button>
+          </div>
         </div>
 
         {/* Created / Updated */}
@@ -677,6 +691,13 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+
+      <QuestionLifecycleTable
+        open={lifeCycleModalOpen}
+        onClose={() => setLifeCycleModalOpen(false)}
+        questionId={question._id!}
+      />
 
       <AuditTrailModal
         open={auditModalOpen}
