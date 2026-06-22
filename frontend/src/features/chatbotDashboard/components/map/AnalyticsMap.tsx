@@ -78,6 +78,8 @@ export default function IndiaAnalyticsMap({
     source,
     userType,
   );
+
+
   // console.log("Analytics of all state", allStatesData)
   // console.log("District analytics of data", districtAnalytics)
 
@@ -347,6 +349,7 @@ export default function IndiaAnalyticsMap({
         questionStatusData={questionStatusData}
         todayActiveFarmersData={todayActiveFarmersData}
         isLoading={isLoading || isFetching}
+        districtAnalytic = {districtAnalytics}
       />
     </div>
   );
