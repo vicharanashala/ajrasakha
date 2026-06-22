@@ -263,6 +263,9 @@ function CoordinatorProfilePage() {
 
   const assignedCount = profile?.assigned?.length ?? 0;
   const availableCount = profile?.unAssigned?.length ?? 0;
+  const dashboardUserId = profile?.userId
+    ? String(profile.userId)
+    : listingProfile?.userId;
   const isLoading =
     currentUserLoading || dashboardProfileLoading || listingProfileLoading;
   const accountStatus = currentUser?.isBlocked
@@ -372,7 +375,15 @@ function CoordinatorProfilePage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2 sm:px-6">
-        <Button variant="outline" size="sm" onClick={() => navigate({ to: "/coordinator" })}>
+        <Button variant="outline" size="sm" onClick={() =>
+            dashboardUserId
+              ? navigate({
+                  to: "/user/$userId",
+                  params: { userId: dashboardUserId },
+                })
+              : navigate({ to: "/coordinator" })
+          }
+        >
           <Home className="mr-2 h-4 w-4" />
           Dashboard
         </Button>
