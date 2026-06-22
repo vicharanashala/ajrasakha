@@ -839,8 +839,9 @@ export class UserRepository implements IUserRepository {
 
   /** Statuses that keep a moderator "busy". A held question in any other status
    *  (notably 're-routed', which is handed off to an expert but kept in the array for
-   *  history) does NOT block new assignments. */
-  static readonly BLOCKING_ASSIGNED_STATUSES: QuestionStatus[] = ['in-review', 'duplicate'];
+   *  history) does NOT block new assignments. 'pae_submitted' blocks too: the moderator
+   *  still has to act on it, so they shouldn't be handed another question of that category. */
+  static readonly BLOCKING_ASSIGNED_STATUSES: QuestionStatus[] = ['in-review', 'duplicate', 'pae_submitted'];
 
   /** Returns non-blocked moderators who can take a new question — i.e. they hold no
    *  assignedQuestionIds entry in a blocking status. A moderator with an empty array,

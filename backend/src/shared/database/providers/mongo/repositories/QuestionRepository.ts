@@ -6635,11 +6635,12 @@ export class QuestionRepository implements IQuestionRepository {
     sources?: QuestionSource[],
   ): Promise<IQuestion[]> {
     await this.init();
-    // Picks up both in-review and duplicate questions so the moderator-queue cron
-    // assigns duplicates to STF moderators alongside regular in-review questions.
+    // Picks up in-review, duplicate and pae_submitted questions so the moderator-queue
+    // cron assigns them all to STF moderators (PAE-submitted questions skip the peer
+    // review cycle but still need a moderator to act on them).
     // When `sources` is provided, restricts to that source group (time-bound / manual).
     const filter: Record<string, unknown> = {
-      status: { $in: ['in-review', 'duplicate'] },
+      status: { $in: ['in-review', 'duplicate', 'pae_submitted'] },
       $or: [{ moderatorId: { $exists: false } }, { moderatorId: null }],
     };
     if (sources && sources.length > 0) {

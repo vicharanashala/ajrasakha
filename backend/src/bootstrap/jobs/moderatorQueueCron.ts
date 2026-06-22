@@ -4,8 +4,8 @@ import { CORE_TYPES } from '#root/modules/core/types.js';
 import { QuestionService } from '#root/modules/core/index.js';
 import { appConfig } from '#root/config/app.js';
 
-// Run every 2 minutes — assigns in-review questions to available moderators (one per moderator at a time)
-if (true) {
+// Run every 1 minutes — assigns in-review questions to available moderators (one per moderator at a time)
+if (!appConfig.isDevelopment) {
   cron.schedule(
     '0 */1 * * * *',
     async () => {
