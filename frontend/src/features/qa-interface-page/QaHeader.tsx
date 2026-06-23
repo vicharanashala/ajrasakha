@@ -16,7 +16,8 @@ import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from 
 import { Badge } from "../../components/atoms/badge";
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import { Separator } from "@/components/atoms/separator";
-import { STATES, CROPS } from "@/components/MetaData";
+import { CROPS } from "@/components/MetaData";
+import { useGetStates } from "@/hooks/api/location/useLocations";
 import { StateMultiSelect } from "@/components/atoms/StateMultiSelect";
 import { CropMultiSelect } from "@/components/atoms/CropMultiSelect";
 import { Label } from "../../components/atoms/label";
@@ -104,6 +105,8 @@ const QaPreferencesDialog = ({
   const [open, setOpen] = useState(false);
   const { data: cropsData } = useGetAllCrops({ type: "crop", limit: 500 });
   const dbCrops = cropsData?.crops || [];
+  const { data: statesResponse = [] } = useGetStates();
+  const stateOptions = statesResponse.map((s) => s.stateNameEnglish);
   const [localReviewLevel, setLocalReviewLevel] = useState(reviewLevel);
   const [localSource, setLocalSource] = useState(source);
   const [localStates, setLocalStates] = useState<string[]>(states);
@@ -235,7 +238,7 @@ const QaPreferencesDialog = ({
                   State/Region
                 </Label>
                 <StateMultiSelect
-                  states={STATES}
+                  states={stateOptions}
                   selected={localStates}
                   onChange={setLocalStates}
                 />
@@ -292,7 +295,8 @@ const QaQuestionItem = ({
   hasTimeboundQuestions?: boolean;
 }) => {
   const { mutate: fetchAnswer, isPending } = useFetchAnswer();
-  const states = STATES;
+  const { data: statesResponse = [] } = useGetStates();
+  const states = statesResponse.map((s) => s.stateNameEnglish);
   const fetchAiInitialAnswer = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     onQuestionSelect(question.id);

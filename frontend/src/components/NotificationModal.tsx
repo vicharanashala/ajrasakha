@@ -75,9 +75,10 @@ export interface Notification {
 
 interface NotificationModalProps {
     trigger: React.ReactNode;
+    copy?: "notifications" | "messages";
 }
 
-export function NotificationModal({ trigger }: NotificationModalProps) {
+export function NotificationModal({ trigger, copy = "notifications" }: NotificationModalProps) {
     const { success: toastSuccess, error: toastError} = useToast();
     const [open, setOpen] = useState(false);
     const [filter, setFilter] = useState<"all" | "unread" | "read">("all");
@@ -125,6 +126,10 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
     });
 
     const unreadCount = notifications.filter((n) => !n.is_read).length;
+    const isMessagesCopy = copy === "messages";
+    const titleText = isMessagesCopy ? "Messages" : "Notifications";
+    const itemText = isMessagesCopy ? "messages" : "notifications";
+    const emptyTitleText = isMessagesCopy ? "No messages" : "No notifications";
 
     const handleNotificationClick = async (notification: Notification) => {
 
@@ -197,7 +202,7 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
                                 <BellIcon className="w-5 h-5 text-primary" />
                             </div>
                             <div>
-                                <SheetTitle className="text-xl font-bold">Notifications</SheetTitle>
+                                <SheetTitle className="text-xl font-bold">{titleText}</SheetTitle>
                                 <p className="text-sm text-muted-foreground">
                                     {notifications.length} total, {unreadCount} new
                                 </p>
@@ -295,7 +300,7 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
                                 <div className="bg-muted p-4 rounded-full mb-4">
                                     <BellIcon className="w-8 h-8 text-muted-foreground" />
                                 </div>
-                                <h3 className="font-semibold text-lg">No notifications</h3>
+                                <h3 className="font-semibold text-lg">{emptyTitleText}</h3>
                                 <p className="text-sm text-muted-foreground">You're all caught up!</p>
                             </div>
                         ) : (
@@ -366,7 +371,7 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
                                 onClick={() => fetchNextPage()}
                                 disabled={isFetchingNextPage}
                             >
-                                {isFetchingNextPage ? "Loading..." : "View previous notifications"}
+                                {isFetchingNextPage ? "Loading..." : `View previous ${itemText}`}
                             </Button>
                         )}
                     </div>
@@ -374,7 +379,7 @@ export function NotificationModal({ trigger }: NotificationModalProps) {
 
                 <div className="p-4 bg-muted/20 text-center shrink-0 border-t">
                     <p className="text-xs font-semibold text-muted-foreground">
-                        {unreadCount} notifications require your attention
+                        {unreadCount} {itemText} require your attention
                     </p>
                 </div>
             </SheetContent>

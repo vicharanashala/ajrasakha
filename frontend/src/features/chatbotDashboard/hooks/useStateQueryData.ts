@@ -22,6 +22,7 @@ export interface DistrictAnalyticsResponse {
 
 export function useStateWiseAnalytics(
   state?: string,
+  selectedStateCode: number,
   source: "vicharanashala" | "annam" | "whatsapp"= "annam",
   userType: "all" | "external" | "internal" = "all",
 ) {
@@ -32,6 +33,7 @@ export function useStateWiseAnalytics(
     queryKey: [
       "state-wise-analytics",
       state,
+      selectedStateCode,
       source,
       userType,
     ],
@@ -47,6 +49,10 @@ export function useStateWiseAnalytics(
 
       if (state) {
         params.set("state", state);
+      }
+
+      if(selectedStateCode){
+        params.set("selectedStateCode", selectedStateCode.toString())
       }
 
       params.set("source", source);

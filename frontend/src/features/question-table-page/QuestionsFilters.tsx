@@ -657,6 +657,7 @@ export const QuestionsFilters = ({
     "re-routed": { bg: "bg-violet-500/10", text: "text-violet-600 dark:text-violet-400", dot: "bg-violet-500" },
     pae_submitted: { bg: "bg-cyan-500/10", text: "text-cyan-600 dark:text-cyan-400", dot: "bg-cyan-500" },
     draft: { bg: "bg-slate-500/10", text: "text-slate-600 dark:text-slate-400", dot: "bg-slate-500" },
+    dynamic: { bg: "bg-slate-500/10", text: "text-slate-600 dark:text-slate-400", dot: "bg-slate-6  00" },
   };
   const defaultColor = { bg: "bg-purple-500/10", text: "text-purple-600 dark:text-purple-400", dot: "bg-purple-500" };
 
@@ -1219,7 +1220,6 @@ export const QuestionsFilters = ({
                 setAdvanceFilterValues={setAdvanceFilterValues}
                 handleDialogChange={handleDialogChange}
                 handleApplyFilters={handleApplyFilters}
-                normalizedStates={states}
                 crops={crops}
                 activeFiltersCount={activeFiltersCount}
                 onReset={onReset}

@@ -42,6 +42,8 @@ interface DetailSidebarProps {
   questionStatusData: any;
   todayActiveFarmersData: PaginatedUserDetailsResponse
   isLoading: boolean
+  districtAnalytic?: any
+  metric: "questions" | "users" | "activeUsers"
 }
 
 export function DetailSidebar({
@@ -57,9 +59,12 @@ export function DetailSidebar({
   userType,
   questionStatusData,
   todayActiveFarmersData,
-  isLoading = false
+  isLoading = false,
+  districtAnalytic,
+  metric = "questions"
 }: DetailSidebarProps) {
   // Calculate aggregated analytics
+  console.log("Got the district analytics data in component SideBar", districtAnalytic)
   const stateAnalytics = selectedState && statesWithData
     ? statesWithData.features.find((x) => x.properties._name === selectedState)
         ?.properties._analytics as Analytics | undefined
@@ -70,6 +75,12 @@ export function DetailSidebar({
         ?.properties._analytics as Analytics | undefined
     : undefined;
 
+  const uniqueSubTotal = districtAnalytic?.reduce((acc: number, data: any) => acc+data?.uniqueQuestions, 0);
+  console.log("Unique Total", uniqueSubTotal)
+  const duplicateSubTotal = districtAnalytic?.reduce((acc:number, data: any) => acc+data?.duplicateQuestions, 0);
+  console.log("Duplicate Total", duplicateSubTotal);
+  const districtData = districtAnalytic?.find((data: any)=> data.district === selectedDistrict);
+  console.log("District Data", districtData);
   const countryAnalytics = statesWithData
     ? statesWithData.features.reduce(
         (acc, f) => {
@@ -136,7 +147,36 @@ export function DetailSidebar({
         {activeAnalytics && (
           <div className="grid grid-cols-2 gap-2">
             <StatCard
-  label="Questions"
+  // label="Questions"
+
+  label = {
+    <div className="flex items-center gap-1">
+      <span>Questions</span>
+      {!isIndiaView && <TooltipProvider>
+        <Tooltip>
+           <TooltipTrigger asChild>
+            <InfoIcon className="h-3 w-3 cursor-pointer text-muted-foreground" />
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <div className="space-y-1 text-xs">
+
+              <div>
+                Duplicate Questions {": "}
+                {selectedDistrict ?  districtData.duplicateQuestions : duplicateSubTotal}
+              </div>
+
+              
+              <div>
+                Unique Questions {": "}
+                {selectedDistrict ?  districtData.uniqueQuestions : uniqueSubTotal}
+              </div>
+
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>}
+    </div>
+  }
   value={renderCardValue(fmt(
     isIndiaView
       ? questionStatusData?.closedVsTotalQuestions.totalQuestions
@@ -148,7 +188,7 @@ export function DetailSidebar({
   label="Answers"
   value={renderCardValue(fmt(
     isIndiaView
-      ? questionStatusData?.closedVsTotalQuestions.closedQuestions
+      ? questionStatusData?.closedVsTotalQuestions.closed.count
       : activeAnalytics.answers
   ))}
   icon={<Activity className="h-3.5 w-3.5" />}
@@ -226,7 +266,7 @@ export function DetailSidebar({
               value={`${
                 districtAnalytics || stateAnalytics
                   ? (activeAnalytics.closureHrs / 60).toFixed(2)
-                  : (questionStatusData?.closedVsTotalQuestions.avgCloseTimeMinutes / 60).toFixed(2)
+                  : (questionStatusData?.closedVsTotalQuestions.closed.avgTimeMinutes / 60).toFixed(2)
               }h`}
               icon={<Activity className="h-3.5 w-3.5" />}
             />
@@ -240,6 +280,7 @@ export function DetailSidebar({
             onSelectState={onSelectState}
             isLoading = {isLoading}
             renderCardValue= {renderCardValue}
+            metric={metric}
           />
         )}
 

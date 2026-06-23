@@ -169,6 +169,7 @@ export interface IChatbotService {
   ): Promise<Array<{question: string; count: number}>>;
   getDistrictAnalyticsByState(
     state: string,
+    selectedStateCode?: string,
     source?: string,
     userType?: string,
   ): Promise<DistrictAnalyticsEntry[]>;
@@ -317,7 +318,8 @@ export interface IChatbotService {
     userType?: string,
     search?: string,
     startDate?: Date,
-    endDate?: Date 
+    endDate?: Date,
+    isPassed?: string,
   ) : Promise<any>
 
   getQuestionsByNotificationStatus(

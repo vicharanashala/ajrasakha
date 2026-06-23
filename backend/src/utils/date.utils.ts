@@ -24,63 +24,140 @@ export function isToday(date?: Date): boolean {
   }
 
   /**
+   * Returns MongoDB minute expression in IST timezone
+   */
+  function getMinuteExpression(field: string) {
+  return {
+    $minute: {
+      date: `$${field}`,
+      timezone: 'Asia/Kolkata',
+    },
+  };
+}
+
+
+
+  /**
    * Shift filter generator
    */
-  export function getShiftFilter (field: string, shift: "morning" | "evening" | "all") {
+  // export function getShiftFilter (field: string, shift: "morning" | "evening" | "all") {
 
-    if (shift === "all") {
-      return {};
-    }
+  //   if (shift === "all") {
+  //     return {};
+  //   }
 
-    /**
-     * Morning Shift
-     * 06:00 AM → 02:59 PM
-     */
-    if (shift === "morning") {
+  //   /**
+  //    * Morning Shift
+  //    * 06:00 AM → 02:59 PM
+  //    */
+  //   if (shift === "morning") {
+  //     return {
+  //       $expr: {
+  //         $and: [
+  //           {
+  //             $gte: [
+  //               getHourExpression(field),
+  //               6,
+  //             ],
+  //           },
+  //           {
+  //             $lt: [
+  //               getHourExpression(field),
+  //               15,
+  //             ],
+  //           },
+  //         ],
+  //       },
+  //     };
+  //   }
+
+  //   /**
+  //    * Evening Shift
+  //    * 03:00 PM → 11:59 PM
+  //    */
+  //   if (shift === "evening") {
+  //     return {
+  //       $expr: {
+  //         $and: [
+  //           {
+  //             $gte: [
+  //               getHourExpression(field),
+  //               15,
+  //             ],
+  //           },
+  //           {
+  //             $lt: [
+  //               getHourExpression(field),
+  //               24,
+  //             ],
+  //           },
+  //         ],
+  //       },
+  //     };
+  //   }
+
+  //   return {};
+  // };
+
+  /*new*/
+  
+ const defaults = {
+    morning: {
+      from: '06:00',
+      to: '15:00',
+    },
+    evening: {
+      from: '15:00',
+      to: '23:59',
+    },
+    all: {
+      from: '00:00',
+      to: '23:59',
+    },
+  };
+  export function getShiftFilter (field: string, shift: "morning" | "evening" | "all", from?:string, to?:string) {
+    const startTime = from ?? defaults[shift].from;
+    const endTime = to ?? defaults[shift].to;
+    const [fromHour, fromMinute] = startTime.split(':').map(Number);
+    const [toHour, toMinute] = endTime.split(':').map(Number);
+    const fromTotalMinutes = fromHour * 60 + fromMinute;
+    const toTotalMinutes = toHour * 60 + toMinute;
       return {
-        $expr: {
-          $and: [
+    $expr: {
+      $and: [
+        {
+          $gte: [
             {
-              $gte: [
-                getHourExpression(field),
-                6,
+              $add: [
+                {
+                  $multiply: [
+                    getHourExpression(field),
+                    60,
+                  ],
+                },
+                getMinuteExpression(field),
               ],
             },
-            {
-              $lt: [
-                getHourExpression(field),
-                15,
-              ],
-            },
+            fromTotalMinutes,
           ],
         },
-      };
-    }
-
-    /**
-     * Evening Shift
-     * 03:00 PM → 11:59 PM
-     */
-    if (shift === "evening") {
-      return {
-        $expr: {
-          $and: [
+        {
+          $lte: [
             {
-              $gte: [
-                getHourExpression(field),
-                15,
+              $add: [
+                {
+                  $multiply: [
+                    getHourExpression(field),
+                    60,
+                  ],
+                },
+                getMinuteExpression(field),
               ],
             },
-            {
-              $lt: [
-                getHourExpression(field),
-                24,
-              ],
-            },
+            toTotalMinutes,
           ],
         },
-      };
-    }
-
-    return {};
+      ],
+    },
+  };
   };
