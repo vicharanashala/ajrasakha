@@ -403,13 +403,18 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
           )}
           {visibleColumns.domain && (
             <TableCell className="align-middle">
-  {Array.isArray(q.details.domain) && q.details.domain.length > 0 ? (
+  {(Array.isArray(q.details.domain)
+    ? q.details.domain
+    : typeof q.details.domain === "string" && q.details.domain.trim()
+      ? [q.details.domain]
+      : []
+  ).length > 0 ? (
     <div className="relative inline-block w-full max-w-[200px]">
       
       <select 
         className="block w-full appearance-none bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-md py-1.5 pl-3 pr-14 focus:outline-none cursor-pointer hover:bg-slate-100 transition-colors"
       >
-        {q.details.domain.map((domain, index) => (
+        {(Array.isArray(q.details.domain) ? q.details.domain : [q.details.domain]).map((domain, index) => (
           <option key={index} value={domain} title={domain}>
             {truncate(domain, 22)}
           </option>
@@ -418,9 +423,9 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
       
       {/* Custom Count Badge & Lucide Dropdown Arrow */}
       <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 gap-1 text-slate-500">
-        {q.details.domain.length > 1 && (
+        {(Array.isArray(q.details.domain) ? q.details.domain : [q.details.domain]).length > 1 && (
           <span className="text-[10px] font-semibold bg-slate-200/80 text-slate-600 px-1.5 py-0.5 rounded-full">
-            {q.details.domain.length}
+            {(Array.isArray(q.details.domain) ? q.details.domain : [q.details.domain]).length}
           </span>
         )}
         <ChevronDown className="h-4 w-4" />

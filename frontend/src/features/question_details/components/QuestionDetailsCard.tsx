@@ -129,10 +129,25 @@ export const QuestionDetailsCard = ({
             <span className="text-muted-foreground">Domain</span>
             <span
               className="truncate"
-              title={question.details?.domain?.join(", ")}
+              title={
+                (Array.isArray(question.details?.domain)
+                  ? question.details.domain
+                  : typeof question.details?.domain === "string" && question.details.domain.trim()
+                    ? [question.details.domain]
+                    : []
+                ).join(", ")
+              }
             >
-              {question.details?.domain?.length > 0
-                ? question.details.domain.join(", ")
+              {(Array.isArray(question.details?.domain)
+                ? question.details.domain
+                : typeof question.details?.domain === "string" && question.details.domain.trim()
+                  ? [question.details.domain]
+                  : []
+              ).length > 0
+                ? (Array.isArray(question.details?.domain)
+                  ? question.details.domain
+                  : [question.details.domain]
+                ).join(", ")
                 : "-"}
             </span>
           </div>
