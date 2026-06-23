@@ -308,10 +308,10 @@ describe('Question Create E2E', () => {
       await pollUntil(async () => {
         const res = await apiGet(`${ROUTE_PREFIX}/questions/${id}/full`);
         return res.status !== 200;
-      });
+      }, 25_000);
       const res = await apiGet(`${ROUTE_PREFIX}/questions/${id}/full`);
       console.log(`Question ${id} status:`, res.status);
       expect([400, 404, 500]).toContain(res.status);
     }
-  });
+  }, 30_000);
 });

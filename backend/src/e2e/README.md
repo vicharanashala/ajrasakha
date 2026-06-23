@@ -288,11 +288,10 @@ Cascades badly when BUG-002 creates duplicate entries.
 question — expected 4xx, got 500. `AnswerService.reviewAnswer` has a catch that rethrows
 everything as `InternalServerError`.
 
-### BUG-011 (question-crud) — Bulk-delete retrieval check times out (2026-06-19)
+### ~~BUG-011 (question-crud) — Bulk-delete retrieval check times out (2026-06-19)~~ *(fixed 2026-06-23)*
 
-`Question Create E2E > bulk deleted questions are not retrievable` — test times out at 5000 ms.
-The bulk delete itself returns 200, but the subsequent `GET` to confirm deletion does not
-respond within the default vitest timeout. Likely a slow DB read after a multi-document delete.
+The `it()` block was missing an explicit timeout, so Vitest's default 5 s killed the test before
+`pollUntil`'s 15 s window expired. Fixed by passing `30_000` ms to the `it()` call.
 
 ### ~~BUG-012 (whatsapp) — "NOT FOUND → open" case has unexpected submission record (2026-06-19)~~ *(fixed 2026-06-23)*
 
@@ -344,7 +343,7 @@ Question CRUD (OUTREACH, no pipeline)
   ├─ moderator deletes question → 200                 [QC ✓]
   ├─ deleted question not retrievable → 404           [QC ✓]
   ├─ moderator bulk deletes questions → 200           [QC ✓]
-  └─ bulk-deleted questions not retrievable → 404     [QC ✗] BUG-011: timeout 5000ms
+  └─ bulk-deleted questions not retrievable → 404     [QC ✓]
 
 Reviewer queue (POST /api/questions/allocated)
   ├─ author (queue[0]) sees question in allocated     [RQ ✓]
@@ -358,7 +357,7 @@ Reviewer queue (POST /api/questions/allocated)
   ├─ review_level_number = "Author" for STF expert   [RQ ✓] Issue #1
   ├─ notification-visibility consistent for STF       [RQ ✓] Issue #7
   ├─ both author-slot + reviewer-slot visible         [RQ ✓] Issue #2
-  └─ author-slot appears before reviewer-slot (ord.)  [RQ ?] Issue #2 — may fail if sort is createdAt-only
+  └─ author-slot appears before reviewer-slot (ord.)  [RQ ✓] Issue #2
   ├─ in-review question NOT in allocated for experts  [RQ ✓]
   └─ expert NOT in queue cannot see question          [RQ ✓]
 
