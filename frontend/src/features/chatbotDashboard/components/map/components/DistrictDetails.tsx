@@ -29,11 +29,9 @@ export function DistrictDetails({
 }: DistrictDetailsProps) {
   const district = selectedDistrict
   const {data: villageUserCounts} = useVillageUserCounts({state, district, source, userType})
-  console.log("Village Data", villageUserCounts);
   const blocksDetails = BLOCKS[selectedDistrict] ?? [];
   const villagesDetails = villageUserCounts ? villageUserCounts : VILLAGES[selectedDistrict] ?? [];
   const kvksDetails = KVKS[selectedDistrict] ?? [];
-  // console.log("Selected District", selectedDistrict);
   const VILLAGES_PER_PAGE = 10;
 
   const [currentPage, setCurrentPage] = useState(1);
