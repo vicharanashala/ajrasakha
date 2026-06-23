@@ -84,7 +84,15 @@ def upload_question_to_reviewer_system(
         return {"status": "error", "status_code": 400, "message": "'details' must be a dictionary."}
 
     required_keys = ["state", "district", "crop", "season", "domain"]
-    missing = [k for k in required_keys if k not in details or not isinstance(details[k], str) or not details[k].strip()]
+    # domain is now a list of strings, other fields are strings
+    def _is_valid_field(key: str) -> bool:
+        if key not in details:
+            return False
+        val = details[key]
+        if key == "domain":
+            return isinstance(val, list) and len(val) > 0 and all(isinstance(d, str) and d.strip() for d in val)
+        return isinstance(val, str) and val.strip()
+    missing = [k for k in required_keys if not _is_valid_field(k)]
     if missing:
         return {
             "status": "error",
