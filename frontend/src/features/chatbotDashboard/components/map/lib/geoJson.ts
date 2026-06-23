@@ -47,7 +47,8 @@ export async function fetchStates(): Promise<unknown> {
     }
 
     if (stateName === "Jammu and Kashmir") {
-      feature.geometry = states["Jammu and Kashmir"].geometry;
+      feature.properties.NAME_1 = "Jammu And Kashmir"
+      feature.geometry = states["Jammu And Kashmir"].geometry;
     }
   });
 
@@ -133,40 +134,96 @@ export async function fetchDistricts(): Promise<unknown> {
   //   }
   // });
 
-  data.features.forEach((feature: any) => {
-    const districtName = feature.properties?.NAME_2;
+ data.features.forEach((feature: any) => {
+  const districtName =
+    feature.properties?.NAME_2;
 
-    const stateName = feature.properties?.NAME_1;
+  // const cleanedDistrictName =
+  //   districtName
+  //     ?.replace(/\([^)]*\)/g, "")
+  //     .trim();
 
-    // Telangana fix
-    if (TELANGANA_DISTRICTS.has(districtName)) {
-      feature.properties.NAME_1 = "Telangana";
-    }
+  const stateName =
+    feature.properties?.NAME_1;
 
-    // Jammu & Kashmir -> Ladakh fixes
-    if (districtName === "Kargil" || districtName === "Ladakh (Leh)") {
-      feature.properties.NAME_1 = "Ladakh";
-    }
+  // Remove brackets from all districts
+  // feature.properties.NAME_2 =
+  //   districtName;
 
-    // State renames
-    if (stateName === "Orissa") {
-      feature.properties.NAME_1 = "Odisha";
-    }
+  // Telangana fix
+  if (
+    TELANGANA_DISTRICTS.has(
+      districtName,
+    )
+  ) {
+    feature.properties.NAME_1 =
+      "Telangana";
+  }
 
-    if (stateName === "Uttaranchal") {
-      feature.properties.NAME_1 = "Uttarakhand";
-    }
+    if (
+    stateName === "Jammu and Kashmir"
+  ) {
+    feature.properties.NAME_1 =
+      "Jammu And Kashmir";
+  }
 
-    // District renames
-    if (districtName === "Naini Tal") {
-      feature.properties.NAME_2 = "Nainital";
-    }
+  // Jammu & Kashmir → Ladakh
+  if (
+    districtName === "Kargil" ||
+    districtName === "Ladakh (Leh)"
+  ) {
+  try {
 
-    if(districtName === "Ladakh (Leh)"){
-      feature.properties.NAME_2 = "Leh";
-    }
-    
-  });
+    feature.properties.NAME_1 =
+      "Ladakh";
+  } catch (e) {
+    console.error(e);
+  }
+}
+  
+
+//   if (
+//   districtName.includes("Kargil") ||
+//   districtName.includes("Ladakh")
+// ) {
+//   console.log(
+//     districtName,
+//   );
+// }
+
+  // State renames
+  if (stateName === "Orissa") {
+    feature.properties.NAME_1 =
+      "Odisha";
+  }
+
+  if (stateName === "Uttaranchal") {
+    feature.properties.NAME_1 =
+      "Uttarakhand";
+  }
+
+
+
+  // District renames
+  if (
+    districtName ===
+    "Naini Tal"
+  ) {
+    feature.properties.NAME_2 =
+      "Nainital";
+  }
+
+  if (
+    districtName ===
+    "Ladakh (Leh)"
+  ) {
+    feature.properties.NAME_2 =
+      "Leh";
+  }
+  if( districtName === "Baramula"){
+    feature.properties.NAME_2 = "Baramulla"
+  }
+});
 
   // Add missing districts
   data.features.push(districtPatches);
@@ -180,6 +237,10 @@ export async function fetchDistricts(): Promise<unknown> {
  * Clear caches (useful for testing or refresh)
  */
 export function clearGeoJsonCache(): void {
-  statesCache = null;
-  districtsCache = null;
+ if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    statesCache = null;
+    districtsCache = null;
+  });
+}
 }

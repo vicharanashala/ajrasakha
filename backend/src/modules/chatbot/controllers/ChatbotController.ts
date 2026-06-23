@@ -184,14 +184,18 @@ export class ChatbotController {
   async getDistrictAnalyticsByState(
     @QueryParam('state') state: string,
 
+    @QueryParam('selectedStateCode') selectedStateCode: string,
+
     @QueryParam('source')
     source: string,
 
     @QueryParam('userType')
     userType: string = 'all',
   ) {
+    console.log("Selected state code controller", selectedStateCode);
     return this.chatbotService.getDistrictAnalyticsByState(
       state,
+      selectedStateCode,
       source,
       userType,
     );

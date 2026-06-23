@@ -169,6 +169,7 @@ export interface IChatbotService {
   ): Promise<Array<{question: string; count: number}>>;
   getDistrictAnalyticsByState(
     state: string,
+    selectedStateCode?: string,
     source?: string,
     userType?: string,
   ): Promise<DistrictAnalyticsEntry[]>;
