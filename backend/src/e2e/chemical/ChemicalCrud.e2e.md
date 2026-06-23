@@ -161,9 +161,14 @@ NODE_ENV=test pnpm exec vitest run src/e2e/chemical/ChemicalCrud.e2e.test.ts
 
 ## Last Run
 
-**Date:** 2026-06-19 &nbsp;|&nbsp; **Result:** ✅ all 15 passed &nbsp;|&nbsp; **Duration:** 6.4 s
+**Date:** 2026-06-23 &nbsp;|&nbsp; **Result:** ✅ all 15 passed &nbsp;|&nbsp; **Duration:** 8.8 s
 
-> ⚠ Vitest only printed 0 of 15 test lines (passing suites are truncated in the output).
+> ⚠ Vitest only printed 5 of 15 test lines (passing suites are truncated in the output).
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
+| 1 | Authentication Smoke Tests > returns 200 when auth is valid | ✅ | — |
+| 2 | Chemical CRUD E2E > admin updates a chemical | ✅ | — |
+| 3 | Chemical CRUD E2E > moderator can update chemical | ✅ | — |
+| 4 | Chemical CRUD E2E > expert cannot delete chemical | ✅ | — |
+| 5 | Chemical CRUD E2E > moderator can delete chemical | ✅ | — |

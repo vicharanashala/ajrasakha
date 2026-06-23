@@ -70,18 +70,17 @@ preference-scoring test (#5) to be deterministic.
 
 ## Suites at a glance
 
-| Suite | File | Tests | Last run (2026-06-19) | What it covers |
+| Suite | File | Tests | Last run (2026-06-23) | What it covers |
 |-------|------|------:|----------------------|----------------|
 | Chemical CRUD | `chemical/ChemicalCrud.e2e.test.ts` | 15 | ✅ 15/15 | Auth smoke tests, admin + moderator CRUD, role guards (expert blocked) |
 | Question CRUD | `question/QuestionCreate.e2e.test.ts` | 8 | ❌ 7/8 | Moderator create / get / update / delete / bulk-delete (OUTREACH source) |
-| Reviewer queue | `reviewer-queue/ReviewerQueue.e2e.test.ts` | 14 | ✅ 9/9 (5 new, not yet run) | `POST /allocated` visibility: author slot, reviewer slot, exclusions, `review_level_number`; STF visibility (Issue #1, #7); author-before-reviewer ordering (Issue #2) |
-| WhatsApp ingestion | `whatsapp/WhatsAppQuestion.e2e.test.ts` | 18 | ❌ 17/18 | Full ingestion pipeline: auth, GDB duplicate paths, LLM filter, thread validation + retry |
+| Reviewer queue | `reviewer-queue/ReviewerQueue.e2e.test.ts` | 14 | ❌ 13/14 | `POST /allocated` visibility: author slot, reviewer slot, exclusions, `review_level_number` |
+| WhatsApp ingestion | `whatsapp/WhatsAppQuestion.e2e.test.ts` | 18 | ✅ 18/18 | Full ingestion pipeline: auth, GDB duplicate paths, LLM filter, thread validation + retry |
 | AjraSakha ingestion | `ajrasakha/AjrasakhaQuestion.e2e.test.ts` | 9 | ✅ 9/9 | AJRASAKHA-specific fields (userId from `@CurrentUser`, notification type), representative pipeline cases |
 | Manual allocation | `manual-allocation/ManualAllocation.e2e.test.ts` | 10 | ✅ 10/10 | `POST /allocate-experts` + `DELETE /allocation` on an OUTREACH question |
-| Auto allocation | `auto-allocation/AutoAllocation.e2e.test.ts` | 55 | ✅ 54/54 (1 new, not yet run) | AGRI_EXPERT background queue, preference scoring, toggle, time-bound allocation (WHATSAPP/AJRASAKHA), capacity, reviewer, concurrent guard; timestamp consistency (Issue #9) |
+| Auto allocation | `auto-allocation/AutoAllocation.e2e.test.ts` | 55 | ❌ 50/55 | AGRI_EXPERT background queue, preference scoring, toggle, time-bound allocation (WHATSAPP/AJRASAKHA), capacity, reviewer, concurrent guard |
 | Post-allocation | `post-allocation/PostAllocation.e2e.test.ts` | 27 | ✅ 27/27 | Full expert peer-review → moderator-approval state machine |
-| **Allocation ordering** *(new)* | `allocation-ordering/AllocationOrdering.e2e.test.ts` | 8 | not yet run | Cron allocates older questions first (Issue #3); expert-in-history excluded from replacement (Issue #5) |
-| **Total** | | **164** | **148/150** (14 new, not yet run) | |
+| **Total** | | **156** | **149/156** | |
 
 ---
 
@@ -295,7 +294,7 @@ everything as `InternalServerError`.
 The bulk delete itself returns 200, but the subsequent `GET` to confirm deletion does not
 respond within the default vitest timeout. Likely a slow DB read after a multi-document delete.
 
-### BUG-012 (whatsapp) — "NOT FOUND → open" case has unexpected submission record (2026-06-19)
+### ~~BUG-012 (whatsapp) — "NOT FOUND → open" case has unexpected submission record (2026-06-19)~~ *(fixed 2026-06-23)*
 
 `WhatsApp ingestion — question NOT FOUND (common pipeline → open)` — `expected [ …(1) ] to deeply equal []`.
 When the question reaches `open` via the common pipeline (no GDB/LLM match), a `question_submissions`
@@ -378,7 +377,7 @@ WHATSAPP / AJRASAKHA ingestion
   ├─ GDB $oid format → duplicate                      [WA ✓]
   ├─ GDB throws → open                                [WA ✓]
   ├─ LLM non-agri → non_agri                         [WA ✓] [AJ ✓]
-  ├─ LLM agri → open (common pipeline → open)         [WA ✗] BUG-012: unexpected submission record [AJ ✓]
+  ├─ LLM agri → open (common pipeline → open)         [WA ✓] [AJ ✓]
   └─ LLM throws → open (degrade)                      [WA ✓] [AJ ✓]
 
 AGRI_EXPERT auto-allocation
