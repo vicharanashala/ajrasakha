@@ -1896,6 +1896,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     if (
       question.status === 'in-review' ||
       question.status === 'closed' ||
+      question.status === 'duplicate_closed' ||
       question.status == 'pae_submitted'
     ) {
       console.log(
@@ -2222,6 +2223,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         if (
           question.status === 'in-review' ||
           question.status === 'closed' ||
+          question.status === 'duplicate_closed' ||
           question.status == 'pae_submitted'
         ) {
           console.log(
@@ -3534,7 +3536,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         name: '',
         email: '',
       };
-      if (question.status === 'closed') {
+      if (question.status === 'closed' || question.status === 'duplicate_closed') {
         const answers = await this.answerRepo.getByQuestionId(questionId);
         const finalizedAnswer = answers.find(answer => answer.isFinalAnswer);
 
@@ -4842,7 +4844,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
 
       // Check if this is a closed status report - if so, limit to 50 questions
-      const isClosedStatus = filters.status === 'closed' || filters.status === 'pae_closed';
+      const isClosedStatus = filters.status === 'closed' || filters.status === 'duplicate_closed' || filters.status === 'pae_closed';
       // `moderator` is a comma-separated list of moderator (approvedBy) ids.
       const moderatorIds =
         filters.moderator && filters.moderator !== 'all'
@@ -5384,7 +5386,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         throw new NotFoundError('Question not found');
       }
 
-      if (question.status === 'closed') {
+      if (question.status === 'closed' || question.status === 'duplicate_closed') {
         throw new BadRequestError('Question is already closed');
       }
       const submission = await this.questionSubmissionRepo.getByQuestionId(

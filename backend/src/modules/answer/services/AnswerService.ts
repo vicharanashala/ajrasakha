@@ -104,7 +104,7 @@ export class AnswerService extends BaseService implements IAnswerService {
         throw new BadRequestError(`Question with ID ${questionId} not found`);
       }
 
-      if (question.status === 'closed') {
+      if (question.status === 'closed' || question.status === 'duplicate_closed') {
         throw new BadRequestError(`Question is already closed`);
       }
 
@@ -1819,7 +1819,7 @@ answer: ${updates.answer}`;
       // EDIT-FINAL-ANSWER FLOW
       // Allow admin/moderator to edit an already-finalized answer on a closed question.
       // Updates only answer/sources/embedding; preserves approvedBy/isFinalAnswer/status.
-      if (question.status === 'closed' && updates.answerId) {
+      if ((question.status === 'closed' || question.status === 'duplicate_closed') && updates.answerId) {
         const existing = await this.answerRepo.getById(updates.answerId, session);
         if (!existing) {
           throw new BadRequestError(`Answer with ID ${updates.answerId} not found`);
@@ -1937,7 +1937,7 @@ answer: ${updates.answer}`;
           {
             text,
             embedding: questionEmbedding,
-            status: 'closed',
+            status: 'duplicate_closed',
             closedAt: new Date(),
           },
           session,
@@ -1984,14 +1984,16 @@ answer: ${updates.answer}`;
       );
 
       // CLOSE QUESTION
+      // Use 'duplicate_closed' if the question was originally a duplicate, otherwise 'closed'.
       const questionEmbedding = await generateEmbedding(text);
+      const closingStatus = question.status === 'duplicate' ? 'duplicate_closed' : 'closed';
 
       await this.questionRepo.updateQuestion(
         questionId,
         {
           text,
           embedding: questionEmbedding,
-          status: 'closed',
+          status: closingStatus,
           closedAt: new Date(),
         },
         session,
@@ -2027,8 +2029,12 @@ answer: ${updates.answer}`;
         sources: updates.sources ?? [],
       };
 
+      // Skip farmer notification for duplicate questions — they were already
+      // notified when the original (matched) question was answered.
+      const isDuplicateQuestion = question.status === 'duplicate';
+
       let isCustomerNotified = false;
-      if (question.source === 'WHATSAPP') {
+      if (!isDuplicateQuestion && question.source === 'WHATSAPP') {
         try {
           await triggerWebhook(
             appConfig.WA_WEBHOOK_API_URL,
@@ -2046,7 +2052,7 @@ answer: ${updates.answer}`;
         }
       }
 
-      if (question.source === 'AJRASAKHA') {
+      if (!isDuplicateQuestion && question.source === 'AJRASAKHA') {
         try {
           await triggerWebhook(
             appConfig.WEB_WEBHOOK_API_URL,
@@ -2123,7 +2129,7 @@ answer: ${updates.answer}`;
       }
 
       //open and delay:only allow
-      if (question.status === 'in-review' || question.status == 'closed') {
+      if (question.status === 'in-review' || question.status == 'closed' || question.status === 'duplicate_closed') {
         throw new BadRequestError(
           `Can't approve this answer. Current question status is '${question.status}'.`,
         );
