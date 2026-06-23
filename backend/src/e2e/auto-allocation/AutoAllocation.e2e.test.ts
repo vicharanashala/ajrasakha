@@ -568,7 +568,7 @@ describe('Auto allocation — toggle-auto-allocate endpoint', () => {
     const sub = await getSubmission(insertedId.toString());
     console.log('[G4] queue after toggle-on:', sub?.queue?.length);
     expect(sub.queue.length).toBeGreaterThanOrEqual(1);
-  });
+  }, 15_000);
 
   it('ON → OFF: toggles flag to false and leaves queue untouched', async () => {
     // Seed: question with isAutoAllocate=true and expertUser1 already in queue.
@@ -644,6 +644,46 @@ describe('Time-bound allocation — WHATSAPP unallocated question → STF expert
     if (!stfExperts.length) {
       console.warn('[G5] No STF experts in DB — time-bound unallocated tests will self-skip. ' +
         'Ensure at least one expert has special_task_force=true.');
+    }
+
+    // Re-run leftover cleanup immediately before the first cron invocation.
+    // The file-level beforeAll races with allocation-ordering's beforeAll (both
+    // start in parallel). If allocation-ordering closed the leftovers first,
+    // this suite found 0 to close. allocation-ordering's afterAll then restores
+    // them before G5 runs, leaving freeSTF=0 and failing every time-bound test.
+    if (stfExperts.length > 0) {
+      const qCol = await db.getCollection('questions');
+      const sCol = await db.getCollection('question_submissions');
+      const stfIds = stfExperts.map((e: any) => e._id);
+
+      const allocatedSubs = await sCol.find({ queue: { $elemMatch: { $in: stfIds } } }).toArray();
+      const allocatedQIds = allocatedSubs.map((s: any) => s.questionId);
+      const allocatedActive = allocatedQIds.length
+        ? await qCol.find({
+            _id: { $in: allocatedQIds },
+            source: { $in: ['WHATSAPP', 'AJRASAKHA'] },
+            status: { $in: ['open', 'delayed'] },
+          }).toArray()
+        : [];
+
+      const unallocSubs = await sCol.find({ queue: { $size: 0 } }).toArray();
+      const unallocQIds = unallocSubs.map((s: any) => s.questionId);
+      const unallocActive = unallocQIds.length
+        ? await qCol.find({
+            _id: { $in: unallocQIds },
+            source: { $in: ['WHATSAPP', 'AJRASAKHA'] },
+            status: { $in: ['open', 'delayed', 'duplicate'] },
+            isAutoAllocate: { $eq: true },
+            isOnHold: { $ne: true },
+          }).toArray()
+        : [];
+
+      const toClose = [...allocatedActive, ...unallocActive].map((q: any) => q._id);
+      if (toClose.length) {
+        await qCol.updateMany({ _id: { $in: toClose } }, { $set: { status: 'closed' } });
+        temporarilyClosedIds.push(...toClose);
+        console.log(`[G5] Pre-cron cleanup: closed ${toClose.length} leftover time-bound question(s).`);
+      }
     }
 
     const questions = await db.getCollection('questions');

@@ -211,14 +211,15 @@ Because expert1 was never in the queue, `getExprtIdByIndex(questionId, 0)` retur
 
 ## Last Run
 
-**Date:** 2026-06-19 &nbsp;|&nbsp; **Result:** ✅ all 10 passed &nbsp;|&nbsp; **Duration:** 17.7 s
+**Date:** 2026-06-23 &nbsp;|&nbsp; **Result:** ✅ all 10 passed &nbsp;|&nbsp; **Duration:** 28.1 s
 
-> ⚠ Vitest only printed 5 of 10 test lines (passing suites are truncated in the output).
+> ⚠ Vitest only printed 6 of 10 test lines (passing suites are truncated in the output).
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
-| 1 | Manual allocation — moderator allocates experts > moderator allocates expert1 → 200 | ✅ | — |
-| 2 | Manual allocation — moderator allocates experts > moderator allocates expert2 to same q... | ✅ | — |
-| 3 | Manual allocation — validation > duplicate expert check (known bug: guard silently pass... | ✅ | — |
-| 4 | Manual allocation — validation > non-existent questionId returns 500 (known behavior: g... | ✅ | — |
-| 5 | Manual allocation — moderator removes an expert > moderator removes expert at index 0 →... | ✅ | — |
+| 1 | Manual allocation — authentication > returns 400 when an expert tries to allocate (role... | ✅ | — |
+| 2 | Manual allocation — moderator allocates experts > moderator allocates expert1 → 200 | ✅ | — |
+| 3 | Manual allocation — moderator allocates experts > moderator allocates expert2 to same q... | ✅ | — |
+| 4 | Manual allocation — validation > duplicate expert check (known bug: guard silently pass... | ✅ | — |
+| 5 | Manual allocation — validation > non-existent questionId returns 500 (known behavior: g... | ✅ | — |
+| 6 | Manual allocation — moderator removes an expert > moderator removes expert at index 0 →... | ✅ | — |

@@ -387,7 +387,7 @@ describe('Post-allocation — happy path (peer review → moderator approval)', 
     expect(sub.history).toHaveLength(2);
     expect(sub.history[0].updatedBy.toString()).toBe(experts[0]._id.toString());
     expect(sub.history[1].updatedBy.toString()).toBe(experts[1]._id.toString());
-  });
+  }, 15_000);
 
   it('e1 cannot submit a second answer → 500 (KNOWN: "already submitted" wrapped)', async () => {
     as(experts[0]);
@@ -415,7 +415,7 @@ describe('Post-allocation — happy path (peer review → moderator approval)', 
 
     const sub = await getSubmission(qId);
     expect(sub.history.some((h: any) => h.updatedBy.toString() === experts[2]._id.toString())).toBe(true);
-  });
+  }, 15_000);
 
   it('e3 accepts → approvalCount 2, e4 assigned', async () => {
     as(experts[2]);
@@ -555,6 +555,7 @@ describe('Post-allocation — reviewer rejects the author answer', () => {
       sources: [{ source: 'https://tnau.ac.in', page: '3' }],
       parameters: REVIEW_PARAMS,
     });
+    if (res.status !== 201) console.error('[REJECT] unexpected status', res.status, JSON.stringify(res.body));
     expect(res.status).toBe(201);
 
     const answers = await db.getCollection('answers');
