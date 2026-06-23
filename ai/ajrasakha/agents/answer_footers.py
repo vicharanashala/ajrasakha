@@ -12,6 +12,8 @@ from ajrasakha.agents.retrieval_sanitizer import gdb_has_usable_answers
 from ajrasakha.agents.translation_catalog import (
     get_testing_disclaimer,
     get_two_hour_disclaimer,
+    get_late_night_disclaimer,
+    get_early_morning_disclaimer,
     synthesis_lang_label,
 )
 
@@ -20,23 +22,12 @@ IST = timezone(timedelta(hours=5, minutes=30))
 
 FOOTER_SEPARATOR = "_____________________________"
 
-# Hardcoded time-based disclaimers (English only)
-_DISCLAIMER_LATE_NIGHT = (
-    "Your question has been forwarded to our agri expert. "
-    "You will receive a response by tomorrow, 8:00 AM."
-)
-
-_DISCLAIMER_VERY_EARLY_MORNING = (
-    "Your question has been forwarded to our agri expert. "
-    "You will receive a response by today, 8:00 AM."
-)
-
 
 def get_time_aware_expert_disclaimer(script_language: str, vocal_language: str) -> str:
     """Return the appropriate expert queue disclaimer based on current IST time.
 
-    - 10:01 PM - 11:59 PM (hour 22-23): response by tomorrow 8:00 AM
-    - 12:00 AM - 5:59 AM (hour 0-5): response by today 8:00 AM
+    - 10:01 PM - 11:59 PM (hour 22-23): use sheet-localized late night disclaimer
+    - 12:00 AM - 5:59 AM (hour 0-5): use sheet-localized early morning disclaimer
     - Otherwise: use the sheet-localized 2-hour disclaimer
     """
     now_ist = datetime.now(IST)
@@ -44,11 +35,11 @@ def get_time_aware_expert_disclaimer(script_language: str, vocal_language: str) 
 
     # Scenario 1: 10:01 PM - 11:59 PM (hours 22-23)
     if 22 <= hour <= 23:
-        return _DISCLAIMER_LATE_NIGHT
+        return get_late_night_disclaimer(script_language, vocal_language)
 
     # Scenario 2: 12:00 AM - 5:59 AM (hours 0-5)
     if 0 <= hour <= 5:
-        return _DISCLAIMER_VERY_EARLY_MORNING
+        return get_early_morning_disclaimer(script_language, vocal_language)
 
     # Default: use sheet-localized 2-hour disclaimer
     return get_two_hour_disclaimer(script_language, vocal_language)
