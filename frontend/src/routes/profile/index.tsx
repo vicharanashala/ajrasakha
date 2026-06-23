@@ -1,4 +1,5 @@
-import { STATES, pae_domains as DOMAINS } from "@/components/MetaData";
+import { pae_domains as DOMAINS } from "@/components/MetaData";
+import { useGetStates } from "@/hooks/api/location/useLocations";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/atoms/avatar";
 import { MultiSelect } from "@/components/atoms/MultiSelect";
 import { Button } from "@/components/atoms/button";
@@ -223,6 +224,9 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
       domain: user?.preference?.domain ?? "all",
     },
   });
+
+  const { data: statesResponse = [] } = useGetStates();
+  const stateOptions = statesResponse.map((s) => s.stateNameEnglish);
 
   const presetDomainSet = new Set(DOMAINS.filter((d) => d !== "Others"));
 
@@ -1045,7 +1049,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All States</SelectItem>
-                  {STATES.map((state) => (
+                  {stateOptions.map((state) => (
                     <SelectItem key={state} value={state}>
                       <MapPin className="h-4 w-4 mr-2 inline" /> {state}
                     </SelectItem>
