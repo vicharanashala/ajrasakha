@@ -44,6 +44,8 @@ import {WHATSAPP_TYPES} from '#root/modules/whatsapp/types.js';
 import {IWhatsAppService} from '#root/modules/whatsapp/interfaces/IWhatsAppService.js';
 import {triggerWebhook} from '#root/modules/answer/utils/triggerWebhook.js';
 import {sendEmailNotification} from '#root/utils/mailer.js';
+import { LGD_TYPES } from '#root/modules/lgd/types.js';
+import { ILocationService } from '#root/modules/lgd/interfaces/ILocationService.js';
 
 @injectable()
 export class ChatbotService extends BaseService implements IChatbotService {
@@ -54,6 +56,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
     private readonly mongoDatabase: MongoDatabase,
     @inject(WHATSAPP_TYPES.WhatsAppService)
     private readonly whatsappService: IWhatsAppService,
+
+    @inject (LGD_TYPES.LocationService)
+    private readonly lgdService: ILocationService
   ) {
     super(mongoDatabase);
   }
@@ -691,13 +696,17 @@ export class ChatbotService extends BaseService implements IChatbotService {
   }
 
   async getDistrictAnalyticsByState(
-    source = 'annam',
     state: string,
+    selectedStateCode: string,
+    source = 'annam',
     userType = 'all',
   ) {
     try {
+      const stateCode = Number(selectedStateCode);
+      const district = await this.lgdService.getDistricts(stateCode);
       return await this.chatbotRepository.getDistrictAnalyticsByState(
         state,
+        district,
         source,
         undefined,
         userType,
@@ -1567,15 +1576,18 @@ export class ChatbotService extends BaseService implements IChatbotService {
       // FETCH REPORT DATA
       // ─────────────────────────────────────────────────────────────
 
-
+      const states =await this.lgdService.getStates();
+      const selectedState = states.find(s => s.stateNameEnglish === state);
+      const districts = await this.lgdService.getDistricts(selectedState.stateCode);
       const reportData = await this.chatbotRepository.generateChatBotData(
         startDate,
         endDate,
         30,
-        source,
         userType,
         undefined,
+        districts,
         state,
+        source,
       );
 
       if (!reportData) return null;
@@ -3068,7 +3080,15 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getAllStatesQuestionsAndUsersData(source: string, userType: string): Promise<any> {
     try{
-      return this.chatbotRepository.getAllStatesQuestionsAndUsersData(source, userType, undefined)
+        console.time("LGD");
+
+    const allStates =
+      await this.lgdService.getStates();
+
+    console.timeEnd("LGD");
+    
+      console.log("All states", allStates);
+      return this.chatbotRepository.getAllStatesQuestionsAndUsersData(source, userType, allStates, undefined)
     }catch(error){
       throw new InternalServerError(`Internal Server Error ${error}`)
     }

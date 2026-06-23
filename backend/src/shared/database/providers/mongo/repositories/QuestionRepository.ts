@@ -4724,6 +4724,7 @@ export class QuestionRepository implements IQuestionRepository {
     const domainDataRaw = (await this.QuestionCollection.aggregate(
       [
         {$match: matchStage},
+        { $unwind: '$details.domain' },
         {$group: {_id: '$details.domain', count: {$sum: 1}}},
         {$project: {name: '$_id', count: 1, _id: 0}},
       ],

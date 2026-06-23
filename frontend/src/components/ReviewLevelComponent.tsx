@@ -18,8 +18,9 @@ import {
   Info,
 } from "lucide-react";
 import { DateRangeFilter } from "./DateRangeFilter";
-import { STATES, CROPS, DOMAINS, SEASONS, STATUS } from "./MetaData";
+import { CROPS, DOMAINS, SEASONS, STATUS } from "./MetaData";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
+import { useGetStates } from "@/hooks/api/location/useLocations";
 import { AlertTriangle } from "lucide-react";
 import {
   Select,
@@ -115,6 +116,8 @@ const defaultFilters: Filters = {
 };
 export const ReviewLevelComponent = () => {
   const { data: userNameReponse, isLoading } = useGetAllUsers();
+  const { data: statesResponse = [] } = useGetStates();
+  const stateOptions = statesResponse.map((s) => s.stateNameEnglish);
   const { data: cropsData } = useGetAllCrops({ type: "crop", limit: 500 });
   const dbCrops = cropsData?.crops ?? [];
   const {key,ref} = useRestartOnView()
@@ -236,7 +239,7 @@ export const ReviewLevelComponent = () => {
                   <FilterSelect
                     label="States / Regions"
                     value={draftFilters.state}
-                    options={STATES}
+                    options={stateOptions}
                     onChange={(val) => updateDraft("state", val)}
                     Icon={MapPin}
                   />

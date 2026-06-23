@@ -27,13 +27,14 @@ import {
 } from "@/components/atoms/tabs";
 import { Label } from "../atoms/label";
 import { CalendarIcon, Download, Filter, MapPin } from "lucide-react";
-import { STATES, SOURCES, CROPS } from "../MetaData";
+import { SOURCES, CROPS } from "../MetaData";
 import { ScrollArea } from "../atoms/scroll-area";
 import { Calendar } from "../atoms/calendar";
 import { useRestartOnView } from "@/hooks/ui/useRestartView";
 import CountUp from "react-countup";
 import React, { useState } from "react";
 import { format } from "date-fns";
+import { useGetStates } from "@/hooks/api/location/useLocations";
 import {
   Dialog,
   DialogContent,
@@ -214,7 +215,6 @@ const STATUS_OPTIONS = [
   { value: "draft", label: "Draft" },
   { value: "duplicate", label: "Duplicate" },
 ];
-const STATE_OPTIONS = STATES.map((s) => ({ value: s, label: s }));
 const SOURCE_OPTIONS = SOURCES.map((src) => ({ value: src, label: src }));
 const CROP_OPTIONS = [...CROPS].sort().map((c) => ({ value: c, label: c }));
 
@@ -260,6 +260,9 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
 }) => {
 
   const { ref, key } = useRestartOnView();
+
+  const { data: states = [] } = useGetStates();
+  const stateOptions = states.map((s) => ({ value: s.stateNameEnglish, label: s.stateNameEnglish }));
 
   const handleDownloadCSV = () => {
     const tableData = data.tableData ?? [];
@@ -435,7 +438,7 @@ export const QuestionsAnalytics: React.FC<QuestionsAnalyticsProps> = ({
                     State
                   </Label>
                   <MultiSelect
-                    items={STATE_OPTIONS}
+                    items={stateOptions}
                     selected={draftFilters.state}
                     onChange={(val) => setDraftFilters((prev) => ({ ...prev, state: val }))}
                     placeholder="All States"

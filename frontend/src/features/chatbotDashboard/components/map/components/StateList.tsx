@@ -3,7 +3,7 @@
 ============================================================ */
 
 import { MapPin } from "lucide-react";
-import type { GeoFeature } from "../lib/types";
+import type { Analytics, GeoFeature } from "../lib/types";
 import { fmt } from "../lib/formatters";
 import { Skeleton } from "@/components/atoms/skeleton";
 
@@ -18,22 +18,58 @@ interface StateListProps {
   onSelectState: (name: string, feature: GeoFeature) => void;
   isLoading: boolean
   renderCardValue: (value: string | number)=> string | number;
+  metric: "questions" | "users" | "activeUsers"
 }
 
-export function StateList({ statesWithData, onSelectState, isLoading, renderCardValue,  }: StateListProps) {
+export function StateList({ statesWithData, onSelectState, isLoading, renderCardValue, metric = "questions"  }: StateListProps) {
+  const getMetricValue = (
+  analytics: {
+    questions: number;
+    users: number;
+    activeUsers: number;
+  },
+) => {
+  switch (metric) {
+    case "users":
+      return analytics.users;
+
+    case "activeUsers":
+      return analytics.activeUsers;
+
+    default:
+      return analytics.questions;
+  }
+};
+
   if (!statesWithData) return null;
 
+  // const sortedStates = [...statesWithData.features].sort(
+  //   (a, b) =>
+  //     (b.properties._analytics as { questions: number }).questions -
+  //     (a.properties._analytics as { questions: number }).questions,
+  // );
+
   const sortedStates = [...statesWithData.features].sort(
-    (a, b) =>
-      (b.properties._analytics as { questions: number }).questions -
-      (a.properties._analytics as { questions: number }).questions,
-  );
+  (a, b) => {
+    const aAnalytics = a.properties._analytics as Analytics;
+    const bAnalytics = b.properties._analytics as Analytics;
+
+    return (
+      getMetricValue(bAnalytics) -
+      getMetricValue(aAnalytics)
+    );
+  },
+);
 
   return (
     <div>
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Top states by questions
-      </h3>
+      <h3>
+  {metric === "users"
+    ? "Top States By Users"
+    : metric === "activeUsers"
+    ? "Top States By Active Users"
+    : "Top States By Questions"}
+</h3>
       {isLoading ? <Skeleton className="w-full h-[540px]"/> : <ul className="space-y-1">
         {sortedStates.slice(0, 8).map((f) => (
           <li key={f.properties._name as string}>
@@ -45,9 +81,15 @@ export function StateList({ statesWithData, onSelectState, isLoading, renderCard
                 <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
                 {renderCardValue(f.properties._name as string)}
               </span>
-              <span className="text-xs text-muted-foreground tabular-nums">
-                {renderCardValue(fmt((f.properties._analytics as { questions: number }).questions))}
-              </span>
+             <span className="text-xs text-muted-foreground tabular-nums">
+  {renderCardValue(
+    fmt(
+      getMetricValue(
+        f.properties._analytics as Analytics,
+      ),
+    ),
+  )}
+</span>
             </button>
           </li>
         ))}

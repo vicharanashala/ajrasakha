@@ -99,8 +99,9 @@ class QuestionDetailsDto {
   @IsString()
   season!: string;
 
-  @IsString()
-  domain!: string;
+  @IsArray()
+  @IsString({ each: true })
+  domain!: string[];
 
   @IsOptional()
   @IsString()

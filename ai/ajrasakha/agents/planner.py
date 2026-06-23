@@ -737,6 +737,7 @@ async def planner_node(
         else:
             plan["knowledge_base"] = True
             plan["soil"] = False
+            plan["schemes"] = False
 
         logger.info(
             "Planner: complete=%s domain=%s crop_required=%s "

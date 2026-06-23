@@ -384,7 +384,6 @@ export function AnnamDashboard_dev({
                 <AnalyticsMap
                   source={source}
                   userType={filters.userType}
-                  questionStatusData={questionStatusData}
                   todayActiveFarmersData={todayActiveFarmersData}
                 />
               ) :(<>

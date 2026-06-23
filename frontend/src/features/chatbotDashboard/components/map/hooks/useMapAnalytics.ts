@@ -17,6 +17,7 @@ interface UseMapAnalyticsProps {
   selectedDistrict: string | null;
   allStatesData?: any[];
   districtAnalytics?: DistrictAnalyticsResponse;
+  metric: "questions" | "users" | "activeUsers";
 }
 
 // const normalizeState = (state: string) => {
@@ -40,6 +41,7 @@ export function useMapAnalytics({
   selectedDistrict,
   allStatesData,
   districtAnalytics,
+  metric
 }: UseMapAnalyticsProps) {
   // Attach analytics to states
   // const statesWithData = useMemo(() => {
@@ -131,6 +133,16 @@ export function useMapAnalytics({
       }>;
     };
 
+    console.log("Selected state:", selectedState);
+
+// console.log(
+//   geo.features.filter(
+//     (f) =>
+//       f.properties.NAME_2 === "Ladakh (Leh)" ||
+//       f.properties.NAME_2 === "Kargil",
+//   ),
+// );
+
     const features = geo.features
       .filter((f) => f.properties.NAME_1 === selectedState)
       .map((f) => {
@@ -209,9 +221,25 @@ export function useMapAnalytics({
     const geo = activeGeo as {
       features: Array<{ properties: { _analytics: Analytics } }>;
     };
-    const arr = geo.features.map((f) => f.properties._analytics.questions);
+    // const arr = geo.features.map((f) => f.properties._analytics.questions);
+
+    const arr = geo.features.map((f) => {
+  const analytics =
+    f.properties._analytics;
+
+  switch (metric) {
+    case "users":
+      return analytics.users;
+
+    case "activeUsers":
+      return analytics.activeUsers;
+
+    default:
+      return analytics.questions;
+  }
+});
     return [Math.min(...arr), Math.max(...arr)];
-  }, [activeGeo]);
+  }, [activeGeo, metric]);
 
   // Compute active analytics
   const activeAnalytics = useMemo(() => {
