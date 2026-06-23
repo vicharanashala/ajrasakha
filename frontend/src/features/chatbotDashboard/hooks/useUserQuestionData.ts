@@ -3,6 +3,7 @@ import { apiFetch } from "@/hooks/api/api-fetch";
 import { env } from "@/config/env";
 
 export interface UserQuestion {
+  _id?: string;
   question: string;
   status: string;
   createdAt: string;
