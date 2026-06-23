@@ -1089,7 +1089,12 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     const logData: Record<string, any> = { questionId, manual: true };
     const result = await this.runDuplicateCheckPipeline(question, question.details, logData);
-
+    console.log('result:',result)
+    console.log(result.referenceQuestionId,':',questionId)
+    if(result?.referenceQuestionId?.toString() === questionId?.toString()){
+      // await this.questionRepo.updateQuestion(questionId, { isDuplicateChecked: true });
+      return { message: 'No duplicate found.', isDuplicate: false };
+    }
     if (result.isDuplicate) {
       const refId = result.referenceQuestionId instanceof ObjectId
         ? result.referenceQuestionId
