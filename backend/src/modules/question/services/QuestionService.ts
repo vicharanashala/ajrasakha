@@ -6049,20 +6049,22 @@ export class QuestionService extends BaseService implements IQuestionService {
             continue;
           }
 
+          // Wrap all operations in a transaction to ensure atomicity: if any operation fails, everything rolls back
           try {
-            await Promise.all([
-              this.questionSubmissionRepo.updateQueue(questionId, [new ObjectId(assignedExpert)]),
-              this.userRepo.updateReputationScore(assignedExpert, true),
-              this.questionRepo.updateQuestion(questionId, { isAutoAllocate: true, firstAllocationAt: new Date() }),
-              this.questionSubmissionRepo.setCurrentExpertAllocatedAt(questionId, new Date()),
-              this.notificationService.saveTheNotifications(
+            await this._withTransaction(async (session: ClientSession) => {
+              await this.questionSubmissionRepo.updateQueue(questionId, [new ObjectId(assignedExpert)], session);
+              await this.userRepo.updateReputationScore(assignedExpert, true, session);
+              await this.questionRepo.updateQuestion(questionId, { isAutoAllocate: true, firstAllocationAt: new Date() }, session);
+              await this.questionSubmissionRepo.setCurrentExpertAllocatedAt(questionId, new Date(), session);
+              await this.notificationService.saveTheNotifications(
                 `A time-bound question from ${sourceLabel} has been assigned to you`,
                 'Answer Creation Assigned',
                 questionId,
                 assignedExpert,
                 'answer_creation',
-              ),
-            ]);
+                session,
+              );
+            });
             console.log(`[TimeBound] Initially allocated question ${questionId} to expert ${assignedExpert}`);
             initialAllocated++;
             unallocatedProcessed++;
@@ -6106,18 +6108,20 @@ export class QuestionService extends BaseService implements IQuestionService {
             continue;
           }
 
+          // Wrap all operations in a transaction to ensure atomicity: if any operation fails, everything rolls back
           try {
-            await Promise.all([
-              this.questionSubmissionRepo.assignTimeBoundReviewer(questionId, assignedReviewer, new Date()),
-              this.userRepo.updateReputationScore(assignedReviewer, true),
-              this.notificationService.saveTheNotifications(
+            await this._withTransaction(async (session: ClientSession) => {
+              await this.questionSubmissionRepo.assignTimeBoundReviewer(questionId, assignedReviewer, new Date(), session);
+              await this.userRepo.updateReputationScore(assignedReviewer, true, session);
+              await this.notificationService.saveTheNotifications(
                 `A time-bound question from ${sourceLabel} needs your review`,
                 'New Review Assigned',
                 questionId,
                 assignedReviewer,
                 'peer_review',
-              ),
-            ]);
+                session,
+              );
+            });
             console.log(`[TimeBound] Assigned reviewer ${assignedReviewer} for question ${questionId}`);
             reviewersAssigned++;
           } catch (err: any) {
