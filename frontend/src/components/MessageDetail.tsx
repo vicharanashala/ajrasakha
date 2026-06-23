@@ -843,7 +843,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                                 ) : (
                                     <CheckCircle className="h-4 w-4" />
                                 )}
-                                {isUpdating ? "Submitting AI Answer..." : "Accept"}
+                                {isUpdating ? "Submitting AI Answer..." : "Allocate Experts"}
                             </Button>
 
                             {question.status === "duplicate" && (
