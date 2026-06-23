@@ -61,10 +61,7 @@ export function DetailSidebar({
   todayActiveFarmersData,
   isLoading = false,
   districtAnalytic,
-  metric = "questions"
-  isLoading = false,
-  districtAnalytic,
-  metric = "questions"
+  metric = "questions",
 }: DetailSidebarProps) {
   // Calculate aggregated analytics
 
