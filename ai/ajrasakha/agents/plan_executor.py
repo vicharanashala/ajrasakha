@@ -261,8 +261,14 @@ def _resolve_reviewer_location(
     crop, crop_source = _entity_with_source(plan, "crop", loc, "General")
     # Get all domains from plan, not just the first one
     domains_list = plan.get("domains") or [plan.get("domain") or "General"]
-    # Normalize each domain for reviewer upload
-    domains = [reviewer_upload_domain(d) for d in domains_list]
+    # Normalize each domain for reviewer upload and deduplicate while preserving order
+    seen = set()
+    domains = []
+    for d in domains_list:
+        normalized = reviewer_upload_domain(d)
+        if normalized not in seen:
+            seen.add(normalized)
+            domains.append(normalized)
     domain_source = "plan.domains (all)"
 
     trace_resolution(
