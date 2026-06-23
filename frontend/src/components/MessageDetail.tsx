@@ -593,6 +593,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; type: "pass" | "accept" | "save" | "cancel" | "push-to-gdb"; remark?: string }>({ open: false, type: "pass" });
     const [passRemarkError, setPassRemarkError] = useState("");
     const [pendingApprovalAction, setPendingApprovalAction] = useState<"accept" | "push-to-gdb" | null>(null);
+    const [activeSubmitAction, setActiveSubmitAction] = useState<"accept" | "push-to-gdb" | null>(null);
 
     const { mutateAsync: updateAnswer, isPending: isUpdating } = useUpdateAnswer();
     const { mutateAsync: updateQuestion, isPending: updatingQuestion } = useUpdateQuestion();
@@ -629,6 +630,8 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     };
 
     const doApprove = async (flowType?: "accept" | "push-to-gdb") => {
+        const resolvedFlowType = flowType ?? (confirmDialog.type === "accept" || confirmDialog.type === "push-to-gdb" ? confirmDialog.type : "accept");
+        setActiveSubmitAction(resolvedFlowType);
         try {
             const sources: SourceItem[] = [];
             for (const spec of editedSpecialists) {
@@ -643,10 +646,11 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
 
             if (sources.length === 0) {
                 toastError("At least one source is required to proceed.");
+                setActiveSubmitAction(null);
                 return;
             }
 
-            const isAcceptFlow = (flowType ?? confirmDialog.type) === "accept";
+            const isAcceptFlow = resolvedFlowType === "accept";
 
             await toast.promise(updateAnswer({
                 updatedAnswer: editedAnswerBody.trim(),
@@ -656,7 +660,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                 source: question.source,
                 isModeratorApproval: isAcceptFlow,
             }),{
-                loading:"approving answer...",
+                loading: isAcceptFlow ? "Approving answer..." : "Pushing to GDB...",
                 success:isAcceptFlow
                     ? "LLM answer submitted successfully for author review"
                     : "Answer pushed to GDB successfully",
@@ -669,6 +673,8 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
             navigateToQuestionPage();
         } catch (error) {
             console.error("Failed to approve answer:", error);
+        } finally {
+            setActiveSubmitAction(null);
         }
     };
 
@@ -825,7 +831,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                 </div>
                 {approved === null && question && (question.source == "AJRASAKHA" || question.source == "WHATSAPP") && question.status !== "closed" && !question.aiInitialAnswer && !isQuestionAllocatedToExpert && (
                     <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
-                        <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">Once you click on Accept, the LLM-generated answer will be set as the AI answer for this question and sent for moderation as a reference to create the initial answer for the question.</p>
+                        <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">Once you click on Allocate Experts, the LLM-generated answer will be set as the AI answer for this question and sent for moderation as a reference to create the initial answer for the question.</p>
                         <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
                             {
                                 question?.isHidden !== true && <Button type="button" variant="outline" size="sm" disabled={updatingQuestion} onClick={handleSkip} className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}>{updatingQuestion ? <Loader2 className="h-4 w-4 animate-spin" /> : <SkipForward className="h-4 w-4" />}{updatingQuestion ? "Passing..." : "Pass"}</Button>
@@ -838,12 +844,12 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                                 disabled={isUpdating || !editedAnswerBody.trim()}
                                 className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90"
                             >
-                                {isUpdating ? (
+                                {activeSubmitAction === "accept" ? (
                                     <Loader2 className="h-4 w-4 animate-spin" />
                                 ) : (
                                     <CheckCircle className="h-4 w-4" />
                                 )}
-                                {isUpdating ? "Submitting AI Answer..." : "Accept"}
+                                {activeSubmitAction === "accept" ? "Submitting AI Answer..." : "Allocate Experts"}
                             </Button>
 
                             {question.status === "duplicate" && (
@@ -855,12 +861,12 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                                     disabled={isUpdating || !editedAnswerBody.trim()}
                                     className="gap-2 rounded-xl px-4"
                                 >
-                                    {isUpdating ? (
+                                    {activeSubmitAction === "push-to-gdb" ? (
                                         <Loader2 className="h-4 w-4 animate-spin" />
                                     ) : (
                                         <CheckCircle className="h-4 w-4" />
                                     )}
-                                    {isUpdating ? "Pushing to GDB..." : "Push to GDB"}
+                                    {activeSubmitAction === "push-to-gdb" ? "Pushing to GDB..." : "Push to GDB"}
                                 </Button>
                             )}
 
