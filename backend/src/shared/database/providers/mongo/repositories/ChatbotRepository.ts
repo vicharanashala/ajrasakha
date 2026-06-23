@@ -14356,6 +14356,7 @@ if (!districts.length) {
         farmerDashboard,
         unAssigned: unAssigned ?? [],
         assigned: assigned ?? [],
+        parentCoordinator,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get user profile: ${error}`);

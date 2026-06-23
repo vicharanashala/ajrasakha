@@ -17,9 +17,13 @@ import {
   ChevronDown,
   Home,
   Loader2,
+  Mail,
   MessageSquareText,
+  Network,
+  Phone,
   ShieldX,
   UserCheck2,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Badge } from "@/components/atoms/badge";
@@ -90,6 +94,16 @@ type AssignableUser = {
   name: string;
   email?: string;
   userRole?: string;
+};
+
+type ParentCoordinator = AssignableUser & {
+  farmerProfile?: {
+    phoneNo?: string;
+    state?: string;
+    district?: string;
+    blockName?: string;
+    villageName?: string;
+  };
 };
 
 type TrendGranularity = "daily" | "weekly" | "monthly";
@@ -198,6 +212,8 @@ function RouteComponent() {
         if (currentUserEmail && currentUserEmail === viewedUserEmail) {
           return;
         }
+
+        if (userProfile?.userId) return;
       }
       navigate({ to: "/home" });
       return;
@@ -517,9 +533,19 @@ function RouteComponent() {
     currentUserIsCoordinator &&
     Boolean(currentUserEmail) &&
     currentUserEmail === viewedUserEmail;
+  const isCoordinatorReadOnlyView =
+    currentUserIsCoordinator &&
+    viewedProfileIsCoordinator &&
+    !currentUserOwnsViewedProfile;
+  const showCoordinatorSummary =
+    viewedProfileIsCoordinator && currentUser?.role !== "admin";
   const canManageAssignments =
     viewedProfileIsCoordinator &&
     (currentUser?.role === "admin" || currentUserOwnsViewedProfile);
+  const parentCoordinator = userProfile?.parentCoordinator as
+    | ParentCoordinator
+    | null
+    | undefined;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -532,7 +558,9 @@ function RouteComponent() {
           <Home className="h-4 w-4 mr-2" />
           Home
         </Button>
-        <h1 className="text-base font-semibold">User Dashboard</h1>
+        <h1 className="text-base font-semibold">
+          {viewedProfileIsCoordinator ? "Coordinator Dashboard" : "User Dashboard"}
+        </h1>
         <div className="flex items-center gap-2">
           {currentUserIsCoordinator && (
             <NotificationModal
@@ -561,7 +589,14 @@ function RouteComponent() {
         </div>
       </header>
       <div className="p-6">
-        {/* <FarmerDetailsContent user={userProfile} /> */}
+        {showCoordinatorSummary ? (
+          <CoordinatorDashboardSummary
+            user={userProfile}
+            assignedCount={assignedUsers.length}
+            availableCount={availableUsers.length}
+            isReadOnly={isCoordinatorReadOnlyView}
+          />
+        ) : (
         <FarmerDetailsContent
           user={userProfile}
           isAdmin={currentUser?.role === "admin"}
@@ -579,6 +614,13 @@ function RouteComponent() {
           }
           onChangePassword={handleChangeViewedUserPassword}
         />
+        )}
+        {parentCoordinator && (
+          <ParentCoordinatorSection
+            coordinatorRole={userProfile?.userRole}
+            parentCoordinator={parentCoordinator}
+          />
+        )}
         <FarmerDashboardAnalytics
           dashboard={userProfile?.farmerDashboard as FarmerDashboardData}
         />
@@ -927,6 +969,173 @@ function RouteComponent() {
   );
 }
 
+function CoordinatorDashboardSummary({
+  user,
+  assignedCount,
+  availableCount,
+  isReadOnly,
+}: {
+  user: UserDetail;
+  assignedCount: number;
+  availableCount: number;
+  isReadOnly: boolean;
+}) {
+  const roleLabel = formatRoleLabel(user.userRole);
+  const region = [
+    user.farmerProfile?.state,
+    user.farmerProfile?.district,
+    user.farmerProfile?.blockName,
+    user.farmerProfile?.villageName,
+  ].filter(Boolean);
+  const manages =
+    user.userRole === "district_coordinator"
+      ? "Block Coordinators"
+      : user.userRole === "block_coordinator"
+        ? "Village Volunteers"
+        : user.userRole === "village_volunteer"
+          ? "Farmers"
+          : "Assigned Users";
+
+  return (
+    <section className="rounded-md border bg-card/60 p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <Badge variant="outline">{roleLabel || "Coordinator"}</Badge>
+            {user.isVerified ? <Badge>Verified</Badge> : <Badge variant="secondary">Unverified</Badge>}
+            {isReadOnly ? <Badge variant="secondary">Read-only view</Badge> : null}
+          </div>
+          <h2 className="text-2xl font-semibold tracking-tight">
+            Welcome, {user.name || "Coordinator"}
+          </h2>
+          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
+            {user.email ? (
+              <span className="inline-flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                {user.email}
+              </span>
+            ) : null}
+            {user.farmerProfile?.phoneNo ? (
+              <span className="inline-flex items-center gap-2">
+                <Phone className="h-4 w-4" />
+                {user.farmerProfile.phoneNo}
+              </span>
+            ) : null}
+            {region.length > 0 ? (
+              <span className="inline-flex items-center gap-2">
+                <Network className="h-4 w-4" />
+                {region.join(", ")}
+              </span>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[520px]">
+          <CoordinatorStatCard label="Assigned" value={assignedCount} icon={<Users className="h-4 w-4" />} />
+          <CoordinatorStatCard label="Available" value={availableCount} icon={<UserCheck2 className="h-4 w-4" />} />
+          <CoordinatorStatCard label="Manages" value={manages} icon={<Network className="h-4 w-4" />} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CoordinatorStatCard({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: ReactNode;
+  icon: ReactNode;
+}) {
+  return (
+    <div className="rounded-md border bg-background p-3">
+      <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase text-muted-foreground">
+        {icon}
+        {label}
+      </div>
+      <p className="text-lg font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function ParentCoordinatorSection({
+  coordinatorRole,
+  parentCoordinator,
+}: {
+  coordinatorRole?: string;
+  parentCoordinator: ParentCoordinator;
+}) {
+  const roleLabel = formatRoleLabel(parentCoordinator.userRole);
+  const heading =
+    coordinatorRole === "block_coordinator"
+      ? "Assigned District Coordinator"
+      : coordinatorRole === "village_volunteer"
+        ? "Assigned Block Coordinator"
+        : "Parent Coordinator";
+  const regionItems = [
+    parentCoordinator.farmerProfile?.state,
+    parentCoordinator.farmerProfile?.district,
+    parentCoordinator.farmerProfile?.blockName,
+    parentCoordinator.farmerProfile?.villageName,
+  ].filter(Boolean);
+  const contactItems = [
+    parentCoordinator.email,
+    parentCoordinator.farmerProfile?.phoneNo,
+  ].filter(Boolean);
+
+  return (
+    <section className="my-4 rounded-md border bg-card/60 p-4">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md border bg-background">
+            <UserCheck2 className="h-4 w-4 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">{heading}</p>
+            <p className="truncate text-base font-medium">
+              {parentCoordinator.name || "Not Provided"}
+            </p>
+            {roleLabel && (
+              <p className="text-xs text-muted-foreground">{roleLabel}</p>
+            )}
+          </div>
+        </div>
+
+        <div className="grid gap-3 text-sm sm:grid-cols-2 md:min-w-[420px]">
+          {contactItems.length > 0 && (
+            <div>
+              <p className="text-xs font-medium uppercase text-muted-foreground">
+                Contact
+              </p>
+              <p className="break-words">{contactItems.join(" / ")}</p>
+            </div>
+          )}
+          {regionItems.length > 0 && (
+            <div>
+              <p className="text-xs font-medium uppercase text-muted-foreground">
+                Assigned Region
+              </p>
+              <p className="break-words">{regionItems.join(", ")}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function formatRoleLabel(role?: string) {
+  return role
+    ? role
+        .split("_")
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ")
+    : "";
+}
+
 function FarmerDashboardAnalytics({
   dashboard,
 }: {
@@ -937,15 +1146,20 @@ function FarmerDashboardAnalytics({
   const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(
     null,
   );
-  const [expandedConversationKey, setExpandedConversationKey] = useState<
-    string | null
-  >(null);
 
   const questionMetrics = dashboard?.questionMetrics ?? {};
   const messagingMetrics = dashboard?.messagingMetrics ?? {};
   const selectedTrend = dashboard?.engagementTrends?.[trendGranularity];
-  const recentQuestions = dashboard?.recentQuestions ?? [];
+  const recentQuestions = (dashboard?.recentQuestions ?? []).slice(0, 10);
   const recentConversations = dashboard?.recentConversations ?? [];
+  const recentMessages = recentConversations.flatMap((conversation) =>
+    (conversation.messages ?? []).map((message) => ({
+      ...message,
+      conversationKey: conversation.conversationKey,
+      conversationDate: conversation.conversationDate,
+      threadId: conversation.threadId,
+    })),
+  ).slice(0, 10);
 
   const questionMetricCards: [string, any][] = [
     ["Total Questions Asked", questionMetrics.totalQuestionsAsked],
@@ -1101,78 +1315,37 @@ function FarmerDashboardAnalytics({
         </Table>
       </DashboardSection>
 
-      <DashboardSection title="Recent Conversations">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Conversation Date</TableHead>
-              <TableHead>Thread ID</TableHead>
-              <TableHead>Message Count</TableHead>
-              <TableHead>Question Generated</TableHead>
-              <TableHead>Latest Message</TableHead>
-              <TableHead>Action</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {recentConversations.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">
-                  No recent conversations found.
-                </TableCell>
-              </TableRow>
-            ) : (
-              recentConversations.map((conversation) => {
-                const expanded =
-                  expandedConversationKey === conversation.conversationKey;
-                return (
-                  <Fragment key={conversation.conversationKey}>
-                    <TableRow>
-                      <TableCell>{formatDate(conversation.conversationDate)}</TableCell>
-                      <TableCell className="max-w-[220px] truncate">
-                        {conversation.threadId || "Missing thread ID"}
-                      </TableCell>
-                      <TableCell>{conversation.messageCount}</TableCell>
-                      <TableCell>
-                        {conversation.questionGenerated ? (
-                          <Badge>Yes</Badge>
-                        ) : (
-                          <Badge variant="secondary">No</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="min-w-[260px] max-w-[420px] whitespace-normal">
-                        <TranslatableText text={conversation.latestMessage} />
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            setExpandedConversationKey(
-                              expanded ? null : conversation.conversationKey,
-                            )
-                          }
-                        >
-                          View Conversation
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                    {expanded && (
-                      <TableRow key={`${conversation.conversationKey}-messages`}>
-                        <TableCell colSpan={6} className="bg-muted/30">
-                          <ConversationMessages
-                            messages={conversation.messages ?? []}
-                            emptyText="No messages available for this conversation."
-                          />
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </Fragment>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </DashboardSection>
+      {recentMessages.length > 0 && (
+        <DashboardSection title="Recent Messages">
+          <div className="space-y-3">
+            {recentMessages.map((message) => (
+              <div
+                key={`${message.conversationKey}-${message.id}`}
+                className="rounded-md border bg-background p-3"
+              >
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge
+                      variant={message.isCreatedByUser ? "default" : "secondary"}
+                    >
+                      {message.isCreatedByUser ? "User" : "Bot"}
+                    </Badge>
+                    {message.threadId ? (
+                      <span className="max-w-[220px] truncate text-xs text-muted-foreground">
+                        {message.threadId}
+                      </span>
+                    ) : null}
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {formatDate(message.createdAt || message.conversationDate)}
+                  </span>
+                </div>
+                <TranslatableText text={message.text} />
+              </div>
+            ))}
+          </div>
+        </DashboardSection>
+      )}
     </div>
   );
 }
