@@ -196,14 +196,11 @@ export const AddOrEditQuestionDialog = ({
   const invalidFieldClass =
     "border-red-500 dark:border-red-400 focus-visible:ring-red-500/60";
 
-  const { data: states = [], isLoading: isLoadingStates } = useGetStates();
+  const { data: states = [] } = useGetStates();
   const selectedStateCode = states.find(
     (state) => state.stateNameEnglish === updatedData?.details?.state
   )?.stateCode;
-  const {
-    data: districts = [],
-    isLoading: isLoadingDistricts,
-  } = useGetDistricts(selectedStateCode);
+  const { data: districts = [] } = useGetDistricts(selectedStateCode);
   const districtNames = districts.map((district) => district.districtNameEnglish);
 
   useEffect(() => {
@@ -221,7 +218,7 @@ export const AddOrEditQuestionDialog = ({
           district: "",
           crop: "",
           season: "",
-          domain: "",
+          domain: [] as string[],
         },
       } as IDetailedQuestion);
       // Reset upload mode and file when dialog opens in add mode
@@ -297,7 +294,7 @@ export const AddOrEditQuestionDialog = ({
                             district: "",
                             crop: "",
                             season: "",
-                            domain: "",
+                            domain: [],
                           },
                         }
                         : prev
@@ -821,8 +818,14 @@ export const AddOrEditQuestionDialog = ({
                       field === "state"
                         ? states.map((state) => state.stateNameEnglish)
                         : field === "district"
-                        ? districtNames
-                        : OPTIONS[field];
+                          ? districtNames
+                          : OPTIONS[field];
+                    const rawFieldValue = updatedData?.details?.[field];
+                    const stringValue = Array.isArray(rawFieldValue)
+                      ? rawFieldValue[0]
+                      : rawFieldValue;
+                    const safeValue =
+                      typeof stringValue === "string" ? stringValue.trim() : "";
 
                     return (
                       <div key={field} className="flex flex-col gap-2">
@@ -834,12 +837,10 @@ export const AddOrEditQuestionDialog = ({
                         {fieldOptions ? (
                           <Select
                             value={
-                              updatedData?.details?.[field]?.trim()
+                              safeValue
                                 ? fieldOptions.find(
-                                    (o) =>
-                                      o.toLowerCase() ===
-                                      updatedData.details![field].toLowerCase().trim()
-                                  ) ?? updatedData.details[field]
+                                    (o) => o.toLowerCase() === safeValue.toLowerCase()
+                                  ) ?? safeValue
                                 : undefined
                             }
                             onValueChange={(val) => {
@@ -875,12 +876,12 @@ export const AddOrEditQuestionDialog = ({
                                 </SelectItem>
                               ))}
                               {(() => {
-                                const raw = updatedData?.details?.[field]?.trim();
                                 const hasMatch =
-                                  raw && fieldOptions.some((o) => o.toLowerCase() === raw.toLowerCase());
-                                return raw && !hasMatch ? (
-                                  <SelectItem key={raw} value={raw}>
-                                    {raw}
+                                  safeValue &&
+                                  fieldOptions.some((o) => o.toLowerCase() === safeValue.toLowerCase());
+                                return safeValue && !hasMatch ? (
+                                  <SelectItem key={safeValue} value={safeValue}>
+                                    {safeValue}
                                   </SelectItem>
                                 ) : null;
                               })()}
@@ -889,9 +890,9 @@ export const AddOrEditQuestionDialog = ({
                         ) : (
                           <Input
                             type="text"
-                            value={updatedData?.details?.district || ""}
+                            value={safeValue}
                             onChange={(e) => {
-                              onFieldValidatedChange?.("district");
+                              onFieldValidatedChange?.(field as AddQuestionField);
                               setUpdatedData((prev) =>
                                 prev
                                   ? {
@@ -984,7 +985,14 @@ export const AddOrEditQuestionDialog = ({
                       "domain",
                     ] as DetailField[]
                   ).map((field) => {
+                    const rawFieldValue = updatedData?.details?.[field];
+                    const stringValue = Array.isArray(rawFieldValue)
+                      ? rawFieldValue[0]
+                      : rawFieldValue;
+                    const safeValue =
+                      typeof stringValue === "string" ? stringValue.trim() : "";
                     const fieldOptions = OPTIONS[field];
+
                     return (
                       <div key={field} className="flex flex-col gap-2">
                         <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -992,13 +1000,14 @@ export const AddOrEditQuestionDialog = ({
                             {field.charAt(0).toUpperCase() + field.slice(1)}*
                           </label>
                         </div>
+
                         {fieldOptions ? (
                           <Select
                             value={
-                              updatedData?.details?.[field]?.trim()
+                              safeValue
                                 ? fieldOptions.find(
-                                  (o) => o.toLowerCase() === updatedData.details![field].toLowerCase().trim()
-                                ) ?? updatedData.details[field]
+                                    (o) => o.toLowerCase() === safeValue.toLowerCase()
+                                  ) ?? safeValue
                                 : undefined
                             }
                             onValueChange={(val) => {
@@ -1006,21 +1015,22 @@ export const AddOrEditQuestionDialog = ({
                               setUpdatedData((prev) =>
                                 prev
                                   ? {
-                                    ...prev,
-                                    details: {
-                                      ...prev.details,
-                                      [field]: val,
-                                    },
-                                  }
+                                      ...prev,
+                                      details: {
+                                        ...prev.details,
+                                        [field]: field === "domain" ? [val] : val,
+                                      },
+                                    }
                                   : prev
                               );
                             }}
                           >
                             <SelectTrigger
-                              className={`w-full ${mode === "add" && validationErrors?.[field as AddQuestionField]
-                                ? invalidFieldClass
-                                : ""
-                                }`}
+                              className={`w-full ${
+                                mode === "add" && validationErrors?.[field as AddQuestionField]
+                                  ? invalidFieldClass
+                                  : ""
+                              }`}
                             >
                               <SelectValue placeholder={`Select ${field}`} />
                             </SelectTrigger>
@@ -1032,10 +1042,13 @@ export const AddOrEditQuestionDialog = ({
                                 </SelectItem>
                               ))}
                               {(() => {
-                                const raw = updatedData?.details?.[field]?.trim();
-                                const hasMatch = raw && fieldOptions.some((o) => o.toLowerCase() === raw.toLowerCase());
-                                return raw && !hasMatch ? (
-                                  <SelectItem key={raw} value={raw}>{raw}</SelectItem>
+                                const hasMatch =
+                                  safeValue &&
+                                  fieldOptions.some((o) => o.toLowerCase() === safeValue.toLowerCase());
+                                return safeValue && !hasMatch ? (
+                                  <SelectItem key={safeValue} value={safeValue}>
+                                    {safeValue}
+                                  </SelectItem>
                                 ) : null;
                               })()}
                             </SelectContent>
@@ -1043,23 +1056,23 @@ export const AddOrEditQuestionDialog = ({
                         ) : (
                           <Input
                             type="text"
-                            value={updatedData?.details?.district || ""}
+                            value={safeValue}
                             onChange={(e) => {
-                              onFieldValidatedChange?.("district");
+                              onFieldValidatedChange?.(field as AddQuestionField);
                               setUpdatedData((prev) =>
                                 prev
                                   ? {
-                                    ...prev,
-                                    details: {
-                                      ...prev.details,
-                                      district: e.target.value,
-                                    },
-                                  }
+                                      ...prev,
+                                      details: {
+                                        ...prev.details,
+                                        [field]: field === "domain" ? [e.target.value] : e.target.value,
+                                      },
+                                    }
                                   : prev
                               );
                             }}
                             className={
-                              mode === "add" && validationErrors?.district
+                              mode === "add" && validationErrors?.[field as AddQuestionField]
                                 ? invalidFieldClass
                                 : undefined
                             }

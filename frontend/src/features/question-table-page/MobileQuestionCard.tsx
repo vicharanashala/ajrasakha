@@ -249,7 +249,15 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
           {visibleColumns.domain && (
             <div className="truncate">
               <span className="text-muted-foreground">Domain:</span>
-              <span className="ml-1">{truncate(q.details.domain || "NIL", 12)}</span>
+              <span className="ml-1">
+                {q.details?.domain?.length > 0
+                  ? q.details.domain
+                    .map((item) =>
+                      item.length > 12 ? `${item.substring(0, 12)}...` : item
+                    )
+                    .join(", ")
+                  : "-"}
+              </span>
             </div>
           )}
 

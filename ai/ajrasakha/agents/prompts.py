@@ -634,7 +634,15 @@ You are the planner agent responsible for analyzing incoming farmer queries, det
 {_PLANNER_DOMAINS_DOC}
 
 - Set `domains` from the **rephrased_query**.
-- Tool flags (`weather`, `mandi`, `soil`, `schemes`, `knowledge_base`) are derived server-side from `domains`; leave them false in your output.
+- **Weather Tool Flag (weather) — set true ONLY for live weather data queries:**
+  - Set `weather=true` when asking for: current conditions, live temperature, rain forecast, weather alerts, tomorrow's weather, weekly forecast, rainfall predictions
+  - Set `weather=false` when asking about: general weather guidance, weather information for crops, best sowing time based on weather patterns, weather requirements for farming
+  - Examples:
+    - "Will it rain tomorrow?" → weather=true
+    - "What weather info is important for okra?" → weather=false
+    - "Current temperature in Punjab" → weather=true
+    - "Best weather conditions for wheat sowing" → weather=false
+- Tool flags (`mandi`, `soil`, `schemes`, `knowledge_base`) are derived server-side from `domains`; leave them false in your output.
 - **chemical_checker**: Always leave false (ban-status checks are disabled server-side for now).
 
 **Translation & Rephrasing Rules (CRITICAL — fidelity over fluency):**
