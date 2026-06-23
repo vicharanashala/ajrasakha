@@ -995,6 +995,9 @@ export const AddOrEditQuestionDialog = ({
                         const arrayValues = Array.isArray(rawFieldValue)
                           ? rawFieldValue
                           : (rawFieldValue ? [rawFieldValue] : []);
+                        
+                        // 3. Check if the maximum limit has been reached
+                        const isMaxReached = isMulti && arrayValues.length >= 3;
 
                         const stringValue = typeof arrayValues[0] === "string" ? arrayValues[0].trim() : "";
                         const safeValue = stringValue;
@@ -1011,6 +1014,8 @@ export const AddOrEditQuestionDialog = ({
                             {fieldOptions ? (
                               <Select
                                 key={isMulti ? `multi-${field}-${arrayValues.length}` : `single-${field}`}
+                                // FIX: Disable the select dropdown if the limit is reached
+                                disabled={isMaxReached}
                                 value={
                                   isMulti
                                     ? undefined
@@ -1051,8 +1056,13 @@ export const AddOrEditQuestionDialog = ({
                                     }`}
                                 >
                                   {isMulti ? (
-                                    <span className={arrayValues.length === 0 ? "text-muted-foreground" : ""}>
-                                      {arrayValues.length > 0 ? `Add another ${field}...` : `Select ${field}`}
+                                    <span className={arrayValues.length === 0 || isMaxReached ? "text-muted-foreground" : ""}>
+                                      {/* FIX: Update the text dynamically based on the limit */}
+                                      {isMaxReached
+                                        ? `Maximum 3 ${field}s selected`
+                                        : arrayValues.length > 0
+                                          ? `Add another ${field}...`
+                                          : `Select ${field}`}
                                     </span>
                                   ) : (
                                     <SelectValue placeholder={`Select ${field}`} />
