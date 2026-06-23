@@ -1805,7 +1805,10 @@ export class ChatbotRepository implements IChatbotRepository {
         {
           $match: matchQuery,
         },
-
+        {
+          $unwind: '$details.domain',
+          preserveNullAndEmptyArrays: false,
+        },
         // ...lookupStages,
 
         {

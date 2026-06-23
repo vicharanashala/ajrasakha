@@ -464,7 +464,7 @@ export interface IQuestionFullData {
     crop: string;
     normalised_crop?: string;
     season: string;
-    domain: string;
+    domain: string[];
   };
   isAutoAllocate: boolean;
   priority: QuestionPriority;
@@ -581,7 +581,7 @@ export interface IDetailedQuestion {
     crop: string;
     normalised_crop?: string;
     season: string;
-    domain: string;
+    domain: string[];
   };
   source: "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH";
   createdAt?: string;
