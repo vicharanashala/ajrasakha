@@ -123,14 +123,19 @@ const notificationService = new NotificationService(notificationRepo, database);
       // 5. Bump reputation score for the PAE expert
       await userRepo.updateReputationScore(paeExpertId, true);
 
-      // 6. Send notification to PAE expert
-      await notificationService.saveTheNotifications(
-        'A Question has been assigned for answering',
-        'Answer Creation Assigned',
-        questionId,
-        paeExpertId,
-        'answer_creation',
-      );
+      // 6. Send notification to PAE expert — best-effort: a notification failure must
+      // not fail an allocation that has already been persisted above.
+      try {
+        await notificationService.saveTheNotifications(
+          'A Question has been assigned for answering',
+          'Answer Creation Assigned',
+          questionId,
+          paeExpertId,
+          'answer_creation',
+        );
+      } catch (notifyErr: any) {
+        console.error(`⚠️ Assigned PAE expert to question ${questionId} but notification failed:`, notifyErr?.message);
+      }
 
       // 7. Collect question text for summary email
       const questionText = (question.question || questionId).toString();

@@ -341,15 +341,20 @@ const {checkDuplicateQuestionHelper} =
       // 8. Save QuestionSubmission to DB
       await submissionRepo.addSubmission(submissionData);
 
-      // 9. Send notification (skipped for draft mode)
+      // 9. Send notification (skipped for draft mode) — best-effort: a notification
+      // failure must not fail a question whose submission has already been saved.
       if (notificationRecipient) {
-        await notificationService.saveTheNotifications(
-          notificationMessage,
-          notificationTitle,
-          qId,
-          notificationRecipient,
-          'answer_creation',
-        );
+        try {
+          await notificationService.saveTheNotifications(
+            notificationMessage,
+            notificationTitle,
+            qId,
+            notificationRecipient,
+            'answer_creation',
+          );
+        } catch (notifyErr: any) {
+          console.error(`⚠️ Question ${qId} processed but notification failed:`, notifyErr?.message || notifyErr);
+        }
       }
 
       processed++;

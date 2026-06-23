@@ -243,20 +243,26 @@ async function getExpertDisplayName(expertId?: string | null): Promise<string> {
         });
 
         affectedExpertIds.add(newExpertId);
-        await notificationService.saveTheNotifications(
-          'You have been replaced from the Allocated question. The question has been reassigned to another expert.',
-          'Allocation Removed',
-          submission.questionId.toString(),
-          currentExpertId,
-          'allocation_removal',
-        );
-        await notificationService.saveTheNotifications(
-          'A time-bound question has been reassigned to you',
-          'Question Reassigned',
-          submission.questionId.toString(),
-          newExpertId,
-          'answer_creation',
-        );
+        // Best-effort notifications: failures must not fail a reallocation whose
+        // queue/history writes have already been persisted above.
+        try {
+          await notificationService.saveTheNotifications(
+            'You have been replaced from the Allocated question. The question has been reassigned to another expert.',
+            'Allocation Removed',
+            submission.questionId.toString(),
+            currentExpertId,
+            'allocation_removal',
+          );
+          await notificationService.saveTheNotifications(
+            'A time-bound question has been reassigned to you',
+            'Question Reassigned',
+            submission.questionId.toString(),
+            newExpertId,
+            'answer_creation',
+          );
+        } catch (notifyErr: any) {
+          console.error(`⚠️ [Worker] Reallocated submission ${job.submissionId} but notification failed:`, notifyErr?.message);
+        }
       } else if (modified) {
         // ── REPLACE MODE (default workload balancing) ─────────────────────────
         const updatedHistory = [...history];
@@ -306,25 +312,31 @@ async function getExpertDisplayName(expertId?: string | null): Promise<string> {
         // 4. Notify new expert (role-aware notification for time-bound questions)
         const isAuthorPosition = currentExpertIndex === 0 && history.length === 0;
         affectedExpertIds.add(newExpertId);
-        await notificationService.saveTheNotifications(
-          isAuthorPosition
-            ? 'A time-bound question has been assigned to you for answering'
-            : 'A time-bound question has been reassigned to you for review',
-          isAuthorPosition ? 'Answer Creation Assigned' : 'Review Reassigned',
-          submission.questionId.toString(),
-          newExpertId,
-          isAuthorPosition ? 'answer_creation' : 'peer_review',
-        );
-
-        // 4.1 Notify the old expert that they have been removed from the allocation.
-        if (currentExpertId) {
+        // Best-effort notifications: failures must not fail a reallocation whose
+        // queue/history writes have already been persisted above.
+        try {
           await notificationService.saveTheNotifications(
-            'You have been replaced from the Allocated question. The question has been reassigned to another expert.',
-            'Allocation Removed',
+            isAuthorPosition
+              ? 'A time-bound question has been assigned to you for answering'
+              : 'A time-bound question has been reassigned to you for review',
+            isAuthorPosition ? 'Answer Creation Assigned' : 'Review Reassigned',
             submission.questionId.toString(),
-            currentExpertId,
-            'allocation_removal',
+            newExpertId,
+            isAuthorPosition ? 'answer_creation' : 'peer_review',
           );
+
+          // 4.1 Notify the old expert that they have been removed from the allocation.
+          if (currentExpertId) {
+            await notificationService.saveTheNotifications(
+              'You have been replaced from the Allocated question. The question has been reassigned to another expert.',
+              'Allocation Removed',
+              submission.questionId.toString(),
+              currentExpertId,
+              'allocation_removal',
+            );
+          }
+        } catch (notifyErr: any) {
+          console.error(`⚠️ [Worker] Reallocated submission ${job.submissionId} but notification failed:`, notifyErr?.message);
         }
 
         // 4.2 Audit trail — replaces the moderator/admin broadcast. Records that this

@@ -6014,7 +6014,9 @@ export class QuestionService extends BaseService implements IQuestionService {
           claimedIds.add(questionId);
 
           try {
-            // Assign question to moderator — update both documents and notify.
+            // Assign question to moderator — update both documents. This is what makes
+            // the question appear in the moderator's dashboard, so it must succeed
+            // independently of the (best-effort) notification below.
             await Promise.all([
               this.questionRepo.updateModeratorId(questionId, moderatorId),
               // Store the question's actual status (the cron assigns both in-review and
@@ -6025,16 +6027,23 @@ export class QuestionService extends BaseService implements IQuestionService {
                 ((nextQuestion as any)?.status ?? 'in-review') as QuestionStatus,
                 (nextQuestion as any)?.source,
               ),
-              this.notificationService.saveTheNotifications(
+            ]);
+            console.log(`[ModeratorQueue] (${label}) Assigned question ${questionId} → moderator ${moderatorId}`);
+            assigned++;
+
+            // Best-effort notification: a push/notification failure must never undo a
+            // successful assignment or mark it as failed.
+            try {
+              await this.notificationService.saveTheNotifications(
                 'A question has been assigned to you for moderation',
                 'Moderation Assigned',
                 questionId,
                 moderatorId,
                 'moderator_approval',
-              ),
-            ]);
-            console.log(`[ModeratorQueue] (${label}) Assigned question ${questionId} → moderator ${moderatorId}`);
-            assigned++;
+              );
+            } catch (notifyErr: any) {
+              console.error(`[ModeratorQueue] (${label}) Assigned ${questionId} → ${moderatorId} but notification failed:`, notifyErr?.message);
+            }
           } catch (err: any) {
             console.error(`[ModeratorQueue] (${label}) Failed to assign ${questionId} → ${moderatorId}:`, err?.message);
             claimedIds.delete(questionId);
@@ -6269,17 +6278,24 @@ export class QuestionService extends BaseService implements IQuestionService {
               this.userRepo.updateReputationScore(assignedExpert, true),
               this.questionRepo.updateQuestion(questionId, { isAutoAllocate: true, firstAllocationAt: new Date() }),
               this.questionSubmissionRepo.setCurrentExpertAllocatedAt(questionId, new Date()),
-              this.notificationService.saveTheNotifications(
+            ]);
+            console.log(`[TimeBound] Initially allocated question ${questionId} to expert ${assignedExpert}`);
+            initialAllocated++;
+            unallocatedProcessed++;
+
+            // Best-effort notification: a failure here must not undo the allocation
+            // above (the expert can already see the question in their dashboard).
+            try {
+              await this.notificationService.saveTheNotifications(
                 `A time-bound question from ${sourceLabel} has been assigned to you`,
                 'Answer Creation Assigned',
                 questionId,
                 assignedExpert,
                 'answer_creation',
-              ),
-            ]);
-            console.log(`[TimeBound] Initially allocated question ${questionId} to expert ${assignedExpert}`);
-            initialAllocated++;
-            unallocatedProcessed++;
+              );
+            } catch (notifyErr: any) {
+              console.error(`[TimeBound] Allocated question ${questionId} to expert ${assignedExpert} but notification failed:`, notifyErr?.message);
+            }
           } catch (allocErr: any) {
             console.error(`[TimeBound] Failed to initially allocate question ${questionId}:`, allocErr?.message);
             skipped++;
@@ -6324,16 +6340,23 @@ export class QuestionService extends BaseService implements IQuestionService {
             await Promise.all([
               this.questionSubmissionRepo.assignTimeBoundReviewer(questionId, assignedReviewer, new Date()),
               this.userRepo.updateReputationScore(assignedReviewer, true),
-              this.notificationService.saveTheNotifications(
+            ]);
+            console.log(`[TimeBound] Assigned reviewer ${assignedReviewer} for question ${questionId}`);
+            reviewersAssigned++;
+
+            // Best-effort notification: a failure here must not undo the reviewer
+            // assignment above (the reviewer can already see the question to review).
+            try {
+              await this.notificationService.saveTheNotifications(
                 `A time-bound question from ${sourceLabel} needs your review`,
                 'New Review Assigned',
                 questionId,
                 assignedReviewer,
                 'peer_review',
-              ),
-            ]);
-            console.log(`[TimeBound] Assigned reviewer ${assignedReviewer} for question ${questionId}`);
-            reviewersAssigned++;
+              );
+            } catch (notifyErr: any) {
+              console.error(`[TimeBound] Assigned reviewer ${assignedReviewer} for question ${questionId} but notification failed:`, notifyErr?.message);
+            }
           } catch (err: any) {
             console.error(`[TimeBound] Failed to assign reviewer for question ${questionId}:`, err?.message);
             skipped++;
