@@ -211,6 +211,8 @@ export class AuditTrailsRepository implements IAuditTrailsRepository {
     startDate: string,
     // endDate: string,
     shift: "morning" | "evening" | "all",
+    from: string,
+    to: string,
     session?: ClientSession
   ): Promise<
     {
@@ -249,7 +251,9 @@ export class AuditTrailsRepository implements IAuditTrailsRepository {
               },
               ...getShiftFilter(
                 "createdAt",
-                shift
+                shift,
+                from,
+                to
               ),
             },
           },

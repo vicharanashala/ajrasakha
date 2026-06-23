@@ -317,6 +317,7 @@ export function AnnamDashboard_dev({
             />}
             
             <div className="flex-1 overflow-y-auto px-5 pb-5">
+              {!mapView && 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 items-stretch">
                 <ClosedInLastTwoHoursCard
                   source={closed2hSource}
@@ -365,7 +366,7 @@ export function AnnamDashboard_dev({
                   onRefresh={handleRefreshStatsCards}
                   onSourceChange={setNotificationsSource}
                 />
-              </div>
+              </div>}
               {/* Source Selection Tabs & Refresh */}
               <SourceTabsHeader
                 source={source}
@@ -383,7 +384,6 @@ export function AnnamDashboard_dev({
                 <AnalyticsMap
                   source={source}
                   userType={filters.userType}
-                  questionStatusData={questionStatusData}
                   todayActiveFarmersData={todayActiveFarmersData}
                 />
               ) :(<>

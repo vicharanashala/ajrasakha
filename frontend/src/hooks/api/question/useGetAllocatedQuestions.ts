@@ -10,10 +10,11 @@ export const useGetAllocatedQuestions = (
   preferences: AdvanceFilterValues,
   actionType:string,
   autoSelectQuestionId?:string|null,
-  reviewLevel?:string
+  reviewLevel?:string,
+  includeRerouted?:boolean
 ) => {
   return useInfiniteQuery({
-    queryKey: ["questions", limit, filter, preferences,actionType,reviewLevel],
+    queryKey: ["questions", limit, filter, preferences,actionType,reviewLevel,includeRerouted],
     queryFn: async ({ pageParam }) => {
       return await questionService.useGetAllocatedQuestions(
         pageParam,
@@ -22,7 +23,8 @@ export const useGetAllocatedQuestions = (
         preferences,
         actionType,
         autoSelectQuestionId,
-        reviewLevel
+        reviewLevel,
+        includeRerouted
 
       );
     },
