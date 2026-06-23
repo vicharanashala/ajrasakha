@@ -1807,7 +1807,6 @@ export class ChatbotRepository implements IChatbotRepository {
         },
         {
           $unwind: '$details.domain',
-          preserveNullAndEmptyArrays: false,
         },
         // ...lookupStages,
 
