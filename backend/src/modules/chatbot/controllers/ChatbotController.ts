@@ -192,7 +192,7 @@ export class ChatbotController {
     @QueryParam('userType')
     userType: string = 'all',
   ) {
-    console.log("Selected state code controller", selectedStateCode);
+    // console.log("Selected state code controller", selectedStateCode);
     return this.chatbotService.getDistrictAnalyticsByState(
       state,
       selectedStateCode,
@@ -863,7 +863,7 @@ export class ChatbotController {
       const state = query.state;
       const format = query.downloadFormat || 'xlsx';
 
-      console.log('state is', state);
+      // console.log('state is', state);
 
       let data: ArrayBuffer | Buffer | null = null;
 
