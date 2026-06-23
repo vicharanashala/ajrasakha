@@ -56,7 +56,8 @@ export const buildReviewTimeline = (
     }
 
     if (nextHistory) {
-      const completedAt = nextHistory.createdAt;
+      // const completedAt = nextHistory.createdAt;
+      const completedAt = currentHistory.updatedAt;
 
       timeline.push({
         reviewerId: currentHistory.updatedBy?.toString(),
