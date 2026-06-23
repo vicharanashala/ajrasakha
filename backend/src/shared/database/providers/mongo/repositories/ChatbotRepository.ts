@@ -13507,6 +13507,39 @@ if (!districts.length) {
     }
   }
 
+  async getUserEmailByConversationId(conversationId: string, source = 'annam'): Promise<string | null> {
+    try {
+      await this.init(source);
+
+      const conversation = await this.conversations.findOne(
+        {conversationId},
+        {projection: {user: 1}},
+      );
+
+      if (!conversation?.user) {
+        return null;
+      }
+
+      const userId = conversation.user.toString();
+      const isValidObjectId =
+        ObjectId.isValid(userId) && String(new ObjectId(userId)) === userId;
+
+      if (!isValidObjectId) {
+        return null;
+      }
+
+      const user = await this.users.findOne(
+        {_id: new ObjectId(userId)},
+        {projection: {email: 1}},
+      );
+
+      return user?.email || null;
+    } catch (error) {
+      console.error(`Failed to get user email by conversationId: ${error}`);
+      return null;
+    }
+  }
+
   private normalizeState(state: string) {
     const stateAliases: Record<string, string> = {
       'andhra pradesh': 'andra pradesh',
