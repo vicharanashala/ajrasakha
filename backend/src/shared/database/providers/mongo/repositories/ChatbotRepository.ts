@@ -14363,7 +14363,7 @@ if (!districts.length) {
         farmerDashboard,
         unAssigned: unAssigned ?? [],
         assigned: assigned ?? [],
-        parentCoordinator,
+        // parentCoordinator,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get user profile: ${error}`);
@@ -14786,7 +14786,7 @@ if (!districts.length) {
         
       if (isDuplicate) {
         timeline.push({
-          timestamp: null,
+          timestamp: question.createdAt,
           user: "System",
           action: "Duplicate Question",
           duration: null,
@@ -14999,11 +14999,11 @@ if (!districts.length) {
 
         if (last) {
           const lastEnd = new Date(
-            last.endTime || last.timestamp,
+            last.endTime || last.timestamp || question.createdAt,
           );
 
           finalTimeline.push({
-            timestamp: lastEnd,
+            timestamp: lastEnd ?? question.createdAt.getTime(),
             user: 'System',
             action:
               question.status === 'hold'
@@ -15040,15 +15040,16 @@ if (!districts.length) {
 
           if (waitForClosure > 1000) {
             finalTimeline.push({
-              timestamp: lastEnd,
+              timestamp: lastEnd ?? question.createdAt.getTime(),
               user: 'System',
-              action: 'Awaiting Closure',
+              action: 'Awaiting Closure/Pass',
               duration: waitForClosure,
               remarks: '',
               endTime: completionTime,
               eventType: 'closure',
             });
           }
+        
         }
       }
 
