@@ -68,6 +68,7 @@ import {
 import type { IMyPreference } from "@/types";
 import { CROPS, STATES, DOMAINS, Review_Level } from "@/components/MetaData";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
+import { useGetStates } from "@/hooks/api/location/useLocations";
 export { STATES, CROPS, DOMAINS };
 import { DateRangeFilter } from "./DateRangeFilter";
 import { TopRightBadge } from "./NewBadge";
@@ -138,7 +139,6 @@ interface AdvanceFilterDialogProps {
   setAdvanceFilterValues: (values: any) => void;
   handleDialogChange: (key: string, value: any) => void;
   handleApplyFilters: (myPreference?: IMyPreference) => void;
-  normalizedStates: string[];
   crops: string[];
   activeFiltersCount: number;
   onReset: () => void;
@@ -151,7 +151,6 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
   setAdvanceFilterValues,
   handleDialogChange,
   handleApplyFilters,
-  normalizedStates,
   crops,
   activeFiltersCount,
   onReset,
@@ -162,6 +161,8 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
   const { data: userNameReponse, isLoading } = useGetAllUsers();
   const { data: cropsData } = useGetAllCrops({ type: "crop", limit: 500 });
   const dbCrops = cropsData?.crops || [];
+  const { data: statesResponse = [] } = useGetStates();
+  const stateOptions = statesResponse.map((s) => s.stateNameEnglish);
 
   const users = (userNameReponse?.users || []).sort((a, b) =>
     a.userName.localeCompare(b.userName),
@@ -407,7 +408,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   )}
                 </Label>
                 <StateMultiSelect
-                  states={normalizedStates}
+                  states={stateOptions}
                   selected={advanceFilter.states || []}
                   onChange={(next) => handleDialogChange("states", next)}
                 />

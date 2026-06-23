@@ -54,6 +54,21 @@ import {
 import { TopRightBadge } from "@/components/NewBadge";
 import { toast } from "@/shared/components/toast";
 
+
+//shift based time range
+const shiftBasedTimeRange = {
+  morning: { id: 'morning', min: '06:00', max: '15:00' },
+  all: { id: 'wholeDay', label: 'All Day', min: '00:00', max: '23:59', },
+  evening: { id: 'evening', label: 'Night', min: '15:00', max: '23:59' }
+};
+
+// Helper to format 24h to 12h for readable toast messages
+const formatTime = (timeStr: string) => {
+  const [h, m] = timeStr.split(':');
+  const hour = parseInt(h, 10);
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  return `${hour % 12 || 12}:${m} ${ampm}`;
+};
 const DownloadShiftWiseReportButton = ({
   closeSideBar,
   userRole,
@@ -62,6 +77,7 @@ const DownloadShiftWiseReportButton = ({
   userRole: any;
 }) => {
   const [isDownloading, setIsDownloading] = useState(false);
+  const [source, setSource] = useState<"annam" | "whatsapp" | 'agri_expert'>('annam');
 
   const defaultStartDate = new Date(Date.now());
   // const defaultEndDate = new Date(Date.now());
@@ -85,11 +101,62 @@ const DownloadShiftWiseReportButton = ({
   //   ? formatDateLocal(downloadDateRange.to)
   //   : "";
 
+  const [timeRange, setTimeRange] = useState({
+    from: shiftBasedTimeRange.all.min,
+    to: shiftBasedTimeRange.all.max
+  });
+
+  // Handler to update specific parts of the time range with boundary validation
+  const handleTimeChange = (field: string, value: string) => {
+  if (!value) return;
+
+  const currentShift: any = shiftBasedTimeRange[selectedShift];
+  let validTime = value;
+  let alertMessage: string | null = null;
+
+  if (validTime < currentShift.min) {
+    validTime = currentShift.min;
+    alertMessage = `Time adjusted: Earliest time for ${currentShift.id} is ${formatTime(currentShift.min)}`;
+  } else if (validTime > currentShift.max) {
+    validTime = currentShift.max;
+    alertMessage = `Time adjusted: Latest time for ${currentShift.id} is ${formatTime(currentShift.max)}`;
+  }
+
+  setTimeRange((prev) => {
+    let newFrom = field === 'from' ? validTime : prev.from;
+    let newTo = field === 'to' ? validTime : prev.to;
+
+    if (newFrom > newTo) {
+      if (field === 'from') {
+        newTo = newFrom;
+        if (!alertMessage) {
+          alertMessage =
+            '"From" time cannot be later than "To" time. Adjusted.';
+        }
+      } else {
+        newFrom = newTo;
+        if (!alertMessage) {
+          alertMessage =
+            '"To" time cannot be earlier than "From" time. Adjusted.';
+        }
+      }
+    }
+
+    return { from: newFrom, to: newTo };
+  });
+
+  if (alertMessage) {
+    toast.warning(alertMessage);
+  }
+};
+
   const { data: shiftWiseData, isFetching: isShiftWiseDataLoading } =
     useShiftBasedMetrics({
       fromDate: startDate,
       // toDate: endDate,
       shift: selectedShift,
+      source,
+      timeRange: timeRange
     });
 
   const { data: shiftWiseTrends, isFetching: isShiftWiseTrendsLoading } =
@@ -97,6 +164,8 @@ const DownloadShiftWiseReportButton = ({
       fromDate: startDate,
       // toDate: endDate,
       shift: selectedShift,
+      source,
+      timeRange: timeRange
     });
 
   const {
@@ -106,6 +175,8 @@ const DownloadShiftWiseReportButton = ({
     fromDate: startDate,
     // toDate: endDate,
     shift: selectedShift,
+    source,
+    timeRange: timeRange
   });
 
   const {
@@ -115,6 +186,8 @@ const DownloadShiftWiseReportButton = ({
     fromDate: startDate,
     // toDate: endDate,
     shift: selectedShift,
+    source,
+    timeRange: timeRange
   });
 
   const { data: topExperts, isFetching: isTopExpertsLoading } =
@@ -122,6 +195,8 @@ const DownloadShiftWiseReportButton = ({
       fromDate: startDate,
       // toDate: endDate,
       shift: selectedShift,
+      source,
+      timeRange: timeRange
     });
 
   const { data: topApprovingExperts, isFetching: isTopApproversLoading } =
@@ -129,6 +204,8 @@ const DownloadShiftWiseReportButton = ({
       fromDate: startDate,
       // toDate: endDate,
       shift: selectedShift,
+      source,
+      timeRange: timeRange
     });
 
   const { data: auditActionCounts, isFetching: isAuditActionCountsLoading } =
@@ -136,6 +213,7 @@ const DownloadShiftWiseReportButton = ({
       fromDate: startDate,
       // toDate: endDate,
       shift: selectedShift,
+      timeRange: timeRange
     });
 
   const formattedAuditActionCounts = (auditActionCounts?.data ?? []).map(
@@ -158,6 +236,13 @@ const DownloadShiftWiseReportButton = ({
     },
   );
   const overviewCards = [
+    {
+      title: "CarryAway Questions",
+      value: shiftWiseData?.openAtMidnight ?? 0,
+      toolTip: "Total Questions that doesn't answered before 12am.",
+      additional:`${shiftWiseData?.closedBetween12And6 ?? 0} answered after 12am.`
+    },
+
     {
       title: "Questions Added",
       value: shiftWiseData?.questionsAdded ?? 0,
@@ -379,7 +464,34 @@ const DownloadShiftWiseReportButton = ({
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-4 mr-2">
+              <div className="flex flex-col gap-1 ml-2">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Select Source
+                </label>
+
+                <select
+                  value={source}
+                  onChange={(e) =>
+                    setSource(
+                      e.target.value as "annam" | "whatsapp" | "agri_expert",
+                    )
+                  }
+                  className="
+                          h-7
+                          rounded-md
+                          border
+                          bg-background
+                          px-3
+                          text-sm
+                        "
+                >
+                  <option value="annam">Annam</option>
+                  <option value="whatsapp">WhatsApp</option>
+                  <option value="agri_expert">AgriExpert</option>
+                </select>
+              </div>
+              
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-muted-foreground">
                   Select Shift
@@ -387,11 +499,16 @@ const DownloadShiftWiseReportButton = ({
 
                 <select
                   value={selectedShift}
-                  onChange={(e) =>
-                    setSelectedShift(
-                      e.target.value as "morning" | "evening" | "all",
-                    )
-                  }
+                  onChange={(e) => {
+                    const newShiftId = e.target.value as "morning" | "evening" | "all";
+
+                    setSelectedShift(newShiftId);
+
+                    setTimeRange({
+                      from: shiftBasedTimeRange[newShiftId].min,
+                      to: shiftBasedTimeRange[newShiftId].max,
+                    });
+                  }}
                   className="
                           h-7
                           rounded-md
@@ -432,6 +549,61 @@ const DownloadShiftWiseReportButton = ({
                 />
               </div>
 
+              {/* --- Start of the Custom Time Filter --- */}
+
+
+              <div className="flex flex-col gap-1 ml-2">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Select Time Range
+                </label>
+
+                <div className="flex items-end gap-1">
+                  {/* FROM Input */}
+                  <div className="flex flex-col gap-1 flex-1">
+                    <input
+                      type="time"
+                      min={shiftBasedTimeRange[selectedShift].min}
+                      max={shiftBasedTimeRange[selectedShift].max}
+                      value={timeRange.from}
+                      onChange={(e) => handleTimeChange('from', e.target.value)}
+                      className="
+                      h-7
+                      rounded-md
+                      border
+                      bg-background
+                      px-3
+                      text-sm
+                      "
+                    />
+                  </div>
+
+                  <div className="h-7 flex items-center justify-center text-neutral-300 pb-1">
+                    —
+                  </div>
+
+                  {/* TO Input */}
+                  <div className="flex flex-col gap-1 flex-1">
+                    <input
+                      type="time"
+                      min={shiftBasedTimeRange[selectedShift].min}
+                      max={shiftBasedTimeRange[selectedShift].max}
+                      value={timeRange.to}
+                      onChange={(e) => handleTimeChange('to', e.target.value)}
+                      className="
+                      h-7
+                      rounded-md
+                      border
+                      bg-background
+                      px-3
+                      text-sm
+                      "
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* --- End of the Custom Time Filter --- */}
+
               {/* <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-muted-foreground">
                   End Date
@@ -466,7 +638,7 @@ const DownloadShiftWiseReportButton = ({
             <div className="w-full max-w-none space-y-6 p-6">
               {/* Overview Cards */}
               <section className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
                   {overviewCards.map((card) => (
                     <Card key={card.title} title={card.title}>
                       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -498,7 +670,14 @@ const DownloadShiftWiseReportButton = ({
                         {isShiftWiseDataLoading ? (
                           <Skeleton className="h-8 w-20" />
                         ) : (
+                        <div className="flex flex-col space-y-2 pt-1">
                           <div className="text-3xl font-bold">{card.value}</div>
+                          {card.additional && (
+                            <div className="inline-flex w-fit items-center rounded-md bg-green-100 px-2 py-1 text-xs font-medium text-green-700 border border-green-200">
+                              {card.additional}
+                            </div>
+                          )}
+                        </div>
                         )}
                       </CardContent>
                     </Card>

@@ -196,7 +196,7 @@ class ResolvedToolEntities(NamedTuple):
     state: str
     district: str
     crop: str
-    domain: str
+    domains: list[str]
     state_source: str
     district_source: str
     crop_source: str
@@ -233,7 +233,7 @@ def _resolve_reviewer_location(
             state="Not specified",
             district="all",
             crop="all",
-            domain=reviewer_upload_domain("General"),
+            domains=[reviewer_upload_domain("General")],
             state_source="greeting (no location)",
             district_source="greeting (no location)",
             crop_source="greeting_short_circuit",
@@ -259,12 +259,11 @@ def _resolve_reviewer_location(
         district_source = "default_all_when_state_known"
 
     crop, crop_source = _entity_with_source(plan, "crop", loc, "General")
-    domain_raw = plan.get("domain") or "General"
-    domain = reviewer_upload_domain(domain_raw)
-    if domain != domain_raw:
-        domain_source = f"reviewer_upload_domain({domain_raw!r} -> {domain!r})"
-    else:
-        domain_source = "plan.domain"
+    # Get all domains from plan, not just the first one
+    domains_list = plan.get("domains") or [plan.get("domain") or "General"]
+    # Normalize each domain for reviewer upload
+    domains = [reviewer_upload_domain(d) for d in domains_list]
+    domain_source = "plan.domains (all)"
 
     trace_resolution(
         stage,
@@ -274,7 +273,7 @@ def _resolve_reviewer_location(
         district_source=district_source,
         crop=crop,
         crop_source=crop_source,
-        domain=domain,
+        domain=domains,
         domain_source=domain_source,
         latitude=None,
         longitude=None,
@@ -284,7 +283,7 @@ def _resolve_reviewer_location(
         state=state_name,
         district=district,
         crop=crop,
-        domain=domain,
+        domains=domains,
         state_source=state_source,
         district_source=district_source,
         crop_source=crop_source,
@@ -314,7 +313,7 @@ def build_reviewer_upload_calls(
     state_name = resolved.state
     district = resolved.district
     crop = resolved.crop
-    domain = resolved.domain
+    domains = resolved.domains
     reviewer_question = (plan.get("rephrased_query") or "").strip() or user_query
 
     # Do not call location_information_tool with thread GPS coordinates.
@@ -335,7 +334,7 @@ def build_reviewer_upload_calls(
                 "district": district,
                 "crop": crop,
                 "season": "General",
-                "domain": domain,
+                "domain": domains,
             },
             "source": str(question_source).strip(),
         }
@@ -349,7 +348,7 @@ def build_reviewer_upload_calls(
             district_source=resolved.district_source,
             crop=crop,
             crop_source=resolved.crop_source,
-            domain=domain,
+            domain=domains,
             domain_source=resolved.domain_source,
             question=reviewer_question[:200],
             reviewer_args=reviewer_args,

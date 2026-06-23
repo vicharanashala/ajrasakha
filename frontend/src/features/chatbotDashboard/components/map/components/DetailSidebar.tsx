@@ -62,6 +62,9 @@ export function DetailSidebar({
   isLoading = false,
   districtAnalytic,
   metric = "questions"
+  isLoading = false,
+  districtAnalytic,
+  metric = "questions"
 }: DetailSidebarProps) {
   // Calculate aggregated analytics
 

@@ -1220,7 +1220,6 @@ export const QuestionsFilters = ({
                 setAdvanceFilterValues={setAdvanceFilterValues}
                 handleDialogChange={handleDialogChange}
                 handleApplyFilters={handleApplyFilters}
-                normalizedStates={states}
                 crops={crops}
                 activeFiltersCount={activeFiltersCount}
                 onReset={onReset}
