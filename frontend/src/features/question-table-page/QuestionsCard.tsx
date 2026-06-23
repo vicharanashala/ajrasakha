@@ -322,7 +322,13 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
                   Domain
                 </span>
                 <span className="truncate max-w-[150px] text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {q.details.domain || "NIL"}
+                  {q.details?.domain?.length > 0
+                  ? q.details.domain
+                    .map((item) =>
+                      item.length > 12 ? `${item.substring(0, 12)}...` : item
+                    )
+                    .join(", ")
+                  : "NIL"}
                 </span>
               </div>
             )}

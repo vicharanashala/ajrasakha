@@ -123,11 +123,18 @@ export const QuestionDetailsCard = ({
           </div>
         </div>
 
-        <div className="flex items-start gap-2">
-          <Layers className="w-4 h-4 text-primary shrink-0" />
-          <div className="flex flex-col">
+        <div className="flex items-start gap-2 overflow-hidden">
+          <Layers className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+          <div className="flex flex-col min-w-0">
             <span className="text-muted-foreground">Domain</span>
-            <span className="truncate">{question.details?.domain || "-"}</span>
+            <span
+              className="truncate"
+              title={question.details?.domain?.join(", ")}
+            >
+              {question.details?.domain?.length > 0
+                ? question.details.domain.join(", ")
+                : "-"}
+            </span>
           </div>
         </div>
       </div>

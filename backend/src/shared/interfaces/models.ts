@@ -63,7 +63,7 @@ export interface IQuestion {
     district: string;
     crop: string | ICropRef;
     season: string;
-    domain: string;
+    domain: string[];
     normalised_crop?: string;
   };
   isAutoAllocate: boolean;
