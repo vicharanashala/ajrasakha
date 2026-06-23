@@ -127,7 +127,7 @@ export const STATES = [
   "Haryana",
   "Himachal Pradesh",
   "Jharkhand",
-  "Jammu and Kashmir",
+  "Jammu And Kashmir",
   "Karnataka",
   "Kerala",
   "Ladakh",

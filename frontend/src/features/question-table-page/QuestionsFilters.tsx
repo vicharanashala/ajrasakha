@@ -392,7 +392,7 @@ export const QuestionsFilters = ({
         validationErrors.season = "Please select the Season field.";
       }
 
-      if (!domain?.trim()) {
+      if (!domain?.length) {
         validationErrors.domain = "Please select the Domain field.";
       }
 
@@ -1171,7 +1171,6 @@ export const QuestionsFilters = ({
                 setAdvanceFilterValues={setAdvanceFilterValues}
                 handleDialogChange={handleDialogChange}
                 handleApplyFilters={handleApplyFilters}
-                normalizedStates={states}
                 crops={crops}
                 activeFiltersCount={activeFiltersCount}
                 onReset={onReset}

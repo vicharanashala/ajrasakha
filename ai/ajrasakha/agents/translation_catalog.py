@@ -46,6 +46,8 @@ _COL_TWO_HOUR = "2 hour disclaimer"
 _COL_STATE = "State Follow Up"
 _COL_CROP = "Crop Follow Up"
 _COL_TESTING = "Testing disclaimer"
+_COL_LATE_NIGHT = "Questions submitted between 10:01 PM and 11:59 PM"
+_COL_EARLY_MORNING = "Questions submitted between 12:00 AM and 5:59 AM"
 
 
 @dataclass(frozen=True)
@@ -56,6 +58,8 @@ class CatalogRow:
     state_follow_up: str
     crop_follow_up: str
     testing_disclaimer: str
+    late_night_disclaimer: str
+    early_morning_disclaimer: str
 
 
 def _normalize_lang(name: str) -> str:
@@ -88,6 +92,8 @@ def load_catalog(path: Optional[Path] = None) -> dict[tuple[str, str], CatalogRo
     idx_state = col_index(_COL_STATE)
     idx_crop = col_index(_COL_CROP)
     idx_testing = col_index(_COL_TESTING)
+    idx_late_night = col_index(_COL_LATE_NIGHT)
+    idx_early_morning = col_index(_COL_EARLY_MORNING)
 
     catalog: dict[tuple[str, str], CatalogRow] = {}
     for row in rows_iter:
@@ -109,6 +115,8 @@ def load_catalog(path: Optional[Path] = None) -> dict[tuple[str, str], CatalogRo
             state_follow_up=cell(idx_state),
             crop_follow_up=cell(idx_crop),
             testing_disclaimer=cell(idx_testing),
+            late_night_disclaimer=cell(idx_late_night),
+            early_morning_disclaimer=cell(idx_early_morning),
         )
     wb.close()
     return catalog
@@ -162,6 +170,16 @@ def get_state_follow_up(script_language: str, vocal_language: str) -> str:
 
 def get_crop_follow_up(script_language: str, vocal_language: str) -> str:
     return get_catalog_row(script_language, vocal_language).crop_follow_up
+
+
+def get_late_night_disclaimer(script_language: str, vocal_language: str) -> str:
+    """Get the late night disclaimer (10:01 PM - 11:59 PM) for the given language pair."""
+    return get_catalog_row(script_language, vocal_language).late_night_disclaimer
+
+
+def get_early_morning_disclaimer(script_language: str, vocal_language: str) -> str:
+    """Get the early morning disclaimer (12:00 AM - 5:59 AM) for the given language pair."""
+    return get_catalog_row(script_language, vocal_language).early_morning_disclaimer
 
 
 def language_pair_from_plan(plan: Optional[dict]) -> tuple[str, str]:

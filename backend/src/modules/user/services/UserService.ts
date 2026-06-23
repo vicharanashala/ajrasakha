@@ -114,26 +114,49 @@ export class UserService extends BaseService {
     try {
       if (!userId) throw new NotFoundError('User ID is required');
 
-      if (data.firstName !== undefined && !data.firstName.trim())
+      const editableFields = [
+        'firstName',
+        'lastName',
+        'mobile',
+        'university',
+        'preference',
+        'avatar',
+      ] as const;
+      const sanitizedData: Partial<IUser> = {};
+
+      for (const field of editableFields) {
+        if (Object.prototype.hasOwnProperty.call(data, field)) {
+          (sanitizedData as any)[field] = (data as any)[field];
+        }
+      }
+
+      if (
+        Object.keys(sanitizedData).length === 0 &&
+        Object.keys(data).length > 0
+      ) {
+        throw new BadRequestError('No editable profile fields provided');
+      }
+
+      if (sanitizedData.firstName !== undefined && !sanitizedData.firstName.trim())
         throw new BadRequestError('Firstname cannot be empty or blank space');
-      if (data.mobile !== undefined && !data.mobile.trim())
+      if (sanitizedData.mobile !== undefined && !sanitizedData.mobile.trim())
         throw new BadRequestError(
           'Mobile number cannot be empty or blank space',
         );
-      if (data.university !== undefined && !data.university.trim())
+      if (sanitizedData.university !== undefined && !sanitizedData.university.trim())
         throw new BadRequestError(
           'University name cannot be empty or blank space',
         );
       const authService = getFromContainer(FirebaseAuthService);
 
       return this._withTransaction(async (session: ClientSession) => {
-        const updatedUser = await this.userRepo.edit(userId, data, session);
+        const updatedUser = await this.userRepo.edit(userId, sanitizedData, session);
         if (!updatedUser)
           throw new NotFoundError(`User with ID ${userId} not found`);
-        if (data.firstName || data.lastName) {
+        if (sanitizedData.firstName || sanitizedData.lastName) {
           await authService.updateFirebaseUser(updatedUser.firebaseUID, {
-            firstName: data.firstName ?? updatedUser.firstName,
-            lastName: data.lastName ?? updatedUser.lastName,
+            firstName: sanitizedData.firstName ?? updatedUser.firstName,
+            lastName: sanitizedData.lastName ?? updatedUser.lastName,
           });
         }
         return updatedUser;

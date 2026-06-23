@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import type { IUser } from "@/types";
-import { STATES } from "./advanced-question-filter";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import {
   Filter,
@@ -26,6 +25,7 @@ import {
   SelectValue,
 } from "./atoms/select";
 import { ExpertDashboard } from "./ExpertDashboard";
+import { UserFiltersDialog } from "./UserFiltersDialog";
 
 export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const [selectExpertId, setSelectExpertId] = useState<string>("");
@@ -42,7 +42,6 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(12);
   const [showSensitive, setShowSensitive] = useState(false);
-  const states = STATES;
   const isAdmin = currentUser?.role === "admin";
   const isModerator = currentUser?.role === "moderator" || currentUser?.role === "tester";
 
@@ -109,6 +108,13 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
   const tableItems = isAdmin
     ? adminUsers?.users ?? []
     : expertDetails?.experts ?? [];
+
+  let activeFiltersCount = 0;
+  if (filter !== "ALL" && filter !== "") activeFiltersCount++;
+  if (roleFilter !== "ALL") activeFiltersCount++;
+  if (statusFilter !== "ALL") activeFiltersCount++;
+  if (verifiedFilter !== "ALL") activeFiltersCount++;
+  if (stfFilter !== "ALL") activeFiltersCount++;
 
 
   console.log("Admin users ->", adminUsers?.users);
@@ -196,105 +202,22 @@ export const UserManagement = ({ currentUser }: { currentUser?: IUser }) => {
               )}
 
               {/* Filter */}
-              <div className="flex items-center gap-3 w-[240px]">
-                <Label className="flex items-center gap-2 text-sm font-semibold whitespace-nowrap">
-                  <Filter className="h-4 w-4 text-primary" />
-                  Filter
-                </Label>
-
-                <Select value={filter} onValueChange={setFilter}>
-                  <SelectTrigger className="bg-background px-3 py-2 w-full">
-                    <SelectValue placeholder="Select State" />
-                  </SelectTrigger>
-
-                  <SelectContent>
-                    <SelectItem value="ALL">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-primary" />
-                        <span>All</span>
-                      </div>
-                    </SelectItem>
-
-                    {states.map((st) => (
-                      <SelectItem key={st} value={st}>
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-4 h-4 text-primary" />
-                          <span>{st}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Role Filter */}
-              {isAdmin && (
-                <div className="flex items-center gap-3 w-[180px]">
-                  <Select value={roleFilter} onValueChange={(val) => { setRoleFilter(val); setPage(1); }}>
-                    <SelectTrigger className="bg-background px-3 py-2 w-full">
-                      <SelectValue placeholder="Role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ALL">All Roles</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="moderator">Moderator</SelectItem>
-                      <SelectItem value="expert">Expert</SelectItem>
-                      <SelectItem value="pae_expert">PAE Expert</SelectItem>
-                      <SelectItem value="tester">Tester</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {/* Status Filter */}
-              {isAdmin && (
-                <div className="flex items-center gap-3 w-[180px]">
-                  <Select value={statusFilter} onValueChange={(val) => { setStatusFilter(val); setPage(1); }}>
-                    <SelectTrigger className="bg-background px-3 py-2 w-full">
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ALL">All Status</SelectItem>
-                      <SelectItem value="false">Unblocked</SelectItem>
-                      <SelectItem value="true">Blocked</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {/* Verification Filter */}
-              {isAdmin && (
-                <div className="flex items-center gap-3 w-[180px] relative">
-                  <Badge className="absolute -top-2 -right-1 h-4 text-[9px] px-1.5 py-0 bg-red-500 hover:bg-red-600 border-0 z-10 text-white">New</Badge>
-                  <Select value={verifiedFilter} onValueChange={(val) => { setVerifiedFilter(val); setPage(1); }}>
-                    <SelectTrigger className="bg-background px-3 py-2 w-full">
-                      <SelectValue placeholder="Verification" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ALL">All Users</SelectItem>
-                      <SelectItem value="true">Verified</SelectItem>
-                      <SelectItem value="false">Not Verified</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+              <UserFiltersDialog
+                isAdmin={isAdmin}
+                filter={filter}
+                setFilter={setFilter}
+                roleFilter={roleFilter}
+                setRoleFilter={setRoleFilter}
+                statusFilter={statusFilter}
+                setStatusFilter={setStatusFilter}
+                verifiedFilter={verifiedFilter}
+                setVerifiedFilter={setVerifiedFilter}
+                stfFilter={stfFilter}
+                setStfFilter={setStfFilter}
+                setPage={setPage}
+                activeFiltersCount={activeFiltersCount}
+              />
             </div>
-            {/* STF Filter */}
-              {isAdmin && (
-                <div className="flex items-center gap-3 w-[180px] relative">
-                  <Badge className="absolute -top-2 -right-1 h-4 text-[9px] px-1.5 py-0 bg-red-500 hover:bg-red-600 border-0 z-10 text-white">New</Badge>
-                  <Select value={stfFilter} onValueChange={(val) => { setStfFilter(val); setPage(1); }}>
-                    <SelectTrigger className="bg-background px-3 py-2 w-full">
-                      <SelectValue placeholder="STF Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ALL">All Users</SelectItem>
-                      <SelectItem value="true">STF Users</SelectItem>
-                      <SelectItem value="false">Non-STF Users</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
           </div>
 
           <UsersTable

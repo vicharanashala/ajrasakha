@@ -166,7 +166,7 @@ export const QuestionsTable = ({
           return;
         }
 
-        if (!updatedData.details?.domain?.trim()) {
+        if (!updatedData.details?.domain?.length) {
           toast.error("Domain is required.");
           return;
         }

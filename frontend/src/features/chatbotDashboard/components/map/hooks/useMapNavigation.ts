@@ -9,6 +9,7 @@ interface UseMapNavigationResult {
   // State
   level: LevelKey;
   selectedState: string | null;
+  selectedStateCode: number | null;
   selectedDistrict: string | null;
   hovered: string | null;
 
@@ -19,7 +20,7 @@ interface UseMapNavigationResult {
   goToIndia: () => void;
   goToState: () => void;
   goCrumb: (idx: number) => void;
-  navigateToState: (name: string) => void;
+  navigateToState: (name: string, stateCode?: number) => void;
   navigateToDistrict: (name: string) => void;
 
   // Computed
@@ -31,16 +32,21 @@ interface UseMapNavigationResult {
 
 export function useMapNavigation(): UseMapNavigationResult {
   const [level, setLevel] = useState<LevelKey>("india");
-  const [selectedState, setSelectedState] = useState<string | null>(null);
+  const [selectedState, setSelectedState] =
+  useState<string | null>(null);
+
+const [selectedStateCode, setSelectedStateCode] =
+  useState<number | null>(null);
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
 
   // Navigation actions
-  const goToIndia = useCallback(() => {
-    setLevel("india");
-    setSelectedState(null);
-    setSelectedDistrict(null);
-  }, []);
+const goToIndia = useCallback(() => {
+  setLevel("india");
+  setSelectedState(null);
+  setSelectedStateCode(null);
+  setSelectedDistrict(null);
+}, []);
 
   const goToState = useCallback(() => {
     setLevel("state");
@@ -58,14 +64,21 @@ export function useMapNavigation(): UseMapNavigationResult {
     [goToIndia, goToState],
   );
 
-  const navigateToState = useCallback(
-    (name: string) => {
-      setSelectedState(name);
-      setLevel("state");
-      setSelectedDistrict(null);
-    },
-    [],
-  );
+const navigateToState = useCallback(
+  (
+    name: string,
+    stateCode?: number,
+  ) => {
+    setSelectedState(name);
+    setSelectedStateCode(
+      stateCode ?? null,
+    );
+
+    setLevel("state");
+    setSelectedDistrict(null);
+  },
+  [],
+);
 
   const navigateToDistrict = useCallback((name: string) => {
     setSelectedDistrict(name);
@@ -97,6 +110,7 @@ export function useMapNavigation(): UseMapNavigationResult {
     selectedDistrict,
     hovered,
     setSelectedState,
+    selectedStateCode,
     setSelectedDistrict,
     setHovered,
     goToIndia,
