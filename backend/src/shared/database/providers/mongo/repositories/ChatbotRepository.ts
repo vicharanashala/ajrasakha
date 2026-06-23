@@ -14728,701 +14728,468 @@ existing.coordinators =
   
 }
 
-//   async getQuestionLifecycle(questionId: string): Promise<any[]> {
-//     await this.initReviewSystem();
-//     await this.init('annam');
-
-//     const question = await this.QuestionCollection.findOne({
-//       _id: new ObjectId(questionId),
-//     });
-
-//     if (!question) {
-//       throw new Error('Question not found');
-//     }
-
-//     const conversation = question.threadId
-//       ? await this.conversations.findOne(
-//           {
-//             conversationId: question.threadId,
-//           },
-//           {
-//             projection: {
-//               createdAt: 1,
-//               title: 1,
-//             },
-//           },
-//         )
-//       : null;
-
-//     const submission =
-//       await this.QuestionSubmissionsCollection.findOne({
-//         questionId: question._id,
-//       });
-
-//     const rerouteDoc = await this.Reroutes.findOne({
-//       questionId: question._id,
-//     });
-
-//     const reviewTimeline = buildReviewTimeline(
-//       submission?.history || [],
-//       submission?.queue || [],
-//       question.createdAt,
-//       question.status,
-//       question.firstAllocationAt,
-//     );
-
-//     // ---------------------------------------
-//     // Users
-//     // ---------------------------------------
-
-//     const userIds = new Set<string>();
-
-//     reviewTimeline.forEach((r: any) => {
-//       if (r.reviewerId) {
-//         userIds.add(r.reviewerId);
-//       }
-//     });
-
-//     submission?.history?.forEach((h: any) => {
-//       if (h.updatedBy) {
-//         userIds.add(h.updatedBy.toString());
-//       }
-//     });
-
-//     rerouteDoc?.reroutes?.forEach((r: any) => {
-//       if (r.reroutedBy) {
-//         userIds.add(r.reroutedBy.toString());
-//       }
-
-//       if (r.reroutedTo) {
-//         userIds.add(r.reroutedTo.toString());
-//       }
-//     });
-
-//     const users = await this.ReviewUsers.find(
-//       {
-//         _id: {
-//           $in: [...userIds].map((id) => new ObjectId(id)),
-//         },
-//       },
-//       {
-//         projection: {
-//           firstName: 1,
-//           lastName: 1,
-//         },
-//       },
-//     ).toArray();
-
-//     const userMap = new Map<string, string>();
-
-//     users.forEach((u: any) => {
-//       userMap.set(
-//         u._id.toString(),
-//         `${u.firstName || ''} ${u.lastName || ''}`.trim(),
-//       );
-//     });
-
-//     const timeline: any[] = [];
-
-//     // ---------------------------------------
-//     // Question asked
-//     // ---------------------------------------
-
-//     if (conversation?.createdAt) {
-//       timeline.push({
-//         timestamp: conversation.createdAt,
-//         user: 'User',
-//         action: 'Question Asked',
-//         duration: null,
-//         // remarks: conversation.title || '',
-//         endTime: conversation.createdAt,
-//       });
-
-//       timeline.push({
-//         timestamp: question.createdAt,
-//         user: 'System',
-//         action: 'Pushed To Review System',
-//         duration:
-//           question.createdAt.getTime() -
-//           conversation.createdAt.getTime(),
-//         remarks: '',
-//         endTime: question.createdAt,
-//       });
-//     } else {
-//       timeline.push({
-//         timestamp: question.createdAt,
-//         user: 'System',
-//         action: 'Question Inception Time Unavailable',
-//         duration: null,
-//         remarks:
-//           'Conversation/thread mapping not found',
-//         endTime: question.createdAt,
-//       });
-//     }
-
-//     // ---------------------------------------
-//     // Initial allocation
-//     // ---------------------------------------
-
-//     if (question.firstAllocationAt) {
-//       timeline.push({
-//         timestamp: question.firstAllocationAt,
-//         user: 'System',
-//         action: 'Initial Allocation Pending',
-//         duration:
-//           question.firstAllocationAt.getTime() -
-//           question.createdAt.getTime(),
-//         remarks: '',
-//         endTime: question.firstAllocationAt,
-//       });
-//     }
-
-//     // ---------------------------------------
-//     // Review Timeline
-//     // ---------------------------------------
-
-//     reviewTimeline.forEach(
-//       (review: any, index: number) => {
-//         const historyItem =
-//           submission?.history?.[index];
-
-//         const reviewerName =
-//           userMap.get(review.reviewerId) ||
-//           'Unknown User';
-
-//         let action = 'Review';
-
-//         if (historyItem?.status) {
-//           action =
-//             historyItem.status.charAt(0).toUpperCase() +
-//             historyItem.status.slice(1);
-//         }
-
-//         timeline.push({
-//           timestamp: review.assignedAt,
-//           user: reviewerName,
-//           action,
-//           duration: review.timeTakenMs,
-//           remarks:
-//             historyItem?.reasonForRejection ||
-//             historyItem?.reasonForLastModification ||
-//             '',
-//           endTime:
-//             review.completedAt || review.assignedAt,
-//         });
-//       },
-//     );
-
-//     // ---------------------------------------
-//     // Reroutes
-//     // ---------------------------------------
-
-//     rerouteDoc?.reroutes?.forEach((r: any) => {
-//       timeline.push({
-//         timestamp: r.reroutedAt,
-//         user:
-//           userMap.get(
-//             r.reroutedTo?.toString(),
-//           ) || 'Unknown User',
-//         action:
-//           r.status === 'modified'
-//             ? 'Rerouted'
-//             : 'Approval Review',
-//         duration:
-//           r.updatedAt && r.reroutedAt
-//             ? r.updatedAt.getTime() -
-//               r.reroutedAt.getTime()
-//             : null,
-//         remarks: r.comment || '',
-//         endTime: r.updatedAt || r.reroutedAt,
-//       });
-//     });
-
-//     // ---------------------------------------
-//     // Sort
-//     // ---------------------------------------
-
-//     timeline.sort(
-//       (a, b) =>
-//         new Date(a.timestamp).getTime() -
-//         new Date(b.timestamp).getTime(),
-//     );
-
-//     // ---------------------------------------
-//     // Gaps
-//     // ---------------------------------------
-
-//     const finalTimeline: any[] = [];
-
-//     for (let i = 0; i < timeline.length; i++) {
-//       finalTimeline.push(timeline[i]);
-
-//       const current = timeline[i];
-//       const next = timeline[i + 1];
-
-//       if (!next) continue;
-
-//       const currentEnd =
-//         current.endTime || current.timestamp;
-
-//       const nextStart = next.timestamp;
-
-//       const gap =
-//         new Date(nextStart).getTime() -
-//         new Date(currentEnd).getTime();
-
-//       const shouldInsertGap =
-//         gap > 60_000 &&
-//         ![
-//           'Question Asked',
-//           'Question Inception Time Unavailable',
-//           'Pushed To Review System',
-//         ].includes(current.action);
-
-//       if (shouldInsertGap) {
-//         finalTimeline.push({
-//           timestamp: currentEnd,
-//           user: 'System',
-//           duration: gap,
-//           action: 'Pending Next Assignment',
-//           endTime: nextStart,
-//         });
-//       }
-//     }
-
-//     // ---------------------------------------
-//     // Open question state
-//     // ---------------------------------------
-
-//     const last =
-//       finalTimeline[finalTimeline.length - 1];
-
-//     const lifecycleEnd =
-//       question.closedAt ||
-//       question.passedAt ||
-//       new Date();
-
-//     if (last) {
-//       const lastEnd = new Date(
-//         last.endTime || last.timestamp,
-//       );
-
-//       if (
-//         lifecycleEnd.getTime() >
-//         lastEnd.getTime()
-//       ) {
-//         finalTimeline.push({
-//           timestamp: lastEnd,
-//           user: 'System',
-//           action:
-//             question.status === 'hold'
-//               ? 'On Hold'
-//               : 'Awaiting Action',
-//           duration:
-//             lifecycleEnd.getTime() -
-//             lastEnd.getTime(),
-//           remarks: '',
-//           endTime: lifecycleEnd,
-//         });
-//       }
-//     }
-//     if (question.closedAt) {
-//   finalTimeline.push({
-//     timestamp: question.closedAt,
-//     user: 'System',
-//     duration: null,
-//     action: 'Question Closed',
-//     endTime: question.closedAt,
-//   });
-// }
-// else if (question.passedAt) {
-//   finalTimeline.push({
-//     timestamp: question.passedAt,
-//     user: 'System',
-//     duration: null,
-//     action: 'Question Passed',
-//     endTime: question.passedAt,
-//   });
-// }
-
-//     return finalTimeline;
-//   }
 
   async getQuestionLifecycle(questionId: string): Promise<any[]> {
-    await this.initReviewSystem();
-    await this.init('annam');
+    try{
+      await this.initReviewSystem();
+      await this.init('annam');
 
-    const question = await this.QuestionCollection.findOne({
-      _id: new ObjectId(questionId),
-    });
+      const question = await this.QuestionCollection.findOne({
+        _id: new ObjectId(questionId),
+      });
 
-    if (!question) {
-      throw new Error('Question not found');
-    }
+      if (!question) {
+        throw new Error('Question not found');
+      }
 
-    const conversation = question.threadId
-      ? await this.conversations.findOne(
-          {
-            conversationId: question.threadId,
-          },
-          {
-            projection: {
-              createdAt: 1,
-              title: 1,
+      const conversation = question.threadId
+        ? await this.conversations.findOne(
+            {
+              conversationId: question.threadId,
             },
-          },
-        )
-      : null;
+            {
+              projection: {
+                createdAt: 1,
+                title: 1,
+              },
+            },
+          )
+        : null;
 
-    const submission =
-      await this.QuestionSubmissionsCollection.findOne({
+      const submission =
+        await this.QuestionSubmissionsCollection.findOne({
+          questionId: question._id,
+        });
+
+      const rerouteDoc = await this.Reroutes.findOne({
         questionId: question._id,
       });
 
-    const rerouteDoc = await this.Reroutes.findOne({
-      questionId: question._id,
-    });
-
-    const reviewTimeline = buildReviewTimeline(
-      submission?.history || [],
-      submission?.queue || [],
-      question.createdAt,
-      question.status,
-      question.firstAllocationAt,
-    );
-
-    // ---------------------------------------------------
-    // Build User Map
-    // ---------------------------------------------------
-
-    const userIds = new Set<string>();
-
-    reviewTimeline.forEach((r: any) => {
-      if (r.reviewerId) {
-        userIds.add(r.reviewerId);
-      }
-    });
-
-    submission?.history?.forEach((h: any) => {
-      if (h.updatedBy) {
-        userIds.add(h.updatedBy.toString());
-      }
-    });
-
-    rerouteDoc?.reroutes?.forEach((r: any) => {
-      if (r.reroutedBy) {
-        userIds.add(r.reroutedBy.toString());
-      }
-
-      if (r.reroutedTo) {
-        userIds.add(r.reroutedTo.toString());
-      }
-    });
-
-    const users = await this.ReviewUsers.find(
-      {
-        _id: {
-          $in: [...userIds].map((id) => new ObjectId(id)),
-        },
-      },
-      {
-        projection: {
-          firstName: 1,
-          lastName: 1,
-        },
-      },
-    ).toArray();
-
-    const userMap = new Map<string, string>();
-
-    users.forEach((u: any) => {
-      userMap.set(
-        u._id.toString(),
-        `${u.firstName || ''} ${u.lastName || ''}`.trim(),
+      const reviewTimeline = buildReviewTimeline(
+        submission?.history || [],
+        submission?.queue || [],
+        question.createdAt,
+        question.status,
+        question.firstAllocationAt,
       );
-    });
 
-    // ---------------------------------------------------
-    // Timeline
-    // ---------------------------------------------------
+      // ---------------------------------------------------
+      // Build User Map
+      // ---------------------------------------------------
 
-    const timeline: any[] = [];
+      const userIds = new Set<string>();
 
-    // ---------------------------------------------------
-    // Question Asked / Inception
-    // ---------------------------------------------------
-
-    if (conversation?.createdAt) {
-      timeline.push({
-        timestamp: conversation.createdAt,
-        user: 'User',
-        action: 'Question Asked',
-        duration: null,
-        remarks: '',
-        endTime: conversation.createdAt,
-        eventType: 'inception',
+      reviewTimeline.forEach((r: any) => {
+        if (r.reviewerId) {
+          userIds.add(r.reviewerId);
+        }
       });
 
-      timeline.push({
-        timestamp: conversation.createdAt,
-        user: 'System',
-        action: 'Pushed To Review System',
-        duration:
-          question.createdAt.getTime() -
-          conversation.createdAt.getTime(),
-        remarks: '',
-        endTime: question.createdAt,
-        eventType: 'system_wait',
+      submission?.history?.forEach((h: any) => {
+        if (h.updatedBy) {
+          userIds.add(h.updatedBy.toString());
+        }
       });
-    } else {
-      timeline.push({
-        timestamp: null,
-        user: 'System',
-        action: 'Question Inception Time Unavailable',
-        duration: null,
-        remarks: 'Conversation mapping not found',
-        endTime: null,
-        eventType: 'inception',
+
+      rerouteDoc?.reroutes?.forEach((r: any) => {
+        if (r.reroutedBy) {
+          userIds.add(r.reroutedBy.toString());
+        }
+
+        if (r.reroutedTo) {
+          userIds.add(r.reroutedTo.toString());
+        }
       });
-    }
 
-    // ---------------------------------------------------
-    // Initial Allocation Wait
-    // ---------------------------------------------------
+      const users = await this.ReviewUsers.find(
+        {
+          _id: {
+            $in: [...userIds].map((id) => new ObjectId(id)),
+          },
+        },
+        {
+          projection: {
+            firstName: 1,
+            lastName: 1,
+          },
+        },
+      ).toArray();
 
-    if (question.firstAllocationAt) {
-      timeline.push({
-        timestamp: question.createdAt,
-        user: 'System',
-        action: 'Initial Allocation Pending',
-        duration:
-          question.firstAllocationAt.getTime() -
-          question.createdAt.getTime(),
-        remarks: '',
-        endTime: question.firstAllocationAt,
-        eventType: 'system_wait',
-      });
-    }
+      const userMap = new Map<string, string>();
 
-    // ---------------------------------------------------
-    // Review Timeline
-    // ---------------------------------------------------
-
-    reviewTimeline.forEach((review: any, index: number) => {
-      const historyItem = submission?.history?.[index];
-
-      const reviewerName =
-        userMap.get(review.reviewerId) || 'Unknown User';
-
-      let action = 'Review';
-
-      if (index === 0) {
-        action = 'Authored Answer';
-      } else if (historyItem?.status) {
-        action =
-          historyItem.status.charAt(0).toUpperCase() +
-          historyItem.status.slice(1);
-      }
-
-      timeline.push({
-        timestamp: review.assignedAt,
-        user: reviewerName,
-        action,
-        duration: review.timeTakenMs,
-        remarks:
-          historyItem?.reasonForRejection ||
-          historyItem?.reasonForLastModification ||
-          '',
-        endTime:
-          review.completedAt || review.assignedAt,
-        eventType:
-          index === 0 ? 'author' : 'reviewer',
-      });
-    });
-
-    // ---------------------------------------------------
-    // Reroutes
-    // ---------------------------------------------------
-
-    rerouteDoc?.reroutes?.forEach((r: any) => {
-      timeline.push({
-        timestamp: r.reroutedAt,
-        user:
-          userMap.get(
-            r.reroutedTo?.toString(),
-          ) || 'Unknown User',
-        action:
-          r.status === 'modified'
-            ? 'Rerouted'
-            : 'Approval Review',
-        duration:
-          r.updatedAt && r.reroutedAt
-            ? r.updatedAt.getTime() -
-              r.reroutedAt.getTime()
-            : null,
-        remarks: r.comment || '',
-        endTime: r.updatedAt || r.reroutedAt,
-        eventType: 'reroute',
-      });
-    });
-
-    // ---------------------------------------------------
-    // Sort
-    // ---------------------------------------------------
-
-    timeline.sort((a, b) => {
-      const aTime = a.timestamp
-        ? new Date(a.timestamp).getTime()
-        : -1;
-
-      const bTime = b.timestamp
-        ? new Date(b.timestamp).getTime()
-        : -1;
-
-      return aTime - bTime;
-    });
-
-    // ---------------------------------------------------
-    // Insert Gaps
-    // ---------------------------------------------------
-
-    const finalTimeline: any[] = [];
-
-    for (let i = 0; i < timeline.length; i++) {
-      finalTimeline.push(timeline[i]);
-
-      const current = timeline[i];
-      const next = timeline[i + 1];
-
-      if (!next) {
-        continue;
-      }
-
-      if (!current.endTime || !next.timestamp) {
-        continue;
-      }
-
-      const currentEnd = current.endTime;
-      const nextStart = next.timestamp;
-
-      const gap =
-        new Date(nextStart).getTime() -
-        new Date(currentEnd).getTime();
-
-      const shouldInsertGap =
-        gap > 0 &&
-        ![
-          'Question Asked',
-          'Question Inception Time Unavailable',
-          'Pushed To Review System',
-          'Initial Allocation Pending',
-        ].includes(current.action);
-
-      if (shouldInsertGap) {
-        finalTimeline.push({
-          timestamp: currentEnd,
-          user: 'System',
-          action: 'Pending Next Assignment',
-          duration: gap,
-          remarks: '',
-          endTime: nextStart,
-          eventType: 'system_wait',
-        });
-      }
-    }
-
-    // ---------------------------------------------------
-    // Open Questions
-    // ---------------------------------------------------
-
-    const isClosed =
-      !!question.closedAt || !!question.passedAt;
-
-    if (!isClosed) {
-      const last =
-        finalTimeline[finalTimeline.length - 1];
-
-      if (last) {
-        const lastEnd = new Date(
-          last.endTime || last.timestamp,
+      users.forEach((u: any) => {
+        userMap.set(
+          u._id.toString(),
+          `${u.firstName || ''} ${u.lastName || ''}`.trim(),
         );
+      });
 
-        finalTimeline.push({
-          timestamp: lastEnd,
-          user: 'System',
-          action:
-            question.status === 'hold'
-              ? 'On Hold'
-              : 'Awaiting Action',
+      // ---------------------------------------------------
+      // Timeline
+      // ---------------------------------------------------
+
+      const timeline: any[] = [];
+      // ---------------------------------------------------
+      // Reroutes
+      // ---------------------------------------------------
+
+      rerouteDoc?.reroutes?.forEach((r: any) => {
+        const isPending = r.status === "pending";
+
+        let action = "Approval Review";
+
+        if (r.status === "approved") {
+          action = "Approval Review";
+        } else if (r.status === "modified") {
+          action = "Modified";
+        } else if (r.status === "rejected") {
+          action = "Rejected";
+        } else if (r.status === "pending") {
+          action = "Approval Review";
+        }
+
+        timeline.push({
+          timestamp: r.reroutedAt,
+          user:
+            userMap.get(r.reroutedTo?.toString()) ||
+            "Unknown User",
+          action,
+          duration: isPending
+            ? Date.now() -
+              new Date(r.reroutedAt).getTime()
+            : r.updatedAt.getTime() -
+              r.reroutedAt.getTime(),
+          remarks: r.comment || "",
+          endTime: isPending ? new Date() : r.updatedAt,
+          eventType: "reroute",
+        });
+      });
+
+      const isDuplicate = question.status === "duplicate" || !!question.referenceQuestionId;
+      
+      if (question.status === "duplicate") {
+        return [
+          {
+            timestamp: question.createdAt,
+            user: "System",
+            action: "Duplicate Question",
+            duration: null,
+            remarks:
+              "Original question lifecycle is not available.",
+            endTime: null,
+            eventType: "duplicate",
+          },
+          {
+            timestamp: question.closedAt || question.updatedAt,
+            user: "System",
+            action: "Question Marked As Duplicate",
+            duration: question.updatedAt.getTime() - question.createdAt.getTime(),
+            remarks: "Closed as duplicate",
+            endTime: question.closedAt || question.updatedAt,
+            eventType: "closure",
+          },
+        ];
+      }
+
+        
+      if (isDuplicate) {
+        timeline.push({
+          timestamp: null,
+          user: "System",
+          action: "Duplicate Question",
+          duration: null,
+          remarks:
+            "Original question lifecycle is not available.",
+          endTime: null,
+          eventType: "inception",
+        });
+      } else if (conversation?.createdAt) {
+        timeline.push({
+          timestamp: conversation.createdAt,
+          user: "User",
+          action: "Question Asked",
+          duration: null,
+          remarks: "",
+          endTime: conversation.createdAt,
+          eventType: "inception",
+        });
+
+        timeline.push({
+          timestamp: conversation.createdAt,
+          user: "System",
+          action: "Pushed To Review System",
           duration:
-            Date.now() - lastEnd.getTime(),
-          remarks: '',
-          endTime: new Date(),
-          eventType: 'system_wait',
+            question.createdAt.getTime() -
+            conversation.createdAt.getTime(),
+          remarks: "",
+          endTime: question.createdAt,
+          eventType: "system_wait",
+        });
+      } else if(question.source === "AGRI_EXPERT"){
+                timeline.push({
+          timestamp: question.createdAt.getTime(),
+          user: "System",
+          action: "Question Created Internally",
+          duration: null,
+          remarks: "Conversation mapping not found",
+          endTime: question.createdAt.getTime(),
+          eventType: "inception",
+        });
+      }else {
+        timeline.push({
+          timestamp: null,
+          user: "System",
+          action: "Question Inception Time Unavailable",
+          duration: null,
+          remarks: "Conversation mapping not found",
+          endTime: null,
+          eventType: "inception",
         });
       }
-    }
+      // ---------------------------------------------------
+      // Initial Allocation Wait
+      // ---------------------------------------------------
 
-    // ---------------------------------------------------
-    // Awaiting Closure
-    // ---------------------------------------------------
+      const firstAllocationAt = question.firstAllocationAt
+        ? new Date(question.firstAllocationAt)
+        : null;
 
-    const completionTime =
-      question.closedAt || question.passedAt;
+      if (firstAllocationAt &&( firstAllocationAt.getTime() -
+            new Date(question.createdAt).getTime() > 1000)) {
+        timeline.push({
+          timestamp: question.createdAt,
+          user: "System",
+          action: "Initial Allocation Pending",
+          duration:
+            firstAllocationAt.getTime() -
+            new Date(question.createdAt).getTime(),
+          remarks: "",
+          endTime: firstAllocationAt,
+          eventType: "system_wait",
+        });
+      }
 
-    if (completionTime) {
-      const last =
-        finalTimeline[finalTimeline.length - 1];
+      // ---------------------------------------------------
+      // Review Timeline
+      // ---------------------------------------------------
 
-      if (last) {
-        const lastEnd = new Date(
-          last.endTime || last.timestamp,
-        );
+      reviewTimeline.forEach((review: any, index: number) => {
+        const historyItem = submission?.history?.[index];
 
-        const waitForClosure =
-          completionTime.getTime() -
-          lastEnd.getTime();
+        const reviewerName =
+          userMap.get(review.reviewerId) || 'Unknown User';
 
-        if (waitForClosure > 60_000) {
+        let action = 'Review';
+
+        if (index === 0) {
+          action = review.isCompleted
+            ? 'Authored Answer'
+            : 'Authoring Answer';
+        } else if (historyItem?.modifiedAnswer) {
+          action = 'Modified';
+        } else if (historyItem?.status) {
+          action =
+            historyItem.status.charAt(0).toUpperCase() +
+            historyItem.status.slice(1);
+        }
+
+        timeline.push({
+          timestamp: review.assignedAt,
+          user: reviewerName,
+          action,
+          duration: review.isCompleted
+            ? review.timeTakenMs
+            : Date.now() -
+              new Date(review.assignedAt).getTime(),
+          remarks:
+            historyItem?.reasonForRejection ||
+            historyItem?.reasonForLastModification ||
+            '',
+          endTime:
+            review.completedAt || review.assignedAt,
+          eventType:
+            index === 0 ? 'author' : 'reviewer',
+        });
+      });
+
+      // ---------------------------------------------------
+      // Sort
+      // ---------------------------------------------------
+
+      timeline.sort((a, b) => {
+        const aTime = a.timestamp
+          ? new Date(a.timestamp).getTime()
+          : -1;
+
+        const bTime = b.timestamp
+          ? new Date(b.timestamp).getTime()
+          : -1;
+
+        return aTime - bTime;
+      });
+
+      // ---------------------------------------------------
+      // Insert Gaps
+      // ---------------------------------------------------
+
+      const finalTimeline: any[] = [];
+
+      for (let i = 0; i < timeline.length; i++) {
+        finalTimeline.push(timeline[i]);
+
+        const current = timeline[i];
+        const next = timeline[i + 1];
+
+        if (!next) {
+          continue;
+        }
+
+        if (!current.endTime || !next.timestamp) {
+          continue;
+        }
+
+        const currentEnd = current.endTime;
+        const nextStart = next.timestamp;
+
+        const gap =
+          new Date(nextStart).getTime() -
+          new Date(currentEnd).getTime();
+
+        const shouldInsertGap =
+          gap > 1000 &&
+          current.eventType !== "reroute" &&
+          ![
+            'Question Asked',
+            'Question Inception Time Unavailable',
+            'Pushed To Review System',
+            'Initial Allocation Pending',
+          ].includes(current.action);
+
+        if (shouldInsertGap) {
+          const nextEvent = timeline[i + 1];
+          const action =
+            nextEvent?.eventType === "reroute"
+              ? "Re-routed For Review"
+              : "Pending Next Assignment";
+
           finalTimeline.push({
-            timestamp: lastEnd,
+            timestamp: currentEnd,
             user: 'System',
-            action: 'Awaiting Closure',
-            duration: waitForClosure,
+            action,
+            duration: gap,
             remarks: '',
-            endTime: completionTime,
-            eventType: 'closure',
+            endTime: nextStart,
+            eventType: 'system_wait',
           });
         }
       }
+
+      // ---------------------------------------------------
+      // Open Questions
+      // ---------------------------------------------------
+
+      const isClosed =
+        !!question.closedAt || !!question.passedAt;
+
+      const currentAssigneeInProgress =
+        reviewTimeline.length > 0 &&
+        reviewTimeline[reviewTimeline.length - 1].isCompleted === false;
+
+      const hasActiveWork =
+        currentAssigneeInProgress ||
+        rerouteDoc?.reroutes?.some(
+          (r: any) => r.status === "pending",
+        );
+
+      if (!isClosed && !hasActiveWork) {
+        const last =
+          finalTimeline[finalTimeline.length - 1];
+
+        if (last) {
+          const lastEnd = new Date(
+            last.endTime || last.timestamp,
+          );
+
+          finalTimeline.push({
+            timestamp: lastEnd,
+            user: 'System',
+            action:
+              question.status === 'hold'
+                ? 'On Hold'
+                : 'Awaiting Action',
+            duration:
+              Date.now() - lastEnd.getTime(),
+            remarks: '',
+            endTime: new Date(),
+            eventType: 'system_wait',
+          });
+        }
+      }
+
+      // ---------------------------------------------------
+      // Awaiting Closure
+      // ---------------------------------------------------
+
+      const completionTime =
+        question.closedAt || question.passedAt;
+
+      if (completionTime) {
+        const last =
+          finalTimeline[finalTimeline.length - 1];
+
+        if (last) {
+          const lastEnd = new Date(
+            last.endTime || last.timestamp,
+          );
+
+          const waitForClosure =
+            completionTime.getTime() -
+            lastEnd.getTime();
+
+          if (waitForClosure > 1000) {
+            finalTimeline.push({
+              timestamp: lastEnd,
+              user: 'System',
+              action: 'Awaiting Closure',
+              duration: waitForClosure,
+              remarks: '',
+              endTime: completionTime,
+              eventType: 'closure',
+            });
+          }
+        }
+      }
+
+      // ---------------------------------------------------
+      // Final Closed / Passed Event
+      // ---------------------------------------------------
+
+      if (question.closedAt) {
+        finalTimeline.push({
+          timestamp: question.closedAt,
+          user: 'System',
+          action: 'Question Closed',
+          duration: null,
+          remarks: '',
+          endTime: question.closedAt,
+          eventType: 'closure',
+        });
+      } else if (question.passedAt) {
+        finalTimeline.push({
+          timestamp: question.passedAt,
+          user: 'System',
+          action: 'Question Passed',
+          duration: null,
+          remarks: '',
+          endTime: question.passedAt,
+          eventType: 'closure',
+        });
+      }
+      // console.log("finalTimeline--", finalTimeline)
+      return finalTimeline;
+    } catch(err){
+      // console.log("err----", err);
+      throw Error(err);
     }
-
-    // ---------------------------------------------------
-    // Final Closed / Passed Event
-    // ---------------------------------------------------
-
-    if (question.closedAt) {
-      finalTimeline.push({
-        timestamp: question.closedAt,
-        user: 'System',
-        action: 'Question Closed',
-        duration: null,
-        remarks: '',
-        endTime: question.closedAt,
-        eventType: 'closure',
-      });
-    } else if (question.passedAt) {
-      finalTimeline.push({
-        timestamp: question.passedAt,
-        user: 'System',
-        action: 'Question Passed',
-        duration: null,
-        remarks: '',
-        endTime: question.passedAt,
-        eventType: 'closure',
-      });
-    }
-
-    return finalTimeline;
   }
 }
