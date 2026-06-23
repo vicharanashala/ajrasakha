@@ -473,9 +473,9 @@ export class QuestionRepository implements IQuestionRepository {
 
       // --- Dedicated (moderator-assigned) tab filter ---
       // When filtering by moderatorId, always restrict to active statuses only
-      // (in-review, re-routed or duplicate), overriding any status filter the frontend sent.
-      // 'duplicate' is included because the moderator-queue cron now assigns duplicate
-      // questions to moderators alongside in-review ones.
+      // (in-review, re-routed, duplicate or pae_submitted), overriding any status filter
+      // the frontend sent. 'duplicate' and 'pae_submitted' are included because the
+      // moderator-queue cron assigns those to moderators alongside in-review ones.
       if (moderatorId) {
         const modOid = new ObjectId(moderatorId as string);
         // Match both a correct ObjectId AND any legacy doc where moderatorId was
@@ -488,7 +488,7 @@ export class QuestionRepository implements IQuestionRepository {
             { 'moderatorId.buffer.data': Array.from(modOid.id) },
           ],
         });
-        filter.status = { $in: ['in-review', 're-routed', 'duplicate'] };
+        filter.status = { $in: ['in-review', 're-routed', 'duplicate', 'pae_submitted'] };
       }
 
       // --- State filter (from body array) ---
@@ -7238,15 +7238,15 @@ export class QuestionRepository implements IQuestionRepository {
   }
 
   /** Questions currently assigned to a moderator (moderatorId set). Includes
-   *  in-review, re-routed and duplicate statuses — mirrors the moderator-assigned
-   *  tab filter, so re-routed questions (which always carry a moderatorId) show up
-   *  here too. Oldest first. */
+   *  in-review, re-routed, duplicate and pae_submitted statuses — mirrors the
+   *  moderator-assigned tab filter, so re-routed questions (which always carry a
+   *  moderatorId) show up here too. Oldest first. */
   async findModeratorAssignedQuestions(
     sources?: QuestionSource[],
   ): Promise<IQuestion[]> {
     await this.init();
     const filter: Record<string, unknown> = {
-      status: { $in: ['in-review', 're-routed', 'duplicate'] },
+      status: { $in: ['in-review', 're-routed', 'duplicate', 'pae_submitted'] },
       moderatorId: { $exists: true, $ne: null },
     };
     if (sources && sources.length > 0) {
