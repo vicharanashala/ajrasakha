@@ -291,6 +291,7 @@ export type INotificationType =
   | 'delayed_question'
   | 'moderator_approval'
   | 'allocation_removal'
+  | 'coordinator_message';
 export interface INotification {
   _id?: string | ObjectId;
   userId: string | ObjectId;
