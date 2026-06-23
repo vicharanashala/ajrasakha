@@ -184,14 +184,18 @@ export class ChatbotController {
   async getDistrictAnalyticsByState(
     @QueryParam('state') state: string,
 
+    @QueryParam('selectedStateCode') selectedStateCode: string,
+
     @QueryParam('source')
     source: string,
 
     @QueryParam('userType')
     userType: string = 'all',
   ) {
+    console.log("Selected state code controller", selectedStateCode);
     return this.chatbotService.getDistrictAnalyticsByState(
       state,
+      selectedStateCode,
       source,
       userType,
     );
@@ -424,6 +428,7 @@ export class ChatbotController {
       search?: string;
       startDate?: Date;
       endDate?: Date;
+      isPassed?: string;
     },
   ) {
     if (query.category) {
@@ -482,6 +487,7 @@ export class ChatbotController {
         query.search,
         startDate,
         endDate,
+        query.isPassed,
       );
     } else {
       if(query.period){

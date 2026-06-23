@@ -30,6 +30,7 @@ import { MapLegend } from "./components/MapLegend";
 import { DetailSidebar } from "./components/DetailSidebar";
 import { useAllStatesandUserData } from "./hooks/useMapAnalytics";
 import { useStateWiseAnalytics } from "../../hooks/useStateQueryData";
+import { useClosedAndNotifedData } from "../../hooks/useActiveUsersAnalytics";
 
 /* ============================================================
    MAIN COMPONENT
@@ -37,15 +38,26 @@ import { useStateWiseAnalytics } from "../../hooks/useStateQueryData";
 export default function IndiaAnalyticsMap({
   source,
   userType,
-  questionStatusData,
   todayActiveFarmersData,
 }: any) {
   // Hooks
+
+  const [metric, setMetric] = useState<"questions" | "users" | "activeUsers">(
+    "questions",
+  );
+
   const dark = useIsDark();
   const { statesGeo, districtsAll, loading } = useGeoJson();
+  const { data: questionStatusData } = useClosedAndNotifedData(
+    source,
+    userType,
+    undefined,
+    undefined,
+  );
   const {
     level,
     selectedState,
+    selectedStateCode,
     selectedDistrict,
     hovered,
     setHovered,
@@ -55,36 +67,43 @@ export default function IndiaAnalyticsMap({
     crumbs,
   } = useMapNavigation();
 
-  const { data: allStatesData } = useAllStatesandUserData({
+  // console.log(selectedState);
+
+  // console.log(selectedStateCode);
+
+  const {
+    data: allStatesData,
+    isLoading,
+    isFetching,
+  } = useAllStatesandUserData({
     source: source as string,
     userType: userType as string,
     enabled: true,
   });
 
+  // console.log("All state data", allStatesData);
+
   const { data: districtAnalytics } = useStateWiseAnalytics(
     selectedState ?? undefined,
+    selectedStateCode,
     source,
     userType,
   );
-    // console.log("Analytics of all state", allStatesData)
-    // console.log("District analytics of data", districtAnalytics)
 
-  const {
-    statesWithData,
-    districtsOfState,
-    // districtDetails,
-    activeGeo,
-    minV,
-    maxV,
-  } = useMapAnalytics({
-    statesGeo,
-    districtsAll,
-    level,
-    selectedState,
-    selectedDistrict,
-    allStatesData,
-    districtAnalytics,
-  });
+  // console.log("Analytics of all state", allStatesData)
+  // console.log("District analytics of data", districtAnalytics)
+
+  const { statesWithData, districtsOfState, activeGeo, minV, maxV } =
+    useMapAnalytics({
+      statesGeo,
+      districtsAll,
+      level,
+      selectedState,
+      selectedDistrict,
+      allStatesData,
+      districtAnalytics,
+      metric,
+    });
 
   // Fly target state
   const [flyTarget, setFlyTarget] = useState<L.LatLngBoundsExpression | null>(
@@ -116,7 +135,9 @@ export default function IndiaAnalyticsMap({
   // Selection handlers
   const handleSelectState = useCallback(
     (name: string, feature: GeoFeature) => {
-      navigateToState(name);
+      const stateData = allStatesData?.find((s) => s.state === name);
+
+      navigateToState(name, stateData.stateCode);
       handleFlyTo(feature);
     },
     [navigateToState, handleFlyTo],
@@ -135,7 +156,14 @@ export default function IndiaAnalyticsMap({
     (feat: {
       properties: { _analytics: Analytics; _name: string };
     }): L.PathOptions => {
-      const v = feat.properties._analytics.questions;
+      const analytics = feat.properties._analytics;
+
+      const v =
+        metric === "users"
+          ? analytics.users
+          : metric === "activeUsers"
+            ? analytics.activeUsers
+            : analytics.questions;
       const name = feat.properties._name;
       const isHovered = hovered === name;
       const isSelected =
@@ -148,7 +176,7 @@ export default function IndiaAnalyticsMap({
         weight: isSelected ? 2.5 : isHovered ? 2 : 1,
       };
     },
-    [hovered, minV, maxV, dark, level, selectedState, selectedDistrict],
+    [hovered, minV, maxV, dark, level, selectedState, selectedDistrict, metric],
   );
 
   const onEach = useCallback(
@@ -180,7 +208,14 @@ export default function IndiaAnalyticsMap({
         mouseout: () => setHovered((h) => (h === name ? null : h)),
         click: () => {
           if (level === "india") {
-            navigateToState(name);
+            const stateData = allStatesData?.find((s) => s.state === name);
+            navigateToState(name, stateData?.stateCode);
+
+            const bounds = (layer as L.Polygon).getBounds?.();
+
+            if (bounds) {
+              setFlyTarget(bounds);
+            }
           } else {
             navigateToDistrict(name);
             const b = (
@@ -191,11 +226,13 @@ export default function IndiaAnalyticsMap({
         },
       });
     },
-    [level, navigateToState, navigateToDistrict, setHovered],
+    [level, navigateToState, navigateToDistrict, setHovered, allStatesData],
   );
 
   // GeoJSON key forces re-render on level/state change
-  const geoKey = `${level}:${selectedState ?? ""}:${dark ? "d" : "l"}:${minV}-${maxV}:${selectedDistrict ?? ""}`;
+  // const geoKey = `${level}:${selectedState ?? ""}:${dark ? "d" : "l"}:${minV}-${maxV}:${selectedDistrict ?? ""}`;
+
+  const geoKey = `${level}:${selectedState}:${metric}:${dark}:${minV}-${maxV}:${selectedDistrict}`;
 
   // Tile layer
   const tileUrl = dark
@@ -248,6 +285,28 @@ export default function IndiaAnalyticsMap({
             onNavigate={goCrumb}
           />
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          <div className="flex overflow-hidden rounded-md border">
+            <button
+              className={`px-3 py-1 text-sm ${
+                metric === "questions"
+                  ? "bg-primary text-white"
+                  : "bg-background"
+              }`}
+              onClick={() => setMetric("questions")}
+            >
+              Questions
+            </button>
+
+            <button
+              className={`px-3 py-1 text-sm ${
+                metric === "users" ? "bg-primary text-white" : "bg-background"
+              }`}
+              onClick={() => setMetric("users")}
+            >
+              Users
+            </button>
+          </div>
+
           <SearchBar
             value={query}
             onChange={handleSearchChange}
@@ -268,8 +327,13 @@ export default function IndiaAnalyticsMap({
           <MapContainer
             center={[22.5, 80]}
             zoom={5}
-            minZoom={4}
+            minZoom={4.4}
             maxZoom={11}
+              maxBounds={[
+    [5, 65],    // southwest
+    [38, 100],  // northeast
+  ]}
+  maxBoundsViscosity={1.0}
             zoomControl={false}
             style={{ height: "100%", width: "100%", background: "transparent" }}
             scrollWheelZoom
@@ -312,6 +376,9 @@ export default function IndiaAnalyticsMap({
         userType={userType}
         questionStatusData={questionStatusData}
         todayActiveFarmersData={todayActiveFarmersData}
+        isLoading={isLoading || isFetching}
+        districtAnalytic={districtAnalytics}
+        metric={metric}
       />
     </div>
   );

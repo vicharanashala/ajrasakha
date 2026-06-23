@@ -10,6 +10,7 @@ import { StateList } from "./StateList";
 import { DistrictList } from "./DistrictList";
 import { DistrictDetails } from "./DistrictDetails";
 import { useUserDetails, type PaginatedUserDetailsResponse } from "@/features/chatbotDashboard/hooks/useUserDetails";
+import { Skeleton } from "@/components/atoms/skeleton";
 
 import { Tooltip,  TooltipContent,
   TooltipProvider,
@@ -40,6 +41,9 @@ interface DetailSidebarProps {
   userType: string;
   questionStatusData: any;
   todayActiveFarmersData: PaginatedUserDetailsResponse
+  isLoading: boolean
+  districtAnalytic?: any
+  metric: "questions" | "users" | "activeUsers"
 }
 
 export function DetailSidebar({
@@ -54,9 +58,13 @@ export function DetailSidebar({
   source,
   userType,
   questionStatusData,
-  todayActiveFarmersData
+  todayActiveFarmersData,
+  isLoading = false,
+  districtAnalytic,
+  metric = "questions"
 }: DetailSidebarProps) {
   // Calculate aggregated analytics
+  console.log("Got the district analytics data in component SideBar", districtAnalytic)
   const stateAnalytics = selectedState && statesWithData
     ? statesWithData.features.find((x) => x.properties._name === selectedState)
         ?.properties._analytics as Analytics | undefined
@@ -67,6 +75,12 @@ export function DetailSidebar({
         ?.properties._analytics as Analytics | undefined
     : undefined;
 
+  const uniqueSubTotal = districtAnalytic?.reduce((acc: number, data: any) => acc+data?.uniqueQuestions, 0);
+  console.log("Unique Total", uniqueSubTotal)
+  const duplicateSubTotal = districtAnalytic?.reduce((acc:number, data: any) => acc+data?.duplicateQuestions, 0);
+  console.log("Duplicate Total", duplicateSubTotal);
+  const districtData = districtAnalytic?.find((data: any)=> data.district === selectedDistrict);
+  console.log("District Data", districtData);
   const countryAnalytics = statesWithData
     ? statesWithData.features.reduce(
         (acc, f) => {
@@ -101,6 +115,18 @@ export function DetailSidebar({
     return "Click any state on the map to view its districts";
   };
 
+  const renderCardValue = (
+  value: string | number,
+) => {
+  if (isLoading) {
+    return (
+      <Skeleton className="h-6 w-16" />
+    );
+  }
+
+  return value;
+};
+
   return (
     <aside className="flex w-[380px] shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
       {/* Header */}
@@ -121,39 +147,68 @@ export function DetailSidebar({
         {activeAnalytics && (
           <div className="grid grid-cols-2 gap-2">
             <StatCard
-  label="Questions"
-  value={fmt(
+  // label="Questions"
+
+  label = {
+    <div className="flex items-center gap-1">
+      <span>Questions</span>
+      {!isIndiaView && <TooltipProvider>
+        <Tooltip>
+           <TooltipTrigger asChild>
+            <InfoIcon className="h-3 w-3 cursor-pointer text-muted-foreground" />
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <div className="space-y-1 text-xs">
+
+              <div>
+                Duplicate Questions {": "}
+                {selectedDistrict ?  districtData.duplicateQuestions : duplicateSubTotal}
+              </div>
+
+              
+              <div>
+                Unique Questions {": "}
+                {selectedDistrict ?  districtData.uniqueQuestions : uniqueSubTotal}
+              </div>
+
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>}
+    </div>
+  }
+  value={renderCardValue(fmt(
     isIndiaView
       ? questionStatusData?.closedVsTotalQuestions.totalQuestions
       : activeAnalytics.questions
-  )}
+  ))}
   icon={<Activity className="h-3.5 w-3.5" />}
 />
           <StatCard
   label="Answers"
-  value={fmt(
+  value={renderCardValue(fmt(
     isIndiaView
-      ? questionStatusData?.closedVsTotalQuestions.closedQuestions
+      ? questionStatusData?.closedVsTotalQuestions.closed.count
       : activeAnalytics.answers
-  )}
+  ))}
   icon={<Activity className="h-3.5 w-3.5" />}
 />
             <StatCard
   label="Users"
-  value={fmt(
+  value={renderCardValue(fmt(
     isIndiaView
       ? allUsers.totalUsers
       : activeAnalytics.users
-  )}
+  ))}
   icon={<Users className="h-3.5 w-3.5" />}
 />
             <StatCard
   label="Active"
-  value={fmt(
+  value={renderCardValue(fmt(
     isIndiaView
       ? todayActiveFarmersData?.totalUsers
       : activeAnalytics.activeUsers
-  )}
+  ))}
   icon={<Users className="h-3.5 w-3.5" />}
 />
 {/* <StatCard
@@ -199,11 +254,11 @@ export function DetailSidebar({
       </TooltipProvider>
     </div>
   }
-  value={fmt(
+  value={renderCardValue(fmt(
     isIndiaView
       ? todayActiveFarmersData?.userRoleCounts?.coordinator
       : activeAnalytics.coordinators
-  )}
+  ))}
   icon={<Building2 className="h-3.5 w-3.5" />}
 />
             <StatCard
@@ -211,7 +266,7 @@ export function DetailSidebar({
               value={`${
                 districtAnalytics || stateAnalytics
                   ? (activeAnalytics.closureHrs / 60).toFixed(2)
-                  : (questionStatusData?.closedVsTotalQuestions.avgCloseTimeMinutes / 60).toFixed(2)
+                  : (questionStatusData?.closedVsTotalQuestions.closed.avgTimeMinutes / 60).toFixed(2)
               }h`}
               icon={<Activity className="h-3.5 w-3.5" />}
             />
@@ -223,6 +278,9 @@ export function DetailSidebar({
           <StateList
             statesWithData={statesWithData as { features: MapFeatureBase[] } | null}
             onSelectState={onSelectState}
+            isLoading = {isLoading}
+            renderCardValue= {renderCardValue}
+            metric={metric}
           />
         )}
 

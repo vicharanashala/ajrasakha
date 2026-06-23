@@ -5865,15 +5865,16 @@ export class QuestionService extends BaseService implements IQuestionService {
     isReallocatingTimeBound = true;
     console.log('[TimeBound] Starting reallocation + initial-allocation + reviewer-assignment check...');
     try {
-      // 1. Fetch all cases in parallel. "openedIdle" = current expert opened the
-      // question > 45 min ago but produced no answer; these are reallocated exactly
-      // like stuck (replace the current expert) — and being author-level, only an STF
-      // expert is eligible (enforced in the stuck branch when history is empty).
-      const [stuckSubmissions, unallocatedSubmissions, answeredNeedingReviewer, openedIdleSubmissions] = await Promise.all([
+      // 1. Fetch all cases in parallel.
+      // NOTE: opened-but-idle reallocation is intentionally DISABLED — once an expert
+      // opens a time-bound question (currentExpertOpenedAt is set) it stays with them
+      // and is never reallocated. The "stuck" path already excludes opened questions
+      // (its query requires currentExpertOpenedAt to be null), so by not fetching the
+      // openedIdle work here an opened question is reallocated by neither path.
+      const [stuckSubmissions, unallocatedSubmissions, answeredNeedingReviewer] = await Promise.all([
         this.questionSubmissionRepo.findTimeBoundQuestionsForReallocation(),
         this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions(),
         this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(),
-        this.questionSubmissionRepo.findOpenedButIdleTimeBoundQuestions(),
       ]);
 
       const byCreatedAt = (a: any, b: any) =>
@@ -5883,15 +5884,14 @@ export class QuestionService extends BaseService implements IQuestionService {
       stuckSubmissions.sort(byCreatedAt);
       unallocatedSubmissions.sort(byCreatedAt);
       answeredNeedingReviewer.sort(byCreatedAt);
-      openedIdleSubmissions.sort(byCreatedAt);
 
-      const totalWork = stuckSubmissions.length + unallocatedSubmissions.length + answeredNeedingReviewer.length + openedIdleSubmissions.length;
+      const totalWork = stuckSubmissions.length + unallocatedSubmissions.length + answeredNeedingReviewer.length;
       console.log("the total work coming====", totalWork)
       if (!totalWork) {
         return { message: 'No time-bound questions need attention', reallocated: 0, skipped: 0 };
       }
 
-      console.log(`[TimeBound] Stuck: ${stuckSubmissions.length}, Never-allocated: ${unallocatedSubmissions.length}, NeedReviewer: ${answeredNeedingReviewer.length}, OpenedIdle: ${openedIdleSubmissions.length}`);
+      console.log(`[TimeBound] Stuck: ${stuckSubmissions.length}, Never-allocated: ${unallocatedSubmissions.length}, NeedReviewer: ${answeredNeedingReviewer.length}`);
 
       // 2. Get all non-blocked experts ordered by workload (lowest first)
       const allExperts = await this.userRepo.findExpertsByReputationScore({} as any);
@@ -5943,17 +5943,27 @@ export class QuestionService extends BaseService implements IQuestionService {
       type WorkType = 'stuck' | 'openedIdle' | 'unallocated' | 'needsReviewer';
       const workQueue: { type: WorkType; submission: any }[] = [
         ...stuckSubmissions.map((s: any) => ({ type: 'stuck' as WorkType, submission: s })),
-        // Opened-but-idle questions are replaced the same way as stuck ones (the
-        // current expert opened but never answered). Author-level → STF-only is
-        // enforced by the stuck branch's empty-history check. Unlike stuck, the idle
-        // expert is NOT penalised — they're only freed from the question (workload
-        // decremented via the queue replacement).
-        ...openedIdleSubmissions.map((s: any) => ({ type: 'openedIdle' as WorkType, submission: s })),
+        // Opened-but-idle reallocation disabled — see note above. Once a question is
+        // opened it stays with its current expert and is NOT added to the work queue.
         ...unallocatedSubmissions.map((s: any) => ({ type: 'unallocated' as WorkType, submission: s })),
         ...answeredNeedingReviewer.map((s: any) => ({ type: 'needsReviewer' as WorkType, submission: s })),
       ];
 
+      // Priority: never-allocated questions (and stuck/opened-idle reallocations)
+      // must be fully processed BEFORE any needsReviewer (review-level) work, so
+      // that available STF experts are consumed by never-allocated questions first.
+      // Only once no never-allocated questions remain do reviewer assignments run.
+      // Within the same priority bucket, keep FIFO by question.createdAt.
+      const typePriority: Record<WorkType, number> = {
+        stuck: 0,
+        openedIdle: 0,
+        unallocated: 0,
+        needsReviewer: 1,
+      };
       workQueue.sort((a, b) => {
+        if (typePriority[a.type] !== typePriority[b.type]) {
+          return typePriority[a.type] - typePriority[b.type];
+        }
         const aTime = new Date((a.submission.question?.createdAt ?? a.submission.createdAt) as string).getTime();
         const bTime = new Date((b.submission.question?.createdAt ?? b.submission.createdAt) as string).getTime();
         return aTime - bTime;
@@ -5965,9 +5975,10 @@ export class QuestionService extends BaseService implements IQuestionService {
       let initialAllocated = 0;
       let reviewersAssigned = 0;
 
-      // Track if there are unallocated submissions to process.
-      // If unallocatedSubmissions exist, STF experts should NOT be assigned
-      // needsReviewer questions - they must be reserved for unallocated questions.
+      // If this run has ANY never-allocated questions, STF experts are reserved
+      // exclusively for them (never-allocated → STF only; needsReviewer → non-STF
+      // only). Only when there are no never-allocated questions at all may STF
+      // experts take reviewer work. unallocatedProcessed is kept for logging.
       const hasUnallocatedSubmissions = unallocatedSubmissions.length > 0;
       let unallocatedProcessed = 0;
 
@@ -6000,6 +6011,13 @@ export class QuestionService extends BaseService implements IQuestionService {
             if (historyExpertIds.has(expertId)) continue;
             if (queueExpertIds.has(expertId)) continue;
             if (!history.length && expert?.special_task_force !== true) continue;
+            // Reserve STF experts for never-allocated questions: when this run has
+            // any never-allocated work, only AUTHOR-level reallocations (empty
+            // history — they require an STF answer-creator) may use STF. Review-level
+            // reallocations (history present, non-STF can handle them) skip STF.
+            if (hasUnallocatedSubmissions && history.length > 0 && expert?.special_task_force === true) {
+              continue;
+            }
             const currentCount = provisionalCounts.get(expertId) ?? 0;
             if (currentCount >= MAX_TIME_BOUND) continue;
             assignedExpert = expertId;
@@ -6073,15 +6091,15 @@ export class QuestionService extends BaseService implements IQuestionService {
             if (historyExpertIds.has(expertId)) continue;
             if (queueExpertIds.has(expertId)) continue;
 
-            // CRITICAL: If there are unallocated submissions pending, STF experts should NOT be
-            // assigned to reviewer tasks - they must be reserved for unallocated questions.
-            // Non-STF experts can still be assigned to needsReviewer questions.
-            if (hasUnallocatedSubmissions && unallocatedProcessed < unallocatedSubmissions.length) {
-              if (expert?.special_task_force === true) {
-                console.log(`[TimeBound] Skipping STF expert ${expertId} for needsReviewer question ${questionId} — unallocated submissions still pending (${unallocatedProcessed}/${unallocatedSubmissions.length} processed)`);
-                continue; // Skip STF experts, they should handle unallocated questions first
-              }
-              // Non-STF experts can proceed to be assigned
+            // CRITICAL: Whenever this run has ANY never-allocated questions, STF
+            // experts are reserved EXCLUSIVELY for them — they are never assigned
+            // to reviewer tasks, even after every never-allocated question has been
+            // handled and they still have spare capacity. needsReviewer work goes
+            // to non-STF experts only. (Only when there are NO never-allocated
+            // questions at all this run may STF experts take reviewer work.)
+            if (hasUnallocatedSubmissions && expert?.special_task_force === true) {
+              console.log(`[TimeBound] Skipping STF expert ${expertId} for needsReviewer question ${questionId} — never-allocated questions present this run; STF reserved for them (${unallocatedProcessed}/${unallocatedSubmissions.length} allocated)`);
+              continue; // STF reserved for never-allocated questions
             }
 
             const currentCount = provisionalCounts.get(expertId) ?? 0;

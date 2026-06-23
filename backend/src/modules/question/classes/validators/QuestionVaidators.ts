@@ -747,6 +747,16 @@ class GetDetailedQuestionsQuery {
   review_level?: string;
 
   @JSONSchema({
+    description:
+      "When 'true', also include questions pending reroute action for the user (used by the Expert Management dashboard). Defaults to off so the normal answering queue is unaffected.",
+    example: 'true',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsString()
+  includeRerouted?: string;
+
+  @JSONSchema({
     description: 'Start time for closedAt date range filter',
     example: '2025-11-12T18:30:00.000Z',
     type: 'string',

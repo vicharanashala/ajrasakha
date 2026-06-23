@@ -57,6 +57,7 @@ import {
   CircleSlash,
   Copy,
   AlertCircle,
+  Zap,
 } from "lucide-react";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import {
@@ -67,6 +68,7 @@ import {
 import type { IMyPreference } from "@/types";
 import { CROPS, STATES, DOMAINS, Review_Level } from "@/components/MetaData";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
+import { useGetStates } from "@/hooks/api/location/useLocations";
 export { STATES, CROPS, DOMAINS };
 import { DateRangeFilter } from "./DateRangeFilter";
 import { TopRightBadge } from "./NewBadge";
@@ -137,7 +139,6 @@ interface AdvanceFilterDialogProps {
   setAdvanceFilterValues: (values: any) => void;
   handleDialogChange: (key: string, value: any) => void;
   handleApplyFilters: (myPreference?: IMyPreference) => void;
-  normalizedStates: string[];
   crops: string[];
   activeFiltersCount: number;
   onReset: () => void;
@@ -150,7 +151,6 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
   setAdvanceFilterValues,
   handleDialogChange,
   handleApplyFilters,
-  normalizedStates,
   crops,
   activeFiltersCount,
   onReset,
@@ -161,6 +161,8 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
   const { data: userNameReponse, isLoading } = useGetAllUsers();
   const { data: cropsData } = useGetAllCrops({ type: "crop", limit: 500 });
   const dbCrops = cropsData?.crops || [];
+  const { data: statesResponse = [] } = useGetStates();
+  const stateOptions = statesResponse.map((s) => s.stateNameEnglish);
 
   const users = (userNameReponse?.users || []).sort((a, b) =>
     a.userName.localeCompare(b.userName),
@@ -235,18 +237,12 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     <FileText className="h-4 w-4 text-primary" />
                     Question Status
                   </Label>
-                  <Select
-                    value={advanceFilter.isOnHold ? "hold" : advanceFilter.status}
-                    onValueChange={(v) => {
-                      if (v === "hold") {
-                        handleDialogChange("status", "all");
-                        handleDialogChange("isOnHold", true);
-                      } else {
+                    <Select
+                      value={advanceFilter.status}
+                      onValueChange={(v) => {
                         handleDialogChange("status", v);
-                        handleDialogChange("isOnHold", false);
-                      }
-                    }}
-                  >
+                      }}
+                    >
                     <SelectTrigger className="bg-background w-full relative">
                       <SelectValue />
                     </SelectTrigger>
@@ -325,6 +321,20 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                           <span>Hold</span>
                         </div>
                       </SelectItem>
+
+                      <SelectItem value="non_agri">
+                        <div className="flex items-center gap-2">
+                          <CircleSlash className="w-4 h-4 text-slate-500" />
+                          <span>Non Agri</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="dynamic">
+                        <div className="flex items-center gap-2">
+                          <Zap className="w-4 h-4 text-yellow-500" />
+                          <span>Dynamic</span>
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -398,7 +408,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   )}
                 </Label>
                 <StateMultiSelect
-                  states={normalizedStates}
+                  states={stateOptions}
                   selected={advanceFilter.states || []}
                   onChange={(next) => handleDialogChange("states", next)}
                 />

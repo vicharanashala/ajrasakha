@@ -49,13 +49,17 @@ import {
 } from "../../components/atoms/select";
 import { Separator } from "../../components/atoms/separator";
 import { Input } from "../../components/atoms/input";
-import { STATES, CROPS, DOMAINS, SEASONS, DISTRICTS } from "../../components/MetaData";
+import { CROPS, DOMAINS, SEASONS} from "../../components/MetaData";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import { Label } from "@/components/atoms/label";
 import { Switch } from "@/components/atoms/switch";
 import { TopLeftBadge, TopRightBadge } from "@/components/NewBadge";
 import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
 import { toast } from "@/shared/components/toast";
+import { 
+  useGetStates, 
+  useGetDistricts
+} from "@/hooks/api/location/useLocations";
 
 
 
@@ -98,8 +102,6 @@ export type AddQuestionValidationErrors = Partial<
 
 type DetailField = keyof NonNullable<IDetailedQuestion["details"]>;
 const OPTIONS: Partial<Record<DetailField, string[]>> = {
-  state: STATES,
-
   crop: CROPS,
   season: SEASONS,
   domain: DOMAINS,
@@ -136,6 +138,7 @@ const CropSelect = ({
     }
   };
 
+  
   return (
     <Select
       value={value?.trim() || undefined}
@@ -192,6 +195,13 @@ export const AddOrEditQuestionDialog = ({
 
   const invalidFieldClass =
     "border-red-500 dark:border-red-400 focus-visible:ring-red-500/60";
+
+  const { data: states = [] } = useGetStates();
+  const selectedStateCode = states.find(
+    (state) => state.stateNameEnglish === updatedData?.details?.state
+  )?.stateCode;
+  const { data: districts = [] } = useGetDistricts(selectedStateCode);
+  const districtNames = districts.map((district) => district.districtNameEnglish);
 
   useEffect(() => {
     if (mode === "edit" && question) {
@@ -798,123 +808,118 @@ export const AddOrEditQuestionDialog = ({
                       </>
                     )}
 
-                      {(
-                        [
-                          "state",
-                          "district",
-                        ] as DetailField[]
-                      ).map((field) => {
-                        // 1. Safely extract string to satisfy TypeScript's strict dynamic field checks
-                        const rawFieldValue = updatedData?.details?.[field];
-                        const stringValue = Array.isArray(rawFieldValue) ? rawFieldValue[0] : rawFieldValue;
-                        const safeValue = typeof stringValue === "string" ? stringValue.trim() : "";
+                  {(
+                    [
+                      "state",
+                      "district",
+                    ] as DetailField[]
+                  ).map((field) => {
+                    const fieldOptions =
+                      field === "state"
+                        ? states.map((state) => state.stateNameEnglish)
+                        : field === "district"
+                          ? districtNames
+                          : OPTIONS[field];
+                    const rawFieldValue = updatedData?.details?.[field];
+                    const stringValue = Array.isArray(rawFieldValue)
+                      ? rawFieldValue[0]
+                      : rawFieldValue;
+                    const safeValue =
+                      typeof stringValue === "string" ? stringValue.trim() : "";
 
-                        // 2. Safely extract state value for the district dependency
-                        const rawStateVal = updatedData?.details?.state;
-                        const safeStateStr = Array.isArray(rawStateVal) ? rawStateVal[0] : rawStateVal;
-                        const stateVal = typeof safeStateStr === "string" ? safeStateStr.trim() : "";
+                    return (
+                      <div key={field} className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                          <label>
+                            {field.charAt(0).toUpperCase() + field.slice(1)}*
+                          </label>
+                        </div>
+                        {fieldOptions ? (
+                          <Select
+                            value={
+                              safeValue
+                                ? fieldOptions.find(
+                                    (o) => o.toLowerCase() === safeValue.toLowerCase()
+                                  ) ?? safeValue
+                                : undefined
+                            }
+                            onValueChange={(val) => {
+                              onFieldValidatedChange?.(field as AddQuestionField);
+                              setUpdatedData((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      details: {
+                                        ...prev.details,
+                                        [field]: val,
+                                        ...(field === "state" ? { district: "" } : {}),
+                                      },
+                                    }
+                                  : prev
+                              );
+                            }}
+                          >
+                            <SelectTrigger
+                              className={`w-full ${
+                                mode === "add" && validationErrors?.[field as AddQuestionField]
+                                  ? invalidFieldClass
+                                  : ""
+                              }`}
+                            >
+                              <SelectValue placeholder={`Select ${field}`} />
+                            </SelectTrigger>
 
-                        const districtKey = stateVal
-                          ? Object.keys(DISTRICTS).find((k) => k.toLowerCase() === stateVal.toLowerCase())
-                          : undefined;
-
-                        const fieldOptions =
-                          field === "district"
-                            ? districtKey ? DISTRICTS[districtKey] : []
-                            : OPTIONS[field];
-
-                        return (
-                          <div key={field} className="flex flex-col gap-2">
-                            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                              <label>
-                                {field.charAt(0).toUpperCase() + field.slice(1)}*
-                              </label>
-                            </div>
-
-                            {fieldOptions ? (
-                              <Select
-                                value={
-                                  safeValue
-                                    ? fieldOptions.find(
-                                      (o) => o.toLowerCase() === safeValue.toLowerCase()
-                                    ) ?? safeValue
-                                    : undefined
-                                }
-                                onValueChange={(val) => {
-                                  onFieldValidatedChange?.(field as AddQuestionField);
-                                  setUpdatedData((prev) =>
-                                    prev
-                                      ? {
-                                        ...prev,
-                                        details: {
-                                          ...prev.details,
-                                          [field]: val,
-                                        },
-                                      }
-                                      : prev
-                                  );
-                                }}
-                              >
-                                <SelectTrigger
-                                  className={`w-full ${mode === "add" && validationErrors?.[field as AddQuestionField]
-                                      ? invalidFieldClass
-                                      : ""
-                                    }`}
-                                >
-                                  <SelectValue placeholder={`Select ${field}`} />
-                                </SelectTrigger>
-
-                                <SelectContent>
-                                  {fieldOptions.map((option) => (
-                                    <SelectItem key={option} value={option}>
-                                      {option}
-                                    </SelectItem>
-                                  ))}
-                                  {(() => {
-                                    const hasMatch =
-                                      safeValue &&
-                                      fieldOptions.some((o) => o.toLowerCase() === safeValue.toLowerCase());
-                                    return safeValue && !hasMatch ? (
-                                      <SelectItem key={safeValue} value={safeValue}>
-                                        {safeValue}
-                                      </SelectItem>
-                                    ) : null;
-                                  })()}
-                                </SelectContent>
-                              </Select>
-                            ) : (
-                              <Input
-                                type="text"
-                                value={safeValue}
-                                onChange={(e) => {
-                                  onFieldValidatedChange?.(field as AddQuestionField);
-                                  setUpdatedData((prev) =>
-                                    prev
-                                      ? {
-                                        ...prev,
-                                        details: {
-                                          ...prev.details,
-                                          district: e.target.value,
-                                        },
-                                      }
-                                      : prev
-                                  );
-                                }}
-                                className={
-                                  mode === "add" && validationErrors?.district
-                                    ? invalidFieldClass
-                                    : undefined
-                                }
-                              />
-                            )}
-                            {mode === "add" && validationErrors?.[field as AddQuestionField] && (
-                              <p className="text-sm font-medium text-red-600 dark:text-red-300 mt-1">
-                                {validationErrors[field as AddQuestionField]}
-                              </p>
-                            )}
-                          </div>
-                        );
-                      })}
+                            <SelectContent>
+                              {fieldOptions.map((option) => (
+                                <SelectItem key={option} value={option}>
+                                  {option}
+                                </SelectItem>
+                              ))}
+                              {(() => {
+                                const hasMatch =
+                                  safeValue &&
+                                  fieldOptions.some((o) => o.toLowerCase() === safeValue.toLowerCase());
+                                return safeValue && !hasMatch ? (
+                                  <SelectItem key={safeValue} value={safeValue}>
+                                    {safeValue}
+                                  </SelectItem>
+                                ) : null;
+                              })()}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            type="text"
+                            value={safeValue}
+                            onChange={(e) => {
+                              onFieldValidatedChange?.(field as AddQuestionField);
+                              setUpdatedData((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      details: {
+                                        ...prev.details,
+                                        district: e.target.value,
+                                      },
+                                    }
+                                  : prev
+                              );
+                            }}
+                            className={
+                              mode === "add" && validationErrors?.district
+                                ? invalidFieldClass
+                                : undefined
+                            }
+                          />
+                        )}
+                        {mode === "add" && validationErrors?.[field as AddQuestionField] && (
+                          <p className="text-sm font-medium text-red-600 dark:text-red-300 mt-1">
+                            {validationErrors[field as AddQuestionField]}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
 
                   {/* ── Crop (from DB) ── */}
                   <div className="flex flex-col gap-2">
@@ -974,112 +979,113 @@ export const AddOrEditQuestionDialog = ({
                     />
                   </div>
 
-                      {(
-                        [
-                          "season",
-                          "domain",
-                        ] as DetailField[]
-                      ).map((field) => {
-                        // 1. Extract raw data and handle array vs string safely
-                        const rawFieldValue = updatedData?.details?.[field];
-                        const stringValue = Array.isArray(rawFieldValue) ? rawFieldValue[0] : rawFieldValue;
-                        const safeValue = typeof stringValue === "string" ? stringValue.trim() : "";
+                  {(
+                    [
+                      "season",
+                      "domain",
+                    ] as DetailField[]
+                  ).map((field) => {
+                    const rawFieldValue = updatedData?.details?.[field];
+                    const stringValue = Array.isArray(rawFieldValue)
+                      ? rawFieldValue[0]
+                      : rawFieldValue;
+                    const safeValue =
+                      typeof stringValue === "string" ? stringValue.trim() : "";
+                    const fieldOptions = OPTIONS[field];
 
-                        const fieldOptions = OPTIONS[field];
+                    return (
+                      <div key={field} className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                          <label>
+                            {field.charAt(0).toUpperCase() + field.slice(1)}*
+                          </label>
+                        </div>
 
-                        return (
-                          <div key={field} className="flex flex-col gap-2">
-                            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                              <label>
-                                {field.charAt(0).toUpperCase() + field.slice(1)}*
-                              </label>
-                            </div>
+                        {fieldOptions ? (
+                          <Select
+                            value={
+                              safeValue
+                                ? fieldOptions.find(
+                                    (o) => o.toLowerCase() === safeValue.toLowerCase()
+                                  ) ?? safeValue
+                                : undefined
+                            }
+                            onValueChange={(val) => {
+                              onFieldValidatedChange?.(field as AddQuestionField);
+                              setUpdatedData((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      details: {
+                                        ...prev.details,
+                                        [field]: field === "domain" ? [val] : val,
+                                      },
+                                    }
+                                  : prev
+                              );
+                            }}
+                          >
+                            <SelectTrigger
+                              className={`w-full ${
+                                mode === "add" && validationErrors?.[field as AddQuestionField]
+                                  ? invalidFieldClass
+                                  : ""
+                              }`}
+                            >
+                              <SelectValue placeholder={`Select ${field}`} />
+                            </SelectTrigger>
 
-                            {fieldOptions ? (
-                              <Select
-                                value={
-                                  safeValue
-                                    ? fieldOptions.find(
-                                      (o) => o.toLowerCase() === safeValue.toLowerCase()
-                                    ) ?? safeValue
-                                    : undefined
-                                }
-                                onValueChange={(val) => {
-                                  onFieldValidatedChange?.(field as AddQuestionField);
-                                  setUpdatedData((prev) =>
-                                    prev
-                                      ? {
-                                        ...prev,
-                                        details: {
-                                          ...prev.details,
-                                          // 2. Save domain back as an array string element
-                                          [field]: field === "domain" ? [val] : val,
-                                        },
-                                      }
-                                      : prev
-                                  );
-                                }}
-                              >
-                                <SelectTrigger
-                                  className={`w-full ${mode === "add" && validationErrors?.[field as AddQuestionField]
-                                      ? invalidFieldClass
-                                      : ""
-                                    }`}
-                                >
-                                  <SelectValue placeholder={`Select ${field}`} />
-                                </SelectTrigger>
-
-                                <SelectContent>
-                                  {fieldOptions.map((option) => (
-                                    <SelectItem key={option} value={option}>
-                                      {option}
-                                    </SelectItem>
-                                  ))}
-                                  {(() => {
-                                    const hasMatch =
-                                      safeValue &&
-                                      fieldOptions.some((o) => o.toLowerCase() === safeValue.toLowerCase());
-                                    return safeValue && !hasMatch ? (
-                                      <SelectItem key={safeValue} value={safeValue}>
-                                        {safeValue}
-                                      </SelectItem>
-                                    ) : null;
-                                  })()}
-                                </SelectContent>
-                              </Select>
-                            ) : (
-                              <Input
-                                type="text"
-                                value={safeValue}
-                                onChange={(e) => {
-                                  onFieldValidatedChange?.(field as AddQuestionField);
-                                  setUpdatedData((prev) =>
-                                    prev
-                                      ? {
-                                        ...prev,
-                                        details: {
-                                          ...prev.details,
-                                          [field]: field === "domain" ? [e.target.value] : e.target.value,
-                                        },
-                                      }
-                                      : prev
-                                  );
-                                }}
-                                className={
-                                  mode === "add" && validationErrors?.[field as AddQuestionField]
-                                    ? invalidFieldClass
-                                    : undefined
-                                }
-                              />
-                            )}
-                            {mode === "add" && validationErrors?.[field as AddQuestionField] && (
-                              <p className="text-sm font-medium text-red-600 dark:text-red-300 mt-1">
-                                {validationErrors[field as AddQuestionField]}
-                              </p>
-                            )}
-                          </div>
-                        );
-                      })}
+                            <SelectContent>
+                              {fieldOptions.map((option) => (
+                                <SelectItem key={option} value={option}>
+                                  {option}
+                                </SelectItem>
+                              ))}
+                              {(() => {
+                                const hasMatch =
+                                  safeValue &&
+                                  fieldOptions.some((o) => o.toLowerCase() === safeValue.toLowerCase());
+                                return safeValue && !hasMatch ? (
+                                  <SelectItem key={safeValue} value={safeValue}>
+                                    {safeValue}
+                                  </SelectItem>
+                                ) : null;
+                              })()}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            type="text"
+                            value={safeValue}
+                            onChange={(e) => {
+                              onFieldValidatedChange?.(field as AddQuestionField);
+                              setUpdatedData((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      details: {
+                                        ...prev.details,
+                                        [field]: field === "domain" ? [e.target.value] : e.target.value,
+                                      },
+                                    }
+                                  : prev
+                              );
+                            }}
+                            className={
+                              mode === "add" && validationErrors?.[field as AddQuestionField]
+                                ? invalidFieldClass
+                                : undefined
+                            }
+                          />
+                        )}
+                        {mode === "add" && validationErrors?.[field as AddQuestionField] && (
+                          <p className="text-sm font-medium text-red-600 dark:text-red-300 mt-1">
+                            {validationErrors[field as AddQuestionField]}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {userRole === "expert" && mode === "edit" && (

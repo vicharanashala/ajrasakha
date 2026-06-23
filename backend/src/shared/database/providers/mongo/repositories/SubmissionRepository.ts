@@ -182,6 +182,31 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
         );
       }
 
+      // Removing the first expert changes the question's allocation state:
+      const removedFirstExpert = index === 0;
+      const queueBecameEmpty =
+        removedFirstExpert && (questionSubmission.queue?.length ?? 0) === 1;
+      if (queueBecameEmpty) {
+        // No experts left — the question is no longer allocated to anyone. Clear
+        // firstAllocationAt so it falls back into the never-allocated queue and can
+        // be re-picked for allocation.
+        await this.QuestionCollection.updateOne(
+          { _id: new ObjectId(questionId) },
+          { $unset: { firstAllocationAt: '' } },
+          { session },
+        );
+      } else if (removedFirstExpert) {
+        // Allocation shifts to the next expert (now the head of the queue). Ensure
+        // firstAllocationAt is set if it was missing/null, so the now-allocated
+        // question isn't treated as never-allocated. Only set when absent to
+        // preserve the original first-allocation timestamp when it already exists.
+        await this.QuestionCollection.updateOne(
+          { _id: new ObjectId(questionId) },
+          { $set: { firstAllocationAt: new Date() } },
+          { session },
+        );
+      }
+
       if (shouldCreateNextHistoryEntry) {
         await this.QuestionSubmissionCollection.updateOne(
           { questionId: new ObjectId(questionId) },
@@ -1204,6 +1229,25 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           action: 1,
           mainDate: 1,
           createdAt: '$mainDate',
+          // Reviewer's position in the queue: 0 = Author, N = Level N.
+          level: { $indexOfArray: ['$queue', userObjId] },
+          // Time the question/review was assigned to this user. Mirrors
+          // buildReviewTat: the author (index 0) is assigned at first allocation
+          // (falling back to question creation), reviewers at their own entry's
+          // createdAt. `completedAt` is the submission/review time (mainDate).
+          assignedAt: {
+            $cond: [
+              { $eq: ['$historyIndex', 0] },
+              {
+                $ifNull: [
+                  '$questionDoc.firstAllocationAt',
+                  '$questionDoc.createdAt',
+                ],
+              },
+              '$history.createdAt',
+            ],
+          },
+          completedAt: '$mainDate',
           updatedAt: '$history.updatedAt',
           reviewType: '$reviewDoc.reviewType',
           reason: {
@@ -1410,6 +1454,10 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           action: 1,
           mainDate: 1,
           createdAt: '$reroutes.reroutedAt',
+          // Reroute is "assigned" when it was rerouted to the user, and
+          // "completed" at its last update (mainDate).
+          assignedAt: '$reroutes.reroutedAt',
+          completedAt: '$mainDate',
           updatedAt: '$reroutes.updatedAt',
           rerouteStatus: '$reroutes.status',
           comment: '$reroutes.comment',
@@ -3418,7 +3466,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       source: { $in: ['AJRASAKHA', 'WHATSAPP'] },
       isAutoAllocate: true,
       status: { $in: ['open', 'delayed'] },
-      firstAllocationAt: { $exists: false },
+      // Never allocated: field missing OR explicitly cleared to null (e.g. after the
+      // first expert was removed and the queue emptied).
+      firstAllocationAt: null,
       isOnHold: { $ne: true },
     })
       .sort({ createdAt: 1 })
