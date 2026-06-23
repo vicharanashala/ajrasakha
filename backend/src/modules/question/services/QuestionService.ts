@@ -3552,8 +3552,19 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
       }
 
+      // Resolve user email from conversation collection using threadId
+      let threadUserEmail: string | null = null;
+      if (question.threadId) {
+        threadUserEmail = await this.chatbotRepository.getUserEmailByConversationId(
+          question.threadId,
+        );
+      }
+
       return {
-        question,
+        question: {
+          ...question,
+          threadUserEmail,
+        },
         approved_moderator,
       };
     } catch (error) {

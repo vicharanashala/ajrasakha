@@ -507,6 +507,7 @@ export interface IQuestionFullData {
   originalQuestion?: string;
   closedAt?: string;
   threadId?: string;
+  threadUserEmail?: string | null;
   messageId?: string;
   approved_moderator:{
     name: string;
