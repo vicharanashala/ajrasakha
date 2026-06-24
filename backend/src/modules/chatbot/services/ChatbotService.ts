@@ -3132,4 +3132,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
       throw new InternalServerError(`Internal Server Error ${error}`)
     }
   }
+
+  
+  async getQuestionLifecycle(questionId: string): Promise<any>{
+    return this.chatbotRepository.getQuestionLifecycle(questionId);
+  }
 }

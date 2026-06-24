@@ -332,3 +332,16 @@ export const useActiveUsersTrend = ( source: string, userType: string, requestTy
     enabled,
   });
 };
+
+export const useQuestionLifeCycle = (questionId: string, enabled=true) => {
+  return useQuery({
+    queryKey: [
+      "question-lifecycle",
+      questionId,
+    ],
+    queryFn: () => {
+      return chatbotService.getQuestionLifeCycle(questionId);
+    },
+    enabled,
+  });
+}

@@ -75,7 +75,7 @@ export const QuestionDetails = ({
     () => flattenAnswers(question?.submission),
     [question.submission],
   );
-  console.log("Answers", answers);
+  // console.log("Answers", answers);
   const [answerVisibleCount, setAnswerVisibleCount] =
     useState(ANSWER_VISIBLE_COUNT);
   const [isLoadingMore, setIsLoadingMore] = useState(false);

@@ -244,7 +244,7 @@ export const AuditTrailModal = ({ open, onClose, questionId }: AuditTrailModalPr
   );
 
   // Debug log
-  console.log("AuditTrailModal - action:", action, "page:", page, "totalDocs:", data?.totalDocuments);
+  // console.log("AuditTrailModal - action:", action, "page:", page, "totalDocs:", data?.totalDocuments);
 
   // Reset page when filters change
   useEffect(() => {
