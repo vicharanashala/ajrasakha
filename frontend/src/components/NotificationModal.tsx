@@ -40,6 +40,7 @@ import { useMarkAsReadNotification } from "@/hooks/api/notification/useUpdateNot
 import { useMarkAllAsReadNotification } from "@/hooks/api/notification/useMarkAllAsRead";
 import { useAutoDeletePreference } from "@/hooks/api/user/useAutoDeleteNotifications";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
+import { toast } from "sonner";
 import { formatDate } from "@/utils/formatDate";
 import {
     useNavigateToComment,
@@ -132,7 +133,6 @@ export function NotificationModal({ trigger, copy = "notifications" }: Notificat
     const emptyTitleText = isMessagesCopy ? "No messages" : "No notifications";
 
     const handleNotificationClick = async (notification: Notification) => {
-
         const { type, enitity_id, _id } = notification;
         await markAsRead(_id);
         setOpen(false);
@@ -170,7 +170,7 @@ export function NotificationModal({ trigger, copy = "notifications" }: Notificat
         e.stopPropagation();
         try {
             await deleteNotification(notificationId);
-            toastSuccess("Notification deleted");
+            toast.success("Notification deleted");
         } catch (error) {
             console.error("Error: ", error);
         }
@@ -180,9 +180,9 @@ export function NotificationModal({ trigger, copy = "notifications" }: Notificat
         setDeletePreference(value);
         try {
             await autoDeletePreference(value);
-            toastSuccess("Preference Updated");
+            toast.success("Preference Updated");
         } catch (error) {
-            toastError("Error updating Preference");
+             toastError("Error updating Preference");
         }
     };
 

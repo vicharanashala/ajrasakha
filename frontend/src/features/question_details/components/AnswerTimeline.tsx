@@ -19,6 +19,7 @@ interface IAnswerTimelineProps {
   userRole: UserRole;
   queue: ISubmission["queue"];
   rerouteQuestion?: IRerouteHistoryResponse[];
+  isDedicatedView?: boolean;
 }
 export const AnswerTimeline = ({
   answers,
@@ -29,6 +30,7 @@ export const AnswerTimeline = ({
   userRole,
   queue,
   rerouteQuestion,
+  isDedicatedView = false,
 }: IAnswerTimelineProps) => {
   // map answers to timeline events
   console.log("Answers from primitive component ->", answers)
@@ -129,6 +131,9 @@ export const AnswerTimeline = ({
               rerouteQuestion={rerouteQuestion}
               lastAnswerApprovalCount={answers[0].approvalCount}
               paeReview={question.pae_review}
+              isDedicatedView={isDedicatedView}
+              assignedModerator={question.assigned_moderator}
+              isAssignedModerator={question.isAssignedModerator}
             />
           </div>
         )}

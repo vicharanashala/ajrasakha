@@ -48,6 +48,7 @@ import { Textarea } from "@/components/atoms/textarea";
 import { TranslatableText } from "./components/TranslatableText";
 import { useNotifyUser } from "./hooks/useNotifyUser";
 import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 
 interface UserQuestionsModalProps {
   open: boolean;
@@ -217,6 +218,7 @@ function RepeatTimelineDialog({
 }
 
 interface ActivityItem {
+  _id?: string;
   question?: string;
   message?: string;
   createdAt?: string;
@@ -319,9 +321,22 @@ function ActivityCard({
 }) {
   const text = viewType === "questions" ? item.question : item.message;
   const repeatCount = (item.repeatedCount ?? 0) - 1;
+  const navigate = useNavigate();
+
+  const handleCardClick = () => {
+    if (viewType === "questions" && item._id) {
+      navigate({
+        to: "/home",
+        search: (prev: any) => ({ ...prev, question: item._id }),
+      });
+    }
+  };
 
   return (
-    <div className="group border rounded-xl px-4 py-3.5 bg-background hover:border-border/80 hover:bg-muted/20 transition-all duration-150">
+    <div 
+      className={`group border rounded-xl px-4 py-3.5 bg-background hover:border-border/80 hover:bg-muted/20 transition-all duration-150 ${viewType === "questions" && item._id ? "cursor-pointer" : ""}`}
+      onClick={handleCardClick}
+    >
       <div className="flex items-start justify-between gap-3">
         {/* Left */}
         <div className="flex-1 min-w-0">
@@ -398,7 +413,7 @@ function UserActivityDialog({
   latestMessageId,
 }: UserActivityDialogProps) {
   const totalPages = activeData?.totalPages ?? 1;
-// console.log(user, "UserActivityDialog render");
+console.log(user, "UserActivityDialog render");
   const { mutate: notifyUser, isPending } = useNotifyUser();
   const queryClient = useQueryClient();
   const handleRefresh = async ()=>{

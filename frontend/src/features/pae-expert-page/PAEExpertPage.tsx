@@ -17,6 +17,7 @@ import {
   useGetAllocatedQuestions,
 } from "@/hooks/api/question/useGetAllocatedQuestions";
 import { useGetQuestionById } from "@/hooks/api/question/useGetQuestionById";
+import { toast } from "sonner";
 import { SourceUrlManager } from "../../components/source-url-manager";
 import type { IReviewParmeters, SourceItem } from "@/types";
 import { ConfirmationModal } from "../../components/confirmation-modal";
@@ -28,7 +29,6 @@ import { QaHeader } from "../qa-interface-page/QaHeader";
 import type { QuestionFilter } from "../qa-interface-page/QA-interface";
 import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
 import { QuestionDetailsDialog } from "../qa-interface-page/QuestionDetailsDialog";
-import { toast } from "@/shared/components/toast";
 
 export const PAEExpertPage = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -267,6 +267,7 @@ export const PAEExpertPage = () => {
       });
       setSelectedQuestion(null);
       handleReset();
+      toast.success("Your response has been submitted. Thank you!");
     } catch (error) {
       console.error("Failed to submit:", error);
     }

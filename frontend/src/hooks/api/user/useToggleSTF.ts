@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { UserService } from "../../services/userService";
+import { toast } from "sonner";
 
 const userService = new UserService();
 
@@ -10,7 +11,7 @@ export const useToggleSTF = () => {
         mutationFn: async ({ userId, action }: { userId: string; action: string }) => {
             return await userService.toggleSTF(userId, action);
         },
-        onSuccess: () => {
+        onSuccess: (_, { action }) => {
             queryClient.invalidateQueries({
                 queryKey: ["users"],
                 exact: false,
@@ -23,6 +24,10 @@ export const useToggleSTF = () => {
                 queryKey: ["admin"],
                 exact: false,
             });
+            toast.success(action === 'assign' ? "STF status assigned successfully" : "STF status removed successfully");
+        },
+        onError: (error: any) => {
+            toast.error(error?.message || "Failed to update STF status");
         },
     });
 };

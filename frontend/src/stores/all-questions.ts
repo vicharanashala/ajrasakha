@@ -23,7 +23,8 @@ export type ColumnKey =
   | "level_6"
   | "level_7"
   | "level_8"
-  | "level_9";
+  | "level_9"
+  | "moderator_assigned";
 
 export const commonColumns: ColumnKey[] = ["sl_No", "question", "status"];
 
@@ -50,6 +51,7 @@ export const reviewModeColumns: ColumnKey[] = [
   "level_7",
   "level_8",
   "level_9",
+  "moderator_assigned",
 ];
 
 type QuestionTableState = {
@@ -82,6 +84,7 @@ export const useQuestionTableStore = create<QuestionTableState>((set) => ({
     level_7: true,
     level_8: true,
     level_9: true,
+    moderator_assigned: true,
   },
 
   toggleColumn: (column) =>

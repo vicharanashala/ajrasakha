@@ -81,6 +81,7 @@ import { NotificationModal } from "@/components/NotificationModal";
 import { apiFetch } from "@/hooks/api/api-fetch";
 import { env } from "@/config/env";
 import { useToast } from "@/shared/components/toast";
+import { initializeNotifications } from "@/services/pushService";
 
 export const Route = createFileRoute("/user/$userId")({
   component: RouteComponent,
@@ -220,6 +221,15 @@ function RouteComponent() {
     }
   }, [user, currentUser, navigate, userProfile, userProfileLoading]);
 
+  useEffect(() => {
+    if (!currentUser) return;
+    if (currentUser.role !== "admin" && !isCoordinatorRole(currentUser.role)) {
+      return;
+    }
+
+    void initializeNotifications();
+  }, [currentUser?._id, currentUser?.role]);
+
   const verifyUserMutation = useVerifyUserAnalytics();
   const deleteUserMutation = useDeleteUser();
   const updateUserMutation = useUpdateUser();
@@ -240,25 +250,46 @@ function RouteComponent() {
   } | null>(null);
   const [notificationHistoryUser, setNotificationHistoryUser] =
     useState<UserDetail | null>(null);
-  const [notificationTargetUser, setNotificationTargetUser] =
-    useState<AssignableUser | null>(null);
+  const [notificationTargetUsers, setNotificationTargetUsers] =
+    useState<AssignableUser[]>([]);
 
   const sendNotificationMutation = useMutation({
     mutationFn: async (payload: {
-      userId: string;
+      userIds: string[];
       title: string;
       message: string;
     }) =>
-      apiFetch(`${env.apiBaseUrl()}/notifications/user/${payload.userId}/send`, {
+      apiFetch<{
+        sentCount: number;
+        failedCount: number;
+        results: {
+          targetUserId: string;
+          insertedId?: string;
+          success: boolean;
+          error?: string;
+        }[];
+      }>(`${env.apiBaseUrl()}/notifications/users/send`, {
         method: "POST",
         body: JSON.stringify({
+          userIds: payload.userIds,
           title: payload.title,
           message: payload.message,
         }),
       }),
-    onSuccess: () => {
-      toastSuccess("Notification sent");
-      setNotificationTargetUser(null);
+    onSuccess: (result) => {
+      if (result?.failedCount) {
+        toastError(
+          `${result.sentCount} sent, ${result.failedCount} failed`,
+        );
+      } else {
+        toastSuccess(
+          result?.sentCount === 1
+            ? "Notification sent"
+            : `${result?.sentCount ?? 0} notifications sent`,
+        );
+      }
+      setNotificationTargetUsers([]);
+      setSelectedAssignedUsers([]);
     },
     onError: (error) => {
       toastError(
@@ -478,9 +509,9 @@ function RouteComponent() {
     title: string;
     message: string;
   }) => {
-    if (!notificationTargetUser) return;
+    if (notificationTargetUsers.length === 0) return;
     await sendNotificationMutation.mutateAsync({
-      userId: notificationTargetUser._id,
+      userIds: notificationTargetUsers.map((user) => user._id),
       title: payload.title,
       message: payload.message,
     });
@@ -766,6 +797,25 @@ function RouteComponent() {
                             </span>
                           </div>
 
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={
+                                selectedAssignedUsers.length === 0 ||
+                                sendNotificationMutation.isPending
+                              }
+                              onClick={() =>
+                                setNotificationTargetUsers(
+                                  assignedUsers.filter((user) =>
+                                    selectedAssignedUsers.includes(user._id),
+                                  ),
+                                )
+                              }
+                            >
+                              <MessageSquareText className="h-4 w-4" />
+                              Message Selected
+                            </Button>
                           <Button
                             size="sm"
                             variant="destructive"
@@ -776,6 +826,7 @@ function RouteComponent() {
                           >
                             Unassign Selected
                           </Button>
+                          </div>
                         </div>
 
                         {assignedUsers.map((u) => (
@@ -804,7 +855,7 @@ function RouteComponent() {
                                 variant="outline"
                                 size="icon"
                                 className="h-9 w-9"
-                                onClick={() => setNotificationTargetUser(u)}
+                                onClick={() => setNotificationTargetUsers([u])}
                                 title="Send notification"
                                 aria-label={`Send notification to ${u.name}`}
                               >
@@ -835,8 +886,8 @@ function RouteComponent() {
         onOpenChange={(open) => !open && setNotificationHistoryUser(null)}
       />
       <CoordinatorNotificationDialog
-        user={notificationTargetUser}
-        open={!!notificationTargetUser}
+        users={notificationTargetUsers}
+        open={notificationTargetUsers.length > 0}
         isSending={sendNotificationMutation.isPending}
         defaultTitle={`Message from ${
           [currentUser?.firstName, currentUser?.lastName]
@@ -846,7 +897,7 @@ function RouteComponent() {
           currentUser?.email ||
           "sender"
         }`}
-        onOpenChange={(open) => !open && setNotificationTargetUser(null)}
+        onOpenChange={(open) => !open && setNotificationTargetUsers([])}
         onSend={handleSendAssignedUserNotification}
       />
       <EditFarmerModal
@@ -1501,14 +1552,14 @@ function toTitleCase(value: string) {
 }
 
 function CoordinatorNotificationDialog({
-  user,
+  users,
   open,
   isSending,
   defaultTitle,
   onOpenChange,
   onSend,
 }: {
-  user: AssignableUser | null;
+  users: AssignableUser[];
   open: boolean;
   isSending: boolean;
   defaultTitle: string;
@@ -1517,24 +1568,27 @@ function CoordinatorNotificationDialog({
 }) {
   const [title, setTitle] = useState(defaultTitle);
   const [message, setMessage] = useState("");
+  const recipientKey = users.map((user) => user._id).join(",");
 
   useEffect(() => {
     if (open) {
       setTitle(defaultTitle);
       setMessage("");
     }
-  }, [defaultTitle, open, user?._id]);
+  }, [defaultTitle, open, recipientKey]);
 
   const canSend = message.trim().length > 0 && !isSending;
+  const recipientText =
+    users.length === 1
+      ? `Send a notification to ${users[0]?.name}.`
+      : `Send a notification to ${users.length} selected users.`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Message</DialogTitle>
-          <DialogDescription>
-            {user?.name ? `Send a notification to ${user.name}.` : null}
-          </DialogDescription>
+          <DialogDescription>{recipientText}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
