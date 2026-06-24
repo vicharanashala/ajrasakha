@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { toast } from 'sonner';
 import { Square } from 'lucide-react';
 import { getNextState, getJob, stopJob } from '../../api';
 import PipelineOutput, {
@@ -10,7 +11,6 @@ import PipelineOutput, {
   PrePipelineOutput,
   PostPipelineOutput,
 } from '../JobsPanel/PipelineOutput';
-import { toast } from '@/shared/components/toast';
 
 const inputClass =
   'w-full bg-input border border-border rounded-md px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring transition-shadow';
@@ -400,9 +400,7 @@ export default function RunTile({ title, description, fields, onRun, cropNames, 
     }
 
     setSubmitting(true);
-    let toastId;
     try {
-      toastId = toast.loading('work in progress...')
       const stateValue = values['state'] || '';
       const districtValue = values['district'] || '';
       const domains = values['domains'] || [];
@@ -417,12 +415,10 @@ export default function RunTile({ title, description, fields, onRun, cropNames, 
       const jid = result.job_id;
       setJobId(jid);
       setJobData({ job_id: jid, status: 'running', stdout: '', stderr: '' });
-      toast.dismiss(toastId)
       toast.success(`Job queued → ${jid}`);
       persistJob(jid, innerFolder, domains);
       startPolling(jid);
     } catch (err) {
-      toast.dismiss(toastId)
       toast.error(err.message || 'Unknown error');
     } finally {
       setSubmitting(false);

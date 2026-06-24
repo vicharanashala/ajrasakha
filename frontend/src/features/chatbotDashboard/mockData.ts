@@ -217,8 +217,6 @@ export const DASHBOARD_DATA = {
     ajrasakhaQuestionAsked: 0,
     whatsappAnsweredWithin120Min: 0,
     ajrasakhaAnsweredWithin120Min: 0,
-    whatsappPassedQuestions: 0,
-    ajrasakhaPassedQuestions: 0,
     whatsappAverageResponseMinutes: 0,
     ajrasakhaAverageResponseMinutes: 0,
     whatsappInProcessCount: 0,

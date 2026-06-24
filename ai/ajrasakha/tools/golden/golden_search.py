@@ -46,44 +46,55 @@ log = logging.getLogger(__name__)
 SELECTION_RULE = "relevance_filter_then_same_intent_then_covered_by_context"
 
 
-def _apply_crop_fallback_metadata(
-    response: dict[str, Any],
-    *,
-    original_crop: str,
-    crop_fallback: bool,
-) -> None:
-    if not crop_fallback:
-        return
-    response["original_crop"] = original_crop
-    response["crop_fallback"] = True
-    audit = response.get("classification_audit") or {}
-    audit["crop_fallback"] = True
-    audit["original_crop"] = original_crop
-    response["classification_audit"] = audit
-
-
-def _exact_match_response(
-    query: str,
-    state: str,
+async def gdb_search(
+    rephrased_query: str,
     crop: str,
-    pair: QuestionAnswerPair,
+    state: str,
     *,
-    original_crop: str,
-    crop_fallback: bool,
+    season: Optional[str] = None,
+    domain: Optional[str] = None,
 ) -> dict[str, Any]:
+    crop, state = _normalize_crop_state(crop, state)
+    query = (rephrased_query or "").strip()
+    if not query:
+        raise ValueError("rephrased_query is required")
+
+    log.info(
+        "gdb_search start rephrased_query=%r crop=%s state=%s",
+        _truncate_text(query, 80),
+        crop,
+        state,
+    )
+
     response: dict[str, Any] = {
         "rephrased_query": query,
         "state": state,
         "crop": crop,
-        "exact_match": match_entry(
+        "exact_match": {},
+        "selected_match": None,
+        "classification_audit": {
+            "status": "empty",
+            "model": GEMMA_MODEL,
+            "relevance_filter_mode": "batch_all_candidates",
+            "evaluations": [],
+            "selected_question_id": None,
+            "selection_rule": SELECTION_RULE,
+        },
+    }
+
+    strict_results = await strict_exact_search(query=query, crop=crop, state=state)
+    log.info("gdb_search strict exact returned %d hit(s)", len(strict_results))
+
+    if strict_results:
+        pair = strict_results[0]
+        response["exact_match"] = match_entry(
             pair,
             RETRIEVAL_SOURCE_STRICT_EXACT,
             similarity_score=1.0,
             chosen_for_answer=True,
             answer_from_class="strict_exact",
-        ),
-        "selected_match": None,
-        "classification_audit": {
+        )
+        response["classification_audit"] = {
             "status": "exact_bypass",
             "model": GEMMA_MODEL,
             "evaluations": [],
@@ -92,32 +103,22 @@ def _exact_match_response(
             "selection_method": "strict_exact",
             "chosen_for_answer": True,
             "answer_from_class": "strict_exact",
-        },
-    }
-    _apply_crop_fallback_metadata(
-        response,
-        original_crop=original_crop,
-        crop_fallback=crop_fallback,
+        }
+        log.info("gdb_search done path=strict_exact question_id=%s", pair.question_id)
+        return response
+
+    rag_pairs = await vector_rag_search(
+        query,
+        crop,
+        state,
+        season=season,
+        domain=domain,
     )
-    return response
+    if not rag_pairs:
+        log.warning("gdb_search done path=empty (no vector hits)")
+        return response
 
-
-async def _run_gemma_pipeline(
-    query: str,
-    crop: str,
-    state: str,
-    rag_pairs: list[QuestionAnswerPair],
-    response: dict[str, Any],
-    *,
-    original_crop: str,
-    crop_fallback: bool,
-) -> dict[str, Any]:
-    _apply_crop_fallback_metadata(
-        response,
-        original_crop=original_crop,
-        crop_fallback=crop_fallback,
-    )
-
+    # Stage 1: one batch LLM call — all RAG candidates; may detect SAME for early bypass
     filter_results = await filter_relevance_batch(
         query, rag_pairs, crop=crop, state=state
     )
@@ -222,6 +223,7 @@ async def _run_gemma_pipeline(
         )
         return response
 
+    # Stage 2: intent classification on kept pairs only
     classify_tasks = [
         classify_pair(
             original_query=query,
@@ -242,6 +244,7 @@ async def _run_gemma_pipeline(
         ev["llm_parse_ok"] = cls_result.get("llm_parse_ok", False)
         ev["action"] = "classified"
 
+    # Stage 3: select best (2+ same class → LLM tie-breaker; 1 → auto-pick)
     selection = await select_best_match(query, kept_pairs, classify_results)
     audit = response["classification_audit"]
     audit["evaluations"] = evaluations
@@ -305,121 +308,3 @@ async def _run_gemma_pipeline(
         rule,
     )
     return response
-
-
-async def gdb_search(
-    rephrased_query: str,
-    crop: str,
-    state: str,
-    *,
-    season: Optional[str] = None,
-    domain: Optional[str] = None,
-) -> dict[str, Any]:
-    crop, state = _normalize_crop_state(crop, state)
-    original_crop = crop
-    crop_fallback = False
-    query = (rephrased_query or "").strip()
-    if not query:
-        raise ValueError("rephrased_query is required")
-
-    log.info(
-        "gdb_search start rephrased_query=%r crop=%s state=%s",
-        _truncate_text(query, 80),
-        crop,
-        state,
-    )
-
-    response: dict[str, Any] = {
-        "rephrased_query": query,
-        "state": state,
-        "crop": crop,
-        "exact_match": {},
-        "selected_match": None,
-        "classification_audit": {
-            "status": "empty",
-            "model": GEMMA_MODEL,
-            "relevance_filter_mode": "batch_all_candidates",
-            "evaluations": [],
-            "selected_question_id": None,
-            "selection_rule": SELECTION_RULE,
-        },
-    }
-
-    strict_results = await strict_exact_search(query=query, crop=crop, state=state)
-    log.info("gdb_search strict exact returned %d hit(s)", len(strict_results))
-
-    if strict_results:
-        log.info(
-            "gdb_search done path=strict_exact question_id=%s",
-            strict_results[0].question_id,
-        )
-        return _exact_match_response(
-            query,
-            state,
-            crop,
-            strict_results[0],
-            original_crop=original_crop,
-            crop_fallback=False,
-        )
-
-    rag_pairs = await vector_rag_search(
-        query,
-        crop,
-        state,
-        season=season,
-        domain=domain,
-    )
-
-    if not rag_pairs and crop != "all":
-        log.info(
-            "gdb_search: no retrieval hits for crop=%s; retrying with crop=all",
-            crop,
-        )
-        crop_fallback = True
-        strict_results = await strict_exact_search(query=query, crop="all", state=state)
-        log.info(
-            "gdb_search strict exact (crop=all) returned %d hit(s)",
-            len(strict_results),
-        )
-        if strict_results:
-            log.info(
-                "gdb_search done path=strict_exact_crop_fallback question_id=%s",
-                strict_results[0].question_id,
-            )
-            return _exact_match_response(
-                query,
-                state,
-                "all",
-                strict_results[0],
-                original_crop=original_crop,
-                crop_fallback=True,
-            )
-
-        rag_pairs = await vector_rag_search(
-            query,
-            "all",
-            state,
-            season=season,
-            domain=domain,
-        )
-        crop = "all"
-        response["crop"] = "all"
-
-    if not rag_pairs:
-        _apply_crop_fallback_metadata(
-            response,
-            original_crop=original_crop,
-            crop_fallback=crop_fallback,
-        )
-        log.warning("gdb_search done path=empty (no vector hits)")
-        return response
-
-    return await _run_gemma_pipeline(
-        query,
-        crop,
-        state,
-        rag_pairs,
-        response,
-        original_crop=original_crop,
-        crop_fallback=crop_fallback,
-    )

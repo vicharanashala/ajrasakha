@@ -49,6 +49,7 @@ import type {
   QuestionStatus,
   UserRole,
 } from "@/types";
+import { toast } from "sonner";
 import { ConfirmationModal } from "../../components/confirmation-modal";
 import { OutreachReportModal } from "@/features/question_details/components/OutreachReport";
 import { useAddQuestion } from "@/hooks/api/question/useAddQuestion";
@@ -82,7 +83,6 @@ import { ReallocationManualModal } from "../../components/ReallocationManualModa
 
 import { TopRightBadge } from "@/components/NewBadge";
 import DownloadShiftWiseReportButton from "./DownloadShiftWiseReportButton";
-import { toast } from "@/shared/components/toast";
 
 type QuestionsFiltersProps = {
   search: string;
@@ -103,8 +103,8 @@ type QuestionsFiltersProps = {
   selectedQuestionIds: string[];
   setIsSelectionModeOn: (value: boolean) => void;
   setSelectedQuestionIds: (value: string[]) => void;
-  viewMode: "all" | "review-level";
-  setViewMode: (v: "all" | "review-level") => void;
+  viewMode: "all" | "review-level" | "dedicated";
+  setViewMode: (v: "all" | "review-level" | "dedicated") => void;
   sort: string;
   onSort: (key: string) => void;
   showClosedAt?: boolean;
@@ -221,59 +221,56 @@ export const QuestionsFilters = ({
     }
   }, [isReAllocateOpen, pendingReallocateType]);
 
-  // const handleReAllocateLessWorkload = async (type?: string) => {
-  //   try {
-  //     setIsReAllocateDisabled(true);
-  //     const res = await reAllocateLessWorkload(type);
+  const handleReAllocateLessWorkload = async (type?: string) => {
+    try {
+      setIsReAllocateDisabled(true);
+      const res = await reAllocateLessWorkload(type);
 
-  //     if (!res) {
-  //       toast.error("No response from server");
-  //       setIsReAllocateDisabled(false);
-  //       return;
-  //     }
-  //     if (res.message === "Workload balancing started in background" || res.message === "Inactive-to-Active reallocation started in background") {
-  //       toast.success(
-  //         "Workload balancing has started in the background. Please wait 50 seconds before reallocating again.",
-  //       );
+      if (!res) {
+        toast.error("No response from server");
+        setIsReAllocateDisabled(false);
+        return;
+      }
+      if (res.message === "Workload balancing started in background" || res.message === "Inactive-to-Active reallocation started in background") {
+        toast.success(
+          "Workload balancing has started in the background. Please wait 50 seconds before reallocating again.",
+        );
 
-  //       // Show detailed toast if it was an inactive-to-active reallocation
-  //       if (type === "inactive") {
-  //         toast.info(
-  //           `Found ${res.inactiveExpertsFound || 0} inactive experts. Reallocating ${res.submissionsProcessed || 0} tasks to ${res.expertsInvolved || 0} active experts.`,
-  //           { duration: 6000 }
-  //         );
-  //       }
+        // Show detailed toast if it was an inactive-to-active reallocation
+        if (type === "inactive") {
+          toast.info(
+            `Found ${res.inactiveExpertsFound || 0} inactive experts. Reallocating ${res.submissionsProcessed || 0} tasks to ${res.expertsInvolved || 0} active experts.`,
+            { duration: 6000 }
+          );
+        }
 
-  //       // Re-enable button after 50 seconds
-  //       setTimeout(() => {
-  //         setIsReAllocateDisabled(false);
-  //       }, 50000);
-  //       // Any other message from backend
-  //       toast.success(res.message);
-  //       setIsReAllocateDisabled(false);
-  //     }
-  //     refetch();
-  //   } catch (error) {
-  //     toast.error(
-  //       "Failed to reAllocate question for those who has less workload",
-  //     );
-  //     console.error(
-  //       "Error reAllocating question who has less workload question:",
-  //       error,
-  //     );
-  //     setIsReAllocateDisabled(false);
-  //   }
-  // };
+        // Re-enable button after 50 seconds
+        setTimeout(() => {
+          setIsReAllocateDisabled(false);
+        }, 50000);
+        // Any other message from backend
+        toast.success(res.message);
+        setIsReAllocateDisabled(false);
+      }
+      refetch();
+    } catch (error) {
+      toast.error(
+        "Failed to reAllocate question for those who has less workload",
+      );
+      console.error(
+        "Error reAllocating question who has less workload question:",
+        error,
+      );
+      setIsReAllocateDisabled(false);
+    }
+  };
 
   //reAllocate selected questions to experts with less workload
   const handleReAllocateSelectedQuestions = async () => {
-    let toastId;
     try {
-      toastId = toast.loading('reallocating...')
       setIsReAllocateDisabled(true);
-
       const res = await reAllocateExpertsSelectedQuestions(selectedQuestionIds);
-      toast.dismiss(toastId)
+
       if (!res) {
         toast.error("No response from server");
         return;
@@ -303,7 +300,6 @@ export const QuestionsFilters = ({
       }
       refetch();
     } catch (error) {
-      toast.dismiss(toastId)
       toast.error(
         "Failed to reAllocate selected question",
       );
@@ -325,7 +321,6 @@ export const QuestionsFilters = ({
     _status?: QuestionStatus,
     formData?: FormData,
   ) => {
-    let toastId;
     try {
       if (mode !== "add") return;
       if (formData) {
@@ -397,7 +392,7 @@ export const QuestionsFilters = ({
         validationErrors.season = "Please select the Season field.";
       }
 
-      if (!domain?.trim()) {
+      if (!domain?.length) {
         validationErrors.domain = "Please select the Domain field.";
       }
 
@@ -422,11 +417,8 @@ export const QuestionsFilters = ({
 
   const handleDownloadCrops = async () => {
     setIsDownloadingCrops(true);
-    let toastId;
     try {
-      toastId = toast.loading('downloading...')
       const blob = await cropService.downloadList('crop');
-      toast.dismiss(toastId)
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -434,7 +426,6 @@ export const QuestionsFilters = ({
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      toast.dismiss(toastId)
       toast.error("Failed to download crops list.");
     } finally {
       setIsDownloadingCrops(false);
@@ -442,12 +433,9 @@ export const QuestionsFilters = ({
   };
 
   const handleDownloadChemicals = async () => {
-    let toastId;
     setIsDownloadingChemicals(true);
     try {
-      toastId = toast.loading('downlading...')
       const blob = await cropService.downloadList('chemical');
-      toast.dismiss(toastId)
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -455,7 +443,6 @@ export const QuestionsFilters = ({
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      toast.dismiss(toastId)
       toast.error("Failed to download chemicals list.");
     } finally {
       setIsDownloadingChemicals(false);
@@ -703,7 +690,7 @@ export const QuestionsFilters = ({
   }
 
   return (
-    <div className="w-full p-4 border-b bg-card ms-2 md:ms-0  rounded flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+    <div className="w-full px-4 pt-3 pb-2 border-b bg-card ms-2 md:ms-0 rounded flex flex-col gap-2.5">
       {/* Add Dialog */}
       <AddOrEditQuestionDialog
         open={addOpen}
@@ -718,103 +705,62 @@ export const QuestionsFilters = ({
         onFieldValidatedChange={clearAddQuestionError}
       />
 
-      {/* SEARCH BAR – full width on mobile, fixed width on desktop */}
-      <div className="w-full sm:flex-1 sm:min-w-[250px] sm:max-w-[400px]">
-        <div className="relative w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-
-          <Input
-            placeholder="Search questions by id, state, crops..."
-            value={search}
-            onChange={(e) => {
-              if (userRole !== "expert") onReset();
-              setSearch(e.target.value);
-            }}
-            className="pl-9 pr-9 bg-background"
-          />
-
-          {search && (
-            <button
-              onClick={() => setSearch("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">
-        <div className="flex items-center rounded-lg border border-border bg-muted/40 p-1">
-          <button
-            onClick={() => {
-              handleAnswerModeChange("ajraskha");
-            }}
-            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${answerMode === "ajraskha"
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-              }`}
-          >
-            AJRASKHA
-          </button>
-
-          <button
-            onClick={() => {
-              handleAnswerModeChange("manual");
-            }}
-            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${answerMode === "manual"
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-              }`}
-          >
-            Manual
-          </button>
-
-          <button
-            onClick={() => handleAnswerModeChange("outreach")}
-            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${answerMode === "outreach"
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-              }`}
-          >
-            Outreach
-          </button>
-
-          <button
-            onClick={() => {
-              handleAnswerModeChange("whatsapp");
-            }}
-            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${answerMode === "whatsapp"
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-              }`}
-          >
-            Whatsapp
-          </button>
-
-        </div>
-      </div> */}
-
+      {/* ── ROW 1: Tabs (full width, scrollable on small screens) ── */}
       <AnswerModeSwitcher
         answerMode={answerMode}
-        handleAnswerModeChange={handleAnswerModeChange}
+        handleAnswerModeChange={(mode) => {
+          if (viewMode === "dedicated") setViewMode("all");
+          handleAnswerModeChange(mode);
+        }}
         hasSearch={!!search}
         sourceCounts={statusSummary?.sourceCounts}
         totalSearchCount={search ? statusSummary?.totalQuestions : undefined}
+        showDedicated={userRole === "moderator"}
+        isDedicatedView={viewMode === "dedicated"}
+        onDedicatedClick={() => setViewMode(viewMode === "dedicated" ? "all" : "dedicated")}
       />
 
-      <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">
-        <div className="relative hidden md:flex items-center gap-2">
+      {/* ── ROW 2: Search + View + Filter + Add ── */}
+      <div className="flex items-center gap-2 w-full">
+        {/* Search bar — capped width */}
+        <div className="w-full max-w-xs sm:max-w-sm min-w-0">
+          <div className="relative w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search..."
+              value={search}
+              onChange={(e) => {
+                if (userRole !== "expert") onReset();
+                setSearch(e.target.value);
+              }}
+              className="pl-9 pr-9 bg-background text-sm"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Spacer pushes controls to the right */}
+        <div className="flex-1" />
+
+        {/* Grid view toggle */}
+        <div className="hidden md:flex items-center gap-2 flex-shrink-0">
           <ViewDropdown view={view} setView={setView} />
         </div>
 
-        {/* tools and filters */}
+        {/* Filter */}
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 onClick={() => setIsSidebarOpen(true)}
-                className="p-2 rounded-md border border-gray-200 bg-white hover:bg-gray-50 dark:bg-[#1a1a1a] dark:border-gray-800"
+                className="p-2 rounded-md border border-gray-200 bg-white hover:bg-gray-50 dark:bg-[#1a1a1a] dark:border-gray-800 flex-shrink-0"
               >
                 <Filter className="h-4 w-4" />
               </Button>
@@ -823,12 +769,13 @@ export const QuestionsFilters = ({
           </Tooltip>
         </TooltipProvider>
 
+        {/* Add Question */}
         {userRole !== "expert" && userRole !== "tester" && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  className="flex items-center justify-center px-3 py-1.5 text-sm font-medium"
+                  className="flex items-center justify-center px-3 py-1.5 text-sm font-medium flex-shrink-0"
                   onClick={() => {
                     setAddQuestionErrors({});
                     setAddOpen(true);
@@ -841,6 +788,10 @@ export const QuestionsFilters = ({
             </Tooltip>
           </TooltipProvider>
         )}
+      </div>
+
+      {/* ── Bulk-action bar (selection mode only) ── */}
+      <div className="w-full flex flex-wrap items-center gap-2 justify-end">
 
         {isSelectionModeOn && (
           <div className="hidden md:flex items-center gap-4 whitespace-nowrap">
@@ -984,7 +935,7 @@ export const QuestionsFilters = ({
             </h3>
             <div className="grid grid-cols-2 gap-2 p-1 bg-gray-100 dark:bg-[#0d0d0d] rounded-lg border border-gray-200 dark:border-gray-800">
               <button
-                className={`py-2.5 px-3 rounded-md text-sm font-medium flex items-center justify-center gap-2 transition-all ${viewMode === "all" ? "bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm" : "text-gray-500 hover:text-gray-900 dark:hover:text-white"}`}
+                className={`py-2.5 px-3 rounded-md text-sm font-medium flex items-center justify-center gap-2 transition-all ${viewMode === "all" || viewMode === "dedicated" ? "bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm" : "text-gray-500 hover:text-gray-900 dark:hover:text-white"}`}
                 onClick={() => setViewMode("all")}
               >
                 <LayoutGrid size={14} /> Normal

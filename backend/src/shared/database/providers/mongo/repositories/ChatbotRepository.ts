@@ -58,17 +58,31 @@ import { buildBaseQuestionMatch } from '#root/utils/dashboard-filters.js';
 
 const EXTERNAL_USER_ROLES = ['FARMER', ...COORDINATOR_ROLES] as const;
 
+// const buildExternalUserMatch = () => ({
+//   $or: [
+//     {userRole: {$in: EXTERNAL_USER_ROLES}},
+//     {role: {$in: COORDINATOR_ROLES}},
+//   ],
+// });
+
 const buildExternalUserMatch = () => ({
   $or: [
     {userRole: {$in: EXTERNAL_USER_ROLES}},
-    {role: {$in: COORDINATOR_ROLES}},
+    {userRole: {$in: COORDINATOR_ROLES}},
   ],
 });
+
+// const buildExternalJoinedUserMatch = (prefix: string) => ({
+//   $or: [
+//     {[`${prefix}.userRole`]: {$in: EXTERNAL_USER_ROLES}},
+//     {[`${prefix}.role`]: {$in: COORDINATOR_ROLES}},
+//   ],
+// });
 
 const buildExternalJoinedUserMatch = (prefix: string) => ({
   $or: [
     {[`${prefix}.userRole`]: {$in: EXTERNAL_USER_ROLES}},
-    {[`${prefix}.role`]: {$in: COORDINATOR_ROLES}},
+    {[`${prefix}.userRole`]: {$in: COORDINATOR_ROLES}},
   ],
 });
 
@@ -481,14 +495,29 @@ export class ChatbotRepository implements IChatbotRepository {
     );
   }
 
-  private normalizeDistrictName(district: string): string {
-    return district
-      .replace(/\([^)]*\)/g, '')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .toLowerCase();
-  }
+  // private normalizeDistrictName(district: string): string {
+  //   return district
+  //     .replace(/\([^)]*\)/g, '')
+  //     .replace(/\s+/g, ' ')
+  //     .trim()
+  //     .toLowerCase();
+  // }
+private normalizeDistrictName(
+  district: string,
+): string {
+  const normalized = district
+    .replace(/\([^)]*\)/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
 
+  const aliases: Record<string, string> = {
+    chamarajanagara: 'chamarajanagar',
+    baramula: 'baramulla',
+  };
+
+  return aliases[normalized] ?? normalized;
+}
   private readonly coordinatorsRoles = COORDINATOR_ROLES;
 
   private async getSourceAdherenceStats(
@@ -1805,7 +1834,10 @@ export class ChatbotRepository implements IChatbotRepository {
         {
           $match: matchQuery,
         },
-
+        {
+          $unwind: '$details.domain',
+          preserveNullAndEmptyArrays: false,
+        },
         // ...lookupStages,
 
         {
@@ -2825,9 +2857,9 @@ if (!districts.length) {
                 },
               },
 
-              stateCoordinator: {
+              villageVolunteer: {
                 $sum: {
-                  $cond: [{$eq: ['$userRole', 'state_coordinator']}, 1, 0],
+                  $cond: [{$eq: ['$userRole', 'village_volunteer']}, 1, 0],
                 },
               },
 
@@ -2846,6 +2878,8 @@ if (!districts.length) {
           },
         ])
         .toArray();
+
+        // console.log("District user", districtUsers);
 
       const userMap = new Map();
 
@@ -2996,7 +3030,7 @@ if (!districts.length) {
           coordinators: userData?.coordinators ?? 0,
           avgClosingMsTime: existing?.avgCloseTimeHours ?? 0,
 
-          stateCoordinator: userData?.stateCoordinator ?? 0,
+          villageVolunteer: userData?.villageVolunteer ?? 0,
 
           districtCoordinator: userData?.districtCoordinator ?? 0,
 
@@ -6510,20 +6544,32 @@ if (!districts.length) {
         'village_volunteer',
       ];
 
+      const filtredRoles = allUsers.filter((obj)=> coordinatorRoles.includes(obj.userRole));
+
       const userRoleCounts = {
         farmer: 0,
         coordinator: 0,
         internal: 0,
+        districtCoordinator: 0,
+        blockCoordinator: 0,
+        villageVolunteer: 0,
       };
 
       for (const user of allUsers) {
-        const role = (user.userRole || '').toLowerCase();
+        const role = (user.userRole || '');
 
-        if (role === 'farmer') {
+        if (role === 'FARMER') {
           userRoleCounts.farmer++;
         } else if (coordinatorRoles.includes(role)) {
           userRoleCounts.coordinator++;
-        } else if (role === 'internal') {
+          if(role === "district_coordinator"){
+            userRoleCounts.districtCoordinator++
+          }else if(role === "block_coordinator"){
+            userRoleCounts.blockCoordinator++
+          }else{
+            userRoleCounts.villageVolunteer++
+          }
+        } else if (role === 'INTERNAL') {
           userRoleCounts.internal++;
         }
       }
@@ -7030,6 +7076,10 @@ if (!districts.length) {
               $first: '$userId',
             },
 
+            latestId: {
+              $first: '$_id',
+            },
+
             allCreatedAt: {
               $push: '$createdAt',
             },
@@ -7038,7 +7088,7 @@ if (!districts.length) {
 
         {
           $project: {
-            _id: 0,
+            _id: '$latestId',
 
             messageId: '$latestMessageId',
 
@@ -13504,6 +13554,39 @@ if (!districts.length) {
     }
   }
 
+  async getUserEmailByConversationId(conversationId: string, source = 'annam'): Promise<string | null> {
+    try {
+      await this.init(source);
+
+      const conversation = await this.conversations.findOne(
+        {conversationId},
+        {projection: {user: 1}},
+      );
+
+      if (!conversation?.user) {
+        return null;
+      }
+
+      const userId = conversation.user.toString();
+      const isValidObjectId =
+        ObjectId.isValid(userId) && String(new ObjectId(userId)) === userId;
+
+      if (!isValidObjectId) {
+        return null;
+      }
+
+      const user = await this.users.findOne(
+        {_id: new ObjectId(userId)},
+        {projection: {email: 1}},
+      );
+
+      return user?.email || null;
+    } catch (error) {
+      console.error(`Failed to get user email by conversationId: ${error}`);
+      return null;
+    }
+  }
+
   private normalizeState(state: string) {
     const stateAliases: Record<string, string> = {
       'andhra pradesh': 'andra pradesh',
@@ -13610,6 +13693,27 @@ if (!districts.length) {
       const todayEnd = new Date();
       todayEnd.setHours(23, 59, 59, 999);
 
+
+      const debugRoles = await this.users.aggregate([
+  {
+    $match: {
+      isVerified: true,
+      'farmerProfile.state': { $exists: true },
+      ...userDocFilter,
+    },
+  },
+  {
+    $group: {
+      _id: '$userRole',
+      count: {
+        $sum: 1,
+      },
+    },
+  },
+]).toArray();
+
+
+
       const usersByState = await this.users
         .aggregate([
           {
@@ -13682,6 +13786,10 @@ if (!districts.length) {
         ])
         .toArray();
 
+//         console.log(
+//   JSON.stringify(usersByState, null, 2),
+// );
+
       const totalActiveFromStates = usersByState.reduce(
         (sum, s) => sum + s.activeUsers,
         0,
@@ -13727,16 +13835,19 @@ if (!districts.length) {
           existing.totalUsers += u.totalUsers;
           existing.activeUsers += u.activeUsers;
 
-          existing.districtCoordinators = u.districtCoordinators ?? 0;
+         existing.districtCoordinators +=
+  u.districtCoordinators ?? 0;
 
-          existing.blockCoordinators = u.blockCoordinators ?? 0;
+existing.blockCoordinators +=
+  u.blockCoordinators ?? 0;
 
-          existing.villageVolunteers = u.villageVolunteers ?? 0;
+existing.villageVolunteers +=
+  u.villageVolunteers ?? 0;
 
           existing.coordinators =
-            (u.districtCoordinators ?? 0) +
-            (u.blockCoordinators ?? 0) +
-            (u.villageVolunteers ?? 0);
+            (existing.districtCoordinators) +
+            (existing.blockCoordinators ) +
+            (existing.villageVolunteers );
         } else {
           stateMap.set(key, {
             state: u._id,
@@ -13760,7 +13871,6 @@ if (!districts.length) {
           });
         }
       }
-
       return Array.from(stateMap.values());
     } catch (error) {
       throw new InternalServerError(`Internal server error ${error}`);
@@ -14192,6 +14302,9 @@ if (!districts.length) {
       };
       let unAssigned = [];
       let assigned = [];
+      // The coordinator one level up in the hierarchy. Populated by the coordinator
+      // lookup below when applicable; null otherwise.
+      let parentCoordinator: any = null;
       if (
         [
           'district_coordinator',
@@ -14320,6 +14433,7 @@ if (!districts.length) {
         farmerDashboard,
         unAssigned: unAssigned ?? [],
         assigned: assigned ?? [],
+        parentCoordinator,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get user profile: ${error}`);
@@ -14568,7 +14682,7 @@ if (!districts.length) {
           },
         ])
         .toArray();
-      console.log('Data got it', data);
+      // console.log('Data got it', data);
       return data;
     } catch (error) {
       throw new InternalServerError(`Internal Server Error ${error}`);

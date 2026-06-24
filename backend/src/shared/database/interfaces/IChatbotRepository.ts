@@ -906,6 +906,11 @@ export interface IChatbotRepository {
     source: string,
     userType: string,
     session?: ClientSession): Promise<any>
+
+  getUserEmailByConversationId(
+    conversationId: string,
+    source?: string,
+  ): Promise<string | null>
 }
 
 export interface ChatbotConversationData {

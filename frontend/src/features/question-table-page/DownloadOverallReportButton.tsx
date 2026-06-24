@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "../../components/atoms/button";
 import { Download, Loader2, CalendarIcon } from "lucide-react";
+import { toast } from "sonner";
 import { QuestionService } from "@/hooks/services/questionService";
 import {
   Dialog,
@@ -15,7 +16,6 @@ import { Calendar } from "@/components/atoms/calendar";
 import { formatDateLocal } from "@/utils/formatDate";
 import type { DateRange } from "react-day-picker";
 import { format } from "date-fns";
-import { toast } from "@/shared/components/toast";
 
 export const DownloadOverallReportButton = ({ onOpenDialog }: { onOpenDialog?: () => void }) => {
   const questionService = new QuestionService();
@@ -32,10 +32,10 @@ export const DownloadOverallReportButton = ({ onOpenDialog }: { onOpenDialog?: (
       setIsDateDialogOpen(true);
       return;
     }
-    let toastId;
+
     try {
       setIsDownloading(true);
-      toastId=toast.loading("Preparing download...");
+      toast.info("Preparing download...");
 
       const startDate = formatDateLocal(downloadDateRange.from);
       const endDate = formatDateLocal(downloadDateRange.to);
@@ -55,11 +55,10 @@ export const DownloadOverallReportButton = ({ onOpenDialog }: { onOpenDialog?: (
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      toast.dismiss(toastId)
+
       toast.success("Overall report downloaded successfully!");
       setIsDateDialogOpen(false);
     } catch (error) {
-      toast.dismiss(toastId)
       console.error("Download error:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to download overall report";
       toast.error(errorMessage);

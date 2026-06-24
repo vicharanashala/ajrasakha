@@ -21,11 +21,11 @@ import {
 import { TimerDisplay } from "../../components/timer-display";
 import { formatDate } from "@/utils/formatDate";
 import { getTimerStartTime } from "@/utils/getTimerStartTime";
-import { AlertCircle, AlertTriangle, BadgeCheck, CheckCircle, Circle, Clock, Edit, Eye, Square, Trash, User, XCircle } from "lucide-react";
+import { AlertCircle, AlertTriangle, BadgeCheck, CheckCircle, Circle, Clock, Edit, Eye, Square, Trash, User, XCircle,ChevronDown } from "lucide-react";
+import { toast } from "sonner";
 import { ConfirmationModal } from "../../components/confirmation-modal";
 import { useQuestionTableStore } from "@/stores/all-questions";
 import { useQuestionTimer } from "@/hooks/ui/useQuestionTimer";
-import { toast } from "@/shared/components/toast";
 
 interface QuestionRowProps {
   q: IDetailedQuestion;
@@ -59,6 +59,7 @@ interface QuestionRowProps {
   onViewMore: (id: string) => void;
   showClosedAt?: boolean;
   isLoading?: boolean;
+  isDedicatedView?: boolean;
 }
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
@@ -85,6 +86,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
   selectedQuestionIds,
   showClosedAt,
   isLoading,
+  isDedicatedView,
 }) => {
   //visible columns
   const visibleColumns = useQuestionTableStore((state) => state.visibleColumns);
@@ -328,6 +330,11 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
           <TableCell className="text-start ps-0">
             <div className="flex items-center gap-2">
               {visibleColumns.priority && <PriorityBadge priority={q.priority} />}
+              {isDedicatedView && q.source && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border bg-blue-500/10 text-blue-600 border-blue-500/30 whitespace-nowrap">
+                  {q.source === "AGRI_EXPERT" ? "Manual" : q.source}
+                </span>
+              )}
               {q.pae_review && (
                 <span className="inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium border bg-purple-500/10 text-purple-600 border-purple-500/30 whitespace-nowrap">
                   PAE
@@ -403,8 +410,34 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
           )}
           {visibleColumns.domain && (
             <TableCell className="align-middle">
-              {truncate(q.details.domain, 22)}
-            </TableCell>
+  {Array.isArray(q.details.domain) && q.details.domain.length > 0 ? (
+    <div className="relative inline-block w-full max-w-[200px]">
+      
+      <select 
+        className="block w-full appearance-none bg-slate-50 border border-slate-200 text-slate-700 text-sm rounded-md py-1.5 pl-3 pr-14 focus:outline-none cursor-pointer hover:bg-slate-100 transition-colors"
+      >
+        {q.details.domain.map((domain, index) => (
+          <option key={index} value={domain} title={domain}>
+            {truncate(domain, 22)}
+          </option>
+        ))}
+      </select>
+      
+      {/* Custom Count Badge & Lucide Dropdown Arrow */}
+      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 gap-1 text-slate-500">
+        {q.details.domain.length > 1 && (
+          <span className="text-[10px] font-semibold bg-slate-200/80 text-slate-600 px-1.5 py-0.5 rounded-full">
+            {q.details.domain.length}
+          </span>
+        )}
+        <ChevronDown className="h-4 w-4" />
+      </div>
+      
+    </div>
+  ) : (
+    <span className="text-slate-400 text-sm">N/A</span>
+  )}
+</TableCell>
           )}
 
           {/* Source */}

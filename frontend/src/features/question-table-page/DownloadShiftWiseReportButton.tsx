@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "../../components/atoms/button";
 import { Download, Loader2 } from "lucide-react";
 import { formatDateLocal } from "@/utils/formatDate";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -52,7 +53,6 @@ import {
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
 import { TopRightBadge } from "@/components/NewBadge";
-import { toast } from "@/shared/components/toast";
 
 
 //shift based time range

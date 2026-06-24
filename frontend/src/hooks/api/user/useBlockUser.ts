@@ -4,11 +4,7 @@ import { toast } from "@/shared/components/toast";
 
 const userService = new UserService();
 
-interface UseBlockUserProps {
-  isAdmin?: boolean;
-}
-
-export const useBlockUser = ({ isAdmin }: UseBlockUserProps = {}) => {
+export const useBlockUser = () => {
   const queryClient =useQueryClient();
   return useMutation({
     mutationKey:['block_user'],
@@ -17,19 +13,17 @@ export const useBlockUser = ({ isAdmin }: UseBlockUserProps = {}) => {
     },
     onSuccess: () => {
       //  Refresh admin users list
-      if (isAdmin) {
-        queryClient.invalidateQueries({
-          queryKey: ["admin"],
-          exact: false,
-        });
-      }
+      queryClient.invalidateQueries({
+        queryKey: ["users"],
+        exact: false,
+      });
 
       //  Refresh moderator experts list
       queryClient.invalidateQueries({
         queryKey: ["experts"],
         exact: false,
       });
-      // toast.success("User Updated succesfully")
+      toast.success("User Updated succesfully")
     },
     onError: (error: any) => {
       console.error("Error blocking/unblocking user:", error);

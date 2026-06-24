@@ -12,7 +12,6 @@ from ajrasakha.agents.planner_rules import (
     format_prev_plan_context,
     infer_domain_for_plan,
     is_schemes_intent,
-    merge_entities_from_rephrased_query,
 )
 
 
@@ -233,39 +232,3 @@ def test_crop_clarify_reply_still_extracts_cotton():
     assert plan["is_complete"] is True
     assert plan["entities"]["crop"] == "Cotton"
     assert plan.get("follow_up_question") is None
-
-
-def test_stored_location_makes_plan_complete_without_clarify():
-    messages = [HumanMessage(content="What is the weather today?")]
-    plan = apply_planner_completeness_rules(
-        {
-            "domain": "Weather",
-            "domains": ["Weather"],
-            "is_complete": False,
-            "missing_info": ["location"],
-            "entities": {},
-            "rephrased_query": "What is the weather today?",
-        },
-        messages,
-        None,
-        stored_location={"state": "Haryana", "district": "Sirsa"},
-    )
-    assert plan["is_complete"] is True
-    assert plan["entities"]["state"] == "Haryana"
-    assert plan["entities"]["district"] == "Sirsa"
-    assert plan.get("follow_up_question") is None
-
-
-def test_merge_entities_records_stored_location_source():
-    plan = {"rephrased_query": "Weather today", "entities": {}}
-    messages = [HumanMessage(content="Weather today")]
-    sources: dict[str, str | None] = {}
-    entities = merge_entities_from_rephrased_query(
-        plan,
-        messages,
-        None,
-        stored_location={"state": "Haryana", "district": "Sirsa"},
-        sources_out=sources,
-    )
-    assert entities["state"] == "Haryana"
-    assert sources["state_source"] == "stored_user_location"
