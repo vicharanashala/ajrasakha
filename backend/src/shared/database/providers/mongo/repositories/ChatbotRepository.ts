@@ -14440,7 +14440,7 @@ existing.villageVolunteers +=
         farmerDashboard,
         unAssigned: unAssigned ?? [],
         assigned: assigned ?? [],
-        // parentCoordinator,
+        parentCoordinator,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get user profile: ${error}`);
