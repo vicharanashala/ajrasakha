@@ -1063,6 +1063,29 @@ export class UserController {
     }
   }
 
+
+  @OpenAPI({
+    summary: 'Mark call agent as available',
+    description: 'Marks a call agent as available (not busy) if they are active and currently busy.',
+  })
+  @Post('/call-agents/available')
+  @HttpCode(200)
+  @Authorized(['call_agent'])
+  async markAvailable(
+    @CurrentUser() currentUser: IUser,
+  ): Promise<IUser> {
+    const userId = currentUser._id.toString();
+    const user = await this.userService.getUserById(userId);
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+    if (user.isCallAgentActive && user.isBusy) {
+      return await this.userService.markAgentAsAvailable(userId);
+    }
+    return user;
+  }
+
+
   @OpenAPI({
     summary: 'Request account verification',
     description: 'Allows unverified users to send a verification request to all system admins.',

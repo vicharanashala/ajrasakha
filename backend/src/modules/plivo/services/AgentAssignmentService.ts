@@ -102,10 +102,21 @@ export class AgentAssignmentService {
    * Marks an agent as available when their call ends
    */
   async markAgentAsAvailable(userId: string, session?: ClientSession): Promise<void> {
-    await this.userRepository.edit(userId, { 
+    await this.userRepository.edit(userId, {
       isBusy: false,
       currentCallUuid: null
     }, session);
+  }
+
+  /**
+   * Atomically finds and marks an available agent as busy
+   * This prevents race conditions when multiple calls come in simultaneously
+   * @param callUuid - The UUID of the call to assign
+   * @param session - The session for transaction
+   * @returns A promise that resolves to the updated agent if found, or null if no available agent
+   */
+  async findAndMarkAvailableAgent(callUuid: string, session?: ClientSession): Promise<IUser | null> {
+    return await this.userRepository.findAndMarkAvailableAgent(callUuid, session);
   }
 
   /**
@@ -114,7 +125,7 @@ export class AgentAssignmentService {
   getAgentCredentials(agentNumber: string): { username: string} {
     const env = process.env;
     const username = env[`PLIVO_ENDPOINT_USERNAME_${agentNumber.toUpperCase()}`];
-    
+
     if (!username) {
       throw new Error(`Credentials not found for ${agentNumber}. Please set PLIVO_ENDPOINT_USERNAME_${agentNumber.toUpperCase()} in environment variables.`);
     }

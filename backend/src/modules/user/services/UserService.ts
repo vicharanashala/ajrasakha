@@ -874,4 +874,12 @@ export class UserService extends BaseService {
       return selectedAgent;
     });
   }
+
+  /**
+   * Atomically find and mark an available agent as busy
+   * This prevents race conditions when multiple calls come in simultaneously
+   */
+  async findAndMarkAvailableAgent(callUuid: string): Promise<IUser | null> {
+    return await this.userRepo.findAndMarkAvailableAgent(callUuid);
+  }
 }

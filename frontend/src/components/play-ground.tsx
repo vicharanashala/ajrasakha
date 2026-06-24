@@ -29,6 +29,7 @@ import { CallHistory } from "./CallHistory";
 import { ManageCallAgents } from "./ManageCallAgents";
 import { env } from "@/config/env";
 import { DataProcessingDashboard } from "../features/faq-pop/DataProcessingDashboard";
+import { CallAgentDashboard } from "./CallAgentDashboard";
 
 export const PlaygroundPage = () => {
   const { data: user } = useGetCurrentUser({});
@@ -256,6 +257,14 @@ export const PlaygroundPage = () => {
                     >
                       <HoverCard openDelay={150}>
                         <span>Call Interface</span>
+                      </HoverCard>
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="call_dashboard"
+                      className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                    >
+                      <HoverCard openDelay={150}>
+                        <span>Dashboard</span>
                       </HoverCard>
                     </TabsTrigger>
                     <TabsTrigger
@@ -498,6 +507,22 @@ export const PlaygroundPage = () => {
                     )}
                   >
                     <CallInterface />
+                  </TabsContent>
+                )}
+
+              {user?.role === "call_agent" && (
+                  <TabsContent
+                    value="call_dashboard"
+                    className={cn(
+                      "mt-0 border-0 md:px-8 outline-none",
+                      "data-[state=active]:animate-in",
+                      "data-[state=active]:fade-in-0",
+                      "data-[state=active]:zoom-in-[0.98]",
+                      "data-[state=active]:slide-in-from-bottom-3",
+                      "duration-500 ease-out",
+                    )}
+                  >
+                    <CallAgentDashboard />
                   </TabsContent>
                 )}
 

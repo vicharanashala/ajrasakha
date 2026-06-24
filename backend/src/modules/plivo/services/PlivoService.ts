@@ -2,6 +2,7 @@ import { inject, injectable } from 'inversify';
 import { appConfig } from '../../../config/app.js';
 import { WebSocket } from 'ws';
 import plivo from 'plivo';
+import { ObjectId } from 'mongodb';
 import { PLIVO_TYPES } from '../types.js';
 import type { ICallDetailsRepository } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
 
@@ -36,6 +37,7 @@ export class PlivoService {
   private detectedLanguages: Map<string, string> = new Map(); // Store detected languages
   private activeStreams: Map<string, SarvamStreamSession> = new Map();
   private plivoClient: plivo.Client;
+  private callAgentMapping: Map<string, string> = new Map(); // Maps callUuid -> agentUserId
 
   constructor(
     @inject(PLIVO_TYPES.CallDetailsRepository)
@@ -414,6 +416,23 @@ export class PlivoService {
         this.activeStreams.delete(key);
       }
     }
+    // Clear agent mapping for this call
+    this.callAgentMapping.delete(callId);
+  }
+
+  /**
+   * Set the agent userid for a specific call
+   */
+  setCallAgent(callUuid: string, agentUserId: string): void {
+    this.callAgentMapping.set(callUuid, agentUserId);
+    console.log(`✅ [PLIVO-SERVICE] Set agent ${agentUserId} for call ${callUuid}`);
+  }
+
+  /**
+   * Get the agent userid for a specific call
+   */
+  getCallAgent(callUuid: string): string | undefined {
+    return this.callAgentMapping.get(callUuid);
   }
 
   /**
@@ -438,6 +457,7 @@ export class PlivoService {
       const agentTranscript = this.getTranscript(callUuid, 'outbound');
       const agentTranslation = this.getTranslation(callUuid, 'outbound');
       const agentLanguage = this.getDetectedLanguage(callUuid, 'outbound');
+      const agentUserId = this.getCallAgent(callUuid);
 
       const callDetails = {
         callUuid,
@@ -455,6 +475,7 @@ export class PlivoService {
           transcript: agentTranscript,
           translation: agentTranslation,
           detectedLanguage: agentLanguage,
+          userid: agentUserId ? new ObjectId(agentUserId) : undefined,
         }
       };
 

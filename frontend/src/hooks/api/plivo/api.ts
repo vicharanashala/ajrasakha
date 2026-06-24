@@ -35,7 +35,7 @@ export interface CallHistoryItem {
   direction: string;
   callDetails?: {
     caller?: { transcript: string; translation: string; detectedLanguage: string };
-    agent?: { transcript: string; translation: string; detectedLanguage: string };
+    agent?: { transcript: string; translation: string; detectedLanguage: string; userid?: string };
     QA_pairs?: QAPairs;
   };
 }
@@ -84,6 +84,17 @@ export interface CallFarmer {
   profile: FarmerProfile;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface AgentAnalytics {
+  totalCalls: number;
+  callsToday: number;
+  callsThisWeek: number;
+  callsThisMonth: number;
+  averageDuration: number;
+  domains: { domain: string; count: number }[];
+  callsByStatus: { status: string; count: number }[];
+  dailyCallTrend: { date: string; count: number }[];
 }
 
 export class PlivoService {
@@ -199,6 +210,30 @@ export class PlivoService {
       return response || { success: false };
     } catch (error) {
       console.error(`PlivoService.sendMessage: Error sending message to ${destination}:`, error);
+      throw error;
+    }
+  }
+
+  async getAgentAnalytics(params?: {
+    startDate?: string;
+    endDate?: string;
+  }): Promise<AgentAnalytics> {
+    const queryParams = new URLSearchParams();
+
+    if (params?.startDate) queryParams.append('startDate', params.startDate);
+    if (params?.endDate) queryParams.append('endDate', params.endDate);
+
+    const url = `${this._baseUrl}/analytics${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    try {
+      const response = await apiFetch<AgentAnalytics>(url);
+
+      if (!response) {
+        throw new Error('Failed to fetch agent analytics: No response received');
+      }
+
+      return response;
+    } catch (error) {
+      console.error(`PlivoService.getAgentAnalytics: Error fetching analytics:`, error);
       throw error;
     }
   }

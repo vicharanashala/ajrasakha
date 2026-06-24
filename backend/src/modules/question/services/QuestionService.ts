@@ -681,8 +681,27 @@ export class QuestionService extends BaseService implements IQuestionService {
         };
 
         // console.log('[QuestionService] Storing Q/A pairs:', JSON.stringify(qaPairs, null, 2));
-        await this.callDetailsRepository.updateQA_Pairs(callUuid, qaPairs);
-        console.log(`[QuestionService] Successfully stored Q/A pairs for callUuid: ${callUuid}`);
+        
+        // Check if call_details document exists
+        const existingCallDetails = await this.callDetailsRepository.getByCallUuid(callUuid);
+        
+        if (existingCallDetails) {
+          // Update existing document
+          await this.callDetailsRepository.updateQA_Pairs(callUuid, qaPairs);
+          console.log(`[QuestionService] Successfully stored Q/A pairs for callUuid: ${callUuid}`);
+        } else {
+          console.warn(`[QuestionService] Call details document not found for callUuid: ${callUuid}. Creating new document.`);
+          // Create a new call_details document with the Q/A pairs
+          await this.callDetailsRepository.create({
+            callUuid,
+            QA_pairs: qaPairs,
+            status: 'completed',
+            direction: 'inbound',
+            caller: { transcript: '', translation: '', detectedLanguage: 'unknown' },
+            agent: { transcript: '', translation: '', detectedLanguage: 'unknown' }
+          });
+          console.log(`[QuestionService] Created new call details document for callUuid: ${callUuid}`);
+        }
       } else {
         console.log('[QuestionService] Skipping Q/A storage - callUuid or metadata missing');
       }

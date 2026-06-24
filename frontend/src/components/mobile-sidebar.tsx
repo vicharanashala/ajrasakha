@@ -10,6 +10,7 @@ import {
   Menu,
   MessageSquare,
   Phone,
+  TrendingUp,
   Upload,
   Users,
 } from "lucide-react";
@@ -125,6 +126,7 @@ export const MobileSidebar = ({
     ...(user && user.role === "call_agent"
       ? [
           { id: "call_interface", label: "Call Interface", icon: Phone },
+          { id: "call_dashboard", label: "Call Dashboard", icon: TrendingUp },
           ...(user.isCallAgentActive ? [{ id: "call_history", label: "Call History", icon: Clock }] : []),
         ]
       : []),

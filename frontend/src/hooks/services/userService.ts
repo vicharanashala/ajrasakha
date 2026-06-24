@@ -146,6 +146,13 @@ export class UserService {
       body: JSON.stringify({ online }),
     });
   }
+
+  async markAgentAsAvailable(): Promise<IUser | null> {
+    return apiFetch<IUser>(`${this._baseUrl}/call-agents/available`, {
+      method: "POST",
+    });
+  }
+
   /**
    * Get unverified users with search capability
    * @param page - Page number (default: 1)

@@ -13,17 +13,20 @@ import {
   Controller,
   BodyParam,
   JsonController,
+  CurrentUser,
+  UseBefore,
 } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
-import { Request, Response } from 'express';
+import { Request, Response, urlencoded } from 'express';
 import { appConfig } from '#root/config/app.js';
 import { inject, injectable } from 'inversify';
 import plivo from 'plivo';
 import axios from 'axios';
 import { PLIVO_TYPES } from '../types.js';
 import { GLOBAL_TYPES } from '#root/types.js';
-import type { ICallDetailsRepository } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
+import type { ICallDetailsRepository, AgentAnalytics } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
 import type { IUser } from '#root/shared/interfaces/models.js';
+import { PlivoService } from '../services/PlivoService.js';
 
 
 @OpenAPI({
@@ -37,12 +40,14 @@ export class PlivoController {
 
   constructor(
     @inject(PLIVO_TYPES.CallDetailsRepository) private callDetailsRepository: ICallDetailsRepository,
-    @inject(GLOBAL_TYPES.UserService) private userService: any
-  ) {}
+    @inject(GLOBAL_TYPES.UserService) private userService: any,
+    @inject(PLIVO_TYPES.PlivoService) private plivoService: PlivoService
+  ) { }
 
 
   @Post('/answer')
   @HttpCode(200)
+  @UseBefore(urlencoded({ extended: true }))
   @OpenAPI({ summary: 'Handle inbound call answer from Plivo' })
   async answer(@Req() req: Request, @Res() res: Response): Promise<void> {
     try {
@@ -50,23 +55,11 @@ export class PlivoController {
       const myPlivoNumber = appConfig.plivo.plivo_number;
       const callUuid = req.body?.CallUUID || req.query?.CallUUID;
 
-      // console.log('📞 [PLIVO-CONTROLLER] Answer endpoint called with:', {
-      //   body: req.body,
-      //   query: req.query,
-      //   callUuid
-      // });
 
-      // Find the next available agent
-      const availableAgent = await this.userService.findAvailableAgent();
-  
-      // console.log('🔍 [PLIVO-CONTROLLER] Available agent found:', availableAgent ? {
-      //   id: availableAgent._id,
-      //   name: `${availableAgent.firstName} ${availableAgent.lastName}`,
-      //   agent: availableAgent.agent,
-      //   isBusy: availableAgent.isBusy,
-      //   isCallAgentActive: availableAgent.isCallAgentActive
-      // } : null);
-      
+      // Atomically find and mark an available agent as busy (prevents race conditions)
+      const availableAgent = await this.userService.findAndMarkAvailableAgent(callUuid);
+
+
       let endpointUser: string;
       let fallbackMessage: string;
 
@@ -75,24 +68,10 @@ export class PlivoController {
         const agentNumber = availableAgent.agent; // e.g., "agent_1"
         const credentials = appConfig.plivo.getAgentCredentials(agentNumber);
         endpointUser = credentials.username;
-        
-        // // console.log(`🔐 [PLIVO-CONTROLLER] Agent credentials for ${agentNumber}:`, {
-        //   username: credentials.username,
-        //   hasPassword: !!credentials.password
-        // });
-        
-        // Mark the agent as busy and track the call
-        // console.log(`⏳ [PLIVO-CONTROLLER] Marking agent ${availableAgent._id} as busy with call ${callUuid}`);
-        const updatedAgent = await this.userService.markAgentAsBusy(
-          availableAgent._id.toString(),
-          callUuid
-        );
-        
-          // console.log(`✅ [PLIVO-CONTROLLER] Agent marked as busy:`, {
-          //   isBusy: updatedAgent.isBusy,
-          //   currentCallUuid: updatedAgent.currentCallUuid
-          // });
-        
+
+        // Store the agent userid for this call in PlivoService
+        this.plivoService.setCallAgent(callUuid, availableAgent._id.toString());
+
         // console.log(`✅ [PLIVO-CONTROLLER] Routing call ${callUuid} to ${agentNumber} (${availableAgent.firstName} ${availableAgent.lastName})`);
         fallbackMessage = 'The specialist is busy. Please stay on the line.';
       } else {
@@ -104,7 +83,7 @@ export class PlivoController {
 
       // FIXED XML Structure: Stream outside Dial, proper fallback handling
       let xml: string;
-      
+
       if (endpointUser) {
         xml = `<?xml version="1.0" encoding="UTF-8"?>
                     <Response>
@@ -125,7 +104,7 @@ export class PlivoController {
                               <Hangup />
                     </Response>`;
       }
-      
+
       res.set('Content-Type', 'text/xml');
       res.send(xml);
     } catch (error: any) {
@@ -214,7 +193,7 @@ export class PlivoController {
   })
   @HttpCode(200)
   async sendMessage(
-    @Body() body: { destination: string , text: string },
+    @Body() body: { destination: string, text: string },
     @Res() res: Response
   ) {
     try {
@@ -242,7 +221,7 @@ export class PlivoController {
         language: 'english',
         flash: 0,
         numbers: body.destination,
-        sms_details:1
+        sms_details: 1
       };
 
       const response = await axios.post(
@@ -268,6 +247,59 @@ export class PlivoController {
         success: false,
         error: err.response?.data?.message || err.message || 'Failed to send SMS'
       });
+    }
+  }
+
+  @Get('/analytics')
+  @Authorized()
+  @OpenAPI({
+    summary: 'Get call agent analytics',
+    description: 'Retrieves analytics data for the authenticated call agent including call statistics, domains, and trends. Only accessible by users with call_agent role.',
+  })
+  @HttpCode(200)
+  async getAgentAnalytics(
+    @CurrentUser() user: IUser,
+    @QueryParam('startDate') startDate?: string,
+    @QueryParam('endDate') endDate?: string
+  ): Promise<AgentAnalytics> {
+    try {
+      // Verify user is a call agent
+      if (user.role !== 'call_agent') {
+        throw new BadRequestError('Only call agents can access their analytics');
+      }
+
+      // Parse date filters if provided
+      let start: Date | undefined;
+      let end: Date | undefined;
+
+      if (startDate) {
+        start = new Date(startDate);
+        if (isNaN(start.getTime())) {
+          throw new BadRequestError('Invalid startDate format');
+        }
+      }
+
+      if (endDate) {
+        end = new Date(endDate);
+        if (isNaN(end.getTime())) {
+          throw new BadRequestError('Invalid endDate format');
+        }
+      }
+
+      // Get analytics for the current user
+      const analytics = await this.callDetailsRepository.getAgentAnalytics(
+        user._id?.toString() || '',
+        start,
+        end
+      );
+
+      return analytics;
+    } catch (error: any) {
+      console.error('❌ [PLIVO-CONTROLLER] Error getting agent analytics:', error);
+      if (error instanceof BadRequestError) {
+        throw error;
+      }
+      throw new InternalServerError('Failed to get agent analytics');
     }
   }
 }

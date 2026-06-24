@@ -26,8 +26,12 @@ import { FarmerDetails } from "./FarmerDetails";
 import { plivoApi } from "@/hooks/api/plivo/api";
 import { toast } from "sonner";
 import { translateService } from "@/hooks/services/translateService";
+import { UserService } from "@/hooks/services/userService";
+
+const userService = new UserService();
 
 interface IncomingCall {
+
   uuid: string;
   number: string;
   timestamp: string;
@@ -118,6 +122,15 @@ export const IncomingCallBox = ({
   const plivoClientRef = useRef<any>(null);
   const callTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const handleMarkAgentAsAvailable = async () => {
+    try {
+      await userService.markAgentAsAvailable();
+    } catch (error) {
+      console.error("❌ [IncomingCallBox] Failed to mark agent as available:", error);
+    }
+  };
+
+
   // Sync callbacks to refs to avoid effect dependencies
   const callbacksRef = useRef({
     onOriginalTranscriptChange,
@@ -175,6 +188,7 @@ export const IncomingCallBox = ({
         setCallStatus("idle");
         setIncomingCall(null);
         disconnectWebSocket();
+        handleMarkAgentAsAvailable();
       }, 30000);
     } else {
       // Clear timeout if call is answered or ended
@@ -337,6 +351,8 @@ export const IncomingCallBox = ({
       onCallStateChange?.(false);
       onCallUuidChange?.(null);
       disconnectWebSocket();
+      // Mark agent as available when call ends
+      handleMarkAgentAsAvailable();
     });
 
     client.client.on("onCallRejected", () => {
@@ -344,6 +360,7 @@ export const IncomingCallBox = ({
       setCallStatus("idle");
       setIncomingCall(null);
       onCallUuidChange?.(null);
+      handleMarkAgentAsAvailable();
     });
 
     // Additional debugging events
@@ -359,6 +376,7 @@ export const IncomingCallBox = ({
       console.error("❌ Call failed:", error);
       setCallStatus("idle");
       setIncomingCall(null);
+      handleMarkAgentAsAvailable();
     });
 
     // Handle call cancelled by caller before answering
@@ -368,6 +386,7 @@ export const IncomingCallBox = ({
       setIncomingCall(null);
       onCallUuidChange?.(null);
       disconnectWebSocket();
+      handleMarkAgentAsAvailable();
     });
 
     // Handle incoming call ended (caller hung up)
@@ -377,7 +396,9 @@ export const IncomingCallBox = ({
       setIncomingCall(null);
       onCallUuidChange?.(null);
       disconnectWebSocket();
+      handleMarkAgentAsAvailable();
     });
+
 
     client.client.on("onMediaConnected", () => {
       // console.log('🎧 Media connected');
@@ -743,7 +764,7 @@ export const IncomingCallBox = ({
         </CardHeader>
 
         {!currentUser?.isCallAgentActive ||
-        currentUser?.role !== "call_agent" ? (
+          currentUser?.role !== "call_agent" ? (
           <CardContent className="p-1">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Phone className="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
@@ -996,7 +1017,7 @@ export const IncomingCallBox = ({
                         className={cn(
                           "col-span-2 flex items-center justify-center gap-1.5 h-8.5 rounded-lg text-xs font-medium border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900/50",
                           isMuted &&
-                            "bg-orange-500/10 text-orange-500 hover:bg-orange-500/20 dark:bg-orange-500/20 border-orange-500/30 font-semibold",
+                          "bg-orange-500/10 text-orange-500 hover:bg-orange-500/20 dark:bg-orange-500/20 border-orange-500/30 font-semibold",
                         )}
                       >
                         {isMuted ? (
@@ -1024,29 +1045,29 @@ export const IncomingCallBox = ({
                     className="border border-zinc-200/40 dark:border-zinc-800/40 bg-zinc-50/20 dark:bg-zinc-900/10"
                   />
                 )}
-                
+
                 {/* Message Input - Available during and after call */}
                 {(callStatus === "connected" || callStatus === "held" || callStatus === "ended" || (callStatus === "idle" && lastCallNumber)) && (incomingCall || lastCallNumber) && (
                   <div className="border border-zinc-200/40 dark:border-zinc-800/40 bg-zinc-50/20 dark:bg-zinc-900/10 p-4 rounded-xl">
                     <div className="flex items-center gap-2 justify-between mb-2">
-                    <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                      Send SMS to {incomingCall?.number || lastCallNumber}
-                    </p>
-                    {translatedText && (
-                      <div className="mt-2 flex items-center gap-2">
-                        <Switch
-                          id="show-translated"
-                          checked={sendTranslated}
-                          onCheckedChange={setSendTranslated}
-                        />
-                        <label
-                          htmlFor="show-translated"
-                          className="text-xs font-medium text-zinc-500 dark:text-zinc-400 cursor-pointer"
-                        >
-                          Show translated text
-                        </label>
-                      </div>
-                    )}
+                      <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                        Send SMS to {incomingCall?.number || lastCallNumber}
+                      </p>
+                      {translatedText && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <Switch
+                            id="show-translated"
+                            checked={sendTranslated}
+                            onCheckedChange={setSendTranslated}
+                          />
+                          <label
+                            htmlFor="show-translated"
+                            className="text-xs font-medium text-zinc-500 dark:text-zinc-400 cursor-pointer"
+                          >
+                            Show translated text
+                          </label>
+                        </div>
+                      )}
                     </div>
                     <div className="flex gap-2">
                       <input

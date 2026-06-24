@@ -792,12 +792,12 @@ export class UserRepository implements IUserRepository {
     // Funnel diagnostic: total unblocked expert docs → eligible after email dedup.
     // Shows how many real experts are dropped (and their ids) so we can tell whether
     // a "missing" available expert is being collapsed away by the dedup.
-   /* console.log(
-      `[findExpertsByReputationScore] unblockedExpertDocs=${allUsersRaw.length}, ` +
-      `eligibleAfterDedup=${allUsers.length}, droppedByEmailDedup=${droppedByDedup.length}, ` +
-      `noEmail=${noEmail.length}`,
-      JSON.stringify({ droppedByDedup, noEmail }),
-    );*/
+    /* console.log(
+       `[findExpertsByReputationScore] unblockedExpertDocs=${allUsersRaw.length}, ` +
+       `eligibleAfterDedup=${allUsers.length}, droppedByEmailDedup=${droppedByDedup.length}, ` +
+       `noEmail=${noEmail.length}`,
+       JSON.stringify({ droppedByDedup, noEmail }),
+     );*/
 
     return allUsers;
   }
@@ -1565,11 +1565,11 @@ export class UserRepository implements IUserRepository {
   ): Promise<IUser> {
     try {
       await this.init();
-      
+
       // When setting as call agent, change role from expert to call_agent
       // When removing call agent, change role from call_agent back to expert
       const newRole = isCallAgent ? ('call_agent' as any) : 'expert';
-      
+
       const result = await this.usersCollection.findOneAndUpdate(
         { _id: new ObjectId(userId) },
         {
@@ -1633,6 +1633,52 @@ export class UserRepository implements IUserRepository {
       } as IUser;
     } catch (error) {
       throw new InternalServerError('Failed to toggle call agent active status');
+    }
+  }
+
+  async findAndMarkAvailableAgent(
+    callUuid: string,
+    session?: ClientSession,
+  ): Promise<IUser | null> {
+    try {
+      await this.init();
+      // Atomically find and update an available agent
+      // Query: active, not busy, has agent number assigned
+      // Sort by agent number (smallest first)
+      // Update: mark as busy and set currentCallUuid
+      const result = await this.usersCollection.findOneAndUpdate(
+        {
+          role: 'call_agent' as any,
+          isCallAgentActive: true,
+          isBusy: false,
+          agent: { $exists: true, $ne: 'not_available' },
+        },
+        {
+          $set: {
+            isBusy: true,
+            currentCallUuid: callUuid,
+            updatedAt: new Date(),
+          },
+        },
+        {
+          returnDocument: 'after',
+          session,
+          sort: { agent: 1 }, // Sort by agent number to get smallest first
+        },
+      );
+
+      if (!result) {
+        return null;
+      }
+
+      const plainResult = JSON.parse(JSON.stringify(result));
+      return {
+        ...plainResult,
+        _id: result._id.toString(),
+      } as IUser;
+    } catch (error) {
+      console.error('findAndMarkAvailableAgent - error:', error);
+      throw new InternalServerError('Failed to find and mark available agent');
     }
   }
 }
