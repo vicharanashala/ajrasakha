@@ -71,6 +71,7 @@ type QaHeaderProps = {
   onToggleCollapse: () => void;
   onAiAnswerFetched?: (questionId: string, answer: string, sources: SourceItem[]) => void;
   hideControls?: boolean;
+  hasTimeboundQuestions?: boolean;
 }
 
 const normalizeAiAnswerSources = (result: AiAnswerResponse | null | undefined): SourceItem[] => {
@@ -281,6 +282,7 @@ const QaQuestionItem = ({
   selectedState,
   onStateChange,
   onAiAnswerFetched,
+  hasTimeboundQuestions = false,
 }: {
   question: any;
   selectedQuestion: string | null;
@@ -290,6 +292,7 @@ const QaQuestionItem = ({
   selectedState: string;
   onStateChange: (state: string) => void;
   onAiAnswerFetched?: (questionId: string, answer: string, sources: SourceItem[]) => void;
+  hasTimeboundQuestions?: boolean;
 }) => {
   const { mutate: fetchAnswer, isPending } = useFetchAnswer();
   const { data: statesResponse = [] } = useGetStates();
@@ -354,6 +357,10 @@ const QaQuestionItem = ({
   const currentStyle =
     sourceStyles[question.source as keyof typeof sourceStyles] ||
     sourceStyles.DEFAULT;
+
+  // Check if this is a non-timebound question that should be disabled
+  const isTimeboundQuestion = question.source === "AJRASAKHA" || question.source === "WHATSAPP";
+  const shouldDisable = hasTimeboundQuestions && !isTimeboundQuestion;
 
   // Get correct timer start time based on user role (Author vs Level Expert)
   const timerStartTime = getTimerStartTime(question);
@@ -564,6 +571,7 @@ export const QaHeader = ({ questions,
   onToggleCollapse,
   onAiAnswerFetched,
   hideControls = false,
+  hasTimeboundQuestions = false,
 }: QaHeaderProps) => {
   const [questionStates, setQuestionStates] = useState<
     Record<string, string>
@@ -732,6 +740,7 @@ export const QaHeader = ({ questions,
                     }))
                   }
                   onAiAnswerFetched={onAiAnswerFetched}
+                  hasTimeboundQuestions={hasTimeboundQuestions}
                 />
               ))}
             </RadioGroup>
