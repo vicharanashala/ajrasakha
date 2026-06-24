@@ -17,7 +17,7 @@ import type { CallHistoryItem } from "@/hooks/api/plivo/api";
 import { format } from "date-fns";
 import { FarmerDetails } from "./FarmerDetails";
 import Plivo from "plivo-browser-sdk";
-import { toast } from "@/shared/components/toast";
+import { toast } from "sonner";
 
 interface CallHistoryProps {
   onRedial?: (phoneNumber: string) => void;
@@ -134,7 +134,7 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
     setSendingMessage(true);
     try {
       numbertomsg = numbertomsg.replace(/^91/, "");
-      await plivoApi.sendMessage(numbertomsg, messageText);
+      await plivoApi.sendMessage("numbertomsg", messageText);
       toast.success("SMS sent successfully!");
       setMessageRow(null);
       setMessageText("");
@@ -569,26 +569,18 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                     placeholder="Type your SMS message here..."
                                     value={messageText}
                                     onChange={(e) => {
-                                      if (
-                                        e.target.value.length <=
-                                        MAX_MESSAGE_LENGTH
-                                      ) {
+                                      if (e.target.value.length <= MAX_MESSAGE_LENGTH) {
                                         setMessageText(e.target.value);
                                       }
                                     }}
                                     maxLength={MAX_MESSAGE_LENGTH}
                                   />
                                   <div className="flex justify-between items-center mt-1">
-                                    <span
-                                      className={cn(
-                                        "text-xs",
-                                        messageText.length >= MAX_MESSAGE_LENGTH
-                                          ? "text-red-500 font-semibold"
-                                          : "text-muted-foreground",
-                                      )}
-                                    >
-                                      {messageText.length}/{MAX_MESSAGE_LENGTH}{" "}
-                                      characters
+                                    <span className={cn(
+                                      "text-xs",
+                                      messageText.length >= MAX_MESSAGE_LENGTH ? "text-red-500 font-semibold" : "text-muted-foreground"
+                                    )}>
+                                      {messageText.length}/{MAX_MESSAGE_LENGTH} characters
                                     </span>
                                   </div>
                                   <div className="flex justify-end gap-2 mt-2">
@@ -602,11 +594,7 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                     <Button
                                       size="sm"
                                       onClick={() => handleSendMessage(call)}
-                                      disabled={
-                                        !messageText.trim() ||
-                                        sendingMessage ||
-                                        messageText.length > MAX_MESSAGE_LENGTH
-                                      }
+                                      disabled={!messageText.trim() || sendingMessage || messageText.length > MAX_MESSAGE_LENGTH}
                                       className="gap-2"
                                     >
                                       {sendingMessage && (

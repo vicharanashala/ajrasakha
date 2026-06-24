@@ -50,19 +50,28 @@ export function AnswerModeSwitcher({
     hasSearch = false,
     sourceCounts,
     totalSearchCount,
+    showDedicated = false,
+    isDedicatedView = false,
+    onDedicatedClick,
 }: {
     answerMode: Mode;
     handleAnswerModeChange: (mode: Mode) => void;
     hasSearch?: boolean;
     sourceCounts?: { source: string; count: number }[];
     totalSearchCount?: number;
+    /** Show the "My Assignment" tab (moderator/admin only) */
+    showDedicated?: boolean;
+    /** True when the dedicated tab is currently active */
+    isDedicatedView?: boolean;
+    /** Called when the dedicated tab is clicked */
+    onDedicatedClick?: () => void;
 }) {
     const groupRef = useRef<HTMLDivElement>(null);
     const [glider, setGlider] = useState({ left: 0, width: 0 });
 
     useEffect(() => {
         const activeBtn = groupRef.current?.querySelector<HTMLButtonElement>(
-            `[data-mode="${answerMode}"]`
+            isDedicatedView ? `[data-mode="dedicated"]` : `[data-mode="${answerMode}"]`
         );
         if (activeBtn && groupRef.current) {
             setGlider({
@@ -70,15 +79,15 @@ export function AnswerModeSwitcher({
                 width: activeBtn.offsetWidth
             });
         }
-    }, [answerMode]);
+    }, [answerMode, isDedicatedView]);
 
     return (
         <div
             ref={groupRef}
-            className="relative flex w-full sm:w-auto items-center gap-0.5 rounded-xl border border-border bg-muted/50 py-3 px-1 overflow-x-auto scrollbar-hiding flex-nowrap"
+            className="relative flex w-full items-center gap-0.5 rounded-xl border border-border bg-muted/50 py-2 px-1.5 overflow-x-auto scrollbar-hiding flex-nowrap"
         >
             <span
-                className="absolute inset-y-1.5 rounded-lg border border-border/60 bg-background shadow-sm transition-all duration-200"
+                className="absolute inset-y-1 rounded-lg border border-border/60 bg-background shadow-sm transition-all duration-200"
                 style={{ left: glider.left, width: glider.width }}
             />
 
@@ -88,7 +97,7 @@ export function AnswerModeSwitcher({
                         <button
                             data-mode="search"
                             onClick={() => handleAnswerModeChange("search")}
-                            className={`relative z-10 flex flex-shrink-0 items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors ${answerMode === "search"
+                            className={`relative z-10 flex flex-shrink-0 items-center gap-1.5 px-5 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors ${answerMode === "search"
                                 ? "text-primary-foreground scale-[1.02]"
                                 : "text-muted-foreground hover:text-foreground"
                                 }`}
@@ -117,7 +126,7 @@ export function AnswerModeSwitcher({
                             <button
                                 data-mode={id}
                                 onClick={() => handleAnswerModeChange(id)}
-                                className={`relative z-10 flex flex-shrink-0 items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors ${answerMode === id
+                                className={`relative z-10 flex flex-shrink-0 items-center gap-1.5 px-5 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors ${!isDedicatedView && answerMode === id
                                     ? "text-primary-foreground scale-[1.02]"
                                     : "text-muted-foreground hover:text-foreground"
                                     }`}
@@ -140,6 +149,31 @@ export function AnswerModeSwitcher({
                     </Tooltip>
                 );
             })}
+
+            {/* Dedicated / My Assignment tab — shown only for moderators/admins */}
+            {showDedicated && (
+                <>
+                    <Tooltip delayDuration={1200}>
+                        <TooltipTrigger asChild>
+                            <button
+                                data-mode="dedicated"
+                                onClick={onDedicatedClick}
+                                className={`relative z-10 flex flex-shrink-0 items-center gap-1.5 px-5 py-2 text-xs sm:text-sm font-medium rounded-lg transition-colors ${
+                                    isDedicatedView
+                                        ? "text-primary-foreground scale-[1.02]"
+                                        : "text-muted-foreground hover:text-foreground"
+                                }`}
+                            >
+                                <UserCheck className="h-4 w-4" />
+                                My Assignment
+                            </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs text-sm">
+                            Questions assigned to you for moderation
+                        </TooltipContent>
+                    </Tooltip>
+                </>
+            )}
         </div>
     );
 }

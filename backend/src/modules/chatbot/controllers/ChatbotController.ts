@@ -1859,6 +1859,7 @@ export class ChatbotController {
       body.userIds,
     );
   }
+
   private async assertCoordinatorOwnDashboard(userId: string, currentUser: IUser) {
     if (currentUser.role === 'admin') return;
 

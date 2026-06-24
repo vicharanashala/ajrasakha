@@ -1,8 +1,5 @@
 import os
-import re
 from typing import Any, Optional
-
-_WHATSAPP_THREAD_ID_RE = re.compile(r"^(\d+)-\d{4}-\d{2}-\d{2}$")
 
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
 
@@ -49,41 +46,6 @@ def resolve_thread_id(config: Optional[dict[str, Any]] = None) -> Optional[str]:
         val = configurable.get(key)
         if val is not None and str(val).strip():
             return str(val).strip()
-    return None
-
-
-def _first_non_empty(*values: Any) -> str | None:
-    for value in values:
-        if value is not None and str(value).strip():
-            cleaned = str(value).strip()
-            # LibreChat leaves unresolved placeholders when user context is missing.
-            if cleaned.startswith("{{") and cleaned.endswith("}}"):
-                continue
-            return cleaned
-    return None
-
-
-def resolve_user_id(config: Optional[dict[str, Any]] = None) -> str | None:
-    """Resolve user identity from run config (configurable, metadata, thread_id)."""
-    cfg = config or {}
-    configurable = cfg.get("configurable") or {}
-    metadata = cfg.get("metadata") or {}
-
-    user_id = _first_non_empty(
-        configurable.get("user_id"),
-        configurable.get("phone_number"),
-        metadata.get("user_id"),
-        metadata.get("userId"),
-        metadata.get("phoneNumber"),
-    )
-    if user_id:
-        return user_id
-
-    thread_id = resolve_thread_id(cfg)
-    if thread_id:
-        match = _WHATSAPP_THREAD_ID_RE.match(thread_id)
-        if match:
-            return match.group(1)
     return None
 
 # gdb_agent reads this (not MCP_URLS["gdb"]). Set in ai/.env, e.g. http://100.100.108.41:8110

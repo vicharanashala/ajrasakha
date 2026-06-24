@@ -52,6 +52,11 @@ interface AnswerActionsProps {
   firstFalseOrMissingIndex?: number;
   lastAnswerApprovalCount?: number;
   paeReview?: boolean;
+  /** When true the question was opened from the moderator's Dedicated tab.
+   *  Approve and Re-route actions are only available in this view. */
+  isDedicatedView?: boolean;
+  /** The moderator currently assigned to this question (shown in the Re-route dialog). */
+  assignedModerator?: { name: string; email: string } | null;
 }
 
 export const AnswerActions = ({
@@ -95,13 +100,21 @@ export const AnswerActions = ({
   firstFalseOrMissingIndex,
   lastAnswerApprovalCount,
   paeReview,
+  isDedicatedView = false,
+  assignedModerator,
 }: AnswerActionsProps) => {
+  // Approve and Re-route are restricted to the Dedicated (moderator-assigned) tab.
+  // For pae_submitted questions there is no dedicated-tab restriction.
+  const canModerate = isDedicatedView || questionStatus === "pae_submitted";
+
   const showActions =
     userRole !== "expert" &&
     userRole !== "tester" &&
+    canModerate &&
     (questionStatus === "in-review" || questionStatus === "re-routed" || questionStatus === "pae_submitted") &&
     lastAnswerId === answer?._id;
   const showAprroveButton = userRole !== "tester" && (userRole !== "expert" &&
+    canModerate &&
     ((questionStatus === "in-review" || questionStatus === "re-routed") &&
       (lastAnswerApprovalCount ?? 0) >= 3) || questionStatus === "pae_submitted")
 
@@ -146,6 +159,7 @@ export const AnswerActions = ({
             handleCancel={handleCancel}
             lastReroutedTo={lastReroutedTo}
             isAllocatingExperts={isAllocatingExperts}
+            assignedModerator={assignedModerator}
           />
 
           {lastReroutedTo?.status === "pending" && (

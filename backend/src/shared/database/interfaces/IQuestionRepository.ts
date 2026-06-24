@@ -16,6 +16,7 @@ import {
   IQuestion,
   IUser,
   QuestionStatus,
+  QuestionSource,
   IQuestionEmbedding,
   ISimilarQuestion,
   ICheckStatusResponse
@@ -545,4 +546,8 @@ export interface IQuestionRepository {
     to: string,
     session?: ClientSession
   ): Promise<any>
+
+  findUnassignedInReviewQuestions(sources?: QuestionSource[]): Promise<IQuestion[]>
+  findModeratorAssignedQuestions(sources?: QuestionSource[]): Promise<IQuestion[]>
+  updateModeratorId(questionId: string, moderatorId: string | null): Promise<void>
 }
