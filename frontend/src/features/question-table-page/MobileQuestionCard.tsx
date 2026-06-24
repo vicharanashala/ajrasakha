@@ -165,6 +165,11 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
     q?.referenceQuestion &&
     q?.referenceSource
   );
+  const domainValues = Array.isArray(q.details?.domain)
+    ? q.details.domain
+    : typeof q.details?.domain === "string" && q.details.domain.trim()
+      ? [q.details.domain]
+      : [];
 
   return (
     <div className="rounded-lg border p-4 bg-card shadow-sm text-sm leading-snug">
@@ -249,7 +254,15 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
           {visibleColumns.domain && (
             <div className="truncate">
               <span className="text-muted-foreground">Domain:</span>
-              <span className="ml-1">{truncate(q.details.domain || "NIL", 12)}</span>
+              <span className="ml-1">
+                {domainValues.length > 0
+                  ? domainValues
+                    .map((item) =>
+                      item.length > 12 ? `${item.substring(0, 12)}...` : item
+                    )
+                    .join(", ")
+                  : "-"}
+              </span>
             </div>
           )}
 

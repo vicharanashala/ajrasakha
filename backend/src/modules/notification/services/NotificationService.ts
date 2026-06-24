@@ -35,6 +35,13 @@ type AnnamUser = {
   assignedCoordinators?: Array<ObjectId | string>;
 };
 
+type BulkUserNotificationResult = {
+  targetUserId: string;
+  insertedId?: string;
+  success: boolean;
+  error?: string;
+};
+
 @injectable()
 export class NotificationService extends BaseService {
   constructor(
@@ -123,10 +130,12 @@ export class NotificationService extends BaseService {
     title?: string,
   ): Promise<{ insertedId: string }> {
     const cleanMessage = message?.trim();
-    const defaultTitle =
-      currentUser?.role === 'admin'
-        ? 'Message from admin'
-        : 'Message from coordinator';
+    const senderName =
+      [currentUser?.firstName, currentUser?.lastName].filter(Boolean).join(' ').trim() ||
+      currentUser?.email;
+    const defaultTitle = senderName
+      ? `Message from ${senderName}`
+      : 'Message';
     const cleanTitle = title?.trim() || defaultTitle;
 
     if (!targetUserId || !ObjectId.isValid(targetUserId)) {
@@ -193,9 +202,60 @@ export class NotificationService extends BaseService {
       await this.notificationRepository.getSubscriptionByUserId(receiverId);
     await notifyUser(receiverId, cleanMessage, subscription, async (endpoint: string) => {
       await this.deleteExpiredSubscriptionForUser(endpoint);
-    });
+    }, cleanTitle);
 
     return result;
+  }
+
+  async sendBulkUserNotifications(
+    targetUserIds: string[],
+    currentUser: IUser,
+    message: string,
+    title?: string,
+  ): Promise<{
+    sentCount: number;
+    failedCount: number;
+    results: BulkUserNotificationResult[];
+  }> {
+    const uniqueTargetUserIds = [
+      ...new Set((targetUserIds ?? []).map(id => String(id).trim()).filter(Boolean)),
+    ];
+
+    if (uniqueTargetUserIds.length === 0) {
+      throw new BadRequestError('At least one target user id is required');
+    }
+
+    const results: BulkUserNotificationResult[] = [];
+
+    for (const targetUserId of uniqueTargetUserIds) {
+      try {
+        const result = await this.sendUserNotification(
+          targetUserId,
+          currentUser,
+          message,
+          title,
+        );
+        results.push({
+          targetUserId,
+          insertedId: result.insertedId,
+          success: true,
+        });
+      } catch (error: any) {
+        results.push({
+          targetUserId,
+          success: false,
+          error: error?.message || 'Failed to send notification',
+        });
+      }
+    }
+
+    const sentCount = results.filter(result => result.success).length;
+
+    return {
+      sentCount,
+      failedCount: results.length - sentCount,
+      results,
+    };
   }
 
   private async resolveDashboardAndReviewUsers(targetUserId: string) {

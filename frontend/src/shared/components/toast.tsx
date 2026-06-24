@@ -166,14 +166,12 @@ interface ToastProviderProps {
   position?: ToastPosition;
   defaultDuration?: number;
   maxToasts?: number;
-  children?: React.ReactNode;
 }
 
 export function ToastProvider({
   position = "bottom-right",
   defaultDuration = 4000,
   maxToasts = 5,
-  children,
 }: ToastProviderProps) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
@@ -212,7 +210,6 @@ export function ToastProvider({
 
   return (
     <ToastContext.Provider value={{ add, dismiss }}>
-      {children}
       <ToastContainer
         toasts={toasts}
         dismiss={dismiss}
@@ -613,8 +610,22 @@ function Toast({
 
 // ─── Hook (optional, for component-level control) ─────────────────────────────
 
+// No-op fallback when context is not available (e.g., during SSR or early renders)
+const noopToast = {
+  success: () => {},
+  error: () => {},
+  warning: () => {},
+  info: () => {},
+  loading: () => "",
+  dismiss: () => {},
+};
+
 export function useToast() {
-  const ctx = useToastContext();
+  const ctx = useContext(ToastContext);
+  if (!ctx) {
+    console.warn("AgriToast: useToast() called outside <ToastProvider />. Using no-op fallback.");
+    return noopToast;
+  }
   return {
     success: (title: string, options?: ToastOptions) =>
       ctx.add({ type: "success", title, ...options }),

@@ -15,6 +15,7 @@ import { Pagination } from "../../components/pagination";
 import type { IDetailedQuestion, QuestionStatus, UserRole } from "@/types";
 
 import { useCreateRequest } from "@/hooks/api/request/useCreateRequest";
+import { toast } from "sonner";
 import { useDeleteQuestion } from "@/hooks/api/question/useDeleteQuestion";
 import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
 import { QuestionRow } from "./QuestionRow";
@@ -23,7 +24,6 @@ import { AddOrEditQuestionDialog } from "./AddOrEditQuestionDialog";
 import { Checkbox } from "@/components/atoms/checkbox";
 import { useQuestionTableStore } from "@/stores/all-questions";
 import QuestionsCard from "./QuestionsCard";
-import { toast } from "@/shared/components/toast";
 
 type QuestionsTableProps = {
   items?: IDetailedQuestion[] | null;
@@ -45,6 +45,7 @@ type QuestionsTableProps = {
   onSort?: (key: string) => void;
   view: "table" | "grid";
   setLimit: (val: number) => void;
+  isDedicatedView?: boolean;
 };
 
 export const QuestionsTable = ({
@@ -67,6 +68,7 @@ export const QuestionsTable = ({
   onSort,
   view,
   setLimit,
+  isDedicatedView,
 }: QuestionsTableProps) => {
   //visible columns
   const visibleColumns = useQuestionTableStore((state) => state.visibleColumns);
@@ -94,7 +96,6 @@ export const QuestionsTable = ({
     status?: QuestionStatus,
     // formData?: FormData
   ) => {
-    let toastId;
     try {
       if (!entityId) {
         toast.error(`Failed to identify and ${mode} the selected question.`);
@@ -114,14 +115,14 @@ export const QuestionsTable = ({
           );
           return;
         }
-        toastId = toast.loading('submitting...')
+
         await createRequest({
           entityId,
           requestType: "question_flag",
           updatedData,
           reason: flagReason.trim(),
         });
-        toast.dismiss(toastId)
+
         toast.success(
           "Thank you for your feedback. Your flag request has been submitted successfully.",
         );
@@ -165,7 +166,7 @@ export const QuestionsTable = ({
           return;
         }
 
-        if (!updatedData.details?.domain?.trim()) {
+        if (!updatedData.details?.domain?.length) {
           toast.error("Domain is required.");
           return;
         }
@@ -173,14 +174,12 @@ export const QuestionsTable = ({
         const payload: IDetailedQuestion = status
           ? { ...updatedData, status }
           : updatedData;
-        toastId = toast.loading('updating...')
+
         await updateQuestion(payload);
-        toast.dismiss(toastId)
       }
       if (!status) toast.success("Question updated successfully.");
       setEditOpen(false);
     } catch (error: any) {
-      toast.dismiss(toastId)
       console.error("Error in handleUpdateQuestion:", error);
       if (!status)
         // if status is there that means, then updating question to delayed
@@ -508,6 +507,7 @@ export const QuestionsTable = ({
                       selectedQuestionIds={selectedQuestionIds}
                       showClosedAt={showClosedAt}
                       isLoading={isLoading}
+                      isDedicatedView={isDedicatedView}
                     />
                   ))
                 )}

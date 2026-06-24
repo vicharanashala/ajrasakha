@@ -20,6 +20,9 @@ import {
   RefreshCcw,
   Power,
   UserPlus,
+  Hourglass,
+  ShieldCheck,
+  ShieldUser,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useGetQueueDetails } from "@/hooks/api/question/useGetQueueDetails";
@@ -84,12 +87,30 @@ const WORK_TYPE_LABEL: Record<
   needsReviewer: "Needs Reviewer",
 };
 
+/** Human-readable elapsed time from a minute count:
+ *   < 1 hour   → "40 mins"
+ *   < 24 hours → "3 hour 40 mins"
+ *   >= 24 hours → "2 days 40 mins" (hours included only when non-zero) */
+const formatIdleTime = (mins?: number | null): string => {
+  if (mins == null) return "?";
+  if (mins < 60) return `${mins} mins`;
+  const m = mins % 60;
+  if (mins < 1440) {
+    const h = Math.floor(mins / 60);
+    return `${h} hour ${m} mins`;
+  }
+  const d = Math.floor(mins / 1440);
+  const h = Math.floor((mins % 1440) / 60);
+  return h > 0 ? `${d} days ${h} hour ${m} mins` : `${d} days ${m} mins`;
+};
+
 const QuestionRow = ({
   item,
   showExpert,
   showStuck,
   showWorkType,
   showOpenedIdle,
+  showModerator,
   onClick,
 }: {
   item: QueueQuestionItem;
@@ -97,13 +118,18 @@ const QuestionRow = ({
   showStuck?: boolean;
   showWorkType?: boolean;
   showOpenedIdle?: boolean;
+  showModerator?: boolean;
   onClick?: () => void;
 }) => {
   const meta = [item.source, item.state, item.crop].filter(Boolean).join(" · ");
   return (
     <div
       onClick={onClick}
-      className="px-3 py-2.5 border-b border-gray-100 dark:border-gray-800 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+      className={cn(
+        "px-3 py-2.5 border-b border-gray-100 dark:border-gray-800 last:border-0",
+        onClick &&
+          "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors",
+      )}
     >
       <p className="text-sm text-gray-900 dark:text-gray-100 line-clamp-2">
         {item.question || "(no text)"}
@@ -123,27 +149,7 @@ const QuestionRow = ({
         {meta && <span>{meta}</span>}
         {item.createdAt && <span>· {formatDate(new Date(item.createdAt))}</span>}
       </div>
-      {/* Full queue with levels (Author, Reviewer 1, …) — shown for any section
-          whose question has an allocation queue. Allocated shows plain names plus
-          a single status for the current person (Completed / Waiting). */}
-      {item.queueExpertNames && item.queueExpertNames.length > 0 && (
-        <p className="mt-1 text-[11px] font-medium text-gray-700 dark:text-gray-300 flex flex-wrap items-center gap-1.5">
-          <span>Queue: {item.queueExpertNames.join(", ")}</span>
-          {item.lastPersonStatus && (
-            <span
-              className={
-                item.lastPersonStatus === "completed"
-                  ? "px-1.5 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-300 uppercase tracking-wide"
-                  : "px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300 uppercase tracking-wide"
-              }
-            >
-              {item.lastPersonStatus === "completed" ? "Completed" : "Waiting"}
-            </span>
-          )}
-        </p>
-      )}
       {showExpert &&
-        !(item.queueExpertNames && item.queueExpertNames.length > 0) &&
         (item.expertName ? (
           <p className="mt-1 text-[11px] font-medium text-gray-700 dark:text-gray-300">
             Expert: {item.expertName}
@@ -162,9 +168,19 @@ const QuestionRow = ({
       {showOpenedIdle && (
         <p className="mt-1 text-[11px] font-medium text-orange-600 dark:text-orange-400">
           {item.expertName ? `${item.expertName} · ` : ""}
-          opened {item.minutesSinceOpened ?? "?"} min ago · no answer yet
+          opened {formatIdleTime(item.minutesSinceOpened)} ago · no answer yet
         </p>
       )}
+      {showModerator &&
+        (item.moderatorName ? (
+          <p className="mt-1 text-[11px] font-medium text-gray-700 dark:text-gray-300">
+            Moderator: {item.moderatorName}
+          </p>
+        ) : (
+          <p className="mt-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+            Awaiting moderator assignment
+          </p>
+        ))}
     </div>
   );
 };
@@ -374,11 +390,30 @@ export const QueueDetailsModal = ({
   setIsSidebarOpen?: (v: boolean) => void;
 }) => {
   const [open, setOpen] = useState(false);
-  // Sections are independently collapsible — opening one no longer closes the others,
-  // so the user can view e.g. "Never Allocated" and "Available Experts" at the same time.
-  const [openSections, setOpenSections] = useState<Set<string>>(
-    () => new Set(["received"]),
+  const [openSection, setOpenSection] = useState<string | null>("received");
+  // Moderator-queue sub-tab: time-bound (AjraSakha/WhatsApp) vs manual (AgriExpert/Outreach).
+  const [modCategory, setModCategory] = useState<"timeBound" | "manual">(
+    "timeBound",
   );
+  const { goToQuestion } = useNavigateToQuestion();
+
+  // Opening a question unmounts this modal (the list view is replaced by the question
+  // detail). Leave a one-shot flag so when the user exits the question and the modal
+  // remounts, it reopens where they left off.
+  useEffect(() => {
+    if (sessionStorage.getItem("reopenQueueDetails") === "1") {
+      sessionStorage.removeItem("reopenQueueDetails");
+      setOpen(true);
+      setIsSidebarOpen?.(false);
+    }
+  }, [setIsSidebarOpen]);
+
+  // Close the modal and open the clicked question's detail page.
+  const handleQuestionClick = (item: QueueQuestionItem) => {
+    sessionStorage.setItem("reopenQueueDetails", "1");
+    setOpen(false);
+    goToQuestion(item._id, "moderator_queue");
+  };
 
   // Date filter state - default to current date
   const today = new Date();
@@ -398,32 +433,8 @@ export const QueueDetailsModal = ({
       dateFilter.endTime ?? undefined,
     );
 
-  const { goToQuestion } = useNavigateToQuestion();
-
-  // Opening a question unmounts this modal (the list view is replaced by the
-  // question detail). Leave a one-shot flag so that when the user exits the
-  // question and the modal remounts, it reopens where they left off.
-  useEffect(() => {
-    if (sessionStorage.getItem("reopenQueueDetails") === "1") {
-      sessionStorage.removeItem("reopenQueueDetails");
-      setOpen(true);
-      setIsSidebarOpen?.(false);
-    }
-  }, [setIsSidebarOpen]);
-
-  const handleQuestionClick = (item: QueueQuestionItem) => {
-    sessionStorage.setItem("reopenQueueDetails", "1");
-    setOpen(false);
-    goToQuestion(item._id, "moderator_queue");
-  };
-
   const toggle = (key: string) =>
-    setOpenSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+    setOpenSection((prev) => (prev === key ? null : key));
 
   const handleDateFilterChange = (key: string, value: Date | undefined) => {
     setDateFilter((prev) => ({ ...prev, [key]: value }));
@@ -520,14 +531,8 @@ export const QueueDetailsModal = ({
               count={data.received.count}
               section="received"
               initialItems={data.received.items}
-              renderItem={(q) => (
-                <QuestionRow
-                  key={q._id}
-                  item={q}
-                  onClick={() => handleQuestionClick(q)}
-                />
-              )}
-              isOpen={openSections.has("received")}
+              renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
+              isOpen={openSection === "received"}
               onToggle={() => toggle("received")}
               emptyText="No questions received"
               startTime={dateFilter.startTime ?? undefined}
@@ -542,14 +547,8 @@ export const QueueDetailsModal = ({
               count={data.autoAllocateOff.count}
               section="autoAllocateOff"
               initialItems={data.autoAllocateOff.items}
-              renderItem={(q) => (
-                <QuestionRow
-                  key={q._id}
-                  item={q}
-                  onClick={() => handleQuestionClick(q)}
-                />
-              )}
-              isOpen={openSections.has("autoAllocateOff")}
+              renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
+              isOpen={openSection === "autoAllocateOff"}
               onToggle={() => toggle("autoAllocateOff")}
               emptyText="No auto-allocate-on questions"
               startTime={dateFilter.startTime ?? undefined}
@@ -565,14 +564,8 @@ export const QueueDetailsModal = ({
               count={data.waiting.count}
               section="waiting"
               initialItems={data.waiting.items}
-              renderItem={(q) => (
-                <QuestionRow
-                  key={q._id}
-                  item={q}
-                  onClick={() => handleQuestionClick(q)}
-                />
-              )}
-              isOpen={openSections.has("waiting")}
+              renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
+              isOpen={openSection === "waiting"}
               onToggle={() => toggle("waiting")}
               emptyText="Nothing waiting for allocation"
               startTime={dateFilter.startTime ?? undefined}
@@ -587,15 +580,8 @@ export const QueueDetailsModal = ({
               count={data.stuck.count}
               section="stuck"
               initialItems={data.stuck.items}
-              renderItem={(q) => (
-                <QuestionRow
-                  key={q._id}
-                  item={q}
-                  showStuck
-                  onClick={() => handleQuestionClick(q)}
-                />
-              )}
-              isOpen={openSections.has("stuck")}
+              renderItem={(q) => <QuestionRow key={q._id} item={q} showStuck onClick={() => handleQuestionClick(q)} />}
+              isOpen={openSection === "stuck"}
               onToggle={() => toggle("stuck")}
               emptyText="No stuck questions"
               startTime={dateFilter.startTime ?? undefined}
@@ -610,15 +596,8 @@ export const QueueDetailsModal = ({
               count={data.openedIdle.count}
               section="openedIdle"
               initialItems={data.openedIdle.items}
-              renderItem={(q) => (
-                <QuestionRow
-                  key={q._id}
-                  item={q}
-                  showOpenedIdle
-                  onClick={() => handleQuestionClick(q)}
-                />
-              )}
-              isOpen={openSections.has("openedIdle")}
+              renderItem={(q) => <QuestionRow key={q._id} item={q} showOpenedIdle onClick={() => handleQuestionClick(q)} />}
+              isOpen={openSection === "openedIdle"}
               onToggle={() => toggle("openedIdle")}
               emptyText="No opened-but-idle questions"
               startTime={dateFilter.startTime ?? undefined}
@@ -633,15 +612,8 @@ export const QueueDetailsModal = ({
               count={data.needsReviewer.count}
               section="needsReviewer"
               initialItems={data.needsReviewer.items}
-              renderItem={(q) => (
-                <QuestionRow
-                  key={q._id}
-                  item={q}
-                  showExpert
-                  onClick={() => handleQuestionClick(q)}
-                />
-              )}
-              isOpen={openSections.has("needsReviewer")}
+              renderItem={(q) => <QuestionRow key={q._id} item={q} showExpert onClick={() => handleQuestionClick(q)} />}
+              isOpen={openSection === "needsReviewer"}
               onToggle={() => toggle("needsReviewer")}
               emptyText="Nothing waiting for a reviewer"
               startTime={dateFilter.startTime ?? undefined}
@@ -657,14 +629,9 @@ export const QueueDetailsModal = ({
               section="allocated"
               initialItems={data.allocated.items}
               renderItem={(q) => (
-                <QuestionRow
-                  key={q._id}
-                  item={q}
-                  showExpert
-                  onClick={() => handleQuestionClick(q)}
-                />
+                <QuestionRow key={q._id} item={q} showExpert onClick={() => handleQuestionClick(q)} />
               )}
-              isOpen={openSections.has("allocated")}
+              isOpen={openSection === "allocated"}
               onToggle={() => toggle("allocated")}
               emptyText="No allocated questions"
               startTime={dateFilter.startTime ?? undefined}
@@ -680,12 +647,140 @@ export const QueueDetailsModal = ({
               section="freeExperts"
               initialItems={data.freeExperts.items}
               renderItem={(e) => <ExpertRow key={e._id} item={e} />}
-              isOpen={openSections.has("freeExperts")}
+              isOpen={openSection === "freeExperts"}
               onToggle={() => toggle("freeExperts")}
               emptyText="No free experts"
               startTime={dateFilter.startTime ?? undefined}
               endTime={dateFilter.endTime ?? undefined}
             />
+
+            {/* ── Moderator queue ── */}
+            <div className="flex items-center gap-3 pt-2">
+              <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                Moderator Queue
+              </span>
+              <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
+            </div>
+
+            {/* Time-bound / Manual toggle — switches all three moderator sections
+                below between the two source groups. */}
+            <div className="flex w-full items-center gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1 dark:border-gray-800 dark:bg-[#1a1a1a]">
+              {(
+                [
+                  { id: "timeBound", label: "Time-bound" },
+                  { id: "manual", label: "Manual" },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setModCategory(tab.id)}
+                  className={cn(
+                    "flex-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                    modCategory === tab.id
+                      ? "bg-white text-blue-600 shadow-sm dark:bg-gray-800 dark:text-blue-400"
+                      : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300",
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {(() => {
+              const isTB = modCategory === "timeBound";
+              const sourceLabel = isTB
+                ? "AjraSakha / WhatsApp"
+                : "AgriExpert / Outreach";
+              const cfg = isTB
+                ? {
+                    waiting: {
+                      section: "moderatorWaitingTimeBound",
+                      data: data.moderatorWaitingTimeBound,
+                    },
+                    allocated: {
+                      section: "moderatorAllocatedTimeBound",
+                      data: data.moderatorAllocatedTimeBound,
+                    },
+                    available: {
+                      section: "availableModeratorsTimeBound",
+                      data: data.availableModeratorsTimeBound,
+                    },
+                  }
+                : {
+                    waiting: {
+                      section: "moderatorWaitingManual",
+                      data: data.moderatorWaitingManual,
+                    },
+                    allocated: {
+                      section: "moderatorAllocatedManual",
+                      data: data.moderatorAllocatedManual,
+                    },
+                    available: {
+                      section: "availableModeratorsManual",
+                      data: data.availableModeratorsManual,
+                    },
+                  };
+
+              return (
+                <>
+                  <Section<QueueQuestionItem>
+                    icon={<Hourglass size={20} />}
+                    color="amber"
+                    title="Waiting for Moderator"
+                    description={`${sourceLabel} — no moderator assigned yet`}
+                    count={cfg.waiting.data?.count ?? 0}
+                    section={cfg.waiting.section}
+                    initialItems={cfg.waiting.data?.items ?? []}
+                    renderItem={(q) => (
+                      <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />
+                    )}
+                    isOpen={openSection === cfg.waiting.section}
+                    onToggle={() => toggle(cfg.waiting.section)}
+                    emptyText="Nothing waiting for a moderator"
+                    startTime={dateFilter.startTime ?? undefined}
+                    endTime={dateFilter.endTime ?? undefined}
+                  />
+
+                  <Section<QueueQuestionItem>
+                    icon={<ShieldCheck size={20} />}
+                    color="green"
+                    title="Allocated to Moderator"
+                    description={`${sourceLabel} — assigned to a moderator (incl. re-routed)`}
+                    count={cfg.allocated.data?.count ?? 0}
+                    section={cfg.allocated.section}
+                    initialItems={cfg.allocated.data?.items ?? []}
+                    renderItem={(q) => (
+                      <QuestionRow key={q._id} item={q} showModerator onClick={() => handleQuestionClick(q)} />
+                    )}
+                    isOpen={openSection === cfg.allocated.section}
+                    onToggle={() => toggle(cfg.allocated.section)}
+                    emptyText="No questions allocated to a moderator"
+                    startTime={dateFilter.startTime ?? undefined}
+                    endTime={dateFilter.endTime ?? undefined}
+                  />
+
+                  <Section<QueueExpertItem>
+                    icon={<ShieldUser size={20} />}
+                    color="violet"
+                    title="Available Moderators"
+                    description={`STF moderators free to take a ${
+                      isTB ? "time-bound" : "manual"
+                    } question`}
+                    count={cfg.available.data?.count ?? 0}
+                    section={cfg.available.section}
+                    initialItems={cfg.available.data?.items ?? []}
+                    renderItem={(e) => <ExpertRow key={e._id} item={e} />}
+                    isOpen={openSection === cfg.available.section}
+                    onToggle={() => toggle(cfg.available.section)}
+                    emptyText="No available moderators"
+                    startTime={dateFilter.startTime ?? undefined}
+                    endTime={dateFilter.endTime ?? undefined}
+                  />
+                </>
+              );
+            })()}
           </div>
         ) : null}
       </DialogContent>

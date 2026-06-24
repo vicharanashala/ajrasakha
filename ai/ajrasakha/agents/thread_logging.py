@@ -308,8 +308,7 @@ def end_conversation_turn(
     _turn_num_ctx.set(None)
 
     if mongo_thread_log_enabled():
-        full_logs = _read_local_thread_log_text(tid)
-        sync_turn_to_mongo(tid, turn_record, full_logs=full_logs)
+        sync_turn_to_mongo(tid, turn_record)
 
 
 def _resolve_config_thread_id(config: RunnableConfig | dict[str, Any] | None) -> str | None:

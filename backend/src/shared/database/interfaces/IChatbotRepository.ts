@@ -1,3 +1,4 @@
+import { ILocationDistrict, ILocationState } from '#root/modules/lgd/interfaces/ILocationService.js';
 import type {ClientSession, ObjectId} from 'mongodb';
 
 // ─── Shared return types ──────────────────────────────────────────────────────
@@ -627,6 +628,7 @@ export interface IChatbotRepository {
     days: number,
     userType: string,
     month?: string,
+    districts?: ILocationDistrict[],
     state?: string,
     source?: string,
     session?: ClientSession,
@@ -711,6 +713,7 @@ export interface IChatbotRepository {
   ): Promise<ResponseAdherenceTable>;
   getDistrictAnalyticsByState(
     state: string,
+    districts?: ILocationDistrict[],
     source?: string,
     session?: ClientSession,
     userType?: string,
@@ -845,7 +848,8 @@ export interface IChatbotRepository {
     userType?: string,
     search?: string,
     startDate?: Date,
-    endDate?: Date 
+    endDate?: Date,
+    isPassed?: string,
   ): Promise<any>
 
   getQuestionsByNotificationStatus(
@@ -881,6 +885,7 @@ export interface IChatbotRepository {
   getAllStatesQuestionsAndUsersData(
     source: string,
     userType: string,
+    allState?:ILocationState[],
     session?: string
   ): Promise<any>
 
@@ -901,6 +906,11 @@ export interface IChatbotRepository {
     source: string,
     userType: string,
     session?: ClientSession): Promise<any>
+
+  getUserEmailByConversationId(
+    conversationId: string,
+    source?: string,
+  ): Promise<string | null>
 }
 
 export interface ChatbotConversationData {

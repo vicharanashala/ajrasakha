@@ -32,13 +32,7 @@ export type QueueQuestionItem = {
   district?: string;
   crop?: string;
   expertName?: string;
-  /** All experts who completed a step on the question, in turn order — needs-reviewer items. */
-  completedExpertNames?: string[];
-  /** Full queue, each entry as "Name (Level)" (Author, Reviewer 1, …) — any section with a queue.
-   *  For the allocated section the level suffix is omitted (plain names). */
-  queueExpertNames?: string[];
-  /** Current/last expert status — 'completed' or 'waiting'. Present for allocated items. */
-  lastPersonStatus?: "completed" | "waiting";
+  moderatorName?: string;
   allocatedAt?: string | null;
   minutesSinceAllocated?: number;
   openedAt?: string | null;
@@ -70,6 +64,16 @@ export type QueueDetailsResponse = {
   needsReviewer: { count: number; items: QueueQuestionItem[] };
   totalWork: { count: number; items: QueueQuestionItem[] };
   openedIdle: { count: number; items: QueueQuestionItem[] };
+  moderatorWaiting: { count: number; items: QueueQuestionItem[] };
+  moderatorAllocated: { count: number; items: QueueQuestionItem[] };
+  availableModerators: { count: number; items: QueueExpertItem[] };
+  // Source-split moderator-queue sections (time-bound vs manual)
+  moderatorWaitingTimeBound: { count: number; items: QueueQuestionItem[] };
+  moderatorWaitingManual: { count: number; items: QueueQuestionItem[] };
+  moderatorAllocatedTimeBound: { count: number; items: QueueQuestionItem[] };
+  moderatorAllocatedManual: { count: number; items: QueueQuestionItem[] };
+  availableModeratorsTimeBound: { count: number; items: QueueExpertItem[] };
+  availableModeratorsManual: { count: number; items: QueueExpertItem[] };
 };
 export class QuestionService {
   private _baseUrl = `${API_BASE_URL}/questions`;
@@ -144,6 +148,10 @@ export class QuestionService {
       params.append("is_non_agri", "true");
     }
 
+    if (filter.moderatorId) {
+      params.append("moderatorId", filter.moderatorId);
+    }
+
     // states and normalisedCrops sent as JSON arrays in request body
     const requestBody: { states?: string[]; normalisedCrops?: string[] } = {};
     if (filter.states && filter.states.length > 0) {
@@ -167,6 +175,7 @@ export class QuestionService {
     actionType: string,
     autoSelectQuestionId?: string | null,
     reviewLevel?: string,
+    includeRerouted?: boolean,
   ): Promise<IQuestion[] | ReroutedQuestionItem[] | null> {
     const params = new URLSearchParams({
       page: pageParam.toString(),
@@ -195,6 +204,10 @@ export class QuestionService {
     }
     if (reviewLevel) {
       params.append("review_level", reviewLevel);
+    }
+    // Opt-in: also surface reroute-pending questions (Expert Management dashboard).
+    if (includeRerouted) {
+      params.append("includeRerouted", "true");
     }
     if (preferences.dateRange && preferences.dateRange !== "all")
       params.append("dateRange", preferences.dateRange);
@@ -786,6 +799,24 @@ export class QuestionService {
 
   async manualCheckDuplicate(questionId: string): Promise<{ message: string; isDuplicate: boolean; referenceQuestionId?: string } | null> {
     return apiFetch(`${this._baseUrl}/${questionId}/check-duplicate`, { method: "POST" });
+  }
+
+  async changeModerator(
+    questionId: string,
+    moderatorId: string,
+  ): Promise<{ success: boolean; message: string } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/moderator`, {
+      method: "PATCH",
+      body: JSON.stringify({ moderatorId }),
+    });
+  }
+
+  async removeModerator(
+    questionId: string,
+  ): Promise<{ success: boolean; message: string } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/moderator`, {
+      method: "DELETE",
+    });
   }
 
   async getQuestionStatusSummary(

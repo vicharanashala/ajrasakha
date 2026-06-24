@@ -246,6 +246,7 @@ export class ChatbotService {
     stringStartDate,
     stringEndDate,
     search,
+    isPassed,
   }: {
     category?: string;
     district?: string;
@@ -264,6 +265,7 @@ export class ChatbotService {
     stringStartDate?: string;
     stringEndDate?: string;
     search?: string;
+    isPassed?: boolean;
   }) {
     const params = new URLSearchParams();
     if (category) params.append("category", category);
@@ -284,6 +286,9 @@ export class ChatbotService {
     if (stringEndDate) params.append("endDate", stringEndDate);
     if (search?.trim()) {
       params.append("search", search.trim());
+    }
+    if (isPassed !== undefined) {
+      params.append("isPassed", String(isPassed));
     }
     return apiFetch<any>(
       `${this._baseUrl}/filtered-questions?${params.toString()}`,

@@ -13,9 +13,9 @@ import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import { useGetQuestionFullDataById } from "@/hooks/api/question/useGetQuestionFullData";
 import { Loader2, User, UserPlus, X, AlertTriangle, Clock } from "lucide-react";
 import { useState, useMemo } from "react";
+import { toast } from "sonner";
 import { Badge } from "@/components/atoms/badge";
 import { TimerDisplay } from "@/components/timer-display";
-import { toast,useToast } from "@/shared/components/toast";
 
 interface ReallocateModalProps {
   open: boolean;
@@ -40,8 +40,6 @@ export function ReallocateModal({
   isAuthor,
   onSuccess,
 }: ReallocateModalProps) {
-
-  const { error: toastError} = useToast(); 
   const [selectedExpert, setSelectedExpert] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [reasonForChange, setReasonForChange] = useState("");
@@ -78,45 +76,46 @@ export function ReallocateModal({
   const handleSubmit = async () => {
     try {
       if (!question) {
-        toastError("Question data not available");
+        toast.error("Question data not available");
         return;
       }
       if (question.status == "in-review" || question.status == "closed") {
-        toastError(
+        toast.error(
           "This question is currently being reviewed or has been closed. Please check back later!"
         );
         return;
       }
       if (question.isOnHold) {
-        toastError("This question is on hold. Release Hold to add experts.");
+        toast.error("This question is on hold. Release Hold to add experts.");
         return;
       }
       if (!selectedExpert) {
-        toastError("Please select an expert to replace with");
+        toast.error("Please select an expert to replace with");
         return;
       }
       if (!reasonForChange || reasonForChange.trim() === "") {
-        toastError("Please provide a reason for reallocation");
+        toast.error("Please provide a reason for reallocation");
         return;
       }
 
-      await toast.promise(replaceQueueExpert({
+      await replaceQueueExpert({
         questionId: questionId,
         levelIndex: levelIndex,
         newExpertId: selectedExpert,
         isAuthor: isAuthor,
         reasonForChange: reasonForChange.trim(),
-      }),{
-        loading:"reallocating...",
-        success:"Expert replaced successfully",
-        error:(error:any) => error?.message || "Failed to allocate experts. Please try again."
       });
       setSelectedExpert(null);
       setSearchTerm("");
       setReasonForChange("");
       onOpenChange(false);
+      onSuccess?.();
+      toast.success("Expert replaced successfully");
     } catch (error: any) {
       console.error("Error allocating experts:", error);
+      toast.error(
+        error?.message || "Failed to allocate experts. Please try again."
+      );
     }
   };
 

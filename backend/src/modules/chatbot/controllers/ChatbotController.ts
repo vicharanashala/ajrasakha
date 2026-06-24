@@ -184,14 +184,18 @@ export class ChatbotController {
   async getDistrictAnalyticsByState(
     @QueryParam('state') state: string,
 
+    @QueryParam('selectedStateCode') selectedStateCode: string,
+
     @QueryParam('source')
     source: string,
 
     @QueryParam('userType')
     userType: string = 'all',
   ) {
+    // console.log("Selected state code controller", selectedStateCode);
     return this.chatbotService.getDistrictAnalyticsByState(
       state,
+      selectedStateCode,
       source,
       userType,
     );
@@ -424,6 +428,7 @@ export class ChatbotController {
       search?: string;
       startDate?: Date;
       endDate?: Date;
+      isPassed?: string;
     },
   ) {
     if (query.category) {
@@ -482,6 +487,7 @@ export class ChatbotController {
         query.search,
         startDate,
         endDate,
+        query.isPassed,
       );
     } else {
       if(query.period){
@@ -857,7 +863,7 @@ export class ChatbotController {
       const state = query.state;
       const format = query.downloadFormat || 'xlsx';
 
-      console.log('state is', state);
+      // console.log('state is', state);
 
       let data: ArrayBuffer | Buffer | null = null;
 
@@ -1109,7 +1115,7 @@ export class ChatbotController {
   })
   @Patch('/users/:userId')
   @HttpCode(200)
-  @Authorized(['admin'])
+  @Authorized(['admin', ...COORDINATOR_ROLES])
   async updateUser(
     @Param('userId') userId: string,
     @QueryParam('source') source: string,
@@ -1174,6 +1180,29 @@ export class ChatbotController {
       beforeUser = await this.chatbotService.getUserById(userId, source);
     } catch (e) {
       console.error('Failed to fetch user before update for audit trail', e);
+    }
+
+    if (user.role !== 'admin') {
+      if (source !== 'annam') {
+        throw new ForbiddenError(
+          'Coordinators can only update their linked Annam profile',
+        );
+      }
+
+      const targetEmail = beforeUser?.email?.trim().toLowerCase();
+      const actorEmail = user.email?.trim().toLowerCase();
+
+      if (!targetEmail || !actorEmail || targetEmail !== actorEmail) {
+        throw new ForbiddenError(
+          'Coordinators can only update their own linked farmer profile',
+        );
+      }
+
+      if (body.userRole && body.userRole !== beforeUser?.userRole) {
+        throw new ForbiddenError('Coordinators cannot change coordinator role');
+      }
+
+      delete body.userRole;
     }
 
     try {
@@ -1830,6 +1859,7 @@ export class ChatbotController {
       body.userIds,
     );
   }
+
   private async assertCoordinatorOwnDashboard(userId: string, currentUser: IUser) {
     if (currentUser.role === 'admin') return;
 

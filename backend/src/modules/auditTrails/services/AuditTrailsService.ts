@@ -219,12 +219,16 @@ export class AuditTrailsService
     startDate: string,
     // endDate: string,
     shift: string,
+    from: string,
+    to: string,
   ): Promise<any> {
     // Implement the logic to get shift based audit action counts
     return this.auditTrailsRepository.getShiftBasedAuditActionCounts(
       startDate,
       // endDate,
       shift,
+      from,
+      to
     );
   }
 

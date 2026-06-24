@@ -21,11 +21,11 @@ import { useAllocateExpert } from "@/hooks/api/question/useAllocateExperts";
 import { useToggleAutoAllocateQuestion } from "@/hooks/api/question/useToggleAutoAllocateQuestion";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import { initializeNotifications } from "@/services/pushService";
-import { toast } from "@/shared/components/toast";
 import type { IQuestionFullData, ISubmission, IUser } from "@/types";
 import { DialogTitle } from "@radix-ui/react-dialog";
 import { Info, Loader2, User, UserPlus, Users, X } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
 interface AllocationQueueHeaderProps {
   question: IQuestionFullData;
@@ -38,6 +38,8 @@ export const AllocationQueueHeader = ({
   queue = [],
   currentUser,
 }: AllocationQueueHeaderProps) => {
+  const isDuplicate = question.status === "duplicate";
+
   const [autoAllocate, setAutoAllocate] = useState(question.isAutoAllocate);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedExperts, setSelectedExperts] = useState<string[]>([]);
@@ -110,7 +112,6 @@ export const AllocationQueueHeader = ({
   };
 
   const handleSubmit = async () => {
-    let toastId;
     try {
       if (question.status === "in-review" || question.status == "closed") {
         toast.error(
@@ -118,7 +119,6 @@ export const AllocationQueueHeader = ({
         );
         return;
       }
-      toastId = toast.loading('allocating...')
       await allocateExpert({
         questionId: question._id,
         experts: selectedExperts,
@@ -126,10 +126,8 @@ export const AllocationQueueHeader = ({
       setSelectedExperts([]);
       setIsModalOpen(false);
       await initializeNotifications();
-      toast.dismiss(toastId)
       toast.success("Experts allocated successfully!");
     } catch (error: any) {
-      toast.dismiss(toastId)
       console.error("Error allocating experts:", error);
       toast.error(
         error?.message || "Failed to allocate experts. Please try again."
@@ -160,8 +158,11 @@ export const AllocationQueueHeader = ({
           </div>
         </div>
 
-        {/* RIGHT SECTION */}
-        {currentUser.role !== "expert" && question.status!=='non_agri' && (
+        {/* RIGHT SECTION — for duplicate questions the auto-allocate toggle and
+            "Select Experts" only show to the moderator the question is assigned to
+            (i.e. from "My Assignment"); hidden on every other tab. Non-duplicate
+            questions are unaffected. */}
+        {currentUser.role !== "expert" && question.status!=='non_agri' && (!isDuplicate || question.isAssignedModerator) && (
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full md:w-auto">
             {/* Auto-Allocate Block */}
             <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">

@@ -55,7 +55,7 @@ class Question implements IQuestion {
     district: string;
     crop: string;
     season: string;
-    domain: string;
+    domain: string[];
   };
 
   @Expose()

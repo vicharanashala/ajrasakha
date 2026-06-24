@@ -41,6 +41,8 @@ export interface IAuditTrailsRepository {
     startDate: string,
     // endDate: string,
     shift: string,
+    from: string,
+    to: string,
     session?: ClientSession
   ): Promise<any>;
 

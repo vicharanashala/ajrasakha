@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, User, Mail, Clock, Hash, Brain, Wrench, Chec
 import { Badge } from "./atoms/badge";
 import { Skeleton } from "./atoms/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "./atoms/avatar";
+import { toast } from "sonner";
 import { Button } from "./atoms/button";
 import type { IQuestionFullData, SourceItem } from "@/types";
 import { useGetQuestionMessageDetailsByQuestionId } from "@/hooks/api/question/useGetQuestionMessageDetailsByQuestionId";
@@ -37,7 +38,6 @@ const MessageDetail = ({
     isQuestionAllocatedToExpert,
     navigateToQuestionPage
 }: MessageDetailCardProps) => {
-
     const [expanded, setExpanded] = useState(false);
     const selectedQuestionId = question?._id || null;
 
@@ -67,15 +67,12 @@ const MessageDetail = ({
 
     const handleGenerateAI = async () => {
         try {
-            await toast.promise(generateAI(selectedQuestionId!),{
-                loading:'generating AI answer...',
-                success:'AI Answer generation triggered successfully',
-                error: (err:any) => err.message || "Failed to trigger AI generation"
-            });
+            await generateAI(selectedQuestionId!);
+            toast.success("AI Answer generation triggered successfully");
             setIsErrorModalOpen(false);
             refechMessageDetails();
         } catch (err: any) {
-            console.error('err:',err)
+            toast.error(err.message || "Failed to trigger AI generation");
         }
     };
 
@@ -582,7 +579,6 @@ interface ContentAnswerProps {
 }
 
 const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateToQuestionPage }: ContentAnswerProps) => {
-     const { success: toastSuccess, error: toastError} = useToast();
     const parsed = parseChatbotText(text);
     const [approved, setApproved] = useState<boolean | null>(null);
     const [editedAnswerBody, setEditedAnswerBody] = useState(parsed.answerBody);
@@ -598,6 +594,12 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const { mutateAsync: updateAnswer, isPending: isUpdating } = useUpdateAnswer();
     const { mutateAsync: updateQuestion, isPending: updatingQuestion } = useUpdateQuestion();
 
+    // Only the moderator the question is assigned to (by the moderator-queue cron) may
+    // act on it — Pass / Accept / Push to GDB are hidden from everyone else.
+    // The backend resolves this against the requesting user (avoids ObjectId
+    // serialization mismatches from comparing ids on the client).
+    const isAssignedModerator = question?.isAssignedModerator === true;
+
     useEffect(() => {
         const p = parseChatbotText(text);
         setEditedAnswerBody(p.answerBody);
@@ -607,8 +609,8 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     }, [text]);
 
     const handleAccept = () => {
-        if (!question?._id) { toastError("Question data is missing."); return; }
-        if (question.source !== "AJRASAKHA" && question.source !== "WHATSAPP") { toastError("Only AJRASAKHA or WHATSAPP answers can be approved."); return; }
+        if (!question?._id) { toast.error("Question data is missing."); return; }
+        if (question.source !== "AJRASAKHA" && question.source !== "WHATSAPP") { toast.error("Only AJRASAKHA or WHATSAPP answers can be approved."); return; }
         setPendingApprovalAction("accept");
         setEditModalKey(k => k + 1);
         setIsEditModalOpen(true);
@@ -616,13 +618,13 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
 
     const handlePushToGDB = () => {
         if (!question?._id) {
-            toastError("Question data is missing."); return;
+            toast.error("Question data is missing."); return;
         }
         if (question.source !== "AJRASAKHA" && question.source !== "WHATSAPP") {
-            toastError("Only AJRASAKHA or WHATSAPP answers can be approved."); return;
+            toast.error("Only AJRASAKHA or WHATSAPP answers can be approved."); return;
         }
         if (question.status !== "duplicate") {
-            toastError("Only duplicate questions can be pushed to GDB."); return;
+            toast.error("Only duplicate questions can be pushed to GDB."); return;
         }
         setPendingApprovalAction("push-to-gdb");
         setEditModalKey(k => k + 1);
@@ -643,13 +645,13 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
             }
 
             if (sources.length === 0) {
-                toastError("At least one source is required to proceed.");
+                toast.error("At least one source is required to proceed.");
                 return;
             }
 
             const isAcceptFlow = (flowType ?? confirmDialog.type) === "accept";
 
-            await toast.promise(updateAnswer({
+            await updateAnswer({
                 updatedAnswer: editedAnswerBody.trim(),
                 sources,
                 answerId: undefined,
@@ -663,13 +665,18 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                     : "Answer pushed to GDB successfully",
                 // error:"Failed to approve the answer. Please try again."
                     error: (error:any) => error.message ? error.message : "Failed to approve the answer. Please try again."
-            });
+            };
             setApproved(true);
 
-            
+            toast.success(
+                isAcceptFlow
+                    ? "LLM answer submitted successfully for author review"
+                    : "Answer pushed to GDB successfully"
+            );
             navigateToQuestionPage();
         } catch (error) {
             console.error("Failed to approve answer:", error);
+            toast.error("Failed to approve the answer. Please try again.");
         }
     };
 
@@ -686,7 +693,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
             editedSpecialists.some(s => s.sourceLink?.trim()) ||
             editedPdfSources.some(s => s.link?.trim());
         if (!hasAnySource) {
-            toastError("At least one source is required to proceed.");
+            toast.error("At least one source is required to proceed.");
             return;
         }
         const action = pendingApprovalAction;
@@ -698,7 +705,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     };
     const handleSkip = () => {
         if (!question?.details?.normalised_crop?.trim()) {
-            toastError("This question does not have a normalised crop. Please add the respective crop from the Agri Tech Management section before approving this answer.");
+            toast.error("This question does not have a normalised crop. Please add the respective crop from the Agri Tech Management section before approving this answer.");
             return;
         }
         setPassRemarkError("");
@@ -706,11 +713,8 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     };
 
     const doSkip = async (remark?: string) => {
-        await toast.promise(updateQuestion({ isHidden: true, status: 'pass', _id: question._id!, ...(remark ? { passingRemark: remark } : {}) } as any),{
-            loading:'skipping the question...',
-            success:'Question has been hidden',
-            error: 'failed to skip question'
-        });
+        await updateQuestion({ isHidden: true, status: 'pass', _id: question._id!, ...(remark ? { passingRemark: remark } : {}) } as any);
+        toast.success("Question has been hidden");
         navigateToQuestionPage();
     };
 
@@ -828,7 +832,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                         </div>
                     )}
                 </div>
-                {approved === null && question && (question.source == "AJRASAKHA" || question.source == "WHATSAPP") && question.status !== "closed" && !question.aiInitialAnswer && !isQuestionAllocatedToExpert && (
+                {approved === null && question && isAssignedModerator && (question.source == "AJRASAKHA" || question.source == "WHATSAPP") && question.status !== "closed" && !question.aiInitialAnswer && !isQuestionAllocatedToExpert && (
                     <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
                         <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">Once you click on Accept, the LLM-generated answer will be set as the AI answer for this question and sent for moderation as a reference to create the initial answer for the question.</p>
                         <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
@@ -848,7 +852,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                                 ) : (
                                     <CheckCircle className="h-4 w-4" />
                                 )}
-                                {isUpdating ? "Submitting AI Answer..." : "Accept"}
+                                {isUpdating ? "Submitting AI Answer..." : "Allocate Experts"}
                             </Button>
 
                             {question.status === "duplicate" && (
@@ -990,7 +994,6 @@ const EditAnswerModal = ({
     initialTranslatedText,
     saveLabel = "Save Changes",
 }: EditAnswerModalProps) => {
-     const { success: toastSuccess, error: toastError} = useToast();
     const [pendingAction, setPendingAction] = useState<'save' | 'cancel' | null>(null);
     const [translatedText, setTranslatedText] = useState<string>(initialTranslatedText ?? "");
 
@@ -1024,15 +1027,15 @@ const EditAnswerModal = ({
 
     const validateSources = (): boolean => {
         for (const spec of editedSpecialists) {
-            if (!spec.name.trim()) { toastError("Each agri specialist must have a name."); return false; }
-            if (!spec.sourceLink.trim()) { toastError("Each agri specialist must have a source URL."); return false; }
-            if (!isZohoWorkDriveUrl(spec.sourceLink)) { toastError("Only Zoho WorkDrive URLs are allowed for sources."); return false; }
+            if (!spec.name.trim()) { toast.error("Each agri specialist must have a name."); return false; }
+            if (!spec.sourceLink.trim()) { toast.error("Each agri specialist must have a source URL."); return false; }
+            if (!isZohoWorkDriveUrl(spec.sourceLink)) { toast.error("Only Zoho WorkDrive URLs are allowed for sources."); return false; }
         }
         for (const src of editedPdfSources) {
-            if (!src.name.trim()) { toastError("Each reference source must have a name."); return false; }
-            if (!src.sourceType.trim()) { toastError("Each reference source must have a source type selected."); return false; }
-            if (!src.link.trim()) { toastError("Each reference source must have a source URL."); return false; }
-            if (!isZohoWorkDriveUrl(src.link)) { toastError("Only Zoho WorkDrive URLs are allowed for sources."); return false; }
+            if (!src.name.trim()) { toast.error("Each reference source must have a name."); return false; }
+            if (!src.sourceType.trim()) { toast.error("Each reference source must have a source type selected."); return false; }
+            if (!src.link.trim()) { toast.error("Each reference source must have a source URL."); return false; }
+            if (!isZohoWorkDriveUrl(src.link)) { toast.error("Only Zoho WorkDrive URLs are allowed for sources."); return false; }
         }
         return true;
     };

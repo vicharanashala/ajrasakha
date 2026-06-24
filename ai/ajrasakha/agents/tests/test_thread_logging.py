@@ -93,16 +93,10 @@ def test_thread_file_handler_routes_by_context(tmp_path: Path):
 
 
 def test_end_conversation_turn_syncs_turn_to_mongo(tmp_path: Path, monkeypatch):
-    sync_calls: list[tuple[str, dict, str | None]] = []
+    sync_calls: list[tuple[str, dict]] = []
 
-    def _capture_sync(
-        thread_id: str,
-        turn_record: dict,
-        *,
-        full_logs: str | None = None,
-        background=True,
-    ):
-        sync_calls.append((thread_id, turn_record, full_logs))
+    def _capture_sync(thread_id: str, turn_record: dict, *, background=True):
+        sync_calls.append((thread_id, turn_record))
 
     monkeypatch.setattr(tl, "thread_log_dir", lambda: tmp_path)
     monkeypatch.setattr(tl, "mongo_thread_log_enabled", lambda: True)
@@ -114,7 +108,7 @@ def test_end_conversation_turn_syncs_turn_to_mongo(tmp_path: Path, monkeypatch):
     tl.clear_thread_log_context()
 
     assert len(sync_calls) == 1
-    thread_id, turn_record, full_logs = sync_calls[0]
+    thread_id, turn_record = sync_calls[0]
     assert thread_id == "thread-mongo"
     assert turn_record["turn"] == 1
     assert turn_record["user_message"] == "Hi"
@@ -123,8 +117,6 @@ def test_end_conversation_turn_syncs_turn_to_mongo(tmp_path: Path, monkeypatch):
     assert "FARMER MESSAGE" in turn_record["log_text"]
     assert "BOT MESSAGE" in turn_record["log_text"]
     assert "END TURN 1" in turn_record["log_text"]
-    assert full_logs is not None
-    assert "END TURN 1" in full_logs
     assert (tmp_path / "thread-mongo.txt").is_file()
 
 
@@ -132,13 +124,7 @@ def test_turn_state_survives_node_context_reset(tmp_path: Path, monkeypatch):
     """Simulate LangGraph: planner sets turn, later node clears ContextVar but ends turn."""
     sync_calls: list[dict] = []
 
-    def _capture_sync(
-        thread_id: str,
-        turn_record: dict,
-        *,
-        full_logs: str | None = None,
-        background=True,
-    ):
+    def _capture_sync(thread_id: str, turn_record: dict, *, background=True):
         sync_calls.append(turn_record)
 
     monkeypatch.setattr(tl, "thread_log_dir", lambda: tmp_path)
@@ -163,13 +149,7 @@ def test_turn_state_survives_node_context_reset(tmp_path: Path, monkeypatch):
 def test_turn_buffer_captures_handler_logs(tmp_path: Path, monkeypatch):
     sync_calls: list[dict] = []
 
-    def _capture_sync(
-        thread_id: str,
-        turn_record: dict,
-        *,
-        full_logs: str | None = None,
-        background=True,
-    ):
+    def _capture_sync(thread_id: str, turn_record: dict, *, background=True):
         sync_calls.append(turn_record)
 
     monkeypatch.setattr(tl, "thread_log_dir", lambda: tmp_path)

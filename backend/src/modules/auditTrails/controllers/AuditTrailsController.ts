@@ -179,11 +179,15 @@ class AuditTrailsController {
     @QueryParam('startDate') startDate?: string,
     // @QueryParam('endDate') endDate?: string,
     @QueryParam('shift') shift?: string,
+    @QueryParam('from') from?: string,
+    @QueryParam('to') to?: string,
   ) {
     const actionCounts = await this.auditTrailsService.getShiftBasedAuditActionCounts(
       startDate,
       // endDate,
-      shift
+      shift,
+      from ?? '00:00',
+      to ?? '23:59'
     );
 
     return {

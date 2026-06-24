@@ -424,17 +424,25 @@ export const IncomingCallBox = ({
 
     // Connect to WebSocket
     const token = localStorage.getItem("token");
-    console.log("🔑 [IncomingCallBox] Token present:", token ? "Yes" : "No (optional)");
+    console.log("🔑 [IncomingCallBox] Using token:", token ? "✅" : "❌ None");
 
-    // Note: Backend WebSocket doesn't require authentication, token is optional
-    ws.connect(token || undefined).catch((error) => {
-      console.error(
-        "❌ [IncomingCallBox] WebSocket connection failed:",
-        error,
-      );
-      console.error("🔍 WebSocket URL:", env.plivo.streamUrl());
-      alert("WebSocket connection failed: " + error);
-    });
+    if (token) {
+      ws.connect(token).catch((error) => {
+        console.error(
+          "❌ [IncomingCallBox] WebSocket connection failed with token:",
+          error,
+        );
+        alert("WebSocket connection failed: " + error);
+      });
+    } else {
+      ws.connect().catch((error) => {
+        console.error(
+          "❌ [IncomingCallBox] WebSocket connection failed without token:",
+          error,
+        );
+        alert("WebSocket connection failed: " + error);
+      });
+    }
   };
 
   const disconnectWebSocket = () => {

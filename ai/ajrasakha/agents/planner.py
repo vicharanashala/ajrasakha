@@ -21,7 +21,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from langchain_core.runnables import RunnableConfig, patch_config
 from pydantic import BaseModel, Field
 
-from ajrasakha.agents.config import PLANNER_MODEL, resolve_user_id
+from ajrasakha.agents.config import PLANNER_MODEL
 from ajrasakha.agents.thread_logging import (
     begin_conversation_turn,
     end_conversation_turn,
@@ -67,11 +67,14 @@ from ajrasakha.agents.planner_rules import (
 )
 from ajrasakha.agents.prompts import PLANNER_SYSTEM_PROMPT
 from ajrasakha.agents.state import AjraSakhaState, PlannerEntities, PlannerPlan
+<<<<<<< HEAD
+=======
 from ajrasakha.agents.user_location import (
     load_user_location,
     maybe_persist_rephrased_query,
     maybe_persist_resolved_location,
 )
+>>>>>>> origin/main
 
 logger = logging.getLogger(__name__)
 
@@ -187,6 +190,28 @@ def is_greeting_message(text: str) -> bool:
     return bool(_GREETING_RE.match(t))
 
 
+def _compute_tools_used_from_output(output: PlannerOutput) -> list[str]:
+    """Compute tools_used list from PlannerOutput flags."""
+    if output.is_agriculture_related is False:
+        return []
+    
+    tools: list[str] = []
+    if output.knowledge_base:
+        tools.append("knowledge_base")
+    if output.weather:
+        tools.append("weather")
+    if output.mandi:
+        tools.append("mandi")
+    if output.soil:
+        tools.append("soil")
+    if output.schemes:
+        tools.append("schemes")
+    if output.chemical_checker:
+        tools.append("chemical_checker")
+    
+    return tools
+
+
 def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
     entities: PlannerEntities = {}
     if output.entities.crop:
@@ -235,6 +260,7 @@ def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
         "script_language": output.script_language,
         "translate_path": None,
         "expert_queue": False,
+        "tools_used": _compute_tools_used_from_output(output),
     }
 
 
@@ -262,6 +288,7 @@ def _default_plan_for_agriculture(user_query: Optional[str] = None) -> PlannerPl
         "script_language": "English",
         "translate_path": None,
         "expert_queue": False,
+        "tools_used": ["knowledge_base"],
     }
 
 
@@ -470,13 +497,6 @@ async def planner_node(
     begin_conversation_turn(user_text)
 
     if is_greeting_message(user_text):
-        prev_plan = state.get("plan") or {}
-        prev_entities: PlannerEntities = dict(prev_plan.get("entities") or {})
-        greeting_entities: PlannerEntities = {"crop": "all"}
-        for key in ("state", "district"):
-            if prev_entities.get(key):
-                greeting_entities[key] = prev_entities[key]
-
         plan: PlannerPlan = {
             "domain": "General",
             "weather": False,
@@ -491,7 +511,7 @@ async def planner_node(
             "missing_info": [],
             "follow_up_question": None,
             "reasoning": "greeting",
-            "entities": greeting_entities,
+            "entities": {"crop": "all"},
             "skip_synthesize": False,
             "rephrased_query": user_text,
             "original_query_en": user_text,
@@ -499,6 +519,7 @@ async def planner_node(
             "script_language": "English",
             "translate_path": None,
             "expert_queue": False,
+            "tools_used": [],
         }
         trace_thread_location(
             "planner_greeting_input",
@@ -618,23 +639,7 @@ async def planner_node(
         if not plan.get("original_query_en"):
             plan["original_query_en"] = user_text
 
-        user_id = resolve_user_id(config)
-        stored_location = load_user_location(user_id)
-        location_sources: dict[str, str | None] = {}
-        trace_event(
-            "planner_user_location_lookup",
-            user_id=user_id,
-            stored_location=stored_location,
-            configurable_user_id=(config.get("configurable") or {}).get("user_id"),
-        )
-        entities = merge_entities_from_rephrased_query(
-            plan,
-            messages,
-            location,
-            prev_entities,
-            stored_location=stored_location,
-            sources_out=location_sources,
-        )
+        entities = merge_entities_from_rephrased_query(plan, messages, location, prev_entities)
         plan["entities"] = entities
         trace_event("planner_entities_merged", entities=entities)
 
@@ -674,6 +679,9 @@ async def planner_node(
         plan["missing_info"] = missing
         plan["follow_up_question"] = follow_up
 
+<<<<<<< HEAD
+        plan = apply_planner_completeness_rules(plan, messages, location, prev_entities)
+=======
         plan = apply_planner_completeness_rules(
             plan,
             messages,
@@ -701,6 +709,7 @@ async def planner_node(
                     user_id=user_id,
                     rephrased_query=rephrased,
                 )
+>>>>>>> origin/main
 
         trace_event(
             "planner_final_plan",
@@ -737,6 +746,7 @@ async def planner_node(
         else:
             plan["knowledge_base"] = True
             plan["soil"] = False
+            plan["schemes"] = False
 
         logger.info(
             "Planner: complete=%s domain=%s crop_required=%s "

@@ -248,7 +248,7 @@ export const PlaygroundPage = () => {
                   </TabsTrigger>
                 )}
 
-                {user?.role === "call_agent" && (
+                {user?.role === "call_agent" && user?.isCallAgentActive && (
                   <>
                     <TabsTrigger
                       value="call_interface"
@@ -485,7 +485,7 @@ export const PlaygroundPage = () => {
                 </TabsContent>
               )}
 
-              {user?.role === "call_agent" && (
+              {user?.role === "call_agent" && user?.isCallAgentActive && (
                   <TabsContent
                     value="call_interface"
                     className={cn(

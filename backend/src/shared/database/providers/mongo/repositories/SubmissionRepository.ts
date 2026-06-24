@@ -1229,6 +1229,25 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           action: 1,
           mainDate: 1,
           createdAt: '$mainDate',
+          // Reviewer's position in the queue: 0 = Author, N = Level N.
+          level: { $indexOfArray: ['$queue', userObjId] },
+          // Time the question/review was assigned to this user. Mirrors
+          // buildReviewTat: the author (index 0) is assigned at first allocation
+          // (falling back to question creation), reviewers at their own entry's
+          // createdAt. `completedAt` is the submission/review time (mainDate).
+          assignedAt: {
+            $cond: [
+              { $eq: ['$historyIndex', 0] },
+              {
+                $ifNull: [
+                  '$questionDoc.firstAllocationAt',
+                  '$questionDoc.createdAt',
+                ],
+              },
+              '$history.createdAt',
+            ],
+          },
+          completedAt: '$mainDate',
           updatedAt: '$history.updatedAt',
           reviewType: '$reviewDoc.reviewType',
           reason: {
@@ -1435,6 +1454,10 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           action: 1,
           mainDate: 1,
           createdAt: '$reroutes.reroutedAt',
+          // Reroute is "assigned" when it was rerouted to the user, and
+          // "completed" at its last update (mainDate).
+          assignedAt: '$reroutes.reroutedAt',
+          completedAt: '$mainDate',
           updatedAt: '$reroutes.updatedAt',
           rerouteStatus: '$reroutes.status',
           comment: '$reroutes.comment',
@@ -3443,9 +3466,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       source: { $in: ['AJRASAKHA', 'WHATSAPP'] },
       isAutoAllocate: true,
       status: { $in: ['open', 'delayed'] },
-      // Never allocated: field missing OR explicitly cleared to null (e.g. after the
-      // first expert was removed and the queue emptied).
-      firstAllocationAt: null,
+      firstAllocationAt: { $exists: false },
       isOnHold: { $ne: true },
     })
       .sort({ createdAt: 1 })

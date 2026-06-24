@@ -11,6 +11,7 @@ import {
 } from "@/hooks/api/question/useGetAllocatedQuestions";
 import { useGetQuestionById } from "@/hooks/api/question/useGetQuestionById";
 import { QuestionService } from "@/hooks/services/questionService";
+import { toast } from "sonner";
 import { SourceUrlManager } from "../../components/source-url-manager";
 import {
   type QuestionDateRangeFilter,
@@ -57,7 +58,6 @@ export const QAInterface = ({
   onManualSelectQuestionType: (type: string | null) => void;
 }) => {
 
-  const { error: toastError } = useToast();
   //translation state
   const [translatedText, setTranslatedText] = useState<string>("");
   const [translatedDraftText, setTranslatedDraftText] = useState<string>("");
@@ -159,13 +159,6 @@ export const QAInterface = ({
     if (!questionPages?.pages) return [];
     return questionPages.pages.flat();
   }, [questionPages, actionType]);
-
-  // Check if there are any timebound questions (AJRASAKHA or WHATSAPP) in the queue
-  const hasTimeboundQuestions = useMemo(() => {
-    return questions.some(
-      (q) => q?.source === "AJRASAKHA" || q?.source === "WHATSAPP"
-    );
-  }, [questions]);
   const didInit = useRef(false);
 
   useEffect(() => {
@@ -233,13 +226,6 @@ export const QAInterface = ({
     if (!isLoaded) return; // wait until drafts + selected are loaded
     if (autoSelectQuestionId) return;
 
-    const firstTimebound = questions.find(
-      (q) => q?.source === "AJRASAKHA" || q?.source === "WHATSAPP"
-    );
-    if (firstTimebound) {
-      setSelectedQuestion(firstTimebound.id);
-      return; // Stop here, timebound questions take absolute priority
-    }
     const savedSelected = localStorage.getItem("selectedQuestion");
 
     if (savedSelected && questions.some((q) => q?.id === savedSelected)) {
@@ -540,7 +526,7 @@ export const QAInterface = ({
 
     // Validate sources only where needed
     if (requiresSources && sources.length === 0) {
-      toastError("At least one source is required!");
+      toast.error("At least one source is required!");
       return;
     }
 
@@ -590,6 +576,8 @@ export const QAInterface = ({
       });
       setSelectedQuestion(null);
       handleReset();
+
+      toast.success("Your response has been submitted. Thank you!");
     } catch (error) {
       console.error("Failed to submit:", error);
     }
@@ -672,7 +660,6 @@ export const QAInterface = ({
               setQuestionRef={setQuestionRef}
               onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
               onAiAnswerFetched={handleAiAnswerFetched}
-              hasTimeboundQuestions={hasTimeboundQuestions}
             />
           </div>
           {selectedQuestionData &&
