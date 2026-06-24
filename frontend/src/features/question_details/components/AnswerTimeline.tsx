@@ -133,6 +133,7 @@ export const AnswerTimeline = ({
               paeReview={question.pae_review}
               isDedicatedView={isDedicatedView}
               assignedModerator={question.assigned_moderator}
+              isAssignedModerator={question.isAssignedModerator}
             />
           </div>
         )}

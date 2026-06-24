@@ -38,6 +38,7 @@ interface AnswerItemProps {
   paeReview?: boolean;
   isDedicatedView?: boolean;
   assignedModerator?: { name: string; email: string } | null;
+  isAssignedModerator?: boolean;
 }
 
 export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
@@ -396,6 +397,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         paeReview={props.paeReview}
         isDedicatedView={props.isDedicatedView}
         assignedModerator={props.assignedModerator}
+        isAssignedModerator={props.isAssignedModerator}
       />
 
       <AnswerContent answer={props.answer} />

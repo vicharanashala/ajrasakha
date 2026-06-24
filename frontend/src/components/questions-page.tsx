@@ -316,6 +316,15 @@ export const QuestionsPage = ({
     : (questionData?.totalCount || 0);
   const currentPageVal = viewMode === "review-level" ? reviewPage : currentPage;
 
+  // If the active page falls outside the available range — e.g. returning from a
+  // question's details to a view (like My Assignments) that has fewer pages — snap
+  // back to the last valid page so the list isn't stuck on an empty out-of-range page.
+  useEffect(() => {
+    if (viewMode !== "review-level" && totalPages > 0 && currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [viewMode, totalPages, currentPage]);
+
   const hasNext = currentIndex < currentItems.length - 1 || currentPageVal < totalPages;
   const hasPrev = currentIndex > 0 || currentPageVal > 1;
 

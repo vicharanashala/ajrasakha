@@ -489,6 +489,11 @@ export class QuestionRepository implements IQuestionRepository {
           ],
         });
         filter.status = { $in: ['in-review', 're-routed', 'duplicate', 'pae_submitted'] };
+        // A moderator's assignments span all question types (including PAE questions),
+        // so drop the pae_review restriction applied above for the normal tabs —
+        // otherwise pae_review:true assignments would be hidden from "My Assignments".
+        delete filter.$or;
+        delete filter.pae_review;
       }
 
       // --- State filter (from body array) ---
