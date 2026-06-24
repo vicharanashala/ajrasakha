@@ -33,6 +33,40 @@ ENABLE_CHEMICAL_CHECKER = False
 _SIMILAR_PAIR_KEYS = tuple(f"similar_pair{i}" for i in range(1, 6))
 _GDB_EMPTY_SENTINELS = frozenset({"NO_RELEVANT_CONTENT", "[]", "{}"})
 
+
+def _compute_tools_used(plan: PlannerPlan) -> list[str]:
+    """Compute the list of tools used based on plan flags.
+    
+    Returns a list of tool names that were used to generate the answer.
+    For non-agriculture queries, returns an empty list.
+    """
+    # Non-agriculture queries have no tools used
+    if plan.get("is_agriculture_related") is False:
+        return []
+    
+    tools: list[str] = []
+    
+    # Always include knowledge_base if it's an agriculture query
+    if plan.get("knowledge_base"):
+        tools.append("knowledge_base")
+    
+    if plan.get("weather"):
+        tools.append("weather")
+    
+    if plan.get("mandi"):
+        tools.append("mandi")
+    
+    if plan.get("soil"):
+        tools.append("soil")
+    
+    if plan.get("schemes"):
+        tools.append("schemes")
+    
+    if plan.get("chemical_checker"):
+        tools.append("chemical_checker")
+    
+    return tools
+
 _CHEMICAL_NAME_RE = re.compile(
     r"\b(monocrotophos|chlorpyrifos|endosulfan|carbofuran|paraquat|"
     r"glyphosate|imidacloprid|thiamethoxam|mancozeb|carbendazim|"
@@ -331,6 +365,8 @@ def build_reviewer_upload_calls(
     #     })
 
     if question_source and str(question_source).strip():
+        # Compute tools_used based on plan flags
+        tools_used = _compute_tools_used(plan)
         reviewer_args: dict[str, Any] = {
             "question": reviewer_question,
             "state_name": state_name,
@@ -341,6 +377,7 @@ def build_reviewer_upload_calls(
                 "crop": crop,
                 "season": "General",
                 "domain": domains,
+                "tools_used": tools_used,
             },
             "source": str(question_source).strip(),
         }
