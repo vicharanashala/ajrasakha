@@ -10315,10 +10315,8 @@ if (!districts.length) {
       };
 
       const dupeQuestions = await this.QuestionCollection.find(
-        {
-          $match: matchQuery,
-        },
-        {session},
+        matchQuery,
+        { session },
       )
         .project<{
           _id: any;

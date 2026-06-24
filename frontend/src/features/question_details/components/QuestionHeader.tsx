@@ -17,6 +17,7 @@ import { CircleCheck, GitCompareArrows, History } from "lucide-react";
 import { diffWords } from "@/utils/wordDifference";
 import { AuditTrailModal } from "./AuditTrailModal";
 import { QuestionLifecycleTable } from "@/features/chatbotDashboard/QuestionLifeCycle";
+import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
 
 interface QuestionHeaderProps {
   question: IQuestionFullData;
@@ -80,7 +81,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
   const isQuestionOnHold = question.isOnHold;
   const { mutate: checkDuplicate, isPending: isCheckingDuplicate } = useManualCheckDuplicate();
   const originalQuestion = question.originalQuestion?.trim();
-  const [lifeCycleModalOpen, setLifeCycleModalOpen] = useState(false);
+  const { view, setView } = useSelectedQuestion();
   // For compare mode: reference answer (from the original/reference question)
   const referenceAnswerText = (() => {
     const text = question.referenceQuestionData?.text;
@@ -334,7 +335,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
           <Button
             size="sm"
             variant="outline"
-            onClick={() => setLifeCycleModalOpen(true)}
+            onClick={() => setView("lifecycle")}
             className="gap-1.5"
           >
             <History className="h-4 w-4" />
@@ -712,8 +713,8 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
 
 
       <QuestionLifecycleTable
-        open={lifeCycleModalOpen}
-        onClose={() => setLifeCycleModalOpen(false)}
+        open={view === "lifecycle"}
+        onClose={() => setView(undefined)}
         questionId={question._id!}
       />
 

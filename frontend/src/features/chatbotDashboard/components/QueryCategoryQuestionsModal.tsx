@@ -16,6 +16,7 @@ import {
 } from "./QuestionListTable";
 import { TranslatableText } from "./TranslatableText";
 import { FarmerNameLink } from "./FarmerNameLink";
+import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
 
 const CopyableIdCell = ({ id }: { id?: string }) => {
   const [copied, setCopied] = useState(false);
@@ -90,6 +91,11 @@ export function QueryCategoryQuestionsModal({
   onClose,
   isPassed,
 }: QueryCategoryQuestionsModalProps) {
+  const {
+    setSelectedQuestionId,
+    setView,
+  } = useSelectedQuestion();
+
   const [questionType, setQuestionType] =
     useState<QueryCategoryQuestionType>("all");
   const [page, setPage] = useState(1);
@@ -284,12 +290,20 @@ export function QueryCategoryQuestionsModal({
         className: "w-[32%]",
         cellClassName: "overflow-hidden",
         render: (row) => (
+        <button
+          className="text-left hover:underline"
+          onClick={() => {
+            setSelectedQuestionId(row.questionId);
+            setView("lifecycle");
+            onClose();
+          }}
+        >
           <TranslatableText
             text={row.question ?? ""}
             showTooltip
             textClassName="text-xs line-clamp-2"
           />
-        ),
+        </button>),
       },
 
       {
