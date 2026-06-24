@@ -72,6 +72,22 @@ const formatDuration = (ms?: number | null) => {
   return `${secs}s`;
 };
 
+const getDurationColor = (duration?: number | null) => {
+  if (!duration) return "bg-primary";
+
+  const minutes = duration / (1000 * 60);
+
+  if (minutes < 5) {
+    return "bg-emerald-500"; // Green
+  }
+
+  if (minutes <= 20) {
+    return "bg-orange-500"; // Orange
+  }
+
+  return "bg-red-500"; // Red
+};
+
 export function QuestionLifecycleTable({
   open,
   onClose,
@@ -87,6 +103,36 @@ export function QuestionLifecycleTable({
   );
 
   const maxDuration = Math.max(...lifeCycle.map((x) => x.duration || 0), 1);
+
+  const fastestReviewer = React.useMemo(() => {
+    return lifeCycle
+      .filter((x) => x.eventType === "reviewer" && x.duration && x.duration > 0)
+      .sort((a, b) => (a.duration || 0) - (b.duration || 0))[0];
+  }, [lifeCycle]);
+
+  const firstTimedEvent = lifeCycle.find((x) => x.timestamp);
+
+  const lastTimedEvent = [...lifeCycle].reverse().find((x) => x.timestamp);
+
+  const isResolved = lifeCycle.some(
+    (x) =>
+      x.action?.toLowerCase().includes("closed") ||
+      x.action?.toLowerCase().includes("passed"),
+  );
+
+  const isDuplicateQuestion = lifeCycle.some((x) =>
+    x.action?.toLowerCase().includes("duplicate"),
+  );
+
+  const totalClosureTime =
+    firstTimedEvent?.timestamp && lastTimedEvent?.timestamp
+      ? (isResolved || isDuplicateQuestion
+          ? new Date(lastTimedEvent.timestamp).getTime()
+          : Date.now()) - new Date(firstTimedEvent.timestamp).getTime()
+      : 0;
+  const SLA_MS = 2 * 60 * 60 * 1000;
+
+  const isSlaBreached = totalClosureTime > SLA_MS;
 
   const insights = React.useMemo(() => {
     if (!lifeCycle.length) return [];
@@ -122,7 +168,7 @@ export function QuestionLifecycleTable({
     const insights: Insight[] = [];
 
     // Queue bottleneck
-    if (waitTime > activeReviewTime) {
+    if (waitTime > activeReviewTime && activeReviewTime > 0) {
       insights.push({
         type: "warning",
         title: `Queue wait (${formatDuration(waitTime)}) exceeds review effort (${formatDuration(activeReviewTime)})`,
@@ -156,9 +202,55 @@ export function QuestionLifecycleTable({
         type: "process",
         title: `Authoring took ${formatDuration(authoringTime)}`,
         description:
-          "Authoring exceeded the 20-minute benchmark, indicating a delay in content preparation."
+          "Authoring exceeded the 20-minute benchmark, indicating a delay in content preparation.",
       });
     }
+
+    const firstTimedEvent = lifeCycle.find((x) => x.timestamp);
+
+    const lastTimedEvent = [...lifeCycle].reverse().find((x) => x.timestamp);
+
+    const pushedToReviewTime =
+      lifeCycle.find((x) => x.action === "Pushed To Review System")?.duration ||
+      0;
+
+    const totalIdleTime = waitTime;
+
+    const isResolved = lifeCycle.some(
+      (x) =>
+        x.action?.toLowerCase().includes("closed") ||
+        x.action?.toLowerCase().includes("passed"),
+    );
+    const isDuplicateQuestion = lifeCycle.some((x) =>
+      x.action?.toLowerCase().includes("duplicate"),
+    );
+
+    const totalClosureTime =
+      firstTimedEvent?.timestamp && lastTimedEvent?.timestamp
+        ? (isResolved || isDuplicateQuestion
+            ? new Date(lastTimedEvent.timestamp).getTime()
+            : Date.now()) - new Date(firstTimedEvent.timestamp).getTime()
+        : 0;
+    const slowestStage = lifeCycle
+      .filter((x) => x.duration && x.duration > 0)
+      .reduce(
+        (max, curr) =>
+          (curr.duration || 0) > (max.duration || 0) ? curr : max,
+        lifeCycle.find((x) => x.duration && x.duration > 0),
+      );
+
+    const slaBreached = totalClosureTime > 2 * 60 * 60 * 1000; // 2 hours
+
+    insights.unshift({
+      type: slaBreached ? "warning" : "process",
+      title: slaBreached
+        ? `SLA Breached (${formatDuration(totalClosureTime)})`
+        : `Lifecycle duration: ${formatDuration(totalClosureTime)}`,
+      description:
+        slaBreached && slowestStage
+          ? `Entered review queue in ${formatDuration(pushedToReviewTime)}, remained idle for ${formatDuration(totalIdleTime || totalClosureTime)}, and required ${formatDuration(activeReviewTime)} of active review effort. The longest stage was "${slowestStage.action}" (${formatDuration(slowestStage.duration)}) by ${slowestStage.user}.`
+          : `Entered review queue in ${formatDuration(pushedToReviewTime)}, remained idle for ${formatDuration(totalIdleTime || totalClosureTime)}, and required ${formatDuration(activeReviewTime)} of active review effort.`,
+    });
 
     // Fast reviewers
     const reviewerEvents = lifeCycle.filter(
@@ -177,6 +269,27 @@ export function QuestionLifecycleTable({
         title: `Average review time is ${formatDuration(avgReviewTime)}`,
         description:
           "Reviewer turnaround is healthy. Delays likely originate elsewhere in the workflow.",
+      });
+    }
+
+    const bufferEvents = lifeCycle.filter(
+      (x) => x.eventType === "system_wait" && x.duration,
+    );
+
+    const avgBufferTime =
+      bufferEvents.length > 0
+        ? bufferEvents.reduce((sum, x) => sum + (x.duration || 0), 0) /
+          bufferEvents.length
+        : 0;
+
+    if (avgBufferTime > 0) {
+      insights.push({
+        type: avgBufferTime > 20 * 60 * 1000 ? "warning" : "process",
+        title: `Average buffer time: ${formatDuration(avgBufferTime)}`,
+        description:
+          avgBufferTime > 20 * 60 * 1000
+            ? "Questions spent significant time waiting between workflow stages."
+            : "Transition time between workflow stages remained within acceptable limits.",
       });
     }
 
@@ -202,6 +315,11 @@ export function QuestionLifecycleTable({
           <DialogTitle className="flex items-center gap-2">
             <History className="h-5 w-5" />
             Question Lifecycle
+            {isSlaBreached && (
+              <div className="font-medium text-red-500">
+                🚨 SLA Breached ({formatDuration(totalClosureTime)} / 2h)
+              </div>
+            )}
           </DialogTitle>
         </DialogHeader>
 
@@ -227,6 +345,12 @@ export function QuestionLifecycleTable({
 
                   const isSystem = row.user === "System";
 
+                  const isFastestReviewer =
+                    row.eventType === "reviewer" &&
+                    fastestReviewer &&
+                    row.user === fastestReviewer.user &&
+                    row.duration === fastestReviewer.duration;
+
                   return (
                     <TableRow key={index}>
                       <TableCell>
@@ -235,7 +359,14 @@ export function QuestionLifecycleTable({
                           : "-"}
                       </TableCell>
 
-                      <TableCell>{row.user}</TableCell>
+                      <TableCell>
+                        {row.user}
+                        {isFastestReviewer && (
+                          <span className="text-xs font-medium text-emerald-600 mb-6">
+                            🏆 Fastest Reviewer
+                          </span>
+                        )}
+                      </TableCell>
 
                       <TableCell>
                         {row.duration ? (
@@ -243,7 +374,9 @@ export function QuestionLifecycleTable({
                             <div className="h-2 w-40 rounded bg-muted">
                               <div
                                 className={`h-2 rounded ${
-                                  isSystem ? "bg-yellow-500" : "bg-primary"
+                                  isSystem
+                                    ? "bg-yellow-500"
+                                    : getDurationColor(row.duration)
                                 }`}
                                 style={{
                                   width: `${percent}%`,

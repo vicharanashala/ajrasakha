@@ -15132,7 +15132,7 @@ existing.villageVolunteers +=
               duration: waitForClosure,
               remarks: '',
               endTime: completionTime,
-              eventType: 'closure',
+              eventType: 'system_wait',
             });
           }
         
@@ -15147,9 +15147,13 @@ existing.villageVolunteers +=
         finalTimeline.push({
           timestamp: question.closedAt,
           user: '-',
-          action: 'Question Closed',
+          action: `Question Closed ${
+            question.isCustomerNotified
+              ? '(Customer Notified)'
+              : '(Customer Not Notified)'
+          }`,
           duration: null,
-          remarks: '',
+          remarks: "",
           endTime: question.closedAt,
           eventType: 'closure',
         });
@@ -15157,14 +15161,18 @@ existing.villageVolunteers +=
         finalTimeline.push({
           timestamp: question.passedAt,
           user: '-',
-          action: 'Question Passed',
+          action: `Question Passed ${
+            question.isCustomerNotified
+              ? '(Customer Notified)'
+              : '(Customer Not Notified)'
+          }`,
           duration: null,
-          remarks: '',
+          remarks: "",
           endTime: question.passedAt,
           eventType: 'closure',
         });
       }
-      // console.log("finalTimeline--", finalTimeline)
+      // console.log("finalTimeline--", question)
       return finalTimeline;
     } catch(err){
       // console.log("err----", err);
