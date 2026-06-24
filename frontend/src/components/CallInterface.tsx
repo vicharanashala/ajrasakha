@@ -76,13 +76,48 @@ const getAutoSelectedSeason = (): string => {
   }
 };
 
+const DUMMY_TRANSCRIPTS: CallTranscript[] = [
+  {
+    track: "inbound",
+    text: "नमस्ते, मेरी टमाटर की फसल में पत्तियाँ सिकुड़ रही हैं और पौधे का विकास रुक गया है। मुझे क्या करना चाहिए?",
+    originalText: "नमस्ते, मेरी टमाटर की फसल में पत्तियाँ सिकुड़ रही हैं और पौधे का विकास रुक गया है। मुझे क्या करना चाहिए?",
+    translatedText: "Hello, the leaves of my tomato crop are curling and the plant growth has stopped. What should I do?",
+    detectedLanguage: "hi-IN",
+    timestamp: new Date(Date.now() - 120000).toISOString()
+  },
+  {
+    track: "outbound",
+    text: "नमस्ते। क्या पत्तियों पर कोई सफेद मक्खी या छोटे कीड़े दिखाई दे रहे हैं? यह लीफ कर्ल वायरस के लक्षण हो सकते हैं।",
+    originalText: "नमस्ते। क्या पत्तियों पर कोई सफेद मक्खी या छोटे कीड़े दिखाई दे रहे हैं? यह लीफ कर्ल वायरस के लक्षण हो सकते हैं।",
+    translatedText: "Hello. Are there any whiteflies or small insects visible on the leaves? These could be symptoms of Leaf Curl Virus.",
+    detectedLanguage: "hi-IN",
+    timestamp: new Date(Date.now() - 90000).toISOString()
+  },
+  {
+    track: "inbound",
+    text: "हाँ, पत्तियों के निचले हिस्से में बहुत सारे छोटे सफेद कीड़े उड़ रहे हैं।",
+    originalText: "हाँ, पत्तियों के निचले हिस्से में बहुत सारे छोटे सफेद कीड़े उड़ रहे हैं।",
+    translatedText: "Yes, there are many small white insects flying under the leaves.",
+    detectedLanguage: "hi-IN",
+    timestamp: new Date(Date.now() - 60000).toISOString()
+  },
+  {
+    track: "outbound",
+    text: "यह सफेद मक्खी (whitefly) का हमला है जो वायरस फैलाती है। आप नियंत्रण के लिए इमिडाक्लोप्रिड या नीम के तेल का छिड़काव करें।",
+    originalText: "यह सफेद मक्खी (whitefly) का हमला है जो वायरस फैलाती है। आप नियंत्रण के लिए इमिडाक्लोप्रिड या नीम के तेल का छिड़काव करें।",
+    translatedText: "This is a whitefly infestation which transmits the virus. You should spray Imidacloprid or Neem oil for control.",
+    detectedLanguage: "hi-IN",
+    timestamp: new Date(Date.now() - 30000).toISOString()
+  }
+];
+
 export const CallInterface = () => {
   const { data: currentUser, refetch: refetchCurrentUser } = useGetCurrentUser();
   const { mutateAsync: submitTranscript, isPending } = useSubmitTranscript();
   const [editableTranslatedTranscript, setEditableTranslatedTranscript] = useState("");
-  const [transcriptsList, setTranscriptsList] = useState<CallTranscript[]>([]);
-  const [isCallActive, setIsCallActive] = useState(false);
-  const [callUuid, setCallUuid] = useState<string | null>(null);
+  const [transcriptsList, setTranscriptsList] = useState<CallTranscript[]>(DUMMY_TRANSCRIPTS);
+  const [isCallActive, setIsCallActive] = useState(true);
+  const [callUuid, setCallUuid] = useState<string | null>("8abb85d7-aa02-4b69-95de-cf82034f0988");
   const [lastCallUuid, setLastCallUuid] = useState<string | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
   const [questions, setQuestions] = useState<GeneratedQuestion[]>([]);
@@ -94,14 +129,14 @@ export const CallInterface = () => {
   const { mutateAsync: extractData, isPending: isExtracting } = useAccAgentExtract();
   const { mutateAsync: updateState } = useAccAgentUpdateState();
   const { mutateAsync: resumeAndGetAnswer, isPending: isResuming } = useAccAgentResume();
-  
+
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(true);
   const [editableSummaryText, setEditableSummaryText] = useState("");
   const [extractedState, setExtractedState] = useState("");
   const [extractedCrop, setExtractedCrop] = useState("");
   const [hasGeneratedQuestions, setHasGeneratedQuestions] = useState(false);
-  
+
   // HITL state
   const [threadId, setThreadId] = useState<string | null>(null);
   const [extractedData, setExtractedData] = useState<ExtractDataResponse | null>(null);
@@ -211,6 +246,31 @@ export const CallInterface = () => {
     toast.success("Conversation cleared");
   };
 
+  const handleLoadTestData = () => {
+    setTranscriptsList(DUMMY_TRANSCRIPTS);
+    setIsCallActive(true);
+    setCallUuid("8abb85d7-aa02-4b69-95de-cf82034f0988");
+    setLastCallUuid(null);
+    setIsSummaryOpen(false);
+    setEditableSummaryText("");
+    setExtractedState("");
+    setExtractedCrop("");
+    setHasGeneratedQuestions(false);
+    setQuestions([]);
+    // Reset HITL state
+    setThreadId(null);
+    setExtractedData(null);
+    setIsHumanVerificationMode(false);
+    setEditableQuery("");
+    setEditableCrop("");
+    setEditableState("");
+    setEditableDistrict("");
+    setEditableDomain([]);
+    setCustomDomain("");
+    setEditableSeason("");
+    toast.success("Loaded test dummy transcript data!");
+  };
+
   const handleResetQuestions = () => {
     setQuestions([]);
     setHasGeneratedQuestions(false);
@@ -254,8 +314,8 @@ export const CallInterface = () => {
       })
       .filter(Boolean)
       .join("\n");
-    
-      let toastId;
+
+    let toastId;
     try {
       // Step 1: Create thread
       const thread = await createThread();
@@ -268,7 +328,7 @@ export const CallInterface = () => {
         transcript: allTranscriptText
       });
       setExtractedData(data);
-      
+
       // Initialize editable fields with extracted data
       setEditableQuery(data.extracted_query);
       setEditableCrop(data.extracted_crop);
@@ -287,11 +347,11 @@ export const CallInterface = () => {
 
       // Auto-select season based on current month
       setEditableSeason(getAutoSelectedSeason());
-      
+
       setIsHumanVerificationMode(true);
       setIsSummaryOpen(true);
       setIsSummaryExpanded(true);
-      
+
       // Also set the old format for backward compatibility
       setEditableSummaryText(data.extracted_query);
       setExtractedState(data.extracted_state);
@@ -445,32 +505,32 @@ export const CallInterface = () => {
 
   return (
     <div className="space-y-4 w-full max-w-full px-4 md:px-6 py-2 relative">
-        {/* Agent Status Toggle - Top Right Corner */}
-        {currentUser?.role === 'call_agent' && (
-          <div className="absolute -top-6 right-4 md:right-6 z-10">
-            {currentUser?.agent && currentUser.agent !== 'not_available' ? (
-              <Button
-                onClick={() => handleToggleAgentStatus(false)}
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs border-red-300 hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950/20 text-red-700 dark:text-red-400"
-              >
-                <PowerOff className="h-3 w-3 mr-1" />
-                Go Offline
-              </Button>
-            ) : (
-              <Button
-                onClick={() => handleToggleAgentStatus(true)}
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs border-green-300 hover:bg-green-50 dark:border-green-900 dark:hover:bg-green-950/20 text-green-700 dark:text-green-400"
-              >
-                <Power className="h-3 w-3 mr-1" />
-                Go Online
-              </Button>
-            )}
-          </div>
-        )}
+      {/* Agent Status Toggle - Top Right Corner */}
+      {currentUser?.role === 'call_agent' && (
+        <div className="absolute -top-6 right-4 md:right-6 z-10">
+          {currentUser?.agent && currentUser.agent !== 'not_available' ? (
+            <Button
+              onClick={() => handleToggleAgentStatus(false)}
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs border-red-300 hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950/20 text-red-700 dark:text-red-400"
+            >
+              <PowerOff className="h-3 w-3 mr-1" />
+              Go Offline
+            </Button>
+          ) : (
+            <Button
+              onClick={() => handleToggleAgentStatus(true)}
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs border-green-300 hover:bg-green-50 dark:border-green-900 dark:hover:bg-green-950/20 text-green-700 dark:text-green-400"
+            >
+              <Power className="h-3 w-3 mr-1" />
+              Go Online
+            </Button>
+          )}
+        </div>
+      )}
       {/* Incoming Call Box - Top Section */}
       <IncomingCallBox
         onTranscriptChange={() => { }} // Not using direct strings anymore
@@ -523,6 +583,14 @@ export const CallInterface = () => {
                   className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
                 >
                   {isExtracting ? "Extracting..." : "Extract & Verify"}
+                </Button>
+                <Button
+                  onClick={handleLoadTestData}
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs border-indigo-300 hover:bg-indigo-50 dark:border-indigo-900/30 text-indigo-600 dark:text-indigo-400"
+                >
+                  Load Test Data
                 </Button>
                 <Button
                   onClick={handleResetConversation}
@@ -648,7 +716,7 @@ export const CallInterface = () => {
                           Review & Edit Extracted Data
                         </span>
                       </div>
-                      
+
                       <div className="space-y-3">
                         <div>
                           <Label htmlFor="query" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
@@ -662,7 +730,7 @@ export const CallInterface = () => {
                             placeholder="Extracted question..."
                           />
                         </div>
-                        
+
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <Label htmlFor="crop" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
@@ -676,7 +744,7 @@ export const CallInterface = () => {
                               placeholder="Crop..."
                             />
                           </div>
-                          
+
                           <div>
                             <Label htmlFor="state" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
                               State
@@ -690,7 +758,7 @@ export const CallInterface = () => {
                             />
                           </div>
                         </div>
-                        
+
                         <div>
                           <Label htmlFor="district" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
                             District
@@ -769,7 +837,7 @@ export const CallInterface = () => {
                           </Select>
                         </div>
                       </div>
-                      
+
                       <div className="flex justify-end gap-2 mt-4">
                         <Button
                           onClick={() => setIsHumanVerificationMode(false)}

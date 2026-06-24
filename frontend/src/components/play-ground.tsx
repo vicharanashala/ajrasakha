@@ -186,7 +186,7 @@ export const PlaygroundPage = () => {
                   >
                     <HoverCard openDelay={150}>
                       <span>Dashboard</span>
-                    </HoverCard> 
+                    </HoverCard>
                   </TabsTrigger>
                 )}
                 {user && user.role === "expert" && (
@@ -495,54 +495,54 @@ export const PlaygroundPage = () => {
               )}
 
               {user?.role === "call_agent" && (
-                  <TabsContent
-                    value="call_interface"
-                    className={cn(
-                      "mt-0 border-0 md:px-8 outline-none",
-                      "data-[state=active]:animate-in",
-                      "data-[state=active]:fade-in-0",
-                      "data-[state=active]:zoom-in-[0.98]",
-                      "data-[state=active]:slide-in-from-bottom-3",
-                      "duration-500 ease-out",
-                    )}
-                  >
-                    <CallInterface />
-                  </TabsContent>
-                )}
+                <TabsContent
+                  value="call_interface"
+                  className={cn(
+                    "mt-0 border-0 md:px-8 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <CallInterface />
+                </TabsContent>
+              )}
 
               {user?.role === "call_agent" && (
-                  <TabsContent
-                    value="call_dashboard"
-                    className={cn(
-                      "mt-0 border-0 md:px-8 outline-none",
-                      "data-[state=active]:animate-in",
-                      "data-[state=active]:fade-in-0",
-                      "data-[state=active]:zoom-in-[0.98]",
-                      "data-[state=active]:slide-in-from-bottom-3",
-                      "duration-500 ease-out",
-                    )}
-                  >
-                    <CallAgentDashboard />
-                  </TabsContent>
-                )}
+                <TabsContent
+                  value="call_dashboard"
+                  className={cn(
+                    "mt-0 border-0 md:px-8 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <CallAgentDashboard />
+                </TabsContent>
+              )}
 
-              {user?.role === "call_agent" && user?.isCallAgentActive && (
-                  <TabsContent
-                    value="call_history"
-                    className={cn(
-                      "mt-0 border-0 md:px-8 outline-none",
-                      "data-[state=active]:animate-in",
-                      "data-[state=active]:fade-in-0",
-                      "data-[state=active]:zoom-in-[0.98]",
-                      "data-[state=active]:slide-in-from-bottom-3",
-                      "duration-500 ease-out",
-                    )}
-                  >
-                    <div className="w-full max-w-full px-4 md:px-6 py-2">
-                      <CallHistory onRedial={() => {}} />
-                    </div>
-                  </TabsContent>
-                )}
+              {user?.role === "call_agent" && (
+                <TabsContent
+                  value="call_history"
+                  className={cn(
+                    "mt-0 border-0 md:px-8 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <div className="w-full max-w-full px-4 md:px-6 py-2">
+                    <CallHistory onRedial={() => { }} />
+                  </div>
+                </TabsContent>
+              )}
 
               {user && user.role === "admin" && (
                 <TabsContent
