@@ -83,6 +83,7 @@ export const QuestionsPage = ({
   const [duplicateQuestions, setDuplicateQuestions] = useState(false);
   const [paeReview, setPaeReview] = useState<boolean | undefined>(undefined);
   const [isNonAgri, setIsNonAgri] = useState<boolean | undefined>(undefined);
+  const [isTesting, setIsTesting] = useState<boolean | undefined>(undefined);
   const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
   const [closedInTwoHrs, setClosedInTwoHrs] = useState<boolean>(false);
 
@@ -185,6 +186,7 @@ export const QuestionsPage = ({
         unallocatedQuestions,
         pae_review: paeReview,
         is_non_agri: isNonAgri,
+        is_testing: isTesting,
         // Dedicated tab: filter to questions assigned to the current moderator
         moderatorId: isDedicated ? (currentUser?._id?.toString() ?? undefined) : undefined,
       };
@@ -216,6 +218,7 @@ export const QuestionsPage = ({
       unallocatedQuestions,
       paeReview,
       isNonAgri,
+      isTesting,
       viewMode,
     ],
   );
@@ -293,6 +296,7 @@ export const QuestionsPage = ({
     if (srcFilter) return questions.filter((q) => q.source === srcFilter);
     if (searchTabMode === "draft") return questions.filter((q) => q.status === "draft");
     if (searchTabMode === "non_agri") return questions.filter((q) => q.status === "non_agri");
+    if (searchTabMode === "testing") return questions.filter((q) => q.isTesting === true);
     if (searchTabMode === "pae") return questions.filter((q) => (q as any).pae_review === true);
     if (searchTabMode === "dynamic") return questions.filter((q) => q.status === "dynamic");
     return questions;
@@ -386,6 +390,7 @@ export const QuestionsPage = ({
     unallocatedQuestions?: boolean;
     pae_review?: boolean;
     is_non_agri?: boolean;
+    is_testing?: boolean;
   }) => {
     if (next.status !== undefined) setStatus(next.status);
     if (next.source !== undefined) setSource(next.source);
@@ -422,6 +427,8 @@ export const QuestionsPage = ({
       setPaeReview(next.pae_review);
     if ("is_non_agri" in next)
       setIsNonAgri(next.is_non_agri);
+    if ("is_testing" in next)
+      setIsTesting(next.is_testing);
     // Reset pagination to page 1 when filters are applied
     setCurrentPage(1);
     setReviewPage(1);

@@ -349,6 +349,7 @@ export class QuestionRepository implements IQuestionRepository {
         unallocatedQuestions,
         pae_review,
         is_non_agri,
+        is_testing,
         moderatorId,
       } = query;
       //  const filter: any = {};
@@ -469,6 +470,13 @@ export class QuestionRepository implements IQuestionRepository {
         filter.status = 'non_agri';
       } else if (filter.status === undefined) {
         filter.status = {$nin: ['non_agri']};
+      }
+
+      // --- Testing tab filter ---
+      // Test questions are excluded from every tab by the base `isTesting: {$ne:true}`
+      // filter. The Testing tab opts back IN: override it to show ONLY test questions.
+      if (is_testing === 'true' || is_testing === true) {
+        filter.isTesting = true;
       }
 
       // --- Dedicated (moderator-assigned) tab filter ---
@@ -977,15 +985,18 @@ export class QuestionRepository implements IQuestionRepository {
       }
 
       if (search && search.trim() !== '') {
-        // Search spans ALL questions regardless of status/source — drop those filters
-        // so a matching question surfaces no matter which tab/status it's in.
-        delete filter.status;
-        delete filter.source;
+        // A search must surface ANY matching question that exists in the DB,
+        // independent of every tab / scope / filter (status, source, PAE-review,
+        // moderator assignment, crop, date range, etc.). So discard the entire
+        // accumulated filter and match on the search term alone — only the
+        // isTesting exclusion is kept so seeded test data never leaks in.
+        for (const key of Object.keys(filter)) delete filter[key];
+        filter.isTesting = {$ne: true};
 
         // Escape special regex characters so literal strings like "How to control weeds?"
         // are matched as-is rather than being interpreted as regex patterns.
         const escapedSearch = escapeRegex(search.trim());
-        const searchConditions = [
+        filter.$or = [
           {question: {$regex: escapedSearch, $options: 'i'}},
           {'details.crop': {$regex: escapedSearch, $options: 'i'}},
           {'details.state': {$regex: escapedSearch, $options: 'i'}},
@@ -1001,17 +1012,6 @@ export class QuestionRepository implements IQuestionRepository {
             },
           },
         ];
-
-        // If filter.$or already exists (e.g. from pae_review), combine using $and
-        // to avoid overwriting the existing $or condition
-        if (filter.$or) {
-          if (!filter.$and) filter.$and = [];
-          filter.$and.push({$or: filter.$or});
-          filter.$and.push({$or: searchConditions});
-          delete filter.$or;
-        } else {
-          filter.$or = searchConditions;
-        }
       }
 
       totalCount = await questionsCollection.countDocuments(filter);

@@ -148,6 +148,10 @@ export class QuestionService {
       params.append("is_non_agri", "true");
     }
 
+    if (filter.is_testing === true) {
+      params.append("is_testing", "true");
+    }
+
     if (filter.moderatorId) {
       params.append("moderatorId", filter.moderatorId);
     }
@@ -880,6 +884,10 @@ export class QuestionService {
 
     if (filter.is_non_agri === true) {
       params.append("is_non_agri", "true");
+    }
+
+    if (filter.is_testing === true) {
+      params.append("is_testing", "true");
     }
 
     // states and normalisedCrops sent as JSON arrays in request body

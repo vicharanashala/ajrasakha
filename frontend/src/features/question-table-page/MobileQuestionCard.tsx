@@ -250,12 +250,14 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
             <div className="truncate">
               <span className="text-muted-foreground">Domain:</span>
               <span className="ml-1">
-                {q.details?.domain?.length > 0
+                {Array.isArray(q.details?.domain) && q.details.domain.length > 0
                   ? q.details.domain
                     .map((item) =>
                       item.length > 12 ? `${item.substring(0, 12)}...` : item
                     )
                     .join(", ")
+                  : typeof q.details?.domain === "string" && q.details.domain
+                  ? q.details.domain
                   : "-"}
               </span>
             </div>

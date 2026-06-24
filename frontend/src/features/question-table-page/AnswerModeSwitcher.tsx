@@ -1,6 +1,6 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { TopRightBadge } from "@/components/NewBadge";
-import { FileText, LeafyGreen, MessageCircle, Radio, Search, Sparkles, UserCheck, UserRound, Zap } from "lucide-react";
+import { Beaker, FileText, LeafyGreen, MessageCircle, Radio, Search, Sparkles, UserCheck, UserRound, Zap } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
 export const MODES = [
@@ -11,6 +11,7 @@ export const MODES = [
     { id: "draft", label: "Draft", icon: FileText },
     { id: "pae", label: "PAE", icon: UserCheck },
     { id: "non_agri", label: "Non-Agri", icon: LeafyGreen },
+    { id: "testing", label: "Testing", icon: Beaker },
     // { id: "dynamic", label: "Dynamic", icon: Zap },
 ] as const
 
@@ -29,6 +30,8 @@ const MODE_DESCRIPTIONS: Record<string, string> = {
         "Questions assigned to PAE experts (pae_review: true)",
     non_agri:
         "Non-agricultural questions separated for dedicated tracking",
+    testing:
+        "Test questions (isTesting: true) separated for tracking — view only",
     dynamic:
         "Questions marked as dynamic (Status: Dynamic)",
     search:
@@ -132,7 +135,7 @@ export function AnswerModeSwitcher({
                                     }`}
                             >
                                 <Icon className="h-4 w-4" />
-                                {(id === "draft" || id === "pae" || id === "non_agri" || id === "dynamic") && (
+                                {(id === "draft" || id === "pae" || id === "non_agri" || id === "testing" || id === "dynamic") && (
                                     <TopRightBadge label="new" right={0} />
                                 )}
                                 {label}

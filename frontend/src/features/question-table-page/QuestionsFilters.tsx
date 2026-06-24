@@ -115,10 +115,11 @@ type QuestionsFiltersProps = {
   onAnswerModeChange?: (mode: string) => void;
 };
 
-type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae" | "non_agri" | "dynamic" | "search";
+type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae" | "non_agri" | "testing" | "dynamic" | "search";
 
 const filterToAnswerMode = (filter: AdvanceFilterValues): AnswerMode => {
   if (filter.is_non_agri === true) return "non_agri";
+  if (filter.is_testing === true) return "testing";
   if (filter.pae_review === true) return "pae";
   if (filter.status === "draft") return "draft";
   if (filter.status === "dynamic") return "dynamic";
@@ -134,7 +135,7 @@ const answerModeToSource = (
   if (answerMode === "manual") return "AGRI_EXPERT";
   if (answerMode === "whatsapp") return "WHATSAPP";
   if (answerMode === "outreach") return "OUTREACH";
-  if (answerMode === "draft" || answerMode === "pae" || answerMode === "non_agri" || answerMode === "dynamic") return "all";
+  if (answerMode === "draft" || answerMode === "pae" || answerMode === "non_agri" || answerMode === "testing" || answerMode === "dynamic") return "all";
   return "AJRASAKHA";
 };
 
@@ -458,7 +459,7 @@ export const QuestionsFilters = ({
 
     if (nextAnswerMode === "search") {
       // Search Results tab → fetch all sources, reset client-side mode
-      nextFilters = { ...advanceFilter, source: "all", pae_review: undefined, is_non_agri: undefined };
+      nextFilters = { ...advanceFilter, source: "all", pae_review: undefined, is_non_agri: undefined, is_testing: undefined };
       prevAnswerModeRef.current = "search";
       setAnswerMode("search");
       setAdvanceFilterValues(nextFilters);
@@ -477,18 +478,21 @@ export const QuestionsFilters = ({
     }
 
     if (nextAnswerMode === "non_agri") {
-      nextFilters = { ...advanceFilter, source: "all", is_non_agri: true, pae_review: undefined };
+      nextFilters = { ...advanceFilter, source: "all", is_non_agri: true, is_testing: undefined, pae_review: undefined };
+      if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
+    } else if (nextAnswerMode === "testing") {
+      nextFilters = { ...advanceFilter, source: "all", is_testing: true, is_non_agri: undefined, pae_review: undefined };
       if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
     } else if (nextAnswerMode === "draft") {
-      nextFilters = { ...advanceFilter, source: "all", status: "draft", pae_review: undefined, is_non_agri: undefined };
+      nextFilters = { ...advanceFilter, source: "all", status: "draft", pae_review: undefined, is_non_agri: undefined, is_testing: undefined };
     } else if (nextAnswerMode === "dynamic") {
-      nextFilters = { ...advanceFilter, source: "all", status: "dynamic", pae_review: undefined, is_non_agri: undefined };
+      nextFilters = { ...advanceFilter, source: "all", status: "dynamic", pae_review: undefined, is_non_agri: undefined, is_testing: undefined };
     } else if (nextAnswerMode === "pae") {
-      nextFilters = { ...advanceFilter, source: "all", pae_review: true, is_non_agri: undefined };
+      nextFilters = { ...advanceFilter, source: "all", pae_review: true, is_non_agri: undefined, is_testing: undefined };
       if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
     } else {
       const source = answerModeToSource(nextAnswerMode);
-      nextFilters = { ...advanceFilter, source, pae_review: undefined, is_non_agri: undefined };
+      nextFilters = { ...advanceFilter, source, pae_review: undefined, is_non_agri: undefined, is_testing: undefined };
       if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
     }
 
@@ -558,6 +562,7 @@ export const QuestionsFilters = ({
       duplicateQuestions: advanceFilter?.duplicateQuestions,
       isOnHold: advanceFilter?.isOnHold,
       is_non_agri: advanceFilter?.is_non_agri,
+      is_testing: advanceFilter?.is_testing,
       unallocatedQuestions: advanceFilter?.unallocatedQuestions,
     });
   };
@@ -577,7 +582,8 @@ export const QuestionsFilters = ({
         key === "closedAtEnd" ||
         key === "state" || // replaced by states
         key === "normalised_crop" || // replaced by normalisedCrops
-        key === "is_non_agri" // tab-level filter, not advanced
+        key === "is_non_agri" || // tab-level filter, not advanced
+        key === "is_testing" // tab-level filter, not advanced
       ) {
         return false;
       }
