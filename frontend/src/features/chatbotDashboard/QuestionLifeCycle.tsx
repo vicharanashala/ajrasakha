@@ -115,6 +115,10 @@ export function QuestionLifecycleTable({
       (x) => x.eventType === "reroute",
     ).length;
 
+    const authoringTime = lifeCycle
+      .filter((x) => x.eventType === "author")
+      .reduce((sum, x) => sum + (x.duration || 0), 0);
+
     const insights: Insight[] = [];
 
     // Queue bottleneck
@@ -144,6 +148,15 @@ export function QuestionLifecycleTable({
         title: `${reviewerCount} reviewers handled this question`,
         description:
           "Multiple review stages can introduce waiting time between assignments.",
+      });
+    }
+
+    if (authoringTime > 20 * 60 * 1000) {
+      insights.push({
+        type: "process",
+        title: `Authoring took ${formatDuration(authoringTime)}`,
+        description:
+          "Authoring exceeded the 20-minute benchmark, indicating a delay in content preparation."
       });
     }
 

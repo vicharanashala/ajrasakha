@@ -14718,10 +14718,21 @@ existing.villageVolunteers +=
               projection: {
                 createdAt: 1,
                 title: 1,
+                user: 1,
               },
             },
           )
         : null;
+      let questionAskedBy;
+      if(conversation){
+        questionAskedBy = await this.users.findOne({
+          _id: new ObjectId(conversation.user),
+        },{
+          projection:{
+            email: 1,
+          }
+        })
+      }
 
       const submission =
         await this.QuestionSubmissionsCollection.findOne({
@@ -14838,7 +14849,7 @@ existing.villageVolunteers +=
         return [
           {
             timestamp: question.createdAt,
-            user: "System",
+            user: "-",
             action: "Duplicate Question",
             duration: null,
             remarks:
@@ -14848,7 +14859,7 @@ existing.villageVolunteers +=
           },
           {
             timestamp: question.closedAt || question.updatedAt,
-            user: "System",
+            user: "Buffer Time",
             action: "Question Marked As Duplicate",
             duration: question.updatedAt.getTime() - question.createdAt.getTime(),
             remarks: "Closed as duplicate",
@@ -14862,7 +14873,7 @@ existing.villageVolunteers +=
       if (isDuplicate) {
         timeline.push({
           timestamp: question.createdAt,
-          user: "System",
+          user: questionAskedBy?.email ? questionAskedBy?.email : "-",
           action: "Duplicate Question",
           duration: null,
           remarks:
@@ -14873,8 +14884,8 @@ existing.villageVolunteers +=
       } else if (conversation?.createdAt) {
         timeline.push({
           timestamp: conversation.createdAt,
-          user: "User",
-          action: "Question Asked",
+          user: questionAskedBy?.email,
+          action: "Question Asked On Web Application",
           duration: null,
           remarks: "",
           endTime: conversation.createdAt,
@@ -14883,7 +14894,7 @@ existing.villageVolunteers +=
 
         timeline.push({
           timestamp: conversation.createdAt,
-          user: "System",
+          user: "Buffer Time",
           action: "Pushed To Review System",
           duration:
             question.createdAt.getTime() -
@@ -14895,7 +14906,7 @@ existing.villageVolunteers +=
       } else if(question.source === "AGRI_EXPERT"){
                 timeline.push({
           timestamp: question.createdAt.getTime(),
-          user: "System",
+          user: "-",
           action: "Question Created Internally",
           duration: null,
           remarks: "Conversation mapping not found",
@@ -14905,7 +14916,7 @@ existing.villageVolunteers +=
       }else {
         timeline.push({
           timestamp: null,
-          user: "System",
+          user: "Buffer Time",
           action: "Question Inception Time Unavailable",
           duration: null,
           remarks: "Conversation mapping not found",
@@ -14925,7 +14936,7 @@ existing.villageVolunteers +=
             new Date(question.createdAt).getTime() > 1000)) {
         timeline.push({
           timestamp: question.createdAt,
-          user: "System",
+          user: "Buffer Time",
           action: "Initial Allocation Pending",
           duration:
             firstAllocationAt.getTime() -
@@ -15041,7 +15052,7 @@ existing.villageVolunteers +=
 
           finalTimeline.push({
             timestamp: currentEnd,
-            user: 'System',
+            user: 'Buffer Time',
             action,
             duration: gap,
             remarks: '',
@@ -15079,7 +15090,7 @@ existing.villageVolunteers +=
 
           finalTimeline.push({
             timestamp: lastEnd ?? question.createdAt.getTime(),
-            user: 'System',
+            user: 'Buffer Time',
             action:
               question.status === 'hold'
                 ? 'On Hold'
@@ -15116,7 +15127,7 @@ existing.villageVolunteers +=
           if (waitForClosure > 1000) {
             finalTimeline.push({
               timestamp: lastEnd ?? question.createdAt.getTime(),
-              user: 'System',
+              user: 'Buffer Time',
               action: 'Awaiting Closure/Pass',
               duration: waitForClosure,
               remarks: '',
@@ -15135,7 +15146,7 @@ existing.villageVolunteers +=
       if (question.closedAt) {
         finalTimeline.push({
           timestamp: question.closedAt,
-          user: 'System',
+          user: '-',
           action: 'Question Closed',
           duration: null,
           remarks: '',
@@ -15145,7 +15156,7 @@ existing.villageVolunteers +=
       } else if (question.passedAt) {
         finalTimeline.push({
           timestamp: question.passedAt,
-          user: 'System',
+          user: '-',
           action: 'Question Passed',
           duration: null,
           remarks: '',
