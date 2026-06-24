@@ -312,7 +312,8 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
           {/* Only show standalone "Closed by" when moderatorAssignedAt is absent (old flow) */}
           {question?.status === "closed" &&
             (currentUser.role === "moderator" ||
-              currentUser.role === "admin") &&
+              currentUser.role === "admin" ||
+              currentUser.role === "tester") &&
             question?.closedAt &&
             !question?.moderatorAssignedAt && (
               <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -364,7 +365,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
           </div>
           <div>
             {question?.status === "closed" &&
-              (currentUser.role === "moderator" || currentUser.role === "admin") &&
+              (currentUser.role === "moderator" || currentUser.role === "admin" || currentUser.role === "tester") &&
               question?.closedAt && (
                 <div className="flex flex-col gap-1 text-sm text-right">
                   {question?.moderatorAssignedAt ? (
