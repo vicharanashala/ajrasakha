@@ -621,7 +621,6 @@ async def planner_node(
         trace_event(
             "planner_user_location_lookup",
             user_id=user_id,
-            stored_location=stored_location,
             configurable_user_id=(config.get("configurable") or {}).get("user_id"),
         )
         entities = merge_entities_from_rephrased_query(
@@ -629,7 +628,6 @@ async def planner_node(
             messages,
             location,
             prev_entities,
-            stored_location=stored_location,
             sources_out=location_sources,
         )
         plan["entities"] = entities
@@ -676,7 +674,6 @@ async def planner_node(
             messages,
             location,
             prev_entities,
-            stored_location=stored_location,
             sources_out=location_sources,
         )
 
