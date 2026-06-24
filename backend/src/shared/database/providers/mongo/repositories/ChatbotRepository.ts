@@ -14302,6 +14302,9 @@ existing.villageVolunteers +=
       };
       let unAssigned = [];
       let assigned = [];
+      // The coordinator one level up in the hierarchy. Populated by the coordinator
+      // lookup below when applicable; null otherwise.
+      let parentCoordinator: any = null;
       if (
         [
           'district_coordinator',

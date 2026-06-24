@@ -1,5 +1,6 @@
 import type { IDetailedQuestion, QuestionStatus, UserRole } from "@/types";
 import React, { useMemo, useState } from "react";
+import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { buildHoldCountdownOptions } from "@/hooks/ui/useCountdown";
 import { useQuestionClickability } from "@/hooks/ui/useQuestionClickability";
 import { Badge } from "../../components/atoms/badge";
@@ -82,6 +83,11 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
 }) => {
   const visibleColumns = useQuestionTableStore((state) => state.visibleColumns);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const { data: currentUser } = useGetCurrentUser();
+  const isAssignedToMe =
+    !!q.moderatorId &&
+    !!currentUser?._id &&
+    q.moderatorId === currentUser._id;
 
   // Get correct timer start time based on user role (Author vs Level Expert)
   const timerStartTime = getTimerStartTime(q);
@@ -198,7 +204,9 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
         group relative w-full rounded-2xl border transition-all duration-300 ease-in-out cursor-pointer overflow-hidden
         ${isSelected
           ? "border-green-500 ring-2 ring-green-500/20 shadow-md bg-green-50/10 dark:bg-green-900/20 dark:ring-green-400/30"
-          : "border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600 hover:shadow-lg dark:hover:shadow-gray-900/50"
+          : isAssignedToMe
+            ? "border-purple-400 ring-2 ring-purple-400/25 bg-purple-50/40 dark:bg-purple-900/20 dark:border-purple-500 hover:shadow-lg"
+            : "border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600 hover:shadow-lg dark:hover:shadow-gray-900/50"
         }
       `}
     >
@@ -233,6 +241,11 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
               {q.pae_review && (
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border bg-purple-500/10 text-purple-600 border-purple-500/30 dark:text-purple-400 dark:border-purple-500/30 whitespace-nowrap">
                   PAE
+                </span>
+              )}
+              {isAssignedToMe && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border bg-purple-600/10 text-purple-700 border-purple-500/30 dark:text-purple-300 dark:border-purple-500/30 whitespace-nowrap">
+                  Assigned to you
                 </span>
               )}
               {visibleColumns.status && statusBadge}

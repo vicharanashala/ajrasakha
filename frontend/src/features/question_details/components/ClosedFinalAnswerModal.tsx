@@ -22,6 +22,7 @@ import { Textarea } from "@/components/atoms/textarea";
 import { SourceUrlManager } from "@/components/source-url-manager";
 import type { IQuestionFullData, SourceItem } from "@/types";
 import { useUpdateAnswer } from "@/hooks/api/answer/useUpdateAnswer";
+import { toast } from "sonner";
 import {
   BookOpen,
   ExternalLink,
@@ -31,7 +32,6 @@ import {
   Save,
   Loader2,
 } from "lucide-react";
-import { toast } from "@/shared/components/toast";
 
 interface ClosedFinalAnswerModalProps {
   question: IQuestionFullData;
@@ -76,10 +76,8 @@ export const ClosedFinalAnswerModal = ({
   };
 
   const handleConfirmedSave = async () => {
-    let toastId;
     setShowConfirm(false);
     try {
-      toastId = toast.loading('updating answer...')
       await updateAnswer({
         answerId: finalAnswer._id,
         questionId: question._id,
@@ -96,11 +94,9 @@ export const ClosedFinalAnswerModal = ({
         source: question.source,
         isModeratorApproval: false,
       });
-      toast.dismiss(toastId)
       toast.success("Final answer updated successfully.");
       setIsEditing(false);
     } catch (err: any) {
-      toast.dismiss(toastId)
       toast.error(err?.message ?? "Failed to update the answer. Please try again.");
     }
   };

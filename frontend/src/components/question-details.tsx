@@ -24,6 +24,7 @@ import { useGetReRoutedQuestionFullData } from "@/hooks/api/question/useGetReRou
 import { AnswerTimeline } from "@/features/question_details/components/AnswerTimeline";
 import { RerouteTimeline } from "@/features/question_details/components/RerouteTimeline";
 import { AllocationTimeline } from "@/features/question_details/components/AllocationTimeline";
+import { ModeratorQueue } from "@/features/question_details/components/ModeratorQueue";
 import { flattenAnswers } from "@/features/question_details/utils/flattenAnswers";
 import { QuestionHeader } from "@/features/question_details/components/QuestionHeader";
 import { QuestionDetailsCard } from "@/features/question_details/components/QuestionDetailsCard";
@@ -31,9 +32,9 @@ import MessageDetail from "./MessageDetail";
 import { AiGeneratedAnswerCard } from "./AiGeneratedAnswerCard";
 import { useGenerateInitialAnswer } from "@/hooks/api/question/useGenerateInitialAnswer";
 import { useApproveAIAnswer } from "@/hooks/api/question/useApproveInitialAnswer";
+import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { SubmissionHistoryModal } from "./submission-history-model";
-import { toast } from "@/shared/components/toast";
 
 interface QuestionDetailProps {
   question: IQuestionFullData;
@@ -48,6 +49,9 @@ interface QuestionDetailProps {
   onPrev?: () => void;
   hasNext?: boolean;
   hasPrev?: boolean;
+  /** True when the question is opened from the moderator's Dedicated tab.
+   *  Only in this view can moderators approve or reroute answers. */
+  isDedicatedView?: boolean;
 }
 
 export const QuestionDetails = ({
@@ -63,6 +67,7 @@ export const QuestionDetails = ({
   onPrev,
   hasNext,
   hasPrev,
+  isDedicatedView = false,
 }: QuestionDetailProps) => {
   const ANSWER_VISIBLE_COUNT = 5;
 
@@ -87,7 +92,7 @@ export const QuestionDetails = ({
   const [tempAiAnswer, setTempAiAnswer] = useState<string>("");
   const [open, setOpen] = useState(false);
 
-  const { mutateAsync: approveAIAnswer, isPending: isApproving } =
+  const { mutate: approveAIAnswer, isPending: isApproving } =
     useApproveAIAnswer();
 
   // const { data: submissionCheck } = useQuery({
@@ -96,43 +101,40 @@ export const QuestionDetails = ({
   //   enabled: !!question?._id && ["AJRASAKHA", "WHATSAPP", "AGRI_EXPERT", "OUTREACH"].includes(question.source),
   // });
 
-  const { mutateAsync: generateAIAnswer, isPending: isGeneratingAI } =
+  const { mutate: generateAIAnswer, isPending: isGeneratingAI } =
     useGenerateInitialAnswer(currentUser._id?.toString());
-  const submissionExists = question?.submission?.queue?.length > 0 || false;
+  const submissionExists = question.submission.history.length > 0 || false;
 
-  const handleGenerateAI = async() => {
+  const handleGenerateAI = () => {
     if (!question?._id) return;
 
-    await toast.promise(generateAIAnswer(question._id),{
-      loading: "generating AI answer...",
-      success: (data:any) => {
+    generateAIAnswer(question._id, {
+      onSuccess: (data) => {
         setTempAiAnswer(data.aiInitialAnswer);
-        return 'AI answer generated'
       },
-      error: (err:any) => {
+      onError: (err) => {
         console.error(err);
-        return err.message || "Failed to generate answer"
+        toast.error(err.message || "Failed to generate answer");
       },
     });
   };
 
-  const handleApproveAI = async() => {
+  const handleApproveAI = () => {
     if (!question?._id || !tempAiAnswer) return;
 
-    await toast.promise(approveAIAnswer(
-      { questionId: question._id, answer: tempAiAnswer }
-    ),{
-        loading:"approving AI answer...",
-        success: () => {
+    approveAIAnswer(
+      { questionId: question._id, answer: tempAiAnswer },
+      {
+        onSuccess: () => {
           setTempAiAnswer("");
           refetchAnswers();
-          return 'approved AI answer'
         },
-        error: (err:any) => {
+        onError: (err) => {
           console.error(err);
-          return err.message || "Failed approve answer"
+          toast.error(err.message || "Failed approve answer");
         },
-      },);
+      },
+    );
   };
 
   useEffect(() => {
@@ -273,6 +275,7 @@ export const QuestionDetails = ({
             currentUser={currentUser}
             question={question}
           />
+          <ModeratorQueue question={question} currentUser={currentUser} />
           {reroutequestionDetails && reroutequestionDetails.length >= 1 && (
             <RerouteTimeline
               currentUser={currentUser}
@@ -374,6 +377,7 @@ export const QuestionDetails = ({
                 userRole={currentUser.role}
                 queue={question.submission.queue}
                 rerouteQuestion={reroutequestionDetails ?? undefined}
+                isDedicatedView={isDedicatedView}
               />
               {answerVisibleCount < answers.length && (
                 <div className="flex justify-center">

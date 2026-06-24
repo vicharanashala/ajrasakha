@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { UserService } from "../../services/userService"; // Follow useBlockUser pattern
+import { toast } from "sonner";
 
 const userService = new UserService();
 
@@ -22,7 +23,10 @@ export const useUpdateActivity = () => {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["users"] });
       await queryClient.invalidateQueries({ queryKey: ["experts"] }); 
-      // toast.success("Activity status updated successfully");
+      toast.success("Activity status updated successfully");
+    },
+    onError: (error) => {
+      toast.error(error?.message || "Failed to update activity status");
     },
   });
 };

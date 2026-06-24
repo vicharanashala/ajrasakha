@@ -858,6 +858,13 @@ class GetDetailedQuestionsQuery {
   })
   @IsOptional()
   is_dynamic?: string | boolean;
+  @JSONSchema({
+    description: 'filter questions assigned to the given moderator ID (dedicated tab)',
+    example: '64f1a2b3c4d5e6f7a8b9c0d1',
+    type: 'string',
+  })
+  @IsOptional()
+  moderatorId?: string;
 }
 
 export interface IQuestionWithAnswerTexts {

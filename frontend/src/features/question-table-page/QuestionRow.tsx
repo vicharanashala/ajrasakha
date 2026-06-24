@@ -21,11 +21,11 @@ import {
 import { TimerDisplay } from "../../components/timer-display";
 import { formatDate } from "@/utils/formatDate";
 import { getTimerStartTime } from "@/utils/getTimerStartTime";
-import { AlertCircle, AlertTriangle, BadgeCheck, CheckCircle, ChevronDown, Circle, Clock, Edit, Eye, Square, Trash, User, XCircle } from "lucide-react";
+import { AlertCircle, AlertTriangle, BadgeCheck, CheckCircle, Circle, Clock, Edit, Eye, Square, Trash, User, XCircle,ChevronDown } from "lucide-react";
+import { toast } from "sonner";
 import { ConfirmationModal } from "../../components/confirmation-modal";
 import { useQuestionTableStore } from "@/stores/all-questions";
 import { useQuestionTimer } from "@/hooks/ui/useQuestionTimer";
-import { toast } from "@/shared/components/toast";
 
 interface QuestionRowProps {
   q: IDetailedQuestion;
@@ -59,6 +59,7 @@ interface QuestionRowProps {
   onViewMore: (id: string) => void;
   showClosedAt?: boolean;
   isLoading?: boolean;
+  isDedicatedView?: boolean;
 }
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
@@ -85,6 +86,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
   selectedQuestionIds,
   showClosedAt,
   isLoading,
+  isDedicatedView,
 }) => {
   //visible columns
   const visibleColumns = useQuestionTableStore((state) => state.visibleColumns);
@@ -328,6 +330,11 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
           <TableCell className="text-start ps-0">
             <div className="flex items-center gap-2">
               {visibleColumns.priority && <PriorityBadge priority={q.priority} />}
+              {isDedicatedView && q.source && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border bg-blue-500/10 text-blue-600 border-blue-500/30 whitespace-nowrap">
+                  {q.source === "AGRI_EXPERT" ? "Manual" : q.source}
+                </span>
+              )}
               {q.pae_review && (
                 <span className="inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium border bg-purple-500/10 text-purple-600 border-purple-500/30 whitespace-nowrap">
                   PAE
