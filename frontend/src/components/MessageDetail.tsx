@@ -826,7 +826,18 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                         </div>
                     )}
                 </div>
-                {approved === null && question && isAssignedModerator && (question.source == "AJRASAKHA" || question.source == "WHATSAPP") && question.status !== "closed" && !question.aiInitialAnswer && !isQuestionAllocatedToExpert && (
+                {/* Dynamic status: Show only Pass button (ignoring other conditions, role should not be expert) */}
+                {question.status === "dynamic" && question?.isHidden !== true && (
+                    <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
+                        <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">This is a dynamic question. You can pass it to skip processing.</p>
+                        <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
+                            <Button type="button" variant="outline" size="sm" disabled={updatingQuestion} onClick={handleSkip} className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}>{updatingQuestion ? <Loader2 className="h-4 w-4 animate-spin" /> : <SkipForward className="h-4 w-4" />}{updatingQuestion ? "Passing..." : "Pass"}</Button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Non-dynamic status: Full conditions with Pass, Accept, and Push to GDB buttons */}
+                {question.status !== "dynamic" && approved === null && question && isAssignedModerator && (question.source == "AJRASAKHA" || question.source == "WHATSAPP") && question.status !== "closed" && !question.aiInitialAnswer && !isQuestionAllocatedToExpert && (
                     <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
                         <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">Once you click on Accept, the LLM-generated answer will be set as the AI answer for this question and sent for moderation as a reference to create the initial answer for the question.</p>
                         <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
