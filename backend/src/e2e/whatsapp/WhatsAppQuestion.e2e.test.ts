@@ -127,7 +127,7 @@ function whatsAppPayload(overrides: Record<string, any> = {}) {
       district: 'Ludhiana',
       crop: 'Paddy',
       season: 'Kharif',
-      domain: 'Crop Protection',
+      domain: ['Crop Protection'],
     },
     ...overrides,
   };
@@ -331,7 +331,7 @@ describe('WhatsApp ingestion — invalid payload (missing required detail field)
           state: 'Punjab',
           crop: 'Paddy',
           season: 'Kharif',
-          domain: 'Crop Protection',
+          domain: ['Crop Protection'],
         },
       }),
     );
