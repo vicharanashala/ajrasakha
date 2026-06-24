@@ -157,7 +157,7 @@ describe('Question Create E2E', () => {
         district: 'Ludhiana',
         crop: 'Brinjal',
         season: 'Rabi',
-        domain: 'Crop Protection',
+        domain: ['Crop Protection'],
       },
     };
 
@@ -203,7 +203,7 @@ describe('Question Create E2E', () => {
         district: 'Patiala',
         crop: 'Brinjal',
         season: 'Kharif',
-        domain: 'Disease Management',
+        domain: ['Disease Management'],
       },
     });
 
@@ -226,7 +226,7 @@ describe('Question Create E2E', () => {
     expect(res.body.data.priority).toBe('high');
     expect(res.body.data.details.district).toBe('Patiala');
     expect(res.body.data.details.season).toBe('Kharif');
-    expect(res.body.data.details.domain).toBe('Disease Management');
+    expect(res.body.data.details.domain).toEqual(['Disease Management']);
   });
 
   it('moderator deletes question successfully', async () => {
@@ -267,7 +267,7 @@ describe('Question Create E2E', () => {
           district: 'Ludhiana',
           crop: 'Brinjal',
           season: 'Rabi',
-          domain: 'Crop Protection',
+          domain: ['Crop Protection'],
         },
       }),
       apiPost(`${ROUTE_PREFIX}/questions`).send({
@@ -279,7 +279,7 @@ describe('Question Create E2E', () => {
           district: 'Ludhiana',
           crop: 'Brinjal',
           season: 'Rabi',
-          domain: 'Crop Protection',
+          domain: ['Crop Protection'],
         },
       }),
     ]);

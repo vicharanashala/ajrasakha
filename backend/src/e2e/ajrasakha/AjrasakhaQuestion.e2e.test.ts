@@ -145,7 +145,7 @@ function ajrasakhaPayload(overrides: Record<string, any> = {}) {
       district: 'Ludhiana',
       crop: 'Paddy',
       season: 'Kharif',
-      domain: 'Crop Protection',
+      domain: ['Crop Protection'],
     },
     ...overrides,
   };
@@ -460,7 +460,7 @@ describe('Ajrasakha ingestion — invalid payload (missing required detail field
           // district intentionally omitted
           crop: 'Paddy',
           season: 'Kharif',
-          domain: 'Crop Protection',
+          domain: ['Crop Protection'],
         },
       }),
     );

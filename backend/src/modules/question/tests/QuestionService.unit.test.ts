@@ -537,7 +537,7 @@ describe('QuestionService.updateQuestion', () => {
         district: 'Ludhiana',
         crop: 'gehun',
         season: 'Rabi',
-        domain: 'Pest',
+        domain: ['Pest'],
       },
     });
 
@@ -558,7 +558,7 @@ describe('QuestionService.updateQuestion', () => {
         district: 'Ludhiana',
         crop: 'NewCrop',
         season: 'Rabi',
-        domain: 'Pest',
+        domain: ['Pest'],
       },
     });
 

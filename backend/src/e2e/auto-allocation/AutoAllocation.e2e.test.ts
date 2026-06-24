@@ -347,7 +347,7 @@ const AGRI_EXPERT_DETAILS = {
   district: 'Ludhiana',
   crop: 'Brinjal',
   season: 'Rabi',
-  domain: 'Crop Protection',
+  domain: ['Crop Protection'],
 };
 
 // ════════════════════════════════════════════════════════════════════════════
