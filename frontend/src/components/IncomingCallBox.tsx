@@ -1042,6 +1042,7 @@ export const IncomingCallBox = ({
                 {incomingCall && (
                   <FarmerDetails
                     phoneNo={incomingCall.number}
+                    defaultOpen={true}
                     className="border border-zinc-200/40 dark:border-zinc-800/40 bg-zinc-50/20 dark:bg-zinc-900/10"
                   />
                 )}

@@ -12,6 +12,8 @@ import {
   Eye,
   MessageSquare,
   Languages,
+  Globe,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { plivoApi } from "@/hooks/api/plivo/api";
@@ -22,6 +24,183 @@ import Plivo from "plivo-browser-sdk";
 import { toast } from "@/shared/components/toast";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@radix-ui/react-accordion";
 import { translateService } from "@/hooks/services/translateService";
+
+const formatDomainField = (domainVal: any): string => {
+  if (!domainVal) return "N/A";
+  if (Array.isArray(domainVal)) {
+    return domainVal.filter(Boolean).join(", ");
+  }
+  return String(domainVal);
+};
+
+const renderMarkdown = (text: string) => {
+  if (!text) return null;
+
+  const parseInlineMarkdown = (textVal: string) => {
+    if (!textVal) return "";
+    const boldParts = textVal.split(/\*\*([^*]+)\*\*/g);
+    return boldParts.flatMap((boldPart, bIdx) => {
+      const isBold = bIdx % 2 === 1;
+      const codeParts = boldPart.split(/`([^`]+)`/g);
+      const elements = codeParts.flatMap((codePart, cIdx) => {
+        const isCode = cIdx % 2 === 1;
+        if (isCode) {
+          return (
+            <code key={`c-${bIdx}-${cIdx}`} className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-mono text-[11px] border border-zinc-200/50 dark:border-zinc-700/50">
+              {codePart}
+            </code>
+          );
+        }
+        const italicParts = codePart.split(/\*([^*]+)\*/g);
+        return italicParts.map((italicPart, iIdx) => {
+          const isItalic = iIdx % 2 === 1;
+          if (isItalic) {
+            return (
+              <em key={`i-${bIdx}-${cIdx}-${iIdx}`} className="italic text-zinc-850 dark:text-zinc-200">
+                {italicPart}
+              </em>
+            );
+          }
+          return italicPart;
+        });
+      });
+
+      if (isBold) {
+        return (
+          <strong key={`b-${bIdx}`} className="font-bold text-zinc-950 dark:text-zinc-50">
+            {elements}
+          </strong>
+        );
+      }
+      return elements;
+    });
+  };
+
+  const lines = text.split("\n");
+  const blocks: any[] = [];
+  let currentList: { type: "bullet" | "number"; items: string[] } | null = null;
+
+  const pushCurrentList = () => {
+    if (currentList) {
+      blocks.push({
+        type: currentList.type === "bullet" ? "unordered-list" : "ordered-list",
+        items: currentList.items,
+      });
+      currentList = null;
+    }
+  };
+
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+
+    // Check if it's a bullet list item
+    const isBullet = trimmed.startsWith("-") || trimmed.startsWith("*");
+    // Check if it's a numbered list item
+    const numberMatch = trimmed.match(/^\d+\.\s+(.*)$/);
+
+    if (isBullet) {
+      const itemText = trimmed.replace(/^[-*]\s*/, "");
+      if (currentList && currentList.type === "bullet") {
+        currentList.items.push(itemText);
+      } else {
+        pushCurrentList();
+        currentList = { type: "bullet", items: [itemText] };
+      }
+    } else if (numberMatch) {
+      const itemText = numberMatch[1];
+      if (currentList && currentList.type === "number") {
+        currentList.items.push(itemText);
+      } else {
+        pushCurrentList();
+        currentList = { type: "number", items: [itemText] };
+      }
+    } else {
+      pushCurrentList();
+
+      // Parse header or paragraph
+      const headerMatch = line.match(/^(#{1,6})\s+(.*)$/);
+      if (headerMatch) {
+        blocks.push({
+          type: "header",
+          level: headerMatch[1].length,
+          text: headerMatch[2],
+        });
+      } else if (trimmed.length > 0) {
+        blocks.push({
+          type: "paragraph",
+          text: line,
+        });
+      } else {
+        blocks.push({
+          type: "empty-line",
+        });
+      }
+    }
+  });
+
+  pushCurrentList();
+
+  return blocks.map((block, idx) => {
+    switch (block.type) {
+      case "header": {
+        const level = block.level;
+        if (level === 1) {
+          return (
+            <h1 key={idx} className="text-[13.5px] font-extrabold text-zinc-950 dark:text-zinc-50 mt-4 mb-2 pb-1 border-b border-zinc-100 dark:border-zinc-800">
+              {parseInlineMarkdown(block.text)}
+            </h1>
+          );
+        }
+        if (level === 2) {
+          return (
+            <h2 key={idx} className="text-xs font-bold text-zinc-900 dark:text-zinc-100 mt-3.5 mb-1.5">
+              {parseInlineMarkdown(block.text)}
+            </h2>
+          );
+        }
+        return (
+          <h3 key={idx} className="text-[11.5px] font-semibold text-zinc-800 dark:text-zinc-200 mt-3 mb-1">
+            {parseInlineMarkdown(block.text)}
+          </h3>
+        );
+      }
+      case "unordered-list":
+        return (
+          <ul key={idx} className="space-y-1.5 my-2.5 pl-1.5">
+            {block.items.map((item: string, itemIdx: number) => (
+              <li key={itemIdx} className="text-[13px] leading-relaxed text-zinc-700 dark:text-zinc-300 flex items-start gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 mt-1.5 shrink-0" />
+                <span className="flex-1">{parseInlineMarkdown(item)}</span>
+              </li>
+            ))}
+          </ul>
+        );
+      case "ordered-list":
+        return (
+          <ol key={idx} className="space-y-1.5 my-2.5 pl-1.5">
+            {block.items.map((item: string, itemIdx: number) => (
+              <li key={itemIdx} className="text-[13px] leading-relaxed text-zinc-700 dark:text-zinc-300 flex items-start gap-2">
+                <span className="flex-shrink-0 w-4 h-4 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-[9px] font-bold mt-0.5">
+                  {itemIdx + 1}
+                </span>
+                <span className="flex-1 pt-0.5">{parseInlineMarkdown(item)}</span>
+              </li>
+            ))}
+          </ol>
+        );
+      case "paragraph":
+        return (
+          <p key={idx} className="text-[13px] leading-relaxed text-zinc-700 dark:text-zinc-300 mb-2 last:mb-0">
+            {parseInlineMarkdown(block.text)}
+          </p>
+        );
+      case "empty-line":
+        return <div key={idx} className="h-1.5" />;
+      default:
+        return null;
+    }
+  });
+};
 
 interface CallHistoryProps {
   onRedial?: (phoneNumber: string) => void;
@@ -565,145 +744,169 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                           </tr>
                           {selectedCallForDetails === call.uuid && (
                             <tr key={`details-${call.uuid}`}>
-                              <td colSpan={6} className="px-4 py-4 bg-muted/30">
-                                <div className="space-y-6">
-                                  <FarmerDetails phoneNo={call.from} />
+                              <td colSpan={6} className="px-6 py-5 bg-zinc-50/50 dark:bg-zinc-950/20 border-t border-b border-zinc-200/50 dark:border-zinc-800/50">
+                                <div className="space-y-6 max-w-5xl mx-auto animate-in fade-in slide-in-from-top-1 duration-200">
+                                  {/* Top Row: Farmer Details & Extracted Data Side-by-Side */}
+                                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+                                    <FarmerDetails
+                                      phoneNo={call.from}
+                                      defaultOpen={true}
+                                      className="border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm bg-white dark:bg-zinc-900 rounded-xl h-full"
+                                    />
 
+                                    <Card className="border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm bg-white dark:bg-zinc-900 rounded-xl flex flex-col h-full">
+                                      <CardHeader className="border-b border-zinc-100 dark:border-zinc-800">
+                                        <CardTitle className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                          Extracted Call Data
+                                        </CardTitle>
+                                      </CardHeader>
+                                      <CardContent className="p-3 pt-0 flex-1 flex flex-col justify-center">
+                                        {call.callDetails?.QA_pairs?.metadata ? (
+                                          <ul className="space-y-3.5 text-xs text-zinc-600 dark:text-zinc-400">
+                                            <li className="flex items-center gap-2">
+                                              <span className="font-bold text-zinc-700 dark:text-zinc-300 min-w-[70px]">Crop:</span>
+                                              <span className="font-medium text-zinc-900 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800/40 px-2 py-0.5 rounded border border-zinc-200/30 dark:border-zinc-800/30">
+                                                {call.callDetails.QA_pairs.metadata.extracted_crop || "N/A"}
+                                              </span>
+                                            </li>
+                                            <li className="flex items-center gap-2">
+                                              <span className="font-bold text-zinc-700 dark:text-zinc-300 min-w-[70px]">Season:</span>
+                                              <span className="font-medium text-zinc-900 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800/40 px-2 py-0.5 rounded border border-zinc-200/30 dark:border-zinc-800/30">
+                                                {call.callDetails.QA_pairs.metadata.extracted_season || "N/A"}
+                                              </span>
+                                            </li>
+                                            <li className="flex items-center gap-2">
+                                              <span className="font-bold text-zinc-700 dark:text-zinc-300 min-w-[70px]">State:</span>
+                                              <span className="font-medium text-zinc-900 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800/40 px-2 py-0.5 rounded border border-zinc-200/30 dark:border-zinc-800/30">
+                                                {call.callDetails.QA_pairs.metadata.extracted_state || "N/A"}
+                                              </span>
+                                            </li>
+                                            <li className="flex items-center gap-2">
+                                              <span className="font-bold text-zinc-700 dark:text-zinc-300 min-w-[70px]">District:</span>
+                                              <span className="font-medium text-zinc-900 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800/40 px-2 py-0.5 rounded border border-zinc-200/30 dark:border-zinc-800/30">
+                                                {call.callDetails.QA_pairs.metadata.extracted_district || "N/A"}
+                                              </span>
+                                            </li>
+                                            <li className="flex items-start gap-2">
+                                              <span className="font-bold text-zinc-700 dark:text-zinc-300 min-w-[70px] shrink-0 pt-0.5">Domain:</span>
+                                              <span className="font-medium text-zinc-900 dark:text-zinc-100 leading-relaxed bg-zinc-50 dark:bg-zinc-800/40 px-2 py-0.5 rounded border border-zinc-200/30 dark:border-zinc-800/30">
+                                                {formatDomainField(call.callDetails.QA_pairs.metadata.extracted_domain)}
+                                              </span>
+                                            </li>
+                                          </ul>
+                                        ) : (
+                                          <div className="text-xs text-zinc-500 italic text-center py-4">
+                                            No metadata extracted for this call
+                                          </div>
+                                        )}
+                                      </CardContent>
+                                    </Card>
+                                  </div>
+
+                                  {/* Call Transcripts (Full Width) */}
                                   <div className="space-y-3">
-                                    <h3 className="text-sm font-semibold tracking-wide uppercase flex items-center gap-2">
+                                    <h3 className="text-xs font-bold tracking-wider uppercase flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
                                       <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
                                       Call Transcripts
                                     </h3>
 
                                     {call.callDetails ? (
-                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="bg-white dark:bg-zinc-900 rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 shadow-sm">
-                                          <h4 className="font-semibold text-sm mb-3 text-indigo-600 dark:text-indigo-400">
-                                            Farmer
-                                          </h4>
-                                          <div className="space-y-3 text-sm">
-                                            <div>
-                                              <span className="font-medium text-[11px] text-muted-foreground uppercase tracking-wider">
-                                                Original (
-                                                {call.callDetails.caller
-                                                  ?.detectedLanguage ||
-                                                  "unknown"}
-                                                )
-                                              </span>
-                                              <p className="mt-1 leading-relaxed text-zinc-700 dark:text-zinc-300 italic">
-                                                {call.callDetails.caller
-                                                  ?.transcript || "N/A"}
-                                              </p>
+                                      <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 flex flex-col bg-white dark:bg-zinc-900 p-5 rounded-xl border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm">
+                                        {/* Farmer bubble (Inbound) */}
+                                        {call.callDetails.caller && (call.callDetails.caller.transcript || call.callDetails.caller.translation) && (
+                                          <div className="flex flex-col items-start space-y-1 animate-in fade-in duration-200">
+                                            <div className="flex items-center gap-2 px-2 text-[10px] text-zinc-400 dark:text-zinc-500 font-semibold tracking-wider uppercase">
+                                              <span>Farmer</span>
                                             </div>
-                                            <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800">
-                                              <span className="font-medium text-[11px] text-muted-foreground uppercase tracking-wider">
-                                                English Translation
-                                              </span>
-                                              <p className="mt-1 leading-relaxed font-medium">
-                                                {call.callDetails.caller
-                                                  ?.translation || "N/A"}
+                                            <div className="max-w-[85%] px-4 py-3 rounded-2xl shadow-sm border bg-zinc-50 dark:bg-zinc-800/30 border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-tl-none">
+                                              <p className="text-[13.5px] leading-relaxed whitespace-pre-wrap font-medium">
+                                                {call.callDetails.caller.translation || "N/A"}
                                               </p>
+                                              {call.callDetails.caller.transcript && call.callDetails.caller.transcript !== call.callDetails.caller.translation && (
+                                                <div className="mt-2.5 pt-2.5 border-t border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400">
+                                                  <div className="flex items-center gap-1.5 mb-1 text-[9px] uppercase tracking-wider font-bold text-zinc-400">
+                                                    <Globe className="h-3 w-3" />
+                                                    <span>Original ({call.callDetails.caller.detectedLanguage || "unknown"})</span>
+                                                  </div>
+                                                  <p className="italic leading-relaxed">{call.callDetails.caller.transcript}</p>
+                                                </div>
+                                              )}
                                             </div>
                                           </div>
-                                        </div>
+                                        )}
 
-                                        <div className="bg-gradient-to-br from-indigo-50 to-white dark:from-zinc-900 dark:to-zinc-900 rounded-xl p-4 border border-indigo-100 dark:border-zinc-800 shadow-sm">
-                                          <h4 className="font-semibold text-sm mb-3 text-indigo-700 dark:text-indigo-400">
-                                            Expert
-                                          </h4>
-                                          <div className="space-y-3 text-sm">
-                                            <div>
-                                              <span className="font-medium text-[11px] text-muted-foreground uppercase tracking-wider">
-                                                Original (
-                                                {call.callDetails.agent
-                                                  ?.detectedLanguage ||
-                                                  "unknown"}
-                                                )
-                                              </span>
-                                              <p className="mt-1 leading-relaxed text-zinc-700 dark:text-zinc-300 italic">
-                                                {call.callDetails.agent
-                                                  ?.transcript || "N/A"}
-                                              </p>
+                                        {/* Expert bubble (Outbound) */}
+                                        {call.callDetails.agent && (call.callDetails.agent.transcript || call.callDetails.agent.translation) && (
+                                          <div className="flex flex-col items-end space-y-1 animate-in fade-in duration-200">
+                                            <div className="flex items-center gap-2 px-2 text-[10px] text-zinc-400 dark:text-zinc-500 font-semibold tracking-wider uppercase">
+                                              <span>Expert</span>
                                             </div>
-                                            <div className="pt-2 border-t border-indigo-100 dark:border-zinc-800">
-                                              <span className="font-medium text-[11px] text-muted-foreground uppercase tracking-wider">
-                                                English Translation
-                                              </span>
-                                              <p className="mt-1 leading-relaxed font-medium">
-                                                {call.callDetails.agent
-                                                  ?.translation || "N/A"}
+                                            <div className="max-w-[85%] px-4 py-3 rounded-2xl shadow-sm border bg-gradient-to-tr from-indigo-600 via-indigo-500 to-blue-500 border-indigo-500 text-white rounded-tr-none shadow-indigo-500/10">
+                                              <p className="text-[13.5px] leading-relaxed whitespace-pre-wrap font-medium">
+                                                {call.callDetails.agent.translation || "N/A"}
                                               </p>
+                                              {call.callDetails.agent.transcript && call.callDetails.agent.transcript !== call.callDetails.agent.translation && (
+                                                <div className="mt-2.5 pt-2.5 border-t border-white/20 text-xs text-white/80">
+                                                  <div className="flex items-center gap-1.5 mb-1 text-[9px] uppercase tracking-wider font-bold text-white/75">
+                                                    <Globe className="h-3 w-3" />
+                                                    <span>Original ({call.callDetails.agent.detectedLanguage || "unknown"})</span>
+                                                  </div>
+                                                  <p className="italic leading-relaxed">{call.callDetails.agent.transcript}</p>
+                                                </div>
+                                              )}
                                             </div>
                                           </div>
-                                        </div>
+                                        )}
+
+                                        {!(call.callDetails.caller?.transcript || call.callDetails.caller?.translation || call.callDetails.agent?.transcript || call.callDetails.agent?.translation) && (
+                                          <div className="text-sm text-muted-foreground text-center py-6">
+                                            No transcript data available for this call
+                                          </div>
+                                        )}
                                       </div>
                                     ) : (
-                                      <div className="text-sm text-muted-foreground text-center py-6 bg-white/50 dark:bg-zinc-900/50 rounded-xl border border-dashed">
-                                        No transcript data available for this
-                                        call
+                                      <div className="text-sm text-muted-foreground text-center py-8 bg-white dark:bg-zinc-900 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800">
+                                        No transcript data available for this call
                                       </div>
                                     )}
                                   </div>
 
+                                  {/* QnA Pairs (Full Width) */}
                                   {call.callDetails?.QA_pairs && (
                                     <div className="space-y-3">
-                                      <h3 className="text-sm font-semibold tracking-wide uppercase flex items-center gap-2">
+                                      <h3 className="text-xs font-bold tracking-wider uppercase flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
                                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                                         Question & Answer Pairs
                                       </h3>
 
-                                      <div className="bg-white dark:bg-zinc-900 rounded-xl p-4 border border-zinc-200 dark:border-zinc-800 shadow-sm">
-                                        <div className="space-y-3 text-sm mb-4">
-                                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
-                                            <div>
-                                              <span className="font-medium text-muted-foreground">Crop:</span>
-                                              <span className="ml-1">{call.callDetails.QA_pairs.metadata.extracted_crop || "N/A"}</span>
-                                            </div>
-                                            <div>
-                                              <span className="font-medium text-muted-foreground">State:</span>
-                                              <span className="ml-1">{call.callDetails.QA_pairs.metadata.extracted_state || "N/A"}</span>
-                                            </div>
-                                            <div>
-                                              <span className="font-medium text-muted-foreground">District:</span>
-                                              <span className="ml-1">{call.callDetails.QA_pairs.metadata.extracted_district || "N/A"}</span>
-                                            </div>
-                                            <div>
-                                              <span className="font-medium text-muted-foreground">Domain:</span>
-                                              <span className="ml-1">{call.callDetails.QA_pairs.metadata.extracted_domain || "N/A"}</span>
-                                            </div>
-                                            <div>
-                                              <span className="font-medium text-muted-foreground">Season:</span>
-                                              <span className="ml-1">{call.callDetails.QA_pairs.metadata.extracted_season || "N/A"}</span>
-                                            </div>
-                                          </div>
-                                        </div>
-
+                                      <div className="bg-white dark:bg-zinc-900 rounded-xl p-5 border border-zinc-200/60 dark:border-zinc-800/60 shadow-sm">
                                         <Accordion type="single" collapsible className="w-full">
                                           {call.callDetails.QA_pairs.QnA.map((qa, index) => (
-                                            <AccordionItem key={qa.id} value={`qa-${index}`}>
-                                              <AccordionTrigger className="text-left hover:no-underline py-3">
-                                                <div className="flex items-start gap-3 w-full">
-                                                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xs font-bold">
+                                            <AccordionItem key={qa.id} value={`qa-${index}`} className="border-b border-zinc-100 dark:border-zinc-800/80 last:border-b-0">
+                                              <AccordionTrigger className="text-left hover:no-underline py-3.5 w-full flex items-center justify-between group gap-2">
+                                                <div className="flex items-start gap-3 flex-1 min-w-0 pr-4">
+                                                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-55 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xs font-bold mt-0.5">
                                                     {index + 1}
                                                   </span>
-                                                  <span className="font-medium text-sm text-left flex-1">
-                                                    {qa.question}
-                                                  </span>
-                                                </div>
-                                              </AccordionTrigger>
-                                              <AccordionContent className="pt-2">
-                                                <div className="pl-9 space-y-2">
-                                                  <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-lg p-3">
-                                                    <p className="text-sm leading-relaxed">
-                                                      {qa.answer}
-                                                    </p>
+                                                  <div className="font-semibold text-[13.5px] text-zinc-800 dark:text-zinc-100 leading-normal flex-1">
+                                                    {renderMarkdown(qa.question)}
                                                   </div>
-                                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                    <Badge variant="outline" className="text-[10px]">
+                                                </div>
+                                                <ChevronDown className="h-4 w-4 text-zinc-400 dark:text-zinc-550 transition-transform duration-300 group-data-[state=open]:rotate-180 shrink-0 group-hover:text-zinc-600 dark:group-hover:text-zinc-350" />
+                                              </AccordionTrigger>
+                                              <AccordionContent className="pt-1 pb-4">
+                                                <div className="pl-9 space-y-2.5">
+                                                  <div className="bg-emerald-50/15 dark:bg-emerald-950/10 rounded-xl p-4 border border-emerald-100/50 dark:border-emerald-900/30 shadow-inner">
+                                                    <div className="space-y-1 font-medium">
+                                                      {renderMarkdown(qa.answer)}
+                                                    </div>
+                                                  </div>
+                                                  <div className="flex items-center gap-2 text-[10px] text-zinc-400 dark:text-zinc-500 font-semibold uppercase tracking-wider pl-1 mt-1.5">
+                                                    <Badge variant="outline" className="text-[9px] px-2 py-0.5 border-emerald-200/50 dark:border-emerald-900/40 text-emerald-650 dark:text-emerald-400 font-bold bg-emerald-50/20 dark:bg-emerald-950/20">
                                                       {qa.agri_specialist}
                                                     </Badge>
-                                                    <span>•</span>
-                                                    <span>{qa.referenceSource}</span>
+                                                    <span className="text-zinc-350 dark:text-zinc-650">•</span>
+                                                    <span className="text-zinc-500 dark:text-zinc-450">{qa.referenceSource}</span>
                                                   </div>
                                                 </div>
                                               </AccordionContent>
@@ -722,28 +925,28 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                               <td colSpan={6} className="px-4 py-4 bg-muted/10">
                                 <div className="flex flex-col gap-2 max-w-md">
                                   <div className="flex items-center gap-2 justify-between">
-                                  <h4 className="text-sm font-semibold">
-                                    Send SMS to{" "}
-                                    
-                                    {call.direction === "inbound"
-                                      ? call.from
-                                      : call.to}
-                                  </h4>
-                                  {translatedText && (
-                                    <div className="mt-2 flex items-center gap-2">
-                                      <Switch
-                                        id="show-translated"
-                                        checked={sendTranslated}
-                                        onCheckedChange={setSendTranslated}
+                                    <h4 className="text-sm font-semibold">
+                                      Send SMS to{" "}
+
+                                      {call.direction === "inbound"
+                                        ? call.from
+                                        : call.to}
+                                    </h4>
+                                    {translatedText && (
+                                      <div className="mt-2 flex items-center gap-2">
+                                        <Switch
+                                          id="show-translated"
+                                          checked={sendTranslated}
+                                          onCheckedChange={setSendTranslated}
                                         />
-                                      <label
-                                        htmlFor="show-translated"
-                                        className="text-xs font-medium text-muted-foreground cursor-pointer"
+                                        <label
+                                          htmlFor="show-translated"
+                                          className="text-xs font-medium text-muted-foreground cursor-pointer"
                                         >
-                                        Show translated text
-                                      </label>
-                                    </div>
-                                  )}
+                                          Show translated text
+                                        </label>
+                                      </div>
+                                    )}
                                   </div>
                                   <textarea
                                     className="w-full p-2 border rounded-md text-sm bg-background"

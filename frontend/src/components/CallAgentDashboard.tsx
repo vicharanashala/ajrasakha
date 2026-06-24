@@ -118,6 +118,24 @@ export const CallAgentDashboard = () => {
     endDate: dateRange?.endDate,
   });
 
+  const processedDomains = (() => {
+    if (!analytics || !analytics.domains) return [];
+    const map = new Map<string, number>();
+    analytics.domains.forEach((item: any) => {
+      const domainList = Array.isArray(item.domain) ? item.domain : [item.domain];
+      domainList.forEach((d: string) => {
+        if (d && d.trim()) {
+          const trimmed = d.trim();
+          map.set(trimmed, (map.get(trimmed) || 0) + item.count);
+        }
+      });
+    });
+    return Array.from(map.entries()).map(([domain, count]) => ({
+      domain,
+      count,
+    }));
+  })();
+
   // Reset custom dates when switching away from custom filter
   useEffect(() => {
     if (timeFilter !== "custom") {
@@ -240,26 +258,26 @@ export const CallAgentDashboard = () => {
           </Card>
         ) : analytics ? (
           <div className="space-y-6">
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <StatCard
-                title="Total Calls"
-                value={analytics.totalCalls}
-                icon={Phone}
-                description={timeFilter === "all" ? "All time" : "Selected period"}
-              />
-              <StatCard
-                title="Average Call Duration"
-                value={formatDuration(analytics.averageDuration)}
-                icon={Clock}
-                description="Selected period"
-              />
-              <StatCard
-                title="Domains Covered"
-                value={analytics.domains.length}
-                icon={TrendingUp}
-                description="Selected period"
-              />
+              {/* Stats Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <StatCard
+                  title="Total Calls"
+                  value={analytics.totalCalls}
+                  icon={Phone}
+                  description={timeFilter === "all" ? "All time" : "Selected period"}
+                />
+                <StatCard
+                  title="Average Call Duration"
+                  value={formatDuration(analytics.averageDuration)}
+                  icon={Clock}
+                  description="Selected period"
+                />
+                <StatCard
+                  title="Domains Covered"
+                  value={processedDomains.length}
+                  icon={TrendingUp}
+                  description="Selected period"
+                />
               {/* Agent Live Status Card */}
               <Card className="flex flex-col border border-zinc-200/50 dark:border-zinc-800/50 shadow-sm hover:shadow-md transition-all duration-300">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -315,11 +333,11 @@ export const CallAgentDashboard = () => {
                   <CardDescription>Top domains by call count</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {analytics.domains.length > 0 ? (
+                  {processedDomains.length > 0 ? (
                     <ResponsiveContainer width="100%" height={300}>
                       <PieChart>
                         <Pie
-                          data={analytics.domains}
+                          data={processedDomains}
                           dataKey="count"
                           nameKey="domain"
                           innerRadius={60}
@@ -328,7 +346,7 @@ export const CallAgentDashboard = () => {
                           label={({ domain, percent }) => `${domain} ${(percent * 100).toFixed(0)}%`}
                           labelLine={false}
                         >
-                          {analytics.domains.map((_, index) => (
+                          {processedDomains.map((_, index) => (
                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                           ))}
                         </Pie>
