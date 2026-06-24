@@ -59,6 +59,7 @@ import {
   X,
   
 } from "lucide-react";
+import { toast } from "sonner";
 import { renderModificationDiff } from "../question_details/components/renderModificationDiff";
 import {
   Dialog,
@@ -70,7 +71,6 @@ import {
 } from "../../components/atoms/dialog";
 import { Label } from "../../components/atoms/label";
 import { AcceptReviewDialog } from "./AcceptReviewDialog";
-import { toast } from "@/shared/components/toast";
 interface ReviewHistoryTimelineProps {
   history: HistoryItem[];
   isSubmittingAnswer: boolean;
@@ -205,9 +205,8 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
   console.error("Required data is missing for rejectReRoute");
   return;
 }
-    let toastId;
+
     try {
-    toastId = toast.loading('rejecting Re Route...')
     await rejectReRoute({
         reason,
         rerouteId: h.rerouteId,
@@ -224,10 +223,8 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
        // console.log("the refetch happening===")
        // refetchQuestions(); // ✅ Call it here
       }*/
-     toast.dismiss(toastId)
      toast.success("You have successfully rejected the Re Route Question");
     } catch (error) {
-      toast.dismiss(toastId)
       console.log("the eroor coming====",error)
       console.error("Failed to reject reroute question:", error);
     }

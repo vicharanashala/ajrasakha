@@ -1,10 +1,10 @@
 // @ts-nocheck
 import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { Square, FileText, Check, ChevronRight } from 'lucide-react';
 import { MultiSelector, StateSelector } from './RunTile';
 import { getPopStateTable, runPop, getPopJob, stopPopJob } from '../../api';
 import PopStateTable from './PopStateTable';
-import { toast } from '@/shared/components/toast';
 
 const inputClass =
   'w-full bg-input border border-border rounded-md px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring transition-shadow';
@@ -252,21 +252,17 @@ export default function PopTranslationPanel({ onJobCreated }) {
     if (docs.length > 0) body.docs = docs;
     const label = `${state} / ${crop}`;
     setSubmitting(true);
-    let toastId;
     try {
-      toastId = toast.loading('starting POP translation...')
       const result = await runPop(body);
       const jid = result.job_id;
       setJobId(jid);
       setJobData({ job_id: jid, status: 'running', stdout: '', stderr: '' });
       setJobLabel(label);
       localStorage.setItem(POP_TILE_KEY, JSON.stringify({ jobId: jid, label }));
-      toast.dismiss(toastId)
       toast.success(`POP job queued — ${jid.slice(0, 8)}`);
       if (onJobCreated) onJobCreated();
       startPolling(jid);
     } catch (err) {
-      toast.dismiss(toastId)
       toast.error(err.message || 'Failed to start POP translation');
     } finally {
       setSubmitting(false);

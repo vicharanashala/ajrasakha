@@ -128,6 +128,21 @@ export class NotificationController {
     );
   }
 
+  @Post('/users/send')
+  @HttpCode(201)
+  @Authorized(['admin', ...COORDINATOR_ROLES])
+  async sendBulkUserNotifications(
+    @Body() body: {userIds: string[]; title?: string; message: string},
+    @CurrentUser() currentUser: IUser,
+  ) {
+    return this.notificationService.sendBulkUserNotifications(
+      body.userIds,
+      currentUser,
+      body.message,
+      body.title,
+    );
+  }
+
   @OpenAPI({
     summary: 'Delete a notification',
     description: 'Deletes a specific notification by its ID.',

@@ -223,6 +223,9 @@ export async function fetchDistricts(): Promise<unknown> {
   if( districtName === "Baramula"){
     feature.properties.NAME_2 = "Baramulla"
   }
+  if(districtName === "Mysore"){
+    feature.properties.NAME_2 = "Mysuru"
+  }
 });
 
   // Add missing districts

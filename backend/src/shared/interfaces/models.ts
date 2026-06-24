@@ -9,6 +9,17 @@ export interface IPreference {
 }
 export type NotificationRetentionType = '3d' | '1w' | '2w' | '1m' | 'never';
 export type UserStatus = 'active' | 'in-active';
+
+/** One question currently held by a moderator. The status is denormalised from the
+ *  question document so the cron can decide free/busy without a join. It is kept in
+ *  sync whenever the question's status changes (see QuestionRepository) and the whole
+ *  entry is pulled when the moderator acts on the question. `source` is the question's
+ *  origin, stored for future use (not currently surfaced in the UI). */
+export interface IAssignedQuestion {
+  questionId: ObjectId | string;
+  status: QuestionStatus;
+  source?: QuestionSource;
+}
 export interface IUser {
   _id?: string | ObjectId;
   firebaseUID: string;
@@ -34,6 +45,14 @@ export interface IUser {
   university?: string;
   isVerified?: boolean;
   isCallAgentActive?: boolean;
+  /** Questions currently assigned to this moderator for review, each stored with its
+   *  denormalised status ({ questionId, status }). The cron assigns one question to a
+   *  free moderator; manual allocation appends to this array, so a moderator can hold
+   *  multiple questions. An entry is pulled when the moderator acts on it (answers/closes)
+   *  or when it is manually removed/reassigned. A moderator is "busy" only while holding
+   *  at least one entry in a blocking status (in-review / duplicate); entries that are
+   *  re-routed (handed to an expert) stay for history but do not block new work. */
+  assignedQuestionIds?: IAssignedQuestion[] | null;
 }
 
 export type IQuestionPriority = 'low' | 'medium' | 'high' | 'critical';
@@ -50,6 +69,12 @@ export type QuestionSource =
   | 'AGRI_EXPERT'
   | 'WHATSAPP'
   | 'OUTREACH';
+
+/** Time-bound questions (SLA-driven, handled by the time-bound reallocation cron). */
+export const TIME_BOUND_SOURCES: QuestionSource[] = ['AJRASAKHA', 'WHATSAPP'];
+
+/** Manual / non-time-bound questions (added by moderators or via outreach). */
+export const MANUAL_SOURCES: QuestionSource[] = ['AGRI_EXPERT', 'OUTREACH'];
 export interface IQuestion {
   _id?: string | ObjectId;
   userId?: ObjectId | string;
@@ -100,6 +125,15 @@ export interface IQuestion {
   saved_to_draft?: boolean;
   pae_review?: boolean;
   firstAllocationAt?: Date;
+  /** Whether this question is eligible to be auto-allocated to a moderator by the
+   *  moderator-queue cron. New questions default to true; existing questions were
+   *  backfilled to false. When false the question is never assigned to a moderator. */
+  autoAllocateModerator?: boolean;
+  /** Moderator currently assigned to review this question.
+   *  Set by the cron; cleared when the question is closed. */
+  moderatorId?: ObjectId | string | null;
+  /** Timestamp when a moderator was assigned. Used to calculate moderator handling time (closedAt - moderatorAssignedAt). */
+  moderatorAssignedAt?: Date | null;
   referenceQuestionDetails?: Array<{
     _id: ObjectId | string;
     duplicate: boolean;
@@ -291,6 +325,7 @@ export type INotificationType =
   | 'delayed_question'
   | 'moderator_approval'
   | 'allocation_removal'
+  | 'coordinator_message';
 export interface INotification {
   _id?: string | ObjectId;
   userId: string | ObjectId;

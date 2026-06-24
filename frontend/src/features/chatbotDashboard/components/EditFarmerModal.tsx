@@ -337,12 +337,12 @@ export function EditFarmerModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!max-w-3xl w-[95vw] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[96vw] !max-w-[1120px] max-h-[90vh] overflow-y-auto overflow-x-hidden [&_[data-slot=select-trigger]]:min-w-0 [&_[data-slot=select-trigger]]:max-w-full [&_[data-slot=select-trigger]]:overflow-hidden [&_[data-slot=select-value]]:min-w-0 [&_[data-slot=select-value]]:max-w-full [&_[data-slot=select-value]]:truncate">
         <DialogHeader>
           <DialogTitle>Edit Farmer</DialogTitle>
         </DialogHeader>
 
-        <div>
+        <div className="min-w-0 max-w-full">
           <UserInformationSection
             form={form}
             setForm={setForm}

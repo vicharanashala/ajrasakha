@@ -84,10 +84,10 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
       toast.error("Start date cannot be after end date");
       return;
     }
-    let toastId;
+
     try {
       setIsDownloading(true);
-      toastId=toast.loading("Preparing download...");
+      toast.info("Preparing download...");
 
       const blob = await questionService.downloadFilteredReport({
         state: filters.state,
@@ -126,11 +126,10 @@ export const DownloadFilteredReportButton = ({ onOpenDialog }: { onOpenDialog?: 
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      toast.dismiss(toastId)
+
       toast.success("Filtered report downloaded successfully!");
       setIsDialogOpen(false);
     } catch (error) {
-      toast.dismiss(toastId)
       console.error("Download error:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to download filtered report";
       toast.error(errorMessage);

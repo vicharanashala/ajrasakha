@@ -102,7 +102,7 @@ export function useMapAnalytics({
               answers: analytics?.closedQuestions ?? 0,
               users: analytics?.totalUsers ?? 0,
               activeUsers: analytics?.activeUsers ?? 0,
-              coordinators: 0,
+              coordinators: analytics?.coordinators ?? 0,
               closureHrs: analytics?.avgCloseTimeHours ?? 0,
             },
           },
