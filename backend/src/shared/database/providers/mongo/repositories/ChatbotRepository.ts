@@ -1836,7 +1836,6 @@ private normalizeDistrictName(
         },
         {
           $unwind: '$details.domain',
-          preserveNullAndEmptyArrays: false,
         },
         // ...lookupStages,
 
