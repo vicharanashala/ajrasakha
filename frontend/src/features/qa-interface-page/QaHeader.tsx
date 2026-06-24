@@ -71,6 +71,7 @@ type QaHeaderProps = {
   onToggleCollapse: () => void;
   onAiAnswerFetched?: (questionId: string, answer: string, sources: SourceItem[]) => void;
   hideControls?: boolean;
+  hasTimeboundQuestions?: boolean;
 }
 
 const normalizeAiAnswerSources = (result: AiAnswerResponse | null | undefined): SourceItem[] => {
@@ -281,6 +282,7 @@ const QaQuestionItem = ({
   selectedState,
   onStateChange,
   onAiAnswerFetched,
+  hasTimeboundQuestions = false,
 }: {
   question: any;
   selectedQuestion: string | null;
@@ -290,6 +292,7 @@ const QaQuestionItem = ({
   selectedState: string;
   onStateChange: (state: string) => void;
   onAiAnswerFetched?: (questionId: string, answer: string, sources: SourceItem[]) => void;
+  hasTimeboundQuestions?: boolean;
 }) => {
   const { mutate: fetchAnswer, isPending } = useFetchAnswer();
   const { data: statesResponse = [] } = useGetStates();
@@ -355,6 +358,10 @@ const QaQuestionItem = ({
     sourceStyles[question.source as keyof typeof sourceStyles] ||
     sourceStyles.DEFAULT;
 
+  // Check if this is a non-timebound question that should be disabled
+  const isTimeboundQuestion = question.source === "AJRASAKHA" || question.source === "WHATSAPP";
+  const shouldDisable = hasTimeboundQuestions && !isTimeboundQuestion;
+
   // Get correct timer start time based on user role (Author vs Level Expert)
   const timerStartTime = getTimerStartTime(question);
   const { timer } = useQuestionTimer(
@@ -378,6 +385,7 @@ const QaQuestionItem = ({
           ? `${currentStyle.selected} shadow-md ring-2`
           : `bg-card ${currentStyle.hover} hover:bg-accent/20 hover:shadow-sm`
         }
+        ${shouldDisable ? "opacity-50 cursor-not-allowed select-none" : ""}
   `}
     >
       {selectedQuestion === question?.id && (
@@ -400,7 +408,8 @@ const QaQuestionItem = ({
           <RadioGroupItem
             value={question?.id || ""}
             id={question?.id}
-            className="mt-1  w-5 h-5 rounded-full border-2 border-gray-400 dark:border-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 checked:bg-green-600 dark:checked:bg-green-400"
+             disabled={shouldDisable}
+            className={`mt-1 w-5 h-5 rounded-full border-2 border-gray-400 dark:border-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 checked:bg-green-600 dark:checked:bg-green-400 ${shouldDisable ? "cursor-not-allowed opacity-50" : ""}`}
           />
 
           <div className="flex-1 min-w-0">
@@ -411,7 +420,8 @@ const QaQuestionItem = ({
             )}
             <Label
               htmlFor={question?.id}
-              className="text-sm md:text-base font-medium leading-relaxed cursor-pointer text-foreground group-hover:text-foreground/90 transition-colors block"
+              // className="text-sm md:text-base font-medium leading-relaxed cursor-pointer text-foreground group-hover:text-foreground/90 transition-colors block"
+               className={`text-sm md:text-base font-medium leading-relaxed text-foreground group-hover:text-foreground/90 transition-colors block ${shouldDisable ? "cursor-not-allowed" : "cursor-pointer"}`}
             >
               {question?.text}
             </Label>
@@ -561,6 +571,7 @@ export const QaHeader = ({ questions,
   onToggleCollapse,
   onAiAnswerFetched,
   hideControls = false,
+  hasTimeboundQuestions = false,
 }: QaHeaderProps) => {
   const [questionStates, setQuestionStates] = useState<
     Record<string, string>
@@ -729,6 +740,7 @@ export const QaHeader = ({ questions,
                     }))
                   }
                   onAiAnswerFetched={onAiAnswerFetched}
+                  hasTimeboundQuestions={hasTimeboundQuestions}
                 />
               ))}
             </RadioGroup>

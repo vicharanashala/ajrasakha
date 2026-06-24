@@ -174,7 +174,12 @@ export const QAInterface = ({
     }
   }, [questionPages, questions]);
 
-
+  // Check if there are any timebound questions (AJRASAKHA or WHATSAPP) in the queue
+  const hasTimeboundQuestions = useMemo(() => {
+    return questions.some(
+      (q) => q?.source === "AJRASAKHA" || q?.source === "WHATSAPP"
+    );
+  }, [questions]);
 
   const { data: selectedQuestionData, isLoading: isSelectedQuestionLoading } =
     useGetQuestionById(selectedQuestion, actionType);
@@ -225,6 +230,14 @@ export const QAInterface = ({
   useEffect(() => {
     if (!isLoaded) return; // wait until drafts + selected are loaded
     if (autoSelectQuestionId) return;
+
+    const firstTimebound = questions.find(
+      (q) => q?.source === "AJRASAKHA" || q?.source === "WHATSAPP"
+    );
+    if (firstTimebound) {
+      setSelectedQuestion(firstTimebound.id);
+      return; // Stop here, timebound questions take absolute priority
+    }
 
     const savedSelected = localStorage.getItem("selectedQuestion");
 
@@ -660,6 +673,7 @@ export const QAInterface = ({
               setQuestionRef={setQuestionRef}
               onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
               onAiAnswerFetched={handleAiAnswerFetched}
+              hasTimeboundQuestions={hasTimeboundQuestions}
             />
           </div>
           {selectedQuestionData &&

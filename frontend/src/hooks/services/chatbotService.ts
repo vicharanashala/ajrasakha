@@ -484,4 +484,15 @@ export class ChatbotService {
       `${this._baseUrl}/village-data?${params.toString()}`,
     );
   }
+
+  async getQuestionLifeCycle(
+    questionId: string,
+  ): Promise<any> {
+    console.log("questionId", questionId)
+    const params = new URLSearchParams();
+    params.append("questionId", questionId);
+    return apiFetch<any>(
+      `${this._baseUrl}/question-lifecycle?${params.toString()}`,
+    );
+  }
 }
