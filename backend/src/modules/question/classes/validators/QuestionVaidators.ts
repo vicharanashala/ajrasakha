@@ -793,6 +793,14 @@ class GetDetailedQuestionsQuery {
   autoAllocateFilter?: string;
 
   @JSONSchema({
+    description: 'to filter questions based on auto allocate moderator setting',
+    example: 'on',
+    type: 'string',
+  })
+  @IsOptional()
+  autoAllocateModeratorFilter?: string;
+
+  @JSONSchema({
     description: 'Filter for questions closed within the last 2 hours',
     example: 'true',
     type: 'boolean',
