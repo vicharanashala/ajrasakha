@@ -68,6 +68,7 @@ def _compute_tools_used(plan: PlannerPlan) -> list[str]:
     return tools
 
 
+
 def _is_useful_tool_response(message: ToolMessage) -> bool:
     """Check if a tool message contains useful/non-empty data."""
     text = _message_to_text(message)
@@ -147,6 +148,7 @@ def compute_actual_tools_used(messages: list[BaseMessage]) -> list[str]:
                 tools.append("chemical_checker")
     
     return tools
+
 
 _CHEMICAL_NAME_RE = re.compile(
     r"\b(monocrotophos|chlorpyrifos|endosulfan|carbofuran|paraquat|"
