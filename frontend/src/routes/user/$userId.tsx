@@ -81,6 +81,7 @@ import { NotificationModal } from "@/components/NotificationModal";
 import { apiFetch } from "@/hooks/api/api-fetch";
 import { env } from "@/config/env";
 import { useToast } from "@/shared/components/toast";
+import { isEnglishCharacters } from "@/features/questions/utils/checkLanguage";
 import { initializeNotifications } from "@/services/pushService";
 
 export const Route = createFileRoute("/user/$userId")({
@@ -1525,7 +1526,7 @@ function TranslatableText({ text }: { text?: string }) {
       <p className="whitespace-pre-wrap text-sm text-foreground/90">
         {displayText}
       </p>
-      {text ? (
+      {text && text.trim() && !isEnglishCharacters(text) ? (
         <SarvamTranslateDropdown
           query={text}
           onTranslate={(result) => setTranslatedText(result)}

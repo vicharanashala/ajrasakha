@@ -38,6 +38,8 @@ import { ReRouteResponseTimeline } from "./ReRouteResponseTimeline";
 import { AnswerCreateDialog } from "./AnswerCreateDialog";
 import { QaHeader } from "./QaHeader";
 import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
+import { useToast } from "@/shared/components/toast";
+import { isEnglishCharacters } from "../questions/utils/checkLanguage";
 
 export type QuestionFilter =
   | "newest"
@@ -707,11 +709,15 @@ export const QAInterface = ({
                             <Label className="text-sm font-medium text-muted-foreground">
                               Current Query:
                             </Label>
-                            {/* Translate language dropdown */}
-                            <SarvamTranslateDropdown
-                              query={selectedQuestionData.text}
-                              onTranslate={(result) => setTranslatedText(result)}
-                            />
+                            {/* Translate language dropdown */}  
+                            {
+                              selectedQuestionData.text?.trim() && !isEnglishCharacters(selectedQuestionData.text) && (
+                                <SarvamTranslateDropdown
+                                  query={selectedQuestionData.text}
+                                  onTranslate={(result) => setTranslatedText(result)}
+                                />
+                              )
+                            }
                           </div>
 
                           <p className="text-sm mt-1 p-3 rounded-md border border-gray-200 dark:border-gray-600 break-words">
@@ -738,10 +744,14 @@ export const QAInterface = ({
                             </Label>
 
                             <div className="flex items-center gap-2">
-                              <SarvamTranslateDropdown
-                                query={newAnswer}
-                                onTranslate={(result) => setTranslatedDraftText(result)}
-                              />
+                              {
+                                newAnswer?.trim() && !isEnglishCharacters(newAnswer) && (
+                                  <SarvamTranslateDropdown
+                                    query={newAnswer}
+                                    onTranslate={(result) => setTranslatedDraftText(result)}
+                                  />
+                                )
+                              }
                               {selectedQuestionData.aiInitialAnswer &&
                                 !newAnswer && (
                                   <button
