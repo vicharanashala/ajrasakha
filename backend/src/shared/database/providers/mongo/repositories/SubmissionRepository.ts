@@ -3342,7 +3342,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     );
   }
 
-  async setCurrentExpertAllocatedAt(questionId: string, allocatedAt: Date): Promise<void> {
+  async setCurrentExpertAllocatedAt(questionId: string, allocatedAt: Date, session?: ClientSession): Promise<void> {
     await this.init();
     await this.QuestionSubmissionCollection.updateOne(
       { questionId: new ObjectId(questionId) },
@@ -3353,6 +3353,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           updatedAt: new Date(),
         },
       },
+      { session },
     );
   }
 
@@ -3551,6 +3552,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     questionId: string,
     reviewerId: string,
     now: Date,
+    session?: ClientSession,
   ): Promise<void> {
     await this.init();
     await this.QuestionSubmissionCollection.updateOne(
@@ -3571,6 +3573,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           updatedAt: now,
         },
       },
+      { session },
     );
   }
 

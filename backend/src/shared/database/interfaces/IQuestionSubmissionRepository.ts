@@ -203,7 +203,7 @@ export interface IQuestionSubmissionRepository {
 
   /** Reset the 45-min allocation clock for the current expert.
    *  Called on initial allocation and on every reallocation. Clears currentExpertOpenedAt. */
-  setCurrentExpertAllocatedAt(questionId: string, allocatedAt: Date): Promise<void>;
+  setCurrentExpertAllocatedAt(questionId: string, allocatedAt: Date, session?: ClientSession): Promise<void>;
 
   /** Clear currentExpertAllocatedAt + currentExpertOpenedAt after expert submits their response. */
   clearCurrentExpertTracking(questionId: string, session?: ClientSession): Promise<void>;
@@ -230,7 +230,7 @@ export interface IQuestionSubmissionRepository {
 
   /** Atomically push reviewer into queue, add an in-review history entry, and
    *  reset the 45-min allocation clock (currentExpertAllocatedAt/OpenedAt). */
-  assignTimeBoundReviewer(questionId: string, reviewerId: string, now: Date): Promise<void>;
+  assignTimeBoundReviewer(questionId: string, reviewerId: string, now: Date, session?: ClientSession): Promise<void>;
 
   /** Single aggregation: returns a Map<expertId, count> of active time-bound
    *  questions per expert. Used to enforce the 3-question hard cap. */
