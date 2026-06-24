@@ -7076,6 +7076,10 @@ if (!districts.length) {
               $first: '$userId',
             },
 
+            latestId: {
+              $first: '$_id',
+            },
+
             allCreatedAt: {
               $push: '$createdAt',
             },
@@ -7084,7 +7088,7 @@ if (!districts.length) {
 
         {
           $project: {
-            _id: 0,
+            _id: '$latestId',
 
             messageId: '$latestMessageId',
 

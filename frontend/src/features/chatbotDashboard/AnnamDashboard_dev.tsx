@@ -319,21 +319,7 @@ export function AnnamDashboard_dev({
             <div className="flex-1 overflow-y-auto px-5 pb-5">
               {!mapView && 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 items-stretch">
-                <ClosedInLastTwoHoursCard
-                  source={closed2hSource}
-                  onSourceChange={setClosed2hSource}
-                  userType={filters.userType}
-                  closedInLastTwoHours={closed2hData?.closedInLastTwoHours?.closedInTwoHoursCount}
-                  totalClosed={closed2hData?.closedInLastTwoHours?.totalClosedCount}
-                  dateRange={closed2hDateRange}
-                  onDateRangeChange={setClosed2hDateRange}
-                  isLoading={false}
-                  isFetching={isClosed2hFetching}
-                  onRefresh={handleRefreshStatsCards}
-                  passedInLastTwoHours={closed2hData?.closedInLastTwoHours?.passInTwoHoursCount}
-                  totalPassed={closed2hData?.closedInLastTwoHours?.totalPassCount}
-                />
-                <ClosedQuestionsCard
+ <ClosedQuestionsCard
                   closedQuestions={questionStatusData?.closedVsTotalQuestions?.closed?.count}
                   totalQuestions={questionStatusData?.closedVsTotalQuestions?.totalQuestions}
                   dateRange={questionStatusDateRange}
@@ -353,6 +339,22 @@ export function AnnamDashboard_dev({
                   combinedAvgTime={questionStatusData?.closedVsTotalQuestions?.combined?.avgTimeMinutes}
                   onSourceChange={setQuestionStatusSource}
                 />
+                
+                <ClosedInLastTwoHoursCard
+                  source={closed2hSource}
+                  onSourceChange={setClosed2hSource}
+                  userType={filters.userType}
+                  closedInLastTwoHours={closed2hData?.closedInLastTwoHours?.closedInTwoHoursCount}
+                  totalClosed={closed2hData?.closedInLastTwoHours?.totalClosedCount}
+                  dateRange={closed2hDateRange}
+                  onDateRangeChange={setClosed2hDateRange}
+                  isLoading={false}
+                  isFetching={isClosed2hFetching}
+                  onRefresh={handleRefreshStatsCards}
+                  passedInLastTwoHours={closed2hData?.closedInLastTwoHours?.passInTwoHoursCount}
+                  totalPassed={closed2hData?.closedInLastTwoHours?.totalPassCount}
+                />
+                
                 <CustomerNotificationsCard
                   notified={customerNotificationsData?.notifiedVsClosed?.notified}
                   notNotified={customerNotificationsData?.notifiedVsClosed?.notNotified}
