@@ -2089,6 +2089,16 @@ export class QuestionService extends BaseService implements IQuestionService {
             );
           }
         }
+        // When a question is passed, remove it from any moderator's assignedQuestionIds
+        // so the cron sees them as available again. Keyed by questionId so a
+        // malformed/missing moderatorId can't leave an orphan entry behind.
+        if (updates.status === 'pass') {
+          try {
+            await this.userRepo.removeAssignedQuestionFromAllModerators(questionId, session);
+          } catch (err: any) {
+            console.error('[ModeratorQueue] Failed to clear passed question from moderators:', err?.message);
+          }
+        }
         return this.questionRepo.updateQuestion(questionId, updates, session);
       });
     } catch (error) {
@@ -6371,6 +6381,121 @@ export class QuestionService extends BaseService implements IQuestionService {
       throw new InternalServerError(
         `Moderator queue cron failed: ${error?.message}`,
       );
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // MODERATOR QUEUE CRON
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Periodic cron job — moderator queue management.
+   *
+   * Logic:
+   *  1. Find all in-review questions that have no moderatorId assigned.
+   *  2. Find available moderators — those whose assignedQuestionIds array is empty.
+   *  3. For each available moderator, assign the oldest unassigned in-review question:
+   *       - Set question.moderatorId = moderatorId
+   *       - Append questionId to user.assignedQuestionIds
+   *       - Push a moderator history entry into the submission
+   *       - Notify the moderator
+   *
+   * De-assignment:
+   *  When the moderator closes (approves) a question, AnswerService:
+   *       - keeps question.moderatorId for history
+   *       - pulls questionId from user.assignedQuestionIds
+   *  …making the moderator available again on the next cron run once the array is empty.
+   */
+  async runModeratorQueueCron(): Promise<{ assigned: number; availableWaiting: number; failedAssignments: number }> {
+    console.log('[ModeratorQueue] Starting moderator queue assignment check...');
+    try {
+      // Source-aware assignment: a moderator may hold ONE time-bound question and ONE
+      // manual (non-time-bound) question at the same time. Availability is evaluated
+      // per source group, so the two passes below are independent — a moderator free
+      // for both categories can receive one of each in a single run, while a moderator
+      // already holding (say) a time-bound question still receives a manual one.
+      const [
+        timeBoundModerators,
+        manualModerators,
+        timeBoundQuestions,
+        manualQuestions,
+      ] = await Promise.all([
+        this.userRepo.findAvailableStfModeratorsForSources(TIME_BOUND_SOURCES),
+        this.userRepo.findAvailableStfModeratorsForSources(MANUAL_SOURCES),
+        this.questionRepo.findUnassignedInReviewQuestions(TIME_BOUND_SOURCES),
+        this.questionRepo.findUnassignedInReviewQuestions(MANUAL_SOURCES),
+      ]);
+
+      // Track claimed question IDs across both passes so a question is never assigned
+      // twice (the buckets are disjoint by source, but this is a cheap safety net).
+      const claimedIds = new Set<string>();
+      let assigned = 0;
+      let availableWaiting = 0;
+      let failedAssignments = 0;
+
+      // Assign one question per available moderator within a single source group.
+      const runPass = async (
+        label: string,
+        moderators: IUser[],
+        questions: IQuestion[],
+      ) => {
+        for (const moderator of moderators) {
+          const moderatorId = moderator._id!.toString();
+
+          const nextQuestion = questions.find(
+            (q: any) => !claimedIds.has(q._id.toString()),
+          );
+          if (!nextQuestion) {
+            // Moderator is free for this category but no more questions left in it.
+            availableWaiting++;
+            continue;
+          }
+
+          const questionId = nextQuestion._id!.toString();
+          claimedIds.add(questionId);
+
+          try {
+            // Assign question to moderator — update both documents and notify.
+            await Promise.all([
+              this.questionRepo.updateModeratorId(questionId, moderatorId),
+              // Store the question's actual status (the cron assigns both in-review and
+              // duplicate questions) and its source (used for source-aware availability).
+              this.userRepo.addAssignedQuestion(
+                moderatorId,
+                questionId,
+                ((nextQuestion as any)?.status ?? 'in-review') as QuestionStatus,
+                (nextQuestion as any)?.source,
+              ),
+              this.notificationService.saveTheNotifications(
+                'A question has been assigned to you for moderation',
+                'Moderation Assigned',
+                questionId,
+                moderatorId,
+                'moderator_approval',
+              ),
+            ]);
+            console.log(`[ModeratorQueue] (${label}) Assigned question ${questionId} → moderator ${moderatorId}`);
+            assigned++;
+          } catch (err: any) {
+            console.error(`[ModeratorQueue] (${label}) Failed to assign ${questionId} → ${moderatorId}:`, err?.message);
+            claimedIds.delete(questionId);
+            failedAssignments++;
+          }
+        }
+      };
+
+      if (!timeBoundModerators.length && !manualModerators.length) {
+        console.log('[ModeratorQueue] No available moderators for either category.');
+      }
+
+      await runPass('time-bound', timeBoundModerators, timeBoundQuestions);
+      await runPass('manual', manualModerators, manualQuestions);
+
+      console.log(`[ModeratorQueue] Done. assigned=${assigned}, availableWaiting=${availableWaiting}, failed=${failedAssignments}`);
+      return { assigned, availableWaiting, failedAssignments };
+    } catch (error: any) {
+      console.error('[ModeratorQueue] runModeratorQueueCron failed:', error?.message);
+      throw new InternalServerError(`Moderator queue cron failed: ${error?.message}`);
     }
   }
 

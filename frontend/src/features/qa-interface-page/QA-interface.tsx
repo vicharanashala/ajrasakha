@@ -673,7 +673,6 @@ export const QAInterface = ({
               setQuestionRef={setQuestionRef}
               onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
               onAiAnswerFetched={handleAiAnswerFetched}
-              hasTimeboundQuestions={hasTimeboundQuestions}
             />
           </div>
           {selectedQuestionData &&

@@ -490,13 +490,6 @@ async def planner_node(
     begin_conversation_turn(user_text)
 
     if is_greeting_message(user_text):
-        prev_plan = state.get("plan") or {}
-        prev_entities: PlannerEntities = dict(prev_plan.get("entities") or {})
-        greeting_entities: PlannerEntities = {"crop": "all"}
-        for key in ("state", "district"):
-            if prev_entities.get(key):
-                greeting_entities[key] = prev_entities[key]
-
         plan: PlannerPlan = {
             "domain": "General",
             "weather": False,
@@ -511,7 +504,7 @@ async def planner_node(
             "missing_info": [],
             "follow_up_question": None,
             "reasoning": "greeting",
-            "entities": greeting_entities,
+            "entities": {"crop": "all"},
             "skip_synthesize": False,
             "rephrased_query": user_text,
             "original_query_en": user_text,
@@ -696,6 +689,9 @@ async def planner_node(
         plan["missing_info"] = missing
         plan["follow_up_question"] = follow_up
 
+<<<<<<< HEAD
+        plan = apply_planner_completeness_rules(plan, messages, location, prev_entities)
+=======
         plan = apply_planner_completeness_rules(
             plan,
             messages,

@@ -287,7 +287,7 @@ def read_thread_turns(thread_id: str) -> list[dict[str, Any]]:
 
 
 def read_thread_log_text(thread_id: str) -> str:
-    """Read accumulated log text for a thread (full_logs, then turns[], then legacy text)."""
+    """Read accumulated log text for a thread (concatenated turns[].log_text)."""
     if not thread_id:
         return ""
 
@@ -298,15 +298,11 @@ def read_thread_log_text(thread_id: str) -> str:
     try:
         doc = col.find_one(
             {"_id": thread_id},
-            {"turns": 1, "text": 1, "full_logs": 1},
+            {"turns": 1, "text": 1},
             max_time_ms=_MONGO_OP_TIMEOUT_MS,
         )
         if not doc:
             return ""
-
-        full_logs = doc.get("full_logs")
-        if isinstance(full_logs, str) and full_logs.strip():
-            return full_logs
 
         turns = doc.get("turns")
         if isinstance(turns, list) and turns:
