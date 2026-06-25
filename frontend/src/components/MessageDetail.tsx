@@ -611,17 +611,14 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const isDuplicateQuestion = question?.status === "duplicate";
     const isQueueProgress = question?.status === "queue_progress";
 
-    // Push the question from the Gate Keeper to the Auditor's review queue.
-    const handlePushToAuditor = async () => {
+    // Push to Auditor is a logical hand-off only — the question keeps its status.
+    // Duplicate stays `duplicate` and dynamic stays `dynamic`; the Auditor reviews
+    // it in place (Push to GDB for duplicate, Notify User for dynamic). No status
+    // transition is performed here.
+    const handlePushToAuditor = () => {
         if (!question?._id) { toast.error("Question data is missing."); return; }
-        try {
-            await updateQuestion({ _id: question._id, status: "auditor_review" } as any);
-            toast.success("Question pushed to Auditor");
-            navigateToQuestionPage();
-        } catch (error) {
-            console.error("Failed to push question to auditor:", error);
-            toast.error("Failed to push to Auditor. Please try again.");
-        }
+        toast.success("Question pushed to Auditor");
+        navigateToQuestionPage();
     };
 
     // Cancel a question that is currently in the expert-allocation queue.
