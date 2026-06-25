@@ -15,6 +15,8 @@ using the in-process harness.
 | `POST` | `/api/questions` | Create question (source=OUTREACH) |
 | `GET` | `/api/questions/:id/full` | Get full question by ID |
 | `PUT` | `/api/questions/:id` | Update question |
+| `PATCH` | `/api/questions/:id/moderator` | Assign moderator to question |
+| `DELETE` | `/api/questions/:id/moderator` | Remove moderator from question |
 | `DELETE` | `/api/questions/:id` | Delete single question |
 | `DELETE` | `/api/questions/bulk` | Bulk delete questions |
 
@@ -24,8 +26,10 @@ using the in-process harness.
 
 **In-process server** — same harness as `ManualAllocation.e2e.test.ts`.
 `loadAppModules('all')` builds the real production DI container against the real DB.
-A single `moderatorUser` is fetched from the DB by email; `currentTestUser = moderatorUser`
-for all tests (no auth variation needed — this suite tests CRUD, not role enforcement).
+Two moderator users are fetched from the DB: `moderatorUser` (via `MODERATOR_EMAIL`) and
+`secondModeratorUser` (via `MODERATOR_EMAIL_2` from `.env.test`). The second is the
+assignment target in the moderator-assignment sub-suite; `currentTestUser` is set per-test
+to exercise auth variation.
 
 `OUTREACH` questions are created **synchronously** (no background pipeline), so assertions
 can be made immediately after the HTTP response.
@@ -34,9 +38,14 @@ can be made immediately after the HTTP response.
 
 ## Auth strategy
 
-Single moderator user fetched from the DB by `MODERATOR_EMAIL` (from `.env.test`), set as
-`currentTestUser` for all requests. `x-internal-api-key` header attached to every request
-via helpers (`apiPost`/`apiGet`/`apiPut`/`apiDelete`). No Firebase token exchange needed.
+Two moderator users fetched from the DB by `MODERATOR_EMAIL` and `MODERATOR_EMAIL_2`
+(from `.env.test`). `x-internal-api-key` header attached to every request via helpers
+(`apiPost`/`apiGet`/`apiPut`/`apiPatch`/`apiDelete`). No Firebase token exchange needed.
+For the moderator-assignment tests, `currentTestUser` is toggled per-test to cover both
+authenticated and unauthenticated (null) scenarios.
+
+**Env vars required:** `MODERATOR_EMAIL`, `MODERATOR_EMAIL_2` — both must resolve to real
+users in the DB or `beforeAll` throws.
 
 ---
 
@@ -46,7 +55,9 @@ via helpers (`apiPost`/`apiGet`/`apiPut`/`apiDelete`). No Firebase token exchang
 pipeline, giving a clean starting state for CRUD testing without any polling or
 allocation side effects.
 
-## Test cases (8 total)
+## Test cases (15 total)
+
+### CRUD lifecycle (8 tests)
 
 | # | Test | Expected |
 |---|------|----------|
@@ -58,6 +69,28 @@ allocation side effects.
 | 6 | Deleted question no longer retrievable | 400 or 404 |
 | 7 | Moderator bulk creates 2 questions (`Promise.all`) then bulk deletes both | 200 |
 | 8 | Bulk-deleted questions not retrievable | 400 or 404 for each |
+
+### Question Moderator Assignment (7 tests — `describe` sub-block)
+
+These run against the same `questionId` created in test #1. `PATCH /questions/:id/moderator`
+assigns a moderator; `DELETE /questions/:id/moderator` clears it.
+
+| # | Test | Method | Expected |
+|---|------|--------|----------|
+| 9 | Assigns `secondModeratorUser` as moderator | `PATCH` | 200; `question.moderatorId` equals `secondModeratorUser._id` in DB |
+| 10 | Missing `moderatorId` body field | `PATCH` | 400 |
+| 11 | Non-existent `moderatorId` (random `ObjectId`) | `PATCH` | 400, 404, or 500 |
+| 12 | Unauthenticated (`currentTestUser = null`) | `PATCH` | 403 |
+| 13 | Removes moderator | `DELETE` | 200; `question.moderatorId` is null in DB |
+| 14 | Removing moderator twice is idempotent | `DELETE` | 200 or 400 |
+| 15 | Unauthenticated remove (`currentTestUser = null`) | `DELETE` | 403 |
+
+## Notable implementation details
+
+- **`pollUntil` timeout** was bumped from 15 s → 45 s to give more headroom when the
+  background pipeline is slow.
+- **`apiPatch`** helper added alongside `apiPost`/`apiGet`/`apiPut`/`apiDelete` — same
+  `x-internal-api-key` pattern.
 
 ## Cleanup
 
@@ -115,15 +148,19 @@ NODE_ENV=test pnpm exec vitest run src/e2e/question/QuestionCreate.e2e.test.ts
 
 ## Last Run
 
-**Date:** 2026-06-23 &nbsp;|&nbsp; **Result:** ❌ 1 failed / 7 passed &nbsp;|&nbsp; **Duration:** 31.3 s
+### 2026-06-23 — before moderator-assignment tests (8 tests)
+
+**Result:** ❌ 1 failed / 7 passed &nbsp;|&nbsp; **Duration:** 31.3 s
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
-| 1 | Question Create E2E > moderator creates question successfully | ✅ | — |
-| 2 | Question Create E2E > moderator gets created question by id | ✅ | — |
-| 3 | Question Create E2E > moderator updates question successfully | ✅ | — |
-| 4 | Question Create E2E > question reflects updated values | ✅ | — |
-| 5 | Question Create E2E > moderator deletes question successfully | ✅ | — |
-| 6 | Question Create E2E > deleted question is no longer retrievable | ✅ | — |
-| 7 | Question Create E2E > moderator bulk deletes questions | ✅ | — |
-| 8 | Question Create E2E > bulk deleted questions are not retrievable | ❌ | Test timed out in 5000ms. |
+| 1 | moderator creates question successfully | ✅ | — |
+| 2 | moderator gets created question by id | ✅ | — |
+| 3 | moderator updates question successfully | ✅ | — |
+| 4 | question reflects updated values | ✅ | — |
+| 5 | moderator deletes question successfully | ✅ | — |
+| 6 | deleted question is no longer retrievable | ✅ | — |
+| 7 | moderator bulk deletes questions | ✅ | — |
+| 8 | bulk deleted questions are not retrievable | ❌ | Test timed out in 5000ms. |
+
+> Tests 9–15 (moderator assignment) added in commit `a96e4f03` — not yet run.
