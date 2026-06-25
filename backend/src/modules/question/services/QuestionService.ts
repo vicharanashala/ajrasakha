@@ -1559,6 +1559,22 @@ export class QuestionService extends BaseService implements IQuestionService {
              }
            }*/
 
+          //check for the question is dynamic or static + dynamic
+          const isDynamic = !baseQuestion?.toolsUsed?.includes('knowledge_base');
+          const isDesclaimer = threadValidation?.data.content.find((item:any)=>item?.type === 'ai' && item?.text.includes("You will get the answer within 2 hours"))
+          const isStaticAndDynamic =!isDynamic && baseQuestion?.toolsUsed?.length>1
+
+          //dynamic conditon: if the tools used only contains dynamic tools and there will be a proper answer 
+          //static+dynamic conditon: if the tools used contains dynamic and static tools and there will not be a proper answer 
+          if (isDynamic && !isDesclaimer) {
+            await this.questionRepo.updateQuestion(questionId, {
+              status: 'dynamic',
+            });
+          } else if (isStaticAndDynamic && isDesclaimer) {
+            await this.questionRepo.updateQuestion(questionId, {
+              status: 'static_dynamic',
+            });
+          }
 
           // AJRASAKHA / WHATSAPP — GDB → embedding → LLM duplicate/non-agri pipeline
           try {
