@@ -1225,6 +1225,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       const userIdFromBody = body.userId;
       const referenceQuestionDetailsFromBody = body.referenceQuestionDetails;
       const popContextFromBody = body.popContext;
+      const toolsUsed = body.tools_used || [];
       body = normalizeKeysToLower(body);
 
       let {
@@ -1371,6 +1372,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           metrics: null,
           aiInitialAnswer,
           text,
+          toolsUsed,
           createdAt: new Date(),
           updatedAt: new Date(),
           ...(source !== 'AGRI_EXPERT' && { originalQuestion: originalquestion }),

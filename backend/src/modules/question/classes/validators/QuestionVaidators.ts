@@ -466,6 +466,11 @@ class AddQuestionBodyDto {
   @IsString()
   @IsOptional()
   popContext?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tools_used?: string[];
 }
 
 class GenerateQuestionsBody {
