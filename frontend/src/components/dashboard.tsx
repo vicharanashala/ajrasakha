@@ -157,9 +157,35 @@ export const Dashboard = () => {
   const [selectedYear, setSelectedYear] = useState(
     new Date().getFullYear().toString()
   );
-  const [selectedMonth, setSelectedMonth] = useState("January");
-  const [selectedWeek, setSelectedWeek] = useState("Week 1");
-  const [selectedDay, setSelectedDay] = useState("Mon");
+
+  // Helper: derive today's month, week-of-month, and day-of-week
+  const getTodayDefaults = () => {
+    const today = new Date();
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December",
+    ];
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const month = monthNames[today.getMonth()];
+    const weekNumber = Math.ceil(today.getDate() / 7);
+    const week = `Week ${Math.min(weekNumber, 5)}`;
+    const day = dayNames[today.getDay()];
+    return { month, week, day };
+  };
+
+  const todayDefaults = getTodayDefaults();
+  const [selectedMonth, setSelectedMonth] = useState(todayDefaults.month);
+  const [selectedWeek, setSelectedWeek] = useState(todayDefaults.week);
+  const [selectedDay, setSelectedDay] = useState(todayDefaults.day);
+
+  // When switching tabs, reset selections back to today's defaults
+  const handleSetViewType = (v: ViewType) => {
+    const defaults = getTodayDefaults();
+    setSelectedMonth(defaults.month);
+    setSelectedWeek(defaults.week);
+    setSelectedDay(defaults.day);
+    setViewType(v);
+  };
   const [customStartDateTime, setCustomStartDateTime] = useState<string>("");
   const [customEndDateTime, setCustomEndDateTime] = useState<string>("");
 
@@ -321,7 +347,7 @@ export const Dashboard = () => {
             setSelectedDay={setSelectedDay}
             setSelectedMonth={setSelectedMonth}
             setSelectedWeek={setSelectedWeek}
-            setViewType={setViewType}
+            setViewType={handleSetViewType}
             viewType={viewType}
             customStartDateTime={customStartDateTime}
             setCustomStartDateTime={setCustomStartDateTime}
