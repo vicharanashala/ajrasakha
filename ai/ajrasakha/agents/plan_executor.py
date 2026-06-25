@@ -722,6 +722,7 @@ async def build_reviewer_upload_with_tools_used(
     location: Optional[Location],
     tools_used: list[str],
     *,
+    thread_id: str | None = None,
     resolved: ResolvedToolEntities | None = None,
 ) -> list[dict[str, Any]]:
     """Build reviewer upload call with computed tools_used."""
@@ -756,6 +757,8 @@ async def build_reviewer_upload_with_tools_used(
         },
         "source": str(question_source).strip(),
     }
+    if thread_id and str(thread_id).strip():
+        reviewer_args["thread_id"] = str(thread_id).strip()
     
     trace_resolution(
         "reviewer_upload_with_tools_used",
@@ -984,6 +987,7 @@ async def execute_plan_node(
             user_query,
             loc,
             tools_used=[],
+            thread_id=thread_id,
             resolved=resolved,
         )
         if reviewer_calls:
@@ -1028,6 +1032,7 @@ async def execute_plan_node(
         user_query,
         merged_loc,
         tools_used=actual_tools_used,
+        thread_id=thread_id,
         resolved=resolved,
     )
     
