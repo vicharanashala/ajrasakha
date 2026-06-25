@@ -1560,19 +1560,24 @@ export class QuestionService extends BaseService implements IQuestionService {
            }*/
 
           //check for the question is dynamic or static + dynamic
-          const isDynamic = !baseQuestion?.toolsUsed?.includes('knowledge_base');
+          const isDynamicTools = !baseQuestion?.toolsUsed?.includes('knowledge_base');
           const isDesclaimer = threadValidation?.data.content.find((item:any)=>item?.type === 'ai' && item?.text.includes("You will get the answer within 2 hours"))
-          const isStaticAndDynamic =!isDynamic && baseQuestion?.toolsUsed?.length>1
+
+          const isStaticAndDynamic =!isDynamicTools && baseQuestion?.toolsUsed?.length>1
+          const isDynamic = isDynamicTools && !isDesclaimer;
 
           //dynamic conditon: if the tools used only contains dynamic tools and there will be a proper answer 
           //static+dynamic conditon: if the tools used contains dynamic and static tools and there will not be a proper answer 
-          if (isDynamic && !isDesclaimer) {
+          if (isDynamic) {
             await this.questionRepo.updateQuestion(questionId, {
-              status: 'dynamic',
+              tag: 'dynamic',
+              status: 'dynamic'
             });
+            return;
           } else if (isStaticAndDynamic && isDesclaimer) {
             await this.questionRepo.updateQuestion(questionId, {
-              status: 'static_dynamic',
+              status: 'open',
+              tag: 'static_dynamic',
             });
           }
 
@@ -1580,7 +1585,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           try {
             const result = await this.runDuplicateCheckPipeline(baseQuestion, details, logData);
 
-            if (result.isDuplicate) {
+            if (result.isDuplicate&&!isDynamic) {
               const refId = result.referenceQuestionId instanceof ObjectId
                 ? result.referenceQuestionId
                 : result.referenceQuestionId
