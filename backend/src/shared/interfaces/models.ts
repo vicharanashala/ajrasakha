@@ -141,6 +141,7 @@ export interface IQuestion {
   popContext?: string;
   isCustomerNotified?: boolean;
   isDuplicateChecked?: boolean;
+  toolsUsed?: string[]
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';
