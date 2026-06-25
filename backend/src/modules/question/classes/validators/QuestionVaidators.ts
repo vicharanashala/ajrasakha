@@ -352,6 +352,10 @@ class QuestionResponse {
     'duplicate',
     'non_agri',
     'pending',
+    'dynamic',
+    'queue_progress',
+    'auditor_review',
+    'dynamic_closed',
   ])
   status?: QuestionStatus;
 

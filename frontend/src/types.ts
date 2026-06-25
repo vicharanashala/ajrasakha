@@ -1,7 +1,7 @@
 import type { UserCredential } from "firebase/auth";
 import type { DemographicEntry } from "./features/chatbotDashboard/types";
 
-export type UserRole = "admin" | "moderator" | "expert" | "pae_expert" | "tester"| "district_coordinator"| "block_coordinator" | "village_volunteer" | "call_agent";
+export type UserRole = "admin" | "moderator" | "expert" | "pae_expert" | "tester"| "district_coordinator"| "block_coordinator" | "village_volunteer" | "call_agent" | "gate_keeper" | "auditor";
 
 export interface ExtendedUserCredential extends UserCredential {
   _tokenResponse?: {
@@ -273,7 +273,7 @@ export type SupportedLanguage =
   | "sat-IN"
   | "sd-IN";
 
-export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold" | "pae_submitted" | "draft" | "duplicate" | "pass" | "non_agri" | "dynamic";
+export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold" | "pae_submitted" | "draft" | "duplicate" | "pass" | "non_agri" | "dynamic" | "queue_progress" | "auditor_review" | "dynamic_closed";
 export type ReRouteStatus = "pending" | "expert_rejected" | "expert_completed" | "moderator_rejected" | "moderator_approved" | "approved" | "rejected" | "modified" | "in-review";
 export interface ResponseDto {
   id: string;

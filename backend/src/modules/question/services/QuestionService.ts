@@ -1904,6 +1904,13 @@ export class QuestionService extends BaseService implements IQuestionService {
             console.error('[ModeratorQueue] Failed to clear passed question from moderators:', err?.message);
           }
         }
+        // Auditor "Notify User" flow on a dynamic question: close it as `dynamic_closed`.
+        // Stamp closedAt/isClosed just like the regular `closed` transition so analytics
+        // and closed-question filters treat it consistently.
+        if (updates.status === 'dynamic_closed') {
+          updates.isClosed = true;
+          if (!updates.closedAt) updates.closedAt = new Date();
+        }
         return this.questionRepo.updateQuestion(questionId, updates, session);
       });
     } catch (error) {
