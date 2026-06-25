@@ -308,6 +308,37 @@ export function QuestionLifecycleTable({
     return insights;
   }, [lifeCycle]);
 
+  const getUserWithRole = (row: any, index: number) => {
+    if (
+      row.user === "Buffer Time" ||
+      row.user === "-" ||
+      row.eventType === "system_wait"
+    ) {
+      return row.user;
+    }
+
+    if (row.action === "Approval Review") {
+      return `${row.user} (Mod)`;
+    }
+
+    if (
+      row.action === "Authored Answer" ||
+      row.action === "Authoring Answer"
+    ) {
+      return `${row.user} (Auth)`;
+    }
+
+    if (row.eventType === "reviewer") {
+      const reviewerIndex = lifeCycle
+        .slice(0, index + 1)
+        .filter((x) => x.eventType === "reviewer").length;
+
+      return `${row.user} (R${reviewerIndex})`;
+    }
+
+    return row.user;
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="!max-w-[80vw] max-h-[90vh] overflow-hidden flex flex-col">
@@ -360,7 +391,7 @@ export function QuestionLifecycleTable({
                       </TableCell>
 
                       <TableCell>
-                        {row.user}
+                        {getUserWithRole(row, index)}
                         {isFastestReviewer && (
                           <span className="text-xs font-medium text-emerald-600 mb-6">
                             🏆 Fastest Reviewer
