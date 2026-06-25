@@ -104,6 +104,12 @@ export interface IQuestion {
   createdAt?: Date;
   updatedAt?: Date;
   isClosed?: boolean;
+  /** Set when a Gate Keeper pushes the question to the Auditor. The question keeps
+   *  its `dynamic`/`duplicate` status; this flag hands off the action: Gate Keeper
+   *  controls hide once true, Auditor controls (Push to GDB / Notify User) appear. */
+  isPushedToAuditor?: boolean;
+  /** Timestamp of the Gate Keeper → Auditor hand-off. */
+  pushedToAuditorAt?: Date | null;
   isHidden?: false;
   passingRemark?: string;
   isOnHold?: boolean;

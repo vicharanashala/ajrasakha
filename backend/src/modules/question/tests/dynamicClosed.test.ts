@@ -106,6 +106,21 @@ describe('QuestionService.updateQuestion — workflow status transitions', () =>
     expect(persistedUpdates.closedAt).toBeUndefined();
   });
 
+  it('stamps pushedToAuditorAt and keeps status when a Gate Keeper hands a duplicate off to the Auditor', async () => {
+    mockQuestionRepo.getById.mockResolvedValue({
+      _id: QUESTION_ID,
+      status: 'duplicate',
+    });
+
+    await service.updateQuestion(QUESTION_ID, {isPushedToAuditor: true} as any);
+
+    const [, persistedUpdates] = mockQuestionRepo.updateQuestion.mock.calls[0];
+    expect(persistedUpdates.isPushedToAuditor).toBe(true);
+    expect(persistedUpdates.pushedToAuditorAt).toBeInstanceOf(Date);
+    // Hand-off must NOT change the question status.
+    expect(persistedUpdates.status).toBeUndefined();
+  });
+
   it('does not stamp closedAt for a queue_progress cancel back to open', async () => {
     mockQuestionRepo.getById.mockResolvedValue({
       _id: QUESTION_ID,

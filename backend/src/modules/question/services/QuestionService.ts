@@ -1916,6 +1916,10 @@ export class QuestionService extends BaseService implements IQuestionService {
         ) {
           updates.status = existingQuestion.status;
         }
+        // Gate Keeper → Auditor hand-off: stamp the time when the flag is first set.
+        if (updates.isPushedToAuditor === true && !updates.pushedToAuditorAt) {
+          updates.pushedToAuditorAt = new Date();
+        }
         // Auditor "Notify User" flow on a dynamic question: close it as `dynamic_closed`.
         // Stamp closedAt/isClosed just like the regular `closed` transition so analytics
         // and closed-question filters treat it consistently.

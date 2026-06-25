@@ -611,15 +611,27 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const isDuplicateQuestion = question?.status === "duplicate";
     const isQueueProgress = question?.status === "queue_progress";
 
-    // Push to Auditor is a logical hand-off only — the question keeps its status.
-    // Duplicate stays `duplicate` and dynamic stays `dynamic`; the Auditor reviews
-    // it in place (Push to GDB for duplicate, Notify User for dynamic). No status
-    // transition is performed here.
-    const handlePushToAuditor = () => {
+    // Push to Auditor is a logical hand-off only — the question keeps its status
+    // (duplicate stays `duplicate`, dynamic stays `dynamic`). It sets the
+    // `isPushedToAuditor` flag, which hides the Gate Keeper actions and reveals the
+    // Auditor actions (Push to GDB for duplicate, Notify User for dynamic).
+    const handlePushToAuditor = async () => {
         if (!question?._id) { toast.error("Question data is missing."); return; }
-        toast.success("Question pushed to Auditor");
-        navigateToQuestionPage();
+        try {
+            await updateQuestion({
+                _id: question._id,
+                isPushedToAuditor: true,
+            } as any);
+            toast.success("Question pushed to Auditor");
+            navigateToQuestionPage();
+        } catch (error) {
+            console.error("Failed to push question to auditor:", error);
+            toast.error("Failed to push to Auditor. Please try again.");
+        }
     };
+
+    // True once a Gate Keeper has handed the question off to the Auditor.
+    const isPushedToAuditor = question?.isPushedToAuditor === true;
 
     // Cancel a question that is currently in the expert-allocation queue.
     const handleCancelQueue = async () => {
@@ -952,7 +964,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                 )}
 
                 {/* Gate Keeper: triage actions available for BOTH dynamic and duplicate questions. */}
-                {isGateKeeper && !isQueueProgress && approved === null && (isDynamicQuestion || isDuplicateQuestion) && question?.isHidden !== true && (
+                {isGateKeeper && !isPushedToAuditor && !isQueueProgress && approved === null && (isDynamicQuestion || isDuplicateQuestion) && question?.isHidden !== true && (
                     <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
                         <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">As Gate Keeper you can Pass this question, push it to an Auditor, or allocate experts.</p>
                         <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
@@ -972,9 +984,17 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                     </div>
                 )}
 
+                {/* Gate Keeper, after hand-off: actions are disabled until the Auditor acts. */}
+                {isGateKeeper && isPushedToAuditor && (isDynamicQuestion || isDuplicateQuestion) && question?.isHidden !== true && (
+                    <div className="w-full flex items-center gap-2 px-4 py-3 border-t border-border">
+                        <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                        <p className="text-xs text-muted-foreground leading-relaxed">This question has been pushed to the Auditor and is awaiting their review.</p>
+                    </div>
+                )}
+
                 {/* Auditor: finalise the question. Duplicate -> Push to GDB (close).
                     Dynamic -> Notify User (close as dynamic_closed). */}
-                {isAuditor && !isQueueProgress && approved === null && (isDynamicQuestion || isDuplicateQuestion) && question?.isHidden !== true && (
+                {isAuditor && isPushedToAuditor && !isQueueProgress && approved === null && (isDynamicQuestion || isDuplicateQuestion) && question?.isHidden !== true && (
                     <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
                         <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">
                             {isDynamicQuestion
