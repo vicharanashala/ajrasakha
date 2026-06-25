@@ -58,6 +58,7 @@ import { CustomerNotificationsCard } from "./CustomerNotificationsCard";
 import { SourceTabsHeader } from "./components/SourceTabs";
 import { QueryInsightsSection } from "./components/QueryInsightsSection";
 import { useDashboardHandlers } from "./hooks/useDashboardHandlers";
+import { ACCAnalyticsDashboard } from "@/components/ACCAnalyticsDashboard";
 
 // ─── Lazy Loaded Components ──────────────────────────────────────────────────
 const LazyUserGrowthChart = React.lazy(() => import("./components/UserGrowthChart"));
@@ -82,13 +83,13 @@ export function AnnamDashboard_dev({
   // onSourceChange,
 }: {
   className?: string;
-  source?: "annam" | "whatsapp";
-  onSourceChange?: (source: "annam" | "whatsapp") => void;
+  source?: "annam" | "whatsapp" | "acc";
+  onSourceChange?: (source: "annam" | "whatsapp" | "acc") => void;
 }) {
   const queryClient = useQueryClient();
   
   // ─── Core State ────────────────────────────────────────────────────────────
-  const [source, setSource] = useState<"annam" | "whatsapp">(initialSource);
+  const [source, setSource] = useState<"annam" | "whatsapp" | "acc">(initialSource);
   const [activeView, setActiveView] = useState<DashboardView>("overview");
   const [activeChartTab, setActiveChartTab] = useState<string>("dau");
   const [activeSegment, setActiveSegment] = useState<Segment | null>(null);
@@ -239,7 +240,7 @@ export function AnnamDashboard_dev({
   }, [queryClient]);
 
   // ─── Source Change Handler ─────────────────────────────────────────────────
-  const handleSourceChange = useCallback((newSource: "annam" | "whatsapp") => {
+  const handleSourceChange = useCallback((newSource: "annam" | "whatsapp" | "acc") => {
     setSource(newSource);
     if (newSource === "whatsapp") {
       setFilters(prev => ({ ...prev, userType: "all" }));
@@ -278,7 +279,7 @@ export function AnnamDashboard_dev({
   
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className={cn("flex flex-col min-h-screen bg-background", className)}>
+    <div className={cn("flex flex-col min-h-screen bg-background text-foreground", className)}>
       <style>{CSS_KEYFRAMES}</style>
       
       {error && (
@@ -309,282 +310,291 @@ export function AnnamDashboard_dev({
                 onRefresh={handleRefreshAll}
               />
               
-              <DashboardFilters filters={filters} onFilterChange={setFilters} />
+              {source !== "acc" && <DashboardFilters filters={filters} onFilterChange={setFilters} />}
+              
+              {source === "acc" && (
+                <div ref={(el) => { sectionRefs.current["overview"] = el; }}>
+                  <ACCAnalyticsDashboard />
+                </div>
+              )}
               
               {(source === "annam" || source === "whatsapp") && (
-                <div ref={(el) => { sectionRefs.current["overview"] = el; }} className="relative">
-                  {activeSegment && <SegmentDetailBanner seg={activeSegment} onClose={() => setActiveSegment(null)} />}
-                  
-                  {/* KPI Cards */}
-                  {source === "annam" && (
-                    <EightCardsComponent
-                      kpiRow1={kpiRow1WithOverlay}
-                      kpiRow2={kpiRow2WithOverlay}
-                      source={source}
-                      userType={filters.userType}
-                      isLoading={isFetching}
-                    />
-                  )}
-                  
-                  {/* WhatsApp Analytics Cards */}
-                  {source === "whatsapp" && (
-                    <motion.div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6"
-                      variants={containerVariants} initial="hidden" animate="visible">
-                      <motion.div variants={itemVariants}>
-                        <WhatsAppAnalyticsCard title="Daily Queries" analytics={dailyAnalytics} granularity="daily" isLoading={isFetching || isLoading} />
-                      </motion.div>
-                      <motion.div variants={itemVariants}>
-                        <WhatsAppAnalyticsCard title="Weekly Queries" analytics={weeklyAnalytics} granularity="weekly" isLoading={isFetching || isLoading} />
-                      </motion.div>
-                      <motion.div variants={itemVariants}>
-                        <WhatsAppAnalyticsCard title="Monthly Queries" analytics={monthlyAnalytics} granularity="monthly" isLoading={isFetching || isLoading} />
-                      </motion.div>
-                    </motion.div>
-                  )}
-                  
-                  {/* Quick Stats Cards */}
-                  <div className={cn("grid gap-4 mb-6 items-stretch",
-                    source === "whatsapp" ? "grid-cols-1 lg:grid-cols-[0.6fr_1fr_1.4fr_1.4fr]" : "grid-cols-1 lg:grid-cols-[1fr_1.4fr_1.4fr]")}>
-                    {source === "whatsapp" && (
-                      <WhatsAppUniqueUsersCard
-                        totalUsers={unqueWhatsAppUsers}
-                        onClick={() => {
-                          setActiveView("user-details");
-                          scrollTo("user-details");
-                        }}
-                        isLoading={false}
+                  <div ref={(el) => { sectionRefs.current["overview"] = el; }} className="relative">
+                    {activeSegment && <SegmentDetailBanner seg={activeSegment} onClose={() => setActiveSegment(null)} />}
+                    
+                    {/* KPI Cards */}
+                    {source === "annam" && (
+                      <EightCardsComponent
+                        kpiRow1={kpiRow1WithOverlay}
+                        kpiRow2={kpiRow2WithOverlay}
+                        source={source}
+                        userType={filters.userType}
+                        isLoading={isFetching}
                       />
                     )}
+                    
+                    {/* WhatsApp Analytics Cards */}
+                    {source === "whatsapp" && (
+                      <motion.div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6"
+                        variants={containerVariants} initial="hidden" animate="visible">
+                        <motion.div variants={itemVariants}>
+                          <WhatsAppAnalyticsCard title="Daily Queries" analytics={dailyAnalytics} granularity="daily" isLoading={isFetching || isLoading} />
+                        </motion.div>
+                        <motion.div variants={itemVariants}>
+                          <WhatsAppAnalyticsCard title="Weekly Queries" analytics={weeklyAnalytics} granularity="weekly" isLoading={isFetching || isLoading} />
+                        </motion.div>
+                        <motion.div variants={itemVariants}>
+                          <WhatsAppAnalyticsCard title="Monthly Queries" analytics={monthlyAnalytics} granularity="monthly" isLoading={isFetching || isLoading} />
+                        </motion.div>
+                      </motion.div>
+                    )}
+                    
+                    {/* Quick Stats Cards */}
+                    <div className={cn("grid gap-4 mb-6 items-stretch",
+                      source === "whatsapp" ? "grid-cols-1 lg:grid-cols-[0.6fr_1fr_1.4fr_1.4fr]" : "grid-cols-1 lg:grid-cols-[1fr_1.4fr_1.4fr]")}>
+                      {source === "whatsapp" && (
+                        <WhatsAppUniqueUsersCard
+                          totalUsers={unqueWhatsAppUsers}
+                          onClick={() => {
+                            setActiveView("user-details");
+                            scrollTo("user-details");
+                          }}
+                          isLoading={false}
+                        />
+                      )}
 
-                    <ClosedInLastTwoHoursCard
-                      source={source}
-                      userType={filters.userType}
-                      count={closed2hData?.closedInLastTwoHours}
-                      totalClosed={closed2hData?.closedVsTotalQuestions?.closedQuestions}
-                      dateRange={closed2hDateRange}
-                      onDateRangeChange={setClosed2hDateRange}
-                      isLoading={false}
-                      isFetching={isClosed2hFetching}
-                      onRefresh={handleRefreshStatsCards}
-                    />
-                    <ClosedQuestionsCard
-                      closedQuestions={questionStatusData?.closedVsTotalQuestions?.closedQuestions}
-                      totalQuestions={questionStatusData?.closedVsTotalQuestions?.totalQuestions}
-                      inReview={questionStatusData?.closedVsTotalQuestions?.inReviewQuestions}
-                      dateRange={questionStatusDateRange}
-                      onDateRangeChange={setQuestionStatusDateRange}
-                      isLoading={false}
-                      isFetching={false}
-                      carryForward={questionStatusData?.carryForward}
-                      avgCloseTimeMinutes={questionStatusData?.closedVsTotalQuestions?.avgCloseTimeMinutes}
-                      previousMonthAvgCloseTimeMinutes={questionStatusData?.closedVsTotalQuestions?.previousMonthAvgCloseTimeMinutes}
-                      statusBreakup={questionStatusData?.closedVsTotalQuestions}
-                      source={source}
-                      userType={filters.userType}
-                      onRefresh={handleRefreshStatsCards}
-                    />
-                    <CustomerNotificationsCard
-                      notified={customerNotificationsData?.notifiedVsClosed?.notified}
-                      notNotified={customerNotificationsData?.notifiedVsClosed?.notNotified}
-                      untrackedClosedQuestions={customerNotificationsData?.notifiedVsClosed?.untrackedClosedQuestions}
-                      dateRange={customerNotificationsDateRange}
-                      onDateRangeChange={setCustomerNotificationsDateRange}
-                      isLoading={false}
-                      isFetching={false}
-                      source={source}
-                      userType={filters.userType}
-                      onRefresh={handleRefreshStatsCards}
-                    />
+                      <ClosedInLastTwoHoursCard
+                        source={source}
+                        userType={filters.userType}
+                        count={closed2hData?.closedInLastTwoHours}
+                        totalClosed={closed2hData?.closedVsTotalQuestions?.closedQuestions}
+                        dateRange={closed2hDateRange}
+                        onDateRangeChange={setClosed2hDateRange}
+                        isLoading={false}
+                        isFetching={isClosed2hFetching}
+                        onRefresh={handleRefreshStatsCards}
+                      />
+                      <ClosedQuestionsCard
+                        closedQuestions={questionStatusData?.closedVsTotalQuestions?.closedQuestions}
+                        totalQuestions={questionStatusData?.closedVsTotalQuestions?.totalQuestions}
+                        inReview={questionStatusData?.closedVsTotalQuestions?.inReviewQuestions}
+                        dateRange={questionStatusDateRange}
+                        onDateRangeChange={setQuestionStatusDateRange}
+                        isLoading={false}
+                        isFetching={false}
+                        carryForward={questionStatusData?.carryForward}
+                        avgCloseTimeMinutes={questionStatusData?.closedVsTotalQuestions?.avgCloseTimeMinutes}
+                        previousMonthAvgCloseTimeMinutes={questionStatusData?.closedVsTotalQuestions?.previousMonthAvgCloseTimeMinutes}
+                        statusBreakup={questionStatusData?.closedVsTotalQuestions}
+                        source={source}
+                        userType={filters.userType}
+                        onRefresh={handleRefreshStatsCards}
+                      />
+                      <CustomerNotificationsCard
+                        notified={customerNotificationsData?.notifiedVsClosed?.notified}
+                        notNotified={customerNotificationsData?.notifiedVsClosed?.notNotified}
+                        untrackedClosedQuestions={customerNotificationsData?.notifiedVsClosed?.untrackedClosedQuestions}
+                        dateRange={customerNotificationsDateRange}
+                        onDateRangeChange={setCustomerNotificationsDateRange}
+                        isLoading={false}
+                        isFetching={false}
+                        source={source}
+                        userType={filters.userType}
+                        onRefresh={handleRefreshStatsCards}
+                      />
+                    </div>
+                    
+                    {/* Response Adherence Table */}
+                    {source !== "whatsapp" && (
+                      <div ref={(el) => { sectionRefs.current["responsetable"] = el; responseAdherenceRef.current = el; }}>
+                        {shouldLoadResponseAdherence ? (
+                          <ResponseAdherenceTableCard
+                            data={responseAdherenceData}
+                            selectedDate={responseAdherenceDate}
+                            onSelectedDateChange={setResponseAdherenceDate}
+                            isLoading={isResponseAdherenceLoading || isResponseAdherenceFetching}
+                          />
+                        ) : <LazySectionSkeleton className="h-[400px]" />}
+                      </div>
+                    )}
                   </div>
-                  
-                  {/* Response Adherence Table */}
-                  {source !== "whatsapp" && (
-                    <div ref={(el) => { sectionRefs.current["responsetable"] = el; responseAdherenceRef.current = el; }}>
-                      {shouldLoadResponseAdherence ? (
-                        <ResponseAdherenceTableCard
-                          data={responseAdherenceData}
-                          selectedDate={responseAdherenceDate}
-                          onSelectedDateChange={setResponseAdherenceDate}
-                          isLoading={isResponseAdherenceLoading || isResponseAdherenceFetching}
+              )}
+                  {source !== "acc" && (
+                    <>
+                      {/* DAU Trend + Alerts */}
+                      <div ref={(el) => { sectionRefs.current["usage-patterns"] = el; growthRef.current = el; }}
+                        className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3 mb-4 items-stretch">
+                        {isGrowthVisible || loadImmediately ? (
+                          <Suspense fallback={<LazySectionSkeleton />}>
+                            <LazyUserGrowthChart source={source} userType={filters.userType} />
+                          </Suspense>
+                        ) : <LazySectionSkeleton />}
+                        
+                        <div ref={(el) => { sectionRefs.current["bugs-ux"] = el; }}>
+                          <AlertCard
+                            alerts={data.alerts}
+                            inactiveUsersLast3Days={source === "whatsapp" ? inactiveWhatsappUsers?.pagination?.total : (data as any).inactiveUsersLast3Days ?? 0}
+                            onInactiveClick={handleInactiveUsersClick}
+                            duplicateQuestionsCount={(data as any).duplicateQuestionsCount ?? 0}
+                            onDuplicateClick={() => setIsDuplicateModalOpen(true)}
+                            lowFeedbackUsersCount={(data as any).lowFeedbackUsersCount ?? null}
+                            onLowFeedbackClick={handleLowFeedbackUsersClick}
+                            source={source}
+                            onInactiveWhatsAppUsersClick={handleWhatsappInactiveUsersClick}
+                            isFetching={isFetching}
+                          />
+                          {isDuplicateModalOpen && (
+                            <DuplicateQuestionsModal onClose={() => setIsDuplicateModalOpen(false)} source={source} userType={filters.userType} />
+                          )}
+                          <InactiveUsersModal
+                            open={isInactiveWhatsappModalOpen}
+                            onOpenChange={setIsInactiveWhatsappModalOpen}
+                            users={inactiveWhatsappUsers?.users ?? []}
+                            pagination={inactiveWhatsappUsers?.pagination}
+                            onPageChange={setInactiveUsersPage}
+                          />
+                        </div>
+                      </div>
+                      
+                      {/* Demographics */}
+                      {source !== "whatsapp" && (
+                        <div ref={(el) => { sectionRefs.current["demographics"] = el; userDemographicsRef.current = el; }}>
+                          {isUserDemographicsVisible || loadImmediately ? (
+                            <Suspense fallback={<LazySectionSkeleton className="h-[400px]" />}>
+                              <LazyUserDemographicsSection source={source} userType={filters.userType} shouldLoadUserDemographics={shouldLoadUserDemographics} />
+                            </Suspense>
+                          ) : <LazySectionSkeleton />}
+                        </div>
+                      )}
+                      
+                      {/* 3-column row */}
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4 auto-rows-fr items-stretch">
+                        {source !== "whatsapp" && (
+                          <div className="h-full">
+                            <PlatformDonutSegments source={source} userType={filters.userType} />
+                          </div>
+                        )}
+                        
+                        {/* Knowledge & Awareness Card */}
+                        {source !== "whatsapp" && (
+                          <div className="h-full relative" ref={(el) => { sectionRefs.current["farmer-segments"] = el; }}>
+                            <KnowledgeAwarenessCard
+                              userMetricesData={userMetricesData?.kccAndAgriAppUsage}
+                              hovered={hovered}
+                              setHovered={setHovered}
+                              agriHovered={agriHovered}
+                              setAgriHovered={setAgriHovered}
+                              isRefreshing={kwDataRefreshing}
+                              onRefresh={handleKWRefresh}
+                            />
+                          </div>
+                        )}
+                        
+                        {source !== "whatsapp" && (
+                          <FeedbackCard
+                            title="Feedback Data"
+                            positiveFeedbacksCount={userMetricesData?.feedbackData?.stats?.positiveCount ?? 0}
+                            negativeFeedbacksCount={userMetricesData?.feedbackData?.stats?.negativeCount ?? 0}
+                            positiveFeedbacks={userMetricesData?.feedbackData?.positiveFeedbacks ?? []}
+                            negativeFeedbacks={userMetricesData?.feedbackData?.negativeFeedbacks ?? []}
+                            averageRating={userMetricesData?.feedbackData?.stats?.averageRating ?? 0}
+                          />
+                        )}
+                      </div>
+                      
+                      {/* Query Insights */}
+                      <div ref={(el) => { queryInsightsRef.current = el; }}>
+                        <QueryInsightsSection
+                          queryCategories={queryCategories}
+                          topCrops={topCrops}
+                          isLoadingQueryCategories={isLoadingQueryCategories}
+                          isLoadingTopCrops={isLoadingTopCrops}
+                          errorLoadingtopCrops={errorLoadingtopCrops}
+                          shouldLoadQueryInsights={shouldLoadQueryInsights}
+                          source={source}
+                          userType={filters.userType}
+                        />
+                      </div>
+                      
+                      {/* Daily Trends */}
+                      <div ref={(el) => { trendsRef.current = el; }} className="grid grid-cols-1 lg:grid-cols-1 gap-3 mb-4 mt-6">
+                        {shouldLoadTrends ? (
+                          <DailyQuestionTrendsChart trends={(dailyQuestionTrendsData as any) ?? []} dateRange={trendsDateRange} onDateRangeChange={setTrendsDateRange} isLoading={trendsLoading} />
+                        ) : <LazySectionSkeleton className="h-[320px]" />}
+                      </div>
+                      
+                      {/* State Analytics & FAQ Leaderboard */}
+                      <div ref={(el) => { faqsRef.current = el; }} className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
+                        {shouldLoadFaqs ? (
+                          <>
+                            <DashboardStateWiseAnalytics source={source} userType={filters.userType} />
+                            <TopFaqsLeaderboard
+                              faqs={(faqsData as any)?.topFaqs}
+                              topQuestionsFromCollection={(faqsData as any)?.topQuestionsFromCollection}
+                              repeatQueryCount={(faqsData as any)?.repeatQueryCount}
+                              repeatQueryRatePct={(faqsData as any)?.repeatQueryRatePct}
+                              avgQuestionsPerUserDay={(faqsData as any)?.avgQuestionsPerUserDay}
+                              dateRange={faqsDateRange}
+                              onDateRangeChange={setFaqsDateRange}
+                              isLoading={faqsLoading}
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <LazySectionSkeleton className="h-[500px]" />
+                            <LazySectionSkeleton className="h-[500px]" />
+                          </>
+                        )}
+                      </div>
+                      
+                      {/* Active Users Section */}
+                      {source !== "whatsapp" && (
+                    <div ref={(el) => { activeUsersRef.current = el; }} className="mt-4 mb-4">
+                      {shouldLoadActiveUsers ? (
+                        <ActiveUsersSection
+                          activeChartTab={activeChartTab}
+                          onChartTabChange={setActiveChartTab}
+                          source={source}
+                          userType={filters.userType}
                         />
                       ) : <LazySectionSkeleton className="h-[400px]" />}
+                      </div>
+                    )}
+                  
+                  {/* Weather Concern Analytics */}
+                  {source !== "whatsapp" && (
+                    <div ref={(el) => { weatherConcernRef.current = el; }} className="mt-4 mb-4">
+                      {shouldLoadWeatherConcern ? (
+                        <WeatherConcernAnalyticsCard source={source} userType={filters.userType} filters={weatherConcernFilters} onFiltersChange={setWeatherConcernFilters} />
+                      ) : <LazySectionSkeleton className="h-[360px]" />}
                     </div>
                   )}
-                </div>
-              )}
-              
-              {/* DAU Trend + Alerts */}
-              <div ref={(el) => { sectionRefs.current["usage-patterns"] = el; growthRef.current = el; }}
-                className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3 mb-4 items-stretch">
-                {isGrowthVisible || loadImmediately ? (
-                  <Suspense fallback={<LazySectionSkeleton />}>
-                    <LazyUserGrowthChart source={source} userType={filters.userType} />
-                  </Suspense>
-                ) : <LazySectionSkeleton />}
-                
-                <div ref={(el) => { sectionRefs.current["bugs-ux"] = el; }}>
-                  <AlertCard
-                    alerts={data.alerts}
-                    inactiveUsersLast3Days={source === "whatsapp" ? inactiveWhatsappUsers?.pagination?.total : (data as any).inactiveUsersLast3Days ?? 0}
-                    onInactiveClick={handleInactiveUsersClick}
-                    duplicateQuestionsCount={(data as any).duplicateQuestionsCount ?? 0}
-                    onDuplicateClick={() => setIsDuplicateModalOpen(true)}
-                    lowFeedbackUsersCount={(data as any).lowFeedbackUsersCount ?? null}
-                    onLowFeedbackClick={handleLowFeedbackUsersClick}
-                    source={source}
-                    onInactiveWhatsAppUsersClick={handleWhatsappInactiveUsersClick}
-                    isFetching={isFetching}
-                  />
-                  {isDuplicateModalOpen && (
-                    <DuplicateQuestionsModal onClose={() => setIsDuplicateModalOpen(false)} source={source} userType={filters.userType} />
+                  
+                  {/* Farmer Heat Map */}
+                  {source !== "whatsapp" && (
+                    <div ref={(el) => { farmerHeatMapRef.current = el; }} className="mt-4 mb-4">
+                      {shouldLoadFarmerHeatMap ? (
+                        <FarmerAnalyticsHeatMap source={source} userType={filters.userType} enabled={shouldLoadFarmerHeatMap} />
+                      ) : <LazySectionSkeleton className="h-[520px]" />}
+                    </div>
                   )}
-                  <InactiveUsersModal
-                    open={isInactiveWhatsappModalOpen}
-                    onOpenChange={setIsInactiveWhatsappModalOpen}
-                    users={inactiveWhatsappUsers?.users ?? []}
-                    pagination={inactiveWhatsappUsers?.pagination}
-                    onPageChange={setInactiveUsersPage}
-                  />
-                </div>
-              </div>
-              
-              {/* Demographics */}
-              {source !== "whatsapp" && (
-                <div ref={(el) => { sectionRefs.current["demographics"] = el; userDemographicsRef.current = el; }}>
-                  {isUserDemographicsVisible || loadImmediately ? (
-                    <Suspense fallback={<LazySectionSkeleton className="h-[400px]" />}>
-                      <LazyUserDemographicsSection source={source} userType={filters.userType} shouldLoadUserDemographics={shouldLoadUserDemographics} />
-                    </Suspense>
-                  ) : <LazySectionSkeleton />}
-                </div>
-              )}
-              
-              {/* 3-column row */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4 auto-rows-fr items-stretch">
-                {source !== "whatsapp" && (
-                  <div className="h-full">
-                    <PlatformDonutSegments source={source} userType={filters.userType} />
-                  </div>
-                )}
-                
-                {/* Knowledge & Awareness Card */}
-                {source !== "whatsapp" && (
-                  <div className="h-full relative" ref={(el) => { sectionRefs.current["farmer-segments"] = el; }}>
-                    <KnowledgeAwarenessCard
-                      userMetricesData={userMetricesData?.kccAndAgriAppUsage}
-                      hovered={hovered}
-                      setHovered={setHovered}
-                      agriHovered={agriHovered}
-                      setAgriHovered={setAgriHovered}
-                      isRefreshing={kwDataRefreshing}
-                      onRefresh={handleKWRefresh}
-                    />
-                  </div>
-                )}
-                
-                {source !== "whatsapp" && (
-                  <FeedbackCard
-                    title="Feedback Data"
-                    positiveFeedbacksCount={userMetricesData?.feedbackData?.stats?.positiveCount ?? 0}
-                    negativeFeedbacksCount={userMetricesData?.feedbackData?.stats?.negativeCount ?? 0}
-                    positiveFeedbacks={userMetricesData?.feedbackData?.positiveFeedbacks ?? []}
-                    negativeFeedbacks={userMetricesData?.feedbackData?.negativeFeedbacks ?? []}
-                    averageRating={userMetricesData?.feedbackData?.stats?.averageRating ?? 0}
-                  />
-                )}
-              </div>
-              
-              {/* Query Insights */}
-              <div ref={(el) => { queryInsightsRef.current = el; }}>
-                <QueryInsightsSection
-                  queryCategories={queryCategories}
-                  topCrops={topCrops}
-                  isLoadingQueryCategories={isLoadingQueryCategories}
-                  isLoadingTopCrops={isLoadingTopCrops}
-                  errorLoadingtopCrops={errorLoadingtopCrops}
-                  shouldLoadQueryInsights={shouldLoadQueryInsights}
-                  source={source}
-                  userType={filters.userType}
-                />
-              </div>
-              
-              {/* Daily Trends */}
-              <div ref={(el) => { trendsRef.current = el; }} className="grid grid-cols-1 lg:grid-cols-1 gap-3 mb-4 mt-6">
-                {shouldLoadTrends ? (
-                  <DailyQuestionTrendsChart trends={(dailyQuestionTrendsData as any) ?? []} dateRange={trendsDateRange} onDateRangeChange={setTrendsDateRange} isLoading={trendsLoading} />
-                ) : <LazySectionSkeleton className="h-[320px]" />}
-              </div>
-              
-              {/* State Analytics & FAQ Leaderboard */}
-              <div ref={(el) => { faqsRef.current = el; }} className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
-                {shouldLoadFaqs ? (
-                  <>
-                    <DashboardStateWiseAnalytics source={source} userType={filters.userType} />
-                    <TopFaqsLeaderboard
-                      faqs={(faqsData as any)?.topFaqs}
-                      topQuestionsFromCollection={(faqsData as any)?.topQuestionsFromCollection}
-                      repeatQueryCount={(faqsData as any)?.repeatQueryCount}
-                      repeatQueryRatePct={(faqsData as any)?.repeatQueryRatePct}
-                      avgQuestionsPerUserDay={(faqsData as any)?.avgQuestionsPerUserDay}
-                      dateRange={faqsDateRange}
-                      onDateRangeChange={setFaqsDateRange}
-                      isLoading={faqsLoading}
-                    />
-                  </>
-                ) : (
-                  <>
-                    <LazySectionSkeleton className="h-[500px]" />
-                    <LazySectionSkeleton className="h-[500px]" />
-                  </>
-                )}
-              </div>
-              
-              {/* Active Users Section */}
-              {source !== "whatsapp" && (
-                <div ref={(el) => { activeUsersRef.current = el; }} className="mt-4 mb-4">
-                  {shouldLoadActiveUsers ? (
-                    <ActiveUsersSection
-                      activeChartTab={activeChartTab}
-                      onChartTabChange={setActiveChartTab}
-                      source={source}
-                      userType={filters.userType}
-                    />
-                  ) : <LazySectionSkeleton className="h-[400px]" />}
-                </div>
-              )}
-              
-              {/* Weather Concern Analytics */}
-              {source !== "whatsapp" && (
-                <div ref={(el) => { weatherConcernRef.current = el; }} className="mt-4 mb-4">
-                  {shouldLoadWeatherConcern ? (
-                    <WeatherConcernAnalyticsCard source={source} userType={filters.userType} filters={weatherConcernFilters} onFiltersChange={setWeatherConcernFilters} />
-                  ) : <LazySectionSkeleton className="h-[360px]" />}
-                </div>
-              )}
-              
-              {/* Farmer Heat Map */}
-              {source !== "whatsapp" && (
-                <div ref={(el) => { farmerHeatMapRef.current = el; }} className="mt-4 mb-4">
-                  {shouldLoadFarmerHeatMap ? (
-                    <FarmerAnalyticsHeatMap source={source} userType={filters.userType} enabled={shouldLoadFarmerHeatMap} />
-                  ) : <LazySectionSkeleton className="h-[520px]" />}
-                </div>
-              )}
-              
-              {/* User Details View */}
-              {source !== "whatsapp" && (
-                <div ref={(el) => { sectionRefs.current["user-details"] = el; userDetailsRef.current = el; }}>
-                  {shouldLoadUserDetails ? (
-                    <UserDetailsView source={source} initialFilters={userDetailsInitialFilters} userType={filters.userType} />
-                  ) : <LazySectionSkeleton className="h-[520px]" />}
-                </div>
-              )}
-              
-              {/* WhatsApp Users View */}
-              {source === "whatsapp" && (
-                <div ref={(el) => { sectionRefs.current["user-details"] = el; }}>
-                  <WhatsAppUsersView />
-                </div>
+                  
+                  {/* User Details View */}
+                  {source !== "whatsapp" && (
+                    <div ref={(el) => { sectionRefs.current["user-details"] = el; userDetailsRef.current = el; }}>
+                      {shouldLoadUserDetails ? (
+                        <UserDetailsView source={source} initialFilters={userDetailsInitialFilters} userType={filters.userType} />
+                      ) : <LazySectionSkeleton className="h-[520px]" />}
+                    </div>
+                  )}
+                  
+                  {/* WhatsApp Users View */}
+                  {source === "whatsapp" && (
+                    <div ref={(el) => { sectionRefs.current["user-details"] = el; }}>
+                      <WhatsAppUsersView />
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>

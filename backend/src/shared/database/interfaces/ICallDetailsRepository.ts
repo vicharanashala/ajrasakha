@@ -55,6 +55,16 @@ export interface AgentAnalytics {
   dailyCallTrend: { date: string; count: number }[];
 }
 
+export interface ACCAnalytics {
+  totalCalls: number;
+  callsToday: number;
+  callsThisWeek: number;
+  callsThisMonth: number;
+  domains: { domain: string; count: number; today: number; thisWeek: number; thisMonth: number }[];
+  monthlyTrend: { month: string; count: number }[];
+  dailyTrend: { date: string; count: number }[];
+}
+
 export interface ICallDetailsRepository {
   create(details: CallDetails, session?: ClientSession): Promise<string>;
   getByCallUuid(callUuid: string, session?: ClientSession): Promise<CallDetails | null>;
@@ -75,4 +85,17 @@ export interface ICallDetailsRepository {
     endDate?: Date,
     session?: ClientSession
   ): Promise<AgentAnalytics>;
+
+  /**
+   * Get ACC analytics for admin - domain-based call analytics
+   * @param startDate - Optional start date for filtering
+   * @param endDate - Optional end date for filtering
+   * @param session - MongoDB session for transactions
+   * @returns ACC analytics data
+   */
+  getACCAnalytics(
+    startDate?: Date,
+    endDate?: Date,
+    session?: ClientSession
+  ): Promise<ACCAnalytics>;
 }

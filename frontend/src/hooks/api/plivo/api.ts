@@ -97,6 +97,16 @@ export interface AgentAnalytics {
   dailyCallTrend: { date: string; count: number }[];
 }
 
+export interface ACCAnalytics {
+  totalCalls: number;
+  callsToday: number;
+  callsThisWeek: number;
+  callsThisMonth: number;
+  domains: { domain: string; count: number; today: number; thisWeek: number; thisMonth: number }[];
+  monthlyTrend: { month: string; count: number }[];
+  dailyTrend: { date: string; count: number }[];
+}
+
 export class PlivoService {
   private _baseUrl = `${API_BASE_URL}/plivo`;
   private _farmerBaseUrl = `${API_BASE_URL}/farmer`;
@@ -234,6 +244,30 @@ export class PlivoService {
       return response;
     } catch (error) {
       console.error(`PlivoService.getAgentAnalytics: Error fetching analytics:`, error);
+      throw error;
+    }
+  }
+
+  async getACCAnalytics(params?: {
+    startDate?: string;
+    endDate?: string;
+  }): Promise<ACCAnalytics> {
+    const queryParams = new URLSearchParams();
+
+    if (params?.startDate) queryParams.append('startDate', params.startDate);
+    if (params?.endDate) queryParams.append('endDate', params.endDate);
+
+    const url = `${this._baseUrl}/acc-analytics${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    try {
+      const response = await apiFetch<ACCAnalytics>(url);
+
+      if (!response) {
+        throw new Error('Failed to fetch ACC analytics: No response received');
+      }
+
+      return response;
+    } catch (error) {
+      console.error(`PlivoService.getACCAnalytics: Error fetching analytics:`, error);
       throw error;
     }
   }

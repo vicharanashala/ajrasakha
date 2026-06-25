@@ -7,8 +7,8 @@ import { SearchableSelect } from "@/components/atoms/SearchableSelect";
 import type { DashboardFilterValues } from "../DashboardFilters";
 
 interface SourceTabsHeaderProps {
-  source: "annam" | "whatsapp";
-  onSourceChange: (source: "annam" | "whatsapp") => void;
+  source: "annam" | "whatsapp" | "acc";
+  onSourceChange: (source: "annam" | "whatsapp" | "acc") => void;
   filters: DashboardFilterValues;
   onFilterChange: (filters: DashboardFilterValues) => void;
   invalidating: boolean;
@@ -56,6 +56,19 @@ export function SourceTabsHeader({
           )}
         >
           WhatsApp
+        </motion.button>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => onSourceChange("acc")}
+          className={cn(
+            "px-4 py-1.5 rounded-lg text-sm font-medium transition-all",
+            source === "acc"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:bg-accent"
+          )}
+        >
+          ACC
         </motion.button>
       </div>
 

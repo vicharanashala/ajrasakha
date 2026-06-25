@@ -24,7 +24,7 @@ import plivo from 'plivo';
 import axios from 'axios';
 import { PLIVO_TYPES } from '../types.js';
 import { GLOBAL_TYPES } from '#root/types.js';
-import type { ICallDetailsRepository, AgentAnalytics } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
+import type { ICallDetailsRepository, AgentAnalytics, ACCAnalytics } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
 import type { IUser } from '#root/shared/interfaces/models.js';
 import { PlivoService } from '../services/PlivoService.js';
 
@@ -373,6 +373,58 @@ export class PlivoController {
         throw error;
       }
       throw new InternalServerError('Failed to get agent analytics');
+    }
+  }
+
+  @Get('/acc-analytics')
+  @Authorized()
+  @OpenAPI({
+    summary: 'Get ACC analytics for admin',
+    description: 'Retrieves domain-based call analytics for admin including call statistics by domain, monthly trends, and daily trends. Only accessible by users with admin role.',
+  })
+  @HttpCode(200)
+  async getACCAnalytics(
+    @CurrentUser() user: IUser,
+    @QueryParam('startDate') startDate?: string,
+    @QueryParam('endDate') endDate?: string
+  ): Promise<ACCAnalytics> {
+    try {
+      // Verify user is an admin
+      if (user.role !== 'admin') {
+        throw new BadRequestError('Only admins can access ACC analytics');
+      }
+
+      // Parse date filters if provided
+      let start: Date | undefined;
+      let end: Date | undefined;
+
+      if (startDate) {
+        start = new Date(startDate);
+        if (isNaN(start.getTime())) {
+          throw new BadRequestError('Invalid startDate format');
+        }
+      }
+
+      if (endDate) {
+        end = new Date(endDate);
+        if (isNaN(end.getTime())) {
+          throw new BadRequestError('Invalid endDate format');
+        }
+      }
+
+      // Get ACC analytics
+      const analytics = await this.callDetailsRepository.getACCAnalytics(
+        start,
+        end
+      );
+
+      return analytics;
+    } catch (error: any) {
+      console.error('❌ [PLIVO-CONTROLLER] Error getting ACC analytics:', error);
+      if (error instanceof BadRequestError) {
+        throw error;
+      }
+      throw new InternalServerError('Failed to get ACC analytics');
     }
   }
 }

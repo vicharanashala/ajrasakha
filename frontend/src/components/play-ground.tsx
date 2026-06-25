@@ -49,7 +49,7 @@ export const PlaygroundPage = () => {
   // Initialize from localStorage or default
 
   const [activeTab, setActiveTab] = useState<string>("all_questions");
-  const [chatbotSource, setChatbotSource] = useState<"annam" | "whatsapp">(
+  const [chatbotSource, setChatbotSource] = useState<"annam" | "whatsapp" | "acc">(
     "annam",
   );
   useEffect(() => {
@@ -58,7 +58,8 @@ export const PlaygroundPage = () => {
     if (
       saved === "annam" ||
       // saved === "vicharanashala" ||
-      saved === "whatsapp"
+      saved === "whatsapp" ||
+      saved === "acc"
     ) {
       setChatbotSource(saved);
     }

@@ -8,6 +8,7 @@ import type {
   CallDetails,
   QAPairs,
   AgentAnalytics,
+  ACCAnalytics,
 } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
 
 @injectable()
@@ -255,6 +256,170 @@ export class CallDetailsRepository implements ICallDetailsRepository {
     } catch (error: any) {
       console.error(`[CALL_DETAILS_FLOW] CallDetailsRepository.getAgentAnalytics: Error getting analytics for agent ${agentUserId}:`, error.stack || error);
       throw new InternalServerError(`Failed to get agent analytics: ${error}`);
+    }
+  }
+
+  async getACCAnalytics(
+    startDate?: Date,
+    endDate?: Date,
+    session?: ClientSession
+  ): Promise<ACCAnalytics> {
+    try {
+      await this.init();
+      
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const weekAgo = new Date(today);
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      const monthAgo = new Date(today);
+      monthAgo.setMonth(monthAgo.getMonth() - 1);
+
+      // Build date filter
+      const dateFilter: any = {};
+      if (startDate || endDate) {
+        dateFilter.createdAt = {};
+        if (startDate) dateFilter.createdAt.$gte = startDate;
+        if (endDate) dateFilter.createdAt.$lte = endDate;
+      }
+
+      const baseMatch = dateFilter;
+
+      // Get total calls
+      const totalCalls = await this.callDetailsCollection.countDocuments(baseMatch, { session });
+
+      // Get calls today
+      const todayMatch = { createdAt: { $gte: today }, ...dateFilter.createdAt };
+      const callsToday = await this.callDetailsCollection.countDocuments(todayMatch, { session });
+
+      // Get calls this week
+      const weekMatch = { createdAt: { $gte: weekAgo }, ...dateFilter.createdAt };
+      const callsThisWeek = await this.callDetailsCollection.countDocuments(weekMatch, { session });
+
+      // Get calls this month
+      const monthMatch = { createdAt: { $gte: monthAgo }, ...dateFilter.createdAt };
+      const callsThisMonth = await this.callDetailsCollection.countDocuments(monthMatch, { session });
+
+      // Get domains breakdown with time-based counts
+      const domainsResult = await this.callDetailsCollection.aggregate([
+        { $match: baseMatch },
+        { $unwind: '$QA_pairs' },
+        {
+          $group: {
+            _id: '$QA_pairs.metadata.extracted_domain',
+            count: { $sum: 1 },
+            today: {
+              $sum: {
+                $cond: [
+                  { $gte: ['$createdAt', today] },
+                  1,
+                  0
+                ]
+              }
+            },
+            thisWeek: {
+              $sum: {
+                $cond: [
+                  { $gte: ['$createdAt', weekAgo] },
+                  1,
+                  0
+                ]
+              }
+            },
+            thisMonth: {
+              $sum: {
+                $cond: [
+                  { $gte: ['$createdAt', monthAgo] },
+                  1,
+                  0
+                ]
+              }
+            }
+          }
+        },
+        { $sort: { count: -1 } },
+        { $limit: 20 }
+      ], { session }).toArray();
+
+      const domains = domainsResult
+        .filter(d => d._id && d._id !== '')
+        .map(d => ({ 
+          domain: d._id, 
+          count: d.count,
+          today: d.today,
+          thisWeek: d.thisWeek,
+          thisMonth: d.thisMonth
+        }));
+
+      // Get monthly trend (last 12 months)
+      const twelveMonthsAgo = new Date(today);
+      twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+
+      const monthlyTrendResult = await this.callDetailsCollection.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: twelveMonthsAgo, ...dateFilter.createdAt }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              $dateToString: {
+                format: '%Y-%m',
+                date: '$createdAt'
+              }
+            },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { _id: 1 } }
+      ], { session }).toArray();
+
+      const monthlyTrend = monthlyTrendResult.map(d => ({
+        month: d._id,
+        count: d.count
+      }));
+
+      // Get daily trend (last 30 days)
+      const thirtyDaysAgo = new Date(today);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const dailyTrendResult = await this.callDetailsCollection.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: thirtyDaysAgo, ...dateFilter.createdAt }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              $dateToString: {
+                format: '%Y-%m-%d',
+                date: '$createdAt'
+              }
+            },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { _id: 1 } }
+      ], { session }).toArray();
+
+      const dailyTrend = dailyTrendResult.map(d => ({
+        date: d._id,
+        count: d.count
+      }));
+
+      return {
+        totalCalls,
+        callsToday,
+        callsThisWeek,
+        callsThisMonth,
+        domains,
+        monthlyTrend,
+        dailyTrend
+      };
+    } catch (error: any) {
+      console.error(`[CALL_DETAILS_FLOW] CallDetailsRepository.getACCAnalytics: Error getting ACC analytics:`, error.stack || error);
+      throw new InternalServerError(`Failed to get ACC analytics: ${error}`);
     }
   }
 }
