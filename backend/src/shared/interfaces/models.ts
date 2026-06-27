@@ -113,6 +113,9 @@ export interface IQuestion {
   isPushedToAuditor?: boolean;
   /** Timestamp of the Gate Keeper → Auditor hand-off. */
   pushedToAuditorAt?: Date | null;
+  /** Reason the Gate Keeper entered when pushing to the Auditor. Shown to the Auditor
+   *  ("Gate Keeper Comment") and recorded in the audit trail. */
+  gateKeeperComment?: string;
   isHidden?: false;
   passingRemark?: string;
   isOnHold?: boolean;

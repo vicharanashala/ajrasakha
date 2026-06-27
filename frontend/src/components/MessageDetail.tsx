@@ -587,7 +587,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editModalKey, setEditModalKey] = useState(0);
     const [translatedText, setTranslatedText] = useState<string>("");
-    const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; type: "pass" | "accept" | "save" | "cancel" | "push-to-gdb"; remark?: string }>({ open: false, type: "pass" });
+    const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; type: "pass" | "accept" | "save" | "cancel" | "push-to-gdb" | "push-to-auditor"; remark?: string }>({ open: false, type: "pass" });
     const [passRemarkError, setPassRemarkError] = useState("");
     const [pendingApprovalAction, setPendingApprovalAction] = useState<"accept" | "push-to-gdb" | null>(null);
 
@@ -608,19 +608,21 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const isGateKeeper = role === "gate_keeper";
     const isAuditor = role === "auditor";
     const isDynamicQuestion = question?.status === "dynamic";
+    // queue_duplicate is intentionally excluded: those questions only expose the
+    // "Cancel Duplicate" action (in the question header), not the triage/GDB actions.
     const isDuplicateQuestion = question?.status === "duplicate";
-    const isQueueProgress = question?.status === "queue_progress";
 
     // Push to Auditor is a logical hand-off only — the question keeps its status
     // (duplicate stays `duplicate`, dynamic stays `dynamic`). It sets the
     // `isPushedToAuditor` flag, which hides the Gate Keeper actions and reveals the
     // Auditor actions (Push to GDB for duplicate, Notify User for dynamic).
-    const handlePushToAuditor = async () => {
+    const handlePushToAuditor = async (reason: string) => {
         if (!question?._id) { toast.error("Question data is missing."); return; }
         try {
             await updateQuestion({
                 _id: question._id,
                 isPushedToAuditor: true,
+                gateKeeperComment: reason,
             } as any);
             toast.success("Question pushed to Auditor");
             navigateToQuestionPage();
@@ -632,19 +634,6 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
 
     // True once a Gate Keeper has handed the question off to the Auditor.
     const isPushedToAuditor = question?.isPushedToAuditor === true;
-
-    // Cancel a question that is currently in the expert-allocation queue.
-    const handleCancelQueue = async () => {
-        if (!question?._id) { toast.error("Question data is missing."); return; }
-        try {
-            await updateQuestion({ _id: question._id, status: "open" } as any);
-            toast.success("Queue progress cancelled");
-            navigateToQuestionPage();
-        } catch (error) {
-            console.error("Failed to cancel queue progress:", error);
-            toast.error("Failed to cancel. Please try again.");
-        }
-    };
 
     // Auditor "Notify User" flow for dynamic questions: notify the requesting user
     // (best-effort) and close the question as `dynamic_closed`.
@@ -785,6 +774,10 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
             setPassRemarkError("Remark is required to pass this question.");
             return;
         }
+        if (type === "push-to-auditor" && !remark) {
+            setPassRemarkError("A comment is required to push this question to the Auditor.");
+            return;
+        }
 
         setPassRemarkError("");
         setConfirmDialog({ open: false, type: "pass", remark: "" });
@@ -792,6 +785,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
         else if (type === "accept" || type === "push-to-gdb") {
             doApprove(); // use another to access the latest edited answer and sources
         }
+        else if (type === "push-to-auditor") { handlePushToAuditor(remark); }
     };
 
     const renderAnswerBody = (raw: string) => (
@@ -949,22 +943,8 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                     </div>
                 )}
 
-                {/* Queue progress: while the question is in the expert-allocation queue,
-                    allow cancelling it. Visible to the workflow roles + admin/moderator. */}
-                {isQueueProgress && (isGateKeeper || isAuditor || role === "moderator" || role === "admin") && (
-                    <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
-                        <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">This question is in the expert-allocation queue. You can cancel to stop the allocation.</p>
-                        <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
-                            <Button type="button" variant="destructive" size="sm" disabled={updatingQuestion} onClick={handleCancelQueue} className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}>
-                                {updatingQuestion ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
-                                {updatingQuestion ? "Cancelling..." : "Cancel"}
-                            </Button>
-                        </div>
-                    </div>
-                )}
-
                 {/* Gate Keeper: triage actions available for BOTH dynamic and duplicate questions. */}
-                {isGateKeeper && !isPushedToAuditor && !isQueueProgress && approved === null && (isDynamicQuestion || isDuplicateQuestion) && question?.isHidden !== true && (
+                {isGateKeeper && !isPushedToAuditor && approved === null && (isDynamicQuestion || isDuplicateQuestion) && question?.isHidden !== true && (
                     <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
                         <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">As Gate Keeper you can Pass this question, push it to an Auditor, or allocate experts.</p>
                         <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
@@ -972,7 +952,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                                 {updatingQuestion ? <Loader2 className="h-4 w-4 animate-spin" /> : <SkipForward className="h-4 w-4" />}
                                 {updatingQuestion ? "Passing..." : "Pass"}
                             </Button>
-                            <Button type="button" variant="secondary" size="sm" disabled={updatingQuestion} onClick={handlePushToAuditor} className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}>
+                            <Button type="button" variant="secondary" size="sm" disabled={updatingQuestion} onClick={() => { setPassRemarkError(""); setConfirmDialog({ open: true, type: "push-to-auditor", remark: "" }); }} className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}>
                                 {updatingQuestion ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUpRight className="h-4 w-4" />}
                                 {updatingQuestion ? "Pushing..." : "Push to Auditor"}
                             </Button>
@@ -994,7 +974,15 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
 
                 {/* Auditor: finalise the question. Duplicate -> Push to GDB (close).
                     Dynamic -> Notify User (close as dynamic_closed). */}
-                {isAuditor && isPushedToAuditor && !isQueueProgress && approved === null && (isDynamicQuestion || isDuplicateQuestion) && question?.isHidden !== true && (
+                {/* Gate Keeper comment shown to the Auditor once the question is pushed. */}
+                {isAuditor && isPushedToAuditor && question?.gateKeeperComment && (
+                    <div className="w-full px-4 py-3 border-t border-border">
+                        <p className="text-xs font-semibold text-muted-foreground tracking-wider mb-1">Gate Keeper Comment</p>
+                        <p className="text-sm text-foreground whitespace-pre-wrap rounded-lg bg-muted/40 p-3 border border-border">{question.gateKeeperComment}</p>
+                    </div>
+                )}
+
+                {isAuditor && isPushedToAuditor && approved === null && (isDynamicQuestion || isDuplicateQuestion) && question?.isHidden !== true && (
                     <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
                         <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">
                             {isDynamicQuestion
@@ -1055,6 +1043,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                             {confirmDialog.type === "pass" && "Pass this question?"}
                             {confirmDialog.type === "accept" && "Accept this answer?"}
                             {confirmDialog.type === "push-to-gdb" && "Push this question to GDB?"}
+                            {confirmDialog.type === "push-to-auditor" && "Push this question to the Auditor?"}
                         </AlertDialogTitle>
                         <AlertDialogDescription>
                             {confirmDialog.type === "save" && "Are you sure you want to save these changes to the answer?"}
@@ -1062,12 +1051,13 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                             {confirmDialog.type === "pass" && "Are you sure you want to pass this question? It will be hidden from the Question list."}
                             {confirmDialog.type === "accept" && "Are you sure you want to accept this answer? The question will  allocate to task_force team."}
                             {confirmDialog.type === "push-to-gdb" && "Are you sure you want to push this question to the GDB? The question will be marked as closed and will not allocate to experts."}
+                            {confirmDialog.type === "push-to-auditor" && "Add a comment for the Auditor, then push this question to them."}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
-                    {confirmDialog.type === "pass" && (
+                    {(confirmDialog.type === "pass" || confirmDialog.type === "push-to-auditor") && (
                         <div className="px-6 pb-4">
                             <label htmlFor="pass-remark" className="block text-xs font-semibold text-muted-foreground tracking-wider mb-2">
-                                Remark<span className="text-red-500 ml-0 mb-4">*</span>
+                                {confirmDialog.type === "push-to-auditor" ? "Gate Keeper Comment" : "Remark"}<span className="text-red-500 ml-0 mb-4">*</span>
                             </label>
                             <textarea
                                 id="pass-remark"
@@ -1077,7 +1067,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                                     if (passRemarkError) setPassRemarkError("");
                                 }}
                                 className={`w-full min-h-[100px] rounded-xl border ${passRemarkError ? "border-destructive" : "border-border"} bg-background px-3 py-3 text-sm text-foreground outline-none resize-none focus:ring-2 focus:ring-primary/30`}
-                                placeholder="Enter remark explaining why this question is being passed..."
+                                placeholder={confirmDialog.type === "push-to-auditor" ? "Enter a comment for the Auditor explaining this question..." : "Enter remark explaining why this question is being passed..."}
                             />
                             {passRemarkError && (
                                 <p className="mt-2 text-xs text-destructive">{passRemarkError}</p>
@@ -1086,9 +1076,9 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                     )}
                     <AlertDialogFooter>
                         <AlertDialogCancel>Go back</AlertDialogCancel>
-                        {confirmDialog.type === "pass" ? (
+                        {(confirmDialog.type === "pass" || confirmDialog.type === "push-to-auditor") ? (
                             <Button type="button" size="sm" onClick={handleConfirm} className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90">
-                                <CheckCircle className="h-4 w-4" /> Yes, pass
+                                <CheckCircle className="h-4 w-4" /> {confirmDialog.type === "push-to-auditor" ? "Yes, push" : "Yes, pass"}
                             </Button>
                         ) : (
                             <AlertDialogAction onClick={handleConfirm}>

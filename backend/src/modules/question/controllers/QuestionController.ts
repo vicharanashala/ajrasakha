@@ -1408,6 +1408,59 @@ export class QuestionController {
       }
     }
 
+    // ─── Push to Auditor — Gate Keeper hand-off, audited as PUSH_TO_AUDITOR ───
+    if (updates.isPushedToAuditor === true) {
+      const gateKeeperComment = (updates.gateKeeperComment ?? '').trim();
+      const pushUpdates: Partial<IQuestion> = {
+        ...updates,
+        isPushedToAuditor: true,
+        pushedToAuditorAt: new Date(),
+        gateKeeperComment,
+      };
+      const auditPayload: ModeratorAuditTrail = {
+        category: AuditCategory.QUESTION,
+        action: AuditAction.PUSH_TO_AUDITOR,
+        actor: {
+          id: user._id.toString(),
+          name: `${user.firstName} ${user.lastName}`,
+          email: user.email,
+          role: user.role,
+          avatar: user?.avatar || '',
+        },
+        context: { questionId, reason: gateKeeperComment },
+        createdAt: new Date(),
+      };
+
+      try {
+        prevQuestion = await this.questionService.getQuestionById(questionId);
+        response = await this.questionService.updateQuestion(questionId, pushUpdates);
+        this.auditTrailsService.createAuditTrail({
+          ...auditPayload,
+          changes: {
+            before: { isPushedToAuditor: prevQuestion?.isPushedToAuditor ?? false },
+            after: { isPushedToAuditor: true, gateKeeperComment },
+          },
+          outcome: { status: OutComeStatus.SUCCESS },
+        });
+        return response;
+      } catch (err: any) {
+        this.auditTrailsService.createAuditTrail({
+          ...auditPayload,
+          outcome: {
+            status: OutComeStatus.FAILED,
+            errorCode: err?.errorCode || 'INTERNAL_ERROR',
+            errorMessage: err?.message || 'Failed to push to auditor',
+            errorName: err?.name || 'Error',
+            errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+          },
+        });
+        if (err instanceof InternalServerError) {
+          throw new InternalServerError(err.message);
+        }
+        throw new BadRequestError(err?.message || 'Failed to push to auditor');
+      }
+    }
+
     // ─── Cancel Duplicate — reopen the question, audited as CANCEL_DUPLICATE ──
     if (updates.isDuplicateCancelled === true) {
       // Reason is sent in the body for the audit trail only — it is never persisted

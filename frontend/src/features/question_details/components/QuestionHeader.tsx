@@ -86,8 +86,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
   const originalQuestion = question.originalQuestion?.trim();
   const { view, setView } = useSelectedQuestion();
 
-  // ─── Cancel Duplicate ──────────────────────────────────────────────────────
-  const canModerate = currentUser.role !== "expert" && currentUser.role !== "tester";
+  // ─── Cancel Duplicate (gate keeper only) ───────────────────────────────────
   const isDuplicateCancelled = Boolean(question.isDuplicateCancelled);
   const [cancelDuplicateOpen, setCancelDuplicateOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
@@ -286,7 +285,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                 Show Reference
               </Button>
             )}
-            {isDuplicate && canModerate && !isDuplicateCancelled && ( question.status === "queue_duplicate") && (
+            {isDuplicate && currentUser.role === "gate_keeper" && !isDuplicateCancelled && (question.status === "queue_duplicate") && (
               <Button
                 size="sm"
                 variant="outline"
