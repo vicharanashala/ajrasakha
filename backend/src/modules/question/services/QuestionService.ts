@@ -6474,6 +6474,27 @@ export class QuestionService extends BaseService implements IQuestionService {
                 'moderator_approval',
               ),
             ]);
+
+            // Audit the system (cron) allocation so it shows in the question's audit
+            // trail tagged "System Allocated".
+            const moderatorName =
+              `${moderator.firstName ?? ''} ${moderator.lastName ?? ''}`.trim() || moderatorId;
+            this.auditTrailsService.createAuditTrail({
+              category: AuditCategory.EXPERTS_CATEGORY,
+              action: AuditAction.SYSTEM_ALLOCATED,
+              actor: { id: 'system', name: 'System', email: '', role: 'system', avatar: '' },
+              context: {
+                questionId,
+                question: (nextQuestion as any)?.question,
+                moderatorId,
+              },
+              changes: { after: { moderator: moderatorName } },
+              outcome: { status: OutComeStatus.SUCCESS },
+              createdAt: new Date(),
+            } as ModeratorAuditTrail).catch((auditErr: any) =>
+              console.error('[ModeratorQueue] Failed to write SYSTEM_ALLOCATED audit:', auditErr?.message),
+            );
+
             console.log(`[ModeratorQueue] (${label}) Assigned question ${questionId} → moderator ${moderatorId}`);
             assigned++;
           } catch (err: any) {
