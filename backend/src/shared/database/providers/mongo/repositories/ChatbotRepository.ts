@@ -12673,6 +12673,11 @@ if (!districts.length) {
           $in: ["closed"],
         };
       }
+      if(status === "pending"){
+        matchQuery.status = {
+          $nin: ["closed", "pass"],
+        };
+      }
 
       // Apply date range
 

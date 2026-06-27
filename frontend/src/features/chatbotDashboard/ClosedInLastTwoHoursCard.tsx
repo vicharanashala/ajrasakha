@@ -84,6 +84,7 @@ export function ClosedInLastTwoHoursCard({
     ((safeCount + passedInLastTwoHours) / (safeTotalClosed + totalPassed)) *
       100 || 0;
   const [closedWithInTwohours, setClosedWithInTowhours] = useState(false);
+  const slaBreachedPct = ((safeTotalClosed + totalPassed - safeCount - passedInLastTwoHours )/ (safeTotalClosed + totalPassed)) * 100
 
   const [isPassed, setIsPassed] = useState(false);
 
@@ -294,6 +295,14 @@ export function ClosedInLastTwoHoursCard({
                   decimals={1}
                   accent="emerald"
                   tooltip="Completion rate within 2 hours"
+                />
+                <StatTile
+                  label="SLA breached"
+                  count={slaBreachedPct}
+                  suffix="%"
+                  decimals={1}
+                  accent="muted"
+                  tooltip="Question resolution took more than 2 hours"
                 />
               </div>
 

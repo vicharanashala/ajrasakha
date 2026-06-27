@@ -59,6 +59,7 @@ export function ClosedQuestionsCard({
   onRefresh,
   onSourceChange,
 }: ClosedQuestionsCardProps) {
+  const pendingQuestions = (totalQuestions || 0) - (closedQuestions || 0) - (passedQuestions || 0)
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
@@ -255,6 +256,7 @@ export function ClosedQuestionsCard({
                 const passedPct =
                   (Math.max(passedQuestions ?? 0, 0) / total) * 100;
                 const openPct = Math.max(100 - closedPct - passedPct, 0);
+                // const pendingPct = Math.max(100 - pens)
                 return (
                   <div className="space-y-1.5">
                     <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted/40">
@@ -294,6 +296,10 @@ export function ClosedQuestionsCard({
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                         {passedPct.toFixed(1)}% passed
                       </span>
+                      <span className="flex items-center gap-1">
+                        <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50" />
+                        {openPct.toFixed(1)}% pending
+                      </span>
                     </div>
                   </div>
                 );
@@ -328,6 +334,16 @@ export function ClosedQuestionsCard({
                   onClick={() => {
                     setIsPassed(true);
                     handleClick("pass");
+                  }}
+                />
+                <StatTile
+                  label="Pending"
+                  count={Math.max(pendingQuestions ?? 0, 0)}
+                  accent="muted"
+                  tooltip="Questions with pass status"
+                  onClick={() => {
+                    setIsPassed(true);
+                    handleClick("pending");
                   }}
                 />
               </div>
