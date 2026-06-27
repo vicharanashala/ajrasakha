@@ -182,6 +182,28 @@ def is_greeting_message(text: str) -> bool:
     return bool(_GREETING_RE.match(t))
 
 
+def _compute_tools_used_from_output(output: PlannerOutput) -> list[str]:
+    """Compute tools_used list from PlannerOutput flags."""
+    if output.is_agriculture_related is False:
+        return []
+    
+    tools: list[str] = []
+    if output.knowledge_base:
+        tools.append("knowledge_base")
+    if output.weather:
+        tools.append("weather")
+    if output.mandi:
+        tools.append("mandi")
+    if output.soil:
+        tools.append("soil")
+    if output.schemes:
+        tools.append("schemes")
+    if output.chemical_checker:
+        tools.append("chemical_checker")
+    
+    return tools
+
+
 def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
     entities: PlannerEntities = {}
     if output.entities.crop:
@@ -230,6 +252,7 @@ def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
         "script_language": output.script_language,
         "translate_path": None,
         "expert_queue": False,
+        "tools_used": _compute_tools_used_from_output(output),
     }
 
 
@@ -257,6 +280,7 @@ def _default_plan_for_agriculture(user_query: Optional[str] = None) -> PlannerPl
         "script_language": "English",
         "translate_path": None,
         "expert_queue": False,
+        "tools_used": ["knowledge_base"],
     }
 
 
@@ -494,6 +518,7 @@ async def planner_node(
             "script_language": "English",
             "translate_path": None,
             "expert_queue": False,
+            "tools_used": [],
         }
         trace_thread_location(
             "planner_greeting_input",
@@ -615,7 +640,6 @@ async def planner_node(
 
         configurable = config.get("configurable") or {}
         user_id = configurable.get("user_id") or configurable.get("phone_number")
-        location_sources: dict[str, str | None] = {}
         trace_event(
             "planner_user_location_lookup",
             user_id=user_id,
@@ -626,7 +650,6 @@ async def planner_node(
             messages,
             location,
             prev_entities,
-            sources_out=location_sources,
         )
         plan["entities"] = entities
         trace_event("planner_entities_merged", entities=entities)
@@ -672,7 +695,6 @@ async def planner_node(
             messages,
             location,
             prev_entities,
-            sources_out=location_sources,
         )
 
         trace_event(
