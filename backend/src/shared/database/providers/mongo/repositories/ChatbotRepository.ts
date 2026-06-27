@@ -14778,6 +14778,10 @@ existing.villageVolunteers +=
         }
       });
 
+      if (question.moderatorAssignedAt && question.moderatorId) {
+        userIds.add(question.moderatorId.toString());
+      }
+
       const users = await this.ReviewUsers.find(
         {
           _id: {
@@ -14989,6 +14993,52 @@ existing.villageVolunteers +=
         });
       });
 
+      const lastReview = reviewTimeline[reviewTimeline.length - 1];
+      const finalReviewerCompletedAt =
+        lastReview?.completedAt ||
+        lastReview?.assignedAt ||
+        question.createdAt;
+
+      if (
+        question.moderatorAssignedAt &&
+        question.moderatorId
+      ) {
+        const moderatorName =
+          userMap.get(question.moderatorId.toString()) ||
+          "Unknown User";
+
+        if (
+          question.moderatorAssignedAt &&
+          question.moderatorId &&
+          question.moderatorAssignedAt.getTime() >
+            new Date(finalReviewerCompletedAt).getTime()
+        ) {
+          timeline.push({
+            timestamp: finalReviewerCompletedAt,
+            user: "Buffer Time",
+            action: "Awaiting Moderator Assignment",
+            duration:
+              question.moderatorAssignedAt.getTime() -
+              new Date(finalReviewerCompletedAt).getTime(),
+            remarks: "",
+            endTime: question.moderatorAssignedAt,
+            eventType: "system_wait",
+          });
+        }
+
+        timeline.push({
+          timestamp: question.moderatorAssignedAt,
+          user: moderatorName,
+          action: "Approval Review",
+          duration:
+            question.closedAt?.getTime() -
+            question.moderatorAssignedAt.getTime(),
+          remarks: "",
+          endTime: question.closedAt,
+          eventType: "moderator",
+        });
+      }
+
       // ---------------------------------------------------
       // Sort
       // ---------------------------------------------------
@@ -15107,7 +15157,7 @@ existing.villageVolunteers +=
       // Awaiting Closure
       // ---------------------------------------------------
 
-      const completionTime =
+      let completionTime =
         question.closedAt || question.passedAt;
 
       if (completionTime) {
@@ -15118,7 +15168,9 @@ existing.villageVolunteers +=
           const lastEnd = new Date(
             last.endTime || last.timestamp,
           );
-
+          if(typeof completionTime === "string"){
+            completionTime = new Date(completionTime)
+          }
           const waitForClosure =
             completionTime.getTime() -
             lastEnd.getTime();

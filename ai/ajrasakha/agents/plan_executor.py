@@ -68,6 +68,8 @@ def _compute_tools_used(plan: PlannerPlan) -> list[str]:
     return tools
 
 
+
+
 def _is_useful_tool_response(message: ToolMessage) -> bool:
     """Check if a tool message contains useful/non-empty data."""
     text = _message_to_text(message)
@@ -147,6 +149,8 @@ def compute_actual_tools_used(messages: list[BaseMessage]) -> list[str]:
                 tools.append("chemical_checker")
     
     return tools
+
+
 
 _CHEMICAL_NAME_RE = re.compile(
     r"\b(monocrotophos|chlorpyrifos|endosulfan|carbofuran|paraquat|"
@@ -718,12 +722,15 @@ async def build_reviewer_upload_with_tools_used(
     location: Optional[Location],
     tools_used: list[str],
     *,
+    question_source: str | None = None,
+    thread_id: str | None = None,
     resolved: ResolvedToolEntities | None = None,
 ) -> list[dict[str, Any]]:
     """Build reviewer upload call with computed tools_used."""
     location_tool = await get_location_tool()
     reviewer_tool = await get_reviewer_tool()
-    question_source = resolve_question_source(None)
+    if not question_source:
+        question_source = resolve_question_source(None)
     
     loc = location or {}
     if resolved is None:
@@ -752,6 +759,8 @@ async def build_reviewer_upload_with_tools_used(
         },
         "source": str(question_source).strip(),
     }
+    if thread_id and str(thread_id).strip():
+        reviewer_args["thread_id"] = str(thread_id).strip()
     
     trace_resolution(
         "reviewer_upload_with_tools_used",
@@ -980,6 +989,8 @@ async def execute_plan_node(
             user_query,
             loc,
             tools_used=[],
+            question_source=question_source,
+            thread_id=thread_id,
             resolved=resolved,
         )
         if reviewer_calls:
@@ -1024,6 +1035,8 @@ async def execute_plan_node(
         user_query,
         merged_loc,
         tools_used=actual_tools_used,
+        question_source=question_source,
+        thread_id=thread_id,
         resolved=resolved,
     )
     
