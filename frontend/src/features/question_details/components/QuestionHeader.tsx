@@ -286,7 +286,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                 Show Reference
               </Button>
             )}
-            {isDuplicate && canModerate && !isDuplicateCancelled && question.status === "duplicate" && (
+            {isDuplicate && canModerate && !isDuplicateCancelled && ( question.status === "queue_duplicate") && (
               <Button
                 size="sm"
                 variant="outline"
