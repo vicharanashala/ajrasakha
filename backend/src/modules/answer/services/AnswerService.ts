@@ -2028,6 +2028,56 @@ answer: ${updates.answer}`;
         session,
       );
 
+      // ── Propagate the close to queue-duplicate children ───────────────────────
+      // Any question that was matched to this one in the GDB pending-duplicate queue
+      // (referenceQuestionId === this question, status 'queue_duplicate') is closed too:
+      // the same final answer is replicated onto it and it's stamped closedBy 'System'.
+      try {
+        const childQuestions = await this.questionRepo.findByReferenceQuestionId(
+          questionId,
+          'queue_duplicate',
+          session,
+        );
+        for (const child of childQuestions) {
+          const childId = child._id!.toString();
+          // Replicate the parent's final answer onto the child.
+          await this.answerRepo.addAnswer(
+            childId,
+            userId,
+            updates.answer ?? '',
+            updates.sources ?? [],
+            answerEmbedding,
+            true, // isFinalAnswer
+            1, // answerIteration
+            session,
+            'approved',
+            'Answer replicated from the parent question on close',
+          );
+          // Close the child question, marking it system-closed.
+          await this.questionRepo.updateQuestion(
+            childId,
+            { status: 'closed', closedAt: new Date(), closedBy: 'System' },
+            session,
+          );
+          // Free any moderator holding the child.
+          await this.userRepo
+            .removeAssignedQuestionFromAllModerators(childId, session)
+            .catch((e: any) =>
+              console.error(`[approveAnswer] Failed to clear moderators for child ${childId}:`, e?.message),
+            );
+        }
+        if (childQuestions.length) {
+          console.log(
+            `[approveAnswer] Closed ${childQuestions.length} queue_duplicate child question(s) of ${questionId} and replicated the answer (closedBy: System).`,
+          );
+        }
+      } catch (childErr: any) {
+        console.error(
+          '[approveAnswer] Failed to propagate close to queue_duplicate children:',
+          childErr?.message,
+        );
+      }
+
       //  WEBHOOK HANDLERS
       const webhookPayload = {
         question_id: questionId,

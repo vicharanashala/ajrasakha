@@ -1,7 +1,7 @@
 import {ObjectId} from 'mongodb';
 
 export type UserRole = 'admin' | 'moderator' | 'expert' | 'pae_expert' | 'tester'| 'district_coordinator' | 'block_coordinator' | 'village_volunteer' | 'call_agent';
-export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold' | 'pae_submitted' | 'draft' | 'pass' | 'duplicate' | 'non_agri' | 'pending';
+export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold' | 'pae_submitted' | 'draft' | 'pass' | 'duplicate' | 'non_agri' | 'pending' | 'queue_duplicate';
 export interface IPreference {
   state: string;
   crop: string;
@@ -100,6 +100,9 @@ export interface IQuestion {
   metrics: IQuestionMetrics | null;
   text?: string;
   closedAt?: Date;
+  /** Who closed the question. Set to 'System' when a question is auto-closed because
+   *  its reference (parent) question was closed (queue-duplicate propagation). */
+  closedBy?: string;
   passedAt?: Date | null;
   createdAt?: Date;
   updatedAt?: Date;
