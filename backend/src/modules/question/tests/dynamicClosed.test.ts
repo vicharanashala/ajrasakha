@@ -76,7 +76,7 @@ describe('QuestionService.updateQuestion — workflow status transitions', () =>
     expect(persistedUpdates.closedAt).toBeInstanceOf(Date);
   });
 
-  it('keeps a duplicate question in duplicate when Push to Auditor attempts auditor_review', async () => {
+  it('moves a duplicate question to auditor_review when pushed to the Auditor', async () => {
     mockQuestionRepo.getById.mockResolvedValue({
       _id: QUESTION_ID,
       status: 'duplicate',
@@ -85,13 +85,13 @@ describe('QuestionService.updateQuestion — workflow status transitions', () =>
     await service.updateQuestion(QUESTION_ID, {status: 'auditor_review'} as any);
 
     const [, persistedUpdates] = mockQuestionRepo.updateQuestion.mock.calls[0];
-    // Duplicate questions must NOT transition to auditor_review.
-    expect(persistedUpdates.status).toBe('duplicate');
+    // Push to Auditor now sets the status to auditor_review (no special revert).
+    expect(persistedUpdates.status).toBe('auditor_review');
     expect(persistedUpdates.isClosed).toBeUndefined();
     expect(persistedUpdates.closedAt).toBeUndefined();
   });
 
-  it('keeps a dynamic question in dynamic when Push to Auditor attempts auditor_review', async () => {
+  it('moves a dynamic question to auditor_review when pushed to the Auditor', async () => {
     mockQuestionRepo.getById.mockResolvedValue({
       _id: QUESTION_ID,
       status: 'dynamic',
@@ -100,25 +100,9 @@ describe('QuestionService.updateQuestion — workflow status transitions', () =>
     await service.updateQuestion(QUESTION_ID, {status: 'auditor_review'} as any);
 
     const [, persistedUpdates] = mockQuestionRepo.updateQuestion.mock.calls[0];
-    // Dynamic questions must NOT transition to auditor_review either.
-    expect(persistedUpdates.status).toBe('dynamic');
+    expect(persistedUpdates.status).toBe('auditor_review');
     expect(persistedUpdates.isClosed).toBeUndefined();
     expect(persistedUpdates.closedAt).toBeUndefined();
-  });
-
-  it('stamps pushedToAuditorAt and keeps status when a Gate Keeper hands a duplicate off to the Auditor', async () => {
-    mockQuestionRepo.getById.mockResolvedValue({
-      _id: QUESTION_ID,
-      status: 'duplicate',
-    });
-
-    await service.updateQuestion(QUESTION_ID, {isPushedToAuditor: true} as any);
-
-    const [, persistedUpdates] = mockQuestionRepo.updateQuestion.mock.calls[0];
-    expect(persistedUpdates.isPushedToAuditor).toBe(true);
-    expect(persistedUpdates.pushedToAuditorAt).toBeInstanceOf(Date);
-    // Hand-off must NOT change the question status.
-    expect(persistedUpdates.status).toBeUndefined();
   });
 
   it('does not stamp closedAt for a queue_progress cancel back to open', async () => {

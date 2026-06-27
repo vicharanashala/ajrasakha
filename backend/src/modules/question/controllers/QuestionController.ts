@@ -1408,14 +1408,14 @@ export class QuestionController {
       }
     }
 
-    // ─── Push to Auditor — Gate Keeper hand-off, audited as PUSH_TO_AUDITOR ───
-    if (updates.isPushedToAuditor === true) {
-      const gateKeeperComment = (updates.gateKeeperComment ?? '').trim();
+    // ─── Push to Auditor — Gate Keeper hand-off → status 'auditor_review',
+    //     audited as PUSH_TO_AUDITOR ─────────────────────────────────────────────
+    if (updates.status === 'auditor_review') {
+      // The comment is sent in the body for the audit trail only — neither it nor a
+      // push timestamp are persisted on the question (both live in the audit trail).
+      const gateKeeperComment = ((updates as any).gateKeeperComment ?? '').trim();
       const pushUpdates: Partial<IQuestion> = {
-        ...updates,
-        isPushedToAuditor: true,
-        pushedToAuditorAt: new Date(),
-        gateKeeperComment,
+        status: 'auditor_review',
       };
       const auditPayload: ModeratorAuditTrail = {
         category: AuditCategory.QUESTION,
@@ -1437,8 +1437,8 @@ export class QuestionController {
         this.auditTrailsService.createAuditTrail({
           ...auditPayload,
           changes: {
-            before: { isPushedToAuditor: prevQuestion?.isPushedToAuditor ?? false },
-            after: { isPushedToAuditor: true, gateKeeperComment },
+            before: { status: prevQuestion?.status },
+            after: { status: 'auditor_review', gateKeeperComment },
           },
           outcome: { status: OutComeStatus.SUCCESS },
         });

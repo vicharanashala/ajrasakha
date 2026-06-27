@@ -1910,7 +1910,7 @@ answer: ${updates.answer}`;
 
       // DUPLICATE QUESTION FLOW
       // Create final approved answer directly from LLM answer
-      if (question.status === 'duplicate' && !answerId) {
+      if (question.status === 'duplicate'||question.status=='auditor_review' && !answerId ) {
         const [answerEmbedding, questionEmbedding] = await Promise.all([
           generateEmbedding(text),
           generateEmbedding(text),

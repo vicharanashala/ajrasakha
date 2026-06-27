@@ -607,21 +607,27 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const role = currentUser?.role;
     const isGateKeeper = role === "gate_keeper";
     const isAuditor = role === "auditor";
-    const isDynamicQuestion = question?.status === "dynamic";
+    // Once pushed to the Auditor the question's status is `auditor_review`. The
+    // dynamic/duplicate distinction (needed for the Auditor's action) is then derived
+    // from referenceQuestionId: duplicates carry a reference, dynamic questions don't.
+    const isPushedToAuditor = question?.status === "auditor_review";
+    const hasReference = !!question?.referenceQuestionId;
+    const isDynamicQuestion =
+        question?.status === "dynamic" || (isPushedToAuditor && !hasReference);
     // queue_duplicate is intentionally excluded: those questions only expose the
     // "Cancel Duplicate" action (in the question header), not the triage/GDB actions.
-    const isDuplicateQuestion = question?.status === "duplicate";
+    const isDuplicateQuestion =
+        question?.status === "duplicate" || (isPushedToAuditor && hasReference);
 
-    // Push to Auditor is a logical hand-off only — the question keeps its status
-    // (duplicate stays `duplicate`, dynamic stays `dynamic`). It sets the
-    // `isPushedToAuditor` flag, which hides the Gate Keeper actions and reveals the
-    // Auditor actions (Push to GDB for duplicate, Notify User for dynamic).
+    // Push to Auditor moves the question to `auditor_review`. The comment is sent for
+    // the audit trail only (not persisted). This hides the Gate Keeper actions and
+    // reveals the Auditor actions (Push to GDB for duplicate, Notify User for dynamic).
     const handlePushToAuditor = async (reason: string) => {
         if (!question?._id) { toast.error("Question data is missing."); return; }
         try {
             await updateQuestion({
                 _id: question._id,
-                isPushedToAuditor: true,
+                status: "auditor_review",
                 gateKeeperComment: reason,
             } as any);
             toast.success("Question pushed to Auditor");
@@ -631,9 +637,6 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
             toast.error("Failed to push to Auditor. Please try again.");
         }
     };
-
-    // True once a Gate Keeper has handed the question off to the Auditor.
-    const isPushedToAuditor = question?.isPushedToAuditor === true;
 
     // Auditor "Notify User" flow for dynamic questions: notify the requesting user
     // (best-effort) and close the question as `dynamic_closed`.
@@ -672,7 +675,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
         if (question.source !== "AJRASAKHA" && question.source !== "WHATSAPP") {
             toast.error("Only AJRASAKHA or WHATSAPP answers can be approved."); return;
         }
-        if (question.status !== "duplicate") {
+        if (question.status !== "duplicate" && question.status!=="auditor_review") {
             toast.error("Only duplicate questions can be pushed to GDB."); return;
         }
         setPendingApprovalAction("push-to-gdb");
@@ -974,11 +977,12 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
 
                 {/* Auditor: finalise the question. Duplicate -> Push to GDB (close).
                     Dynamic -> Notify User (close as dynamic_closed). */}
-                {/* Gate Keeper comment shown to the Auditor once the question is pushed. */}
-                {isAuditor && isPushedToAuditor && question?.gateKeeperComment && (
-                    <div className="w-full px-4 py-3 border-t border-border">
-                        <p className="text-xs font-semibold text-muted-foreground tracking-wider mb-1">Gate Keeper Comment</p>
-                        <p className="text-sm text-foreground whitespace-pre-wrap rounded-lg bg-muted/40 p-3 border border-border">{question.gateKeeperComment}</p>
+                {/* The Gate Keeper comment isn't stored on the question — it's in the
+                    audit trail. Point the Auditor there. */}
+                {isAuditor && isPushedToAuditor && (
+                    <div className="w-full flex items-center gap-2 px-4 py-3 border-t border-border">
+                        <AlertCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <p className="text-xs text-muted-foreground italic">To view the Gate Keeper's comment, please check the audit trail.</p>
                     </div>
                 )}
 
