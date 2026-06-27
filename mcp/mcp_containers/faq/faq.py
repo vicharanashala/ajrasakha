@@ -50,11 +50,8 @@ load_dotenv()
 # Initialize FastMCP server
 mcp = FastMCP("faq-video")
 
-user = "agriai"
-password = "agriai1224"
-
 # MongoDB connection settings
-MONGODB_URI = os.getenv("MONGODB_URI", f"mongodb+srv://{user}:{password}@staging.1fo96dy.mongodb.net/?retryWrites=true&w=majority&appName=staging")
+MONGODB_URI = os.getenv("MONGODB_URI")
 DATABASE_NAME = os.getenv("FAQ_DATABASE_NAME", "golden_db")
 COLLECTION_NAME = os.getenv("FAQ_COLLECTION_NAME", "faq")
 
@@ -71,6 +68,10 @@ def initialize_connections():
     """Initialize MongoDB connection and embedding model."""
     global db_client, db_collection, embedding_model
     
+    if not MONGODB_URI:
+        print("MONGODB_URI is required to start the FAQ MCP server")
+        return False
+
     try:
         # Initialize MongoDB client
         db_client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
