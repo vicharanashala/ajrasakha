@@ -549,15 +549,24 @@ export const QueueDetailsModal = ({
             {/* ── Questions Received — tabbed by status ── */}
             {(() => {
               const allItems = data.received.items;
-              // Collect distinct statuses present in page-1 items, preserving a
-              // consistent order: open → delayed → duplicate → in-review → others.
+              // Build a lookup from the backend's accurate per-status counts
+              const backendCountMap = new Map<string, number>(
+                (data.receivedStatusCounts ?? []).map(({ status, count }) => [status.toLowerCase(), count])
+              );
+              // Total across all statuses (= data.received.count)
+              const totalCount = data.received.count;
+
+              // Tabs order: ALL first, then known statuses in priority order, then any others
               const ORDER = ["open", "delayed", "duplicate", "in-review", "closed", "pass", "hold", "re-routed", "draft", "dynamic"];
-              const seen = new Set(allItems.map((q) => q.status?.toLowerCase() ?? ""));
+              // Build tab list from backend counts (not just page-1 items) so tabs
+              // appear even for statuses not represented in the first 50 items
+              const backendStatuses = new Set((data.receivedStatusCounts ?? []).map(r => r.status.toLowerCase()));
               const tabs = [
                 "all",
-                ...ORDER.filter((s) => seen.has(s)),
-                ...[...seen].filter((s) => !ORDER.includes(s) && s),
+                ...ORDER.filter((s) => backendStatuses.has(s)),
+                ...[...backendStatuses].filter((s) => !ORDER.includes(s) && s),
               ];
+
               const filteredItems =
                 receivedTab === "all"
                   ? allItems
@@ -597,10 +606,11 @@ export const QueueDetailsModal = ({
                         <p className="px-3 py-4 text-xs text-gray-400 text-center">No questions received</p>
                       ) : (
                         <>
-                          {/* Status tab strip */}
+                          {/* Status tab strip — counts from backend, accurate regardless of page size */}
                           <div className="flex flex-wrap items-center gap-1 m-2 rounded-lg border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-[#111]">
                             {tabs.map((tab) => {
-                              const count = tab === "all" ? allItems.length : allItems.filter((q) => q.status?.toLowerCase() === tab).length;
+                              // Use real DB count from backend; fall back to page-slice count only for ALL
+                              const count = tab === "all" ? totalCount : (backendCountMap.get(tab) ?? 0);
                               const col = STATUS_TAB_COLOR[tab] ?? defaultStatusTabColor;
                               return (
                                 <button
@@ -624,10 +634,10 @@ export const QueueDetailsModal = ({
                             })}
                           </div>
 
-                          {/* Filtered list */}
+                          {/* Filtered list — page-1 items only; note shown when totals exceed page */}
                           {filteredItems.length === 0 ? (
                             <p className="px-3 py-4 text-xs text-gray-400 text-center">
-                              No {receivedTab} questions
+                              No {receivedTab} questions in first page
                             </p>
                           ) : (
                             <div className="max-h-72 overflow-y-auto">
@@ -637,12 +647,21 @@ export const QueueDetailsModal = ({
                             </div>
                           )}
 
-                          {/* Note: counts show page-1 items only; full counts are in the header badge */}
-                          {data.received.count > allItems.length && (
-                            <p className="px-3 py-2 text-[11px] text-gray-400 text-center border-t border-gray-100 dark:border-gray-800">
-                              Showing first {allItems.length} of {data.received.count} — use pagination for more
-                            </p>
-                          )}
+                          {/* Show a note when the selected tab has more items than what's loaded */}
+                          {(() => {
+                            const tabTotal = receivedTab === "all"
+                              ? totalCount
+                              : (backendCountMap.get(receivedTab) ?? 0);
+                            const showing = filteredItems.length;
+                            if (tabTotal > showing && showing > 0) {
+                              return (
+                                <p className="px-3 py-2 text-[11px] text-gray-400 text-center border-t border-gray-100 dark:border-gray-800">
+                                  Showing {showing} of {tabTotal} — refresh or use pagination for more
+                                </p>
+                              );
+                            }
+                            return null;
+                          })()}
                         </>
                       )}
                     </div>
@@ -651,7 +670,7 @@ export const QueueDetailsModal = ({
               );
             })()}
 
-            {/* ── Auto-Allocate ON — with OPEN / DELAYED sub-tabs ── */}
+            {/* ── Auto-Allocate ON — OPEN / DELAYED from backend ── */}
             <div className="border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden bg-white dark:bg-[#1a1a1a]">
               {/* Header row (acts as toggle) */}
               <button
@@ -684,12 +703,13 @@ export const QueueDetailsModal = ({
 
               {openSection === "autoAllocateOff" && (
                 <div className="border-t border-gray-100 dark:border-gray-800">
-                  {/* OPEN / DELAYED tab strip */}
+                  {/* OPEN / DELAYED tab strip — counts come from the backend */}
                   <div className="flex items-center gap-1 m-2 rounded-lg border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-[#111]">
                     {(["open", "delayed"] as const).map((tab) => {
-                      const tabItems = data.autoAllocateOff.items.filter(
-                        (q) => q.status?.toLowerCase() === tab,
-                      );
+                      // Use the real backend count for each tab, not a page-slice count
+                      const backendCount = tab === "open"
+                        ? data.autoAllocateOpen.count
+                        : data.autoAllocateDelayed.count;
                       return (
                         <button
                           key={tab}
@@ -719,19 +739,20 @@ export const QueueDetailsModal = ({
                                 : "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
                             )}
                           >
-                            {tabItems.length}
+                            {backendCount}
                           </span>
                         </button>
                       );
                     })}
                   </div>
 
-                  {/* Filtered question list */}
+                  {/* Items for the active tab — served from the dedicated backend section */}
                   {(() => {
-                    const filtered = data.autoAllocateOff.items.filter(
-                      (q) => q.status?.toLowerCase() === autoAllocateTab,
-                    );
-                    if (filtered.length === 0) {
+                    const activeSection = autoAllocateTab === "open"
+                      ? data.autoAllocateOpen
+                      : data.autoAllocateDelayed;
+
+                    if (activeSection.count === 0) {
                       return (
                         <p className="px-3 py-4 text-xs text-gray-400 text-center">
                           No {autoAllocateTab} questions
@@ -739,15 +760,22 @@ export const QueueDetailsModal = ({
                       );
                     }
                     return (
-                      <div className="max-h-72 overflow-y-auto">
-                        {filtered.map((q) => (
-                          <QuestionRow
-                            key={q._id}
-                            item={q}
-                            onClick={() => handleQuestionClick(q)}
-                          />
-                        ))}
-                      </div>
+                      <>
+                        <div className="max-h-72 overflow-y-auto">
+                          {activeSection.items.map((q) => (
+                            <QuestionRow
+                              key={q._id}
+                              item={q}
+                              onClick={() => handleQuestionClick(q)}
+                            />
+                          ))}
+                        </div>
+                        {activeSection.count > activeSection.items.length && (
+                          <p className="px-3 py-2 text-[11px] text-gray-400 text-center border-t border-gray-100 dark:border-gray-800">
+                            Showing first {activeSection.items.length} of {activeSection.count}
+                          </p>
+                        )}
+                      </>
                     );
                   })()}
                 </div>

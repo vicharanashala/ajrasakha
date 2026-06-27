@@ -56,7 +56,13 @@ export type QueueSectionResponse = {
 
 export type QueueDetailsResponse = {
   received: { count: number; items: QueueQuestionItem[] };
+  /** Per-status counts for the received section — accurate DB totals for tab badges. */
+  receivedStatusCounts: { status: string; count: number }[];
   autoAllocateOff: { count: number; items: QueueQuestionItem[] };
+  /** Auto-allocate ON questions that are currently OPEN (accurate count from DB). */
+  autoAllocateOpen: { count: number; items: QueueQuestionItem[] };
+  /** Auto-allocate ON questions that are currently DELAYED (accurate count from DB). */
+  autoAllocateDelayed: { count: number; items: QueueQuestionItem[] };
   allocated: { count: number; items: QueueQuestionItem[] };
   waiting: { count: number; items: QueueQuestionItem[] };
   freeExperts: { count: number; items: QueueExpertItem[] };
