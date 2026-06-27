@@ -619,6 +619,8 @@ export class QuestionService extends BaseService implements IQuestionService {
   }> {
     try {
       const result = await this.accAgentService.extractData(threadId, transcript);
+
+      console.log('[QuestionService] extractAccAgentData - Received result:', result);
       return result;
     } catch (error) {
       console.error('[QuestionService] extractAccAgentData: Error', error);
@@ -665,6 +667,8 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       const result = await this.accAgentService.resumeAndGetAnswer(threadId);
 
+      console.log('[QuestionService] resumeAccAgentAndGetAnswer Recived results', result);
+
       // If callUuid and metadata are provided, store Q/A pairs in call_details
       if (callUuid && metadata) {
         const qaPairs: QAPairs = {
@@ -681,10 +685,10 @@ export class QuestionService extends BaseService implements IQuestionService {
         };
 
         // console.log('[QuestionService] Storing Q/A pairs:', JSON.stringify(qaPairs, null, 2));
-        
+
         // Check if call_details document exists
         const existingCallDetails = await this.callDetailsRepository.getByCallUuid(callUuid);
-        
+
         if (existingCallDetails) {
           // Update existing document
           await this.callDetailsRepository.updateQA_Pairs(callUuid, qaPairs);
@@ -1600,13 +1604,13 @@ export class QuestionService extends BaseService implements IQuestionService {
               return;
             }
 
-            await this.questionRepo.updateQuestion(questionId, { status: 'open',isAutoAllocate:true });
+            await this.questionRepo.updateQuestion(questionId, { status: 'open', isAutoAllocate: true });
           } catch (pipelineError: any) {
             console.error(
               '[processQuestionInBackground] Duplicate check pipeline failed, proceeding as open:',
               pipelineError?.message,
             );
-            await this.questionRepo.updateQuestion(questionId, { status: 'open' ,isAutoAllocate:true });
+            await this.questionRepo.updateQuestion(questionId, { status: 'open', isAutoAllocate: true });
           }
         }
 
@@ -6007,7 +6011,7 @@ export class QuestionService extends BaseService implements IQuestionService {
   /** Current assignee the cron would penalise/replace (used for STUCK items). */
   private deriveCurrentExpertId(
     queue: (ObjectId | string)[] = [],
-    history: {updatedBy?: ObjectId | string; status?: string}[] = [],
+    history: { updatedBy?: ObjectId | string; status?: string }[] = [],
   ): string | null {
     if (!queue?.length) return null;
     if (!history?.length) return queue[0]?.toString() ?? null;
@@ -6021,7 +6025,7 @@ export class QuestionService extends BaseService implements IQuestionService {
    *  assigned expert has finished their step (author answered, awaiting reviewer). */
   private derivePendingAssigneeId(
     queue: (ObjectId | string)[] = [],
-    history: {answer?: unknown; status?: string}[] = [],
+    history: { answer?: unknown; status?: string }[] = [],
   ): string | null {
     if (!queue?.length) return null;
     for (let i = 0; i < queue.length; i++) {
@@ -6102,18 +6106,18 @@ export class QuestionService extends BaseService implements IQuestionService {
       case 'received':
       case 'autoAllocateOff': {
         const kind = section === 'received' ? 'received' : 'autoOff';
-        const {count, items} = await this.questionRepo.getQueueQuestionSection(
+        const { count, items } = await this.questionRepo.getQueueQuestionSection(
           kind,
           skip,
           safeLimit,
           startTime,
           endTime,
         );
-        return {count, items: items.map(r => this.rawToQueueItem(r))};
+        return { count, items: items.map(r => this.rawToQueueItem(r)) };
       }
 
       case 'allocated': {
-        const {count, items} = await this.questionRepo.getQueueQuestionSection(
+        const { count, items } = await this.questionRepo.getQueueQuestionSection(
           'allocated',
           skip,
           safeLimit,
@@ -6146,7 +6150,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         // full list in memory so the count always matches the console.
         const subs = (await this.questionSubmissionRepo.findUnallocatedTimeBoundQuestions()) as any[];
         const pageSubs = subs.slice(skip, skip + safeLimit);
-        return {count: subs.length, items: pageSubs.map(s => this.submissionToQueueItem(s))};
+        return { count: subs.length, items: pageSubs.map(s => this.submissionToQueueItem(s)) };
       }
 
       case 'freeExperts': {
@@ -6165,7 +6169,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           role: e.role,
           isSpecialTaskForce: e.special_task_force === true,
         }));
-        return {count: free.length, items};
+        return { count: free.length, items };
       }
 
       case 'stuck': {
@@ -6197,7 +6201,7 @@ export class QuestionService extends BaseService implements IQuestionService {
               : undefined,
           };
         });
-        return {count, items};
+        return { count, items };
       }
 
       case 'openedIdle': {
@@ -6229,7 +6233,7 @@ export class QuestionService extends BaseService implements IQuestionService {
               : undefined,
           };
         });
-        return {count, items};
+        return { count, items };
       }
 
       case 'needsReviewer': {
@@ -6253,9 +6257,9 @@ export class QuestionService extends BaseService implements IQuestionService {
         const items: QueueQuestionItem[] = pageSubs.map(sub => {
           const item = this.submissionToQueueItem(sub);
           const id = byQuestion.get(item._id ?? '');
-          return {...item, expertName: id ? names.get(id) ?? 'Unknown' : undefined};
+          return { ...item, expertName: id ? names.get(id) ?? 'Unknown' : undefined };
         });
-        return {count, items};
+        return { count, items };
       }
 
       case 'totalWork': {
@@ -6269,11 +6273,11 @@ export class QuestionService extends BaseService implements IQuestionService {
           this.questionSubmissionRepo.findAnsweredQuestionsNeedingReviewer(),
         ]);
 
-        type Tagged = {sub: any; workType: 'stuck' | 'unallocated' | 'needsReviewer'};
+        type Tagged = { sub: any; workType: 'stuck' | 'unallocated' | 'needsReviewer' };
         const tagged: Tagged[] = [
-          ...(stuckSubs as any[]).map(sub => ({sub, workType: 'stuck' as const})),
-          ...(unallocatedSubs as any[]).map(sub => ({sub, workType: 'unallocated' as const})),
-          ...(reviewerSubs as any[]).map(sub => ({sub, workType: 'needsReviewer' as const})),
+          ...(stuckSubs as any[]).map(sub => ({ sub, workType: 'stuck' as const })),
+          ...(unallocatedSubs as any[]).map(sub => ({ sub, workType: 'unallocated' as const })),
+          ...(reviewerSubs as any[]).map(sub => ({ sub, workType: 'needsReviewer' as const })),
         ];
 
         // Dedupe by questionId (the three states are mutually exclusive, but be safe).
@@ -6295,11 +6299,11 @@ export class QuestionService extends BaseService implements IQuestionService {
           ...this.submissionToQueueItem(t.sub),
           workType: t.workType,
         }));
-        return {count, items};
+        return { count, items };
       }
 
       default:
-        return {count: 0, items: []};
+        return { count: 0, items: [] };
     }
   }
 
