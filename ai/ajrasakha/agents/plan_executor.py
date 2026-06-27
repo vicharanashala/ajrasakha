@@ -722,13 +722,15 @@ async def build_reviewer_upload_with_tools_used(
     location: Optional[Location],
     tools_used: list[str],
     *,
+    question_source: str | None = None,
     thread_id: str | None = None,
     resolved: ResolvedToolEntities | None = None,
 ) -> list[dict[str, Any]]:
     """Build reviewer upload call with computed tools_used."""
     location_tool = await get_location_tool()
     reviewer_tool = await get_reviewer_tool()
-    question_source = resolve_question_source(None)
+    if not question_source:
+        question_source = resolve_question_source(None)
     
     loc = location or {}
     if resolved is None:
@@ -987,6 +989,7 @@ async def execute_plan_node(
             user_query,
             loc,
             tools_used=[],
+            question_source=question_source,
             thread_id=thread_id,
             resolved=resolved,
         )
@@ -1032,6 +1035,7 @@ async def execute_plan_node(
         user_query,
         merged_loc,
         tools_used=actual_tools_used,
+        question_source=question_source,
         thread_id=thread_id,
         resolved=resolved,
     )
