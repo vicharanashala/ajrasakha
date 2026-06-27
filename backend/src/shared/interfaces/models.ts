@@ -145,6 +145,9 @@ export interface IQuestion {
   isCustomerNotified?: boolean;
   isDuplicateChecked?: boolean;
   toolsUsed?: string[]
+  /** Set when a moderator cancels a duplicate flag and reopens the question. The
+   *  cancel reason and timestamp are recorded in the audit trail, not on the question. */
+  isDuplicateCancelled?: boolean;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';
