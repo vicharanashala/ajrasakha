@@ -653,7 +653,6 @@ async def planner_node(
             messages,
             location,
             prev_entities,
-            sources_out=location_sources,
         )
         plan["entities"] = entities
         trace_event("planner_entities_merged", entities=entities)
@@ -699,7 +698,6 @@ async def planner_node(
             messages,
             location,
             prev_entities,
-            sources_out=location_sources,
         )
 
         if plan.get("is_complete"):
