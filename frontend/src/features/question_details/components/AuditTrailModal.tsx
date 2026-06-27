@@ -34,6 +34,7 @@ const actionLabels: Record<string, string> = {
   CHECK_DUPLICATE: "Duplicate Check",
   APPROVE_AI_INITIAL_ANSWER: "AI Initial Answer Approved",
   EXPERTS_AUTO_ALLOCATE: "Expert Auto-allocated",
+  SYSTEM_ALLOCATED: "System Allocated",
   SELECT_EXPERT: "Expert Selected",
   DELETE_EXPERT: "Expert Deleted",
   SELECT_MODERATOR: "Moderator Selected",
