@@ -8,7 +8,7 @@ export interface IAccAgentService {
     extracted_crop: string;
     extracted_state: string;
     extracted_district: string;
-    extracted_domain?: string;
+    extracted_domain?: string | string[];
   }>;
   updateState(
     threadId: string,
@@ -17,7 +17,7 @@ export interface IAccAgentService {
       crop: string;
       state: string;
       district: string;
-      domain: string;
+      domain: string | string[];
       season: string;
     }
   ): Promise<void>;

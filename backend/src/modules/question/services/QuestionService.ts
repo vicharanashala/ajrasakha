@@ -616,6 +616,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     extracted_crop: string;
     extracted_state: string;
     extracted_district: string;
+    extracted_domain?: string | string[];
   }> {
     try {
       const result = await this.accAgentService.extractData(threadId, transcript);
@@ -638,7 +639,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       crop: string;
       state: string;
       district: string;
-      domain: string;
+      domain: string | string[];
       season: string;
     }
   ): Promise<void> {

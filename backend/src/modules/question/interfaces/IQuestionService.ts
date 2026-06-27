@@ -180,6 +180,7 @@ export interface IQuestionService {
     extracted_crop: string;
     extracted_state: string;
     extracted_district: string;
+    extracted_domain?: string | string[];
   }>;
 
   /** HIL Flow: Update state with human corrections */
@@ -190,7 +191,7 @@ export interface IQuestionService {
       crop: string;
       state: string;
       district: string;
-      domain: string;
+      domain: string | string[];
       season: string;
     }
   ): Promise<void>;
