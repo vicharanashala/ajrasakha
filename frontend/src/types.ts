@@ -1,7 +1,7 @@
 import type { UserCredential } from "firebase/auth";
 import type { DemographicEntry } from "./features/chatbotDashboard/types";
 
-export type UserRole = "admin" | "moderator" | "expert" | "pae_expert" | "tester"| "district_coordinator"| "block_coordinator" | "village_volunteer" | "call_agent";
+export type UserRole = "admin" | "moderator" | "expert" | "pae_expert" | "tester"| "district_coordinator"| "block_coordinator" | "village_volunteer" | "call_agent" | "gate_keeper" | "auditor";
 
 export interface ExtendedUserCredential extends UserCredential {
   _tokenResponse?: {
@@ -273,7 +273,7 @@ export type SupportedLanguage =
   | "sat-IN"
   | "sd-IN";
 
-export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold" | "pae_submitted" | "draft" | "duplicate" | "pass" | "non_agri" | "dynamic" | "queue_duplicate";
+export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold" | "pae_submitted" | "draft" | "duplicate" | "pass" | "non_agri" | "dynamic" | "queue_progress" | "auditor_review" | "dynamic_closed"|"queue_duplicate";
 export type ReRouteStatus = "pending" | "expert_rejected" | "expert_completed" | "moderator_rejected" | "moderator_approved" | "approved" | "rejected" | "modified" | "in-review";
 export interface ResponseDto {
   id: string;
@@ -516,6 +516,11 @@ export interface IQuestionFullData {
   assigned_moderator?: { name: string; email: string } | null;
   /** True when the requesting user is the moderator this question is assigned to. Gates the Pass / Accept / Push to GDB actions. */
   isAssignedModerator?: boolean;
+  /** Set when a Gate Keeper pushes the question to the Auditor. Status stays dynamic/duplicate;
+   *  this flag hands off control — Gate Keeper actions hide and Auditor actions appear. */
+  isPushedToAuditor?: boolean;
+  /** Timestamp of the Gate Keeper → Auditor hand-off. */
+  pushedToAuditorAt?: string | null;
   /** Timestamp when a moderator was assigned. Used to calculate moderator handling time (closedAt - moderatorAssignedAt). */
   moderatorAssignedAt?: string | null;
   closedFinalAnswer?: {

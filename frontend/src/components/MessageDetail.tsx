@@ -8,6 +8,7 @@ import type { IQuestionFullData, SourceItem } from "@/types";
 import { useGetQuestionMessageDetailsByQuestionId } from "@/hooks/api/question/useGetQuestionMessageDetailsByQuestionId";
 import { useUpdateAnswer } from "@/hooks/api/answer/useUpdateAnswer";
 import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
+import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/atoms/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/atoms/select";
@@ -592,12 +593,72 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
 
     const { mutateAsync: updateAnswer, isPending: isUpdating } = useUpdateAnswer();
     const { mutateAsync: updateQuestion, isPending: updatingQuestion } = useUpdateQuestion();
+    const { data: currentUser } = useGetCurrentUser({ enabled: true });
 
     // Only the moderator the question is assigned to (by the moderator-queue cron) may
     // act on it — Pass / Accept / Push to GDB are hidden from everyone else.
     // The backend resolves this against the requesting user (avoids ObjectId
     // serialization mismatches from comparing ids on the client).
     const isAssignedModerator = question?.isAssignedModerator === true;
+
+    // Gate Keeper / Auditor workflow roles. Gate Keeper triages every question
+    // (Pass / Push to Auditor / Allocate Experts); Auditor finalises it
+    // (Push to GDB for duplicates, Notify User for dynamic questions).
+    const role = currentUser?.role;
+    const isGateKeeper = role === "gate_keeper";
+    const isAuditor = role === "auditor";
+    const isDynamicQuestion = question?.status === "dynamic";
+    const isDuplicateQuestion = question?.status === "duplicate";
+    const isQueueProgress = question?.status === "queue_progress";
+
+    // Push to Auditor is a logical hand-off only — the question keeps its status
+    // (duplicate stays `duplicate`, dynamic stays `dynamic`). It sets the
+    // `isPushedToAuditor` flag, which hides the Gate Keeper actions and reveals the
+    // Auditor actions (Push to GDB for duplicate, Notify User for dynamic).
+    const handlePushToAuditor = async () => {
+        if (!question?._id) { toast.error("Question data is missing."); return; }
+        try {
+            await updateQuestion({
+                _id: question._id,
+                isPushedToAuditor: true,
+            } as any);
+            toast.success("Question pushed to Auditor");
+            navigateToQuestionPage();
+        } catch (error) {
+            console.error("Failed to push question to auditor:", error);
+            toast.error("Failed to push to Auditor. Please try again.");
+        }
+    };
+
+    // True once a Gate Keeper has handed the question off to the Auditor.
+    const isPushedToAuditor = question?.isPushedToAuditor === true;
+
+    // Cancel a question that is currently in the expert-allocation queue.
+    const handleCancelQueue = async () => {
+        if (!question?._id) { toast.error("Question data is missing."); return; }
+        try {
+            await updateQuestion({ _id: question._id, status: "open" } as any);
+            toast.success("Queue progress cancelled");
+            navigateToQuestionPage();
+        } catch (error) {
+            console.error("Failed to cancel queue progress:", error);
+            toast.error("Failed to cancel. Please try again.");
+        }
+    };
+
+    // Auditor "Notify User" flow for dynamic questions: notify the requesting user
+    // (best-effort) and close the question as `dynamic_closed`.
+    const handleNotifyUser = async () => {
+        if (!question?._id) { toast.error("Question data is missing."); return; }
+        try {
+            await updateQuestion({ _id: question._id, status: "dynamic_closed" } as any);
+            toast.success("User notified and question closed");
+            navigateToQuestionPage();
+        } catch (error) {
+            console.error("Failed to notify user:", error);
+            toast.error("Failed to notify user. Please try again.");
+        }
+    };
 
     useEffect(() => {
         const p = parseChatbotText(text);
@@ -831,8 +892,9 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                         </div>
                     )}
                 </div>
-                {/* Dynamic status: Show only Pass button (ignoring other conditions, role should not be expert) */}
-                {question.status === "dynamic" && question?.isHidden !== true && (
+                {/* Dynamic status: Show only Pass button (ignoring other conditions, role should not be expert).
+                    Gate Keeper / Auditor get their own dedicated action blocks below. */}
+                {question.status === "dynamic" && question?.isHidden !== true && !isGateKeeper && !isAuditor && (
                     <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
                         <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">This is a dynamic question. You can pass it to skip processing.</p>
                         <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
@@ -883,6 +945,75 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                                 </Button>
                             )}
 
+                        </div>
+                    </div>
+                )}
+
+                {/* Queue progress: while the question is in the expert-allocation queue,
+                    allow cancelling it. Visible to the workflow roles + admin/moderator. */}
+                {isQueueProgress && (isGateKeeper || isAuditor || role === "moderator" || role === "admin") && (
+                    <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
+                        <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">This question is in the expert-allocation queue. You can cancel to stop the allocation.</p>
+                        <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
+                            <Button type="button" variant="destructive" size="sm" disabled={updatingQuestion} onClick={handleCancelQueue} className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}>
+                                {updatingQuestion ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                                {updatingQuestion ? "Cancelling..." : "Cancel"}
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Gate Keeper: triage actions available for BOTH dynamic and duplicate questions. */}
+                {isGateKeeper && !isPushedToAuditor && !isQueueProgress && approved === null && (isDynamicQuestion || isDuplicateQuestion) && question?.isHidden !== true && (
+                    <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
+                        <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">As Gate Keeper you can Pass this question, push it to an Auditor, or allocate experts.</p>
+                        <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
+                            <Button type="button" variant="outline" size="sm" disabled={updatingQuestion} onClick={handleSkip} className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}>
+                                {updatingQuestion ? <Loader2 className="h-4 w-4 animate-spin" /> : <SkipForward className="h-4 w-4" />}
+                                {updatingQuestion ? "Passing..." : "Pass"}
+                            </Button>
+                            <Button type="button" variant="secondary" size="sm" disabled={updatingQuestion} onClick={handlePushToAuditor} className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}>
+                                {updatingQuestion ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUpRight className="h-4 w-4" />}
+                                {updatingQuestion ? "Pushing..." : "Push to Auditor"}
+                            </Button>
+                            <Button type="button" size="sm" disabled={isUpdating || !editedAnswerBody.trim()} onClick={handleAccept} className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90">
+                                {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                                {isUpdating ? "Allocating..." : "Allocate Experts"}
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Gate Keeper, after hand-off: actions are disabled until the Auditor acts. */}
+                {isGateKeeper && isPushedToAuditor && (isDynamicQuestion || isDuplicateQuestion) && question?.isHidden !== true && (
+                    <div className="w-full flex items-center gap-2 px-4 py-3 border-t border-border">
+                        <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                        <p className="text-xs text-muted-foreground leading-relaxed">This question has been pushed to the Auditor and is awaiting their review.</p>
+                    </div>
+                )}
+
+                {/* Auditor: finalise the question. Duplicate -> Push to GDB (close).
+                    Dynamic -> Notify User (close as dynamic_closed). */}
+                {isAuditor && isPushedToAuditor && !isQueueProgress && approved === null && (isDynamicQuestion || isDuplicateQuestion) && question?.isHidden !== true && (
+                    <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
+                        <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">
+                            {isDynamicQuestion
+                                ? "As Auditor you can notify the user and close this dynamic question."
+                                : "As Auditor you can push this duplicate question to the GDB."}
+                        </p>
+                        <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
+                            {isDuplicateQuestion && (
+                                <Button type="button" variant="destructive" size="sm" disabled={isUpdating || !editedAnswerBody.trim()} onClick={handlePushToGDB} className="gap-2 rounded-xl px-4">
+                                    {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                                    {isUpdating ? "Pushing to GDB..." : "Push to GDB"}
+                                </Button>
+                            )}
+                            {isDynamicQuestion && (
+                                <Button type="button" size="sm" disabled={updatingQuestion} onClick={handleNotifyUser} className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90">
+                                    {updatingQuestion ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                                    {updatingQuestion ? "Notifying..." : "Notify User"}
+                                </Button>
+                            )}
                         </div>
                     </div>
                 )}
