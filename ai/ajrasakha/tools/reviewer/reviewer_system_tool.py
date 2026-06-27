@@ -52,6 +52,7 @@ def upload_question_to_reviewer_system(
     details: Dict[str, Any],
     source: str,
     thread_id: Optional[str] = None,
+    tools_used: Optional[list[str]] = None,
 ) -> Dict[str, Any]:
     """
     Pushes a farmer's question to the reviewer system for the Agri team to review.
@@ -61,9 +62,10 @@ def upload_question_to_reviewer_system(
     - state_name (str): State from where the query originated. Must not be empty.
     - crop (str): Name of the crop related to the query. Must not be empty.
     - details (Dict[str, Any]): Strict contextual info. MUST contain exactly:
-        {"state": "...", "district": "...", "crop": "...", "season": "...", "domain": "..."}
+        {"state": "...", "district": "...", "crop": "...", "season": "...", "domain": "...", "tools_used": [...]}
     - source (str): Question channel identifier (e.g. AJRASAKHA, WHATSAPP, AJRASAKHA_WEBAPP).
     - thread_id (str, optional): LangGraph conversation id (from x-conversation-id). Injected by the agent, not inferred by the LLM.
+    - tools_used (list[str], optional): List of tools used to generate the answer (e.g. ["knowledge_base", "weather", "mandi"]). Empty list for non-agriculture queries.
     """
 
     if not isinstance(question, str) or not question.strip():
@@ -106,6 +108,7 @@ def upload_question_to_reviewer_system(
         "crop": crop.strip(),
         "details": details,
         "source": normalized_source,
+        "tools_used": tools_used if tools_used is not None else [],
     }
     if thread_id and str(thread_id).strip():
         payload["threadId"] = str(thread_id).strip()

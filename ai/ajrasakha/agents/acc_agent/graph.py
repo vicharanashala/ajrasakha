@@ -20,7 +20,9 @@ def build_graph():
     builder.add_edge("tool_execution", "assembler")
     builder.add_edge("assembler", END)
     
+    checkpointer = MemorySaver()
     graph = builder.compile(
+        checkpointer=checkpointer,
         interrupt_after=["extract"]
     )
     

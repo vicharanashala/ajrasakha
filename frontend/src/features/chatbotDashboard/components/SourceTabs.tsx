@@ -49,7 +49,7 @@ export function SourceTabsHeader({
               : "text-muted-foreground hover:bg-accent"
           )}
         >
-          Annam
+          Web Application
         </motion.button>
         <motion.button
           whileHover={{ scale: 1.05 }}

@@ -7,6 +7,7 @@ import {
   IReview,
   IUser,
   QuestionStatus,
+  QuestionSource,
   IReroute,
   ISimilarQuestion,
   ICheckStatusResponse,
@@ -224,6 +225,10 @@ export class QuestionRepository implements IQuestionRepository {
     try {
       await this.init();
       if (!question._id) question._id = new ObjectId();
+      // New questions are eligible for moderator auto-allocation by default.
+      if (question.autoAllocateModerator === undefined) {
+        question.autoAllocateModerator = true;
+      }
 
       await this.QuestionCollection.insertOne(question, {session});
 
@@ -344,6 +349,7 @@ export class QuestionRepository implements IQuestionRepository {
         unallocatedQuestions,
         pae_review,
         is_non_agri,
+        moderatorId,
       } = query;
       //  const filter: any = {};
       const filter: any = {
@@ -464,6 +470,32 @@ export class QuestionRepository implements IQuestionRepository {
       } else if (filter.status === undefined) {
         filter.status = {$nin: ['non_agri']};
       }
+
+      // --- Dedicated (moderator-assigned) tab filter ---
+      // When filtering by moderatorId, always restrict to active statuses only
+      // (in-review, re-routed, duplicate or pae_submitted), overriding any status filter
+      // the frontend sent. 'duplicate' and 'pae_submitted' are included because the
+      // moderator-queue cron assigns those to moderators alongside in-review ones.
+      if (moderatorId) {
+        const modOid = new ObjectId(moderatorId as string);
+        // Match both a correct ObjectId AND any legacy doc where moderatorId was
+        // persisted as a serialized Buffer ({ buffer: { data: [...12 bytes...] } }),
+        // so those still surface in the moderator's assignments until migrated.
+        if (!filter.$and) filter.$and = [];
+        filter.$and.push({
+          $or: [
+            { moderatorId: modOid },
+            { 'moderatorId.buffer.data': Array.from(modOid.id) },
+          ],
+        });
+        filter.status = { $in: ['in-review', 're-routed', 'duplicate', 'pae_submitted'] };
+        // A moderator's assignments span all question types (including PAE questions),
+        // so drop the pae_review restriction applied above for the normal tabs —
+        // otherwise pae_review:true assignments would be hidden from "My Assignments".
+        delete filter.$or;
+        delete filter.pae_review;
+      }
+
       // --- State filter (from body array) ---
       if (body?.states && body.states.length > 0) {
         filter['details.state'] = {$in: body.states};
@@ -2340,6 +2372,20 @@ export class QuestionRepository implements IQuestionRepository {
         }
       }
 
+      // Same normalisation for moderatorId — callers (e.g. the edit-question flow)
+      // can send it back JSON-serialized as a { buffer: { data: [...] } } object;
+      // coerce it to a real ObjectId so it isn't persisted as a Buffer.
+      if ((updates as any).moderatorId) {
+        const mid = (updates as any).moderatorId;
+        if (mid instanceof ObjectId) {
+          // already correct
+        } else if (mid?.buffer?.data) {
+          (updates as any).moderatorId = new ObjectId(Buffer.from(mid.buffer.data));
+        } else {
+          (updates as any).moderatorId = new ObjectId(String(mid));
+        }
+      }
+
       const contextValue = (updates as any).context;
       if (contextValue) {
         delete (updates as any).context;
@@ -2368,6 +2414,11 @@ export class QuestionRepository implements IQuestionRepository {
         updateOperation,
         {session},
       );
+
+      // Keep the denormalised status on any moderator holding this question in sync.
+      if (updates.status) {
+        await this.syncModeratorAssignedStatus(questionId, updates.status, session);
+      }
 
       if (updates.status === 'in-review') {
         const submission = await this.QuestionSubmissionCollection.findOne(
@@ -2588,6 +2639,42 @@ export class QuestionRepository implements IQuestionRepository {
       {$set: update},
       {session},
     );
+
+    // Keep the denormalised status on any moderator holding this question in sync.
+    await this.syncModeratorAssignedStatus(id, status as QuestionStatus, session);
+  }
+
+  /** Updates the denormalised status on whichever moderator currently holds this
+   *  question in their assignedQuestionIds array (a question is held by at most one).
+   *  No-op when no moderator holds it. Called from every question status-write path so
+   *  the cron's free/busy decision stays accurate (e.g. in-review → re-routed frees the
+   *  moderator; re-routed → in-review makes them busy again). */
+  private async syncModeratorAssignedStatus(
+    questionId: string,
+    status: QuestionStatus,
+    session?: ClientSession,
+  ): Promise<void> {
+    // Best-effort: this is a denormalised cache for free/busy. A failure here must not
+    // break the primary question-status update; it self-heals on the next transition.
+    try {
+      await this.init();
+      const qid = new ObjectId(questionId);
+      await this.UsersCollection.updateOne(
+        {'assignedQuestionIds.questionId': qid} as any,
+        {
+          $set: {
+            'assignedQuestionIds.$[entry].status': status,
+            updatedAt: new Date(),
+          },
+        } as any,
+        {arrayFilters: [{'entry.questionId': qid}], session},
+      );
+    } catch (err: any) {
+      console.error(
+        `[assignedQuestionIds] Failed to sync status for question ${questionId}:`,
+        err?.message,
+      );
+    }
   }
 
   async getQuestionsByStatus(
@@ -4940,6 +5027,8 @@ export class QuestionRepository implements IQuestionRepository {
           question: 1,
           status: 1,
           createdAt: 1,
+          updatedAt: 1,
+          moderatorAssignedAt: 1,
           authors_history: 1, // ← Add authors_history to projection
         },
       },
@@ -5384,9 +5473,11 @@ export class QuestionRepository implements IQuestionRepository {
           question: 1,
           status: 1,
           createdAt: 1,
+          updatedAt: 1,
           reviewLevels: 1,
           totalTurnAround: 1,
           authors_history: 1,
+          moderatorAssignedAt: 1,
           submission: {
             _id: '$submission._id',
             questionId: '$submission.questionId',
@@ -5430,8 +5521,10 @@ export class QuestionRepository implements IQuestionRepository {
         question: doc.question,
         status: doc.status,
         createdAt: doc.createdAt,
+        updatedAt: doc.updatedAt ?? null,
         reviewLevels: doc.reviewLevels,
         authors_history: doc.authors_history,
+        moderatorAssignedAt: doc.moderatorAssignedAt ?? null,
         submission: doc.submission,
       })),
     };
@@ -7124,6 +7217,66 @@ export class QuestionRepository implements IQuestionRepository {
     }));
   }
 
+  /** Returns in-review questions with no moderator assigned yet, ordered oldest first. */
+  async findUnassignedInReviewQuestions(
+    sources?: QuestionSource[],
+  ): Promise<IQuestion[]> {
+    await this.init();
+    // Picks up in-review, duplicate and pae_submitted questions so the moderator-queue
+    // cron assigns them all to STF moderators (PAE-submitted questions skip the peer
+    // review cycle but still need a moderator to act on them).
+    // Only questions with moderator auto-allocation explicitly ON are returned — a
+    // missing field or false both exclude the question from the moderator queue.
+    // New questions default the field to true on creation.
+    // When `sources` is provided, restricts to that source group (time-bound / manual).
+    const filter: Record<string, unknown> = {
+      status: { $in: ['in-review', 'duplicate', 'pae_submitted'] },
+      autoAllocateModerator: true,
+      $or: [{ moderatorId: { $exists: false } }, { moderatorId: null }],
+    };
+    if (sources && sources.length > 0) {
+      filter.source = { $in: sources };
+    }
+    return this.QuestionCollection.find(filter)
+      .sort({ createdAt: 1 })
+      .toArray();
+  }
+
+  /** Questions currently assigned to a moderator (moderatorId set). Includes
+   *  in-review, re-routed, duplicate and pae_submitted statuses — mirrors the
+   *  moderator-assigned tab filter, so re-routed questions (which always carry a
+   *  moderatorId) show up here too. Oldest first. */
+  async findModeratorAssignedQuestions(
+    sources?: QuestionSource[],
+  ): Promise<IQuestion[]> {
+    await this.init();
+    const filter: Record<string, unknown> = {
+      status: { $in: ['in-review', 're-routed', 'duplicate', 'pae_submitted'] },
+      moderatorId: { $exists: true, $ne: null },
+    };
+    if (sources && sources.length > 0) {
+      filter.source = { $in: sources };
+    }
+    return this.QuestionCollection.find(filter)
+      .sort({ createdAt: 1 })
+      .toArray();
+  }
+
+  /** Sets or clears moderatorId on a question document. Also stamps moderatorAssignedAt when assigning. */
+  async updateModeratorId(questionId: string, moderatorId: string | null): Promise<void> {
+    await this.init();
+    const now = new Date();
+    await this.QuestionCollection.updateOne(
+      { _id: new ObjectId(questionId) },
+      {
+        $set: {
+          moderatorId: moderatorId ? new ObjectId(moderatorId) : null,
+          moderatorAssignedAt: moderatorId ? now : null,
+          updatedAt: now,
+        },
+      },
+    );
+  }
   /** One page (skip/limit) + exact total for a Queue-Details question section.
    *  kind: 'received' | 'allocated' | 'autoOff'. Status scope: open/delayed/duplicate.
    *  Optional createdAt range (startTime/endTime) scopes every kind by date. */
@@ -7153,7 +7306,7 @@ export class QuestionRepository implements IQuestionRepository {
       isAutoAllocate: {$eq: true},
      // firstAllocationAt: {$exists: true, $ne: null},
       status: {$in: ['open', 'delayed']},
-    //  ...dateScope,
+      // ...dateScope,
     };
     const autoOffMatch = {
       source: {$in: ['AJRASAKHA', 'WHATSAPP']},

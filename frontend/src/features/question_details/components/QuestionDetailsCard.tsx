@@ -12,6 +12,7 @@ import {
   Layers,
   Leaf,
   Link2,
+  Mail,
   MapPin,
   Sprout,
 } from "lucide-react";
@@ -129,10 +130,25 @@ export const QuestionDetailsCard = ({
             <span className="text-muted-foreground">Domain</span>
             <span
               className="truncate"
-              title={question.details?.domain?.join(", ")}
+              title={
+                (Array.isArray(question.details?.domain)
+                  ? question.details.domain
+                  : typeof question.details?.domain === "string" && question.details.domain.trim()
+                    ? [question.details.domain]
+                    : []
+                ).join(", ")
+              }
             >
-              {question.details?.domain?.length > 0
-                ? question.details.domain.join(", ")
+              {(Array.isArray(question.details?.domain)
+                ? question.details.domain
+                : typeof question.details?.domain === "string" && question.details.domain.trim()
+                  ? [question.details.domain]
+                  : []
+              ).length > 0
+                ? (Array.isArray(question.details?.domain)
+                  ? question.details.domain
+                  : [question.details.domain]
+                ).join(", ")
                 : "-"}
             </span>
           </div>
@@ -154,14 +170,20 @@ export const QuestionDetailsCard = ({
         <div className="flex flex-col items-end gap-1 min-w-0">
           {question.source === "WHATSAPP" && question.threadId && (
             <div className="flex flex-col items-end min-w-0">
-              <span className="text-muted-foreground">WhatsApp Thread ID</span>
+              <span className="text-muted-foreground">
+                {question.threadUserEmail && <span className="mr-1">({question.threadUserEmail})</span>}
+                WhatsApp Thread ID:
+              </span>
               <ThreadIdLink threadId={question.threadId} />
             </div>
           )}
 
           {question.source !== "WHATSAPP" && question.threadId && (
             <div className="flex flex-col items-end">
-              <span className="text-muted-foreground">Thread ID</span>
+              <span className="text-muted-foreground">
+                {question.threadUserEmail && <span className="mr-1">({question.threadUserEmail})</span>}
+                Thread ID:
+              </span>
               <span className="rounded-md border bg-muted px-2 py-1 text-xs font-medium text-foreground break-all">
                 {question.threadId}
               </span>

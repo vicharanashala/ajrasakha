@@ -1,14 +1,10 @@
 import { useMutation } from '@tanstack/react-query';
 import { apiFetch } from '@/hooks/api/api-fetch';
 import { env } from '@/config/env';
-import { toast } from '@/shared/components/toast';
+import { toast } from 'sonner';
 
 export function useNotifyUser() {
   return useMutation({
-    onMutate: ()=>{
-      const toastId = toast.loading('sending...');
-      return {toastId}
-    },
     mutationFn: async ({
       userEmail,
       messageId,
@@ -32,13 +28,11 @@ export function useNotifyUser() {
       return result;
     },
 
-    onSuccess: (_,__,context) => {
-      if(context?.toastId)toast.dismiss(context.toastId);
+    onSuccess: () => {
       toast.success('Notification sent successfully');
     },
 
-    onError: (error: any,_,context) => {
-      if(context?.toastId)toast.dismiss(context.toastId);
+    onError: (error: any) => {
       toast.error(error?.message || 'Failed to send notification');
     },
   });

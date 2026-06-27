@@ -8,6 +8,7 @@ import { startPaeAllocationWorker } from '#root/workers/paeAllocation.manager.js
 import { startBulkDeleteWorker } from '#root/workers/bulkDelete.manager.js';
 import {
   IQuestion,
+  IUser,
   IQuestionSubmission,
   ISubmissionHistory,
   IAnswer,
@@ -18,6 +19,10 @@ import {
   ICheckStatusResponse,
   IPreviousAllocations,
   IAuthorsHistory,
+  QuestionStatus,
+  QuestionSource,
+  TIME_BOUND_SOURCES,
+  MANUAL_SOURCES,
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
@@ -1220,6 +1225,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       const userIdFromBody = body.userId;
       const referenceQuestionDetailsFromBody = body.referenceQuestionDetails;
       const popContextFromBody = body.popContext;
+      const toolsUsed = body.tools_used || [];
       body = normalizeKeysToLower(body);
 
       let {
@@ -1366,6 +1372,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           metrics: null,
           aiInitialAnswer,
           text,
+          toolsUsed,
           createdAt: new Date(),
           updatedAt: new Date(),
           ...(source !== 'AGRI_EXPERT' && { originalQuestion: originalquestion }),
@@ -1886,6 +1893,16 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
         if (threadUpdate) {
           return await this.questionRepo.updateThreadId(questionId, updates.threadId!, session);
+        }
+        // When a question is passed, remove it from any moderator's assignedQuestionIds
+        // so the cron sees them as available again. Keyed by questionId so a
+        // malformed/missing moderatorId can't leave an orphan entry behind.
+        if (updates.status === 'pass') {
+          try {
+            await this.userRepo.removeAssignedQuestionFromAllModerators(questionId, session);
+          } catch (err: any) {
+            console.error('[ModeratorQueue] Failed to clear passed question from moderators:', err?.message);
+          }
         }
         return this.questionRepo.updateQuestion(questionId, updates, session);
       });
@@ -3495,6 +3512,13 @@ export class QuestionService extends BaseService implements IQuestionService {
         activeSession,
       );
 
+      // Pull this question from any moderator's assignedQuestionIds so no orphan entry
+      // is left behind keeping them wrongly "busy" after the question is gone.
+      await this.userRepo.removeAssignedQuestionFromAllModerators(
+        questionId,
+        activeSession,
+      );
+
       // Finally, delete the question itself
       return this.questionRepo.deleteQuestion(questionId, activeSession);
     };
@@ -3525,7 +3549,9 @@ export class QuestionService extends BaseService implements IQuestionService {
     userId: string,
   ): Promise<{
     question: IQuestion | null;
-    approved_moderator: { name: string; email: string };
+    approved_moderator: {name: string; email: string};
+    assigned_moderator: {name: string; email: string} | null;
+    isAssignedModerator: boolean;
   }> {
     try {
       const user = await this.userRepo.findById(userId);
@@ -3547,7 +3573,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         const answers = await this.answerRepo.getByQuestionId(questionId);
         const finalizedAnswer = answers.find(answer => answer.isFinalAnswer);
 
-        if (finalizedAnswer?.approvedBy) {
+        if (finalizedAnswer?.approvedBy && ObjectId.isValid(finalizedAnswer.approvedBy)) {
           const moderator = await this.userRepo.findById(
             finalizedAnswer.approvedBy,
           );
@@ -3561,12 +3587,98 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
       }
 
+      // Resolve the currently assigned moderator (if any). Guard against a malformed
+      // moderatorId (e.g. a serialized-Buffer object that stringifies to a non-hex
+      // value) so a bad value can't blow up the whole question fetch with a BSONError.
+      let assigned_moderator: {name: string; email: string} | null = null;
+      const assignedModeratorId = (question as any).moderatorId?.toString();
+      if (assignedModeratorId && ObjectId.isValid(assignedModeratorId)) {
+        const mod = await this.userRepo.findById(assignedModeratorId);
+        if (mod) {
+          assigned_moderator = {
+            name: `${mod.firstName} ${mod.lastName ?? ''}`.trim(),
+            email: mod.email,
+          };
+        }
+      }
+
+      // Whether the requesting user is the moderator this question is assigned to.
+      // Used by the UI to gate the Pass / Accept / Push to GDB actions.
+      const isAssignedModerator = !!assignedModeratorId && assignedModeratorId === userId;
+
+      // Resolve user email from conversation collection using threadId
+      let threadUserEmail: string | null = null;
+      if (question.threadId) {
+        threadUserEmail = await this.chatbotRepository.getUserEmailByConversationId(
+          question.threadId,
+        );
+      }
+
       return {
-        question,
+        question: {
+          ...question,
+          threadUserEmail,
+        },
         approved_moderator,
+        assigned_moderator,
+        isAssignedModerator,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to fetch question data: ${error}`);
+    }
+  }
+
+  /**
+   * Manually (re)assign the moderator for a question.
+   * - Sets moderatorId and stamps moderatorAssignedAt to now on the question (handled in the repo).
+   * - Keeps the user docs consistent with the cron: pulls this question from the previous
+   *   moderator's assignedQuestionIds array and appends it to the new moderator's array.
+   *   A moderator stays "busy" (not picked by the cron) as long as their array is non-empty,
+   *   so manual allocation can stack multiple questions onto one moderator.
+   */
+  async changeQuestionModerator(questionId: string, moderatorId: string): Promise<void> {
+    // Read the currently assigned moderator (if any) so we can free them.
+    const question = await this.questionRepo.getById(questionId);
+    const previousModeratorId = (question as any)?.moderatorId?.toString();
+
+    // Point the question at the new moderator (also stamps moderatorAssignedAt = now).
+    await this.questionRepo.updateModeratorId(questionId, moderatorId);
+
+    // Pull this question from the previous moderator and append it to the new one,
+    // carrying the question's current status so free/busy stays accurate. Guard against
+    // a malformed previous moderatorId so a bad value can't throw a BSONError.
+    if (
+      previousModeratorId &&
+      ObjectId.isValid(previousModeratorId) &&
+      previousModeratorId !== moderatorId
+    ) {
+      await this.userRepo.removeAssignedQuestion(previousModeratorId, questionId);
+    }
+    await this.userRepo.addAssignedQuestion(
+      moderatorId,
+      questionId,
+      ((question as any)?.status ?? 'in-review') as QuestionStatus,
+      (question as any)?.source,
+    );
+  }
+
+  /**
+   * Remove the moderator currently assigned to a question.
+   * - Pulls this question from the assigned moderator's assignedQuestionIds array, so the
+   *   cron's "is this moderator free?" check (array empty) stays accurate.
+   * - Nulls moderatorId and moderatorAssignedAt on the question (handled in the repo).
+   */
+  async removeQuestionModerator(questionId: string): Promise<void> {
+    const question = await this.questionRepo.getById(questionId);
+    const previousModeratorId = (question as any)?.moderatorId?.toString();
+
+    // Null out moderatorId and moderatorAssignedAt on the question.
+    await this.questionRepo.updateModeratorId(questionId, null);
+
+    // Pull this question from the previously assigned moderator's array. Guard against
+    // a malformed previous moderatorId so a bad value can't throw a BSONError.
+    if (previousModeratorId && ObjectId.isValid(previousModeratorId)) {
+      await this.userRepo.removeAssignedQuestion(previousModeratorId, questionId);
     }
   }
 
@@ -5853,6 +5965,121 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // MODERATOR QUEUE CRON
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Periodic cron job — moderator queue management.
+   *
+   * Logic:
+   *  1. Find all in-review questions that have no moderatorId assigned.
+   *  2. Find available moderators — those whose assignedQuestionIds array is empty.
+   *  3. For each available moderator, assign the oldest unassigned in-review question:
+   *       - Set question.moderatorId = moderatorId
+   *       - Append questionId to user.assignedQuestionIds
+   *       - Push a moderator history entry into the submission
+   *       - Notify the moderator
+   *
+   * De-assignment:
+   *  When the moderator closes (approves) a question, AnswerService:
+   *       - keeps question.moderatorId for history
+   *       - pulls questionId from user.assignedQuestionIds
+   *  …making the moderator available again on the next cron run once the array is empty.
+   */
+  async runModeratorQueueCron(): Promise<{ assigned: number; availableWaiting: number; failedAssignments: number }> {
+    console.log('[ModeratorQueue] Starting moderator queue assignment check...');
+    try {
+      // Source-aware assignment: a moderator may hold ONE time-bound question and ONE
+      // manual (non-time-bound) question at the same time. Availability is evaluated
+      // per source group, so the two passes below are independent — a moderator free
+      // for both categories can receive one of each in a single run, while a moderator
+      // already holding (say) a time-bound question still receives a manual one.
+      const [
+        timeBoundModerators,
+        manualModerators,
+        timeBoundQuestions,
+        manualQuestions,
+      ] = await Promise.all([
+        this.userRepo.findAvailableStfModeratorsForSources(TIME_BOUND_SOURCES),
+        this.userRepo.findAvailableStfModeratorsForSources(MANUAL_SOURCES),
+        this.questionRepo.findUnassignedInReviewQuestions(TIME_BOUND_SOURCES),
+        this.questionRepo.findUnassignedInReviewQuestions(MANUAL_SOURCES),
+      ]);
+
+      // Track claimed question IDs across both passes so a question is never assigned
+      // twice (the buckets are disjoint by source, but this is a cheap safety net).
+      const claimedIds = new Set<string>();
+      let assigned = 0;
+      let availableWaiting = 0;
+      let failedAssignments = 0;
+
+      // Assign one question per available moderator within a single source group.
+      const runPass = async (
+        label: string,
+        moderators: IUser[],
+        questions: IQuestion[],
+      ) => {
+        for (const moderator of moderators) {
+          const moderatorId = moderator._id!.toString();
+
+          const nextQuestion = questions.find(
+            (q: any) => !claimedIds.has(q._id.toString()),
+          );
+          if (!nextQuestion) {
+            // Moderator is free for this category but no more questions left in it.
+            availableWaiting++;
+            continue;
+          }
+
+          const questionId = nextQuestion._id!.toString();
+          claimedIds.add(questionId);
+
+          try {
+            // Assign question to moderator — update both documents and notify.
+            await Promise.all([
+              this.questionRepo.updateModeratorId(questionId, moderatorId),
+              // Store the question's actual status (the cron assigns both in-review and
+              // duplicate questions) and its source (used for source-aware availability).
+              this.userRepo.addAssignedQuestion(
+                moderatorId,
+                questionId,
+                ((nextQuestion as any)?.status ?? 'in-review') as QuestionStatus,
+                (nextQuestion as any)?.source,
+              ),
+              this.notificationService.saveTheNotifications(
+                'A question has been assigned to you for moderation',
+                'Moderation Assigned',
+                questionId,
+                moderatorId,
+                'moderator_approval',
+              ),
+            ]);
+            console.log(`[ModeratorQueue] (${label}) Assigned question ${questionId} → moderator ${moderatorId}`);
+            assigned++;
+          } catch (err: any) {
+            console.error(`[ModeratorQueue] (${label}) Failed to assign ${questionId} → ${moderatorId}:`, err?.message);
+            claimedIds.delete(questionId);
+            failedAssignments++;
+          }
+        }
+      };
+
+      if (!timeBoundModerators.length && !manualModerators.length) {
+        console.log('[ModeratorQueue] No available moderators for either category.');
+      }
+
+      await runPass('time-bound', timeBoundModerators, timeBoundQuestions);
+      await runPass('manual', manualModerators, manualQuestions);
+
+      console.log(`[ModeratorQueue] Done. assigned=${assigned}, availableWaiting=${availableWaiting}, failed=${failedAssignments}`);
+      return { assigned, availableWaiting, failedAssignments };
+    } catch (error: any) {
+      console.error('[ModeratorQueue] runModeratorQueueCron failed:', error?.message);
+      throw new InternalServerError(`Moderator queue cron failed: ${error?.message}`);
+    }
+  }
+
   /** Periodic job — handles three cases for time-bound (AJRASAKHA/WHATSAPP) questions:
    *  A) Expert allocated but didn't open in 45 min → penalise + replace.
    *  B) Question never allocated → initial assignment.
@@ -6561,6 +6788,121 @@ export class QuestionService extends BaseService implements IQuestionService {
         return {count, items};
       }
 
+      case 'moderatorWaiting': {
+        // Same method (and therefore the same number) the moderator-queue cron uses:
+        // in-review/duplicate questions with no moderator assigned yet. No date
+        // filter so the count always matches what the cron picks up.
+        const qs = (await this.questionRepo.findUnassignedInReviewQuestions()) as any[];
+        const count = qs.length;
+        const pageQs = qs.slice(skip, skip + safeLimit);
+        // Map a full question doc through the submission mapper (wraps it as `.question`).
+        return {count, items: pageQs.map(q => this.submissionToQueueItem({question: q}))};
+      }
+
+      case 'moderatorAllocated': {
+        // Questions currently assigned to a moderator (moderatorId set). Re-routed
+        // questions always carry a moderatorId, so they appear here too. Each item
+        // is tagged with the assigned moderator's name.
+        const qs = (await this.questionRepo.findModeratorAssignedQuestions()) as any[];
+        const count = qs.length;
+        const pageQs = qs.slice(skip, skip + safeLimit);
+        const ids = pageQs
+          .map(q => q.moderatorId?.toString())
+          .filter(Boolean) as string[];
+        const names = await this.resolveExpertNames(ids);
+        const items: QueueQuestionItem[] = pageQs.map(q => ({
+          ...this.submissionToQueueItem({question: q}),
+          moderatorName: q.moderatorId
+            ? names.get(q.moderatorId.toString()) ?? 'Unknown'
+            : undefined,
+        }));
+        return {count, items};
+      }
+
+      case 'availableModerators': {
+        // Same method (and therefore the same pool) the moderator-queue cron assigns
+        // from: STF moderators with no question currently assigned.
+        const mods = (await this.userRepo.findAvailableStfModerators()) as any[];
+        const items: QueueExpertItem[] = mods.slice(skip, skip + safeLimit).map(m => ({
+          _id: m._id.toString(),
+          name: `${m.firstName ?? ''} ${m.lastName ?? ''}`.trim() || m.email || 'Unknown',
+          email: m.email,
+          reputationScore: m.reputation_score,
+          role: m.role,
+          isSpecialTaskForce: m.special_task_force === true,
+        }));
+        return {count: mods.length, items};
+      }
+
+      // ── Source-split moderator-queue sections (time-bound vs manual) ──
+      // Same data as the three sections above, scoped to one source group so the UI
+      // can show the moderator queue split into Time-bound / Manual.
+      case 'moderatorWaitingTimeBound':
+      case 'moderatorWaitingManual': {
+        const sources =
+          section === 'moderatorWaitingTimeBound'
+            ? TIME_BOUND_SOURCES
+            : MANUAL_SOURCES;
+        const qs = (await this.questionRepo.findUnassignedInReviewQuestions(
+          sources,
+        )) as any[];
+        const count = qs.length;
+        const pageQs = qs.slice(skip, skip + safeLimit);
+        return {
+          count,
+          items: pageQs.map(q => this.submissionToQueueItem({question: q})),
+        };
+      }
+
+      case 'moderatorAllocatedTimeBound':
+      case 'moderatorAllocatedManual': {
+        const sources =
+          section === 'moderatorAllocatedTimeBound'
+            ? TIME_BOUND_SOURCES
+            : MANUAL_SOURCES;
+        const qs = (await this.questionRepo.findModeratorAssignedQuestions(
+          sources,
+        )) as any[];
+        const count = qs.length;
+        const pageQs = qs.slice(skip, skip + safeLimit);
+        const ids = pageQs
+          .map(q => q.moderatorId?.toString())
+          .filter(Boolean) as string[];
+        const names = await this.resolveExpertNames(ids);
+        const items: QueueQuestionItem[] = pageQs.map(q => ({
+          ...this.submissionToQueueItem({question: q}),
+          moderatorName: q.moderatorId
+            ? names.get(q.moderatorId.toString()) ?? 'Unknown'
+            : undefined,
+        }));
+        return {count, items};
+      }
+
+      case 'availableModeratorsTimeBound':
+      case 'availableModeratorsManual': {
+        const sources =
+          section === 'availableModeratorsTimeBound'
+            ? TIME_BOUND_SOURCES
+            : MANUAL_SOURCES;
+        const mods = (await this.userRepo.findAvailableStfModeratorsForSources(
+          sources,
+        )) as any[];
+        const items: QueueExpertItem[] = mods
+          .slice(skip, skip + safeLimit)
+          .map(m => ({
+            _id: m._id.toString(),
+            name:
+              `${m.firstName ?? ''} ${m.lastName ?? ''}`.trim() ||
+              m.email ||
+              'Unknown',
+            email: m.email,
+            reputationScore: m.reputation_score,
+            role: m.role,
+            isSpecialTaskForce: m.special_task_force === true,
+          }));
+        return {count: mods.length, items};
+      }
+
       default:
         return {count: 0, items: []};
     }
@@ -6573,17 +6915,59 @@ export class QuestionService extends BaseService implements IQuestionService {
   async getQueueDetails(startTime?: Date, endTime?: Date): Promise<QueueDetailsResponse> {
     const PAGE = 1;
     const LIMIT = 50;
-    const [received, autoAllocateOff, allocated, waiting, freeExperts, stuck, needsReviewer, totalWork, openedIdle] =
+    // Run each section independently so one failing section logs which one broke and
+    // returns an empty result, rather than 500ing the whole queue-details endpoint.
+    const safe = async (section: QueueSectionName): Promise<QueueSectionResult> => {
+      try {
+        return await this.getQueueSection(section, PAGE, LIMIT, startTime, endTime);
+      } catch (err: any) {
+        console.error(
+          `[getQueueDetails] section '${section}' failed:`,
+          err?.message,
+          err?.stack?.split('\n')?.slice(0, 4)?.join('\n'),
+        );
+        return {count: 0, items: []};
+      }
+    };
+    const [
+      received,
+      autoAllocateOff,
+      allocated,
+      waiting,
+      freeExperts,
+      stuck,
+      needsReviewer,
+      totalWork,
+      openedIdle,
+      moderatorWaiting,
+      moderatorAllocated,
+      availableModerators,
+      moderatorWaitingTimeBound,
+      moderatorWaitingManual,
+      moderatorAllocatedTimeBound,
+      moderatorAllocatedManual,
+      availableModeratorsTimeBound,
+      availableModeratorsManual,
+    ] =
       await Promise.all([
-        this.getQueueSection('received', PAGE, LIMIT, startTime, endTime),
-        this.getQueueSection('autoAllocateOff', PAGE, LIMIT, startTime, endTime),
-        this.getQueueSection('allocated', PAGE, LIMIT, startTime, endTime),
-        this.getQueueSection('waiting', PAGE, LIMIT, startTime, endTime),
-        this.getQueueSection('freeExperts', PAGE, LIMIT, startTime, endTime),
-        this.getQueueSection('stuck', PAGE, LIMIT, startTime, endTime),
-        this.getQueueSection('needsReviewer', PAGE, LIMIT, startTime, endTime),
-        this.getQueueSection('totalWork', PAGE, LIMIT, startTime, endTime),
-        this.getQueueSection('openedIdle', PAGE, LIMIT, startTime, endTime),
+        safe('received'),
+        safe('autoAllocateOff'),
+        safe('allocated'),
+        safe('waiting'),
+        safe('freeExperts'),
+        safe('stuck'),
+        safe('needsReviewer'),
+        safe('totalWork'),
+        safe('openedIdle'),
+        safe('moderatorWaiting'),
+        safe('moderatorAllocated'),
+        safe('availableModerators'),
+        safe('moderatorWaitingTimeBound'),
+        safe('moderatorWaitingManual'),
+        safe('moderatorAllocatedTimeBound'),
+        safe('moderatorAllocatedManual'),
+        safe('availableModeratorsTimeBound'),
+        safe('availableModeratorsManual'),
       ]);
 
     return {
@@ -6596,6 +6980,15 @@ export class QuestionService extends BaseService implements IQuestionService {
       needsReviewer: needsReviewer as QueueDetailsResponse['needsReviewer'],
       totalWork: totalWork as QueueDetailsResponse['totalWork'],
       openedIdle: openedIdle as QueueDetailsResponse['openedIdle'],
+      moderatorWaiting: moderatorWaiting as QueueDetailsResponse['moderatorWaiting'],
+      moderatorAllocated: moderatorAllocated as QueueDetailsResponse['moderatorAllocated'],
+      availableModerators: availableModerators as QueueDetailsResponse['availableModerators'],
+      moderatorWaitingTimeBound: moderatorWaitingTimeBound as QueueDetailsResponse['moderatorWaitingTimeBound'],
+      moderatorWaitingManual: moderatorWaitingManual as QueueDetailsResponse['moderatorWaitingManual'],
+      moderatorAllocatedTimeBound: moderatorAllocatedTimeBound as QueueDetailsResponse['moderatorAllocatedTimeBound'],
+      moderatorAllocatedManual: moderatorAllocatedManual as QueueDetailsResponse['moderatorAllocatedManual'],
+      availableModeratorsTimeBound: availableModeratorsTimeBound as QueueDetailsResponse['availableModeratorsTimeBound'],
+      availableModeratorsManual: availableModeratorsManual as QueueDetailsResponse['availableModeratorsManual'],
     };
   }
 }

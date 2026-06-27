@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AnswerService } from "../../services/answerService";
+import {toast} from "sonner";
 import type { SourceItem, SubmitAnswerResponse } from "@/types";
-import { toast } from "@/shared/components/toast";
 
 const questionService = new AnswerService();
 export const useSubmitAnswer = () => {

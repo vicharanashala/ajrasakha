@@ -43,7 +43,7 @@ import type {
   FarmerHeatMapRow,
   FarmerHeatMapMetricTotals,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
-import {IQuestion, QuestionSource} from '#root/shared/interfaces/models.js';
+import {IQuestion, IQuestionSubmission, QuestionSource} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
 import {DISTRICTS} from '#root/utils/districts.js';
 import {getFirebaseAuth} from '#root/config/firebaseAdmin.js';
@@ -55,6 +55,7 @@ import {BLOCKS, VILLAGES} from '#root/metaData.js';
 import {ILocationDistrict, ILocationState} from '#root/modules/lgd/interfaces/ILocationService.js';
 // import { BLOCKS, VILLAGES } from '#root/metaData.js';
 import { buildBaseQuestionMatch } from '#root/utils/dashboard-filters.js';
+import { buildReviewTimeline } from '#root/utils/buildReviewTat.js';
 
 const EXTERNAL_USER_ROLES = ['FARMER', ...COORDINATOR_ROLES] as const;
 
@@ -487,12 +488,18 @@ export class ChatbotRepository implements IChatbotRepository {
   }
   private QuestionCollection: Collection<IQuestion>;
   private duplicateQuestionCollection: Collection<any>;
+  private QuestionSubmissionsCollection: Collection<IQuestionSubmission>;
+  private Reroutes: Collection<any>;
+  private ReviewUsers: Collection<any>;
   private async initReviewSystem() {
     this.QuestionCollection =
       await this.db.getCollection<IQuestion>('questions');
     this.duplicateQuestionCollection = await this.db.getCollection<any>(
       'duplicate_questions',
     );
+    this.QuestionSubmissionsCollection = await this.db.getCollection<IQuestionSubmission>("question_submissions")
+    this.Reroutes = await this.db.getCollection<any>("reroutes");
+    this.ReviewUsers = await this.db.getCollection<any>("users");
   }
 
   // private normalizeDistrictName(district: string): string {
@@ -1836,7 +1843,6 @@ private normalizeDistrictName(
         },
         {
           $unwind: '$details.domain',
-          preserveNullAndEmptyArrays: false,
         },
         // ...lookupStages,
 
@@ -7076,6 +7082,10 @@ if (!districts.length) {
               $first: '$userId',
             },
 
+            latestId: {
+              $first: '$_id',
+            },
+
             allCreatedAt: {
               $push: '$createdAt',
             },
@@ -7084,7 +7094,7 @@ if (!districts.length) {
 
         {
           $project: {
-            _id: 0,
+            _id: '$latestId',
 
             messageId: '$latestMessageId',
 
@@ -10304,10 +10314,8 @@ if (!districts.length) {
       };
 
       const dupeQuestions = await this.QuestionCollection.find(
-        {
-          $match: matchQuery,
-        },
-        {session},
+        matchQuery,
+        { session },
       )
         .project<{
           _id: any;
@@ -13550,6 +13558,39 @@ if (!districts.length) {
     }
   }
 
+  async getUserEmailByConversationId(conversationId: string, source = 'annam'): Promise<string | null> {
+    try {
+      await this.init(source);
+
+      const conversation = await this.conversations.findOne(
+        {conversationId},
+        {projection: {user: 1}},
+      );
+
+      if (!conversation?.user) {
+        return null;
+      }
+
+      const userId = conversation.user.toString();
+      const isValidObjectId =
+        ObjectId.isValid(userId) && String(new ObjectId(userId)) === userId;
+
+      if (!isValidObjectId) {
+        return null;
+      }
+
+      const user = await this.users.findOne(
+        {_id: new ObjectId(userId)},
+        {projection: {email: 1}},
+      );
+
+      return user?.email || null;
+    } catch (error) {
+      console.error(`Failed to get user email by conversationId: ${error}`);
+      return null;
+    }
+  }
+
   private normalizeState(state: string) {
     const stateAliases: Record<string, string> = {
       'andhra pradesh': 'andra pradesh',
@@ -14265,6 +14306,9 @@ existing.villageVolunteers +=
       };
       let unAssigned = [];
       let assigned = [];
+      // The coordinator one level up in the hierarchy. Populated by the coordinator
+      // lookup below when applicable; null otherwise.
+      let parentCoordinator: any = null;
       if (
         [
           'district_coordinator',
@@ -14393,6 +14437,7 @@ existing.villageVolunteers +=
         farmerDashboard,
         unAssigned: unAssigned ?? [],
         assigned: assigned ?? [],
+        parentCoordinator,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to get user profile: ${error}`);
@@ -14634,17 +14679,555 @@ existing.villageVolunteers +=
             },
           },
 
-          {
-            $sort: {
-              totalUsers: -1,
+      {
+        $sort: {
+          totalUsers: -1,
+        },
+      },
+    ])
+    .toArray();
+    // console.log("Data got it", data)
+    return data;
+  }catch(error){
+    throw new InternalServerError(`Internal Server Error ${error}`)
+  }
+  
+}
+
+
+  async getQuestionLifecycle(questionId: string): Promise<any[]> {
+    try{
+      await this.initReviewSystem();
+      await this.init('annam');
+
+      const question = await this.QuestionCollection.findOne({
+        _id: new ObjectId(questionId),
+      });
+
+      if (!question) {
+        throw new Error('Question not found');
+      }
+
+      const conversation = question.threadId
+        ? await this.conversations.findOne(
+            {
+              conversationId: question.threadId,
             },
+            {
+              projection: {
+                createdAt: 1,
+                title: 1,
+                user: 1,
+              },
+            },
+          )
+        : null;
+      let questionAskedBy;
+      if(conversation){
+        questionAskedBy = await this.users.findOne({
+          _id: new ObjectId(conversation.user),
+        },{
+          projection:{
+            email: 1,
+          }
+        })
+      }
+
+      const submission =
+        await this.QuestionSubmissionsCollection.findOne({
+          questionId: question._id,
+        });
+
+      const rerouteDoc = await this.Reroutes.findOne({
+        questionId: question._id,
+      });
+
+      const reviewTimeline = buildReviewTimeline(
+        submission?.history || [],
+        submission?.queue || [],
+        question.createdAt,
+        question.status,
+        question.firstAllocationAt,
+      );
+
+      // ---------------------------------------------------
+      // Build User Map
+      // ---------------------------------------------------
+
+      const userIds = new Set<string>();
+
+      reviewTimeline.forEach((r: any) => {
+        if (r.reviewerId) {
+          userIds.add(r.reviewerId);
+        }
+      });
+
+      submission?.history?.forEach((h: any) => {
+        if (h.updatedBy) {
+          userIds.add(h.updatedBy.toString());
+        }
+      });
+
+      rerouteDoc?.reroutes?.forEach((r: any) => {
+        if (r.reroutedBy) {
+          userIds.add(r.reroutedBy.toString());
+        }
+
+        if (r.reroutedTo) {
+          userIds.add(r.reroutedTo.toString());
+        }
+      });
+
+      if (question.moderatorAssignedAt && question.moderatorId) {
+        userIds.add(question.moderatorId.toString());
+      }
+
+      const users = await this.ReviewUsers.find(
+        {
+          _id: {
+            $in: [...userIds].map((id) => new ObjectId(id)),
           },
-        ])
-        .toArray();
-      // console.log('Data got it', data);
-      return data;
-    } catch (error) {
-      throw new InternalServerError(`Internal Server Error ${error}`);
+        },
+        {
+          projection: {
+            firstName: 1,
+            lastName: 1,
+          },
+        },
+      ).toArray();
+
+      const userMap = new Map<string, string>();
+
+      users.forEach((u: any) => {
+        userMap.set(
+          u._id.toString(),
+          `${u.firstName || ''} ${u.lastName || ''}`.trim(),
+        );
+      });
+
+      // ---------------------------------------------------
+      // Timeline
+      // ---------------------------------------------------
+
+      const timeline: any[] = [];
+      // ---------------------------------------------------
+      // Reroutes
+      // ---------------------------------------------------
+
+      rerouteDoc?.reroutes?.forEach((r: any) => {
+        const isPending = r.status === "pending";
+
+        let action = "Approval Review";
+
+        if (r.status === "approved") {
+          action = "Approval Review";
+        } else if (r.status === "modified") {
+          action = "Modified";
+        } else if (r.status === "rejected") {
+          action = "Rejected";
+        } else if (r.status === "pending") {
+          action = "Approval Review";
+        }
+
+        timeline.push({
+          timestamp: r.reroutedAt,
+          user:
+            userMap.get(r.reroutedTo?.toString()) ||
+            "Unknown User",
+          action,
+          duration: isPending
+            ? Date.now() -
+              new Date(r.reroutedAt).getTime()
+            : r.updatedAt.getTime() -
+              r.reroutedAt.getTime(),
+          remarks: r.comment || "",
+          endTime: isPending ? new Date() : r.updatedAt,
+          eventType: "reroute",
+        });
+      });
+
+      const isDuplicate = question.status === "duplicate" || !!question.referenceQuestionId;
+      
+      if (question.status === "duplicate") {
+        return [
+          {
+            timestamp: question.createdAt,
+            user: "-",
+            action: "Duplicate Question",
+            duration: null,
+            remarks:
+              "Original question lifecycle is not available.",
+            endTime: null,
+            eventType: "duplicate",
+          },
+          {
+            timestamp: question.closedAt || question.updatedAt,
+            user: "Buffer Time",
+            action: "Question Marked As Duplicate",
+            duration: question.updatedAt.getTime() - question.createdAt.getTime(),
+            remarks: "Closed as duplicate",
+            endTime: question.closedAt || question.updatedAt,
+            eventType: "closure",
+          },
+        ];
+      }
+
+        
+      if (isDuplicate) {
+        timeline.push({
+          timestamp: question.createdAt,
+          user: questionAskedBy?.email ? questionAskedBy?.email : "-",
+          action: "Duplicate Question",
+          duration: null,
+          remarks:
+            "Original question lifecycle is not available.",
+          endTime: null,
+          eventType: "inception",
+        });
+      } else if (conversation?.createdAt) {
+        timeline.push({
+          timestamp: conversation.createdAt,
+          user: questionAskedBy?.email,
+          action: "Question Asked On Web Application",
+          duration: null,
+          remarks: "",
+          endTime: conversation.createdAt,
+          eventType: "inception",
+        });
+
+        timeline.push({
+          timestamp: conversation.createdAt,
+          user: "Buffer Time",
+          action: "Pushed To Review System",
+          duration:
+            question.createdAt.getTime() -
+            conversation.createdAt.getTime(),
+          remarks: "",
+          endTime: question.createdAt,
+          eventType: "system_wait",
+        });
+      } else if(question.source === "AGRI_EXPERT"){
+                timeline.push({
+          timestamp: question.createdAt.getTime(),
+          user: "-",
+          action: "Question Created Internally",
+          duration: null,
+          remarks: "Conversation mapping not found",
+          endTime: question.createdAt.getTime(),
+          eventType: "inception",
+        });
+      }else {
+        timeline.push({
+          timestamp: null,
+          user: "Buffer Time",
+          action: "Question Inception Time Unavailable",
+          duration: null,
+          remarks: "Conversation mapping not found",
+          endTime: null,
+          eventType: "inception",
+        });
+      }
+      // ---------------------------------------------------
+      // Initial Allocation Wait
+      // ---------------------------------------------------
+
+      const firstAllocationAt = question.firstAllocationAt
+        ? new Date(question.firstAllocationAt)
+        : null;
+
+      if (firstAllocationAt &&( firstAllocationAt.getTime() -
+            new Date(question.createdAt).getTime() > 1000)) {
+        timeline.push({
+          timestamp: question.createdAt,
+          user: "Buffer Time",
+          action: "Initial Allocation Pending",
+          duration:
+            firstAllocationAt.getTime() -
+            new Date(question.createdAt).getTime(),
+          remarks: "",
+          endTime: firstAllocationAt,
+          eventType: "system_wait",
+        });
+      }
+
+      // ---------------------------------------------------
+      // Review Timeline
+      // ---------------------------------------------------
+
+      reviewTimeline.forEach((review: any, index: number) => {
+        const historyItem = submission?.history?.[index];
+
+        const reviewerName =
+          userMap.get(review.reviewerId) || 'Unknown User';
+
+        let action = 'Review';
+
+        if (index === 0) {
+          action = review.isCompleted
+            ? 'Authored Answer'
+            : 'Authoring Answer';
+        } else if (historyItem?.modifiedAnswer) {
+          action = 'Modified';
+        } else if (historyItem?.status) {
+          action =
+            historyItem.status.charAt(0).toUpperCase() +
+            historyItem.status.slice(1);
+        }
+
+        timeline.push({
+          timestamp: review.assignedAt,
+          user: reviewerName,
+          action,
+          duration: review.isCompleted
+            ? review.timeTakenMs
+            : Date.now() -
+              new Date(review.assignedAt).getTime(),
+          remarks:
+            historyItem?.reasonForRejection ||
+            historyItem?.reasonForLastModification ||
+            '',
+          endTime:
+            review.completedAt || review.assignedAt,
+          eventType:
+            index === 0 ? 'author' : 'reviewer',
+        });
+      });
+
+      const lastReview = reviewTimeline[reviewTimeline.length - 1];
+      const finalReviewerCompletedAt =
+        lastReview?.completedAt ||
+        lastReview?.assignedAt ||
+        question.createdAt;
+
+      if (
+        question.moderatorAssignedAt &&
+        question.moderatorId
+      ) {
+        const moderatorName =
+          userMap.get(question.moderatorId.toString()) ||
+          "Unknown User";
+
+        if (
+          question.moderatorAssignedAt &&
+          question.moderatorId &&
+          question.moderatorAssignedAt.getTime() >
+            new Date(finalReviewerCompletedAt).getTime()
+        ) {
+          timeline.push({
+            timestamp: finalReviewerCompletedAt,
+            user: "Buffer Time",
+            action: "Awaiting Moderator Assignment",
+            duration:
+              question.moderatorAssignedAt.getTime() -
+              new Date(finalReviewerCompletedAt).getTime(),
+            remarks: "",
+            endTime: question.moderatorAssignedAt,
+            eventType: "system_wait",
+          });
+        }
+
+        timeline.push({
+          timestamp: question.moderatorAssignedAt,
+          user: moderatorName,
+          action: "Approval Review",
+          duration:
+            question.closedAt?.getTime() -
+            question.moderatorAssignedAt.getTime(),
+          remarks: "",
+          endTime: question.closedAt,
+          eventType: "moderator",
+        });
+      }
+
+      // ---------------------------------------------------
+      // Sort
+      // ---------------------------------------------------
+
+      timeline.sort((a, b) => {
+        const aTime = a.timestamp
+          ? new Date(a.timestamp).getTime()
+          : -1;
+
+        const bTime = b.timestamp
+          ? new Date(b.timestamp).getTime()
+          : -1;
+
+        return aTime - bTime;
+      });
+
+      // ---------------------------------------------------
+      // Insert Gaps
+      // ---------------------------------------------------
+
+      const finalTimeline: any[] = [];
+
+      for (let i = 0; i < timeline.length; i++) {
+        finalTimeline.push(timeline[i]);
+
+        const current = timeline[i];
+        const next = timeline[i + 1];
+
+        if (!next) {
+          continue;
+        }
+
+        if (!current.endTime || !next.timestamp) {
+          continue;
+        }
+
+        const currentEnd = current.endTime;
+        const nextStart = next.timestamp;
+
+        const gap =
+          new Date(nextStart).getTime() -
+          new Date(currentEnd).getTime();
+
+        const shouldInsertGap =
+          gap > 1000 &&
+          current.eventType !== "reroute" &&
+          ![
+            'Question Asked',
+            'Question Inception Time Unavailable',
+            'Pushed To Review System',
+            'Initial Allocation Pending',
+          ].includes(current.action);
+
+        if (shouldInsertGap) {
+          const nextEvent = timeline[i + 1];
+          const action =
+            nextEvent?.eventType === "reroute"
+              ? "Re-routed For Review"
+              : "Pending Next Assignment";
+
+          finalTimeline.push({
+            timestamp: currentEnd,
+            user: 'Buffer Time',
+            action,
+            duration: gap,
+            remarks: '',
+            endTime: nextStart,
+            eventType: 'system_wait',
+          });
+        }
+      }
+
+      // ---------------------------------------------------
+      // Open Questions
+      // ---------------------------------------------------
+
+      const isClosed =
+        !!question.closedAt || !!question.passedAt;
+
+      const currentAssigneeInProgress =
+        reviewTimeline.length > 0 &&
+        reviewTimeline[reviewTimeline.length - 1].isCompleted === false;
+
+      const hasActiveWork =
+        currentAssigneeInProgress ||
+        rerouteDoc?.reroutes?.some(
+          (r: any) => r.status === "pending",
+        );
+
+      if (!isClosed && !hasActiveWork) {
+        const last =
+          finalTimeline[finalTimeline.length - 1];
+
+        if (last) {
+          const lastEnd = new Date(
+            last.endTime || last.timestamp || question.createdAt,
+          );
+
+          finalTimeline.push({
+            timestamp: lastEnd ?? question.createdAt.getTime(),
+            user: 'Buffer Time',
+            action:
+              question.status === 'hold'
+                ? 'On Hold'
+                : 'Awaiting Action',
+            duration:
+              Date.now() - lastEnd.getTime(),
+            remarks: '',
+            endTime: new Date(),
+            eventType: 'system_wait',
+          });
+        }
+      }
+
+      // ---------------------------------------------------
+      // Awaiting Closure
+      // ---------------------------------------------------
+
+      let completionTime =
+        question.closedAt || question.passedAt;
+
+      if (completionTime) {
+        const last =
+          finalTimeline[finalTimeline.length - 1];
+
+        if (last) {
+          const lastEnd = new Date(
+            last.endTime || last.timestamp,
+          );
+          if(typeof completionTime === "string"){
+            completionTime = new Date(completionTime)
+          }
+          const waitForClosure =
+            completionTime.getTime() -
+            lastEnd.getTime();
+
+          if (waitForClosure > 1000) {
+            finalTimeline.push({
+              timestamp: lastEnd ?? question.createdAt.getTime(),
+              user: 'Buffer Time',
+              action: 'Awaiting Closure/Pass',
+              duration: waitForClosure,
+              remarks: '',
+              endTime: completionTime,
+              eventType: 'system_wait',
+            });
+          }
+        
+        }
+      }
+
+      // ---------------------------------------------------
+      // Final Closed / Passed Event
+      // ---------------------------------------------------
+
+      if (question.closedAt) {
+        finalTimeline.push({
+          timestamp: question.closedAt,
+          user: '-',
+          action: `Question Closed ${
+            question.isCustomerNotified
+              ? '(Customer Notified)'
+              : '(Customer Not Notified)'
+          }`,
+          duration: null,
+          remarks: "",
+          endTime: question.closedAt,
+          eventType: 'closure',
+        });
+      } else if (question.passedAt) {
+        finalTimeline.push({
+          timestamp: question.passedAt,
+          user: '-',
+          action: `Question Passed ${
+            question.isCustomerNotified
+              ? '(Customer Notified)'
+              : '(Customer Not Notified)'
+          }`,
+          duration: null,
+          remarks: "",
+          endTime: question.passedAt,
+          eventType: 'closure',
+        });
+      }
+      // console.log("finalTimeline--", question)
+      return finalTimeline;
+    } catch(err){
+      // console.log("err----", err);
+      throw Error(err);
     }
   }
 }

@@ -24,9 +24,10 @@ import {
 } from "./atoms/select";
 import { useGetReallocationPreview } from "../hooks/api/question/useGetReallocationPreview";
 import { useManualReallocate } from "../hooks/api/question/useManualReallocate";
+import { toast } from "sonner";
 import { Loader2, AlertCircle, Zap } from "lucide-react";
 import { Badge } from "./atoms/badge";
-import { toast } from "@/shared/components/toast";
+import { cn } from "@/lib/utils";
 
 interface ReallocationManualModalProps {
   open: boolean;
@@ -40,7 +41,7 @@ export const ReallocationManualModal = ({
   type,
 }: ReallocationManualModalProps) => {
   const { data, isLoading, isError, error, refetch } = useGetReallocationPreview(type, open);
-  const { mutateAsync: reallocate, isPending: isSubmitting } = useManualReallocate();
+  const { mutate: reallocate, isPending: isSubmitting } = useManualReallocate();
   const [assignments, setAssignments] = useState<Record<string, string>>({});
   const [selectedExpertFilter, setSelectedExpertFilter] = useState<string>("all");
 
@@ -157,7 +158,7 @@ export const ReallocationManualModal = ({
     }
   };
 
-  const handleConfirm = async() => {
+  const handleConfirm = () => {
     const flatAssignments = Object.entries(assignments).map(
       ([submissionId, expertId]) => ({
         submissionId,
@@ -173,14 +174,15 @@ export const ReallocationManualModal = ({
     const questionsCount = flatAssignments.length;
     const uniqueExpertsCount = new Set(flatAssignments.map(a => a.expertId)).size;
 
-    await toast.promise(reallocate({ assignments: flatAssignments, inactiveExpertIds: data?.inactiveExpertIds }),{
-        loading: 'Reallocating experts...',
-        success: () => {
+    reallocate(
+      { assignments: flatAssignments, inactiveExpertIds: data?.inactiveExpertIds },
+      {
+        onSuccess: () => {
+          toast.success(`Started reallocation of ${questionsCount} tasks to ${uniqueExpertsCount} experts.`);
           onOpenChange(false);
-          return `Started reallocation of ${questionsCount} tasks to ${uniqueExpertsCount} experts.`;
         },
-        error: (error:any) => error?.message || "Failed to reallocate questions"
-      }) 
+      }
+    );
   };
 
   return (

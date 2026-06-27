@@ -70,7 +70,7 @@ export function ClosedInLastTwoHoursCard({
   }, [queryClient]);
   const sourceOptions = [
     { label: "Both", value: "both" },
-    { label: "Annam", value: "annam" },
+    { label: "Web Application", value: "annam" },
     { label: "WhatsApp", value: "whatsapp" },
   ] as const;
   const [sourcePopoverOpen, setSourcePopoverOpen] = useState(false);

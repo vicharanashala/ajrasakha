@@ -34,9 +34,9 @@ import { DateRangeFilter } from "./DateRangeFilter";
 import { ReviewLevelComponent } from "./ReviewLevelComponent";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { PerformaneService } from "@/hooks/services/performanceService";
+import { toast } from "sonner";
 import { TopRightBadge } from "./NewBadge";
 import { QuestionsAnsweredAfter120MinProps } from "./dashboard/questions-answered-after-120min";
-import { toast } from "@/shared/components/toast";
 import { Clock, CheckCircle } from "lucide-react";
 import { useCheckIn } from "@/hooks/api/performance/useCheckIn";
 import { useBlockUser } from "@/hooks/api/user/useBlockUser";
@@ -157,9 +157,35 @@ export const Dashboard = () => {
   const [selectedYear, setSelectedYear] = useState(
     new Date().getFullYear().toString()
   );
-  const [selectedMonth, setSelectedMonth] = useState("January");
-  const [selectedWeek, setSelectedWeek] = useState("Week 1");
-  const [selectedDay, setSelectedDay] = useState("Mon");
+
+  // Helper: derive today's month, week-of-month, and day-of-week
+  const getTodayDefaults = () => {
+    const today = new Date();
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December",
+    ];
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const month = monthNames[today.getMonth()];
+    const weekNumber = Math.ceil(today.getDate() / 7);
+    const week = `Week ${Math.min(weekNumber, 5)}`;
+    const day = dayNames[today.getDay()];
+    return { month, week, day };
+  };
+
+  const todayDefaults = getTodayDefaults();
+  const [selectedMonth, setSelectedMonth] = useState(todayDefaults.month);
+  const [selectedWeek, setSelectedWeek] = useState(todayDefaults.week);
+  const [selectedDay, setSelectedDay] = useState(todayDefaults.day);
+
+  // When switching tabs, reset selections back to today's defaults
+  const handleSetViewType = (v: ViewType) => {
+    const defaults = getTodayDefaults();
+    setSelectedMonth(defaults.month);
+    setSelectedWeek(defaults.week);
+    setSelectedDay(defaults.day);
+    setViewType(v);
+  };
   const [customStartDateTime, setCustomStartDateTime] = useState<string>("");
   const [customEndDateTime, setCustomEndDateTime] = useState<string>("");
 
@@ -223,14 +249,11 @@ export const Dashboard = () => {
     setSendingReport(true);
     try {
       const service = new PerformaneService();
-      await toast.promise(service.sendCronSnapshotReport(),{
-        loading: "senting cron snapshot report...",
-        success: "Cron snapshot report sent successfully",
-        error: "Failed to send cron snapshot report"
-      }) ;
-      
+      await service.sendCronSnapshotReport();
+      toast.success("Cron snapshot report sent successfully");
       setSendingReport(false);
     } catch (err) {
+      toast.error("Failed to send cron snapshot report");
       console.error("Failed to fetch cron snapshot", err);
       setSendingReport(false);
     }
@@ -324,7 +347,7 @@ export const Dashboard = () => {
             setSelectedDay={setSelectedDay}
             setSelectedMonth={setSelectedMonth}
             setSelectedWeek={setSelectedWeek}
-            setViewType={setViewType}
+            setViewType={handleSetViewType}
             viewType={viewType}
             customStartDateTime={customStartDateTime}
             setCustomStartDateTime={setCustomStartDateTime}

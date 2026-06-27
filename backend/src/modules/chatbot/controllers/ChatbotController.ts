@@ -1115,7 +1115,7 @@ export class ChatbotController {
   })
   @Patch('/users/:userId')
   @HttpCode(200)
-  @Authorized(['admin'])
+  @Authorized(['admin', ...COORDINATOR_ROLES])
   async updateUser(
     @Param('userId') userId: string,
     @QueryParam('source') source: string,
@@ -1180,6 +1180,29 @@ export class ChatbotController {
       beforeUser = await this.chatbotService.getUserById(userId, source);
     } catch (e) {
       console.error('Failed to fetch user before update for audit trail', e);
+    }
+
+    if (user.role !== 'admin') {
+      if (source !== 'annam') {
+        throw new ForbiddenError(
+          'Coordinators can only update their linked Annam profile',
+        );
+      }
+
+      const targetEmail = beforeUser?.email?.trim().toLowerCase();
+      const actorEmail = user.email?.trim().toLowerCase();
+
+      if (!targetEmail || !actorEmail || targetEmail !== actorEmail) {
+        throw new ForbiddenError(
+          'Coordinators can only update their own linked farmer profile',
+        );
+      }
+
+      if (body.userRole && body.userRole !== beforeUser?.userRole) {
+        throw new ForbiddenError('Coordinators cannot change coordinator role');
+      }
+
+      delete body.userRole;
     }
 
     try {
@@ -1836,6 +1859,7 @@ export class ChatbotController {
       body.userIds,
     );
   }
+
   private async assertCoordinatorOwnDashboard(userId: string, currentUser: IUser) {
     if (currentUser.role === 'admin') return;
 
@@ -1867,6 +1891,18 @@ export class ChatbotController {
       query.district,
       query.source,
       query.userType,
+    );
+  }
+
+  @Get('/question-lifecycle')
+  @HttpCode(200)
+  @Authorized()
+  async getQuestionLifecycle(
+    @QueryParam('questionId')
+    questionId: string
+  ): Promise<any> {
+    return this.chatbotService.getQuestionLifecycle(
+      questionId
     );
   }
 }

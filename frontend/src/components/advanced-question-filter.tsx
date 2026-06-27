@@ -129,6 +129,8 @@ export type AdvanceFilterValues = {
   unallocatedQuestions?: boolean;
   pae_review?: boolean;
   is_non_agri?: boolean;
+  /** When set, filters to questions whose moderatorId matches this ID (dedicated tab). */
+  moderatorId?: string;
 };
 
 

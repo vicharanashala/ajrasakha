@@ -92,6 +92,7 @@ class PlannerPlan(TypedDict, total=False):
     farmer_language: Optional[str]  # Deprecated: use vocal_language + script_language
     translate_path: Optional[str]  # "empty_gdb" when from empty_gdb_reply; else synthesis path
     expert_queue: Optional[bool]  # Deprecated; use translate_path
+    tools_used: list[str]  # List of tools used to generate answer (e.g. ["knowledge_base", "weather", "mandi"])
 
 
 TRANSLATE_PATH_EMPTY_GDB = "empty_gdb"
