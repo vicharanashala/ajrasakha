@@ -340,7 +340,7 @@ export function ClosedQuestionsCard({
                   label="Pending"
                   count={Math.max(pendingQuestions ?? 0, 0)}
                   accent="muted"
-                  tooltip="Questions with pass status"
+                  tooltip="Questions neither closed nor passed"
                   onClick={() => {
                     setIsPassed(true);
                     handleClick("pending");

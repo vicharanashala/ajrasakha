@@ -12839,13 +12839,19 @@ if (!districts.length) {
           state: user?.farmerProfile?.state,
         };
       });
+      const questionIds = enrichedQuestions.map((item)=>{
+        return item.questionId
+      })
 
+      const lifeCycleSummary = await this.getLifeCycleSummary(questionIds);
+            console.log("questionIds--", questionIds[0]);
       return {
         questions: enrichedQuestions,
         total,
         totalPages: Math.max(1, Math.ceil(total / safeLimit)),
         page: safePage,
         limit: safeLimit,
+        lifeCycleSummary
       };
     } catch (error) {
       throw new InternalServerError(
@@ -15228,11 +15234,271 @@ existing.villageVolunteers +=
           eventType: 'closure',
         });
       }
-      // console.log("finalTimeline--", question)
+      console.log("finalTimeline--", finalTimeline)
       return finalTimeline;
     } catch(err){
       // console.log("err----", err);
       throw Error(err);
     }
+  }
+
+  // async getLifeCycleSummary(questionIds: string[]) {
+  //   const lifecycles = await Promise.all(
+  //       questionIds.map(id =>
+  //           this.getQuestionLifecycle(id)
+  //       )
+  //   );
+
+  //   console.log("lifecycles---", lifecycles)
+
+  //   let totalClosureTime = 0;
+  //   let totalWaitTime = 0;
+  //   let totalReviewTime = 0;
+  //   let totalAuthoringTime = 0;
+
+  //   let totalReroutes = 0;
+  //   let totalRerouteTime = 0;
+
+  //   let totalReviewers = 0;
+  //   let slaBreachedCount = 0;
+
+  //   for (const lifecycle of lifecycles) {
+
+  //       const validEvents = lifecycle.filter(
+  //           x =>
+  //               x.timestamp &&
+  //               new Date(x.timestamp).getTime() > 0
+  //       );
+  //       const first = validEvents[0];
+  //       const last = validEvents.at(-1);
+
+  //       if (first && last && last.eventType === "closure") {
+
+  //           const closureTime =
+  //               new Date(last.timestamp).getTime() -
+  //               new Date(first.timestamp).getTime();
+
+  //           totalClosureTime += closureTime;
+
+  //           if (closureTime > 2 * 60 * 60 * 1000) {
+  //               slaBreachedCount++;
+  //           }
+  //       }
+
+  //       totalWaitTime += lifecycle
+  //           .filter(x => x.eventType === "system_wait")
+  //           .reduce(
+  //               (sum, x) => sum + (x.duration || 0),
+  //               0
+  //           );
+
+  //       totalReviewTime += lifecycle
+  //           .filter(x => x.eventType === "reviewer")
+  //           .reduce(
+  //               (sum, x) => sum + (x.duration || 0),
+  //               0
+  //           );
+
+  //       totalAuthoringTime += lifecycle
+  //           .filter(x => x.eventType === "author")
+  //           .reduce(
+  //               (sum, x) => sum + (x.duration || 0),
+  //               0
+  //           );
+
+  //       const reroutes = lifecycle.filter(
+  //           x => x.eventType === "reroute"
+  //       );
+
+  //       totalReroutes += reroutes.length;
+
+  //       totalRerouteTime += reroutes.reduce(
+  //           (sum, x) => sum + (x.duration || 0),
+  //           0
+  //       );
+
+  //       totalReviewers += new Set(
+  //           lifecycle
+  //               .filter(
+  //                   x => x.eventType === "reviewer"
+  //               )
+  //               .map(x => x.user)
+  //       ).size;
+  //   }
+
+  //   return {
+  //       totalQuestions: questionIds.length,
+
+  //       avgClosureTime:
+  //           totalClosureTime / questionIds.length,
+
+  //       avgWaitTime:
+  //           totalWaitTime / questionIds.length,
+
+  //       avgReviewTime:
+  //           totalReviewTime / questionIds.length,
+
+  //       avgAuthoringTime:
+  //           totalAuthoringTime / questionIds.length,
+
+  //       totalReroutes,
+
+  //       avgRerouteTime:
+  //           totalRerouteTime /
+  //           Math.max(totalReroutes, 1),
+
+  //       avgReviewersPerQuestion:
+  //           totalReviewers / questionIds.length,
+
+  //       slaBreachedCount,
+  //   };
+  // }
+
+  async getLifeCycleSummary(questionIds: string[]) {
+    const lifecycles = await Promise.all(
+      questionIds.map((id) => this.getQuestionLifecycle(id))
+    );
+
+    let totalClosureTime = 0;
+    let totalWaitTime = 0;
+    let totalReviewTime = 0;
+    let totalAuthoringTime = 0;
+
+    let totalReroutes = 0;
+    let totalRerouteTime = 0;
+    let totalReviewers = 0;
+    let slaBreachedCount = 0;
+
+    let resolvedQuestions = 0;
+    let questionsWithReviewers = 0;
+    let questionsWithAuthors = 0;
+
+    for (const lifecycle of lifecycles) {
+      // ----------------------
+      // Closure Time
+      // ----------------------
+
+      const validEvents = lifecycle.filter(
+        (x) =>
+          x.timestamp &&
+          new Date(x.timestamp).getTime() > 0
+      );
+
+      const first = validEvents[0];
+      const last = validEvents.at(-1);
+
+      if (first && last && last.eventType === "closure") {
+        const closureTime =
+          new Date(last.timestamp).getTime() -
+          new Date(first.timestamp).getTime();
+
+        totalClosureTime += closureTime;
+        resolvedQuestions++;
+
+        if (closureTime > 2 * 60 * 60 * 1000) {
+          slaBreachedCount++;
+        }
+      }
+
+      // ----------------------
+      // Wait Time
+      // ----------------------
+
+      totalWaitTime += lifecycle
+        .filter((x) => x.eventType === "system_wait")
+        .reduce(
+          (sum, x) => sum + (x.duration || 0),
+          0
+        );
+
+      // ----------------------
+      // Review Time
+      // ----------------------
+
+      const reviewerEvents = lifecycle.filter(
+        (x) => x.eventType === "reviewer"
+      );
+
+      if (reviewerEvents.length > 0) {
+        questionsWithReviewers++;
+
+        totalReviewTime += reviewerEvents.reduce(
+          (sum, x) => sum + (x.duration || 0),
+          0
+        );
+
+        totalReviewers += new Set(
+          reviewerEvents.map((x) => x.user)
+        ).size;
+      }
+
+      // ----------------------
+      // Authoring Time
+      // ----------------------
+
+      const authorEvents = lifecycle.filter(
+        (x) => x.eventType === "author"
+      );
+
+      if (authorEvents.length > 0) {
+        questionsWithAuthors++;
+
+        totalAuthoringTime += authorEvents.reduce(
+          (sum, x) => sum + (x.duration || 0),
+          0
+        );
+      }
+
+      // ----------------------
+      // Reroutes
+      // ----------------------
+
+      const reroutes = lifecycle.filter(
+        (x) => x.eventType === "reroute"
+      );
+
+      totalReroutes += reroutes.length;
+
+      totalRerouteTime += reroutes.reduce(
+        (sum, x) => sum + (x.duration || 0),
+        0
+      );
+    }
+
+    return {
+      totalQuestions: questionIds.length,
+
+      avgClosureTime:
+        resolvedQuestions > 0
+          ? totalClosureTime / resolvedQuestions
+          : 0,
+
+      avgWaitTime:
+        totalWaitTime / questionIds.length,
+
+      avgReviewTime:
+        questionsWithReviewers > 0
+          ? totalReviewTime / questionsWithReviewers
+          : 0,
+
+      avgAuthoringTime:
+        questionsWithAuthors > 0
+          ? totalAuthoringTime / questionsWithAuthors
+          : 0,
+
+      totalReroutes,
+
+      avgRerouteTime:
+        totalReroutes > 0
+          ? totalRerouteTime / totalReroutes
+          : 0,
+
+      avgReviewersPerQuestion:
+        questionsWithReviewers > 0
+          ? totalReviewers / questionsWithReviewers
+          : 0,
+
+      slaBreachedCount,
+    };
   }
 }

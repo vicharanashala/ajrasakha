@@ -142,7 +142,7 @@ export function QueryCategoryQuestionsModal({
     enabled: true,
     isPassed,
   });
-
+console.log("dta----", data)
   // const columns = useMemo<QuestionListColumn<QueryCategoryQuestionEntry>[]>(
   //   () => [
   //     {
@@ -371,6 +371,9 @@ export function QueryCategoryQuestionsModal({
 
   const total = data?.total ?? 0;
 
+  const [viewMode, setViewMode] =
+  useState<"table" | "lifecycle">("table");
+
   return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
@@ -382,6 +385,22 @@ export function QueryCategoryQuestionsModal({
     >
       <div className="flex max-h-[88vh] w-full max-w-6xl flex-col rounded-xl bg-white shadow-2xl dark:bg-[#1a1a1a]">
         <div className="flex shrink-0 items-center justify-between gap-4 border-b border-gray-100 px-6 py-4 dark:border-[#2a2a2a]">
+          <Tabs
+            value={viewMode}
+            onValueChange={(value) =>
+              setViewMode(value as "table" | "lifecycle")
+            }
+          >
+            <TabsList>
+              <TabsTrigger value="table">
+                Questions
+              </TabsTrigger>
+
+              <TabsTrigger value="lifecycle">
+                Lifecycle Summary
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
           <div className="min-w-0">
             <h2 className="truncate text-base font-semibold text-gray-900 dark:text-gray-100">
               {category}
@@ -433,8 +452,7 @@ export function QueryCategoryQuestionsModal({
             </button>
           </div>
         </div>
-
-        <QuestionListTable
+            <QuestionListTable
           data={questions}
           columns={columns}
           loading={isLoading}
@@ -454,6 +472,8 @@ export function QueryCategoryQuestionsModal({
           }}
           initialSortKey="createdAt"
           initialSortDirection="desc"
+          summary={data?.lifeCycleSummary}
+          viewMode={viewMode}
         />
 
         <div className="flex shrink-0 items-center justify-between border-t border-gray-100 px-6 py-3 text-xs text-gray-400 dark:border-[#2a2a2a] dark:text-gray-500">

@@ -119,6 +119,7 @@ export interface QueryCategoryQuestionsResponse {
   totalPages: number;
   page: number;
   limit: number;
+  lifeCycleSummary: any;
 }
 
 // export const useQueryCategoryQuestions = ({

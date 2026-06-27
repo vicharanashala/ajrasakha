@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/atoms/skeleton";
 import { Pagination } from "@/components/pagination";
 import { cn } from "@/lib/utils";
 import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
+import { QuestionLifecycleSummary } from "../QuestionLifecycleSummary";
 
 export type QuestionListSortDirection = "asc" | "desc";
 
@@ -57,6 +58,8 @@ type QuestionListTableProps<T> = {
   className?: string;
   tableClassName?: string;
   onRowClick?: (row: T) => void;
+  summary?: any;
+  viewMode?: string;
 };
 
 const alignClasses = {
@@ -113,6 +116,8 @@ export function QuestionListTable<T>({
   className,
   tableClassName,
   onRowClick,
+  summary,
+  viewMode,
 }: QuestionListTableProps<T>) {
   const [sortKey, setSortKey] = useState(initialSortKey);
   const [sortDirection, setSortDirection] =
@@ -239,6 +244,7 @@ export function QuestionListTable<T>({
           onResetPage={() => setInternalPage(1)}
         />
       )}
+      {viewMode !== "lifecycle" ?(
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
         <table className={cn("w-full table-fixed text-sm border-collapse", tableClassName)}>
           <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-[#1f1f1f] border-b border-gray-200 dark:border-[#2a2a2a]">
@@ -324,8 +330,10 @@ export function QuestionListTable<T>({
             })}
           </tbody>
         </table>
-      </div>
-
+      </div>): (
+      <QuestionLifecycleSummary
+        summary={summary}
+      />)}
       {shouldPaginate && totalPages > 1 && (
         <div className="shrink-0 border-t border-gray-100 px-4 py-3 dark:border-[#2a2a2a]">
           <Pagination
