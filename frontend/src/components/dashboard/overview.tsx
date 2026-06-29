@@ -50,9 +50,93 @@ export const ModeratorsOverview: React.FC<ModeratorsOverviewProps> = ({
   const {ref,key} = useRestartOnView()
   return (
     <Card ref={ref} className="flex flex-col">
-      <CardHeader className="pb-0">
+      <CardHeader className="pb-0 flex justify-between">
+        <div>
         <CardTitle>Role Overview</CardTitle>
         <CardDescription>Experts vs Moderators</CardDescription>
+        </div>
+        <div>
+           <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Select Date & Time Range
+                </label>
+
+                <input
+                  type="date"
+                  // value={startDate}
+                  // onChange={(e) =>
+                  //   setDownloadDateRange((prev) => ({
+                  //     from: new Date(e.target.value),
+                  //     // to: prev?.to,
+                  //   }))
+                  // }
+                  className="
+                            h-7
+                            rounded-md
+                            border
+                            bg-background
+                            px-3
+                            text-sm
+                          "
+                />
+              </div>
+
+              {/* --- Start of the Custom Time Filter --- */}
+
+
+              <div className="flex flex-col gap-1 mt-3">
+                {/* <label className="text-xs font-medium text-muted-foreground">
+                  Select Time Range
+                </label> */}
+
+                <div className="flex items-end gap-1">
+                  {/* FROM Input */}
+                  <div className="flex flex-col gap-1 flex-1">
+                    <input
+                      type="time"
+                      // min={shiftBasedTimeRange[selectedShift].min}
+                      // max={shiftBasedTimeRange[selectedShift].max}
+                      // value={timeRange.from}
+                      // onChange={(e) => handleTimeChange('from', e.target.value)}
+                      className="
+                      h-7
+                      rounded-md
+                      border
+                      bg-background
+                      px-3
+                      text-sm
+                      "
+                    />
+                  </div>
+
+                  <div className="h-7 flex items-center justify-center text-neutral-300 pb-1">
+                    —
+                  </div>
+
+                  {/* TO Input */}
+                  <div className="flex flex-col gap-1 flex-1">
+                    <input
+                      type="time"
+                      // min={shiftBasedTimeRange[selectedShift].min}
+                      // max={shiftBasedTimeRange[selectedShift].max}
+                      // value={timeRange.to}
+                      // onChange={(e) => handleTimeChange('to', e.target.value)}
+                      className="
+                      h-7
+                      rounded-md
+                      border
+                      bg-background
+                      px-3
+                      text-sm
+                      "
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* --- End of the Custom Time Filter --- */}
+        </div>
+
       </CardHeader>
 
       <CardContent className="flex-1 flex justify-center items-center pb-0">
