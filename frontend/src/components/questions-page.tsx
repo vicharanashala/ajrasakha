@@ -299,7 +299,6 @@ export const QuestionsPage = ({
     if (srcFilter) return questions.filter((q) => q.source === srcFilter);
     if (searchTabMode === "draft") return questions.filter((q) => q.status === "draft");
     if (searchTabMode === "non_agri") return questions.filter((q) => q.status === "non_agri");
-    if (searchTabMode === "testing") return questions.filter((q) => q.isTesting === true);
     if (searchTabMode === "pae") return questions.filter((q) => (q as any).pae_review === true);
     if (searchTabMode === "dynamic") return questions.filter((q) => q.status === "dynamic");
     return questions;
