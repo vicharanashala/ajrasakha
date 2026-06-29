@@ -92,6 +92,7 @@ export interface IQuestion {
     season: string;
     domain: string[];
     normalised_crop?: string;
+    tools_used?:string[];
   };
   isAutoAllocate: boolean;
   source: QuestionSource;
