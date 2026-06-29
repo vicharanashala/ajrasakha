@@ -165,6 +165,11 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
     q?.referenceQuestion &&
     q?.referenceSource
   );
+  const domainValues = Array.isArray(q.details?.domain)
+    ? q.details.domain
+    : typeof q.details?.domain === "string" && q.details.domain.trim()
+      ? [q.details.domain]
+      : [];
 
   return (
     <div className="rounded-lg border p-4 bg-card shadow-sm text-sm leading-snug">
@@ -250,8 +255,8 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
             <div className="truncate">
               <span className="text-muted-foreground">Domain:</span>
               <span className="ml-1">
-                {Array.isArray(q.details?.domain) && q.details.domain.length > 0
-                  ? q.details.domain
+                {domainValues.length > 0
+                  ? domainValues
                     .map((item) =>
                       item.length > 12 ? `${item.substring(0, 12)}...` : item
                     )

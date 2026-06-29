@@ -77,6 +77,7 @@ export const QuestionsPage = ({
   );
   const [consecutiveApprovals, setConsecutiveApprovals] = useState("all");
   const [autoAllocateFilter, setAutoAllocateFilter] = useState("all");
+  const [autoAllocateModeratorFilter, setAutoAllocateModeratorFilter] = useState("all");
   const [hiddenQuestions, setHiddenQuestions] = useState(false);
   const [isOnHold, setIsOnHold] = useState(false);
   const [unallocatedQuestions, setUnallocatedQuestions] = useState(false);
@@ -179,6 +180,7 @@ export const QuestionsPage = ({
         closedAtEnd,
         consecutiveApprovals,
         autoAllocateFilter,
+        autoAllocateModeratorFilter,
         closedInTwoHrs,
         hiddenQuestions,
         duplicateQuestions,
@@ -211,6 +213,7 @@ export const QuestionsPage = ({
       closedAtStart,
       consecutiveApprovals,
       autoAllocateFilter,
+      autoAllocateModeratorFilter,
       closedInTwoHrs,
       hiddenQuestions,
       duplicateQuestions,
@@ -383,6 +386,7 @@ export const QuestionsPage = ({
     closedAtStart?: Date | undefined;
     consecutiveApprovals?: string;
     autoAllocateFilter?: string;
+    autoAllocateModeratorFilter?: string;
     closedInTwoHrs?: boolean;
     hiddenQuestions?: boolean;
     duplicateQuestions?: boolean;
@@ -413,6 +417,8 @@ export const QuestionsPage = ({
       setConsecutiveApprovals(next.consecutiveApprovals);
     if (next.autoAllocateFilter !== undefined)
       setAutoAllocateFilter(next.autoAllocateFilter);
+    if (next.autoAllocateModeratorFilter !== undefined)
+      setAutoAllocateModeratorFilter(next.autoAllocateModeratorFilter);
     if (next.closedInTwoHrs !== undefined)
       setClosedInTwoHrs(next.closedInTwoHrs);    
     if (next.hiddenQuestions !== undefined)
@@ -462,6 +468,7 @@ export const QuestionsPage = ({
     setClosedAtStart(undefined);
     setConsecutiveApprovals("all");
     setAutoAllocateFilter("all");
+    setAutoAllocateModeratorFilter("all");
     setClosedInTwoHrs(false);
     setHiddenQuestions(false);
     setDuplicateQuestions(false);

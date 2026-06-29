@@ -16,6 +16,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/a
 import { CircleCheck, GitCompareArrows, History } from "lucide-react";
 import { diffWords } from "@/utils/wordDifference";
 import { AuditTrailModal } from "./AuditTrailModal";
+import { isEnglishCharacters } from "@/features/questions/utils/checkLanguage";
+import { QuestionLifecycleTable } from "@/features/chatbotDashboard/QuestionLifeCycle";
+import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
 
 interface QuestionHeaderProps {
   question: IQuestionFullData;
@@ -79,7 +82,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
   const isQuestionOnHold = question.isOnHold;
   const { mutate: checkDuplicate, isPending: isCheckingDuplicate } = useManualCheckDuplicate();
   const originalQuestion = question.originalQuestion?.trim();
-
+  const { view, setView } = useSelectedQuestion();
   // For compare mode: reference answer (from the original/reference question)
   const referenceAnswerText = (() => {
     const text = question.referenceQuestionData?.text;
@@ -173,10 +176,14 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                     {isQuestionOnHold ? "Release Hold" : "Hold the question"}
                   </Button>
                 )}
-              <SarvamTranslateDropdown
-                query={question.question}
-                onTranslate={(result) => setTranslatedText(result)}
-              />
+              {
+                question.question?.trim() && !isEnglishCharacters(question.question) && (
+                  <SarvamTranslateDropdown
+                    query={question.question}
+                    onTranslate={(result) => setTranslatedText(result)}
+                  />
+                )
+              }
             </div>
 
             <div className="flex sm:flex-row flex-col sm:items-center items-end gap-3 sm:gap-6">
@@ -310,7 +317,8 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
           {/* Only show standalone "Closed by" when moderatorAssignedAt is absent (old flow) */}
           {question?.status === "closed" &&
             (currentUser.role === "moderator" ||
-              currentUser.role === "admin") &&
+              currentUser.role === "admin" ||
+              currentUser.role === "tester") &&
             question?.closedAt &&
             !question?.moderatorAssignedAt && (
               <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -329,6 +337,18 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
       )}
 
           {/* View Audit Button */}
+          <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setView("lifecycle")}
+            className="gap-1.5"
+          >
+            <History className="h-4 w-4" />
+            View LifeCycle
+          </Button>
+
+          {/* View Audit Button */}
           <Button
             size="sm"
             variant="outline"
@@ -338,6 +358,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
             <History className="h-4 w-4" />
             View Audit
           </Button>
+          </div>
         </div>
 
         {/* Created / Updated */}
@@ -349,7 +370,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
           </div>
           <div>
             {question?.status === "closed" &&
-              (currentUser.role === "moderator" || currentUser.role === "admin") &&
+              (currentUser.role === "moderator" || currentUser.role === "admin" || currentUser.role === "tester") &&
               question?.closedAt && (
                 <div className="flex flex-col gap-1 text-sm text-right">
                   {question?.moderatorAssignedAt ? (
@@ -695,6 +716,13 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+
+      <QuestionLifecycleTable
+        open={view === "lifecycle"}
+        onClose={() => setView(undefined)}
+        questionId={question._id!}
+      />
 
       <AuditTrailModal
         open={auditModalOpen}

@@ -1539,6 +1539,15 @@ export class QuestionController {
         questionId,
         index,
       );
+
+      // When no history remains after removal, the question is effectively
+      // un-allocated again → clear firstAllocationAt so the allocation crons treat it
+      // as never-allocated.
+      if ((result?.history?.length ?? 0) === 0) {
+        await this.questionService.updateQuestion(questionId, {
+          firstAllocationAt: null as any,
+        });
+      }
     } catch (err: any) {
       auditPayload = {
         ...auditPayload,

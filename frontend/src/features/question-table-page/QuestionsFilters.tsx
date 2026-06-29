@@ -396,6 +396,9 @@ export const QuestionsFilters = ({
       if (!domain?.length) {
         validationErrors.domain = "Please select the Domain field.";
       }
+      else if(domain.length>3){
+        validationErrors.domain = "Only three domain is allowed."
+      }
 
       if (Object.keys(validationErrors).length > 0) {
         setAddQuestionErrors(validationErrors);
@@ -558,6 +561,7 @@ export const QuestionsFilters = ({
       closedInTwoHrs: advanceFilter?.closedInTwoHrs,
       consecutiveApprovals: advanceFilter?.consecutiveApprovals,
       autoAllocateFilter: advanceFilter?.autoAllocateFilter,
+      autoAllocateModeratorFilter: advanceFilter?.autoAllocateModeratorFilter,
       hiddenQuestions: advanceFilter?.hiddenQuestions,
       duplicateQuestions: advanceFilter?.duplicateQuestions,
       isOnHold: advanceFilter?.isOnHold,

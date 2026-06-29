@@ -395,26 +395,29 @@ function CoordinatorProfilePage() {
       </header>
 
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-6 py-6">
-        <section className="rounded-md border bg-card p-5">
+        <section className="rounded-md border bg-card/80 p-5 shadow-sm">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex min-w-0 items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md border bg-background">
-                <ShieldCheck className="h-6 w-6 text-primary" />
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md border border-[#2a4a3c] bg-[#0f2a21]">
+                <ShieldCheck className="h-7 w-7 text-[#009d68]" />
               </div>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-xl font-semibold">
+                  <h2 className="text-2xl font-semibold tracking-tight">
                     {currentUser.firstName} {currentUser.lastName ?? ""}
                   </h2>
-                  <Badge variant="outline">{roleDetails.label}</Badge>
+                  <Badge className="gap-1 rounded-full border-[#c7c3ff] bg-[#ecebff] text-[#3f3a8a] hover:bg-[#ecebff]">
+                    <ShieldCheck className="h-3 w-3" />
+                    {roleDetails.label}
+                  </Badge>
                   {profile?.isVerified && (
-                    <Badge className="gap-1 bg-emerald-600 text-white hover:bg-emerald-600">
+                    <Badge className="gap-1 rounded-full border-[#b9ef8d] bg-[#ecffd8] text-[#245c16] hover:bg-[#ecffd8]">
                       <CheckCircle2 className="h-3 w-3" />
                       Verified
                     </Badge>
                   )}
                 </div>
-                <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
+                <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm font-medium text-muted-foreground">
                   <span className="inline-flex items-center gap-1.5">
                     <Mail className="h-4 w-4" />
                     {currentUser.email}
@@ -430,19 +433,29 @@ function CoordinatorProfilePage() {
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <MetricTile label="Assigned" value={assignedCount} />
-              <MetricTile label="Available" value={availableCount} />
-              <MetricTile label="Manages" value={roleDetails.manages} />
+              <MetricTile
+                icon={<Users className="h-5 w-5" />}
+                tone="assigned"
+                label="Assigned"
+                value={assignedCount}
+              />
+              <MetricTile
+                icon={<UserCheck2 className="h-5 w-5" />}
+                tone="available"
+                label="Available"
+                value={availableCount}
+              />
+              <MetricTile
+                icon={<Network className="h-5 w-5" />}
+                tone="manages"
+                label="Manages"
+                value={roleDetails.manages}
+              />
             </div>
           </div>
         </section>
 
-        <section className="rounded-md border bg-card p-5">
-          <div className="mb-4 flex items-center gap-2">
-            <UserCheck2 className="h-5 w-5 text-primary" />
-            <h2 className="text-base font-semibold">Account Details</h2>
-          </div>
-          <div className="grid gap-x-6 sm:grid-cols-2 lg:grid-cols-4">
+        <ProfileSection title="Account Details" icon={UserCheck2}>
             <InfoRow
               label="Full Name"
               value={`${currentUser.firstName} ${currentUser.lastName ?? ""}`.trim()}
@@ -457,11 +470,10 @@ function CoordinatorProfilePage() {
               label="Primary Source"
               value="Review-system user account"
             />
-          </div>
-        </section>
+        </ProfileSection>
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
-          <section className="rounded-md border bg-card p-5">
+          <section className="rounded-md border bg-card/80 p-5 shadow-sm">
             <div className="mb-5 flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-base font-semibold">Account Management</h2>
@@ -519,11 +531,7 @@ function CoordinatorProfilePage() {
             </form>
           </section>
 
-          <section className="rounded-md border bg-card p-5">
-            <div className="mb-4 flex items-center gap-2">
-              <MapPin className="h-5 w-5 text-primary" />
-              <h2 className="text-base font-semibold">Assigned Region</h2>
-            </div>
+          <ProfileSection title="Assigned Region" icon={MapPin}>
             <InfoRow label="Scope" value={roleDetails.scope} />
             <InfoRow label="State" value={profile?.farmerProfile?.state} />
             <InfoRow label="District" value={profile?.farmerProfile?.district} />
@@ -534,15 +542,17 @@ function CoordinatorProfilePage() {
               label="Dashboard Profile"
               value={profile?.name || currentUser.firstName}
             />
-          </section>
+          </ProfileSection>
         </div>
 
-        <section className="rounded-md border bg-card p-5">
+        <section className="rounded-md border bg-card/80 p-5 shadow-sm">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
-              <CalendarDays className="h-5 w-5 text-primary" />
+              <CalendarDays className="h-5 w-5 text-muted-foreground" />
               <div>
-                <h2 className="text-base font-semibold">Farmer Profile Information</h2>
+                <h2 className="text-base font-semibold uppercase text-muted-foreground">
+                  Farmer Profile Information
+                </h2>
                 <p className="text-sm text-muted-foreground">
                   View and update the linked Annam farmer profile for this coordinator.
                 </p>
@@ -558,7 +568,7 @@ function CoordinatorProfilePage() {
               Edit Farmer Profile
             </Button>
           </div>
-          <div className="grid gap-x-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <InfoRow label="Farmer Name" value={profile?.farmerProfile?.farmerName} />
             <InfoRow label="Contact Number" value={profile?.farmerProfile?.phoneNo} />
             <InfoRow label="Language" value={profile?.farmerProfile?.languagePreference} />
@@ -604,13 +614,9 @@ function CoordinatorProfilePage() {
         </section>
 
         <div className="grid gap-5 lg:grid-cols-2">
-          <section className="rounded-md border bg-card p-5">
-            <div className="mb-4 flex items-center gap-2">
-              <Network className="h-5 w-5 text-primary" />
-              <h2 className="text-base font-semibold">Hierarchy Information</h2>
-            </div>
+          <ProfileSection title="Hierarchy Information" icon={Network}>
             {profile?.parentCoordinator ? (
-              <div className="space-y-3">
+              <>
                 <InfoRow label="Relationship" value={roleDetails.parent} />
                 <InfoRow
                   label="Name"
@@ -633,18 +639,20 @@ function CoordinatorProfilePage() {
                   label="Region"
                   value={parentRegion.join(", ") || "Not assigned"}
                 />
-              </div>
+              </>
             ) : (
               <p className="text-sm text-muted-foreground">
                 {roleDetails.parent}
               </p>
             )}
-          </section>
+          </ProfileSection>
 
-          <section className="rounded-md border bg-card p-5">
+          <section className="rounded-md border bg-card/80 p-5 shadow-sm">
             <div className="mb-4 flex items-center gap-2">
-              <Users className="h-5 w-5 text-primary" />
-              <h2 className="text-base font-semibold">Coordinator Workflow</h2>
+              <Users className="h-5 w-5 text-muted-foreground" />
+              <h2 className="text-base font-semibold uppercase text-muted-foreground">
+                Coordinator Workflow
+              </h2>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <WorkflowItem
@@ -698,33 +706,90 @@ function Field({
 }) {
   return (
     <div className="space-y-2">
-      <Label htmlFor={id}>{label}</Label>
+      <Label htmlFor={id} className="text-sm font-semibold">
+        {label}
+      </Label>
       <Input
         id={id}
         value={value}
         required={required}
         onChange={(event) => onChange(event.target.value)}
+        className="h-10 rounded-md border-border/70 bg-background/70"
       />
     </div>
   );
 }
 
-function MetricTile({ label, value }: { label: string; value: number | string }) {
+function ProfileSection({
+  title,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="min-w-0 rounded-md border bg-background px-3 py-2">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="truncate text-sm font-semibold">{value}</p>
+    <section className="rounded-md border bg-card/80 p-5 shadow-sm">
+      <div className="mb-4 flex items-center gap-2">
+        <Icon className="h-5 w-5 text-muted-foreground" />
+        <h2 className="text-base font-semibold uppercase text-muted-foreground">
+          {title}
+        </h2>
+      </div>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
+        {children}
+      </div>
+    </section>
+  );
+}
+
+function MetricTile({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number | string;
+  tone: "assigned" | "available" | "manages";
+}) {
+  const toneClass =
+    tone === "assigned"
+      ? "text-[#7b6de6]"
+      : tone === "available"
+        ? "text-[#19a77c]"
+        : "text-[#f26a2e]";
+
+  return (
+    <div className="flex min-h-[92px] min-w-[150px] flex-col items-center justify-center rounded-md bg-background/80 px-4 py-3 text-center">
+      <div className={toneClass}>{icon}</div>
+      <p
+        className={`mt-2 max-w-[10rem] font-semibold leading-tight ${
+          typeof value === "number" ? "text-2xl" : "text-lg"
+        }`}
+      >
+        {value}
+      </p>
+      <p className="mt-1 text-sm font-semibold text-muted-foreground">
+        {label}
+      </p>
     </div>
   );
 }
 
 function InfoRow({ label, value }: { label: string; value?: string }) {
+  const hasValue = value !== undefined && value !== null && value !== "";
+
   return (
-    <div className="border-t py-3 first:border-t-0 first:pt-0 last:pb-0">
-      <p className="text-xs font-medium uppercase text-muted-foreground">
+    <div className="min-h-[78px] rounded-md border border-border/70 bg-background/70 p-3.5 shadow-sm">
+      <p className="text-[11px] font-semibold uppercase text-muted-foreground">
         {label}
       </p>
-      <p className="mt-1 break-words text-sm">{value || "Not Provided"}</p>
+      <p className="mt-2 break-words text-sm font-semibold leading-snug">
+        {hasValue ? value : <span className="text-muted-foreground">Not Provided</span>}
+      </p>
     </div>
   );
 }
@@ -739,9 +804,9 @@ function WorkflowItem({
   value: string;
 }) {
   return (
-    <div className="rounded-md border bg-background p-3">
-      <div className="mb-2 flex items-center gap-2 text-sm font-medium">
-        {icon}
+    <div className="rounded-md border border-border/70 bg-background/70 p-3.5 shadow-sm">
+      <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+        <span className="text-[#5b50c8]">{icon}</span>
         {label}
       </div>
       <p className="text-sm text-muted-foreground">{value}</p>

@@ -129,7 +129,11 @@ export function ClosedQuestionsCard({
                               ([key, value]) => (
                                 <div
                                   key={key}
-                                  className="flex justify-between gap-4"
+                                  className="flex justify-between gap-4 cursor-pointer hover:bg-muted/80 p-1 -mx-1 px-1 rounded transition-colors"
+                                  onClick={() => {
+                                    setIsPassed(key === "pass");
+                                    handleClick(key);
+                                  }}
                                 >
                                   <span className="text-muted-foreground">
                                     {key

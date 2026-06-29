@@ -911,6 +911,8 @@ export interface IChatbotRepository {
     conversationId: string,
     source?: string,
   ): Promise<string | null>
+    
+  getQuestionLifecycle(questionId: string): Promise<any>
 }
 
 export interface ChatbotConversationData {
