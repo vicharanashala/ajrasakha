@@ -113,6 +113,11 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
     question.status === "re-routed" ||
     question.status === "duplicate";
 
+  // Queue-duplicate questions must not expose any allocation controls (auto-allocate
+  // moderator toggle or Select Moderator) until their status is changed away from
+  // 'queue_duplicate'. `canSelectModerator` already excludes it; this also hides the toggle.
+  const isQueueDuplicate = question.status === "queue_duplicate";
+
   // Closed → the moderation is finalized (green). Otherwise it's still pending (amber).
   const isClosed = question.status === "closed";
 
@@ -188,7 +193,9 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
           <div className="flex flex-wrap items-center gap-3">
             {/* Auto Allocate toggle — controls whether the moderator-queue cron may
                 auto-assign this question to a moderator. Styled to match the
-                "Auto-allocate Experts" block in the Allocation Queue header. */}
+                "Auto-allocate Experts" block in the Allocation Queue header.
+                Hidden for queue-duplicate questions until their status changes. */}
+            {!isQueueDuplicate && (
             <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
               <Switch
                 id="auto-allocate-moderator"
@@ -226,6 +233,7 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
                 </Tooltip>
               </TooltipProvider>
             </div>
+            )}
 
             {/* Select moderator. Shown only when auto-allocation is OFF (otherwise the
                 queue assigns a moderator automatically), and once the question has
