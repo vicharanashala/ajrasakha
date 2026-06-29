@@ -1,7 +1,7 @@
 import {ObjectId} from 'mongodb';
 
-export type UserRole = 'admin' | 'moderator' | 'expert' | 'pae_expert' | 'tester'| 'district_coordinator' | 'block_coordinator' | 'village_volunteer' | 'call_agent';
-export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold' | 'pae_submitted' | 'draft' | 'pass' | 'duplicate' | 'non_agri' | 'pending';
+export type UserRole = 'admin' | 'moderator' | 'expert' | 'pae_expert' | 'tester'| 'district_coordinator' | 'block_coordinator' | 'village_volunteer' | 'call_agent' | 'gate_keeper' | 'auditor';
+export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold' | 'pae_submitted' | 'draft' | 'pass' | 'duplicate' | 'non_agri' | 'pending' | 'dynamic' | 'queue_progress' | 'auditor_review' | 'dynamic_closed';
 export interface IPreference {
   state: string;
   crop: string;
@@ -104,6 +104,12 @@ export interface IQuestion {
   createdAt?: Date;
   updatedAt?: Date;
   isClosed?: boolean;
+  /** Set when a Gate Keeper pushes the question to the Auditor. The question keeps
+   *  its `dynamic`/`duplicate` status; this flag hands off the action: Gate Keeper
+   *  controls hide once true, Auditor controls (Push to GDB / Notify User) appear. */
+  isPushedToAuditor?: boolean;
+  /** Timestamp of the Gate Keeper → Auditor hand-off. */
+  pushedToAuditorAt?: Date | null;
   isHidden?: false;
   passingRemark?: string;
   isOnHold?: boolean;

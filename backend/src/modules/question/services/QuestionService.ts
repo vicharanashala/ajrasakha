@@ -1943,6 +1943,29 @@ export class QuestionService extends BaseService implements IQuestionService {
             console.error('[ModeratorQueue] Failed to clear passed question from moderators:', err?.message);
           }
         }
+        // Push to Auditor must NOT move a question into `auditor_review`. Both
+        // duplicate and dynamic questions are reviewed by the Auditor in place
+        // (Push to GDB for duplicate, Notify User for dynamic) and keep their
+        // status. Guard here (defense in depth) so any client/path attempting the
+        // transition is forced back to the question's existing status.
+        if (
+          updates.status === 'auditor_review' &&
+          (existingQuestion.status === 'duplicate' ||
+            existingQuestion.status === 'dynamic')
+        ) {
+          updates.status = existingQuestion.status;
+        }
+        // Gate Keeper → Auditor hand-off: stamp the time when the flag is first set.
+        if (updates.isPushedToAuditor === true && !updates.pushedToAuditorAt) {
+          updates.pushedToAuditorAt = new Date();
+        }
+        // Auditor "Notify User" flow on a dynamic question: close it as `dynamic_closed`.
+        // Stamp closedAt/isClosed just like the regular `closed` transition so analytics
+        // and closed-question filters treat it consistently.
+        if (updates.status === 'dynamic_closed') {
+          updates.isClosed = true;
+          if (!updates.closedAt) updates.closedAt = new Date();
+        }
         return this.questionRepo.updateQuestion(questionId, updates, session);
       });
     } catch (error) {
