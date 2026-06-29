@@ -2,6 +2,7 @@ import { PlusCircle, X } from "lucide-react";
 import { Input } from "./atoms/input";
 import { useState, type KeyboardEvent } from "react";
 import { ScrollArea } from "./atoms/scroll-area";
+import { toast } from "sonner";
 import type { SourceItem, SourceType } from "@/types";
 import {
   Select,
@@ -10,7 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./atoms/select";
-import { toast } from "@/shared/components/toast";
 
 const SOURCE_TYPE_OPTIONS: { value: SourceType; label: string }[] = [
   { value: "hyper_local", label: "Hyper Local" },

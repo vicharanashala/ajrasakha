@@ -37,17 +37,19 @@ export const sendPushNotification = async (
 export const notifyUser = async (
   userId: string,
   message: string,
-  subscription: ISubscription,
+  subscription: ISubscription | null,
   onExpire?: (endpoint: string) => Promise<void>,
+  title = 'Annam.AI',
+  url = '/notifications',
 ) => {
   if (!subscription) {
     console.warn(`No subscription found for user ${userId}`);
     return;
   }
   const payload = {
-    title: 'Annam.AI',
+    title,
     body: message,
-    url: '/notifications',
+    url,
   };
   // const container = getContainer();
   // const notificationService = container.get<NotificationService>(CORE_TYPES.NotificationService)
@@ -64,5 +66,5 @@ export const notifyUser = async (
     return;
   }
 
-  await sendPushNotification(subscription.subscription, payload);
+  await sendPushNotification(subscription.subscription, payload, onExpire);
 };

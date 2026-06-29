@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { IncomingCallBox } from "./IncomingCallBox";
 import type { CallTranscript } from "./IncomingCallBox";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
+import { toast } from "sonner";
 import { Button } from "./atoms/button";
 import { RotateCcw, Send, MessageSquare, Globe, CheckCircle2, AlertCircle, HelpCircle, Lightbulb, User, FileText, ChevronDown, ChevronUp, Edit3 } from "lucide-react";
 import { useSubmitTranscript } from "@/hooks/api/context/useSubmitTranscript";
@@ -20,7 +21,6 @@ import { Input } from "./atoms/input";
 import { Label } from "./atoms/label";
 import type { GeneratedQuestion } from "./voice-recorder-card";
 import Plivo from "plivo-browser-sdk";
-import { toast } from "@/shared/components/toast";
 import type { ExtractDataResponse } from "@/hooks/services/accAgentService";
 
 export const CallInterface = () => {
@@ -85,9 +85,8 @@ export const CallInterface = () => {
       toast.error("Transcript is empty!");
       return;
     }
-    let toastId;
+
     try {
-      toastId = toast.loading('submitting transcript...')
       await submitTranscript(editableTranslatedTranscript);
       setEditableTranslatedTranscript("");
       setTranscriptsList([]); // Clear the conversation view
@@ -98,10 +97,8 @@ export const CallInterface = () => {
       setExtractedState("");
       setExtractedCrop("");
       setHasGeneratedQuestions(false);
-      toast.dismiss(toastId)
       toast.success("Transcript submitted successfully!");
     } catch (error) {
-      toast.dismiss(toastId)
       console.error(error);
       toast.error("Failed to submit transcript. Try again!");
     }
@@ -157,9 +154,8 @@ export const CallInterface = () => {
       toast.info("Summary is empty. Please summarize the conversation first.");
       return;
     }
-    let toastId;
+
     try {
-      toastId = toast.loading('generating questions...')
       const qstns = await generateQuestions({
         transcript: editableSummaryText,
         state: extractedState,
@@ -167,10 +163,7 @@ export const CallInterface = () => {
       });
       setQuestions(prev => [...prev, ...(qstns || [])]);
       setHasGeneratedQuestions(true);
-      toast.dismiss(toastId)
-      toast.success('question generated successfully')
     } catch (err) {
-      toast.dismiss(toastId)
       console.error("Error generating question", err);
       toast.error("Failed to generate questions.");
     }
@@ -189,15 +182,13 @@ export const CallInterface = () => {
       })
       .filter(Boolean)
       .join("\n");
-    
-      let toastId;
+
     try {
       // Step 1: Create thread
       const thread = await createThread();
       setThreadId(thread.thread_id);
 
       // Step 2: Extract data
-      toastId = toast.loading('generating summary...')
       const data = await extractData({
         threadId: thread.thread_id,
         transcript: allTranscriptText
@@ -218,10 +209,9 @@ export const CallInterface = () => {
       setEditableSummaryText(data.extracted_query);
       setExtractedState(data.extracted_state);
       setExtractedCrop(data.extracted_crop);
-      toast.dismiss(toastId)
+      
       toast.success("Data extracted successfully. Please review and edit if needed.");
     } catch (err) {
-      toast.dismiss(toastId)
       console.error("Error in HITL extraction", err);
       toast.error("Failed to extract data. Please try again.");
     }
@@ -232,7 +222,7 @@ export const CallInterface = () => {
       toast.error("No active thread. Please extract data first.");
       return;
     }
-    let toastId;
+
     try {
       // Check if data was edited
       const wasEdited = 
@@ -242,7 +232,6 @@ export const CallInterface = () => {
         editableDistrict !== extractedData?.extracted_district;
 
       if (wasEdited) {
-        toastId = toast.loading('updating extracted data...')
         // Step 3: Update state with corrections
         await updateState({
           threadId,
@@ -253,10 +242,9 @@ export const CallInterface = () => {
             district: editableDistrict
           }
         });
-        toast.dismiss(toastId)
         toast.info("Updated extracted data with your corrections.");
       }
-      toastId = toast.loading('generating final answer...')
+
       // Step 4: Resume and get answer
       const result = await resumeAndGetAnswer(threadId);
       setIsHumanVerificationMode(false);
@@ -272,10 +260,9 @@ export const CallInterface = () => {
       
       setQuestions([generatedQuestion]);
       setHasGeneratedQuestions(true);
-      toast.dismiss(toastId)
+      
       toast.success("Final answer generated successfully!");
     } catch (err) {
-      toast.dismiss(toastId)
       console.error("Error in resume", err);
       toast.error("Failed to generate final answer.");
     }

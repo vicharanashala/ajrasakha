@@ -29,6 +29,8 @@ export interface QueueQuestionItem {
   crop?: string;
   /** Current assignee — present for allocated & stuck items. */
   expertName?: string;
+  /** Assigned moderator's name — present for moderator-allocated items. */
+  moderatorName?: string;
   /** All experts who have completed a step on this question, in turn order —
    *  present for needs-reviewer items. */
   completedExpertNames?: string[];
@@ -65,8 +67,14 @@ export interface QueueExpertItem {
 export interface QueueDetailsResponse {
   /** All time-bound (AJRASAKHA/WHATSAPP, auto-allocated) questions ever received. */
   received: {count: number; items: QueueQuestionItem[]};
+  /** Per-status counts for the received section — accurate DB totals used for tab badges. */
+  receivedStatusCounts: {status: string; count: number}[];
   /** AJRASAKHA/WHATSAPP questions with auto-allocation turned OFF (handled manually). */
   autoAllocateOff: {count: number; items: QueueQuestionItem[]};
+  /** Auto-allocate ON questions that are currently OPEN. */
+  autoAllocateOpen: {count: number; items: QueueQuestionItem[]};
+  /** Auto-allocate ON questions that are currently DELAYED. */
+  autoAllocateDelayed: {count: number; items: QueueQuestionItem[]};
   /** Received questions that have been allocated to at least one expert. */
   allocated: {count: number; items: QueueQuestionItem[]};
   /** Received questions still awaiting their first expert allocation. */
@@ -82,6 +90,29 @@ export interface QueueDetailsResponse {
   totalWork: {count: number; items: QueueQuestionItem[]};
   /** Opened by the current expert > 45 min ago but still no answer produced. */
   openedIdle: {count: number; items: QueueQuestionItem[]};
+  /** In-review/duplicate questions with no moderator yet — the pool the
+   *  moderator-queue cron picks from (findUnassignedInReviewQuestions). */
+  moderatorWaiting: {count: number; items: QueueQuestionItem[]};
+  /** Questions currently assigned to a moderator (moderatorId set), including
+   *  re-routed questions. Each item carries the assigned moderator's name. */
+  moderatorAllocated: {count: number; items: QueueQuestionItem[]};
+  /** STF moderators with no question assigned — the pool the moderator-queue
+   *  cron assigns from (findAvailableStfModerators). */
+  availableModerators: {count: number; items: QueueExpertItem[]};
+
+  // ── Source-split moderator-queue sections ──
+  /** Time-bound (AJRASAKHA/WHATSAPP) questions with no moderator yet. */
+  moderatorWaitingTimeBound: {count: number; items: QueueQuestionItem[]};
+  /** Manual (AGRI_EXPERT/OUTREACH) questions with no moderator yet. */
+  moderatorWaitingManual: {count: number; items: QueueQuestionItem[]};
+  /** Time-bound questions currently assigned to a moderator. */
+  moderatorAllocatedTimeBound: {count: number; items: QueueQuestionItem[]};
+  /** Manual questions currently assigned to a moderator. */
+  moderatorAllocatedManual: {count: number; items: QueueQuestionItem[]};
+  /** STF moderators free to take a time-bound question. */
+  availableModeratorsTimeBound: {count: number; items: QueueExpertItem[]};
+  /** STF moderators free to take a manual question. */
+  availableModeratorsManual: {count: number; items: QueueExpertItem[]};
 }
 
 /** Raw lean row returned by the repository layer for queue-details questions. */
@@ -113,13 +144,25 @@ export interface QueueQuestionData {
 export type QueueSectionName =
   | 'received'
   | 'autoAllocateOff'
+  | 'autoAllocateOpen'
+  | 'autoAllocateDelayed'
   | 'allocated'
   | 'waiting'
   | 'freeExperts'
   | 'stuck'
   | 'needsReviewer'
   | 'totalWork'
-  | 'openedIdle';
+  | 'openedIdle'
+  | 'moderatorWaiting'
+  | 'moderatorAllocated'
+  | 'availableModerators'
+  // Source-split variants (time-bound = AJRASAKHA/WHATSAPP, manual = AGRI_EXPERT/OUTREACH)
+  | 'moderatorWaitingTimeBound'
+  | 'moderatorWaitingManual'
+  | 'moderatorAllocatedTimeBound'
+  | 'moderatorAllocatedManual'
+  | 'availableModeratorsTimeBound'
+  | 'availableModeratorsManual';
 
 /** One page of a section: exact total + the requested page's items. */
 export interface QueueSectionResult {
@@ -290,8 +333,16 @@ export interface IQuestionService {
     userId: string,
   ): Promise<{
     question: IQuestion | null;
-    approved_moderator: { name: string; email: string };
+    approved_moderator: {name: string; email: string};
+    assigned_moderator: {name: string; email: string} | null;
+    isAssignedModerator: boolean;
   }>;
+
+  /** Manually (re)assign the moderator for a question. */
+  changeQuestionModerator(questionId: string, moderatorId: string): Promise<void>;
+
+  /** Remove the moderator currently assigned to a question (frees the moderator and nulls the question's moderator fields). */
+  removeQuestionModerator(questionId: string): Promise<void>;
 
   /** Get expert’s allocated question page */
   getAllocatedQuestionPage(userId: string, questionId: string): Promise<any>;

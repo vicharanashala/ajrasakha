@@ -21,8 +21,6 @@ type ResponseAdherenceTableData = {
   ajrasakhaPushedToReviewer: number;
   whatsappAnsweredWithin120Min: number;
   ajrasakhaAnsweredWithin120Min: number;
-  whatsappPassedQuestions: number;
-  ajrasakhaPassedQuestions: number;
   whatsappMarkedDuplicate: number;
   ajrasakhaMarkedDuplicate: number;
   whatsappDynamicWeather: number;
@@ -55,8 +53,6 @@ const DEFAULT_DATA: ResponseAdherenceTableData = {
   ajrasakhaPushedToReviewer: 0,
   whatsappAnsweredWithin120Min: 0,
   ajrasakhaAnsweredWithin120Min: 0,
-  whatsappPassedQuestions: 0,
-  ajrasakhaPassedQuestions: 0,
   whatsappMarkedDuplicate: 0,
   ajrasakhaMarkedDuplicate: 0,
   whatsappDynamicWeather: 0,
@@ -86,7 +82,6 @@ const ALL_ROW_IDS = [
   "queriesAsked",
   "pushedReviewer",
   "answered120",
-  "passedQuestions",
   "duplicate",
   "dynamicWeather",
   "dynamicMarket",
@@ -106,7 +101,6 @@ const DEFAULT_SELECTED_ROW_IDS = new Set<string>([
   "header",
   "pushedReviewer",
   "answered120",
-  "passedQuestions",
   "summaryDelayReason",
   "avgResponse",
   "adherencePct",
@@ -206,8 +200,7 @@ export function ResponseAdherenceTableCard({
     { id: "header", field: "Source", whatsapp: "Whatsapp", ajraSakha: "AjraSakha", notes: "" },
     { id: "queriesAsked", field: "Queries Asked", whatsapp: whatsappQueriesAskedDisplay, ajraSakha: d.ajrasakhaQueriesAsked, notes: "" },
     { id: "pushedReviewer", field: "Questions pushed into the review system", whatsapp: d.whatsappPushedToReviewer, ajraSakha: d.ajrasakhaPushedToReviewer, notes: "" },
-    { id: "answered120", field: "Questions completed within 120 minutes", whatsapp: d.whatsappAnsweredWithin120Min, ajraSakha: d.ajrasakhaAnsweredWithin120Min, notes: "" },
-    { id: "passedQuestions", field: "Passed questions count", whatsapp: d.whatsappPassedQuestions, ajraSakha: d.ajrasakhaPassedQuestions, notes: "" },
+    { id: "answered120", field: "Questions answered within 120 minutes", whatsapp: d.whatsappAnsweredWithin120Min, ajraSakha: d.ajrasakhaAnsweredWithin120Min, notes: "" },
     { id: "duplicate", field: "Marked Duplicate (Fetched from GDB)", whatsapp: d.whatsappMarkedDuplicate, ajraSakha: d.ajrasakhaMarkedDuplicate, notes: "" },
     { id: "dynamicWeather", field: "Dynamic - Weather", whatsapp: d.whatsappDynamicWeather, ajraSakha: d.ajrasakhaDynamicWeather, notes: "" },
     { id: "dynamicMarket", field: "Dynamic - Market", whatsapp: d.whatsappDynamicMarket, ajraSakha: d.ajrasakhaDynamicMarket, notes: "" },
@@ -259,17 +252,10 @@ export function ResponseAdherenceTableCard({
      },
      {
        key: "answered120",
-       label: "Completed within 120 min",
+       label: "Answered within 120 min",
        type: "data",
        wa: d.whatsappAnsweredWithin120Min,
        as: d.ajrasakhaAnsweredWithin120Min,
-     },
-     {
-       key: "passedQuestions",
-       label: "Passed questions count",
-       type: "data",
-       wa: d.whatsappPassedQuestions,
-       as: d.ajrasakhaPassedQuestions,
      },
      {
        key: "duplicate",

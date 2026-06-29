@@ -3466,8 +3466,6 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       source: { $in: ['AJRASAKHA', 'WHATSAPP'] },
       isAutoAllocate: true,
       status: { $in: ['open', 'delayed'] },
-      // Never allocated: field missing OR explicitly cleared to null (e.g. after the
-      // first expert was removed and the queue emptied).
       firstAllocationAt: null,
       isOnHold: { $ne: true },
     })

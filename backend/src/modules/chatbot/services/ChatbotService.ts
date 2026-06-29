@@ -69,7 +69,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     data: any[],
     state?: string,
   ) {
-    console.log('drawing table with state', state);
+    // console.log('drawing table with state', state);
     const tableConfigs: Record<
       string,
       {
@@ -3080,14 +3080,14 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getAllStatesQuestionsAndUsersData(source: string, userType: string): Promise<any> {
     try{
-        console.time("LGD");
+        // console.time("LGD");
 
     const allStates =
       await this.lgdService.getStates();
 
-    console.timeEnd("LGD");
-    
-      console.log("All states", allStates);
+    // console.timeEnd("LGD");
+
+    //   console.log("All states", allStates);
       return this.chatbotRepository.getAllStatesQuestionsAndUsersData(source, userType, allStates, undefined)
     }catch(error){
       throw new InternalServerError(`Internal Server Error ${error}`)
@@ -3131,5 +3131,10 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }catch(error){
       throw new InternalServerError(`Internal Server Error ${error}`)
     }
+  }
+
+  
+  async getQuestionLifecycle(questionId: string): Promise<any>{
+    return this.chatbotRepository.getQuestionLifecycle(questionId);
   }
 }

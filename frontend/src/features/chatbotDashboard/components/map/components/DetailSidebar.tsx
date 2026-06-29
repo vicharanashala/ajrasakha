@@ -61,10 +61,10 @@ export function DetailSidebar({
   todayActiveFarmersData,
   isLoading = false,
   districtAnalytic,
-  metric = "questions"
+  metric = "questions",
 }: DetailSidebarProps) {
   // Calculate aggregated analytics
-  console.log("Got the district analytics data in component SideBar", districtAnalytic)
+
   const stateAnalytics = selectedState && statesWithData
     ? statesWithData.features.find((x) => x.properties._name === selectedState)
         ?.properties._analytics as Analytics | undefined
@@ -75,12 +75,20 @@ export function DetailSidebar({
         ?.properties._analytics as Analytics | undefined
     : undefined;
 
+
+    const totalBlockCoordinator = districtAnalytic?.slice(1).reduce((acc: number, data: any)=> acc+data?.blockCoordinator, 0);
+
+    const totalDistrictCoordinator = districtAnalytic?.slice(1).reduce((acc: number, data: any)=> acc+data?.districtCoordinator, 0);
+
+    const totalVillageVolunteer = districtAnalytic?.slice(1).reduce((acc: number, data: any)=> acc+data?.villageCoordinator, 0);
+
   const uniqueSubTotal = districtAnalytic?.reduce((acc: number, data: any) => acc+data?.uniqueQuestions, 0);
-  console.log("Unique Total", uniqueSubTotal)
+
   const duplicateSubTotal = districtAnalytic?.reduce((acc:number, data: any) => acc+data?.duplicateQuestions, 0);
-  console.log("Duplicate Total", duplicateSubTotal);
+
   const districtData = districtAnalytic?.find((data: any)=> data.district === selectedDistrict);
-  console.log("District Data", districtData);
+
+
   const countryAnalytics = statesWithData
     ? statesWithData.features.reduce(
         (acc, f) => {
@@ -236,17 +244,17 @@ export function DetailSidebar({
             <div className="space-y-1 text-xs">
               <div>
                 District Coordinators:{" "}
-                {todayActiveFarmersData?.userRoleCounts?.district_coordinator ?? 0}
+                {isIndiaView ? allUsers?.userRoleCounts?.districtCoordinator ?? 0: selectedState? totalDistrictCoordinator : districtData?.districtCoordinator}
               </div>
 
               <div>
                 Block Coordinators:{" "}
-                {todayActiveFarmersData?.userRoleCounts?.block_coordinator ?? 0}
+                {isIndiaView ? allUsers?.userRoleCounts?.blockCoordinator ?? 0: selectedState? totalBlockCoordinator: districtData?.blockCoordinator}
               </div>
 
               <div>
                 Village Volunteers:{" "}
-                {todayActiveFarmersData?.userRoleCounts?.village_volunteer ?? 0}
+                {isIndiaView ? allUsers?.userRoleCounts?.villageVolunteer ?? 0: selectedDistrict ? totalVillageVolunteer: districtData?.villageVolunteer}
               </div>
             </div>
           </TooltipContent>
@@ -256,7 +264,7 @@ export function DetailSidebar({
   }
   value={renderCardValue(fmt(
     isIndiaView
-      ? todayActiveFarmersData?.userRoleCounts?.coordinator
+      ? allUsers?.userRoleCounts?.coordinator
       : activeAnalytics.coordinators
   ))}
   icon={<Building2 className="h-3.5 w-3.5" />}

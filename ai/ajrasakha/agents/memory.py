@@ -5,8 +5,6 @@ from __future__ import annotations
 from langchain_core.runnables import RunnableConfig
 from langgraph.store.base import BaseStore
 
-from ajrasakha.agents.config import resolve_thread_id, resolve_user_id
-
 
 def _coerce_store_text(value: object) -> str:
     if value is None:
@@ -24,8 +22,9 @@ async def load_long_term_summary(store: BaseStore | None, config: RunnableConfig
     if store is None:
         return ""
 
-    thread_id = resolve_thread_id(config)
-    user_id = resolve_user_id(config)
+    configurable = config.get("configurable") or {}
+    thread_id = configurable.get("thread_id") or configurable.get("thread")
+    user_id = configurable.get("user_id") or configurable.get("phone_number")
 
     namespace = ("farmer_profiles", str(user_id or "unknown_user"))
     summary_parts: list[str] = []

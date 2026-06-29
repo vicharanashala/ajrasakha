@@ -21,7 +21,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from langchain_core.runnables import RunnableConfig, patch_config
 from pydantic import BaseModel, Field
 
-from ajrasakha.agents.config import PLANNER_MODEL, resolve_user_id
+from ajrasakha.agents.config import PLANNER_MODEL
 from ajrasakha.agents.thread_logging import (
     begin_conversation_turn,
     end_conversation_turn,
@@ -67,11 +67,6 @@ from ajrasakha.agents.planner_rules import (
 )
 from ajrasakha.agents.prompts import PLANNER_SYSTEM_PROMPT
 from ajrasakha.agents.state import AjraSakhaState, PlannerEntities, PlannerPlan
-from ajrasakha.agents.user_location import (
-    load_user_location,
-    maybe_persist_rephrased_query,
-    maybe_persist_resolved_location,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -187,6 +182,28 @@ def is_greeting_message(text: str) -> bool:
     return bool(_GREETING_RE.match(t))
 
 
+def _compute_tools_used_from_output(output: PlannerOutput) -> list[str]:
+    """Compute tools_used list from PlannerOutput flags."""
+    if output.is_agriculture_related is False:
+        return []
+    
+    tools: list[str] = []
+    if output.knowledge_base:
+        tools.append("knowledge_base")
+    if output.weather:
+        tools.append("weather")
+    if output.mandi:
+        tools.append("mandi")
+    if output.soil:
+        tools.append("soil")
+    if output.schemes:
+        tools.append("schemes")
+    if output.chemical_checker:
+        tools.append("chemical_checker")
+    
+    return tools
+
+
 def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
     entities: PlannerEntities = {}
     if output.entities.crop:
@@ -235,6 +252,7 @@ def planner_output_to_plan(output: PlannerOutput) -> PlannerPlan:
         "script_language": output.script_language,
         "translate_path": None,
         "expert_queue": False,
+        "tools_used": _compute_tools_used_from_output(output),
     }
 
 
@@ -262,6 +280,7 @@ def _default_plan_for_agriculture(user_query: Optional[str] = None) -> PlannerPl
         "script_language": "English",
         "translate_path": None,
         "expert_queue": False,
+        "tools_used": ["knowledge_base"],
     }
 
 
@@ -499,6 +518,7 @@ async def planner_node(
             "script_language": "English",
             "translate_path": None,
             "expert_queue": False,
+            "tools_used": [],
         }
         trace_thread_location(
             "planner_greeting_input",
@@ -618,13 +638,11 @@ async def planner_node(
         if not plan.get("original_query_en"):
             plan["original_query_en"] = user_text
 
-        user_id = resolve_user_id(config)
-        stored_location = load_user_location(user_id)
-        location_sources: dict[str, str | None] = {}
+        configurable = config.get("configurable") or {}
+        user_id = configurable.get("user_id") or configurable.get("phone_number")
         trace_event(
             "planner_user_location_lookup",
             user_id=user_id,
-            stored_location=stored_location,
             configurable_user_id=(config.get("configurable") or {}).get("user_id"),
         )
         entities = merge_entities_from_rephrased_query(
@@ -632,8 +650,6 @@ async def planner_node(
             messages,
             location,
             prev_entities,
-            stored_location=stored_location,
-            sources_out=location_sources,
         )
         plan["entities"] = entities
         trace_event("planner_entities_merged", entities=entities)
@@ -679,28 +695,7 @@ async def planner_node(
             messages,
             location,
             prev_entities,
-            stored_location=stored_location,
-            sources_out=location_sources,
         )
-
-        if plan.get("is_complete"):
-            final_entities = plan.get("entities") or {}
-            maybe_persist_resolved_location(
-                user_id,
-                final_entities.get("state"),
-                final_entities.get("district"),
-                state_source=location_sources.get("state_source"),
-                district_source=location_sources.get("district_source"),
-            )
-            # Save the rephrased query for future context-aware rewriting
-            rephrased = plan.get("rephrased_query")
-            if rephrased:
-                maybe_persist_rephrased_query(user_id, rephrased)
-                trace_event(
-                    "planner_rephrased_query_saved",
-                    user_id=user_id,
-                    rephrased_query=rephrased,
-                )
 
         trace_event(
             "planner_final_plan",

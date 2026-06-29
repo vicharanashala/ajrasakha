@@ -7,7 +7,9 @@
     return {
       _id: q._id,
       question: q.question,
-      status:q.status,
+      status: q.status,
+      moderatorAssignedAt: q.moderatorAssignedAt ?? null,
+      updatedAt: q.updatedAt ?? null,
       isDuplicate: Boolean(
         q.similarityScore &&
         q.referenceQuestionId &&

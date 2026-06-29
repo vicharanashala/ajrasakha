@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "./atoms/card";
 import { Badge } from "./atoms/badge";
 import { Button } from "./atoms/button";
+import { toast } from "sonner";
 import {
   Select,
   SelectContent,
@@ -37,7 +38,6 @@ import {
 import { Skeleton } from "./atoms/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
 import { useSendAudioChunk } from "@/hooks/api/context/useSendAudioChunk";
-import { toast } from "@/shared/components/toast";
 
 export interface GeneratedQuestion {
   id: string;
@@ -270,15 +270,12 @@ export const VoiceRecorderCard = ({}: VoiceRecorderCardProps) => {
       toast.error("Transcript is empty!");
       return;
     }
-    let toastId;
+
     try {
-      toastId = toast.loading('submitting transcript...')
       await submitTranscript(combinedTranscript);
       setTranscript("");
-      toast.dismiss(toastId)
       toast.success("Transcript submitted successfully!");
     } catch (error) {
-      toast.dismiss(toastId)
       console.error(error);
       toast.error("Failed to submit transcript. Try again!");
     }

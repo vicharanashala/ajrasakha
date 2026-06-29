@@ -192,7 +192,7 @@ export class ChatbotController {
     @QueryParam('userType')
     userType: string = 'all',
   ) {
-    console.log("Selected state code controller", selectedStateCode);
+    // console.log("Selected state code controller", selectedStateCode);
     return this.chatbotService.getDistrictAnalyticsByState(
       state,
       selectedStateCode,
@@ -863,7 +863,7 @@ export class ChatbotController {
       const state = query.state;
       const format = query.downloadFormat || 'xlsx';
 
-      console.log('state is', state);
+      // console.log('state is', state);
 
       let data: ArrayBuffer | Buffer | null = null;
 
@@ -1859,6 +1859,7 @@ export class ChatbotController {
       body.userIds,
     );
   }
+
   private async assertCoordinatorOwnDashboard(userId: string, currentUser: IUser) {
     if (currentUser.role === 'admin') return;
 
@@ -1890,6 +1891,18 @@ export class ChatbotController {
       query.district,
       query.source,
       query.userType,
+    );
+  }
+
+  @Get('/question-lifecycle')
+  @HttpCode(200)
+  @Authorized()
+  async getQuestionLifecycle(
+    @QueryParam('questionId')
+    questionId: string
+  ): Promise<any> {
+    return this.chatbotService.getQuestionLifecycle(
+      questionId
     );
   }
 }

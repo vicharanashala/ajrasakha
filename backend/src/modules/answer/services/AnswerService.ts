@@ -1983,7 +1983,10 @@ answer: ${updates.answer}`;
         session,
       );
 
-      // CLOSE QUESTION
+      // CLOSE QUESTION. For normal questions keep moderatorId on the question for
+      // historical reference and only clear the moderator's user-document entry.
+      // For DUPLICATE questions, clear the moderator details from the question too.
+      const isDuplicateApproval = question.status === 'duplicate';
       const questionEmbedding = await generateEmbedding(text);
 
       await this.questionRepo.updateQuestion(
@@ -1991,12 +1994,21 @@ answer: ${updates.answer}`;
         {
           text,
           embedding: questionEmbedding,
-          status: 'closed',
+          status: question?.tag === 'static_dynamic'?'static_dynamic_closed':'closed',
           closedAt: new Date(),
         },
         session,
         true,
       );
+
+      // Pull this question from whichever moderator holds it so the cron sees them as
+      // available again. Keyed by questionId, so a malformed/missing moderatorId can't
+      // leave an orphan entry behind.
+      try {
+        await this.userRepo.removeAssignedQuestionFromAllModerators(questionId, session);
+      } catch (err: any) {
+        console.error('[ModeratorQueue] Failed to clear question from moderators:', err?.message);
+      }
 
       // UPDATE ANSWER
       const answerEmbedding = await generateEmbedding(text);
@@ -2019,7 +2031,7 @@ answer: ${updates.answer}`;
       //  WEBHOOK HANDLERS
       const webhookPayload = {
         question_id: questionId,
-        status: 'closed',
+        status: question?.tag === 'static_dynamic'?'static_dynamic_closed':'closed',
         answer: updates.answer ?? '',
         author:
           `${author?.firstName ?? ''} ${author?.lastName ?? ''}`.trim() ||
@@ -2140,6 +2152,10 @@ answer: ${updates.answer}`;
       // }
 
       const isAddTextRequired = true;
+      // The moderator currently assigned to this question (set by the moderator-queue
+      // cron). Approving moves the question back to "open", so the moderation step is
+      // done — release the assignment so the moderator becomes available again.
+      const assignedModeratorId = (question as any).moderatorId?.toString();
       // Update question with approved AI answer details
       await this.questionRepo.updateQuestion(
         updates.questionId,
@@ -2150,11 +2166,20 @@ answer: ${updates.answer}`;
           aiInitialAnswer: updates.answer ?? '',
           // totalAnswersCount: 1,
           isAutoAllocate: true,
-          status:"open"
+          status: 'open',
+          // Clear the moderator assignment — status is going back to "open".
+          moderatorId: null,
+          moderatorAssignedAt: null,
         },
         session,
         isAddTextRequired,
       );
+
+      // Pull this question from the previously-assigned moderator's assignedQuestionIds
+      // array so the cron sees them as available again once their array is empty.
+      if (assignedModeratorId) {
+        await this.userRepo.removeAssignedQuestion(assignedModeratorId, updates.questionId);
+      }
 
     /*  if (question.status !== 'open' && question.status !== 'delayed') {
         let queue: ObjectId[] = [];

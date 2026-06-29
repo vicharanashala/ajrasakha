@@ -32,13 +32,7 @@ export type QueueQuestionItem = {
   district?: string;
   crop?: string;
   expertName?: string;
-  /** All experts who completed a step on the question, in turn order — needs-reviewer items. */
-  completedExpertNames?: string[];
-  /** Full queue, each entry as "Name (Level)" (Author, Reviewer 1, …) — any section with a queue.
-   *  For the allocated section the level suffix is omitted (plain names). */
-  queueExpertNames?: string[];
-  /** Current/last expert status — 'completed' or 'waiting'. Present for allocated items. */
-  lastPersonStatus?: "completed" | "waiting";
+  moderatorName?: string;
   allocatedAt?: string | null;
   minutesSinceAllocated?: number;
   openedAt?: string | null;
@@ -62,7 +56,13 @@ export type QueueSectionResponse = {
 
 export type QueueDetailsResponse = {
   received: { count: number; items: QueueQuestionItem[] };
+  /** Per-status counts for the received section — accurate DB totals for tab badges. */
+  receivedStatusCounts: { status: string; count: number }[];
   autoAllocateOff: { count: number; items: QueueQuestionItem[] };
+  /** Auto-allocate ON questions that are currently OPEN (accurate count from DB). */
+  autoAllocateOpen: { count: number; items: QueueQuestionItem[] };
+  /** Auto-allocate ON questions that are currently DELAYED (accurate count from DB). */
+  autoAllocateDelayed: { count: number; items: QueueQuestionItem[] };
   allocated: { count: number; items: QueueQuestionItem[] };
   waiting: { count: number; items: QueueQuestionItem[] };
   freeExperts: { count: number; items: QueueExpertItem[] };
@@ -70,6 +70,16 @@ export type QueueDetailsResponse = {
   needsReviewer: { count: number; items: QueueQuestionItem[] };
   totalWork: { count: number; items: QueueQuestionItem[] };
   openedIdle: { count: number; items: QueueQuestionItem[] };
+  moderatorWaiting: { count: number; items: QueueQuestionItem[] };
+  moderatorAllocated: { count: number; items: QueueQuestionItem[] };
+  availableModerators: { count: number; items: QueueExpertItem[] };
+  // Source-split moderator-queue sections (time-bound vs manual)
+  moderatorWaitingTimeBound: { count: number; items: QueueQuestionItem[] };
+  moderatorWaitingManual: { count: number; items: QueueQuestionItem[] };
+  moderatorAllocatedTimeBound: { count: number; items: QueueQuestionItem[] };
+  moderatorAllocatedManual: { count: number; items: QueueQuestionItem[] };
+  availableModeratorsTimeBound: { count: number; items: QueueExpertItem[] };
+  availableModeratorsManual: { count: number; items: QueueExpertItem[] };
 };
 export class QuestionService {
   private _baseUrl = `${API_BASE_URL}/questions`;
@@ -121,6 +131,9 @@ export class QuestionService {
     if (filter.autoAllocateFilter) {
       params.append("autoAllocateFilter", filter.autoAllocateFilter);
     }
+    if (filter.autoAllocateModeratorFilter) {
+      params.append("autoAllocateModeratorFilter", filter.autoAllocateModeratorFilter);
+    }
 
     if (filter.answersCount) {
       params.append("answersCountMin", filter.answersCount[0].toString());
@@ -142,6 +155,10 @@ export class QuestionService {
 
     if (filter.is_non_agri === true) {
       params.append("is_non_agri", "true");
+    }
+
+    if (filter.moderatorId) {
+      params.append("moderatorId", filter.moderatorId);
     }
 
     // states and normalisedCrops sent as JSON arrays in request body
@@ -492,6 +509,9 @@ export class QuestionService {
     if (filter.autoAllocateFilter) {
       params.append("autoAllocateFilter", filter.autoAllocateFilter);
     }
+    if (filter.autoAllocateModeratorFilter) {
+      params.append("autoAllocateModeratorFilter", filter.autoAllocateModeratorFilter);
+    }
 
     if (filter.dateRange && filter.dateRange !== "all")
       params.append("dateRange", filter.dateRange);
@@ -793,6 +813,24 @@ export class QuestionService {
     return apiFetch(`${this._baseUrl}/${questionId}/check-duplicate`, { method: "POST" });
   }
 
+  async changeModerator(
+    questionId: string,
+    moderatorId: string,
+  ): Promise<{ success: boolean; message: string } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/moderator`, {
+      method: "PATCH",
+      body: JSON.stringify({ moderatorId }),
+    });
+  }
+
+  async removeModerator(
+    questionId: string,
+  ): Promise<{ success: boolean; message: string } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/moderator`, {
+      method: "DELETE",
+    });
+  }
+
   async getQuestionStatusSummary(
     filter: AdvanceFilterValues,
     search: string,
@@ -833,6 +871,9 @@ export class QuestionService {
     }
     if (filter.autoAllocateFilter) {
       params.append("autoAllocateFilter", filter.autoAllocateFilter);
+    }
+    if (filter.autoAllocateModeratorFilter) {
+      params.append("autoAllocateModeratorFilter", filter.autoAllocateModeratorFilter);
     }
 
     if (filter.answersCount) {

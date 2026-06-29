@@ -466,6 +466,11 @@ class AddQuestionBodyDto {
   @IsString()
   @IsOptional()
   popContext?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tools_used?: string[];
 }
 
 class GenerateQuestionsBody {
@@ -793,6 +798,14 @@ class GetDetailedQuestionsQuery {
   autoAllocateFilter?: string;
 
   @JSONSchema({
+    description: 'to filter questions based on auto allocate moderator setting',
+    example: 'on',
+    type: 'string',
+  })
+  @IsOptional()
+  autoAllocateModeratorFilter?: string;
+
+  @JSONSchema({
     description: 'Filter for questions closed within the last 2 hours',
     example: 'true',
     type: 'boolean',
@@ -858,6 +871,13 @@ class GetDetailedQuestionsQuery {
   })
   @IsOptional()
   is_dynamic?: string | boolean;
+  @JSONSchema({
+    description: 'filter questions assigned to the given moderator ID (dedicated tab)',
+    example: '64f1a2b3c4d5e6f7a8b9c0d1',
+    type: 'string',
+  })
+  @IsOptional()
+  moderatorId?: string;
 }
 
 export interface IQuestionWithAnswerTexts {
