@@ -7291,7 +7291,7 @@ export class QuestionRepository implements IQuestionRepository {
    *  kind: 'received' | 'allocated' | 'autoOff'. Status scope: open/delayed/duplicate.
    *  Optional createdAt range (startTime/endTime) scopes every kind by date. */
   async getQueueQuestionSection(
-    kind: 'received' | 'allocated' | 'autoOff',
+    kind: 'received' | 'allocated' | 'autoOff' | 'autoAllocateOpen' | 'autoAllocateDelayed',
     skip: number,
     limit: number,
     startTime?: Date,
@@ -7323,6 +7323,16 @@ export class QuestionRepository implements IQuestionRepository {
       isAutoAllocate: {$eq: true},
       status: {$in: ['open', 'delayed']},
     //  ...dateScope,
+    };
+    const autoAllocateOpenMatch = {
+      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+      isAutoAllocate: {$eq: true},
+      status: 'open',
+    };
+    const autoAllocateDelayedMatch = {
+      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+      isAutoAllocate: {$eq: true},
+      status: 'delayed',
     };
 
     const lookupStages = [
@@ -7391,7 +7401,11 @@ export class QuestionRepository implements IQuestionRepository {
       return {count: countRes[0]?.count ?? 0, items};
     }
 
-    const match = kind === 'received' ? receivedMatch : autoOffMatch;
+    const match =
+      kind === 'received'        ? receivedMatch :
+      kind === 'autoAllocateOpen'    ? autoAllocateOpenMatch :
+      kind === 'autoAllocateDelayed' ? autoAllocateDelayedMatch :
+                                       autoOffMatch;
     const [count, items] = await Promise.all([
       this.QuestionCollection.countDocuments(match as any),
       this.QuestionCollection.aggregate<RawQueueQuestionRow>([
@@ -7447,5 +7461,33 @@ export class QuestionRepository implements IQuestionRepository {
     }
 
     return {count, items};
+  }
+
+  /** Per-status counts for the "Questions Received" section.
+   *  Uses the same receivedMatch as getQueueQuestionSection so the totals are
+   *  always in sync. Returns an array sorted by count descending. */
+  async getReceivedStatusCounts(
+    startTime?: Date,
+    endTime?: Date,
+  ): Promise<{status: string; count: number}[]> {
+    await this.init();
+
+    const createdAtFilter: Record<string, unknown> = {};
+    if (startTime) createdAtFilter.$gte = startTime;
+    if (endTime) createdAtFilter.$lte = endTime;
+    const dateScope = startTime || endTime ? {createdAt: createdAtFilter} : {};
+
+    const match = {
+      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+      ...dateScope,
+    };
+
+    const rows = await this.QuestionCollection.aggregate<{_id: string; count: number}>([
+      {$match: match},
+      {$group: {_id: '$status', count: {$sum: 1}}},
+      {$sort: {count: -1}},
+    ]).toArray();
+
+    return rows.map(r => ({status: r._id ?? 'unknown', count: r.count}));
   }
 }
