@@ -55,6 +55,14 @@ export interface IUser {
   assignedQuestionIds?: IAssignedQuestion[] | null;
 }
 
+export interface IUserRoleHistory {
+  _id?: string | ObjectId;
+  userId: string | ObjectId;
+  role: UserRole;
+  from: Date;
+  to?: Date | null
+}
+
 export type IQuestionPriority = 'low' | 'medium' | 'high' | 'critical';
 
 export interface IQuestionMetrics {

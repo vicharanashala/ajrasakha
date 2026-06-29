@@ -1,6 +1,7 @@
 import { IUserRepository } from '#shared/database/interfaces/IUserRepository.js';
 import {
   IUser,
+  IUserRoleHistory,
   NotificationRetentionType,
   IAnswer,
   ICropRef,
@@ -25,6 +26,7 @@ import { IAnswerRepository } from '#root/shared/database/interfaces/IAnswerRepos
 @injectable()
 export class UserRepository implements IUserRepository {
   private usersCollection!: Collection<IUser>;
+  private userRoleHistoryCollection!: Collection<IUserRoleHistory>;
   private AnswerCollection: Collection<IAnswer>;
 
   constructor(
@@ -39,6 +41,10 @@ export class UserRepository implements IUserRepository {
     if (!this.usersCollection) {
       this.usersCollection = await this.db.getCollection<IUser>('users');
     }
+    if (!this.userRoleHistoryCollection) {
+      this.userRoleHistoryCollection =
+        await this.db.getCollection<IUserRoleHistory>('userRoleHistory');
+    }
     this.AnswerCollection = await this.db.getCollection<IAnswer>('answers');
   }
   private async ensureIndexes() {
@@ -50,6 +56,11 @@ export class UserRepository implements IUserRepository {
         'preference.state': 1,
       });
       await this.AnswerCollection.createIndex({ authorId: 1 });
+      await this.userRoleHistoryCollection.createIndex({ userId: 1, from: -1 });
+      await this.userRoleHistoryCollection.createIndex(
+        { userId: 1, to: 1 },
+        { partialFilterExpression: { to: null } },
+      );
     } catch (error) {
       console.error('Failed to create index:', error);
     }
@@ -69,6 +80,7 @@ export class UserRepository implements IUserRepository {
    */
   async create(user: IUser, session?: ClientSession): Promise<string> {
     await this.init();
+    await this.ensureIndexes();
     const existingUser = await this.usersCollection.findOne(
       { firebaseUID: user.firebaseUID },
       { session },
@@ -81,6 +93,16 @@ export class UserRepository implements IUserRepository {
     if (!result.acknowledged) {
       throw new InternalServerError('Failed to create user');
     }
+    const now = user.createdAt ?? new Date();
+    await this.userRoleHistoryCollection.insertOne(
+      {
+        userId: result.insertedId,
+        role: user.role,
+        from: now,
+        to: null
+      },
+      { session },
+    );
     return result.insertedId.toString();
   }
 
@@ -182,18 +204,54 @@ export class UserRepository implements IUserRepository {
     session?: ClientSession,
   ): Promise<IUser> {
     await this.init();
+    await this.ensureIndexes();
+    const existingUser = await this.usersCollection.findOne(
+      { _id: new ObjectId(userId) },
+      { session },
+    );
+    if (!existingUser) return null;
+
+    const roleChanged =
+      userData.role !== undefined && userData.role !== existingUser.role;
+    const updatedAt = new Date();
     const { _id, ...sanitizedData } = userData;
     const result = await this.usersCollection.updateOne(
       { _id: new ObjectId(userId) },
       {
         $set: {
           ...sanitizedData,
-          updatedAt: new Date(),
+          updatedAt,
         },
       },
       { session },
     );
     if (result.matchedCount === 0) return null;
+
+    if (roleChanged) {
+      await Promise.all([
+        this.userRoleHistoryCollection.updateOne(
+          {
+            userId: new ObjectId(userId),
+            to: null,
+          },
+          {
+            $set: {
+              to: updatedAt,
+              updatedAt,
+            },
+          },
+          { session },
+        ),
+        this.userRoleHistoryCollection.insertOne(
+          {
+            userId: new ObjectId(userId),
+            role: userData.role,
+            from: updatedAt,
+            to: null,
+          },
+          { session },
+        )])
+    }
 
     const updatedUser = await this.usersCollection.findOne(
       { _id: new ObjectId(userId) },
