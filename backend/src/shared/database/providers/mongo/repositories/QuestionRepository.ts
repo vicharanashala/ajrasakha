@@ -341,6 +341,7 @@ export class QuestionRepository implements IQuestionRepository {
         closedAtEnd,
         consecutiveApprovals,
         autoAllocateFilter,
+        autoAllocateModeratorFilter,
         sort,
         closedInTwoHrs,
         hiddenQuestions,
@@ -452,6 +453,15 @@ export class QuestionRepository implements IQuestionRepository {
           filter.isAutoAllocate = true;
         } else if (autoAllocateFilter === 'off') {
           filter.isAutoAllocate = false;
+        }
+      }
+
+      // --- Auto Allocate Moderator Filter ---
+      if (autoAllocateModeratorFilter && autoAllocateModeratorFilter !== 'all') {
+        if (autoAllocateModeratorFilter === 'on') {
+          filter.autoAllocateModerator = true;
+        } else if (autoAllocateModeratorFilter === 'off') {
+          filter.autoAllocateModerator = false;
         }
       }
 
