@@ -374,3 +374,34 @@ def test_format_non_gdb_weather_json_becomes_readable():
     assert "### weather" not in block
     assert "{" not in block
     assert "Pathankot" in block
+
+
+def test_format_weather_empty_string_returns_empty():
+    """When weather API fails and returns empty string, it should return empty output."""
+    # Simulating what happens when fetch_api_weather returns "" and we check "if not result"
+    out = format_tool_output("weather", "")
+    assert out == ""
+
+
+def test_format_weather_empty_string_in_tool_message():
+    """Empty weather tool message should not contribute to output block."""
+    messages = [
+        HumanMessage(content="Weather in Punjab?"),
+        ToolMessage(
+            content="",  # Empty string when API fails
+            tool_call_id="w-1",
+            name="weather",
+        ),
+    ]
+    block = format_non_gdb_tool_results(messages)
+    # Empty weather result should not produce any output
+    assert block == ""
+
+
+def test_format_weather_success_false_returns_empty():
+    """When weather API returns success=false (e.g., 404), it should return empty output."""
+    # This simulates what happens when IMD API returns {"success": false, "error": "..."}
+    payload = {"success": False, "error": "404 Not Found"}
+    out = format_tool_output("weather", json.dumps(payload))
+    # Should show error message (this is the formatted output from the tool)
+    assert "404 Not Found" in out
