@@ -33,7 +33,8 @@ export const buildQuestionFilter = async (
     user,
     review_level,
     consecutiveApprovals,
-    autoAllocateFilter
+    autoAllocateFilter,
+    autoAllocateModeratorFilter
   } = query;
   // --- Auto Allocate Filter ---
 if (autoAllocateFilter && autoAllocateFilter !== 'all') {
@@ -41,6 +42,15 @@ if (autoAllocateFilter && autoAllocateFilter !== 'all') {
     filter.isAutoAllocate = true;
   } else if (autoAllocateFilter === 'off') {
     filter.isAutoAllocate = false;
+  }
+}
+
+// --- Auto Allocate Moderator Filter ---
+if (autoAllocateModeratorFilter && autoAllocateModeratorFilter !== 'all') {
+  if (autoAllocateModeratorFilter === 'on') {
+    filter.autoAllocateModerator = true;
+  } else if (autoAllocateModeratorFilter === 'off') {
+    filter.autoAllocateModerator = false;
   }
 }
 

@@ -13,6 +13,10 @@ from ajrasakha.agents.answer_body import (
     format_non_gdb_tool_results,
     gdb_answer_body,
 )
+from ajrasakha.agents.answer_relevance_checker import (
+    check_answer_relevance,
+    should_add_disclaimer,
+)
 from ajrasakha.agents.llm_trace import trace_llm_request, trace_llm_response
 from ajrasakha.agents.thread_trace import trace_event
 from ajrasakha.agents.plan_executor import (
@@ -161,6 +165,57 @@ async def assemble_answer_body_node(
             logger.info("assemble_answer_body: specialist tools empty — empty_gdb path")
             return defer_empty_gdb_to_translate(state, plan=plan)
 
+        # Check if the answer is relevant to the user's question
+        # This handles cases like "What crops are best for weather?" where only weather data is returned
+        rephrased_query = plan.get("rephrased_query", "")
+        
+        # Only check relevance if we have a complex query (not just weather/mandi specific questions)
+        # and if the answer is just weather/mandi data
+        needs_relevance_check = False
+        if rephrased_query:
+            query_lower = rephrased_query.lower()
+            # Check if query asks for more than just weather/mandi data
+            complex_indicators = [
+                "best", "good", "suitable", "recommend", "should", "crop", "plant",
+                "pesticide", "fertilizer", "advice", "tip", "how to", "what to",
+                "is it good", "good for", "suitable for", "which crop"
+            ]
+            weather_only_indicators = [
+                "weather", "temperature", "rain", "forecast", "climate"
+            ]
+            
+            has_complex_intent = any(ind in query_lower for ind in complex_indicators)
+            is_weather_query_only = all(ind in query_lower for ind in weather_only_indicators) and not has_complex_intent
+            
+            # If query has complex intent (recommendations, advice) and we have dynamic tools,
+            # we need to check relevance
+            if has_complex_intent:
+                # Check if any dynamic tool was used (weather, mandi, soil, schemes)
+                # NOT triggered for knowledge_base only
+                has_dynamic_tool = (
+                    plan.get("weather", False) or
+                    plan.get("mandi", False) or
+                    plan.get("soil", False) or
+                    plan.get("schemes", False)
+                )
+                if has_dynamic_tool:
+                    needs_relevance_check = True
+        
+        relevance_result = None
+        if needs_relevance_check:
+            logger.info(
+                f"assemble_answer_body: checking answer relevance for query: {rephrased_query[:100]}"
+            )
+            relevance_result = await check_answer_relevance(rephrased_query, tool_block)
+            
+            if should_add_disclaimer(relevance_result):
+                logger.info(
+                    f"assemble_answer_body: answer insufficient - {relevance_result.reason}. "
+                    f"Missing: {relevance_result.missing_aspects}. Using empty_gdb path."
+                )
+                # Answer is insufficient - use empty_gdb path to show only disclaimers (no partial data)
+                return defer_empty_gdb_to_translate(state, plan=plan)
+        
         logger.info("assemble_answer_body: specialist tool body (len=%d)", len(tool_block))
         return {
             "messages": [AIMessage(content=tool_block)],

@@ -7,13 +7,17 @@ import {
   Bell,
   Check,
   ChevronDown,
+  CircleUserRound,
+  ClipboardList,
   Eye,
   EyeOff,
   KeyRound,
   MapPin,
   Pencil,
   ShieldX,
+  Sprout,
   Trash2,
+  type LucideIcon,
   UserCheck2,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -35,7 +39,7 @@ interface FarmerDetailsContentProps {
 }
 
 function EmptyValue() {
-  return <span className="text-muted-foreground">Not provided</span>;
+  return <span className="font-medium text-muted-foreground">Not provided</span>;
 }
 
 function DetailItem({
@@ -45,11 +49,39 @@ function DetailItem({
   label: string;
   value: React.ReactNode;
 }) {
+  const hasValue = value !== null && value !== undefined && value !== "";
+
   return (
-    <div className="rounded-md border bg-card p-3">
-      <div className="text-xs uppercase text-muted-foreground">{label}</div>
-      <div className="mt-1 text-sm font-medium">{value || <EmptyValue />}</div>
+    <div className="min-h-[78px] rounded-md border border-border/70 bg-background/70 p-3.5 shadow-sm">
+      <dt className="text-[11px] font-semibold uppercase text-muted-foreground">
+        {label}
+      </dt>
+      <dd className="mt-2 break-words text-sm font-semibold leading-snug text-foreground">
+        {hasValue ? value : <EmptyValue />}
+      </dd>
     </div>
+  );
+}
+
+function DetailSection({
+  title,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  icon: LucideIcon;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-md border bg-card/80 p-4 shadow-sm">
+      <div className="mb-4 flex items-center gap-2">
+        <Icon className="h-4 w-4 text-muted-foreground" />
+        <h4 className="text-sm font-semibold uppercase text-muted-foreground">
+          {title}
+        </h4>
+      </div>
+      <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{children}</dl>
+    </section>
   );
 }
 
@@ -431,9 +463,7 @@ export function FarmerDetailsContent({
         </section>
       )}
 
-      <section>
-        <h4 className="mb-2 text-sm font-semibold">Account</h4>
-        <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <DetailSection title="Account" icon={ClipboardList}>
           <DetailItem label="Name" value={user.name} />
           <DetailItem label="Email" value={user.email} />
           <DetailItem label="Role" value={user.userRole || user.role} />
@@ -453,12 +483,9 @@ export function FarmerDetailsContent({
             label="Latest platform"
             value={<LatestPlatform user={user} />}
           />
-        </dl>
-      </section>
+      </DetailSection>
 
-      <section>
-        <h4 className="mb-2 text-sm font-semibold">Profile</h4>
-        <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <DetailSection title="Profile" icon={CircleUserRound}>
           <DetailItem label="Farmer name" value={fp?.farmerName} />
           <DetailItem label="Age" value={fp?.age} />
           <DetailItem label="Gender" value={fp?.gender} />
@@ -492,12 +519,9 @@ export function FarmerDetailsContent({
               ) : null
             }
           />
-        </dl>
-      </section>
+      </DetailSection>
 
-      <section>
-        <h4 className="mb-2 text-sm font-semibold">Farm Details</h4>
-        <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <DetailSection title="Farm Details" icon={Sprout}>
           <DetailItem
             label="Crops cultivated"
             value={<ListValue value={fp?.cropsCultivated} />}
@@ -529,8 +553,7 @@ export function FarmerDetailsContent({
             label="Platform history"
             value={<PlatformHistory user={user} />}
           />
-        </dl>
-      </section>
+      </DetailSection>
     </div>
   );
 }

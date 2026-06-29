@@ -65,10 +65,9 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
   const { mutate: removeModerator, isPending: removingModerator } =
     useRemoveModerator();
 
-  // Moderator auto-allocation toggle. Defaults to ON when the field is absent
-  // (new questions default to true server-side); false means the moderator-queue
-  // cron will never auto-assign this question.
-  const autoAllocateModerator = question.autoAllocateModerator !== false;
+  // Moderator auto-allocation toggle is ON only when BOTH fields exist in the DB and
+  // are explicitly true. If either is missing/false, the toggle shows OFF.
+  const autoAllocateModerator = question.autoAllocateModerator === true;
   const { mutateAsync: updateQuestion, isPending: isTogglingAutoAllocate } =
     useUpdateQuestion();
   const queryClient = useQueryClient();
