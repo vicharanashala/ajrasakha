@@ -261,6 +261,8 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
                       item.length > 12 ? `${item.substring(0, 12)}...` : item
                     )
                     .join(", ")
+                  : typeof q.details?.domain === "string" && q.details.domain
+                  ? q.details.domain
                   : "-"}
               </span>
             </div>
