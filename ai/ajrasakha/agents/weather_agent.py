@@ -206,6 +206,10 @@ async def weather(
         logger.info("Gemma 4 classified weather intent: %s", data_type)
         
         result = await fetch_api_weather(lat, lon, data_type)
+        # Return empty string directly when API fails (empty string from fetch_api_weather)
+        # This ensures empty_gdb_reply path is triggered instead of outputting '""'
+        if not result:
+            return ""
         return json.dumps(result, ensure_ascii=False)
     except Exception as exc:
         logger.error("weather sub-agent failed: %s", exc, exc_info=True)
