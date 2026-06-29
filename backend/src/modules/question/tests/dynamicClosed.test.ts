@@ -24,7 +24,7 @@ const mockUserRepo = {
 // aiService, accAgentService, contextRepo, questionRepo, userRepo,
 // questionSubmissionRepo, requestRepository, answerRepo, notificationRepository,
 // notificationService, reRouteRepository, duplicateQuestionRepository,
-// cropRepository, chatbotRepository, mongoDatabase, userService
+// cropRepository, chatbotRepository, mongoDatabase, userService, auditTrailsService
 function buildService(): QuestionService {
   return new QuestionService(
     {} as any, // aiService
@@ -43,6 +43,7 @@ function buildService(): QuestionService {
     {} as any, // chatbotRepository
     {} as any, // mongoDatabase
     {} as any, // userService
+    {createAuditTrail: vi.fn()} as any, // auditTrailsService
   );
 }
 

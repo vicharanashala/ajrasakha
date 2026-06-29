@@ -107,6 +107,10 @@ export interface IQuestion {
   createdAt?: Date;
   updatedAt?: Date;
   isClosed?: boolean;
+  /** When a Gate Keeper pushes a question to the Auditor (status → 'auditor_review'),
+   *  this records what it was before — 'dynamic' or 'duplicate' — so the Auditor shows
+   *  the right action (Notify User for dynamic, Push to GDB for duplicate). */
+  auditorReviewType?: 'dynamic' | 'duplicate';
   isHidden?: false;
   passingRemark?: string;
   isOnHold?: boolean;

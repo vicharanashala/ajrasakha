@@ -1414,9 +1414,6 @@ export class QuestionController {
       // The comment is sent in the body for the audit trail only — neither it nor a
       // push timestamp are persisted on the question (both live in the audit trail).
       const gateKeeperComment = ((updates as any).gateKeeperComment ?? '').trim();
-      const pushUpdates: Partial<IQuestion> = {
-        status: 'auditor_review',
-      };
       const auditPayload: ModeratorAuditTrail = {
         category: AuditCategory.QUESTION,
         action: AuditAction.PUSH_TO_AUDITOR,
@@ -1433,12 +1430,20 @@ export class QuestionController {
 
       try {
         prevQuestion = await this.questionService.getQuestionById(questionId);
+        // Record what the question was (dynamic vs duplicate) before the hand-off so the
+        // Auditor can show the right action even though the status is now auditor_review.
+        const auditorReviewType: 'dynamic' | 'duplicate' =
+          prevQuestion?.status === 'dynamic' ? 'dynamic' : 'duplicate';
+        const pushUpdates: Partial<IQuestion> = {
+          status: 'auditor_review',
+          auditorReviewType,
+        };
         response = await this.questionService.updateQuestion(questionId, pushUpdates);
         this.auditTrailsService.createAuditTrail({
           ...auditPayload,
           changes: {
             before: { status: prevQuestion?.status },
-            after: { status: 'auditor_review', gateKeeperComment },
+            after: { status: 'auditor_review', auditorReviewType, gateKeeperComment },
           },
           outcome: { status: OutComeStatus.SUCCESS },
         });

@@ -516,6 +516,10 @@ export interface IQuestionFullData {
   assigned_moderator?: { name: string; email: string } | null;
   /** True when the requesting user is the moderator this question is assigned to. Gates the Pass / Accept / Push to GDB actions. */
   isAssignedModerator?: boolean;
+  /** Set when a Gate Keeper pushes to the Auditor (status → 'auditor_review'); records
+   *  whether the question was 'dynamic' or 'duplicate' so the Auditor shows the right
+   *  action (Notify User vs Push to GDB). */
+  auditorReviewType?: "dynamic" | "duplicate";
   /** Timestamp when a moderator was assigned. Used to calculate moderator handling time (closedAt - moderatorAssignedAt). */
   moderatorAssignedAt?: string | null;
   closedFinalAnswer?: {

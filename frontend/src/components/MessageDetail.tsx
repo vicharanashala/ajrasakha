@@ -608,16 +608,17 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const isGateKeeper = role === "gate_keeper";
     const isAuditor = role === "auditor";
     // Once pushed to the Auditor the question's status is `auditor_review`. The
-    // dynamic/duplicate distinction (needed for the Auditor's action) is then derived
-    // from referenceQuestionId: duplicates carry a reference, dynamic questions don't.
+    // dynamic/duplicate distinction (needed for the Auditor's action — Notify User vs
+    // Push to GDB) is then read from `auditorReviewType`, stamped at push time.
     const isPushedToAuditor = question?.status === "auditor_review";
-    const hasReference = !!question?.referenceQuestionId;
     const isDynamicQuestion =
-        question?.status === "dynamic" || (isPushedToAuditor && !hasReference);
+        question?.status === "dynamic" ||
+        (isPushedToAuditor && question?.auditorReviewType === "dynamic");
     // queue_duplicate is intentionally excluded: those questions only expose the
     // "Cancel Duplicate" action (in the question header), not the triage/GDB actions.
     const isDuplicateQuestion =
-        question?.status === "duplicate" || (isPushedToAuditor && hasReference);
+        question?.status === "duplicate" ||
+        (isPushedToAuditor && question?.auditorReviewType === "duplicate");
 
     // Push to Auditor moves the question to `auditor_review`. The comment is sent for
     // the audit trail only (not persisted). This hides the Gate Keeper actions and
