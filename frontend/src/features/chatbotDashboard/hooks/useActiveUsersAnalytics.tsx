@@ -346,3 +346,34 @@ export const useQuestionLifeCycle = (questionId: string, enabled=true) => {
     enabled,
   });
 }
+
+export const useLifeCycleSummary = (  
+  startDate?: string,
+  endDate?: string,
+  source?: string,
+  status?: string,
+  userType?: string,
+  isPassed?: boolean,
+  enabled=true) => {
+  return useQuery({
+    queryKey: [
+      "lifecycle-summary",
+      startDate,
+      endDate,
+      source,
+      status,
+      userType,
+      isPassed,
+    ],
+    queryFn: () => {
+      return chatbotService.getLifeCycleSummary(  
+        startDate,
+        endDate,
+        source,
+        status,
+        userType,
+        isPassed,);
+    },
+    enabled,
+  });
+}

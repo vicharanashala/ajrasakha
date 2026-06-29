@@ -60,6 +60,12 @@ type QuestionListTableProps<T> = {
   onRowClick?: (row: T) => void;
   summary?: any;
   viewMode?: string;
+  startDate?: string,
+  endDate?: string,
+  source?: string,
+  status?: string,
+  userType?: string,
+  isPassed?: boolean,
 };
 
 const alignClasses = {
@@ -116,9 +122,15 @@ export function QuestionListTable<T>({
   className,
   tableClassName,
   onRowClick,
-  summary,
   viewMode,
+  startDate,
+  endDate,
+  source,
+  status,
+  userType,
+  isPassed,
 }: QuestionListTableProps<T>) {
+  console.log("QuestionListTable----", isPassed);
   const [sortKey, setSortKey] = useState(initialSortKey);
   const [sortDirection, setSortDirection] =
     useState<QuestionListSortDirection>(initialSortDirection);
@@ -332,9 +344,14 @@ export function QuestionListTable<T>({
         </table>
       </div>): (
       <QuestionLifecycleSummary
-        summary={summary}
+        startDate={startDate}
+        endDate={endDate}
+        source={source}
+        status={status}
+        userType={userType}
+        isPassed={isPassed}
       />)}
-      {shouldPaginate && totalPages > 1 && (
+      {(viewMode === "table") && (shouldPaginate && totalPages > 1) && (
         <div className="shrink-0 border-t border-gray-100 px-4 py-3 dark:border-[#2a2a2a]">
           <Pagination
             currentPage={displayPage}

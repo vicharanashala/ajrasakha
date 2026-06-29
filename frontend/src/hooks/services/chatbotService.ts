@@ -488,11 +488,42 @@ export class ChatbotService {
   async getQuestionLifeCycle(
     questionId: string,
   ): Promise<any> {
-    console.log("questionId", questionId)
     const params = new URLSearchParams();
     params.append("questionId", questionId);
     return apiFetch<any>(
       `${this._baseUrl}/question-lifecycle?${params.toString()}`,
+    );
+  }
+
+  async getLifeCycleSummary(
+    startDate?: string,
+    endDate?: string,
+    source?: string,
+    status?: string,
+    userType?: string,
+    isPassed?: boolean,
+  ): Promise<any> {
+    const params = new URLSearchParams();
+    if (startDate) {
+      params.append("startDate", startDate);
+    }
+    if (endDate) {
+      params.append("endDate", endDate);
+    }
+    if (source) {
+      params.append("source", source);
+    }
+    if (status) {
+      params.append("status", status);
+    }
+    if (userType) {
+      params.append("userType", userType);
+    }
+    if (isPassed != null) {
+      params.append("isPassed", String(isPassed));
+    }
+    return apiFetch<any>(
+      `${this._baseUrl}/lifecycle-summary?${params.toString()}`
     );
   }
 }

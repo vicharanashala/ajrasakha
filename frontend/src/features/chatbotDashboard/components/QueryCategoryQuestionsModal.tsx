@@ -142,7 +142,7 @@ export function QueryCategoryQuestionsModal({
     enabled: true,
     isPassed,
   });
-console.log("dta----", data)
+// console.log("dta----", data)
   // const columns = useMemo<QuestionListColumn<QueryCategoryQuestionEntry>[]>(
   //   () => [
   //     {
@@ -472,8 +472,13 @@ console.log("dta----", data)
           }}
           initialSortKey="createdAt"
           initialSortDirection="desc"
-          summary={data?.lifeCycleSummary}
           viewMode={viewMode}
+          startDate={startDate}
+          endDate= {endDate}
+          source= {source}
+          status= {status}
+          userType= {userType}
+          isPassed={isPassed}
         />
 
         <div className="flex shrink-0 items-center justify-between border-t border-gray-100 px-6 py-3 text-xs text-gray-400 dark:border-[#2a2a2a] dark:text-gray-500">

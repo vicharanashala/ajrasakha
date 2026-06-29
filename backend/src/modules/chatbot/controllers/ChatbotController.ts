@@ -1905,4 +1905,33 @@ export class ChatbotController {
       questionId
     );
   }
+
+  @Get('/lifecycle-summary')
+  @HttpCode(200)
+  @Authorized()
+  async getLifecycleSummary(
+    @QueryParam('status') status: string = 'all',
+    @QueryParam('source') source: string = 'annam',
+    @QueryParam('userType') userType: string = 'all',
+    @QueryParam('startDate') startDate?: string,
+    @QueryParam('endDate') endDate?: string,
+    @QueryParam('isPassed') isPassed?: string,
+  ): Promise<any> {
+  // console.log(isPassed, "QuestionLifecycleSummary--", startDate, endDate, source, status, userType)
+
+    const start= startDate
+        ? new Date(startDate)
+        : undefined;
+    const end= endDate
+        ? new Date(endDate)
+        : undefined;
+    return this.chatbotService.getLifeCycleSummary(
+      status,
+      source,
+      userType,
+      start,
+      end,
+      isPassed,
+    );
+  }
 }

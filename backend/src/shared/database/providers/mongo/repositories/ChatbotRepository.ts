@@ -12839,19 +12839,13 @@ if (!districts.length) {
           state: user?.farmerProfile?.state,
         };
       });
-      const questionIds = enrichedQuestions.map((item)=>{
-        return item.questionId
-      })
 
-      const lifeCycleSummary = await this.getLifeCycleSummary(questionIds);
-            console.log("questionIds--", questionIds[0]);
       return {
         questions: enrichedQuestions,
         total,
         totalPages: Math.max(1, Math.ceil(total / safeLimit)),
         page: safePage,
         limit: safeLimit,
-        lifeCycleSummary
       };
     } catch (error) {
       throw new InternalServerError(
@@ -13069,7 +13063,6 @@ if (!districts.length) {
         state: user?.farmerProfile?.state,
       };
     });
-// console.log("total----", total)
     return {
       questions: enrichedQuestions,
       total,
@@ -14936,6 +14929,7 @@ existing.villageVolunteers +=
           remarks: "Conversation mapping not found",
           endTime: null,
           eventType: "inception",
+          // questionId: question._id,
         });
       }
       // ---------------------------------------------------
@@ -15018,10 +15012,15 @@ existing.villageVolunteers +=
           userMap.get(question.moderatorId.toString()) ||
           "Unknown User";
 
+        const moderatorAssignedAt =
+          typeof question.moderatorAssignedAt === "string"
+            ? new Date(question.moderatorAssignedAt)
+            : question.moderatorAssignedAt;
+
         if (
-          question.moderatorAssignedAt &&
+          moderatorAssignedAt &&
           question.moderatorId &&
-          question.moderatorAssignedAt.getTime() >
+          moderatorAssignedAt.getTime() >
             new Date(finalReviewerCompletedAt).getTime()
         ) {
           timeline.push({
@@ -15029,21 +15028,21 @@ existing.villageVolunteers +=
             user: "Buffer Time",
             action: "Awaiting Moderator Assignment",
             duration:
-              question.moderatorAssignedAt.getTime() -
+              moderatorAssignedAt.getTime() -
               new Date(finalReviewerCompletedAt).getTime(),
             remarks: "",
-            endTime: question.moderatorAssignedAt,
+            endTime: moderatorAssignedAt,
             eventType: "system_wait",
           });
         }
 
         timeline.push({
-          timestamp: question.moderatorAssignedAt,
+          timestamp: moderatorAssignedAt,
           user: moderatorName,
           action: "Approval Review",
           duration:
             question.closedAt?.getTime() -
-            question.moderatorAssignedAt.getTime(),
+            moderatorAssignedAt.getTime(),
           remarks: "",
           endTime: question.closedAt,
           eventType: "moderator",
@@ -15172,33 +15171,40 @@ existing.villageVolunteers +=
         question.closedAt || question.passedAt;
 
       if (completionTime) {
-        const last =
-          finalTimeline[finalTimeline.length - 1];
+          const last = finalTimeline[finalTimeline.length - 1];
 
-        if (last) {
-          const lastEnd = new Date(
-            last.endTime || last.timestamp,
-          );
-          if(typeof completionTime === "string"){
-            completionTime = new Date(completionTime)
-          }
-          const waitForClosure =
-            completionTime.getTime() -
-            lastEnd.getTime();
+          if (last) {
+              const lastTimestamp =
+                  last.endTime ??
+                  last.timestamp;
 
-          if (waitForClosure > 1000) {
-            finalTimeline.push({
-              timestamp: lastEnd ?? question.createdAt.getTime(),
-              user: 'Buffer Time',
-              action: 'Awaiting Closure/Pass',
-              duration: waitForClosure,
-              remarks: '',
-              endTime: completionTime,
-              eventType: 'system_wait',
-            });
+              if (lastTimestamp) {
+                  const lastEnd = new Date(lastTimestamp);
+
+                  if (!isNaN(lastEnd.getTime())) {
+
+                      if (typeof completionTime === "string") {
+                          completionTime = new Date(completionTime);
+                      }
+
+                      const waitForClosure =
+                          completionTime.getTime() -
+                          lastEnd.getTime();
+
+                      if (waitForClosure > 1000) {
+                          finalTimeline.push({
+                              timestamp: lastEnd,
+                              user: "Buffer Time",
+                              action: "Awaiting Closure/Pass",
+                              duration: waitForClosure,
+                              remarks: "",
+                              endTime: completionTime,
+                              eventType: "system_wait",
+                          });
+                      }
+                  }
+              }
           }
-        
-        }
       }
 
       // ---------------------------------------------------
@@ -15234,7 +15240,7 @@ existing.villageVolunteers +=
           eventType: 'closure',
         });
       }
-      console.log("finalTimeline--", finalTimeline)
+      // console.log("finalTimeline--", finalTimeline)
       return finalTimeline;
     } catch(err){
       // console.log("err----", err);
@@ -15242,263 +15248,316 @@ existing.villageVolunteers +=
     }
   }
 
-  // async getLifeCycleSummary(questionIds: string[]) {
-  //   const lifecycles = await Promise.all(
-  //       questionIds.map(id =>
-  //           this.getQuestionLifecycle(id)
-  //       )
-  //   );
+  async getLifeCycleSummary(    
+      status = "all",
+      source = "annam",
+      userType = "all",
+      startDate?: Date,
+      endDate?: Date,
+      isPassed?: string,
+    ) {
+    try{
+        // console.log("getLifeCycleSummary...............", startDate, endDate, isPassed)
+      const sourceType =
+        source === "whatsapp"
+        ? "WHATSAPP"
+        : "AJRASAKHA";
 
-  //   console.log("lifecycles---", lifecycles)
+      const matchQuery =
+        buildBaseQuestionMatch(sourceType);
 
-  //   let totalClosureTime = 0;
-  //   let totalWaitTime = 0;
-  //   let totalReviewTime = 0;
-  //   let totalAuthoringTime = 0;
+      if (source === "both") {
+        matchQuery.source = {
+          $in: ["AJRASAKHA", "WHATSAPP"],
+        };
+      }
 
-  //   let totalReroutes = 0;
-  //   let totalRerouteTime = 0;
+      if (status === "closed") {
+        matchQuery.status = {
+          $in: ["closed"],
+        };
+      } else if (status === "pending") {
+        matchQuery.status = {
+          $nin: ["closed", "pass"],
+        };
+      } else if (status !== "all") {
+        matchQuery.status = status;
+      }
 
-  //   let totalReviewers = 0;
-  //   let slaBreachedCount = 0;
+      if (isPassed === "true") {
+        matchQuery.status = {
+          $in: ["pass"],
+        };
+      }
+      if(isPassed === "false"){
+        matchQuery.status = {
+          $in: ["closed"],
+        };
+      }
 
-  //   for (const lifecycle of lifecycles) {
+      const query =
+        await this.buildQuestionUserTypeMatchQuery(
+          source,
+          userType,
+        );
 
-  //       const validEvents = lifecycle.filter(
-  //           x =>
-  //               x.timestamp &&
-  //               new Date(x.timestamp).getTime() > 0
-  //       );
-  //       const first = validEvents[0];
-  //       const last = validEvents.at(-1);
+      if (query && Object.keys(query).length > 0) {
+        matchQuery.$and.push(query);
+      }
 
-  //       if (first && last && last.eventType === "closure") {
+      if (startDate || endDate) {
+        matchQuery.createdAt = {};
 
-  //           const closureTime =
-  //               new Date(last.timestamp).getTime() -
-  //               new Date(first.timestamp).getTime();
+        if (startDate) {
+          matchQuery.createdAt.$gte = startDate;
+        }
 
-  //           totalClosureTime += closureTime;
-
-  //           if (closureTime > 2 * 60 * 60 * 1000) {
-  //               slaBreachedCount++;
-  //           }
-  //       }
-
-  //       totalWaitTime += lifecycle
-  //           .filter(x => x.eventType === "system_wait")
-  //           .reduce(
-  //               (sum, x) => sum + (x.duration || 0),
-  //               0
-  //           );
-
-  //       totalReviewTime += lifecycle
-  //           .filter(x => x.eventType === "reviewer")
-  //           .reduce(
-  //               (sum, x) => sum + (x.duration || 0),
-  //               0
-  //           );
-
-  //       totalAuthoringTime += lifecycle
-  //           .filter(x => x.eventType === "author")
-  //           .reduce(
-  //               (sum, x) => sum + (x.duration || 0),
-  //               0
-  //           );
-
-  //       const reroutes = lifecycle.filter(
-  //           x => x.eventType === "reroute"
-  //       );
-
-  //       totalReroutes += reroutes.length;
-
-  //       totalRerouteTime += reroutes.reduce(
-  //           (sum, x) => sum + (x.duration || 0),
-  //           0
-  //       );
-
-  //       totalReviewers += new Set(
-  //           lifecycle
-  //               .filter(
-  //                   x => x.eventType === "reviewer"
-  //               )
-  //               .map(x => x.user)
-  //       ).size;
-  //   }
-
-  //   return {
-  //       totalQuestions: questionIds.length,
-
-  //       avgClosureTime:
-  //           totalClosureTime / questionIds.length,
-
-  //       avgWaitTime:
-  //           totalWaitTime / questionIds.length,
-
-  //       avgReviewTime:
-  //           totalReviewTime / questionIds.length,
-
-  //       avgAuthoringTime:
-  //           totalAuthoringTime / questionIds.length,
-
-  //       totalReroutes,
-
-  //       avgRerouteTime:
-  //           totalRerouteTime /
-  //           Math.max(totalReroutes, 1),
-
-  //       avgReviewersPerQuestion:
-  //           totalReviewers / questionIds.length,
-
-  //       slaBreachedCount,
-  //   };
-  // }
-
-  async getLifeCycleSummary(questionIds: string[]) {
-    const lifecycles = await Promise.all(
-      questionIds.map((id) => this.getQuestionLifecycle(id))
-    );
-
-    let totalClosureTime = 0;
-    let totalWaitTime = 0;
-    let totalReviewTime = 0;
-    let totalAuthoringTime = 0;
-
-    let totalReroutes = 0;
-    let totalRerouteTime = 0;
-    let totalReviewers = 0;
-    let slaBreachedCount = 0;
-
-    let resolvedQuestions = 0;
-    let questionsWithReviewers = 0;
-    let questionsWithAuthors = 0;
-
-    for (const lifecycle of lifecycles) {
-      // ----------------------
-      // Closure Time
-      // ----------------------
-
-      const validEvents = lifecycle.filter(
-        (x) =>
-          x.timestamp &&
-          new Date(x.timestamp).getTime() > 0
-      );
-
-      const first = validEvents[0];
-      const last = validEvents.at(-1);
-
-      if (first && last && last.eventType === "closure") {
-        const closureTime =
-          new Date(last.timestamp).getTime() -
-          new Date(first.timestamp).getTime();
-
-        totalClosureTime += closureTime;
-        resolvedQuestions++;
-
-        if (closureTime > 2 * 60 * 60 * 1000) {
-          slaBreachedCount++;
+        if (endDate) {
+          const endOfDay = new Date(endDate);
+          endOfDay.setHours(
+            23,
+            59,
+            59,
+            999,
+          );
+          matchQuery.createdAt.$lte =
+            endOfDay;
         }
       }
+      let questionIds;
+      if(!isPassed){
+       questionIds =
+        await this.QuestionCollection
+          .find(
+            matchQuery,
+            {
+              projection: {
+                _id: 1,
+              },
+            },
+          )
+          .map(
+            (x) => x._id.toString(),
+          )
+          .toArray();
+      } else {
+        const result = await this.QuestionCollection
+          .aggregate([
+            {
+              $match: matchQuery,
+            },
+            {
+              $addFields: {
+                _statusLower: {
+                  $toLower: {
+                    $ifNull: ["$status", ""],
+                  },
+                },
+                _operationalCompletionAt: {
+                  $cond: [
+                    {
+                      $eq: [
+                        {
+                          $toLower: {
+                            $ifNull: ["$status", ""],
+                          },
+                        },
+                        "pass",
+                      ],
+                    },
+                    "$passedAt",
+                    "$closedAt",
+                  ],
+                },
+              },
+            },
+            {
+              $match: {
+                _statusLower: {
+                  $in: ["closed", "pass"],
+                },
+                _operationalCompletionAt: {
+                  $ne: null,
+                },
+                $expr: {
+                  $and: [
+                    {
+                      $gte: [
+                        "$_operationalCompletionAt",
+                        "$createdAt",
+                      ],
+                    },
+                    {
+                      $lte: [
+                        {
+                          $subtract: [
+                            "$_operationalCompletionAt",
+                            "$createdAt",
+                          ],
+                        },
+                        2 * 60 * 60 * 1000,
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 1,
+              },
+            },
+          ])
+          .toArray();
 
-      // ----------------------
-      // Wait Time
-      // ----------------------
-
-      totalWaitTime += lifecycle
-        .filter((x) => x.eventType === "system_wait")
-        .reduce(
-          (sum, x) => sum + (x.duration || 0),
-          0
+        questionIds = result.map((x) =>
+          x._id.toString(),
         );
-
-      // ----------------------
-      // Review Time
-      // ----------------------
-
-      const reviewerEvents = lifecycle.filter(
-        (x) => x.eventType === "reviewer"
+      }
+      const lifecycles = await Promise.all(
+        questionIds.map((id) => this.getQuestionLifecycle(id))
       );
 
-      if (reviewerEvents.length > 0) {
-        questionsWithReviewers++;
+      lifecycles.forEach((lifecycle, index) => {
+      if (!Array.isArray(lifecycle)) {
+          console.log(
+            "Invalid lifecycle:",
+            questionIds[index],
+            lifecycle,
+          );
+        }
+      });
+  // console.log("lifecycles---", lifecycles);
+      let totalClosureTime = 0;
+      let totalWaitTime = 0;
+      let totalReviewTime = 0;
+      let totalAuthoringTime = 0;
 
-        totalReviewTime += reviewerEvents.reduce(
+      let totalReroutes = 0;
+      let totalRerouteTime = 0;
+      let totalReviewers = 0;
+      let slaBreachedCount = 0;
+
+      let resolvedQuestions = 0;
+      let questionsWithReviewers = 0;
+      let questionsWithAuthors = 0;
+
+      for (const lifecycle of lifecycles) {
+        // ----------------------
+        // Closure Time
+        // ----------------------
+
+        const validEvents = lifecycle.filter(
+          (x) =>
+            x.timestamp &&
+            new Date(x.timestamp).getTime() > 0
+        );
+
+        const first = validEvents[0];
+        const last = validEvents.at(-1);
+
+        if (first && last && last.eventType === "closure") {
+          const closureTime =
+            new Date(last.timestamp).getTime() -
+            new Date(first.timestamp).getTime();
+
+          totalClosureTime += closureTime;
+          resolvedQuestions++;
+          if (closureTime > 2 * 60 * 60 * 1000) {
+            slaBreachedCount++;
+          }
+        }
+
+        // ----------------------
+        // Wait Time
+        // ----------------------
+
+        totalWaitTime += lifecycle
+          .filter((x) => x.eventType === "system_wait")
+          .reduce(
+            (sum, x) => sum + (x.duration || 0),
+            0
+          );
+
+        // ----------------------
+        // Review Time
+        // ----------------------
+
+        const reviewerEvents = lifecycle.filter(
+          (x) => x.eventType === "reviewer"
+        );
+
+        if (reviewerEvents.length > 0) {
+          questionsWithReviewers++;
+          totalReviewTime += reviewerEvents.reduce(
+            (sum, x) => sum + (x.duration || 0),
+            0
+          );
+          totalReviewers += new Set(
+            reviewerEvents.map((x) => x.user)
+          ).size;
+        }
+
+        // ----------------------
+        // Authoring Time
+        // ----------------------
+
+        const authorEvents = lifecycle.filter(
+          (x) => x.eventType === "author"
+        );
+
+        if (authorEvents.length > 0) {
+          questionsWithAuthors++;
+          totalAuthoringTime += authorEvents.reduce(
+            (sum, x) => sum + (x.duration || 0),
+            0
+          );
+        }
+
+        // ----------------------
+        // Reroutes
+        // ----------------------
+
+        const reroutes = lifecycle.filter(
+          (x) => x.eventType === "reroute"
+        );
+        totalReroutes += reroutes.length;
+        totalRerouteTime += reroutes.reduce(
           (sum, x) => sum + (x.duration || 0),
           0
         );
-
-        totalReviewers += new Set(
-          reviewerEvents.map((x) => x.user)
-        ).size;
       }
 
-      // ----------------------
-      // Authoring Time
-      // ----------------------
-
-      const authorEvents = lifecycle.filter(
-        (x) => x.eventType === "author"
-      );
-
-      if (authorEvents.length > 0) {
-        questionsWithAuthors++;
-
-        totalAuthoringTime += authorEvents.reduce(
-          (sum, x) => sum + (x.duration || 0),
-          0
-        );
-      }
-
-      // ----------------------
-      // Reroutes
-      // ----------------------
-
-      const reroutes = lifecycle.filter(
-        (x) => x.eventType === "reroute"
-      );
-
-      totalReroutes += reroutes.length;
-
-      totalRerouteTime += reroutes.reduce(
-        (sum, x) => sum + (x.duration || 0),
-        0
-      );
+      return {
+        totalQuestions: questionIds.length,
+        avgClosureTime:
+          resolvedQuestions > 0
+            ? totalClosureTime / resolvedQuestions
+            : 0,
+        avgWaitTime:
+          totalWaitTime / questionIds.length,
+        avgReviewTime:
+          questionsWithReviewers > 0
+            ? totalReviewTime / questionsWithReviewers
+            : 0,
+        avgAuthoringTime:
+          questionsWithAuthors > 0
+            ? totalAuthoringTime / questionsWithAuthors
+            : 0,
+        totalReroutes,
+        avgRerouteTime:
+          totalReroutes > 0
+            ? totalRerouteTime / totalReroutes
+            : 0,
+        avgReviewersPerQuestion:
+          questionsWithReviewers > 0
+            ? totalReviewers / questionsWithReviewers
+            : 0,
+        slaBreachedCount,
+      };
+    } catch(err){
+      console.log("error in getlifecyclesummary:", err);
+      throw Error(err);
     }
-
-    return {
-      totalQuestions: questionIds.length,
-
-      avgClosureTime:
-        resolvedQuestions > 0
-          ? totalClosureTime / resolvedQuestions
-          : 0,
-
-      avgWaitTime:
-        totalWaitTime / questionIds.length,
-
-      avgReviewTime:
-        questionsWithReviewers > 0
-          ? totalReviewTime / questionsWithReviewers
-          : 0,
-
-      avgAuthoringTime:
-        questionsWithAuthors > 0
-          ? totalAuthoringTime / questionsWithAuthors
-          : 0,
-
-      totalReroutes,
-
-      avgRerouteTime:
-        totalReroutes > 0
-          ? totalRerouteTime / totalReroutes
-          : 0,
-
-      avgReviewersPerQuestion:
-        questionsWithReviewers > 0
-          ? totalReviewers / questionsWithReviewers
-          : 0,
-
-      slaBreachedCount,
-    };
   }
 }
