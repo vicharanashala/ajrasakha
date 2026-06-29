@@ -6629,8 +6629,14 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     switch (section) {
       case 'received':
-      case 'autoAllocateOff': {
-        const kind = section === 'received' ? 'received' : 'autoOff';
+      case 'autoAllocateOff':
+      case 'autoAllocateOpen':
+      case 'autoAllocateDelayed': {
+        const kind =
+          section === 'received'           ? 'received' :
+          section === 'autoAllocateOpen'   ? 'autoAllocateOpen' :
+          section === 'autoAllocateDelayed'? 'autoAllocateDelayed' :
+                                             'autoOff';
         const {count, items} = await this.questionRepo.getQueueQuestionSection(
           kind,
           skip,
@@ -6993,6 +6999,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     const [
       received,
       autoAllocateOff,
+      autoAllocateOpen,
+      autoAllocateDelayed,
       allocated,
       waiting,
       freeExperts,
@@ -7009,10 +7017,13 @@ export class QuestionService extends BaseService implements IQuestionService {
       moderatorAllocatedManual,
       availableModeratorsTimeBound,
       availableModeratorsManual,
+      receivedStatusCounts,
     ] =
       await Promise.all([
         safe('received'),
         safe('autoAllocateOff'),
+        safe('autoAllocateOpen'),
+        safe('autoAllocateDelayed'),
         safe('allocated'),
         safe('waiting'),
         safe('freeExperts'),
@@ -7029,11 +7040,19 @@ export class QuestionService extends BaseService implements IQuestionService {
         safe('moderatorAllocatedManual'),
         safe('availableModeratorsTimeBound'),
         safe('availableModeratorsManual'),
+        // Separate aggregation — not a paginatable section, so call directly
+        this.questionRepo.getReceivedStatusCounts(startTime, endTime).catch((err: any) => {
+          console.error('[getQueueDetails] receivedStatusCounts failed:', err?.message);
+          return [] as {status: string; count: number}[];
+        }),
       ]);
 
     return {
       received: received as QueueDetailsResponse['received'],
+      receivedStatusCounts: receivedStatusCounts as QueueDetailsResponse['receivedStatusCounts'],
       autoAllocateOff: autoAllocateOff as QueueDetailsResponse['autoAllocateOff'],
+      autoAllocateOpen: autoAllocateOpen as QueueDetailsResponse['autoAllocateOpen'],
+      autoAllocateDelayed: autoAllocateDelayed as QueueDetailsResponse['autoAllocateDelayed'],
       allocated: allocated as QueueDetailsResponse['allocated'],
       waiting: waiting as QueueDetailsResponse['waiting'],
       freeExperts: freeExperts as QueueDetailsResponse['freeExperts'],
