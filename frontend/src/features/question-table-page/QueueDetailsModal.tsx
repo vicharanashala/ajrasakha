@@ -87,6 +87,25 @@ const WORK_TYPE_LABEL: Record<
   needsReviewer: "Needs Reviewer",
 };
 
+/** Color config for each known question status used in the received-tab strip. */
+const STATUS_TAB_COLOR: Record<
+  string,
+  { dot: string; active: string; badge: string }
+> = {
+  open:        { dot: "bg-emerald-500", active: "text-emerald-600 dark:text-emerald-400", badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300" },
+  delayed:     { dot: "bg-amber-500",   active: "text-amber-600 dark:text-amber-400",     badge: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300" },
+  duplicate:   { dot: "bg-rose-500",    active: "text-rose-600 dark:text-rose-400",        badge: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300" },
+  "in-review": { dot: "bg-blue-500",    active: "text-blue-600 dark:text-blue-400",        badge: "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300" },
+  closed:      { dot: "bg-gray-400",    active: "text-gray-600 dark:text-gray-400",        badge: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" },
+  pass:        { dot: "bg-teal-500",    active: "text-teal-600 dark:text-teal-400",        badge: "bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300" },
+  hold:        { dot: "bg-orange-500",  active: "text-orange-600 dark:text-orange-400",    badge: "bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300" },
+  "re-routed": { dot: "bg-violet-500",  active: "text-violet-600 dark:text-violet-400",    badge: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300" },
+  draft:       { dot: "bg-slate-400",   active: "text-slate-600 dark:text-slate-400",      badge: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400" },
+  dynamic:     { dot: "bg-slate-400",   active: "text-slate-600 dark:text-slate-400",      badge: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400" },
+  all:         { dot: "bg-blue-400",    active: "text-blue-600 dark:text-blue-400",        badge: "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300" },
+};
+const defaultStatusTabColor = { dot: "bg-purple-400", active: "text-purple-600 dark:text-purple-400", badge: "bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300" };
+
 /** Human-readable elapsed time from a minute count:
  *   < 1 hour   → "40 mins"
  *   < 24 hours → "3 hour 40 mins"
@@ -395,6 +414,10 @@ export const QueueDetailsModal = ({
   const [modCategory, setModCategory] = useState<"timeBound" | "manual">(
     "timeBound",
   );
+  // Auto-Allocate ON sub-tab: OPEN vs DELAYED
+  const [autoAllocateTab, setAutoAllocateTab] = useState<"open" | "delayed">("open");
+  // Questions Received sub-tab: dynamic per distinct statuses in items
+  const [receivedTab, setReceivedTab] = useState<string>("all");
   const { goToQuestion } = useNavigateToQuestion();
 
   // Opening a question unmounts this modal (the list view is replaced by the question
@@ -523,37 +546,241 @@ export const QueueDetailsModal = ({
           </div>
         ) : data ? (
           <div className="space-y-3 py-2">
-            <Section<QueueQuestionItem>
-              icon={<Inbox size={20} />}
-              color="blue"
-              title="Questions Received"
-              description="All time-bound questions received"
-              count={data.received.count}
-              section="received"
-              initialItems={data.received.items}
-              renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
-              isOpen={openSection === "received"}
-              onToggle={() => toggle("received")}
-              emptyText="No questions received"
-              startTime={dateFilter.startTime ?? undefined}
-              endTime={dateFilter.endTime ?? undefined}
-            />
+            {/* ── Questions Received — tabbed by status ── */}
+            {(() => {
+              const allItems = data.received.items;
+              // Build a lookup from the backend's accurate per-status counts
+              const backendCountMap = new Map<string, number>(
+                (data.receivedStatusCounts ?? []).map(({ status, count }) => [status.toLowerCase(), count])
+              );
+              // Total across all statuses (= data.received.count)
+              const totalCount = data.received.count;
 
-            <Section<QueueQuestionItem>
-              icon={<Power size={20} />}
-              color="slate"
-              title="Auto-Allocate ON"
-              description="AjraSakha / WhatsApp, auto-allocated (open / delayed)"
-              count={data.autoAllocateOff.count}
-              section="autoAllocateOff"
-              initialItems={data.autoAllocateOff.items}
-              renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
-              isOpen={openSection === "autoAllocateOff"}
-              onToggle={() => toggle("autoAllocateOff")}
-              emptyText="No auto-allocate-on questions"
-              startTime={dateFilter.startTime ?? undefined}
-              endTime={dateFilter.endTime ?? undefined}
-            />
+              // Tabs order: ALL first, then known statuses in priority order, then any others
+              const ORDER = ["open", "delayed", "duplicate", "in-review", "closed", "pass", "hold", "re-routed", "draft", "dynamic"];
+              // Build tab list from backend counts (not just page-1 items) so tabs
+              // appear even for statuses not represented in the first 50 items
+              const backendStatuses = new Set((data.receivedStatusCounts ?? []).map(r => r.status.toLowerCase()));
+              const tabs = [
+                "all",
+                ...ORDER.filter((s) => backendStatuses.has(s)),
+                ...[...backendStatuses].filter((s) => !ORDER.includes(s) && s),
+              ];
+
+              const filteredItems =
+                receivedTab === "all"
+                  ? allItems
+                  : allItems.filter((q) => q.status?.toLowerCase() === receivedTab);
+
+              return (
+                <div className="border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden bg-white dark:bg-[#1a1a1a]">
+                  {/* Header toggle */}
+                  <button
+                    type="button"
+                    onClick={() => toggle("received")}
+                    className={cn("w-full flex items-center justify-between p-3 transition-all", colorClasses.blue.ring)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center shrink-0", colorClasses.blue.icon)}>
+                        <Inbox size={20} />
+                      </div>
+                      <div className="text-left">
+                        <p className="text-sm font-bold text-gray-900 dark:text-white">Questions Received</p>
+                        <p className="text-[11px] text-gray-500">All time-bound questions received</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={cn("min-w-7 h-7 px-2 rounded-lg flex items-center justify-center text-sm font-bold", colorClasses.blue.badge)}>
+                        {data.received.count}
+                      </span>
+                      <ChevronDown
+                        size={16}
+                        className={cn("text-gray-400 transition-transform", openSection === "received" && "rotate-180")}
+                      />
+                    </div>
+                  </button>
+
+                  {openSection === "received" && (
+                    <div className="border-t border-gray-100 dark:border-gray-800">
+                      {data.received.count === 0 ? (
+                        <p className="px-3 py-4 text-xs text-gray-400 text-center">No questions received</p>
+                      ) : (
+                        <>
+                          {/* Status tab strip — counts from backend, accurate regardless of page size */}
+                          <div className="flex flex-wrap items-center gap-1 m-2 rounded-lg border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-[#111]">
+                            {tabs.map((tab) => {
+                              // Use real DB count from backend; fall back to page-slice count only for ALL
+                              const count = tab === "all" ? totalCount : (backendCountMap.get(tab) ?? 0);
+                              const col = STATUS_TAB_COLOR[tab] ?? defaultStatusTabColor;
+                              return (
+                                <button
+                                  key={tab}
+                                  type="button"
+                                  onClick={() => setReceivedTab(tab)}
+                                  className={cn(
+                                    "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap",
+                                    receivedTab === tab
+                                      ? `bg-white shadow-sm dark:bg-gray-800 ${col.active}`
+                                      : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300",
+                                  )}
+                                >
+                                  <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", col.dot)} />
+                                  {tab === "all" ? "ALL" : tab.toUpperCase()}
+                                  <span className={cn("ml-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold", col.badge)}>
+                                    {count}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Filtered list — page-1 items only; note shown when totals exceed page */}
+                          {filteredItems.length === 0 ? (
+                            <p className="px-3 py-4 text-xs text-gray-400 text-center">
+                              No {receivedTab} questions in first page
+                            </p>
+                          ) : (
+                            <div className="max-h-72 overflow-y-auto">
+                              {filteredItems.map((q) => (
+                                <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Show a note when the selected tab has more items than what's loaded */}
+                          {(() => {
+                            const tabTotal = receivedTab === "all"
+                              ? totalCount
+                              : (backendCountMap.get(receivedTab) ?? 0);
+                            const showing = filteredItems.length;
+                            if (tabTotal > showing && showing > 0) {
+                              return (
+                                <p className="px-3 py-2 text-[11px] text-gray-400 text-center border-t border-gray-100 dark:border-gray-800">
+                                  Showing {showing} of {tabTotal} — refresh or use pagination for more
+                                </p>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* ── Auto-Allocate ON — OPEN / DELAYED from backend ── */}
+            <div className="border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden bg-white dark:bg-[#1a1a1a]">
+              {/* Header row (acts as toggle) */}
+              <button
+                type="button"
+                onClick={() => toggle("autoAllocateOff")}
+                className={cn(
+                  "w-full flex items-center justify-between p-3 transition-all",
+                  colorClasses.slate.ring,
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center shrink-0", colorClasses.slate.icon)}>
+                    <Power size={20} />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-bold text-gray-900 dark:text-white">Auto-Allocate ON</p>
+                    <p className="text-[11px] text-gray-500">AjraSakha / WhatsApp, auto-allocated (open / delayed)</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className={cn("min-w-7 h-7 px-2 rounded-lg flex items-center justify-center text-sm font-bold", colorClasses.slate.badge)}>
+                    {data.autoAllocateOff.count}
+                  </span>
+                  <ChevronDown
+                    size={16}
+                    className={cn("text-gray-400 transition-transform", openSection === "autoAllocateOff" && "rotate-180")}
+                  />
+                </div>
+              </button>
+
+              {openSection === "autoAllocateOff" && (
+                <div className="border-t border-gray-100 dark:border-gray-800">
+                  {/* OPEN / DELAYED tab strip — counts come from the backend */}
+                  <div className="flex items-center gap-1 m-2 rounded-lg border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-[#111]">
+                    {(["open", "delayed"] as const).map((tab) => {
+                      // Use the real backend count for each tab, not a page-slice count
+                      const backendCount = tab === "open"
+                        ? data.autoAllocateOpen.count
+                        : data.autoAllocateDelayed.count;
+                      return (
+                        <button
+                          key={tab}
+                          type="button"
+                          onClick={() => setAutoAllocateTab(tab)}
+                          className={cn(
+                            "flex-1 flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
+                            autoAllocateTab === tab
+                              ? tab === "open"
+                                ? "bg-white text-emerald-600 shadow-sm dark:bg-gray-800 dark:text-emerald-400"
+                                : "bg-white text-amber-600 shadow-sm dark:bg-gray-800 dark:text-amber-400"
+                              : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300",
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "w-1.5 h-1.5 rounded-full",
+                              tab === "open" ? "bg-emerald-500" : "bg-amber-500",
+                            )}
+                          />
+                          {tab.toUpperCase()}
+                          <span
+                            className={cn(
+                              "ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold",
+                              tab === "open"
+                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+                                : "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+                            )}
+                          >
+                            {backendCount}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Items for the active tab — served from the dedicated backend section */}
+                  {(() => {
+                    const activeSection = autoAllocateTab === "open"
+                      ? data.autoAllocateOpen
+                      : data.autoAllocateDelayed;
+
+                    if (activeSection.count === 0) {
+                      return (
+                        <p className="px-3 py-4 text-xs text-gray-400 text-center">
+                          No {autoAllocateTab} questions
+                        </p>
+                      );
+                    }
+                    return (
+                      <>
+                        <div className="max-h-72 overflow-y-auto">
+                          {activeSection.items.map((q) => (
+                            <QuestionRow
+                              key={q._id}
+                              item={q}
+                              onClick={() => handleQuestionClick(q)}
+                            />
+                          ))}
+                        </div>
+                        {activeSection.count > activeSection.items.length && (
+                          <p className="px-3 py-2 text-[11px] text-gray-400 text-center border-t border-gray-100 dark:border-gray-800">
+                            Showing first {activeSection.items.length} of {activeSection.count}
+                          </p>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
 
             {/* ── Time-bound work, segregated by type ── */}
             <Section<QueueQuestionItem>

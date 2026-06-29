@@ -73,6 +73,9 @@ import { chatbotSimilarityLogger } from '../logger/chatbot-similarity.logger.js'
 import { checkConceptDuplicate } from '#root/modules/question/aiservice/checkConceptDuplicate.js';
 import { ICropRepository } from '#root/shared/database/interfaces/ICropRepository.js';
 import { CHATBOT_TYPES } from '#root/modules/chatbot/types.js';
+import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
+import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
+import { AuditAction, AuditCategory, ModeratorAuditTrail, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 import { IChatbotRepository } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import { toObjectIdArray } from '#root/utils/normalizeToObjectIdArray.js';
 import { checkDuplicateQuestionHelper } from '../helpers/duplicateQuestionHelper.js';
@@ -142,6 +145,9 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     @inject(GLOBAL_TYPES.UserService)
     private readonly userService: UserService,
+
+    @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
+    private readonly auditTrailsService: IAuditTrailsService,
   ) {
     super(mongoDatabase);
   }
@@ -1930,7 +1936,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       return { data: [], status: false };
     }
     const isTimeBound = question.source === 'AJRASAKHA' || question.source === 'WHATSAPP';
-    if (isTimeBound && (question.status === 'open' || question.status === 'delayed')) {
+    if (isTimeBound ) {
       const reason = `Auto-allocation is disabled for time-bound questions (source: ${question.source})`;
       console.log(`[autoAllocateExperts] ${reason} — questionId: ${questionId}`);
       return { data: [], status: false, };
@@ -6055,6 +6061,27 @@ export class QuestionService extends BaseService implements IQuestionService {
                 'moderator_approval',
               ),
             ]);
+
+            // Audit the system (cron) allocation so it shows in the question's audit
+            // trail tagged "System Allocated".
+            const moderatorName =
+              `${moderator.firstName ?? ''} ${moderator.lastName ?? ''}`.trim() || moderatorId;
+            this.auditTrailsService.createAuditTrail({
+              category: AuditCategory.EXPERTS_CATEGORY,
+              action: AuditAction.SYSTEM_ALLOCATED,
+              actor: { id: 'system', name: 'System', email: '', role: 'system', avatar: '' },
+              context: {
+                questionId,
+                question: (nextQuestion as any)?.question,
+                moderatorId,
+              },
+              changes: { after: { moderator: moderatorName } },
+              outcome: { status: OutComeStatus.SUCCESS },
+              createdAt: new Date(),
+            } as ModeratorAuditTrail).catch((auditErr: any) =>
+              console.error('[ModeratorQueue] Failed to write SYSTEM_ALLOCATED audit:', auditErr?.message),
+            );
+
             console.log(`[ModeratorQueue] (${label}) Assigned question ${questionId} → moderator ${moderatorId}`);
             assigned++;
           } catch (err: any) {
@@ -6125,6 +6152,33 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (!allExperts.length) {
         return { message: 'No experts available', reallocated: 0, skipped: totalWork };
       }
+
+      // Audit a system (cron) allocation so it shows in the question's audit trail
+      // tagged "System Allocated". Fire-and-forget — never blocks the allocation.
+      const writeSystemAllocationAudit = (
+        qId: string,
+        qText: string | undefined,
+        assigneeId: string,
+        roleLabel: 'expert' | 'reviewer',
+      ) => {
+        const e = allExperts.find((x: any) => x._id.toString() === assigneeId);
+        const name = e
+          ? `${e.firstName ?? ''} ${e.lastName ?? ''}`.trim() || assigneeId
+          : assigneeId;
+        this.auditTrailsService
+          .createAuditTrail({
+            category: AuditCategory.EXPERTS_CATEGORY,
+            action: AuditAction.SYSTEM_ALLOCATED,
+            actor: { id: 'system', name: 'System', email: '', role: 'system', avatar: '' },
+            context: { questionId: qId, question: qText, expertId: assigneeId },
+            changes: { after: { [roleLabel]: name } },
+            outcome: { status: OutComeStatus.SUCCESS },
+            createdAt: new Date(),
+          } as ModeratorAuditTrail)
+          .catch((err: any) =>
+            console.error('[TimeBound] Failed to write SYSTEM_ALLOCATED audit:', err?.message),
+          );
+      };
 
       // 3. Get current time-bound workload per expert (single DB call)
       const timeBoundCounts = await this.questionSubmissionRepo.getTimeBoundActiveCountPerExpert();
@@ -6299,6 +6353,7 @@ export class QuestionService extends BaseService implements IQuestionService {
                 'answer_creation',
               ),
             ]);
+            writeSystemAllocationAudit(questionId, (question as any)?.question, assignedExpert, 'expert');
             console.log(`[TimeBound] Initially allocated question ${questionId} to expert ${assignedExpert}`);
             initialAllocated++;
             unallocatedProcessed++;
@@ -6354,6 +6409,7 @@ export class QuestionService extends BaseService implements IQuestionService {
                 'peer_review',
               ),
             ]);
+            writeSystemAllocationAudit(questionId, (question as any)?.question, assignedReviewer, 'reviewer');
             console.log(`[TimeBound] Assigned reviewer ${assignedReviewer} for question ${questionId}`);
             reviewersAssigned++;
           } catch (err: any) {
@@ -6372,6 +6428,11 @@ export class QuestionService extends BaseService implements IQuestionService {
           `[TimeBound] Triggered reallocation for ${flatAssignments.length} stuck submission(s); ` +
           `workers persisted=${workerResult.processed}, failedWorkers=${workerResult.failedWorkers}`,
         );
+
+        // Audit each stuck reallocation as a system allocation ("System Allocated").
+        for (const info of reallocationInfo) {
+          writeSystemAllocationAudit(info.questionId, info.questionText, info.newExpertId, 'expert');
+        }
 
         //   // Notify all moderators and admins about stuck-question reallocations
         //   try {
@@ -6568,8 +6629,14 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     switch (section) {
       case 'received':
-      case 'autoAllocateOff': {
-        const kind = section === 'received' ? 'received' : 'autoOff';
+      case 'autoAllocateOff':
+      case 'autoAllocateOpen':
+      case 'autoAllocateDelayed': {
+        const kind =
+          section === 'received'           ? 'received' :
+          section === 'autoAllocateOpen'   ? 'autoAllocateOpen' :
+          section === 'autoAllocateDelayed'? 'autoAllocateDelayed' :
+                                             'autoOff';
         const {count, items} = await this.questionRepo.getQueueQuestionSection(
           kind,
           skip,
@@ -6932,6 +6999,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     const [
       received,
       autoAllocateOff,
+      autoAllocateOpen,
+      autoAllocateDelayed,
       allocated,
       waiting,
       freeExperts,
@@ -6948,10 +7017,13 @@ export class QuestionService extends BaseService implements IQuestionService {
       moderatorAllocatedManual,
       availableModeratorsTimeBound,
       availableModeratorsManual,
+      receivedStatusCounts,
     ] =
       await Promise.all([
         safe('received'),
         safe('autoAllocateOff'),
+        safe('autoAllocateOpen'),
+        safe('autoAllocateDelayed'),
         safe('allocated'),
         safe('waiting'),
         safe('freeExperts'),
@@ -6968,11 +7040,19 @@ export class QuestionService extends BaseService implements IQuestionService {
         safe('moderatorAllocatedManual'),
         safe('availableModeratorsTimeBound'),
         safe('availableModeratorsManual'),
+        // Separate aggregation — not a paginatable section, so call directly
+        this.questionRepo.getReceivedStatusCounts(startTime, endTime).catch((err: any) => {
+          console.error('[getQueueDetails] receivedStatusCounts failed:', err?.message);
+          return [] as {status: string; count: number}[];
+        }),
       ]);
 
     return {
       received: received as QueueDetailsResponse['received'],
+      receivedStatusCounts: receivedStatusCounts as QueueDetailsResponse['receivedStatusCounts'],
       autoAllocateOff: autoAllocateOff as QueueDetailsResponse['autoAllocateOff'],
+      autoAllocateOpen: autoAllocateOpen as QueueDetailsResponse['autoAllocateOpen'],
+      autoAllocateDelayed: autoAllocateDelayed as QueueDetailsResponse['autoAllocateDelayed'],
       allocated: allocated as QueueDetailsResponse['allocated'],
       waiting: waiting as QueueDetailsResponse['waiting'],
       freeExperts: freeExperts as QueueDetailsResponse['freeExperts'],
