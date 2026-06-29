@@ -267,21 +267,9 @@ pnpm exec vitest run src/e2e/reviewer-queue/ReviewerQueue.e2e.test.ts
 
 ## Last Run
 
-**Date:** 2026-06-23 &nbsp;|&nbsp; **Result:** ❌ 1 failed / 13 passed &nbsp;|&nbsp; **Duration:** 27.1 s
+**Date:** 2026-06-25 &nbsp;|&nbsp; **Result:** ✅ all 14 passed &nbsp;|&nbsp; **Duration:** 6.9 s
+
+> ⚠ Vitest only printed 0 of 14 test lines (passing suites are truncated in the output).
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
-| 1 | Reviewer queue — author slot visibility > question appears in POST /allocated for the a... | ✅ | — |
-| 2 | Reviewer queue — author slot visibility > review_level_number is "Author" for the autho... | ✅ | — |
-| 3 | Reviewer queue — author slot visibility > answer_creation notification entity_id matche... | ✅ | — |
-| 4 | Reviewer queue — author slot visibility > a closed question with the same expert in que... | ✅ | — |
-| 5 | Reviewer queue — reviewer slot visibility > reviewer (expertUser2) sees the question in... | ✅ | — |
-| 6 | Reviewer queue — reviewer slot visibility > review_level_number is 1 for the reviewer s... | ✅ | — |
-| 7 | Reviewer queue — reviewer slot visibility > completed author (expertUser1) does NOT see... | ✅ | — |
-| 8 | Reviewer queue — status exclusion and wrong-user guard > question with status="in-revie... | ✅ | — |
-| 9 | Reviewer queue — status exclusion and wrong-user guard > expert NOT in queue cannot see... | ✅ | — |
-| 10 | Reviewer queue — STF expert sees their allocated WHATSAPP question (Issues #1, #7) > ST... | ✅ | — |
-| 11 | Reviewer queue — STF expert sees their allocated WHATSAPP question (Issues #1, #7) > re... | ✅ | — |
-| 12 | Reviewer queue — STF expert sees their allocated WHATSAPP question (Issues #1, #7) > an... | ✅ | — |
-| 13 | Reviewer queue — author-slot question appears before reviewer-slot question for STF exp... | ✅ | — |
-| 14 | Reviewer queue — author-slot question appears before reviewer-slot question for STF exp... | ❌ | expected 6 to be less than 4 |

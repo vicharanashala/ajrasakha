@@ -313,14 +313,13 @@ See `src/e2e/whatsapp/WhatsAppQuestion.e2e.md` BUG-001 for the full analysis.
 
 ## Last Run
 
-**Date:** 2026-06-23 &nbsp;|&nbsp; **Result:** ✅ all 9 passed &nbsp;|&nbsp; **Duration:** 17.5 s
+**Date:** 2026-06-25 &nbsp;|&nbsp; **Result:** ✅ all 9 passed &nbsp;|&nbsp; **Duration:** 8.1 s
 
-> ⚠ Vitest only printed 5 of 9 test lines (passing suites are truncated in the output).
+> ⚠ Vitest only printed 4 of 9 test lines (passing suites are truncated in the output).
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
 | 1 | Ajrasakha ingestion — happy path (open, agri, thread valid) > creates an open question ... | ✅ | — |
 | 2 | Ajrasakha ingestion — question FOUND (GDB exact match → duplicate) > marks the question... | ✅ | — |
 | 3 | Ajrasakha ingestion — non-agricultural question (LLM filter) > marks the question as no... | ✅ | — |
-| 4 | Ajrasakha ingestion — invalid thread (empty threadId → isTesting) > flags the question ... | ✅ | — |
-| 5 | Ajrasakha ingestion — LLM failure degrades gracefully to open > still opens the questio... | ✅ | — |
+| 4 | Ajrasakha ingestion — LLM failure degrades gracefully to open > still opens the questio... | ✅ | — |

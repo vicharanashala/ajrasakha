@@ -266,6 +266,42 @@ beforeAll(async () => {
         );
       }
     }
+
+    // Close old stuck WHATSAPP/AJRASAKHA questions with any (non-STF) expert in
+    // queue from previous incomplete runs (created >24 h ago). The time-bound cron
+    // tries to reallocate these, picking STF experts as replacements and exhausting
+    // all free STF capacity before our test questions can be initially allocated.
+    // These are stale test artefacts — NOT added to temporarilyClosedIds.
+    {
+      const questionsCol2 = await db.getCollection('questions');
+      const submissionsCol2 = await db.getCollection('question_submissions');
+      const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const oldAllocSubs = await submissionsCol2
+        .find({queue: {$not: {$size: 0}}})
+        .toArray();
+      if (oldAllocSubs.length > 0) {
+        const oldQIds = oldAllocSubs.map((s: any) => s.questionId);
+        const oldStuckQs = await questionsCol2
+          .find({
+            _id: {$in: oldQIds},
+            source: {$in: ['WHATSAPP', 'AJRASAKHA']},
+            status: {$in: ['open', 'delayed']},
+            createdAt: {$lt: cutoff},
+          })
+          .toArray();
+        if (oldStuckQs.length > 0) {
+          const toClose3 = oldStuckQs.map((q: any) => q._id);
+          await questionsCol2.updateMany(
+            {_id: {$in: toClose3}},
+            {$set: {status: 'closed'}},
+          );
+          console.log(
+            `[setup] Permanently closed ${toClose3.length} old stuck time-bound question(s) ` +
+              `(created >24h ago, non-STF expert in queue) to prevent STF capacity drain.`,
+          );
+        }
+      }
+    }
   }
 
   console.log(
@@ -741,6 +777,36 @@ describe('Time-bound allocation — WHATSAPP unallocated question → STF expert
         console.log(
           `[G5] Pre-cron cleanup: closed ${toClose.length} leftover time-bound question(s).`,
         );
+      }
+
+      // Also close old stuck questions with any expert (non-STF) in queue from
+      // previous runs (created >24h ago). The cron reallocates these using STF
+      // experts, draining STF capacity before our test question can be allocated.
+      const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const oldAllocSubs = await sCol
+        .find({queue: {$not: {$size: 0}}})
+        .toArray();
+      if (oldAllocSubs.length > 0) {
+        const oldQIds = oldAllocSubs.map((s: any) => s.questionId);
+        const oldStuckQs = await qCol
+          .find({
+            _id: {$in: oldQIds},
+            source: {$in: ['WHATSAPP', 'AJRASAKHA']},
+            status: {$in: ['open', 'delayed']},
+            createdAt: {$lt: cutoff},
+          })
+          .toArray();
+        if (oldStuckQs.length > 0) {
+          const toClose2 = oldStuckQs.map((q: any) => q._id);
+          await qCol.updateMany(
+            {_id: {$in: toClose2}},
+            {$set: {status: 'closed'}},
+          );
+          console.log(
+            `[G5] Pre-cron cleanup: permanently closed ${toClose2.length} old stuck time-bound question(s) ` +
+              `(created >24h ago).`,
+          );
+        }
       }
     }
 

@@ -148,19 +148,18 @@ NODE_ENV=test pnpm exec vitest run src/e2e/question/QuestionCreate.e2e.test.ts
 
 ## Last Run
 
-### 2026-06-23 — before moderator-assignment tests (8 tests)
+**Date:** 2026-06-25 &nbsp;|&nbsp; **Result:** ✅ all 15 passed &nbsp;|&nbsp; **Duration:** 10.0 s
 
-**Result:** ❌ 1 failed / 7 passed &nbsp;|&nbsp; **Duration:** 31.3 s
+> ⚠ Vitest only printed 9 of 15 test lines (passing suites are truncated in the output).
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
-| 1 | moderator creates question successfully | ✅ | — |
-| 2 | moderator gets created question by id | ✅ | — |
-| 3 | moderator updates question successfully | ✅ | — |
-| 4 | question reflects updated values | ✅ | — |
-| 5 | moderator deletes question successfully | ✅ | — |
-| 6 | deleted question is no longer retrievable | ✅ | — |
-| 7 | moderator bulk deletes questions | ✅ | — |
-| 8 | bulk deleted questions are not retrievable | ❌ | Test timed out in 5000ms. |
-
-> Tests 9–15 (moderator assignment) added in commit `a96e4f03` — not yet run.
+| 1 | Question Create E2E > moderator creates question successfully | ✅ | — |
+| 2 | Question Create E2E > moderator gets created question by id | ✅ | — |
+| 3 | Question Create E2E > moderator updates question successfully | ✅ | — |
+| 4 | Question Create E2E > question reflects updated values | ✅ | — |
+| 5 | Question Create E2E > Question Moderator Assignment > assigns question to moderator suc... | ✅ | — |
+| 6 | Question Create E2E > Question Moderator Assignment > removes moderator successfully | ✅ | — |
+| 7 | Question Create E2E > moderator deletes question successfully | ✅ | — |
+| 8 | Question Create E2E > moderator bulk deletes questions | ✅ | — |
+| 9 | Question Create E2E > bulk deleted questions are not retrievable | ✅ | — |

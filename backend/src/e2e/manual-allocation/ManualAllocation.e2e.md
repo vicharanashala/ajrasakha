@@ -211,7 +211,7 @@ Because expert1 was never in the queue, `getExprtIdByIndex(questionId, 0)` retur
 
 ## Last Run
 
-**Date:** 2026-06-23 &nbsp;|&nbsp; **Result:** ✅ all 10 passed &nbsp;|&nbsp; **Duration:** 28.1 s
+**Date:** 2026-06-25 &nbsp;|&nbsp; **Result:** ✅ all 10 passed &nbsp;|&nbsp; **Duration:** 8.8 s
 
 > ⚠ Vitest only printed 6 of 10 test lines (passing suites are truncated in the output).
 

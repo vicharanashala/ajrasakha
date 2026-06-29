@@ -198,6 +198,40 @@ beforeAll(async () => {
     }
   }
 
+  // Close old stuck WHATSAPP/AJRASAKHA questions with any (non-STF) expert in
+  // queue from previous incomplete runs (created >24h ago). The cron reallocates
+  // these using STF experts as replacements, exhausting free STF capacity before
+  // G1's test questions can be initially allocated. Not added to temporarilyClosedIds
+  // — these are stale test artefacts, not live data worth restoring.
+  {
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const oldAllocSubs = await submissionsCol
+      .find({ queue: { $not: { $size: 0 } } })
+      .toArray();
+    if (oldAllocSubs.length > 0) {
+      const oldQIds = oldAllocSubs.map((s: any) => s.questionId);
+      const oldStuckQs = await questionsCol
+        .find({
+          _id: { $in: oldQIds },
+          source: { $in: ['WHATSAPP', 'AJRASAKHA'] },
+          status: { $in: ['open', 'delayed'] },
+          createdAt: { $lt: cutoff },
+        })
+        .toArray();
+      if (oldStuckQs.length > 0) {
+        const toClose3 = oldStuckQs.map((q: any) => q._id);
+        await questionsCol.updateMany(
+          { _id: { $in: toClose3 } },
+          { $set: { status: 'closed' } },
+        );
+        console.log(
+          `[setup] Permanently closed ${toClose3.length} old stuck time-bound question(s) ` +
+            `(created >24h ago, non-STF expert in queue) to free STF capacity.`,
+        );
+      }
+    }
+  }
+
   console.log(
     `[setup] Connected. RUN_TAG=${RUN_TAG}. ` +
     `STF experts: ${stfExperts.length} (${stfExperts.map((e: any) => e.email).join(', ') || 'none'})`,

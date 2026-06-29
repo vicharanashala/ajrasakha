@@ -17,14 +17,15 @@ const LOG_FILE = path.join(E2E_DIR, 'last-run.log');
 
 // Map: relative test-file path → relative .md path (both relative to E2E_DIR)
 const SUITE_MAP = {
-  'ajrasakha/AjrasakhaQuestion.e2e.test.ts':       'ajrasakha/AjrasakhaQuestion.e2e.md',
-  'auto-allocation/AutoAllocation.e2e.test.ts':     'auto-allocation/AutoAllocation.e2e.md',
-  'chemical/ChemicalCrud.e2e.test.ts':              'chemical/ChemicalCrud.e2e.md',
-  'manual-allocation/ManualAllocation.e2e.test.ts': 'manual-allocation/ManualAllocation.e2e.md',
-  'post-allocation/PostAllocation.e2e.test.ts':     'post-allocation/PostAllocation.e2e.md',
-  'question/QuestionCreate.e2e.test.ts':            'question/QuestionCreate.e2e.md',
-  'reviewer-queue/ReviewerQueue.e2e.test.ts':       'reviewer-queue/ReviewerQueue.e2e.md',
-  'whatsapp/WhatsAppQuestion.e2e.test.ts':          'whatsapp/WhatsAppQuestion.e2e.md',
+  'ajrasakha/AjrasakhaQuestion.e2e.test.ts':                   'ajrasakha/AjrasakhaQuestion.e2e.md',
+  'allocation-ordering/AllocationOrdering.e2e.test.ts':         'allocation-ordering/AllocationOrdering.e2e.md',
+  'auto-allocation/AutoAllocation.e2e.test.ts':                 'auto-allocation/AutoAllocation.e2e.md',
+  'chemical/ChemicalCrud.e2e.test.ts':                          'chemical/ChemicalCrud.e2e.md',
+  'manual-allocation/ManualAllocation.e2e.test.ts':             'manual-allocation/ManualAllocation.e2e.md',
+  'post-allocation/PostAllocation.e2e.test.ts':                 'post-allocation/PostAllocation.e2e.md',
+  'question/QuestionCreate.e2e.test.ts':                        'question/QuestionCreate.e2e.md',
+  'reviewer-queue/ReviewerQueue.e2e.test.ts':                   'reviewer-queue/ReviewerQueue.e2e.md',
+  'whatsapp/WhatsAppQuestion.e2e.test.ts':                      'whatsapp/WhatsAppQuestion.e2e.md',
 };
 
 // Display order and descriptions for the README "Suites at a glance" table
@@ -35,8 +36,9 @@ const SUITE_META = [
   { key: 'whatsapp/WhatsAppQuestion.e2e.test.ts',          name: 'WhatsApp ingestion',   covers: 'Full ingestion pipeline: auth, GDB duplicate paths, LLM filter, thread validation + retry' },
   { key: 'ajrasakha/AjrasakhaQuestion.e2e.test.ts',        name: 'AjraSakha ingestion',  covers: 'AJRASAKHA-specific fields (userId from `@CurrentUser`, notification type), representative pipeline cases' },
   { key: 'manual-allocation/ManualAllocation.e2e.test.ts', name: 'Manual allocation',    covers: '`POST /allocate-experts` + `DELETE /allocation` on an OUTREACH question' },
-  { key: 'auto-allocation/AutoAllocation.e2e.test.ts',     name: 'Auto allocation',      covers: 'AGRI_EXPERT background queue, preference scoring, toggle, time-bound allocation (WHATSAPP/AJRASAKHA), capacity, reviewer, concurrent guard' },
-  { key: 'post-allocation/PostAllocation.e2e.test.ts',     name: 'Post-allocation',      covers: 'Full expert peer-review → moderator-approval state machine' },
+  { key: 'auto-allocation/AutoAllocation.e2e.test.ts',             name: 'Auto allocation',      covers: 'AGRI_EXPERT background queue, preference scoring, toggle, time-bound allocation (WHATSAPP/AJRASAKHA), capacity, reviewer, concurrent guard' },
+  { key: 'allocation-ordering/AllocationOrdering.e2e.test.ts',     name: 'Allocation ordering',  covers: 'Chronological ordering + history exclusion for `reallocateTimeBoundQuestions()` (Issues #3, #5)' },
+  { key: 'post-allocation/PostAllocation.e2e.test.ts',             name: 'Post-allocation',      covers: 'Full expert peer-review → moderator-approval state machine' },
 ];
 
 // ─── pipeline-map auto-patch ─────────────────────────────────────────────────
@@ -49,8 +51,9 @@ const SUITE_CODES = {
   'whatsapp/WhatsAppQuestion.e2e.test.ts':          'WA',
   'ajrasakha/AjrasakhaQuestion.e2e.test.ts':        'AJ',
   'manual-allocation/ManualAllocation.e2e.test.ts': 'MA',
-  'auto-allocation/AutoAllocation.e2e.test.ts':     'AA',
-  'post-allocation/PostAllocation.e2e.test.ts':     'PA',
+  'auto-allocation/AutoAllocation.e2e.test.ts':                 'AA',
+  'allocation-ordering/AllocationOrdering.e2e.test.ts':         'AO',
+  'post-allocation/PostAllocation.e2e.test.ts':                 'PA',
 };
 
 // Each entry links a vitest test-name substring to a pipeline-map line.
@@ -151,6 +154,16 @@ const PIPELINE_TESTS = [
   { suite: 'auto-allocation/AutoAllocation.e2e.test.ts', test: 'OUTREACH source is NOT picked up by time-bound cron',                       lineAnchor: 'OUTREACH source → skipped' },
   { suite: 'auto-allocation/AutoAllocation.e2e.test.ts', test: 'AGRI_EXPERT source is NOT picked up by time-bound cron',                    lineAnchor: 'AGRI_EXPERT source → skipped' },
   { suite: 'auto-allocation/AutoAllocation.e2e.test.ts', test: 'already-allocated WHATSAPP question (non-empty queue) is NOT re-allocated', lineAnchor: 'already-allocated question → not re-allocated' },
+
+  // ── Allocation ordering ───────────────────────────────────────────────────
+  { suite: 'allocation-ordering/AllocationOrdering.e2e.test.ts', test: 'cron reports at least 1 question allocated',                                    lineAnchor: 'older question (earlier createdAt) allocated first when STF capacity=1' },
+  { suite: 'allocation-ordering/AllocationOrdering.e2e.test.ts', test: 'older question (earlier createdAt) has a non-empty queue',                      lineAnchor: 'older question (earlier createdAt) allocated first when STF capacity=1' },
+  { suite: 'allocation-ordering/AllocationOrdering.e2e.test.ts', test: 'newer question is skipped — queue stays empty when only stfExperts[0] is free', lineAnchor: 'newer question skipped when only 1 STF expert is free' },
+  { suite: 'allocation-ordering/AllocationOrdering.e2e.test.ts', test: 'the expert in the older question has special_task_force=true',                  lineAnchor: 'allocated expert for older question has special_task_force=true' },
+  { suite: 'allocation-ordering/AllocationOrdering.e2e.test.ts', test: 'cron detects the stuck reviewer and reports at least 1 reallocated',            lineAnchor: 'expert in history NOT selected as stuck-replacement' },
+  { suite: 'allocation-ordering/AllocationOrdering.e2e.test.ts', test: 'startBalanceWorkloadWorkers was called for the stuck submission',               lineAnchor: 'expert in history NOT selected as stuck-replacement' },
+  { suite: 'allocation-ordering/AllocationOrdering.e2e.test.ts', test: 'replacement expert is NOT stfExperts[0] — the previous author from history',   lineAnchor: 'expert in history NOT selected as stuck-replacement' },
+  { suite: 'allocation-ordering/AllocationOrdering.e2e.test.ts', test: 'replacement expert is NOT stfExperts[1] — the stuck reviewer being replaced',   lineAnchor: 'stuck expert NOT selected as their own replacement' },
 
   // ── Manual allocation ─────────────────────────────────────────────────────
   { suite: 'manual-allocation/ManualAllocation.e2e.test.ts', test: 'returns 401 when no user is logged in (allocate-experts)',        lineAnchor: 'auth (no user → 401, expert → 400)' },

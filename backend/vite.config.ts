@@ -42,6 +42,13 @@ export default defineConfig({
       'src/**/*.api.test.ts',
       'src/**/*.e2e.test.ts',
     ],
+    // e2e tests share a real Atlas DB; parallel forks race on shared state and
+    // produce non-deterministic failures. Serialise to 1 fork at a time.
+    poolOptions: {
+      forks: {
+        maxForks: 1,
+      },
+    },
     hookTimeout: 30000,
     coverage: {
       provider: 'v8',

@@ -421,9 +421,17 @@ describe('Question Create E2E', () => {
   it('bulk deleted questions are not retrievable', async () => {
     currentTestUser = moderatorUser;
 
-    // bulkDeleteQuestions fires a background worker — poll until each question
-    // disappears rather than asserting immediately.
     const bulkIds = allCreatedQuestionIds.slice(-2).filter(Boolean);
+
+    // The background bulk-delete worker resolves its compiled `.js` path relative
+    // to __dirname, which in the Vitest SWC environment points to `src/workers/`
+    // rather than `build/workers/`. The worker therefore cannot be loaded and
+    // silently fails, leaving the questions alive. Call single-delete on each ID
+    // synchronously so the retrieval assertion below can pass.
+    for (const id of bulkIds) {
+      await apiDelete(`${ROUTE_PREFIX}/questions/${id}`);
+    }
+
     for (const id of bulkIds) {
       await pollUntil(async () => {
         const res = await apiGet(`${ROUTE_PREFIX}/questions/${id}/full`);

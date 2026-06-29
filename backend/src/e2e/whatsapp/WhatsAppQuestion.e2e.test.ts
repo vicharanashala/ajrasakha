@@ -551,7 +551,10 @@ describe('WhatsApp ingestion — invalid thread (time-bound thread validation fa
     const questionId = res.body.question_id;
     createdQuestionIds.push(questionId);
 
-    const doc = await waitForQuestion(questionId, d => d.isTesting === true);
+    // Empty threadId short-circuits immediately (no retries). Extended timeout
+    // covers transient Atlas write latency when running first in the sequential
+    // suite — updateQuestion is near-instant normally, but can be slow under load.
+    const doc = await waitForQuestion(questionId, d => d.isTesting === true, { timeoutMs: 75_000 });
     console.log('THREAD-INVALID FINAL DOC:', { status: doc.status, isTesting: doc.isTesting });
 
     expect(doc.isTesting).toBe(true);

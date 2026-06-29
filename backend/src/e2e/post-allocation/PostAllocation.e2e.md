@@ -342,31 +342,25 @@ seeded questions, submissions, answers, reviews and notifications in `afterAll`.
 
 ## Last Run
 
-**Date:** 2026-06-23 &nbsp;|&nbsp; **Result:** ✅ all 27 passed &nbsp;|&nbsp; **Duration:** 1.0 min
+**Date:** 2026-06-25 &nbsp;|&nbsp; **Result:** ✅ all 27 passed &nbsp;|&nbsp; **Duration:** 23.7 s
 
-> ⚠ Vitest only printed 22 of 27 test lines (passing suites are truncated in the output).
+> ⚠ Vitest only printed 16 of 27 test lines (passing suites are truncated in the output).
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
-| 1 | Post-allocation — authorization guards > expert NOT at queue[0] cannot submit the first... | ✅ | — |
-| 2 | Post-allocation — happy path (peer review → moderator approval) > e1 (queue[0]) submits... | ✅ | — |
-| 3 | Post-allocation — happy path (peer review → moderator approval) > e1 cannot submit a se... | ✅ | — |
-| 4 | Post-allocation — happy path (peer review → moderator approval) > e2 accepts → approval... | ✅ | — |
-| 5 | Post-allocation — happy path (peer review → moderator approval) > e3 accepts → approval... | ✅ | — |
-| 6 | Post-allocation — happy path (peer review → moderator approval) > e4 accepts → 3 approv... | ✅ | — |
-| 7 | Post-allocation — happy path (peer review → moderator approval) > expert cannot do the ... | ✅ | — |
-| 8 | Post-allocation — happy path (peer review → moderator approval) > moderator approves → ... | ✅ | — |
-| 9 | Post-allocation — happy path (peer review → moderator approval) > cannot add an answer ... | ✅ | — |
-| 10 | Post-allocation — reviewer rejects the author answer > rejecting with an identical answ... | ✅ | — |
-| 11 | Post-allocation — reviewer rejects the author answer > e2 rejects with a new answer → a... | ✅ | — |
-| 12 | Post-allocation — reviewer modifies the author answer > modifying with an identical ans... | ✅ | — |
-| 13 | Post-allocation — reviewer modifies the author answer > e2 modifies → answer text updat... | ✅ | — |
-| 14 | Post-allocation — moderator approval edge cases > approve when question is still "open"... | ✅ | — |
-| 15 | Post-allocation — moderator approval edge cases > approve when question has no normalis... | ✅ | — |
-| 16 | Post-allocation — moderator approval edge cases > moderator/approve (LLM) rejects a non... | ✅ | — |
-| 17 | Post-allocation — moderator approval edge cases > moderator can edit an already-finalis... | ✅ | — |
-| 18 | Post-allocation — PAE expert submission > pae_expert submits → question becomes pae_sub... | ✅ | — |
-| 19 | Post-allocation — PAE expert submission > moderator approves a pae_submitted question →... | ✅ | — |
-| 20 | Post-allocation — delete answer > deleting a non-final answer removes it and decrements... | ✅ | — |
-| 21 | Post-allocation — approvalCount=2 does NOT escalate to moderator > after 1 acceptance (... | ✅ | — |
-| 22 | Post-allocation — approvalCount=2 does NOT escalate to moderator > after 2 acceptances ... | ✅ | — |
+| 1 | Post-allocation — happy path (peer review → moderator approval) > e1 (queue[0]) submits... | ✅ | — |
+| 2 | Post-allocation — happy path (peer review → moderator approval) > e2 accepts → approval... | ✅ | — |
+| 3 | Post-allocation — happy path (peer review → moderator approval) > e3 accepts → approval... | ✅ | — |
+| 4 | Post-allocation — happy path (peer review → moderator approval) > e4 accepts → 3 approv... | ✅ | — |
+| 5 | Post-allocation — happy path (peer review → moderator approval) > expert cannot do the ... | ✅ | — |
+| 6 | Post-allocation — happy path (peer review → moderator approval) > moderator approves → ... | ✅ | — |
+| 7 | Post-allocation — reviewer rejects the author answer > e2 rejects with a new answer → a... | ✅ | — |
+| 8 | Post-allocation — reviewer modifies the author answer > e2 modifies → answer text updat... | ✅ | — |
+| 9 | Post-allocation — moderator approval edge cases > approve when question is still "open"... | ✅ | — |
+| 10 | Post-allocation — moderator approval edge cases > approve when question has no normalis... | ✅ | — |
+| 11 | Post-allocation — moderator approval edge cases > moderator can edit an already-finalis... | ✅ | — |
+| 12 | Post-allocation — PAE expert submission > pae_expert submits → question becomes pae_sub... | ✅ | — |
+| 13 | Post-allocation — PAE expert submission > moderator approves a pae_submitted question →... | ✅ | — |
+| 14 | Post-allocation — delete answer > deleting a non-final answer removes it and decrements... | ✅ | — |
+| 15 | Post-allocation — approvalCount=2 does NOT escalate to moderator > after 1 acceptance (... | ✅ | — |
+| 16 | Post-allocation — approvalCount=2 does NOT escalate to moderator > after 2 acceptances ... | ✅ | — |

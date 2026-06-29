@@ -377,23 +377,21 @@ The controller (QuestionController.ts:332-354) catches service errors and re-thr
 
 ## Last Run
 
-**Date:** 2026-06-23 &nbsp;|&nbsp; **Result:** ✅ all 18 passed &nbsp;|&nbsp; **Duration:** 1.4 min
+**Date:** 2026-06-25 &nbsp;|&nbsp; **Result:** ✅ all 18 passed &nbsp;|&nbsp; **Duration:** 1.4 min
 
-> ⚠ Vitest only printed 14 of 18 test lines (passing suites are truncated in the output).
+> ⚠ Vitest only printed 12 of 18 test lines (passing suites are truncated in the output).
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
 | 1 | WhatsApp ingestion — question FOUND (GDB duplicate, reference answer linked) > marks th... | ✅ | — |
-| 2 | WhatsApp ingestion — question SIMILAR (GDB selected_match, non-exact duplicate) > marks... | ✅ | — |
-| 3 | WhatsApp ingestion — question NOT FOUND (common pipeline -> open) > opens the question ... | ✅ | — |
-| 4 | WhatsApp ingestion — non-agricultural question (LLM filter) > marks the question as non... | ✅ | — |
-| 5 | WhatsApp ingestion — invalid thread (time-bound thread validation fails) > flags the qu... | ✅ | — |
-| 6 | WhatsApp ingestion — LLM failure degrades gracefully to open > still opens the question... | ✅ | — |
-| 7 | WhatsApp ingestion — valid threadId, API returns "not found" on all retries → isTesting... | ✅ | — |
-| 8 | WhatsApp ingestion — WhatsApp API completely unreachable → question proceeds to open > ... | ✅ | — |
-| 9 | WhatsApp ingestion — GDB service throws → degrades gracefully to open > still opens the... | ✅ | — |
-| 10 | WhatsApp ingestion — transient thread API failure then retry succeeds → open > proceeds... | ✅ | — |
-| 11 | WhatsApp ingestion — GDB exact_match has invalid question_id → falls through to open > ... | ✅ | — |
-| 12 | WhatsApp ingestion — GDB selected_match has invalid question_id → falls through to open... | ✅ | — |
-| 13 | WhatsApp ingestion — GDB exact_match uses $oid format → marked duplicate > marks the qu... | ✅ | — |
-| 14 | WhatsApp ingestion — GDB returns both exact_match and selected_match → exact_match wins... | ✅ | — |
+| 2 | WhatsApp ingestion — question NOT FOUND (common pipeline -> open) > opens the question ... | ✅ | — |
+| 3 | WhatsApp ingestion — invalid thread (time-bound thread validation fails) > flags the qu... | ✅ | — |
+| 4 | WhatsApp ingestion — LLM failure degrades gracefully to open > still opens the question... | ✅ | — |
+| 5 | WhatsApp ingestion — valid threadId, API returns "not found" on all retries → isTesting... | ✅ | — |
+| 6 | WhatsApp ingestion — WhatsApp API completely unreachable → question proceeds to open > ... | ✅ | — |
+| 7 | WhatsApp ingestion — GDB service throws → degrades gracefully to open > still opens the... | ✅ | — |
+| 8 | WhatsApp ingestion — transient thread API failure then retry succeeds → open > proceeds... | ✅ | — |
+| 9 | WhatsApp ingestion — GDB exact_match has invalid question_id → falls through to open > ... | ✅ | — |
+| 10 | WhatsApp ingestion — GDB selected_match has invalid question_id → falls through to open... | ✅ | — |
+| 11 | WhatsApp ingestion — GDB exact_match uses $oid format → marked duplicate > marks the qu... | ✅ | — |
+| 12 | WhatsApp ingestion — GDB returns both exact_match and selected_match → exact_match wins... | ✅ | — |
