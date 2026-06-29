@@ -466,6 +466,11 @@ class AddQuestionBodyDto {
   @IsString()
   @IsOptional()
   popContext?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tools_used?: string[];
 }
 
 class GenerateQuestionsBody {
@@ -791,6 +796,14 @@ class GetDetailedQuestionsQuery {
   })
   @IsOptional()
   autoAllocateFilter?: string;
+
+  @JSONSchema({
+    description: 'to filter questions based on auto allocate moderator setting',
+    example: 'on',
+    type: 'string',
+  })
+  @IsOptional()
+  autoAllocateModeratorFilter?: string;
 
   @JSONSchema({
     description: 'Filter for questions closed within the last 2 hours',

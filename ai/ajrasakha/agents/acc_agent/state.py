@@ -10,6 +10,7 @@ class AccAgentState(TypedDict):
     extracted_state: Optional[str]
     extracted_district: Optional[str]
     extracted_crop: Optional[str]
+    standardized_domains: list[str]  # NEW: Domain classification by LLM
     
     # Verified and merged location structure
     location: Optional[Location]
@@ -17,9 +18,13 @@ class AccAgentState(TypedDict):
     # State tracking
     verified_by_human: bool
     
-    # Tool execution
-    selected_tool: Optional[str]
-    tool_response: Optional[str]
+    # Tool execution - multi-tool routing
+    selected_tools: list[str]
+    
+    # Individual tool responses
+    gdb_response: Optional[str]
+    weather_response: Optional[str]
+    market_response: Optional[str]
     
     # Final output
     final_answer: Optional[str]

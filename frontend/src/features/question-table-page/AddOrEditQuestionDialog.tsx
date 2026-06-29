@@ -979,113 +979,187 @@ export const AddOrEditQuestionDialog = ({
                     />
                   </div>
 
-                  {(
-                    [
-                      "season",
-                      "domain",
-                    ] as DetailField[]
-                  ).map((field) => {
-                    const rawFieldValue = updatedData?.details?.[field];
-                    const stringValue = Array.isArray(rawFieldValue)
-                      ? rawFieldValue[0]
-                      : rawFieldValue;
-                    const safeValue =
-                      typeof stringValue === "string" ? stringValue.trim() : "";
-                    const fieldOptions = OPTIONS[field];
+                      {(
+                        [
+                          "season",
+                          "domain",
+                        ] as DetailField[]
+                      ).map((field) => {
+                        const rawFieldValue = updatedData?.details?.[field];
+                        const fieldOptions = OPTIONS[field];
 
-                    return (
-                      <div key={field} className="flex flex-col gap-2">
-                        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                          <label>
-                            {field.charAt(0).toUpperCase() + field.slice(1)}*
-                          </label>
-                        </div>
+                        // 1. Determine if this field should be multi-select
+                        const isMulti = field === "domain";
 
-                        {fieldOptions ? (
-                          <Select
-                            value={
-                              safeValue
-                                ? fieldOptions.find(
-                                    (o) => o.toLowerCase() === safeValue.toLowerCase()
-                                  ) ?? safeValue
-                                : undefined
-                            }
-                            onValueChange={(val) => {
-                              onFieldValidatedChange?.(field as AddQuestionField);
-                              setUpdatedData((prev) =>
-                                prev
-                                  ? {
+                        // 2. Safely parse the values into an array (for multi) or a string (for single)
+                        const arrayValues = Array.isArray(rawFieldValue)
+                          ? rawFieldValue
+                          : (rawFieldValue ? [rawFieldValue] : []);
+                        
+                        // 3. Check if the maximum limit has been reached
+                        const isMaxReached = isMulti && arrayValues.length >= 3;
+
+                        const stringValue = typeof arrayValues[0] === "string" ? arrayValues[0].trim() : "";
+                        const safeValue = stringValue;
+
+                        return (
+                          <div key={field} className="flex flex-col gap-2">
+                            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                              <label>
+                                {field.charAt(0).toUpperCase() + field.slice(1)}*
+                              </label>
+                            </div>
+
+                            {/* RENDER THE SELECT OR INPUT FIRST */}
+                            {fieldOptions ? (
+                              <Select
+                                key={isMulti ? `multi-${field}-${arrayValues.length}` : `single-${field}`}
+                                // FIX: Disable the select dropdown if the limit is reached
+                                disabled={isMaxReached}
+                                value={
+                                  isMulti
+                                    ? undefined
+                                    : (safeValue
+                                      ? fieldOptions.find(
+                                        (o) => o.toLowerCase() === safeValue.toLowerCase()
+                                      ) ?? safeValue
+                                      : undefined)
+                                }
+                                onValueChange={(val) => {
+                                  onFieldValidatedChange?.(field as AddQuestionField);
+                                  setUpdatedData((prev) => {
+                                    if (!prev) return prev;
+
+                                    let newValue;
+                                    if (isMulti) {
+                                      newValue = arrayValues.includes(val)
+                                        ? arrayValues
+                                        : [...arrayValues, val];
+                                    } else {
+                                      newValue = val;
+                                    }
+
+                                    return {
                                       ...prev,
                                       details: {
                                         ...prev.details,
-                                        [field]: field === "domain" ? [val] : val,
+                                        [field]: newValue,
                                       },
-                                    }
-                                  : prev
-                              );
-                            }}
-                          >
-                            <SelectTrigger
-                              className={`w-full ${
-                                mode === "add" && validationErrors?.[field as AddQuestionField]
-                                  ? invalidFieldClass
-                                  : ""
-                              }`}
-                            >
-                              <SelectValue placeholder={`Select ${field}`} />
-                            </SelectTrigger>
+                                    };
+                                  });
+                                }}
+                              >
+                                <SelectTrigger
+                                  className={`w-full ${mode === "add" && validationErrors?.[field as AddQuestionField]
+                                      ? invalidFieldClass
+                                      : ""
+                                    }`}
+                                >
+                                  {isMulti ? (
+                                    <span className={arrayValues.length === 0 || isMaxReached ? "text-muted-foreground" : ""}>
+                                      {/* FIX: Update the text dynamically based on the limit */}
+                                      {isMaxReached
+                                        ? `Maximum 3 ${field}s selected`
+                                        : arrayValues.length > 0
+                                          ? `Add another ${field}...`
+                                          : `Select ${field}`}
+                                    </span>
+                                  ) : (
+                                    <SelectValue placeholder={`Select ${field}`} />
+                                  )}
+                                </SelectTrigger>
 
-                            <SelectContent>
-                              {fieldOptions.map((option) => (
-                                <SelectItem key={option} value={option}>
-                                  {option}
-                                </SelectItem>
-                              ))}
-                              {(() => {
-                                const hasMatch =
-                                  safeValue &&
-                                  fieldOptions.some((o) => o.toLowerCase() === safeValue.toLowerCase());
-                                return safeValue && !hasMatch ? (
-                                  <SelectItem key={safeValue} value={safeValue}>
-                                    {safeValue}
-                                  </SelectItem>
-                                ) : null;
-                              })()}
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <Input
-                            type="text"
-                            value={safeValue}
-                            onChange={(e) => {
-                              onFieldValidatedChange?.(field as AddQuestionField);
-                              setUpdatedData((prev) =>
-                                prev
-                                  ? {
-                                      ...prev,
-                                      details: {
-                                        ...prev.details,
-                                        [field]: field === "domain" ? [e.target.value] : e.target.value,
-                                      },
-                                    }
-                                  : prev
-                              );
-                            }}
-                            className={
-                              mode === "add" && validationErrors?.[field as AddQuestionField]
-                                ? invalidFieldClass
-                                : undefined
-                            }
-                          />
-                        )}
-                        {mode === "add" && validationErrors?.[field as AddQuestionField] && (
-                          <p className="text-sm font-medium text-red-600 dark:text-red-300 mt-1">
-                            {validationErrors[field as AddQuestionField]}
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
+                                <SelectContent>
+                                  {fieldOptions
+                                    .filter((option) => !isMulti || !arrayValues.includes(option))
+                                    .map((option) => (
+                                      <SelectItem key={option} value={option}>
+                                        {option}
+                                      </SelectItem>
+                                    ))}
+
+                                  {!isMulti && (() => {
+                                    const hasMatch =
+                                      safeValue &&
+                                      fieldOptions.some((o) => o.toLowerCase() === safeValue.toLowerCase());
+                                    return safeValue && !hasMatch ? (
+                                      <SelectItem key={safeValue} value={safeValue}>
+                                        {safeValue}
+                                      </SelectItem>
+                                    ) : null;
+                                  })()}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <Input
+                                type="text"
+                                value={safeValue}
+                                onChange={(e) => {
+                                  onFieldValidatedChange?.(field as AddQuestionField);
+                                  setUpdatedData((prev) =>
+                                    prev
+                                      ? {
+                                        ...prev,
+                                        details: {
+                                          ...prev.details,
+                                          [field]: isMulti ? [e.target.value] : e.target.value,
+                                        },
+                                      }
+                                      : prev
+                                  );
+                                }}
+                                className={
+                                  mode === "add" && validationErrors?.[field as AddQuestionField]
+                                    ? invalidFieldClass
+                                    : undefined
+                                }
+                              />
+                            )}
+
+                            {/* MULTI-SELECT BADGES MOVED HERE: Below the input, with mt-1 for spacing */}
+                            {isMulti && arrayValues.length > 0 && (
+                              <div className="flex flex-wrap gap-2 mt-1">
+                                {arrayValues.map((val) => (
+                                  <div
+                                    key={val}
+                                    className="flex items-center gap-1 bg-secondary text-secondary-foreground border px-2 py-1 rounded-md text-xs"
+                                  >
+                                    <span>{val}</span>
+                                    <button
+                                      type="button"
+                                      className="text-muted-foreground hover:text-destructive focus:outline-none ml-1"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        onFieldValidatedChange?.(field as AddQuestionField);
+                                        setUpdatedData((prev) =>
+                                          prev
+                                            ? {
+                                              ...prev,
+                                              details: {
+                                                ...prev.details,
+                                                [field]: arrayValues.filter((item) => item !== val),
+                                              },
+                                            }
+                                            : prev
+                                        );
+                                      }}
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Validation Errors */}
+                            {mode === "add" && validationErrors?.[field as AddQuestionField] && (
+                              <p className="text-sm font-medium text-red-600 dark:text-red-300 mt-1">
+                                {validationErrors[field as AddQuestionField]}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
                 </div>
 
                 {userRole === "expert" && mode === "edit" && (

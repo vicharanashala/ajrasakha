@@ -38,6 +38,8 @@ import { ReRouteResponseTimeline } from "./ReRouteResponseTimeline";
 import { AnswerCreateDialog } from "./AnswerCreateDialog";
 import { QaHeader } from "./QaHeader";
 import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
+import { useToast } from "@/shared/components/toast";
+import { isEnglishCharacters } from "../questions/utils/checkLanguage";
 
 export type QuestionFilter =
   | "newest"
@@ -172,7 +174,12 @@ export const QAInterface = ({
     }
   }, [questionPages, questions]);
 
-
+  // Check if there are any timebound questions (AJRASAKHA or WHATSAPP) in the queue
+  const hasTimeboundQuestions = useMemo(() => {
+    return questions.some(
+      (q) => q?.source === "AJRASAKHA" || q?.source === "WHATSAPP"
+    );
+  }, [questions]);
 
   const { data: selectedQuestionData, isLoading: isSelectedQuestionLoading } =
     useGetQuestionById(selectedQuestion, actionType);
@@ -223,6 +230,14 @@ export const QAInterface = ({
   useEffect(() => {
     if (!isLoaded) return; // wait until drafts + selected are loaded
     if (autoSelectQuestionId) return;
+
+    const firstTimebound = questions.find(
+      (q) => q?.source === "AJRASAKHA" || q?.source === "WHATSAPP"
+    );
+    if (firstTimebound) {
+      setSelectedQuestion(firstTimebound.id);
+      return; // Stop here, timebound questions take absolute priority
+    }
 
     const savedSelected = localStorage.getItem("selectedQuestion");
 
@@ -658,6 +673,7 @@ export const QAInterface = ({
               setQuestionRef={setQuestionRef}
               onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
               onAiAnswerFetched={handleAiAnswerFetched}
+              hasTimeboundQuestions={hasTimeboundQuestions}
             />
           </div>
           {selectedQuestionData &&
@@ -693,11 +709,15 @@ export const QAInterface = ({
                             <Label className="text-sm font-medium text-muted-foreground">
                               Current Query:
                             </Label>
-                            {/* Translate language dropdown */}
-                            <SarvamTranslateDropdown
-                              query={selectedQuestionData.text}
-                              onTranslate={(result) => setTranslatedText(result)}
-                            />
+                            {/* Translate language dropdown */}  
+                            {
+                              selectedQuestionData.text?.trim() && !isEnglishCharacters(selectedQuestionData.text) && (
+                                <SarvamTranslateDropdown
+                                  query={selectedQuestionData.text}
+                                  onTranslate={(result) => setTranslatedText(result)}
+                                />
+                              )
+                            }
                           </div>
 
                           <p className="text-sm mt-1 p-3 rounded-md border border-gray-200 dark:border-gray-600 break-words">
@@ -724,10 +744,14 @@ export const QAInterface = ({
                             </Label>
 
                             <div className="flex items-center gap-2">
-                              <SarvamTranslateDropdown
-                                query={newAnswer}
-                                onTranslate={(result) => setTranslatedDraftText(result)}
-                              />
+                              {
+                                newAnswer?.trim() && !isEnglishCharacters(newAnswer) && (
+                                  <SarvamTranslateDropdown
+                                    query={newAnswer}
+                                    onTranslate={(result) => setTranslatedDraftText(result)}
+                                  />
+                                )
+                              }
                               {selectedQuestionData.aiInitialAnswer &&
                                 !newAnswer && (
                                   <button

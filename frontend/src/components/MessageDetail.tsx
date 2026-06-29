@@ -3,7 +3,6 @@ import { ChevronDown, ChevronRight, User, Mail, Clock, Hash, Brain, Wrench, Chec
 import { Badge } from "./atoms/badge";
 import { Skeleton } from "./atoms/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "./atoms/avatar";
-import { toast } from "sonner";
 import { Button } from "./atoms/button";
 import type { IQuestionFullData, SourceItem } from "@/types";
 import { useGetQuestionMessageDetailsByQuestionId } from "@/hooks/api/question/useGetQuestionMessageDetailsByQuestionId";
@@ -24,6 +23,8 @@ import {
 } from "@/components/atoms/alert-dialog";
 import { useGenerateInitialAnswer } from "@/hooks/api/question/useGenerateInitialAnswer";
 import { ScrollArea } from "./atoms/scroll-area";
+import { toast,useToast } from "@/shared/components/toast";
+import { isEnglishCharacters } from "@/features/questions/utils/checkLanguage";
 
 interface MessageDetailCardProps {
     question: IQuestionFullData;
@@ -783,10 +784,14 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                     <span className="text-sm font-semibold text-foreground">Final Answer</span>
 
                     <div className="ml-auto flex items-center gap-2">
-                        <SarvamTranslateDropdown
-                            query={editedAnswerBody}
-                            onTranslate={(result) => setTranslatedText(result)}
-                        />
+                        {
+                            editedAnswerBody?.trim() && !isEnglishCharacters(editedAnswerBody) && (
+                                <SarvamTranslateDropdown
+                                    query={editedAnswerBody}
+                                    onTranslate={(result) => setTranslatedText(result)}
+                                />
+                            )
+                        }
                         {approved === true && <span className="flex items-center gap-1 text-xs text-success font-medium"><CheckCircle className="h-3.5 w-3.5" /> Approved</span>}
                         {approved === false && <span className="flex items-center gap-1 text-xs text-destructive font-medium"><XCircle className="h-3.5 w-3.5" /> Rejected</span>}
                     </div>
@@ -826,7 +831,18 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                         </div>
                     )}
                 </div>
-                {approved === null && question && isAssignedModerator && (question.source == "AJRASAKHA" || question.source == "WHATSAPP") && question.status !== "closed" && !question.aiInitialAnswer && !isQuestionAllocatedToExpert && (
+                {/* Dynamic status: Show only Pass button (ignoring other conditions, role should not be expert) */}
+                {question.status === "dynamic" && question?.isHidden !== true && (
+                    <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
+                        <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">This is a dynamic question. You can pass it to skip processing.</p>
+                        <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
+                            <Button type="button" variant="outline" size="sm" disabled={updatingQuestion} onClick={handleSkip} className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}>{updatingQuestion ? <Loader2 className="h-4 w-4 animate-spin" /> : <SkipForward className="h-4 w-4" />}{updatingQuestion ? "Passing..." : "Pass"}</Button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Non-dynamic status: Full conditions with Pass, Accept, and Push to GDB buttons */}
+                {question.status !== "dynamic" && approved === null && question && isAssignedModerator && (question.source == "AJRASAKHA" || question.source == "WHATSAPP") && question.status !== "closed" && !question.aiInitialAnswer && !isQuestionAllocatedToExpert && (
                     <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
                         <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">Once you click on Accept, the LLM-generated answer will be set as the AI answer for this question and sent for moderation as a reference to create the initial answer for the question.</p>
                         <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
@@ -1051,10 +1067,15 @@ const EditAnswerModal = ({
                         <div className="space-y-3">
                             <div className="flex items-center justify-between">
                                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Answer Text</label>
-                                <SarvamTranslateDropdown
-                                    query={editedAnswerBody}
-                                    onTranslate={(result) => setTranslatedText(result)}
-                                />
+                                
+                                {
+                                    editedAnswerBody?.trim() && !isEnglishCharacters(editedAnswerBody) && (
+                                        <SarvamTranslateDropdown
+                                            query={editedAnswerBody}
+                                            onTranslate={(result) => setTranslatedText(result)}
+                                        />
+                                    )
+                                }
                             </div>
                             <textarea
                                 value={translatedText || editedAnswerBody}

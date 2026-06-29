@@ -346,7 +346,11 @@ function ActivityCard({
           <TranslatableText
             text={text!}
             showTooltip
-            textClassName="text-xs line-clamp-2"
+            textClassName={`text-xs line-clamp-2 ${
+              viewType === "questions" && item._id
+                ? "group-hover:underline cursor-pointer"
+                : ""
+            }`}
           />
           <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1.5">
             <Clock className="h-3 w-3 shrink-0" aria-hidden />

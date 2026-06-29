@@ -1893,4 +1893,16 @@ export class ChatbotController {
       query.userType,
     );
   }
+
+  @Get('/question-lifecycle')
+  @HttpCode(200)
+  @Authorized()
+  async getQuestionLifecycle(
+    @QueryParam('questionId')
+    questionId: string
+  ): Promise<any> {
+    return this.chatbotService.getQuestionLifecycle(
+      questionId
+    );
+  }
 }

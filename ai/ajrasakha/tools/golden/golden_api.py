@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
-from fastapi import FastAPI
-from pydantic import BaseModel, Field
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field, model_validator
 
 try:
     from .golden_search import gdb_search
+    from .golden_pending_duplicate import check_pending_duplicate
 except ImportError:
     from golden_search import gdb_search
+    from golden_pending_duplicate import check_pending_duplicate
 
 app = FastAPI(
     title="AjraSakha Golden API",
@@ -70,6 +72,76 @@ class GDBSearchResponse(BaseModel):
     )
 
 
+class PendingDuplicateCheckRequest(BaseModel):
+    question_id: Optional[str] = Field(
+        None,
+        description=(
+            "Load question text, crop, and state from MongoDB by ID. "
+            "Excludes this question from duplicate candidates."
+        ),
+    )
+    rephrased_query: Optional[str] = Field(
+        None,
+        description="Question text for duplicate check (required when question_id is omitted).",
+    )
+    crop: Optional[str] = Field(
+        None,
+        description="Crop filter (required when question_id is omitted).",
+    )
+    state: Optional[str] = Field(
+        None,
+        description="State filter (required when question_id is omitted).",
+    )
+    created_before: Optional[str] = Field(
+        None,
+        description=(
+            "ISO-8601 timestamp (e.g. 2026-05-31T12:10:16.649+00:00). "
+            "Only consider questions with createdAt strictly before this time. "
+            "When question_id is provided and this is omitted, defaults to that question's createdAt."
+        ),
+        examples=["2026-05-31T12:10:16.649+00:00"],
+    )
+
+    @model_validator(mode="after")
+    def validate_input_mode(self) -> "PendingDuplicateCheckRequest":
+        if self.question_id:
+            return self
+        missing = [
+            name
+            for name, val in (
+                ("rephrased_query", self.rephrased_query),
+                ("crop", self.crop),
+                ("state", self.state),
+            )
+            if not (val or "").strip()
+        ]
+        if missing:
+            raise ValueError(
+                f"question_id or all of rephrased_query, crop, state are required; missing: {', '.join(missing)}"
+            )
+        return self
+
+
+class PendingDuplicateCheckResponse(BaseModel):
+    is_duplicate: bool
+    duplicate_question_id: Optional[str] = None
+    matched_question_id: Optional[str] = None
+    similarity_score: Optional[float] = Field(
+        None,
+        description="Vector or exact-match score for the matched duplicate (1.0 for exact).",
+    )
+    match_type: Optional[str] = None
+    query: str
+    crop: str
+    state: str
+    created_before: Optional[str] = Field(
+        None,
+        description="Echo of createdAt upper bound used for the search, if any.",
+    )
+    candidates_checked: list[dict[str, Any]] = Field(default_factory=list)
+    audit: dict[str, Any] = Field(default_factory=dict)
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
@@ -94,4 +166,33 @@ async def search_gdb(body: GDBSearchRequest):
         season=body.season,
         domain=body.domain,
     )
+    return result
+
+
+@app.post(
+    "/v1/gdb/check-pending-duplicate",
+    response_model=PendingDuplicateCheckResponse,
+    summary="Check pending duplicate question",
+    description=(
+        "**Pipeline:**\n"
+        "1. Resolve query/crop/state from `question_id` or request fields.\n"
+        "2. **Exact** normalized text match among open/delayed AJRASAKHA/WHATSAPP questions.\n"
+        "3. Else **vector top-3** + Gemma question-only duplicate verification.\n"
+        "4. Return `referenceQuestionId` when the matched question has one, else matched `_id`.\n"
+        "5. Optional `created_before` limits candidates to questions created earlier."
+    ),
+)
+async def check_pending_duplicate_endpoint(body: PendingDuplicateCheckRequest):
+    try:
+        result = await check_pending_duplicate(
+            question_id=body.question_id,
+            rephrased_query=body.rephrased_query,
+            crop=body.crop,
+            state=body.state,
+            created_before=body.created_before,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return result

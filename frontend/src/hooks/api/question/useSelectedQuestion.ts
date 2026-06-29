@@ -2,7 +2,7 @@ import { useSearch, useNavigate } from "@tanstack/react-router";
 import { useCallback } from "react";
 
 export const useSelectedQuestion = () => {
-  const { question, request, comment,history,expertId,questionType } = useSearch({ strict: false });
+  const { question, request, comment,history,expertId,questionType, view } = useSearch({ strict: false });
   const navigate = useNavigate({ from: "/home" });
 
   const setSelectedQuestionId = useCallback(
@@ -110,6 +110,18 @@ export const useSelectedQuestion = () => {
     [navigate]
   );*/
 
+  const setView = useCallback(
+    (view: string | undefined) => {
+      navigate({
+        search: (prev) => ({
+          ...prev,
+          view,
+        }),
+        replace: true,
+      });
+    },
+    [navigate],
+  );
   return {
     selectedQuestionId: question ?? null,
     selectedRequestId: request ?? null,
@@ -120,7 +132,9 @@ export const useSelectedQuestion = () => {
     setSelectedCommentId,
     setSelectedHistoryId,
     selectedQuestionType:questionType??null,
-    setSelectedQuestionType
+    setSelectedQuestionType,
+    view,
+    setView,
    // selectedExpertId:expertId??null,
    // setSelectedExpertId
   };
