@@ -118,6 +118,27 @@ def test_planner_prompt_covers_mixed_intent_examples():
 def test_graph_includes_upload_reviewer_only_node():
     assert use_planner_graph() is True
     assert "upload_reviewer_only" in graph.nodes
+    assert "non_agriculture_reply" in graph.nodes
+
+
+def test_non_agriculture_graph_path_is_terminal_and_isolated():
+    graph_edges = graph.get_graph().edges
+    outgoing = {edge.target for edge in graph_edges if edge.source == "upload_reviewer_only"}
+    non_ag_outgoing = {
+        edge.target for edge in graph_edges if edge.source == "non_agriculture_reply"
+    }
+
+    assert outgoing == {"non_agriculture_reply"}
+    assert non_ag_outgoing == {"__end__"}
+    assert not outgoing.intersection({"execute_plan", "empty_gdb_reply", "translate_answer"})
+
+
+def test_agriculture_empty_gdb_and_translation_edges_are_unchanged():
+    edges = {(edge.source, edge.target) for edge in graph.get_graph().edges}
+
+    assert ("execute_plan", "empty_gdb_reply") in edges
+    assert ("empty_gdb_reply", "translate_answer") in edges
+    assert ("translate_answer", "__end__") in edges
 
 
 @pytest.mark.asyncio
