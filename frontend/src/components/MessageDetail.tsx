@@ -9,6 +9,7 @@ import { useGetQuestionMessageDetailsByQuestionId } from "@/hooks/api/question/u
 import { useUpdateAnswer } from "@/hooks/api/answer/useUpdateAnswer";
 import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
+import { useNotifyUser } from "@/features/chatbotDashboard/hooks/useNotifyUser";
 import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/atoms/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/atoms/select";
@@ -594,6 +595,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const { mutateAsync: updateAnswer, isPending: isUpdating } = useUpdateAnswer();
     const { mutateAsync: updateQuestion, isPending: updatingQuestion } = useUpdateQuestion();
     const { data: currentUser } = useGetCurrentUser({ enabled: true });
+    const { mutateAsync: notifyUserMutate } = useNotifyUser();
 
     // Only the moderator the question is assigned to (by the moderator-queue cron) may
     // act on it — Pass / Accept / Push to GDB are hidden from everyone else.
@@ -639,17 +641,36 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
         }
     };
 
-    // Auditor "Notify User" flow for dynamic questions: notify the requesting user
-    // (best-effort) and close the question as `dynamic_closed`.
+    // Auditor "Notify User" flow for dynamic questions: actually notify the requesting
+    // user via the chatbot webhook (useNotifyUser → /analytics/notify-user → triggerWebhook),
+    // then close the question as `dynamic_closed`. The close happens ONLY after the
+    // notification succeeds, so we never mark a question notified without delivering it.
     const handleNotifyUser = async () => {
         if (!question?._id) { toast.error("Question data is missing."); return; }
+        const userEmail = question.threadUserEmail;
+        if (!userEmail) {
+            toast.error("Cannot notify: no user email is linked to this question's conversation.");
+            return;
+        }
+        const message = editedAnswerBody?.trim();
+        if (!message) {
+            toast.error("Cannot notify: the answer/message to send the user is empty.");
+            return;
+        }
         try {
+            // 1) Fire the real notification webhook (throws if the webhook is not 2xx).
+            await notifyUserMutate({
+                userEmail,
+                messageId: question.messageId ?? "",
+                message,
+            });
+            // 2) Only on successful delivery, close the question.
             await updateQuestion({ _id: question._id, status: "dynamic_closed" } as any);
-            toast.success("User notified and question closed");
+            toast.success("Question closed");
             navigateToQuestionPage();
         } catch (error) {
             console.error("Failed to notify user:", error);
-            toast.error("Failed to notify user. Please try again.");
+            toast.error("Notification failed — the question was NOT closed. Please try again.");
         }
     };
 
