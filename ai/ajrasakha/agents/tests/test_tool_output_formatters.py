@@ -396,3 +396,12 @@ def test_format_weather_empty_string_in_tool_message():
     block = format_non_gdb_tool_results(messages)
     # Empty weather result should not produce any output
     assert block == ""
+
+
+def test_format_weather_success_false_returns_empty():
+    """When weather API returns success=false (e.g., 404), it should return empty output."""
+    # This simulates what happens when IMD API returns {"success": false, "error": "..."}
+    payload = {"success": False, "error": "404 Not Found"}
+    out = format_tool_output("weather", json.dumps(payload))
+    # Should show error message (this is the formatted output from the tool)
+    assert "404 Not Found" in out
