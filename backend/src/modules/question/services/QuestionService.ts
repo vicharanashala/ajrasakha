@@ -1904,6 +1904,39 @@ export class QuestionService extends BaseService implements IQuestionService {
         // so the cron sees them as available again. Keyed by questionId so a
         // malformed/missing moderatorId can't leave an orphan entry behind.
         if (updates.status === 'pass') {
+          // Check for pending allocations before allowing pass
+          const questionSubmission = await this.questionSubmissionRepo.getByQuestionId(
+            questionId,
+            session,
+          );
+
+          if (questionSubmission) {
+            const queueLength = questionSubmission.queue.length;
+            const historyLength = questionSubmission.history.length;
+
+            // Condition 1: queue.length > 0 and history.length == 0
+            // This means it is assigned but not completed
+            if (queueLength > 0 && historyLength === 0) {
+              throw new BadRequestError(
+                'Cannot pass the question. There is a pending reviewer allocation. Please remove the pending reviewer before passing the question.',
+              );
+            }
+
+            // Condition 2: queue.length > 0 and history.length > 0
+            // Check if the last history item status is 'in-review' AND question status is NOT 'in-review'
+            if (queueLength > 0 && historyLength > 0) {
+              const lastHistoryItem = questionSubmission.history[historyLength - 1];
+              if (
+                lastHistoryItem.status === 'in-review' &&
+                existingQuestion.status !== 'in-review'
+              ) {
+                throw new BadRequestError(
+                  'Cannot pass the question. There is a pending reviewer allocation. Please remove the pending reviewer before passing the question.',
+                );
+              }
+            }
+          }
+
           try {
             await this.userRepo.removeAssignedQuestionFromAllModerators(questionId, session);
           } catch (err: any) {
