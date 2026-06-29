@@ -192,6 +192,42 @@ export interface FarmerHeatMapResponse {
   };
 }
 
+export interface CoordinatorDuplicateQuestionDetail {
+  question: string;
+  repeatCount: number;
+  userId: string;
+  userName?: string;
+  email?: string;
+  block?: string;
+  village?: string;
+  firstAskedAt?: Date;
+  lastAskedAt?: Date;
+  questionIds: string[];
+}
+
+export interface CoordinatorDuplicateQuestionVillage {
+  village: string;
+  count: number;
+  details: CoordinatorDuplicateQuestionDetail[];
+}
+
+export interface CoordinatorDuplicateQuestionBlock {
+  block: string;
+  count: number;
+  villages: CoordinatorDuplicateQuestionVillage[];
+}
+
+export interface CoordinatorDuplicateQuestionHeatMapResponse {
+  coordinatorId: string;
+  coordinatorRole: string;
+  scope: 'district' | 'block' | 'village';
+  state?: string;
+  district?: string;
+  block?: string;
+  totalDuplicateQuestions: number;
+  blocks: CoordinatorDuplicateQuestionBlock[];
+}
+
 export interface WeeklySessionDurationEntry {
   week: string; // ISO week string, e.g. '2025-W03'
   avgSessionDurationMin: number;
@@ -730,6 +766,11 @@ export interface IChatbotRepository {
     filters?: FarmerHeatMapFilters,
     session?: ClientSession,
   ): Promise<FarmerHeatMapResponse>;
+
+  getCoordinatorDuplicateQuestionHeatMap(
+    coordinatorId: string,
+    session?: ClientSession,
+  ): Promise<CoordinatorDuplicateQuestionHeatMapResponse>;
 
   getUserById(userId: string, source: string): Promise<any>;
   deleteUser(userId: string, source: string): Promise<boolean>;

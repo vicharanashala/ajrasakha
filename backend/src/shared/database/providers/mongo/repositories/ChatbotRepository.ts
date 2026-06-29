@@ -42,6 +42,8 @@ import type {
   FarmerHeatMapBucket,
   FarmerHeatMapRow,
   FarmerHeatMapMetricTotals,
+  CoordinatorDuplicateQuestionHeatMapResponse,
+  CoordinatorDuplicateQuestionDetail,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {IQuestion, IQuestionSubmission, QuestionSource} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
@@ -3870,6 +3872,326 @@ if (!districts.length) {
       };
     } catch (error) {
       throw new Error(`Failed to fetch farmer heat map analytics: ${error}`);
+    }
+  }
+
+  async getCoordinatorDuplicateQuestionHeatMap(
+    coordinatorId: string,
+    session?: ClientSession,
+  ): Promise<CoordinatorDuplicateQuestionHeatMapResponse> {
+    try {
+      await this.init('annam');
+      await this.initReviewSystem();
+
+      if (!ObjectId.isValid(coordinatorId)) {
+        throw new BadRequestError('Invalid coordinator id');
+      }
+
+      const coordinator = await this.users.findOne(
+        {_id: new ObjectId(coordinatorId)},
+        {session},
+      );
+
+      if (!coordinator || !COORDINATOR_ROLES.includes(coordinator.userRole as any)) {
+        throw new BadRequestError('Coordinator not found');
+      }
+
+      const role = String(coordinator.userRole || '');
+      const state = coordinator.farmerProfile?.state;
+      const district = coordinator.farmerProfile?.district;
+      const block = coordinator.farmerProfile?.blockName;
+      const village = coordinator.farmerProfile?.villageName;
+      const farmerFilter: any = {
+        $nor: COORDINATOR_ROLES.map(coordinatorRole => ({
+          userRole: this.exactRegex(coordinatorRole),
+        })),
+      };
+
+      if (state) farmerFilter['farmerProfile.state'] = this.exactRegex(state);
+      if (district) {
+        farmerFilter['farmerProfile.district'] = this.exactRegex(district);
+      }
+      if (role === 'block_coordinator' || role === 'village_volunteer') {
+        if (block) farmerFilter['farmerProfile.blockName'] = this.exactRegex(block);
+      }
+      if (role === 'village_volunteer' && village) {
+        farmerFilter['farmerProfile.villageName'] = this.exactRegex(village);
+      }
+
+      const scopedUsers = await this.users
+        .find(farmerFilter, {
+          projection: {
+            _id: 1,
+            name: 1,
+            email: 1,
+            farmerProfile: 1,
+          },
+          session,
+        })
+        .toArray();
+      const userMap = new Map(
+        scopedUsers.map((user: any) => [user._id.toString(), user]),
+      );
+      const userIds = [...userMap.keys()];
+      const userObjectIds = userIds.map(id => new ObjectId(id));
+
+      if (userIds.length === 0) {
+        return {
+          coordinatorId,
+          coordinatorRole: role,
+          scope:
+            role === 'district_coordinator'
+              ? 'district'
+              : role === 'block_coordinator'
+                ? 'block'
+                : 'village',
+          state,
+          district,
+          block,
+          totalDuplicateQuestions: 0,
+          blocks: [],
+        };
+      }
+
+      const userMessages = await this.messagesCollection
+        .find(
+          {
+            user: {$in: userIds},
+            isDeleted: {$ne: true},
+          },
+          {
+            projection: {
+              user: 1,
+              messageId: 1,
+              threadId: 1,
+              conversationId: 1,
+            },
+            session,
+          },
+        )
+        .toArray();
+      const messageIds = [
+        ...new Set(userMessages.map((message: any) => message.messageId).filter(Boolean)),
+      ];
+      const threadIds = [
+        ...new Set(
+          userMessages
+            .map((message: any) => message.threadId || message.conversationId)
+            .filter(Boolean),
+        ),
+      ];
+      const messageUserMap = new Map(
+        userMessages
+          .filter((message: any) => message.messageId)
+          .map((message: any) => [String(message.messageId), String(message.user)]),
+      );
+      const threadUserMap = new Map(
+        userMessages
+          .filter((message: any) => message.threadId || message.conversationId)
+          .map((message: any) => [
+            String(message.threadId || message.conversationId),
+            String(message.user),
+          ]),
+      );
+
+      const questionFilter: any = buildBaseQuestionMatch('AJRASAKHA');
+      const questionUserMatches: any[] = [
+        {userId: {$in: userIds}},
+        {userId: {$in: userObjectIds}},
+      ];
+      if (messageIds.length > 0) {
+        questionUserMatches.push({messageId: {$in: messageIds}});
+      }
+      if (threadIds.length > 0) {
+        questionUserMatches.push({threadId: {$in: threadIds}});
+      }
+      questionFilter.$and.push({$or: questionUserMatches});
+
+      const questions = await this.QuestionCollection.find(questionFilter, {
+        session,
+      })
+        .project({
+          _id: 1,
+          question: 1,
+          createdAt: 1,
+          userId: 1,
+          messageId: 1,
+          threadId: 1,
+        })
+        .sort({createdAt: 1})
+        .toArray();
+
+      const normalizeQuestionText = (value?: string) =>
+        String(value || '')
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, ' ');
+      const groups = new Map<
+        string,
+        {
+          userId: string;
+          normalizedQuestion: string;
+          question: string;
+          questions: any[];
+        }
+      >();
+
+      for (const question of questions) {
+        const directUserId = question.userId?.toString?.() || String(question.userId || '');
+        const resolvedUserId =
+          (directUserId && userMap.has(directUserId) ? directUserId : undefined) ||
+          (question.messageId ? messageUserMap.get(String(question.messageId)) : undefined) ||
+          (question.threadId ? threadUserMap.get(String(question.threadId)) : undefined);
+        const normalizedQuestion = normalizeQuestionText(question.question);
+
+        if (!resolvedUserId || !userMap.has(resolvedUserId) || !normalizedQuestion) {
+          continue;
+        }
+
+        const key = `${resolvedUserId}__${normalizedQuestion}`;
+        const existing = groups.get(key) || {
+          userId: resolvedUserId,
+          normalizedQuestion,
+          question: question.question || '',
+          questions: [],
+        };
+        existing.questions.push(question);
+        if (!existing.question && question.question) {
+          existing.question = question.question;
+        }
+        groups.set(key, existing);
+      }
+
+      const detailsByBlockVillage = new Map<string, CoordinatorDuplicateQuestionDetail[]>();
+      for (const group of groups.values()) {
+        if (group.questions.length < 2) continue;
+
+        const user = userMap.get(group.userId);
+        const blockName = String(user?.farmerProfile?.blockName || '').trim();
+        const villageName = String(user?.farmerProfile?.villageName || '').trim();
+        if (!blockName || !villageName) continue;
+
+        const key = `${blockName}__${villageName}`;
+        const dates = group.questions
+          .map((question: any) => question.createdAt ? new Date(question.createdAt) : null)
+          .filter((date: Date | null) => date && !Number.isNaN(date.getTime())) as Date[];
+        const sortedDates = dates.sort((a, b) => a.getTime() - b.getTime());
+        const detail: CoordinatorDuplicateQuestionDetail = {
+          question: group.question,
+          repeatCount: group.questions.length,
+          userId: group.userId,
+          userName: user?.name,
+          email: user?.email,
+          block: blockName,
+          village: villageName,
+          firstAskedAt: sortedDates[0],
+          lastAskedAt: sortedDates[sortedDates.length - 1],
+          questionIds: group.questions.map((question: any) =>
+            question._id?.toString?.() || String(question._id),
+          ),
+        };
+
+        detailsByBlockVillage.set(key, [
+          ...(detailsByBlockVillage.get(key) || []),
+          detail,
+        ]);
+      }
+
+      const blockMap = new Map<string, Map<string, CoordinatorDuplicateQuestionDetail[]>>();
+      const addBlockVillage = (blockName?: string, villageName?: string) => {
+        const normalizedBlock = String(blockName || '').trim();
+        const normalizedVillage = String(villageName || '').trim();
+        if (!normalizedBlock) return;
+
+        if (!blockMap.has(normalizedBlock)) {
+          blockMap.set(normalizedBlock, new Map());
+        }
+        if (normalizedVillage) {
+          blockMap.get(normalizedBlock)!.set(
+            normalizedVillage,
+            blockMap.get(normalizedBlock)!.get(normalizedVillage) || [],
+          );
+        }
+      };
+      const addBlockWithVillages = (blockName?: string) => {
+        const normalizedBlock = String(blockName || '').trim();
+        if (!normalizedBlock) return;
+
+        addBlockVillage(normalizedBlock);
+        const villageBlockKey = this.findMetadataKey(VILLAGES, normalizedBlock);
+        const metadataVillages = villageBlockKey
+          ? VILLAGES[villageBlockKey] || []
+          : [];
+        metadataVillages.forEach(villageName =>
+          addBlockVillage(normalizedBlock, villageName),
+        );
+      };
+
+      if (role === 'district_coordinator') {
+        const districtKey = this.findMetadataKey(BLOCKS, district);
+        const districtBlocks = districtKey ? BLOCKS[districtKey] || [] : [];
+        districtBlocks.forEach(blockName => addBlockWithVillages(blockName));
+      }
+      if (role === 'block_coordinator') {
+        addBlockWithVillages(block);
+      }
+      if (role === 'village_volunteer') {
+        addBlockVillage(block, village);
+      }
+
+      for (const user of scopedUsers as any[]) {
+        const blockName = String(user.farmerProfile?.blockName || '').trim();
+        const villageName = String(user.farmerProfile?.villageName || '').trim();
+        if (!blockName || !villageName) continue;
+
+        addBlockVillage(blockName, villageName);
+      }
+      for (const [blockVillage, details] of detailsByBlockVillage.entries()) {
+        const [blockName, villageName] = blockVillage.split('__');
+        addBlockVillage(blockName, villageName);
+        blockMap.get(blockName)!.set(villageName, details);
+      }
+
+      const blocks = [...blockMap.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([blockName, villages]) => {
+          const villageRows = [...villages.entries()]
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([villageName, details]) => ({
+              village: villageName,
+              count: details.length,
+              details: details.sort((a, b) => b.repeatCount - a.repeatCount),
+            }));
+
+          return {
+            block: blockName,
+            count: villageRows.reduce((sum, item) => sum + item.count, 0),
+            villages: villageRows,
+          };
+        });
+
+      return {
+        coordinatorId,
+        coordinatorRole: role,
+        scope:
+          role === 'district_coordinator'
+            ? 'district'
+            : role === 'block_coordinator'
+              ? 'block'
+              : 'village',
+        state,
+        district,
+        block,
+        totalDuplicateQuestions: blocks.reduce(
+          (sum, item) => sum + item.count,
+          0,
+        ),
+        blocks,
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to fetch coordinator duplicate question heat map: ${error}`,
+      );
     }
   }
 

@@ -22,6 +22,7 @@ import type {
   ResponseAdherenceTable,
   FarmerHeatMapFilters,
   FarmerHeatMapResponse,
+  CoordinatorDuplicateQuestionHeatMapResponse,
   QueryCategoryQuestionType,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import ExcelJS from 'exceljs';
@@ -691,6 +692,20 @@ export class ChatbotService extends BaseService implements IChatbotService {
     } catch (error) {
       throw new InternalServerError(
         `Failed to fetch farmer heat map analytics: ${error}`,
+      );
+    }
+  }
+
+  async getCoordinatorDuplicateQuestionHeatMap(
+    coordinatorId: string,
+  ): Promise<CoordinatorDuplicateQuestionHeatMapResponse> {
+    try {
+      return await this.chatbotRepository.getCoordinatorDuplicateQuestionHeatMap(
+        coordinatorId,
+      );
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch coordinator duplicate question heat map: ${error}`,
       );
     }
   }

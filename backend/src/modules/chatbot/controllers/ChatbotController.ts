@@ -570,6 +570,23 @@ export class ChatbotController {
   }
 
   @OpenAPI({
+    summary: 'Get coordinator duplicate question heat map',
+    description:
+      'Returns coordinator-scoped duplicate question counts by block and village. Repeated identical questions from the same user count as one duplicate group.',
+  })
+  @Get('/coordinator-duplicate-heat-map/:userId')
+  @HttpCode(200)
+  @Authorized(['admin', ...COORDINATOR_ROLES])
+  async getCoordinatorDuplicateQuestionHeatMap(
+    @Param('userId') userId: string,
+    @CurrentUser() currentUser: IUser,
+  ) {
+    await this.assertCoordinatorOwnDashboard(userId, currentUser);
+
+    return this.chatbotService.getCoordinatorDuplicateQuestionHeatMap(userId);
+  }
+
+  @OpenAPI({
     summary: 'Get top crops by questions',
     description:
       'Retrieves top crops aggregated from questions and duplicate_questions, excluding agri_expert source.',
