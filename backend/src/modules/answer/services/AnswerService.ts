@@ -2028,6 +2028,10 @@ answer: ${updates.answer}`;
         session,
       );
 
+      // Author display name reused for the parent + every replicated child notification.
+      const authorName =
+        `${author?.firstName ?? ''} ${author?.lastName ?? ''}`.trim() || 'Expert';
+
       // ── Propagate the close to queue-duplicate children ───────────────────────
       // Any question that was matched to this one in the GDB pending-duplicate queue
       // (referenceQuestionId === this question, status 'queue_duplicate') is closed too:
@@ -2065,6 +2069,17 @@ answer: ${updates.answer}`;
             .catch((e: any) =>
               console.error(`[approveAnswer] Failed to clear moderators for child ${childId}:`, e?.message),
             );
+
+          // Notify the child question's customer as well — it was closed with the
+          // same replicated answer, so it must fire its own source-appropriate
+          // webhook (using the child's own messageId/threadId), not just the parent's.
+          await this.notifyCustomerOnClose(
+            child,
+            updates.answer ?? '',
+            updates.sources ?? [],
+            authorName,
+            session,
+          );
         }
         if (childQuestions.length) {
           console.log(
@@ -2078,73 +2093,91 @@ answer: ${updates.answer}`;
         );
       }
 
-      //  WEBHOOK HANDLERS
-      const webhookPayload = {
-        question_id: questionId,
-        status: 'closed',
-        answer: updates.answer ?? '',
-        author:
-          `${author?.firstName ?? ''} ${author?.lastName ?? ''}`.trim() ||
-          'Expert',
-        sources: updates.sources ?? [],
-      };
-
-      let isCustomerNotified = false;
-      if (question.source === 'WHATSAPP') {
-        try {
-          await triggerWebhook(
-            appConfig.WA_WEBHOOK_API_URL,
-            appConfig.WA_WEBHOOK_API_KEY,
-            webhookPayload,
-            'WhatsApp',
-          );
-          isCustomerNotified = true;
-        } catch (err) {
-          isCustomerNotified = false;
-          console.log(
-            'Error occured while notifying customer(WHATSAPP): ',
-            err,
-          );
-        }
-      }
-
-      if (question.source === 'AJRASAKHA') {
-        try {
-          await triggerWebhook(
-            appConfig.WEB_WEBHOOK_API_URL,
-            appConfig.WEB_WEBHOOK_API_KEY,
-            {
-              ...webhookPayload,
-              question: question.question,
-              messageId: question.messageId,
-              threadId:question.threadId
-            },
-            'Browser',
-          );
-          isCustomerNotified = true;
-        } catch (err) {
-          isCustomerNotified = false;
-          console.log(
-            'Error occured while notifying customer(AJRASAKHA): ',
-            err,
-          );
-        }
-      }
-
-      if(question.source === 'AJRASAKHA' || question.source === "WHATSAPP"){
-        await this.questionRepo.updateQuestion(
-          questionId,
-          {
-            isCustomerNotified,
-          },
-          session,
-          false,
-        );
-      }
-
+      //  WEBHOOK HANDLERS — notify the parent question's customer.
+      await this.notifyCustomerOnClose(
+        question,
+        updates.answer ?? '',
+        updates.sources ?? [],
+        authorName,
+        session,
+      );
 
       return result;
     });
+  }
+
+  /**
+   * Notify the end customer that their question was closed/answered, via the
+   * source-appropriate webhook (WhatsApp for WHATSAPP, Browser for AJRASAKHA), and
+   * persist the outcome on the question (`isCustomerNotified`).
+   *
+   * Best-effort: a webhook failure is logged and recorded, never thrown, so it can
+   * never abort the surrounding close/transaction. No-op for non-chatbot sources
+   * (AGRI_EXPERT / OUTREACH), which have no end customer to notify. Used for both the
+   * approved parent question and each replicated queue_duplicate child question.
+   */
+  private async notifyCustomerOnClose(
+    q: {
+      _id?: string | ObjectId;
+      source: string;
+      question?: string;
+      messageId?: string;
+      threadId?: string;
+    },
+    answer: string,
+    sources: SourceItem[],
+    authorName: string,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    if (q.source !== 'WHATSAPP' && q.source !== 'AJRASAKHA') return false;
+
+    const qId = q._id!.toString();
+    const webhookPayload = {
+      question_id: qId,
+      status: 'closed',
+      answer: answer ?? '',
+      author: authorName || 'Expert',
+      sources: sources ?? [],
+    };
+
+    let isCustomerNotified = false;
+    try {
+      if (q.source === 'WHATSAPP') {
+        await triggerWebhook(
+          appConfig.WA_WEBHOOK_API_URL,
+          appConfig.WA_WEBHOOK_API_KEY,
+          webhookPayload,
+          'WhatsApp',
+        );
+      } else {
+        await triggerWebhook(
+          appConfig.WEB_WEBHOOK_API_URL,
+          appConfig.WEB_WEBHOOK_API_KEY,
+          {
+            ...webhookPayload,
+            question: q.question,
+            messageId: q.messageId,
+            threadId: q.threadId,
+          },
+          'Browser',
+        );
+      }
+      isCustomerNotified = true;
+    } catch (err) {
+      isCustomerNotified = false;
+      console.log(
+        `Error occured while notifying customer(${q.source}) for question ${qId}: `,
+        err,
+      );
+    }
+
+    await this.questionRepo.updateQuestion(
+      qId,
+      { isCustomerNotified },
+      session,
+      false,
+    );
+    return isCustomerNotified;
   }
 
   async approveLLMAnswer(
