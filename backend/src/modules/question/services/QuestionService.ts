@@ -2697,24 +2697,19 @@ export class QuestionService extends BaseService implements IQuestionService {
           session,
         );
 
-        //8. For time-bound questions: start the 45-min clock and enable auto-reallocation
+        //8. For time-bound questions: start the 45-min clock.
+        // NOTE: do NOT force isAutoAllocate back on here — a moderator who
+        // explicitly turned auto-allocate off before assigning an expert must
+        // have that choice respected (otherwise it silently re-enables on
+        // refresh for AJRASAKHA/WHATSAPP questions).
         if (question.source === 'WHATSAPP' || question.source === 'AJRASAKHA') {
           // Run outside transaction (non-critical, fire-and-forget style)
           setImmediate(async () => {
             try {
-              await Promise.all([
-                this.questionSubmissionRepo.setCurrentExpertAllocatedAt(
-                  questionId,
-                  new Date(),
-                ),
-                ...(question.isAutoAllocate === false
-                  ? [
-                      this.questionRepo.updateQuestion(questionId, {
-                        isAutoAllocate: true,
-                      }),
-                    ]
-                  : []),
-              ]);
+              await this.questionSubmissionRepo.setCurrentExpertAllocatedAt(
+                questionId,
+                new Date(),
+              );
             } catch (err: any) {
               console.error(
                 `[allocateExperts] Failed to set time-bound fields for ${questionId}:`,

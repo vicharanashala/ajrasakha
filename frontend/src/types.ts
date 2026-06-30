@@ -453,6 +453,7 @@ export interface IQuestionFullData {
   _id: string;
   question: string;
   status: QuestionStatus;
+  tag?: "dynamic" | "static_dynamic";
   details: {
     state: string;
     district: string;
@@ -582,6 +583,7 @@ export interface IDetailedQuestion {
   context: string;
   aiInitialAnswer: string;
   status: QuestionStatus;
+  tag?: "dynamic" | "static_dynamic";
   totalAnswersCount: number;
   priority: QuestionPriority;
   metrics: IQuestionMetrics;
