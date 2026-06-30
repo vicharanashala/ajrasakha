@@ -587,7 +587,19 @@ private normalizeDistrictName(
               $regexMatch: {
                 input: {
                   $concat: [
-                    {$ifNull: ['$details.domain', '']},
+                    {
+                      $cond: {
+                        if: { $isArray: '$details.domain' },
+                        then: {
+                          $reduce: {
+                            input: '$details.domain',
+                            initialValue: '',
+                            in: { $concat: ['$$value', ' ', '$$this'] }
+                          }
+                        },
+                        else: { $ifNull: ['$details.domain', ''] }
+                      }
+                    },
                     ' ',
                     {$ifNull: ['$details.category', '']},
                     ' ',
