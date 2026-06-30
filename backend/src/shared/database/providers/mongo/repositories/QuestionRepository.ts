@@ -7249,7 +7249,7 @@ export class QuestionRepository implements IQuestionRepository {
     // New questions default the field to true on creation.
     // When `sources` is provided, restricts to that source group (time-bound / manual).
     const filter: Record<string, unknown> = {
-      status: { $in: ['in-review', 'duplicate', 'pae_submitted'] },
+      status: { $in: ['in-review', 'pae_submitted'] },
       autoAllocateModerator: true,
       $or: [{ moderatorId: { $exists: false } }, { moderatorId: null }],
     };
