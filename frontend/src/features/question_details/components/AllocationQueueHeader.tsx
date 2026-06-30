@@ -38,8 +38,6 @@ export const AllocationQueueHeader = ({
   queue = [],
   currentUser,
 }: AllocationQueueHeaderProps) => {
-  const isDuplicate = question.status === "duplicate";
-
   const [autoAllocate, setAutoAllocate] = useState(question.isAutoAllocate);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedExperts, setSelectedExperts] = useState<string[]>([]);
@@ -139,6 +137,21 @@ export const AllocationQueueHeader = ({
     setSelectedExperts([]);
     setIsModalOpen(false);
   };
+
+  // Interactive allocation controls (auto-allocate toggle + Select Experts) are only for
+  // moderators/admins on non-triage questions. For everyone else (gate keeper / auditor,
+  // and dynamic / duplicate / auditor-review questions) we just show a read-only field
+  // indicating whether auto-allocation is on or off.
+  const showAllocationControls =
+    currentUser.role !== "expert" &&
+    currentUser.role !== "gate_keeper" &&
+    currentUser.role !== "auditor" &&
+    question.status !== "non_agri" &&
+    question.status !== "queue_duplicate" &&
+    question.status !== "auditor_review" &&
+    question.status !== "dynamic" &&
+    question.status !== "duplicate";
+
   return (
     <div className="flex flex-col gap-4 pb-6 border-b border-border">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -164,7 +177,7 @@ export const AllocationQueueHeader = ({
             questions are unaffected.
             Queue-duplicate questions: NO auto-allocate / Select Experts until the
             status is changed away from 'queue_duplicate'. */}
-        {currentUser.role !== "expert" && currentUser.role !== "gate_keeper" && currentUser.role !== "auditor" && question.status!=='non_agri' && question.status!=='queue_duplicate' && (!isDuplicate || question.isAssignedModerator) && (
+        {showAllocationControls ? (
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full md:w-auto">
             {/* Auto-Allocate Block */}
             <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
@@ -376,7 +389,18 @@ export const AllocationQueueHeader = ({
               </Dialog>
             )}
           </div>
-        )}
+        ) : currentUser.role !== "expert" ? (
+          <div className="flex items-center gap-2 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
+            <span
+              className={`h-2.5 w-2.5 rounded-full ${
+                autoAllocate ? "bg-green-500" : "bg-muted-foreground/50"
+              }`}
+            />
+            <span className="font-medium text-sm text-foreground">
+              Auto-allocate: {autoAllocate ? "On" : "Off"}
+            </span>
+          </div>
+        ) : null}
       </div>
     </div>
   );

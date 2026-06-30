@@ -883,16 +883,8 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                         </div>
                     )}
                 </div>
-                {/* Dynamic status: Show only Pass button (ignoring other conditions, role should not be expert).
-                    Gate Keeper / Auditor get their own dedicated action blocks below. */}
-                {question.status === "dynamic" && question?.isHidden !== true && !isGateKeeper && !isAuditor && (
-                    <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
-                        <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">This is a dynamic question. You can pass it to skip processing.</p>
-                        <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
-                            <Button type="button" variant="outline" size="sm" disabled={updatingQuestion} onClick={handleSkip} className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}>{updatingQuestion ? <Loader2 className="h-4 w-4 animate-spin" /> : <SkipForward className="h-4 w-4" />}{updatingQuestion ? "Passing..." : "Pass"}</Button>
-                        </div>
-                    </div>
-                )}
+                {/* Dynamic / duplicate / auditor-review questions are handled through the
+                    Gate Keeper → Auditor flow — moderators get no Pass action for them. */}
 
                 {/* Non-dynamic status: Full conditions with Pass, Accept, and Push to GDB buttons */}
                 {question.status !== "dynamic" && approved === null && question && isAssignedModerator && (question.source == "AJRASAKHA" || question.source == "WHATSAPP") && question.status !== "closed" && !question.aiInitialAnswer && !isQuestionAllocatedToExpert && (
@@ -900,7 +892,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                         <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">Once you click on Accept, the LLM-generated answer will be set as the AI answer for this question and sent for moderation as a reference to create the initial answer for the question.</p>
                         <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
                             {
-                                question?.isHidden !== true && <Button type="button" variant="outline" size="sm" disabled={updatingQuestion} onClick={handleSkip} className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}>{updatingQuestion ? <Loader2 className="h-4 w-4 animate-spin" /> : <SkipForward className="h-4 w-4" />}{updatingQuestion ? "Passing..." : "Pass"}</Button>
+                                question?.isHidden !== true && question.status !== "duplicate" && question.status !== "auditor_review" && <Button type="button" variant="outline" size="sm" disabled={updatingQuestion} onClick={handleSkip} className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}>{updatingQuestion ? <Loader2 className="h-4 w-4 animate-spin" /> : <SkipForward className="h-4 w-4" />}{updatingQuestion ? "Passing..." : "Pass"}</Button>
                             }
 
                             <Button
