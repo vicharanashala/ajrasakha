@@ -15,6 +15,7 @@ import {
   ReviewType,
   SourceItem,
   IQuestionSubmission,
+  QuestionStatus,
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
@@ -1908,9 +1909,25 @@ answer: ${updates.answer}`;
 
       let answerId = updates.answerId;
 
-      // DUPLICATE QUESTION FLOW
+      // Dynamic questions (raised via the chatbot, routed to the Auditor and closed
+      // through "Notify User") close as `dynamic_closed` rather than `closed`, so they
+      // stay distinguishable downstream. The customer webhook carries the same status.
+      const isDynamicClose =
+        question.status === 'dynamic' ||
+        (question.status === 'auditor_review' &&
+          question.auditorReviewType === 'dynamic');
+      const closeStatus: QuestionStatus = isDynamicClose
+        ? 'dynamic_closed'
+        : 'closed';
+
+      // DUPLICATE / DYNAMIC QUESTION FLOW
       // Create final approved answer directly from LLM answer
-      if (question.status === 'duplicate'||question.status=='auditor_review' && !answerId ) {
+      if (
+        question.status === 'duplicate' ||
+        ((question.status === 'auditor_review' ||
+          question.status === 'dynamic') &&
+          !answerId)
+      ) {
         const [answerEmbedding, questionEmbedding] = await Promise.all([
           generateEmbedding(text),
           generateEmbedding(text),
@@ -1926,7 +1943,9 @@ answer: ${updates.answer}`;
           1, // answerIteration
           session,
           'approved',
-          'LLM generated answer approved as final answer by moderator since the question is marked as duplicate',
+          isDynamicClose
+            ? 'LLM generated answer approved as final answer by auditor since the question is dynamic'
+            : 'LLM generated answer approved as final answer by moderator since the question is marked as duplicate',
           undefined,
         );
 
@@ -1937,7 +1956,7 @@ answer: ${updates.answer}`;
           {
             text,
             embedding: questionEmbedding,
-            status: 'closed',
+            status: closeStatus,
             closedAt: new Date(),
           },
           session,
@@ -1994,7 +2013,7 @@ answer: ${updates.answer}`;
         {
           text,
           embedding: questionEmbedding,
-          status: 'closed',
+          status: closeStatus,
           closedAt: new Date(),
         },
         session,
@@ -2100,6 +2119,7 @@ answer: ${updates.answer}`;
         updates.sources ?? [],
         authorName,
         session,
+        closeStatus,
       );
 
       return result;
@@ -2128,13 +2148,14 @@ answer: ${updates.answer}`;
     sources: SourceItem[],
     authorName: string,
     session?: ClientSession,
+    status: QuestionStatus = 'closed',
   ): Promise<boolean> {
     if (q.source !== 'WHATSAPP' && q.source !== 'AJRASAKHA') return false;
 
     const qId = q._id!.toString();
     const webhookPayload = {
       question_id: qId,
-      status: 'closed',
+      status,
       answer: answer ?? '',
       author: authorName || 'Expert',
       sources: sources ?? [],

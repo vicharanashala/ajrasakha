@@ -9,7 +9,6 @@ import { useGetQuestionMessageDetailsByQuestionId } from "@/hooks/api/question/u
 import { useUpdateAnswer } from "@/hooks/api/answer/useUpdateAnswer";
 import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
-import { useNotifyUser } from "@/features/chatbotDashboard/hooks/useNotifyUser";
 import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/atoms/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/atoms/select";
@@ -595,7 +594,6 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const { mutateAsync: updateAnswer, isPending: isUpdating } = useUpdateAnswer();
     const { mutateAsync: updateQuestion, isPending: updatingQuestion } = useUpdateQuestion();
     const { data: currentUser } = useGetCurrentUser({ enabled: true });
-    const { mutateAsync: notifyUserMutate } = useNotifyUser();
 
     // Only the moderator the question is assigned to (by the moderator-queue cron) may
     // act on it — Pass / Accept / Push to GDB are hidden from everyone else.
@@ -638,39 +636,6 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
         } catch (error) {
             console.error("Failed to push question to auditor:", error);
             toast.error("Failed to push to Auditor. Please try again.");
-        }
-    };
-
-    // Auditor "Notify User" flow for dynamic questions: actually notify the requesting
-    // user via the chatbot webhook (useNotifyUser → /analytics/notify-user → triggerWebhook),
-    // then close the question as `dynamic_closed`. The close happens ONLY after the
-    // notification succeeds, so we never mark a question notified without delivering it.
-    const handleNotifyUser = async () => {
-        if (!question?._id) { toast.error("Question data is missing."); return; }
-        const userEmail = question.threadUserEmail;
-        if (!userEmail) {
-            toast.error("Cannot notify: no user email is linked to this question's conversation.");
-            return;
-        }
-        const message = editedAnswerBody?.trim();
-        if (!message) {
-            toast.error("Cannot notify: the answer/message to send the user is empty.");
-            return;
-        }
-        try {
-            // 1) Fire the real notification webhook (throws if the webhook is not 2xx).
-            await notifyUserMutate({
-                userEmail,
-                messageId: question.messageId ?? "",
-                message,
-            });
-            // 2) Only on successful delivery, close the question.
-            await updateQuestion({ _id: question._id, status: "dynamic_closed" } as any);
-            toast.success("Question closed");
-            navigateToQuestionPage();
-        } catch (error) {
-            console.error("Failed to notify user:", error);
-            toast.error("Notification failed — the question was NOT closed. Please try again.");
         }
     };
 
@@ -745,7 +710,9 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
             toast.success(
                 isAcceptFlow
                     ? "LLM answer submitted successfully for author review"
-                    : "Answer pushed to GDB successfully"
+                    : isDynamicQuestion
+                        ? "Answer will be sent to the user"
+                        : "Answer pushed to GDB successfully"
             );
             navigateToQuestionPage();
         } catch (error) {
@@ -1023,9 +990,9 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                                 </Button>
                             )}
                             {isDynamicQuestion && (
-                                <Button type="button" size="sm" disabled={updatingQuestion} onClick={handleNotifyUser} className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90">
-                                    {updatingQuestion ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-                                    {updatingQuestion ? "Notifying..." : "Notify User"}
+                                <Button type="button" size="sm" disabled={isUpdating || !editedAnswerBody.trim()} onClick={handlePushToGDB} className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90">
+                                    {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                                    {isUpdating ? "Notifying..." : "Notify User"}
                                 </Button>
                             )}
                         </div>
