@@ -712,9 +712,14 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     };
 
     const doSkip = async (remark?: string) => {
-        await updateQuestion({ isHidden: true, status: 'pass', _id: question._id!, ...(remark ? { passingRemark: remark } : {}) } as any);
-        toast.success("Question has been hidden");
-        navigateToQuestionPage();
+        try {
+            await updateQuestion({ isHidden: true, status: 'pass', _id: question._id!, ...(remark ? { passingRemark: remark } : {}) } as any);
+            toast.success("Question has been hidden");
+            navigateToQuestionPage();
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.message || error?.message || "Failed to pass the question";
+            toast.error(errorMessage);
+        }
     };
 
     const handleConfirm = () => {

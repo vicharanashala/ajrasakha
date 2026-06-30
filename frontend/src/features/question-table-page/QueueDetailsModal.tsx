@@ -87,6 +87,25 @@ const WORK_TYPE_LABEL: Record<
   needsReviewer: "Needs Reviewer",
 };
 
+/** Color config for each known question status used in the received-tab strip. */
+const STATUS_TAB_COLOR: Record<
+  string,
+  { dot: string; active: string; badge: string }
+> = {
+  open:        { dot: "bg-emerald-500", active: "text-emerald-600 dark:text-emerald-400", badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300" },
+  delayed:     { dot: "bg-amber-500",   active: "text-amber-600 dark:text-amber-400",     badge: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300" },
+  duplicate:   { dot: "bg-rose-500",    active: "text-rose-600 dark:text-rose-400",        badge: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300" },
+  "in-review": { dot: "bg-blue-500",    active: "text-blue-600 dark:text-blue-400",        badge: "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300" },
+  closed:      { dot: "bg-gray-400",    active: "text-gray-600 dark:text-gray-400",        badge: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" },
+  pass:        { dot: "bg-teal-500",    active: "text-teal-600 dark:text-teal-400",        badge: "bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300" },
+  hold:        { dot: "bg-orange-500",  active: "text-orange-600 dark:text-orange-400",    badge: "bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300" },
+  "re-routed": { dot: "bg-violet-500",  active: "text-violet-600 dark:text-violet-400",    badge: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300" },
+  draft:       { dot: "bg-slate-400",   active: "text-slate-600 dark:text-slate-400",      badge: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400" },
+  dynamic:     { dot: "bg-slate-400",   active: "text-slate-600 dark:text-slate-400",      badge: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400" },
+  all:         { dot: "bg-blue-400",    active: "text-blue-600 dark:text-blue-400",        badge: "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300" },
+};
+const defaultStatusTabColor = { dot: "bg-purple-400", active: "text-purple-600 dark:text-purple-400", badge: "bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300" };
+
 /** Human-readable elapsed time from a minute count:
  *   < 1 hour   → "40 mins"
  *   < 24 hours → "3 hour 40 mins"
@@ -223,6 +242,12 @@ type SectionProps<T> = {
   description: string;
   /** Exact total (from the main query) — drives the count badge + total pages. */
   count: number;
+  /**
+   * When a client-side itemFilter is active this should be set to the count
+   * of items that match the filter (e.g. the per-status backend count).
+   * Drives pagination so we don't show phantom pages for filtered views.
+   */
+  filteredCount?: number;
   /** Backend section key used to fetch pages > 1. */
   section: string;
   /** Page-1 items already loaded by the main query. */
@@ -233,6 +258,10 @@ type SectionProps<T> = {
   emptyText: string;
   startTime?: Date;
   endTime?: Date;
+  /** Optional content rendered between the header and the items list (e.g. tab strip). */
+  headerExtra?: React.ReactNode;
+  /** When set, the items list is additionally filtered by this predicate before rendering. */
+  itemFilter?: (item: T) => boolean;
 };
 
 function Section<T>({
@@ -241,6 +270,7 @@ function Section<T>({
   title,
   description,
   count,
+  filteredCount,
   section,
   initialItems,
   renderItem,
@@ -249,16 +279,22 @@ function Section<T>({
   emptyText,
   startTime,
   endTime,
+  headerExtra,
+  itemFilter,
 }: SectionProps<T>) {
   const c = colorClasses[color];
   const [page, setPage] = useState(1);
 
-  // Reset to page 1 when the data refreshes (page-1 items change) or on reopen.
+  // Reset to page 1 when the data refreshes (page-1 items change), on reopen,
+  // or when the active filter changes (filteredCount changes).
   useEffect(() => {
     setPage(1);
-  }, [initialItems, isOpen]);
+  }, [initialItems, isOpen, filteredCount]);
 
-  const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
+  // When a client-side filter is active use its count for pagination so we
+  // don't create phantom pages that contain no visible items.
+  const paginationCount = filteredCount !== undefined ? filteredCount : count;
+  const totalPages = Math.max(1, Math.ceil(paginationCount / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
 
   // Page 1 comes from the main query; pages > 1 are fetched from the backend.
@@ -276,6 +312,9 @@ function Section<T>({
     safePage === 1 ? initialItems : ((sectionData?.items as T[] | undefined) ?? []);
   const isPageLoading = needFetch && isFetching;
   const start = (safePage - 1) * PAGE_SIZE;
+
+  // Apply optional client-side filter (e.g. status tab) — only filters the display.
+  const visibleItems = itemFilter ? pageItems.filter(itemFilter) : pageItems;
 
   const pagerBtn =
     "p-1 rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 disabled:pointer-events-none transition-colors";
@@ -333,21 +372,27 @@ function Section<T>({
             </p>
           ) : (
             <>
+              {headerExtra}
               <div className="max-h-72 overflow-y-auto">
                 {isPageLoading && pageItems.length === 0 ? (
                   <div className="flex items-center justify-center py-8 text-gray-400">
                     <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading…
                   </div>
+                ) : visibleItems.length === 0 ? (
+                  <p className="px-3 py-4 text-xs text-gray-400 text-center">
+                    No items on this page match the selected filter
+                  </p>
                 ) : (
-                  pageItems.map(renderItem)
+                  visibleItems.map(renderItem)
                 )}
               </div>
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between gap-2 px-3 py-2 border-t border-gray-100 dark:border-gray-800">
-                  <span className="text-[11px] text-gray-400">
-                    Showing {start + 1}–{Math.min(start + PAGE_SIZE, count)} of{" "}
-                    {count}
-                  </span>
+              {/* Footer: always visible so the user knows the current count */}
+              <div className="flex items-center justify-between gap-2 px-3 py-2 border-t border-gray-100 dark:border-gray-800">
+                <span className="text-[11px] text-gray-400">
+                  Showing {start + 1}–{Math.min(start + PAGE_SIZE, paginationCount)} of{" "}
+                  {paginationCount}
+                </span>
+                {totalPages > 1 && (
                   <div className="flex items-center gap-1.5">
                     {isFetching && (
                       <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
@@ -374,8 +419,8 @@ function Section<T>({
                       <ChevronRight size={14} />
                     </button>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </>
           )}
         </div>
@@ -395,6 +440,10 @@ export const QueueDetailsModal = ({
   const [modCategory, setModCategory] = useState<"timeBound" | "manual">(
     "timeBound",
   );
+  // Auto-Allocate ON sub-tab: OPEN vs DELAYED
+  const [autoAllocateTab, setAutoAllocateTab] = useState<"open" | "delayed">("open");
+  // Questions Received sub-tab: dynamic per distinct statuses in items
+  const [receivedTab, setReceivedTab] = useState<string>("all");
   const { goToQuestion } = useNavigateToQuestion();
 
   // Opening a question unmounts this modal (the list view is replaced by the question
@@ -523,37 +572,189 @@ export const QueueDetailsModal = ({
           </div>
         ) : data ? (
           <div className="space-y-3 py-2">
-            <Section<QueueQuestionItem>
-              icon={<Inbox size={20} />}
-              color="blue"
-              title="Questions Received"
-              description="All time-bound questions received"
-              count={data.received.count}
-              section="received"
-              initialItems={data.received.items}
-              renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
-              isOpen={openSection === "received"}
-              onToggle={() => toggle("received")}
-              emptyText="No questions received"
-              startTime={dateFilter.startTime ?? undefined}
-              endTime={dateFilter.endTime ?? undefined}
-            />
+            {/* ── Questions Received — tabbed by status with pagination ── */}
+            {(() => {
+              // Build a lookup from the backend's accurate per-status counts
+              const backendCountMap = new Map<string, number>(
+                (data.receivedStatusCounts ?? []).map(({ status, count }) => [status.toLowerCase(), count])
+              );
+              const totalCount = data.received.count;
 
-            <Section<QueueQuestionItem>
-              icon={<Power size={20} />}
-              color="slate"
-              title="Auto-Allocate ON"
-              description="AjraSakha / WhatsApp, auto-allocated (open / delayed)"
-              count={data.autoAllocateOff.count}
-              section="autoAllocateOff"
-              initialItems={data.autoAllocateOff.items}
-              renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
-              isOpen={openSection === "autoAllocateOff"}
-              onToggle={() => toggle("autoAllocateOff")}
-              emptyText="No auto-allocate-on questions"
-              startTime={dateFilter.startTime ?? undefined}
-              endTime={dateFilter.endTime ?? undefined}
-            />
+              const ORDER = ["open", "delayed", "duplicate", "in-review", "closed", "pass", "hold", "re-routed", "draft", "dynamic"];
+              const backendStatuses = new Set((data.receivedStatusCounts ?? []).map(r => r.status.toLowerCase()));
+              const tabs = [
+                "all",
+                ...ORDER.filter((s) => backendStatuses.has(s)),
+                ...[...backendStatuses].filter((s) => !ORDER.includes(s) && s),
+              ];
+
+              const tabStrip = (
+                <div className="flex flex-wrap items-center gap-1 m-2 rounded-lg border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-[#111]">
+                  {tabs.map((tab) => {
+                    const count = tab === "all" ? totalCount : (backendCountMap.get(tab) ?? 0);
+                    const col = STATUS_TAB_COLOR[tab] ?? defaultStatusTabColor;
+                    return (
+                      <button
+                        key={tab}
+                        type="button"
+                        onClick={() => setReceivedTab(tab)}
+                        className={cn(
+                          "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap",
+                          receivedTab === tab
+                            ? `bg-white shadow-sm dark:bg-gray-800 ${col.active}`
+                            : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300",
+                        )}
+                      >
+                        <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", col.dot)} />
+                        {tab === "all" ? "ALL" : tab.toUpperCase()}
+                        <span className={cn("ml-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold", col.badge)}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+
+              // When a specific status tab is active, pass its exact count for
+              // pagination so phantom pages aren't shown for filtered views.
+              const activeFilteredCount = receivedTab === "all"
+                ? undefined
+                : (backendCountMap.get(receivedTab) ?? 0);
+
+              return (
+                <Section<QueueQuestionItem>
+                  icon={<Inbox size={20} />}
+                  color="blue"
+                  title="Questions Received"
+                  description="All time-bound questions received"
+                  count={totalCount}
+                  filteredCount={activeFilteredCount}
+                  section="received"
+                  initialItems={data.received.items}
+                  renderItem={(q) => <QuestionRow key={q._id} item={q} onClick={() => handleQuestionClick(q)} />}
+                  isOpen={openSection === "received"}
+                  onToggle={() => { toggle("received"); setReceivedTab("all"); }}
+                  emptyText="No questions received"
+                  startTime={dateFilter.startTime ?? undefined}
+                  endTime={dateFilter.endTime ?? undefined}
+                  headerExtra={tabStrip}
+                  itemFilter={receivedTab === "all" ? undefined : (q) => q.status?.toLowerCase() === receivedTab}
+                />
+              );
+            })()}
+
+            {/* ── Auto-Allocate ON — OPEN / DELAYED from backend ── */}
+            <div className="border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden bg-white dark:bg-[#1a1a1a]">
+              {/* Header row (acts as toggle) */}
+              <button
+                type="button"
+                onClick={() => toggle("autoAllocateOff")}
+                className={cn(
+                  "w-full flex items-center justify-between p-3 transition-all",
+                  colorClasses.slate.ring,
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center shrink-0", colorClasses.slate.icon)}>
+                    <Power size={20} />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-bold text-gray-900 dark:text-white">Auto-Allocate ON</p>
+                    <p className="text-[11px] text-gray-500">AjraSakha / WhatsApp, auto-allocated (open / delayed)</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className={cn("min-w-7 h-7 px-2 rounded-lg flex items-center justify-center text-sm font-bold", colorClasses.slate.badge)}>
+                    {data.autoAllocateOff.count}
+                  </span>
+                  <ChevronDown
+                    size={16}
+                    className={cn("text-gray-400 transition-transform", openSection === "autoAllocateOff" && "rotate-180")}
+                  />
+                </div>
+              </button>
+
+              {openSection === "autoAllocateOff" && (
+                <div className="border-t border-gray-100 dark:border-gray-800">
+                  {/* OPEN / DELAYED tab strip — counts come from the backend */}
+                  <div className="flex items-center gap-1 m-2 rounded-lg border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-[#111]">
+                    {(["open", "delayed"] as const).map((tab) => {
+                      // Use the real backend count for each tab, not a page-slice count
+                      const backendCount = tab === "open"
+                        ? data.autoAllocateOpen.count
+                        : data.autoAllocateDelayed.count;
+                      return (
+                        <button
+                          key={tab}
+                          type="button"
+                          onClick={() => setAutoAllocateTab(tab)}
+                          className={cn(
+                            "flex-1 flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors",
+                            autoAllocateTab === tab
+                              ? tab === "open"
+                                ? "bg-white text-emerald-600 shadow-sm dark:bg-gray-800 dark:text-emerald-400"
+                                : "bg-white text-amber-600 shadow-sm dark:bg-gray-800 dark:text-amber-400"
+                              : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300",
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "w-1.5 h-1.5 rounded-full",
+                              tab === "open" ? "bg-emerald-500" : "bg-amber-500",
+                            )}
+                          />
+                          {tab.toUpperCase()}
+                          <span
+                            className={cn(
+                              "ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold",
+                              tab === "open"
+                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+                                : "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+                            )}
+                          >
+                            {backendCount}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Items for the active tab — served from the dedicated backend section */}
+                  {(() => {
+                    const activeSection = autoAllocateTab === "open"
+                      ? data.autoAllocateOpen
+                      : data.autoAllocateDelayed;
+
+                    if (activeSection.count === 0) {
+                      return (
+                        <p className="px-3 py-4 text-xs text-gray-400 text-center">
+                          No {autoAllocateTab} questions
+                        </p>
+                      );
+                    }
+                    return (
+                      <>
+                        <div className="max-h-72 overflow-y-auto">
+                          {activeSection.items.map((q) => (
+                            <QuestionRow
+                              key={q._id}
+                              item={q}
+                              onClick={() => handleQuestionClick(q)}
+                            />
+                          ))}
+                        </div>
+                        {activeSection.count > activeSection.items.length && (
+                          <p className="px-3 py-2 text-[11px] text-gray-400 text-center border-t border-gray-100 dark:border-gray-800">
+                            Showing first {activeSection.items.length} of {activeSection.count}
+                          </p>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
 
             {/* ── Time-bound work, segregated by type ── */}
             <Section<QueueQuestionItem>

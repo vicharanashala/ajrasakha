@@ -37,6 +37,7 @@ import {
   SourceQueryDto,
   UserDetailsQueryDto,
   WeatherConcernAnalyticsQueryDto,
+  WeatherConcernQueriesQueryDto,
 } from '../classes/validators/ChatbotQueryValidators.js';
 import {
   ChatbotErrorResponse,
@@ -550,6 +551,36 @@ export class ChatbotController {
       },
       query.source,
       query.userType,
+    );
+  }
+
+  @OpenAPI({
+    summary: 'Get paginated queries for a specific weather concern',
+    description:
+      'Returns paginated weather queries that fall under a specific weather concern, filtered by season and farmer location.',
+  })
+  @Get('/weather-concern-queries')
+  @HttpCode(200)
+  @Authorized()
+  async getWeatherConcernQueries(
+    @QueryParams() query: WeatherConcernQueriesQueryDto,
+  ) {
+    return this.chatbotService.getWeatherConcernQueries(
+      {
+        season: query.season,
+        state: query.state,
+        district: query.district,
+        block: query.block,
+        village: query.village,
+        startDate: query.startDate,
+        endDate: query.endDate,
+      },
+      query.concern,
+      query.page,
+      query.limit,
+      query.source,
+      query.userType,
+      query.search,
     );
   }
 

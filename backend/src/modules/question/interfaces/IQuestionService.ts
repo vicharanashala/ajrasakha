@@ -67,8 +67,14 @@ export interface QueueExpertItem {
 export interface QueueDetailsResponse {
   /** All time-bound (AJRASAKHA/WHATSAPP, auto-allocated) questions ever received. */
   received: {count: number; items: QueueQuestionItem[]};
+  /** Per-status counts for the received section — accurate DB totals used for tab badges. */
+  receivedStatusCounts: {status: string; count: number}[];
   /** AJRASAKHA/WHATSAPP questions with auto-allocation turned OFF (handled manually). */
   autoAllocateOff: {count: number; items: QueueQuestionItem[]};
+  /** Auto-allocate ON questions that are currently OPEN. */
+  autoAllocateOpen: {count: number; items: QueueQuestionItem[]};
+  /** Auto-allocate ON questions that are currently DELAYED. */
+  autoAllocateDelayed: {count: number; items: QueueQuestionItem[]};
   /** Received questions that have been allocated to at least one expert. */
   allocated: {count: number; items: QueueQuestionItem[]};
   /** Received questions still awaiting their first expert allocation. */
@@ -138,6 +144,8 @@ export interface QueueQuestionData {
 export type QueueSectionName =
   | 'received'
   | 'autoAllocateOff'
+  | 'autoAllocateOpen'
+  | 'autoAllocateDelayed'
   | 'allocated'
   | 'waiting'
   | 'freeExperts'

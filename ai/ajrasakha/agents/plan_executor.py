@@ -17,7 +17,12 @@ from ajrasakha.agents.location_context import (
     merge_location_dict,
 )
 from ajrasakha.agents.language import text_matches_user_language
-from ajrasakha.agents.config import resolve_question_source, resolve_thread_id
+from ajrasakha.agents.config import (
+    resolve_message_id,
+    resolve_question_source,
+    resolve_thread_id,
+    resolve_user_id,
+)
 from ajrasakha.agents.resolution_trace import trace_resolution, trace_thread_location
 from ajrasakha.agents.thread_trace import trace_event
 from ajrasakha.agents.domains import reviewer_upload_domain
@@ -66,6 +71,8 @@ def _compute_tools_used(plan: PlannerPlan) -> list[str]:
         tools.append("chemical_checker")
     
     return tools
+
+
 
 
 def _is_useful_tool_response(message: ToolMessage) -> bool:
@@ -147,6 +154,8 @@ def compute_actual_tools_used(messages: list[BaseMessage]) -> list[str]:
                 tools.append("chemical_checker")
     
     return tools
+
+
 
 _CHEMICAL_NAME_RE = re.compile(
     r"\b(monocrotophos|chlorpyrifos|endosulfan|carbofuran|paraquat|"
@@ -412,6 +421,37 @@ def _resolve_reviewer_location(
     )
 
 
+def _apply_reviewer_identity_args(
+    reviewer_args: dict[str, Any],
+    *,
+    question_source: str | None,
+    thread_id: str | None = None,
+    user_id: str | None = None,
+    message_id: str | None = None,
+) -> None:
+    if thread_id and str(thread_id).strip():
+        reviewer_args["thread_id"] = str(thread_id).strip()
+
+    src = (question_source or "").strip().upper()
+    if src != "AJRASAKHA":
+        return
+
+    missing: list[str] = []
+    if user_id and str(user_id).strip():
+        reviewer_args["user_id"] = str(user_id).strip()
+    else:
+        missing.append("user_id")
+    if message_id and str(message_id).strip():
+        reviewer_args["message_id"] = str(message_id).strip()
+    else:
+        missing.append("message_id")
+    if missing:
+        logger.warning(
+            "AJRASAKHA reviewer upload missing identity fields: %s",
+            ", ".join(missing),
+        )
+
+
 def build_reviewer_upload_calls(
     plan: PlannerPlan,
     user_query: str,
@@ -421,6 +461,8 @@ def build_reviewer_upload_calls(
     reviewer_tool_name: str,
     question_source: str | None = None,
     thread_id: str | None = None,
+    user_id: str | None = None,
+    message_id: str | None = None,
     resolved: ResolvedToolEntities | None = None,
 ) -> list[dict[str, Any]]:
     """Location resolve (if needed) + upload_question_to_reviewer_system only."""
@@ -462,8 +504,13 @@ def build_reviewer_upload_calls(
             },
             "source": str(question_source).strip(),
         }
-        if thread_id and str(thread_id).strip():
-            reviewer_args["thread_id"] = str(thread_id).strip()
+        _apply_reviewer_identity_args(
+            reviewer_args,
+            question_source=question_source,
+            thread_id=thread_id,
+            user_id=user_id,
+            message_id=message_id,
+        )
         trace_resolution(
             "reviewer_upload_args",
             state=state_name,
@@ -718,12 +765,17 @@ async def build_reviewer_upload_with_tools_used(
     location: Optional[Location],
     tools_used: list[str],
     *,
+    question_source: str | None = None,
+    thread_id: str | None = None,
+    user_id: str | None = None,
+    message_id: str | None = None,
     resolved: ResolvedToolEntities | None = None,
 ) -> list[dict[str, Any]]:
     """Build reviewer upload call with computed tools_used."""
     location_tool = await get_location_tool()
     reviewer_tool = await get_reviewer_tool()
-    question_source = resolve_question_source(None)
+    if not question_source:
+        question_source = resolve_question_source(None)
     
     loc = location or {}
     if resolved is None:
@@ -752,7 +804,14 @@ async def build_reviewer_upload_with_tools_used(
         },
         "source": str(question_source).strip(),
     }
-    
+    _apply_reviewer_identity_args(
+        reviewer_args,
+        question_source=question_source,
+        thread_id=thread_id,
+        user_id=user_id,
+        message_id=message_id,
+    )
+
     trace_resolution(
         "reviewer_upload_with_tools_used",
         state=state_name,
@@ -909,6 +968,8 @@ async def upload_reviewer_only_node(
     reviewer_tool = await get_reviewer_tool()
     question_source = resolve_question_source(config)
     thread_id = resolve_thread_id(config)
+    user_id = resolve_user_id(config)
+    message_id = resolve_message_id(config)
     tool_calls = build_reviewer_upload_calls(
         plan,
         user_query,
@@ -917,6 +978,8 @@ async def upload_reviewer_only_node(
         reviewer_tool_name=reviewer_tool.name,
         question_source=question_source,
         thread_id=thread_id,
+        user_id=user_id,
+        message_id=message_id,
     )
     if not tool_calls:
         return {}
@@ -962,6 +1025,8 @@ async def execute_plan_node(
     reviewer_tool = await get_reviewer_tool()
     question_source = resolve_question_source(config)
     thread_id = resolve_thread_id(config)
+    user_id = resolve_user_id(config)
+    message_id = resolve_message_id(config)
     
     # Step 1: Build and execute SPECIALIST tools ONLY (no reviewer upload)
     # This allows us to compute actual tools_used after seeing responses
@@ -980,6 +1045,10 @@ async def execute_plan_node(
             user_query,
             loc,
             tools_used=[],
+            question_source=question_source,
+            thread_id=thread_id,
+            user_id=user_id,
+            message_id=message_id,
             resolved=resolved,
         )
         if reviewer_calls:
@@ -1024,6 +1093,10 @@ async def execute_plan_node(
         user_query,
         merged_loc,
         tools_used=actual_tools_used,
+        question_source=question_source,
+        thread_id=thread_id,
+        user_id=user_id,
+        message_id=message_id,
         resolved=resolved,
     )
     

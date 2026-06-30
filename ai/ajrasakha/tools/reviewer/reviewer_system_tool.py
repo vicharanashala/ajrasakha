@@ -51,8 +51,10 @@ def upload_question_to_reviewer_system(
     crop: str,
     details: Dict[str, Any],
     source: str,
-    thread_id: Optional[str] = None,
+    thread_id: str,
     tools_used: Optional[list[str]] = None,
+    user_id: Optional[str] = None,
+    message_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Pushes a farmer's question to the reviewer system for the Agri team to review.
@@ -64,8 +66,10 @@ def upload_question_to_reviewer_system(
     - details (Dict[str, Any]): Strict contextual info. MUST contain exactly:
         {"state": "...", "district": "...", "crop": "...", "season": "...", "domain": "...", "tools_used": [...]}
     - source (str): Question channel identifier (e.g. AJRASAKHA, WHATSAPP, AJRASAKHA_WEBAPP).
-    - thread_id (str, optional): LangGraph conversation id (from x-conversation-id). Injected by the agent, not inferred by the LLM.
+    - thread_id (str): LangGraph conversation id (from x-conversation-id). Injected by the agent, not inferred by the LLM.
     - tools_used (list[str], optional): List of tools used to generate the answer (e.g. ["knowledge_base", "weather", "mandi"]). Empty list for non-agriculture queries.
+    - user_id (str, optional): LibreChat user id (from x-user-id). Injected by the agent for AJRASAKHA uploads.
+    - message_id (str, optional): LibreChat message id (from x-message-id). Injected by the agent for AJRASAKHA uploads.
     """
 
     if not isinstance(question, str) or not question.strip():
@@ -79,6 +83,9 @@ def upload_question_to_reviewer_system(
 
     if not isinstance(source, str) or not source.strip():
         return {"status": "error", "status_code": 400, "message": "'source' is required."}
+
+    if not isinstance(thread_id, str) or not thread_id.strip():
+        return {"status": "error", "status_code": 400, "message": "'thread_id' is required."}
 
     normalized_source = source.strip()
 
@@ -109,9 +116,12 @@ def upload_question_to_reviewer_system(
         "details": details,
         "source": normalized_source,
         "tools_used": tools_used if tools_used is not None else [],
+        "threadId": thread_id.strip(),
     }
-    if thread_id and str(thread_id).strip():
-        payload["threadId"] = str(thread_id).strip()
+    if user_id and str(user_id).strip():
+        payload["userId"] = str(user_id).strip()
+    if message_id and str(message_id).strip():
+        payload["messageId"] = str(message_id).strip()
 
     headers = {
         "x-internal-api-key": INTERNAL_API_KEY,
