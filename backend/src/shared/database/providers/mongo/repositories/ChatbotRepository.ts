@@ -15906,133 +15906,195 @@ existing.villageVolunteers +=
         questionIds.map((id) => this.getQuestionLifecycle(id))
       );
 
-      lifecycles.forEach((lifecycle, index) => {
-      if (!Array.isArray(lifecycle)) {
-          console.log(
-            "Invalid lifecycle:",
-            questionIds[index],
-            lifecycle,
-          );
-        }
-      });
+      const totalQuestions = questionIds.length;
 
-      let totalClosureTime = 0;
-      let totalWaitTime = 0;
-      let totalReviewTime = 0;
+      let totalLifecycleTime = 0;
+      let resolvedQuestions = 0;
+      let totalPushToReviewTime = 0;
+      let totalInitialAllocationTime = 0;
+      let totalPendingAssignmentTime = 0;
+      let totalAwaitingModeratorTime = 0;
+      let totalAwaitingClosureTime = 0;
       let totalAuthoringTime = 0;
-
+      let authoringCount = 0;
+      let totalR1Time = 0;
+      let totalR2Time = 0;
+      let totalR3Time = 0;
+      let r1Count = 0;
+      let r2Count = 0;
+      let r3Count = 0;
+      let totalModeratorTime = 0;
+      let moderatorCount = 0;
       let totalReroutes = 0;
       let totalRerouteTime = 0;
       let totalReviewers = 0;
+      let questionsWithReviewers = 0;
       let slaBreachedCount = 0;
 
-      let resolvedQuestions = 0;
-      let questionsWithReviewers = 0;
-      let questionsWithAuthors = 0;
 
       for (const lifecycle of lifecycles) {
-        // ----------------------
-        // Closure Time
-        // ----------------------
-
         const validEvents = lifecycle.filter(
           (x) =>
             x.timestamp &&
-            new Date(x.timestamp).getTime() > 0
+            new Date(x.timestamp).getTime() > 0,
         );
-
         const first = validEvents[0];
         const last = validEvents.at(-1);
 
+        // =====================
+        // Whole Lifecycle
+        // =====================
+
         if (first && last && last.eventType === "closure") {
-          const closureTime =
+          const lifecycleTime =
             new Date(last.timestamp).getTime() -
             new Date(first.timestamp).getTime();
-
-          totalClosureTime += closureTime;
+          totalLifecycleTime += lifecycleTime;
           resolvedQuestions++;
-          if (closureTime > 2 * 60 * 60 * 1000) {
+          if (lifecycleTime > 2 * 60 * 60 * 1000) {
             slaBreachedCount++;
           }
         }
 
-        // ----------------------
-        // Wait Time
-        // ----------------------
+        // =====================
+        // Buffer Times
+        // =====================
 
-        totalWaitTime += lifecycle
+        lifecycle
           .filter((x) => x.eventType === "system_wait")
-          .reduce(
-            (sum, x) => sum + (x.duration || 0),
-            0
-          );
+          .forEach((x) => {
+            switch (x.action) {
+              case "Pushed To Review System":
+                totalPushToReviewTime += x.duration || 0;
+                break;
+              case "Initial Allocation Pending":
+                totalInitialAllocationTime += x.duration || 0;
+                break;
+              case "Pending Next Assignment":
+                totalPendingAssignmentTime += x.duration || 0;
+                break;
+              case "Awaiting Moderator Assignment":
+                totalAwaitingModeratorTime += x.duration || 0;
+                break;
+              case "Awaiting Closure/Pass":
+                totalAwaitingClosureTime += x.duration || 0;
+                break;
+            }
+          });
 
-        // ----------------------
-        // Review Time
-        // ----------------------
+        // =====================
+        // Authoring (R0)
+        // =====================
 
-        const reviewerEvents = lifecycle.filter(
-          (x) => x.eventType === "reviewer"
+        const authors = lifecycle.filter(
+          (x) => x.eventType === "author",
         );
 
-        if (reviewerEvents.length > 0) {
-          questionsWithReviewers++;
-          totalReviewTime += reviewerEvents.reduce(
+        if (authors.length) {
+          authoringCount++;
+          totalAuthoringTime += authors.reduce(
             (sum, x) => sum + (x.duration || 0),
-            0
+            0,
           );
+        }
+
+        // =====================
+        // Reviewers (R1/R2/R3)
+        // =====================
+
+        const reviewers = lifecycle.filter(
+          (x) => x.eventType === "reviewer",
+        );
+
+        if (reviewers.length) {
+          questionsWithReviewers++;
           totalReviewers += new Set(
-            reviewerEvents.map((x) => x.user)
+            reviewers.map((x) => x.user),
           ).size;
         }
+        if (reviewers[0]) {
+          totalR1Time += reviewers[0].duration || 0;
+          r1Count++;
+        }
+        if (reviewers[1]) {
+          totalR2Time += reviewers[1].duration || 0;
+          r2Count++;
+        }
+        if (reviewers[2]) {
+          totalR3Time += reviewers[2].duration || 0;
+          r3Count++;
+        }
 
-        // ----------------------
-        // Authoring Time
-        // ----------------------
+        // =====================
+        // Moderator
+        // =====================
 
-        const authorEvents = lifecycle.filter(
-          (x) => x.eventType === "author"
+        const moderators = lifecycle.filter(
+          (x) => x.eventType === "moderator",
         );
-
-        if (authorEvents.length > 0) {
-          questionsWithAuthors++;
-          totalAuthoringTime += authorEvents.reduce(
+        if (moderators.length) {
+          moderatorCount++;
+          totalModeratorTime += moderators.reduce(
             (sum, x) => sum + (x.duration || 0),
-            0
+            0,
           );
         }
 
-        // ----------------------
+        // =====================
         // Reroutes
-        // ----------------------
+        // =====================
 
         const reroutes = lifecycle.filter(
-          (x) => x.eventType === "reroute"
+          (x) => x.eventType === "reroute",
         );
         totalReroutes += reroutes.length;
         totalRerouteTime += reroutes.reduce(
           (sum, x) => sum + (x.duration || 0),
-          0
+          0,
         );
       }
 
       return {
-        totalQuestions: questionIds.length,
-        avgClosureTime:
+        totalQuestions,
+        avgLifecycleTime:
           resolvedQuestions > 0
-            ? totalClosureTime / resolvedQuestions
+            ? totalLifecycleTime / resolvedQuestions
             : 0,
-        avgWaitTime:
-          totalWaitTime / questionIds.length,
-        avgReviewTime:
-          questionsWithReviewers > 0
-            ? totalReviewTime / questionsWithReviewers
-            : 0,
+        avgPushToReviewTime:
+          totalPushToReviewTime / totalQuestions,
+        avgInitialAllocationTime:
+          totalInitialAllocationTime / totalQuestions,
+        avgPendingAssignmentTime:
+          totalPendingAssignmentTime / totalQuestions,
+        avgAwaitingModeratorTime:
+          totalAwaitingModeratorTime / totalQuestions,
+        avgAwaitingClosureTime:
+          totalAwaitingClosureTime / totalQuestions,
         avgAuthoringTime:
-          questionsWithAuthors > 0
-            ? totalAuthoringTime / questionsWithAuthors
+          authoringCount > 0
+            ? totalAuthoringTime / authoringCount
+            : 0,
+        avgR1Time:
+          r1Count > 0
+            ? totalR1Time / r1Count
+            : 0,
+        avgR2Time:
+          r2Count > 0
+            ? totalR2Time / r2Count
+            : 0,
+        avgR3Time:
+          r3Count > 0
+            ? totalR3Time / r3Count
+            : 0,
+        avgModeratorTime:
+          moderatorCount > 0
+            ? totalModeratorTime / moderatorCount
             : 0,
         totalReroutes,
+        avgReroutesPerQuestion:
+          totalQuestions > 0
+            ? totalReroutes / totalQuestions
+            : 0,
         avgRerouteTime:
           totalReroutes > 0
             ? totalRerouteTime / totalReroutes
@@ -16042,10 +16104,159 @@ existing.villageVolunteers +=
             ? totalReviewers / questionsWithReviewers
             : 0,
         slaBreachedCount,
+        resolutionRate:
+        totalQuestions > 0
+          ? (resolvedQuestions / totalQuestions) * 100
+          : 0,
       };
     } catch(err){
       console.log("error in getlifecyclesummary:", err);
       throw Error(err);
     }
+  }
+
+  private async getQuestionLifecycleForSummary(
+    questionId: string,
+  ): Promise<any[]> {
+    const question =
+      await this.QuestionCollection.findOne({
+        _id: new ObjectId(questionId),
+      });
+
+    if (!question) {
+      return [];
+    }
+
+    const submission =
+      await this.QuestionSubmissionsCollection.findOne({
+        questionId: question._id,
+      });
+
+    const rerouteDoc =
+      await this.Reroutes.findOne({
+        questionId: question._id,
+      });
+
+    const reviewTimeline = buildReviewTimeline(
+      submission?.history || [],
+      submission?.queue || [],
+      question.createdAt,
+      question.status,
+      question.firstAllocationAt,
+    );
+
+    const timeline: any[] = [];
+
+    // Question Created
+
+    timeline.push({
+      timestamp: question.createdAt,
+      action: "Question Asked",
+      duration: null,
+      endTime: question.createdAt,
+      eventType: "question",
+    });
+
+    // Review Timeline
+
+    timeline.push(
+      ...reviewTimeline.map((item) => ({
+        timestamp: item.timestamp,
+        action: item.action,
+        duration: item.duration,
+        endTime: item.endTime,
+        eventType: item.eventType,
+      })),
+    );
+
+    // Reroutes
+
+    if (rerouteDoc?.reroutes?.length) {
+      timeline.push(
+        ...rerouteDoc.reroutes.map((reroute) => ({
+          timestamp: reroute.reroutedAt,
+          action: "Question Rerouted",
+          duration: reroute.duration || 0,
+          endTime: reroute.completedAt,
+          eventType: "reroute",
+        })),
+      );
+    }
+
+    // Closure
+
+    if (question.closedAt) {
+      timeline.push({
+        timestamp: question.closedAt,
+        action: "Question Closed",
+        duration: null,
+        endTime: question.closedAt,
+        eventType: "closure",
+      });
+    } else if (question.passedAt) {
+      timeline.push({
+        timestamp: question.passedAt,
+        action: "Question Passed",
+        duration: null,
+        endTime: question.passedAt,
+        eventType: "closure",
+      });
+    }
+
+    // Sort
+
+    timeline.sort(
+      (a, b) =>
+        new Date(a.timestamp).getTime() -
+        new Date(b.timestamp).getTime(),
+    );
+
+    // System wait events
+
+    const finalTimeline: any[] = [];
+
+    const NON_GAP_ACTIONS = new Set([
+      "Question Asked",
+      "Question Closed",
+      "Question Passed",
+      "Question Rerouted",
+    ]);
+
+    for (let i = 0; i < timeline.length; i++) {
+      finalTimeline.push(timeline[i]);
+
+      const current = timeline[i];
+      const next = timeline[i + 1];
+
+      if (!next) {
+        continue;
+      }
+
+      if (
+        NON_GAP_ACTIONS.has(current.action) ||
+        NON_GAP_ACTIONS.has(next.action)
+      ) {
+        continue;
+      }
+
+      const currentEnd =
+        current.endTime || current.timestamp;
+
+      const gap =
+        new Date(next.timestamp).getTime() -
+        new Date(currentEnd).getTime();
+
+      if (gap > 60_000) {
+        finalTimeline.push({
+          timestamp: currentEnd,
+          action: "Pending Next Assignment",
+          duration: gap,
+          endTime: next.timestamp,
+          eventType: "system_wait",
+        });
+      }
+    }
+
+    return finalTimeline;
   }
 }
