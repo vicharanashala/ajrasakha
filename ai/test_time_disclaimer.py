@@ -38,23 +38,23 @@ def test_scenario(hour: int, expected_contains: str, script: str = "English", vo
 
 
 def main():
-    print("Testing time-based expert disclaimer (sheet-based)")
+    print("Testing time-based expert disclaimer (catalog-based)")
     print("=" * 60)
     
     results = []
     
-    # Scenario 1: Late night (22-23 hours) - late night disclaimer from sheet
+    # Scenario 1: Late night (22-23 hours) - late night disclaimer from catalog
     print("\n--- SCENARIO 1: Late Night (10:01 PM - 11:59 PM) ---")
     results.append(test_scenario(22, "8:00 AM", "English", "English"))
     results.append(test_scenario(23, "8:00 AM", "English", "English"))
     
-    # Scenario 2: Early morning (0-5 hours) - early morning disclaimer from sheet
+    # Scenario 2: Early morning (0-5 hours) - early morning disclaimer from catalog
     print("\n--- SCENARIO 2: Early Morning (12:00 AM - 5:59 AM) ---")
     results.append(test_scenario(0, "8:00 AM", "English", "English"))
     results.append(test_scenario(3, "8:00 AM", "English", "English"))
     results.append(test_scenario(5, "8:00 AM", "English", "English"))
     
-    # Scenario 3: Normal hours (6-21 hours) - 2-hour disclaimer from sheet
+    # Scenario 3: Normal hours (6-21 hours) - 2-hour disclaimer from catalog
     print("\n--- SCENARIO 3: Normal Hours (6:00 AM - 9:59 PM) ---")
     results.append(test_scenario(6, "2", "English", "English"))
     results.append(test_scenario(12, "2", "English", "English"))

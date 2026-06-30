@@ -587,7 +587,7 @@ async def planner_node(
         f"--- END REPHRASING CONTEXT ---\n\n"
         f"Pick `domain` from the allowed list using the current farmer message only.\n"
         "Set `vocal_language` and `script_language` from the official language list.\n"
-        "Leave `follow_up_question` empty when location/crop is missing — server uses the sheet.\n"
+        "Leave `follow_up_question` empty when location/crop is missing — server uses the catalog.\n"
         "Return the routing plan only."
     )
     llm_messages.append(HumanMessage(content=human_content))

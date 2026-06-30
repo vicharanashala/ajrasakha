@@ -27,9 +27,9 @@ FOOTER_SEPARATOR = "_____________________________"
 def get_time_aware_expert_disclaimer(script_language: str, vocal_language: str) -> str:
     """Return the appropriate expert queue disclaimer based on current IST time.
 
-    - 10:01 PM - 11:59 PM (hour 22-23): use sheet-localized late night disclaimer
-    - 12:00 AM - 5:59 AM (hour 0-5): use sheet-localized early morning disclaimer
-    - Otherwise: use the sheet-localized 2-hour disclaimer
+    - 10:01 PM - 11:59 PM (hour 22-23): use catalog-localized late night disclaimer
+    - 12:00 AM - 5:59 AM (hour 0-5): use catalog-localized early morning disclaimer
+    - Otherwise: use the catalog-localized 2-hour disclaimer
     """
     now_ist = datetime.now(IST)
     hour = now_ist.hour
@@ -42,7 +42,7 @@ def get_time_aware_expert_disclaimer(script_language: str, vocal_language: str) 
     if 0 <= hour <= 5:
         return get_early_morning_disclaimer(script_language, vocal_language)
 
-    # Default: use sheet-localized 2-hour disclaimer
+    # Default: use catalog-localized 2-hour disclaimer
     return get_two_hour_disclaimer(script_language, vocal_language)
 
 
@@ -235,7 +235,7 @@ def build_expert_queue_content(script_language: str, vocal_language: str) -> str
     Uses conditional disclaimer based on current IST time:
     - 10:01 PM - 11:59 PM: response by tomorrow 8:00 AM
     - 12:00 AM - 5:59 AM: response by today 8:00 AM
-    - Otherwise: sheet-localized 2-hour disclaimer
+    - Otherwise: catalog-localized 2-hour disclaimer
     """
     body = get_time_aware_expert_disclaimer(script_language, vocal_language)
     testing = get_testing_disclaimer(script_language, vocal_language)
@@ -243,7 +243,7 @@ def build_expert_queue_content(script_language: str, vocal_language: str) -> str
 
 
 def build_non_agriculture_content(script_language: str, vocal_language: str) -> str:
-    """Exact sheet reply followed by the localized testing disclaimer."""
+    """Exact catalog reply followed by the localized testing disclaimer."""
     body = get_non_agriculture_reply(script_language, vocal_language)
     testing = get_testing_disclaimer(script_language, vocal_language)
     if not testing.strip():
