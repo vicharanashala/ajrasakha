@@ -305,10 +305,12 @@ export class QuestionController {
   @OpenAPI({ summary: 'Resume ACC Agent and get final answer' })
   async resumeAccAgentAndGetAnswer(
     @Body() body: { threadId: string; callUuid?: string; metadata?: QAMetadata }
-  ): Promise<{ final_answer: string }> {
+  ): Promise<any> {
     try {
       // console.log('[QuestionController] resumeAccAgentAndGetAnswer - Received body:', JSON.stringify(body, null, 2));
-      const result = await this.questionService.resumeAccAgentAndGetAnswer(body.threadId, body.callUuid, body.metadata);
+      // const result = await this.questionService.resumeAccAgentAndGetAnswer(body.threadId, body.callUuid, body.metadata);
+      const result = await this.questionService.getAccAgentState(body.threadId, body.callUuid, body.metadata);
+      console.log("[question Controller] new flow implemented", result);
       return result;
     } catch (error) {
       console.error('[QuestionController] resumeAccAgentAndGetAnswer: Error', error);
@@ -1979,7 +1981,7 @@ export class QuestionController {
       const result = await this.questionService.replaceQueueExpert(
         userId.toString(),
         questionId,
-        levelIndex+1,
+        levelIndex + 1,
         newExpertId,
         isAuthor,
         reasonForChange,

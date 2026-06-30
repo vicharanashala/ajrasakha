@@ -212,4 +212,35 @@ export class AccAgentService {
       throw new InternalServerError('Failed to get final answer from ACC Agent');
     }
   }
+
+  /**
+   * Step 5: Get thread state (returns full state, with parsed final_answer if available)
+   */
+  async getThreadState(threadId: string): Promise<any> {
+    try {
+      const response = await axios.get(
+        `${this.BASE_URL}/threads/${threadId}/state`,
+        {
+          headers: { 'Content-Type': 'application/json' },
+          timeout: this.TIMEOUT,
+        }
+      );
+
+      const data = response.data;
+      if (data && data.values) {
+        const values = data.values;
+        if (typeof values.final_answer === 'string') {
+          try {
+            values.final_answer = JSON.parse(values.final_answer);
+          } catch (e) {
+            // Keep as string if it is not stringified JSON
+          }
+        }
+      }
+      return data;
+    } catch (error) {
+      console.error('[AccAgentService] getThreadState: Error calling LangGraph API', error);
+      throw new InternalServerError('Failed to fetch ACC Agent thread state');
+    }
+  }
 }

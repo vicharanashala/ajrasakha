@@ -718,6 +718,63 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
   }
 
+  async getAccAgentState(
+    threadId: string,
+    callUuid?: string,
+    metadata?: QAMetadata
+  ): Promise<any> {
+    try {
+      // console.log('[QuestionService] getAccAgentState - Resuming agent first for thread:', threadId);
+      // 1. Resume the agent and get the answer
+      const resumeResult = await this.accAgentService.resumeAndGetAnswer(threadId);
+
+      // 2. If callUuid and metadata are provided, store Q/A pairs in call_details
+      if (callUuid && metadata) {
+        const qaPairs: QAPairs = {
+          metadata,
+          QnA: [
+            {
+              question: metadata.extracted_query,
+              answer: resumeResult.final_answer,
+              agri_specialist: 'ACC_AGENT',
+              referenceSource: 'acc_agent_hitl',
+              id: new ObjectId().toString()
+            }
+          ]
+        };
+
+        // Check if call_details document exists
+        const existingCallDetails = await this.callDetailsRepository.getByCallUuid(callUuid);
+
+        if (existingCallDetails) {
+          // Update existing document
+          await this.callDetailsRepository.updateQA_Pairs(callUuid, qaPairs);
+          console.log(`[QuestionService] Successfully stored Q/A pairs for callUuid: ${callUuid}`);
+        } else {
+          console.warn(`[QuestionService] Call details document not found for callUuid: ${callUuid}. Creating new document.`);
+          // Create a new call_details document with the Q/A pairs
+          await this.callDetailsRepository.create({
+            callUuid,
+            QA_pairs: qaPairs,
+            status: 'completed',
+            direction: 'inbound',
+            caller: { transcript: '', translation: '', detectedLanguage: 'unknown' },
+            agent: { transcript: '', translation: '', detectedLanguage: 'unknown' }
+          });
+          console.log(`[QuestionService] Created new call details document for callUuid: ${callUuid}`);
+        }
+      } else {
+        console.log('[QuestionService] Skipping Q/A storage - callUuid or metadata missing');
+      }
+
+      // 3. Fetch the full thread state (with parsed final_answer, weather, and similar pairs)
+      return this.accAgentService.getThreadState(threadId);
+    } catch (error) {
+      console.error('[QuestionService] getAccAgentState: Error resuming or fetching state', error);
+      throw new InternalServerError('Failed to resume or fetch ACC Agent state');
+    }
+  }
+
 
   /*async addQuestion(
     userId: string,

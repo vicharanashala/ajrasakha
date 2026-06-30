@@ -198,6 +198,8 @@ export interface IQuestionService {
 
   /** HIL Flow: Resume and get final answer */
   resumeAccAgentAndGetAnswer(threadId: string, callUuid?: string, metadata?: QAMetadata): Promise<{ final_answer: string }>;
+  /** HIL Flow: Get ACC Agent thread state */
+  getAccAgentState(threadId: string, callUuid?: string, metadata?: QAMetadata): Promise<any>;
   /** Manually trigger duplicate check for a question without a reference */
   manualCheckDuplicate(
     questionId: string,
