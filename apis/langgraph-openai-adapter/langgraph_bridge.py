@@ -276,6 +276,11 @@ def build_run_config(
         if user_id and str(user_id).strip():
             configurable["user_id"] = str(user_id).strip()
             break
+    for key in ("x-message-id", "X-Message-ID"):
+        message_id = request_headers.get(key)
+        if message_id and str(message_id).strip():
+            configurable["message_id"] = str(message_id).strip()
+            break
     return {"configurable": configurable}
 
 
