@@ -44,6 +44,7 @@ import type {
   FarmerHeatMapMetricTotals,
   CoordinatorDuplicateQuestionHeatMapResponse,
   CoordinatorDuplicateQuestionDetail,
+  CoordinatorDuplicateQuestionLocationHierarchy,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {IQuestion, IQuestionSubmission, QuestionSource} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
@@ -3877,6 +3878,7 @@ if (!districts.length) {
 
   async getCoordinatorDuplicateQuestionHeatMap(
     coordinatorId: string,
+    locationHierarchy?: CoordinatorDuplicateQuestionLocationHierarchy,
     session?: ClientSession,
   ): Promise<CoordinatorDuplicateQuestionHeatMapResponse> {
     try {
@@ -4062,6 +4064,11 @@ if (!districts.length) {
         groups.set(key, existing);
       }
 
+      const normalizeLocationKey = (value?: string) =>
+        String(value || '')
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, ' ');
       const detailsByBlockVillage = new Map<string, CoordinatorDuplicateQuestionDetail[]>();
       for (const group of groups.values()) {
         if (group.questions.length < 2) continue;
@@ -4071,7 +4078,7 @@ if (!districts.length) {
         const villageName = String(user?.farmerProfile?.villageName || '').trim();
         if (!blockName || !villageName) continue;
 
-        const key = `${blockName}__${villageName}`;
+        const key = `${normalizeLocationKey(blockName)}__${normalizeLocationKey(villageName)}`;
         const dates = group.questions
           .map((question: any) => question.createdAt ? new Date(question.createdAt) : null)
           .filter((date: Date | null) => date && !Number.isNaN(date.getTime())) as Date[];
@@ -4097,47 +4104,49 @@ if (!districts.length) {
         ]);
       }
 
-      const blockMap = new Map<string, Map<string, CoordinatorDuplicateQuestionDetail[]>>();
+      const blockMap = new Map<
+        string,
+        {
+          blockName: string;
+          villages: Map<
+            string,
+            {
+              villageName: string;
+              details: CoordinatorDuplicateQuestionDetail[];
+            }
+          >;
+        }
+      >();
       const addBlockVillage = (blockName?: string, villageName?: string) => {
-        const normalizedBlock = String(blockName || '').trim();
-        const normalizedVillage = String(villageName || '').trim();
+        const displayBlock = String(blockName || '').trim();
+        const displayVillage = String(villageName || '').trim();
+        const normalizedBlock = normalizeLocationKey(displayBlock);
+        const normalizedVillage = normalizeLocationKey(displayVillage);
         if (!normalizedBlock) return;
 
         if (!blockMap.has(normalizedBlock)) {
-          blockMap.set(normalizedBlock, new Map());
+          blockMap.set(normalizedBlock, {
+            blockName: displayBlock,
+            villages: new Map(),
+          });
         }
         if (normalizedVillage) {
-          blockMap.get(normalizedBlock)!.set(
+          const blockEntry = blockMap.get(normalizedBlock)!;
+          blockEntry.villages.set(
             normalizedVillage,
-            blockMap.get(normalizedBlock)!.get(normalizedVillage) || [],
+            blockEntry.villages.get(normalizedVillage) || {
+              villageName: displayVillage,
+              details: [],
+            },
           );
         }
       };
-      const addBlockWithVillages = (blockName?: string) => {
-        const normalizedBlock = String(blockName || '').trim();
-        if (!normalizedBlock) return;
-
-        addBlockVillage(normalizedBlock);
-        const villageBlockKey = this.findMetadataKey(VILLAGES, normalizedBlock);
-        const metadataVillages = villageBlockKey
-          ? VILLAGES[villageBlockKey] || []
-          : [];
-        metadataVillages.forEach(villageName =>
-          addBlockVillage(normalizedBlock, villageName),
+      locationHierarchy?.blocks.forEach(locationBlock => {
+        addBlockVillage(locationBlock.block);
+        locationBlock.villages.forEach(locationVillage =>
+          addBlockVillage(locationBlock.block, locationVillage),
         );
-      };
-
-      if (role === 'district_coordinator') {
-        const districtKey = this.findMetadataKey(BLOCKS, district);
-        const districtBlocks = districtKey ? BLOCKS[districtKey] || [] : [];
-        districtBlocks.forEach(blockName => addBlockWithVillages(blockName));
-      }
-      if (role === 'block_coordinator') {
-        addBlockWithVillages(block);
-      }
-      if (role === 'village_volunteer') {
-        addBlockVillage(block, village);
-      }
+      });
 
       for (const user of scopedUsers as any[]) {
         const blockName = String(user.farmerProfile?.blockName || '').trim();
@@ -4149,22 +4158,22 @@ if (!districts.length) {
       for (const [blockVillage, details] of detailsByBlockVillage.entries()) {
         const [blockName, villageName] = blockVillage.split('__');
         addBlockVillage(blockName, villageName);
-        blockMap.get(blockName)!.set(villageName, details);
+        blockMap.get(blockName)!.villages.get(villageName)!.details = details;
       }
 
       const blocks = [...blockMap.entries()]
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([blockName, villages]) => {
-          const villageRows = [...villages.entries()]
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([villageName, details]) => ({
-              village: villageName,
-              count: details.length,
-              details: details.sort((a, b) => b.repeatCount - a.repeatCount),
+        .sort(([, a], [, b]) => a.blockName.localeCompare(b.blockName))
+        .map(([, blockEntry]) => {
+          const villageRows = [...blockEntry.villages.entries()]
+            .sort(([, a], [, b]) => a.villageName.localeCompare(b.villageName))
+            .map(([, villageEntry]) => ({
+              village: villageEntry.villageName,
+              count: villageEntry.details.length,
+              details: villageEntry.details.sort((a, b) => b.repeatCount - a.repeatCount),
             }));
 
           return {
-            block: blockName,
+            block: blockEntry.blockName,
             count: villageRows.reduce((sum, item) => sum + item.count, 0),
             villages: villageRows,
           };

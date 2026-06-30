@@ -217,6 +217,13 @@ export interface CoordinatorDuplicateQuestionBlock {
   villages: CoordinatorDuplicateQuestionVillage[];
 }
 
+export interface CoordinatorDuplicateQuestionLocationHierarchy {
+  blocks: {
+    block: string;
+    villages: string[];
+  }[];
+}
+
 export interface CoordinatorDuplicateQuestionHeatMapResponse {
   coordinatorId: string;
   coordinatorRole: string;
@@ -769,6 +776,7 @@ export interface IChatbotRepository {
 
   getCoordinatorDuplicateQuestionHeatMap(
     coordinatorId: string,
+    locationHierarchy?: CoordinatorDuplicateQuestionLocationHierarchy,
     session?: ClientSession,
   ): Promise<CoordinatorDuplicateQuestionHeatMapResponse>;
 
