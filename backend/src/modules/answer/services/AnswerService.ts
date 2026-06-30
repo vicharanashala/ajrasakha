@@ -1912,8 +1912,10 @@ answer: ${updates.answer}`;
       // Dynamic questions (raised via the chatbot, routed to the Auditor and closed
       // through "Notify User") close as `dynamic_closed` rather than `closed`, so they
       // stay distinguishable downstream. The customer webhook carries the same status.
+      // `tag === 'static_dynamic'` questions are also closed this way.
       const isDynamicClose =
         question.status === 'dynamic' ||
+        question.tag === 'static_dynamic' ||
         (question.status === 'auditor_review' &&
           question.auditorReviewType === 'dynamic');
       const closeStatus: QuestionStatus = isDynamicClose
@@ -1945,7 +1947,7 @@ answer: ${updates.answer}`;
           'approved',
           isDynamicClose
             ? 'LLM generated answer approved as final answer by auditor since the question is dynamic'
-            : 'LLM generated answer approved as final answer by moderator since the question is marked as duplicate',
+            : 'LLM generated answer approved as final answer by moderator .',
           undefined,
         );
 
@@ -2050,6 +2052,16 @@ answer: ${updates.answer}`;
       // Author display name reused for the parent + every replicated child notification.
       const authorName =
         `${author?.firstName ?? ''} ${author?.lastName ?? ''}`.trim() || 'Expert';
+      //  WEBHOOK HANDLERS
+      const webhookPayload = {
+        question_id: questionId,
+        status: question?.tag === 'static_dynamic'?'dynamic_closed':'closed',
+        answer: updates.answer ?? '',
+        author:
+          `${author?.firstName ?? ''} ${author?.lastName ?? ''}`.trim() ||
+          'Expert',
+        sources: updates.sources ?? [],
+      };
 
       // ── Propagate the close to queue-duplicate children ───────────────────────
       // Any question that was matched to this one in the GDB pending-duplicate queue

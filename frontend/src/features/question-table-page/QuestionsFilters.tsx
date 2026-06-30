@@ -557,6 +557,7 @@ export const QuestionsFilters = ({
       closedInTwoHrs: advanceFilter?.closedInTwoHrs,
       consecutiveApprovals: advanceFilter?.consecutiveApprovals,
       autoAllocateFilter: advanceFilter?.autoAllocateFilter,
+      autoAllocateModeratorFilter: advanceFilter?.autoAllocateModeratorFilter,
       hiddenQuestions: advanceFilter?.hiddenQuestions,
       duplicateQuestions: advanceFilter?.duplicateQuestions,
       isOnHold: advanceFilter?.isOnHold,

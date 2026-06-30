@@ -3466,7 +3466,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       source: { $in: ['AJRASAKHA', 'WHATSAPP'] },
       isAutoAllocate: true,
       status: { $in: ['open', 'delayed'] },
-      firstAllocationAt: { $exists: false },
+      firstAllocationAt: null,
       isOnHold: { $ne: true },
     })
       .sort({ createdAt: 1 })

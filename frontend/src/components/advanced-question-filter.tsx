@@ -122,6 +122,7 @@ export type AdvanceFilterValues = {
   closedAtStart?: Date | undefined | null;
   consecutiveApprovals?: string;
   autoAllocateFilter?: string;
+  autoAllocateModeratorFilter?: string;
   closedInTwoHrs?: boolean;
   hiddenQuestions?: boolean;
   duplicateQuestions?: boolean;
@@ -597,25 +598,6 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
               </div>
             </div>
 
-            <Separator />
-            <div className="space-y-2 mb-4">
-              <Label className="flex items-center gap-2 text-sm font-semibold">
-                <Clock className="h-4 w-4 text-primary" />
-                Closed within 2 Hours
-              </Label>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  className="w-3.5 h-3.5 border-primary"
-                  checked={advanceFilter.closedInTwoHrs ?? false}
-                  onCheckedChange={(checked) =>
-                    handleDialogChange("closedInTwoHrs", checked === true)
-                  }
-                />
-                <span className="text-sm text-muted-foreground">
-                  Show questions closed within 2 hours
-                </span>
-              </div>
-            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
               <div className="space-y-2 min-w-0">
                 <DateRangeFilter
@@ -738,6 +720,48 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
             </div>
 
             <Separator />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2 min-w-0 ">
+                <Label className="relative flex items-center gap-2 text-sm font-semibold">
+                  <UserRound className="h-4 w-4 text-primary" />
+                  Auto Allocate Moderator
+                </Label>
+                <Select
+                  value={advanceFilter.autoAllocateModeratorFilter}
+                  onValueChange={(v) =>
+                    handleDialogChange("autoAllocateModeratorFilter", v)
+                  }
+                >
+                  <SelectTrigger className="bg-background w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      <div className="flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-green-500 fill-green-500/20" />
+                        <span>All</span>
+                      </div>
+                    </SelectItem>
+
+                    <SelectItem value="on">
+                      <div className="flex items-center gap-2">
+                        <Bot className="w-4 h-4 text-green-500 fill-green-500/20" />
+                        <span>ON</span>
+                      </div>
+                    </SelectItem>
+
+                    <SelectItem value="off">
+                      <div className="flex items-center gap-2">
+                        <Hand className="w-4 h-4 text-red-500 fill-green-500/20" />
+                        <span>OFF</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <Separator />
 
             {/* Number of Answers Slider */}
             <div className="space-y-4">
@@ -770,6 +794,25 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
               <p className="text-xs text-muted-foreground">
                 Filter questions based on the number of answers received
               </p>
+            </div>
+            <Separator />
+            <div className="space-y-2 mb-4">
+              <Label className="flex items-center gap-2 text-sm font-semibold">
+                <Clock className="h-4 w-4 text-primary" />
+                Closed within 2 Hours
+              </Label>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  className="w-3.5 h-3.5 border-primary"
+                  checked={advanceFilter.closedInTwoHrs ?? false}
+                  onCheckedChange={(checked) =>
+                    handleDialogChange("closedInTwoHrs", checked === true)
+                  }
+                />
+                <span className="text-sm text-muted-foreground">
+                  Show questions closed within 2 hours
+                </span>
+              </div>
             </div>
             {/* Hidden and Duplicate Questions */}
             <div className="space-y-4">
@@ -934,6 +977,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   closedAtEnd: undefined,
                   consecutiveApprovals: "all",
                   autoAllocateFilter: "all",
+                  autoAllocateModeratorFilter: "all",
                   unallocatedQuestions: false,
                 });
                 onReset();
