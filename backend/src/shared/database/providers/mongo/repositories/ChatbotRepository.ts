@@ -4395,11 +4395,9 @@ if (!districts.length) {
           {
             $regexMatch: {
               input: '$contentSignal',
-
-              regex: keywords
+              regex: `\\b(?:${keywords
                 .map(keyword => this.escapeRegex(keyword))
-                .join('|'),
-
+                .join('|')})\\b`,
               options: 'i',
             },
           },
@@ -15336,9 +15334,9 @@ existing.villageVolunteers +=
           {
             $regexMatch: {
               input: '$contentSignal',
-              regex: keywords
+              regex: `\\b(?:${keywords
                 .map(keyword => this.escapeRegex(keyword))
-                .join('|'),
+                .join('|')})\\b`,
               options: 'i',
             },
           },
