@@ -1570,12 +1570,12 @@ export class QuestionService extends BaseService implements IQuestionService {
           source === 'AJRASAKHA' || source === 'WHATSAPP';
         let threadValidation
         if (isTimeBoundedQuestion) {
-        /*  threadValidation = await this.validateTimeBoundQuestionThread(
+          threadValidation = await this.validateTimeBoundQuestionThread(
             questionId,
             baseQuestion.threadId,
           );
-          console.log("threadValidation ", threadValidation);*/
-        /*  if (!threadValidation.isValid) {
+          console.log("threadValidation ", threadValidation);
+          if (!threadValidation.isValid) {
             console.log("Npt valid")
             logData.outcome = 'TESTING_THREAD_ID';
             logData.threadValidationReason = threadValidation.reason;
@@ -1585,7 +1585,7 @@ export class QuestionService extends BaseService implements IQuestionService {
               isTesting: true,
             });
             return;
-          }*/
+          }
           /* else {
              // Extract the last GDB tool response from thread content
              const content: any[] = threadValidation.data?.content || [];
