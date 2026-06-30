@@ -86,6 +86,13 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
   const originalQuestion = question.originalQuestion?.trim();
   const { view, setView } = useSelectedQuestion();
 
+  // "Closed by" label. For system-closed questions (e.g. queue-duplicate children
+  // auto-closed when their parent closed) show the acting moderator's name with a
+  // "(System)" suffix, since the close was performed by the system on their behalf.
+  const closedByName = question.approved_moderator?.name || "Unknown";
+  const closedByLabel =
+    question.closedBy === "System" ? `${closedByName} (System)` : closedByName;
+
   // ─── Cancel Duplicate (gate keeper only) ───────────────────────────────────
   const isDuplicateCancelled = Boolean(question.isDuplicateCancelled);
   const [cancelDuplicateOpen, setCancelDuplicateOpen] = useState(false);
@@ -393,7 +400,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                 <span>
                   Closed by{" "}
                   <span className="font-medium text-foreground">
-                    {question.approved_moderator?.name || "Unknown"}
+                    {closedByLabel}
                   </span>
                 </span>
 
@@ -447,7 +454,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                         <span>
                           Closed by{" "}
                           <span className="font-medium text-foreground">
-                            {question.approved_moderator?.name || "Unknown"}
+                            {closedByLabel}
                           </span>
                         </span>
                         <span>•</span>

@@ -504,6 +504,7 @@ export interface IQuestionFullData {
   };
   originalQuestion?: string;
   closedAt?: string;
+  closedBy?: string;
   threadId?: string;
   threadUserEmail?: string | null;
   messageId?: string;

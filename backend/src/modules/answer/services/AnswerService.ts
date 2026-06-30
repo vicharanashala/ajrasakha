@@ -2075,7 +2075,8 @@ answer: ${updates.answer}`;
         );
         for (const child of childQuestions) {
           const childId = child._id!.toString();
-          // Replicate the parent's final answer onto the child.
+          // Replicate the parent's final answer onto the child. The same actor is
+          // recorded as both author and approver (the question is system-closed).
           await this.answerRepo.addAnswer(
             childId,
             userId,
@@ -2087,6 +2088,8 @@ answer: ${updates.answer}`;
             session,
             'approved',
             'Answer replicated from the parent question on close',
+            undefined, // type
+            userId, // approvedBy — same id as author
           );
           // Close the child question, marking it system-closed.
           await this.questionRepo.updateQuestion(
