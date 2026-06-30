@@ -585,6 +585,7 @@ export interface IDetailedQuestion {
   aiInitialAnswer: string;
   status: QuestionStatus;
   tag?: "dynamic" | "static_dynamic";
+  auditorReviewType?: "dynamic" | "duplicate";
   totalAnswersCount: number;
   priority: QuestionPriority;
   metrics: IQuestionMetrics;

@@ -1015,11 +1015,9 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                 onSave={handleSaveEdit}
                 onCancel={handleCancelEdit}
                 saveLabel={
-                    pendingApprovalAction === "push-to-gdb"
-                        ? "Push to GDB"
-                        : pendingApprovalAction === "accept"
-                            ? "Approve"
-                            : "Save Changes"
+                    pendingApprovalAction === "accept"
+                        ? "Approve"
+                        : "Save Changes"
                 }
             />
 
