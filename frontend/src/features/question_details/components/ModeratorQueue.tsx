@@ -98,8 +98,16 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
     );
   }, [stfModerators, searchTerm]);
 
-  // Only moderators/admins see this section.
-  if (currentUser.role !== "moderator" && currentUser.role !== "admin") {
+  // Moderators/admins manage this section; gate keepers and auditors see it as
+  // read-only (the moderator queue is visible to them, but the management controls —
+  // auto-allocate toggle, Select Moderator, Remove Moderator — are hidden).
+  const canManageModerator =
+    currentUser.role === "moderator" || currentUser.role === "admin";
+  const canViewModeratorQueue =
+    canManageModerator ||
+    currentUser.role === "gate_keeper" ||
+    currentUser.role === "auditor";
+  if (!canViewModeratorQueue) {
     return null;
   }
 
@@ -195,7 +203,7 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
                 auto-assign this question to a moderator. Styled to match the
                 "Auto-allocate Experts" block in the Allocation Queue header.
                 Hidden for queue-duplicate questions until their status changes. */}
-            {!isQueueDuplicate && (
+            {canManageModerator && !isQueueDuplicate && (
             <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
               <Switch
                 id="auto-allocate-moderator"
@@ -238,7 +246,7 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
             {/* Select moderator. Shown only when auto-allocation is OFF (otherwise the
                 queue assigns a moderator automatically), and once the question has
                 reached the review stage (in-review / re-routed). */}
-            {!autoAllocateModerator && canSelectModerator && (
+            {canManageModerator && !autoAllocateModerator && canSelectModerator && (
               <Button
                 variant="default"
                 className="gap-2 w-full sm:w-auto"
@@ -264,7 +272,7 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
             {/* Remove moderator — hover-revealed trash icon, mirrors the expert allocation removal.
                 Sits outside the flipping element so it stays put. Hidden once the question is
                 finalized (closed), and only available when auto-allocation is OFF (manual mode). */}
-            {!isClosed && !autoAllocateModerator && (
+            {canManageModerator && !isClosed && !autoAllocateModerator && (
               <div className="absolute -top-1 right-0 w-6 h-6 flex items-center justify-center cursor-pointer pointer-events-auto hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
                 <ConfirmationModal
                   title="Remove Moderator?"

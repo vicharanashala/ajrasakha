@@ -164,7 +164,7 @@ export const AllocationQueueHeader = ({
             questions are unaffected.
             Queue-duplicate questions: NO auto-allocate / Select Experts until the
             status is changed away from 'queue_duplicate'. */}
-        {currentUser.role !== "expert" && question.status!=='non_agri' && question.status!=='queue_duplicate' && (!isDuplicate || question.isAssignedModerator) && (
+        {currentUser.role !== "expert" && currentUser.role !== "gate_keeper" && currentUser.role !== "auditor" && question.status!=='non_agri' && question.status!=='queue_duplicate' && (!isDuplicate || question.isAssignedModerator) && (
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full md:w-auto">
             {/* Auto-Allocate Block */}
             <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
