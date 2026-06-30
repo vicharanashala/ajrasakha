@@ -22,6 +22,10 @@ export interface QAItem {
   agri_specialist: string;
   referenceSource: string;
   id: string;
+  weather?: any;
+  authorName?: string;
+  sourceName?: string;
+  sourceLink?: string;
 }
 
 export interface QAPairs {

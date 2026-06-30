@@ -236,6 +236,12 @@ export class AccAgentService {
             // Keep as string if it is not stringified JSON
           }
         }
+        // Also ensure final_answer is populated at the root level of the response
+        if (values.final_answer) {
+          data.final_answer = typeof values.final_answer === 'string'
+            ? values.final_answer
+            : values.final_answer.final_answer || '';
+        }
       }
       return data;
     } catch (error) {

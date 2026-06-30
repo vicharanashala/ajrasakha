@@ -725,21 +725,37 @@ export class QuestionService extends BaseService implements IQuestionService {
   ): Promise<any> {
     try {
       // console.log('[QuestionService] getAccAgentState - Resuming agent first for thread:', threadId);
-      // 1. Resume the agent and get the answer
-      const resumeResult = await this.accAgentService.resumeAndGetAnswer(threadId);
+      // 1. Resume the agent
+      await this.accAgentService.resumeAndGetAnswer(threadId);
 
-      // 2. If callUuid and metadata are provided, store Q/A pairs in call_details
+      // 2. Fetch the full thread state (with parsed final_answer, weather, and similar pairs)
+      const threadState = await this.accAgentService.getThreadState(threadId);
+
+      // 3. If callUuid and metadata are provided, store Q/A pairs in call_details
       if (callUuid && metadata) {
+        const finalAnswerObj = threadState?.values?.final_answer;
+        const finalAnswerMarkdown = typeof finalAnswerObj === 'string' ? finalAnswerObj : finalAnswerObj?.final_answer || '';
+
+        const weather = finalAnswerObj?.weather || null;
+        const similarPair = finalAnswerObj?.gdb?.similar_pair1 || null;
+        const authorName = similarPair?.details?.[0]?.author_name || "";
+        const sourceName = similarPair?.details?.[0]?.source_name || "";
+        const sourceLink = similarPair?.details?.[0]?.source_link || "";
+
         const qaPairs: QAPairs = {
           metadata,
           QnA: [
             {
               question: metadata.extracted_query,
-              answer: resumeResult.final_answer,
+              answer: finalAnswerMarkdown,
               agri_specialist: 'ACC_AGENT',
               referenceSource: 'acc_agent_hitl',
-              id: new ObjectId().toString()
-            }
+              id: new ObjectId().toString(),
+              ...(weather ? { weather } : {}),
+              ...(authorName ? { authorName } : {}),
+              ...(sourceName ? { sourceName } : {}),
+              ...(sourceLink ? { sourceLink } : {})
+            } as any
           ]
         };
 
@@ -767,8 +783,8 @@ export class QuestionService extends BaseService implements IQuestionService {
         console.log('[QuestionService] Skipping Q/A storage - callUuid or metadata missing');
       }
 
-      // 3. Fetch the full thread state (with parsed final_answer, weather, and similar pairs)
-      return this.accAgentService.getThreadState(threadId);
+      // 4. Return the full thread state
+      return threadState;
     } catch (error) {
       console.error('[QuestionService] getAccAgentState: Error resuming or fetching state', error);
       throw new InternalServerError('Failed to resume or fetch ACC Agent state');
