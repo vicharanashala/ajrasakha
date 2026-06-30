@@ -1633,7 +1633,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           source === 'AJRASAKHA' || source === 'WHATSAPP';
         let threadValidation;
         if (isTimeBoundedQuestion) {
-          threadValidation = await this.validateTimeBoundQuestionThread(
+         /* threadValidation = await this.validateTimeBoundQuestionThread(
             questionId,
             baseQuestion.threadId,
           );
@@ -1648,7 +1648,7 @@ export class QuestionService extends BaseService implements IQuestionService {
               isTesting: true,
             });
             return;
-          }
+          }*/
           /* else {
              // Extract the last GDB tool response from thread content
              const content: any[] = threadValidation.data?.content || [];
