@@ -69,6 +69,7 @@ interface QueryCategoryQuestionsModalProps {
   endDate?: Date;
   onClose: () => void;
   isPassed?: boolean;
+  tag?: string;
 }
 
 const PAGE_SIZE = 10;
@@ -90,6 +91,7 @@ export function QueryCategoryQuestionsModal({
   endDate,
   onClose,
   isPassed,
+  tag
 }: QueryCategoryQuestionsModalProps) {
   const {
     setSelectedQuestionId,
@@ -141,6 +143,7 @@ export function QueryCategoryQuestionsModal({
     search: debouncedSearch,
     enabled: true,
     isPassed,
+    tag
   });
 // console.log("dta----", data)
   // const columns = useMemo<QuestionListColumn<QueryCategoryQuestionEntry>[]>(
@@ -473,12 +476,14 @@ export function QueryCategoryQuestionsModal({
           initialSortKey="createdAt"
           initialSortDirection="desc"
           viewMode={viewMode}
-          startDate={startDate}
-          endDate= {endDate}
+          startDate={startDate?.toString()}
+          endDate= {endDate?.toString()}
           source= {source}
           status= {status}
           userType= {userType}
           isPassed={isPassed}
+          tag={tag}
+          notificationType={notificationType}
         />
 
         <div className="flex shrink-0 items-center justify-between border-t border-gray-100 px-6 py-3 text-xs text-gray-400 dark:border-[#2a2a2a] dark:text-gray-500">

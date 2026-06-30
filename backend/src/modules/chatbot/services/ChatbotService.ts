@@ -3035,7 +3035,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getQuestionsClosedWithinTwoHours(page?: number, limit?: number, source?: string, userType?: string, search?: string, startDate?: Date, endDate?: Date, isPassed?: string): Promise<any> {
+  async getQuestionsClosedWithinTwoHours(page?: number, limit?: number, source?: string, userType?: string, search?: string, startDate?: Date, endDate?: Date, isPassed?: string, tag?: string): Promise<any> {
     try {
       return this.chatbotRepository.getQuestionsClosedWithinTwoHours(
         page,
@@ -3046,7 +3046,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
         search,
         startDate,
         endDate,
-        isPassed
+        isPassed,
+        tag
       )
     }catch(error){
       throw new InternalServerError(`Internal server error ${error}`)
@@ -3145,6 +3146,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
       startDate?: Date,
       endDate?: Date,
       isPassed?: string,
+      tag?: string,
+      notificationType?: string,
     ): Promise<any>{
       return this.chatbotRepository.getLifeCycleSummary(
         status,
@@ -3152,7 +3155,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
         userType,
         startDate,
         endDate,
-        isPassed
+        isPassed,
+        tag,
+        notificationType,
       );
     }
 }

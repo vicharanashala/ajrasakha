@@ -93,6 +93,7 @@ export function ClosedInLastTwoHoursCard({
   // const completedWithInTwoHours = (safeCount || 0) + (passedInLastTwoHours || 0)
 
   const [isPassed, setIsPassed] = useState(false);
+  const [slaBreachedQs, setSlaBreachedQs] = useState("");
 
   return (
     <div
@@ -287,6 +288,7 @@ export function ClosedInLastTwoHoursCard({
                   onClick={() => {
                     setIsPassed(false);
                     setClosedWithInTowhours(true);
+                    setSlaBreachedQs("")
                   }}
                 />
                 <StatTile
@@ -298,6 +300,7 @@ export function ClosedInLastTwoHoursCard({
                   onClick={() => {
                     setIsPassed(true);
                     setClosedWithInTowhours(true);
+                    setSlaBreachedQs("")
                   }}
                 />
                 <StatTile
@@ -311,10 +314,16 @@ export function ClosedInLastTwoHoursCard({
                 <StatTile
                   label="sla breached"
                   count={slaBreached || 0}
+                  of={(safeTotalClosed || 0) + (totalPassed || 0)}
                   suffix=""
                   decimals={0}
                   accent="muted"
                   tooltip="Question resolution took more than 2 hours"
+                  onClick={() => {
+                    setIsPassed(true);
+                    setClosedWithInTowhours(true);
+                    setSlaBreachedQs("slabreached")
+                  }}
                 />
               </div>
 
@@ -376,6 +385,7 @@ export function ClosedInLastTwoHoursCard({
           startDate={dateRange?.from}
           endDate={dateRange?.to}
           isPassed={isPassed}
+          tag= {slaBreachedQs ? slaBreachedQs : "sla"}
         />
       )}
     </div>

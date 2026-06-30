@@ -377,6 +377,7 @@ export function ClosedQuestionsCard({
             setStatus(null);
             setIsPassed(false);
           }}
+          tag="closed"
         />
       )}
     </div>

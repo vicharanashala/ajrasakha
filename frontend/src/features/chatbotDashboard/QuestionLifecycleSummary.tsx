@@ -11,6 +11,8 @@ interface Props {
   status?: string;
   userType?: string;
   isPassed?: boolean;
+  tag?: string;
+  notificationType?: string;
 }
 
 const formatDuration = (ms?: number) => {
@@ -40,6 +42,8 @@ export function QuestionLifecycleSummary({
   status,
   userType,
   isPassed,
+  tag,
+  notificationType
 }: Props) {
   const { data: summary, isLoading } = useLifeCycleSummary(
     startDate,
@@ -48,6 +52,8 @@ export function QuestionLifecycleSummary({
     status,
     userType,
     isPassed,
+    tag,
+    notificationType
   );
   const insights = [];
 

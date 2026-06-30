@@ -12864,6 +12864,7 @@ if (!districts.length) {
     startDate?: Date,
     endDate?: Date,
     isPassed?: string,
+    tag?: string,
   ): Promise<any> {
     await this.initReviewSystem();
     await this.init("annam");
@@ -12879,13 +12880,15 @@ if (!districts.length) {
         $in: ["AJRASAKHA", "WHATSAPP"],
       };
     }
-    matchQuery.status = { 
-      $in: ["closed"],
-    };
-    if(isPassed === "true"){
+    if(tag !== "slabreached"){
       matchQuery.status = { 
-        $in: ["pass"],
+        $in: ["closed"],
       };
+      if(isPassed === "true"){
+        matchQuery.status = { 
+          $in: ["pass"],
+        };
+      }
     }
     const validStartDate =
       startDate instanceof Date && !isNaN(startDate.getTime());
@@ -12956,6 +12959,31 @@ if (!districts.length) {
       };
     }
 
+    const slaCondition =
+      tag === "slabreached"
+        ? {
+            $gt: [
+              {
+                $subtract: [
+                  "$_operationalCompletionAt",
+                  "$createdAt",
+                ],
+              },
+              2 * 60 * 60 * 1000,
+            ],
+          }
+        : {
+            $lte: [
+              {
+                $subtract: [
+                  "$_operationalCompletionAt",
+                  "$createdAt",
+                ],
+              },
+              2 * 60 * 60 * 1000,
+            ],
+          };
+
     const result = await this.QuestionCollection.aggregate([
       {
         $match: matchQuery,
@@ -12979,12 +13007,7 @@ if (!districts.length) {
           $expr: {
             $and: [
               {$gte: ['$_operationalCompletionAt', '$createdAt']},
-              {
-                $lte: [
-                  {$subtract: ['$_operationalCompletionAt', '$createdAt']},
-                  2 * 60 * 60 * 1000,
-                ],
-              },
+              slaCondition,
             ],
           },
         },
@@ -13118,7 +13141,11 @@ if (!districts.length) {
         }
 
         if (validEndDate) {
-          matchQuery.createdAt.$lte = endDate;
+          // include full day
+          const endOfDay = new Date(endDate!);
+          endOfDay.setHours(23, 59, 59, 999);
+
+          matchQuery.createdAt.$lte = endOfDay;
         }
       }
 
@@ -15255,9 +15282,12 @@ existing.villageVolunteers +=
       startDate?: Date,
       endDate?: Date,
       isPassed?: string,
+      tag?: string,
+      notificationType?: string,
     ) {
     try{
-        // console.log("getLifeCycleSummary...............", startDate, endDate, isPassed)
+      await this.initReviewSystem();
+      await this.init('annam');
       const sourceType =
         source === "whatsapp"
         ? "WHATSAPP"
@@ -15271,28 +15301,43 @@ existing.villageVolunteers +=
           $in: ["AJRASAKHA", "WHATSAPP"],
         };
       }
-
-      if (status === "closed") {
+      if(tag === "closed"){
+        if (status === "closed") {
+          matchQuery.status = {
+            $in: ["closed"],
+          };
+        } else if (status === "pending") {
+          matchQuery.status = {
+            $nin: ["closed", "pass"],
+          };
+        } else if (status !== "all") {
+          matchQuery.status = status;
+        }
+      } else if(tag === "sla"){
+        if (isPassed === "true") {
+          matchQuery.status = {
+            $in: ["pass"],
+          };
+        }
+        if(isPassed === "false"){
+          matchQuery.status = {
+            $in: ["closed"],
+          };
+        }
+      }  else if (tag === "notify") {
         matchQuery.status = {
           $in: ["closed"],
         };
-      } else if (status === "pending") {
-        matchQuery.status = {
-          $nin: ["closed", "pass"],
-        };
-      } else if (status !== "all") {
-        matchQuery.status = status;
-      }
 
-      if (isPassed === "true") {
-        matchQuery.status = {
-          $in: ["pass"],
-        };
-      }
-      if(isPassed === "false"){
-        matchQuery.status = {
-          $in: ["closed"],
-        };
+        if (isPassed === "true") {
+          matchQuery.isCustomerNotified = true;
+        } else if (isPassed === "false") {
+          matchQuery.isCustomerNotified = false;
+        } else if (isPassed === "untracked") {
+          matchQuery.isCustomerNotified = {
+            $exists: false,
+          };
+        }
       }
 
       const query =
@@ -15324,8 +15369,25 @@ existing.villageVolunteers +=
             endOfDay;
         }
       }
+
+      if (tag === "notify") {
+        switch (notificationType) {
+          case "notified":
+            matchQuery.isCustomerNotified = true;
+            break;
+          case "not-notified":
+            matchQuery.isCustomerNotified = false;
+            break;
+          case "untracked":
+            matchQuery.isCustomerNotified = {
+              $exists: false,
+            };
+            break;
+        }
+      }
+      
       let questionIds;
-      if(!isPassed){
+      if(tag === "closed"){
        questionIds =
         await this.QuestionCollection
           .find(
@@ -15340,7 +15402,7 @@ existing.villageVolunteers +=
             (x) => x._id.toString(),
           )
           .toArray();
-      } else {
+      } else if (tag === "sla") {
         const result = await this.QuestionCollection
           .aggregate([
             {
@@ -15413,6 +15475,91 @@ existing.villageVolunteers +=
         questionIds = result.map((x) =>
           x._id.toString(),
         );
+      } else if (tag === "slabreached") {
+        const result = await this.QuestionCollection
+          .aggregate([
+            {
+              $match: matchQuery,
+            },
+            {
+              $addFields: {
+                _statusLower: {
+                  $toLower: {
+                    $ifNull: ["$status", ""],
+                  },
+                },
+                _operationalCompletionAt: {
+                  $cond: [
+                    {
+                      $eq: [
+                        {
+                          $toLower: {
+                            $ifNull: ["$status", ""],
+                          },
+                        },
+                        "pass",
+                      ],
+                    },
+                    "$passedAt",
+                    "$closedAt",
+                  ],
+                },
+              },
+            },
+            {
+              $match: {
+                _statusLower: {
+                  $in: ["closed", "pass"],
+                },
+                _operationalCompletionAt: {
+                  $ne: null,
+                },
+                $expr: {
+                  $and: [
+                    {
+                      $gte: [
+                        "$_operationalCompletionAt",
+                        "$createdAt",
+                      ],
+                    },
+                    {
+                      $gt: [
+                        {
+                          $subtract: [
+                            "$_operationalCompletionAt",
+                            "$createdAt",
+                          ],
+                        },
+                        2 * 60 * 60 * 1000,
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 1,
+              },
+            },
+          ])
+          .toArray();
+
+        questionIds = result.map((x) =>
+          x._id.toString(),
+        );
+      } else if (tag === "notify") {
+        questionIds = await this.QuestionCollection
+          .find(
+            matchQuery,
+            {
+              projection: {
+                _id: 1,
+              },
+            },
+          )
+          .map((x) => x._id.toString())
+          .toArray();
       }
       const lifecycles = await Promise.all(
         questionIds.map((id) => this.getQuestionLifecycle(id))
@@ -15427,7 +15574,7 @@ existing.villageVolunteers +=
           );
         }
       });
-  // console.log("lifecycles---", lifecycles);
+
       let totalClosureTime = 0;
       let totalWaitTime = 0;
       let totalReviewTime = 0;

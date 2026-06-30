@@ -850,6 +850,7 @@ export interface IChatbotRepository {
     startDate?: Date,
     endDate?: Date,
     isPassed?: string,
+    tag?: string,
   ): Promise<any>
 
   getQuestionsByNotificationStatus(
@@ -921,6 +922,8 @@ export interface IChatbotRepository {
       startDate?: Date,
       endDate?: Date,
       isPassed?: string,
+      tag?: string,
+      notificationType?: string,
     ): Promise<any>
 }
 

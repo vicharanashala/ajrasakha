@@ -429,6 +429,7 @@ export class ChatbotController {
       startDate?: Date;
       endDate?: Date;
       isPassed?: string;
+      tag?: string;
     },
   ) {
     if (query.category) {
@@ -488,6 +489,7 @@ export class ChatbotController {
         startDate,
         endDate,
         query.isPassed,
+        query.tag,
       );
     } else {
       if(query.period){
@@ -1916,9 +1918,9 @@ export class ChatbotController {
     @QueryParam('startDate') startDate?: string,
     @QueryParam('endDate') endDate?: string,
     @QueryParam('isPassed') isPassed?: string,
+    @QueryParam('tag') tag?: string,
+    @QueryParam('notificationType') notificationType?: string,
   ): Promise<any> {
-  // console.log(isPassed, "QuestionLifecycleSummary--", startDate, endDate, source, status, userType)
-
     const start= startDate
         ? new Date(startDate)
         : undefined;
@@ -1932,6 +1934,8 @@ export class ChatbotController {
       start,
       end,
       isPassed,
+      tag,
+      notificationType
     );
   }
 }

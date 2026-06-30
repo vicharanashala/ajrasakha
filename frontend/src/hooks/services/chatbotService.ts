@@ -247,6 +247,7 @@ export class ChatbotService {
     stringEndDate,
     search,
     isPassed,
+    tag
   }: {
     category?: string;
     district?: string;
@@ -266,6 +267,7 @@ export class ChatbotService {
     stringEndDate?: string;
     search?: string;
     isPassed?: boolean;
+    tag?: string;
   }) {
     const params = new URLSearchParams();
     if (category) params.append("category", category);
@@ -289,6 +291,9 @@ export class ChatbotService {
     }
     if (isPassed !== undefined) {
       params.append("isPassed", String(isPassed));
+    }
+    if(tag){
+      params.append("tag", tag)
     }
     return apiFetch<any>(
       `${this._baseUrl}/filtered-questions?${params.toString()}`,
@@ -502,6 +507,8 @@ export class ChatbotService {
     status?: string,
     userType?: string,
     isPassed?: boolean,
+    tag?: string,
+    notificationType?: string,
   ): Promise<any> {
     const params = new URLSearchParams();
     if (startDate) {
@@ -522,6 +529,13 @@ export class ChatbotService {
     if (isPassed != null) {
       params.append("isPassed", String(isPassed));
     }
+    if (tag) {
+      params.append("tag", String(tag));
+    }
+    if (notificationType) {
+      params.append("notificationType", String(notificationType));
+    }
+
     return apiFetch<any>(
       `${this._baseUrl}/lifecycle-summary?${params.toString()}`
     );
