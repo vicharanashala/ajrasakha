@@ -192,7 +192,35 @@ def get_farmer_profile_location(user_id: str | None) -> dict[str, str] | None:
     return {"district": district, "state": state}
 
 
-def save_user_location(user_id: str, district: str, state: str) -> bool:
+def _format_location_source(
+    *,
+    thread_id: str | None = None,
+    state_source: str | None = None,
+    district_source: str | None = None,
+    picked_at: datetime,
+) -> dict[str, str]:
+    """Provenance metadata for how/where the location was resolved."""
+    source: dict[str, str] = {
+        "picked_at": picked_at.isoformat().replace("+00:00", "Z"),
+    }
+    if thread_id and thread_id.strip():
+        source["thread_id"] = thread_id.strip()
+    if state_source and str(state_source).strip():
+        source["state_source"] = str(state_source).strip()
+    if district_source and str(district_source).strip():
+        source["district_source"] = str(district_source).strip()
+    return source
+
+
+def save_user_location(
+    user_id: str,
+    district: str,
+    state: str,
+    *,
+    thread_id: str | None = None,
+    state_source: str | None = None,
+    district_source: str | None = None,
+) -> bool:
     """Upsert current location; move prior current_location to history when changed."""
     normalized_id = _normalize_user_id(user_id)
     if not normalized_id:
@@ -209,20 +237,52 @@ def save_user_location(user_id: str, district: str, state: str) -> bool:
 
     now = datetime.now(timezone.utc)
     new_current = {"district": district, "state": state}
+    new_source = _format_location_source(
+        thread_id=thread_id,
+        state_source=state_source,
+        district_source=district_source,
+        picked_at=now,
+    )
 
     try:
         existing = col.find_one(
             {"user_id": normalized_id},
-            {"current_location": 1, "location_history": 1},
+            {"current_location": 1, "current_location_source": 1, "location_history": 1},
             max_time_ms=_MONGO_OP_TIMEOUT_MS,
         )
     except Exception:
         logger.exception("Failed to read user location before save user_id=%s", normalized_id)
         return False
 
+    old_current = (existing or {}).get("current_location")
+    if existing and _locations_equal(old_current, new_current):
+        try:
+            col.update_one(
+                {"user_id": normalized_id},
+                {
+                    "$set": {
+                        "current_location_source": new_source,
+                        "updated_at": now,
+                    }
+                },
+            )
+        except Exception:
+            logger.exception(
+                "Failed to refresh user location source for user_id=%s",
+                normalized_id,
+            )
+            return False
+        logger.info(
+            "Refreshed user location source user_id=%s thread_id=%s",
+            normalized_id,
+            new_source.get("thread_id"),
+        )
+        return True
+
     update: dict[str, Any] = {
         "$set": {
             "current_location": new_current,
+            "current_location_source": new_source,
             "updated_at": now,
         },
     }
@@ -231,13 +291,15 @@ def save_user_location(user_id: str, district: str, state: str) -> bool:
         "created_at": now,
     }
 
-    old_current = (existing or {}).get("current_location")
+    old_source = (existing or {}).get("current_location_source")
     if existing and old_current and not _locations_equal(old_current, new_current):
-        history_entry = {
+        history_entry: dict[str, Any] = {
             "district": str(old_current.get("district", "")).strip(),
             "state": str(old_current.get("state", "")).strip(),
             "timestamp": now.isoformat().replace("+00:00", "Z"),
         }
+        if isinstance(old_source, dict) and old_source:
+            history_entry["source"] = old_source
         if history_entry["district"] and history_entry["state"]:
             update["$push"] = {
                 "location_history": {
@@ -251,9 +313,6 @@ def save_user_location(user_id: str, district: str, state: str) -> bool:
 
     update["$setOnInsert"] = set_on_insert
 
-    if existing and _locations_equal(old_current, new_current):
-        return False
-
     try:
         col.update_one({"user_id": normalized_id}, update, upsert=True)
     except Exception:
@@ -261,10 +320,11 @@ def save_user_location(user_id: str, district: str, state: str) -> bool:
         return False
 
     logger.info(
-        "Saved user location user_id=%s district=%s state=%s",
+        "Saved user location user_id=%s district=%s state=%s thread_id=%s",
         normalized_id,
         district,
         state,
+        new_source.get("thread_id"),
     )
     return True
 
