@@ -11,6 +11,7 @@ from typing import Optional
 from ajrasakha.agents.retrieval_sanitizer import gdb_has_usable_answers
 from ajrasakha.agents.translation_catalog import (
     get_non_agriculture_reply,
+    get_weather_unavailable_reply,
     get_testing_disclaimer,
     get_two_hour_disclaimer,
     get_late_night_disclaimer,
@@ -246,6 +247,26 @@ def build_non_agriculture_content(script_language: str, vocal_language: str) -> 
     """Exact catalog reply followed by the localized testing disclaimer."""
     body = get_non_agriculture_reply(script_language, vocal_language)
     testing = get_testing_disclaimer(script_language, vocal_language)
+    if not testing.strip():
+        raise ValueError(
+            "Translation catalogue configuration error: Testing disclaimer must "
+            f"not be blank for ({script_language}, {vocal_language})"
+        )
+    return f"{body}\n\n{FOOTER_SEPARATOR}\n\n{testing}"
+
+
+def build_weather_unavailable_content(
+    script_language: str,
+    vocal_language: str,
+) -> str:
+    """Exact weather-unavailable reply followed by the testing disclaimer."""
+    body = get_weather_unavailable_reply(script_language, vocal_language)
+    testing = get_testing_disclaimer(script_language, vocal_language)
+    if not body.strip():
+        raise ValueError(
+            "Translation catalogue configuration error: Weather unavailable reply "
+            f"must not be blank for ({script_language}, {vocal_language})"
+        )
     if not testing.strip():
         raise ValueError(
             "Translation catalogue configuration error: Testing disclaimer must "
