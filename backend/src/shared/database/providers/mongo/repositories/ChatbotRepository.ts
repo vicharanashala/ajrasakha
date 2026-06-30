@@ -6550,8 +6550,6 @@ if (!districts.length) {
         'village_volunteer',
       ];
 
-      const filtredRoles = allUsers.filter((obj)=> coordinatorRoles.includes(obj.userRole));
-
       const userRoleCounts = {
         farmer: 0,
         coordinator: 0,
@@ -15230,4 +15228,371 @@ existing.villageVolunteers +=
       throw Error(err);
     }
   }
+
+  async getQuestionFromState(
+  state: string,
+  questionType: QueryCategoryQuestionType = 'all',
+  page = 1,
+  limit = 10,
+  source: string,
+  session?: ClientSession,
+  userType = 'all',
+  search?: string,
+): Promise<any> {
+  try {
+    await this.initReviewSystem();
+    await this.init(source);
+
+    const safePage = Math.max(Number(page) || 1, 1);
+    const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
+    const skip = (safePage - 1) * safeLimit;
+
+    const sourceType =
+      source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
+
+    const baseMatch = buildBaseQuestionMatch(sourceType);
+
+    baseMatch['details.state'] = {
+      $exists: true,
+      $nin: [null, ''],
+    };
+
+    const query = await this.buildQuestionUserTypeMatchQuery(
+      source,
+      userType,
+    );
+
+    if (query && Object.keys(query).length > 0) {
+      baseMatch.$and.push(query);
+    }
+
+    const stateLabel = state.trim();
+
+    if (!stateLabel) {
+      throw new BadRequestError('state is required');
+    }
+
+    const stateMatch = {
+      'details.state': stateLabel,
+    };
+
+    const typeMatch =
+      questionType === 'duplicate'
+        ? { status: 'duplicate' }
+        : questionType === 'unique'
+          ? { status: { $ne: 'duplicate' } }
+          : {};
+
+    let searchMatch = {};
+
+    if (search?.trim()) {
+      const matchingUsers = await this.users
+        .find({
+          $or: [
+            {
+              email: {
+                $regex: search,
+                $options: 'i',
+              },
+            },
+            {
+              firstName: {
+                $regex: search,
+                $options: 'i',
+              },
+            },
+            {
+              lastName: {
+                $regex: search,
+                $options: 'i',
+              },
+            },
+            {
+              'farmerProfile.farmerName': {
+                $regex: search,
+                $options: 'i',
+              },
+            },
+          ],
+        })
+        .project({ _id: 1 })
+        .toArray();
+
+      const userIds = matchingUsers.map((u) =>
+        u._id.toString(),
+      );
+
+      searchMatch = {
+        userId: {
+          $in: userIds,
+        },
+      };
+    }
+
+    const result = await this.QuestionCollection.aggregate(
+      [
+        {
+          $match: {
+            ...baseMatch,
+            ...stateMatch,
+            ...typeMatch,
+            ...searchMatch,
+          },
+        },
+        {
+          $sort: {
+            createdAt: -1,
+          },
+        },
+        {
+          $facet: {
+            data: [
+              {
+                $skip: skip,
+              },
+              {
+                $limit: safeLimit,
+              },
+              {
+                $project: {
+                  _id: 0,
+                  questionId: {
+                    $toString: '$_id',
+                  },
+                  userId: 1,
+                  threadId: 1,
+                  messageId: 1,
+                  question: 1,
+                  status: 1,
+                  questionType: {
+                    $cond: [
+                      {
+                        $eq: ['$status', 'duplicate'],
+                      },
+                      'duplicate',
+                      'unique',
+                    ],
+                  },
+                  createdAt: 1,
+                  district: '$details.district',
+                  block: '$details.block',
+                  village: '$details.village',
+                  crop: '$details.crop',
+                },
+              },
+            ],
+            metadata: [
+              {
+                $count: 'total',
+              },
+            ],
+          },
+        },
+      ],
+      { session },
+    ).toArray();
+
+    const total = result[0]?.metadata?.[0]?.total ?? 0;
+    const questions = result[0]?.data ?? [];
+
+    const { userMap, questionUserMap } =
+      await this.resolveQuestionUsers(questions);
+
+    const enrichedQuestions = questions.map((question) => {
+      const resolvedUserId =
+        questionUserMap.get(question.questionId);
+
+      const user = resolvedUserId
+        ? userMap.get(resolvedUserId)
+        : undefined;
+
+      return {
+        ...question,
+
+        farmerName:
+          user?.farmerProfile?.farmerName ??
+          user?.name ??
+          null,
+
+        name:
+          `${user?.name ?? ''} ${user?.lastName ?? ''}`.trim(),
+
+        email: user?.email ?? null,
+
+        village:
+          question.village ??
+          user?.farmerProfile?.villageName,
+
+        block:
+          question.block ??
+          user?.farmerProfile?.blockName,
+
+        district:
+          question.district ??
+          user?.farmerProfile?.district,
+
+        state:
+          question.state ??
+          user?.farmerProfile?.state,
+      };
+    });
+
+    return {
+      questions: enrichedQuestions,
+      total,
+      totalPages: Math.max(
+        1,
+        Math.ceil(total / safeLimit),
+      ),
+      page: safePage,
+      limit: safeLimit,
+    };
+  } catch (error) {
+    throw new InternalServerError(
+      `Failed to get questions from state ${state}: ${error}`,
+    );
+  }
+}
+
+async getActiveUsersDetails(
+  page = 1,
+  limit = 10,
+  source: string,
+  userType = 'all',
+  session?: ClientSession,
+  state?: string,
+  district?: string,
+  search?: string,
+): Promise<any> {
+  try {
+    await this.initReviewSystem();
+    await this.init(source);
+
+    const safePage = Math.max(Number(page) || 1, 1);
+    const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
+    const skip = (safePage - 1) * safeLimit;
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const userFilter: any = {
+      isVerified: true,
+      lastActiveAt: {
+        $gte: todayStart,
+        $lte: todayEnd,
+      },
+      ...this.buildUserDocFilter(userType),
+    };
+
+    if (state?.trim()) {
+      userFilter['farmerProfile.state'] = {
+        $regex: `^${state.trim()}$`,
+        $options: 'i',
+      };
+    }
+
+    if (district?.trim()) {
+      userFilter['farmerProfile.district'] = {
+        $regex: `^${district.trim()}$`,
+        $options: 'i',
+      };
+    }
+
+    if (search?.trim()) {
+      userFilter.$or = [
+        {
+          email: {
+            $regex: search,
+            $options: 'i',
+          },
+        },
+        {
+          firstName: {
+            $regex: search,
+            $options: 'i',
+          },
+        },
+        {
+          lastName: {
+            $regex: search,
+            $options: 'i',
+          },
+        },
+        {
+          'farmerProfile.farmerName': {
+            $regex: search,
+            $options: 'i',
+          },
+        },
+      ];
+    }
+
+    const total = await this.users.countDocuments(userFilter, {
+      session,
+    });
+
+    const users = await this.users
+      .find(userFilter, { session })
+      .sort({
+        lastActiveAt: -1,
+      })
+      .skip(skip)
+      .limit(safeLimit)
+      .toArray();
+
+    const formattedUsers = users.map(user => ({
+      userId: user._id.toString(),
+
+      farmerName:
+        user.farmerProfile?.farmerName ??
+        user.firstName ??
+        '',
+
+      name:
+        `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim(),
+
+      email: user.email,
+
+      phoneNumber:
+        user.farmerProfile?.phoneNo,
+
+      village:
+        user.farmerProfile?.villageName,
+
+      block:
+        user.farmerProfile?.blockName,
+
+      district:
+        user.farmerProfile?.district,
+
+      state:
+        user.farmerProfile?.state,
+
+      role:
+        user.userRole,
+
+      createdAt:
+        user.createdAt,
+    }));
+
+    return {
+      users: formattedUsers,
+      total,
+      totalPages: Math.max(
+        1,
+        Math.ceil(total / safeLimit),
+      ),
+      page: safePage,
+      limit: safeLimit,
+    };
+  } catch (error) {
+    throw new InternalServerError(
+      `Failed to fetch active users: ${error}`,
+    );
+  }
+}
+
 }

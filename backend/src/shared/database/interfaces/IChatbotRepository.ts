@@ -913,6 +913,28 @@ export interface IChatbotRepository {
   ): Promise<string | null>
     
   getQuestionLifecycle(questionId: string): Promise<any>
+
+    getQuestionFromState(
+    state?: string,
+    questionType?: QueryCategoryQuestionType,
+    page?: number,
+    limit?: number,
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+    search?: string,
+  ): Promise<any>;
+
+  getActiveUsersDetails(
+    page: number, 
+    limit: number, 
+    source: string, 
+    userType: string, 
+    session?:ClientSession, 
+    state?:string, 
+    district?:string, 
+    search?: string
+  ): Promise<any>
 }
 
 export interface ChatbotConversationData {

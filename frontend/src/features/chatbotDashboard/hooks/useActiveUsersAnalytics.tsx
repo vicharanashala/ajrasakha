@@ -345,3 +345,48 @@ export const useQuestionLifeCycle = (questionId: string, enabled=true) => {
     enabled,
   });
 }
+
+export const useActiveUserDetails = ({
+  page,
+  limit,
+  source,
+  userType,
+  district,
+  state,
+  search,
+  enabled = true
+}:{
+  page: number,
+  limit: number,
+  source: string,
+  userType: string,
+  district?: string,
+  state?: string,
+  search?: string
+  enabled: boolean
+})=>{
+  return useQuery<any>({
+    queryKey: [
+      "get-active-user-details",
+      page,
+      limit,
+      source,
+      userType,
+      district,
+      state,
+      search
+    ],
+    queryFn: ()=>{
+      return chatbotService.getActiveUserDetails({
+        page,
+        limit,
+        source,
+        userType,
+        district: district ?? '',
+        state: state ?? '',
+        search: search ?? ''
+      })
+    },
+    enabled,
+  })
+}

@@ -364,4 +364,25 @@ export interface IChatbotService {
   ): Promise<any>
   
   getQuestionLifecycle(questionId: string): Promise<any>
+
+
+      getQuestionFromState(
+      state?: string,
+      questionType?: QueryCategoryQuestionType,
+      page?: number,
+      limit?: number,
+      source?: string,
+      userType?: string,
+      search?: string,
+    ): Promise<any>;
+
+    getActiveUsersDetails(
+      page:number,
+      limit:number,
+      source: string,
+      userType: string,
+      state?: string,
+      district?: string,
+      search?: string,
+    ): Promise<any>
 }
