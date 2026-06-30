@@ -38,6 +38,7 @@ import type {
   WeatherConcernAnalyticsFilters,
   WeatherConcernAnalyticsResponse,
   FarmerHeatMapFilters,
+  FarmerHeatMapLocationHierarchy,
   FarmerHeatMapResponse,
   FarmerHeatMapBucket,
   FarmerHeatMapRow,
@@ -48,7 +49,6 @@ import type {
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {IQuestion, IQuestionSubmission, QuestionSource} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
-import {DISTRICTS} from '#root/utils/districts.js';
 import {getFirebaseAuth} from '#root/config/firebaseAdmin.js';
 
 import bcrypt from 'bcryptjs';
@@ -522,11 +522,54 @@ private normalizeDistrictName(
     .toLowerCase();
 
   const aliases: Record<string, string> = {
+    anantapur: 'ananthapuramu',
     chamarajanagara: 'chamarajanagar',
     baramula: 'baramulla',
   };
 
   return aliases[normalized] ?? normalized;
+}
+
+private getEquivalentLocationNames(value: string): string[] {
+  const normalized = this.normalizeDistrictName(value);
+  const equivalents: Record<string, string[]> = {
+    ananthapuramu: ['Ananthapuramu', 'Anantapur'],
+    chamarajanagar: ['Chamarajanagar', 'Chamarajanagara'],
+    baramulla: ['Baramulla', 'Baramula'],
+  };
+
+  return [...new Set([value, ...(equivalents[normalized] || [])])];
+}
+
+private matchesEquivalentLocation(
+  actual: string | undefined,
+  expectedValues: string[],
+) {
+  const normalizedActual = this.normalizeDistrictName(String(actual || ''));
+
+  return expectedValues.some(
+    expected =>
+      normalizedActual === this.normalizeDistrictName(String(expected || '')),
+  );
+}
+
+private isInvalidHeatMapLocation(value?: string | null) {
+  const normalized = this.normalizeDistrictName(String(value || ''));
+  const invalidValues = new Set([
+    '',
+    '-',
+    'na',
+    'n/a',
+    'nil',
+    'null',
+    'test',
+    'testing',
+    'undefined',
+    'unknown',
+    'not specified',
+  ]);
+
+  return invalidValues.has(normalized);
 }
   private readonly coordinatorsRoles = COORDINATOR_ROLES;
 
@@ -3269,16 +3312,21 @@ if (!districts.length) {
 
   async getFarmerHeatMapAnalytics(
     filters: FarmerHeatMapFilters = {},
+    locationHierarchy?: FarmerHeatMapLocationHierarchy,
     session?: ClientSession,
   ): Promise<FarmerHeatMapResponse> {
     try {
       const source = filters.source || 'annam';
       const userType = filters.userType || 'all';
       const selectedState = filters.state || 'all';
+      const selectedDistrict = filters.district || 'all';
+      const selectedBlock = filters.block || 'all';
+      const selectedVillage = filters.village || 'all';
       const granularity = filters.granularity || 'monthly';
       const createEmptyHeatMapTotals = (): FarmerHeatMapMetricTotals => ({
         activeFarmers: 0,
         totalQuestions: 0,
+        duplicateQuestions: 0,
         closedQuestions: 0,
         notifiedQuestions: 0,
         averageClosureTimeMinutes: 0,
@@ -3462,15 +3510,66 @@ if (!districts.length) {
       const {startDate, endDate, buckets, getBucketKey} =
         buildHeatMapTimeRange();
 
-      const scope =
-        selectedState && selectedState !== 'all' ? 'district' : 'state';
-      const labels =
-        scope === 'district'
-          ? [...(DISTRICTS[selectedState] || [])].sort()
-          : Object.keys(DISTRICTS).sort();
+      const scope = locationHierarchy?.scope || 'state';
+      let labels = [...(locationHierarchy?.labels || [])].sort();
       const labelMap = new Map(
         labels.map(label => [this.normalizeDistrictName(label), label]),
       );
+      const getLocationLabel = (value?: string | null) => {
+        const displayValue = String(value || '').trim();
+        if (!displayValue || this.isInvalidHeatMapLocation(displayValue)) {
+          return undefined;
+        }
+
+        const normalized = this.normalizeDistrictName(displayValue);
+        const mappedLabel = labelMap.get(normalized);
+        if (mappedLabel) return mappedLabel;
+
+        labelMap.set(normalized, displayValue);
+        labels.push(displayValue);
+        return displayValue;
+      };
+      const locationField =
+        scope === 'state'
+          ? 'state'
+          : scope === 'district'
+            ? 'district'
+            : scope === 'block'
+              ? 'blockName'
+              : 'villageName';
+      const selectedLocationFilters: Record<string, string[]> = {};
+      if (
+        selectedState &&
+        selectedState !== 'all' &&
+        !this.isInvalidHeatMapLocation(selectedState)
+      ) {
+        selectedLocationFilters.state =
+          this.getEquivalentLocationNames(selectedState);
+      }
+      if (
+        selectedDistrict &&
+        selectedDistrict !== 'all' &&
+        !this.isInvalidHeatMapLocation(selectedDistrict)
+      ) {
+        selectedLocationFilters.district =
+          this.getEquivalentLocationNames(selectedDistrict);
+      }
+      if (
+        selectedBlock &&
+        selectedBlock !== 'all' &&
+        !this.isInvalidHeatMapLocation(selectedBlock)
+      ) {
+        selectedLocationFilters.blockName =
+          this.getEquivalentLocationNames(selectedBlock);
+      }
+      if (
+        selectedVillage &&
+        selectedVillage !== 'all' &&
+        !this.isInvalidHeatMapLocation(selectedVillage)
+      ) {
+        selectedLocationFilters.villageName =
+          this.getEquivalentLocationNames(selectedVillage);
+      }
 
       const finalSource: QuestionSource =
         source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
@@ -3487,11 +3586,12 @@ if (!districts.length) {
             {
               $addFields: {
                 _userOid: {
-                  $cond: [
-                    {$and: [{$ne: ['$user', null]}, {$ne: ['$user', '']}]},
-                    {$toObjectId: '$user'},
-                    null,
-                  ],
+                  $convert: {
+                    input: '$user',
+                    to: 'objectId',
+                    onError: null,
+                    onNull: null,
+                  },
                 },
               },
             },
@@ -3514,17 +3614,14 @@ if (!districts.length) {
                         : {'_userDoc.userRole': 'INTERNAL'},
                   },
                 ]),
-            ...(scope === 'district'
-              ? [{$match: {'_userDoc.farmerProfile.state': selectedState}}]
-              : []),
+            ...Object.entries(selectedLocationFilters).map(([key, values]) => ({
+              $match: {[`_userDoc.farmerProfile.${key}`]: {$in: values}},
+            })),
             {
               $project: {
                 user: '$user',
                 createdAt: 1,
-                location:
-                  scope === 'district'
-                    ? '$_userDoc.farmerProfile.district'
-                    : '$_userDoc.farmerProfile.state',
+                location: `$_userDoc.farmerProfile.${locationField}`,
               },
             },
             {$match: {location: {$exists: true, $nin: [null, '']}}},
@@ -3536,9 +3633,7 @@ if (!districts.length) {
       const activeFarmerMap = new Map<string, Set<string>>();
       for (const row of activeFarmerRows) {
         const bucket = getBucketKey(new Date(row.createdAt));
-        const label = labelMap.get(
-          this.normalizeDistrictName(String(row.location)),
-        );
+        const label = getLocationLabel(String(row.location));
         if (!bucket || !label) continue;
         const key = `${label}__${bucket}`;
         if (!activeFarmerMap.has(key)) activeFarmerMap.set(key, new Set());
@@ -3667,17 +3762,15 @@ if (!districts.length) {
           if (!matchesUserType) return [];
         }
 
-        if (
-          scope === 'district' &&
-          userDoc.farmerProfile.state !== selectedState
-        ) {
-          return [];
+        for (const [key, values] of Object.entries(selectedLocationFilters)) {
+          if (
+            !this.matchesEquivalentLocation(userDoc.farmerProfile?.[key], values)
+          ) {
+            return [];
+          }
         }
 
-        const location =
-          scope === 'district'
-            ? userDoc.farmerProfile.district
-            : userDoc.farmerProfile.state;
+        const location = userDoc.farmerProfile?.[locationField];
         if (!location) return [];
 
         return [{...row, location}];
@@ -3687,6 +3780,7 @@ if (!districts.length) {
         string,
         {
           totalQuestions: number;
+          duplicateQuestions: number;
           closedQuestions: number;
           notifiedQuestions: number;
           closureTotalMinutes: number;
@@ -3697,13 +3791,12 @@ if (!districts.length) {
 
       for (const row of questionRows) {
         const bucket = getBucketKey(new Date(row.createdAt));
-        const label = labelMap.get(
-          this.normalizeDistrictName(String(row.location)),
-        );
+        const label = getLocationLabel(String(row.location));
         if (!bucket || !label) continue;
         const key = `${label}__${bucket}`;
         const existing = questionMap.get(key) || {
           totalQuestions: 0,
+          duplicateQuestions: 0,
           closedQuestions: 0,
           notifiedQuestions: 0,
           closureTotalMinutes: 0,
@@ -3714,6 +3807,9 @@ if (!districts.length) {
         existing.totalQuestions += 1;
         existing.statusDistribution[status] =
           (existing.statusDistribution[status] || 0) + 1;
+        if (status === 'duplicate') {
+          existing.duplicateQuestions += 1;
+        }
 
         if (status === 'closed') {
           existing.closedQuestions += 1;
@@ -3735,12 +3831,15 @@ if (!districts.length) {
         questionMap.set(key, existing);
       }
 
+      labels = [...new Set(labels)].sort((a, b) => a.localeCompare(b));
+
       const calculateTotals = (
         labelFilter?: string,
         bucketFilter?: string,
       ): FarmerHeatMapMetricTotals => {
         const activeFarmerIds = new Set<string>();
         let totalQuestions = 0;
+        let duplicateQuestions = 0;
         let closedQuestions = 0;
         let notifiedQuestions = 0;
         let closureTotalMinutes = 0;
@@ -3764,6 +3863,7 @@ if (!districts.length) {
             if (!questionMetrics) continue;
 
             totalQuestions += questionMetrics.totalQuestions;
+            duplicateQuestions += questionMetrics.duplicateQuestions;
             closedQuestions += questionMetrics.closedQuestions;
             notifiedQuestions += questionMetrics.notifiedQuestions;
             closureTotalMinutes += questionMetrics.closureTotalMinutes;
@@ -3773,6 +3873,7 @@ if (!districts.length) {
         return {
           activeFarmers: activeFarmerIds.size,
           totalQuestions,
+          duplicateQuestions,
           closedQuestions,
           notifiedQuestions,
           averageClosureTimeMinutes:
@@ -3801,6 +3902,7 @@ if (!districts.length) {
             label: bucket.label,
             activeFarmers,
             totalQuestions: questionMetrics?.totalQuestions ?? 0,
+            duplicateQuestions: questionMetrics?.duplicateQuestions ?? 0,
             closedQuestions: questionMetrics?.closedQuestions ?? 0,
             notifiedQuestions: questionMetrics?.notifiedQuestions ?? 0,
             averageClosureTimeMinutes,
@@ -3832,6 +3934,10 @@ if (!districts.length) {
               acc.totalQuestions,
               cell.totalQuestions,
             );
+            acc.duplicateQuestions = Math.max(
+              acc.duplicateQuestions,
+              cell.duplicateQuestions,
+            );
             acc.closedQuestions = Math.max(
               acc.closedQuestions,
               cell.closedQuestions,
@@ -3850,6 +3956,7 @@ if (!districts.length) {
         {
           activeFarmers: 0,
           totalQuestions: 0,
+          duplicateQuestions: 0,
           closedQuestions: 0,
           notifiedQuestions: 0,
           averageClosureTimeMinutes: 0,
@@ -3862,6 +3969,9 @@ if (!districts.length) {
           source,
           userType,
           state: selectedState,
+          district: selectedDistrict,
+          block: selectedBlock,
+          village: selectedVillage,
           granularity,
           startDate: startDate.toISOString(),
           endDate: endDate.toISOString(),

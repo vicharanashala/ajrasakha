@@ -7,12 +7,16 @@ export type FarmerHeatMapGranularity = "monthly" | "weekly" | "daily" | "hourly"
 export type FarmerHeatMapMetric =
   | "activeFarmers"
   | "totalQuestions"
+  | "duplicateQuestions"
   | "closedQuestions"
   | "notifiedQuestions"
   | "averageClosureTimeMinutes";
 
 export interface FarmerHeatMapFilters {
   state: string;
+  district: string;
+  block: string;
+  village: string;
   granularity: FarmerHeatMapGranularity;
   startDate?: Date;
   endDate?: Date;
@@ -31,6 +35,7 @@ export interface FarmerHeatMapCell {
   label: string;
   activeFarmers: number;
   totalQuestions: number;
+  duplicateQuestions: number;
   closedQuestions: number;
   notifiedQuestions: number;
   averageClosureTimeMinutes: number;
@@ -42,7 +47,7 @@ export type FarmerHeatMapMetricTotals = Record<FarmerHeatMapMetric, number>;
 export interface FarmerHeatMapRow {
   id: string;
   label: string;
-  scope: "state" | "district";
+  scope: "state" | "district" | "block" | "village";
   cells: FarmerHeatMapCell[];
   totals: FarmerHeatMapMetricTotals;
 }
@@ -57,6 +62,9 @@ export interface FarmerHeatMapResponse {
 
 export const DEFAULT_FARMER_HEAT_MAP_FILTERS: FarmerHeatMapFilters = {
   state: "all",
+  district: "all",
+  block: "all",
+  village: "all",
   granularity: "monthly",
   startDate: undefined,
   endDate: undefined,
@@ -69,6 +77,7 @@ const EMPTY_FARMER_HEAT_MAP_RESPONSE: FarmerHeatMapResponse = {
   totals: {
     activeFarmers: 0,
     totalQuestions: 0,
+    duplicateQuestions: 0,
     closedQuestions: 0,
     notifiedQuestions: 0,
     averageClosureTimeMinutes: 0,
@@ -76,6 +85,7 @@ const EMPTY_FARMER_HEAT_MAP_RESPONSE: FarmerHeatMapResponse = {
   maxValues: {
     activeFarmers: 0,
     totalQuestions: 0,
+    duplicateQuestions: 0,
     closedQuestions: 0,
     notifiedQuestions: 0,
     averageClosureTimeMinutes: 0,
@@ -98,6 +108,9 @@ export function useFarmerHeatMapAnalytics(
       params.set("granularity", filters.granularity);
 
       if (filters.state !== "all") params.set("state", filters.state);
+      if (filters.district !== "all") params.set("district", filters.district);
+      if (filters.block !== "all") params.set("block", filters.block);
+      if (filters.village !== "all") params.set("village", filters.village);
       if (userType !== "all") params.set("userType", userType);
       if (filters.startDate) {
         params.set("startDate", filters.startDate.toISOString());

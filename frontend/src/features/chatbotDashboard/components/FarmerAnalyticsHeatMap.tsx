@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Activity, InfoIcon, MapPinned, RefreshCw } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -17,9 +17,15 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
-import { STATES } from "@/components/MetaData";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  type ILocationBlock,
+  type ILocationDistrict,
+  type ILocationState,
+  type ILocationVillage,
+  LocationService,
+} from "@/hooks/services/locationService";
 
 import {
   DEFAULT_FARMER_HEAT_MAP_FILTERS,
@@ -49,6 +55,11 @@ const metricOptions: Array<{
     value: "totalQuestions",
     label: "Total Questions",
     shortLabel: "Questions",
+  },
+  {
+    value: "duplicateQuestions",
+    label: "Duplicate Questions",
+    shortLabel: "Duplicates",
   },
   {
     value: "closedQuestions",
@@ -96,6 +107,8 @@ const selectClassName =
 
 const activeSelectClassName =
   "h-9 w-full justify-between rounded-md border border-[#3AAA5A] bg-green-50 px-3 text-sm font-medium text-green-700 shadow-sm dark:bg-green-950/20 dark:text-green-300";
+
+const locationService = new LocationService();
 
 const formatValue = (metric: FarmerHeatMapMetric, value: number) => {
   if (metric === "averageClosureTimeMinutes") {
@@ -206,6 +219,10 @@ export function FarmerAnalyticsHeatMap({
   const [metric, setMetric] =
     useState<FarmerHeatMapMetric>("totalQuestions");
   const [refreshing, setRefreshing] = useState(false);
+  const [states, setStates] = useState<ILocationState[]>([]);
+  const [districts, setDistricts] = useState<ILocationDistrict[]>([]);
+  const [blocks, setBlocks] = useState<ILocationBlock[]>([]);
+  const [villages, setVillages] = useState<ILocationVillage[]>([]);
   const queryClient = useQueryClient();
   const yearOptions = useMemo(
     () => Array.from({ length: 6 }, (_, index) => now.getFullYear() - index),
@@ -252,11 +269,150 @@ export function FarmerAnalyticsHeatMap({
     [metric, rows],
   );
   const selectedMetricTotal = Number(data?.totals?.[metric] ?? 0);
+  const rowAxisLabel =
+    data?.rows?.[0]?.scope === "village"
+      ? "Villages"
+      : data?.rows?.[0]?.scope === "block"
+        ? "Blocks"
+        : data?.rows?.[0]?.scope === "district"
+          ? "Districts"
+          : "States";
+  const stateOptions = useMemo(
+    () =>
+      states
+        .map((state) => state.stateNameEnglish)
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b)),
+    [states],
+  );
+  const districtOptions = useMemo(
+    () =>
+      districts
+        .map((district) => district.districtNameEnglish)
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b)),
+    [districts],
+  );
+  const blockOptions = useMemo(
+    () =>
+      blocks
+        .map((block) => block.blockNameEnglish)
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b)),
+    [blocks],
+  );
+  const villageOptions = useMemo(
+    () =>
+      villages
+        .map((village) => village.villageNameEnglish)
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b)),
+    [villages],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    locationService.getStates().then((items) => {
+      if (!cancelled) setStates(items ?? []);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const selected = states.find(
+      (state) => state.stateNameEnglish === filters.state,
+    );
+
+    if (!selected) {
+      setDistricts([]);
+      return;
+    }
+
+    let cancelled = false;
+    locationService.getDistricts(selected.stateCode).then((items) => {
+      if (!cancelled) setDistricts(items ?? []);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [filters.state, states]);
+
+  useEffect(() => {
+    const selected = districts.find(
+      (district) => district.districtNameEnglish === filters.district,
+    );
+
+    if (!selected) {
+      setBlocks([]);
+      return;
+    }
+
+    let cancelled = false;
+    locationService.getBlocks(selected.districtCode).then((items) => {
+      if (!cancelled) setBlocks(items ?? []);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [districts, filters.district]);
+
+  useEffect(() => {
+    const selected = blocks.find(
+      (block) => block.blockNameEnglish === filters.block,
+    );
+
+    if (!selected) {
+      setVillages([]);
+      return;
+    }
+
+    let cancelled = false;
+    locationService.getVillages(selected.blockCode).then((items) => {
+      if (!cancelled) setVillages(items ?? []);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [blocks, filters.block]);
 
   const updateState = (state: string) => {
     setFilters((current) => ({
       ...current,
       state,
+      district: "all",
+      block: "all",
+      village: "all",
+    }));
+  };
+
+  const updateDistrict = (district: string) => {
+    setFilters((current) => ({
+      ...current,
+      district,
+      block: "all",
+      village: "all",
+    }));
+  };
+
+  const updateBlock = (block: string) => {
+    setFilters((current) => ({
+      ...current,
+      block,
+      village: "all",
+    }));
+  };
+
+  const updateVillage = (village: string) => {
+    setFilters((current) => ({
+      ...current,
+      village,
     }));
   };
 
@@ -341,7 +497,7 @@ export function FarmerAnalyticsHeatMap({
                 </Tooltip>
               </CardTitle>
               <p className="text-[11px] text-muted-foreground">
-                State and district farmer activity by selected period
+                Farmer activity by selected location and period
               </p>
             </div>
           </motion.div>
@@ -369,9 +525,9 @@ export function FarmerAnalyticsHeatMap({
           transition={{ duration: 0.3, ease: "easeOut", delay: 0.05 }}
           className="flex flex-wrap items-center gap-2"
         >
-          <div className="min-w-[180px] flex-1 sm:max-w-xs">
+          <div className="min-w-[180px] flex-1 sm:max-w-[220px]">
             <SearchableSelect
-              options={STATES}
+              options={stateOptions}
               value={filters.state}
               onChange={updateState}
               placeholder="All States"
@@ -379,6 +535,42 @@ export function FarmerAnalyticsHeatMap({
               activeClassName={activeSelectClassName}
             />
           </div>
+          {filters.state !== "all" && (
+            <div className="min-w-[180px] flex-1 sm:max-w-[220px]">
+              <SearchableSelect
+                options={districtOptions}
+                value={filters.district}
+                onChange={updateDistrict}
+                placeholder="All Districts"
+                className={cn(selectClassName, "h-8")}
+                activeClassName={activeSelectClassName}
+              />
+            </div>
+          )}
+          {filters.district !== "all" && (
+            <div className="min-w-[180px] flex-1 sm:max-w-[220px]">
+              <SearchableSelect
+                options={blockOptions}
+                value={filters.block}
+                onChange={updateBlock}
+                placeholder="All Blocks"
+                className={cn(selectClassName, "h-8")}
+                activeClassName={activeSelectClassName}
+              />
+            </div>
+          )}
+          {filters.block !== "all" && (
+            <div className="min-w-[180px] flex-1 sm:max-w-[220px]">
+              <SearchableSelect
+                options={villageOptions}
+                value={filters.village}
+                onChange={updateVillage}
+                placeholder="All Villages"
+                className={cn(selectClassName, "h-8")}
+                activeClassName={activeSelectClassName}
+              />
+            </div>
+          )}
 
           <div className="flex h-8 items-center gap-0.5 rounded-md bg-muted/60 p-0.5 ring-1 ring-border/60">
             {periodModeOptions.map((item) => {
@@ -600,7 +792,7 @@ export function FarmerAnalyticsHeatMap({
             </motion.span>
           </span>
           <span className="rounded border border-border/60 bg-background px-2 py-0.5 text-muted-foreground">
-            Y: {filters.state === "all" ? "States" : "Districts"}
+            Y: {rowAxisLabel}
           </span>
           <span className="rounded border border-border/60 bg-background px-2 py-0.5 text-muted-foreground">
             X:{" "}
@@ -653,7 +845,7 @@ export function FarmerAnalyticsHeatMap({
                   <thead className="sticky top-0 z-20 bg-card">
                     <tr>
                       <th className="sticky left-0 z-30 min-w-[180px] border-b border-r border-border/60 bg-card px-3 py-2.5 text-left font-semibold text-foreground">
-                        {filters.state === "all" ? "States" : "Districts"}
+                        {rowAxisLabel}
                       </th>
                       {buckets.map((bucket) => (
                         <th
@@ -686,6 +878,7 @@ export function FarmerAnalyticsHeatMap({
                             `${row.label} - ${cell.label}`,
                             `Active farmers: ${cell.activeFarmers}`,
                             `Total questions: ${cell.totalQuestions}`,
+                            `Duplicate questions: ${cell.duplicateQuestions}`,
                             `Closed questions: ${cell.closedQuestions}`,
                             `Notified questions: ${cell.notifiedQuestions}`,
                             `Average closure time: ${formatValue("averageClosureTimeMinutes", cell.averageClosureTimeMinutes)}`,

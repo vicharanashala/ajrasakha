@@ -138,14 +138,29 @@ export interface FarmerHeatMapFilters {
   source?: string;
   userType?: string;
   state?: string;
+  district?: string;
+  block?: string;
+  village?: string;
   granularity?: FarmerHeatMapGranularity;
   startDate?: string;
   endDate?: string;
 }
 
+export type FarmerHeatMapLocationScope =
+  | 'state'
+  | 'district'
+  | 'block'
+  | 'village';
+
+export interface FarmerHeatMapLocationHierarchy {
+  scope: FarmerHeatMapLocationScope;
+  labels: string[];
+}
+
 export interface FarmerHeatMapMetricTotals {
   activeFarmers: number;
   totalQuestions: number;
+  duplicateQuestions: number;
   closedQuestions: number;
   notifiedQuestions: number;
   averageClosureTimeMinutes: number;
@@ -164,6 +179,7 @@ export interface FarmerHeatMapCell {
   label: string;
   activeFarmers: number;
   totalQuestions: number;
+  duplicateQuestions: number;
   closedQuestions: number;
   notifiedQuestions: number;
   averageClosureTimeMinutes: number;
@@ -173,7 +189,7 @@ export interface FarmerHeatMapCell {
 export interface FarmerHeatMapRow {
   id: string;
   label: string;
-  scope: 'state' | 'district';
+  scope: FarmerHeatMapLocationScope;
   cells: FarmerHeatMapCell[];
   totals: FarmerHeatMapMetricTotals;
 }
@@ -186,6 +202,7 @@ export interface FarmerHeatMapResponse {
   maxValues: {
     activeFarmers: number;
     totalQuestions: number;
+    duplicateQuestions: number;
     closedQuestions: number;
     notifiedQuestions: number;
     averageClosureTimeMinutes: number;
@@ -771,6 +788,7 @@ export interface IChatbotRepository {
 
   getFarmerHeatMapAnalytics(
     filters?: FarmerHeatMapFilters,
+    locationHierarchy?: FarmerHeatMapLocationHierarchy,
     session?: ClientSession,
   ): Promise<FarmerHeatMapResponse>;
 

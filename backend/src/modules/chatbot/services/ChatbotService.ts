@@ -21,6 +21,7 @@ import type {
   FeedbackData,
   ResponseAdherenceTable,
   FarmerHeatMapFilters,
+  FarmerHeatMapLocationHierarchy,
   FarmerHeatMapResponse,
   CoordinatorDuplicateQuestionHeatMapResponse,
   CoordinatorDuplicateQuestionLocationHierarchy,
@@ -374,6 +375,114 @@ export class ChatbotService extends BaseService implements IChatbotService {
           };
         }),
       ),
+    };
+  }
+
+  private async buildFarmerHeatMapLocationHierarchy(
+    filters: FarmerHeatMapFilters = {},
+  ): Promise<FarmerHeatMapLocationHierarchy> {
+    const state = filters.state;
+    const district = filters.district;
+    const block = filters.block;
+    const village = filters.village;
+    const fallbackScope: FarmerHeatMapLocationHierarchy['scope'] =
+      !state || state === 'all'
+        ? 'state'
+        : !district || district === 'all'
+          ? 'district'
+          : !block || block === 'all'
+            ? 'block'
+            : 'village';
+    let states: HeatMapLgdState[] = [];
+
+    try {
+      states = await this.getHeatMapLgdStates();
+    } catch {
+      return {scope: fallbackScope, labels: []};
+    }
+
+    if (!state || state === 'all') {
+      return {
+        scope: 'state',
+        labels: states
+          .map(item => item.stateNameEnglish)
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b)),
+      };
+    }
+
+    const selectedState = this.findLocationByName(
+      states,
+      state,
+      item => item.stateNameEnglish,
+    );
+    if (!selectedState) return {scope: 'district', labels: []};
+
+    const districts = await this.getHeatMapLgdDistricts(
+      selectedState.stateCode,
+    ).catch(() => []);
+
+    if (!district || district === 'all') {
+      return {
+        scope: 'district',
+        labels: districts
+          .map(item => item.districtNameEnglish)
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b)),
+      };
+    }
+
+    const selectedDistrict = this.findLocationByName(
+      districts,
+      district,
+      item => item.districtNameEnglish,
+    );
+    if (!selectedDistrict) return {scope: 'block', labels: []};
+
+    const blocks = await this.getHeatMapLgdBlocks(
+      selectedDistrict.districtCode,
+    ).catch(() => []);
+
+    if (!block || block === 'all') {
+      return {
+        scope: 'block',
+        labels: blocks
+          .map(item => item.blockNameEnglish)
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b)),
+      };
+    }
+
+    const selectedBlock = this.findLocationByName(
+      blocks,
+      block,
+      item => item.blockNameEnglish,
+    );
+    if (!selectedBlock) return {scope: 'village', labels: []};
+
+    const villages = await this.getHeatMapLgdVillages(
+      selectedBlock.blockCode,
+    ).catch(() => []);
+
+    if (village && village !== 'all') {
+      const selectedVillage = this.findLocationByName(
+        villages,
+        village,
+        item => item.villageNameEnglish,
+      );
+
+      return {
+        scope: 'village',
+        labels: selectedVillage ? [selectedVillage.villageNameEnglish] : [],
+      };
+    }
+
+    return {
+      scope: 'village',
+      labels: villages
+        .map(item => item.villageNameEnglish)
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b)),
     };
   }
 
@@ -1001,7 +1110,13 @@ export class ChatbotService extends BaseService implements IChatbotService {
     filters: FarmerHeatMapFilters = {},
   ): Promise<FarmerHeatMapResponse> {
     try {
-      return await this.chatbotRepository.getFarmerHeatMapAnalytics(filters);
+      const locationHierarchy =
+        await this.buildFarmerHeatMapLocationHierarchy(filters);
+
+      return await this.chatbotRepository.getFarmerHeatMapAnalytics(
+        filters,
+        locationHierarchy,
+      );
     } catch (error) {
       throw new InternalServerError(
         `Failed to fetch farmer heat map analytics: ${error}`,
