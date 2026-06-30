@@ -43,7 +43,14 @@ const DOMAIN_OPTIONS = [
   "Market Prices, MSP & Marketing",
   "Agricultural Schemes & Subsidies",
   "Credit, Loan & Insurance",
-  "Other"
+  "Capacity Building & Extension",
+  "Rural Infrastructure",
+  "Animal Husbandry & Livestock",
+  "Fisheries & Aquaculture",
+  "Horticulture & Landscaping",
+  "Allied Agricultural Activities",
+  "Others",
+  "NA / Invalid Data"
 ];
 
 const SEASON_OPTIONS = [
@@ -79,37 +86,331 @@ const getAutoSelectedSeason = (): string => {
 const DUMMY_TRANSCRIPTS: CallTranscript[] = [
   {
     track: "inbound",
-    text: "नमस्ते, मेरी टमाटर की फसल में पत्तियाँ सिकुड़ रही हैं और पौधे का विकास रुक गया है। मुझे क्या करना चाहिए?",
-    originalText: "नमस्ते, मेरी टमाटर की फसल में पत्तियाँ सिकुड़ रही हैं और पौधे का विकास रुक गया है। मुझे क्या करना चाहिए?",
-    translatedText: "Hello, the leaves of my tomato crop are curling and the plant growth has stopped. What should I do?",
+    text: "नमस्ते, मैं पंजाब से बोल रहा हूँ। मेरी आलू की फसल में पत्तियों पर भूरे धब्बे आ रहे हैं और वे सूखने लगी हैं। क्या यह लीफ ब्लाइट बीमारी है? और क्या आज बारिश होने की संभावना है?",
+    originalText: "नमस्ते, मैं पंजाब से बोल रहा हूँ। मेरी आलू की फसल में पत्तियों पर भूरे धब्बे आ रहे हैं और वे सूखने लगी हैं। क्या यह लीफ ब्लाइट बीमारी है? और क्या आज बारिश होने की संभावना है?",
+    translatedText: "Hello, I am calling from Punjab. Brown spots have appeared on the leaves of my potato crop, and they are starting to dry. Is this leaf blight disease? Also, is there a chance of rain today?",
     detectedLanguage: "hi-IN",
     timestamp: new Date(Date.now() - 120000).toISOString()
   },
   {
     track: "outbound",
-    text: "नमस्ते। क्या पत्तियों पर कोई सफेद मक्खी या छोटे कीड़े दिखाई दे रहे हैं? यह लीफ कर्ल वायरस के लक्षण हो सकते हैं।",
-    originalText: "नमस्ते। क्या पत्तियों पर कोई सफेद मक्खी या छोटे कीड़े दिखाई दे रहे हैं? यह लीफ कर्ल वायरस के लक्षण हो सकते हैं।",
-    translatedText: "Hello. Are there any whiteflies or small insects visible on the leaves? These could be symptoms of Leaf Curl Virus.",
+    text: "नमस्ते। यदि पत्तियों पर भूरे धब्बे तेजी से फैल रहे हैं और नमी अधिक है, तो यह अर्ली या लेट ब्लाइट के लक्षण हो सकते हैं। क्या धब्बों के चारों ओर पीला घेरा भी दिखाई दे रहा है?",
+    originalText: "नमस्ते। यदि पत्तियों पर भूरे धब्बे तेजी से फैल रहे हैं और नमी अधिक है, तो यह अर्ली या लेट ब्लाइट के लक्षण हो सकते हैं। क्या धब्बों के चारों ओर पीला घेरा भी दिखाई दे रहा है?",
+    translatedText: "Hello. If the brown spots are spreading rapidly and humidity is high, these could be symptoms of early or late blight. Do you also notice a yellow halo around the spots?",
     detectedLanguage: "hi-IN",
     timestamp: new Date(Date.now() - 90000).toISOString()
   },
   {
     track: "inbound",
-    text: "हाँ, पत्तियों के निचले हिस्से में बहुत सारे छोटे सफेद कीड़े उड़ रहे हैं।",
-    originalText: "हाँ, पत्तियों के निचले हिस्से में बहुत सारे छोटे सफेद कीड़े उड़ रहे हैं।",
-    translatedText: "Yes, there are many small white insects flying under the leaves.",
+    text: "हाँ, कुछ पत्तियों पर पीला घेरा भी है और पिछले कुछ दिनों से मौसम भी नम रहा है।",
+    originalText: "हाँ, कुछ पत्तियों पर पीला घेरा भी है और पिछले कुछ दिनों से मौसम भी नम रहा है।",
+    translatedText: "Yes, some leaves have a yellow halo around the spots, and the weather has been humid for the past few days.",
     detectedLanguage: "hi-IN",
     timestamp: new Date(Date.now() - 60000).toISOString()
   },
   {
     track: "outbound",
-    text: "यह सफेद मक्खी (whitefly) का हमला है जो वायरस फैलाती है। आप नियंत्रण के लिए इमिडाक्लोप्रिड या नीम के तेल का छिड़काव करें।",
-    originalText: "यह सफेद मक्खी (whitefly) का हमला है जो वायरस फैलाती है। आप नियंत्रण के लिए इमिडाक्लोप्रिड या नीम के तेल का छिड़काव करें।",
-    translatedText: "This is a whitefly infestation which transmits the virus. You should spray Imidacloprid or Neem oil for control.",
+    text: "यह लीफ ब्लाइट का संक्रमण हो सकता है। आप तुरंत प्रभावित पत्तियों को हटाएँ और अनुशंसित फफूंदनाशक का छिड़काव करें। जहाँ तक आज बारिश का सवाल है, कृपया अपना जिला बताइए ताकि मैं मौसम की सही जानकारी दे सकूँ।",
+    originalText: "यह लीफ ब्लाइट का संक्रमण हो सकता है। आप तुरंत प्रभावित पत्तियों को हटाएँ और अनुशंसित फफूंदनाशक का छिड़काव करें। जहाँ तक आज बारिश का सवाल है, कृपया अपना जिला बताइए ताकि मैं मौसम की सही जानकारी दे सकूँ।",
+    translatedText: "This could be a leaf blight infection. Remove the affected leaves immediately and spray a recommended fungicide. As for today's rain forecast, please tell me your district so I can provide accurate weather information.",
     detectedLanguage: "hi-IN",
     timestamp: new Date(Date.now() - 30000).toISOString()
   }
 ];
+
+const renderMarkdown = (text: string) => {
+  if (!text) return null;
+
+  const parseInlineMarkdown = (textVal: string) => {
+    if (!textVal) return "";
+    const boldParts = textVal.split(/\*\*([^*]+)\*\*/g);
+    return boldParts.flatMap((boldPart, bIdx) => {
+      const isBold = bIdx % 2 === 1;
+      const codeParts = boldPart.split(/`([^`]+)`/g);
+      const elements = codeParts.flatMap((codePart, cIdx) => {
+        const isCode = cIdx % 2 === 1;
+        if (isCode) {
+          return (
+            <code key={`c-${bIdx}-${cIdx}`} className="px-1.5 py-0.5 rounded bg-zinc-150 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-mono text-[11px] border border-zinc-200/50 dark:border-zinc-700/50">
+              {codePart}
+            </code>
+          );
+        }
+        const italicParts = codePart.split(/\*([^*]+)\*/g);
+        return italicParts.map((italicPart, iIdx) => {
+          const isItalic = iIdx % 2 === 1;
+          if (isItalic) {
+            return (
+              <em key={`i-${bIdx}-${cIdx}-${iIdx}`} className="italic text-zinc-800 dark:text-zinc-200">
+                {italicPart}
+              </em>
+            );
+          }
+          return italicPart;
+        });
+      });
+
+      if (isBold) {
+        return (
+          <strong key={`b-${bIdx}`} className="font-bold text-zinc-950 dark:text-zinc-50">
+            {elements}
+          </strong>
+        );
+      }
+      return elements;
+    });
+  };
+
+  const lines = text.split("\n");
+  const blocks: any[] = [];
+  let currentList: { type: "bullet" | "number"; items: string[] } | null = null;
+
+  const pushCurrentList = () => {
+    if (currentList) {
+      blocks.push({
+        type: currentList.type === "bullet" ? "unordered-list" : "ordered-list",
+        items: currentList.items,
+      });
+      currentList = null;
+    }
+  };
+
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+
+    // Check if it's a bullet list item
+    const isBullet = trimmed.startsWith("-") || trimmed.startsWith("*");
+    // Check if it's a numbered list item
+    const numberMatch = trimmed.match(/^\d+\.\s+(.*)$/);
+
+    if (isBullet) {
+      const itemText = trimmed.replace(/^[-*]\s*/, "");
+      if (currentList && currentList.type === "bullet") {
+        currentList.items.push(itemText);
+      } else {
+        pushCurrentList();
+        currentList = { type: "bullet", items: [itemText] };
+      }
+    } else if (numberMatch) {
+      const itemText = numberMatch[1];
+      if (currentList && currentList.type === "number") {
+        currentList.items.push(itemText);
+      } else {
+        pushCurrentList();
+        currentList = { type: "number", items: [itemText] };
+      }
+    } else {
+      pushCurrentList();
+
+      // Parse header or paragraph
+      const headerMatch = line.match(/^(#{1,6})\s+(.*)$/);
+      if (headerMatch) {
+        blocks.push({
+          type: "header",
+          level: headerMatch[1].length,
+          text: headerMatch[2],
+        });
+      } else if (trimmed.length > 0) {
+        blocks.push({
+          type: "paragraph",
+          text: line,
+        });
+      } else {
+        blocks.push({
+          type: "empty-line",
+        });
+      }
+    }
+  });
+
+  pushCurrentList();
+
+  return blocks.map((block, idx) => {
+    switch (block.type) {
+      case "header": {
+        const level = block.level;
+        if (level === 1) {
+          return (
+            <h1 key={idx} className="text-[14px] font-extrabold text-zinc-950 dark:text-zinc-50 mt-4 mb-2 pb-1 border-b border-zinc-100 dark:border-zinc-800">
+              {parseInlineMarkdown(block.text)}
+            </h1>
+          );
+        }
+        if (level === 2) {
+          return (
+            <h2 key={idx} className="text-xs font-bold text-zinc-900 dark:text-zinc-100 mt-3.5 mb-1.5">
+              {parseInlineMarkdown(block.text)}
+            </h2>
+          );
+        }
+        return (
+          <h3 key={idx} className="text-[11.5px] font-semibold text-zinc-800 dark:text-zinc-200 mt-3 mb-1">
+            {parseInlineMarkdown(block.text)}
+          </h3>
+        );
+      }
+      case "unordered-list":
+        return (
+          <ul key={idx} className="space-y-1.5 my-2.5 pl-1.5">
+            {block.items.map((item: string, itemIdx: number) => (
+              <li key={itemIdx} className="text-[13px] leading-relaxed text-zinc-700 dark:text-zinc-300 flex items-start gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 mt-1.5 shrink-0" />
+                <span className="flex-1">{parseInlineMarkdown(item)}</span>
+              </li>
+            ))}
+          </ul>
+        );
+      case "ordered-list":
+        return (
+          <ol key={idx} className="space-y-1.5 my-2.5 pl-1.5">
+            {block.items.map((item: string, itemIdx: number) => (
+              <li key={itemIdx} className="text-[13px] leading-relaxed text-zinc-700 dark:text-zinc-300 flex items-start gap-2">
+                <span className="flex-shrink-0 w-4 h-4 rounded bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-[9px] font-bold mt-0.5">
+                  {itemIdx + 1}
+                </span>
+                <span className="flex-1 pt-0.5">{parseInlineMarkdown(item)}</span>
+              </li>
+            ))}
+          </ol>
+        );
+      case "paragraph":
+        return (
+          <p key={idx} className="text-[13px] leading-relaxed text-zinc-700 dark:text-zinc-300 mb-2 last:mb-0">
+            {parseInlineMarkdown(block.text)}
+          </p>
+        );
+      case "empty-line":
+        return <div key={idx} className="h-1.5" />;
+      default:
+        return null;
+    }
+  });
+};
+
+const renderWeatherInsights = (weather: any) => {
+  if (!weather || typeof weather !== 'object') {
+    return typeof weather === 'string' ? <p>{weather}</p> : null;
+  }
+
+  const { result } = weather;
+  if (!result) {
+    // Fallback if structure is flat or result key is missing
+    return (
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        {Object.entries(weather).map(([key, val]) => {
+          if (val === null || val === undefined || typeof val === 'function') return null;
+          return (
+            <div key={key} className="flex gap-1.5">
+              <span className="font-semibold capitalize text-sky-900 dark:text-sky-400">{key.replace(/_/g, ' ')}:</span>
+              <span className="text-sky-850 dark:text-sky-300">{typeof val === 'object' ? JSON.stringify(val) : String(val)}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  const today = result.today || {};
+  const forecastList = result.forecast || [];
+
+  return (
+    <div className="space-y-4 text-sky-900 dark:text-sky-300">
+      {/* Location / Station Info */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-sky-200/50 dark:border-sky-800/50 pb-2 mb-2 gap-1">
+        <div>
+          <span className="text-xs font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-400">Weather Station: </span>
+          <span className="text-sm font-bold text-sky-950 dark:text-sky-100">{today.station || "Unknown"}</span>
+          {today.distance_to_station_km && (
+            <span className="text-xs text-sky-600 dark:text-sky-400 ml-1.5 font-medium">
+              ({Number(today.distance_to_station_km).toFixed(1)} km away)
+            </span>
+          )}
+        </div>
+        {today.date && (
+          <span className="text-xs font-medium text-sky-600 dark:text-sky-400">
+            As of {today.date}
+          </span>
+        )}
+      </div>
+
+      {/* Today's Stats & Forecast Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Today's Condition Card */}
+        <div className="bg-white/40 dark:bg-zinc-950/30 rounded-lg p-3 border border-sky-100/50 dark:border-sky-900/30">
+          <p className="text-[10px] font-bold text-sky-700 dark:text-sky-400 uppercase tracking-wider mb-2">Today's Forecast</p>
+          <div className="space-y-1.5 text-xs">
+            <div className="flex justify-between">
+              <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">Condition:</span>
+              <span className="font-semibold text-sky-950 dark:text-sky-100">{today.forecast || "N/A"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">Temperature:</span>
+              <span className="font-semibold text-sky-950 dark:text-sky-100">
+                {today.observed_min_temp || today.forecast_min_temp || "--"}°C to {today.observed_max_temp || today.forecast_max_temp || "--"}°C
+              </span>
+            </div>
+            {today.past_24hrs_rainfall && (
+              <div className="flex justify-between">
+                <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">Rain (Last 24h):</span>
+                <span className="font-semibold text-emerald-700 dark:text-emerald-400">{today.past_24hrs_rainfall}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Today's Climate details Card */}
+        <div className="bg-white/40 dark:bg-zinc-950/30 rounded-lg p-3 border border-sky-100/50 dark:border-sky-900/30">
+          <p className="text-[10px] font-bold text-sky-700 dark:text-sky-400 uppercase tracking-wider mb-2">Humidity & Solar</p>
+          <div className="space-y-1.5 text-xs">
+            <div className="flex justify-between">
+              <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">Humidity (08:30 / 17:30):</span>
+              <span className="font-semibold text-sky-950 dark:text-sky-100">
+                {today.humidity_0830 || "--"}% / {today.humidity_1730 || "--"}%
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sky-700/80 dark:text-sky-400/80 font-medium">Sunrise / Sunset:</span>
+              <span className="font-semibold text-sky-950 dark:text-sky-100">🌅 {today.sunrise || "--"} / 🌇 {today.sunset || "--"}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Multi-Day Forecast */}
+      {forecastList.length > 0 && (
+        <div className="space-y-2 pt-2">
+          <p className="text-[10px] font-bold text-sky-700 dark:text-sky-400 uppercase tracking-wider">Upcoming Forecast</p>
+          <div className="overflow-x-auto rounded-lg border border-sky-100/50 dark:border-sky-900/30 bg-white/30 dark:bg-zinc-950/20">
+            <table className="min-w-full text-xs text-left divide-y divide-sky-100/30 dark:divide-sky-900/30">
+              <thead className="bg-sky-100/40 dark:bg-sky-950/40 text-sky-850 dark:text-sky-350">
+                <tr>
+                  <th className="px-3 py-2 font-semibold">Day</th>
+                  <th className="px-3 py-2 font-semibold">Temp (Min/Max)</th>
+                  <th className="px-3 py-2 font-semibold">Forecast Condition</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-sky-100/20 dark:divide-sky-900/20">
+                {forecastList.map((f: any, idx: number) => (
+                  <tr key={idx} className="hover:bg-sky-50/20 dark:hover:bg-sky-950/10">
+                    <td className="px-3 py-2 font-semibold text-sky-900 dark:text-sky-300">
+                      Day {f.day || (idx + 2)}
+                    </td>
+                    <td className="px-3 py-2 font-medium text-sky-950 dark:text-sky-200">
+                      {f.min_temp}°C - {f.max_temp}°C
+                    </td>
+                    <td className="px-3 py-2 text-sky-850 dark:text-sky-300">
+                      {f.forecast}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const CallInterface = () => {
   const { data: currentUser, refetch: refetchCurrentUser } = useGetCurrentUser();
@@ -120,7 +421,13 @@ export const CallInterface = () => {
   const [callUuid, setCallUuid] = useState<string | null>("8abb85d7-aa02-4b69-95de-cf82034f0988");
   const [lastCallUuid, setLastCallUuid] = useState<string | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
-  const [questions, setQuestions] = useState<GeneratedQuestion[]>([]);
+  interface ExtGeneratedQuestion extends GeneratedQuestion {
+    weather?: any;
+    authorName?: string;
+    sourceName?: string;
+    sourceLink?: string;
+  }
+  const [questions, setQuestions] = useState<ExtGeneratedQuestion[]>([]);
   const lastTranscriptRef = useRef("");
   const { mutateAsync: generateQuestions, isPending: isGeneratingQuestions } = useGenerateCallQuestion();
 
@@ -146,8 +453,28 @@ export const CallInterface = () => {
   const [editableState, setEditableState] = useState("");
   const [editableDistrict, setEditableDistrict] = useState("");
   const [editableDomain, setEditableDomain] = useState<string[]>([]);
-  const [customDomain, setCustomDomain] = useState("");
   const [editableSeason, setEditableSeason] = useState("");
+
+  // Simulated conversation testing state
+  const [simulatedSpeaker, setSimulatedSpeaker] = useState<"inbound" | "outbound">("inbound");
+  const [simulatedText, setSimulatedText] = useState("");
+
+  const handleSimulateAddMessage = () => {
+    if (!simulatedText.trim()) return;
+
+    const newMessage: CallTranscript = {
+      track: simulatedSpeaker,
+      text: simulatedText,
+      originalText: simulatedSpeaker === "inbound" ? simulatedText : "",
+      translatedText: simulatedText,
+      detectedLanguage: simulatedSpeaker === "inbound" ? "hi-IN" : "en-IN",
+      timestamp: new Date().toISOString()
+    };
+
+    setTranscriptsList(prev => [...prev, newMessage]);
+    setSimulatedText("");
+    toast.success(`Added simulated ${simulatedSpeaker} message`);
+  };
 
   // Auto-scroll to bottom of chat bubbles
   useEffect(() => {
@@ -220,7 +547,6 @@ export const CallInterface = () => {
     setEditableState("");
     setEditableDistrict("");
     setEditableDomain([]);
-    setCustomDomain("");
     setEditableSeason("");
   };
 
@@ -241,7 +567,6 @@ export const CallInterface = () => {
     setEditableState("");
     setEditableDistrict("");
     setEditableDomain([]);
-    setCustomDomain("");
     setEditableSeason("");
     toast.success("Conversation cleared");
   };
@@ -266,7 +591,6 @@ export const CallInterface = () => {
     setEditableState("");
     setEditableDistrict("");
     setEditableDomain([]);
-    setCustomDomain("");
     setEditableSeason("");
     toast.success("Loaded test dummy transcript data!");
   };
@@ -336,14 +660,12 @@ export const CallInterface = () => {
       setEditableDistrict(data.extracted_district);
 
       // Use domain from AI response if available, otherwise empty array
-      // Normalize to array (backend might return string or array)
       const normalizedDomain = data.extracted_domain
         ? Array.isArray(data.extracted_domain)
           ? data.extracted_domain
           : [data.extracted_domain]
         : [];
       setEditableDomain(normalizedDomain);
-      setCustomDomain("");
 
       // Auto-select season based on current month
       setEditableSeason(getAutoSelectedSeason());
@@ -371,15 +693,9 @@ export const CallInterface = () => {
       return;
     }
 
-    // Validate domain selection - at least one domain must be selected
+    // Validate domain selection
     if (editableDomain.length === 0) {
       toast.error("Please select at least one domain.");
-      return;
-    }
-
-    // Validate custom domain if "Other" is selected
-    if (editableDomain.includes("Other") && !customDomain.trim()) {
-      toast.error("Please enter a custom domain value.");
       return;
     }
 
@@ -391,11 +707,7 @@ export const CallInterface = () => {
 
     let toastId;
     try {
-      // Check if data was edited
-      // Replace "Other" with customDomain if present
-      const finalDomain = editableDomain.includes("Other")
-        ? editableDomain.map(d => d === "Other" ? customDomain : d)
-        : editableDomain;
+      const finalDomain = editableDomain;
 
       // Normalize extracted domain to array for comparison
       const extractedDomainArray = extractedData?.extracted_domain
@@ -436,6 +748,7 @@ export const CallInterface = () => {
         extracted_crop: editableCrop,
         extracted_state: editableState,
         extracted_district: editableDistrict,
+        standardized_domains: finalDomain,
         extracted_domain: finalDomain,
         extracted_season: editableSeason,
       };
@@ -449,13 +762,29 @@ export const CallInterface = () => {
         setLastCallUuid(null);
       }
 
+      // Extract details from parsed values.final_answer object (or root response if flat)
+      const finalAnswerObj = result?.values?.final_answer || result;
+      const finalAnswerMarkdown = typeof finalAnswerObj === 'string' 
+        ? finalAnswerObj 
+        : (finalAnswerObj?.final_answer || result?.final_answer || '');
+
+      const weather = finalAnswerObj?.weather || null;
+      const similarPair = finalAnswerObj?.gdb?.similar_pair1 || null;
+      const authorName = similarPair?.details?.[0]?.author_name || "";
+      const sourceName = similarPair?.details?.[0]?.source_name || "";
+      const sourceLink = similarPair?.details?.[0]?.source_link || "";
+
       // Convert final answer to question format
-      const generatedQuestion: GeneratedQuestion = {
+      const generatedQuestion: ExtGeneratedQuestion = {
         question: editableQuery,
-        answer: result.final_answer,
+        answer: finalAnswerMarkdown,
         agri_specialist: "ACC_AGENT",
         referenceSource: "acc_agent_hitl",
-        id: Date.now().toString()
+        id: Date.now().toString(),
+        weather,
+        authorName,
+        sourceName,
+        sourceLink
       };
 
       setQuestions([generatedQuestion]);
@@ -556,9 +885,16 @@ export const CallInterface = () => {
         <Card className="h-fit border border-zinc-200/40 dark:border-zinc-800/40 shadow-2xl bg-white/70 dark:bg-zinc-950/60 backdrop-blur-lg overflow-hidden rounded-2xl transition-all duration-300">
           <CardHeader className="border-b border-zinc-200/50 dark:border-zinc-800/50 bg-zinc-50/50 dark:bg-zinc-900/50 px-6 py-4">
             <CardTitle className="text-sm font-semibold flex items-center justify-between">
-              <span className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
-                <MessageSquare className={`h-4 w-4 ${isCallActive ? "animate-pulse" : ""}`} />
-                Live Conversation Dialogue
+              <span className="flex flex-col md:flex-row md:items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className={`h-4 w-4 ${isCallActive ? "animate-pulse" : ""}`} />
+                  Live Conversation Dialogue
+                </div>
+                {callUuid && (
+                  <Badge variant="secondary" className="font-mono text-[10px] py-0.5 px-2 bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/30">
+                    UUID: {callUuid}
+                  </Badge>
+                )}
               </span>
               <div className="flex items-center gap-4">
                 {isCallActive ? (
@@ -606,13 +942,13 @@ export const CallInterface = () => {
             </CardTitle>
           </CardHeader>
           <div
-            className={`transition-all duration-500 ease-in-out overflow-hidden ${(isCallActive || transcriptsList.length > 0) ? "max-h-[480px] opacity-100" : "max-h-0 opacity-0"
+            className={`transition-all duration-500 ease-in-out overflow-hidden ${(isCallActive || transcriptsList.length > 0) ? "max-h-[850px] opacity-100" : "max-h-0 opacity-0"
               }`}
           >
-            <CardContent className="p-6 bg-zinc-50/20 dark:bg-zinc-950/20">
+            <CardContent className="p-6 bg-zinc-50/20 dark:bg-zinc-950/20 space-y-4">
               <div
                 ref={chatContainerRef}
-                className="space-y-5 h-[400px] overflow-y-auto pr-3 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-800 flex flex-col"
+                className="space-y-5 h-[400px] overflow-y-auto pr-3 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-800 flex flex-col border-b border-zinc-100 dark:border-zinc-900 pb-4"
               >
                 {transcriptsList.length > 0 ? (
                   transcriptsList.map((msg, index) => {
@@ -678,6 +1014,98 @@ export const CallInterface = () => {
                     </p>
                   </div>
                 ) : null}
+              </div>
+
+              {/* Simulation/Testing Controls Panel */}
+              <div className="pt-2 space-y-3 bg-zinc-50/50 dark:bg-zinc-900/30 p-3.5 rounded-xl border border-zinc-200/50 dark:border-zinc-800/50 animate-in fade-in duration-300">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-indigo-600 dark:bg-indigo-400 animate-pulse" />
+                    Testing & Simulation Panel
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Call Status:</span>
+                    <Button
+                      onClick={() => setIsCallActive(!isCallActive)}
+                      size="sm"
+                      variant="outline"
+                      className={`h-6 text-[10px] px-2 font-medium transition-colors ${isCallActive
+                        ? "border-emerald-300 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-900 dark:text-emerald-400 dark:hover:bg-emerald-950/20"
+                        : "border-zinc-300 text-zinc-500 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                        }`}
+                    >
+                      {isCallActive ? "Streaming Active" : "Call Concluded"}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="test-call-uuid" className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1 block">
+                      Testing Call UUID
+                    </Label>
+                    <Input
+                      id="test-call-uuid"
+                      value={callUuid || ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setCallUuid(val || null);
+                        if (!val && callUuid) {
+                          setLastCallUuid(callUuid);
+                        }
+                      }}
+                      placeholder="e.g. 8abb85d7-aa02-4b69-95de-cf82034f0988"
+                      className="h-8 text-xs font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="test-msg-type" className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1 block">
+                      Speaker Type
+                    </Label>
+                    <Select
+                      value={simulatedSpeaker}
+                      onValueChange={(val: "inbound" | "outbound") => setSimulatedSpeaker(val)}
+                    >
+                      <SelectTrigger id="test-msg-type" className="h-8 text-xs">
+                        <SelectValue placeholder="Select speaker" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="inbound" className="text-xs">Farmer (Inbound / Request)</SelectItem>
+                        <SelectItem value="outbound" className="text-xs">Expert (Outbound / Response)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="test-msg-text" className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1 block">
+                    Simulate Message / Speech Text
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="test-msg-text"
+                      value={simulatedText}
+                      onChange={(e) => setSimulatedText(e.target.value)}
+                      placeholder="Type simulated farmer/expert text and press Add Message..."
+                      className="h-8 text-xs flex-1"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSimulateAddMessage();
+                        }
+                      }}
+                    />
+                    <Button
+                      onClick={handleSimulateAddMessage}
+                      disabled={!simulatedText.trim()}
+                      size="sm"
+                      className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 font-semibold rounded-lg shadow-sm"
+                    >
+                      Add Message
+                    </Button>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </div>
@@ -772,11 +1200,11 @@ export const CallInterface = () => {
                           />
                         </div>
 
-                        <div>
+                        <div className="md:col-span-2">
                           <Label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-2 block">
                             Domain (Select multiple)
                           </Label>
-                          <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border border-zinc-200 dark:border-zinc-800 rounded-lg bg-zinc-50 dark:bg-zinc-900">
+                          <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2.5 border border-zinc-200/60 dark:border-zinc-800 rounded-lg bg-zinc-50 dark:bg-zinc-900 scrollbar-thin scrollbar-thumb-zinc-300 dark:scrollbar-thumb-zinc-800">
                             {DOMAIN_OPTIONS.map((domain) => (
                               <div key={domain} className="flex items-center gap-2">
                                 <Checkbox
@@ -800,21 +1228,6 @@ export const CallInterface = () => {
                             ))}
                           </div>
                         </div>
-
-                        {editableDomain.includes("Other") && (
-                          <div className="md:col-span-2">
-                            <Label htmlFor="customDomain" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
-                              Custom Domain
-                            </Label>
-                            <Input
-                              id="customDomain"
-                              value={customDomain}
-                              onChange={(e) => setCustomDomain(e.target.value)}
-                              className="text-sm"
-                              placeholder="Enter custom domain..."
-                            />
-                          </div>
-                        )}
 
                         <div>
                           <Label htmlFor="season" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block">
@@ -849,7 +1262,7 @@ export const CallInterface = () => {
                         </Button>
                         <Button
                           onClick={handleApproveAndResume}
-                          disabled={isResuming || !editableQuery.trim() || !editableDomain || (editableDomain.includes("Other") && !customDomain.trim()) || !editableSeason}
+                          disabled={isResuming || !editableQuery.trim() || editableDomain.length === 0 || !editableSeason}
                           size="sm"
                           className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
                         >
@@ -987,19 +1400,63 @@ export const CallInterface = () => {
                                   </div>
                                 </AccordionTrigger>
 
-                                <AccordionContent className="pt-3 pb-1">
-                                  <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-900/50 rounded-lg p-3 space-y-2 mb-3">
-                                    <div className="flex justify-between items-center w-full px-1">
-                                      <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-semibold text-xs tracking-wider uppercase">
-                                        <Globe className="w-3.5 h-3.5" />
-                                        <span>Reference Source</span>
+
+
+                                {qn.weather && (
+                                  <AccordionContent className="pt-0 pb-1">
+                                    <div className="bg-sky-50 dark:bg-sky-950/20 border border-sky-200/50 dark:border-sky-900/50 rounded-lg p-3 space-y-2 mb-3">
+                                      <div className="flex justify-between items-center w-full px-1">
+                                        <div className="flex items-center gap-1.5 text-sky-700 dark:text-sky-400 font-semibold text-xs tracking-wider uppercase">
+                                          <svg className="w-3.5 h-3.5 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                                          </svg>
+                                          <span>Weather Insights</span>
+                                        </div>
+                                      </div>
+                                      <div className="text-[13px] text-sky-850 dark:text-sky-300 leading-relaxed px-1">
+                                        {renderWeatherInsights(qn.weather)}
                                       </div>
                                     </div>
-                                    <p className="text-[13px] text-emerald-800 dark:text-emerald-300 leading-relaxed px-1">
-                                      {qn.referenceSource || "Nil"}
-                                    </p>
-                                  </div>
-                                </AccordionContent>
+                                  </AccordionContent>
+                                )}
+
+                                {(qn.authorName || qn.sourceName) && (
+                                  <AccordionContent className="pt-0 pb-1">
+                                    <div className="bg-zinc-100/60 dark:bg-zinc-900/40 border border-zinc-200/50 dark:border-zinc-800/50 rounded-lg p-3 space-y-2 mb-3">
+                                      <div className="flex justify-between items-center w-full px-1">
+                                        <div className="flex items-center gap-1.5 text-zinc-700 dark:text-zinc-400 font-semibold text-xs tracking-wider uppercase">
+                                          <User className="w-3.5 h-3.5" />
+                                          <span>Author & Reference Document</span>
+                                        </div>
+                                      </div>
+                                      <div className="text-[13px] text-zinc-805 dark:text-zinc-305 leading-relaxed px-1 space-y-1">
+                                        {qn.authorName && (
+                                          <p><span className="font-semibold text-zinc-900 dark:text-zinc-400">Author Name:</span> {qn.authorName}</p>
+                                        )}
+                                        {qn.sourceName && (
+                                          <p>
+                                            <span className="font-semibold text-zinc-900 dark:text-zinc-400">Source:</span>{" "}
+                                            {qn.sourceLink ? (
+                                              <a
+                                                href={qn.sourceLink}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-indigo-600 dark:text-indigo-400 hover:underline font-semibold inline-flex items-center gap-1"
+                                              >
+                                                {qn.sourceName}
+                                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                </svg>
+                                              </a>
+                                            ) : (
+                                              qn.sourceName
+                                            )}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </AccordionContent>
+                                )}
 
                                 <AccordionContent className="pt-0 pb-1">
                                   <div className="bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200/50 dark:border-indigo-900/50 rounded-lg p-3 space-y-2">
@@ -1016,7 +1473,11 @@ export const CallInterface = () => {
                                       </div>
                                     </div>
                                     <p className="text-[13px] text-indigo-800 dark:text-indigo-300 leading-relaxed px-1">
-                                      {qn.answer || "Nil"}
+                                      {qn.agri_specialist === "ACC_AGENT" ? (
+                                        <div className="space-y-1">{renderMarkdown(qn.answer)}</div>
+                                      ) : (
+                                        qn.answer || "Nil"
+                                      )}
                                     </p>
                                   </div>
                                 </AccordionContent>
