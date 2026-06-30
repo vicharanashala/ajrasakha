@@ -1506,6 +1506,16 @@ export class QuestionRepository implements IQuestionRepository {
         }),
       );
 
+      const assignedAtByQuestionId = new Map(
+        submissions.map((sub: any) => {
+          const historyCount = sub?.historyCount ?? 0;
+          const assignedAt = historyCount === 0
+            ? sub?.currentExpertAllocatedAt
+            : (sub?.lastHistory?.assignedAt ?? sub?.lastHistory?.createdAt);
+          return [sub?.questionId?.toString(), assignedAt];
+        }),
+      );
+
       // Rerouted questions live in the `reroutes` collection, not in the
       // submission history/queue, so the allocation logic above never surfaces
       // them. Pull the ones still pending action for this expert and merge them
@@ -1518,6 +1528,7 @@ export class QuestionRepository implements IQuestionRepository {
         query.includeRerouted === 'true' &&
         (query.review_level === 'all' || query.review_level === 'rerouted');
 
+      const reroutedAssignedAtByQuestionId = new Map();
       let reroutedQuestionIds: ObjectId[] = [];
       if (includeRerouted) {
         const reroutedDocs = await this.ReRouteCollection.find(
@@ -1529,8 +1540,19 @@ export class QuestionRepository implements IQuestionRepository {
               },
             },
           },
-          {projection: {questionId: 1}, session},
+          {projection: {questionId: 1, reroutes: 1}, session},
         ).toArray();
+
+        reroutedDocs.forEach(doc => {
+          if (doc?.questionId) {
+            const pendingReroute = doc.reroutes
+              ?.filter((r: any) => r.reroutedTo?.toString() === userObjectId.toString() && r.status === 'pending')
+              ?.sort((a: any, b: any) => new Date(b.reroutedAt).getTime() - new Date(a.reroutedAt).getTime())[0];
+            if (pendingReroute) {
+              reroutedAssignedAtByQuestionId.set(doc.questionId.toString(), pendingReroute.reroutedAt);
+            }
+          }
+        });
 
         reroutedQuestionIds = reroutedDocs
           .filter(doc => doc?.questionId)
@@ -1676,12 +1698,19 @@ export class QuestionRepository implements IQuestionRepository {
         pipeline,
         {session},
       ).toArray();
-      return results.map((q: any) => ({
-        ...q,
-        review_level_number: reroutedQuestionIdSet.has(q.id)
-          ? 'rerouted'
-          : reviewLevelByQuestionId.get(q.id) ?? 'Author',
-      }));
+      return results.map((q: any) => {
+        const isRerouted = reroutedQuestionIdSet.has(q.id);
+        const assignedAt = isRerouted
+          ? reroutedAssignedAtByQuestionId.get(q.id)
+          : assignedAtByQuestionId.get(q.id);
+        return {
+          ...q,
+          assignedAt: assignedAt ?? null,
+          review_level_number: isRerouted
+            ? 'rerouted'
+            : reviewLevelByQuestionId.get(q.id) ?? 'Author',
+        };
+      });
     } catch (error) {
       throw new InternalServerError(
         `Failed to fetch unanswered questions: ${error}`,
