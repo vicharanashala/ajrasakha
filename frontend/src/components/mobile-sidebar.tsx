@@ -107,9 +107,7 @@ export const MobileSidebar = ({
           {
             id: "user_management",
             label:
-              user.role === "admin"
-                ? "User Management"
-                : "Expert Management",
+              user.role === "admin" ? "User Management" : "Expert Management",
             icon: Users,
           },
         ]
@@ -125,9 +123,11 @@ export const MobileSidebar = ({
 
     ...(user && user.role === "call_agent"
       ? [
-          { id: "call_interface", label: "Call Interface", icon: Phone },
           { id: "call_dashboard", label: "Call Dashboard", icon: TrendingUp },
-          ...(user.isCallAgentActive ? [{ id: "call_history", label: "Call History", icon: Clock }] : []),
+          { id: "call_interface", label: "Call Interface", icon: Phone },
+          ...(user.isCallAgentActive
+            ? [{ id: "call_history", label: "Call History", icon: Clock }]
+            : []),
         ]
       : []),
 
@@ -145,8 +145,18 @@ export const MobileSidebar = ({
       ? [{ id: "data_processing", label: "Data Processing", icon: Database }]
       : []),
 
-    ...(user && !isCoordinator && user.role !== "call_agent" ? [{ id: "history", label: "History", icon: History }] : []),
-    ...(user && !isCoordinator && user.role !== "call_agent" ? [{ id: "whatsapp_history", label: "WhatsApp History", icon: MessageSquare }] : []),
+    ...(user && !isCoordinator && user.role !== "call_agent"
+      ? [{ id: "history", label: "History", icon: History }]
+      : []),
+    ...(user && !isCoordinator && user.role !== "call_agent"
+      ? [
+          {
+            id: "whatsapp_history",
+            label: "WhatsApp History",
+            icon: MessageSquare,
+          },
+        ]
+      : []),
   ];
 
   return (
