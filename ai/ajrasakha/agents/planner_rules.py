@@ -316,7 +316,7 @@ def merge_entities_from_rephrased_query(
     stored_location: Optional[dict[str, str]] = None,
     sources_out: Optional[dict[str, str | None]] = None,
 ) -> PlannerEntities:
-    """Resolve state/crop/district from farmer text and planner LLM entities only (no GPS).
+    """Resolve state/crop/district from farmer text, LLM entities, stored profile, or clarify carry-over.
 
     State/district never come from device coordinates — only from rephrased query text,
     LLM entity fields, stored user location, or ``prev_entities`` during clarification.
