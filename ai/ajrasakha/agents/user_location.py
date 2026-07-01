@@ -99,6 +99,7 @@ def maybe_persist_resolved_location(
     state: str | None,
     district: str | None,
     *,
+    thread_id: str | None = None,
     state_source: str | None,
     district_source: str | None,
     background: bool = True,
@@ -117,13 +118,20 @@ def maybe_persist_resolved_location(
         return
 
     def _save() -> None:
-        save_user_location(user_id, normalized_district, normalized_state)
+        save_user_location(
+            user_id,
+            normalized_district,
+            normalized_state,
+            thread_id=thread_id,
+            state_source=state_source,
+            district_source=district_source,
+        )
 
     if background:
         threading.Thread(
             target=_save,
             name=f"user-location-save-{user_id[:12]}",
-            daemon=True,
+            daemon=False,
         ).start()
     else:
         _save()
@@ -149,7 +157,7 @@ def maybe_persist_rephrased_query(
         threading.Thread(
             target=_save,
             name=f"rephrased-query-save-{user_id[:12]}",
-            daemon=True,
+            daemon=False,
         ).start()
     else:
         _save()
