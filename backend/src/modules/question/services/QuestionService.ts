@@ -1176,6 +1176,31 @@ export class QuestionService extends BaseService implements IQuestionService {
       };
     }
 
+    if (result.isQueueDuplicate) {
+      const refId = result.referenceQuestionId instanceof ObjectId
+        ? result.referenceQuestionId
+        : result.referenceQuestionId
+          ? new ObjectId(String(result.referenceQuestionId))
+          : null;
+      const canMarkQueue =
+        question.status === 'open' || question.status === 'delayed';
+      await this.questionRepo.updateQuestion(questionId, {
+        ...(canMarkQueue ? { status: 'queue_duplicate', isAutoAllocate: false } : {}),
+        similarityScore: result.similarityScore,
+        referenceQuestionId: refId,
+        referenceQuestion: result.referenceQuestion,
+        referenceSource: result.referenceSource,
+        isDuplicateChecked: true,
+      });
+      return {
+        message: canMarkQueue
+          ? 'Found in the GDB pending-duplicate queue.'
+          : `In GDB queue; status left unchanged (question is '${question.status}').`,
+        isDuplicate: false,
+        referenceQuestionId: refId?.toString(),
+      };
+    }
+
     if (result.isNonAgri) {
       await this.questionRepo.updateQuestion(questionId, {
         status: 'non_agri',
@@ -1196,6 +1221,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     logData: Record<string, any>,
   ): Promise<{
     isDuplicate: boolean;
+    isQueueDuplicate?: boolean;
     isNonAgri?: boolean;
     referenceQuestionId?: ObjectId | string | null;
     referenceQuestion?: string;
@@ -1214,7 +1240,6 @@ export class QuestionService extends BaseService implements IQuestionService {
       rephrased_query: baseQuestion.question,
     });
 
-    console.log('[runDuplicateCheckPipeline] gdbResult:', gdbResult);
 
     const extractObjectId = (id: any): ObjectId | null => {
       const raw = id?.$oid ?? id;
@@ -1263,7 +1288,46 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
     }
 
-    // No GDB match — call LLM directly to classify non-agri vs agri (no embedding search)
+    // No GDB duplicate match — check the GDB pending-duplicate queue before falling
+    // through to the LLM, so the LLM classification only runs when the question is
+    // neither a duplicate nor already in the queue (single LLM call site).
+    try {
+      const pendingResult = await this.aiService.checkPendingDuplicate({
+        rephrased_query: baseQuestion.question,
+        crop: cropName,
+        state: details.state,
+        createdAt: baseQuestion.createdAt,
+      });
+      // A `detail` field means the GDB server didn't find a queued match.
+      // Reference details come from the top-level response (duplicate_question_id /
+      // query / similarity_score), not the candidates_checked array.
+      const dupId =
+        pendingResult?.duplicate_question_id ?? pendingResult?.matched_question_id;
+      // Only treat as a queue-duplicate when the GDB returned a usable reference id —
+      // a null/undefined duplicate_question_id means no queued match.
+      const foundInGdbQueue =
+        !!pendingResult &&
+        !pendingResult.detail &&
+        typeof dupId === 'string' &&
+        dupId.trim().length > 0;
+      if (foundInGdbQueue) {
+        const refId = /^[a-f\d]{24}$/i.test(dupId) ? new ObjectId(dupId) : null;
+        return {
+          isDuplicate: false,
+          isQueueDuplicate: true,
+          referenceQuestionId: refId,
+          referenceQuestion: pendingResult!.query,
+          referenceSource: 'reviewer',
+          similarityScore: Number(((pendingResult!.similarity_score ?? 0) * 100).toFixed(2)),
+        };
+      }
+    } catch (queueError: any) {
+      console.warn(
+        `[runDuplicateCheckPipeline] check-pending-duplicate failed: ${queueError?.message}`,
+      );
+    }
+
+    // No GDB match and not in the queue — call LLM to classify non-agri vs agri.
     try {
       const llmResult = await checkConceptDuplicate(baseQuestion.question, []);
       if (llmResult.isNonAgri) {
@@ -1691,6 +1755,13 @@ export class QuestionService extends BaseService implements IQuestionService {
               logData,
             );
 
+            const refId = result.referenceQuestionId instanceof ObjectId
+              ? result.referenceQuestionId
+              : result.referenceQuestionId
+                ? new ObjectId(String(result.referenceQuestionId))
+                : null;
+
+            // 1. Duplicate
             if (result.isDuplicate) {
               const refId =
                 result.referenceQuestionId instanceof ObjectId
@@ -1711,6 +1782,21 @@ export class QuestionService extends BaseService implements IQuestionService {
               return;
             }
 
+            // 2. Found in the GDB pending-duplicate queue → carry the matched reference
+            //    details and turn auto-allocate off.
+            if (result.isQueueDuplicate) {
+              await this.questionRepo.updateQuestion(questionId, {
+                status: 'queue_duplicate',
+                isAutoAllocate: false,
+                similarityScore: result.similarityScore,
+                referenceQuestionId: refId,
+                referenceQuestion: result.referenceQuestion,
+                referenceSource: result.referenceSource,
+              });
+              return;
+            }
+
+            // 3. Non-agri (LLM) → non_agri, else → open.
             if (result.isNonAgri) {
               await this.questionRepo.updateQuestion(questionId, {
                 status: 'non_agri',
@@ -1724,7 +1810,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             });
           } catch (pipelineError: any) {
             console.error(
-              '[processQuestionInBackground] Duplicate check pipeline failed, proceeding as open:',
+              '[processQuestionInBackground] duplicate/queue pipeline failed, proceeding as open:',
               pipelineError?.message,
             );
             await this.questionRepo.updateQuestion(questionId, {
@@ -2088,6 +2174,13 @@ export class QuestionService extends BaseService implements IQuestionService {
               err?.message,
             );
           }
+        }
+        // Auditor "Notify User" flow on a dynamic question: close it as `dynamic_closed`.
+        // Stamp closedAt/isClosed just like the regular `closed` transition so analytics
+        // and closed-question filters treat it consistently.
+        if (updates.status === 'dynamic_closed') {
+          updates.isClosed = true;
+          if (!updates.closedAt) updates.closedAt = new Date();
         }
         return this.questionRepo.updateQuestion(questionId, updates, session);
       });

@@ -73,7 +73,7 @@ export { STATES, CROPS, DOMAINS };
 import { DateRangeFilter } from "./DateRangeFilter";
 import { TopRightBadge } from "./NewBadge";
 
-export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed" | "pae_submitted" | "draft" | "hold" | "dynamic";
+export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed" | "pae_submitted" | "draft" | "hold" | "dynamic" | "auditor_review";
 export type QuestionDateRangeFilter =
   | "all"
   | "today"
@@ -336,6 +336,13 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                         <div className="flex items-center gap-2">
                           <Zap className="w-4 h-4 text-yellow-500" />
                           <span>Dynamic</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="auditor_review">
+                        <div className="flex items-center gap-2">
+                          <BadgeCheck className="w-4 h-4 text-purple-500" />
+                          <span>Auditor Review</span>
                         </div>
                       </SelectItem>
                     </SelectContent>
