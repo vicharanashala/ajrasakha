@@ -299,10 +299,21 @@ export function QuestionLifecycleSummary({
   ];
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setLoadingMessageIndex((prev) => (prev + 1) % loadingMessages.length);
-    }, 2000);
-    return () => clearInterval(interval);
+    let timeoutId: NodeJS.Timeout;
+
+    const updateMessage = () => {
+      // Random delay between 5s and 15s
+      const randomDelay = Math.floor(Math.random() * (15000 - 5000 + 1)) + 5000;
+
+      timeoutId = setTimeout(() => {
+        setLoadingMessageIndex((prev) => (prev + 1) % loadingMessages.length);
+        updateMessage(); 
+      }, randomDelay);
+    };
+
+    updateMessage();
+
+    return () => clearTimeout(timeoutId);
   }, []);
 
   if (isLoading || isRefetching) {
