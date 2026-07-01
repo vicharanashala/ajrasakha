@@ -9,7 +9,7 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from ajrasakha.agents.ajrasakha import graph, use_planner_graph
-from ajrasakha.agents.plan_executor import build_reviewer_upload_calls, build_tool_calls_from_plan
+from ajrasakha.agents.plan_executor import build_reviewer_upload_calls
 from ajrasakha.agents.planner import route_after_ensure_location
 from ajrasakha.agents.planner_rules import (
     apply_non_agriculture_gate,
@@ -76,12 +76,18 @@ async def test_build_reviewer_upload_calls_only_reviewer():
         location_tool_name="location_information_tool",
         reviewer_tool_name="upload_question_to_reviewer_system",
         question_source="AJRASAKHA",
+        thread_id="conv-abc-123",
+        user_id="user-456",
+        message_id="msg-789",
     )
     names = [c["name"] for c in calls]
     assert names == ["upload_question_to_reviewer_system"]
     reviewer = calls[0]
     assert reviewer["args"]["question"] == "How can I make money?"
     assert reviewer["args"]["state_name"] == "Punjab"
+    assert reviewer["args"]["thread_id"] == "conv-abc-123"
+    assert reviewer["args"]["user_id"] == "user-456"
+    assert reviewer["args"]["message_id"] == "msg-789"
 
 
 @pytest.mark.asyncio
@@ -119,6 +125,7 @@ def test_graph_includes_upload_reviewer_only_node():
     assert use_planner_graph() is True
     assert "upload_reviewer_only" in graph.nodes
     assert "non_agriculture_reply" in graph.nodes
+    assert "weather_unavailable_reply" in graph.nodes
 
 
 def test_non_agriculture_graph_path_is_terminal_and_isolated():
@@ -139,6 +146,18 @@ def test_agriculture_empty_gdb_and_translation_edges_are_unchanged():
     assert ("execute_plan", "empty_gdb_reply") in edges
     assert ("empty_gdb_reply", "translate_answer") in edges
     assert ("translate_answer", "__end__") in edges
+
+
+def test_weather_unavailable_graph_path_is_terminal():
+    edges = {(edge.source, edge.target) for edge in graph.get_graph().edges}
+    outgoing = {
+        edge.target
+        for edge in graph.get_graph().edges
+        if edge.source == "weather_unavailable_reply"
+    }
+
+    assert ("execute_plan", "weather_unavailable_reply") in edges
+    assert outgoing == {"__end__"}
 
 
 @pytest.mark.asyncio

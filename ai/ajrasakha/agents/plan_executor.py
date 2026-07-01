@@ -17,7 +17,12 @@ from ajrasakha.agents.location_context import (
     merge_location_dict,
 )
 from ajrasakha.agents.language import text_matches_user_language
-from ajrasakha.agents.config import resolve_question_source, resolve_thread_id
+from ajrasakha.agents.config import (
+    resolve_message_id,
+    resolve_question_source,
+    resolve_thread_id,
+    resolve_user_id,
+)
 from ajrasakha.agents.resolution_trace import trace_resolution, trace_thread_location
 from ajrasakha.agents.thread_trace import trace_event
 from ajrasakha.agents.domains import reviewer_upload_domain
@@ -32,6 +37,7 @@ ENABLE_CHEMICAL_CHECKER = False
 
 _SIMILAR_PAIR_KEYS = tuple(f"similar_pair{i}" for i in range(1, 6))
 _GDB_EMPTY_SENTINELS = frozenset({"NO_RELEVANT_CONTENT", "[]", "{}"})
+_WEATHER_TOOL_NAMES = frozenset({"weather", "weather_server", "weather_weather_server"})
 
 
 def _compute_tools_used(plan: PlannerPlan) -> list[str]:
@@ -132,8 +138,12 @@ def compute_actual_tools_used(messages: list[BaseMessage]) -> list[str]:
             # Only count knowledge_base if GDB has usable answer (is_exact or is_similar)
             if _gdb_has_usable_answer(msg) and "knowledge_base" not in tools:
                 tools.append("knowledge_base")
-        elif name in {"weather", "weather_server", "weather_weather_server"}:
-            if _is_useful_tool_response(msg) and "weather" not in tools:
+        elif name in _WEATHER_TOOL_NAMES:
+            if (
+                _is_useful_tool_response(msg)
+                and not _weather_tool_message_unavailable(msg)
+                and "weather" not in tools
+            ):
                 tools.append("weather")
         elif name in {"market", "agmarknet", "enam", "market_agmarknet_server", "market_enam_server"}:
             if _is_useful_tool_response(msg) and "mandi" not in tools:
@@ -181,6 +191,50 @@ def _message_to_text(message: BaseMessage) -> str:
                     parts.append(text)
         return " ".join(parts).strip()
     return str(content).strip()
+
+
+def _weather_tool_message_unavailable(message: ToolMessage) -> bool:
+    """Return whether one weather tool result explicitly has no usable data.
+
+    The current weather tool returns an empty string for API/geocoding failures,
+    while deployed or older versions may preserve a JSON ``success=false``
+    envelope. Support both representations so routing is deterministic.
+    """
+    text = _message_to_text(message)
+    if not text:
+        return True
+
+    try:
+        payload = json.loads(text)
+    except (json.JSONDecodeError, TypeError):
+        return False
+
+    if not isinstance(payload, dict):
+        return False
+    if payload.get("success") is False:
+        return True
+
+    result = payload.get("result")
+    return isinstance(result, dict) and result.get("success") is False
+
+
+def turn_has_unavailable_weather(messages: list[BaseMessage]) -> bool:
+    """Check weather results from the current farmer turn only."""
+    last_human_idx = -1
+    for i in range(len(messages) - 1, -1, -1):
+        if isinstance(messages[i], HumanMessage):
+            last_human_idx = i
+            break
+    if last_human_idx < 0:
+        return False
+
+    for msg in messages[last_human_idx + 1:]:
+        if not isinstance(msg, ToolMessage):
+            continue
+        name = getattr(msg, "name", None) or ""
+        if name in _WEATHER_TOOL_NAMES and _weather_tool_message_unavailable(msg):
+            return True
+    return False
 
 
 def _last_human_text(messages: list[BaseMessage]) -> str:
@@ -416,6 +470,37 @@ def _resolve_reviewer_location(
     )
 
 
+def _apply_reviewer_identity_args(
+    reviewer_args: dict[str, Any],
+    *,
+    question_source: str | None,
+    thread_id: str | None = None,
+    user_id: str | None = None,
+    message_id: str | None = None,
+) -> None:
+    if thread_id and str(thread_id).strip():
+        reviewer_args["thread_id"] = str(thread_id).strip()
+
+    src = (question_source or "").strip().upper()
+    if src != "AJRASAKHA":
+        return
+
+    missing: list[str] = []
+    if user_id and str(user_id).strip():
+        reviewer_args["user_id"] = str(user_id).strip()
+    else:
+        missing.append("user_id")
+    if message_id and str(message_id).strip():
+        reviewer_args["message_id"] = str(message_id).strip()
+    else:
+        missing.append("message_id")
+    if missing:
+        logger.warning(
+            "AJRASAKHA reviewer upload missing identity fields: %s",
+            ", ".join(missing),
+        )
+
+
 def build_reviewer_upload_calls(
     plan: PlannerPlan,
     user_query: str,
@@ -425,6 +510,8 @@ def build_reviewer_upload_calls(
     reviewer_tool_name: str,
     question_source: str | None = None,
     thread_id: str | None = None,
+    user_id: str | None = None,
+    message_id: str | None = None,
     resolved: ResolvedToolEntities | None = None,
 ) -> list[dict[str, Any]]:
     """Location resolve (if needed) + upload_question_to_reviewer_system only."""
@@ -466,8 +553,13 @@ def build_reviewer_upload_calls(
             },
             "source": str(question_source).strip(),
         }
-        if thread_id and str(thread_id).strip():
-            reviewer_args["thread_id"] = str(thread_id).strip()
+        _apply_reviewer_identity_args(
+            reviewer_args,
+            question_source=question_source,
+            thread_id=thread_id,
+            user_id=user_id,
+            message_id=message_id,
+        )
         trace_resolution(
             "reviewer_upload_args",
             state=state_name,
@@ -724,6 +816,8 @@ async def build_reviewer_upload_with_tools_used(
     *,
     question_source: str | None = None,
     thread_id: str | None = None,
+    user_id: str | None = None,
+    message_id: str | None = None,
     resolved: ResolvedToolEntities | None = None,
 ) -> list[dict[str, Any]]:
     """Build reviewer upload call with computed tools_used."""
@@ -759,9 +853,14 @@ async def build_reviewer_upload_with_tools_used(
         },
         "source": str(question_source).strip(),
     }
-    if thread_id and str(thread_id).strip():
-        reviewer_args["thread_id"] = str(thread_id).strip()
-    
+    _apply_reviewer_identity_args(
+        reviewer_args,
+        question_source=question_source,
+        thread_id=thread_id,
+        user_id=user_id,
+        message_id=message_id,
+    )
+
     trace_resolution(
         "reviewer_upload_with_tools_used",
         state=state_name,
@@ -918,6 +1017,8 @@ async def upload_reviewer_only_node(
     reviewer_tool = await get_reviewer_tool()
     question_source = resolve_question_source(config)
     thread_id = resolve_thread_id(config)
+    user_id = resolve_user_id(config)
+    message_id = resolve_message_id(config)
     tool_calls = build_reviewer_upload_calls(
         plan,
         user_query,
@@ -926,6 +1027,8 @@ async def upload_reviewer_only_node(
         reviewer_tool_name=reviewer_tool.name,
         question_source=question_source,
         thread_id=thread_id,
+        user_id=user_id,
+        message_id=message_id,
     )
     if not tool_calls:
         return {}
@@ -971,6 +1074,8 @@ async def execute_plan_node(
     reviewer_tool = await get_reviewer_tool()
     question_source = resolve_question_source(config)
     thread_id = resolve_thread_id(config)
+    user_id = resolve_user_id(config)
+    message_id = resolve_message_id(config)
     
     # Step 1: Build and execute SPECIALIST tools ONLY (no reviewer upload)
     # This allows us to compute actual tools_used after seeing responses
@@ -991,6 +1096,8 @@ async def execute_plan_node(
             tools_used=[],
             question_source=question_source,
             thread_id=thread_id,
+            user_id=user_id,
+            message_id=message_id,
             resolved=resolved,
         )
         if reviewer_calls:
@@ -1037,6 +1144,8 @@ async def execute_plan_node(
         tools_used=actual_tools_used,
         question_source=question_source,
         thread_id=thread_id,
+        user_id=user_id,
+        message_id=message_id,
         resolved=resolved,
     )
     
@@ -1168,6 +1277,8 @@ def _turn_has_specialist_tool_message(messages: list[BaseMessage]) -> bool:
         msg = messages[i]
         if isinstance(msg, ToolMessage):
             name = getattr(msg, "name", None) or ""
+            if name in _WEATHER_TOOL_NAMES and _weather_tool_message_unavailable(msg):
+                continue
             if name in _SPECIALIST_TOOL_NAMES and _message_to_text(msg):
                 return True
     return False
@@ -1186,11 +1297,13 @@ def should_expert_queue_reply(state: AjraSakhaState) -> bool:
 
 def route_after_execute(state: AjraSakhaState) -> str:
     plan = state.get("plan") or {}
+    messages = state.get("messages") or []
+    if plan.get("weather") and turn_has_unavailable_weather(messages):
+        return "weather_unavailable_reply"
     if plan.get("skip_synthesize"):
         return "translate_answer"
     if plan.get("is_greeting") or plan.get("reasoning") == "greeting":
         return "assemble_answer_body"
-    messages = state.get("messages") or []
     if _gdb_has_usable_data(messages) and _turn_has_specialist_tool_message(messages):
         return "empty_gdb_reply"
     if should_expert_queue_reply(state):

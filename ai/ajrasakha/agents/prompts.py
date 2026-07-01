@@ -681,7 +681,7 @@ You are the planner agent responsible for analyzing incoming farmer queries, det
 - Never take vocal language based on state name, distict name, crop name, mentioned in question.
 - Pick `vocal_language` from this list only:
 {_PLANNER_LANGUAGES_DOC}
-- Leave `follow_up_question` empty when completeness rules apply — the server fills exact wording from the translation sheet.
+- Leave `follow_up_question` empty when completeness rules apply — the server fills exact wording from the translation catalog.
 
 **Completeness Check Rules (STRICT — avoid interview-style clarifications):**
 

@@ -53,6 +53,8 @@ def upload_question_to_reviewer_system(
     source: str,
     thread_id: str,
     tools_used: Optional[list[str]] = None,
+    user_id: Optional[str] = None,
+    message_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Pushes a farmer's question to the reviewer system for the Agri team to review.
@@ -66,6 +68,8 @@ def upload_question_to_reviewer_system(
     - source (str): Question channel identifier (e.g. AJRASAKHA, WHATSAPP, AJRASAKHA_WEBAPP).
     - thread_id (str): LangGraph conversation id (from x-conversation-id). Injected by the agent, not inferred by the LLM.
     - tools_used (list[str], optional): List of tools used to generate the answer (e.g. ["knowledge_base", "weather", "mandi"]). Empty list for non-agriculture queries.
+    - user_id (str, optional): LibreChat user id (from x-user-id). Injected by the agent for AJRASAKHA uploads.
+    - message_id (str, optional): LibreChat message id (from x-message-id). Injected by the agent for AJRASAKHA uploads.
     """
 
     if not isinstance(question, str) or not question.strip():
@@ -114,6 +118,10 @@ def upload_question_to_reviewer_system(
         "tools_used": tools_used if tools_used is not None else [],
         "threadId": thread_id.strip(),
     }
+    if user_id and str(user_id).strip():
+        payload["userId"] = str(user_id).strip()
+    if message_id and str(message_id).strip():
+        payload["messageId"] = str(message_id).strip()
 
     headers = {
         "x-internal-api-key": INTERNAL_API_KEY,
