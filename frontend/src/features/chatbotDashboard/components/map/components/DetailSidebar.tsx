@@ -95,6 +95,7 @@ export function DetailSidebar({
   const [isPassed, setIsPassed] = useState(false);
   const [showActiveUsersModal, setShowActiveUsersModal] = useState(false);
   const [showModeratorsModal, setShowModeratorsModal] = useState(false);
+  const [showUsersModal, setShowUsersModal] = useState(false);
 
   // Calculate aggregated analytics
 
@@ -169,7 +170,7 @@ export function DetailSidebar({
     undefined,
     undefined,
     1,
-    1,
+    10,
     "",
     source as any,
     "",
@@ -249,14 +250,14 @@ export function DetailSidebar({
                             <div>
                               Duplicate Questions {": "}
                               {selectedDistrict
-                                ? districtData.duplicateQuestions
+                                ? districtData?.duplicateQuestions
                                 : duplicateSubTotal}
                             </div>
 
                             <div>
                               Unique Questions {": "}
                               {selectedDistrict
-                                ? districtData.uniqueQuestions
+                                ? districtData?.uniqueQuestions
                                 : uniqueSubTotal}
                             </div>
                           </div>
@@ -321,7 +322,19 @@ export function DetailSidebar({
               )}
               icon={<Activity className="h-3.5 w-3.5" />}
             />
+
+                    {showUsersModal && (
+  <ActiveUserDetailsModal
+    source={source}
+    userType={userType}
+    state={selectedState ?? undefined}
+    district={selectedDistrict ?? undefined}
+    onClose={() => setShowUsersModal(false)}
+    type="users"
+  />
+)}
             <StatCard
+              onClick={()=> setShowUsersModal(true)}
               label="Users"
               value={renderCardValue(
                 fmt(isIndiaView ? allUsers.totalUsers : activeAnalytics.users),
@@ -329,7 +342,7 @@ export function DetailSidebar({
               icon={<Users className="h-3.5 w-3.5" />}
             />
          <StatCard
-         onClick={() => setShowActiveUsersModal(true)}
+         onClick={()=> setShowActiveUsersModal(true)}
   label={
     <span>
       Active

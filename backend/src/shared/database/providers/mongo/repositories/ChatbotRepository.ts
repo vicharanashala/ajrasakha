@@ -2822,7 +2822,6 @@ export class ChatbotRepository implements IChatbotRepository {
         .aggregate([
           {
             $match: {
-              isVerified: true,
 
               'farmerProfile.state': {
                 $regex: `^${state}$`,
@@ -2900,11 +2899,30 @@ export class ChatbotRepository implements IChatbotRepository {
 
       // console.log("District user", districtUsers);
 
+      // const userMap = new Map();
+
+      // for (const item of districtUsers) {
+      //   userMap.set(this.normalizeDistrictName(item._id), item);
+      // }
+
       const userMap = new Map();
 
-      for (const item of districtUsers) {
-        userMap.set(this.normalizeDistrictName(item._id), item);
-      }
+for (const item of districtUsers) {
+  const key = this.normalizeDistrictName(item._id);
+
+  const existing = userMap.get(key);
+
+  if (existing) {
+    existing.totalUsers += item.totalUsers;
+    existing.activeUsers += item.activeUsers;
+    existing.coordinators += item.coordinators;
+    existing.villageVolunteer += item.villageVolunteer;
+    existing.districtCoordinator += item.districtCoordinator;
+    existing.blockCoordinator += item.blockCoordinator;
+  } else {
+    userMap.set(key, { ...item });
+  }
+}
 
       const districtMap = new Map<
         string,
