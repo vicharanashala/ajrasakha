@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -264,6 +264,7 @@ export function TotalQueriesModal({
     getLatestFilterDate(rows, granularity),
   );
   const [page, setPage] = useState(1);
+  const initialPageSet = useRef(false);
   const columns = useMemo(() => getColumns(granularity), [granularity]);
   const filterParam =
     granularity === "monthly"
@@ -326,7 +327,19 @@ export function TotalQueriesModal({
 
   useEffect(() => {
     setPage(1);
+    initialPageSet.current = false;
   }, [granularity, selectedDate]);
+
+  useEffect(() => {
+    if (
+      queryAnalytics?.totalPages &&
+      queryAnalytics.totalPages > 0 &&
+      !initialPageSet.current
+    ) {
+      setPage(queryAnalytics.totalPages);
+      initialPageSet.current = true;
+    }
+  }, [queryAnalytics]);
 
   const stepFilter = (direction: -1 | 1) => {
     setSelectedDate((current) =>

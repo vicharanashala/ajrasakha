@@ -5100,7 +5100,7 @@ if (!districts.length) {
       }
 
       return Array.from(mergedMap.values()).sort((a, b) =>
-        b.period.localeCompare(a.period),
+        a.period.localeCompare(b.period),
       );
     } catch (error) {
       throw new InternalServerError(`Failed to get daily analytics: ${error}`);
@@ -5357,7 +5357,7 @@ if (!districts.length) {
       }
 
       return Array.from(mergedMap.values()).sort((a, b) =>
-        b.period.localeCompare(a.period),
+        a.period.localeCompare(b.period),
       );
     } catch (error) {
       throw new InternalServerError(`Failed to get weekly analytics: ${error}`);
@@ -5590,7 +5590,7 @@ if (!districts.length) {
       }
 
       return Array.from(mergedMap.values()).sort((a, b) =>
-        b.period.localeCompare(a.period),
+        a.period.localeCompare(b.period),
       );
     } catch (error) {
       throw new InternalServerError(
