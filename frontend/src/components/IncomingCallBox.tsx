@@ -224,6 +224,11 @@ export const IncomingCallBox = ({
     }
   }, [callStatus]);
 
+  // Extract only the fields that require re-initializing the Plivo SDK
+  const agentId = currentUser?.agent;
+  const isAgentActive = currentUser?.isCallAgentActive;
+  const userRole = currentUser?.role;
+
   // Initialize Plivo SDK (NPM package) - Only for call agents
   useEffect(() => {
     // Skip if still loading
@@ -232,7 +237,7 @@ export const IncomingCallBox = ({
     }
 
     // Check if current user is authorized to use Plivo
-    if (currentUser?.role !== "call_agent" || !currentUser?.isCallAgentActive) {
+    if (userRole !== "call_agent" || !isAgentActive) {
       return;
     }
 
@@ -268,7 +273,7 @@ export const IncomingCallBox = ({
         }
       }
     };
-  }, [currentUser, isUserLoading]);
+  }, [agentId, isAgentActive, userRole, isUserLoading]);
 
   const initializePlivoClient = () => {
     // Prevent multiple initializations
