@@ -427,11 +427,15 @@ export function QueryCategoryQuestionsModal({
                   ? `Question related to crop of type ${crop}`
                   : status
                     ? "Question related to Question Stats"
-                    : closedWithInTwohours
-                      ? "Question that closed with in 2 hours"
-                      : notificationType
-                        ? "Question related to Notification users"
-                        : period? `Question related to the ${period}` : `Question releated to the ${district}`}
+                      : tag === "slabreached" 
+                        ? "Question that is passed/closed and sla breached"
+                          : isPassed 
+                           ? "Question that is passed with in 2 hours" 
+                              : closedWithInTwohours
+                                ? "Question that closed with in 2 hours" 
+                                  :notificationType
+                                    ? "Question related to Notification users"
+                                    : period? `Question related to the ${period}` : `Question releated to the ${district}`}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-3">

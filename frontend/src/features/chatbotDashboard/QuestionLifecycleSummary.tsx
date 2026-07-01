@@ -3,8 +3,18 @@ import { AlertCircle, Clock, RefreshCw, Pencil } from "lucide-react";
 import { Card, CardContent } from "@/components/atoms/card";
 import { useLifeCycleSummary } from "./hooks/useActiveUsersAnalytics";
 import { Skeleton } from "@/components/atoms/skeleton";
-import { useState } from "react";
-import { Button } from "@/components/atoms/button";
+import { Info } from "lucide-react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/atoms/accordion";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/atoms/tooltip";
 
 interface Props {
   startDate?: string;
@@ -66,18 +76,26 @@ export function QuestionLifecycleSummary({
     {
       title: "Authoring (R0)",
       value: summary?.avgAuthoringTime,
+      tooltip:
+        "Average time spent by authors writing answers.\n\nNumerator: Total authoring time across questions that reached R0.\nDenominator: Questions having an authoring stage (authoringCount).",
     },
     {
       title: "R1 Review",
       value: summary?.avgR1Time,
+      tooltip:
+        "Average duration of the first reviewer.\n\nNumerator: Sum of all first-review durations.\nDenominator: Questions that reached R1 (r1Count).",
     },
     {
       title: "Moderator",
       value: summary?.avgModeratorTime,
+      tooltip:
+        "Average time moderators spend approving questions.\n\nNumerator: Total moderator review duration.\nDenominator: Questions assigned to moderators (moderatorCount).",
     },
     {
       title: "Awaiting Moderator",
       value: summary?.avgAwaitingModeratorTime,
+      tooltip:
+        "Average waiting time between final reviewer completion and moderator assignment.\n\nNumerator: Total waiting time.\nDenominator: All questions in the selected dataset.",
     },
   ];
 
@@ -89,46 +107,107 @@ export function QuestionLifecycleSummary({
           ? (summary?.slaBreachedCount / summary?.totalQuestions) * 100
           : 0,
       formatter: (v: number) => `${v.toFixed(1)}%`,
+      tooltip:
+        "Percentage of resolved questions taking more than 2 hours.\n\nFormula:\n(SLA Breached Questions ÷ Total Questions) × 100",
     },
     {
       title: "Initial Allocation",
       value: summary?.avgInitialAllocationTime,
+      tooltip:
+        "Average time from question creation until first allocation.\n\nNumerator: Total initial allocation waiting time.\nDenominator: All questions.",
     },
     {
       title: "Pending Assignment",
       value: summary?.avgPendingAssignmentTime,
+      tooltip:
+        "Average buffer time between consecutive lifecycle stages.\n\nNumerator: Total 'Pending Next Assignment' duration.\nDenominator: All questions.",
     },
     {
       title: "Awaiting Closure",
       value: summary?.avgAwaitingClosureTime,
+      tooltip:
+        "Average delay between final processing and actual closure/pass.\n\nNumerator: Total waiting time before closed/passed.\nDenominator: All questions.",
     },
     {
       title: "R2 Review",
       value: summary?.avgR2Time,
+      tooltip:
+        "Average duration of the second reviewer.\n\nNumerator: Total R2 review duration.\nDenominator: Questions that reached R2 (r2Count).",
     },
     {
       title: "R3 Review",
       value: summary?.avgR3Time,
+      tooltip:
+        "Average duration of the third reviewer.\n\nNumerator: Total R3 review duration.\nDenominator: Questions that reached R3 (r3Count).",
     },
     {
       title: "Avg Reroutes",
       value: summary?.avgReroutesPerQuestion,
       formatter: (v: number) => v?.toFixed(2),
+      tooltip:
+        "Average reroutes per question.\n\nFormula:\nTotal Reroutes ÷ Total Questions.",
     },
     {
       title: "Resolution Rate",
       value: summary?.resolutionRate,
       formatter: (v: number) => `${v.toFixed(1)}%`,
+      tooltip:
+        "Percentage of questions that are closed or passed.\n\nFormula:\nResolved Questions ÷ Total Questions × 100.",
     },
   ];
 
-  const [showAdvancedMetrics, setShowAdvancedMetrics] = useState(false);
+  const topMetrics = [
+    {
+      title: "Questions",
+      tooltip: "Total questions included after applying all filters.",
+    },
+
+    {
+      title: "Avg Lifecycle",
+      tooltip:
+        "Average end-to-end lifecycle duration.\n\nNumerator: Total lifecycle time of resolved questions.\nDenominator: Closed/Passed questions only (resolvedQuestions).",
+    },
+
+    {
+      title: "Avg Buffer",
+      tooltip:
+        "Sum of all average waiting periods:\n• Initial Allocation\n• Pending Assignment\n• Awaiting Moderator\n• Awaiting Closure\n\nRepresents non-working time in the lifecycle.",
+    },
+
+    {
+      title: "Within SLA",
+      tooltip:
+        "Questions resolved within 2 hours.\n\nFormula:\nTotal Questions − SLA Breached Questions.",
+    },
+  ];
+
+  // const [showAdvancedMetrics, setShowAdvancedMetrics] = useState(false);
   const totalBufferTime =
     (summary?.avgPushToReviewTime || 0) +
     (summary?.avgInitialAllocationTime || 0) +
     (summary?.avgPendingAssignmentTime || 0) +
     (summary?.avgAwaitingModeratorTime || 0) +
     (summary?.avgAwaitingClosureTime || 0);
+
+  const topMetricValues = [
+    {
+      ...topMetrics[0],
+      value: summary?.totalQuestions || 0,
+    },
+    {
+      ...topMetrics[1],
+      value: formatDuration(summary?.avgLifecycleTime),
+    },
+    {
+      ...topMetrics[2],
+      value: formatDuration(totalBufferTime),
+    },
+    {
+      ...topMetrics[3],
+      value: summary?.totalQuestions - summary?.slaBreachedCount,
+      valueClass: "text-green-500",
+    },
+  ];
 
   const biggestBottleneck = [
     {
@@ -187,18 +266,6 @@ export function QuestionLifecycleSummary({
     });
   }
 
-  // if ((summary?.avgReviewersPerQuestion || 0) > 1) {
-  //   insights.push({
-  //     icon: Users,
-  //     color: "text-blue-500",
-  //     title: `${summary?.avgReviewersPerQuestion.toFixed(
-  //       1,
-  //     )} reviewers per question`,
-  //     description:
-  //       "Multiple review stages introduce additional coordination overhead.",
-  //   });
-  // }
-
   if ((summary?.avgAuthoringTime || 0) > 20 * 60 * 1000) {
     insights.push({
       icon: Pencil,
@@ -255,43 +322,17 @@ export function QuestionLifecycleSummary({
       {/* Top KPIs */}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Questions</p>
+        {topMetricValues.map((item) => (
+          <Card key={item.title}>
+            <CardContent className="p-4">
+              <MetricTitle title={item.title} tooltip={item.tooltip} />
 
-            <p className="text-2xl font-bold">{summary?.totalQuestions || 0}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Avg Lifecycle</p>
-
-            <p className="text-2xl font-bold">
-              {formatDuration(summary?.avgLifecycleTime)}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Avg Buffer</p>
-
-            <p className="text-2xl font-bold">
-              {formatDuration(totalBufferTime)}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">Within SLA</p>
-
-            <p className="text-2xl font-bold text-green-500">
-              {summary?.totalQuestions - summary?.slaBreachedCount}
-            </p>
-          </CardContent>
-        </Card>
+              <p className={`text-2xl font-bold ${item.valueClass ?? ""}`}>
+                {item.value}
+              </p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {/* Primary Metrics */}
@@ -300,54 +341,62 @@ export function QuestionLifecycleSummary({
         {primaryMetrics.map((item) => (
           <Card key={item.title}>
             <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground">{item.title}</p>
+              <div className="flex items-center gap-1 mb-2">
+                <p className="text-sm text-muted-foreground">{item.title}</p>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button">
+                      <Info className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                    </button>
+                  </TooltipTrigger>
+
+                  <TooltipContent
+                    side="top"
+                    className="max-w-sm whitespace-pre-line"
+                  >
+                    {item.tooltip}
+                  </TooltipContent>
+                </Tooltip>
+              </div>
 
               <p className="text-lg font-semibold">
-                {
-                  // item.formatter
-                  //   ? item.formatter(item.value)
-                  //   :
-                  formatDuration(item.value)
-                }
+                {item.formatter
+                  ? item.formatter(item.value)
+                  : formatDuration(item.value)}
               </p>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Advanced Metrics Toggle */}
+      <Accordion type="single" collapsible className="w-full">
+        <AccordionItem value="advanced-metrics">
+          <AccordionTrigger>Detailed Metrics</AccordionTrigger>
 
-      <div className="flex justify-center">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowAdvancedMetrics((prev) => !prev)}
-        >
-          {showAdvancedMetrics
-            ? "Hide Detailed Metrics"
-            : "Show Detailed Metrics"}
-        </Button>
-      </div>
+          <AccordionContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
+              {secondaryMetrics.map((item) => (
+                <Card key={item.title}>
+                  <CardContent className="p-4">
+                    <MetricTitle
+                      title={item.title}
+                      tooltip={item.tooltip}
+                      textClassName="text-xs"
+                    />
 
-      {/* Advanced Metrics */}
-
-      {showAdvancedMetrics && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {secondaryMetrics.map((item) => (
-            <Card key={item.title}>
-              <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground">{item.title}</p>
-
-                <p className="text-lg font-semibold">
-                  {item.formatter
-                    ? item.formatter(item.value)
-                    : formatDuration(item.value)}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+                    <p className="text-lg font-semibold">
+                      {item.formatter
+                        ? item.formatter(item.value)
+                        : formatDuration(item.value)}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
 
       {/* Insights */}
 
@@ -388,3 +437,29 @@ export function QuestionLifecycleSummary({
     </div>
   );
 }
+
+const MetricTitle = ({
+  title,
+  tooltip,
+  textClassName = "text-sm",
+}: {
+  title: string;
+  tooltip: string;
+  textClassName?: string;
+}) => (
+  <div className="flex items-center gap-1 mb-2">
+    <p className={`${textClassName} text-muted-foreground`}>{title}</p>
+
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button type="button" className="flex items-center">
+          <Info className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+        </button>
+      </TooltipTrigger>
+
+      <TooltipContent side="top" className="max-w-sm whitespace-pre-line">
+        {tooltip}
+      </TooltipContent>
+    </Tooltip>
+  </div>
+);

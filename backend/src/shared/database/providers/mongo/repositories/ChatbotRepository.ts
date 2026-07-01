@@ -15817,8 +15817,12 @@ existing.villageVolunteers +=
           x._id.toString(),
         );
       } else if (tag === "slabreached") {
-        const result = await this.QuestionCollection
-          .aggregate([
+        matchQuery.status = {
+          $in: ["closed", "pass"],
+        };
+
+        const breachedQuestions =
+          await this.QuestionCollection.aggregate([
             {
               $match: matchQuery,
             },
@@ -15883,11 +15887,10 @@ existing.villageVolunteers +=
                 _id: 1,
               },
             },
-          ])
-          .toArray();
+          ]).toArray();
 
-        questionIds = result.map((x) =>
-          x._id.toString(),
+        questionIds = breachedQuestions.map(
+          (q) => q._id.toString(),
         );
       } else if (tag === "notify") {
         questionIds = await this.QuestionCollection
@@ -15946,52 +15949,24 @@ existing.villageVolunteers +=
         // =====================
         // Whole Lifecycle
         // =====================
-        
+
         if (
             first &&
-            last &&
             (lifecycleObj.status === "closed" || lifecycleObj.status === "pass")
         ) {
-            resolvedQuestions++;
+            const resolutionTime =
+            lifecycleObj.status === "pass"
+                ? lifecycleObj.passedAt
+                : lifecycleObj.closedAt;
+            if (!resolutionTime) continue;
             const lifecycleTime =
-                new Date(last.timestamp).getTime()
-                -
+                new Date(resolutionTime).getTime() -
                 new Date(first.timestamp).getTime();
-            if (
-                lifecycleTime >
-                2 * 60 * 60 * 1000
-            ) {
+            resolvedQuestions++;
+            if (lifecycleTime > 2 * 60 * 60 * 1000) {
                 slaBreachedCount++;
             }
         }
-
-
-// if (
-//     first &&
-//     (lifecycleObj.status === "closed" || lifecycleObj.status === "pass")
-// ) {
-//     const resolutionTime =
-//         lifecycleObj.closedAt ?? lifecycleObj.passedAt;
-//     if (!resolutionTime) continue;
-//     const lifecycleTime =
-//         new Date(resolutionTime).getTime() -
-//         new Date(first.timestamp).getTime();
-//     if (lifecycleTime <= 2 * 60 * 60 * 1000) {
-//         console.log(
-//             "WITHIN SLA:",
-//             lifecycleObj.questionId,
-//             lifecycleObj.status,
-//             first.timestamp,
-//             resolutionTime,
-//             lifecycleTime / 60000,
-//             "mins",
-//         );
-//     }
-//     resolvedQuestions++;
-//     if (lifecycleTime > 2 * 60 * 60 * 1000) {
-//         slaBreachedCount++;
-//     }
-// }
 
         if (first && last) {
             const lifecycleTime =
