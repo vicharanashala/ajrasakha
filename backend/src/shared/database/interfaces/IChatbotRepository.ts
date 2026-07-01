@@ -946,6 +946,17 @@ export interface IChatbotRepository {
     district?:string, 
     search?: string
   ): Promise<any>
+
+    getModerators(
+    page: number, 
+    limit: number, 
+    source: string, 
+    userType: string, 
+    session?:ClientSession, 
+    state?:string, 
+    district?:string, 
+    search?: string
+  ): Promise<any>
 }
 
 export interface ChatbotConversationData {

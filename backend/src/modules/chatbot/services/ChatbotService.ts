@@ -3197,4 +3197,12 @@ export class ChatbotService extends BaseService implements IChatbotService {
       throw new InternalServerError(`Something whet wrong ${error}`)
     }
   }
+
+  async getModerators(page: number, limit: number, source: string, userType: string, state?: string, district?: string, search?: string): Promise<any> {
+    try {
+      return this.chatbotRepository.getModerators(page, limit, source, userType, undefined, state, district, search)
+    } catch (error) {
+      throw new InternalServerError(`Something whet wrong ${error}`)
+    }
+  }
 }

@@ -94,6 +94,7 @@ export function DetailSidebar({
 }: DetailSidebarProps) {
   const [isPassed, setIsPassed] = useState(false);
   const [showActiveUsersModal, setShowActiveUsersModal] = useState(false);
+  const [showModeratorsModal, setShowModeratorsModal] = useState(false);
 
   // Calculate aggregated analytics
 
@@ -231,11 +232,12 @@ export function DetailSidebar({
         {activeAnalytics && (
           <div className="grid grid-cols-2 gap-2">
              <StatCard
+             onClick={()=> handleClick("all")}
               // label="Questions"
 
               label={
                 <div className="flex items-center gap-1">
-                  <span onClick={()=>handleClick("all")}>Questions</span>
+                  <span>Questions</span>
                   {!isIndiaView && (
                     <TooltipProvider>
                       <Tooltip>
@@ -304,9 +306,11 @@ export function DetailSidebar({
     state={selectedState ?? undefined}
     district={selectedDistrict ?? undefined}
     onClose={() => setShowActiveUsersModal(false)}
+    type="activeUsers"
   />
 )}
             <StatCard
+            
               label="Answers"
               value={renderCardValue(
                 fmt(
@@ -325,11 +329,9 @@ export function DetailSidebar({
               icon={<Users className="h-3.5 w-3.5" />}
             />
          <StatCard
+         onClick={() => setShowActiveUsersModal(true)}
   label={
-    <span
-      className="cursor-pointer hover:underline"
-      onClick={() => setShowActiveUsersModal(true)}
-    >
+    <span>
       Active
     </span>
   }
@@ -351,11 +353,21 @@ export function DetailSidebar({
   )}
   icon={<Building2 className="h-3.5 w-3.5" />}
 /> */}
-
+         {showModeratorsModal && (
+  <ActiveUserDetailsModal
+    source={source}
+    userType={userType}
+    state={selectedState ?? undefined}
+    district={selectedDistrict ?? undefined}
+    onClose={() => setShowModeratorsModal(false)}
+    type="moderators"
+  />
+)}
             <StatCard
+            onClick={() => setShowModeratorsModal(true)}
               label={
                 <div className="flex items-center gap-1">
-                  <span>Coordinators</span>
+                  <span >Coordinators</span>
 
                   <TooltipProvider>
                     <Tooltip>

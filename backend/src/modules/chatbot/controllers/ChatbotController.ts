@@ -1977,4 +1977,36 @@ export class ChatbotController {
     query.search,
   );
 }
+
+
+
+@Get('/get-moderators-details')
+  @HttpCode(200)
+  @Authorized()
+  async getModerators(
+  @QueryParams()
+    query: {
+
+      page?: number;
+      limit?: number;
+      source?: string;
+      userType?: string;
+      district?: string;
+      state?: string;
+      search?: string;
+
+    },
+) {
+  const pageInNumber = Number(query.page)
+  const limitInNumber = Number(query.limit)
+  return this.chatbotService.getModerators(
+    pageInNumber,
+    limitInNumber,
+    query.source,
+    query.userType,
+    query.state,
+    query.district,
+    query.search,
+  );
+}
 }

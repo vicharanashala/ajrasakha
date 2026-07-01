@@ -394,4 +394,14 @@ export interface IChatbotService {
       district?: string,
       search?: string,
     ): Promise<any>
+
+      getModerators(
+      page:number,
+      limit:number,
+      source: string,
+      userType: string,
+      state?: string,
+      district?: string,
+      search?: string,
+    ): Promise<any>
 }

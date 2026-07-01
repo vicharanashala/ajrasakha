@@ -390,3 +390,48 @@ export const useActiveUserDetails = ({
     enabled,
   })
 }
+
+export const useModeratorsDetails = ({
+  page,
+  limit,
+  source,
+  userType,
+  district,
+  state,
+  search,
+  enabled = true
+}:{
+  page: number,
+  limit: number,
+  source: string,
+  userType: string,
+  district?: string,
+  state?: string,
+  search?: string
+  enabled: boolean
+})=>{
+  return useQuery<any>({
+    queryKey: [
+      "get-active-user-details",
+      page,
+      limit,
+      source,
+      userType,
+      district,
+      state,
+      search
+    ],
+    queryFn: ()=>{
+      return chatbotService.getModerators({
+        page,
+        limit,
+        source,
+        userType,
+        district: district ?? '',
+        state: state ?? '',
+        search: search ?? ''
+      })
+    },
+    enabled,
+  })
+}
