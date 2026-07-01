@@ -4906,11 +4906,9 @@ if (!districts.length) {
           {
             $regexMatch: {
               input: '$contentSignal',
-
-              regex: keywords
+              regex: `\\b(?:${keywords
                 .map(keyword => this.escapeRegex(keyword))
-                .join('|'),
-
+                .join('|')})\\b`,
               options: 'i',
             },
           },
@@ -5380,29 +5378,44 @@ if (!districts.length) {
     source = 'annam',
     session?: ClientSession,
     userType = 'all',
+    startTime?: string,
+    endTime?: string,
   ) {
     try {
       await this.init(source);
       await this.initReviewSystem();
 
-      const monthRange = month ? this.getMonthDateRange(month) : null;
-      const monthDateMatch = monthRange
-        ? {createdAt: {$gte: monthRange.start, $lt: monthRange.end}}
-        : {};
-      const now = new Date();
-      const istNow = new Date(
-        now.toLocaleString('en-US', {
-          timeZone: 'Asia/Kolkata',
-        }),
-      );
-      const start = new Date(istNow);
-      start.setDate(start.getDate() - 30);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(istNow);
-      end.setHours(23, 59, 59, 999);
+      let dateMatch: any = {};
+      let qStart: Date;
+      let qEnd: Date;
+
+      if (startTime && endTime) {
+        qStart = new Date(startTime);
+        qEnd = new Date(endTime);
+      } else if (month) {
+        const monthRange = this.getMonthDateRange(month);
+        qStart = monthRange.start;
+        qEnd = monthRange.end;
+      } else {
+        const now = new Date();
+        const istNow = new Date(
+          now.toLocaleString('en-US', {
+            timeZone: 'Asia/Kolkata',
+          }),
+        );
+        qStart = new Date(istNow);
+        qStart.setDate(qStart.getDate() - 30);
+        qStart.setHours(0, 0, 0, 0);
+        qEnd = new Date(istNow);
+        qEnd.setHours(23, 59, 59, 999);
+      }
+
+      dateMatch = {
+        createdAt: {$gte: qStart, $lte: qEnd},
+      };
 
       if (source === 'whatsapp') {
-        return await this.getDailyAnalyticsForWhatsApp(start, end);
+        return await this.getDailyAnalyticsForWhatsApp(qStart, qEnd);
       }
       const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
       const questionUserTypeLookupStages =
@@ -5417,7 +5430,7 @@ if (!districts.length) {
           [
             {
               $match: {
-                ...monthDateMatch,
+                ...dateMatch,
                 isCreatedByUser: true,
                 isDeleted: {
                   $ne: true,
@@ -5464,7 +5477,7 @@ if (!districts.length) {
               $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
               // messageId: { $exists: true, $ne: null },
               // threadId: { $exists: true, $ne: null },
-              ...monthDateMatch,
+              ...dateMatch,
               ...questionUserTypeLookupStages,
               status: {$ne: 'non_agri'},
               ...baseQuestionQuery
@@ -5614,30 +5627,46 @@ if (!districts.length) {
     source = 'annam',
     session?: ClientSession,
     userType = 'all',
+    startTime?: string,
+    endTime?: string,
   ) {
     try {
       await this.init(source);
       await this.initReviewSystem();
 
-      const monthRange = month ? this.getMonthDateRange(month) : null;
-      const monthDateMatch = monthRange
-        ? {createdAt: {$gte: monthRange.start, $lt: monthRange.end}}
-        : {};
+      let dateMatch: any = {};
+      let qStart: Date;
+      let qEnd: Date;
+
+      if (startTime && endTime) {
+        qStart = new Date(startTime);
+        qEnd = new Date(endTime);
+      } else if (month) {
+        const monthRange = this.getMonthDateRange(month);
+        qStart = monthRange.start;
+        qEnd = monthRange.end;
+      } else {
+        const now = new Date();
+        const istNow = new Date(
+          now.toLocaleString('en-US', {
+            timeZone: 'Asia/Kolkata',
+          }),
+        );
+        qStart = new Date(istNow);
+        qStart.setDate(qStart.getDate() - 30);
+        qStart.setHours(0, 0, 0, 0);
+        qEnd = new Date(istNow);
+        qEnd.setHours(23, 59, 59, 999);
+      }
+
+      dateMatch = {
+        createdAt: {$gte: qStart, $lte: qEnd},
+      };
 
       const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
-      const now = new Date();
-      const istNow = new Date(
-        now.toLocaleString('en-US', {
-          timeZone: 'Asia/Kolkata',
-        }),
-      );
-      const start = new Date(istNow);
-      start.setDate(start.getDate() - 30);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(istNow);
-      end.setHours(23, 59, 59, 999);
+      
       if (source === 'whatsapp') {
-        return await this.getWeeklyAnalyticsForWhatsApp(start, end);
+        return await this.getWeeklyAnalyticsForWhatsApp(qStart, qEnd);
       }
       const questionUserTypeLookupStages =
         await this.buildQuestionUserTypeMatchQuery(source, userType);
@@ -5650,7 +5679,7 @@ if (!districts.length) {
           [
             {
               $match: {
-                ...monthDateMatch,
+                ...dateMatch,
 
                 isCreatedByUser: true,
 
@@ -5702,7 +5731,7 @@ if (!districts.length) {
               $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
               // messageId: { $exists: true, $ne: null },
               // threadId: { $exists: true, $ne: null },
-              ...monthDateMatch,
+              ...dateMatch,
               ...questionUserTypeLookupStages,
               status: {$ne: 'non_agri'},
             },
@@ -13196,6 +13225,11 @@ if (!districts.length) {
           $in: ["closed"],
         };
       }
+      if(status === "pending"){
+        matchQuery.status = {
+          $nin: ["closed", "pass"],
+        };
+      }
 
       // Apply date range
 
@@ -13382,6 +13416,7 @@ if (!districts.length) {
     startDate?: Date,
     endDate?: Date,
     isPassed?: string,
+    tag?: string,
   ): Promise<any> {
     await this.initReviewSystem();
     await this.init("annam");
@@ -13397,13 +13432,15 @@ if (!districts.length) {
         $in: ["AJRASAKHA", "WHATSAPP"],
       };
     }
-    matchQuery.status = { 
-      $in: ["closed"],
-    };
-    if(isPassed === "true"){
+    if(tag !== "slabreached"){
       matchQuery.status = { 
-        $in: ["pass"],
+        $in: ["closed"],
       };
+      if(isPassed === "true"){
+        matchQuery.status = { 
+          $in: ["pass"],
+        };
+      }
     }
     const validStartDate =
       startDate instanceof Date && !isNaN(startDate.getTime());
@@ -13474,6 +13511,31 @@ if (!districts.length) {
       };
     }
 
+    const slaCondition =
+      tag === "slabreached"
+        ? {
+            $gt: [
+              {
+                $subtract: [
+                  "$_operationalCompletionAt",
+                  "$createdAt",
+                ],
+              },
+              2 * 60 * 60 * 1000,
+            ],
+          }
+        : {
+            $lte: [
+              {
+                $subtract: [
+                  "$_operationalCompletionAt",
+                  "$createdAt",
+                ],
+              },
+              2 * 60 * 60 * 1000,
+            ],
+          };
+
     const result = await this.QuestionCollection.aggregate([
       {
         $match: matchQuery,
@@ -13497,12 +13559,7 @@ if (!districts.length) {
           $expr: {
             $and: [
               {$gte: ['$_operationalCompletionAt', '$createdAt']},
-              {
-                $lte: [
-                  {$subtract: ['$_operationalCompletionAt', '$createdAt']},
-                  2 * 60 * 60 * 1000,
-                ],
-              },
+              slaCondition,
             ],
           },
         },
@@ -13581,7 +13638,6 @@ if (!districts.length) {
         state: user?.farmerProfile?.state,
       };
     });
-// console.log("total----", total)
     return {
       questions: enrichedQuestions,
       total,
@@ -13637,7 +13693,11 @@ if (!districts.length) {
         }
 
         if (validEndDate) {
-          matchQuery.createdAt.$lte = endDate;
+          // include full day
+          const endOfDay = new Date(endDate!);
+          endOfDay.setHours(23, 59, 59, 999);
+
+          matchQuery.createdAt.$lte = endOfDay;
         }
       }
 
@@ -15448,6 +15508,7 @@ existing.villageVolunteers +=
           remarks: "Conversation mapping not found",
           endTime: null,
           eventType: "inception",
+          // questionId: question._id,
         });
       }
       // ---------------------------------------------------
@@ -15530,10 +15591,15 @@ existing.villageVolunteers +=
           userMap.get(question.moderatorId.toString()) ||
           "Unknown User";
 
+        const moderatorAssignedAt =
+          typeof question.moderatorAssignedAt === "string"
+            ? new Date(question.moderatorAssignedAt)
+            : question.moderatorAssignedAt;
+
         if (
-          question.moderatorAssignedAt &&
+          moderatorAssignedAt &&
           question.moderatorId &&
-          question.moderatorAssignedAt.getTime() >
+          moderatorAssignedAt.getTime() >
             new Date(finalReviewerCompletedAt).getTime()
         ) {
           timeline.push({
@@ -15541,21 +15607,21 @@ existing.villageVolunteers +=
             user: "Buffer Time",
             action: "Awaiting Moderator Assignment",
             duration:
-              question.moderatorAssignedAt.getTime() -
+              moderatorAssignedAt.getTime() -
               new Date(finalReviewerCompletedAt).getTime(),
             remarks: "",
-            endTime: question.moderatorAssignedAt,
+            endTime: moderatorAssignedAt,
             eventType: "system_wait",
           });
         }
 
         timeline.push({
-          timestamp: question.moderatorAssignedAt,
+          timestamp: moderatorAssignedAt,
           user: moderatorName,
           action: "Approval Review",
           duration:
             question.closedAt?.getTime() -
-            question.moderatorAssignedAt.getTime(),
+            moderatorAssignedAt.getTime(),
           remarks: "",
           endTime: question.closedAt,
           eventType: "moderator",
@@ -15684,33 +15750,40 @@ existing.villageVolunteers +=
         question.closedAt || question.passedAt;
 
       if (completionTime) {
-        const last =
-          finalTimeline[finalTimeline.length - 1];
+          const last = finalTimeline[finalTimeline.length - 1];
 
-        if (last) {
-          const lastEnd = new Date(
-            last.endTime || last.timestamp,
-          );
-          if(typeof completionTime === "string"){
-            completionTime = new Date(completionTime)
-          }
-          const waitForClosure =
-            completionTime.getTime() -
-            lastEnd.getTime();
+          if (last) {
+              const lastTimestamp =
+                  last.endTime ??
+                  last.timestamp;
 
-          if (waitForClosure > 1000) {
-            finalTimeline.push({
-              timestamp: lastEnd ?? question.createdAt.getTime(),
-              user: 'Buffer Time',
-              action: 'Awaiting Closure/Pass',
-              duration: waitForClosure,
-              remarks: '',
-              endTime: completionTime,
-              eventType: 'system_wait',
-            });
+              if (lastTimestamp) {
+                  const lastEnd = new Date(lastTimestamp);
+
+                  if (!isNaN(lastEnd.getTime())) {
+
+                      if (typeof completionTime === "string") {
+                          completionTime = new Date(completionTime);
+                      }
+
+                      const waitForClosure =
+                          completionTime.getTime() -
+                          lastEnd.getTime();
+
+                      if (waitForClosure > 1000) {
+                          finalTimeline.push({
+                              timestamp: lastEnd,
+                              user: "Buffer Time",
+                              action: "Awaiting Closure/Pass",
+                              duration: waitForClosure,
+                              remarks: "",
+                              endTime: completionTime,
+                              eventType: "system_wait",
+                          });
+                      }
+                  }
+              }
           }
-        
-        }
       }
 
       // ---------------------------------------------------
@@ -15746,7 +15819,7 @@ existing.villageVolunteers +=
           eventType: 'closure',
         });
       }
-      // console.log("finalTimeline--", question)
+      // console.log("finalTimeline--", finalTimeline)
       return finalTimeline;
     } catch(err){
       // console.log("err----", err);
@@ -15847,9 +15920,9 @@ existing.villageVolunteers +=
           {
             $regexMatch: {
               input: '$contentSignal',
-              regex: keywords
+              regex: `\\b(?:${keywords
                 .map(keyword => this.escapeRegex(keyword))
-                .join('|'),
+                .join('|')})\\b`,
               options: 'i',
             },
           },
@@ -16082,4 +16155,1002 @@ existing.villageVolunteers +=
     }
   }
 
+
+  async getLifeCycleSummary(    
+      status = "all",
+      source = "annam",
+      userType = "all",
+      startDate?: Date,
+      endDate?: Date,
+      isPassed?: string,
+      tag?: string,
+      notificationType?: string,
+    ) {
+    try{
+      await this.initReviewSystem();
+      await this.init('annam');
+      const sourceType =
+        source === "whatsapp"
+        ? "WHATSAPP"
+        : "AJRASAKHA";
+
+      const matchQuery =
+        buildBaseQuestionMatch(sourceType);
+
+      if (source === "both") {
+        matchQuery.source = {
+          $in: ["AJRASAKHA", "WHATSAPP"],
+        };
+      }
+      if(tag === "closed"){
+        if (status === "closed") {
+          matchQuery.status = {
+            $in: ["closed"],
+          };
+        } else if (status === "pending") {
+          matchQuery.status = {
+            $nin: ["closed", "pass"],
+          };
+        } else if (status !== "all") {
+          matchQuery.status = status;
+        }
+      } else if(tag === "sla"){
+        if (isPassed === "true") {
+          matchQuery.status = {
+            $in: ["pass"],
+          };
+        }
+        if(isPassed === "false"){
+          matchQuery.status = {
+            $in: ["closed"],
+          };
+        }
+      }  else if (tag === "notify") {
+        matchQuery.status = {
+          $in: ["closed"],
+        };
+
+        if (isPassed === "true") {
+          matchQuery.isCustomerNotified = true;
+        } else if (isPassed === "false") {
+          matchQuery.isCustomerNotified = false;
+        } else if (isPassed === "untracked") {
+          matchQuery.isCustomerNotified = {
+            $exists: false,
+          };
+        }
+      }
+
+      const query =
+        await this.buildQuestionUserTypeMatchQuery(
+          source,
+          userType,
+        );
+
+      if (query && Object.keys(query).length > 0) {
+        matchQuery.$and.push(query);
+      }
+
+      if (startDate || endDate) {
+        matchQuery.createdAt = {};
+
+        if (startDate) {
+          matchQuery.createdAt.$gte = startDate;
+        }
+
+        if (endDate) {
+          const endOfDay = new Date(endDate);
+          endOfDay.setHours(
+            23,
+            59,
+            59,
+            999,
+          );
+          matchQuery.createdAt.$lte =
+            endOfDay;
+        }
+      }
+
+      if (tag === "notify") {
+        switch (notificationType) {
+          case "notified":
+            matchQuery.isCustomerNotified = true;
+            break;
+          case "not-notified":
+            matchQuery.isCustomerNotified = false;
+            break;
+          case "untracked":
+            matchQuery.isCustomerNotified = {
+              $exists: false,
+            };
+            break;
+        }
+      }
+      
+      let questionIds;
+      if(tag === "closed"){
+       questionIds =
+        await this.QuestionCollection
+          .find(
+            matchQuery,
+            {
+              projection: {
+                _id: 1,
+              },
+            },
+          )
+          .map(
+            (x) => x._id.toString(),
+          )
+          .toArray();
+      } else if (tag === "sla") {
+        const result = await this.QuestionCollection
+          .aggregate([
+            {
+              $match: matchQuery,
+            },
+            {
+              $addFields: {
+                _statusLower: {
+                  $toLower: {
+                    $ifNull: ["$status", ""],
+                  },
+                },
+                _operationalCompletionAt: {
+                  $cond: [
+                    {
+                      $eq: [
+                        {
+                          $toLower: {
+                            $ifNull: ["$status", ""],
+                          },
+                        },
+                        "pass",
+                      ],
+                    },
+                    "$passedAt",
+                    "$closedAt",
+                  ],
+                },
+              },
+            },
+            {
+              $match: {
+                _statusLower: {
+                  $in: ["closed", "pass"],
+                },
+                _operationalCompletionAt: {
+                  $ne: null,
+                },
+                $expr: {
+                  $and: [
+                    {
+                      $gte: [
+                        "$_operationalCompletionAt",
+                        "$createdAt",
+                      ],
+                    },
+                    {
+                      $lte: [
+                        {
+                          $subtract: [
+                            "$_operationalCompletionAt",
+                            "$createdAt",
+                          ],
+                        },
+                        2 * 60 * 60 * 1000,
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 1,
+              },
+            },
+          ])
+          .toArray();
+
+        questionIds = result.map((x) =>
+          x._id.toString(),
+        );
+      } else if (tag === "slabreached") {
+        matchQuery.status = {
+          $in: ["closed", "pass"],
+        };
+
+        const breachedQuestions =
+          await this.QuestionCollection.aggregate([
+            {
+              $match: matchQuery,
+            },
+            {
+              $addFields: {
+                _statusLower: {
+                  $toLower: {
+                    $ifNull: ["$status", ""],
+                  },
+                },
+                _operationalCompletionAt: {
+                  $cond: [
+                    {
+                      $eq: [
+                        {
+                          $toLower: {
+                            $ifNull: ["$status", ""],
+                          },
+                        },
+                        "pass",
+                      ],
+                    },
+                    "$passedAt",
+                    "$closedAt",
+                  ],
+                },
+              },
+            },
+            {
+              $match: {
+                _statusLower: {
+                  $in: ["closed", "pass"],
+                },
+                _operationalCompletionAt: {
+                  $ne: null,
+                },
+                $expr: {
+                  $and: [
+                    {
+                      $gte: [
+                        "$_operationalCompletionAt",
+                        "$createdAt",
+                      ],
+                    },
+                    {
+                      $gt: [
+                        {
+                          $subtract: [
+                            "$_operationalCompletionAt",
+                            "$createdAt",
+                          ],
+                        },
+                        2 * 60 * 60 * 1000,
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 1,
+              },
+            },
+          ]).toArray();
+
+        questionIds = breachedQuestions.map(
+          (q) => q._id.toString(),
+        );
+      } else if (tag === "notify") {
+        questionIds = await this.QuestionCollection
+          .find(
+            matchQuery,
+            {
+              projection: {
+                _id: 1,
+              },
+            },
+          )
+          .map((x) => x._id.toString())
+          .toArray();
+      }
+      const lifecycles =
+        await this.getQuestionLifecycleForSummary(
+          questionIds,
+        );
+
+      const totalQuestions = questionIds.length;
+
+      let totalLifecycleTime = 0;
+      let resolvedQuestions = 0;
+      let totalPushToReviewTime = 0;
+      let totalInitialAllocationTime = 0;
+      let totalPendingAssignmentTime = 0;
+      let totalAwaitingModeratorTime = 0;
+      let totalAwaitingClosureTime = 0;
+      let totalAuthoringTime = 0;
+      let authoringCount = 0;
+      let totalR1Time = 0;
+      let totalR2Time = 0;
+      let totalR3Time = 0;
+      let r1Count = 0;
+      let r2Count = 0;
+      let r3Count = 0;
+      let totalModeratorTime = 0;
+      let moderatorCount = 0;
+      let totalReroutes = 0;
+      let totalRerouteTime = 0;
+      let totalReviewers = 0;
+      let questionsWithReviewers = 0;
+      let slaBreachedCount = 0;
+
+      // const withinSlaQuestionIds: string[] = [];
+      for (const lifecycleObj of lifecycles) {
+        const lifecycle = lifecycleObj.timeline;
+        const validEvents = lifecycle.filter(
+          (x) =>
+            x.timestamp &&
+            new Date(x.timestamp).getTime() > 0,
+        );
+        const first = validEvents[0];
+        const last = validEvents.at(-1);
+
+        // =====================
+        // Whole Lifecycle
+        // =====================
+
+        if (
+            first &&
+            (lifecycleObj.status === "closed" || lifecycleObj.status === "pass")
+        ) {
+            const resolutionTime =
+            lifecycleObj.status === "pass"
+                ? lifecycleObj.passedAt
+                : lifecycleObj.closedAt;
+            if (!resolutionTime) continue;
+            const lifecycleTime =
+                new Date(resolutionTime).getTime() -
+                new Date(first.timestamp).getTime();
+            resolvedQuestions++;
+            if (lifecycleTime > 2 * 60 * 60 * 1000) {
+                slaBreachedCount++;
+            }
+        }
+
+        if (first && last) {
+            const lifecycleTime =
+                new Date(last.timestamp).getTime()
+                -
+                new Date(first.timestamp).getTime();
+            totalLifecycleTime += lifecycleTime;
+        }
+
+        // =====================
+        // Buffer Times
+        // =====================
+
+        lifecycle
+          .filter((x) => x.eventType === "system_wait")
+          .forEach((x) => {
+            switch (x.action) {
+              case "Pushed To Review System":
+                totalPushToReviewTime += x.duration || 0;
+                break;
+              case "Initial Allocation Pending":
+                totalInitialAllocationTime += x.duration || 0;
+                break;
+              case "Pending Next Assignment":
+                totalPendingAssignmentTime += x.duration || 0;
+                break;
+              case "Awaiting Moderator Assignment":
+                totalAwaitingModeratorTime += x.duration || 0;
+                break;
+              case "Awaiting Closure/Pass":
+                totalAwaitingClosureTime += x.duration || 0;
+                break;
+            }
+          });
+
+        // =====================
+        // Authoring (R0)
+        // =====================
+
+        const authors = lifecycle.filter(
+          (x) => x.eventType === "author",
+        );
+
+        if (authors.length) {
+          authoringCount++;
+          totalAuthoringTime += authors.reduce(
+            (sum, x) => sum + (x.duration || 0),
+            0,
+          );
+        }
+
+        // =====================
+        // Reviewers (R1/R2/R3)
+        // =====================
+
+        const reviewers = lifecycle.filter(
+          (x) => x.eventType === "reviewer",
+        );
+
+        if (reviewers.length) {
+          questionsWithReviewers++;
+          totalReviewers += new Set(
+            reviewers.map((x) => x.user),
+          ).size;
+        }
+        if (reviewers[0]) {
+          totalR1Time += reviewers[0].duration || 0;
+          r1Count++;
+        }
+        if (reviewers[1]) {
+          totalR2Time += reviewers[1].duration || 0;
+          r2Count++;
+        }
+        if (reviewers[2]) {
+          totalR3Time += reviewers[2].duration || 0;
+          r3Count++;
+        }
+
+        // =====================
+        // Moderator
+        // =====================
+
+        const moderators = lifecycle.filter(
+          (x) => x.eventType === "moderator",
+        );
+        if (moderators.length) {
+          moderatorCount++;
+          totalModeratorTime += moderators.reduce(
+            (sum, x) => sum + (x.duration || 0),
+            0,
+          );
+        }
+
+        // =====================
+        // Reroutes
+        // =====================
+
+        const reroutes = lifecycle.filter(
+          (x) => x.eventType === "reroute",
+        );
+        totalReroutes += reroutes.length;
+        totalRerouteTime += reroutes.reduce(
+          (sum, x) => sum + (x.duration || 0),
+          0,
+        );
+      }
+      // console.log("WITHIN SLA IDS:", withinSlaQuestionIds);
+
+      return {
+        totalQuestions,
+        avgLifecycleTime:
+          resolvedQuestions > 0
+            ? totalLifecycleTime / resolvedQuestions
+            : 0,
+        avgPushToReviewTime:
+          totalPushToReviewTime / totalQuestions,
+        avgInitialAllocationTime:
+          totalInitialAllocationTime / totalQuestions,
+        avgPendingAssignmentTime:
+          totalPendingAssignmentTime / totalQuestions,
+        avgAwaitingModeratorTime:
+          totalAwaitingModeratorTime / totalQuestions,
+        avgAwaitingClosureTime:
+          totalAwaitingClosureTime / totalQuestions,
+        avgAuthoringTime:
+          authoringCount > 0
+            ? totalAuthoringTime / authoringCount
+            : 0,
+        avgR1Time:
+          r1Count > 0
+            ? totalR1Time / r1Count
+            : 0,
+        avgR2Time:
+          r2Count > 0
+            ? totalR2Time / r2Count
+            : 0,
+        avgR3Time:
+          r3Count > 0
+            ? totalR3Time / r3Count
+            : 0,
+        avgModeratorTime:
+          moderatorCount > 0
+            ? totalModeratorTime / moderatorCount
+            : 0,
+        totalReroutes,
+        avgReroutesPerQuestion:
+          totalQuestions > 0
+            ? totalReroutes / totalQuestions
+            : 0,
+        avgRerouteTime:
+          totalReroutes > 0
+            ? totalRerouteTime / totalReroutes
+            : 0,
+        avgReviewersPerQuestion:
+          questionsWithReviewers > 0
+            ? totalReviewers / questionsWithReviewers
+            : 0,
+        slaBreachedCount,
+        resolutionRate:
+        totalQuestions > 0
+          ? (resolvedQuestions / totalQuestions) * 100
+          : 0,
+      };
+    } catch(err){
+      console.log("error in getlifecyclesummary:", err);
+      throw Error(err);
+    }
+  }
+
+  async getQuestionLifecycleForSummary(
+    questionIds: string[],
+  ): Promise<any[]> {
+    await this.initReviewSystem();
+    await this.init("annam");
+
+    const objectIds = questionIds.map(
+      (id) => new ObjectId(id),
+    );
+
+    // -------------------------
+    // Bulk fetch
+    // -------------------------
+
+    const [questions, submissions, reroutes] =
+      await Promise.all([
+        this.QuestionCollection.find({
+          _id: { $in: objectIds },
+        }).toArray(),
+
+        this.QuestionSubmissionsCollection.find({
+          questionId: { $in: objectIds },
+        }).toArray(),
+
+        this.Reroutes.find({
+          questionId: { $in: objectIds },
+        }).toArray(),
+      ]);
+
+    // -------------------------
+    // Maps
+    // -------------------------
+
+    const submissionMap = new Map(
+      submissions.map((s) => [
+        s.questionId.toString(),
+        s,
+      ]),
+    );
+
+    const rerouteMap = new Map(
+      reroutes.map((r) => [
+        r.questionId.toString(),
+        r,
+      ]),
+    );
+
+    // -------------------------
+    // Build lifecycles
+    // -------------------------
+
+    return questions.map((question) => {
+      const submission =
+        submissionMap.get(
+          question._id.toString(),
+        );
+
+      const rerouteDoc =
+        rerouteMap.get(
+          question._id.toString(),
+        );
+
+      const reviewTimeline =
+        buildReviewTimeline(
+          submission?.history || [],
+          submission?.queue || [],
+          question.createdAt,
+          question.status,
+          question.firstAllocationAt,
+        );
+
+      const timeline: any[] = [];
+
+      // -------------------------
+      // Duplicate questions
+      // -------------------------
+
+      if (question.status === "duplicate") {
+          return {
+              questionId: question._id,
+              createdAt: question.createdAt,
+              closedAt: question.closedAt,
+              passedAt: question.passedAt,
+              status: question.status,
+              timeline: [
+                  {
+                      timestamp: question.createdAt,
+                      user: "-",
+                      action: "Duplicate Question",
+                      duration: null,
+                      remarks:
+                          "Original question lifecycle is not available.",
+                      endTime: null,
+                      eventType: "duplicate",
+                  },
+                  {
+                      timestamp:
+                          question.closedAt ||
+                          question.updatedAt,
+                      user: "Buffer Time",
+                      action:
+                          "Question Marked As Duplicate",
+                      duration:
+                          question.updatedAt.getTime() -
+                          question.createdAt.getTime(),
+                      remarks: "Closed as duplicate",
+                      endTime:
+                          question.closedAt ||
+                          question.updatedAt,
+                      eventType: "closure",
+                  },
+              ],
+          };
+      }
+
+      // -------------------------
+      // Initial event
+      // -------------------------
+
+      timeline.push({
+        timestamp: question.createdAt,
+        user: "-",
+        action:
+          question.source === "AGRI_EXPERT"
+            ? "Question Created Internally"
+            : "Question Asked",
+        duration: null,
+        remarks: "",
+        endTime: question.createdAt,
+        eventType: "inception",
+      });
+
+      // -------------------------
+      // Initial allocation wait
+      // -------------------------
+
+      if (
+        question.firstAllocationAt &&
+        new Date(
+          question.firstAllocationAt,
+        ).getTime() -
+          question.createdAt.getTime() >
+          1000
+      ) {
+        timeline.push({
+          timestamp: question.createdAt,
+          user: "Buffer Time",
+          action:
+            "Initial Allocation Pending",
+          duration:
+            new Date(
+              question.firstAllocationAt,
+            ).getTime() -
+            question.createdAt.getTime(),
+          remarks: "",
+          endTime:
+            question.firstAllocationAt,
+          eventType: "system_wait",
+        });
+      }
+
+      // -------------------------
+      // Reviews
+      // -------------------------
+
+      reviewTimeline.forEach(
+        (review, index) => {
+          const historyItem =
+            submission?.history?.[index];
+
+          let action = "Review";
+
+          if (index === 0) {
+            action = review.isCompleted
+              ? "Authored Answer"
+              : "Authoring Answer";
+          } else if (
+            historyItem?.modifiedAnswer
+          ) {
+            action = "Modified";
+          } else if (
+            historyItem?.status
+          ) {
+            action =
+              historyItem.status
+                .charAt(0)
+                .toUpperCase() +
+              historyItem.status.slice(1);
+          }
+
+          timeline.push({
+            timestamp:
+              review.assignedAt,
+            user: "-",
+            action,
+            duration:
+              review.isCompleted
+                ? review.timeTakenMs
+                : Date.now() -
+                  new Date(
+                    review.assignedAt,
+                  ).getTime(),
+            remarks:
+              historyItem?.reasonForRejection ||
+              historyItem?.reasonForLastModification ||
+              "",
+            endTime:
+              review.completedAt ||
+              review.assignedAt,
+            eventType:
+              index === 0
+                ? "author"
+                : "reviewer",
+          });
+        },
+      );
+
+      // -------------------------
+      // Moderator
+      // -------------------------
+
+      const lastReview =
+        reviewTimeline[
+          reviewTimeline.length - 1
+        ];
+
+      const finalReviewerCompletedAt =
+        lastReview?.completedAt ||
+        lastReview?.assignedAt ||
+        question.createdAt;
+
+      if (
+        question.moderatorAssignedAt &&
+        question.moderatorId
+      ) {
+        const moderatorAssignedAt =
+          new Date(
+            question.moderatorAssignedAt,
+          );
+
+        if (
+          moderatorAssignedAt.getTime() >
+          new Date(
+            finalReviewerCompletedAt,
+          ).getTime()
+        ) {
+          timeline.push({
+            timestamp:
+              finalReviewerCompletedAt,
+            user: "Buffer Time",
+            action:
+              "Awaiting Moderator Assignment",
+            duration:
+              moderatorAssignedAt.getTime() -
+              new Date(
+                finalReviewerCompletedAt,
+              ).getTime(),
+            remarks: "",
+            endTime:
+              moderatorAssignedAt,
+            eventType: "system_wait",
+          });
+        }
+
+        timeline.push({
+          timestamp:
+            moderatorAssignedAt,
+          user: "-",
+          action:
+            "Approval Review",
+          duration:
+            question.closedAt?.getTime() -
+            moderatorAssignedAt.getTime(),
+          remarks: "",
+          endTime:
+            question.closedAt,
+          eventType: "moderator",
+        });
+      }
+
+      // -------------------------
+      // Reroutes
+      // -------------------------
+
+      rerouteDoc?.reroutes?.forEach(
+        (r: any) => {
+          const isPending =
+            r.status === "pending";
+
+          let action =
+            "Approval Review";
+
+          if (r.status === "modified") {
+            action = "Modified";
+          }
+
+          if (r.status === "rejected") {
+            action = "Rejected";
+          }
+
+          timeline.push({
+            timestamp:
+              r.reroutedAt,
+            user: "-",
+            action,
+            duration: isPending
+              ? Date.now() -
+                new Date(
+                  r.reroutedAt,
+                ).getTime()
+              : r.updatedAt.getTime() -
+                r.reroutedAt.getTime(),
+            remarks:
+              r.comment || "",
+            endTime: isPending
+              ? new Date()
+              : r.updatedAt,
+            eventType: "reroute",
+          });
+        },
+      );
+
+      // -------------------------
+      // Sort
+      // -------------------------
+
+      timeline.sort(
+        (a, b) =>
+          new Date(
+            a.timestamp,
+          ).getTime() -
+          new Date(
+            b.timestamp,
+          ).getTime(),
+      );
+
+      // -------------------------
+      // Insert gaps
+      // -------------------------
+
+      const finalTimeline: any[] =
+        [];
+
+      for (
+        let i = 0;
+        i < timeline.length;
+        i++
+      ) {
+        finalTimeline.push(
+          timeline[i],
+        );
+
+        const current =
+          timeline[i];
+
+        const next =
+          timeline[i + 1];
+
+        if (
+          !next ||
+          !current.endTime
+        ) {
+          continue;
+        }
+
+        const gap =
+          new Date(
+            next.timestamp,
+          ).getTime() -
+          new Date(
+            current.endTime,
+          ).getTime();
+
+        if (
+          gap > 1000 &&
+          current.eventType !==
+            "reroute"
+        ) {
+          finalTimeline.push({
+            timestamp:
+              current.endTime,
+            user: "Buffer Time",
+            action:
+              "Pending Next Assignment",
+            duration: gap,
+            remarks: "",
+            endTime:
+              next.timestamp,
+            eventType:
+              "system_wait",
+          });
+        }
+      }
+
+      // -------------------------
+      // Awaiting closure
+      // -------------------------
+
+      let completionTime =
+        question.closedAt || question.passedAt;
+
+      if (completionTime && finalTimeline.length) {
+        if (!(completionTime instanceof Date)) {
+          completionTime = new Date(completionTime);
+        }
+
+        if (!isNaN(completionTime.getTime())) {
+          const last = finalTimeline.at(-1);
+
+          const lastEnd = new Date(
+            last.endTime || last.timestamp,
+          );
+
+          if (!isNaN(lastEnd.getTime())) {
+            const wait =
+              completionTime.getTime() -
+              lastEnd.getTime();
+
+            if (wait > 1000) {
+              finalTimeline.push({
+                timestamp: lastEnd,
+                user: "Buffer Time",
+                action: "Awaiting Closure/Pass",
+                duration: wait,
+                remarks: "",
+                endTime: completionTime,
+                eventType: "system_wait",
+              });
+            }
+          }
+        }
+      }
+
+      // -------------------------
+      // Closed/Passed
+      // -------------------------
+
+      if (question.closedAt) {
+        finalTimeline.push({
+          timestamp:
+            question.closedAt,
+          user: "-",
+          action:
+            "Question Closed",
+          duration: null,
+          remarks: "",
+          endTime:
+            question.closedAt,
+          eventType: "closure",
+        });
+      } else if (
+        question.passedAt
+      ) {
+        finalTimeline.push({
+          timestamp:
+            question.passedAt,
+          user: "-",
+          action:
+            "Question Passed",
+          duration: null,
+          remarks: "",
+          endTime:
+            question.passedAt,
+          eventType: "closure",
+        });
+      }
+
+      return {
+          questionId: question._id,
+          createdAt: question.createdAt,
+          closedAt: question.closedAt,
+          passedAt: question.passedAt,
+          status: question.status,
+          timeline: finalTimeline,
+      };
+    });
+  }
 }

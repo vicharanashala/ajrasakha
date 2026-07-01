@@ -379,6 +379,7 @@ export function CustomerNotificationsCard({
           startDate={dateRange?.from}
           endDate={dateRange?.to}
           onClose={() => setNotificationType(null)}
+          tag="notify"
         />
       )}
     </div>

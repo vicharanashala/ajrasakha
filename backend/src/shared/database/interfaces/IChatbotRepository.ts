@@ -577,6 +577,8 @@ export interface IChatbotRepository {
     source?: string,
     session?: ClientSession,
     userType?: string,
+    startTime?: string,
+    endTime?: string,
   ): Promise<any[]>;
 
   /** Count of user messages created today from the messages collection. */
@@ -591,6 +593,8 @@ export interface IChatbotRepository {
     source?: string,
     session?: ClientSession,
     userType?: string,
+    startTime?: string,
+    endTime?: string,
   ): Promise<any[]>;
 
   getMonthlyAnalytics(
@@ -948,6 +952,7 @@ export interface IChatbotRepository {
     startDate?: Date,
     endDate?: Date,
     isPassed?: string,
+    tag?: string,
   ): Promise<any>
 
   getQuestionsByNotificationStatus(
@@ -1011,6 +1016,17 @@ export interface IChatbotRepository {
   ): Promise<string | null>
     
   getQuestionLifecycle(questionId: string): Promise<any>
+
+  getLifeCycleSummary(
+      status?: string,
+      source?: string,
+      userType?: string,
+      startDate?: Date,
+      endDate?: Date,
+      isPassed?: string,
+      tag?: string,
+      notificationType?: string,
+    ): Promise<any>
 }
 
 export interface ChatbotConversationData {

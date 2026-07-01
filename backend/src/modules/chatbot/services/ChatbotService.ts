@@ -832,17 +832,21 @@ export class ChatbotService extends BaseService implements IChatbotService {
         //         this.chatbotRepository.getGeoDistribution(source),
         //         this.chatbotRepository.getQueryCategories(source, undefined, userType),
         this.chatbotRepository.getDailyAnalytics(
-          currentMonth,
+          month,
           source,
           undefined,
           userType,
+          startTime,
+          endTime,
         ),
         this.chatbotRepository.getTodayQueryCount(source, undefined, userType),
         this.chatbotRepository.getWeeklyAnalytics(
-          currentMonth,
+          month,
           source,
           undefined,
           userType,
+          startTime,
+          endTime,
         ),
         this.chatbotRepository.getMonthlyAnalytics(source, undefined, userType),
         this.chatbotRepository.getAvgSessionDurationV2(
@@ -3516,7 +3520,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getQuestionsClosedWithinTwoHours(page?: number, limit?: number, source?: string, userType?: string, search?: string, startDate?: Date, endDate?: Date, isPassed?: string): Promise<any> {
+  async getQuestionsClosedWithinTwoHours(page?: number, limit?: number, source?: string, userType?: string, search?: string, startDate?: Date, endDate?: Date, isPassed?: string, tag?: string): Promise<any> {
     try {
       return this.chatbotRepository.getQuestionsClosedWithinTwoHours(
         page,
@@ -3527,7 +3531,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
         search,
         startDate,
         endDate,
-        isPassed
+        isPassed,
+        tag
       )
     }catch(error){
       throw new InternalServerError(`Internal server error ${error}`)
@@ -3618,4 +3623,26 @@ export class ChatbotService extends BaseService implements IChatbotService {
   async getQuestionLifecycle(questionId: string): Promise<any>{
     return this.chatbotRepository.getQuestionLifecycle(questionId);
   }
+
+  async getLifeCycleSummary(
+      status?: string,
+      source?: string,
+      userType?: string,
+      startDate?: Date,
+      endDate?: Date,
+      isPassed?: string,
+      tag?: string,
+      notificationType?: string,
+    ): Promise<any>{
+      return this.chatbotRepository.getLifeCycleSummary(
+        status,
+        source,
+        userType,
+        startDate,
+        endDate,
+        isPassed,
+        tag,
+        notificationType,
+      );
+    }
 }

@@ -1,4 +1,4 @@
-"""Post-synthesis: translate advisory body; append sheet footers (sources, testing)."""
+"""Post-synthesis: translate advisory body; append catalog footers (sources, testing)."""
 
 from __future__ import annotations
 
@@ -159,10 +159,10 @@ async def translate_answer_node(
     gdb_data = _extract_gdb_from_messages(messages)
     question_source = resolve_question_source(config)
 
-    # Path A: empty_gdb_reply only — sheet 2-hour + testing (no translate LLM)
+    # Path A: empty_gdb_reply only — catalog 2-hour + testing (no translate LLM)
     if plan.get("translate_path") == TRANSLATE_PATH_EMPTY_GDB:
         logger.info(
-            "translate_answer: path=empty_gdb — sheet 2-hour + testing (script=%s vocal=%s)",
+            "translate_answer: path=empty_gdb — catalog 2-hour + testing (script=%s vocal=%s)",
             script,
             vocal,
         )
