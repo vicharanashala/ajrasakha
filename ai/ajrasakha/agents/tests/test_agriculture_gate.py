@@ -125,6 +125,7 @@ def test_graph_includes_upload_reviewer_only_node():
     assert use_planner_graph() is True
     assert "upload_reviewer_only" in graph.nodes
     assert "non_agriculture_reply" in graph.nodes
+    assert "weather_unavailable_reply" in graph.nodes
 
 
 def test_non_agriculture_graph_path_is_terminal_and_isolated():
@@ -145,6 +146,18 @@ def test_agriculture_empty_gdb_and_translation_edges_are_unchanged():
     assert ("execute_plan", "empty_gdb_reply") in edges
     assert ("empty_gdb_reply", "translate_answer") in edges
     assert ("translate_answer", "__end__") in edges
+
+
+def test_weather_unavailable_graph_path_is_terminal():
+    edges = {(edge.source, edge.target) for edge in graph.get_graph().edges}
+    outgoing = {
+        edge.target
+        for edge in graph.get_graph().edges
+        if edge.source == "weather_unavailable_reply"
+    }
+
+    assert ("execute_plan", "weather_unavailable_reply") in edges
+    assert outgoing == {"__end__"}
 
 
 @pytest.mark.asyncio

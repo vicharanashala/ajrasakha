@@ -28,7 +28,7 @@ def _gdb_with_answer() -> dict:
     }
 
 
-def test_empty_gdb_path_sheet_only():
+def test_empty_gdb_path_catalog_only():
     state = {
         "messages": [
             HumanMessage(content="Unknown crop question?"),

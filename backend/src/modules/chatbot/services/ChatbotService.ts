@@ -409,17 +409,21 @@ export class ChatbotService extends BaseService implements IChatbotService {
         //         this.chatbotRepository.getGeoDistribution(source),
         //         this.chatbotRepository.getQueryCategories(source, undefined, userType),
         this.chatbotRepository.getDailyAnalytics(
-          currentMonth,
+          month,
           source,
           undefined,
           userType,
+          startTime,
+          endTime,
         ),
         this.chatbotRepository.getTodayQueryCount(source, undefined, userType),
         this.chatbotRepository.getWeeklyAnalytics(
-          currentMonth,
+          month,
           source,
           undefined,
           userType,
+          startTime,
+          endTime,
         ),
         this.chatbotRepository.getMonthlyAnalytics(source, undefined, userType),
         this.chatbotRepository.getAvgSessionDurationV2(
