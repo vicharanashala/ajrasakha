@@ -430,6 +430,7 @@ export class ChatbotController {
       startDate?: Date;
       endDate?: Date;
       isPassed?: string;
+      tag?: string;
     },
   ) {
     if (query.category) {
@@ -489,6 +490,7 @@ export class ChatbotController {
         startDate,
         endDate,
         query.isPassed,
+        query.tag,
       );
     } else {
       if(query.period){
@@ -1934,6 +1936,37 @@ export class ChatbotController {
   ): Promise<any> {
     return this.chatbotService.getQuestionLifecycle(
       questionId
+    );
+  }
+
+  @Get('/lifecycle-summary')
+  @HttpCode(200)
+  @Authorized()
+  async getLifecycleSummary(
+    @QueryParam('status') status: string = 'all',
+    @QueryParam('source') source: string = 'annam',
+    @QueryParam('userType') userType: string = 'all',
+    @QueryParam('startDate') startDate?: string,
+    @QueryParam('endDate') endDate?: string,
+    @QueryParam('isPassed') isPassed?: string,
+    @QueryParam('tag') tag?: string,
+    @QueryParam('notificationType') notificationType?: string,
+  ): Promise<any> {
+    const start= startDate
+        ? new Date(startDate)
+        : undefined;
+    const end= endDate
+        ? new Date(endDate)
+        : undefined;
+    return this.chatbotService.getLifeCycleSummary(
+      status,
+      source,
+      userType,
+      start,
+      end,
+      isPassed,
+      tag,
+      notificationType
     );
   }
 }

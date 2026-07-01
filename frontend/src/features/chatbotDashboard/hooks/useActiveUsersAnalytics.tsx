@@ -119,6 +119,7 @@ export interface QueryCategoryQuestionsResponse {
   totalPages: number;
   page: number;
   limit: number;
+  lifeCycleSummary: any;
 }
 
 // export const useQueryCategoryQuestions = ({
@@ -181,6 +182,7 @@ export const useQuestionFilter = ({
   search = "",
   enabled = true,
   isPassed = false,
+  tag
 }: {
   category?: string;
   district?: string;
@@ -201,6 +203,7 @@ export const useQuestionFilter = ({
   search?: string;
   enabled?: boolean;
   isPassed?: boolean;
+  tag?: string
 }) => {
   const stringStartDate = startDate?.toISOString()
   const stringEndDate = endDate?.toISOString()
@@ -225,6 +228,7 @@ export const useQuestionFilter = ({
     stringEndDate,
     search,
     isPassed,
+    tag
   ],
     queryFn: () =>
       chatbotService.getQuestionByFilters({
@@ -246,6 +250,7 @@ export const useQuestionFilter = ({
         stringEndDate,
         search,
         isPassed,
+        tag
       }),
     enabled: enabled && Boolean(category || district || crop || status || true),
   });
@@ -341,6 +346,43 @@ export const useQuestionLifeCycle = (questionId: string, enabled=true) => {
     ],
     queryFn: () => {
       return chatbotService.getQuestionLifeCycle(questionId);
+    },
+    enabled,
+  });
+}
+
+export const useLifeCycleSummary = (  
+  startDate?: string,
+  endDate?: string,
+  source?: string,
+  status?: string,
+  userType?: string,
+  isPassed?: boolean,
+  tag?: string,
+  notificationType?: string,
+  enabled=true) => {
+  return useQuery({
+    queryKey: [
+      "lifecycle-summary",
+      startDate,
+      endDate,
+      source,
+      status,
+      userType,
+      isPassed,
+      tag,
+      notificationType
+    ],
+    queryFn: () => {
+      return chatbotService.getLifeCycleSummary(  
+        startDate,
+        endDate,
+        source,
+        status,
+        userType,
+        isPassed,
+        tag,
+        notificationType);
     },
     enabled,
   });
