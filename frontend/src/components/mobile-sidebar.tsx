@@ -38,18 +38,16 @@ const SidebarButton = ({
         flex items-center gap-3
         text-left rounded-lg 
         transition-all duration-200 
-        ${
-          isActive
-            ? "bg-primary text-primary-foreground shadow-sm"
-            : "text-foreground hover:bg-accent hover:text-accent-foreground"
+        ${isActive
+          ? "bg-primary text-primary-foreground shadow-sm"
+          : "text-foreground hover:bg-accent hover:text-accent-foreground"
         }
         active:scale-[0.98]
       `}
     >
       <Icon
-        className={`w-5 h-5 flex-shrink-0 ${
-          isActive ? "" : "text-muted-foreground group-hover:text-foreground"
-        }`}
+        className={`w-5 h-5 flex-shrink-0 ${isActive ? "" : "text-muted-foreground group-hover:text-foreground"
+          }`}
       />
       <span className="font-medium">{label}</span>
     </button>
@@ -104,15 +102,15 @@ export const MobileSidebar = ({
 
     ...(user && user.role !== "expert" && user.role !== "call_agent"
       ? [
-          {
-            id: "user_management",
-            label:
-              user.role === "admin"
-                ? "User Management"
-                : "Expert Management",
-            icon: Users,
-          },
-        ]
+        {
+          id: "user_management",
+          label:
+            user.role === "admin"
+              ? "User Management"
+              : "Expert Management",
+          icon: Users,
+        },
+      ]
       : []),
 
     ...(user && user.role !== "expert" && user.role !== "call_agent"
@@ -125,20 +123,20 @@ export const MobileSidebar = ({
 
     ...(user && user.role === "call_agent"
       ? [
-          { id: "call_interface", label: "Call Interface", icon: Phone },
-          { id: "call_dashboard", label: "Call Dashboard", icon: TrendingUp },
-          ...(user.isCallAgentActive ? [{ id: "call_history", label: "Call History", icon: Clock }] : []),
-        ]
+        { id: "call_dashboard", label: "Call Dashboard", icon: TrendingUp },
+        { id: "call_interface", label: "Call Interface", icon: Phone },
+        { id: "call_history", label: "Call History", icon: Clock }
+      ]
       : []),
 
     ...(user && user.role !== "expert" && user.role !== "call_agent"
       ? [
-          {
-            id: "chatbotanalytics",
-            label: "Chatbot Analytics",
-            icon: Bot,
-          },
-        ]
+        {
+          id: "chatbotanalytics",
+          label: "Chatbot Analytics",
+          icon: Bot,
+        },
+      ]
       : []),
 
     ...(user && user.role === "admin"
@@ -190,7 +188,7 @@ export const MobileSidebar = ({
               label={item.label}
               icon={item.icon}
               onClick={() => handleClick(item.id)}
-              isActive={ item.id === activeTab }
+              isActive={item.id === activeTab}
             />
           ))}
         </nav>

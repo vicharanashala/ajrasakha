@@ -71,7 +71,7 @@ export const IncomingCallBox = ({
 }: IncomingCallBoxProps) => {
   console.log(" [IncomingCallBox] Component mounting...");
 
-  const { data: currentUser, isLoading: isUserLoading } = useGetCurrentUser();
+  const { data: currentUser, isLoading: isUserLoading, refetch: refetchCurrentUser } = useGetCurrentUser();
 
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
   const [callStatus, setCallStatus] = useState<
@@ -322,9 +322,12 @@ export const IncomingCallBox = ({
 
     client.client.on(
       "onIncomingCall",
-      (callerID, extraHeaders, callInfo: {}, callerName: string) => {
+      (callerID, extraHeaders, callInfo: any, callerName: string) => {
         // console.log('📞 Incoming call from:', callerName);
         alert("Incoming call from " + callerName);
+
+        let actualCallUuid = callInfo?.callUUID || callInfo?.calluuid || callerID;
+
         setIncomingCall({
           uuid: callerID,
           number: callerName,
@@ -332,16 +335,45 @@ export const IncomingCallBox = ({
         });
         setLastCallNumber(callerName);
         setCallStatus("incoming");
-        onCallUuidChange?.(callerID);
-        // WebSocket will connect when call is answered, not here
+
+        // Try to get the assigned call UUID from backend user document
+        refetchCurrentUser().then((res: any) => {
+          const backendCallUuid = res.data?.currentCallUuid;
+          if (backendCallUuid) {
+            actualCallUuid = backendCallUuid;
+          }
+          // console.log(`📞 [IncomingCallBox] Resolved call UUID for incoming: ${actualCallUuid}`);
+          onCallUuidChange?.(actualCallUuid);
+        }).catch((err) => {
+          console.error("❌ [IncomingCallBox] Error refetching user on incoming call:", err);
+          onCallUuidChange?.(actualCallUuid);
+        });
       },
     );
 
-    client.client.on("onCallAnswered", () => {
+    client.client.on("onCallAnswered", (callInfo?: any) => {
       // console.log('✅ [CALL ANSWERED] Event fired!');
       // console.log('✅ Call answered - WebSocket already connected');
       setCallStatus("connected");
       onCallStateChange?.(true);
+
+      let actualCallUuid = callInfo?.callUUID || callInfo?.calluuid;
+
+      refetchCurrentUser().then((res: any) => {
+        const backendCallUuid = res.data?.currentCallUuid;
+        if (backendCallUuid) {
+          actualCallUuid = backendCallUuid;
+        }
+        if (actualCallUuid) {
+          // console.log(`📞 [IncomingCallBox] Resolved call UUID for answered: ${actualCallUuid}`);
+          onCallUuidChange?.(actualCallUuid);
+        }
+      }).catch((err) => {
+        console.error("❌ [IncomingCallBox] Error refetching user on call answered:", err);
+        if (actualCallUuid) {
+          onCallUuidChange?.(actualCallUuid);
+        }
+      });
     });
 
     client.client.on("onCallTerminated", () => {
@@ -445,6 +477,9 @@ export const IncomingCallBox = ({
     // Setup message handlers
     ws.onMessage("transcript", (message: PlivoTranscriptMessage) => {
       // console.log('📝 [IncomingCallBox] Received transcript:', message);
+      if (message.callId) {
+        onCallUuidChange?.(message.callId);
+      }
       if (message.originalText || message.translatedText) {
         const newTranscript: CallTranscript = {
           track: message.track || "inbound",
@@ -461,6 +496,9 @@ export const IncomingCallBox = ({
 
     ws.onMessage("call_end", (message: any) => {
       // console.log('📴 Call ended from WebSocket:', message);
+      if (message.callId) {
+        onCallUuidChange?.(message.callId);
+      }
       const finalItems: CallTranscript[] = [];
 
       const caller = message.caller || message.inbound;
@@ -521,6 +559,9 @@ export const IncomingCallBox = ({
 
     ws.onMessage("call_disconnected", (message: PlivoTranscriptMessage) => {
       // console.log('❌ Call disconnected from WebSocket:', message);
+      if (message.callId) {
+        onCallUuidChange?.(message.callId);
+      }
       setCallStatus("ended");
       setIncomingCall(null);
       onCallStateChange?.(false);
