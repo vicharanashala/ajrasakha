@@ -105,6 +105,14 @@ export interface IQuestionRepository {
    */
   getById(questionId: string, session?: ClientSession): Promise<IQuestion>;
 
+  /** Find questions referencing the given question (referenceQuestionId), optionally
+   *  by status. Used to propagate a close to queue-duplicate children. */
+  findByReferenceQuestionId(
+    referenceQuestionId: string,
+    status?: QuestionStatus,
+    session?: ClientSession,
+  ): Promise<IQuestion[]>;
+
   /**
    * Retrieves all questions for a specific context.
    * @param questionId - The ID of the question.

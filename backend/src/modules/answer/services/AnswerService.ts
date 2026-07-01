@@ -15,6 +15,7 @@ import {
   ReviewType,
   SourceItem,
   IQuestionSubmission,
+  QuestionStatus,
 } from '#root/shared/interfaces/models.js';
 import {
   BadRequestError,
@@ -1908,9 +1909,27 @@ answer: ${updates.answer}`;
 
       let answerId = updates.answerId;
 
-      // DUPLICATE QUESTION FLOW
+      // Dynamic questions (raised via the chatbot, routed to the Auditor and closed
+      // through "Notify User") close as `dynamic_closed` rather than `closed`, so they
+      // stay distinguishable downstream. The customer webhook carries the same status.
+      // `tag === 'static_dynamic'` questions are also closed this way.
+      const isDynamicClose =
+        question.status === 'dynamic' ||
+        question.tag === 'static_dynamic' ||
+        (question.status === 'auditor_review' &&
+          question.auditorReviewType === 'dynamic');
+      const closeStatus: QuestionStatus = isDynamicClose
+        ? 'dynamic_closed'
+        : 'closed';
+
+      // DUPLICATE / DYNAMIC QUESTION FLOW
       // Create final approved answer directly from LLM answer
-      if (question.status === 'duplicate' && !answerId) {
+      if (
+        question.status === 'duplicate' ||
+        ((question.status === 'auditor_review' ||
+          question.status === 'dynamic') &&
+          !answerId)
+      ) {
         const [answerEmbedding, questionEmbedding] = await Promise.all([
           generateEmbedding(text),
           generateEmbedding(text),
@@ -1926,7 +1945,9 @@ answer: ${updates.answer}`;
           1, // answerIteration
           session,
           'approved',
-          'LLM generated answer approved as final answer by moderator since the question is marked as duplicate',
+          isDynamicClose
+            ? 'LLM generated answer approved as final answer by auditor since the question is dynamic'
+            : 'LLM generated answer approved as final answer by moderator .',
           undefined,
         );
 
@@ -1937,7 +1958,7 @@ answer: ${updates.answer}`;
           {
             text,
             embedding: questionEmbedding,
-            status: 'closed',
+            status: closeStatus,
             closedAt: new Date(),
           },
           session,
@@ -1994,7 +2015,7 @@ answer: ${updates.answer}`;
         {
           text,
           embedding: questionEmbedding,
-          status: question?.tag === 'static_dynamic'?'dynamic_closed':'closed',
+          status: closeStatus,
           closedAt: new Date(),
         },
         session,
@@ -2028,6 +2049,9 @@ answer: ${updates.answer}`;
         session,
       );
 
+      // Author display name reused for the parent + every replicated child notification.
+      const authorName =
+        `${author?.firstName ?? ''} ${author?.lastName ?? ''}`.trim() || 'Expert';
       //  WEBHOOK HANDLERS
       const webhookPayload = {
         question_id: questionId,
@@ -2039,62 +2063,154 @@ answer: ${updates.answer}`;
         sources: updates.sources ?? [],
       };
 
-      let isCustomerNotified = false;
-      if (question.source === 'WHATSAPP') {
-        try {
-          await triggerWebhook(
-            appConfig.WA_WEBHOOK_API_URL,
-            appConfig.WA_WEBHOOK_API_KEY,
-            webhookPayload,
-            'WhatsApp',
-          );
-          isCustomerNotified = true;
-        } catch (err) {
-          isCustomerNotified = false;
-          console.log(
-            'Error occured while notifying customer(WHATSAPP): ',
-            err,
-          );
-        }
-      }
-
-      if (question.source === 'AJRASAKHA') {
-        try {
-          await triggerWebhook(
-            appConfig.WEB_WEBHOOK_API_URL,
-            appConfig.WEB_WEBHOOK_API_KEY,
-            {
-              ...webhookPayload,
-              question: question.question,
-              messageId: question.messageId,
-              threadId:question.threadId
-            },
-            'Browser',
-          );
-          isCustomerNotified = true;
-        } catch (err) {
-          isCustomerNotified = false;
-          console.log(
-            'Error occured while notifying customer(AJRASAKHA): ',
-            err,
-          );
-        }
-      }
-
-      if(question.source === 'AJRASAKHA' || question.source === "WHATSAPP"){
-        await this.questionRepo.updateQuestion(
+      // ── Propagate the close to queue-duplicate children ───────────────────────
+      // Any question that was matched to this one in the GDB pending-duplicate queue
+      // (referenceQuestionId === this question, status 'queue_duplicate') is closed too:
+      // the same final answer is replicated onto it and it's stamped closedBy 'System'.
+      try {
+        const childQuestions = await this.questionRepo.findByReferenceQuestionId(
           questionId,
-          {
-            isCustomerNotified,
-          },
+          'queue_duplicate',
           session,
-          false,
+        );
+        for (const child of childQuestions) {
+          const childId = child._id!.toString();
+          // Replicate the parent's final answer onto the child.
+          await this.answerRepo.addAnswer(
+            childId,
+            userId,
+            updates.answer ?? '',
+            updates.sources ?? [],
+            answerEmbedding,
+            true, // isFinalAnswer
+            1, // answerIteration
+            session,
+            'approved',
+            'Answer replicated from the parent question on close',
+          );
+          // Close the child question, marking it system-closed.
+          await this.questionRepo.updateQuestion(
+            childId,
+            { status: 'closed', closedAt: new Date(), closedBy: 'System' },
+            session,
+          );
+          // Free any moderator holding the child.
+          await this.userRepo
+            .removeAssignedQuestionFromAllModerators(childId, session)
+            .catch((e: any) =>
+              console.error(`[approveAnswer] Failed to clear moderators for child ${childId}:`, e?.message),
+            );
+
+          // Notify the child question's customer as well — it was closed with the
+          // same replicated answer, so it must fire its own source-appropriate
+          // webhook (using the child's own messageId/threadId), not just the parent's.
+          await this.notifyCustomerOnClose(
+            child,
+            updates.answer ?? '',
+            updates.sources ?? [],
+            authorName,
+            session,
+          );
+        }
+        if (childQuestions.length) {
+          console.log(
+            `[approveAnswer] Closed ${childQuestions.length} queue_duplicate child question(s) of ${questionId} and replicated the answer (closedBy: System).`,
+          );
+        }
+      } catch (childErr: any) {
+        console.error(
+          '[approveAnswer] Failed to propagate close to queue_duplicate children:',
+          childErr?.message,
         );
       }
 
+      //  WEBHOOK HANDLERS — notify the parent question's customer.
+      await this.notifyCustomerOnClose(
+        question,
+        updates.answer ?? '',
+        updates.sources ?? [],
+        authorName,
+        session,
+        closeStatus,
+      );
 
       return result;
     });
+  }
+
+  /**
+   * Notify the end customer that their question was closed/answered, via the
+   * source-appropriate webhook (WhatsApp for WHATSAPP, Browser for AJRASAKHA), and
+   * persist the outcome on the question (`isCustomerNotified`).
+   *
+   * Best-effort: a webhook failure is logged and recorded, never thrown, so it can
+   * never abort the surrounding close/transaction. No-op for non-chatbot sources
+   * (AGRI_EXPERT / OUTREACH), which have no end customer to notify. Used for both the
+   * approved parent question and each replicated queue_duplicate child question.
+   */
+  private async notifyCustomerOnClose(
+    q: {
+      _id?: string | ObjectId;
+      source: string;
+      question?: string;
+      messageId?: string;
+      threadId?: string;
+    },
+    answer: string,
+    sources: SourceItem[],
+    authorName: string,
+    session?: ClientSession,
+    status: QuestionStatus = 'closed',
+  ): Promise<boolean> {
+    if (q.source !== 'WHATSAPP' && q.source !== 'AJRASAKHA') return false;
+
+    const qId = q._id!.toString();
+    const webhookPayload = {
+      question_id: qId,
+      status,
+      answer: answer ?? '',
+      author: authorName || 'Expert',
+      sources: sources ?? [],
+    };
+
+    let isCustomerNotified = false;
+    try {
+      if (q.source === 'WHATSAPP') {
+        await triggerWebhook(
+          appConfig.WA_WEBHOOK_API_URL,
+          appConfig.WA_WEBHOOK_API_KEY,
+          webhookPayload,
+          'WhatsApp',
+        );
+      } else {
+        await triggerWebhook(
+          appConfig.WEB_WEBHOOK_API_URL,
+          appConfig.WEB_WEBHOOK_API_KEY,
+          {
+            ...webhookPayload,
+            question: q.question,
+            messageId: q.messageId,
+            threadId: q.threadId,
+          },
+          'Browser',
+        );
+      }
+      isCustomerNotified = true;
+    } catch (err) {
+      isCustomerNotified = false;
+      console.log(
+        `Error occured while notifying customer(${q.source}) for question ${qId}: `,
+        err,
+      );
+    }
+
+    await this.questionRepo.updateQuestion(
+      qId,
+      { isCustomerNotified },
+      session,
+      false,
+    );
+    return isCustomerNotified;
   }
 
   async approveLLMAnswer(

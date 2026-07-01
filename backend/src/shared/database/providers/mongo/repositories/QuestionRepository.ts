@@ -302,6 +302,22 @@ export class QuestionRepository implements IQuestionRepository {
     }
   }
 
+  /** Find questions that reference the given question (referenceQuestionId), optionally
+   *  filtered by status. Used to propagate a close to queue-duplicate children. */
+  async findByReferenceQuestionId(
+    referenceQuestionId: string,
+    status?: QuestionStatus,
+    session?: ClientSession,
+  ): Promise<IQuestion[]> {
+    await this.init();
+    if (!isValidObjectId(referenceQuestionId)) return [];
+    const filter: Record<string, unknown> = {
+      referenceQuestionId: new ObjectId(referenceQuestionId),
+    };
+    if (status) filter.status = status;
+    return this.QuestionCollection.find(filter, {session}).toArray();
+  }
+
   async findDetailedQuestions(
     query: GetDetailedQuestionsQuery & {searchEmbedding: number[] | null},
     body?: DetailedQuestionsBodyDto,
@@ -2101,10 +2117,13 @@ export class QuestionRepository implements IQuestionRepository {
         updatedAt: submission?.updatedAt,
       };
 
-      // 7.2 If question is closed with no submission queue, fetch the final answer directly
+      // 7.2 If question is closed with no submission queue, fetch the final answer directly.
+      // `dynamic_closed` (dynamic questions finalised via the Auditor "Notify User" flow)
+      // is treated the same as `closed` so its final answer shows in the timeline too.
       let closedFinalAnswer: any = null;
       if (
-        question.status === 'closed' &&
+        (question.status === 'closed' ||
+          question.status === 'dynamic_closed') &&
         (submission?.queue?.length ?? 0) === 0
       ) {
         const fa = await this.AnswersCollection.findOne({
@@ -7255,7 +7274,7 @@ export class QuestionRepository implements IQuestionRepository {
     // New questions default the field to true on creation.
     // When `sources` is provided, restricts to that source group (time-bound / manual).
     const filter: Record<string, unknown> = {
-      status: { $in: ['in-review', 'duplicate', 'pae_submitted'] },
+      status: { $in: ['in-review', 'pae_submitted'] },
       autoAllocateModerator: true,
       $or: [{ moderatorId: { $exists: false } }, { moderatorId: null }],
     };

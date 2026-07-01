@@ -1176,6 +1176,31 @@ export class QuestionService extends BaseService implements IQuestionService {
       };
     }
 
+    if (result.isQueueDuplicate) {
+      const refId = result.referenceQuestionId instanceof ObjectId
+        ? result.referenceQuestionId
+        : result.referenceQuestionId
+          ? new ObjectId(String(result.referenceQuestionId))
+          : null;
+      const canMarkQueue =
+        question.status === 'open' || question.status === 'delayed';
+      await this.questionRepo.updateQuestion(questionId, {
+        ...(canMarkQueue ? { status: 'queue_duplicate', isAutoAllocate: false } : {}),
+        similarityScore: result.similarityScore,
+        referenceQuestionId: refId,
+        referenceQuestion: result.referenceQuestion,
+        referenceSource: result.referenceSource,
+        isDuplicateChecked: true,
+      });
+      return {
+        message: canMarkQueue
+          ? 'Found in the GDB pending-duplicate queue.'
+          : `In GDB queue; status left unchanged (question is '${question.status}').`,
+        isDuplicate: false,
+        referenceQuestionId: refId?.toString(),
+      };
+    }
+
     if (result.isNonAgri) {
       await this.questionRepo.updateQuestion(questionId, {
         status: 'non_agri',
@@ -1196,6 +1221,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     logData: Record<string, any>,
   ): Promise<{
     isDuplicate: boolean;
+    isQueueDuplicate?: boolean;
     isNonAgri?: boolean;
     referenceQuestionId?: ObjectId | string | null;
     referenceQuestion?: string;
@@ -1214,7 +1240,6 @@ export class QuestionService extends BaseService implements IQuestionService {
       rephrased_query: baseQuestion.question,
     });
 
-    console.log('[runDuplicateCheckPipeline] gdbResult:', gdbResult);
 
     const extractObjectId = (id: any): ObjectId | null => {
       const raw = id?.$oid ?? id;
@@ -1263,7 +1288,46 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
     }
 
-    // No GDB match — call LLM directly to classify non-agri vs agri (no embedding search)
+    // No GDB duplicate match — check the GDB pending-duplicate queue before falling
+    // through to the LLM, so the LLM classification only runs when the question is
+    // neither a duplicate nor already in the queue (single LLM call site).
+    try {
+      const pendingResult = await this.aiService.checkPendingDuplicate({
+        rephrased_query: baseQuestion.question,
+        crop: cropName,
+        state: details.state,
+        createdAt: baseQuestion.createdAt,
+      });
+      // A `detail` field means the GDB server didn't find a queued match.
+      // Reference details come from the top-level response (duplicate_question_id /
+      // query / similarity_score), not the candidates_checked array.
+      const dupId =
+        pendingResult?.duplicate_question_id ?? pendingResult?.matched_question_id;
+      // Only treat as a queue-duplicate when the GDB returned a usable reference id —
+      // a null/undefined duplicate_question_id means no queued match.
+      const foundInGdbQueue =
+        !!pendingResult &&
+        !pendingResult.detail &&
+        typeof dupId === 'string' &&
+        dupId.trim().length > 0;
+      if (foundInGdbQueue) {
+        const refId = /^[a-f\d]{24}$/i.test(dupId) ? new ObjectId(dupId) : null;
+        return {
+          isDuplicate: false,
+          isQueueDuplicate: true,
+          referenceQuestionId: refId,
+          referenceQuestion: pendingResult!.query,
+          referenceSource: 'reviewer',
+          similarityScore: Number(((pendingResult!.similarity_score ?? 0) * 100).toFixed(2)),
+        };
+      }
+    } catch (queueError: any) {
+      console.warn(
+        `[runDuplicateCheckPipeline] check-pending-duplicate failed: ${queueError?.message}`,
+      );
+    }
+
+    // No GDB match and not in the queue — call LLM to classify non-agri vs agri.
     try {
       const llmResult = await checkConceptDuplicate(baseQuestion.question, []);
       if (llmResult.isNonAgri) {
@@ -1691,6 +1755,13 @@ export class QuestionService extends BaseService implements IQuestionService {
               logData,
             );
 
+            const refId = result.referenceQuestionId instanceof ObjectId
+              ? result.referenceQuestionId
+              : result.referenceQuestionId
+                ? new ObjectId(String(result.referenceQuestionId))
+                : null;
+
+            // 1. Duplicate
             if (result.isDuplicate) {
               const refId =
                 result.referenceQuestionId instanceof ObjectId
@@ -1711,6 +1782,21 @@ export class QuestionService extends BaseService implements IQuestionService {
               return;
             }
 
+            // 2. Found in the GDB pending-duplicate queue → carry the matched reference
+            //    details and turn auto-allocate off.
+            if (result.isQueueDuplicate) {
+              await this.questionRepo.updateQuestion(questionId, {
+                status: 'queue_duplicate',
+                isAutoAllocate: false,
+                similarityScore: result.similarityScore,
+                referenceQuestionId: refId,
+                referenceQuestion: result.referenceQuestion,
+                referenceSource: result.referenceSource,
+              });
+              return;
+            }
+
+            // 3. Non-agri (LLM) → non_agri, else → open.
             if (result.isNonAgri) {
               await this.questionRepo.updateQuestion(questionId, {
                 status: 'non_agri',
@@ -1724,7 +1810,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             });
           } catch (pipelineError: any) {
             console.error(
-              '[processQuestionInBackground] Duplicate check pipeline failed, proceeding as open:',
+              '[processQuestionInBackground] duplicate/queue pipeline failed, proceeding as open:',
               pipelineError?.message,
             );
             await this.questionRepo.updateQuestion(questionId, {
@@ -2089,15 +2175,12 @@ export class QuestionService extends BaseService implements IQuestionService {
             );
           }
         }
-        // When a question is passed, remove it from any moderator's assignedQuestionIds
-        // so the cron sees them as available again. Keyed by questionId so a
-        // malformed/missing moderatorId can't leave an orphan entry behind.
-        if (updates.status === 'pass') {
-          try {
-            await this.userRepo.removeAssignedQuestionFromAllModerators(questionId, session);
-          } catch (err: any) {
-            console.error('[ModeratorQueue] Failed to clear passed question from moderators:', err?.message);
-          }
+        // Auditor "Notify User" flow on a dynamic question: close it as `dynamic_closed`.
+        // Stamp closedAt/isClosed just like the regular `closed` transition so analytics
+        // and closed-question filters treat it consistently.
+        if (updates.status === 'dynamic_closed') {
+          updates.isClosed = true;
+          if (!updates.closedAt) updates.closedAt = new Date();
         }
         return this.questionRepo.updateQuestion(questionId, updates, session);
       });
@@ -6381,142 +6464,6 @@ export class QuestionService extends BaseService implements IQuestionService {
       throw new InternalServerError(
         `Moderator queue cron failed: ${error?.message}`,
       );
-    }
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // MODERATOR QUEUE CRON
-  // ─────────────────────────────────────────────────────────────────────────────
-
-  /**
-   * Periodic cron job — moderator queue management.
-   *
-   * Logic:
-   *  1. Find all in-review questions that have no moderatorId assigned.
-   *  2. Find available moderators — those whose assignedQuestionIds array is empty.
-   *  3. For each available moderator, assign the oldest unassigned in-review question:
-   *       - Set question.moderatorId = moderatorId
-   *       - Append questionId to user.assignedQuestionIds
-   *       - Push a moderator history entry into the submission
-   *       - Notify the moderator
-   *
-   * De-assignment:
-   *  When the moderator closes (approves) a question, AnswerService:
-   *       - keeps question.moderatorId for history
-   *       - pulls questionId from user.assignedQuestionIds
-   *  …making the moderator available again on the next cron run once the array is empty.
-   */
-  async runModeratorQueueCron(): Promise<{ assigned: number; availableWaiting: number; failedAssignments: number }> {
-    console.log('[ModeratorQueue] Starting moderator queue assignment check...');
-    try {
-      // Source-aware assignment: a moderator may hold ONE time-bound question and ONE
-      // manual (non-time-bound) question at the same time. Availability is evaluated
-      // per source group, so the two passes below are independent — a moderator free
-      // for both categories can receive one of each in a single run, while a moderator
-      // already holding (say) a time-bound question still receives a manual one.
-      const [
-        timeBoundModerators,
-        manualModerators,
-        timeBoundQuestions,
-        manualQuestions,
-      ] = await Promise.all([
-        this.userRepo.findAvailableStfModeratorsForSources(TIME_BOUND_SOURCES),
-        this.userRepo.findAvailableStfModeratorsForSources(MANUAL_SOURCES),
-        this.questionRepo.findUnassignedInReviewQuestions(TIME_BOUND_SOURCES),
-        this.questionRepo.findUnassignedInReviewQuestions(MANUAL_SOURCES),
-      ]);
-
-      // Track claimed question IDs across both passes so a question is never assigned
-      // twice (the buckets are disjoint by source, but this is a cheap safety net).
-      const claimedIds = new Set<string>();
-      let assigned = 0;
-      let availableWaiting = 0;
-      let failedAssignments = 0;
-
-      // Assign one question per available moderator within a single source group.
-      const runPass = async (
-        label: string,
-        moderators: IUser[],
-        questions: IQuestion[],
-      ) => {
-        for (const moderator of moderators) {
-          const moderatorId = moderator._id!.toString();
-
-          const nextQuestion = questions.find(
-            (q: any) => !claimedIds.has(q._id.toString()),
-          );
-          if (!nextQuestion) {
-            // Moderator is free for this category but no more questions left in it.
-            availableWaiting++;
-            continue;
-          }
-
-          const questionId = nextQuestion._id!.toString();
-          claimedIds.add(questionId);
-
-          try {
-            // Assign question to moderator — update both documents and notify.
-            await Promise.all([
-              this.questionRepo.updateModeratorId(questionId, moderatorId),
-              // Store the question's actual status (the cron assigns both in-review and
-              // duplicate questions) and its source (used for source-aware availability).
-              this.userRepo.addAssignedQuestion(
-                moderatorId,
-                questionId,
-                ((nextQuestion as any)?.status ?? 'in-review') as QuestionStatus,
-                (nextQuestion as any)?.source,
-              ),
-              this.notificationService.saveTheNotifications(
-                'A question has been assigned to you for moderation',
-                'Moderation Assigned',
-                questionId,
-                moderatorId,
-                'moderator_approval',
-              ),
-            ]);
-
-            // Audit the system (cron) allocation so it shows in the question's audit
-            // trail tagged "System Allocated".
-            const moderatorName =
-              `${moderator.firstName ?? ''} ${moderator.lastName ?? ''}`.trim() || moderatorId;
-            this.auditTrailsService.createAuditTrail({
-              category: AuditCategory.EXPERTS_CATEGORY,
-              action: AuditAction.SYSTEM_ALLOCATED,
-              actor: { id: 'system', name: 'System', email: '', role: 'system', avatar: '' },
-              context: {
-                questionId,
-                question: (nextQuestion as any)?.question,
-                moderatorId,
-              },
-              changes: { after: { moderator: moderatorName } },
-              outcome: { status: OutComeStatus.SUCCESS },
-              createdAt: new Date(),
-            } as ModeratorAuditTrail).catch((auditErr: any) =>
-              console.error('[ModeratorQueue] Failed to write SYSTEM_ALLOCATED audit:', auditErr?.message),
-            );
-
-            console.log(`[ModeratorQueue] (${label}) Assigned question ${questionId} → moderator ${moderatorId}`);
-            assigned++;
-          } catch (err: any) {
-            console.error(`[ModeratorQueue] (${label}) Failed to assign ${questionId} → ${moderatorId}:`, err?.message);
-            claimedIds.delete(questionId);
-            failedAssignments++;
-          }
-        }
-      };
-
-      if (!timeBoundModerators.length && !manualModerators.length) {
-        console.log('[ModeratorQueue] No available moderators for either category.');
-      }
-
-      await runPass('time-bound', timeBoundModerators, timeBoundQuestions);
-      await runPass('manual', manualModerators, manualQuestions);
-
-      console.log(`[ModeratorQueue] Done. assigned=${assigned}, availableWaiting=${availableWaiting}, failed=${failedAssignments}`);
-      return { assigned, availableWaiting, failedAssignments };
-    } catch (error: any) {
-      console.error('[ModeratorQueue] runModeratorQueueCron failed:', error?.message);
-      throw new InternalServerError(`Moderator queue cron failed: ${error?.message}`);
     }
   }
 
