@@ -48,6 +48,26 @@ def resolve_thread_id(config: Optional[dict[str, Any]] = None) -> Optional[str]:
             return str(val).strip()
     return None
 
+
+def resolve_user_id(config: Optional[dict[str, Any]] = None) -> Optional[str]:
+    """User identifier from configurable (set by langgraph-openai-adapter via x-user-id)."""
+    configurable = (config or {}).get("configurable") or {}
+    for key in ("user_id", "user"):
+        val = configurable.get(key)
+        if val is not None and str(val).strip():
+            return str(val).strip()
+    return None
+
+
+def resolve_message_id(config: Optional[dict[str, Any]] = None) -> Optional[str]:
+    """Message identifier from configurable (set by langgraph-openai-adapter via x-message-id)."""
+    configurable = (config or {}).get("configurable") or {}
+    for key in ("message_id", "message"):
+        val = configurable.get(key)
+        if val is not None and str(val).strip():
+            return str(val).strip()
+    return None
+
 # gdb_agent reads this (not MCP_URLS["gdb"]). Set in ai/.env, e.g. http://100.100.108.41:8110
 GOLDEN_API_URL = f"http://{REMOTE_IP}:8110"
 

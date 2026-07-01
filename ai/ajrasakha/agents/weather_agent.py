@@ -154,7 +154,12 @@ async def fetch_api_weather(lat: float, lon: float, data_type: str) -> dict:
         async with httpx.AsyncClient() as client:
             response = await client.get(url, params=params, timeout=10.0)
             response.raise_for_status()
-            return response.json()
+            data = response.json()
+            # Check if API returned an error status (e.g., 404 or success=false)
+            if isinstance(data, dict) and data.get("success") is False:
+                logger.warning("IMD API returned error: %s, returning empty to trigger empty_gdb_reply", data.get("error"))
+                return ""
+            return data
     except Exception as e:
         logger.warning("Connection to IMD API failed (%s), returning empty to trigger empty_gdb_reply", e)
         return ""
@@ -206,6 +211,10 @@ async def weather(
         logger.info("Gemma 4 classified weather intent: %s", data_type)
         
         result = await fetch_api_weather(lat, lon, data_type)
+        # Return empty string directly when API fails (empty string from fetch_api_weather)
+        # This ensures empty_gdb_reply path is triggered instead of outputting '""'
+        if not result:
+            return ""
         return json.dumps(result, ensure_ascii=False)
     except Exception as exc:
         logger.error("weather sub-agent failed: %s", exc, exc_info=True)

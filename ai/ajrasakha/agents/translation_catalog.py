@@ -48,6 +48,7 @@ _COL_CROP = "Crop Follow Up"
 _COL_TESTING = "Testing disclaimer"
 _COL_LATE_NIGHT = "Questions submitted between 10:01 PM and 11:59 PM"
 _COL_EARLY_MORNING = "Questions submitted between 12:00 AM and 5:59 AM"
+_COL_NON_AGRICULTURE = "Non-Agriculture Query"
 
 
 @dataclass(frozen=True)
@@ -60,6 +61,7 @@ class CatalogRow:
     testing_disclaimer: str
     late_night_disclaimer: str
     early_morning_disclaimer: str
+    non_agriculture_reply: str
 
 
 def _normalize_lang(name: str) -> str:
@@ -94,21 +96,41 @@ def load_catalog(path: Optional[Path] = None) -> dict[tuple[str, str], CatalogRo
     idx_testing = col_index(_COL_TESTING)
     idx_late_night = col_index(_COL_LATE_NIGHT)
     idx_early_morning = col_index(_COL_EARLY_MORNING)
+    idx_non_agriculture = col_index(_COL_NON_AGRICULTURE)
 
     catalog: dict[tuple[str, str], CatalogRow] = {}
-    for row in rows_iter:
-        if not row or row[idx_script] is None or row[idx_vocal] is None:
+    for row_number, row in enumerate(rows_iter, start=2):
+        if not row:
             continue
-        script = _normalize_lang(str(row[idx_script]))
-        vocal = _normalize_lang(str(row[idx_vocal]))
+
+        raw_script = row[idx_script] if idx_script < len(row) else None
+        raw_vocal = row[idx_vocal] if idx_vocal < len(row) else None
+        script = _normalize_lang(str(raw_script)) if raw_script is not None else ""
+        vocal = _normalize_lang(str(raw_vocal)) if raw_vocal is not None else ""
+        if not script and not vocal:
+            continue
         if not script or not vocal:
-            continue
+            raise ValueError(
+                f"Incomplete translation catalogue row {row_number} in {xlsx_path}: "
+                "both Script Language and Vocal Language are required"
+            )
+
+        key = _lang_key(script, vocal)
+        if key in catalog:
+            raise ValueError(
+                f"Duplicate translation catalogue row for ({script}, {vocal}) "
+                f"at row {row_number} in {xlsx_path}"
+            )
 
         def cell(i: int) -> str:
             v = row[i] if i < len(row) else None
             return str(v).strip() if v is not None else ""
 
-        catalog[_lang_key(script, vocal)] = CatalogRow(
+        def exact_cell(i: int) -> str:
+            v = row[i] if i < len(row) else None
+            return str(v) if v is not None else ""
+
+        catalog[key] = CatalogRow(
             script_language=script,
             vocal_language=vocal,
             two_hour_disclaimer=cell(idx_two),
@@ -117,6 +139,7 @@ def load_catalog(path: Optional[Path] = None) -> dict[tuple[str, str], CatalogRo
             testing_disclaimer=cell(idx_testing),
             late_night_disclaimer=cell(idx_late_night),
             early_morning_disclaimer=cell(idx_early_morning),
+            non_agriculture_reply=exact_cell(idx_non_agriculture),
         )
     wb.close()
     return catalog
@@ -180,6 +203,40 @@ def get_late_night_disclaimer(script_language: str, vocal_language: str) -> str:
 def get_early_morning_disclaimer(script_language: str, vocal_language: str) -> str:
     """Get the early morning disclaimer (12:00 AM - 5:59 AM) for the given language pair."""
     return get_catalog_row(script_language, vocal_language).early_morning_disclaimer
+
+
+def get_non_agriculture_reply(
+    script_language: str,
+    vocal_language: str,
+    *,
+    catalog: Optional[dict[tuple[str, str], CatalogRow]] = None,
+) -> str:
+    """Return the exact localized non-agriculture cell with English fallback."""
+    cat = catalog if catalog is not None else get_catalog()
+    script = _normalize_lang(script_language) or _DEFAULT_SCRIPT
+    vocal = _normalize_lang(vocal_language) or _DEFAULT_VOCAL
+    key = _lang_key(script, vocal)
+    row = cat.get(key)
+
+    if row is not None and row.non_agriculture_reply.strip():
+        return row.non_agriculture_reply
+
+    reason = "missing language pair" if row is None else "blank Non-Agriculture Query cell"
+    logger.warning(
+        "translation_catalog: %s for (%s, %s) — using English/English "
+        "Non-Agriculture Query",
+        reason,
+        script,
+        vocal,
+    )
+
+    fallback = cat.get(_lang_key(_DEFAULT_SCRIPT, _DEFAULT_VOCAL))
+    if fallback is None or not fallback.non_agriculture_reply.strip():
+        raise ValueError(
+            "Translation catalogue configuration error: English/English "
+            "Non-Agriculture Query must contain a non-blank response"
+        )
+    return fallback.non_agriculture_reply
 
 
 def language_pair_from_plan(plan: Optional[dict]) -> tuple[str, str]:
