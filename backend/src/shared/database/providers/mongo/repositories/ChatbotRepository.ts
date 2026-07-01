@@ -15902,9 +15902,10 @@ existing.villageVolunteers +=
           .map((x) => x._id.toString())
           .toArray();
       }
-      const lifecycles = await Promise.all(
-        questionIds.map((id) => this.getQuestionLifecycle(id))
-      );
+      const lifecycles =
+        await this.getQuestionLifecycleForSummary(
+          questionIds,
+        );
 
       const totalQuestions = questionIds.length;
 
@@ -15931,8 +15932,9 @@ existing.villageVolunteers +=
       let questionsWithReviewers = 0;
       let slaBreachedCount = 0;
 
-
-      for (const lifecycle of lifecycles) {
+      // const withinSlaQuestionIds: string[] = [];
+      for (const lifecycleObj of lifecycles) {
+        const lifecycle = lifecycleObj.timeline;
         const validEvents = lifecycle.filter(
           (x) =>
             x.timestamp &&
@@ -15944,16 +15946,59 @@ existing.villageVolunteers +=
         // =====================
         // Whole Lifecycle
         // =====================
+        
+        if (
+            first &&
+            last &&
+            (lifecycleObj.status === "closed" || lifecycleObj.status === "pass")
+        ) {
+            resolvedQuestions++;
+            const lifecycleTime =
+                new Date(last.timestamp).getTime()
+                -
+                new Date(first.timestamp).getTime();
+            if (
+                lifecycleTime >
+                2 * 60 * 60 * 1000
+            ) {
+                slaBreachedCount++;
+            }
+        }
 
-        if (first && last && last.eventType === "closure") {
-          const lifecycleTime =
-            new Date(last.timestamp).getTime() -
-            new Date(first.timestamp).getTime();
-          totalLifecycleTime += lifecycleTime;
-          resolvedQuestions++;
-          if (lifecycleTime > 2 * 60 * 60 * 1000) {
-            slaBreachedCount++;
-          }
+
+// if (
+//     first &&
+//     (lifecycleObj.status === "closed" || lifecycleObj.status === "pass")
+// ) {
+//     const resolutionTime =
+//         lifecycleObj.closedAt ?? lifecycleObj.passedAt;
+//     if (!resolutionTime) continue;
+//     const lifecycleTime =
+//         new Date(resolutionTime).getTime() -
+//         new Date(first.timestamp).getTime();
+//     if (lifecycleTime <= 2 * 60 * 60 * 1000) {
+//         console.log(
+//             "WITHIN SLA:",
+//             lifecycleObj.questionId,
+//             lifecycleObj.status,
+//             first.timestamp,
+//             resolutionTime,
+//             lifecycleTime / 60000,
+//             "mins",
+//         );
+//     }
+//     resolvedQuestions++;
+//     if (lifecycleTime > 2 * 60 * 60 * 1000) {
+//         slaBreachedCount++;
+//     }
+// }
+
+        if (first && last) {
+            const lifecycleTime =
+                new Date(last.timestamp).getTime()
+                -
+                new Date(first.timestamp).getTime();
+            totalLifecycleTime += lifecycleTime;
         }
 
         // =====================
@@ -16053,6 +16098,7 @@ existing.villageVolunteers +=
           0,
         );
       }
+      // console.log("WITHIN SLA IDS:", withinSlaQuestionIds);
 
       return {
         totalQuestions,
@@ -16115,148 +16161,481 @@ existing.villageVolunteers +=
     }
   }
 
-  private async getQuestionLifecycleForSummary(
-    questionId: string,
+  async getQuestionLifecycleForSummary(
+    questionIds: string[],
   ): Promise<any[]> {
-    const question =
-      await this.QuestionCollection.findOne({
-        _id: new ObjectId(questionId),
-      });
+    await this.initReviewSystem();
+    await this.init("annam");
 
-    if (!question) {
-      return [];
-    }
-
-    const submission =
-      await this.QuestionSubmissionsCollection.findOne({
-        questionId: question._id,
-      });
-
-    const rerouteDoc =
-      await this.Reroutes.findOne({
-        questionId: question._id,
-      });
-
-    const reviewTimeline = buildReviewTimeline(
-      submission?.history || [],
-      submission?.queue || [],
-      question.createdAt,
-      question.status,
-      question.firstAllocationAt,
+    const objectIds = questionIds.map(
+      (id) => new ObjectId(id),
     );
 
-    const timeline: any[] = [];
+    // -------------------------
+    // Bulk fetch
+    // -------------------------
 
-    // Question Created
+    const [questions, submissions, reroutes] =
+      await Promise.all([
+        this.QuestionCollection.find({
+          _id: { $in: objectIds },
+        }).toArray(),
 
-    timeline.push({
-      timestamp: question.createdAt,
-      action: "Question Asked",
-      duration: null,
-      endTime: question.createdAt,
-      eventType: "question",
-    });
+        this.QuestionSubmissionsCollection.find({
+          questionId: { $in: objectIds },
+        }).toArray(),
 
-    // Review Timeline
+        this.Reroutes.find({
+          questionId: { $in: objectIds },
+        }).toArray(),
+      ]);
 
-    timeline.push(
-      ...reviewTimeline.map((item) => ({
-        timestamp: item.timestamp,
-        action: item.action,
-        duration: item.duration,
-        endTime: item.endTime,
-        eventType: item.eventType,
-      })),
+    // -------------------------
+    // Maps
+    // -------------------------
+
+    const submissionMap = new Map(
+      submissions.map((s) => [
+        s.questionId.toString(),
+        s,
+      ]),
     );
 
-    // Reroutes
-
-    if (rerouteDoc?.reroutes?.length) {
-      timeline.push(
-        ...rerouteDoc.reroutes.map((reroute) => ({
-          timestamp: reroute.reroutedAt,
-          action: "Question Rerouted",
-          duration: reroute.duration || 0,
-          endTime: reroute.completedAt,
-          eventType: "reroute",
-        })),
-      );
-    }
-
-    // Closure
-
-    if (question.closedAt) {
-      timeline.push({
-        timestamp: question.closedAt,
-        action: "Question Closed",
-        duration: null,
-        endTime: question.closedAt,
-        eventType: "closure",
-      });
-    } else if (question.passedAt) {
-      timeline.push({
-        timestamp: question.passedAt,
-        action: "Question Passed",
-        duration: null,
-        endTime: question.passedAt,
-        eventType: "closure",
-      });
-    }
-
-    // Sort
-
-    timeline.sort(
-      (a, b) =>
-        new Date(a.timestamp).getTime() -
-        new Date(b.timestamp).getTime(),
+    const rerouteMap = new Map(
+      reroutes.map((r) => [
+        r.questionId.toString(),
+        r,
+      ]),
     );
 
-    // System wait events
+    // -------------------------
+    // Build lifecycles
+    // -------------------------
 
-    const finalTimeline: any[] = [];
+    return questions.map((question) => {
+      const submission =
+        submissionMap.get(
+          question._id.toString(),
+        );
 
-    const NON_GAP_ACTIONS = new Set([
-      "Question Asked",
-      "Question Closed",
-      "Question Passed",
-      "Question Rerouted",
-    ]);
+      const rerouteDoc =
+        rerouteMap.get(
+          question._id.toString(),
+        );
 
-    for (let i = 0; i < timeline.length; i++) {
-      finalTimeline.push(timeline[i]);
+      const reviewTimeline =
+        buildReviewTimeline(
+          submission?.history || [],
+          submission?.queue || [],
+          question.createdAt,
+          question.status,
+          question.firstAllocationAt,
+        );
 
-      const current = timeline[i];
-      const next = timeline[i + 1];
+      const timeline: any[] = [];
 
-      if (!next) {
-        continue;
+      // -------------------------
+      // Duplicate questions
+      // -------------------------
+
+      if (question.status === "duplicate") {
+          return {
+              questionId: question._id,
+              createdAt: question.createdAt,
+              closedAt: question.closedAt,
+              passedAt: question.passedAt,
+              status: question.status,
+              timeline: [
+                  {
+                      timestamp: question.createdAt,
+                      user: "-",
+                      action: "Duplicate Question",
+                      duration: null,
+                      remarks:
+                          "Original question lifecycle is not available.",
+                      endTime: null,
+                      eventType: "duplicate",
+                  },
+                  {
+                      timestamp:
+                          question.closedAt ||
+                          question.updatedAt,
+                      user: "Buffer Time",
+                      action:
+                          "Question Marked As Duplicate",
+                      duration:
+                          question.updatedAt.getTime() -
+                          question.createdAt.getTime(),
+                      remarks: "Closed as duplicate",
+                      endTime:
+                          question.closedAt ||
+                          question.updatedAt,
+                      eventType: "closure",
+                  },
+              ],
+          };
       }
+
+      // -------------------------
+      // Initial event
+      // -------------------------
+
+      timeline.push({
+        timestamp: question.createdAt,
+        user: "-",
+        action:
+          question.source === "AGRI_EXPERT"
+            ? "Question Created Internally"
+            : "Question Asked",
+        duration: null,
+        remarks: "",
+        endTime: question.createdAt,
+        eventType: "inception",
+      });
+
+      // -------------------------
+      // Initial allocation wait
+      // -------------------------
 
       if (
-        NON_GAP_ACTIONS.has(current.action) ||
-        NON_GAP_ACTIONS.has(next.action)
+        question.firstAllocationAt &&
+        new Date(
+          question.firstAllocationAt,
+        ).getTime() -
+          question.createdAt.getTime() >
+          1000
       ) {
-        continue;
-      }
-
-      const currentEnd =
-        current.endTime || current.timestamp;
-
-      const gap =
-        new Date(next.timestamp).getTime() -
-        new Date(currentEnd).getTime();
-
-      if (gap > 60_000) {
-        finalTimeline.push({
-          timestamp: currentEnd,
-          action: "Pending Next Assignment",
-          duration: gap,
-          endTime: next.timestamp,
+        timeline.push({
+          timestamp: question.createdAt,
+          user: "Buffer Time",
+          action:
+            "Initial Allocation Pending",
+          duration:
+            new Date(
+              question.firstAllocationAt,
+            ).getTime() -
+            question.createdAt.getTime(),
+          remarks: "",
+          endTime:
+            question.firstAllocationAt,
           eventType: "system_wait",
         });
       }
-    }
 
-    return finalTimeline;
+      // -------------------------
+      // Reviews
+      // -------------------------
+
+      reviewTimeline.forEach(
+        (review, index) => {
+          const historyItem =
+            submission?.history?.[index];
+
+          let action = "Review";
+
+          if (index === 0) {
+            action = review.isCompleted
+              ? "Authored Answer"
+              : "Authoring Answer";
+          } else if (
+            historyItem?.modifiedAnswer
+          ) {
+            action = "Modified";
+          } else if (
+            historyItem?.status
+          ) {
+            action =
+              historyItem.status
+                .charAt(0)
+                .toUpperCase() +
+              historyItem.status.slice(1);
+          }
+
+          timeline.push({
+            timestamp:
+              review.assignedAt,
+            user: "-",
+            action,
+            duration:
+              review.isCompleted
+                ? review.timeTakenMs
+                : Date.now() -
+                  new Date(
+                    review.assignedAt,
+                  ).getTime(),
+            remarks:
+              historyItem?.reasonForRejection ||
+              historyItem?.reasonForLastModification ||
+              "",
+            endTime:
+              review.completedAt ||
+              review.assignedAt,
+            eventType:
+              index === 0
+                ? "author"
+                : "reviewer",
+          });
+        },
+      );
+
+      // -------------------------
+      // Moderator
+      // -------------------------
+
+      const lastReview =
+        reviewTimeline[
+          reviewTimeline.length - 1
+        ];
+
+      const finalReviewerCompletedAt =
+        lastReview?.completedAt ||
+        lastReview?.assignedAt ||
+        question.createdAt;
+
+      if (
+        question.moderatorAssignedAt &&
+        question.moderatorId
+      ) {
+        const moderatorAssignedAt =
+          new Date(
+            question.moderatorAssignedAt,
+          );
+
+        if (
+          moderatorAssignedAt.getTime() >
+          new Date(
+            finalReviewerCompletedAt,
+          ).getTime()
+        ) {
+          timeline.push({
+            timestamp:
+              finalReviewerCompletedAt,
+            user: "Buffer Time",
+            action:
+              "Awaiting Moderator Assignment",
+            duration:
+              moderatorAssignedAt.getTime() -
+              new Date(
+                finalReviewerCompletedAt,
+              ).getTime(),
+            remarks: "",
+            endTime:
+              moderatorAssignedAt,
+            eventType: "system_wait",
+          });
+        }
+
+        timeline.push({
+          timestamp:
+            moderatorAssignedAt,
+          user: "-",
+          action:
+            "Approval Review",
+          duration:
+            question.closedAt?.getTime() -
+            moderatorAssignedAt.getTime(),
+          remarks: "",
+          endTime:
+            question.closedAt,
+          eventType: "moderator",
+        });
+      }
+
+      // -------------------------
+      // Reroutes
+      // -------------------------
+
+      rerouteDoc?.reroutes?.forEach(
+        (r: any) => {
+          const isPending =
+            r.status === "pending";
+
+          let action =
+            "Approval Review";
+
+          if (r.status === "modified") {
+            action = "Modified";
+          }
+
+          if (r.status === "rejected") {
+            action = "Rejected";
+          }
+
+          timeline.push({
+            timestamp:
+              r.reroutedAt,
+            user: "-",
+            action,
+            duration: isPending
+              ? Date.now() -
+                new Date(
+                  r.reroutedAt,
+                ).getTime()
+              : r.updatedAt.getTime() -
+                r.reroutedAt.getTime(),
+            remarks:
+              r.comment || "",
+            endTime: isPending
+              ? new Date()
+              : r.updatedAt,
+            eventType: "reroute",
+          });
+        },
+      );
+
+      // -------------------------
+      // Sort
+      // -------------------------
+
+      timeline.sort(
+        (a, b) =>
+          new Date(
+            a.timestamp,
+          ).getTime() -
+          new Date(
+            b.timestamp,
+          ).getTime(),
+      );
+
+      // -------------------------
+      // Insert gaps
+      // -------------------------
+
+      const finalTimeline: any[] =
+        [];
+
+      for (
+        let i = 0;
+        i < timeline.length;
+        i++
+      ) {
+        finalTimeline.push(
+          timeline[i],
+        );
+
+        const current =
+          timeline[i];
+
+        const next =
+          timeline[i + 1];
+
+        if (
+          !next ||
+          !current.endTime
+        ) {
+          continue;
+        }
+
+        const gap =
+          new Date(
+            next.timestamp,
+          ).getTime() -
+          new Date(
+            current.endTime,
+          ).getTime();
+
+        if (
+          gap > 1000 &&
+          current.eventType !==
+            "reroute"
+        ) {
+          finalTimeline.push({
+            timestamp:
+              current.endTime,
+            user: "Buffer Time",
+            action:
+              "Pending Next Assignment",
+            duration: gap,
+            remarks: "",
+            endTime:
+              next.timestamp,
+            eventType:
+              "system_wait",
+          });
+        }
+      }
+
+      // -------------------------
+      // Awaiting closure
+      // -------------------------
+
+      let completionTime =
+        question.closedAt || question.passedAt;
+
+      if (completionTime && finalTimeline.length) {
+        if (!(completionTime instanceof Date)) {
+          completionTime = new Date(completionTime);
+        }
+
+        if (!isNaN(completionTime.getTime())) {
+          const last = finalTimeline.at(-1);
+
+          const lastEnd = new Date(
+            last.endTime || last.timestamp,
+          );
+
+          if (!isNaN(lastEnd.getTime())) {
+            const wait =
+              completionTime.getTime() -
+              lastEnd.getTime();
+
+            if (wait > 1000) {
+              finalTimeline.push({
+                timestamp: lastEnd,
+                user: "Buffer Time",
+                action: "Awaiting Closure/Pass",
+                duration: wait,
+                remarks: "",
+                endTime: completionTime,
+                eventType: "system_wait",
+              });
+            }
+          }
+        }
+      }
+
+      // -------------------------
+      // Closed/Passed
+      // -------------------------
+
+      if (question.closedAt) {
+        finalTimeline.push({
+          timestamp:
+            question.closedAt,
+          user: "-",
+          action:
+            "Question Closed",
+          duration: null,
+          remarks: "",
+          endTime:
+            question.closedAt,
+          eventType: "closure",
+        });
+      } else if (
+        question.passedAt
+      ) {
+        finalTimeline.push({
+          timestamp:
+            question.passedAt,
+          user: "-",
+          action:
+            "Question Passed",
+          duration: null,
+          remarks: "",
+          endTime:
+            question.passedAt,
+          eventType: "closure",
+        });
+      }
+
+      return {
+          questionId: question._id,
+          createdAt: question.createdAt,
+          closedAt: question.closedAt,
+          passedAt: question.passedAt,
+          status: question.status,
+          timeline: finalTimeline,
+      };
+    });
   }
 }

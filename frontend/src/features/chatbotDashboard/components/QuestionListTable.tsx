@@ -4,7 +4,6 @@ import { Input } from "@/components/atoms/input";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { Pagination } from "@/components/pagination";
 import { cn } from "@/lib/utils";
-import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
 import { QuestionLifecycleSummary } from "../QuestionLifecycleSummary";
 
 export type QuestionListSortDirection = "asc" | "desc";

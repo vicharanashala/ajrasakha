@@ -1,4 +1,4 @@
-import { AlertCircle, Clock, RefreshCw, Users, Pencil } from "lucide-react";
+import { AlertCircle, Clock, RefreshCw, Pencil } from "lucide-react";
 
 import { Card, CardContent } from "@/components/atoms/card";
 import { useLifeCycleSummary } from "./hooks/useActiveUsersAnalytics";
@@ -47,7 +47,11 @@ export function QuestionLifecycleSummary({
   tag,
   notificationType,
 }: Props) {
-  const { data: summary, isLoading } = useLifeCycleSummary(
+  const {
+    data: summary,
+    isLoading,
+    isRefetching,
+  } = useLifeCycleSummary(
     startDate,
     endDate,
     source,
@@ -57,6 +61,7 @@ export function QuestionLifecycleSummary({
     tag,
     notificationType,
   );
+  // console.log("tag", summary);
   const primaryMetrics = [
     {
       title: "Authoring (R0)",
@@ -78,8 +83,12 @@ export function QuestionLifecycleSummary({
 
   const secondaryMetrics = [
     {
-      title: "Push To Review",
-      value: summary?.avgPushToReviewTime,
+      title: "SLA Breached %",
+      value:
+        summary?.totalQuestions > 0
+          ? (summary?.slaBreachedCount / summary?.totalQuestions) * 100
+          : 0,
+      formatter: (v: number) => `${v.toFixed(1)}%`,
     },
     {
       title: "Initial Allocation",
@@ -211,7 +220,7 @@ export function QuestionLifecycleSummary({
     });
   }
 
-  if (isLoading) {
+  if (isLoading || isRefetching) {
     return (
       <div className="space-y-6 p-6">
         {/* KPI Cards */}
@@ -276,10 +285,10 @@ export function QuestionLifecycleSummary({
 
         <Card>
           <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">SLA Breaches</p>
+            <p className="text-sm text-muted-foreground">Within SLA</p>
 
-            <p className="text-2xl font-bold text-red-500">
-              {summary?.slaBreachedCount || 0}
+            <p className="text-2xl font-bold text-green-500">
+              {summary?.totalQuestions - summary?.slaBreachedCount}
             </p>
           </CardContent>
         </Card>
@@ -294,9 +303,12 @@ export function QuestionLifecycleSummary({
               <p className="text-xs text-muted-foreground">{item.title}</p>
 
               <p className="text-lg font-semibold">
-                {item.formatter
-                  ? item.formatter(item.value)
-                  : formatDuration(item.value)}
+                {
+                  // item.formatter
+                  //   ? item.formatter(item.value)
+                  //   :
+                  formatDuration(item.value)
+                }
               </p>
             </CardContent>
           </Card>
