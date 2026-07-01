@@ -408,8 +408,8 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
           {visibleColumns.crop && (
             <TableCell className="align-middle">
             {truncate(
-              (q.details.normalised_crop || q.details.crop || "")
-                .replace(/\b\w/g, char => char.toUpperCase()),
+              (q.details.normalised_crop || q.details.crop || ""),
+                // .replace(/\b\w/g, char => char.toUpperCase()),
               10
             )}
           </TableCell>

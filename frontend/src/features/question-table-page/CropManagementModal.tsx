@@ -382,7 +382,7 @@ const AliasManagerModal = ({
               );
             })()}
             <div className="min-w-0">
-              <h2 className="text-sm font-bold text-gray-900 dark:text-white capitalize leading-tight">
+              <h2 className="text-sm font-bold text-gray-900 dark:text-white leading-tight">
                 {crop.name}
               </h2>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
@@ -437,7 +437,7 @@ const AliasManagerModal = ({
                         key={cropName}
                         className="inline-flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-lg text-xs font-medium border bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700"
                       >
-                        <span className="capitalize">{cropName}</span>
+                        <span>{cropName}</span>
                         <button
                           type="button"
                           onClick={() =>
@@ -796,7 +796,7 @@ export const CropManagementModal = ({
             </div>
             {/* Crop Name */}
             <div className="px-3 py-2.5 min-w-0">
-              <span className="text-sm font-semibold text-gray-900 dark:text-white capitalize truncate block">
+              <span className="text-sm font-semibold text-gray-900 dark:text-white truncate block">
                 {item.name}
               </span>
             </div>
@@ -854,7 +854,7 @@ export const CropManagementModal = ({
             </div>
             {/* Chemical Name */}
             <div className="px-3 py-2.5 min-w-0">
-              <span className="text-sm font-semibold text-gray-900 dark:text-white capitalize truncate block">
+              <span className="text-sm font-semibold text-gray-900 dark:text-white truncate block">
                 {item.name}
               </span>
             </div>
@@ -928,7 +928,7 @@ export const CropManagementModal = ({
             </div>
             {/* Name */}
             <div className="px-3 py-2.5 min-w-0">
-              <span className="text-sm font-semibold text-gray-900 dark:text-white capitalize truncate block">
+              <span className="text-sm font-semibold text-gray-900 dark:text-white truncate block">
                 {item.name}
               </span>
             </div>
