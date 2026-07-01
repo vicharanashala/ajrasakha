@@ -21,6 +21,7 @@ describe('QuestionController.updateQuestion', () => {
 
     mockQuestionService = {
       updateQuestion: vi.fn(),
+      getQuestionById: vi.fn(),
     };
 
     mockUserService = {};

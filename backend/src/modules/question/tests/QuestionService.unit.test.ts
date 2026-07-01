@@ -64,6 +64,7 @@ function buildMocks() {
       findInactiveOrBlockedExperts: vi.fn(),
       getExpertsWithFallback: vi.fn(),
       getUsersByIds: vi.fn(),
+      removeAssignedQuestionFromAllModerators: vi.fn(),
     },
     mockQuestionSubmissionRepo: {
       addSubmission: vi.fn(),
@@ -607,6 +608,9 @@ describe('QuestionService.deleteQuestion', () => {
       {},
     );
     mocks.mockQuestionRepo.deleteQuestion.mockResolvedValue({deletedCount: 1});
+    mocks.mockUserRepo.removeAssignedQuestionFromAllModerators = vi
+      .fn()
+      .mockResolvedValue(undefined);
 
     await service.deleteQuestion(sampleId);
 
@@ -1445,13 +1449,14 @@ describe('QuestionService.getMatchedQuestion', () => {
     );
   });
 
-  it('returns message from analytics DB for normal AGRI_EXPERT question', async () => {
+  it('returns message from second DB for normal AGRI_EXPERT question', async () => {
     mocks.mockQuestionRepo.getById.mockResolvedValue({
       ...sampleQuestion(),
       source: 'AGRI_EXPERT',
       messageId: 'msg-xyz',
     });
-    mocks.mockChatbotRepository.findMatchingMessages.mockResolvedValue([
+
+    mocks.mockChatbotRepository.findFromSecondDb.mockResolvedValue([
       {
         messageId: 'msg-xyz',
         createdAt: new Date().toISOString(),
@@ -1466,9 +1471,10 @@ describe('QuestionService.getMatchedQuestion', () => {
         content: ['some content'],
       },
     ]);
-    mocks.mockChatbotRepository.findFromSecondDb.mockResolvedValue([]);
 
     const result = await service.getMatchedQuestion(sampleId);
+
+    expect(mocks.mockChatbotRepository.findFromSecondDb).toHaveBeenCalled();
 
     expect(result.messageId).toBe('msg-xyz');
     expect(result.content).toEqual(['some content']);
