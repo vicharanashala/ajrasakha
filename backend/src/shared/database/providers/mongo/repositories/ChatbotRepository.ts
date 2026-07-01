@@ -4395,11 +4395,9 @@ if (!districts.length) {
           {
             $regexMatch: {
               input: '$contentSignal',
-
-              regex: keywords
+              regex: `\\b(?:${keywords
                 .map(keyword => this.escapeRegex(keyword))
-                .join('|'),
-
+                .join('|')})\\b`,
               options: 'i',
             },
           },
@@ -4869,29 +4867,44 @@ if (!districts.length) {
     source = 'annam',
     session?: ClientSession,
     userType = 'all',
+    startTime?: string,
+    endTime?: string,
   ) {
     try {
       await this.init(source);
       await this.initReviewSystem();
 
-      const monthRange = month ? this.getMonthDateRange(month) : null;
-      const monthDateMatch = monthRange
-        ? {createdAt: {$gte: monthRange.start, $lt: monthRange.end}}
-        : {};
-      const now = new Date();
-      const istNow = new Date(
-        now.toLocaleString('en-US', {
-          timeZone: 'Asia/Kolkata',
-        }),
-      );
-      const start = new Date(istNow);
-      start.setDate(start.getDate() - 30);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(istNow);
-      end.setHours(23, 59, 59, 999);
+      let dateMatch: any = {};
+      let qStart: Date;
+      let qEnd: Date;
+
+      if (startTime && endTime) {
+        qStart = new Date(startTime);
+        qEnd = new Date(endTime);
+      } else if (month) {
+        const monthRange = this.getMonthDateRange(month);
+        qStart = monthRange.start;
+        qEnd = monthRange.end;
+      } else {
+        const now = new Date();
+        const istNow = new Date(
+          now.toLocaleString('en-US', {
+            timeZone: 'Asia/Kolkata',
+          }),
+        );
+        qStart = new Date(istNow);
+        qStart.setDate(qStart.getDate() - 30);
+        qStart.setHours(0, 0, 0, 0);
+        qEnd = new Date(istNow);
+        qEnd.setHours(23, 59, 59, 999);
+      }
+
+      dateMatch = {
+        createdAt: {$gte: qStart, $lte: qEnd},
+      };
 
       if (source === 'whatsapp') {
-        return await this.getDailyAnalyticsForWhatsApp(start, end);
+        return await this.getDailyAnalyticsForWhatsApp(qStart, qEnd);
       }
       const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
       const questionUserTypeLookupStages =
@@ -4906,7 +4919,7 @@ if (!districts.length) {
           [
             {
               $match: {
-                ...monthDateMatch,
+                ...dateMatch,
                 isCreatedByUser: true,
                 isDeleted: {
                   $ne: true,
@@ -4953,7 +4966,7 @@ if (!districts.length) {
               $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
               // messageId: { $exists: true, $ne: null },
               // threadId: { $exists: true, $ne: null },
-              ...monthDateMatch,
+              ...dateMatch,
               ...questionUserTypeLookupStages,
               status: {$ne: 'non_agri'},
               ...baseQuestionQuery
@@ -5103,30 +5116,46 @@ if (!districts.length) {
     source = 'annam',
     session?: ClientSession,
     userType = 'all',
+    startTime?: string,
+    endTime?: string,
   ) {
     try {
       await this.init(source);
       await this.initReviewSystem();
 
-      const monthRange = month ? this.getMonthDateRange(month) : null;
-      const monthDateMatch = monthRange
-        ? {createdAt: {$gte: monthRange.start, $lt: monthRange.end}}
-        : {};
+      let dateMatch: any = {};
+      let qStart: Date;
+      let qEnd: Date;
+
+      if (startTime && endTime) {
+        qStart = new Date(startTime);
+        qEnd = new Date(endTime);
+      } else if (month) {
+        const monthRange = this.getMonthDateRange(month);
+        qStart = monthRange.start;
+        qEnd = monthRange.end;
+      } else {
+        const now = new Date();
+        const istNow = new Date(
+          now.toLocaleString('en-US', {
+            timeZone: 'Asia/Kolkata',
+          }),
+        );
+        qStart = new Date(istNow);
+        qStart.setDate(qStart.getDate() - 30);
+        qStart.setHours(0, 0, 0, 0);
+        qEnd = new Date(istNow);
+        qEnd.setHours(23, 59, 59, 999);
+      }
+
+      dateMatch = {
+        createdAt: {$gte: qStart, $lte: qEnd},
+      };
 
       const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
-      const now = new Date();
-      const istNow = new Date(
-        now.toLocaleString('en-US', {
-          timeZone: 'Asia/Kolkata',
-        }),
-      );
-      const start = new Date(istNow);
-      start.setDate(start.getDate() - 30);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(istNow);
-      end.setHours(23, 59, 59, 999);
+      
       if (source === 'whatsapp') {
-        return await this.getWeeklyAnalyticsForWhatsApp(start, end);
+        return await this.getWeeklyAnalyticsForWhatsApp(qStart, qEnd);
       }
       const questionUserTypeLookupStages =
         await this.buildQuestionUserTypeMatchQuery(source, userType);
@@ -5139,7 +5168,7 @@ if (!districts.length) {
           [
             {
               $match: {
-                ...monthDateMatch,
+                ...dateMatch,
 
                 isCreatedByUser: true,
 
@@ -5191,7 +5220,7 @@ if (!districts.length) {
               $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
               // messageId: { $exists: true, $ne: null },
               // threadId: { $exists: true, $ne: null },
-              ...monthDateMatch,
+              ...dateMatch,
               ...questionUserTypeLookupStages,
               status: {$ne: 'non_agri'},
             },
@@ -15336,9 +15365,9 @@ existing.villageVolunteers +=
           {
             $regexMatch: {
               input: '$contentSignal',
-              regex: keywords
+              regex: `\\b(?:${keywords
                 .map(keyword => this.escapeRegex(keyword))
-                .join('|'),
+                .join('|')})\\b`,
               options: 'i',
             },
           },

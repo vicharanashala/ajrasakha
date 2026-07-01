@@ -497,6 +497,8 @@ export interface IChatbotRepository {
     source?: string,
     session?: ClientSession,
     userType?: string,
+    startTime?: string,
+    endTime?: string,
   ): Promise<any[]>;
 
   /** Count of user messages created today from the messages collection. */
@@ -511,6 +513,8 @@ export interface IChatbotRepository {
     source?: string,
     session?: ClientSession,
     userType?: string,
+    startTime?: string,
+    endTime?: string,
   ): Promise<any[]>;
 
   getMonthlyAnalytics(
