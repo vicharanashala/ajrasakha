@@ -10,7 +10,7 @@ import {
 
 import {
   useActiveUserDetails,
-  useModeratorsDetails,
+  useCoordinatorsDetails,
 } from "./hooks/useActiveUsersAnalytics";
 
 interface ActiveUserDetailsModalProps {
@@ -90,7 +90,7 @@ export function ActiveUserDetailsModal({
     enabled: type === "activeUsers",
   });
 
-  const moderatorsQuery = useModeratorsDetails({
+  const moderatorsQuery = useCoordinatorsDetails({
     page,
     limit: PAGE_SIZE,
     source,

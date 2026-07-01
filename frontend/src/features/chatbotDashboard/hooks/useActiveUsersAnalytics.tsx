@@ -391,7 +391,7 @@ export const useActiveUserDetails = ({
   })
 }
 
-export const useModeratorsDetails = ({
+export const useCoordinatorsDetails = ({
   page,
   limit,
   source,
@@ -412,7 +412,7 @@ export const useModeratorsDetails = ({
 })=>{
   return useQuery<any>({
     queryKey: [
-      "get-active-user-details",
+      "get-coordinators-details",
       page,
       limit,
       source,
@@ -422,7 +422,7 @@ export const useModeratorsDetails = ({
       search
     ],
     queryFn: ()=>{
-      return chatbotService.getModerators({
+      return chatbotService.getCoordinatorsDetails({
         page,
         limit,
         source,

@@ -524,7 +524,7 @@ export class ChatbotService {
     return apiFetch<any>(`${this._baseUrl}/active-users-details?${params.toString()}`)
   }
 
-  async getModerators ({
+  async getCoordinatorsDetails ({
     page,
     limit,
     source,
@@ -549,6 +549,6 @@ export class ChatbotService {
     if(district) params.append('district', district);
     if(state) params.append('state', state);
     if(search) params.append('search', search);
-    return apiFetch<any>(`${this._baseUrl}/get-moderators-details?${params.toString()}`)
+    return apiFetch<any>(`${this._baseUrl}/get-coordinators-details?${params.toString()}`)
   }
 }

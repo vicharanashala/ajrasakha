@@ -1980,10 +1980,10 @@ export class ChatbotController {
 
 
 
-@Get('/get-moderators-details')
+@Get('/get-coordinators-details')
   @HttpCode(200)
   @Authorized()
-  async getModerators(
+  async getCoordinatorsDetails(
   @QueryParams()
     query: {
 
@@ -1999,7 +1999,7 @@ export class ChatbotController {
 ) {
   const pageInNumber = Number(query.page)
   const limitInNumber = Number(query.limit)
-  return this.chatbotService.getModerators(
+  return this.chatbotService.getCoordinatorsDetails(
     pageInNumber,
     limitInNumber,
     query.source,

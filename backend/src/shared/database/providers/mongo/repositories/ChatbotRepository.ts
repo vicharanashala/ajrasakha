@@ -15828,7 +15828,7 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getModerators(
+  async getCoordinatorsDetails(
     page = 1,
     limit = 10,
     source: string,

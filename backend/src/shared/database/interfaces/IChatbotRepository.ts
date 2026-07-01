@@ -947,7 +947,7 @@ export interface IChatbotRepository {
     search?: string
   ): Promise<any>
 
-    getModerators(
+    getCoordinatorsDetails(
     page: number, 
     limit: number, 
     source: string, 
