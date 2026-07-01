@@ -1,4 +1,4 @@
-import { IsOptional, IsIn, IsInt, IsString, Min } from 'class-validator';
+import { IsOptional, IsIn, IsInt, IsString, Min, IsNotEmpty } from 'class-validator';
 import { Type } from 'class-transformer';
 import { JSONSchema } from 'class-validator-jsonschema';
 
@@ -135,6 +135,32 @@ export class WeatherConcernAnalyticsQueryDto extends SourceQueryDto {
   @IsOptional()
   @IsString()
   endDate?: string;
+}
+
+export class WeatherConcernQueriesQueryDto extends WeatherConcernAnalyticsQueryDto {
+  @JSONSchema({ example: 'Rain', description: 'The concern label to fetch queries for' })
+  @IsNotEmpty()
+  @IsString()
+  concern!: string;
+
+  @JSONSchema({ example: 1, description: 'Page number for pagination' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page: number = 1;
+
+  @JSONSchema({ example: 10, description: 'Results per page' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  limit: number = 10;
+
+  @JSONSchema({ example: 'rain', description: 'Search by name, email, question text, or message ID' })
+  @IsOptional()
+  @IsString()
+  search?: string;
 }
 
 export class UserDetailsQueryDto {

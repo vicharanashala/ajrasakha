@@ -1,7 +1,8 @@
 import {ObjectId} from 'mongodb';
 
 export type UserRole = 'admin' | 'moderator' | 'expert' | 'pae_expert' | 'tester'| 'district_coordinator' | 'block_coordinator' | 'village_volunteer' | 'call_agent';
-export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold' | 'pae_submitted' | 'draft' | 'pass' | 'duplicate' | 'non_agri' | 'pending';
+export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold' | 'pae_submitted' | 'draft' | 'pass' | 'duplicate' | 'non_agri' | 'pending' | 'dynamic_closed' | 'dynamic';
+export type Tags = 'dynamic' | 'static_dynamic'
 export interface IPreference {
   state: string;
   crop: string;
@@ -81,6 +82,7 @@ export interface IQuestion {
   question: string;
   contextId?: ObjectId | string | null;
   status: QuestionStatus;
+  tag?: Tags;
   totalAnswersCount: number;
   priority: IQuestionPriority;
   details: {
@@ -90,6 +92,7 @@ export interface IQuestion {
     season: string;
     domain: string[];
     normalised_crop?: string;
+    tools_used?:string[];
   };
   isAutoAllocate: boolean;
   source: QuestionSource;

@@ -48,6 +48,7 @@ from ajrasakha.agents.prompts import (
 )
 from ajrasakha.agents.state import AjraSakhaState, Location
 from ajrasakha.agents.assemble_answer_body import assemble_answer_body_node
+from ajrasakha.agents.non_agriculture_reply import non_agriculture_reply_node
 from ajrasakha.agents.tool_registry import get_main_tool_node
 
 load_dotenv()
@@ -405,6 +406,7 @@ def _build_graph():
         builder.add_node("clarify", with_thread_logging(clarify_node))
         builder.add_node("ensure_location", with_thread_logging(ensure_location_node))
         builder.add_node("upload_reviewer_only", with_thread_logging(upload_reviewer_only_node))
+        builder.add_node("non_agriculture_reply", with_thread_logging(non_agriculture_reply_node))
         builder.add_node("execute_plan", with_thread_logging(execute_plan_node))
         builder.add_node("assemble_answer_body", with_thread_logging(assemble_answer_body_node))
         from ajrasakha.agents.translate_answer import translate_answer_node
@@ -426,7 +428,8 @@ def _build_graph():
                 "execute_plan": "execute_plan",
             },
         )
-        builder.add_edge("upload_reviewer_only", "empty_gdb_reply")
+        builder.add_edge("upload_reviewer_only", "non_agriculture_reply")
+        builder.add_edge("non_agriculture_reply", END)
         builder.add_conditional_edges(
             "execute_plan",
             route_after_tools_planner,
