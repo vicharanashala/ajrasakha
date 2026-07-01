@@ -261,7 +261,6 @@ export const PlaygroundPage = () => {
 
                 {user?.role === "call_agent" && (
                   <>
-                    {" "}
                     <TabsTrigger
                       value="call_dashboard"
                       className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
@@ -509,22 +508,6 @@ export const PlaygroundPage = () => {
 
               {user?.role === "call_agent" && (
                 <TabsContent
-                  value="call_interface"
-                  className={cn(
-                    "mt-0 border-0 md:px-8 outline-none",
-                    "data-[state=active]:animate-in",
-                    "data-[state=active]:fade-in-0",
-                    "data-[state=active]:zoom-in-[0.98]",
-                    "data-[state=active]:slide-in-from-bottom-3",
-                    "duration-500 ease-out",
-                  )}
-                >
-                  <CallInterface />
-                </TabsContent>
-              )}
-
-              {user?.role === "call_agent" && (
-                <TabsContent
                   value="call_dashboard"
                   className={cn(
                     "mt-0 border-0 md:px-8 outline-none",
@@ -539,6 +522,21 @@ export const PlaygroundPage = () => {
                 </TabsContent>
               )}
 
+              {user?.role === "call_agent" && (
+                <TabsContent
+                  value="call_interface"
+                  className={cn(
+                    "mt-0 border-0 md:px-8 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <CallInterface />
+                </TabsContent>
+              )}
               {user?.role === "call_agent" && (
                 <TabsContent
                   value="call_history"
