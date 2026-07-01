@@ -206,7 +206,7 @@ async def tools_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
 
 
 def route_after_tools_planner(state: AjraSakhaState) -> str:
-    """After execute_plan: assemble body, translate, or empty gdb sheet path."""
+    """After execute_plan: assemble body, translate, or empty GDB catalog path."""
     return route_after_execute(state)
 
 
@@ -269,7 +269,7 @@ def route_after_tools(state: AjraSakhaState) -> str:
 
 
 async def empty_gdb_reply_node(state: AjraSakhaState) -> dict:
-    """Planner graph: empty body; translate_answer adds sheet 2-hour + testing."""
+    """Planner graph: empty body; translate_answer adds catalog 2-hour + testing."""
     from ajrasakha.agents.answer_footers import build_expert_queue_content
     from ajrasakha.agents.state import TRANSLATE_PATH_EMPTY_GDB
     from ajrasakha.agents.translation_catalog import language_pair_from_plan

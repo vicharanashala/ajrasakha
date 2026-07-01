@@ -19,7 +19,7 @@ from ajrasakha.agents.translation_catalog import (
 )
 
 
-def test_build_non_agriculture_content_uses_exact_sheet_blocks():
+def test_build_non_agriculture_content_uses_exact_catalog_blocks():
     body = get_non_agriculture_reply("English", "English")
     testing = get_testing_disclaimer("English", "English")
 
@@ -37,7 +37,7 @@ def test_build_non_agriculture_content_does_not_append_two_hour_disclaimer():
     assert "Answered by:" not in content
 
 
-def test_workbook_contains_native_and_romanized_non_agriculture_replies():
+def test_catalog_contains_native_and_romanized_non_agriculture_replies():
     native = get_non_agriculture_reply("Devanagari", "Hindi")
     romanized = get_non_agriculture_reply("English", "Hindi")
 
