@@ -683,6 +683,34 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
+  async getWeatherConcernQueries(
+    filters: WeatherConcernAnalyticsFilters,
+    concern: string,
+    page = 1,
+    limit = 10,
+    source: 'annam',
+    userType = 'all',
+    search?: string,
+  ) {
+    try {
+      return await this.chatbotRepository.getWeatherConcernQueries(
+        filters,
+        concern,
+        page,
+        limit,
+        source,
+        undefined,
+        userType,
+        search,
+      );
+    } catch (error) {
+      throw new InternalServerError(
+
+        `Failed to fetch weather concern analytics: ${error}`,
+      );
+    }
+  }
+
   async getFarmerHeatMapAnalytics(
     filters: FarmerHeatMapFilters = {},
   ): Promise<FarmerHeatMapResponse> {

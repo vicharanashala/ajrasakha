@@ -369,6 +369,13 @@ async function getExpertDisplayName(expertId?: string | null): Promise<string> {
         }
       }
 
+      // Update firstAllocationAt if history is empty (first allocation for this submission)
+      if (history.length === 0) {
+        await (questionRepo as any).updateQuestion(questionId, {
+          firstAllocationAt: now,
+        });
+      }
+
       processed++;
       parentPort?.postMessage({ processed: 1 });
     } catch (err: any) {

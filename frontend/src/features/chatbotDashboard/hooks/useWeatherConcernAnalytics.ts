@@ -74,3 +74,78 @@ export function useWeatherConcernAnalytics(
     },
   });
 }
+
+export interface WeatherConcernQueriesResponse {
+  questions: {
+    questionId?: string;
+    messageId?: string;
+    userId?: string;
+    question: string;
+    status: string;
+    questionType: "unique" | "duplicate";
+    category: string;
+    createdAt?: string;
+    farmerName?: string;
+    name?: string;
+    email?: string;
+    crop?: string;
+    village?: string;
+    block?: string;
+    district?: string;
+    state?: string;
+  }[];
+  total: number;
+  totalPages: number;
+  page: number;
+  limit: number;
+}
+
+const EMPTY_WEATHER_CONCERN_QUERIES_RESPONSE: WeatherConcernQueriesResponse = {
+  questions: [],
+  total: 0,
+  totalPages: 0,
+  page: 1,
+  limit: 10,
+};
+
+export function useWeatherConcernQueries(
+  filters: WeatherConcernFilters,
+  concern: string | null,
+  page: number = 1,
+  limit: number = 10,
+  source: "vicharanashala" | "annam" = "annam",
+  userType: "all" | "external" | "internal" = "all",
+  search?: string,
+) {
+  return useQuery<WeatherConcernQueriesResponse, Error>({
+    queryKey: ["weather-concern-queries", filters, concern, page, limit, source, userType, search],
+    queryFn: async () => {
+      if (!concern) return EMPTY_WEATHER_CONCERN_QUERIES_RESPONSE;
+
+      const params = new URLSearchParams();
+
+      params.set("concern", concern);
+      params.set("page", page.toString());
+      params.set("limit", limit.toString());
+
+      if (filters.season !== "all") params.set("season", filters.season);
+      if (filters.state !== "all") params.set("state", filters.state);
+      if (filters.district !== "all") params.set("district", filters.district);
+      if (filters.startDate) params.set("startDate", filters.startDate.toISOString());
+      if (filters.endDate) params.set("endDate", filters.endDate.toISOString());
+
+      params.set("source", source);
+      if (userType !== "all") params.set("userType", userType);
+      if (search) params.set("search", search);
+
+      return (
+        (await apiFetch<WeatherConcernQueriesResponse>(
+          `${env.apiBaseUrl()}/analytics/weather-concern-queries?${params.toString()}`,
+        )) ?? EMPTY_WEATHER_CONCERN_QUERIES_RESPONSE
+      );
+    },
+    enabled: !!concern,
+  });
+}
+
+

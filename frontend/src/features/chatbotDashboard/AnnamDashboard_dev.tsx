@@ -265,6 +265,14 @@ export function AnnamDashboard_dev({
     setQuestionStatusDateRange(undefined);
     setCustomerNotificationsDateRange(undefined);
   }, []);
+
+  const handleCardClick = useCallback((id: string) => {
+    if (id === "totalInstalls") {
+      setUserDetailsInitialFilters({ profileCompleted: "yes" });
+      setActiveView("user-details");
+      scrollTo("user-details");
+    }
+  }, [setUserDetailsInitialFilters, setActiveView, scrollTo]);
   
   // ─── Computed KPI Data ─────────────────────────────────────────────────────
   const patchedKpiRow1 = useMemo(() => {
@@ -401,6 +409,7 @@ export function AnnamDashboard_dev({
                       source={source}
                       userType={filters.userType}
                       isLoading={isFetching}
+                      onCardClick={handleCardClick}
                     />
                   )}
                   

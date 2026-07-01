@@ -538,17 +538,16 @@ export function TopFaqsLeaderboard({
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.97, y: 4 }}
                   transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                  className="relative w-full max-w-4xl h-[78vh] overflow-hidden rounded-3xl border border-slate-200/70 bg-gradient-to-br from-white via-slate-50 to-slate-100 shadow-[0_20px_80px_rgba(15,23,42,0.18)] dark:border-white/[0.06] dark:bg-[#121212] dark:from-[#18181b] dark:via-[#161616] dark:to-[#121212] dark:shadow-black/40 flex flex-col"
+                  className="relative w-full max-w-4xl h-[78vh] overflow-hidden rounded-3xl border border-slate-200/70 bg-white shadow-[0_20px_80px_rgba(15,23,42,0.18)] dark:border-white/[0.06] dark:bg-[#121212] dark:shadow-black/40 flex flex-col"
                 >
-                  {/* Glow Layer */}
-                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(58,170,90,0.08),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(55,138,221,0.08),transparent_28%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(58,170,90,0.12),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(55,138,221,0.12),transparent_28%)]" />
+
 
                   {/* Header */}
                   <motion.div
                     initial={{ opacity: 0, y: -6 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.25, delay: 0.05 }}
-                    className="relative z-10 flex items-center justify-between border-b border-slate-200/70 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.03] backdrop-blur-xl px-6 py-5"
+                    className="relative z-10 flex items-center justify-between border-b border-slate-200/70 dark:border-white/[0.06] bg-white dark:bg-[#121212] px-6 py-5"
                   >
                     <div className="flex items-center gap-4">
                       <motion.div
@@ -651,18 +650,15 @@ export function TopFaqsLeaderboard({
                                 }}
                                 transition={{ duration: 0.25, ease: "easeOut" }}
                                 whileHover={{ y: -1 }}
-                                className="group relative flex items-start gap-4 rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-sm transition-colors duration-200 hover:border-slate-300 hover:bg-white hover:shadow-lg dark:border-white/[0.06] dark:bg-white/[0.03] dark:hover:border-white/[0.10] dark:hover:bg-white/[0.05]"
+                                className="group relative flex items-start gap-4 rounded-2xl border border-slate-200/70 bg-white p-4 shadow-sm transition-colors duration-200 hover:border-slate-300 hover:shadow-lg dark:border-white/[0.06] dark:bg-[#1a1a1a] dark:hover:border-white/[0.10]"
                               >
-                                <div className="absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_top_right,rgba(58,170,90,0.05),transparent_35%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(58,170,90,0.08),transparent_35%)]" />
+                                
 
                                 {getRankBadge(index)}
 
                                 <div className="relative z-10 flex-1 min-w-0">
                                   <div
-                                    className="relative rounded-2xl rounded-tl-sm border border-slate-200/70 px-4 py-3 dark:border-white/[0.06]"
-                                    style={{
-                                      backgroundColor: `rgba(58, 170, 90, ${heatAlpha})`,
-                                    }}
+                                    className="relative rounded-2xl rounded-tl-sm border border-slate-200/70 px-4 py-3 bg-slate-50 dark:border-white/[0.06] dark:bg-[#222]"
                                   >
                                     <div className="flex items-start justify-between gap-3">
                                       <TranslatableText
@@ -691,10 +687,7 @@ export function TopFaqsLeaderboard({
                                     </div>
 
                                     <div
-                                      className="absolute -left-2 top-3 h-4 w-4 rotate-45 border-b border-l border-slate-200/70 dark:border-white/[0.06]"
-                                      style={{
-                                        backgroundColor: `rgba(58, 170, 90, ${heatAlpha})`,
-                                      }}
+                                      className="absolute -left-2 top-3 h-4 w-4 rotate-45 border-b border-l border-slate-200/70 bg-slate-50 dark:border-white/[0.06] dark:bg-[#222]"
                                     />
                                   </div>
                                 </div>
