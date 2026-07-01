@@ -38,14 +38,18 @@ import type {
   WeatherConcernAnalyticsFilters,
   WeatherConcernAnalyticsResponse,
   FarmerHeatMapFilters,
+  FarmerHeatMapLocationHierarchy,
   FarmerHeatMapResponse,
   FarmerHeatMapBucket,
   FarmerHeatMapRow,
   FarmerHeatMapMetricTotals,
+  FarmerHeatMapQuestionDetail,
+  CoordinatorDuplicateQuestionHeatMapResponse,
+  CoordinatorDuplicateQuestionDetail,
+  CoordinatorDuplicateQuestionLocationHierarchy,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {IQuestion, IQuestionSubmission, QuestionSource} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
-import {DISTRICTS} from '#root/utils/districts.js';
 import {getFirebaseAuth} from '#root/config/firebaseAdmin.js';
 
 import bcrypt from 'bcryptjs';
@@ -519,11 +523,54 @@ private normalizeDistrictName(
     .toLowerCase();
 
   const aliases: Record<string, string> = {
+    anantapur: 'ananthapuramu',
     chamarajanagara: 'chamarajanagar',
     baramula: 'baramulla',
   };
 
   return aliases[normalized] ?? normalized;
+}
+
+private getEquivalentLocationNames(value: string): string[] {
+  const normalized = this.normalizeDistrictName(value);
+  const equivalents: Record<string, string[]> = {
+    ananthapuramu: ['Ananthapuramu', 'Anantapur'],
+    chamarajanagar: ['Chamarajanagar', 'Chamarajanagara'],
+    baramulla: ['Baramulla', 'Baramula'],
+  };
+
+  return [...new Set([value, ...(equivalents[normalized] || [])])];
+}
+
+private matchesEquivalentLocation(
+  actual: string | undefined,
+  expectedValues: string[],
+) {
+  const normalizedActual = this.normalizeDistrictName(String(actual || ''));
+
+  return expectedValues.some(
+    expected =>
+      normalizedActual === this.normalizeDistrictName(String(expected || '')),
+  );
+}
+
+private isInvalidHeatMapLocation(value?: string | null) {
+  const normalized = this.normalizeDistrictName(String(value || ''));
+  const invalidValues = new Set([
+    '',
+    '-',
+    'na',
+    'n/a',
+    'nil',
+    'null',
+    'test',
+    'testing',
+    'undefined',
+    'unknown',
+    'not specified',
+  ]);
+
+  return invalidValues.has(normalized);
 }
   private readonly coordinatorsRoles = COORDINATOR_ROLES;
 
@@ -3278,16 +3325,21 @@ if (!districts.length) {
 
   async getFarmerHeatMapAnalytics(
     filters: FarmerHeatMapFilters = {},
+    locationHierarchy?: FarmerHeatMapLocationHierarchy,
     session?: ClientSession,
   ): Promise<FarmerHeatMapResponse> {
     try {
       const source = filters.source || 'annam';
       const userType = filters.userType || 'all';
       const selectedState = filters.state || 'all';
+      const selectedDistrict = filters.district || 'all';
+      const selectedBlock = filters.block || 'all';
+      const selectedVillage = filters.village || 'all';
       const granularity = filters.granularity || 'monthly';
       const createEmptyHeatMapTotals = (): FarmerHeatMapMetricTotals => ({
         activeFarmers: 0,
         totalQuestions: 0,
+        duplicateQuestions: 0,
         closedQuestions: 0,
         notifiedQuestions: 0,
         averageClosureTimeMinutes: 0,
@@ -3471,15 +3523,66 @@ if (!districts.length) {
       const {startDate, endDate, buckets, getBucketKey} =
         buildHeatMapTimeRange();
 
-      const scope =
-        selectedState && selectedState !== 'all' ? 'district' : 'state';
-      const labels =
-        scope === 'district'
-          ? [...(DISTRICTS[selectedState] || [])].sort()
-          : Object.keys(DISTRICTS).sort();
+      const scope = locationHierarchy?.scope || 'state';
+      let labels = [...(locationHierarchy?.labels || [])].sort();
       const labelMap = new Map(
         labels.map(label => [this.normalizeDistrictName(label), label]),
       );
+      const getLocationLabel = (value?: string | null) => {
+        const displayValue = String(value || '').trim();
+        if (!displayValue || this.isInvalidHeatMapLocation(displayValue)) {
+          return undefined;
+        }
+
+        const normalized = this.normalizeDistrictName(displayValue);
+        const mappedLabel = labelMap.get(normalized);
+        if (mappedLabel) return mappedLabel;
+
+        labelMap.set(normalized, displayValue);
+        labels.push(displayValue);
+        return displayValue;
+      };
+      const locationField =
+        scope === 'state'
+          ? 'state'
+          : scope === 'district'
+            ? 'district'
+            : scope === 'block'
+              ? 'blockName'
+              : 'villageName';
+      const selectedLocationFilters: Record<string, string[]> = {};
+      if (
+        selectedState &&
+        selectedState !== 'all' &&
+        !this.isInvalidHeatMapLocation(selectedState)
+      ) {
+        selectedLocationFilters.state =
+          this.getEquivalentLocationNames(selectedState);
+      }
+      if (
+        selectedDistrict &&
+        selectedDistrict !== 'all' &&
+        !this.isInvalidHeatMapLocation(selectedDistrict)
+      ) {
+        selectedLocationFilters.district =
+          this.getEquivalentLocationNames(selectedDistrict);
+      }
+      if (
+        selectedBlock &&
+        selectedBlock !== 'all' &&
+        !this.isInvalidHeatMapLocation(selectedBlock)
+      ) {
+        selectedLocationFilters.blockName =
+          this.getEquivalentLocationNames(selectedBlock);
+      }
+      if (
+        selectedVillage &&
+        selectedVillage !== 'all' &&
+        !this.isInvalidHeatMapLocation(selectedVillage)
+      ) {
+        selectedLocationFilters.villageName =
+          this.getEquivalentLocationNames(selectedVillage);
+      }
 
       const finalSource: QuestionSource =
         source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
@@ -3496,11 +3599,12 @@ if (!districts.length) {
             {
               $addFields: {
                 _userOid: {
-                  $cond: [
-                    {$and: [{$ne: ['$user', null]}, {$ne: ['$user', '']}]},
-                    {$toObjectId: '$user'},
-                    null,
-                  ],
+                  $convert: {
+                    input: '$user',
+                    to: 'objectId',
+                    onError: null,
+                    onNull: null,
+                  },
                 },
               },
             },
@@ -3523,17 +3627,14 @@ if (!districts.length) {
                         : {'_userDoc.userRole': 'INTERNAL'},
                   },
                 ]),
-            ...(scope === 'district'
-              ? [{$match: {'_userDoc.farmerProfile.state': selectedState}}]
-              : []),
+            ...Object.entries(selectedLocationFilters).map(([key, values]) => ({
+              $match: {[`_userDoc.farmerProfile.${key}`]: {$in: values}},
+            })),
             {
               $project: {
                 user: '$user',
                 createdAt: 1,
-                location:
-                  scope === 'district'
-                    ? '$_userDoc.farmerProfile.district'
-                    : '$_userDoc.farmerProfile.state',
+                location: `$_userDoc.farmerProfile.${locationField}`,
               },
             },
             {$match: {location: {$exists: true, $nin: [null, '']}}},
@@ -3545,9 +3646,7 @@ if (!districts.length) {
       const activeFarmerMap = new Map<string, Set<string>>();
       for (const row of activeFarmerRows) {
         const bucket = getBucketKey(new Date(row.createdAt));
-        const label = labelMap.get(
-          this.normalizeDistrictName(String(row.location)),
-        );
+        const label = getLocationLabel(String(row.location));
         if (!bucket || !label) continue;
         const key = `${label}__${bucket}`;
         if (!activeFarmerMap.has(key)) activeFarmerMap.set(key, new Set());
@@ -3568,13 +3667,18 @@ if (!districts.length) {
           },
           {
             $project: {
+              _id: 1,
               userId: 1,
+              question: 1,
+              details: 1,
               messageId: 1,
               threadId: 1,
               createdAt: 1,
               closedAt: 1,
               status: {$ifNull: ['$status', 'unknown']},
               isCustomerNotified: 1,
+              referenceQuestionId: 1,
+              referenceQuestion: 1,
             },
           },
         ],
@@ -3676,53 +3780,115 @@ if (!districts.length) {
           if (!matchesUserType) return [];
         }
 
-        if (
-          scope === 'district' &&
-          userDoc.farmerProfile.state !== selectedState
-        ) {
-          return [];
+        for (const [key, values] of Object.entries(selectedLocationFilters)) {
+          if (
+            !this.matchesEquivalentLocation(userDoc.farmerProfile?.[key], values)
+          ) {
+            return [];
+          }
         }
 
-        const location =
-          scope === 'district'
-            ? userDoc.farmerProfile.district
-            : userDoc.farmerProfile.state;
+        const location = userDoc.farmerProfile?.[locationField];
         if (!location) return [];
 
-        return [{...row, location}];
+        const name = `${userDoc.firstName || ''} ${userDoc.lastName || ''}`.trim();
+
+        return [
+          {
+            ...row,
+            location,
+            userId,
+            askedBy: name || userDoc.name || userDoc.email,
+            email: userDoc.email,
+            state: userDoc.farmerProfile?.state,
+            district: userDoc.farmerProfile?.district,
+            block: userDoc.farmerProfile?.blockName,
+            village: userDoc.farmerProfile?.villageName,
+          },
+        ];
       });
 
       const questionMap = new Map<
         string,
         {
           totalQuestions: number;
+          duplicateQuestions: number;
           closedQuestions: number;
           notifiedQuestions: number;
           closureTotalMinutes: number;
           closureCount: number;
           statusDistribution: Record<string, number>;
+          duplicateQuestionKeys: Set<string>;
+          questionDetails: FarmerHeatMapQuestionDetail[];
         }
       >();
+      const normalizeDuplicateReferenceText = (value?: string | null) =>
+        String(value || '')
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, ' ');
+      const getDuplicateGroupKey = (question: any) => {
+        const referenceQuestionId = question.referenceQuestionId?.toString?.();
+        if (referenceQuestionId) {
+          return `reference-id:${referenceQuestionId}`;
+        }
+
+        const referenceQuestion = normalizeDuplicateReferenceText(
+          question.referenceQuestion,
+        );
+        if (referenceQuestion) {
+          return `reference-text:${referenceQuestion}`;
+        }
+
+        return `question-id:${question._id?.toString?.() || String(question._id)}`;
+      };
 
       for (const row of questionRows) {
         const bucket = getBucketKey(new Date(row.createdAt));
-        const label = labelMap.get(
-          this.normalizeDistrictName(String(row.location)),
-        );
+        const label = getLocationLabel(String(row.location));
         if (!bucket || !label) continue;
         const key = `${label}__${bucket}`;
         const existing = questionMap.get(key) || {
           totalQuestions: 0,
+          duplicateQuestions: 0,
           closedQuestions: 0,
           notifiedQuestions: 0,
           closureTotalMinutes: 0,
           closureCount: 0,
           statusDistribution: {},
+          duplicateQuestionKeys: new Set<string>(),
+          questionDetails: [],
         };
         const status = String(row.status || 'unknown');
         existing.totalQuestions += 1;
         existing.statusDistribution[status] =
           (existing.statusDistribution[status] || 0) + 1;
+        existing.questionDetails.push({
+          questionId: row._id?.toString?.() || String(row._id),
+          question: row.question || '',
+          status,
+          askedBy: row.askedBy,
+          email: row.email,
+          userId: row.userId,
+          state: row.state,
+          district: row.district,
+          block: row.block,
+          village: row.village,
+          crop: Array.isArray(row.details?.crop)
+            ? row.details.crop.join(', ')
+            : row.details?.crop,
+          domain: Array.isArray(row.details?.domain)
+            ? row.details.domain.join(', ')
+            : row.details?.domain,
+          createdAt: row.createdAt,
+          isCustomerNotified: row.isCustomerNotified,
+          referenceQuestionId: row.referenceQuestionId?.toString?.(),
+          referenceQuestion: row.referenceQuestion,
+        });
+        if (status === 'duplicate') {
+          existing.duplicateQuestionKeys.add(getDuplicateGroupKey(row));
+          existing.duplicateQuestions = existing.duplicateQuestionKeys.size;
+        }
 
         if (status === 'closed') {
           existing.closedQuestions += 1;
@@ -3744,6 +3910,8 @@ if (!districts.length) {
         questionMap.set(key, existing);
       }
 
+      labels = [...new Set(labels)].sort((a, b) => a.localeCompare(b));
+
       const calculateTotals = (
         labelFilter?: string,
         bucketFilter?: string,
@@ -3753,6 +3921,7 @@ if (!districts.length) {
         let closedQuestions = 0;
         let notifiedQuestions = 0;
         let closureTotalMinutes = 0;
+        const duplicateQuestionKeys = new Set<string>();
 
         const filteredLabels = labelFilter ? [labelFilter] : labels;
         const filteredBuckets = bucketFilter
@@ -3773,6 +3942,9 @@ if (!districts.length) {
             if (!questionMetrics) continue;
 
             totalQuestions += questionMetrics.totalQuestions;
+            for (const duplicateQuestionKey of questionMetrics.duplicateQuestionKeys) {
+              duplicateQuestionKeys.add(duplicateQuestionKey);
+            }
             closedQuestions += questionMetrics.closedQuestions;
             notifiedQuestions += questionMetrics.notifiedQuestions;
             closureTotalMinutes += questionMetrics.closureTotalMinutes;
@@ -3782,6 +3954,7 @@ if (!districts.length) {
         return {
           activeFarmers: activeFarmerIds.size,
           totalQuestions,
+          duplicateQuestions: duplicateQuestionKeys.size,
           closedQuestions,
           notifiedQuestions,
           averageClosureTimeMinutes:
@@ -3810,10 +3983,12 @@ if (!districts.length) {
             label: bucket.label,
             activeFarmers,
             totalQuestions: questionMetrics?.totalQuestions ?? 0,
+            duplicateQuestions: questionMetrics?.duplicateQuestions ?? 0,
             closedQuestions: questionMetrics?.closedQuestions ?? 0,
             notifiedQuestions: questionMetrics?.notifiedQuestions ?? 0,
             averageClosureTimeMinutes,
             statusDistribution: questionMetrics?.statusDistribution ?? {},
+            questionDetails: questionMetrics?.questionDetails ?? [],
           };
         });
 
@@ -3841,6 +4016,10 @@ if (!districts.length) {
               acc.totalQuestions,
               cell.totalQuestions,
             );
+            acc.duplicateQuestions = Math.max(
+              acc.duplicateQuestions,
+              cell.duplicateQuestions,
+            );
             acc.closedQuestions = Math.max(
               acc.closedQuestions,
               cell.closedQuestions,
@@ -3859,6 +4038,7 @@ if (!districts.length) {
         {
           activeFarmers: 0,
           totalQuestions: 0,
+          duplicateQuestions: 0,
           closedQuestions: 0,
           notifiedQuestions: 0,
           averageClosureTimeMinutes: 0,
@@ -3871,6 +4051,9 @@ if (!districts.length) {
           source,
           userType,
           state: selectedState,
+          district: selectedDistrict,
+          block: selectedBlock,
+          village: selectedVillage,
           granularity,
           startDate: startDate.toISOString(),
           endDate: endDate.toISOString(),
@@ -3882,6 +4065,334 @@ if (!districts.length) {
       };
     } catch (error) {
       throw new Error(`Failed to fetch farmer heat map analytics: ${error}`);
+    }
+  }
+
+  async getCoordinatorDuplicateQuestionHeatMap(
+    coordinatorId: string,
+    locationHierarchy?: CoordinatorDuplicateQuestionLocationHierarchy,
+    session?: ClientSession,
+  ): Promise<CoordinatorDuplicateQuestionHeatMapResponse> {
+    try {
+      await this.init('annam');
+      await this.initReviewSystem();
+
+      if (!ObjectId.isValid(coordinatorId)) {
+        throw new BadRequestError('Invalid coordinator id');
+      }
+
+      const coordinator = await this.users.findOne(
+        {_id: new ObjectId(coordinatorId)},
+        {session},
+      );
+
+      if (!coordinator || !COORDINATOR_ROLES.includes(coordinator.userRole as any)) {
+        throw new BadRequestError('Coordinator not found');
+      }
+
+      const role = String(coordinator.userRole || '');
+      const state = coordinator.farmerProfile?.state;
+      const district = coordinator.farmerProfile?.district;
+      const block = coordinator.farmerProfile?.blockName;
+      const village = coordinator.farmerProfile?.villageName;
+      const farmerFilter: any = {
+        $nor: COORDINATOR_ROLES.map(coordinatorRole => ({
+          userRole: this.exactRegex(coordinatorRole),
+        })),
+      };
+
+      if (state) farmerFilter['farmerProfile.state'] = this.exactRegex(state);
+      if (district) {
+        farmerFilter['farmerProfile.district'] = this.exactRegex(district);
+      }
+      if (role === 'block_coordinator' || role === 'village_volunteer') {
+        if (block) farmerFilter['farmerProfile.blockName'] = this.exactRegex(block);
+      }
+      if (role === 'village_volunteer' && village) {
+        farmerFilter['farmerProfile.villageName'] = this.exactRegex(village);
+      }
+
+      const scopedUsers = await this.users
+        .find(farmerFilter, {
+          projection: {
+            _id: 1,
+            name: 1,
+            email: 1,
+            farmerProfile: 1,
+          },
+          session,
+        })
+        .toArray();
+      const userMap = new Map(
+        scopedUsers.map((user: any) => [user._id.toString(), user]),
+      );
+      const userIds = [...userMap.keys()];
+      const userObjectIds = userIds.map(id => new ObjectId(id));
+
+      if (userIds.length === 0) {
+        return {
+          coordinatorId,
+          coordinatorRole: role,
+          scope:
+            role === 'district_coordinator'
+              ? 'district'
+              : role === 'block_coordinator'
+                ? 'block'
+                : 'village',
+          state,
+          district,
+          block,
+          totalDuplicateQuestions: 0,
+          blocks: [],
+        };
+      }
+
+      const userMessages = await this.messagesCollection
+        .find(
+          {
+            user: {$in: userIds},
+            isDeleted: {$ne: true},
+          },
+          {
+            projection: {
+              user: 1,
+              messageId: 1,
+              threadId: 1,
+              conversationId: 1,
+            },
+            session,
+          },
+        )
+        .toArray();
+      const messageIds = [
+        ...new Set(userMessages.map((message: any) => message.messageId).filter(Boolean)),
+      ];
+      const threadIds = [
+        ...new Set(
+          userMessages
+            .map((message: any) => message.threadId || message.conversationId)
+            .filter(Boolean),
+        ),
+      ];
+      const messageUserMap = new Map(
+        userMessages
+          .filter((message: any) => message.messageId)
+          .map((message: any) => [String(message.messageId), String(message.user)]),
+      );
+      const threadUserMap = new Map(
+        userMessages
+          .filter((message: any) => message.threadId || message.conversationId)
+          .map((message: any) => [
+            String(message.threadId || message.conversationId),
+            String(message.user),
+          ]),
+      );
+
+      const questionFilter: any = buildBaseQuestionMatch('AJRASAKHA');
+      const questionUserMatches: any[] = [
+        {userId: {$in: userIds}},
+        {userId: {$in: userObjectIds}},
+      ];
+      if (messageIds.length > 0) {
+        questionUserMatches.push({messageId: {$in: messageIds}});
+      }
+      if (threadIds.length > 0) {
+        questionUserMatches.push({threadId: {$in: threadIds}});
+      }
+      questionFilter.$and.push({$or: questionUserMatches});
+
+      const questions = await this.QuestionCollection.find(questionFilter, {
+        session,
+      })
+        .project({
+          _id: 1,
+          question: 1,
+          createdAt: 1,
+          userId: 1,
+          messageId: 1,
+          threadId: 1,
+        })
+        .sort({createdAt: 1})
+        .toArray();
+
+      const normalizeQuestionText = (value?: string) =>
+        String(value || '')
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, ' ');
+      const groups = new Map<
+        string,
+        {
+          userId: string;
+          normalizedQuestion: string;
+          question: string;
+          questions: any[];
+        }
+      >();
+
+      for (const question of questions) {
+        const directUserId = question.userId?.toString?.() || String(question.userId || '');
+        const resolvedUserId =
+          (directUserId && userMap.has(directUserId) ? directUserId : undefined) ||
+          (question.messageId ? messageUserMap.get(String(question.messageId)) : undefined) ||
+          (question.threadId ? threadUserMap.get(String(question.threadId)) : undefined);
+        const normalizedQuestion = normalizeQuestionText(question.question);
+
+        if (!resolvedUserId || !userMap.has(resolvedUserId) || !normalizedQuestion) {
+          continue;
+        }
+
+        const key = `${resolvedUserId}__${normalizedQuestion}`;
+        const existing = groups.get(key) || {
+          userId: resolvedUserId,
+          normalizedQuestion,
+          question: question.question || '',
+          questions: [],
+        };
+        existing.questions.push(question);
+        if (!existing.question && question.question) {
+          existing.question = question.question;
+        }
+        groups.set(key, existing);
+      }
+
+      const normalizeLocationKey = (value?: string) =>
+        String(value || '')
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, ' ');
+      const detailsByBlockVillage = new Map<string, CoordinatorDuplicateQuestionDetail[]>();
+      for (const group of groups.values()) {
+        if (group.questions.length < 2) continue;
+
+        const user = userMap.get(group.userId);
+        const blockName = String(user?.farmerProfile?.blockName || '').trim();
+        const villageName = String(user?.farmerProfile?.villageName || '').trim();
+        if (!blockName || !villageName) continue;
+
+        const key = `${normalizeLocationKey(blockName)}__${normalizeLocationKey(villageName)}`;
+        const dates = group.questions
+          .map((question: any) => question.createdAt ? new Date(question.createdAt) : null)
+          .filter((date: Date | null) => date && !Number.isNaN(date.getTime())) as Date[];
+        const sortedDates = dates.sort((a, b) => a.getTime() - b.getTime());
+        const detail: CoordinatorDuplicateQuestionDetail = {
+          question: group.question,
+          repeatCount: group.questions.length,
+          userId: group.userId,
+          userName: user?.name,
+          email: user?.email,
+          block: blockName,
+          village: villageName,
+          firstAskedAt: sortedDates[0],
+          lastAskedAt: sortedDates[sortedDates.length - 1],
+          questionIds: group.questions.map((question: any) =>
+            question._id?.toString?.() || String(question._id),
+          ),
+        };
+
+        detailsByBlockVillage.set(key, [
+          ...(detailsByBlockVillage.get(key) || []),
+          detail,
+        ]);
+      }
+
+      const blockMap = new Map<
+        string,
+        {
+          blockName: string;
+          villages: Map<
+            string,
+            {
+              villageName: string;
+              details: CoordinatorDuplicateQuestionDetail[];
+            }
+          >;
+        }
+      >();
+      const addBlockVillage = (blockName?: string, villageName?: string) => {
+        const displayBlock = String(blockName || '').trim();
+        const displayVillage = String(villageName || '').trim();
+        const normalizedBlock = normalizeLocationKey(displayBlock);
+        const normalizedVillage = normalizeLocationKey(displayVillage);
+        if (!normalizedBlock) return;
+
+        if (!blockMap.has(normalizedBlock)) {
+          blockMap.set(normalizedBlock, {
+            blockName: displayBlock,
+            villages: new Map(),
+          });
+        }
+        if (normalizedVillage) {
+          const blockEntry = blockMap.get(normalizedBlock)!;
+          blockEntry.villages.set(
+            normalizedVillage,
+            blockEntry.villages.get(normalizedVillage) || {
+              villageName: displayVillage,
+              details: [],
+            },
+          );
+        }
+      };
+      locationHierarchy?.blocks.forEach(locationBlock => {
+        addBlockVillage(locationBlock.block);
+        locationBlock.villages.forEach(locationVillage =>
+          addBlockVillage(locationBlock.block, locationVillage),
+        );
+      });
+
+      for (const user of scopedUsers as any[]) {
+        const blockName = String(user.farmerProfile?.blockName || '').trim();
+        const villageName = String(user.farmerProfile?.villageName || '').trim();
+        if (!blockName || !villageName) continue;
+
+        addBlockVillage(blockName, villageName);
+      }
+      for (const [blockVillage, details] of detailsByBlockVillage.entries()) {
+        const [blockName, villageName] = blockVillage.split('__');
+        addBlockVillage(blockName, villageName);
+        blockMap.get(blockName)!.villages.get(villageName)!.details = details;
+      }
+
+      const blocks = [...blockMap.entries()]
+        .sort(([, a], [, b]) => a.blockName.localeCompare(b.blockName))
+        .map(([, blockEntry]) => {
+          const villageRows = [...blockEntry.villages.entries()]
+            .sort(([, a], [, b]) => a.villageName.localeCompare(b.villageName))
+            .map(([, villageEntry]) => ({
+              village: villageEntry.villageName,
+              count: villageEntry.details.length,
+              details: villageEntry.details.sort((a, b) => b.repeatCount - a.repeatCount),
+            }));
+
+          return {
+            block: blockEntry.blockName,
+            count: villageRows.reduce((sum, item) => sum + item.count, 0),
+            villages: villageRows,
+          };
+        });
+
+      return {
+        coordinatorId,
+        coordinatorRole: role,
+        scope:
+          role === 'district_coordinator'
+            ? 'district'
+            : role === 'block_coordinator'
+              ? 'block'
+              : 'village',
+        state,
+        district,
+        block,
+        totalDuplicateQuestions: blocks.reduce(
+          (sum, item) => sum + item.count,
+          0,
+        ),
+        blocks,
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to fetch coordinator duplicate question heat map: ${error}`,
+      );
     }
   }
 

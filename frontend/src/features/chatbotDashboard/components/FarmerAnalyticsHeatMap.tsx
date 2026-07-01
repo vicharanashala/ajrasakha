@@ -1,8 +1,15 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Activity, InfoIcon, MapPinned, RefreshCw } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/atoms/dialog";
+import { ScrollArea } from "@/components/atoms/scroll-area";
 import { SearchableSelect } from "@/components/atoms/SearchableSelect";
 import { Skeleton } from "@/components/atoms/skeleton";
 import {
@@ -17,14 +24,21 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
-import { STATES } from "@/components/MetaData";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  type ILocationBlock,
+  type ILocationDistrict,
+  type ILocationState,
+  type ILocationVillage,
+  LocationService,
+} from "@/hooks/services/locationService";
 
 import {
   DEFAULT_FARMER_HEAT_MAP_FILTERS,
   type FarmerHeatMapGranularity,
   type FarmerHeatMapMetric,
+  type FarmerHeatMapQuestionDetail,
   useFarmerHeatMapAnalytics,
 } from "../hooks/useFarmerHeatMapAnalytics";
 import CountUp from "react-countup";
@@ -51,6 +65,11 @@ const metricOptions: Array<{
     shortLabel: "Questions",
   },
   {
+    value: "duplicateQuestions",
+    label: "Duplicate Questions",
+    shortLabel: "Duplicates",
+  },
+  {
     value: "closedQuestions",
     label: "Closed Questions",
     shortLabel: "Closed",
@@ -68,6 +87,14 @@ const metricOptions: Array<{
 ];
 
 type HeatMapPeriodMode = "year" | "month" | "week" | "day";
+
+type SelectedHeatMapCell = {
+  location: string;
+  period: string;
+  metric: FarmerHeatMapMetric;
+  value: number;
+  details: FarmerHeatMapQuestionDetail[];
+};
 
 const periodModeOptions: Array<{ value: HeatMapPeriodMode; label: string }> = [
   { value: "year", label: "Months" },
@@ -97,6 +124,8 @@ const selectClassName =
 const activeSelectClassName =
   "h-9 w-full justify-between rounded-md border border-[#3AAA5A] bg-green-50 px-3 text-sm font-medium text-green-700 shadow-sm dark:bg-green-950/20 dark:text-green-300";
 
+const locationService = new LocationService();
+
 const formatValue = (metric: FarmerHeatMapMetric, value: number) => {
   if (metric === "averageClosureTimeMinutes") {
     if (!value) return "0";
@@ -115,6 +144,40 @@ const formatStatusDistribution = (statusDistribution: Record<string, number>) =>
     .sort((a, b) => b[1] - a[1])
     .map(([status, count]) => `${status}: ${count}`)
     .join(", ");
+};
+
+const formatDateTime = (value?: string) => {
+  if (!value) return "N/A";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return date.toLocaleString();
+};
+
+const getDuplicateGroupKey = (question: FarmerHeatMapQuestionDetail) => {
+  if (question.referenceQuestionId) return `reference-id:${question.referenceQuestionId}`;
+  if (question.referenceQuestion?.trim()) {
+    return `reference-text:${question.referenceQuestion.trim().toLowerCase().replace(/\s+/g, " ")}`;
+  }
+  return `question-id:${question.questionId}`;
+};
+
+const normalizeStatus = (status?: string) =>
+  String(status || "unknown").trim().toLowerCase().replace(/_/g, "-");
+
+const getMetricQuestionDetails = (
+  metric: FarmerHeatMapMetric,
+  details: FarmerHeatMapQuestionDetail[],
+) => {
+  if (metric === "duplicateQuestions") {
+    return details.filter((item) => normalizeStatus(item.status) === "duplicate");
+  }
+  if (metric === "closedQuestions" || metric === "averageClosureTimeMinutes") {
+    return details.filter((item) => normalizeStatus(item.status) === "closed");
+  }
+  if (metric === "notifiedQuestions") {
+    return details.filter((item) => normalizeStatus(item.status) === "closed" && item.isCustomerNotified === true);
+  }
+  return details;
 };
 
 const startOfDay = (date: Date) => {
@@ -206,6 +269,11 @@ export function FarmerAnalyticsHeatMap({
   const [metric, setMetric] =
     useState<FarmerHeatMapMetric>("totalQuestions");
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedCell, setSelectedCell] = useState<SelectedHeatMapCell | null>(null);
+  const [states, setStates] = useState<ILocationState[]>([]);
+  const [districts, setDistricts] = useState<ILocationDistrict[]>([]);
+  const [blocks, setBlocks] = useState<ILocationBlock[]>([]);
+  const [villages, setVillages] = useState<ILocationVillage[]>([]);
   const queryClient = useQueryClient();
   const yearOptions = useMemo(
     () => Array.from({ length: 6 }, (_, index) => now.getFullYear() - index),
@@ -241,6 +309,32 @@ export function FarmerAnalyticsHeatMap({
   );
 
   const selectedMetric = metricOptions.find((item) => item.value === metric);
+  const selectedCellMetric = selectedCell
+    ? metricOptions.find((item) => item.value === selectedCell.metric)
+    : undefined;
+  const selectedCellDetails = useMemo(
+    () =>
+      selectedCell
+        ? getMetricQuestionDetails(selectedCell.metric, selectedCell.details)
+        : [],
+    [selectedCell],
+  );
+  const selectedDuplicateGroups = useMemo(() => {
+    if (!selectedCell || selectedCell.metric !== "duplicateQuestions") return [];
+
+    const groups = new Map<string, FarmerHeatMapQuestionDetail[]>();
+    selectedCellDetails.forEach((detail) => {
+      const key = getDuplicateGroupKey(detail);
+      groups.set(key, [...(groups.get(key) ?? []), detail]);
+    });
+
+    return [...groups.entries()].map(([key, questions]) => ({
+      key,
+      referenceQuestion:
+        questions[0]?.referenceQuestion || questions[0]?.question || "Question text not available",
+      questions,
+    }));
+  }, [selectedCell, selectedCellDetails]);
   const maxValue = data?.maxValues?.[metric] ?? 0;
   const rows = data?.rows ?? [];
   const buckets = data?.buckets ?? [];
@@ -252,11 +346,150 @@ export function FarmerAnalyticsHeatMap({
     [metric, rows],
   );
   const selectedMetricTotal = Number(data?.totals?.[metric] ?? 0);
+  const rowAxisLabel =
+    data?.rows?.[0]?.scope === "village"
+      ? "Villages"
+      : data?.rows?.[0]?.scope === "block"
+        ? "Blocks"
+        : data?.rows?.[0]?.scope === "district"
+          ? "Districts"
+          : "States";
+  const stateOptions = useMemo(
+    () =>
+      states
+        .map((state) => state.stateNameEnglish)
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b)),
+    [states],
+  );
+  const districtOptions = useMemo(
+    () =>
+      districts
+        .map((district) => district.districtNameEnglish)
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b)),
+    [districts],
+  );
+  const blockOptions = useMemo(
+    () =>
+      blocks
+        .map((block) => block.blockNameEnglish)
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b)),
+    [blocks],
+  );
+  const villageOptions = useMemo(
+    () =>
+      villages
+        .map((village) => village.villageNameEnglish)
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b)),
+    [villages],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    locationService.getStates().then((items) => {
+      if (!cancelled) setStates(items ?? []);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const selected = states.find(
+      (state) => state.stateNameEnglish === filters.state,
+    );
+
+    if (!selected) {
+      setDistricts([]);
+      return;
+    }
+
+    let cancelled = false;
+    locationService.getDistricts(selected.stateCode).then((items) => {
+      if (!cancelled) setDistricts(items ?? []);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [filters.state, states]);
+
+  useEffect(() => {
+    const selected = districts.find(
+      (district) => district.districtNameEnglish === filters.district,
+    );
+
+    if (!selected) {
+      setBlocks([]);
+      return;
+    }
+
+    let cancelled = false;
+    locationService.getBlocks(selected.districtCode).then((items) => {
+      if (!cancelled) setBlocks(items ?? []);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [districts, filters.district]);
+
+  useEffect(() => {
+    const selected = blocks.find(
+      (block) => block.blockNameEnglish === filters.block,
+    );
+
+    if (!selected) {
+      setVillages([]);
+      return;
+    }
+
+    let cancelled = false;
+    locationService.getVillages(selected.blockCode).then((items) => {
+      if (!cancelled) setVillages(items ?? []);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [blocks, filters.block]);
 
   const updateState = (state: string) => {
     setFilters((current) => ({
       ...current,
       state,
+      district: "all",
+      block: "all",
+      village: "all",
+    }));
+  };
+
+  const updateDistrict = (district: string) => {
+    setFilters((current) => ({
+      ...current,
+      district,
+      block: "all",
+      village: "all",
+    }));
+  };
+
+  const updateBlock = (block: string) => {
+    setFilters((current) => ({
+      ...current,
+      block,
+      village: "all",
+    }));
+  };
+
+  const updateVillage = (village: string) => {
+    setFilters((current) => ({
+      ...current,
+      village,
     }));
   };
 
@@ -312,6 +545,7 @@ export function FarmerAnalyticsHeatMap({
   };
 
   return (
+    <>
     <Card className="relative overflow-hidden border border-border/60 bg-gradient-to-br from-card via-card to-card/40 shadow-sm transition-shadow duration-300 hover:shadow-lg">
       {/* Compact header: title + filters in one band */}
       <CardHeader className="gap-3 border-b border-border/50 py-3">
@@ -341,7 +575,7 @@ export function FarmerAnalyticsHeatMap({
                 </Tooltip>
               </CardTitle>
               <p className="text-[11px] text-muted-foreground">
-                State and district farmer activity by selected period
+                Farmer activity by selected location and period
               </p>
             </div>
           </motion.div>
@@ -369,9 +603,9 @@ export function FarmerAnalyticsHeatMap({
           transition={{ duration: 0.3, ease: "easeOut", delay: 0.05 }}
           className="flex flex-wrap items-center gap-2"
         >
-          <div className="min-w-[180px] flex-1 sm:max-w-xs">
+          <div className="min-w-[180px] flex-1 sm:max-w-[220px]">
             <SearchableSelect
-              options={STATES}
+              options={stateOptions}
               value={filters.state}
               onChange={updateState}
               placeholder="All States"
@@ -379,6 +613,42 @@ export function FarmerAnalyticsHeatMap({
               activeClassName={activeSelectClassName}
             />
           </div>
+          {filters.state !== "all" && (
+            <div className="min-w-[180px] flex-1 sm:max-w-[220px]">
+              <SearchableSelect
+                options={districtOptions}
+                value={filters.district}
+                onChange={updateDistrict}
+                placeholder="All Districts"
+                className={cn(selectClassName, "h-8")}
+                activeClassName={activeSelectClassName}
+              />
+            </div>
+          )}
+          {filters.district !== "all" && (
+            <div className="min-w-[180px] flex-1 sm:max-w-[220px]">
+              <SearchableSelect
+                options={blockOptions}
+                value={filters.block}
+                onChange={updateBlock}
+                placeholder="All Blocks"
+                className={cn(selectClassName, "h-8")}
+                activeClassName={activeSelectClassName}
+              />
+            </div>
+          )}
+          {filters.block !== "all" && (
+            <div className="min-w-[180px] flex-1 sm:max-w-[220px]">
+              <SearchableSelect
+                options={villageOptions}
+                value={filters.village}
+                onChange={updateVillage}
+                placeholder="All Villages"
+                className={cn(selectClassName, "h-8")}
+                activeClassName={activeSelectClassName}
+              />
+            </div>
+          )}
 
           <div className="flex h-8 items-center gap-0.5 rounded-md bg-muted/60 p-0.5 ring-1 ring-border/60">
             {periodModeOptions.map((item) => {
@@ -600,7 +870,7 @@ export function FarmerAnalyticsHeatMap({
             </motion.span>
           </span>
           <span className="rounded border border-border/60 bg-background px-2 py-0.5 text-muted-foreground">
-            Y: {filters.state === "all" ? "States" : "Districts"}
+            Y: {rowAxisLabel}
           </span>
           <span className="rounded border border-border/60 bg-background px-2 py-0.5 text-muted-foreground">
             X:{" "}
@@ -653,7 +923,7 @@ export function FarmerAnalyticsHeatMap({
                   <thead className="sticky top-0 z-20 bg-card">
                     <tr>
                       <th className="sticky left-0 z-30 min-w-[180px] border-b border-r border-border/60 bg-card px-3 py-2.5 text-left font-semibold text-foreground">
-                        {filters.state === "all" ? "States" : "Districts"}
+                        {rowAxisLabel}
                       </th>
                       {buckets.map((bucket) => (
                         <th
@@ -682,10 +952,16 @@ export function FarmerAnalyticsHeatMap({
                         </th>
                         {row.cells.map((cell) => {
                           const value = Number(cell[metric] || 0);
+                          const cellDetails = getMetricQuestionDetails(
+                            metric,
+                            cell.questionDetails ?? [],
+                          );
+                          const canOpenDetails = value > 0 && cellDetails.length > 0;
                           const title = [
                             `${row.label} - ${cell.label}`,
                             `Active farmers: ${cell.activeFarmers}`,
                             `Total questions: ${cell.totalQuestions}`,
+                            `Duplicate questions: ${cell.duplicateQuestions}`,
                             `Closed questions: ${cell.closedQuestions}`,
                             `Notified questions: ${cell.notifiedQuestions}`,
                             `Average closure time: ${formatValue("averageClosureTimeMinutes", cell.averageClosureTimeMinutes)}`,
@@ -698,18 +974,29 @@ export function FarmerAnalyticsHeatMap({
                               className="h-11 min-w-[82px] border-r border-border/30 p-1 text-center align-middle last:border-r-0"
                               title={title}
                             >
-                              <motion.div
-                                whileHover={{ scale: 1.08 }}
+                              <motion.button
+                                type="button"
+                                whileHover={{ scale: canOpenDetails ? 1.08 : 1 }}
                                 transition={{
                                   type: "spring",
                                   stiffness: 400,
                                   damping: 20,
                                 }}
-                                className="flex h-9 min-w-[70px] cursor-default items-center justify-center rounded-md px-2 text-[11px] font-semibold tabular-nums shadow-sm"
+                                className="flex h-9 min-w-[70px] items-center justify-center rounded-md px-2 text-[11px] font-semibold tabular-nums shadow-sm disabled:cursor-default"
                                 style={getCellStyle(value)}
+                                disabled={!canOpenDetails}
+                                onClick={() =>
+                                  setSelectedCell({
+                                    location: row.label,
+                                    period: cell.label,
+                                    metric,
+                                    value,
+                                    details: cell.questionDetails ?? [],
+                                  })
+                                }
                               >
                                 {formatValue(metric, value)}
-                              </motion.div>
+                              </motion.button>
                             </td>
                           );
                         })}
@@ -723,5 +1010,135 @@ export function FarmerAnalyticsHeatMap({
         </AnimatePresence>
       </CardContent>
     </Card>
+    <Dialog
+      open={Boolean(selectedCell)}
+      onOpenChange={(open) => !open && setSelectedCell(null)}
+    >
+      <DialogContent className="flex h-[88vh] max-h-[88vh] flex-col overflow-hidden p-0 sm:max-w-4xl">
+        <DialogHeader className="shrink-0 border-b px-6 py-4">
+          <DialogTitle>
+            {selectedCellMetric?.label ?? "Question Details"}
+          </DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            {selectedCell?.location} / {selectedCell?.period} /{" "}
+            {formatValue(selectedCell?.metric ?? "totalQuestions", selectedCell?.value ?? 0)}
+          </p>
+        </DialogHeader>
+        <ScrollArea className="min-h-0 flex-1">
+          <div className="space-y-3 p-6">
+            {selectedCell?.metric === "duplicateQuestions" ? (
+              selectedDuplicateGroups.length ? (
+                selectedDuplicateGroups.map((group) => {
+                  const hasReference = !group.key.startsWith("question-id:");
+                  const totalAskedCount = group.questions.length + (hasReference ? 1 : 0);
+                  const askedBy = Array.from(
+                    new Set(
+                      group.questions
+                        .map((question) => question.askedBy || question.email || question.userId)
+                        .filter(Boolean),
+                    ),
+                  ).join(", ");
+
+                  return (
+                    <div key={group.key} className="rounded-md border bg-background p-4">
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-primary px-2.5 py-0.5 text-xs font-semibold text-primary-foreground">
+                            Asked {totalAskedCount} time{totalAskedCount === 1 ? "" : "s"}
+                          </span>
+                          <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-foreground">
+                            {group.questions.length} duplicate record detail{group.questions.length === 1 ? "" : "s"}
+                          </span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          Reference group
+                        </span>
+                      </div>
+                      <div className="mb-3">
+                        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Reference question
+                        </p>
+                        <p className="whitespace-pre-wrap text-sm font-semibold">
+                          {group.referenceQuestion}
+                        </p>
+                      </div>
+                      <div className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
+                        Asked by:{" "}
+                        <span className="font-medium text-foreground">
+                          {askedBy || "N/A"}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+                  No duplicate question details for this selection.
+                </div>
+              )
+            ) : selectedCellDetails.length ? (
+              selectedCellDetails.map((question) => (
+                <div key={question.questionId} className="rounded-md border bg-background p-4">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-foreground">
+                      {question.status || "unknown"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatDateTime(question.createdAt)}
+                    </span>
+                  </div>
+                  <p className="whitespace-pre-wrap text-sm font-medium">
+                    {question.question || "Question text not available"}
+                  </p>
+                  <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
+                    <span>
+                      Asked by:{" "}
+                      <span className="font-medium text-foreground">
+                        {question.askedBy || question.email || question.userId || "N/A"}
+                      </span>
+                    </span>
+                    <span>
+                      Village:{" "}
+                      <span className="font-medium text-foreground">
+                        {question.village || "N/A"}
+                      </span>
+                    </span>
+                    <span>
+                      Block:{" "}
+                      <span className="font-medium text-foreground">
+                        {question.block || "N/A"}
+                      </span>
+                    </span>
+                    <span>
+                      District:{" "}
+                      <span className="font-medium text-foreground">
+                        {question.district || "N/A"}
+                      </span>
+                    </span>
+                    <span>
+                      Crop:{" "}
+                      <span className="font-medium text-foreground">
+                        {question.crop || "N/A"}
+                      </span>
+                    </span>
+                    <span>
+                      Domain:{" "}
+                      <span className="font-medium text-foreground">
+                        {question.domain || "N/A"}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+                No question details for this selection.
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

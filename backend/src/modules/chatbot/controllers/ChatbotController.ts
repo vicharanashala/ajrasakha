@@ -587,6 +587,9 @@ export class ChatbotController {
     @QueryParam('source') source: string,
     @QueryParam('userType') userType: string,
     @QueryParam('state') state: string,
+    @QueryParam('district') district: string,
+    @QueryParam('block') block: string,
+    @QueryParam('village') village: string,
     @QueryParam('granularity')
     granularity: 'monthly' | 'weekly' | 'daily' | 'hourly',
     @QueryParam('startDate') startDate?: string,
@@ -596,10 +599,30 @@ export class ChatbotController {
       source,
       userType,
       state,
+      district,
+      block,
+      village,
       granularity,
       startDate,
       endDate,
     });
+  }
+
+  @OpenAPI({
+    summary: 'Get coordinator duplicate question heat map',
+    description:
+      'Returns coordinator-scoped duplicate question counts by block and village. Repeated identical questions from the same user count as one duplicate group.',
+  })
+  @Get('/coordinator-duplicate-heat-map/:userId')
+  @HttpCode(200)
+  @Authorized(['admin', ...COORDINATOR_ROLES])
+  async getCoordinatorDuplicateQuestionHeatMap(
+    @Param('userId') userId: string,
+    @CurrentUser() currentUser: IUser,
+  ) {
+    await this.assertCoordinatorOwnDashboard(userId, currentUser);
+
+    return this.chatbotService.getCoordinatorDuplicateQuestionHeatMap(userId);
   }
 
   @OpenAPI({

@@ -21,7 +21,10 @@ import type {
   FeedbackData,
   ResponseAdherenceTable,
   FarmerHeatMapFilters,
+  FarmerHeatMapLocationHierarchy,
   FarmerHeatMapResponse,
+  CoordinatorDuplicateQuestionHeatMapResponse,
+  CoordinatorDuplicateQuestionLocationHierarchy,
   QueryCategoryQuestionType,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import ExcelJS from 'exceljs';
@@ -45,7 +48,31 @@ import {IWhatsAppService} from '#root/modules/whatsapp/interfaces/IWhatsAppServi
 import {triggerWebhook} from '#root/modules/answer/utils/triggerWebhook.js';
 import {sendEmailNotification} from '#root/utils/mailer.js';
 import { LGD_TYPES } from '#root/modules/lgd/types.js';
-import { ILocationService } from '#root/modules/lgd/interfaces/ILocationService.js';
+import {ILocationService} from '#root/modules/lgd/interfaces/ILocationService.js';
+
+type HeatMapLgdState = {
+  stateCode: number;
+  stateNameEnglish: string;
+};
+
+type HeatMapLgdDistrict = {
+  districtCode: number;
+  districtNameEnglish: string;
+  stateCode: number;
+};
+
+type HeatMapLgdBlock = {
+  blockCode: number;
+  blockNameEnglish: string;
+  districtCode: number;
+};
+
+type HeatMapLgdVillage = {
+  villageCode: number;
+  villageNameEnglish: string;
+  blockCode: number;
+  pincode?: number;
+};
 
 @injectable()
 export class ChatbotService extends BaseService implements IChatbotService {
@@ -61,6 +88,402 @@ export class ChatbotService extends BaseService implements IChatbotService {
     private readonly lgdService: ILocationService
   ) {
     super(mongoDatabase);
+  }
+
+  private normalizeLocationName(value?: string | null) {
+    return String(value || '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ');
+  }
+
+  private findLocationByName<T>(
+    items: T[],
+    name: string | undefined,
+    getName: (item: T) => string | undefined,
+  ) {
+    const normalizedName = this.normalizeLocationName(name);
+    if (!normalizedName) return undefined;
+
+    return items.find(
+      item => this.normalizeLocationName(getName(item)) === normalizedName,
+    );
+  }
+
+  private getHeatMapLgdRecordValue(record: any, ...keys: string[]) {
+    for (const key of keys) {
+      if (record?.[key] !== undefined && record?.[key] !== null) {
+        return record[key];
+      }
+    }
+
+    return undefined;
+  }
+
+  private sanitizeHeatMapLgdApiUrl(
+    apiUrl: string | undefined,
+    envName: string,
+  ) {
+    if (!apiUrl) {
+      throw new InternalServerError(`${envName} is not configured`);
+    }
+
+    const markdownUrl = apiUrl.match(/\]\((https?:\/\/[^)]+)\)/);
+    return markdownUrl?.[1] || apiUrl;
+  }
+
+  private async fetchHeatMapLgdRecords(
+    apiUrl: string | undefined,
+    envName: string,
+    filters?: Record<string, string | number>,
+  ): Promise<any[]> {
+    const apiKey = process.env.LGD_API_KEY;
+
+    if (!apiKey) {
+      throw new InternalServerError('LGD_API_KEY is not configured');
+    }
+
+    const params: Record<string, string | number> = {
+      'api-key': apiKey,
+      format: 'json',
+      limit: 10000,
+      offset: 0,
+    };
+
+    if (filters) {
+      for (const [key, value] of Object.entries(filters)) {
+        params[`filters[${key}]`] = value;
+      }
+    }
+
+    try {
+      const response = await axios.get(
+        this.sanitizeHeatMapLgdApiUrl(apiUrl, envName),
+        {
+          params,
+          timeout: 30000,
+        },
+      );
+
+      if (!response?.data?.records) {
+        throw new InternalServerError('Invalid LGD API response: records missing');
+      }
+
+      return response.data.records;
+    } catch (error: any) {
+      if (error instanceof InternalServerError) {
+        throw error;
+      }
+
+      const message =
+        error?.response?.data?.message || error?.message || 'Failed to fetch LGD locations';
+
+      throw new InternalServerError(`LGD service error: ${message}`);
+    }
+  }
+
+  private async getHeatMapLgdStates(): Promise<HeatMapLgdState[]> {
+    const records = await this.fetchHeatMapLgdRecords(
+      process.env.LGD_STATES_API_URL,
+      'LGD_STATES_API_URL',
+    );
+
+    return records.map(record => ({
+      stateCode: Number(this.getHeatMapLgdRecordValue(record, 'state_code', 'stateCode')),
+      stateNameEnglish: String(
+        this.getHeatMapLgdRecordValue(record, 'state_name_english', 'stateNameEnglish') || '',
+      ),
+    }));
+  }
+
+  private async getHeatMapLgdDistricts(
+    stateCode: number,
+  ): Promise<HeatMapLgdDistrict[]> {
+    const records = await this.fetchHeatMapLgdRecords(
+      process.env.LGD_DISTRICTS_API_URL,
+      'LGD_DISTRICTS_API_URL',
+      {state_code: stateCode},
+    );
+
+    return records.map(record => ({
+      districtCode: Number(
+        this.getHeatMapLgdRecordValue(record, 'district_code', 'districtCode'),
+      ),
+      districtNameEnglish: String(
+        this.getHeatMapLgdRecordValue(
+          record,
+          'district_name_english',
+          'districtNameEnglish',
+        ) || '',
+      ),
+      stateCode: Number(this.getHeatMapLgdRecordValue(record, 'state_code', 'stateCode')),
+    }));
+  }
+
+  private async getHeatMapLgdBlocks(
+    districtCode: number,
+  ): Promise<HeatMapLgdBlock[]> {
+    const records = await this.fetchHeatMapLgdRecords(
+      process.env.LGD_SUBDISTRICTS_API_URL,
+      'LGD_SUBDISTRICTS_API_URL',
+      {district_code: districtCode},
+    );
+
+    return records.map(record => ({
+      blockCode: Number(
+        this.getHeatMapLgdRecordValue(record, 'subdistrict_code', 'blockCode'),
+      ),
+      blockNameEnglish: String(
+        this.getHeatMapLgdRecordValue(
+          record,
+          'subdistrict_name_english',
+          'blockNameEnglish',
+        ) || '',
+      ),
+      districtCode: Number(
+        this.getHeatMapLgdRecordValue(record, 'district_code', 'districtCode'),
+      ),
+    }));
+  }
+
+  private async getHeatMapLgdVillages(
+    blockCode: number,
+  ): Promise<HeatMapLgdVillage[]> {
+    const [subdistrictRecords, legacySubdistrictRecords] = await Promise.all([
+      this.fetchHeatMapLgdRecords(
+        process.env.LGD_VILLAGES_API_URL,
+        'LGD_VILLAGES_API_URL',
+        {subdistrict_code: blockCode},
+      ),
+      this.fetchHeatMapLgdRecords(
+        process.env.LGD_VILLAGES_API_URL,
+        'LGD_VILLAGES_API_URL',
+        {subdistrictCode: blockCode},
+      ),
+    ]);
+    const recordsByVillageCode = new Map<string, any>();
+
+    [...subdistrictRecords, ...legacySubdistrictRecords].forEach(record => {
+      const recordBlockCode = Number(
+        this.getHeatMapLgdRecordValue(
+          record,
+          'subdistrict_code',
+          'subdistrictCode',
+          'blockCode',
+        ),
+      );
+
+      if (recordBlockCode && recordBlockCode !== blockCode) {
+        return;
+      }
+
+      const villageCode = String(
+        this.getHeatMapLgdRecordValue(record, 'village_code', 'villageCode') ||
+          this.getHeatMapLgdRecordValue(
+            record,
+            'village_name_english',
+            'villageNameEnglish',
+          ) ||
+          '',
+      );
+
+      if (villageCode) {
+        recordsByVillageCode.set(villageCode, record);
+      }
+    });
+    const records = [...recordsByVillageCode.values()];
+
+    return records.map(record => ({
+      villageCode: Number(
+        this.getHeatMapLgdRecordValue(record, 'village_code', 'villageCode'),
+      ),
+      villageNameEnglish: String(
+        this.getHeatMapLgdRecordValue(
+          record,
+          'village_name_english',
+          'villageNameEnglish',
+        ) || '',
+      ),
+      blockCode,
+      pincode: Number(this.getHeatMapLgdRecordValue(record, 'pincode')),
+    }));
+  }
+
+  private async buildCoordinatorDuplicateQuestionLocationHierarchy(
+    coordinator: any,
+  ): Promise<CoordinatorDuplicateQuestionLocationHierarchy | undefined> {
+    const role = String(coordinator?.userRole || '');
+    const state = coordinator?.farmerProfile?.state;
+    const district = coordinator?.farmerProfile?.district;
+    const block = coordinator?.farmerProfile?.blockName;
+    const village = coordinator?.farmerProfile?.villageName;
+
+    if (!state || !district) return undefined;
+
+    const states = await this.getHeatMapLgdStates();
+    const selectedState = this.findLocationByName(
+      states,
+      state,
+      item => item.stateNameEnglish,
+    );
+    if (!selectedState) return undefined;
+
+    const districts = await this.getHeatMapLgdDistricts(
+      selectedState.stateCode,
+    );
+    const selectedDistrict = this.findLocationByName(
+      districts,
+      district,
+      item => item.districtNameEnglish,
+    );
+    if (!selectedDistrict) return undefined;
+
+    const districtBlocks = await this.getHeatMapLgdBlocks(
+      selectedDistrict.districtCode,
+    );
+    let selectedBlocks: HeatMapLgdBlock[] = districtBlocks;
+
+    if (role === 'block_coordinator' || role === 'village_volunteer') {
+      const selectedBlock = this.findLocationByName(
+        districtBlocks,
+        block,
+        item => item.blockNameEnglish,
+      );
+      selectedBlocks = selectedBlock ? [selectedBlock] : [];
+    }
+
+    return {
+      blocks: await Promise.all(
+        selectedBlocks.map(async selectedBlock => {
+          const villages = await this.getHeatMapLgdVillages(
+            selectedBlock.blockCode,
+          );
+          const villageNames =
+            role === 'village_volunteer'
+              ? villages
+                  .filter(
+                    item =>
+                      this.normalizeLocationName(item.villageNameEnglish) ===
+                      this.normalizeLocationName(village),
+                  )
+                  .map(item => item.villageNameEnglish)
+              : villages.map(item => item.villageNameEnglish);
+
+          return {
+            block: selectedBlock.blockNameEnglish,
+            villages: villageNames.filter(Boolean),
+          };
+        }),
+      ),
+    };
+  }
+
+  private async buildFarmerHeatMapLocationHierarchy(
+    filters: FarmerHeatMapFilters = {},
+  ): Promise<FarmerHeatMapLocationHierarchy> {
+    const state = filters.state;
+    const district = filters.district;
+    const block = filters.block;
+    const village = filters.village;
+    const fallbackScope: FarmerHeatMapLocationHierarchy['scope'] =
+      !state || state === 'all'
+        ? 'state'
+        : !district || district === 'all'
+          ? 'district'
+          : !block || block === 'all'
+            ? 'block'
+            : 'village';
+    let states: HeatMapLgdState[] = [];
+
+    try {
+      states = await this.getHeatMapLgdStates();
+    } catch {
+      return {scope: fallbackScope, labels: []};
+    }
+
+    if (!state || state === 'all') {
+      return {
+        scope: 'state',
+        labels: states
+          .map(item => item.stateNameEnglish)
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b)),
+      };
+    }
+
+    const selectedState = this.findLocationByName(
+      states,
+      state,
+      item => item.stateNameEnglish,
+    );
+    if (!selectedState) return {scope: 'district', labels: []};
+
+    const districts = await this.getHeatMapLgdDistricts(
+      selectedState.stateCode,
+    ).catch(() => []);
+
+    if (!district || district === 'all') {
+      return {
+        scope: 'district',
+        labels: districts
+          .map(item => item.districtNameEnglish)
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b)),
+      };
+    }
+
+    const selectedDistrict = this.findLocationByName(
+      districts,
+      district,
+      item => item.districtNameEnglish,
+    );
+    if (!selectedDistrict) return {scope: 'block', labels: []};
+
+    const blocks = await this.getHeatMapLgdBlocks(
+      selectedDistrict.districtCode,
+    ).catch(() => []);
+
+    if (!block || block === 'all') {
+      return {
+        scope: 'block',
+        labels: blocks
+          .map(item => item.blockNameEnglish)
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b)),
+      };
+    }
+
+    const selectedBlock = this.findLocationByName(
+      blocks,
+      block,
+      item => item.blockNameEnglish,
+    );
+    if (!selectedBlock) return {scope: 'village', labels: []};
+
+    const villages = await this.getHeatMapLgdVillages(
+      selectedBlock.blockCode,
+    ).catch(() => []);
+
+    if (village && village !== 'all') {
+      const selectedVillage = this.findLocationByName(
+        villages,
+        village,
+        item => item.villageNameEnglish,
+      );
+
+      return {
+        scope: 'village',
+        labels: selectedVillage ? [selectedVillage.villageNameEnglish] : [],
+      };
+    }
+
+    return {
+      scope: 'village',
+      labels: villages
+        .map(item => item.villageNameEnglish)
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b)),
+    };
   }
 
   private drawTable(
@@ -719,10 +1142,40 @@ export class ChatbotService extends BaseService implements IChatbotService {
     filters: FarmerHeatMapFilters = {},
   ): Promise<FarmerHeatMapResponse> {
     try {
-      return await this.chatbotRepository.getFarmerHeatMapAnalytics(filters);
+      const locationHierarchy =
+        await this.buildFarmerHeatMapLocationHierarchy(filters);
+
+      return await this.chatbotRepository.getFarmerHeatMapAnalytics(
+        filters,
+        locationHierarchy,
+      );
     } catch (error) {
       throw new InternalServerError(
         `Failed to fetch farmer heat map analytics: ${error}`,
+      );
+    }
+  }
+
+  async getCoordinatorDuplicateQuestionHeatMap(
+    coordinatorId: string,
+  ): Promise<CoordinatorDuplicateQuestionHeatMapResponse> {
+    try {
+      const coordinator = await this.chatbotRepository.getUserById(
+        coordinatorId,
+        'annam',
+      );
+      const locationHierarchy =
+        await this.buildCoordinatorDuplicateQuestionLocationHierarchy(
+          coordinator,
+        );
+
+      return await this.chatbotRepository.getCoordinatorDuplicateQuestionHeatMap(
+        coordinatorId,
+        locationHierarchy,
+      );
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch coordinator duplicate question heat map: ${error}`,
       );
     }
   }

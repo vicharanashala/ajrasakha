@@ -63,6 +63,7 @@ import {
   CoordinatorNotificationDialog,
   UserNotificationHistorySheet,
 } from "@/features/chatbotDashboard/components/CoordinatorNotificationComponents";
+import { CoordinatorDuplicateQuestionHeatMap } from "@/features/chatbotDashboard/components/CoordinatorDuplicateQuestionHeatMap";
 
 export const Route = createFileRoute("/user/$userId")({
   component: RouteComponent,
@@ -70,6 +71,12 @@ export const Route = createFileRoute("/user/$userId")({
 
 const isLikelyObjectId = (value?: string | null) =>
   Boolean(value && /^[a-f\d]{24}$/i.test(value));
+
+const normalizeRoleValue = (role?: string | null) =>
+  String(role || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
 
 function RouteComponent() {
   const queryClient = useQueryClient();
@@ -439,14 +446,10 @@ function RouteComponent() {
     );
   }
 
-  const coordinatorRoles = [
-    "district_coordinator",
-    "block_coordinator",
-    "village_volunteer",
-  ];
-  const viewedProfileIsCoordinator = coordinatorRoles.includes(
-    userProfile?.userRole ?? "",
-  );
+  const viewedProfileIsCoordinator = [
+    userProfile?.userRole,
+    userProfile?.role,
+  ].some((role) => isCoordinatorRole(normalizeRoleValue(role)));
   const currentUserIsCoordinator = isCoordinatorRole(currentUser?.role);
   const currentUserEmail = String(currentUser?.email || user?.email || "")
     .trim()
@@ -550,6 +553,13 @@ function RouteComponent() {
         )}
         <FarmerDashboardAnalytics
           dashboard={userProfile?.farmerDashboard as FarmerDashboardData}
+          afterEngagementTrends={
+            viewedProfileIsCoordinator ? (
+              <CoordinatorDuplicateQuestionHeatMap
+                coordinatorId={String(userProfile?.userId || userId)}
+              />
+            ) : undefined
+          }
         />
         {canManageAssignments && (
             <>
