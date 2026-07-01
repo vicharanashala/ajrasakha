@@ -93,13 +93,19 @@ export class UserRepository implements IUserRepository {
     if (!result.acknowledged) {
       throw new InternalServerError('Failed to create user');
     }
+    
     const now = user.createdAt ?? new Date();
     await this.userRoleHistoryCollection.insertOne(
       {
         userId: result.insertedId,
         role: user.role,
         from: now,
-        to: null
+        to: null,
+        isVerified: user.isVerified ?? false,
+        status: user.status ?? 'active',
+        isBlocked: user.isBlocked ?? false,
+        special_task_force: user.special_task_force ?? false,
+        special_task_force_moderator: user.special_task_force_moderator ?? false,
       },
       { session },
     );
@@ -248,6 +254,11 @@ export class UserRepository implements IUserRepository {
             role: userData.role,
             from: updatedAt,
             to: null,
+            isVerified: userData.isVerified ?? false,
+            status: userData.status,
+            isBlocked: userData.isBlocked,
+            special_task_force: userData.special_task_force,
+            special_task_force_moderator: userData.special_task_force_moderator,
           },
           { session },
         )])

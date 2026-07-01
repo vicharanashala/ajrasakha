@@ -61,7 +61,12 @@ export interface IUserRoleHistory {
   userId: string | ObjectId;
   role: UserRole;
   from: Date;
-  to?: Date | null
+  to?: Date | null;
+  isVerified?: boolean;
+  status?: UserStatus;
+  isBlocked?: boolean;
+  special_task_force?: boolean;
+  special_task_force_moderator?: boolean;
 }
 
 export type IQuestionPriority = 'low' | 'medium' | 'high' | 'critical';
