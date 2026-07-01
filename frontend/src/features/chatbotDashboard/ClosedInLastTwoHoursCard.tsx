@@ -271,8 +271,8 @@ export function ClosedInLastTwoHoursCard({
                     {combinedPct.toFixed(1)}% Resolved within SLA
                   </span>
                   <span className="flex items-center gap-1">
-                    <span className="h-1.5 w-1.5 rounded-full bg-gray-500" />
-                    {slaBreachedPct.toFixed(1)}% SLA Breached
+                    <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                    {slaBreachedPct.toFixed(1)}% SLA Breached 
                   </span>
                 </div>
               </div>
@@ -317,7 +317,7 @@ export function ClosedInLastTwoHoursCard({
                   of={(safeTotalClosed || 0) + (totalPassed || 0)}
                   suffix=""
                   decimals={0}
-                  accent="muted"
+                  accent="red"
                   tooltip="Question resolution took more than 2 hours"
                   onClick={() => {
                     setIsPassed(true);
@@ -374,6 +374,7 @@ export function ClosedInLastTwoHoursCard({
               </div>
             </div>
           </TooltipProvider>
+          
         )}
       </div>
       {closedWithInTwohours && (
@@ -412,6 +413,11 @@ const ACCENT = {
     dot: "bg-muted-foreground/50",
     ring: "group-hover/tile:ring-muted-foreground/20",
     glow: "group-hover/tile:shadow-muted-foreground/5",
+  },
+  red: {
+    dot: "bg-red-500",
+    ring: "group-hover/tile:ring-red-500/30",
+    glow: "group-hover/tile:shadow-red-500/10",
   },
 } as const;
 

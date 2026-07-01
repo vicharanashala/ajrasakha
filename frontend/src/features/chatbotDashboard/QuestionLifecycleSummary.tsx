@@ -1,4 +1,5 @@
-import { AlertCircle, Clock, RefreshCw, Pencil } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertCircle, Clock, RefreshCw, Pencil, Loader2 } from "lucide-react";
 
 import { Card, CardContent } from "@/components/atoms/card";
 import { useLifeCycleSummary } from "./hooks/useActiveUsersAnalytics";
@@ -287,31 +288,42 @@ export function QuestionLifecycleSummary({
     });
   }
 
+  // Animated loading messages
+  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
+  const loadingMessages = [
+    "Calculating lifecycle metrics...",
+    "Analyzing question data...",
+    "Processing resolution times...",
+    "Computing insights...",
+    "Almost there...",
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setLoadingMessageIndex((prev) => (prev + 1) % loadingMessages.length);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
   if (isLoading || isRefetching) {
     return (
-      <div className="space-y-6 p-6">
-        {/* KPI Cards */}
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <Card key={index}>
-              <CardContent className="p-4 space-y-3">
-                <Skeleton className="h-4 w-24" />
-              </CardContent>
-            </Card>
-          ))}
+      <div className="flex flex-col items-center justify-center py-20 space-y-4">
+        {/* Animated Spinner */}
+        <div className="relative">
+          <Loader2 className="h-12 w-12 text-primary animate-spin" />
+          <div className="absolute inset-0 h-12 w-12 rounded-full border-4 border-primary/30 animate-ping opacity-20"></div>
         </div>
-
-        {/* Insights */}
-        <div className="space-y-4">
-          {Array.from({ length: 3 }).map((_, index) => (
-            <Card key={index}>
-              <CardContent className="p-5">
-                <div className="flex gap-4">
-                  <Skeleton className="h-6 w-6 rounded-full mt-1" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        
+        {/* Rotating Loading Message */}
+        <div className="text-center space-y-1">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 animate-pulse">
+            {loadingMessages[loadingMessageIndex]}
+          </p>
+          {summary?.totalQuestions !== undefined && summary.totalQuestions > 0 && (
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Analyzing {summary.totalQuestions.toLocaleString()} question{summary.totalQuestions !== 1 ? "s" : ""}
+            </p>
+          )}
         </div>
       </div>
     );
