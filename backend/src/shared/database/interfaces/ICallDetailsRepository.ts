@@ -74,6 +74,7 @@ export interface ICallDetailsRepository {
   getByCallUuid(callUuid: string, session?: ClientSession): Promise<CallDetails | null>;
   getAll(session?: ClientSession): Promise<CallDetails[]>;
   updateQA_Pairs(callUuid: string, qaPairs: QAPairs, session?: ClientSession): Promise<void>;
+  updateCallDetails(callUuid: string, details: Partial<CallDetails>, session?: ClientSession): Promise<void>;
   
   /**
    * Get analytics for a specific call agent

@@ -480,8 +480,15 @@ export class PlivoService {
       };
 
       // 3. Save to repository
-      await this.callDetailsRepository.create(callDetails);
-      console.log(`✅ [PLIVO-SERVICE] Saved call details for ${callUuid} to database.`);
+      // 3. Save to repository (update if it already exists, otherwise create)
+      const existingCall = await this.callDetailsRepository.getByCallUuid(callUuid);
+      if (existingCall) {
+        await this.callDetailsRepository.updateCallDetails(callUuid, callDetails);
+        console.log(`✅ [PLIVO-SERVICE] Updated existing call details for ${callUuid} in database.`);
+      } else {
+        await this.callDetailsRepository.create(callDetails);
+        console.log(`✅ [PLIVO-SERVICE] Saved new call details for ${callUuid} to database.`);
+      }
     } catch (err) {
       console.error(`❌ [PLIVO-SERVICE] Error saving call details for ${callUuid}:`, err);
     }

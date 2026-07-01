@@ -787,7 +787,7 @@ export const CallInterface = () => {
         sourceLink
       };
 
-      setQuestions([generatedQuestion]);
+      setQuestions(prev => [...prev, generatedQuestion]);
       setHasGeneratedQuestions(true);
       toast.dismiss(toastId)
       toast.success("Final answer generated successfully!");

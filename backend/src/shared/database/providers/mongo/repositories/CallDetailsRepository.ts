@@ -85,16 +85,38 @@ export class CallDetailsRepository implements ICallDetailsRepository {
       // console.log(`[CallDetailsRepository] updateQA_Pairs - Updating document for callUuid: ${callUuid}`);
       // console.log(`[CallDetailsRepository] updateQA_Pairs - Data to store:`, JSON.stringify(qaPairs, null, 2));
 
-      const result = await this.callDetailsCollection.updateOne(
-        { callUuid },
-        {
-          $set: {
-            QA_pairs: qaPairs,
-            updatedAt: new Date()
-          }
-        },
-        { session }
-      );
+      // Fetch the existing document to check if QA_pairs is already initialized
+      const existing = await this.callDetailsCollection.findOne({ callUuid }, { session });
+
+      let result;
+      if (!existing || !existing.QA_pairs) {
+        // First time initialization: set the entire QA_pairs object
+        result = await this.callDetailsCollection.updateOne(
+          { callUuid },
+          {
+            $set: {
+              QA_pairs: qaPairs,
+              updatedAt: new Date()
+            }
+          },
+          { session }
+        );
+      } else {
+        // QA_pairs already exists: append to QnA array and update metadata
+        result = await this.callDetailsCollection.updateOne(
+          { callUuid },
+          {
+            $set: {
+              "QA_pairs.metadata": qaPairs.metadata,
+              updatedAt: new Date()
+            },
+            $push: {
+              "QA_pairs.QnA": { $each: qaPairs.QnA }
+            }
+          },
+          { session }
+        );
+      }
 
       // console.log(`[CallDetailsRepository] updateQA_Pairs - Update result:`, {
       //   matchedCount: result.matchedCount,
@@ -108,6 +130,31 @@ export class CallDetailsRepository implements ICallDetailsRepository {
     } catch (error: any) {
       console.error(`[CALL_DETAILS_FLOW] CallDetailsRepository.updateQA_Pairs: Error updating Q/A pairs for callUuid ${callUuid}:`, error.stack || error);
       throw new InternalServerError(`Failed to update Q/A pairs: ${error}`);
+    }
+  }
+
+  async updateCallDetails(callUuid: string, details: Partial<CallDetails>, session?: ClientSession): Promise<void> {
+    try {
+      await this.init();
+      const updateDoc: any = {
+        updatedAt: new Date(),
+      };
+      if (details.from !== undefined) updateDoc.from = details.from;
+      if (details.to !== undefined) updateDoc.to = details.to;
+      if (details.duration !== undefined) updateDoc.duration = details.duration;
+      if (details.status !== undefined) updateDoc.status = details.status;
+      if (details.direction !== undefined) updateDoc.direction = details.direction;
+      if (details.caller !== undefined) updateDoc.caller = details.caller;
+      if (details.agent !== undefined) updateDoc.agent = details.agent;
+
+      await this.callDetailsCollection.updateOne(
+        { callUuid },
+        { $set: updateDoc },
+        { session }
+      );
+    } catch (error: any) {
+      console.error(`[CALL_DETAILS_FLOW] CallDetailsRepository.updateCallDetails: Error updating call details record for callUuid ${callUuid}:`, error.stack || error);
+      throw new InternalServerError(`Failed to update call details: ${error}`);
     }
   }
 
