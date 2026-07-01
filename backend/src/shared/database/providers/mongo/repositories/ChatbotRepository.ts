@@ -43,6 +43,7 @@ import type {
   FarmerHeatMapBucket,
   FarmerHeatMapRow,
   FarmerHeatMapMetricTotals,
+  FarmerHeatMapQuestionDetail,
   CoordinatorDuplicateQuestionHeatMapResponse,
   CoordinatorDuplicateQuestionDetail,
   CoordinatorDuplicateQuestionLocationHierarchy,
@@ -3666,13 +3667,18 @@ if (!districts.length) {
           },
           {
             $project: {
+              _id: 1,
               userId: 1,
+              question: 1,
+              details: 1,
               messageId: 1,
               threadId: 1,
               createdAt: 1,
               closedAt: 1,
               status: {$ifNull: ['$status', 'unknown']},
               isCustomerNotified: 1,
+              referenceQuestionId: 1,
+              referenceQuestion: 1,
             },
           },
         ],
@@ -3785,7 +3791,21 @@ if (!districts.length) {
         const location = userDoc.farmerProfile?.[locationField];
         if (!location) return [];
 
-        return [{...row, location}];
+        const name = `${userDoc.firstName || ''} ${userDoc.lastName || ''}`.trim();
+
+        return [
+          {
+            ...row,
+            location,
+            userId,
+            askedBy: name || userDoc.name || userDoc.email,
+            email: userDoc.email,
+            state: userDoc.farmerProfile?.state,
+            district: userDoc.farmerProfile?.district,
+            block: userDoc.farmerProfile?.blockName,
+            village: userDoc.farmerProfile?.villageName,
+          },
+        ];
       });
 
       const questionMap = new Map<
@@ -3798,8 +3818,30 @@ if (!districts.length) {
           closureTotalMinutes: number;
           closureCount: number;
           statusDistribution: Record<string, number>;
+          duplicateQuestionKeys: Set<string>;
+          questionDetails: FarmerHeatMapQuestionDetail[];
         }
       >();
+      const normalizeDuplicateReferenceText = (value?: string | null) =>
+        String(value || '')
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, ' ');
+      const getDuplicateGroupKey = (question: any) => {
+        const referenceQuestionId = question.referenceQuestionId?.toString?.();
+        if (referenceQuestionId) {
+          return `reference-id:${referenceQuestionId}`;
+        }
+
+        const referenceQuestion = normalizeDuplicateReferenceText(
+          question.referenceQuestion,
+        );
+        if (referenceQuestion) {
+          return `reference-text:${referenceQuestion}`;
+        }
+
+        return `question-id:${question._id?.toString?.() || String(question._id)}`;
+      };
 
       for (const row of questionRows) {
         const bucket = getBucketKey(new Date(row.createdAt));
@@ -3814,13 +3856,38 @@ if (!districts.length) {
           closureTotalMinutes: 0,
           closureCount: 0,
           statusDistribution: {},
+          duplicateQuestionKeys: new Set<string>(),
+          questionDetails: [],
         };
         const status = String(row.status || 'unknown');
         existing.totalQuestions += 1;
         existing.statusDistribution[status] =
           (existing.statusDistribution[status] || 0) + 1;
+        existing.questionDetails.push({
+          questionId: row._id?.toString?.() || String(row._id),
+          question: row.question || '',
+          status,
+          askedBy: row.askedBy,
+          email: row.email,
+          userId: row.userId,
+          state: row.state,
+          district: row.district,
+          block: row.block,
+          village: row.village,
+          crop: Array.isArray(row.details?.crop)
+            ? row.details.crop.join(', ')
+            : row.details?.crop,
+          domain: Array.isArray(row.details?.domain)
+            ? row.details.domain.join(', ')
+            : row.details?.domain,
+          createdAt: row.createdAt,
+          isCustomerNotified: row.isCustomerNotified,
+          referenceQuestionId: row.referenceQuestionId?.toString?.(),
+          referenceQuestion: row.referenceQuestion,
+        });
         if (status === 'duplicate') {
-          existing.duplicateQuestions += 1;
+          existing.duplicateQuestionKeys.add(getDuplicateGroupKey(row));
+          existing.duplicateQuestions = existing.duplicateQuestionKeys.size;
         }
 
         if (status === 'closed') {
@@ -3851,10 +3918,10 @@ if (!districts.length) {
       ): FarmerHeatMapMetricTotals => {
         const activeFarmerIds = new Set<string>();
         let totalQuestions = 0;
-        let duplicateQuestions = 0;
         let closedQuestions = 0;
         let notifiedQuestions = 0;
         let closureTotalMinutes = 0;
+        const duplicateQuestionKeys = new Set<string>();
 
         const filteredLabels = labelFilter ? [labelFilter] : labels;
         const filteredBuckets = bucketFilter
@@ -3875,7 +3942,9 @@ if (!districts.length) {
             if (!questionMetrics) continue;
 
             totalQuestions += questionMetrics.totalQuestions;
-            duplicateQuestions += questionMetrics.duplicateQuestions;
+            for (const duplicateQuestionKey of questionMetrics.duplicateQuestionKeys) {
+              duplicateQuestionKeys.add(duplicateQuestionKey);
+            }
             closedQuestions += questionMetrics.closedQuestions;
             notifiedQuestions += questionMetrics.notifiedQuestions;
             closureTotalMinutes += questionMetrics.closureTotalMinutes;
@@ -3885,7 +3954,7 @@ if (!districts.length) {
         return {
           activeFarmers: activeFarmerIds.size,
           totalQuestions,
-          duplicateQuestions,
+          duplicateQuestions: duplicateQuestionKeys.size,
           closedQuestions,
           notifiedQuestions,
           averageClosureTimeMinutes:
@@ -3919,6 +3988,7 @@ if (!districts.length) {
             notifiedQuestions: questionMetrics?.notifiedQuestions ?? 0,
             averageClosureTimeMinutes,
             statusDistribution: questionMetrics?.statusDistribution ?? {},
+            questionDetails: questionMetrics?.questionDetails ?? [],
           };
         });
 

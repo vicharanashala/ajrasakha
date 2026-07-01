@@ -174,6 +174,25 @@ export interface FarmerHeatMapBucket {
   totals: FarmerHeatMapMetricTotals;
 }
 
+export interface FarmerHeatMapQuestionDetail {
+  questionId: string;
+  question: string;
+  status: string;
+  askedBy?: string;
+  email?: string;
+  userId?: string;
+  state?: string;
+  district?: string;
+  block?: string;
+  village?: string;
+  crop?: string;
+  domain?: string;
+  createdAt?: Date;
+  isCustomerNotified?: boolean;
+  referenceQuestionId?: string;
+  referenceQuestion?: string;
+}
+
 export interface FarmerHeatMapCell {
   bucket: string;
   label: string;
@@ -184,6 +203,7 @@ export interface FarmerHeatMapCell {
   notifiedQuestions: number;
   averageClosureTimeMinutes: number;
   statusDistribution: Record<string, number>;
+  questionDetails: FarmerHeatMapQuestionDetail[];
 }
 
 export interface FarmerHeatMapRow {

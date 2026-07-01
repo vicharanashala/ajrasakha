@@ -3,6 +3,13 @@ import { Activity, InfoIcon, MapPinned, RefreshCw } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/atoms/dialog";
+import { ScrollArea } from "@/components/atoms/scroll-area";
 import { SearchableSelect } from "@/components/atoms/SearchableSelect";
 import { Skeleton } from "@/components/atoms/skeleton";
 import {
@@ -31,6 +38,7 @@ import {
   DEFAULT_FARMER_HEAT_MAP_FILTERS,
   type FarmerHeatMapGranularity,
   type FarmerHeatMapMetric,
+  type FarmerHeatMapQuestionDetail,
   useFarmerHeatMapAnalytics,
 } from "../hooks/useFarmerHeatMapAnalytics";
 import CountUp from "react-countup";
@@ -80,6 +88,14 @@ const metricOptions: Array<{
 
 type HeatMapPeriodMode = "year" | "month" | "week" | "day";
 
+type SelectedHeatMapCell = {
+  location: string;
+  period: string;
+  metric: FarmerHeatMapMetric;
+  value: number;
+  details: FarmerHeatMapQuestionDetail[];
+};
+
 const periodModeOptions: Array<{ value: HeatMapPeriodMode; label: string }> = [
   { value: "year", label: "Months" },
   { value: "month", label: "Weeks" },
@@ -128,6 +144,40 @@ const formatStatusDistribution = (statusDistribution: Record<string, number>) =>
     .sort((a, b) => b[1] - a[1])
     .map(([status, count]) => `${status}: ${count}`)
     .join(", ");
+};
+
+const formatDateTime = (value?: string) => {
+  if (!value) return "N/A";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return date.toLocaleString();
+};
+
+const getDuplicateGroupKey = (question: FarmerHeatMapQuestionDetail) => {
+  if (question.referenceQuestionId) return `reference-id:${question.referenceQuestionId}`;
+  if (question.referenceQuestion?.trim()) {
+    return `reference-text:${question.referenceQuestion.trim().toLowerCase().replace(/\s+/g, " ")}`;
+  }
+  return `question-id:${question.questionId}`;
+};
+
+const normalizeStatus = (status?: string) =>
+  String(status || "unknown").trim().toLowerCase().replace(/_/g, "-");
+
+const getMetricQuestionDetails = (
+  metric: FarmerHeatMapMetric,
+  details: FarmerHeatMapQuestionDetail[],
+) => {
+  if (metric === "duplicateQuestions") {
+    return details.filter((item) => normalizeStatus(item.status) === "duplicate");
+  }
+  if (metric === "closedQuestions" || metric === "averageClosureTimeMinutes") {
+    return details.filter((item) => normalizeStatus(item.status) === "closed");
+  }
+  if (metric === "notifiedQuestions") {
+    return details.filter((item) => normalizeStatus(item.status) === "closed" && item.isCustomerNotified === true);
+  }
+  return details;
 };
 
 const startOfDay = (date: Date) => {
@@ -219,6 +269,7 @@ export function FarmerAnalyticsHeatMap({
   const [metric, setMetric] =
     useState<FarmerHeatMapMetric>("totalQuestions");
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedCell, setSelectedCell] = useState<SelectedHeatMapCell | null>(null);
   const [states, setStates] = useState<ILocationState[]>([]);
   const [districts, setDistricts] = useState<ILocationDistrict[]>([]);
   const [blocks, setBlocks] = useState<ILocationBlock[]>([]);
@@ -258,6 +309,32 @@ export function FarmerAnalyticsHeatMap({
   );
 
   const selectedMetric = metricOptions.find((item) => item.value === metric);
+  const selectedCellMetric = selectedCell
+    ? metricOptions.find((item) => item.value === selectedCell.metric)
+    : undefined;
+  const selectedCellDetails = useMemo(
+    () =>
+      selectedCell
+        ? getMetricQuestionDetails(selectedCell.metric, selectedCell.details)
+        : [],
+    [selectedCell],
+  );
+  const selectedDuplicateGroups = useMemo(() => {
+    if (!selectedCell || selectedCell.metric !== "duplicateQuestions") return [];
+
+    const groups = new Map<string, FarmerHeatMapQuestionDetail[]>();
+    selectedCellDetails.forEach((detail) => {
+      const key = getDuplicateGroupKey(detail);
+      groups.set(key, [...(groups.get(key) ?? []), detail]);
+    });
+
+    return [...groups.entries()].map(([key, questions]) => ({
+      key,
+      referenceQuestion:
+        questions[0]?.referenceQuestion || questions[0]?.question || "Question text not available",
+      questions,
+    }));
+  }, [selectedCell, selectedCellDetails]);
   const maxValue = data?.maxValues?.[metric] ?? 0;
   const rows = data?.rows ?? [];
   const buckets = data?.buckets ?? [];
@@ -468,6 +545,7 @@ export function FarmerAnalyticsHeatMap({
   };
 
   return (
+    <>
     <Card className="relative overflow-hidden border border-border/60 bg-gradient-to-br from-card via-card to-card/40 shadow-sm transition-shadow duration-300 hover:shadow-lg">
       {/* Compact header: title + filters in one band */}
       <CardHeader className="gap-3 border-b border-border/50 py-3">
@@ -874,6 +952,11 @@ export function FarmerAnalyticsHeatMap({
                         </th>
                         {row.cells.map((cell) => {
                           const value = Number(cell[metric] || 0);
+                          const cellDetails = getMetricQuestionDetails(
+                            metric,
+                            cell.questionDetails ?? [],
+                          );
+                          const canOpenDetails = value > 0 && cellDetails.length > 0;
                           const title = [
                             `${row.label} - ${cell.label}`,
                             `Active farmers: ${cell.activeFarmers}`,
@@ -891,18 +974,29 @@ export function FarmerAnalyticsHeatMap({
                               className="h-11 min-w-[82px] border-r border-border/30 p-1 text-center align-middle last:border-r-0"
                               title={title}
                             >
-                              <motion.div
-                                whileHover={{ scale: 1.08 }}
+                              <motion.button
+                                type="button"
+                                whileHover={{ scale: canOpenDetails ? 1.08 : 1 }}
                                 transition={{
                                   type: "spring",
                                   stiffness: 400,
                                   damping: 20,
                                 }}
-                                className="flex h-9 min-w-[70px] cursor-default items-center justify-center rounded-md px-2 text-[11px] font-semibold tabular-nums shadow-sm"
+                                className="flex h-9 min-w-[70px] items-center justify-center rounded-md px-2 text-[11px] font-semibold tabular-nums shadow-sm disabled:cursor-default"
                                 style={getCellStyle(value)}
+                                disabled={!canOpenDetails}
+                                onClick={() =>
+                                  setSelectedCell({
+                                    location: row.label,
+                                    period: cell.label,
+                                    metric,
+                                    value,
+                                    details: cell.questionDetails ?? [],
+                                  })
+                                }
                               >
                                 {formatValue(metric, value)}
-                              </motion.div>
+                              </motion.button>
                             </td>
                           );
                         })}
@@ -916,5 +1010,135 @@ export function FarmerAnalyticsHeatMap({
         </AnimatePresence>
       </CardContent>
     </Card>
+    <Dialog
+      open={Boolean(selectedCell)}
+      onOpenChange={(open) => !open && setSelectedCell(null)}
+    >
+      <DialogContent className="flex h-[88vh] max-h-[88vh] flex-col overflow-hidden p-0 sm:max-w-4xl">
+        <DialogHeader className="shrink-0 border-b px-6 py-4">
+          <DialogTitle>
+            {selectedCellMetric?.label ?? "Question Details"}
+          </DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            {selectedCell?.location} / {selectedCell?.period} /{" "}
+            {formatValue(selectedCell?.metric ?? "totalQuestions", selectedCell?.value ?? 0)}
+          </p>
+        </DialogHeader>
+        <ScrollArea className="min-h-0 flex-1">
+          <div className="space-y-3 p-6">
+            {selectedCell?.metric === "duplicateQuestions" ? (
+              selectedDuplicateGroups.length ? (
+                selectedDuplicateGroups.map((group) => {
+                  const hasReference = !group.key.startsWith("question-id:");
+                  const totalAskedCount = group.questions.length + (hasReference ? 1 : 0);
+                  const askedBy = Array.from(
+                    new Set(
+                      group.questions
+                        .map((question) => question.askedBy || question.email || question.userId)
+                        .filter(Boolean),
+                    ),
+                  ).join(", ");
+
+                  return (
+                    <div key={group.key} className="rounded-md border bg-background p-4">
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-primary px-2.5 py-0.5 text-xs font-semibold text-primary-foreground">
+                            Asked {totalAskedCount} time{totalAskedCount === 1 ? "" : "s"}
+                          </span>
+                          <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-foreground">
+                            {group.questions.length} duplicate record detail{group.questions.length === 1 ? "" : "s"}
+                          </span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          Reference group
+                        </span>
+                      </div>
+                      <div className="mb-3">
+                        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Reference question
+                        </p>
+                        <p className="whitespace-pre-wrap text-sm font-semibold">
+                          {group.referenceQuestion}
+                        </p>
+                      </div>
+                      <div className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
+                        Asked by:{" "}
+                        <span className="font-medium text-foreground">
+                          {askedBy || "N/A"}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+                  No duplicate question details for this selection.
+                </div>
+              )
+            ) : selectedCellDetails.length ? (
+              selectedCellDetails.map((question) => (
+                <div key={question.questionId} className="rounded-md border bg-background p-4">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-foreground">
+                      {question.status || "unknown"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatDateTime(question.createdAt)}
+                    </span>
+                  </div>
+                  <p className="whitespace-pre-wrap text-sm font-medium">
+                    {question.question || "Question text not available"}
+                  </p>
+                  <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
+                    <span>
+                      Asked by:{" "}
+                      <span className="font-medium text-foreground">
+                        {question.askedBy || question.email || question.userId || "N/A"}
+                      </span>
+                    </span>
+                    <span>
+                      Village:{" "}
+                      <span className="font-medium text-foreground">
+                        {question.village || "N/A"}
+                      </span>
+                    </span>
+                    <span>
+                      Block:{" "}
+                      <span className="font-medium text-foreground">
+                        {question.block || "N/A"}
+                      </span>
+                    </span>
+                    <span>
+                      District:{" "}
+                      <span className="font-medium text-foreground">
+                        {question.district || "N/A"}
+                      </span>
+                    </span>
+                    <span>
+                      Crop:{" "}
+                      <span className="font-medium text-foreground">
+                        {question.crop || "N/A"}
+                      </span>
+                    </span>
+                    <span>
+                      Domain:{" "}
+                      <span className="font-medium text-foreground">
+                        {question.domain || "N/A"}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+                No question details for this selection.
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
