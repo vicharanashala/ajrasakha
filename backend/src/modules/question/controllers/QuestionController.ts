@@ -1408,6 +1408,130 @@ export class QuestionController {
       }
     }
 
+    // ─── Push to Auditor — Gate Keeper hand-off → status 'auditor_review',
+    //     audited as PUSH_TO_AUDITOR ─────────────────────────────────────────────
+    if (updates.status === 'auditor_review') {
+      // The comment is sent in the body for the audit trail only — neither it nor a
+      // push timestamp are persisted on the question (both live in the audit trail).
+      const gateKeeperComment = ((updates as any).gateKeeperComment ?? '').trim();
+      const auditPayload: ModeratorAuditTrail = {
+        category: AuditCategory.QUESTION,
+        action: AuditAction.PUSH_TO_AUDITOR,
+        actor: {
+          id: user._id.toString(),
+          name: `${user.firstName} ${user.lastName}`,
+          email: user.email,
+          role: user.role,
+          avatar: user?.avatar || '',
+        },
+        context: { questionId, reason: gateKeeperComment },
+        createdAt: new Date(),
+      };
+
+      try {
+        prevQuestion = await this.questionService.getQuestionById(questionId);
+        // Record what the question was (dynamic vs duplicate) before the hand-off so the
+        // Auditor can show the right action even though the status is now auditor_review.
+        const auditorReviewType: 'dynamic' | 'duplicate' =
+          prevQuestion?.status === 'dynamic' ? 'dynamic' : 'duplicate';
+        const pushUpdates: Partial<IQuestion> = {
+          status: 'auditor_review',
+          auditorReviewType,
+        };
+        response = await this.questionService.updateQuestion(questionId, pushUpdates);
+        this.auditTrailsService.createAuditTrail({
+          ...auditPayload,
+          changes: {
+            before: { status: prevQuestion?.status },
+            after: { status: 'auditor_review', auditorReviewType, gateKeeperComment },
+          },
+          outcome: { status: OutComeStatus.SUCCESS },
+        });
+        return response;
+      } catch (err: any) {
+        this.auditTrailsService.createAuditTrail({
+          ...auditPayload,
+          outcome: {
+            status: OutComeStatus.FAILED,
+            errorCode: err?.errorCode || 'INTERNAL_ERROR',
+            errorMessage: err?.message || 'Failed to push to auditor',
+            errorName: err?.name || 'Error',
+            errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+          },
+        });
+        if (err instanceof InternalServerError) {
+          throw new InternalServerError(err.message);
+        }
+        throw new BadRequestError(err?.message || 'Failed to push to auditor');
+      }
+    }
+
+    // ─── Cancel Duplicate — reopen the question, audited as CANCEL_DUPLICATE ──
+    if (updates.isDuplicateCancelled === true) {
+      // Reason is sent in the body for the audit trail only — it is never persisted
+      // on the question, so it is read via cast rather than from the IQuestion type.
+      const cancelReason = ((updates as any).duplicateCancelReason ?? '').trim();
+      // Persist only the flag + reopen the question, and set auto-allocation per the
+      // moderator's confirmation choice. The cancel reason and timestamp are recorded
+      // in the audit trail below, NOT stored on the question document.
+      const cancelUpdates: Partial<IQuestion> = {
+        status: 'open',
+        isDuplicateCancelled: true,
+        isAutoAllocate: updates.isAutoAllocate === true,
+      };
+
+      const auditPayload: ModeratorAuditTrail = {
+        category: AuditCategory.QUESTION,
+        action: AuditAction.CANCEL_DUPLICATE,
+        actor: {
+          id: user._id.toString(),
+          name: `${user.firstName} ${user.lastName}`,
+          email: user.email,
+          role: user.role,
+          avatar: user?.avatar || '',
+        },
+        context: { questionId, reason: cancelReason },
+        createdAt: new Date(),
+      };
+
+      try {
+        prevQuestion = await this.questionService.getQuestionById(questionId);
+        response = await this.questionService.updateQuestion(questionId, cancelUpdates);
+        this.auditTrailsService.createAuditTrail({
+          ...auditPayload,
+          changes: {
+            before: { status: prevQuestion?.status, isAutoAllocate: prevQuestion?.isAutoAllocate },
+            after: {
+              status: 'open',
+              isDuplicateCancelled: true,
+              isAutoAllocate: cancelUpdates.isAutoAllocate,
+              duplicateCancelReason: cancelReason,
+            },
+          },
+          outcome: { status: OutComeStatus.SUCCESS },
+        });
+        return response;
+      } catch (err: any) {
+        this.auditTrailsService.createAuditTrail({
+          ...auditPayload,
+          changes: prevQuestion
+            ? { before: { status: prevQuestion.status, question: prevQuestion.text } }
+            : {},
+          outcome: {
+            status: OutComeStatus.FAILED,
+            errorCode: err?.errorCode || 'INTERNAL_ERROR',
+            errorMessage: err?.message || 'Failed to cancel duplicate',
+            errorName: err?.name || 'Error',
+            errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+          },
+        });
+        if (err instanceof InternalServerError) {
+          throw new InternalServerError(err.message);
+        }
+        throw new BadRequestError(err?.message || 'Failed to cancel duplicate');
+      }
+    }
+
     // ─── Generic update (non-pass) — audited as QUESTION_UPDATE ──────────────
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
