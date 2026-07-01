@@ -49,6 +49,7 @@ const actionLabels: Record<string, string> = {
   APPROVE_ANSWER: "Answer Approved",
   APPROVE_LLM_ANSWER: "Approve LLM Answer",
   PUSH_TO_GDB: "Pushed to GDB",
+  PUSH_TO_AUDITOR: "Pushed to Auditor",
   ANSWER_CREATED: "Answer Created",
   EDIT_FINAL_ANSWER: "Final Answer Edited",
   REROUTE_ANSWER: "Answer Rerouted",

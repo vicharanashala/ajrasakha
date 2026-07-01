@@ -1,7 +1,7 @@
 import type { UserCredential } from "firebase/auth";
 import type { DemographicEntry } from "./features/chatbotDashboard/types";
 
-export type UserRole = "admin" | "moderator" | "expert" | "pae_expert" | "tester"| "district_coordinator"| "block_coordinator" | "village_volunteer" | "call_agent";
+export type UserRole = "admin" | "moderator" | "expert" | "pae_expert" | "tester"| "district_coordinator"| "block_coordinator" | "village_volunteer" | "call_agent" | "gate_keeper" | "auditor";
 
 export interface ExtendedUserCredential extends UserCredential {
   _tokenResponse?: {
@@ -273,7 +273,7 @@ export type SupportedLanguage =
   | "sat-IN"
   | "sd-IN";
 
-export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold" | "pae_submitted" | "draft" | "duplicate" | "pass" | "non_agri" | "dynamic";
+export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold" | "pae_submitted" | "draft" | "duplicate" | "pass" | "non_agri" | "dynamic" | "queue_progress" | "auditor_review" | "dynamic_closed"|"queue_duplicate";
 export type ReRouteStatus = "pending" | "expert_rejected" | "expert_completed" | "moderator_rejected" | "moderator_approved" | "approved" | "rejected" | "modified" | "in-review";
 export interface ResponseDto {
   id: string;
@@ -487,6 +487,7 @@ export interface IQuestionFullData {
   referenceSource?: string;
   isDuplicateChecked?: boolean;
   autoAllocateModerator?: boolean;
+  isDuplicateCancelled?: boolean;
   referenceQuestionData?: {
     question: string;
     status: string;
@@ -503,6 +504,7 @@ export interface IQuestionFullData {
   };
   originalQuestion?: string;
   closedAt?: string;
+  closedBy?: string;
   threadId?: string;
   threadUserEmail?: string | null;
   messageId?: string;
@@ -516,6 +518,10 @@ export interface IQuestionFullData {
   assigned_moderator?: { name: string; email: string } | null;
   /** True when the requesting user is the moderator this question is assigned to. Gates the Pass / Accept / Push to GDB actions. */
   isAssignedModerator?: boolean;
+  /** Set when a Gate Keeper pushes to the Auditor (status → 'auditor_review'); records
+   *  whether the question was 'dynamic' or 'duplicate' so the Auditor shows the right
+   *  action (Notify User vs Push to GDB). */
+  auditorReviewType?: "dynamic" | "duplicate";
   /** Timestamp when a moderator was assigned. Used to calculate moderator handling time (closedAt - moderatorAssignedAt). */
   moderatorAssignedAt?: string | null;
   closedFinalAnswer?: {
@@ -579,6 +585,7 @@ export interface IDetailedQuestion {
   aiInitialAnswer: string;
   status: QuestionStatus;
   tag?: "dynamic" | "static_dynamic";
+  auditorReviewType?: "dynamic" | "duplicate";
   totalAnswersCount: number;
   priority: QuestionPriority;
   metrics: IQuestionMetrics;
@@ -618,6 +625,9 @@ export interface IDetailedQuestion {
   autoAllocateModerator?: boolean;
   /** Moderator currently assigned to review this question (set by the moderator-queue cron). */
   moderatorId?: string | null;
+  isDuplicateCancelled?: boolean;
+  duplicateCancelReason?: string;
+  isAutoAllocate?: boolean;
 }
 
 export interface IDetailedQuestionResponse {
