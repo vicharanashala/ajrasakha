@@ -38,10 +38,15 @@ import type {
   WeatherConcernAnalyticsFilters,
   WeatherConcernAnalyticsResponse,
   FarmerHeatMapFilters,
+  FarmerHeatMapLocationHierarchy,
   FarmerHeatMapResponse,
   FarmerHeatMapBucket,
   FarmerHeatMapRow,
   FarmerHeatMapMetricTotals,
+  FarmerHeatMapQuestionDetail,
+  CoordinatorDuplicateQuestionHeatMapResponse,
+  CoordinatorDuplicateQuestionDetail,
+  CoordinatorDuplicateQuestionLocationHierarchy,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {
   IQuestion,
@@ -49,7 +54,6 @@ import {
   QuestionSource,
 } from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
-import {DISTRICTS} from '#root/utils/districts.js';
 import {getFirebaseAuth} from '#root/config/firebaseAdmin.js';
 
 import bcrypt from 'bcryptjs';
@@ -524,13 +528,56 @@ export class ChatbotRepository implements IChatbotRepository {
       .trim()
       .toLowerCase();
 
-    const aliases: Record<string, string> = {
-      chamarajanagara: 'chamarajanagar',
-      baramula: 'baramulla',
-    };
+  const aliases: Record<string, string> = {
+    anantapur: 'ananthapuramu',
+    chamarajanagara: 'chamarajanagar',
+    baramula: 'baramulla',
+  };
 
-    return aliases[normalized] ?? normalized;
-  }
+  return aliases[normalized] ?? normalized;
+}
+
+private getEquivalentLocationNames(value: string): string[] {
+  const normalized = this.normalizeDistrictName(value);
+  const equivalents: Record<string, string[]> = {
+    ananthapuramu: ['Ananthapuramu', 'Anantapur'],
+    chamarajanagar: ['Chamarajanagar', 'Chamarajanagara'],
+    baramulla: ['Baramulla', 'Baramula'],
+  };
+
+  return [...new Set([value, ...(equivalents[normalized] || [])])];
+}
+
+private matchesEquivalentLocation(
+  actual: string | undefined,
+  expectedValues: string[],
+) {
+  const normalizedActual = this.normalizeDistrictName(String(actual || ''));
+
+  return expectedValues.some(
+    expected =>
+      normalizedActual === this.normalizeDistrictName(String(expected || '')),
+  );
+}
+
+private isInvalidHeatMapLocation(value?: string | null) {
+  const normalized = this.normalizeDistrictName(String(value || ''));
+  const invalidValues = new Set([
+    '',
+    '-',
+    'na',
+    'n/a',
+    'nil',
+    'null',
+    'test',
+    'testing',
+    'undefined',
+    'unknown',
+    'not specified',
+  ]);
+
+  return invalidValues.has(normalized);
+}
   private readonly coordinatorsRoles = COORDINATOR_ROLES;
 
   private async getSourceAdherenceStats(
@@ -3290,16 +3337,21 @@ for (const item of districtUsers) {
 
   async getFarmerHeatMapAnalytics(
     filters: FarmerHeatMapFilters = {},
+    locationHierarchy?: FarmerHeatMapLocationHierarchy,
     session?: ClientSession,
   ): Promise<FarmerHeatMapResponse> {
     try {
       const source = filters.source || 'annam';
       const userType = filters.userType || 'all';
       const selectedState = filters.state || 'all';
+      const selectedDistrict = filters.district || 'all';
+      const selectedBlock = filters.block || 'all';
+      const selectedVillage = filters.village || 'all';
       const granularity = filters.granularity || 'monthly';
       const createEmptyHeatMapTotals = (): FarmerHeatMapMetricTotals => ({
         activeFarmers: 0,
         totalQuestions: 0,
+        duplicateQuestions: 0,
         closedQuestions: 0,
         notifiedQuestions: 0,
         averageClosureTimeMinutes: 0,
@@ -3483,15 +3535,66 @@ for (const item of districtUsers) {
       const {startDate, endDate, buckets, getBucketKey} =
         buildHeatMapTimeRange();
 
-      const scope =
-        selectedState && selectedState !== 'all' ? 'district' : 'state';
-      const labels =
-        scope === 'district'
-          ? [...(DISTRICTS[selectedState] || [])].sort()
-          : Object.keys(DISTRICTS).sort();
+      const scope = locationHierarchy?.scope || 'state';
+      let labels = [...(locationHierarchy?.labels || [])].sort();
       const labelMap = new Map(
         labels.map(label => [this.normalizeDistrictName(label), label]),
       );
+      const getLocationLabel = (value?: string | null) => {
+        const displayValue = String(value || '').trim();
+        if (!displayValue || this.isInvalidHeatMapLocation(displayValue)) {
+          return undefined;
+        }
+
+        const normalized = this.normalizeDistrictName(displayValue);
+        const mappedLabel = labelMap.get(normalized);
+        if (mappedLabel) return mappedLabel;
+
+        labelMap.set(normalized, displayValue);
+        labels.push(displayValue);
+        return displayValue;
+      };
+      const locationField =
+        scope === 'state'
+          ? 'state'
+          : scope === 'district'
+            ? 'district'
+            : scope === 'block'
+              ? 'blockName'
+              : 'villageName';
+      const selectedLocationFilters: Record<string, string[]> = {};
+      if (
+        selectedState &&
+        selectedState !== 'all' &&
+        !this.isInvalidHeatMapLocation(selectedState)
+      ) {
+        selectedLocationFilters.state =
+          this.getEquivalentLocationNames(selectedState);
+      }
+      if (
+        selectedDistrict &&
+        selectedDistrict !== 'all' &&
+        !this.isInvalidHeatMapLocation(selectedDistrict)
+      ) {
+        selectedLocationFilters.district =
+          this.getEquivalentLocationNames(selectedDistrict);
+      }
+      if (
+        selectedBlock &&
+        selectedBlock !== 'all' &&
+        !this.isInvalidHeatMapLocation(selectedBlock)
+      ) {
+        selectedLocationFilters.blockName =
+          this.getEquivalentLocationNames(selectedBlock);
+      }
+      if (
+        selectedVillage &&
+        selectedVillage !== 'all' &&
+        !this.isInvalidHeatMapLocation(selectedVillage)
+      ) {
+        selectedLocationFilters.villageName =
+          this.getEquivalentLocationNames(selectedVillage);
+      }
 
       const finalSource: QuestionSource =
         source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
@@ -3508,11 +3611,12 @@ for (const item of districtUsers) {
             {
               $addFields: {
                 _userOid: {
-                  $cond: [
-                    {$and: [{$ne: ['$user', null]}, {$ne: ['$user', '']}]},
-                    {$toObjectId: '$user'},
-                    null,
-                  ],
+                  $convert: {
+                    input: '$user',
+                    to: 'objectId',
+                    onError: null,
+                    onNull: null,
+                  },
                 },
               },
             },
@@ -3535,17 +3639,14 @@ for (const item of districtUsers) {
                         : {'_userDoc.userRole': 'INTERNAL'},
                   },
                 ]),
-            ...(scope === 'district'
-              ? [{$match: {'_userDoc.farmerProfile.state': selectedState}}]
-              : []),
+            ...Object.entries(selectedLocationFilters).map(([key, values]) => ({
+              $match: {[`_userDoc.farmerProfile.${key}`]: {$in: values}},
+            })),
             {
               $project: {
                 user: '$user',
                 createdAt: 1,
-                location:
-                  scope === 'district'
-                    ? '$_userDoc.farmerProfile.district'
-                    : '$_userDoc.farmerProfile.state',
+                location: `$_userDoc.farmerProfile.${locationField}`,
               },
             },
             {$match: {location: {$exists: true, $nin: [null, '']}}},
@@ -3557,9 +3658,7 @@ for (const item of districtUsers) {
       const activeFarmerMap = new Map<string, Set<string>>();
       for (const row of activeFarmerRows) {
         const bucket = getBucketKey(new Date(row.createdAt));
-        const label = labelMap.get(
-          this.normalizeDistrictName(String(row.location)),
-        );
+        const label = getLocationLabel(String(row.location));
         if (!bucket || !label) continue;
         const key = `${label}__${bucket}`;
         if (!activeFarmerMap.has(key)) activeFarmerMap.set(key, new Set());
@@ -3580,13 +3679,18 @@ for (const item of districtUsers) {
           },
           {
             $project: {
+              _id: 1,
               userId: 1,
+              question: 1,
+              details: 1,
               messageId: 1,
               threadId: 1,
               createdAt: 1,
               closedAt: 1,
               status: {$ifNull: ['$status', 'unknown']},
               isCustomerNotified: 1,
+              referenceQuestionId: 1,
+              referenceQuestion: 1,
             },
           },
         ],
@@ -3688,53 +3792,115 @@ for (const item of districtUsers) {
           if (!matchesUserType) return [];
         }
 
-        if (
-          scope === 'district' &&
-          userDoc.farmerProfile.state !== selectedState
-        ) {
-          return [];
+        for (const [key, values] of Object.entries(selectedLocationFilters)) {
+          if (
+            !this.matchesEquivalentLocation(userDoc.farmerProfile?.[key], values)
+          ) {
+            return [];
+          }
         }
 
-        const location =
-          scope === 'district'
-            ? userDoc.farmerProfile.district
-            : userDoc.farmerProfile.state;
+        const location = userDoc.farmerProfile?.[locationField];
         if (!location) return [];
 
-        return [{...row, location}];
+        const name = `${userDoc.firstName || ''} ${userDoc.lastName || ''}`.trim();
+
+        return [
+          {
+            ...row,
+            location,
+            userId,
+            askedBy: name || userDoc.name || userDoc.email,
+            email: userDoc.email,
+            state: userDoc.farmerProfile?.state,
+            district: userDoc.farmerProfile?.district,
+            block: userDoc.farmerProfile?.blockName,
+            village: userDoc.farmerProfile?.villageName,
+          },
+        ];
       });
 
       const questionMap = new Map<
         string,
         {
           totalQuestions: number;
+          duplicateQuestions: number;
           closedQuestions: number;
           notifiedQuestions: number;
           closureTotalMinutes: number;
           closureCount: number;
           statusDistribution: Record<string, number>;
+          duplicateQuestionKeys: Set<string>;
+          questionDetails: FarmerHeatMapQuestionDetail[];
         }
       >();
+      const normalizeDuplicateReferenceText = (value?: string | null) =>
+        String(value || '')
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, ' ');
+      const getDuplicateGroupKey = (question: any) => {
+        const referenceQuestionId = question.referenceQuestionId?.toString?.();
+        if (referenceQuestionId) {
+          return `reference-id:${referenceQuestionId}`;
+        }
+
+        const referenceQuestion = normalizeDuplicateReferenceText(
+          question.referenceQuestion,
+        );
+        if (referenceQuestion) {
+          return `reference-text:${referenceQuestion}`;
+        }
+
+        return `question-id:${question._id?.toString?.() || String(question._id)}`;
+      };
 
       for (const row of questionRows) {
         const bucket = getBucketKey(new Date(row.createdAt));
-        const label = labelMap.get(
-          this.normalizeDistrictName(String(row.location)),
-        );
+        const label = getLocationLabel(String(row.location));
         if (!bucket || !label) continue;
         const key = `${label}__${bucket}`;
         const existing = questionMap.get(key) || {
           totalQuestions: 0,
+          duplicateQuestions: 0,
           closedQuestions: 0,
           notifiedQuestions: 0,
           closureTotalMinutes: 0,
           closureCount: 0,
           statusDistribution: {},
+          duplicateQuestionKeys: new Set<string>(),
+          questionDetails: [],
         };
         const status = String(row.status || 'unknown');
         existing.totalQuestions += 1;
         existing.statusDistribution[status] =
           (existing.statusDistribution[status] || 0) + 1;
+        existing.questionDetails.push({
+          questionId: row._id?.toString?.() || String(row._id),
+          question: row.question || '',
+          status,
+          askedBy: row.askedBy,
+          email: row.email,
+          userId: row.userId,
+          state: row.state,
+          district: row.district,
+          block: row.block,
+          village: row.village,
+          crop: Array.isArray(row.details?.crop)
+            ? row.details.crop.join(', ')
+            : row.details?.crop,
+          domain: Array.isArray(row.details?.domain)
+            ? row.details.domain.join(', ')
+            : row.details?.domain,
+          createdAt: row.createdAt,
+          isCustomerNotified: row.isCustomerNotified,
+          referenceQuestionId: row.referenceQuestionId?.toString?.(),
+          referenceQuestion: row.referenceQuestion,
+        });
+        if (status === 'duplicate') {
+          existing.duplicateQuestionKeys.add(getDuplicateGroupKey(row));
+          existing.duplicateQuestions = existing.duplicateQuestionKeys.size;
+        }
 
         if (status === 'closed') {
           existing.closedQuestions += 1;
@@ -3756,6 +3922,8 @@ for (const item of districtUsers) {
         questionMap.set(key, existing);
       }
 
+      labels = [...new Set(labels)].sort((a, b) => a.localeCompare(b));
+
       const calculateTotals = (
         labelFilter?: string,
         bucketFilter?: string,
@@ -3765,6 +3933,7 @@ for (const item of districtUsers) {
         let closedQuestions = 0;
         let notifiedQuestions = 0;
         let closureTotalMinutes = 0;
+        const duplicateQuestionKeys = new Set<string>();
 
         const filteredLabels = labelFilter ? [labelFilter] : labels;
         const filteredBuckets = bucketFilter
@@ -3785,6 +3954,9 @@ for (const item of districtUsers) {
             if (!questionMetrics) continue;
 
             totalQuestions += questionMetrics.totalQuestions;
+            for (const duplicateQuestionKey of questionMetrics.duplicateQuestionKeys) {
+              duplicateQuestionKeys.add(duplicateQuestionKey);
+            }
             closedQuestions += questionMetrics.closedQuestions;
             notifiedQuestions += questionMetrics.notifiedQuestions;
             closureTotalMinutes += questionMetrics.closureTotalMinutes;
@@ -3794,6 +3966,7 @@ for (const item of districtUsers) {
         return {
           activeFarmers: activeFarmerIds.size,
           totalQuestions,
+          duplicateQuestions: duplicateQuestionKeys.size,
           closedQuestions,
           notifiedQuestions,
           averageClosureTimeMinutes:
@@ -3822,10 +3995,12 @@ for (const item of districtUsers) {
             label: bucket.label,
             activeFarmers,
             totalQuestions: questionMetrics?.totalQuestions ?? 0,
+            duplicateQuestions: questionMetrics?.duplicateQuestions ?? 0,
             closedQuestions: questionMetrics?.closedQuestions ?? 0,
             notifiedQuestions: questionMetrics?.notifiedQuestions ?? 0,
             averageClosureTimeMinutes,
             statusDistribution: questionMetrics?.statusDistribution ?? {},
+            questionDetails: questionMetrics?.questionDetails ?? [],
           };
         });
 
@@ -3853,6 +4028,10 @@ for (const item of districtUsers) {
               acc.totalQuestions,
               cell.totalQuestions,
             );
+            acc.duplicateQuestions = Math.max(
+              acc.duplicateQuestions,
+              cell.duplicateQuestions,
+            );
             acc.closedQuestions = Math.max(
               acc.closedQuestions,
               cell.closedQuestions,
@@ -3871,6 +4050,7 @@ for (const item of districtUsers) {
         {
           activeFarmers: 0,
           totalQuestions: 0,
+          duplicateQuestions: 0,
           closedQuestions: 0,
           notifiedQuestions: 0,
           averageClosureTimeMinutes: 0,
@@ -3883,6 +4063,9 @@ for (const item of districtUsers) {
           source,
           userType,
           state: selectedState,
+          district: selectedDistrict,
+          block: selectedBlock,
+          village: selectedVillage,
           granularity,
           startDate: startDate.toISOString(),
           endDate: endDate.toISOString(),
@@ -3894,6 +4077,334 @@ for (const item of districtUsers) {
       };
     } catch (error) {
       throw new Error(`Failed to fetch farmer heat map analytics: ${error}`);
+    }
+  }
+
+  async getCoordinatorDuplicateQuestionHeatMap(
+    coordinatorId: string,
+    locationHierarchy?: CoordinatorDuplicateQuestionLocationHierarchy,
+    session?: ClientSession,
+  ): Promise<CoordinatorDuplicateQuestionHeatMapResponse> {
+    try {
+      await this.init('annam');
+      await this.initReviewSystem();
+
+      if (!ObjectId.isValid(coordinatorId)) {
+        throw new BadRequestError('Invalid coordinator id');
+      }
+
+      const coordinator = await this.users.findOne(
+        {_id: new ObjectId(coordinatorId)},
+        {session},
+      );
+
+      if (!coordinator || !COORDINATOR_ROLES.includes(coordinator.userRole as any)) {
+        throw new BadRequestError('Coordinator not found');
+      }
+
+      const role = String(coordinator.userRole || '');
+      const state = coordinator.farmerProfile?.state;
+      const district = coordinator.farmerProfile?.district;
+      const block = coordinator.farmerProfile?.blockName;
+      const village = coordinator.farmerProfile?.villageName;
+      const farmerFilter: any = {
+        $nor: COORDINATOR_ROLES.map(coordinatorRole => ({
+          userRole: this.exactRegex(coordinatorRole),
+        })),
+      };
+
+      if (state) farmerFilter['farmerProfile.state'] = this.exactRegex(state);
+      if (district) {
+        farmerFilter['farmerProfile.district'] = this.exactRegex(district);
+      }
+      if (role === 'block_coordinator' || role === 'village_volunteer') {
+        if (block) farmerFilter['farmerProfile.blockName'] = this.exactRegex(block);
+      }
+      if (role === 'village_volunteer' && village) {
+        farmerFilter['farmerProfile.villageName'] = this.exactRegex(village);
+      }
+
+      const scopedUsers = await this.users
+        .find(farmerFilter, {
+          projection: {
+            _id: 1,
+            name: 1,
+            email: 1,
+            farmerProfile: 1,
+          },
+          session,
+        })
+        .toArray();
+      const userMap = new Map(
+        scopedUsers.map((user: any) => [user._id.toString(), user]),
+      );
+      const userIds = [...userMap.keys()];
+      const userObjectIds = userIds.map(id => new ObjectId(id));
+
+      if (userIds.length === 0) {
+        return {
+          coordinatorId,
+          coordinatorRole: role,
+          scope:
+            role === 'district_coordinator'
+              ? 'district'
+              : role === 'block_coordinator'
+                ? 'block'
+                : 'village',
+          state,
+          district,
+          block,
+          totalDuplicateQuestions: 0,
+          blocks: [],
+        };
+      }
+
+      const userMessages = await this.messagesCollection
+        .find(
+          {
+            user: {$in: userIds},
+            isDeleted: {$ne: true},
+          },
+          {
+            projection: {
+              user: 1,
+              messageId: 1,
+              threadId: 1,
+              conversationId: 1,
+            },
+            session,
+          },
+        )
+        .toArray();
+      const messageIds = [
+        ...new Set(userMessages.map((message: any) => message.messageId).filter(Boolean)),
+      ];
+      const threadIds = [
+        ...new Set(
+          userMessages
+            .map((message: any) => message.threadId || message.conversationId)
+            .filter(Boolean),
+        ),
+      ];
+      const messageUserMap = new Map(
+        userMessages
+          .filter((message: any) => message.messageId)
+          .map((message: any) => [String(message.messageId), String(message.user)]),
+      );
+      const threadUserMap = new Map(
+        userMessages
+          .filter((message: any) => message.threadId || message.conversationId)
+          .map((message: any) => [
+            String(message.threadId || message.conversationId),
+            String(message.user),
+          ]),
+      );
+
+      const questionFilter: any = buildBaseQuestionMatch('AJRASAKHA');
+      const questionUserMatches: any[] = [
+        {userId: {$in: userIds}},
+        {userId: {$in: userObjectIds}},
+      ];
+      if (messageIds.length > 0) {
+        questionUserMatches.push({messageId: {$in: messageIds}});
+      }
+      if (threadIds.length > 0) {
+        questionUserMatches.push({threadId: {$in: threadIds}});
+      }
+      questionFilter.$and.push({$or: questionUserMatches});
+
+      const questions = await this.QuestionCollection.find(questionFilter, {
+        session,
+      })
+        .project({
+          _id: 1,
+          question: 1,
+          createdAt: 1,
+          userId: 1,
+          messageId: 1,
+          threadId: 1,
+        })
+        .sort({createdAt: 1})
+        .toArray();
+
+      const normalizeQuestionText = (value?: string) =>
+        String(value || '')
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, ' ');
+      const groups = new Map<
+        string,
+        {
+          userId: string;
+          normalizedQuestion: string;
+          question: string;
+          questions: any[];
+        }
+      >();
+
+      for (const question of questions) {
+        const directUserId = question.userId?.toString?.() || String(question.userId || '');
+        const resolvedUserId =
+          (directUserId && userMap.has(directUserId) ? directUserId : undefined) ||
+          (question.messageId ? messageUserMap.get(String(question.messageId)) : undefined) ||
+          (question.threadId ? threadUserMap.get(String(question.threadId)) : undefined);
+        const normalizedQuestion = normalizeQuestionText(question.question);
+
+        if (!resolvedUserId || !userMap.has(resolvedUserId) || !normalizedQuestion) {
+          continue;
+        }
+
+        const key = `${resolvedUserId}__${normalizedQuestion}`;
+        const existing = groups.get(key) || {
+          userId: resolvedUserId,
+          normalizedQuestion,
+          question: question.question || '',
+          questions: [],
+        };
+        existing.questions.push(question);
+        if (!existing.question && question.question) {
+          existing.question = question.question;
+        }
+        groups.set(key, existing);
+      }
+
+      const normalizeLocationKey = (value?: string) =>
+        String(value || '')
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, ' ');
+      const detailsByBlockVillage = new Map<string, CoordinatorDuplicateQuestionDetail[]>();
+      for (const group of groups.values()) {
+        if (group.questions.length < 2) continue;
+
+        const user = userMap.get(group.userId);
+        const blockName = String(user?.farmerProfile?.blockName || '').trim();
+        const villageName = String(user?.farmerProfile?.villageName || '').trim();
+        if (!blockName || !villageName) continue;
+
+        const key = `${normalizeLocationKey(blockName)}__${normalizeLocationKey(villageName)}`;
+        const dates = group.questions
+          .map((question: any) => question.createdAt ? new Date(question.createdAt) : null)
+          .filter((date: Date | null) => date && !Number.isNaN(date.getTime())) as Date[];
+        const sortedDates = dates.sort((a, b) => a.getTime() - b.getTime());
+        const detail: CoordinatorDuplicateQuestionDetail = {
+          question: group.question,
+          repeatCount: group.questions.length,
+          userId: group.userId,
+          userName: user?.name,
+          email: user?.email,
+          block: blockName,
+          village: villageName,
+          firstAskedAt: sortedDates[0],
+          lastAskedAt: sortedDates[sortedDates.length - 1],
+          questionIds: group.questions.map((question: any) =>
+            question._id?.toString?.() || String(question._id),
+          ),
+        };
+
+        detailsByBlockVillage.set(key, [
+          ...(detailsByBlockVillage.get(key) || []),
+          detail,
+        ]);
+      }
+
+      const blockMap = new Map<
+        string,
+        {
+          blockName: string;
+          villages: Map<
+            string,
+            {
+              villageName: string;
+              details: CoordinatorDuplicateQuestionDetail[];
+            }
+          >;
+        }
+      >();
+      const addBlockVillage = (blockName?: string, villageName?: string) => {
+        const displayBlock = String(blockName || '').trim();
+        const displayVillage = String(villageName || '').trim();
+        const normalizedBlock = normalizeLocationKey(displayBlock);
+        const normalizedVillage = normalizeLocationKey(displayVillage);
+        if (!normalizedBlock) return;
+
+        if (!blockMap.has(normalizedBlock)) {
+          blockMap.set(normalizedBlock, {
+            blockName: displayBlock,
+            villages: new Map(),
+          });
+        }
+        if (normalizedVillage) {
+          const blockEntry = blockMap.get(normalizedBlock)!;
+          blockEntry.villages.set(
+            normalizedVillage,
+            blockEntry.villages.get(normalizedVillage) || {
+              villageName: displayVillage,
+              details: [],
+            },
+          );
+        }
+      };
+      locationHierarchy?.blocks.forEach(locationBlock => {
+        addBlockVillage(locationBlock.block);
+        locationBlock.villages.forEach(locationVillage =>
+          addBlockVillage(locationBlock.block, locationVillage),
+        );
+      });
+
+      for (const user of scopedUsers as any[]) {
+        const blockName = String(user.farmerProfile?.blockName || '').trim();
+        const villageName = String(user.farmerProfile?.villageName || '').trim();
+        if (!blockName || !villageName) continue;
+
+        addBlockVillage(blockName, villageName);
+      }
+      for (const [blockVillage, details] of detailsByBlockVillage.entries()) {
+        const [blockName, villageName] = blockVillage.split('__');
+        addBlockVillage(blockName, villageName);
+        blockMap.get(blockName)!.villages.get(villageName)!.details = details;
+      }
+
+      const blocks = [...blockMap.entries()]
+        .sort(([, a], [, b]) => a.blockName.localeCompare(b.blockName))
+        .map(([, blockEntry]) => {
+          const villageRows = [...blockEntry.villages.entries()]
+            .sort(([, a], [, b]) => a.villageName.localeCompare(b.villageName))
+            .map(([, villageEntry]) => ({
+              village: villageEntry.villageName,
+              count: villageEntry.details.length,
+              details: villageEntry.details.sort((a, b) => b.repeatCount - a.repeatCount),
+            }));
+
+          return {
+            block: blockEntry.blockName,
+            count: villageRows.reduce((sum, item) => sum + item.count, 0),
+            villages: villageRows,
+          };
+        });
+
+      return {
+        coordinatorId,
+        coordinatorRole: role,
+        scope:
+          role === 'district_coordinator'
+            ? 'district'
+            : role === 'block_coordinator'
+              ? 'block'
+              : 'village',
+        state,
+        district,
+        block,
+        totalDuplicateQuestions: blocks.reduce(
+          (sum, item) => sum + item.count,
+          0,
+        ),
+        blocks,
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to fetch coordinator duplicate question heat map: ${error}`,
+      );
     }
   }
 
@@ -12713,6 +13224,11 @@ for (const item of districtUsers) {
           $in: ['closed'],
         };
       }
+      if(status === "pending"){
+        matchQuery.status = {
+          $nin: ["closed", "pass"],
+        };
+      }
 
       // Apply date range
 
@@ -12899,6 +13415,7 @@ for (const item of districtUsers) {
     startDate?: Date,
     endDate?: Date,
     isPassed?: string,
+    tag?: string,
   ): Promise<any> {
     await this.initReviewSystem();
     await this.init('annam');
@@ -12914,13 +13431,15 @@ for (const item of districtUsers) {
         $in: ['AJRASAKHA', 'WHATSAPP'],
       };
     }
-    matchQuery.status = {
-      $in: ['closed'],
-    };
-    if (isPassed === 'true') {
-      matchQuery.status = {
-        $in: ['pass'],
+    if(tag !== "slabreached"){
+      matchQuery.status = { 
+        $in: ["closed"],
       };
+      if(isPassed === "true"){
+        matchQuery.status = { 
+          $in: ["pass"],
+        };
+      }
     }
     const validStartDate =
       startDate instanceof Date && !isNaN(startDate.getTime());
@@ -12991,6 +13510,31 @@ for (const item of districtUsers) {
       };
     }
 
+    const slaCondition =
+      tag === "slabreached"
+        ? {
+            $gt: [
+              {
+                $subtract: [
+                  "$_operationalCompletionAt",
+                  "$createdAt",
+                ],
+              },
+              2 * 60 * 60 * 1000,
+            ],
+          }
+        : {
+            $lte: [
+              {
+                $subtract: [
+                  "$_operationalCompletionAt",
+                  "$createdAt",
+                ],
+              },
+              2 * 60 * 60 * 1000,
+            ],
+          };
+
     const result = await this.QuestionCollection.aggregate([
       {
         $match: matchQuery,
@@ -13014,12 +13558,7 @@ for (const item of districtUsers) {
           $expr: {
             $and: [
               {$gte: ['$_operationalCompletionAt', '$createdAt']},
-              {
-                $lte: [
-                  {$subtract: ['$_operationalCompletionAt', '$createdAt']},
-                  2 * 60 * 60 * 1000,
-                ],
-              },
+              slaCondition,
             ],
           },
         },
@@ -13098,7 +13637,6 @@ for (const item of districtUsers) {
         state: user?.farmerProfile?.state,
       };
     });
-    // console.log("total----", total)
     return {
       questions: enrichedQuestions,
       total,
@@ -13154,7 +13692,11 @@ for (const item of districtUsers) {
         }
 
         if (validEndDate) {
-          matchQuery.createdAt.$lte = endDate;
+          // include full day
+          const endOfDay = new Date(endDate!);
+          endOfDay.setHours(23, 59, 59, 999);
+
+          matchQuery.createdAt.$lte = endOfDay;
         }
       }
 
@@ -14942,7 +15484,8 @@ for (const item of districtUsers) {
           duration: null,
           remarks: 'Conversation mapping not found',
           endTime: null,
-          eventType: 'inception',
+          eventType: "inception",
+          // questionId: question._id,
         });
       }
       // ---------------------------------------------------
@@ -15016,10 +15559,15 @@ for (const item of districtUsers) {
         const moderatorName =
           userMap.get(question.moderatorId.toString()) || 'Unknown User';
 
+        const moderatorAssignedAt =
+          typeof question.moderatorAssignedAt === "string"
+            ? new Date(question.moderatorAssignedAt)
+            : question.moderatorAssignedAt;
+
         if (
-          question.moderatorAssignedAt &&
+          moderatorAssignedAt &&
           question.moderatorId &&
-          question.moderatorAssignedAt.getTime() >
+          moderatorAssignedAt.getTime() >
             new Date(finalReviewerCompletedAt).getTime()
         ) {
           timeline.push({
@@ -15027,22 +15575,22 @@ for (const item of districtUsers) {
             user: 'Buffer Time',
             action: 'Awaiting Moderator Assignment',
             duration:
-              question.moderatorAssignedAt.getTime() -
+              moderatorAssignedAt.getTime() -
               new Date(finalReviewerCompletedAt).getTime(),
-            remarks: '',
-            endTime: question.moderatorAssignedAt,
-            eventType: 'system_wait',
+            remarks: "",
+            endTime: moderatorAssignedAt,
+            eventType: "system_wait",
           });
         }
 
         timeline.push({
-          timestamp: question.moderatorAssignedAt,
+          timestamp: moderatorAssignedAt,
           user: moderatorName,
           action: 'Approval Review',
           duration:
             question.closedAt?.getTime() -
-            question.moderatorAssignedAt.getTime(),
-          remarks: '',
+            moderatorAssignedAt.getTime(),
+          remarks: "",
           endTime: question.closedAt,
           eventType: 'moderator',
         });
@@ -15156,27 +15704,40 @@ for (const item of districtUsers) {
       let completionTime = question.closedAt || question.passedAt;
 
       if (completionTime) {
-        const last = finalTimeline[finalTimeline.length - 1];
+          const last = finalTimeline[finalTimeline.length - 1];
 
-        if (last) {
-          const lastEnd = new Date(last.endTime || last.timestamp);
-          if (typeof completionTime === 'string') {
-            completionTime = new Date(completionTime);
-          }
-          const waitForClosure = completionTime.getTime() - lastEnd.getTime();
+          if (last) {
+              const lastTimestamp =
+                  last.endTime ??
+                  last.timestamp;
 
-          if (waitForClosure > 1000) {
-            finalTimeline.push({
-              timestamp: lastEnd ?? question.createdAt.getTime(),
-              user: 'Buffer Time',
-              action: 'Awaiting Closure/Pass',
-              duration: waitForClosure,
-              remarks: '',
-              endTime: completionTime,
-              eventType: 'system_wait',
-            });
+              if (lastTimestamp) {
+                  const lastEnd = new Date(lastTimestamp);
+
+                  if (!isNaN(lastEnd.getTime())) {
+
+                      if (typeof completionTime === "string") {
+                          completionTime = new Date(completionTime);
+                      }
+
+                      const waitForClosure =
+                          completionTime.getTime() -
+                          lastEnd.getTime();
+
+                      if (waitForClosure > 1000) {
+                          finalTimeline.push({
+                              timestamp: lastEnd,
+                              user: "Buffer Time",
+                              action: "Awaiting Closure/Pass",
+                              duration: waitForClosure,
+                              remarks: "",
+                              endTime: completionTime,
+                              eventType: "system_wait",
+                          });
+                      }
+                  }
+              }
           }
-        }
       }
 
       // ---------------------------------------------------
@@ -15212,7 +15773,7 @@ for (const item of districtUsers) {
           eventType: 'closure',
         });
       }
-      // console.log("finalTimeline--", question)
+      // console.log("finalTimeline--", finalTimeline)
       return finalTimeline;
     } catch (err) {
       // console.log("err----", err);
@@ -16014,5 +16575,1003 @@ for (const item of districtUsers) {
     } catch (error) {
       throw new InternalServerError(`Failed to fetch moderators: ${error}`);
     }
+  }
+
+  async getLifeCycleSummary(    
+      status = "all",
+      source = "annam",
+      userType = "all",
+      startDate?: Date,
+      endDate?: Date,
+      isPassed?: string,
+      tag?: string,
+      notificationType?: string,
+    ) {
+    try{
+      await this.initReviewSystem();
+      await this.init('annam');
+      const sourceType =
+        source === "whatsapp"
+        ? "WHATSAPP"
+        : "AJRASAKHA";
+
+      const matchQuery =
+        buildBaseQuestionMatch(sourceType);
+
+      if (source === "both") {
+        matchQuery.source = {
+          $in: ["AJRASAKHA", "WHATSAPP"],
+        };
+      }
+      if(tag === "closed"){
+        if (status === "closed") {
+          matchQuery.status = {
+            $in: ["closed"],
+          };
+        } else if (status === "pending") {
+          matchQuery.status = {
+            $nin: ["closed", "pass"],
+          };
+        } else if (status !== "all") {
+          matchQuery.status = status;
+        }
+      } else if(tag === "sla"){
+        if (isPassed === "true") {
+          matchQuery.status = {
+            $in: ["pass"],
+          };
+        }
+        if(isPassed === "false"){
+          matchQuery.status = {
+            $in: ["closed"],
+          };
+        }
+      }  else if (tag === "notify") {
+        matchQuery.status = {
+          $in: ["closed"],
+        };
+
+        if (isPassed === "true") {
+          matchQuery.isCustomerNotified = true;
+        } else if (isPassed === "false") {
+          matchQuery.isCustomerNotified = false;
+        } else if (isPassed === "untracked") {
+          matchQuery.isCustomerNotified = {
+            $exists: false,
+          };
+        }
+      }
+
+      const query =
+        await this.buildQuestionUserTypeMatchQuery(
+          source,
+          userType,
+        );
+
+      if (query && Object.keys(query).length > 0) {
+        matchQuery.$and.push(query);
+      }
+
+      if (startDate || endDate) {
+        matchQuery.createdAt = {};
+
+        if (startDate) {
+          matchQuery.createdAt.$gte = startDate;
+        }
+
+        if (endDate) {
+          const endOfDay = new Date(endDate);
+          endOfDay.setHours(
+            23,
+            59,
+            59,
+            999,
+          );
+          matchQuery.createdAt.$lte =
+            endOfDay;
+        }
+      }
+
+      if (tag === "notify") {
+        switch (notificationType) {
+          case "notified":
+            matchQuery.isCustomerNotified = true;
+            break;
+          case "not-notified":
+            matchQuery.isCustomerNotified = false;
+            break;
+          case "untracked":
+            matchQuery.isCustomerNotified = {
+              $exists: false,
+            };
+            break;
+        }
+      }
+      
+      let questionIds;
+      if(tag === "closed"){
+       questionIds =
+        await this.QuestionCollection
+          .find(
+            matchQuery,
+            {
+              projection: {
+                _id: 1,
+              },
+            },
+          )
+          .map(
+            (x) => x._id.toString(),
+          )
+          .toArray();
+      } else if (tag === "sla") {
+        const result = await this.QuestionCollection
+          .aggregate([
+            {
+              $match: matchQuery,
+            },
+            {
+              $addFields: {
+                _statusLower: {
+                  $toLower: {
+                    $ifNull: ["$status", ""],
+                  },
+                },
+                _operationalCompletionAt: {
+                  $cond: [
+                    {
+                      $eq: [
+                        {
+                          $toLower: {
+                            $ifNull: ["$status", ""],
+                          },
+                        },
+                        "pass",
+                      ],
+                    },
+                    "$passedAt",
+                    "$closedAt",
+                  ],
+                },
+              },
+            },
+            {
+              $match: {
+                _statusLower: {
+                  $in: ["closed", "pass"],
+                },
+                _operationalCompletionAt: {
+                  $ne: null,
+                },
+                $expr: {
+                  $and: [
+                    {
+                      $gte: [
+                        "$_operationalCompletionAt",
+                        "$createdAt",
+                      ],
+                    },
+                    {
+                      $lte: [
+                        {
+                          $subtract: [
+                            "$_operationalCompletionAt",
+                            "$createdAt",
+                          ],
+                        },
+                        2 * 60 * 60 * 1000,
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 1,
+              },
+            },
+          ])
+          .toArray();
+
+        questionIds = result.map((x) =>
+          x._id.toString(),
+        );
+      } else if (tag === "slabreached") {
+        matchQuery.status = {
+          $in: ["closed", "pass"],
+        };
+
+        const breachedQuestions =
+          await this.QuestionCollection.aggregate([
+            {
+              $match: matchQuery,
+            },
+            {
+              $addFields: {
+                _statusLower: {
+                  $toLower: {
+                    $ifNull: ["$status", ""],
+                  },
+                },
+                _operationalCompletionAt: {
+                  $cond: [
+                    {
+                      $eq: [
+                        {
+                          $toLower: {
+                            $ifNull: ["$status", ""],
+                          },
+                        },
+                        "pass",
+                      ],
+                    },
+                    "$passedAt",
+                    "$closedAt",
+                  ],
+                },
+              },
+            },
+            {
+              $match: {
+                _statusLower: {
+                  $in: ["closed", "pass"],
+                },
+                _operationalCompletionAt: {
+                  $ne: null,
+                },
+                $expr: {
+                  $and: [
+                    {
+                      $gte: [
+                        "$_operationalCompletionAt",
+                        "$createdAt",
+                      ],
+                    },
+                    {
+                      $gt: [
+                        {
+                          $subtract: [
+                            "$_operationalCompletionAt",
+                            "$createdAt",
+                          ],
+                        },
+                        2 * 60 * 60 * 1000,
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+            {
+              $project: {
+                _id: 1,
+              },
+            },
+          ]).toArray();
+
+        questionIds = breachedQuestions.map(
+          (q) => q._id.toString(),
+        );
+      } else if (tag === "notify") {
+        questionIds = await this.QuestionCollection
+          .find(
+            matchQuery,
+            {
+              projection: {
+                _id: 1,
+              },
+            },
+          )
+          .map((x) => x._id.toString())
+          .toArray();
+      }
+      const lifecycles =
+        await this.getQuestionLifecycleForSummary(
+          questionIds,
+        );
+
+      const totalQuestions = questionIds.length;
+
+      let totalLifecycleTime = 0;
+      let resolvedQuestions = 0;
+      let totalPushToReviewTime = 0;
+      let totalInitialAllocationTime = 0;
+      let totalPendingAssignmentTime = 0;
+      let totalAwaitingModeratorTime = 0;
+      let totalAwaitingClosureTime = 0;
+      let totalAuthoringTime = 0;
+      let authoringCount = 0;
+      let totalR1Time = 0;
+      let totalR2Time = 0;
+      let totalR3Time = 0;
+      let r1Count = 0;
+      let r2Count = 0;
+      let r3Count = 0;
+      let totalModeratorTime = 0;
+      let moderatorCount = 0;
+      let totalReroutes = 0;
+      let totalRerouteTime = 0;
+      let totalReviewers = 0;
+      let questionsWithReviewers = 0;
+      let slaBreachedCount = 0;
+
+      // const withinSlaQuestionIds: string[] = [];
+      for (const lifecycleObj of lifecycles) {
+        const lifecycle = lifecycleObj.timeline;
+        const validEvents = lifecycle.filter(
+          (x) =>
+            x.timestamp &&
+            new Date(x.timestamp).getTime() > 0,
+        );
+        const first = validEvents[0];
+        const last = validEvents.at(-1);
+
+        // =====================
+        // Whole Lifecycle
+        // =====================
+
+        if (
+            first &&
+            (lifecycleObj.status === "closed" || lifecycleObj.status === "pass")
+        ) {
+            const resolutionTime =
+            lifecycleObj.status === "pass"
+                ? lifecycleObj.passedAt
+                : lifecycleObj.closedAt;
+            if (!resolutionTime) continue;
+            const lifecycleTime =
+                new Date(resolutionTime).getTime() -
+                new Date(first.timestamp).getTime();
+            resolvedQuestions++;
+            if (lifecycleTime > 2 * 60 * 60 * 1000) {
+                slaBreachedCount++;
+            }
+        }
+
+        if (first && last) {
+            const lifecycleTime =
+                new Date(last.timestamp).getTime()
+                -
+                new Date(first.timestamp).getTime();
+            totalLifecycleTime += lifecycleTime;
+        }
+
+        // =====================
+        // Buffer Times
+        // =====================
+
+        lifecycle
+          .filter((x) => x.eventType === "system_wait")
+          .forEach((x) => {
+            switch (x.action) {
+              case "Pushed To Review System":
+                totalPushToReviewTime += x.duration || 0;
+                break;
+              case "Initial Allocation Pending":
+                totalInitialAllocationTime += x.duration || 0;
+                break;
+              case "Pending Next Assignment":
+                totalPendingAssignmentTime += x.duration || 0;
+                break;
+              case "Awaiting Moderator Assignment":
+                totalAwaitingModeratorTime += x.duration || 0;
+                break;
+              case "Awaiting Closure/Pass":
+                totalAwaitingClosureTime += x.duration || 0;
+                break;
+            }
+          });
+
+        // =====================
+        // Authoring (R0)
+        // =====================
+
+        const authors = lifecycle.filter(
+          (x) => x.eventType === "author",
+        );
+
+        if (authors.length) {
+          authoringCount++;
+          totalAuthoringTime += authors.reduce(
+            (sum, x) => sum + (x.duration || 0),
+            0,
+          );
+        }
+
+        // =====================
+        // Reviewers (R1/R2/R3)
+        // =====================
+
+        const reviewers = lifecycle.filter(
+          (x) => x.eventType === "reviewer",
+        );
+
+        if (reviewers.length) {
+          questionsWithReviewers++;
+          totalReviewers += new Set(
+            reviewers.map((x) => x.user),
+          ).size;
+        }
+        if (reviewers[0]) {
+          totalR1Time += reviewers[0].duration || 0;
+          r1Count++;
+        }
+        if (reviewers[1]) {
+          totalR2Time += reviewers[1].duration || 0;
+          r2Count++;
+        }
+        if (reviewers[2]) {
+          totalR3Time += reviewers[2].duration || 0;
+          r3Count++;
+        }
+
+        // =====================
+        // Moderator
+        // =====================
+
+        const moderators = lifecycle.filter(
+          (x) => x.eventType === "moderator",
+        );
+        if (moderators.length) {
+          moderatorCount++;
+          totalModeratorTime += moderators.reduce(
+            (sum, x) => sum + (x.duration || 0),
+            0,
+          );
+        }
+
+        // =====================
+        // Reroutes
+        // =====================
+
+        const reroutes = lifecycle.filter(
+          (x) => x.eventType === "reroute",
+        );
+        totalReroutes += reroutes.length;
+        totalRerouteTime += reroutes.reduce(
+          (sum, x) => sum + (x.duration || 0),
+          0,
+        );
+      }
+      // console.log("WITHIN SLA IDS:", withinSlaQuestionIds);
+
+      return {
+        totalQuestions,
+        avgLifecycleTime:
+          resolvedQuestions > 0
+            ? totalLifecycleTime / resolvedQuestions
+            : 0,
+        avgPushToReviewTime:
+          totalPushToReviewTime / totalQuestions,
+        avgInitialAllocationTime:
+          totalInitialAllocationTime / totalQuestions,
+        avgPendingAssignmentTime:
+          totalPendingAssignmentTime / totalQuestions,
+        avgAwaitingModeratorTime:
+          totalAwaitingModeratorTime / totalQuestions,
+        avgAwaitingClosureTime:
+          totalAwaitingClosureTime / totalQuestions,
+        avgAuthoringTime:
+          authoringCount > 0
+            ? totalAuthoringTime / authoringCount
+            : 0,
+        avgR1Time:
+          r1Count > 0
+            ? totalR1Time / r1Count
+            : 0,
+        avgR2Time:
+          r2Count > 0
+            ? totalR2Time / r2Count
+            : 0,
+        avgR3Time:
+          r3Count > 0
+            ? totalR3Time / r3Count
+            : 0,
+        avgModeratorTime:
+          moderatorCount > 0
+            ? totalModeratorTime / moderatorCount
+            : 0,
+        totalReroutes,
+        avgReroutesPerQuestion:
+          totalQuestions > 0
+            ? totalReroutes / totalQuestions
+            : 0,
+        avgRerouteTime:
+          totalReroutes > 0
+            ? totalRerouteTime / totalReroutes
+            : 0,
+        avgReviewersPerQuestion:
+          questionsWithReviewers > 0
+            ? totalReviewers / questionsWithReviewers
+            : 0,
+        slaBreachedCount,
+        resolutionRate:
+        totalQuestions > 0
+          ? (resolvedQuestions / totalQuestions) * 100
+          : 0,
+      };
+    } catch(err){
+      console.log("error in getlifecyclesummary:", err);
+      throw Error(err);
+    }
+  }
+
+  async getQuestionLifecycleForSummary(
+    questionIds: string[],
+  ): Promise<any[]> {
+    await this.initReviewSystem();
+    await this.init("annam");
+
+    const objectIds = questionIds.map(
+      (id) => new ObjectId(id),
+    );
+
+    // -------------------------
+    // Bulk fetch
+    // -------------------------
+
+    const [questions, submissions, reroutes] =
+      await Promise.all([
+        this.QuestionCollection.find({
+          _id: { $in: objectIds },
+        }).toArray(),
+
+        this.QuestionSubmissionsCollection.find({
+          questionId: { $in: objectIds },
+        }).toArray(),
+
+        this.Reroutes.find({
+          questionId: { $in: objectIds },
+        }).toArray(),
+      ]);
+
+    // -------------------------
+    // Maps
+    // -------------------------
+
+    const submissionMap = new Map(
+      submissions.map((s) => [
+        s.questionId.toString(),
+        s,
+      ]),
+    );
+
+    const rerouteMap = new Map(
+      reroutes.map((r) => [
+        r.questionId.toString(),
+        r,
+      ]),
+    );
+
+    // -------------------------
+    // Build lifecycles
+    // -------------------------
+
+    return questions.map((question) => {
+      const submission =
+        submissionMap.get(
+          question._id.toString(),
+        );
+
+      const rerouteDoc =
+        rerouteMap.get(
+          question._id.toString(),
+        );
+
+      const reviewTimeline =
+        buildReviewTimeline(
+          submission?.history || [],
+          submission?.queue || [],
+          question.createdAt,
+          question.status,
+          question.firstAllocationAt,
+        );
+
+      const timeline: any[] = [];
+
+      // -------------------------
+      // Duplicate questions
+      // -------------------------
+
+      if (question.status === "duplicate") {
+          return {
+              questionId: question._id,
+              createdAt: question.createdAt,
+              closedAt: question.closedAt,
+              passedAt: question.passedAt,
+              status: question.status,
+              timeline: [
+                  {
+                      timestamp: question.createdAt,
+                      user: "-",
+                      action: "Duplicate Question",
+                      duration: null,
+                      remarks:
+                          "Original question lifecycle is not available.",
+                      endTime: null,
+                      eventType: "duplicate",
+                  },
+                  {
+                      timestamp:
+                          question.closedAt ||
+                          question.updatedAt,
+                      user: "Buffer Time",
+                      action:
+                          "Question Marked As Duplicate",
+                      duration:
+                          question.updatedAt.getTime() -
+                          question.createdAt.getTime(),
+                      remarks: "Closed as duplicate",
+                      endTime:
+                          question.closedAt ||
+                          question.updatedAt,
+                      eventType: "closure",
+                  },
+              ],
+          };
+      }
+
+      // -------------------------
+      // Initial event
+      // -------------------------
+
+      timeline.push({
+        timestamp: question.createdAt,
+        user: "-",
+        action:
+          question.source === "AGRI_EXPERT"
+            ? "Question Created Internally"
+            : "Question Asked",
+        duration: null,
+        remarks: "",
+        endTime: question.createdAt,
+        eventType: "inception",
+      });
+
+      // -------------------------
+      // Initial allocation wait
+      // -------------------------
+
+      if (
+        question.firstAllocationAt &&
+        new Date(
+          question.firstAllocationAt,
+        ).getTime() -
+          question.createdAt.getTime() >
+          1000
+      ) {
+        timeline.push({
+          timestamp: question.createdAt,
+          user: "Buffer Time",
+          action:
+            "Initial Allocation Pending",
+          duration:
+            new Date(
+              question.firstAllocationAt,
+            ).getTime() -
+            question.createdAt.getTime(),
+          remarks: "",
+          endTime:
+            question.firstAllocationAt,
+          eventType: "system_wait",
+        });
+      }
+
+      // -------------------------
+      // Reviews
+      // -------------------------
+
+      reviewTimeline.forEach(
+        (review, index) => {
+          const historyItem =
+            submission?.history?.[index];
+
+          let action = "Review";
+
+          if (index === 0) {
+            action = review.isCompleted
+              ? "Authored Answer"
+              : "Authoring Answer";
+          } else if (
+            historyItem?.modifiedAnswer
+          ) {
+            action = "Modified";
+          } else if (
+            historyItem?.status
+          ) {
+            action =
+              historyItem.status
+                .charAt(0)
+                .toUpperCase() +
+              historyItem.status.slice(1);
+          }
+
+          timeline.push({
+            timestamp:
+              review.assignedAt,
+            user: "-",
+            action,
+            duration:
+              review.isCompleted
+                ? review.timeTakenMs
+                : Date.now() -
+                  new Date(
+                    review.assignedAt,
+                  ).getTime(),
+            remarks:
+              historyItem?.reasonForRejection ||
+              historyItem?.reasonForLastModification ||
+              "",
+            endTime:
+              review.completedAt ||
+              review.assignedAt,
+            eventType:
+              index === 0
+                ? "author"
+                : "reviewer",
+          });
+        },
+      );
+
+      // -------------------------
+      // Moderator
+      // -------------------------
+
+      const lastReview =
+        reviewTimeline[
+          reviewTimeline.length - 1
+        ];
+
+      const finalReviewerCompletedAt =
+        lastReview?.completedAt ||
+        lastReview?.assignedAt ||
+        question.createdAt;
+
+      if (
+        question.moderatorAssignedAt &&
+        question.moderatorId
+      ) {
+        const moderatorAssignedAt =
+          new Date(
+            question.moderatorAssignedAt,
+          );
+
+        if (
+          moderatorAssignedAt.getTime() >
+          new Date(
+            finalReviewerCompletedAt,
+          ).getTime()
+        ) {
+          timeline.push({
+            timestamp:
+              finalReviewerCompletedAt,
+            user: "Buffer Time",
+            action:
+              "Awaiting Moderator Assignment",
+            duration:
+              moderatorAssignedAt.getTime() -
+              new Date(
+                finalReviewerCompletedAt,
+              ).getTime(),
+            remarks: "",
+            endTime:
+              moderatorAssignedAt,
+            eventType: "system_wait",
+          });
+        }
+
+        timeline.push({
+          timestamp:
+            moderatorAssignedAt,
+          user: "-",
+          action:
+            "Approval Review",
+          duration:
+            question.closedAt?.getTime() -
+            moderatorAssignedAt.getTime(),
+          remarks: "",
+          endTime:
+            question.closedAt,
+          eventType: "moderator",
+        });
+      }
+
+      // -------------------------
+      // Reroutes
+      // -------------------------
+
+      rerouteDoc?.reroutes?.forEach(
+        (r: any) => {
+          const isPending =
+            r.status === "pending";
+
+          let action =
+            "Approval Review";
+
+          if (r.status === "modified") {
+            action = "Modified";
+          }
+
+          if (r.status === "rejected") {
+            action = "Rejected";
+          }
+
+          timeline.push({
+            timestamp:
+              r.reroutedAt,
+            user: "-",
+            action,
+            duration: isPending
+              ? Date.now() -
+                new Date(
+                  r.reroutedAt,
+                ).getTime()
+              : r.updatedAt.getTime() -
+                r.reroutedAt.getTime(),
+            remarks:
+              r.comment || "",
+            endTime: isPending
+              ? new Date()
+              : r.updatedAt,
+            eventType: "reroute",
+          });
+        },
+      );
+
+      // -------------------------
+      // Sort
+      // -------------------------
+
+      timeline.sort(
+        (a, b) =>
+          new Date(
+            a.timestamp,
+          ).getTime() -
+          new Date(
+            b.timestamp,
+          ).getTime(),
+      );
+
+      // -------------------------
+      // Insert gaps
+      // -------------------------
+
+      const finalTimeline: any[] =
+        [];
+
+      for (
+        let i = 0;
+        i < timeline.length;
+        i++
+      ) {
+        finalTimeline.push(
+          timeline[i],
+        );
+
+        const current =
+          timeline[i];
+
+        const next =
+          timeline[i + 1];
+
+        if (
+          !next ||
+          !current.endTime
+        ) {
+          continue;
+        }
+
+        const gap =
+          new Date(
+            next.timestamp,
+          ).getTime() -
+          new Date(
+            current.endTime,
+          ).getTime();
+
+        if (
+          gap > 1000 &&
+          current.eventType !==
+            "reroute"
+        ) {
+          finalTimeline.push({
+            timestamp:
+              current.endTime,
+            user: "Buffer Time",
+            action:
+              "Pending Next Assignment",
+            duration: gap,
+            remarks: "",
+            endTime:
+              next.timestamp,
+            eventType:
+              "system_wait",
+          });
+        }
+      }
+
+      // -------------------------
+      // Awaiting closure
+      // -------------------------
+
+      let completionTime =
+        question.closedAt || question.passedAt;
+
+      if (completionTime && finalTimeline.length) {
+        if (!(completionTime instanceof Date)) {
+          completionTime = new Date(completionTime);
+        }
+
+        if (!isNaN(completionTime.getTime())) {
+          const last = finalTimeline.at(-1);
+
+          const lastEnd = new Date(
+            last.endTime || last.timestamp,
+          );
+
+          if (!isNaN(lastEnd.getTime())) {
+            const wait =
+              completionTime.getTime() -
+              lastEnd.getTime();
+
+            if (wait > 1000) {
+              finalTimeline.push({
+                timestamp: lastEnd,
+                user: "Buffer Time",
+                action: "Awaiting Closure/Pass",
+                duration: wait,
+                remarks: "",
+                endTime: completionTime,
+                eventType: "system_wait",
+              });
+            }
+          }
+        }
+      }
+
+      // -------------------------
+      // Closed/Passed
+      // -------------------------
+
+      if (question.closedAt) {
+        finalTimeline.push({
+          timestamp:
+            question.closedAt,
+          user: "-",
+          action:
+            "Question Closed",
+          duration: null,
+          remarks: "",
+          endTime:
+            question.closedAt,
+          eventType: "closure",
+        });
+      } else if (
+        question.passedAt
+      ) {
+        finalTimeline.push({
+          timestamp:
+            question.passedAt,
+          user: "-",
+          action:
+            "Question Passed",
+          duration: null,
+          remarks: "",
+          endTime:
+            question.passedAt,
+          eventType: "closure",
+        });
+      }
+
+      return {
+          questionId: question._id,
+          createdAt: question.createdAt,
+          closedAt: question.closedAt,
+          passedAt: question.passedAt,
+          status: question.status,
+          timeline: finalTimeline,
+      };
+    });
   }
 }

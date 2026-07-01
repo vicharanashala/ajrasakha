@@ -247,6 +247,7 @@ export class ChatbotService {
     stringEndDate,
     search,
     isPassed,
+    tag
   }: {
     category?: string;
     district?: string;
@@ -266,6 +267,7 @@ export class ChatbotService {
     stringEndDate?: string;
     search?: string;
     isPassed?: boolean;
+    tag?: string;
   }) {
     const params = new URLSearchParams();
     if (category) params.append("category", category);
@@ -289,6 +291,9 @@ export class ChatbotService {
     }
     if (isPassed !== undefined) {
       params.append("isPassed", String(isPassed));
+    }
+    if(tag){
+      params.append("tag", tag)
     }
     return apiFetch<any>(
       `${this._baseUrl}/filtered-questions?${params.toString()}`,
@@ -488,7 +493,6 @@ export class ChatbotService {
   async getQuestionLifeCycle(
     questionId: string,
   ): Promise<any> {
-    console.log("questionId", questionId)
     const params = new URLSearchParams();
     params.append("questionId", questionId);
     return apiFetch<any>(
@@ -550,5 +554,46 @@ export class ChatbotService {
     if(state) params.append('state', state);
     if(search) params.append('search', search);
     return apiFetch<any>(`${this._baseUrl}/get-coordinators-details?${params.toString()}`)
+
+  }
+  async getLifeCycleSummary(
+    startDate?: string,
+    endDate?: string,
+    source?: string,
+    status?: string,
+    userType?: string,
+    isPassed?: boolean,
+    tag?: string,
+    notificationType?: string,
+  ): Promise<any> {
+    const params = new URLSearchParams();
+    if (startDate) {
+      params.append("startDate", startDate);
+    }
+    if (endDate) {
+      params.append("endDate", endDate);
+    }
+    if (source) {
+      params.append("source", source);
+    }
+    if (status) {
+      params.append("status", status);
+    }
+    if (userType) {
+      params.append("userType", userType);
+    }
+    if (isPassed != null) {
+      params.append("isPassed", String(isPassed));
+    }
+    if (tag) {
+      params.append("tag", String(tag));
+    }
+    if (notificationType) {
+      params.append("notificationType", String(notificationType));
+    }
+
+    return apiFetch<any>(
+      `${this._baseUrl}/lifecycle-summary?${params.toString()}`
+    );
   }
 }

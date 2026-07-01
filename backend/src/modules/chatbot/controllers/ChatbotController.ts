@@ -430,6 +430,7 @@ export class ChatbotController {
       startDate?: Date;
       endDate?: Date;
       isPassed?: string;
+      tag?: string;
     },
   ) {
     if (query.category) {
@@ -500,6 +501,7 @@ export class ChatbotController {
         startDate,
         endDate,
         query.isPassed,
+        query.tag,
       );
     } else {
       if(query.period){
@@ -596,6 +598,9 @@ export class ChatbotController {
     @QueryParam('source') source: string,
     @QueryParam('userType') userType: string,
     @QueryParam('state') state: string,
+    @QueryParam('district') district: string,
+    @QueryParam('block') block: string,
+    @QueryParam('village') village: string,
     @QueryParam('granularity')
     granularity: 'monthly' | 'weekly' | 'daily' | 'hourly',
     @QueryParam('startDate') startDate?: string,
@@ -605,10 +610,30 @@ export class ChatbotController {
       source,
       userType,
       state,
+      district,
+      block,
+      village,
       granularity,
       startDate,
       endDate,
     });
+  }
+
+  @OpenAPI({
+    summary: 'Get coordinator duplicate question heat map',
+    description:
+      'Returns coordinator-scoped duplicate question counts by block and village. Repeated identical questions from the same user count as one duplicate group.',
+  })
+  @Get('/coordinator-duplicate-heat-map/:userId')
+  @HttpCode(200)
+  @Authorized(['admin', ...COORDINATOR_ROLES])
+  async getCoordinatorDuplicateQuestionHeatMap(
+    @Param('userId') userId: string,
+    @CurrentUser() currentUser: IUser,
+  ) {
+    await this.assertCoordinatorOwnDashboard(userId, currentUser);
+
+    return this.chatbotService.getCoordinatorDuplicateQuestionHeatMap(userId);
   }
 
   @OpenAPI({
@@ -2009,4 +2034,34 @@ export class ChatbotController {
     query.search,
   );
 }
+  @Get('/lifecycle-summary')
+  @HttpCode(200)
+  @Authorized()
+  async getLifecycleSummary(
+    @QueryParam('status') status: string = 'all',
+    @QueryParam('source') source: string = 'annam',
+    @QueryParam('userType') userType: string = 'all',
+    @QueryParam('startDate') startDate?: string,
+    @QueryParam('endDate') endDate?: string,
+    @QueryParam('isPassed') isPassed?: string,
+    @QueryParam('tag') tag?: string,
+    @QueryParam('notificationType') notificationType?: string,
+  ): Promise<any> {
+    const start= startDate
+        ? new Date(startDate)
+        : undefined;
+    const end= endDate
+        ? new Date(endDate)
+        : undefined;
+    return this.chatbotService.getLifeCycleSummary(
+      status,
+      source,
+      userType,
+      start,
+      end,
+      isPassed,
+      tag,
+      notificationType
+    );
+  }
 }

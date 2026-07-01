@@ -138,14 +138,29 @@ export interface FarmerHeatMapFilters {
   source?: string;
   userType?: string;
   state?: string;
+  district?: string;
+  block?: string;
+  village?: string;
   granularity?: FarmerHeatMapGranularity;
   startDate?: string;
   endDate?: string;
 }
 
+export type FarmerHeatMapLocationScope =
+  | 'state'
+  | 'district'
+  | 'block'
+  | 'village';
+
+export interface FarmerHeatMapLocationHierarchy {
+  scope: FarmerHeatMapLocationScope;
+  labels: string[];
+}
+
 export interface FarmerHeatMapMetricTotals {
   activeFarmers: number;
   totalQuestions: number;
+  duplicateQuestions: number;
   closedQuestions: number;
   notifiedQuestions: number;
   averageClosureTimeMinutes: number;
@@ -159,21 +174,42 @@ export interface FarmerHeatMapBucket {
   totals: FarmerHeatMapMetricTotals;
 }
 
+export interface FarmerHeatMapQuestionDetail {
+  questionId: string;
+  question: string;
+  status: string;
+  askedBy?: string;
+  email?: string;
+  userId?: string;
+  state?: string;
+  district?: string;
+  block?: string;
+  village?: string;
+  crop?: string;
+  domain?: string;
+  createdAt?: Date;
+  isCustomerNotified?: boolean;
+  referenceQuestionId?: string;
+  referenceQuestion?: string;
+}
+
 export interface FarmerHeatMapCell {
   bucket: string;
   label: string;
   activeFarmers: number;
   totalQuestions: number;
+  duplicateQuestions: number;
   closedQuestions: number;
   notifiedQuestions: number;
   averageClosureTimeMinutes: number;
   statusDistribution: Record<string, number>;
+  questionDetails: FarmerHeatMapQuestionDetail[];
 }
 
 export interface FarmerHeatMapRow {
   id: string;
   label: string;
-  scope: 'state' | 'district';
+  scope: FarmerHeatMapLocationScope;
   cells: FarmerHeatMapCell[];
   totals: FarmerHeatMapMetricTotals;
 }
@@ -186,10 +222,54 @@ export interface FarmerHeatMapResponse {
   maxValues: {
     activeFarmers: number;
     totalQuestions: number;
+    duplicateQuestions: number;
     closedQuestions: number;
     notifiedQuestions: number;
     averageClosureTimeMinutes: number;
   };
+}
+
+export interface CoordinatorDuplicateQuestionDetail {
+  question: string;
+  repeatCount: number;
+  userId: string;
+  userName?: string;
+  email?: string;
+  block?: string;
+  village?: string;
+  firstAskedAt?: Date;
+  lastAskedAt?: Date;
+  questionIds: string[];
+}
+
+export interface CoordinatorDuplicateQuestionVillage {
+  village: string;
+  count: number;
+  details: CoordinatorDuplicateQuestionDetail[];
+}
+
+export interface CoordinatorDuplicateQuestionBlock {
+  block: string;
+  count: number;
+  villages: CoordinatorDuplicateQuestionVillage[];
+}
+
+export interface CoordinatorDuplicateQuestionLocationHierarchy {
+  blocks: {
+    block: string;
+    villages: string[];
+  }[];
+}
+
+export interface CoordinatorDuplicateQuestionHeatMapResponse {
+  coordinatorId: string;
+  coordinatorRole: string;
+  scope: 'district' | 'block' | 'village';
+  state?: string;
+  district?: string;
+  block?: string;
+  totalDuplicateQuestions: number;
+  blocks: CoordinatorDuplicateQuestionBlock[];
 }
 
 export interface WeeklySessionDurationEntry {
@@ -743,8 +823,15 @@ export interface IChatbotRepository {
 
   getFarmerHeatMapAnalytics(
     filters?: FarmerHeatMapFilters,
+    locationHierarchy?: FarmerHeatMapLocationHierarchy,
     session?: ClientSession,
   ): Promise<FarmerHeatMapResponse>;
+
+  getCoordinatorDuplicateQuestionHeatMap(
+    coordinatorId: string,
+    locationHierarchy?: CoordinatorDuplicateQuestionLocationHierarchy,
+    session?: ClientSession,
+  ): Promise<CoordinatorDuplicateQuestionHeatMapResponse>;
 
   getUserById(userId: string, source: string): Promise<any>;
   deleteUser(userId: string, source: string): Promise<boolean>;
@@ -865,6 +952,7 @@ export interface IChatbotRepository {
     startDate?: Date,
     endDate?: Date,
     isPassed?: string,
+    tag?: string,
   ): Promise<any>
 
   getQuestionsByNotificationStatus(
@@ -961,6 +1049,16 @@ export interface IChatbotRepository {
     district?:string, 
     search?: string
   ): Promise<any>
+  getLifeCycleSummary(
+      status?: string,
+      source?: string,
+      userType?: string,
+      startDate?: Date,
+      endDate?: Date,
+      isPassed?: string,
+      tag?: string,
+      notificationType?: string,
+    ): Promise<any>
 }
 
 export interface ChatbotConversationData {

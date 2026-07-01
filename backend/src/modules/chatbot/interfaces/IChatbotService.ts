@@ -22,6 +22,7 @@ import type {
   UnverifiedUserEntry,
   FarmerHeatMapFilters,
   FarmerHeatMapResponse,
+  CoordinatorDuplicateQuestionHeatMapResponse,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {GrowthResponse} from '../types/chatbot.type.js';
 
@@ -190,6 +191,10 @@ export interface IChatbotService {
   getFarmerHeatMapAnalytics(
     filters?: FarmerHeatMapFilters,
   ): Promise<FarmerHeatMapResponse>;
+
+  getCoordinatorDuplicateQuestionHeatMap(
+    coordinatorId: string,
+  ): Promise<CoordinatorDuplicateQuestionHeatMapResponse>;
   getUserById(userId: string, source: string): Promise<any>;
   deleteUser(userId: string, source: string): Promise<boolean>;
   updateUser(
@@ -329,6 +334,7 @@ export interface IChatbotService {
     startDate?: Date,
     endDate?: Date,
     isPassed?: string,
+    tag?: string,
   ) : Promise<any>
 
   getQuestionsByNotificationStatus(
@@ -375,6 +381,7 @@ export interface IChatbotService {
   getQuestionLifecycle(questionId: string): Promise<any>
 
 
+
       getQuestionFromState(
       state?: string,
       questionType?: QueryCategoryQuestionType,
@@ -403,5 +410,16 @@ export interface IChatbotService {
       state?: string,
       district?: string,
       search?: string,
+): Promise<any>
+
+  getLifeCycleSummary(
+      status?: string,
+      source?: string,
+      userType?: string,
+      startDate?: Date,
+      endDate?: Date,
+      isPassed?: string,
+      tag?: string,
+      notificationType?: string,
     ): Promise<any>
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { X, Copy, Check } from "lucide-react";
+import { X, Copy, Check, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/atoms/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/atoms/tabs";
 import {
@@ -17,6 +17,7 @@ import {
 import { TranslatableText } from "./TranslatableText";
 import { FarmerNameLink } from "./FarmerNameLink";
 import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
+import { useQueryClient } from "@tanstack/react-query";
 
 const CopyableIdCell = ({ id }: { id?: string }) => {
   const [copied, setCopied] = useState(false);
@@ -69,6 +70,7 @@ interface QueryCategoryQuestionsModalProps {
   endDate?: Date;
   onClose: () => void;
   isPassed?: boolean;
+  tag?: string;
 }
 
 const PAGE_SIZE = 10;
@@ -90,6 +92,7 @@ export function QueryCategoryQuestionsModal({
   endDate,
   onClose,
   isPassed,
+  tag
 }: QueryCategoryQuestionsModalProps) {
   const {
     setSelectedQuestionId,
@@ -141,8 +144,9 @@ export function QueryCategoryQuestionsModal({
     search: debouncedSearch,
     enabled: true,
     isPassed,
+    tag
   });
-
+// console.log("dta----", data)
   // const columns = useMemo<QuestionListColumn<QueryCategoryQuestionEntry>[]>(
   //   () => [
   //     {
@@ -371,6 +375,20 @@ export function QueryCategoryQuestionsModal({
 
   const total = data?.total ?? 0;
 
+  const [viewMode, setViewMode] =
+  useState<"table" | "lifecycle">("table");
+
+  
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await queryClient.refetchQueries({ queryKey: ["lifecycle-summary"] });
+    await queryClient.refetchQueries({ queryKey: ["get-question-filter"] });
+    setRefreshing(false);
+  };
+
   return createPortal(
     <div
       className="fixed inset-0 z-999 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
@@ -382,6 +400,22 @@ export function QueryCategoryQuestionsModal({
     >
       <div className="flex max-h-[88vh] w-full max-w-6xl flex-col rounded-xl bg-white shadow-2xl dark:bg-[#1a1a1a]">
         <div className="flex shrink-0 items-center justify-between gap-4 border-b border-gray-100 px-6 py-4 dark:border-[#2a2a2a]">
+          <Tabs
+            value={viewMode}
+            onValueChange={(value) =>
+              setViewMode(value as "table" | "lifecycle")
+            }
+          >
+            <TabsList>
+              <TabsTrigger value="table">
+                Questions
+              </TabsTrigger>
+
+              <TabsTrigger value="lifecycle">
+                Lifecycle Summary
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
           <div className="min-w-0">
             <h2 className="truncate text-base font-semibold text-gray-900 dark:text-gray-100">
               {category}
@@ -401,6 +435,17 @@ export function QueryCategoryQuestionsModal({
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-3">
+            <button
+              onClick={handleRefresh}
+              className=" rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
+              title="Refresh"
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 bg-background ${
+                  refreshing ? "animate-spin" : ""
+                }`}
+              />
+            </button>
             <input
               type="text"
               placeholder="Search by name or email..."
@@ -433,8 +478,7 @@ export function QueryCategoryQuestionsModal({
             </button>
           </div>
         </div>
-
-        <QuestionListTable
+            <QuestionListTable
           data={questions}
           columns={columns}
           loading={isLoading}
@@ -454,6 +498,15 @@ export function QueryCategoryQuestionsModal({
           }}
           initialSortKey="createdAt"
           initialSortDirection="desc"
+          viewMode={viewMode}
+          startDate={startDate?.toString()}
+          endDate= {endDate?.toString()}
+          source= {source}
+          status= {status}
+          userType= {userType}
+          isPassed={isPassed}
+          tag={tag}
+          notificationType={notificationType}
         />
 
         <div className="flex shrink-0 items-center justify-between border-t border-gray-100 px-6 py-3 text-xs text-gray-400 dark:border-[#2a2a2a] dark:text-gray-500">
