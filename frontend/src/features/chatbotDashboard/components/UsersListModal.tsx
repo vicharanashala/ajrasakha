@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
-import { useUserDetails, UserDetail } from "../hooks/useUserDetails";
+import { useUserDetails } from "../hooks/useUserDetails";
+import type { UserDetail } from "../hooks/useUserDetails";
+import { useUsersByDemographic } from "../hooks/useUsersByDemographic";
 import { X, Search, Filter } from "lucide-react";
 import { FarmerNameLink } from "./FarmerNameLink";
 
@@ -15,6 +17,8 @@ interface UsersListModalProps {
   dynamicFieldKey: string;
   filterOptions?: string[];
   initialFilterValue?: string;
+  category?: string;
+  value?: string;
 }
 
 export function UsersListModal({
@@ -27,6 +31,8 @@ export function UsersListModal({
   dynamicFieldKey,
   filterOptions = [],
   initialFilterValue = "",
+  category,
+  value,
 }: UsersListModalProps) {
   const [page, setPage] = useState(1);
   const limit = 10;
@@ -35,12 +41,22 @@ export function UsersListModal({
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [filterValue, setFilterValue] = useState(initialFilterValue);
 
-  // We fetch users from the backend
-  // Note: the backend might need to be updated to support demographic filters directly.
-  // For now, we fetch all and can optionally apply frontend filtering if needed, 
-  // though pagination makes frontend filtering tricky. 
-  // We'll pass the standard parameters.
-  const { data, isLoading } = useUserDetails(
+  const shouldUseDemographicApi = Boolean(category && value);
+
+  const demographicUsersQuery = useUsersByDemographic(
+    category,
+    value,
+    page,
+    limit,
+    search,
+    source,
+    userType,
+    sortBy,
+    sortOrder,
+    isOpen && shouldUseDemographicApi,
+  );
+
+  const userDetailsQuery = useUserDetails(
     undefined, // startDate
     undefined, // endDate
     page,
@@ -61,7 +77,15 @@ export function UsersListModal({
     [], // roles
     sortBy,
     sortOrder,
+    false,
+    "",
+    "all",
+    isOpen && !shouldUseDemographicApi,
   );
+
+  const { data, isLoading } = shouldUseDemographicApi
+    ? demographicUsersQuery
+    : userDetailsQuery;
 
   const rawUsers = data?.users || [];
   const totalPages = data?.totalPages || 1;
