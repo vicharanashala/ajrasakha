@@ -43,7 +43,7 @@ export class UserRepository implements IUserRepository {
     }
     if (!this.userRoleHistoryCollection) {
       this.userRoleHistoryCollection =
-        await this.db.getCollection<IUserRoleHistory>('userRoleHistory');
+        await this.db.getCollection<IUserRoleHistory>('user_role_history');
     }
     this.AnswerCollection = await this.db.getCollection<IAnswer>('answers');
   }
@@ -105,7 +105,6 @@ export class UserRepository implements IUserRepository {
         status: user.status ?? 'active',
         isBlocked: user.isBlocked ?? false,
         special_task_force: user.special_task_force ?? false,
-        special_task_force_moderator: user.special_task_force_moderator ?? false,
       },
       { session },
     );
@@ -254,11 +253,10 @@ export class UserRepository implements IUserRepository {
             role: userData.role,
             from: updatedAt,
             to: null,
-            isVerified: userData.isVerified ?? false,
-            status: userData.status,
-            isBlocked: userData.isBlocked,
-            special_task_force: userData.special_task_force,
-            special_task_force_moderator: userData.special_task_force_moderator,
+            isVerified: existingUser.isVerified ?? false,
+            status: existingUser.status,
+            isBlocked: existingUser.isBlocked,
+            special_task_force: existingUser.special_task_force,
           },
           { session },
         )])
@@ -1553,7 +1551,7 @@ export class UserRepository implements IUserRepository {
     await this.init();
     try {
       const special_task_force = action === 'assign';
-      await this.usersCollection.updateOne(
+      const updatedUser =await this.usersCollection.findOneAndUpdate(
         { _id: new ObjectId(userId) },
         {
           $set: {
@@ -1561,8 +1559,37 @@ export class UserRepository implements IUserRepository {
             updatedAt: new Date(),
           },
         },
-        { upsert: true, session },
+        { upsert: true, returnDocument: 'after', session },
       );
+
+      const updatedAt = new Date();
+      await Promise.all([
+        this.userRoleHistoryCollection.updateOne(
+          {
+            userId: new ObjectId(userId),
+            to: null,
+          },
+          {
+            $set: {
+              to: updatedAt,
+              updatedAt,
+            },
+          },
+          { session },
+        ),
+        this.userRoleHistoryCollection.insertOne(
+          {
+            userId: new ObjectId(userId),
+            role: updatedUser.role,
+            from: updatedAt,
+            to: null,
+            isVerified: updatedUser.isVerified ?? false,
+            status: updatedUser.status,
+            isBlocked: updatedUser.isBlocked,
+            special_task_force: updatedUser.special_task_force,
+          },
+          { session },
+        )])
     } catch (error) {
       throw new InternalServerError(`Failed to update STF status`);
     }
@@ -1586,47 +1613,210 @@ export class UserRepository implements IUserRepository {
   }
 
 
-  async getUserRoleCount(session?: ClientSession): Promise<UserRoleOverview[]> {
+  async getUserRoleCount(
+    startDateTime?:string,
+    endDateTime?:string,
+    session?: ClientSession,
+  ): Promise<{
+    userRoleOverview: UserRoleOverview[];
+    stfExpertCount: number;
+    stfModeratorCount: number;
+  }> {
     try {
       await this.init();
 
-      const result = await this.usersCollection
-        .aggregate(
-          [
-            { $match: { isBlocked: false } },
-            {
-              $group: {
-                _id: '$role',
-                count: { $sum: 1 },
-              },
-            },
-            {
-              $project: {
-                _id: 0,
-                role: {
-                  $switch: {
-                    branches: [
-                      { case: { $eq: ['$_id', 'expert'] }, then: 'Experts' },
-                      { case: { $eq: ['$_id', 'moderator'] }, then: 'Moderators' },
-                      { case: { $eq: ['$_id', 'admin'] }, then: 'Admins' },
-                      { case: { $eq: ['$_id', 'pae_expert'] }, then: 'PAE Experts' },
-                      { case: { $eq: ['$_id', 'district_coordinator'] }, then: 'District Coordinators' },
-                      { case: { $eq: ['$_id', 'block_coordinator'] }, then: 'Block Coordinators' },
-                      { case: { $eq: ['$_id', 'village_volunteer'] }, then: 'Village Volunteers' },
-                      { case: { $eq: ['$_id', 'tester'] }, then: 'Testers' },
-                    ],
-                    default: 'Others',
-                  },
-                },
-                count: 1,
-              },
-            },
-          ],
-          { session },
-        )
-        .toArray();
+      // Default to today's full UTC day if values are not provided
+      const start =
+        startDateTime != null
+          ? new Date(startDateTime)
+          : new Date(new Date().setUTCHours(0, 0, 0, 0));
 
-      return result as UserRoleOverview[];
+      const end =
+        endDateTime != null
+          ? new Date(endDateTime)
+          : new Date(new Date().setUTCHours(23, 59, 59, 999));
+
+      const result = await this.userRoleHistoryCollection.aggregate(
+        [
+          // -------------------------------------------------------------------------
+          // Step 1:
+          // Get all history records that were active during the selected period.
+          //
+          // Example:
+          // Expert     : 10:00 -> 11:00
+          // Moderator  : 11:00 -> null
+          //
+          // Filter:
+          // 10:00 -> 14:00
+          //
+          // Both records are returned.
+          // -------------------------------------------------------------------------
+          {
+            $match: {
+              $and: [
+                {
+                  from: { $lte: end },
+                },
+                {
+                  isBlocked: false,
+                },
+                {
+                  $or: [
+                    { to: null },
+                    { to: { $gt: start } },
+                  ],
+                },
+                {
+                  $or: [
+                    { status: 'active' },
+                    { status: null },
+                    { status: { $exists: false } },
+                  ],
+                },
+              ],
+            },
+          },
+
+          // -------------------------------------------------------------------------
+          // Step 2:
+          // Sort latest history first for each user.
+          // -------------------------------------------------------------------------
+          {
+            $sort: {
+              userId: 1,
+              from: -1,
+            },
+          },
+
+          // -------------------------------------------------------------------------
+          // Step 3:
+          // Keep ONLY the latest history record for each user within the
+          // selected period.
+          //
+          // Example:
+          //
+          // Expert     10:00
+          // Moderator  11:00
+          //
+          // => Keeps Moderator
+          // -------------------------------------------------------------------------
+          {
+            $group: {
+              _id: '$userId',
+              latest: {
+                $first: '$$ROOT',
+              },
+            },
+          },
+
+          {
+            $replaceRoot: {
+              newRoot: '$latest',
+            },
+          },
+
+          // -------------------------------------------------------------------------
+          // Step 4:
+          // Count users by role.
+          // -------------------------------------------------------------------------
+          {
+            $group: {
+              _id: '$role',
+
+              count: {
+                $sum: 1,
+              },
+
+              stfCount: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        {
+                          $in: ['$role', ['expert', 'moderator']],
+                        },
+                        {
+                          $eq: ['$special_task_force', true],
+                        },
+                      ],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+
+          // -------------------------------------------------------------------------
+          // Step 5:
+          // Convert role values into display names.
+          // -------------------------------------------------------------------------
+          {
+            $project: {
+              _id: 0,
+
+              role: {
+                $switch: {
+                  branches: [
+                    { case: { $eq: ['$_id', 'expert'] }, then: 'Experts' },
+                    { case: { $eq: ['$_id', 'moderator'] }, then: 'Moderators' },
+                    { case: { $eq: ['$_id', 'admin'] }, then: 'Admins' },
+                    { case: { $eq: ['$_id', 'pae_expert'] }, then: 'PAE Experts' },
+                    {
+                      case: {
+                        $eq: ['$_id', 'district_coordinator'],
+                      },
+                      then: 'District Coordinators',
+                    },
+                    {
+                      case: {
+                        $eq: ['$_id', 'block_coordinator'],
+                      },
+                      then: 'Block Coordinators',
+                    },
+                    {
+                      case: {
+                        $eq: ['$_id', 'village_volunteer'],
+                      },
+                      then: 'Village Volunteers',
+                    },
+                    { case: { $eq: ['$_id', 'tester'] }, then: 'Testers' },
+                    { case: { $eq: ['$_id', 'call_agent'] }, then: 'Call Agents' },
+                  ],
+                  default: 'Others',
+                },
+              },
+
+              count: 1,
+              stfCount: 1,
+            },
+          },
+
+          // -------------------------------------------------------------------------
+          // Step 6:
+          // Sort alphabetically.
+          // -------------------------------------------------------------------------
+          {
+            $sort: {
+              role: 1,
+            },
+          },
+        ],
+        { session },
+      ).toArray();
+
+      const userRoleOverview = result.map(({ role, count }) => ({
+        role,
+        count,
+      })) as UserRoleOverview[];
+      return {
+        userRoleOverview,
+        stfExpertCount:
+          result.find((item) => item.role === 'Experts')?.stfCount ?? 0,
+        stfModeratorCount:
+          result.find((item) => item.role === 'Moderators')?.stfCount ?? 0,
+      };
     } catch (error) {
       console.error('Error fetching user role count:', error);
       throw new InternalServerError('Failed to fetch user role count');

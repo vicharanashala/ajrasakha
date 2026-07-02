@@ -77,17 +77,23 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     await this.userRepo.updateCheckInTime(userId, time);
   }
 
-  async getOverview(currentUserId: string): Promise<{
+  async getOverview(currentUserId: string, query: { startDateTime?: string; endDateTime?: string; }): Promise<{
     userRoleOverview: UserRoleOverview[];
+    stfExpertCount: number;
+    stfModeratorCount: number;
     moderatorApprovalRate: ModeratorApprovalRate;
   }> {
     return await this._withTransaction(async (session: ClientSession) => {
-      const userRoleOverview = await this.userRepo.getUserRoleCount(session);
+      const overviewCounts = await this.userRepo.getUserRoleCount(
+        query.startDateTime,
+        query.endDateTime,
+        session,
+      );
       const moderatorApprovalRate = await this.questionRepo.getModeratorApprovalRate(
         currentUserId,
         session,
       );
-      return { userRoleOverview, moderatorApprovalRate };
+      return { ...overviewCounts, moderatorApprovalRate };
     });
   }
 
@@ -189,7 +195,7 @@ export class PerformanceService extends BaseService implements IPerformanceServi
         expertPerformance,
         analytics
       ] = await Promise.all([
-        this.getOverview(currentUserId),
+        this.getOverview(currentUserId, { startDateTime: qnAnalyticsStartTime, endDateTime: qnAnalyticsEndTime }),
         this.getGoldenDataset({
           viewType: goldenDataViewType,
           selectedYear: goldenDataSelectedYear,

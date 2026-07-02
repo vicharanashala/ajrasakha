@@ -261,7 +261,15 @@ export interface IUserRepository {
   /**
    * @param session
    */
-  getUserRoleCount(session?: ClientSession): Promise<UserRoleOverview[]>;
+  getUserRoleCount(
+    startDateTime?: string,
+    endDateTime?: string,
+    session?: ClientSession,
+  ): Promise<{
+    userRoleOverview: UserRoleOverview[];
+    stfExpertCount: number;
+    stfModeratorCount: number;
+  }>;
 
   /**
    * @param session
