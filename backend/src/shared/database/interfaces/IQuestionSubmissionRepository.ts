@@ -4,6 +4,7 @@ import {
   IReviewerHeatmapResponse,
   ISubmissionHistory,
   LevelReportStat,
+  QuestionSource,
 } from '#root/shared/interfaces/models.js';
 import {ClientSession, ObjectId} from 'mongodb';
 import {ExpertReviewLevelDto} from '#root/modules/user/validators/UserValidators.js';
@@ -212,27 +213,38 @@ export interface IQuestionSubmissionRepository {
    *  - currentExpertAllocatedAt > 45 min ago
    *  - currentExpertOpenedAt is null (expert has NOT opened the question)
    *  - question is not on hold, not closed/pass/duplicate/draft */
-  findTimeBoundQuestionsForReallocation(): Promise<IQuestionSubmission[]>;
+  findTimeBoundQuestionsForReallocation(
+    sources?: QuestionSource[],
+    requirePaeReviewNotDone?: boolean,
+  ): Promise<IQuestionSubmission[]>;
 
-  /** Find all time-bound (WHATSAPP/AJRASAKHA) submissions that were never
-   *  allocated — queue is empty and currentExpertAllocatedAt is null/missing.
-   *  question is not on hold, not closed/pass/duplicate/draft */
-  findUnallocatedTimeBoundQuestions(limit?: number, skip?: number, startTime?: Date, endTime?: Date): Promise<IQuestionSubmission[]>;
+  /** Find all single-allocation submissions that were never allocated — queue is
+   *  empty and currentExpertAllocatedAt is null/missing. Defaults to time-bound
+   *  sources; pass MANUAL_SOURCES + requirePaeReviewNotDone for manual questions. */
+  findUnallocatedTimeBoundQuestions(
+    sources?: QuestionSource[],
+    requirePaeReviewNotDone?: boolean,
+  ): Promise<IQuestionSubmission[]>;
 
   /** Find time-bound submissions the current expert opened > 45 min ago but still
    *  hasn't answered (latest history entry has no answer/approved/modified/rejected).
    *  Distinct from stuck (allocated but never opened). */
-  findOpenedButIdleTimeBoundQuestions(): Promise<IQuestionSubmission[]>;
+  findOpenedButIdleTimeBoundQuestions(
+    sources?: QuestionSource[],
+  ): Promise<IQuestionSubmission[]>;
 
-  /** Find time-bound submissions where the initial answer was submitted (last
-   *  history entry has an answer) but status is still open/delayed — needs a reviewer. */
-  findAnsweredQuestionsNeedingReviewer(): Promise<IQuestionSubmission[]>;
+  /** Find submissions where the initial answer was submitted (last history entry
+   *  has an answer) but status is still open/delayed — needs a reviewer. */
+  findAnsweredQuestionsNeedingReviewer(
+    sources?: QuestionSource[],
+    requirePaeReviewNotDone?: boolean,
+  ): Promise<IQuestionSubmission[]>;
 
   /** Atomically push reviewer into queue, add an in-review history entry, and
    *  reset the 45-min allocation clock (currentExpertAllocatedAt/OpenedAt). */
   assignTimeBoundReviewer(questionId: string, reviewerId: string, now: Date): Promise<void>;
 
-  /** Single aggregation: returns a Map<expertId, count> of active time-bound
-   *  questions per expert. Used to enforce the 3-question hard cap. */
-  getTimeBoundActiveCountPerExpert(): Promise<Map<string, number>>;
+  /** Single aggregation: returns a Map<expertId, count> of active single-allocation
+   *  questions per expert (defaults to time-bound sources). Used to enforce the cap. */
+  getTimeBoundActiveCountPerExpert(sources?: QuestionSource[]): Promise<Map<string, number>>;
 }

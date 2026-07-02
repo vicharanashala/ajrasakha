@@ -790,12 +790,19 @@ export class AnswerService extends BaseService implements IAnswerService {
             );
           }
 
-          // Case 2: Current user is the last in the queue but the queue isn't full
-          // Time-bound questions (AJRASAKHA/WHATSAPP) are managed by their own
-          // cron — do NOT auto-expand the queue when an expert submits.
-          const isTimeBound = question.source === 'AJRASAKHA' || question.source === 'WHATSAPP';
+          // Case 2: Current user is the last in the queue but the queue isn't full.
+          // Single-allocation questions are managed by their own cron — do NOT
+          // auto-expand the queue when an expert submits. This covers both:
+          //   - time-bound (AJRASAKHA / WHATSAPP)
+          //   - manual (AGRI_EXPERT / OUTREACH) single-allocation
+          // The cron assigns the next reviewer one at a time instead.
+          const isSingleAllocation =
+            question.source === 'AJRASAKHA' ||
+            question.source === 'WHATSAPP' ||
+            question.source === 'AGRI_EXPERT' ||
+            question.source === 'OUTREACH';
           if (
-            !isTimeBound &&
+            !isSingleAllocation &&
             currentUserIndexInQueue === currentSumbmissionQueue.length - 1 &&
             currentSumbmissionQueue.length < 10 &&
             question.isAutoAllocate
