@@ -1,3 +1,15 @@
+"""Run the four-layer AjraSakha production test suite.
+
+Layer 1 checks Aegra AI, reviewer backend, and wa-client API contracts.
+Layer 2 checks MCP service connectivity.
+Layer 3 runs stable live LangGraph evaluation scenarios.
+Layer 4 sends WhatsApp webhook messages and validates responses and tool routing.
+
+Required environment variables: BACKEND_BASE_URL, WHATSAPP_CLIENT_BASE_URL,
+LIVE_API_URL, WHATSAPP_WEBHOOK_URL, WHATSAPP_INTERNAL_API_KEY,
+WHATSAPP_TEST_PHONE_NUMBER, WHATSAPP_META_APP_SECRET, ASSISTANT_ID, REMOTE_IP.
+"""
+
 import csv
 import html
 import subprocess
@@ -33,8 +45,12 @@ COMMANDS = [
         "command": [sys.executable, "-m", "ajrasakha.evaluation.run", "--mode", "live", "--stable-only"],
         "report": ROOT / "evaluation_report_live.csv",
     },
-
-   
+    {
+        "layer": "Layer 4 - WhatsApp E2E Tests",
+        "name": "whatsapp_e2e",
+        "command": [sys.executable, "-m", "tests.run_whatsapp_e2e"],
+        "report": ROOT / "tests" / "api" / "reports" / "whatsapp_e2e_report.csv",
+    },
 ]
 
 
@@ -44,6 +60,8 @@ def run_command(command):
         cwd=ROOT,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         shell=False,
     )
     return completed.returncode, completed.stdout, completed.stderr
