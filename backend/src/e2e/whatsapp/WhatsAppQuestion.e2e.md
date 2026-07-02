@@ -45,6 +45,172 @@ because `isAutoAllocate` is now `true`.
 
 ---
 
+# Flow Diagram
+
+> **To preview this diagram locally:** install the VS Code extension
+> **"Markdown Preview Mermaid Support"** then press `Ctrl+Shift+V`.
+> It also renders natively on GitHub.
+
+```mermaid
+%%{init: {'flowchart': {'nodeSpacing': 50, 'rankSpacing': 60}}}%%
+flowchart TD
+  classDef entry  fill:#ede9fe,stroke:#7c3aed,color:#3b0764,font-weight:bold
+  classDef bg     fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+  classDef ok     fill:#d1fae5,stroke:#059669,color:#064e3b
+  classDef warn   fill:#fef9c3,stroke:#d97706,color:#78350f
+  classDef err    fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+  classDef decide fill:#faf5ff,stroke:#7c3aed,color:#3b0764
+  classDef tb     fill:#fce7f3,stroke:#db2777,color:#831843
+  classDef fail   fill:#fdba74,stroke:#ea580c,color:#7c2d12,font-weight:bold
+
+  ROOT["POST /api/questions
+  source = 'WHATSAPP'
+  auth: x-internal-api-key"]:::entry
+
+  AUTH{"x-internal-api-key
+  header correct?"}:::decide
+  A401["401 Unauthorized"]:::err
+
+  PAYLOAD{"payload valid?"}:::decide
+  P400["400 — missing district field
+  (class-validator on QuestionDetailsDto,
+  fires before the service runs)"]:::err
+  P500["empty question text
+  KNOWN BUG-001: returns 500
+  (BadRequestError re-wrapped as
+  InternalServerError in addQuestion's
+  outer catch) — should be 400"]:::fail
+
+  SAVE["addQuestion()
+  status='pending', priority='high'
+  isAutoAllocate=false
+  question + bare submission inserted"]:::ok
+
+  ASYNC["setImmediate to
+  processQuestionInBackground()"]:::bg
+
+  ROOT --> AUTH
+  AUTH -- no --> A401
+  AUTH -- yes --> PAYLOAD
+  PAYLOAD -- "missing district" --> P400
+  PAYLOAD -- "empty question" --> P500
+  PAYLOAD -- ok --> SAVE --> ASYNC
+
+  subgraph THREAD["1 - Thread validation - validateTimeBoundQuestionThread"]
+    T1{"threadId
+    empty?"}:::decide
+    T2["isTesting = true
+    status stays 'pending'
+    (THREAD_ID_MISSING - no API call made)"]:::warn
+    T3["fetchWhatsAppMessage(threadId)
+    up to 4 attempts: 1 initial + 3 retries
+    backoff 3s / 6s / 12s"]:::tb
+    T4{"outcome across
+    all attempts?"}:::decide
+    T5["'not found' every attempt
+    hadSuccessfulApiCall=true
+    -> isTesting=true, status stays 'pending'"]:::warn
+    T6["unreachable every attempt (non-'not-found' error)
+    hadSuccessfulApiCall=false
+    -> isValid=true - 'API down' is not 'test question'
+    -> question proceeds to pipeline"]:::warn
+    T7["1st attempt fails (e.g. ECONNREFUSED),
+    a retry then succeeds
+    -> isValid=true -> proceeds"]:::ok
+    T1 -- yes --> T2
+    T1 -- no --> T3 --> T4
+    T4 -- "not found (all)" --> T5
+    T4 -- "unreachable (all)" --> T6
+    T4 -- "fails then recovers" --> T7
+  end
+
+  subgraph DUP["2 - Duplicate-check pipeline - runDuplicateCheckPipeline"]
+    D1["searchGdb(embedding)"]:::tb
+    D2{"GDB result?"}:::decide
+    D3["exact_match found
+    -> status='duplicate', isExact=true
+    referenceQuestionId recorded
+    (extractObjectId also resolves {$oid} format)"]:::ok
+    D4["selected_match only (no exact_match)
+    -> status='duplicate', isExact=false
+    referenceSource='reviewer'"]:::ok
+    D5["BOTH exact_match and selected_match present
+    -> exact_match wins (isExact=true)"]:::ok
+    D6["match has a non-ObjectId question_id
+    -> that match is skipped, treated as a miss"]:::warn
+    D7["searchGdb throws
+    NOT caught inside runDuplicateCheckPipeline
+    (no try/catch around the GDB call) - propagates
+    to processQuestionInBackground's outer
+    pipelineError catch -> status='open' directly.
+    checkPendingDuplicate + LLM never run."]:::warn
+    D8["no GDB match (miss or skipped-invalid-id)"]:::warn
+
+    D9["checkPendingDuplicate(embedding)
+    added 2026-07-01 - Gate Keeper / Auditor
+    workflow, GDB 'pending duplicate' queue"]:::tb
+    D10{"pending-duplicate
+    result?"}:::decide
+    D11["duplicate_question_id returned
+    -> status='queue_duplicate'
+    referenceQuestionId/referenceQuestion/
+    similarityScore recorded, referenceSource='reviewer'
+    isAutoAllocate=false. LLM NOT consulted.
+    See GatekeeperAuditor.e2e.md for what happens next"]:::ok
+    D12["no duplicate_question_id in response (miss)
+    -> falls through to the LLM"]:::warn
+    D13["checkPendingDuplicate throws
+    (its own try/catch, distinct from the
+    GDB catch and the LLM catch)
+    -> falls through to the LLM"]:::warn
+
+    D14["checkConceptDuplicate (LLM)"]:::tb
+    D15{"LLM verdict?"}:::decide
+    D16["non-agri -> status='non_agri'"]:::ok
+    D17["agri -> status='open'
+    isAutoAllocate flipped TRUE (commit 03c55740)"]:::ok
+    D18["LLM throws (own try/catch)
+    -> degrades gracefully"]:::warn
+
+    D1 --> D2
+    D2 -- "exact_match" --> D3
+    D2 -- "selected_match only" --> D4
+    D2 -- "both" --> D5
+    D2 -- "invalid question_id" --> D6 --> D8
+    D2 -- "throws" --> D7
+    D2 -- "no match" --> D8
+    D8 --> D9 --> D10
+    D10 -- FOUND --> D11
+    D10 -- MISS --> D12 --> D14
+    D10 -- THROWS --> D13 --> D14
+    D14 --> D15
+    D15 -- "non-agri" --> D16
+    D15 -- "agri" --> D17
+    D15 -- "throws" --> D18 --> D17
+  end
+
+  NOTIFY["notify moderators
+  type='question_from_whatsapp'
+  (only the 'open' path reaches this -
+  duplicate/queue_duplicate/non_agri/isTesting
+  all return earlier)"]:::ok
+
+  ASYNC --> T1
+  T6 --> D1
+  T7 --> D1
+  T2 -.-> STOP1["pending / isTesting
+  (no further processing)"]:::err
+  T5 -.-> STOP1
+  D7 -.-> STOP2["open
+  (via outer pipelineError catch)"]:::warn
+  D17 --> NOTIFY
+```
+
+**Not covered by this diagram** (belongs to the common allocation path, tested elsewhere):
+expert allocation via `reallocateTimeBoundQuestions` — see `AutoAllocation.e2e.md` / `AllocationOrdering.e2e.md`.
+
+---
+
 # Main Files
 
 ```text
@@ -203,6 +369,32 @@ THREAD VALIDATION (validateTimeBoundQuestionThread)
 NOT covered (common path, separate test): expert allocation
 (reallocateTimeBoundQuestions).
 ```
+
+# Test Cases — added 2026-07-01 (21 total)
+
+Gate Keeper / Auditor workflow (merge `origin/copy/gatekeeper-auditor-workflow`)
+added a third duplicate-check outcome: after a GDB miss, `runDuplicateCheckPipeline`
+now calls `AiService.checkPendingDuplicate` (the GDB "pending duplicate" queue)
+BEFORE falling through to the LLM. `dummyAi.checkPendingDuplicate` was added
+alongside `searchGdb`/`fetchWhatsAppMessage`.
+
+```text
+QUEUE-DUPLICATE (GDB pending-duplicate queue)
+  ✓  FOUND: checkPendingDuplicate returns duplicate_question_id -> status
+       'queue_duplicate', referenceQuestionId/referenceQuestion/similarityScore
+       recorded (referenceSource='reviewer'), isAutoAllocate=false. LLM not consulted.
+  ✓  MISS: checkPendingDuplicate returns {detail: ...} with no duplicate_question_id
+       -> falls through to the LLM -> status 'open' (same as a GDB miss)
+
+DEGRADATION
+  ✓  checkPendingDuplicate throws -> caught by its own try/catch in
+       runDuplicateCheckPipeline (distinct from the GDB/LLM catches) -> falls
+       through to the LLM -> status 'open', exactly as before this feature existed
+```
+
+See also `src/e2e/gatekeeper-auditor/GatekeeperAuditor.e2e.md` for the rest of the
+workflow (Push to Auditor, Auditor finalize, Cancel Duplicate, close-propagation)
+— this suite only covers ingestion-time `queue_duplicate` detection.
 
 ---
 
@@ -395,3 +587,13 @@ The controller (QuestionController.ts:332-354) catches service errors and re-thr
 | 10 | WhatsApp ingestion — GDB selected_match has invalid question_id → falls through to open... | ✅ | — |
 | 11 | WhatsApp ingestion — GDB exact_match uses $oid format → marked duplicate > marks the qu... | ✅ | — |
 | 12 | WhatsApp ingestion — GDB returns both exact_match and selected_match → exact_match wins... | ✅ | — |
+
+## 2026-07-01 (21 total — added queue_duplicate coverage)
+
+**Total:** 21 tests — **20 passed, 1 failed**
+
+The 1 failure (`WhatsApp API completely unreachable → question proceeds to open`) is
+KNOWN BUG-002 (see project memory `project_e2e_inprocess_harness`), found the same
+day and unrelated to the queue_duplicate additions — a pre-existing hang in
+`validateTimeBoundQuestionThread`'s "API down" branch introduced by commit
+`e20e8b8e`, not something this change touches. All 3 new queue_duplicate tests passed.

@@ -55,6 +55,79 @@ users in the DB or `beforeAll` throws.
 pipeline, giving a clean starting state for CRUD testing without any polling or
 allocation side effects.
 
+## Flow diagram
+
+> **To preview this diagram locally:** install the VS Code extension
+> **"Markdown Preview Mermaid Support"** then press `Ctrl+Shift+V`.
+> Diagrams also render natively on GitHub.
+
+```mermaid
+%%{init: {'flowchart': {'nodeSpacing': 50, 'rankSpacing': 60}}}%%
+flowchart TD
+  classDef entry  fill:#ede9fe,stroke:#7c3aed,color:#3b0764,font-weight:bold
+  classDef ok     fill:#d1fae5,stroke:#059669,color:#064e3b
+  classDef warn   fill:#fef9c3,stroke:#d97706,color:#78350f
+  classDef err    fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+  classDef decide fill:#faf5ff,stroke:#7c3aed,color:#3b0764
+
+  ROOT["Question Create E2E"]:::entry
+
+  subgraph CRUD["1 - CRUD lifecycle (source=OUTREACH, synchronous, no pipeline)"]
+    C1["POST /api/questions
+    source='OUTREACH'"]:::entry
+    C2["201 - status='open' immediately
+    (no background job to wait for)"]:::ok
+    C3["GET /questions/:id/full"]:::ok
+    C4["200 - source/state/district match"]:::ok
+    C5["PUT /questions/:id
+    district, season, domain, priority"]:::ok
+    C6["200 - GET again confirms
+    updated values persisted"]:::ok
+    C7["DELETE /questions/:id"]:::ok
+    C8["200, deletedCount=1"]:::ok
+    C9["GET the deleted question"]:::decide
+    C10["400 or 404 - no longer retrievable"]:::err
+    C11["POST x2 in parallel (Promise.all)
+    then DELETE /questions/bulk"]:::ok
+    C12["200 - both bulk-deleted"]:::ok
+    C13["GET each bulk-deleted id"]:::decide
+    C14["400 or 404 for each"]:::err
+
+    ROOT --> C1 --> C2 --> C3 --> C4 --> C5 --> C6 --> C7 --> C8 --> C9
+    C9 --> C10
+    C1 -.-> C11 --> C12 --> C13 --> C14
+  end
+
+  subgraph MOD["2 - Moderator assignment (same questionId as test #1) - PATCH / DELETE /questions/:id/moderator"]
+    M1{"who is calling?"}:::decide
+    M2["currentTestUser=null -> 403"]:::err
+    M3["PATCH with moderatorId
+    = secondModeratorUser._id"]:::ok
+    M4{"moderatorId in body?"}:::decide
+    M5["missing -> 400"]:::err
+    M6{"moderatorId
+    resolves to a real user?"}:::decide
+    M7["random/non-existent ObjectId
+    -> 400, 404, or 500 (loosely specified)"]:::warn
+    M8["200 - question.moderatorId
+    set in DB"]:::ok
+    M9["DELETE /questions/:id/moderator"]:::ok
+    M10["200 - question.moderatorId
+    cleared to null in DB"]:::ok
+    M11["DELETE again (already null)"]:::ok
+    M12["200 or 400 - idempotent,
+    both accepted as valid"]:::ok
+
+    C2 -.-> M1
+    M1 -- "no user" --> M2
+    M1 -- authenticated --> M4
+    M4 -- no --> M5
+    M4 -- yes --> M6
+    M6 -- no --> M7
+    M6 -- yes --> M3 --> M8 --> M9 --> M10 --> M11 --> M12
+  end
+```
+
 ## Test cases (15 total)
 
 ### CRUD lifecycle (8 tests)

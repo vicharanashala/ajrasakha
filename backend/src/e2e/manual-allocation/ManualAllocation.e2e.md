@@ -29,6 +29,98 @@ Users are fetched from the DB by email using `.env.test` credentials (no Firebas
 
 OUTREACH gives a clean starting state (status `open`, empty queue) without background allocation side effects.
 
+## Flow diagram
+
+> **To preview this diagram locally:** install the VS Code extension
+> **"Markdown Preview Mermaid Support"** then press `Ctrl+Shift+V`.
+> Diagrams also render natively on GitHub.
+
+```mermaid
+%%{init: {'flowchart': {'nodeSpacing': 50, 'rankSpacing': 60}}}%%
+flowchart TD
+  classDef entry  fill:#ede9fe,stroke:#7c3aed,color:#3b0764,font-weight:bold
+  classDef ok     fill:#d1fae5,stroke:#059669,color:#064e3b
+  classDef warn   fill:#fef9c3,stroke:#d97706,color:#78350f
+  classDef err    fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+  classDef decide fill:#faf5ff,stroke:#7c3aed,color:#3b0764
+  classDef fail   fill:#fdba74,stroke:#ea580c,color:#7c2d12,font-weight:bold
+
+  ROOT["OUTREACH question seeded
+  status='open', queue=[]"]:::entry
+
+  subgraph ALLOC["1 - POST /questions/:id/allocate-experts"]
+    L1{"who is calling?"}:::decide
+    L2["no user -> 401
+    (authorizationChecker)"]:::err
+    L3["role='expert' -> 400
+    (UnauthorizedError wrapped
+    as BadRequestError)"]:::err
+    L4["moderator -> allocateExperts()"]:::ok
+    L5{"hasExistingExpert check:
+    queue.includes(expertId) ?"}:::decide
+    L6["BUG-001: queue holds ObjectId objects,
+    expertId is a plain string - Array.includes
+    uses reference equality - ALWAYS false
+    -> duplicate guard never fires"]:::fail
+    L7["expert pushed onto queue
+    (again, if already present)
+    firstAllocationAt stamped on 1st allocation"]:::ok
+    L8["200 - queue now has
+    the expert (possibly twice+)"]:::ok
+    L9{"questionId
+    exists?"}:::decide
+    L10["BEHAVIOR-001: getQuestionDataById ->
+    QuestionRepository.getById throws
+    InternalServerError on a miss (not
+    NotFoundError) -> controller re-throws
+    as-is -> 500 instead of 400/404"]:::fail
+
+    ROOT --> L1
+    L1 -- "no user" --> L2
+    L1 -- expert --> L3
+    L1 -- moderator --> L4 --> L9
+    L9 -- no --> L10
+    L9 -- yes --> L5
+    L5 -. "intended: reject" .-> BLOCKED["400 'expert already
+    in queue' (never happens)"]:::warn
+    L5 -- "actual (bug)" --> L6 --> L7 --> L8
+  end
+
+  subgraph REMOVE["2 - DELETE /questions/:id/allocation (remove by queue index)"]
+    R1["moderator removes
+    expert at index i"]:::entry
+    R2["getExprtIdByIndex(questionId, i)"]:::ok
+    R3{"entry exists
+    at index i?"}:::decide
+    R4["BUG-003: returns null -> getUserById(null)
+    throws -> controller catch block itself
+    throws a SECOND error (questionDetails.text
+    on an undefined questionDetails) -> escapes
+    the catch -> HTTP 500 instead of the
+    intended 400 'no expert at that index'"]:::fail
+    R5["removeExpertFromQueuebyIndex()
+    $pull: { queue: ObjectId(expertId) }"]:::ok
+    R6["BUG-002: named 'byIndex' and takes an index
+    param, but $pull removes EVERY queue entry
+    matching that expertId VALUE - not just
+    the one at index i"]:::fail
+    R7["normal case (expert appears once):
+    harmless - $pull removes exactly 1 entry"]:::ok
+    R8["cascades with BUG-001: if the queue has
+    duplicates of the same expert (e.g.
+    [e1, e2, e1]), removing 'index 0' pulls
+    BOTH e1 entries -> queue becomes [e2] -
+    assertions can pass by accident, not
+    because the index logic is correct"]:::warn
+
+    R1 --> R2 --> R3
+    R3 -- no --> R4
+    R3 -- yes --> R5 --> R6
+    R6 --> R7
+    R6 -.-> R8
+  end
+```
+
 ## Test setup
 
 - `.env` loaded first → real Atlas DB URL

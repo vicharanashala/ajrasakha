@@ -79,6 +79,7 @@ import {
   afterEach,
   vi,
 } from 'vitest';
+import type { GdbPendingDuplicateResponse } from '#root/modules/ai/services/AiService.js';
 
 // LLM duplicate/non-agri classifier — dummied at module level.
 // Default: classify as agri (isNonAgri=false). Individual tests override per case.
@@ -128,6 +129,13 @@ const dummyAi = {
     exact_match: null,
     selected_match: null,
   })),
+  // Gate-Keeper/Auditor workflow: GDB "pending duplicate" queue check, consulted
+  // only after a GDB miss and before the LLM classifier. Default: no match.
+  checkPendingDuplicate: vi.fn(
+    async (_params: any): Promise<GdbPendingDuplicateResponse> => ({
+      detail: 'No pending duplicate found',
+    }),
+  ),
 };
 
 let checkConceptDuplicateMock: ReturnType<typeof vi.fn>;
@@ -270,6 +278,9 @@ afterEach(() => {
     state: '',
     exact_match: null,
     selected_match: null,
+  });
+  dummyAi.checkPendingDuplicate.mockResolvedValue({
+    detail: 'No pending duplicate found',
   });
   dummyAi.fetchWhatsAppMessage.mockResolvedValue({
     messageId: `${RUN_TAG}_msg`,
@@ -421,6 +432,77 @@ describe('Ajrasakha ingestion — question FOUND (GDB exact match → duplicate)
     expect(doc.isExact).toBe(true);
     expect(doc.referenceQuestionId?.toString()).toBe(referenceQuestionId.toString());
     expect(checkConceptDuplicateMock).not.toHaveBeenCalled();
+  }, 90000);
+});
+
+// ───────── QUEUE-DUPLICATE: GDB pending-duplicate queue match (Gate Keeper /
+//           Auditor workflow) ─────────
+//
+// After a GDB miss, runDuplicateCheckPipeline now checks the GDB "pending
+// duplicate" queue (AiService.checkPendingDuplicate) before falling through to
+// the LLM. A match short-circuits the LLM, same as an exact/selected GDB match.
+describe('Ajrasakha ingestion — question matches the GDB pending-duplicate queue', () => {
+  it('marks the question as queue_duplicate, records the reference, and turns off auto-allocate', async () => {
+    const referenceQuestionId = new ObjectId();
+    const referenceQuestionText = `${RUN_TAG} pending paddy question in the GDB queue`;
+
+    dummyAi.checkPendingDuplicate.mockResolvedValueOnce({
+      is_duplicate: true,
+      duplicate_question_id: referenceQuestionId.toString(),
+      similarity_score: 0.91,
+      query: referenceQuestionText,
+      match_type: 'queue',
+    });
+
+    const res = await submitQuestion(ajrasakhaPayload());
+    console.log('QUEUE-DUP SUBMIT STATUS:', res.status);
+    expect(res.status).toBe(201);
+
+    const questionId = res.body.question_id;
+    createdQuestionIds.push(questionId);
+
+    const doc = await waitForQuestion(questionId, d => d.status === 'queue_duplicate');
+    console.log('QUEUE-DUP FINAL DOC:', {
+      status: doc.status,
+      similarityScore: doc.similarityScore,
+      referenceQuestionId: doc.referenceQuestionId?.toString?.(),
+      referenceSource: doc.referenceSource,
+      isAutoAllocate: doc.isAutoAllocate,
+    });
+
+    expect(dummyAi.searchGdb).toHaveBeenCalled();
+    expect(dummyAi.checkPendingDuplicate).toHaveBeenCalled();
+    expect(doc.status).toBe('queue_duplicate');
+    expect(doc.referenceQuestionId?.toString()).toBe(referenceQuestionId.toString());
+    expect(doc.referenceQuestion).toBe(referenceQuestionText);
+    expect(doc.referenceSource).toBe('reviewer');
+    expect(doc.similarityScore).toBeCloseTo(91, 0);
+    expect(doc.isAutoAllocate).toBe(false);
+    expect(checkConceptDuplicateMock).not.toHaveBeenCalled();
+  }, 90000);
+});
+
+// ─── QUEUE-DUPLICATE DEGRADATION: checkPendingDuplicate throws → falls through
+//     to the LLM/open exactly as before this feature existed ───
+describe('Ajrasakha ingestion — pending-duplicate-queue check throws → degrades gracefully to open', () => {
+  it('still opens the question when checkPendingDuplicate throws', async () => {
+    dummyAi.checkPendingDuplicate.mockRejectedValueOnce(new Error('GDB queue upstream 503'));
+    checkConceptDuplicateMock.mockResolvedValue({ isNonAgri: false });
+
+    const res = await submitQuestion(ajrasakhaPayload());
+    expect(res.status).toBe(201);
+
+    const questionId = res.body.question_id;
+    createdQuestionIds.push(questionId);
+
+    const doc = await waitForQuestion(questionId, d => d.status === 'open');
+    console.log('QUEUE-DUP-FAIL FINAL DOC status:', doc.status);
+
+    expect(doc.status).toBe('open');
+    expect(dummyAi.checkPendingDuplicate).toHaveBeenCalled();
+    expect(checkConceptDuplicateMock).toHaveBeenCalled();
+
+    await waitForNotification(questionId, 'question_from_ajrasakha');
   }, 90000);
 });
 

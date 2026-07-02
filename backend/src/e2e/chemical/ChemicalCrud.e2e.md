@@ -57,6 +57,81 @@ the target chemical has already been deleted.
 
 ---
 
+## Flow diagram
+
+> **To preview this diagram locally:** install the VS Code extension
+> **"Markdown Preview Mermaid Support"** then press `Ctrl+Shift+V`.
+> Diagrams also render natively on GitHub.
+
+```mermaid
+%%{init: {'flowchart': {'nodeSpacing': 50, 'rankSpacing': 60}}}%%
+flowchart TD
+  classDef entry  fill:#ede9fe,stroke:#7c3aed,color:#3b0764,font-weight:bold
+  classDef ok     fill:#d1fae5,stroke:#059669,color:#064e3b
+  classDef warn   fill:#fef9c3,stroke:#d97706,color:#78350f
+  classDef err    fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+  classDef decide fill:#faf5ff,stroke:#7c3aed,color:#3b0764
+
+  ROOT["Any /api/chemicals request"]:::entry
+
+  subgraph GATE["1 - Auth gates (apply to every route)"]
+    G1{"gate 1:
+    x-internal-api-key header?"}:::decide
+    G2["missing or wrong key
+    -> 401 (InternalApiAuth middleware,
+    before any controller runs)"]:::err
+    G3{"gate 2:
+    authorizationChecker
+    = !!currentTestUser"}:::decide
+    G4["currentTestUser=null
+    -> 401"]:::err
+    ROOT --> G1
+    G1 -- "missing/wrong" --> G2
+    G1 -- correct --> G3
+    G3 -- null --> G4
+  end
+
+  subgraph WRITE["2 - Role enforcement on write routes (POST / PUT / DELETE)"]
+    W1{"@Authorized()
+    passed - now check role"}:::decide
+    W2{"user.role
+    IN WRITE_ROLES
+    = [admin, moderator] ?"}:::decide
+    W3["role check fires FIRST,
+    BEFORE any DB lookup"]:::warn
+    W4["role='expert'
+    -> 403 ForbiddenError
+    (even if the target chemical
+    was already deleted by an
+    earlier test - #11)"]:::err
+    W5["role IN [admin, moderator]
+    -> proceeds to the handler"]:::ok
+    G3 -- authenticated --> W1 --> W2
+    W2 -- no --> W3 --> W4
+    W2 -- yes --> W5
+  end
+
+  subgraph CRUD["3 - CRUD (GET is read-only, no role gate beyond auth)"]
+    D1["POST /chemicals -> 201, id tracked"]:::ok
+    D2["GET /chemicals/:id -> 200"]:::ok
+    D3["PUT /chemicals/:id -> 200"]:::ok
+    D4["GET again -> 200, name has _UPDATED"]:::ok
+    D5["DELETE /chemicals/:id -> 200"]:::ok
+    D6["GET the deleted id -> 404"]:::err
+    D7["moderator creates + updates its
+    OWN fixture chemical (test #13) -
+    self-contained, no shared-state
+    cascade risk"]:::ok
+    D8["expert creates a fixture (as admin),
+    attempts delete -> 403, then confirms
+    the chemical still exists (test #14)"]:::warn
+
+    W5 --> D1 --> D2 --> D3 --> D4 --> D5 --> D6
+    D1 -.-> D7
+    D1 -.-> D8
+  end
+```
+
 ## Test cases (15 total)
 
 ### Authentication Smoke Tests (3 tests)

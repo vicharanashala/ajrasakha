@@ -63,6 +63,7 @@ import {
   afterEach,
   vi,
 } from 'vitest';
+import type { GdbPendingDuplicateResponse } from '#root/modules/ai/services/AiService.js';
 
 // LLM duplicate/non-agri classifier — external boundary, dummied at the module level.
 // Default: classify as agri (isNonAgri=false). Individual tests override per case.
@@ -108,6 +109,15 @@ const dummyAi = {
     exact_match: null,
     selected_match: null,
   })),
+  // Gate-Keeper/Auditor workflow: checks the GDB "pending duplicate" queue (a
+  // question already awaiting review that this new one matches). Only consulted
+  // when searchGdb found no match. Default: no match (GDB replies with `detail`
+  // on a non-2xx, per AiService.checkPendingDuplicate). Overridden per test.
+  checkPendingDuplicate: vi.fn(
+    async (_params: any): Promise<GdbPendingDuplicateResponse> => ({
+      detail: 'No pending duplicate found',
+    }),
+  ),
 };
 
 let checkConceptDuplicateMock: ReturnType<typeof vi.fn>;
@@ -252,6 +262,9 @@ afterEach(() => {
     state: '',
     exact_match: null,
     selected_match: null,
+  });
+  dummyAi.checkPendingDuplicate.mockResolvedValue({
+    detail: 'No pending duplicate found',
   });
   // Restore fetchWhatsAppMessage — some tests override it to throw, and
   // vi.clearAllMocks() only clears call records, NOT the implementation.
@@ -901,6 +914,104 @@ describe('WhatsApp ingestion — GDB returns both exact_match and selected_match
     // selected_match was skipped
     expect(doc.referenceQuestionId?.toString()).not.toBe(selectedRefId.toString());
     expect(checkConceptDuplicateMock).not.toHaveBeenCalled();
+  }, 90000);
+});
+
+// ─── QUEUE-DUPLICATE: no GDB match, but the GDB "pending duplicate" queue has a
+//     match → status 'queue_duplicate' (Gate Keeper / Auditor workflow) ───
+//
+// runDuplicateCheckPipeline (QuestionService.ts) now calls
+// AiService.checkPendingDuplicate AFTER a GDB miss but BEFORE the LLM
+// classifier — a queue match short-circuits the LLM entirely, same as the
+// GDB exact/selected match paths above. `checkPendingDuplicate`'s response
+// carries the queued reference on `duplicate_question_id`/`matched_question_id`
+// + `query` + `similarity_score` at the top level (not in `candidates_checked`).
+describe('WhatsApp ingestion — question matches the GDB pending-duplicate queue', () => {
+  it('marks the question as queue_duplicate, records the reference, and turns off auto-allocate', async () => {
+    const referenceQuestionId = new ObjectId();
+    const referenceQuestionText = `${RUN_TAG} pending paddy question in the GDB queue`;
+
+    dummyAi.checkPendingDuplicate.mockResolvedValueOnce({
+      is_duplicate: true,
+      duplicate_question_id: referenceQuestionId.toString(),
+      similarity_score: 0.91,
+      query: referenceQuestionText,
+      match_type: 'queue',
+    });
+
+    const res = await submitQuestion(whatsAppPayload());
+    console.log('QUEUE-DUP SUBMIT STATUS:', res.status, 'BODY:', res.body);
+    expect(res.status).toBe(201);
+
+    const questionId = res.body.question_id;
+    createdQuestionIds.push(questionId);
+
+    const doc = await waitForQuestion(questionId, d => d.status === 'queue_duplicate');
+    console.log('QUEUE-DUP FINAL DOC:', {
+      status: doc.status,
+      similarityScore: doc.similarityScore,
+      referenceQuestionId: doc.referenceQuestionId?.toString?.(),
+      referenceSource: doc.referenceSource,
+      isAutoAllocate: doc.isAutoAllocate,
+    });
+
+    expect(dummyAi.searchGdb).toHaveBeenCalled();
+    expect(dummyAi.checkPendingDuplicate).toHaveBeenCalled();
+    expect(doc.status).toBe('queue_duplicate');
+    expect(doc.referenceQuestionId?.toString()).toBe(referenceQuestionId.toString());
+    expect(doc.referenceQuestion).toBe(referenceQuestionText);
+    expect(doc.referenceSource).toBe('reviewer');
+    expect(doc.similarityScore).toBeCloseTo(91, 0);
+    expect(doc.isAutoAllocate).toBe(false);
+    // The LLM is only consulted when neither GDB nor the pending queue match.
+    expect(checkConceptDuplicateMock).not.toHaveBeenCalled();
+  }, 90000);
+
+  it('ignores a pending-duplicate response with no usable duplicate_question_id and falls through to the LLM', async () => {
+    // `detail` present with no non-2xx match => genuinely "not found", not a hit.
+    dummyAi.checkPendingDuplicate.mockResolvedValueOnce({
+      detail: 'Question not found in pending queue',
+    });
+    checkConceptDuplicateMock.mockResolvedValue({ isNonAgri: false });
+
+    const res = await submitQuestion(whatsAppPayload());
+    expect(res.status).toBe(201);
+
+    const questionId = res.body.question_id;
+    createdQuestionIds.push(questionId);
+
+    const doc = await waitForQuestion(questionId, d => d.status === 'open');
+    console.log('QUEUE-DUP-MISS FINAL DOC status:', doc.status);
+
+    expect(doc.status).toBe('open');
+    expect(dummyAi.checkPendingDuplicate).toHaveBeenCalled();
+    expect(checkConceptDuplicateMock).toHaveBeenCalled();
+  }, 90000);
+});
+
+// ─── QUEUE-DUPLICATE DEGRADATION: checkPendingDuplicate throws → pipeline still
+//     falls through to the LLM/open, exactly as before this feature existed ───
+//
+// runDuplicateCheckPipeline wraps the checkPendingDuplicate call in its own
+// try/catch (distinct from the GDB/LLM catches), logging a warning and
+// continuing to the LLM classifier rather than failing the whole pipeline.
+describe('WhatsApp ingestion — pending-duplicate-queue check throws → degrades gracefully to open', () => {
+  it('still opens the question when checkPendingDuplicate throws', async () => {
+    dummyAi.checkPendingDuplicate.mockRejectedValueOnce(new Error('GDB queue upstream 503'));
+    checkConceptDuplicateMock.mockResolvedValue({ isNonAgri: false });
+
+    const res = await submitQuestion(whatsAppPayload());
+    expect(res.status).toBe(201);
+
+    const questionId = res.body.question_id;
+    createdQuestionIds.push(questionId);
+
+    const doc = await waitForQuestion(questionId, d => d.status === 'open');
+    console.log('QUEUE-DUP-FAIL FINAL DOC status:', doc.status);
+
+    expect(doc.status).toBe('open');
+    expect(dummyAi.checkPendingDuplicate).toHaveBeenCalled();
+    expect(checkConceptDuplicateMock).toHaveBeenCalled();
   }, 90000);
 });
 

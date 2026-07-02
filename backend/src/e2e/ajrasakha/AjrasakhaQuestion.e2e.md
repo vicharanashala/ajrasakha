@@ -59,6 +59,141 @@ AJRASAKHA and belongs in a dedicated common-path test.
 
 ---
 
+# Flow Diagram
+
+> **To preview this diagram locally:** install the VS Code extension
+> **"Markdown Preview Mermaid Support"** then press `Ctrl+Shift+V`.
+> It also renders natively on GitHub.
+
+This suite only re-tests representative pipeline cases (the shared GDB/LLM/thread
+logic is exhaustively covered by `WhatsAppQuestion.e2e.md` instead) — this diagram
+highlights what is AJRASAKHA-specific and grays out the parts already proven
+by the WhatsApp suite.
+
+```mermaid
+%%{init: {'flowchart': {'nodeSpacing': 50, 'rankSpacing': 60}}}%%
+flowchart TD
+  classDef entry  fill:#ede9fe,stroke:#7c3aed,color:#3b0764,font-weight:bold
+  classDef bg     fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+  classDef ok     fill:#d1fae5,stroke:#059669,color:#064e3b
+  classDef warn   fill:#fef9c3,stroke:#d97706,color:#78350f
+  classDef err    fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+  classDef decide fill:#faf5ff,stroke:#7c3aed,color:#3b0764
+  classDef shared fill:#f1f5f9,stroke:#94a3b8,color:#334155
+  classDef fail   fill:#fdba74,stroke:#ea580c,color:#7c2d12,font-weight:bold
+
+  ROOT["POST /api/questions
+  source = 'AJRASAKHA'
+  auth: Firebase JWT Bearer token (FlexibleAuth)"]:::entry
+
+  AUTH{"auth header
+  present and valid?"}:::decide
+  A401["401 Unauthorized
+  (no header, or wrong internal API key
+  when a test simulates a bad token)"]:::err
+
+  CURUSER["@CurrentUser()
+  resolved from verified Firebase user
+  -> userId comes from THIS, not body.userId"]:::entry
+
+  PAYLOAD{"payload valid?"}:::decide
+  P400["400 - missing district field
+  (class-validator on QuestionDetailsDto)"]:::err
+  P500["empty question text
+  KNOWN BUG - returns 500 instead of 400
+  (same root cause as WhatsApp BUG-001)"]:::fail
+
+  SAVE["addQuestion()
+  status='pending', priority='high' (forced)
+  isAutoAllocate=false, userId=@CurrentUser()._id
+  question + bare submission inserted"]:::ok
+
+  ASYNC["setImmediate to
+  processQuestionInBackground()"]:::bg
+
+  ROOT --> AUTH
+  AUTH -- no --> A401
+  AUTH -- yes --> CURUSER --> PAYLOAD
+  PAYLOAD -- "missing district" --> P400
+  PAYLOAD -- "empty question" --> P500
+  PAYLOAD -- ok --> SAVE --> ASYNC
+
+  subgraph THREAD["Thread validation - same code as WhatsApp"]
+    T1{"threadId
+    empty?"}:::decide
+    T2["isTesting = true
+    status stays 'pending'
+    (THREAD_ID_MISSING)"]:::warn
+    T3["fetchWhatsAppMessage(threadId)
+    same shared AiService boundary as WhatsApp
+    (all retry/backoff edge cases: see
+    WhatsAppQuestion.e2e.md, not repeated here)"]:::shared
+    T1 -- yes --> T2
+    T1 -- no --> T3
+  end
+
+  subgraph DUP["Duplicate-check pipeline - runDuplicateCheckPipeline (shared code)"]
+    D1["searchGdb(embedding)"]:::shared
+    D2{"GDB result?"}:::decide
+    D3["exact_match -> status='duplicate'
+    isExact=true, referenceQuestionId recorded
+    (all GDB edge cases - $oid, invalid id, both-match -
+    already proven in WhatsAppQuestion.e2e.md)"]:::ok
+    D8["no GDB match"]:::shared
+
+    D9["checkPendingDuplicate(embedding)
+    added 2026-07-01 - Gate Keeper / Auditor workflow"]:::entry
+    D10{"pending-duplicate
+    result?"}:::decide
+    D11["FOUND: duplicate_question_id returned
+    -> status='queue_duplicate'
+    referenceQuestionId/referenceQuestion/similarityScore
+    recorded, isAutoAllocate=false
+    LLM NOT consulted
+    -> see GatekeeperAuditor.e2e.md"]:::ok
+    D13["checkPendingDuplicate throws
+    -> DEGRADATION: falls through to the LLM
+    exactly as before this feature existed"]:::warn
+
+    D14["checkConceptDuplicate (LLM)"]:::shared
+    D15{"LLM verdict?"}:::decide
+    D16["non-agri -> status='non_agri'"]:::ok
+    D17["agri -> status='open'
+    isAutoAllocate flipped TRUE"]:::ok
+    D18["LLM throws
+    -> DEGRADATION: still resolves to 'open'"]:::warn
+
+    D1 --> D2
+    D2 -- "exact_match" --> D3
+    D2 -- "no match" --> D8
+    D8 --> D9 --> D10
+    D10 -- FOUND --> D11
+    D10 -- "throws" --> D13 --> D14
+    D14 --> D15
+    D15 -- "non-agri" --> D16
+    D15 -- "agri" --> D17
+    D15 -- "throws" --> D18 --> D17
+  end
+
+  NOTIFY["notify moderators
+  type='question_from_ajrasakha'
+  (NOT 'question_from_whatsapp' - source-specific)
+  only reached by the 'open' path"]:::ok
+
+  ASYNC --> T1
+  T3 --> D1
+  T2 -.-> STOP["pending / isTesting
+  (no further processing)"]:::err
+  D17 --> NOTIFY
+```
+
+**Not covered here** (see `WhatsAppQuestion.e2e.md` instead, shared/grayed-out above):
+GDB invalid ObjectId, `{$oid}` format, both exact+selected match priority, thread
+API "not found"/unreachable/transient-retry cases. **Not covered by either suite**:
+expert allocation (`reallocateTimeBoundQuestions`, cron-driven, common path).
+
+---
+
 # Main Files
 
 ```text
@@ -153,7 +288,7 @@ The test rebinds `CORE_TYPES.AIService` to a vi.fn() double and `vi.mock`s
 
 ---
 
-# Test Cases (9 total)
+# Test Cases (11 total)
 
 ```text
 AUTH
@@ -169,6 +304,13 @@ HAPPY PATH
 DUPLICATE CHECK
   ✓  FOUND: GDB exact_match → status='duplicate', isExact=true, referenceQuestionId recorded
   ✓  NON-AGRI: LLM says non-agri → status='non_agri'
+
+QUEUE-DUPLICATE (GDB pending-duplicate queue) — added 2026-07-01
+  ✓  FOUND: checkPendingDuplicate returns duplicate_question_id → status='queue_duplicate',
+       referenceQuestionId/referenceQuestion/similarityScore recorded, isAutoAllocate=false.
+       LLM not consulted (Gate Keeper / Auditor workflow — see GatekeeperAuditor.e2e.md)
+  ✓  DEGRADATION: checkPendingDuplicate throws → falls through to the LLM → status='open',
+       exactly as before this feature existed
 
 INVALID PAYLOAD
   ✓  missing district field → 400 (class-validator on QuestionDetailsDto)
@@ -323,3 +465,9 @@ See `src/e2e/whatsapp/WhatsAppQuestion.e2e.md` BUG-001 for the full analysis.
 | 2 | Ajrasakha ingestion — question FOUND (GDB exact match → duplicate) > marks the question... | ✅ | — |
 | 3 | Ajrasakha ingestion — non-agricultural question (LLM filter) > marks the question as no... | ✅ | — |
 | 4 | Ajrasakha ingestion — LLM failure degrades gracefully to open > still opens the questio... | ✅ | — |
+
+## 2026-07-01 (11 total — added queue_duplicate coverage)
+
+**Result:** ✅ all 11 passed &nbsp;|&nbsp; **Duration:** ~23 s
+
+Both new queue_duplicate tests (FOUND + checkPendingDuplicate-throws degradation) passed cleanly.
