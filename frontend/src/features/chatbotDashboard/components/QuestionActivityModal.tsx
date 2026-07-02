@@ -10,6 +10,7 @@ import {
   History,
   Inbox,
   Mail,
+  MapPin,
   MessageSquare,
   MessageSquareText,
   User,
@@ -114,6 +115,7 @@ const formatDateTime = (value?: string) => {
 };
 
 function StatusBadge({ status }: { status: string }) {
+  const normalizedStatus = status.trim().toLowerCase().replace(/_/g, "-");
   const map: Record<
     string,
     { variant: "destructive" | "secondary" | "outline"; label: string }
@@ -121,7 +123,7 @@ function StatusBadge({ status }: { status: string }) {
     duplicate: { variant: "destructive", label: "Duplicate" },
     closed: { variant: "secondary", label: "Closed" },
   };
-  const cfg = map[status] ?? { variant: "outline", label: status };
+  const cfg = map[normalizedStatus] ?? { variant: "outline", label: status };
 
   return (
     <Badge
@@ -295,29 +297,75 @@ function QuestionDetailCard({ question }: { question: QuestionDetailItem }) {
   );
 }
 
+const getLocationPart = (value?: string) => {
+  const normalized = value?.trim();
+  return normalized && normalized.toLowerCase() !== "all" ? normalized : "";
+};
+
+const getQuestionLocationLabel = (question: QuestionDetailItem) => {
+  const parts = [
+    getLocationPart(question.state),
+    getLocationPart(question.district),
+    getLocationPart(question.block),
+    getLocationPart(question.village),
+  ].filter(Boolean);
+
+  return parts.length ? parts.join(" / ") : "Location not available";
+};
+
+const getLocationBreakdown = (questions: QuestionDetailItem[]) => {
+  const locationMap = new Map<
+    string,
+    { label: string; count: number; questions: QuestionDetailItem[] }
+  >();
+
+  questions.forEach((question) => {
+    const label = getQuestionLocationLabel(question);
+    const key = label.toLowerCase();
+    const current = locationMap.get(key);
+
+    if (current) {
+      current.count += 1;
+      current.questions.push(question);
+      return;
+    }
+
+    locationMap.set(key, { label, count: 1, questions: [question] });
+  });
+
+  return Array.from(locationMap.values()).sort((a, b) => {
+    if (b.count !== a.count) return b.count - a.count;
+    return a.label.localeCompare(b.label);
+  });
+};
+
+function DuplicateQuestionRow({ question }: { question: QuestionDetailItem }) {
+  return (
+    <div className="rounded-md border bg-muted/20 px-3 py-2.5">
+      <TranslatableText
+        text={question.question || "Question text not available"}
+        showTooltip
+        textClassName="text-xs font-medium leading-5 text-foreground"
+      />
+      <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        <Clock className="h-3 w-3 shrink-0" aria-hidden />
+        {formatDateTime(question.createdAt)}
+      </p>
+    </div>
+  );
+}
+
 function DuplicateGroupCard({ group }: { group: QuestionDuplicateGroup }) {
-  const hasReference = !group.key.startsWith("question-id:");
-  const totalAskedCount = group.questions.length + (hasReference ? 1 : 0);
-  const askedBy = Array.from(
-    new Set(
-      group.questions
-        .map((question) => question.askedBy || question.email || question.userId)
-        .filter(Boolean),
-    ),
-  ).join(", ");
+  const locationBreakdown = getLocationBreakdown(group.questions);
+  const totalDuplicateRecords = group.questions.length;
 
   return (
     <div className="rounded-md border bg-background p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-primary px-2.5 py-0.5 text-xs font-semibold text-primary-foreground">
-            Asked {totalAskedCount} time{totalAskedCount === 1 ? "" : "s"}
-          </span>
-          <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-foreground">
-            {group.questions.length} duplicate record detail
-            {group.questions.length === 1 ? "" : "s"}
-          </span>
-        </div>
+        <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+          {totalDuplicateRecords} total duplicate record
+          {totalDuplicateRecords === 1 ? "" : "s"}
+        </span>
         <span className="text-xs text-muted-foreground">Reference group</span>
       </div>
       <div className="mb-3">
@@ -328,9 +376,47 @@ function DuplicateGroupCard({ group }: { group: QuestionDuplicateGroup }) {
           {group.referenceQuestion}
         </p>
       </div>
-      <div className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
-        Asked by:{" "}
-        <span className="font-medium text-foreground">{askedBy || "N/A"}</span>
+      <div className="rounded-md bg-muted/40 p-3">
+        <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <MapPin className="h-3 w-3" />
+          Duplicate asker location
+        </div>
+        <div className="space-y-2">
+          {locationBreakdown.map((location) => (
+            <div
+              key={location.label}
+              className="rounded-md border bg-background px-3 py-2 text-xs"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-medium text-foreground">
+                  {location.label}
+                </span>
+                <span className="rounded-full bg-primary/10 px-2.5 py-0.5 font-semibold text-primary">
+                  {location.count} duplicate
+                  {location.count === 1 ? "" : "s"}
+                </span>
+              </div>
+              <Accordion type="single" collapsible className="mt-2">
+                <AccordionItem
+                  value="duplicate-questions"
+                  className="border-none"
+                >
+                  <AccordionTrigger className="rounded-md bg-muted/30 px-3 py-2 text-xs font-semibold hover:no-underline">
+                    Duplicate questions
+                  </AccordionTrigger>
+                  <AccordionContent className="space-y-2 pt-2">
+                    {location.questions.map((question, index) => (
+                      <DuplicateQuestionRow
+                        key={`${question.questionId}-${index}`}
+                        question={question}
+                      />
+                    ))}
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -364,7 +450,7 @@ export function QuestionActivityModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!max-w-6xl flex max-h-[90vh] w-[90vw] flex-col gap-0 overflow-hidden rounded-2xl p-0 [&>button]:hidden">
+      <DialogContent className="!max-w-6xl flex h-[90vh] max-h-[90vh] w-[90vw] flex-col gap-0 overflow-hidden rounded-2xl p-0 [&>button]:hidden">
         <div className="flex shrink-0 items-center justify-between border-b px-6 pb-4 pt-5">
           <div className="flex items-center justify-start gap-3">
             <DialogHeader className="p-0">
@@ -477,7 +563,7 @@ export function QuestionActivityModal({
           </div>
         )}
 
-        <ScrollArea className="min-h-0 flex-1">
+        <ScrollArea className="min-h-0 flex-1 overflow-y-auto">
           <div className="space-y-2.5 px-6 py-4">
             {isLoading ? (
               <LoadingState />
