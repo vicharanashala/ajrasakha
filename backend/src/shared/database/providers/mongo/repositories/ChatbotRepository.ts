@@ -8591,6 +8591,145 @@ for (const item of districtUsers) {
     }
   }
 
+  private buildDemographicFilter(category: string, value: string): Record<string, any> {
+    const isNotProvided = value.toLowerCase() === 'not provided';
+
+    const getNotProvidedFilter = (field: string) => ({
+      $or: [
+        { [field]: { $exists: false } },
+        { [field]: null },
+        { [field]: '' }
+      ]
+    });
+
+    switch (category) {
+      case 'age':
+        if (isNotProvided) return getNotProvidedFilter('farmerProfile.age');
+        if (value === 'Less than 16') return { 'farmerProfile.age': { $gte: 0, $lt: 16 } };
+        if (value === '16-30') return { 'farmerProfile.age': { $gte: 16, $lt: 30 } };
+        if (value === '30-45') return { 'farmerProfile.age': { $gte: 30, $lt: 45 } };
+        if (value === '45-60') return { 'farmerProfile.age': { $gte: 45, $lt: 60 } };
+        if (value === '60+') return { 'farmerProfile.age': { $gte: 60 } };
+        break;
+      
+      case 'gender':
+        if (isNotProvided) return getNotProvidedFilter('farmerProfile.gender');
+        return { 'farmerProfile.gender': { $regex: `^${value.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`, $options: 'i' } };
+
+      case 'experience':
+        if (isNotProvided) return getNotProvidedFilter('farmerProfile.yearsOfExperience');
+        if (value === 'Less than 2 yrs') return { 'farmerProfile.yearsOfExperience': { $gte: 0, $lt: 2 } };
+        if (value === '2 - 5 yrs') return { 'farmerProfile.yearsOfExperience': { $gte: 2, $lt: 5 } };
+        if (value === '5 - 10 yrs') return { 'farmerProfile.yearsOfExperience': { $gte: 5, $lt: 10 } };
+        if (value === '10 - 20 yrs') return { 'farmerProfile.yearsOfExperience': { $gte: 10, $lt: 20 } };
+        if (value === '20+ yrs') return { 'farmerProfile.yearsOfExperience': { $gte: 20 } };
+        break;
+
+      case 'landholding':
+        if (isNotProvided) return getNotProvidedFilter('farmerProfile.landhold');
+        if (value.startsWith('Small')) return { 'farmerProfile.landhold': { $gte: 0, $lt: 2 } };
+        if (value.startsWith('Medium')) return { 'farmerProfile.landhold': { $gte: 2, $lt: 10 } };
+        if (value.startsWith('Large')) return { 'farmerProfile.landhold': { $gte: 10 } };
+        break;
+    }
+    
+    return {};
+  }
+
+  async getUsersByDemographic(
+    category: string,
+    value: string,
+    source = 'annam',
+    userType = 'all',
+    page = 1,
+    limit = 10,
+    search = '',
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+    session?: ClientSession,
+  ): Promise<PaginatedUserDetails> {
+    try {
+      await this.init(source);
+
+      const userFilter: Record<string, any> = {
+        ...this.buildUserDocFilter(userType),
+      };
+
+      if (search && search.trim()) {
+        const escaped = search.trim().replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
+        const regex = { $regex: escaped, $options: 'i' };
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          { $or: [{ name: regex }, { username: regex }, { email: regex }] },
+        ];
+      }
+
+      const demographicFilter = this.buildDemographicFilter(category, value);
+      if (Object.keys(demographicFilter).length > 0) {
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          demographicFilter,
+        ];
+      }
+
+      const sortOptions: Record<string, 1 | -1> = {};
+      const sortDirection = sortOrder === 'asc' ? 1 : -1;
+      
+      switch (sortBy) {
+        case 'name':
+          sortOptions.name = sortDirection;
+          break;
+        case 'farmerName':
+          sortOptions['farmerProfile.farmerName'] = sortDirection;
+          break;
+        case 'email':
+          sortOptions.email = sortDirection;
+          break;
+        case 'createdAt':
+        default:
+          sortOptions.createdAt = sortDirection;
+          break;
+      }
+
+      const skip = (page - 1) * limit;
+
+      const [users, totalUsers] = await Promise.all([
+        this.users
+          .find(userFilter, { session })
+          .sort(sortOptions)
+          .skip(skip)
+          .limit(limit)
+          .toArray(),
+        this.users.countDocuments(userFilter, { session }),
+      ]);
+
+      const formattedUsers: UserDetailEntry[] = users.map(user => ({
+        userId: String(user._id),
+        name: user.name || user.firstName || '',
+        email: user.email || '',
+        role: user.role,
+        userRole: user.userRole,
+        totalQuestions: 0,
+        farmerProfile: user.farmerProfile,
+        createdAt: user.createdAt,
+        isVerified: user.isVerified,
+      }));
+
+      return {
+        users: formattedUsers,
+        totalUsers,
+        totalPages: Math.ceil(totalUsers / limit),
+        page,
+        limit,
+        activeUsers: 0,
+        inactiveUsers: 0,
+        totalQuestions: 0,
+      } as unknown as PaginatedUserDetails;
+    } catch (error) {
+      throw new InternalServerError(`Failed to get users by demographic: ${error}`);
+    }
+  }
+
   // async getKccAndAgriAppStats(source = 'annam', session?: ClientSession, userType = 'all'): Promise<KccAndAgriAppStats> {
   //   try {
   //     await this.init(source);

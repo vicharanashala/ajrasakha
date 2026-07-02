@@ -32,6 +32,7 @@ import {AUDIT_TRAILS_TYPES} from '#root/modules/auditTrails/types.js';
 import {IAuditTrailsService} from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import {
   DashboardQueryDto,
+  DemographicUsersQueryDto,
   QueryAnalyticsQueryDto,
   QueryCategoryQuestionsQueryDto,
   SourceQueryDto,
@@ -710,6 +711,28 @@ export class ChatbotController {
     statusCode: 500,
     description: 'Internal server error - Failed to fetch user details',
   })
+  @OpenAPI({
+    summary: 'Get users by demographic category',
+    description:
+      'Returns paginated users filtered by a demographic category and value such as age, gender, experience, or landholding.',
+  })
+  @Get('/users-by-demographic')
+  @HttpCode(200)
+  @Authorized()
+  async getUsersByDemographic(@QueryParams() query: DemographicUsersQueryDto) {
+    return this.chatbotService.getUsersByDemographic(
+      query.category,
+      query.value,
+      query.source,
+      query.userType,
+      query.page,
+      query.limit,
+      query.search,
+      query.sortBy,
+      query.sortOrder,
+    );
+  }
+
   @Get('/user-details')
   @HttpCode(200)
   @Authorized()

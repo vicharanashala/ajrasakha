@@ -360,6 +360,9 @@ export interface PaginatedUserDetails {
   users: UserDetailEntry[];
   totalUsers: number;
   totalPages: number;
+  currentPage?: number;
+  page?: number;
+  limit?: number;
   userRoleCounts?: {farmer: number, coordinator: number, internal: number}
   activeUsers?: number;
   inactiveUsers?: number;
@@ -735,6 +738,19 @@ export interface IChatbotRepository {
     session?: ClientSession,
     userType?: string,
   ): Promise<UserDemographics>;
+
+  getUsersByDemographic(
+    category: string,
+    value: string,
+    source?: string,
+    userType?: string,
+    page?: number,
+    limit?: number,
+    search?: string,
+    sortBy?: string,
+    sortOrder?: string,
+    session?: ClientSession,
+  ): Promise<PaginatedUserDetails>;
 
   /** Aggregate KCC policy awareness and agri app usage splits from farmerProfile. */
   getKccAndAgriAppStats(
