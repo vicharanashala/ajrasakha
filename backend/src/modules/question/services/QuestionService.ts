@@ -21,6 +21,7 @@ import {
   IAuthorsHistory,
   QuestionStatus,
   QuestionSource,
+  UserRole,
   TIME_BOUND_SOURCES,
   MANUAL_SOURCES,
 } from '#root/shared/interfaces/models.js';
@@ -1503,6 +1504,10 @@ export class QuestionService extends BaseService implements IQuestionService {
           contextId,
           details,
           isAutoAllocate: !(source === 'AJRASAKHA' || source === 'WHATSAPP'),
+          // New questions are eligible for gate-keeper / auditor auto-allocation by
+          // default; the cron only picks them up once they reach a matching status.
+          autoAllocateGateKeeper: true,
+          autoAllocateAuditor: true,
           embedding: textEmbedding,
           metrics: null,
           aiInitialAnswer,
@@ -2090,7 +2095,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           updates.details.normalised_crop = normalised_crop;
         }
       }
-      return this._withTransaction(async (session: ClientSession) => {
+      const result = await this._withTransaction(async (session: ClientSession) => {
         const existingQuestion = await this.questionRepo.getById(
           questionId,
           session,
@@ -2184,6 +2189,14 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
         return this.questionRepo.updateQuestion(questionId, updates, session);
       });
+
+      // After commit: if the status changed, free any gate keeper / auditor whose
+      // handling scope the question has now left (pass / push-to-auditor / close, etc.)
+      // so the role queue cron can hand them another question.
+      if (!threadUpdate && updates.status) {
+        await this.freeRoleAssigneeOnStatusChange(questionId, updates.status);
+      }
+      return result;
     } catch (error) {
       throw new InternalServerError(`Failed to update question: ${error}`);
     }
@@ -3837,6 +3850,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     question: IQuestion | null;
     approved_moderator: {name: string; email: string};
     assigned_moderator: {name: string; email: string} | null;
+    assigned_gate_keeper: {name: string; email: string} | null;
+    assigned_auditor: {name: string; email: string} | null;
     isAssignedModerator: boolean;
   }> {
     try {
@@ -3891,6 +3906,31 @@ export class QuestionService extends BaseService implements IQuestionService {
         }
       }
 
+      // Resolve the currently assigned gate keeper / auditor (role queue), same as
+      // the moderator resolution above.
+      let assigned_gate_keeper: {name: string; email: string} | null = null;
+      const assignedGateKeeperId = (question as any).gateKeeperId?.toString();
+      if (assignedGateKeeperId && ObjectId.isValid(assignedGateKeeperId)) {
+        const u = await this.userRepo.findById(assignedGateKeeperId);
+        if (u) {
+          assigned_gate_keeper = {
+            name: `${u.firstName} ${u.lastName ?? ''}`.trim(),
+            email: u.email,
+          };
+        }
+      }
+      let assigned_auditor: {name: string; email: string} | null = null;
+      const assignedAuditorId = (question as any).auditorId?.toString();
+      if (assignedAuditorId && ObjectId.isValid(assignedAuditorId)) {
+        const u = await this.userRepo.findById(assignedAuditorId);
+        if (u) {
+          assigned_auditor = {
+            name: `${u.firstName} ${u.lastName ?? ''}`.trim(),
+            email: u.email,
+          };
+        }
+      }
+
       // Whether the requesting user is the moderator this question is assigned to.
       // Used by the UI to gate the Pass / Accept / Push to GDB actions.
       const isAssignedModerator =
@@ -3912,6 +3952,8 @@ export class QuestionService extends BaseService implements IQuestionService {
         },
         approved_moderator,
         assigned_moderator,
+        assigned_gate_keeper,
+        assigned_auditor,
         isAssignedModerator,
       };
     } catch (error) {
@@ -3979,6 +4021,67 @@ export class QuestionService extends BaseService implements IQuestionService {
         previousModeratorId,
         questionId,
       );
+    }
+  }
+
+  /** Field mapping for the gate-keeper / auditor role assignee on a question. */
+  private roleAssigneeFields(role: 'gate_keeper' | 'auditor'): {
+    assigneeField: 'gateKeeperId' | 'auditorId';
+    assignedAtField: 'gateKeeperAssignedAt' | 'auditorAssignedAt';
+  } {
+    return role === 'gate_keeper'
+      ? {assigneeField: 'gateKeeperId', assignedAtField: 'gateKeeperAssignedAt'}
+      : {assigneeField: 'auditorId', assignedAtField: 'auditorAssignedAt'};
+  }
+
+  /** Manually (re)assign the gate keeper / auditor for a question — mirrors
+   *  changeQuestionModerator: pulls the question from the previous assignee's
+   *  assignedQuestionIds and appends it to the new assignee's. */
+  async changeQuestionRoleAssignee(
+    questionId: string,
+    role: 'gate_keeper' | 'auditor',
+    userId: string,
+  ): Promise<void> {
+    const {assigneeField, assignedAtField} = this.roleAssigneeFields(role);
+    const question = await this.questionRepo.getById(questionId);
+    const previousId = (question as any)?.[assigneeField]?.toString();
+
+    await this.questionRepo.setRoleAssignee(
+      questionId,
+      assigneeField,
+      assignedAtField,
+      userId,
+    );
+
+    if (previousId && ObjectId.isValid(previousId) && previousId !== userId) {
+      await this.userRepo.removeAssignedQuestion(previousId, questionId);
+    }
+    await this.userRepo.addAssignedQuestion(
+      userId,
+      questionId,
+      ((question as any)?.status ?? 'open') as QuestionStatus,
+      (question as any)?.source,
+    );
+  }
+
+  /** Remove the gate keeper / auditor currently assigned to a question. */
+  async removeQuestionRoleAssignee(
+    questionId: string,
+    role: 'gate_keeper' | 'auditor',
+  ): Promise<void> {
+    const {assigneeField, assignedAtField} = this.roleAssigneeFields(role);
+    const question = await this.questionRepo.getById(questionId);
+    const previousId = (question as any)?.[assigneeField]?.toString();
+
+    await this.questionRepo.setRoleAssignee(
+      questionId,
+      assigneeField,
+      assignedAtField,
+      null,
+    );
+
+    if (previousId && ObjectId.isValid(previousId)) {
+      await this.userRepo.removeAssignedQuestion(previousId, questionId);
     }
   }
 
@@ -6467,6 +6570,177 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
   }
 
+  // ─────────────────────────────────────────────────────────────────────────────
+  // GATE KEEPER / AUDITOR QUEUE CRON
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /** Statuses each role handles (drives both assignment and auto-freeing). */
+  private static readonly GATE_KEEPER_STATUSES: QuestionStatus[] = [
+    'dynamic',
+    'duplicate',
+    'queue_duplicate',
+  ];
+  private static readonly AUDITOR_STATUSES: QuestionStatus[] = ['auditor_review'];
+
+  /**
+   * Gate-keeper / auditor single-allocation cron. One question per user at a time:
+   *   - dynamic / duplicate / queue_duplicate  → a free gate keeper
+   *   - auditor_review                          → a free auditor
+   * The assignee is recorded on the question (gateKeeperId / auditorId) and on the
+   * user (assignedQuestionIds). They're freed when they act on the question — see
+   * freeRoleAssigneeOnStatusChange.
+   */
+  async runGateKeeperAuditorQueueCron(): Promise<{
+    gateKeeperAssigned: number;
+    auditorAssigned: number;
+  }> {
+    const gateKeeperAssigned = await this.assignRoleQueue({
+      label: 'GateKeeper',
+      role: 'gate_keeper',
+      statuses: QuestionService.GATE_KEEPER_STATUSES,
+      assigneeField: 'gateKeeperId',
+      assignedAtField: 'gateKeeperAssignedAt',
+      autoAllocateField: 'autoAllocateGateKeeper',
+      notificationTitle: 'Question Assigned',
+      notificationMessage: 'A question has been assigned to you for review',
+    });
+    const auditorAssigned = await this.assignRoleQueue({
+      label: 'Auditor',
+      role: 'auditor',
+      statuses: QuestionService.AUDITOR_STATUSES,
+      assigneeField: 'auditorId',
+      assignedAtField: 'auditorAssignedAt',
+      autoAllocateField: 'autoAllocateAuditor',
+      notificationTitle: 'Question Assigned',
+      notificationMessage: 'A question has been assigned to you for audit',
+    });
+    return { gateKeeperAssigned, auditorAssigned };
+  }
+
+  /** Assigns one unassigned question (in the given statuses) to each free user of a
+   *  role, updating both the question and the user's assigned list. Best-effort. */
+  private async assignRoleQueue(cfg: {
+    label: string;
+    role: UserRole;
+    statuses: QuestionStatus[];
+    assigneeField: 'gateKeeperId' | 'auditorId';
+    assignedAtField: 'gateKeeperAssignedAt' | 'auditorAssignedAt';
+    autoAllocateField: 'autoAllocateGateKeeper' | 'autoAllocateAuditor';
+    notificationTitle: string;
+    notificationMessage: string;
+  }): Promise<number> {
+    try {
+      const [users, questions] = await Promise.all([
+        this.userRepo.findAvailableUsersByRole(cfg.role),
+        this.questionRepo.findUnassignedQuestionsForRole(
+          cfg.statuses,
+          cfg.assigneeField,
+          cfg.autoAllocateField,
+        ),
+      ]);
+      if (!users.length || !questions.length) return 0;
+
+      let assigned = 0;
+      const claimed = new Set<string>();
+      for (const user of users) {
+        const userId = user._id!.toString();
+        const next = questions.find(q => !claimed.has(q._id!.toString()));
+        if (!next) break; // no more questions this run
+        const questionId = next._id!.toString();
+        claimed.add(questionId);
+        try {
+          await Promise.all([
+            this.questionRepo.setRoleAssignee(
+              questionId,
+              cfg.assigneeField,
+              cfg.assignedAtField,
+              userId,
+            ),
+            this.userRepo.addAssignedQuestion(
+              userId,
+              questionId,
+              next.status,
+              next.source,
+            ),
+            this.notificationService.saveTheNotifications(
+              cfg.notificationMessage,
+              cfg.notificationTitle,
+              questionId,
+              userId,
+              'moderator_approval',
+            ),
+          ]);
+          console.log(
+            `[${cfg.label}] Assigned question ${questionId} → ${cfg.role} ${userId}`,
+          );
+          assigned++;
+        } catch (err: any) {
+          claimed.delete(questionId);
+          console.error(
+            `[${cfg.label}] Failed to assign ${questionId} → ${userId}:`,
+            err?.message,
+          );
+        }
+      }
+      console.log(`[${cfg.label}] Done. assigned=${assigned}`);
+      return assigned;
+    } catch (error: any) {
+      console.error(`[${cfg.label}] queue cron failed:`, error?.message);
+      return 0;
+    }
+  }
+
+  /**
+   * Free the gate keeper / auditor assigned to a question once its status moves out
+   * of that role's handling statuses (i.e. they've acted on it — pass / allocate
+   * experts / push to auditor for a gate keeper; push to GDB / notify user for an
+   * auditor). Clears the assignee field on the question and removes it from the
+   * user's assigned list so the cron can hand them another. Best-effort; never throws.
+   */
+  async freeRoleAssigneeOnStatusChange(
+    questionId: string,
+    newStatus?: QuestionStatus,
+  ): Promise<void> {
+    try {
+      const question = await this.questionRepo.getById(questionId);
+      if (!question) return;
+      // Fall back to the question's current (already-committed) status when the caller
+      // doesn't pass one — e.g. after an answer approval/close.
+      const status = newStatus ?? question.status;
+
+      const gkId = (question as any).gateKeeperId?.toString();
+      if (gkId && !QuestionService.GATE_KEEPER_STATUSES.includes(status)) {
+        await Promise.all([
+          this.userRepo.removeAssignedQuestion(gkId, questionId),
+          this.questionRepo.setRoleAssignee(
+            questionId,
+            'gateKeeperId',
+            'gateKeeperAssignedAt',
+            null,
+          ),
+        ]);
+      }
+
+      const audId = (question as any).auditorId?.toString();
+      if (audId && !QuestionService.AUDITOR_STATUSES.includes(status)) {
+        await Promise.all([
+          this.userRepo.removeAssignedQuestion(audId, questionId),
+          this.questionRepo.setRoleAssignee(
+            questionId,
+            'auditorId',
+            'auditorAssignedAt',
+            null,
+          ),
+        ]);
+      }
+    } catch (err: any) {
+      console.error(
+        `[RoleAssignee] Failed to free assignee for ${questionId}:`,
+        err?.message,
+      );
+    }
+  }
+
   /** Periodic job — handles three cases for time-bound (AJRASAKHA/WHATSAPP) questions:
    *  A) Expert allocated but didn't open in 45 min → penalise + replace.
    *  B) Question never allocated → initial assignment.
@@ -7525,6 +7799,74 @@ export class QuestionService extends BaseService implements IQuestionService {
         return {count: mods.length, items};
       }
 
+      // ── Gate keeper / auditor role queues (mirror the moderator queue sections) ──
+      case 'gateKeeperWaiting':
+      case 'auditorWaiting': {
+        const isGK = section === 'gateKeeperWaiting';
+        const qs = await this.questionRepo.findUnassignedQuestionsForRole(
+          isGK
+            ? QuestionService.GATE_KEEPER_STATUSES
+            : QuestionService.AUDITOR_STATUSES,
+          isGK ? 'gateKeeperId' : 'auditorId',
+          isGK ? 'autoAllocateGateKeeper' : 'autoAllocateAuditor',
+        );
+        const count = qs.length;
+        const pageQs = qs.slice(skip, skip + safeLimit);
+        return {
+          count,
+          items: pageQs.map(q => this.submissionToQueueItem({question: q})),
+        };
+      }
+
+      case 'gateKeeperAllocated':
+      case 'auditorAllocated': {
+        const isGK = section === 'gateKeeperAllocated';
+        const assigneeField = isGK ? 'gateKeeperId' : 'auditorId';
+        const qs = await this.questionRepo.findQuestionsAssignedToRole(
+          assigneeField,
+          isGK
+            ? QuestionService.GATE_KEEPER_STATUSES
+            : QuestionService.AUDITOR_STATUSES,
+        );
+        const count = qs.length;
+        const pageQs = qs.slice(skip, skip + safeLimit);
+        const ids = pageQs
+          .map(q => (q as any)[assigneeField]?.toString())
+          .filter(Boolean) as string[];
+        const names = await this.resolveExpertNames(ids);
+        const items: QueueQuestionItem[] = pageQs.map(q => {
+          const id = (q as any)[assigneeField]?.toString();
+          return {
+            ...this.submissionToQueueItem({question: q}),
+            assigneeName: id ? (names.get(id) ?? 'Unknown') : undefined,
+          };
+        });
+        return {count, items};
+      }
+
+      case 'availableGateKeepers':
+      case 'availableAuditors': {
+        const role =
+          section === 'availableGateKeepers' ? 'gate_keeper' : 'auditor';
+        const users = (await this.userRepo.findAvailableUsersByRole(
+          role,
+        )) as any[];
+        const items: QueueExpertItem[] = users
+          .slice(skip, skip + safeLimit)
+          .map(u => ({
+            _id: u._id.toString(),
+            name:
+              `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() ||
+              u.email ||
+              'Unknown',
+            email: u.email,
+            reputationScore: u.reputation_score,
+            role: u.role,
+            isSpecialTaskForce: u.special_task_force === true,
+          }));
+        return {count: users.length, items};
+      }
+
       default:
         return {count: 0, items: []};
     }
@@ -7583,6 +7925,12 @@ export class QuestionService extends BaseService implements IQuestionService {
       moderatorAllocatedManual,
       availableModeratorsTimeBound,
       availableModeratorsManual,
+      gateKeeperWaiting,
+      gateKeeperAllocated,
+      availableGateKeepers,
+      auditorWaiting,
+      auditorAllocated,
+      availableAuditors,
       receivedStatusCounts,
     ] = await Promise.all([
       safe('received'),
@@ -7605,6 +7953,12 @@ export class QuestionService extends BaseService implements IQuestionService {
       safe('moderatorAllocatedManual'),
       safe('availableModeratorsTimeBound'),
       safe('availableModeratorsManual'),
+      safe('gateKeeperWaiting'),
+      safe('gateKeeperAllocated'),
+      safe('availableGateKeepers'),
+      safe('auditorWaiting'),
+      safe('auditorAllocated'),
+      safe('availableAuditors'),
       // Separate aggregation — not a paginatable section, so call directly
       this.questionRepo
         .getReceivedStatusCounts(startTime, endTime)
@@ -7652,6 +8006,19 @@ export class QuestionService extends BaseService implements IQuestionService {
         availableModeratorsTimeBound as QueueDetailsResponse['availableModeratorsTimeBound'],
       availableModeratorsManual:
         availableModeratorsManual as QueueDetailsResponse['availableModeratorsManual'],
+
+      // ── Gate keeper / auditor role queues ──
+      gateKeeperWaiting:
+        gateKeeperWaiting as QueueDetailsResponse['gateKeeperWaiting'],
+      gateKeeperAllocated:
+        gateKeeperAllocated as QueueDetailsResponse['gateKeeperAllocated'],
+      availableGateKeepers:
+        availableGateKeepers as QueueDetailsResponse['availableGateKeepers'],
+      auditorWaiting: auditorWaiting as QueueDetailsResponse['auditorWaiting'],
+      auditorAllocated:
+        auditorAllocated as QueueDetailsResponse['auditorAllocated'],
+      availableAuditors:
+        availableAuditors as QueueDetailsResponse['availableAuditors'],
     };
   }
 }

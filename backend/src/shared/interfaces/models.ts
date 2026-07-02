@@ -144,6 +144,24 @@ export interface IQuestion {
   moderatorId?: ObjectId | string | null;
   /** Timestamp when a moderator was assigned. Used to calculate moderator handling time (closedAt - moderatorAssignedAt). */
   moderatorAssignedAt?: Date | null;
+  /** Whether this question is eligible to be auto-allocated to a gate keeper by the
+   *  gate-keeper/auditor queue cron. New questions default to true. Gate keepers
+   *  handle dynamic / duplicate / queue_duplicate questions, one at a time. */
+  autoAllocateGateKeeper?: boolean;
+  /** Gate keeper currently assigned to this question (set by the cron; cleared when
+   *  the gate keeper acts — pass / allocate experts / push to auditor). */
+  gateKeeperId?: ObjectId | string | null;
+  /** Timestamp when a gate keeper was assigned. */
+  gateKeeperAssignedAt?: Date | null;
+  /** Whether this question is eligible to be auto-allocated to an auditor by the
+   *  gate-keeper/auditor queue cron. New questions default to true. Auditors handle
+   *  auditor_review questions, one at a time. */
+  autoAllocateAuditor?: boolean;
+  /** Auditor currently assigned to this question (set by the cron; cleared when the
+   *  auditor acts — push to GDB / notify user). */
+  auditorId?: ObjectId | string | null;
+  /** Timestamp when an auditor was assigned. */
+  auditorAssignedAt?: Date | null;
   referenceQuestionDetails?: Array<{
     _id: ObjectId | string;
     duplicate: boolean;

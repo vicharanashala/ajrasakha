@@ -566,4 +566,21 @@ export interface IQuestionRepository {
   findUnassignedInReviewQuestions(sources?: QuestionSource[]): Promise<IQuestion[]>
   findModeratorAssignedQuestions(sources?: QuestionSource[]): Promise<IQuestion[]>
   updateModeratorId(questionId: string, moderatorId: string | null): Promise<void>
+
+  /** Gate-keeper / auditor role allocation helpers. */
+  findUnassignedQuestionsForRole(
+    statuses: QuestionStatus[],
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    autoAllocateField: 'autoAllocateGateKeeper' | 'autoAllocateAuditor',
+  ): Promise<IQuestion[]>;
+  findQuestionsAssignedToRole(
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    statuses: QuestionStatus[],
+  ): Promise<IQuestion[]>;
+  setRoleAssignee(
+    questionId: string,
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    assignedAtField: 'gateKeeperAssignedAt' | 'auditorAssignedAt',
+    assigneeId: string | null,
+  ): Promise<void>;
 }

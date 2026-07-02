@@ -1752,7 +1752,7 @@ export class AnswerService extends BaseService implements IAnswerService {
     userId: string,
     updates: UpdateAnswerBody,
   ): Promise<{ modifiedCount: number } | { insertedId: string }> {
-    return this._withTransaction(async (session: ClientSession) => {
+    const approveResult = await this._withTransaction(async (session: ClientSession) => {
       let questionId = updates.questionId;
       if (!questionId && updates.answerId) {
         const answer = await this.answerRepo.getById(updates.answerId, session);
@@ -2139,6 +2139,13 @@ answer: ${updates.answer}`;
 
       return result;
     });
+
+    // After commit: the question is now closed — free the auditor (and any gate
+    // keeper) assigned to it so the role queue cron can give them another.
+    if (updates.questionId) {
+      await this.questionService.freeRoleAssigneeOnStatusChange(updates.questionId);
+    }
+    return approveResult;
   }
 
   /**
@@ -2220,7 +2227,7 @@ answer: ${updates.answer}`;
     userId: string,
     updates: UpdateAnswerBody,
   ): Promise<{ modifiedCount: number }> {
-    return this._withTransaction(async (session: ClientSession) => {
+    const llmResult = await this._withTransaction(async (session: ClientSession) => {
       const isAjrasakha = updates.source === 'AJRASAKHA';
       const isWhatsApp = updates.source === 'WHATSAPP';
 
@@ -2400,6 +2407,13 @@ answer: ${updates.answer}`;
 
       return { modifiedCount: 1 };
     });
+
+    // "Allocate Experts" moved the question to `open` — free the gate keeper who was
+    // assigned to it so the role queue cron can hand them another.
+    if (updates.questionId) {
+      await this.questionService.freeRoleAssigneeOnStatusChange(updates.questionId);
+    }
+    return llmResult;
   }
 
   async deleteAnswer(

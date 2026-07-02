@@ -73,7 +73,7 @@ import {
 import ViewDropdown from "../questions/components/ViewDropdown";
 import DownloadLevelWiseReportButton from "./DownloadLevelWiseReportButton";
 import { CropManagementModal } from "./CropManagementModal";
-import { QueueDetailsModal } from "./QueueDetailsModal";
+import { QueueDetailsModal, GateKeeperAuditorQueueModal } from "./QueueDetailsModal";
 import { ChemicalManagementModal } from "./ChemicalManagementModal";
 import { CropService } from "@/hooks/services/cropService";
 import { AnswerModeSwitcher } from "./AnswerModeSwitcher";
@@ -1188,6 +1188,11 @@ export const QuestionsFilters = ({
               {/* queue details — moderators & admins only */}
               {(userRole === "admin" || userRole === "moderator") && (
                 <QueueDetailsModal setIsSidebarOpen={setIsSidebarOpen} />
+              )}
+
+              {/* gate keeper / auditor queue — moderators & admins only */}
+              {(userRole === "admin" || userRole === "moderator") && (
+                <GateKeeperAuditorQueueModal setIsSidebarOpen={setIsSidebarOpen} />
               )}
             </div>
           </section>

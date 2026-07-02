@@ -516,6 +516,15 @@ export interface IQuestionFullData {
   moderatorId?: string | null;
   /** Moderator currently assigned to review this question (set by the moderator-queue cron). */
   assigned_moderator?: { name: string; email: string } | null;
+  /** Gate keeper / auditor currently assigned to this question (role-queue cron). */
+  assigned_gate_keeper?: { name: string; email: string } | null;
+  assigned_auditor?: { name: string; email: string } | null;
+  gateKeeperId?: string | null;
+  auditorId?: string | null;
+  gateKeeperAssignedAt?: string | null;
+  auditorAssignedAt?: string | null;
+  autoAllocateGateKeeper?: boolean;
+  autoAllocateAuditor?: boolean;
   /** True when the requesting user is the moderator this question is assigned to. Gates the Pass / Accept / Push to GDB actions. */
   isAssignedModerator?: boolean;
   /** Set when a Gate Keeper pushes to the Auditor (status → 'auditor_review'); records
@@ -1021,6 +1030,12 @@ enum AuditAction {
   DELETE_EXPERT = 'DELETE_EXPERT',
   SELECT_MODERATOR = 'SELECT_MODERATOR',
   DELETE_MODERATOR = 'DELETE_MODERATOR',
+  SELECT_GATE_KEEPER = 'SELECT_GATE_KEEPER',
+  DELETE_GATE_KEEPER = 'DELETE_GATE_KEEPER',
+  SELECT_AUDITOR = 'SELECT_AUDITOR',
+  DELETE_AUDITOR = 'DELETE_AUDITOR',
+  TOGGLE_GATE_KEEPER_ALLOCATION = 'TOGGLE_GATE_KEEPER_ALLOCATION',
+  TOGGLE_AUDITOR_ALLOCATION = 'TOGGLE_AUDITOR_ALLOCATION',
   EXPERTS_ADD_COMMENT = 'EXPERTS_ADD_COMMENT',
 
   //EXPERTS_MANAGEMENT

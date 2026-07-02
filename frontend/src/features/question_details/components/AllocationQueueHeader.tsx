@@ -138,14 +138,15 @@ export const AllocationQueueHeader = ({
     setIsModalOpen(false);
   };
 
-  // Interactive allocation controls (auto-allocate toggle + Select Experts) are only for
-  // moderators/admins on non-triage questions. For everyone else (gate keeper / auditor,
-  // and dynamic / duplicate / auditor-review questions) we just show a read-only field
-  // indicating whether auto-allocation is on or off.
-  const showAllocationControls =
+  // The auto-allocate toggle is shown to moderators/admins regardless of status (so
+  // they can turn allocation on/off ahead of time). The "Select Experts" action only
+  // shows when the question is actually in a normal expert-answering status — never for
+  // triage statuses (dynamic / duplicate / queue_duplicate / auditor_review / non_agri).
+  const canManageAllocation =
     currentUser.role !== "expert" &&
     currentUser.role !== "gate_keeper" &&
-    currentUser.role !== "auditor" &&
+    currentUser.role !== "auditor";
+  const isExpertStatus =
     question.status !== "non_agri" &&
     question.status !== "queue_duplicate" &&
     question.status !== "auditor_review" &&
@@ -177,7 +178,7 @@ export const AllocationQueueHeader = ({
             questions are unaffected.
             Queue-duplicate questions: NO auto-allocate / Select Experts until the
             status is changed away from 'queue_duplicate'. */}
-        {showAllocationControls ? (
+        {canManageAllocation ? (
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full md:w-auto">
             {/* Auto-Allocate Block */}
             <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
@@ -216,8 +217,9 @@ export const AllocationQueueHeader = ({
               </TooltipProvider>
             </div>
 
-            {/* Select Experts Button */}
-            {!autoAllocate && (
+            {/* Select Experts Button — only when auto-allocate is OFF and the question
+                is in a normal expert-answering status (not a triage status). */}
+            {!autoAllocate && isExpertStatus && (
               <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                 {/* <DialogTrigger asChild> */}
                 <Button variant="default" className="gap-2 w-full sm:w-auto"

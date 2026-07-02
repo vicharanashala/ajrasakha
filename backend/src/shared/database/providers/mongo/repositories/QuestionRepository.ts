@@ -7306,6 +7306,63 @@ export class QuestionRepository implements IQuestionRepository {
       },
     );
   }
+
+  /** Unassigned questions in the given statuses eligible for role auto-allocation
+   *  (gate keeper / auditor). Returns oldest-first questions whose assignee field is
+   *  null/missing and whose autoAllocate flag is not explicitly false. */
+  async findUnassignedQuestionsForRole(
+    statuses: QuestionStatus[],
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    autoAllocateField: 'autoAllocateGateKeeper' | 'autoAllocateAuditor',
+  ): Promise<IQuestion[]> {
+    await this.init();
+    const filter: Record<string, unknown> = {
+      status: { $in: statuses },
+      [assigneeField]: { $in: [null, undefined] },
+      // Eligible unless the flag is explicitly false (default is true / missing).
+      [autoAllocateField]: { $ne: false },
+      isOnHold: { $ne: true },
+    };
+    return this.QuestionCollection.find(filter as any)
+      .sort({ createdAt: 1 })
+      .toArray();
+  }
+
+  /** Questions currently assigned to a given role assignee (gateKeeperId / auditorId),
+   *  restricted to the statuses that role handles. Used to compute per-user busy state. */
+  async findQuestionsAssignedToRole(
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    statuses: QuestionStatus[],
+  ): Promise<IQuestion[]> {
+    await this.init();
+    return this.QuestionCollection.find({
+      [assigneeField]: { $ne: null, $exists: true },
+      status: { $in: statuses },
+    } as any)
+      .toArray();
+  }
+
+  /** Sets or clears a role assignee (gateKeeperId / auditorId) and its assignedAt
+   *  timestamp on a question. */
+  async setRoleAssignee(
+    questionId: string,
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    assignedAtField: 'gateKeeperAssignedAt' | 'auditorAssignedAt',
+    assigneeId: string | null,
+  ): Promise<void> {
+    await this.init();
+    const now = new Date();
+    await this.QuestionCollection.updateOne(
+      { _id: new ObjectId(questionId) },
+      {
+        $set: {
+          [assigneeField]: assigneeId ? new ObjectId(assigneeId) : null,
+          [assignedAtField]: assigneeId ? now : null,
+          updatedAt: now,
+        },
+      },
+    );
+  }
   /** One page (skip/limit) + exact total for a Queue-Details question section.
    *  kind: 'received' | 'allocated' | 'autoOff'. Status scope: open/delayed/duplicate.
    *  Optional createdAt range (startTime/endTime) scopes every kind by date. */

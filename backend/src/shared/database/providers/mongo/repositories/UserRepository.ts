@@ -1,6 +1,7 @@
 import { IUserRepository } from '#shared/database/interfaces/IUserRepository.js';
 import {
   IUser,
+  UserRole,
   NotificationRetentionType,
   IAnswer,
   ICropRef,
@@ -908,6 +909,25 @@ export class UserRepository implements IUserRepository {
       { special_task_force: true },
       sources,
     );
+  }
+
+  /** Users of a given role who can take a new question — not blocked and currently
+   *  holding no assigned question (one question at a time). Used by the gate-keeper /
+   *  auditor queue cron to find a free assignee. */
+  async findAvailableUsersByRole(role: UserRole): Promise<IUser[]> {
+    await this.init();
+    return this.usersCollection
+      .find({
+        role,
+        isBlocked: { $ne: true },
+        // Empty / missing assigned-questions array = free.
+        $or: [
+          { assignedQuestionIds: { $exists: false } },
+          { assignedQuestionIds: null },
+          { assignedQuestionIds: { $size: 0 } },
+        ],
+      })
+      .toArray();
   }
 
   /** Appends a question (with its current status) to a moderator's assigned-questions

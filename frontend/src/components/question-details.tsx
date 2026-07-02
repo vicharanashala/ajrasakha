@@ -25,6 +25,7 @@ import { AnswerTimeline } from "@/features/question_details/components/AnswerTim
 import { RerouteTimeline } from "@/features/question_details/components/RerouteTimeline";
 import { AllocationTimeline } from "@/features/question_details/components/AllocationTimeline";
 import { ModeratorQueue } from "@/features/question_details/components/ModeratorQueue";
+import { RoleAssigneeQueue } from "@/features/question_details/components/RoleAssigneeQueue";
 import { flattenAnswers } from "@/features/question_details/utils/flattenAnswers";
 import { QuestionHeader } from "@/features/question_details/components/QuestionHeader";
 import { QuestionDetailsCard } from "@/features/question_details/components/QuestionDetailsCard";
@@ -268,14 +269,45 @@ export const QuestionDetails = ({
               />
             )}
 
-          {/* {currentUser.role !== "expert" && ( */}
+          {/* Queue order: Gate Keeper → Auditor → Expert → Moderator → Re-route */}
+
+          {/* 1. Gate keeper / auditor role queues — same layout as the Moderator Queue */}
+          {currentUser.role !== "expert" &&
+            (question.assigned_gate_keeper ||
+              ["dynamic", "duplicate", "queue_duplicate", "auditor_review"].includes(
+                question.status,
+              )) && (
+              <RoleAssigneeQueue
+                title="Gate Keeper Queue"
+                noun="gate keeper"
+                role="gate_keeper"
+                question={question}
+                currentUser={currentUser}
+              />
+            )}
+          {currentUser.role !== "expert" &&
+            (question.assigned_auditor || question.status === "auditor_review") && (
+              <RoleAssigneeQueue
+                title="Auditor Queue"
+                noun="auditor"
+                role="auditor"
+                question={question}
+                currentUser={currentUser}
+              />
+            )}
+
+          {/* 2. Expert allocation queue */}
           <AllocationTimeline
             history={question.submission.history}
             queue={question.submission.queue}
             currentUser={currentUser}
             question={question}
           />
+
+          {/* 3. Moderator queue */}
           <ModeratorQueue question={question} currentUser={currentUser} />
+
+          {/* 4. Re-route queue */}
           {reroutequestionDetails && reroutequestionDetails.length >= 1 && (
             <RerouteTimeline
               currentUser={currentUser}
