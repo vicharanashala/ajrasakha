@@ -75,7 +75,7 @@ class PendingQuestionCandidate(BaseModel):
 
 
 PENDING_DUPLICATE_SOURCES = ("AJRASAKHA", "WHATSAPP")
-PENDING_DUPLICATE_STATUSES = ("open", "delayed")
+PENDING_DUPLICATE_STATUSES = ("open", "delayed", "in-review")
 PENDING_VECTOR_TOP_K = 3
 
 
