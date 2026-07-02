@@ -175,10 +175,29 @@ export class GetQuestionsAnalyticsQuery {
   @IsEnum(['question', 'answer'])
   type!: 'question' | 'answer';
 
-  @JSONSchema({example: 'open', description: 'Filter by question status'})
+  @JSONSchema({example: ['open', 'in-review'], description: 'Filter by question status (multi-select)'})
   @IsOptional()
-  @IsString()
-  status?: string;
+  @IsArray()
+  @IsString({each: true})
+  status?: string[];
+
+  @JSONSchema({example: ['Maharashtra', 'Gujarat'], description: 'Filter by state (multi-select)'})
+  @IsOptional()
+  @IsArray()
+  @IsString({each: true})
+  state?: string[];
+
+  @JSONSchema({example: ['WHATSAPP', 'AJRASAKHA'], description: 'Filter by question source (multi-select)'})
+  @IsOptional()
+  @IsArray()
+  @IsString({each: true})
+  source?: string[];
+
+  @JSONSchema({example: ['Paddy', 'Wheat'], description: 'Filter by crop (multi-select)'})
+  @IsOptional()
+  @IsArray()
+  @IsString({each: true})
+  crop?: string[];
 }
 
 export class UserRoleOverview {
@@ -352,6 +371,28 @@ export class AnalyticsItem {
   otherItems?: { name: string; count: number }[];
 }
 
+export class AnalyticsTableRow {
+  state?: string;
+  crop?: string;
+  source?: string;
+  open!: number;
+  closed!: number;
+  inReview!: number;
+  delayed!: number;
+  reRouted!: number;
+  hold!: number;
+  paeSubmitted!: number;
+  draft!: number;
+  duplicate!: number;
+  total!: number;
+  /** Date of the most recently created question in this group */
+  lastPushedDate?: Date;
+  /** Date of the most recently closed question in this group */
+  lastClosedDate?: Date;
+  /** Percentage of questions that are closed: (closed / total) * 100 */
+  completionPct!: number;
+}
+
 export class Analytics {
   @JSONSchema({description: 'Crop wise analytics'})
   @IsArray()
@@ -364,6 +405,10 @@ export class Analytics {
   @JSONSchema({description: 'Domain wise analytics'})
   @IsArray()
   domainData!: AnalyticsItem[];
+
+  @JSONSchema({description: 'Tabular breakdown by state, crop, source with status counts'})
+  @IsArray()
+  tableData!: AnalyticsTableRow[];
 }
 
 export class DashboardResponse {

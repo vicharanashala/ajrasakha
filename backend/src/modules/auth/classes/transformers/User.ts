@@ -2,7 +2,7 @@ import {
   ObjectIdToString,
   StringToObjectId,
 } from '#shared/constants/transformerConstants.js';
-import {IPreference, IUser, NotificationRetentionType} from '#shared/interfaces/models.js';
+import {IPreference, IUser, NotificationRetentionType, UserRole} from '#shared/interfaces/models.js';
 import {Expose, Transform} from 'class-transformer';
 import {ObjectId} from 'mongodb';
 
@@ -37,13 +37,16 @@ class User implements IUser {
   updatedAt?: Date;
 
   @Expose()
-  role: 'admin' | 'moderator' | 'expert' | 'pae_expert';
+  role: UserRole;
 
   @Expose()
   status: 'active' | 'in-active' ;
 
   @Expose()
   isBlocked: boolean ;
+
+  @Expose()
+  lastCheckInAt?: Date;
 
   @Expose()
   notificationRetention?: NotificationRetentionType;
@@ -54,8 +57,11 @@ class User implements IUser {
   @Expose()
   university?: string;
 
-  
+  @Expose()
   isVerified: boolean;
+
+  @Expose()
+  isCallAgentActive?: boolean;
 
   constructor(data: Partial<IUser>) {
     this._id = data?._id ? new ObjectId(data?._id) : null;
@@ -64,8 +70,12 @@ class User implements IUser {
     this.firstName = data?.firstName;
     this.lastName = data?.lastName;
     this.role = data?.role || 'expert';
-    this.status =  'active';
-    this.isBlocked=false;
+    // Preserve the real persisted values; only fall back to defaults when the
+    // field is genuinely absent (e.g. brand-new user). Hardcoding these caused
+    // /me to always report status='active' and isBlocked=false.
+    this.status = data?.status ?? 'active';
+    this.isBlocked = data?.isBlocked ?? false;
+    this.lastCheckInAt = data?.lastCheckInAt;
     this.isVerified = data?.isVerified ?? false;
     this.preference = {
       crop: data?.preference?.crop || 'all',
@@ -76,8 +86,9 @@ class User implements IUser {
     this.notificationRetention=data.notificationRetention;
     this.createdAt = data?.createdAt || new Date();
     this.updatedAt = data?.updatedAt || new Date();
-    this.mobile = data?.mobile || ''; 
+    this.mobile = data?.mobile || '';
     this.university = data?.university || '';
+    this.isCallAgentActive = data?.isCallAgentActive;
   }
 }
 

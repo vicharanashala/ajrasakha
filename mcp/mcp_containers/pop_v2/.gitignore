@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.py[cod]
+.env
+*.egg-info/
+data/pop_metadata_cache.json

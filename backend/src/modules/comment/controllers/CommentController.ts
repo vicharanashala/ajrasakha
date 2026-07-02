@@ -10,9 +10,11 @@ import {
   CurrentUser,
   InternalServerError,
   BadRequestError,
+  ForbiddenError,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {IComment, IUser} from '#root/shared/index.js';
+import { verifyNotTester } from '#root/shared/functions/verifyNotTester.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject} from 'inversify';
 import { CommentService } from '../services/CommentService.js';
@@ -115,6 +117,7 @@ export class CommentController {
     @Body() body: AddCommentBody,
     @CurrentUser() user: IUser,
   ): Promise<boolean> {
+    verifyNotTester(user);
     const {answerId, questionId} = params;
     const {text} = body;
     const userId = user._id.toString();

@@ -12,8 +12,6 @@ export class AuditTrailsService
   extends BaseService
   implements IAuditTrailsService
 {
-  private readonly env: string;
-
   constructor(
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsRepository)
     private readonly auditTrailsRepository: IAuditTrailsRepository,
@@ -22,18 +20,11 @@ export class AuditTrailsService
     private readonly mongoDatabase: MongoDatabase,
   ) {
     super(mongoDatabase);
-
-    this.env = process.env.NODE_ENV || 'development';
   }
   async createAuditTrail(paload: ModeratorAuditTrail): Promise<string> {
-    if(this.env !== 'production') {
-      return;
-    }
-    // Implement the logic to create an audit trail
-
     return await this.auditTrailsRepository.createAuditTrail(
       this.normalizeAuditToObjectId(paload),
-    )
+    );
   }
 
   async getAuditTrails(
@@ -221,6 +212,43 @@ export class AuditTrailsService
     return {
       data: auditTrails.data.map(audit => this.normalizeAudit(audit)),
       totalDocuments: auditTrails.totalDocuments,
+    };
+  }
+
+  async getShiftBasedAuditActionCounts(
+    startDate: string,
+    // endDate: string,
+    shift: string,
+    from: string,
+    to: string,
+  ): Promise<any> {
+    // Implement the logic to get shift based audit action counts
+    return this.auditTrailsRepository.getShiftBasedAuditActionCounts(
+      startDate,
+      // endDate,
+      shift,
+      from,
+      to
+    );
+  }
+
+  async getAuditTrailsByQuestionId(
+    questionId: string,
+    page?: number,
+    limit?: number,
+    action?: string | null,
+    order?: "asc" | "desc"
+  ): Promise<{ data: ModeratorAuditTrail[]; totalDocuments: number }> {
+    const result = await this.auditTrailsRepository.getAuditTrailsByQuestionId(
+      questionId,
+      page,
+      limit,
+      action,
+      order
+    );
+    return {
+      data: result.data.map(audit => this.normalizeAudit(audit)),
+      totalDocuments: result.totalDocuments,
     };
   }
 }

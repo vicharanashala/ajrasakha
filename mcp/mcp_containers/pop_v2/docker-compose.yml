@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  pop-v2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pop-v2
+    ports:
+      - "9024:9002"
+      - "9025:9003"
+    env_file:
+      - .env
+    restart: unless-stopped

@@ -4,10 +4,15 @@ import { Container } from 'inversify';
 import { MongoDatabase } from '#root/shared/index.js';
 import { GLOBAL_TYPES } from '#root/types.js';
 import { ObjectId } from 'mongodb';
+import { AuditAction, AuditCategory, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 
 interface AssignmentJob {
   submissionId: string;
   expertId: string;
+  appendExpert?: boolean;
+  /** When true the previous expert is NOT reputation-penalised — only freed from the
+   *  question (queue replacement still decrements their workload). */
+  skipPenalty?: boolean;
 }
 
 interface WorkerData {
@@ -51,6 +56,25 @@ const notificationRepo = new NotificationRepository(database);
 await (notificationRepo as any).init();
 
 const notificationService = new NotificationService(notificationRepo, database);
+
+const { AuditTrailsRepository } = await import('#root/modules/auditTrails/repositories/provider/mongodb/AuditTrailRepository.js');
+const auditRepo = new AuditTrailsRepository(database);
+const { AuditTrailsService } = await import('#root/modules/auditTrails/services/AuditTrailsService.js');
+const auditService = new AuditTrailsService(auditRepo as any, database);
+
+async function getExpertDisplayName(expertId?: string | null): Promise<string> {
+  if (!expertId) return 'Unknown';
+  try {
+    const user = await userRepo.findById(expertId);
+    if (!user) return 'Unknown';
+    const first = (user as any).firstName?.toString().trim() || '';
+    const last = (user as any).lastName?.toString().trim() || '';
+    const full = `${first} ${last}`.trim();
+    return full || 'Unknown';
+  } catch {
+    return 'Unknown';
+  }
+}
 
 /* ---------------- WORK ---------------- */
 (async () => {
@@ -98,11 +122,7 @@ const notificationService = new NotificationService(notificationRepo, database);
         });
       }
 
-      // 🟢 TYPE A: Penalize first expert if no history exists (initial delay)
-      if (history.length === 0) {
-        const firstExpert = queue[0]?.toString();
-        if (firstExpert) await userRepo.updateReputationScore(firstExpert, false);
-      }
+
 
       // Deep Replacement (Purge Inactive): replace inactive experts in the queue
       // ENSURE UNIQUENESS: Only replace the FIRST occurrence encountered at or after currentExpertIndex
@@ -167,7 +187,78 @@ const notificationService = new NotificationService(notificationRepo, database);
       }
       */
 
-      if (modified) {
+      // No current expert to replace (queue fully consumed and the tail isn't
+      // in-review, so currentExpertIndex points past the end of the queue). There's no
+      // slot to swap, so fall back to appending the new expert — otherwise this job
+      // would silently no-op while the main process has already spent the expert's slot.
+      const appendNewExpert = job.appendExpert || (!modified && !currentExpertId);
+
+      if (appendNewExpert) {
+        // ── PUSH MODE (time-bound reallocation) ──────────────────────────────
+        // Append the new expert instead of replacing the stuck one so the full
+        // allocation history is preserved.
+
+        // Penalize the stuck expert — skipped for no-penalty (opened-but-idle) jobs.
+        if (!job.skipPenalty) {
+          if (history.length === 0) {
+            // No history yet — penalize queue[0] who was allocated but never answered
+            const firstExpert = queue[0]?.toString();
+            if (firstExpert) {
+              await userRepo.updateReputationScore(firstExpert, false);
+              affectedExpertIds.add(firstExpert);
+            }
+          } else {
+            const lastHistory = history[history.length - 1];
+            if (lastHistory?.status === 'in-review') {
+              const stuckExpertId = lastHistory.updatedBy?.toString();
+              if (stuckExpertId) {
+                await userRepo.updateReputationScore(stuckExpertId, false);
+                affectedExpertIds.add(stuckExpertId);
+              }
+            }
+          }
+        }
+
+        // Push new expert into queue and add a fresh in-review history entry
+        const pushQueue = [...queue, new ObjectId(newExpertId)];
+        const pushHistory = [
+          ...history,
+          {
+            updatedBy: new ObjectId(newExpertId),
+            status: 'in-review',
+            createdAt: now,
+            updatedAt: now,
+          },
+        ];
+
+        await submissionRepo.updateById(job.submissionId, {
+          $set: {
+            queue: pushQueue,
+            history: pushHistory,
+            updatedAt: now,
+            reviewDelayNotificationSent: false,
+            currentExpertAllocatedAt: now,
+            currentExpertOpenedAt: null,
+          },
+        });
+
+        affectedExpertIds.add(newExpertId);
+        await notificationService.saveTheNotifications(
+          'You have been replaced from the Allocated question. The question has been reassigned to another expert.',
+          'Allocation Removed',
+          submission.questionId.toString(),
+          currentExpertId,
+          'allocation_removal',
+        );
+        await notificationService.saveTheNotifications(
+          'A time-bound question has been reassigned to you',
+          'Question Reassigned',
+          submission.questionId.toString(),
+          newExpertId,
+          'answer_creation',
+        );
+      } else if (modified) {
+        // ── REPLACE MODE (default workload balancing) ─────────────────────────
         const updatedHistory = [...history];
 
         // 1. If the expert currently in-review was replaced, update the history entry to the new expert
@@ -183,29 +274,106 @@ const notificationService = new NotificationService(notificationRepo, database);
           }
         }
 
-        // 2. Penalize the expert who was stuck (TYPE B logic from main)
-        if (history.length > 0) {
-          const lastHistory = history[history.length - 1];
-          if (lastHistory?.status === 'in-review' || lastHistory?.status === 'reviewed') {
-            const stuckExpertId = lastHistory.updatedBy?.toString();
-            if (stuckExpertId) await userRepo.updateReputationScore(stuckExpertId, false);
+        // 2. Penalize the expert who was stuck — unless this is a no-penalty
+        //    reallocation (opened-but-idle), where we only free them from the question.
+        if (!job.skipPenalty) {
+          if (history.length > 0) {
+            // Reviewer case: penalize only 'in-review' experts — 'reviewed' experts already completed their work
+            const lastHistory = history[history.length - 1];
+            if (lastHistory?.status === 'in-review') {
+              const stuckExpertId = lastHistory.updatedBy?.toString();
+              if (stuckExpertId) await userRepo.updateReputationScore(stuckExpertId, false);
+            }
+          } else {
+            // Author case: penalize author who never answered
+            if (currentExpertId) await userRepo.updateReputationScore(currentExpertId, false);
           }
         }
 
         // 3. Save updates to Submission
+        // Reset time-bound tracking: start the 45-min clock for the new expert
         await submissionRepo.updateById(job.submissionId, {
-          $set: { queue: newQueue, history: updatedHistory, updatedAt: now },
+          $set: {
+            queue: newQueue,
+            history: updatedHistory,
+            updatedAt: now,
+            reviewDelayNotificationSent: false,
+            currentExpertAllocatedAt: now,
+            currentExpertOpenedAt: null,
+          },
         });
 
-        // 4. Notify new expert
+        // 4. Notify new expert (role-aware notification for time-bound questions)
+        const isAuthorPosition = currentExpertIndex === 0 && history.length === 0;
         affectedExpertIds.add(newExpertId);
         await notificationService.saveTheNotifications(
-          'Tasks have been reallocated to your queue',
-          'Workload Reassigned',
+          isAuthorPosition
+            ? 'A time-bound question has been assigned to you for answering'
+            : 'A time-bound question has been reassigned to you for review',
+          isAuthorPosition ? 'Answer Creation Assigned' : 'Review Reassigned',
           submission.questionId.toString(),
           newExpertId,
-          'answer_creation'
+          isAuthorPosition ? 'answer_creation' : 'peer_review',
         );
+
+        // 4.1 Notify the old expert that they have been removed from the allocation.
+        if (currentExpertId) {
+          await notificationService.saveTheNotifications(
+            'You have been replaced from the Allocated question. The question has been reassigned to another expert.',
+            'Allocation Removed',
+            submission.questionId.toString(),
+            currentExpertId,
+            'allocation_removal',
+          );
+        }
+
+        // 4.2 Audit trail — replaces the moderator/admin broadcast. Records that this
+        // question was reallocated from one expert to another, and how long it sat with
+        // the previous expert. (Both experts are still notified above at steps 4 / 4.1.)
+        try {
+          const [oldExpertName, newExpertName] = await Promise.all([
+            getExpertDisplayName(currentExpertId),
+            getExpertDisplayName(newExpertId),
+          ]);
+          const rawQuestionText = (question as any)?.question?.toString().trim() || '';
+          const truncatedQuestion = rawQuestionText.length > 120
+            ? `${rawQuestionText.slice(0, 120)}...`
+            : rawQuestionText;
+          // "Waited" = how long it sat with the previous expert before being moved.
+          const allocatedAt = submission.currentExpertAllocatedAt
+            ? new Date(submission.currentExpertAllocatedAt)
+            : null;
+          const waitedMs = allocatedAt ? Math.max(0, now.getTime() - allocatedAt.getTime()) : null;
+          const waitedMinutes = waitedMs != null ? Math.round(waitedMs / 60000) : null;
+
+          await auditService.createAuditTrail({
+            category: AuditCategory.QUESTION,
+            action: AuditAction.REALLOCATE_QUESTIONS,
+            actor: { name: 'System (auto-reallocation)', role: 'system', source: 'time-bound-reallocation' },
+            context: {
+              questionId: submission.questionId.toString(),
+              questionText: truncatedQuestion,
+              waitedMs,
+              waitedMinutes,
+            },
+            changes: {
+              before: { expertId: currentExpertId, expertName: oldExpertName },
+              after: { expertId: newExpertId, expertName: newExpertName },
+            },
+            outcome: { status: OutComeStatus.SUCCESS },
+            createdAt: now,
+          });
+          console.log(`🧾 [Worker] Audit: question reallocated ${oldExpertName} → ${newExpertName} (waited ${waitedMinutes ?? '?'} min)`);
+        } catch (auditErr: any) {
+          console.error(`⚠️ [Worker] Failed to write reallocation audit trail for submission ${job.submissionId}:`, auditErr?.message);
+        }
+      }
+
+      // Update firstAllocationAt if history is empty (first allocation for this submission)
+      if (history.length === 0) {
+        await (questionRepo as any).updateQuestion(questionId, {
+          firstAllocationAt: now,
+        });
       }
 
       processed++;

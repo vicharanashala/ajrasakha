@@ -1,0 +1,52 @@
+# Portainer stack — pull images only (NO build: — Portainer cannot run compose build).
+#
+# Set all backend + VITE_* variables in Portainer → Stack → Environment.
+# Frontend injects VITE_* at start → /runtime-config.js (needs reviewer-frontend:latest from CI).
+#
+# Do not use env_file, depends_on, or nginx bind mounts here.
+
+services:
+  reviewer-backend:
+    image: vicharanashala/reviewer-api:${IMAGE_TAG:-latest}
+    container_name: reviewer-backend
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_HOST_PORT:-4020}:${APP_PORT:-4000}"
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/gcp-service-account.json
+    volumes:
+      - ${GCP_CREDENTIALS_HOST_PATH:-/opt/reviewer/secrets/gcp-service-account.json}:/run/secrets/gcp-service-account.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:$$APP_PORT/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - reviewer-net
+
+  reviewer-frontend:
+    image: vicharanashala/reviewer-frontend:${IMAGE_TAG:-latest}
+    container_name: reviewer-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-8020}:80"
+    environment:
+      APP_PORT: ${APP_PORT:-4000}
+      VITE_ENABLE_MOCKS: ${VITE_ENABLE_MOCKS:-false}
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+      VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY}
+      VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN}
+      VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID}
+      VITE_FIREBASE_STORAGE_BUCKET: ${VITE_FIREBASE_STORAGE_BUCKET}
+      VITE_FIREBASE_MESSAGING_SENDER_ID: ${VITE_FIREBASE_MESSAGING_SENDER_ID}
+      VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID}
+      VITE_FIREBASE_MEASUREMENT_ID: ${VITE_FIREBASE_MEASUREMENT_ID:-}
+      VITE_SARVAM_API_KEY: ${VITE_SARVAM_API_KEY}
+      VITE_VAPID_PUBLIC_KEY: ${VITE_VAPID_PUBLIC_KEY}
+    networks:
+      - reviewer-net
+
+networks:
+  reviewer-net:
+    driver: bridge

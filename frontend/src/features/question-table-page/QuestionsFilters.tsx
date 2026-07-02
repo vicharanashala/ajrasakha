@@ -73,6 +73,7 @@ import {
 import ViewDropdown from "../questions/components/ViewDropdown";
 import DownloadLevelWiseReportButton from "./DownloadLevelWiseReportButton";
 import { CropManagementModal } from "./CropManagementModal";
+import { QueueDetailsModal } from "./QueueDetailsModal";
 import { ChemicalManagementModal } from "./ChemicalManagementModal";
 import { CropService } from "@/hooks/services/cropService";
 import { AnswerModeSwitcher } from "./AnswerModeSwitcher";
@@ -81,6 +82,7 @@ import { UserCheck } from "lucide-react";
 import { ReallocationManualModal } from "../../components/ReallocationManualModal";
 
 import { TopRightBadge } from "@/components/NewBadge";
+import DownloadShiftWiseReportButton from "./DownloadShiftWiseReportButton";
 
 type QuestionsFiltersProps = {
   search: string;
@@ -101,8 +103,8 @@ type QuestionsFiltersProps = {
   selectedQuestionIds: string[];
   setIsSelectionModeOn: (value: boolean) => void;
   setSelectedQuestionIds: (value: string[]) => void;
-  viewMode: "all" | "review-level";
-  setViewMode: (v: "all" | "review-level") => void;
+  viewMode: "all" | "review-level" | "dedicated";
+  setViewMode: (v: "all" | "review-level" | "dedicated") => void;
   sort: string;
   onSort: (key: string) => void;
   showClosedAt?: boolean;
@@ -110,13 +112,16 @@ type QuestionsFiltersProps = {
   setView: (v: "grid" | "table") => void;
   handleBulkAllocateToPae: (paeExpertId: string) => Promise<void>;
   isBulkAllocatingPae: boolean;
+  onAnswerModeChange?: (mode: string) => void;
 };
 
-type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae";
+type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae" | "non_agri" | "dynamic" | "search";
 
 const filterToAnswerMode = (filter: AdvanceFilterValues): AnswerMode => {
+  if (filter.is_non_agri === true) return "non_agri";
   if (filter.pae_review === true) return "pae";
   if (filter.status === "draft") return "draft";
+  if (filter.status === "dynamic") return "dynamic";
   if (filter.source === "AGRI_EXPERT") return "manual";
   if (filter.source === "WHATSAPP") return "whatsapp";
   if (filter.source === "OUTREACH") return "outreach";
@@ -129,7 +134,7 @@ const answerModeToSource = (
   if (answerMode === "manual") return "AGRI_EXPERT";
   if (answerMode === "whatsapp") return "WHATSAPP";
   if (answerMode === "outreach") return "OUTREACH";
-  if (answerMode === "draft" || answerMode === "pae") return "all";
+  if (answerMode === "draft" || answerMode === "pae" || answerMode === "non_agri" || answerMode === "dynamic") return "all";
   return "AJRASAKHA";
 };
 
@@ -161,6 +166,7 @@ export const QuestionsFilters = ({
   setView,
   handleBulkAllocateToPae,
   isBulkAllocatingPae,
+  onAnswerModeChange,
 }: QuestionsFiltersProps) => {
   const navigate = useNavigate();
   //question global state
@@ -182,6 +188,7 @@ export const QuestionsFilters = ({
   const [answerMode, setAnswerMode] = useState<AnswerMode>(() =>
     filterToAnswerMode(appliedFilters),
   );
+  const prevAnswerModeRef = useRef<AnswerMode>(filterToAnswerMode(appliedFilters));
 
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
     useAddQuestion((count, isBulkUpload) => {
@@ -335,6 +342,7 @@ export const QuestionsFilters = ({
       const payload = {
         question: updatedData.question?.trim() ?? "",
         priority: updatedData.priority ?? "medium",
+        status: (updatedData.status || "open") as QuestionStatus,
         source: "AGRI_EXPERT" as QuestionSource,
         details: updatedData.details,
         context: updatedData.context || "",
@@ -384,8 +392,11 @@ export const QuestionsFilters = ({
         validationErrors.season = "Please select the Season field.";
       }
 
-      if (!domain?.trim()) {
+      if (!domain?.length) {
         validationErrors.domain = "Please select the Domain field.";
+      }
+      else if(domain.length>3){
+        validationErrors.domain = "Only three domain is allowed."
       }
 
       if (Object.keys(validationErrors).length > 0) {
@@ -448,21 +459,57 @@ export const QuestionsFilters = ({
   const handleAnswerModeChange = (nextAnswerMode: AnswerMode) => {
     let nextFilters: AdvanceFilterValues;
 
-    if (nextAnswerMode === "draft") {
-      nextFilters = { ...advanceFilter, source: "all", status: "draft", pae_review: undefined };
-    } else if (nextAnswerMode === "pae") {
-      nextFilters = { ...advanceFilter, source: "all", pae_review: true };
-      if (answerMode === "draft") nextFilters.status = "all";
-    } else {
-      const source = answerModeToSource(nextAnswerMode);
-      nextFilters = { ...advanceFilter, source, pae_review: undefined };
-      if (answerMode === "draft") nextFilters.status = "all";
+    if (nextAnswerMode === "search") {
+      // Search Results tab → fetch all sources, reset client-side mode
+      nextFilters = { ...advanceFilter, source: "all", pae_review: undefined, is_non_agri: undefined };
+      prevAnswerModeRef.current = "search";
+      setAnswerMode("search");
+      setAdvanceFilterValues(nextFilters);
+      onChange(nextFilters);
+      onAnswerModeChange?.("search");
+      return;
     }
 
+    // When search is active, switching tabs just filters the already-fetched
+    // results client-side — no API call needed.
+    if (search) {
+      prevAnswerModeRef.current = nextAnswerMode;
+      setAnswerMode(nextAnswerMode);
+      onAnswerModeChange?.(nextAnswerMode);
+      return;
+    }
+
+    if (nextAnswerMode === "non_agri") {
+      nextFilters = { ...advanceFilter, source: "all", is_non_agri: true, pae_review: undefined };
+      if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
+    } else if (nextAnswerMode === "draft") {
+      nextFilters = { ...advanceFilter, source: "all", status: "draft", pae_review: undefined, is_non_agri: undefined };
+    } else if (nextAnswerMode === "dynamic") {
+      nextFilters = { ...advanceFilter, source: "all", status: "dynamic", pae_review: undefined, is_non_agri: undefined };
+    } else if (nextAnswerMode === "pae") {
+      nextFilters = { ...advanceFilter, source: "all", pae_review: true, is_non_agri: undefined };
+      if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
+    } else {
+      const source = answerModeToSource(nextAnswerMode);
+      nextFilters = { ...advanceFilter, source, pae_review: undefined, is_non_agri: undefined };
+      if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
+    }
+
+    prevAnswerModeRef.current = nextAnswerMode;
     setAnswerMode(nextAnswerMode);
     setAdvanceFilterValues(nextFilters);
     onChange(nextFilters);
   };
+
+  // Auto-switch to Search Results tab when user types; revert when cleared
+  useEffect(() => {
+    if (search && answerMode !== "search") {
+      prevAnswerModeRef.current = answerMode;
+      handleAnswerModeChange("search");
+    } else if (!search && answerMode === "search") {
+      handleAnswerModeChange(prevAnswerModeRef.current);
+    }
+  }, [search]);
 
   const clearAddQuestionError = (field: keyof AddQuestionValidationErrors) => {
     setAddQuestionErrors((prev) => {
@@ -480,7 +527,12 @@ export const QuestionsFilters = ({
 
   useEffect(() => {
     setAdvanceFilterValues(appliedFilters);
-    setAnswerMode(filterToAnswerMode(appliedFilters));
+    // Don't override answerMode while search is active — the "search" tab
+    // sets source:"all" which filterToAnswerMode resolves to "ajraskha" (fallback),
+    // which would reset the active tab back to AJRASAKHA.
+    if (!search) {
+      setAnswerMode(filterToAnswerMode(appliedFilters));
+    }
   }, [appliedFilters]);
 
   const handleApplyFilters = (myPreference?: IMyPreference) => {
@@ -505,9 +557,12 @@ export const QuestionsFilters = ({
       closedInTwoHrs: advanceFilter?.closedInTwoHrs,
       consecutiveApprovals: advanceFilter?.consecutiveApprovals,
       autoAllocateFilter: advanceFilter?.autoAllocateFilter,
+      autoAllocateModeratorFilter: advanceFilter?.autoAllocateModeratorFilter,
       hiddenQuestions: advanceFilter?.hiddenQuestions,
       duplicateQuestions: advanceFilter?.duplicateQuestions,
       isOnHold: advanceFilter?.isOnHold,
+      is_non_agri: advanceFilter?.is_non_agri,
+      unallocatedQuestions: advanceFilter?.unallocatedQuestions,
     });
   };
 
@@ -525,7 +580,8 @@ export const QuestionsFilters = ({
         key === "closedAtStart" ||
         key === "closedAtEnd" ||
         key === "state" || // replaced by states
-        key === "normalised_crop" // replaced by normalisedCrops
+        key === "normalised_crop" || // replaced by normalisedCrops
+        key === "is_non_agri" // tab-level filter, not advanced
       ) {
         return false;
       }
@@ -571,7 +627,8 @@ export const QuestionsFilters = ({
   const offset = useRef({ x: 0, y: 0 });
   const [isBadgeExpanded, setIsBadgeExpanded] = useState(false);
   const hasDragged = useRef(false);
-  const { data: statusSummary, isLoading: isStatusLoading } = useGetQuestionStatusSummary(advanceFilter, search, isBadgeExpanded);
+  const { data: statusSummaryRaw, isLoading: isStatusLoading } = useGetQuestionStatusSummary(advanceFilter, search, isBadgeExpanded);
+  const statusSummary = statusSummaryRaw as import("@/hooks/api/question/useGetQuestionStatusSummary").QuestionStatusSummary | null;
 
   // Dynamically clamp the badge position based on its estimated sizes to prevent it from ever clipping off the screen
   const estimatedBadgeHeight = isBadgeExpanded ? 240 : 50;
@@ -591,6 +648,7 @@ export const QuestionsFilters = ({
     "re-routed": { bg: "bg-violet-500/10", text: "text-violet-600 dark:text-violet-400", dot: "bg-violet-500" },
     pae_submitted: { bg: "bg-cyan-500/10", text: "text-cyan-600 dark:text-cyan-400", dot: "bg-cyan-500" },
     draft: { bg: "bg-slate-500/10", text: "text-slate-600 dark:text-slate-400", dot: "bg-slate-500" },
+    dynamic: { bg: "bg-slate-500/10", text: "text-slate-600 dark:text-slate-400", dot: "bg-slate-6  00" },
   };
   const defaultColor = { bg: "bg-purple-500/10", text: "text-purple-600 dark:text-purple-400", dot: "bg-purple-500" };
 
@@ -631,12 +689,12 @@ export const QuestionsFilters = ({
     };
   }, [isDragging]);
 
-  const handleClick = ()=>{
+  const handleClick = () => {
     navigate({ to: "/flags-reported" });
   }
 
   return (
-    <div className="w-full p-4 border-b bg-card ms-2 md:ms-0  rounded flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+    <div className="w-full px-4 pt-3 pb-2 border-b bg-card ms-2 md:ms-0 rounded flex flex-col gap-2.5">
       {/* Add Dialog */}
       <AddOrEditQuestionDialog
         open={addOpen}
@@ -651,101 +709,62 @@ export const QuestionsFilters = ({
         onFieldValidatedChange={clearAddQuestionError}
       />
 
-      {/* SEARCH BAR – full width on mobile, fixed width on desktop */}
-      <div className="w-full sm:flex-1 sm:min-w-[250px] sm:max-w-[400px]">
-        <div className="relative w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-
-          <Input
-            placeholder="Search questions by id, state, crops..."
-            value={search}
-            onChange={(e) => {
-              if (userRole !== "expert") onReset();
-              setSearch(e.target.value);
-            }}
-            className="pl-9 pr-9 bg-background"
-          />
-
-          {search && (
-            <button
-              onClick={() => setSearch("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">
-        <div className="flex items-center rounded-lg border border-border bg-muted/40 p-1">
-          <button
-            onClick={() => {
-              handleAnswerModeChange("ajraskha");
-            }}
-            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${answerMode === "ajraskha"
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-              }`}
-          >
-            AJRASKHA
-          </button>
-
-          <button
-            onClick={() => {
-              handleAnswerModeChange("manual");
-            }}
-            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${answerMode === "manual"
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-              }`}
-          >
-            Manual
-          </button>
-
-          <button
-            onClick={() => handleAnswerModeChange("outreach")}
-            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${answerMode === "outreach"
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-              }`}
-          >
-            Outreach
-          </button>
-
-          <button
-            onClick={() => {
-              handleAnswerModeChange("whatsapp");
-            }}
-            className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all ${answerMode === "whatsapp"
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-              }`}
-          >
-            Whatsapp
-          </button>
-
-        </div>
-      </div> */}
-
+      {/* ── ROW 1: Tabs (full width, scrollable on small screens) ── */}
       <AnswerModeSwitcher
         answerMode={answerMode}
-        handleAnswerModeChange={handleAnswerModeChange}
+        handleAnswerModeChange={(mode) => {
+          if (viewMode === "dedicated") setViewMode("all");
+          handleAnswerModeChange(mode);
+        }}
+        hasSearch={!!search}
+        sourceCounts={statusSummary?.sourceCounts}
+        totalSearchCount={search ? statusSummary?.totalQuestions : undefined}
+        showDedicated={userRole === "moderator"}
+        isDedicatedView={viewMode === "dedicated"}
+        onDedicatedClick={() => setViewMode(viewMode === "dedicated" ? "all" : "dedicated")}
       />
 
-      <div className="w-full sm:w-auto flex flex-wrap items-center gap-2 sm:gap-3 justify-between sm:justify-end">
-        <div className="relative hidden md:flex items-center gap-2">
+      {/* ── ROW 2: Search + View + Filter + Add ── */}
+      <div className="flex items-center gap-2 w-full">
+        {/* Search bar — capped width */}
+        <div className="w-full max-w-xs sm:max-w-sm min-w-0">
+          <div className="relative w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search..."
+              value={search}
+              onChange={(e) => {
+                if (userRole !== "expert") onReset();
+                setSearch(e.target.value);
+              }}
+              className="pl-9 pr-9 bg-background text-sm"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Spacer pushes controls to the right */}
+        <div className="flex-1" />
+
+        {/* Grid view toggle */}
+        <div className="hidden md:flex items-center gap-2 flex-shrink-0">
           <ViewDropdown view={view} setView={setView} />
         </div>
 
-
-        {/* tools and filters */}
+        {/* Filter */}
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 onClick={() => setIsSidebarOpen(true)}
-                className="p-2 rounded-md border border-gray-200 bg-white hover:bg-gray-50 dark:bg-[#1a1a1a] dark:border-gray-800"
+                className="p-2 rounded-md border border-gray-200 bg-white hover:bg-gray-50 dark:bg-[#1a1a1a] dark:border-gray-800 flex-shrink-0"
               >
                 <Filter className="h-4 w-4" />
               </Button>
@@ -754,12 +773,13 @@ export const QuestionsFilters = ({
           </Tooltip>
         </TooltipProvider>
 
-        {userRole !== "expert" && (
+        {/* Add Question */}
+        {userRole !== "expert" && userRole !== "tester" && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  className="flex items-center justify-center px-3 py-1.5 text-sm font-medium"
+                  className="flex items-center justify-center px-3 py-1.5 text-sm font-medium flex-shrink-0"
                   onClick={() => {
                     setAddQuestionErrors({});
                     setAddOpen(true);
@@ -772,11 +792,15 @@ export const QuestionsFilters = ({
             </Tooltip>
           </TooltipProvider>
         )}
+      </div>
+
+      {/* ── Bulk-action bar (selection mode only) ── */}
+      <div className="w-full flex flex-wrap items-center gap-2 justify-end">
 
         {isSelectionModeOn && (
           <div className="hidden md:flex items-center gap-4 whitespace-nowrap">
             {/* Allocate to PAE */}
-            {userRole !== "expert" && answerMode.toLowerCase() === "draft" && (
+            {userRole !== "expert" && userRole !== "tester" && answerMode.toLowerCase() === "draft" && (
               <Button
                 variant="outline"
                 size="sm"
@@ -794,7 +818,7 @@ export const QuestionsFilters = ({
             )}
 
             {/* Allocate to EXPERTS */}
-            {userRole !== "expert" && answerMode.toLowerCase() !== "draft" && (
+            {userRole !== "expert" && userRole !== "tester" && answerMode.toLowerCase() !== "draft" && (
               <div className="relative inline-block">
                 <Button
                   variant="outline"
@@ -830,32 +854,34 @@ export const QuestionsFilters = ({
             )}
 
             {/* Bulk delete with count */}
-            <ConfirmationModal
-              title="Delete Selected Questions?"
-              description={`Are you sure you want to delete ${selectedQuestionIds.length
-                } selected question${selectedQuestionIds.length > 1 ? "s" : ""
-                }? This action is irreversible.`}
-              confirmText="Delete"
-              cancelText="Cancel"
-              isLoading={bulkDeletingQuestions}
-              type="delete"
-              onConfirm={handleBulkDelete}
-              trigger={
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  disabled={
-                    selectedQuestionIds.length === 0 || bulkDeletingQuestions
-                  }
-                  className="flex items-center gap-2 transition-all"
-                >
-                  <Trash className="h-4 w-4" />
-                  {bulkDeletingQuestions
-                    ? `Deleting (${selectedQuestionIds.length})...`
-                    : `Delete (${selectedQuestionIds.length})`}
-                </Button>
-              }
-            />
+            {userRole !== "tester" && (
+              <ConfirmationModal
+                title="Delete Selected Questions?"
+                description={`Are you sure you want to delete ${selectedQuestionIds.length
+                  } selected question${selectedQuestionIds.length > 1 ? "s" : ""
+                  }? This action is irreversible.`}
+                confirmText="Delete"
+                cancelText="Cancel"
+                isLoading={bulkDeletingQuestions}
+                type="delete"
+                onConfirm={handleBulkDelete}
+                trigger={
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={
+                      selectedQuestionIds.length === 0 || bulkDeletingQuestions
+                    }
+                    className="flex items-center gap-2 transition-all"
+                  >
+                    <Trash className="h-4 w-4" />
+                    {bulkDeletingQuestions
+                      ? `Deleting (${selectedQuestionIds.length})...`
+                      : `Delete (${selectedQuestionIds.length})`}
+                  </Button>
+                }
+              />
+            )}
 
             {/* Cancel selection */}
             <Button
@@ -913,7 +939,7 @@ export const QuestionsFilters = ({
             </h3>
             <div className="grid grid-cols-2 gap-2 p-1 bg-gray-100 dark:bg-[#0d0d0d] rounded-lg border border-gray-200 dark:border-gray-800">
               <button
-                className={`py-2.5 px-3 rounded-md text-sm font-medium flex items-center justify-center gap-2 transition-all ${viewMode === "all" ? "bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm" : "text-gray-500 hover:text-gray-900 dark:hover:text-white"}`}
+                className={`py-2.5 px-3 rounded-md text-sm font-medium flex items-center justify-center gap-2 transition-all ${viewMode === "all" || viewMode === "dedicated" ? "bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm" : "text-gray-500 hover:text-gray-900 dark:hover:text-white"}`}
                 onClick={() => setViewMode("all")}
               >
                 <LayoutGrid size={14} /> Normal
@@ -1022,7 +1048,7 @@ export const QuestionsFilters = ({
               )}
 
               {/* WhatsApp History */}
-              {userRole !== "expert" && (
+              {userRole !== "expert" && userRole !== 'tester' && (
                 <button
                   className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none relative"
                   onClick={() => {
@@ -1049,10 +1075,8 @@ export const QuestionsFilters = ({
                 </button>
               )}
 
-
-
               {/* update crops */}
-              {userRole !== "expert" && (
+              {userRole !== "expert" && userRole !== "tester" && (
                 <button
                   className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
                   onClick={() => {
@@ -1106,7 +1130,7 @@ export const QuestionsFilters = ({
               )} */}
 
               {/* reallocate */}
-              {userRole !== "expert" && (
+              {userRole !== "expert" && userRole !== "tester" && (
                 <button
                   className="relative w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
                   onClick={() => {
@@ -1142,7 +1166,7 @@ export const QuestionsFilters = ({
               )}
 
               {/* send outreach rport */}
-              {userRole !== "expert" && (
+              {userRole !== "expert" && userRole !== "tester" && (
                 <OutreachReportModal setIsSidebarOpen={setIsSidebarOpen} />
               )}
               {/* preferences */}
@@ -1151,18 +1175,22 @@ export const QuestionsFilters = ({
                 setAdvanceFilterValues={setAdvanceFilterValues}
                 handleDialogChange={handleDialogChange}
                 handleApplyFilters={handleApplyFilters}
-                normalizedStates={states}
                 crops={crops}
                 activeFiltersCount={activeFiltersCount}
                 onReset={onReset}
                 isForQA={false}
                 setIsSidebarOpen={setIsSidebarOpen}
               />
+
+              {/* queue details — moderators & admins only */}
+              {(userRole === "admin" || userRole === "moderator") && (
+                <QueueDetailsModal setIsSidebarOpen={setIsSidebarOpen} />
+              )}
             </div>
           </section>
 
           {/* Section: Download Reports */}
-          {userRole !== "expert" && (
+          {userRole !== "expert" && userRole !== 'tester' && (
             <section>
               <h3 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-4">
                 Download Reports
@@ -1183,15 +1211,13 @@ export const QuestionsFilters = ({
                     onOpenDialog={() => setIsSidebarOpen(false)}
                   />
                 </div>
-              {userRole !== "moderator" && 
-              <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
-                  <DownloadFilteredReportButton
-                    onOpenDialog={() => setIsSidebarOpen(false)}
-                  />
-                   </div>
-              }
-                
-               
+                {userRole !== "moderator" && (
+                  <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-green-50 dark:hover:bg-green-500/5 border border-gray-200 dark:border-gray-800 hover:border-green-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
+                    <DownloadFilteredReportButton
+                      onOpenDialog={() => setIsSidebarOpen(false)}
+                    />
+                  </div>
+                )}
 
                 <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-teal-50 dark:hover:bg-teal-500/5 border border-gray-200 dark:border-gray-800 hover:border-teal-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
                   <DownloadDuplicateReportButton
@@ -1205,23 +1231,40 @@ export const QuestionsFilters = ({
                   />
                 </div>
 
+                <div className="p-4 bg-white dark:bg-[#1a1a1a] hover:bg-cyan-50 dark:hover:bg-cyan-500/5 border border-gray-200 dark:border-gray-800 hover:border-b-cyan-500/50 rounded-xl transition-all shadow-sm dark:shadow-none">
+                  <DownloadShiftWiseReportButton
+                    closeSideBar={() => setIsSidebarOpen(false)}
+                    userRole={userRole}
+                  />
+                </div>
+
                 {/* Download Master Lists — Crops & Chemicals */}
                 <div className="flex gap-3">
                   <button
                     onClick={handleDownloadCrops}
                     disabled={isDownloadingCrops}
-                    className="flex-1 flex items-center justify-center gap-2 p-3 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl transition-all shadow-sm dark:shadow-none text-amber-600 dark:text-amber-500 disabled:opacity-50 text-xs font-medium"
+                    className="relative flex-1 flex items-center justify-center gap-2 p-3 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl transition-all shadow-sm dark:shadow-none text-amber-600 dark:text-amber-500 disabled:opacity-50 text-xs font-medium"
                   >
-                    {isDownloadingCrops ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                    {isDownloadingCrops ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Download size={14} />
+                    )}
                     Crops List
+                    <TopRightBadge label="new" left={0} />
                   </button>
                   <button
                     onClick={handleDownloadChemicals}
                     disabled={isDownloadingChemicals}
-                    className="flex-1 flex items-center justify-center gap-2 p-3 bg-white dark:bg-[#1a1a1a] hover:bg-purple-50 dark:hover:bg-purple-500/5 border border-gray-200 dark:border-gray-800 hover:border-purple-500/50 rounded-xl transition-all shadow-sm dark:shadow-none text-purple-600 dark:text-purple-500 disabled:opacity-50 text-xs font-medium"
+                    className="relative flex-1 flex items-center justify-center gap-2 p-3 bg-white dark:bg-[#1a1a1a] hover:bg-purple-50 dark:hover:bg-purple-500/5 border border-gray-200 dark:border-gray-800 hover:border-purple-500/50 rounded-xl transition-all shadow-sm dark:shadow-none text-purple-600 dark:text-purple-500 disabled:opacity-50 text-xs font-medium"
                   >
-                    {isDownloadingChemicals ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                    {isDownloadingChemicals ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Download size={14} />
+                    )}
                     Chemicals List
+                    <TopRightBadge label="new" left={0} />
                   </button>
                 </div>
               </div>
@@ -1234,29 +1277,29 @@ export const QuestionsFilters = ({
               System
             </h3>
 
-              {userRole !== "expert" && (
-                <button
-                  onClick={handleClick}
-                  className="relative w-full flex items-center justify-between p-4 mb-3 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
-                >
-                  <TopRightBadge label="new" left={0} />
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-500/10 flex items-center justify-center text-red-600 dark:text-red-500">
-                      <AlertTriangle size={20} />
-                    </div>
-                    <div className="text-left">
-                      <div className="flex items-center gap-2">
-                        <p className="relative text-sm font-bold text-gray-900 dark:text-white">
-                          Flags Reported
-                        </p>
-                      </div>
-                      <p className="text-[11px] text-gray-500">
-                        View flags reported
+            {userRole !== "expert" && (
+              <button
+                onClick={handleClick}
+                className="relative w-full flex items-center justify-between p-4 mb-3 bg-white dark:bg-[#1a1a1a] hover:bg-amber-50 dark:hover:bg-amber-500/5 border border-gray-200 dark:border-gray-800 hover:border-amber-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
+              >
+                <TopRightBadge label="new" left={0} />
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-500/10 flex items-center justify-center text-red-600 dark:text-red-500">
+                    <AlertTriangle size={20} />
+                  </div>
+                  <div className="text-left">
+                    <div className="flex items-center gap-2">
+                      <p className="relative text-sm font-bold text-gray-900 dark:text-white">
+                        Flags Reported
                       </p>
                     </div>
+                    <p className="text-[11px] text-gray-500">
+                      View flags reported
+                    </p>
                   </div>
-                </button>
-              )}
+                </div>
+              </button>
+            )}
 
             <div className="flex gap-3 pb-5">
               <button
@@ -1315,7 +1358,9 @@ export const QuestionsFilters = ({
 
         {/* Expanded status breakdown */}
         <div
-          className={`grid transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${isBadgeExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+          className={`grid transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${isBadgeExpanded
+            ? "grid-rows-[1fr] opacity-100"
+            : "grid-rows-[0fr] opacity-0"
             }`}
         >
           <div className="overflow-hidden">
@@ -1354,8 +1399,12 @@ export const QuestionsFilters = ({
                       className={`flex items-center justify-between px-3 py-1.5 rounded-lg ${color.bg} transition-colors cursor-pointer hover:opacity-80`}
                     >
                       <div className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${color.dot} shrink-0`} />
-                        <span className={`text-xs font-semibold capitalize ${color.text} whitespace-nowrap`}>
+                        <span
+                          className={`w-2 h-2 rounded-full ${color.dot} shrink-0`}
+                        />
+                        <span
+                          className={`text-xs font-semibold capitalize ${color.text} whitespace-nowrap`}
+                        >
                           {s.status}
                         </span>
                       </div>

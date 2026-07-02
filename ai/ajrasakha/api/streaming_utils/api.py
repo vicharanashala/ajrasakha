@@ -1,5 +1,5 @@
 import json
-from typing import List, Any
+from typing import Any, Dict, List, Optional
 
 from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.graph.state import CompiledStateGraph
@@ -33,12 +33,14 @@ def convert_to_langchain(messages: List[Message]):
     return langchain_messages
 
 
-async def agent_response(messages: List[Message], graph: CompiledStateGraph[Any, Any, Any, Any]):
+async def agent_response(
+    messages: List[Message],
+    graph: CompiledStateGraph[Any, Any, Any, Any],
+    location: Optional[Dict[str, Any]] = None,
+):
     langchain_messages = convert_to_langchain(messages)
-    initial_state = {
-        "messages": langchain_messages,
-        "latitude": None,
-        "longitude": None,
-    }
+    initial_state: dict[str, Any] = {"messages": langchain_messages}
+    if location is not None:
+        initial_state["location"] = location
     async for chunk in streaming_api_response(graph, initial_state):
         yield chunk

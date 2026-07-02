@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { UserService } from "../../services/userService";
-import {toast} from "sonner";
+import { toast } from "@/shared/components/toast";
 
 const userService = new UserService();
 
@@ -25,8 +25,9 @@ export const useBlockUser = () => {
       });
       toast.success("User Updated succesfully")
     },
-    onError:(error) => {
-      toast.error(error?.message || `Failed to Block or unBlock Expert`)
+    onError: (error: any) => {
+      console.error("Error blocking/unblocking user:", error);
+      toast.error(error?.message || `Failed to Block or unBlock Expert`);
     }
   })
 }

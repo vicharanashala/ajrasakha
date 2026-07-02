@@ -1,1455 +1,1774 @@
-"use client";
-
-import { useState, useRef, useCallback } from "react";
+import React, {
+  useState,
+  useRef,
+  useCallback,
+  useMemo,
+  Suspense,
+  useEffect,
+} from "react";
+import { cn } from "@/lib/utils";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/atoms/card";
+  useDailyQuestionTrends,
+  useDashboardData,
+  useResponseAdherenceTable,
+  useTopFaqs,
+  useUserMertices,
+} from "./hooks/useDashboardData";
+// import { useDailyUserTrend } from "./hooks/useDailyUserTrend";
+import { useUserDetails } from "./hooks/useUserDetails";
+import type { Segment } from "./types";
+import { DashboardSidebar } from "./DashboardSidebar";
+import type { DashboardView } from "./DashboardSidebar";
+import { DashboardFilters } from "./DashboardFilters";
+import type { DashboardFilterValues } from "./DashboardFilters";
+import { EightCardsComponent } from "./MetricCard ";
+// import DailyActiveUsers from "./dailyActiveUsers";
+// import { ChannelSplitCard } from "./components/ChannelSplitCard";
+import DashboardQueryCategories from "./DashboardQueryCategories";
+// import { DashboardFarmerSegments } from "./DashboardFarmerSegments";
+import { AlertCard } from "./AlertCard";
+import { DuplicateQuestionsModal } from "./components/DuplicateQuestionsModal";
+// import { GeoCard } from "./GeoCard";
+// import { HealthScoreCard } from "./HealthScoreCard";
+import { SegmentDetailBanner } from "./components/SegmentDetailBanner";
+// import { StatusBar } from "./components/StatusBar";
+import { UserDetailsView } from "./UserDetailsView";
+import { WhatsAppUsersView } from "./WhatsAppUsersView";
+// import { UserDemographicsSection } from "./components/UserDemographicsSection";
+// import { UserGrowthChart } from "./components/UserGrowthChart";
+const LazyUserGrowthChart = React.lazy(
+  () => import("./components/UserGrowthChart"),
+);
 
-/* ================================================================
-   TYPES
-================================================================ */
+const LazyUserDemographicsSection = React.lazy(
+  () => import("./components/UserDemographicsSection"),
+);
+import type { UserDetailsFilters } from "./components/UserDetailsPreferenceFilter";
+import { TopCropsCard } from "./components/TopCropsCard";
+import { useTopCrops } from "./hooks/useTopCrops";
+import { DailyQuestionTrendsChart } from "./components/DailyQuestionTrendsChart";
+import { TopFaqsLeaderboard } from "./components/TopFaqsLeaderboard";
+import { useInView } from "@/hooks/useInView";
+// import { PlatformDonutSegments } from "./components/PlatformDonutSegment";
+import PlatformDonutSegments from "./components/PlatformDonutSegment";
+import {
+  Maximize2,
+  X,
+  Users,
+  RefreshCw,
+  UserMinus,
+  HelpCircle,
+  InfoIcon,
+} from "lucide-react";
+// import { createPortal } from "react-dom";
+import { SearchableSelect } from "@/components/atoms/SearchableSelect";
+import type { DateRange } from "react-day-picker";
+import { DashboardStateWiseAnalytics } from "./DashboardQueryState";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/atoms/tooltip";
+import FeedbackCard from "./FeedbackCard";
+import { ResponseAdherenceTableCard } from "./components/ResponseAdherenceTableCard";
+import { ActiveUsersChart } from "./active-users";
+import NewFilters, { type ApplicationSource, type Filters } from "./NewFilters";
+import { WeatherConcernAnalyticsCard } from "./components/WeatherConcernAnalyticsCard";
+import {
+  DEFAULT_WEATHER_CONCERN_FILTERS,
+  type WeatherConcernFilters,
+} from "./hooks/useWeatherConcernAnalytics";
+import { FarmerAnalyticsHeatMap } from "./components/FarmerAnalyticsHeatMap";
+import { WhatsAppAnalyticsCard } from "./WhatsAppAnalyticsCard";
+import {
+  useClosedAndNotifedData,
+  useInactiveWhatsappUsers,
+  useMonthlyChurnRate,
+  useQueryCategories,
+  useUniqueWhatsappUsers,
+} from "./hooks/useActiveUsersAnalytics";
+import { InactiveUsersModal } from "./InactiveUsersModal";
+import { RetentionMetricsChart } from "@/features/chatbotDashboard/retention-metrics";
+import { motion, AnimatePresence, useTransform, useSpring } from "framer-motion";
+import type { Variants } from "framer-motion";
 
-type DeltaDir = "up" | "down" | "neutral";
-type BadgeVariant = "green" | "red" | "amber" | "blue";
-type AlertLevel = "critical" | "warn" | "info";
+import { WhatsAppUniqueUsersCard } from "./WhatsAppUniqueUsersCard";
 
-interface BadgeItem {
-  label: string;
-  variant: BadgeVariant;
-}
+import { ClosedInLastTwoHoursCard } from "./ClosedInLastTwoHoursCard";
 
-interface KpiData {
-  id: string;
-  label: string;
-  value: string;
-  delta: string;
-  deltaDir: DeltaDir;
-  accentColor: string;
-  valueColor?: string;
-  sparkPoints?: number[];
-  badges?: BadgeItem[];
-}
+import { ClosedQuestionsCard } from "./ClosedQuestionsCard";
 
-interface FarmerSegment {
-  id: string;
-  label: string;
-  users: string;
-  status: string;
-  statusVariant: BadgeVariant;
-  description: string;
-  dau: number;
-  retention: number;
-  queryRate: number;
-  topCrop: string;
-}
+import { CustomerNotificationsCard } from "./CustomerNotificationsCard";
 
-interface AlertItem {
-  id: number;
-  level: AlertLevel;
-  title: string;
-  desc: string;
-}
+import { Skeleton } from "@/components/atoms/skeleton";
+import { ChurnRateChart } from "./ChurnRateChart";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/atoms/tabs";
+import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
+import { useQueryClient } from "@tanstack/react-query";
+import { Button } from "@/components/atoms/button";
 
-interface ChannelSegment {
-  label: string;
-  pct: number;
-  color: string;
-}
-
-interface VoiceAccuracy {
-  lang: string;
-  pct: number;
-  color: string;
-}
-
-interface QueryCategory {
-  label: string;
-  pct: number;
-  color: string;
-  valueColor?: string;
-}
-
-interface GeoState {
-  abbr: string;
-  val: string;
-  opacity: number;
-}
-
-interface HealthPillar {
-  label: string;
-  score: number;
-  color: string;
-}
-
-interface DashboardMeta {
-  season: string;
-  lastSync: string;
-  datasetVersion: string;
-  llmVersion: string;
-  p0Bugs: number;
-}
-
-interface DashboardData {
-  meta: DashboardMeta;
-  kpiRow1: KpiData[];
-  kpiRow2: KpiData[];
-  channelSplit: ChannelSegment[];
-  voiceAccuracy: VoiceAccuracy[];
-  queryCategories: QueryCategory[];
-  farmerSegments: FarmerSegment[];
-  alerts: AlertItem[];
-  geoStates: GeoState[];
-  healthPillars: HealthPillar[];
-}
-
-/* ================================================================
-   MOCK DATA  — replace with your real API response
-================================================================ */
-
-const DASHBOARD_DATA: DashboardData = {
-  meta: {
-    season: "Kharif 2025",
-    lastSync: "2 min ago",
-    datasetVersion: "GD-2025-Q3.14",
-    llmVersion: "v2.4.1",
-    p0Bugs: 3,
-  },
-  kpiRow1: [
-    {
-      id: "dau",
-      label: "Active farmers (DAU)",
-      value: "4.82 L",
-      delta: "+18% vs last month",
-      deltaDir: "up",
-      accentColor: "#3AAA5A",
-      sparkPoints: [22, 20, 22, 18, 19, 15, 13, 14, 10, 11, 8, 7, 5],
-    },
-    {
-      id: "queries",
-      label: "Daily queries",
-      value: "1.24 L",
-      delta: "+31% week-on-week",
-      deltaDir: "up",
-      accentColor: "#378ADD",
-      sparkPoints: [24, 22, 20, 22, 18, 20, 16, 18, 14, 12, 10, 8, 6],
-    },
-    {
-      id: "session",
-      label: "Avg session duration",
-      value: "6.4 min",
-      delta: "Stable this week",
-      deltaDir: "neutral",
-      accentColor: "#EF9F27",
-      sparkPoints: [14, 12, 15, 13, 12, 14, 13, 14, 12, 13, 14, 12, 13],
-    },
-    {
-      id: "bugs",
-      label: "Critical bugs open",
-      value: "7",
-      delta: "Needs immediate action",
-      deltaDir: "down",
-      accentColor: "#E24B4A",
-      badges: [
-        { label: "3 P0", variant: "red" },
-        { label: "4 P1", variant: "amber" },
-      ],
-    },
-  ],
-  kpiRow2: [
-    {
-      id: "csat",
-      label: "CSAT rating",
-      value: "4.2 ★",
-      delta: "+0.3 pts this month",
-      deltaDir: "up",
-      accentColor: "#1D9E75",
-    },
-    {
-      id: "repeatQuery",
-      label: "Repeat query rate",
-      value: "28%",
-      delta: "Target: <10% · gap",
-      deltaDir: "down",
-      accentColor: "#EF9F27",
-      valueColor: "#854F0B",
-    },
-    {
-      id: "voice",
-      label: "Voice usage share",
-      value: "61%",
-      delta: "Primary mode",
-      deltaDir: "up",
-      accentColor: "#378ADD",
-    },
-    {
-      id: "states",
-      label: "States active",
-      value: "19 / 28",
-      delta: "3 new states added",
-      deltaDir: "up",
-      accentColor: "#7C6FD4",
-    },
-  ],
-  channelSplit: [
-    { label: "Voice", pct: 61, color: "#3AAA5A" },
-    { label: "Text app", pct: 24, color: "#378ADD" },
-    { label: "KCC agent", pct: 9, color: "#EF9F27" },
-    { label: "IVRS call", pct: 6, color: "#7C6FD4" },
-  ],
-  voiceAccuracy: [
-    { lang: "Hindi", pct: 84, color: "#3AAA5A" },
-    { lang: "Telugu", pct: 79, color: "#3AAA5A" },
-    { lang: "Marathi", pct: 72, color: "#EF9F27" },
-    { lang: "Bhojpuri", pct: 51, color: "#E24B4A" },
-  ],
-  queryCategories: [
-    { label: "Pest & disease", pct: 34, color: "#E24B4A", valueColor: "#A32D2D" },
-    { label: "Fertilizer dosage", pct: 28, color: "#EF9F27", valueColor: "#633806" },
-    { label: "Irrigation timing", pct: 18, color: "#378ADD" },
-    { label: "Crop selection", pct: 12, color: "#3AAA5A" },
-    { label: "Govt. schemes", pct: 8, color: "#7C6FD4" },
-  ],
-  farmerSegments: [
-    { id: "power", label: "Power farmers", users: "82,400", status: "Active", statusVariant: "green", description: "High-frequency users querying 5+ times/week. Core advocates.", dau: 82400, retention: 91, queryRate: 8.2, topCrop: "Paddy" },
-    { id: "casual", label: "Casual seekers", users: "2.14 L", status: "Core", statusVariant: "blue", description: "Majority segment. 2–4 queries/week. Good retention.", dau: 214000, retention: 74, queryRate: 3.1, topCrop: "Cotton" },
-    { id: "repeat", label: "Repeat askers", users: "54,300", status: "Gap", statusVariant: "amber", description: "Same query repeated — answers not resonating. UX gap.", dau: 54300, retention: 48, queryRate: 4.8, topCrop: "Maize" },
-    { id: "silent", label: "Silent lurkers", users: "98,700", status: "Re-engage", statusVariant: "red", description: "Opened app but rarely ask. Need push nudges.", dau: 98700, retention: 22, queryRate: 0.4, topCrop: "Wheat" },
-    { id: "churned", label: "Churned users", users: "31,200", status: "Win-back", statusVariant: "red", description: "No activity 30+ days. Requires win-back campaign.", dau: 31200, retention: 0, queryRate: 0, topCrop: "—" },
-    { id: "institutional", label: "Institutional", users: "1,600", status: "B2G", statusVariant: "blue", description: "Government & extension officers. B2G relationship.", dau: 1600, retention: 88, queryRate: 12.4, topCrop: "All" },
-  ],
-  alerts: [
-    { id: 1, level: "critical", title: "LLM dosage hallucination · ACE-079", desc: "Wrong pesticide dosage for paddy BLB · 612 farmers affected" },
-    { id: 2, level: "critical", title: "Voice crash Android 10 (2G)", desc: "18,000 users in UP, MP · 34% crash rate per session" },
-    { id: 3, level: "warn", title: "Dataset staleness · 9 days", desc: "Crop calendar showing last year's sowing dates for 6 crops" },
-    { id: 4, level: "info", title: "Push notification delivery at 38%", desc: "Firebase token refresh failure · seasonal alerts missed" },
-  ],
-  geoStates: [
-    { abbr: "UP", val: "1.2L", opacity: 0.9 },
-    { abbr: "MH", val: "94k", opacity: 0.8 },
-    { abbr: "MP", val: "86k", opacity: 0.75 },
-    { abbr: "AP", val: "74k", opacity: 0.65 },
-    { abbr: "TN", val: "62k", opacity: 0.55 },
-    { abbr: "RJ", val: "58k", opacity: 0.48 },
-    { abbr: "HR", val: "52k", opacity: 0.42 },
-    { abbr: "KA", val: "48k", opacity: 0.38 },
-    { abbr: "WB", val: "44k", opacity: 0.32 },
-    { abbr: "GJ", val: "42k", opacity: 0.28 },
-    { abbr: "PB", val: "36k", opacity: 0.22 },
-    { abbr: "BR", val: "31k", opacity: 0.15 },
-  ],
-  healthPillars: [
-    { label: "Advisory accuracy", score: 82, color: "#3AAA5A" },
-    { label: "App stability", score: 74, color: "#3AAA5A" },
-    { label: "User retention", score: 61, color: "#EF9F27" },
-    { label: "Geo reach", score: 58, color: "#EF9F27" },
-    { label: "Content coverage", score: 66, color: "#EF9F27" },
-    { label: "UX satisfaction", score: 68, color: "#EF9F27" },
-  ],
+const DEFAULT_FILTERS: DashboardFilterValues = {
+  village: "all",
+  crop: "all",
+  season: "all",
+  startTime: undefined,
+  endTime: undefined,
+  userType: "all",
 };
 
-/* ================================================================
-   BADGE
-================================================================ */
-
-const badgeStyles: Record<BadgeVariant, React.CSSProperties> = {
-  green: { background: "#EAF3DE", color: "#3B6D11" },
-  red:   { background: "#FCEBEB", color: "#A32D2D" },
-  amber: { background: "#FAEEDA", color: "#633806" },
-  blue:  { background: "#E6F1FB", color: "#0C447C" },
+const formatDateForInput = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 };
 
-interface BadgeProps {
-  label: string;
-  variant?: BadgeVariant;
-}
-
-function Badge({ label, variant = "green" }: BadgeProps) {
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        padding: "2px 7px",
-        borderRadius: 20,
-        fontSize: 10,
-        fontWeight: 500,
-        ...badgeStyles[variant],
-      }}
-    >
-      {label}
-    </span>
-  );
-}
-
-/* ================================================================
-   SPARKLINE
-================================================================ */
-
-interface SparklineProps {
-  points: number[];
-  color: string;
-}
-
-function Sparkline({ points, color }: SparklineProps) {
-  const max = Math.max(...points);
-  const min = Math.min(...points);
-  const W = 120;
-  const H = 28;
-  const px = (i: number): number => (i / (points.length - 1)) * W;
-  const py = (v: number): number => H - ((v - min) / (max - min || 1)) * H;
-  const d = points
-    .map((v, i) => `${i === 0 ? "M" : "L"} ${px(i)} ${py(v)}`)
-    .join(" ");
-  const fill = `${d} L ${W} ${H} L 0 ${H} Z`;
-
-  return (
-    <svg
-      viewBox={`0 0 ${W} ${H}`}
-      style={{ width: "100%", height: 40 }}
-      preserveAspectRatio="none"
-    >
-      <path d={fill} fill={color} fillOpacity={0.08} />
-      <path
-        d={d}
-        fill="none"
-        stroke={color}
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-/* ================================================================
-   DELTA ICON
-================================================================ */
-
-interface DeltaIconProps {
-  dir: DeltaDir;
-}
-
-function DeltaIcon({ dir }: DeltaIconProps) {
-  if (dir === "up")
-    return (
-      <svg width={10} height={10} viewBox="0 0 10 10">
-        <path d="M5 2l3 4H2z" fill="#1E7A3C" />
-      </svg>
-    );
-  if (dir === "down")
-    return (
-      <svg width={10} height={10} viewBox="0 0 10 10">
-        <path d="M5 8l3-4H2z" fill="#A32D2D" />
-      </svg>
-    );
-  return <span style={{ fontSize: 10 }}>→</span>;
-}
-
-/* ================================================================
-   KPI CARD
-================================================================ */
-
-interface KpiCardProps {
-  kpi: KpiData;
-}
-
-function KpiCard({ kpi }: KpiCardProps) {
-  const deltaColor =
-    kpi.deltaDir === "up"
-      ? "#1E7A3C"
-      : kpi.deltaDir === "down"
-      ? "#A32D2D"
-      : "#888";
-
-  return (
-    <Card className="relative overflow-hidden flex-1 min-w-0">
-      <div
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 3,
-          background: kpi.accentColor,
-        }}
-      />
-      <CardContent className="px-4 pt-5 pb-4">
-        <p
-          style={{
-            fontSize: 11,
-            color: "#888",
-            textTransform: "uppercase",
-            letterSpacing: "0.4px",
-            fontWeight: 500,
-            marginBottom: 6,
-            margin: 0,
-          }}
-        >
-          {kpi.label}
-        </p>
-        <p
-          style={{
-            fontSize: 22,
-            fontWeight: 500,
-            color: kpi.valueColor ?? "#1a1a1a",
-            lineHeight: 1,
-            marginBottom: 4,
-            margin: "6px 0 4px",
-          }}
-        >
-          {kpi.value}
-        </p>
-        <div
-          style={{
-            fontSize: 11,
-            display: "flex",
-            alignItems: "center",
-            gap: 3,
-            color: deltaColor,
-          }}
-        >
-          <DeltaIcon dir={kpi.deltaDir} />
-          {kpi.delta}
-        </div>
-        {kpi.sparkPoints && (
-          <div style={{ marginTop: 10 }}>
-            <Sparkline points={kpi.sparkPoints} color={kpi.accentColor} />
-          </div>
-        )}
-        {kpi.badges && (
-          <div style={{ marginTop: 8, display: "flex", gap: 4, flexWrap: "wrap" }}>
-            {kpi.badges.map((b) => (
-              <Badge key={b.label} label={b.label} variant={b.variant} />
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-/* ================================================================
-   PROGRESS BAR
-================================================================ */
-
-interface ProgressBarProps {
-  label: string;
-  pct: number;
-  color: string;
-  valueColor?: string;
-}
-
-function ProgressBar({ label, pct, color, valueColor }: ProgressBarProps) {
-  return (
-    <div style={{ marginBottom: 10 }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          fontSize: 11,
-          color: "#888",
-          marginBottom: 4,
-        }}
-      >
-        <span>{label}</span>
-        <span style={{ color: valueColor ?? "#888", fontWeight: valueColor ? 500 : 400 }}>
-          {pct}%
-        </span>
-      </div>
-      <div style={{ height: 5, background: "#f0f0f0", borderRadius: 4, overflow: "hidden" }}>
-        <div
-          style={{
-            width: `${pct}%`,
-            height: "100%",
-            background: color,
-            borderRadius: 4,
-            transition: "width 0.6s ease",
-          }}
-        />
-      </div>
-    </div>
-  );
-}
-
-/* ================================================================
-   ALERT ITEM ROW
-================================================================ */
-
-const alertStyles: Record<AlertLevel, { bg: string; border: string }> = {
-  critical: { bg: "#FCEBEB", border: "#E24B4A" },
-  warn:     { bg: "#FAEEDA", border: "#EF9F27" },
-  info:     { bg: "#E6F1FB", border: "#3D8DE0" },
+const parseInputDateToLocalDate = (value: string): Date => {
+  if (!value) return new Date();
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
 };
 
-interface AlertItemRowProps {
-  item: AlertItem;
-}
 
-function AlertItemRow({ item }: AlertItemRowProps) {
-  const s = alertStyles[item.level];
+export function LazySectionSkeleton({
+  className = "h-[300px]",
+}: {
+  className?: string;
+}) {
   return (
     <div
-      style={{
-        background: s.bg,
-        borderLeft: `3px solid ${s.border}`,
-        borderRadius: 8,
-        padding: "10px 12px",
-        marginBottom: 7,
-      }}
-    >
-      <p style={{ fontSize: 12, fontWeight: 500, color: "#1a1a1a", margin: 0 }}>
-        {item.title}
-      </p>
-      <p style={{ fontSize: 11, color: "#666", marginTop: 2, lineHeight: 1.4, margin: 0 }}>
-        {item.desc}
-      </p>
-    </div>
-  );
-}
-
-/* ================================================================
-   DONUT CHART
-================================================================ */
-
-interface DonutChartProps {
-  segments: ChannelSegment[];
-}
-
-function DonutChart({ segments }: DonutChartProps) {
-  const total = segments.reduce((s, x) => s + x.pct, 0);
-  const r = 30;
-  const cx = 40;
-  const cy = 40;
-  const circ = 2 * Math.PI * r;
-  let offset = 0;
-
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-      <svg width={80} height={80} viewBox="0 0 80 80">
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f0f0f0" strokeWidth={14} />
-        {segments.map((seg) => {
-          const dash = (seg.pct / total) * circ;
-          const el = (
-            <circle
-              key={seg.label}
-              cx={cx}
-              cy={cy}
-              r={r}
-              fill="none"
-              stroke={seg.color}
-              strokeWidth={14}
-              strokeDasharray={`${dash} ${circ - dash}`}
-              strokeDashoffset={-offset}
-              transform={`rotate(-90 ${cx} ${cy})`}
-            />
-          );
-          offset += dash;
-          return el;
-        })}
-        <text
-          x={cx}
-          y={cy + 4}
-          textAnchor="middle"
-          fontSize={11}
-          fontWeight={500}
-          fill="#1E7A3C"
-        >
-          {segments[0]?.pct}%
-        </text>
-      </svg>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {segments.map((s) => (
-          <div
-            key={s.label}
-            style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#666" }}
-          >
-            <span
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: 2,
-                background: s.color,
-                flexShrink: 0,
-                display: "inline-block",
-              }}
-            />
-            {s.label} · {s.pct}%
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* ================================================================
-   SEGMENT DETAIL BANNER
-================================================================ */
-
-interface SegmentDetailBannerProps {
-  seg: FarmerSegment;
-  onClose: () => void;
-}
-
-type StatKey = "Users" | "Retention" | "Queries/day" | "Top crop";
-
-interface SegmentStat {
-  key: StatKey;
-  val: string;
-}
-
-function SegmentDetailBanner({ seg, onClose }: SegmentDetailBannerProps) {
-  const stats: SegmentStat[] = [
-    { key: "Users", val: seg.users },
-    { key: "Retention", val: `${seg.retention}%` },
-    { key: "Queries/day", val: String(seg.queryRate) },
-    { key: "Top crop", val: seg.topCrop },
-  ];
-
-  return (
-    <div
-      style={{
-        background: "#EAF6EC",
-        border: "1.5px solid #3AAA5A",
-        borderRadius: 12,
-        padding: "14px 16px",
-        marginBottom: 16,
-        display: "flex",
-        gap: 24,
-        alignItems: "flex-start",
-      }}
-    >
-      <div style={{ flex: 1 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-          <span style={{ fontSize: 13, fontWeight: 500, color: "#1E7A3C" }}>
-            {seg.label}
-          </span>
-          <Badge label={seg.status} variant={seg.statusVariant} />
-        </div>
-        <p style={{ fontSize: 11, color: "#3B6D11", marginBottom: 10 }}>
-          {seg.description}
-        </p>
-        <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-          {stats.map(({ key, val }) => (
-            <div key={key}>
-              <div
-                style={{
-                  fontSize: 10,
-                  color: "#3B6D11",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.4px",
-                }}
-              >
-                {key}
-              </div>
-              <div style={{ fontSize: 16, fontWeight: 500, color: "#1E7A3C" }}>{val}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-      <button
-        onClick={onClose}
-        aria-label="Close segment detail"
-        style={{
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          color: "#3AAA5A",
-          fontSize: 18,
-          lineHeight: 1,
-          padding: "0 4px",
-        }}
-      >
-        ×
-      </button>
-    </div>
-  );
-}
-
-/* ================================================================
-   DAU TREND CHART
-================================================================ */
-
-const DAU_BARS: number[] = [
-  40, 45, 42, 50, 48, 55, 62, 60, 65, 70, 66, 72, 75, 78, 76, 82, 80, 85, 88,
-  86, 90, 93, 89, 95, 98, 100, 96, 100, 98, 60,
-];
-
-const DAU_COLORS: string[] = [
-  "#C0DD97","#C0DD97","#C0DD97","#C0DD97",
-  "#97C459","#97C459","#97C459",
-  "#639922","#639922","#639922","#639922","#639922",
-  "#3B6D11","#3B6D11","#3B6D11","#3B6D11","#3B6D11",
-  "#27500A","#27500A","#27500A","#27500A","#27500A","#27500A",
-  "#173404","#173404","#173404","#173404","#173404","#173404",
-  "#EF9F27",
-];
-
-interface DauStat {
-  label: string;
-  value: string;
-  color?: string;
-}
-
-const DAU_STATS: DauStat[] = [
-  { label: "Peak", value: "Day 26 · 98,400" },
-  { label: "Avg", value: "71,200 / day" },
-  { label: "Growth", value: "+18% MoM", color: "#1E7A3C" },
-];
-
-function DauTrendChart() {
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium">
-          Daily active users — 30 day trend
-        </CardTitle>
-        <CardDescription>Farmers + KCC agents + agri experts</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 80 }}>
-          {DAU_BARS.map((h, i) => (
-            <div
-              key={i}
-              style={{
-                flex: 1,
-                height: `${h}%`,
-                background: DAU_COLORS[i],
-                borderRadius: "2px 2px 0 0",
-                outline: i === 29 ? "1.5px solid #BA7517" : "none",
-              }}
-            />
-          ))}
-        </div>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            fontSize: 10,
-            color: "#aaa",
-            marginTop: 4,
-          }}
-        >
-          {["Day 1", "Day 10", "Day 20", "Today"].map((t) => (
-            <span key={t}>{t}</span>
-          ))}
-        </div>
-        <div
-          style={{
-            display: "flex",
-            gap: 16,
-            marginTop: 12,
-            paddingTop: 10,
-            borderTop: "0.5px solid #f0f0f0",
-            flexWrap: "wrap",
-          }}
-        >
-          {DAU_STATS.map(({ label, value, color }) => (
-            <div key={label} style={{ fontSize: 11, color: "#888" }}>
-              {label}:{" "}
-              <span style={{ fontWeight: 500, color: color ?? "#1a1a1a" }}>{value}</span>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-/* ================================================================
-   GEO COVERAGE CARD
-================================================================ */
-
-interface GeoCoverageCardProps {
-  states: GeoState[];
-}
-
-function GeoCoverageCard({ states }: GeoCoverageCardProps) {
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium">Geographic concentration</CardTitle>
-        <CardDescription>Active users by state · darker = higher</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 4 }}>
-          {states.map((s) => (
-            <div
-              key={s.abbr}
-              style={{
-                borderRadius: 5,
-                padding: "8px 6px",
-                textAlign: "center",
-                background: `rgba(30,122,60,${s.opacity})`,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 500,
-                  color: s.opacity > 0.5 ? "#fff" : "#0e4a22",
-                }}
-              >
-                {s.abbr}
-              </div>
-              <div
-                style={{
-                  fontSize: 10,
-                  opacity: 0.8,
-                  marginTop: 2,
-                  color: s.opacity > 0.5 ? "rgba(255,255,255,0.85)" : "#1e7a3c",
-                }}
-              >
-                {s.val}
-              </div>
-            </div>
-          ))}
-        </div>
-        <div
-          style={{
-            display: "flex",
-            gap: 12,
-            marginTop: 12,
-            paddingTop: 10,
-            borderTop: "0.5px solid #f0f0f0",
-            fontSize: 11,
-            color: "#888",
-            flexWrap: "wrap",
-          }}
-        >
-          <span>Top district: <strong style={{ color: "#1a1a1a" }}>Vidisha, MP</strong></span>
-          <span>Fastest growing: <strong style={{ color: "#1E7A3C" }}>MP +62% MoM</strong></span>
-          <span>Gap states: <strong style={{ color: "#A32D2D" }}>NE States &lt;200</strong></span>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-/* ================================================================
-   HEALTH SCORE CARD
-================================================================ */
-
-interface HealthScoreCardProps {
-  pillars: HealthPillar[];
-}
-
-function HealthScoreCard({ pillars }: HealthScoreCardProps) {
-  const composite = Math.round(
-    pillars.reduce((sum, p) => sum + p.score, 0) / pillars.length
-  );
-
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div>
-            <CardTitle className="text-sm font-medium">Platform health score</CardTitle>
-            <CardDescription>Six-pillar composite · weekly</CardDescription>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 26, fontWeight: 500, color: "#1E7A3C", lineHeight: 1 }}>
-              {composite}
-            </div>
-            <div style={{ fontSize: 10, color: "#BA7517", fontWeight: 500 }}>MODERATE</div>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div
-          style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 12 }}
-        >
-          {pillars.map((p) => (
-            <div
-              key={p.label}
-              style={{ border: "0.5px solid #e5e5e5", borderRadius: 8, padding: 12, textAlign: "center" }}
-            >
-              <div
-                style={{ fontSize: 20, fontWeight: 500, color: p.score >= 75 ? "#1E7A3C" : "#854F0B" }}
-              >
-                {p.score}
-              </div>
-              <div style={{ fontSize: 10, color: "#888", marginTop: 2 }}>{p.label}</div>
-              <div
-                style={{ height: 4, borderRadius: 2, background: "#f0f0f0", marginTop: 6, overflow: "hidden" }}
-              >
-                <div
-                  style={{
-                    width: `${p.score}%`,
-                    height: "100%",
-                    background: p.color,
-                    borderRadius: 2,
-                    transition: "width 0.6s ease",
-                  }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-        <div
-          style={{ padding: 10, background: "#FAEEDA", borderRadius: 8, fontSize: 11, color: "#633806" }}
-        >
-          <span style={{ fontWeight: 500 }}>Action needed:</span> Geo reach + Retention
-          below 65 — assign sprint owners this week
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-/* ================================================================
-   STATUS BAR
-================================================================ */
-
-interface StatusBarProps {
-  meta: DashboardMeta;
-}
-
-function Divider() {
-  return (
-    <span
-      style={{ width: 1, height: 12, background: "#e5e5e5", display: "inline-block" }}
-    />
-  );
-}
-
-function StatusBar({ meta }: StatusBarProps) {
-  const items: Array<{ label: string; value: string }> = [
-    { label: "Last sync", value: meta.lastSync },
-    { label: "Dataset", value: meta.datasetVersion },
-    { label: "Agri-LLM", value: meta.llmVersion },
-  ];
-
-  return (
-    <div
-      style={{
-        background: "#fff",
-        borderTop: "0.5px solid #e5e5e5",
-        display: "flex",
-        alignItems: "center",
-        gap: 16,
-        padding: "8px 20px",
-        fontSize: 11,
-        color: "#aaa",
-        flexShrink: 0,
-        flexWrap: "wrap",
-      }}
-    >
-      <span
-        style={{ width: 6, height: 6, borderRadius: "50%", background: "#3AAA5A", display: "inline-block" }}
-      />
-      <span>All systems operational</span>
-      {items.map(({ label, value }) => (
-        <>
-          <Divider key={`div-${label}`} />
-          <span key={label}>{label}: {value}</span>
-        </>
-      ))}
-      <Divider />
-      <span style={{ color: "#A32D2D", fontWeight: 500 }}>
-        {meta.p0Bugs} P0 bugs open · action required
-      </span>
-    </div>
-  );
-}
-
-/* ================================================================
-   SIDEBAR HELPERS
-================================================================ */
-
-interface SidebarNavItemProps {
-  label: string;
-  active?: boolean;
-  indent?: boolean;
-  isActiveSegment?: boolean;
-  badge?: string;
-  badgeAmber?: boolean;
-  onClick?: () => void;
-}
-
-function SidebarNavItem({
-  label,
-  active = false,
-  indent = false,
-  isActiveSegment = false,
-  badge,
-  badgeAmber = false,
-  onClick,
-}: SidebarNavItemProps) {
-  const highlighted = active || isActiveSegment;
-  return (
-    <div
-      onClick={onClick}
-      role={onClick ? "button" : undefined}
-      tabIndex={onClick ? 0 : undefined}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 9,
-        padding: "8px 16px",
-        paddingLeft: indent ? 32 : 16,
-        cursor: onClick ? "pointer" : "default",
-        fontSize: 13,
-        borderLeft: `2px solid ${highlighted ? "#3AAA5A" : "transparent"}`,
-        background: active ? "#EAF6EC" : isActiveSegment ? "#f0faf2" : "transparent",
-        color: highlighted ? "#1E7A3C" : "#666",
-        fontWeight: highlighted ? 500 : 400,
-        transition: "all 0.15s",
-      }}
-    >
-      <span style={{ flex: 1 }}>{label}</span>
-      {badge && (
-        <span
-          style={{
-            fontSize: 10,
-            fontWeight: 500,
-            padding: "1px 5px",
-            borderRadius: 10,
-            background: badgeAmber ? "#BA7517" : "#E24B4A",
-            color: "#fff",
-          }}
-        >
-          {badge}
-        </span>
+      className={cn(
+        "w-full rounded-xl border border-border/60 bg-card/40 p-4",
+        className,
       )}
-    </div>
-  );
-}
-
-function SidebarLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      style={{
-        fontSize: 10,
-        fontWeight: 500,
-        color: "#aaa",
-        padding: "0 16px",
-        margin: "16px 0 6px",
-        textTransform: "uppercase",
-        letterSpacing: "0.6px",
-      }}
     >
-      {children}
+      <Skeleton className="h-full w-full rounded-lg" />
     </div>
   );
 }
 
-/* ================================================================
-   MAIN DASHBOARD EXPORT
-================================================================ */
+export function AnnamDashboard_dev({
+  className,
+  source = "annam",
+  onSourceChange,
+}: {
+  className?: string;
+  source?:  "annam" | "whatsapp";
+  onSourceChange?: (source: "annam" | "whatsapp") => void;
+}) {
+  const [invalidating, setInvalidating] = useState(false);
+  const queryClient = useQueryClient();
+  const handleRefreshAll = async () => {
+    setInvalidating(true);
+    // Invalidate all dashboard queries - this marks them as stale and triggers background refetch
+    // Data stays visible during refetch (unlike refetchQueries which blocks until complete)
+    queryClient.invalidateQueries({ queryKey: ["dashboard-data"] });
+    queryClient.invalidateQueries({ queryKey: ["top-faqs"] });
+    queryClient.invalidateQueries({ queryKey: ["daily-question-trends"] });
+    queryClient.invalidateQueries({ queryKey: ["user-metrices"] });
+    queryClient.invalidateQueries({ queryKey: ["response-adherence-table"] });
+    queryClient.invalidateQueries({ queryKey: ["retention_metrics"] });
+    queryClient.invalidateQueries({ queryKey: ["query-categories"] });
+    queryClient.invalidateQueries({ queryKey: ["whatsapp-inactive-users"] });
+    queryClient.invalidateQueries({ queryKey: ["whatsapp-unique-users"] });
+    queryClient.invalidateQueries({ queryKey: ["whatsapp-all-users"] });
+    queryClient.invalidateQueries({ queryKey: ["closed-notified-data"] });
+    queryClient.invalidateQueries({ queryKey: ["monthly-churn-rate"] });
+    queryClient.invalidateQueries({ queryKey: ["active_user_trend"] });
+    queryClient.invalidateQueries({ queryKey: ["user-details"] });
+    queryClient.invalidateQueries({ queryKey: ["user_growth"] });
+    queryClient.invalidateQueries({ queryKey: ["top-crops-chatbot"] });
+    queryClient.invalidateQueries({ queryKey: ["state-wise-analytics"] });
+    queryClient.invalidateQueries({ queryKey: ["weather-concern-analytics"] });
+    queryClient.invalidateQueries({ queryKey: ["farmer-heat-map"] });
+    
+    // Give a short delay to show the refreshing state
+    setTimeout(() => setInvalidating(false), 500);
+  };
+  const [activeSegment, setActiveSegment] = useState<Segment | null>(null);
+  const [activeView, setActiveView] = useState<DashboardView>("overview");
+  const [activeChartTab, setActiveChartTab] = useState<string>("dau");
+  const [filters, setFilters] =
+    useState<DashboardFilterValues>(DEFAULT_FILTERS);
+  // const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
+  const isAppAnalyticsSource =
+    source === "annam" || source === "whatsapp";
+  const loadImmediately = !isAppAnalyticsSource;
+  const { data, isLoading, isFetching, error } = useDashboardData(
+    filters,
+    source,
+    isAppAnalyticsSource,
+  );
+  const [inactiveUsersPage, setInactiveUsersPage] = useState(1);
+  const { data: inactiveWhatsappUsers } = useInactiveWhatsappUsers(
+    inactiveUsersPage,
+    source === "whatsapp",
+  );
+  const [closed2hDateRange, setClosed2hDateRange] = useState<
+    DateRange | undefined
+  >(undefined);
+  const [questionStatusDateRange, setQuestionStatusDateRange] = useState<
+    DateRange | undefined
+  >(undefined);
+  const [customerNotificationsDateRange, setCustomerNotificationsDateRange] =
+    useState<DateRange | undefined>(undefined);
 
-import { DashboardFilters, type DashboardFilterValues } from "./DashboardFilters";
+  const getISOStringsForDateRange = useCallback((range?: DateRange) => {
+    if (!range || !range.from)
+      return { startTime: undefined, endTime: undefined };
 
-export function AnnamDashboard() {
-  const [activeSegment, setActiveSegment] = useState<FarmerSegment | null>(null);
-  const [sidebarSegmentsOpen, setSidebarSegmentsOpen] = useState<boolean>(false);
+    const startTime = new Date(range.from);
+    startTime.setHours(0, 0, 0, 0);
 
-  // ─── FILTER STATE for dynamic subtitle ───────────────────────────────────
-  const [activeFilters, setActiveFilters] = useState<DashboardFilterValues>({
-    village: "all",
-    crop: "all",
-    season: "all",
-  });
+    const endDate = range.to ? new Date(range.to) : new Date(range.from);
+    const endTime = new Date(endDate);
+    const now = new Date();
+    const isSelectedToday =
+      endDate.getFullYear() === now.getFullYear() &&
+      endDate.getMonth() === now.getMonth() &&
+      endDate.getDate() === now.getDate();
 
-  const segmentsRef = useRef<HTMLDivElement>(null);
-  const segmentRowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
+    if (isSelectedToday) {
+      endTime.setHours(
+        now.getHours(),
+        now.getMinutes(),
+        now.getSeconds(),
+        now.getMilliseconds(),
+      );
+    } else {
+      endTime.setHours(23, 59, 59, 999);
+    }
+    return {
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
+    };
+  }, []);
 
-  const data: DashboardData = DASHBOARD_DATA;
+  const closed2hRange = useMemo(
+    () => getISOStringsForDateRange(closed2hDateRange),
+    [closed2hDateRange, getISOStringsForDateRange],
+  );
+  const questionStatusRange = useMemo(
+    () => getISOStringsForDateRange(questionStatusDateRange),
+    [questionStatusDateRange, getISOStringsForDateRange],
+  );
+  const customerNotificationsRange = useMemo(
+    () => getISOStringsForDateRange(customerNotificationsDateRange),
+    [customerNotificationsDateRange, getISOStringsForDateRange],
+  );
+
+  const { data: closed2hData, isLoading: isClosed2hLoading, isFetching: isClosed2hFetching } = useClosedAndNotifedData(
+    source,
+    filters.userType,
+    closed2hRange.startTime,
+    closed2hRange.endTime,
+  );
+  const { data: questionStatusData, isLoading: isQuestionStatusLoading, isFetching: isQuestionStatusFetching } = useClosedAndNotifedData(
+    source,
+    filters.userType,
+    questionStatusRange.startTime,
+    questionStatusRange.endTime,
+  );
+  const { data: customerNotificationsData, isLoading: isCustomerNotificationsLoading, isFetching: isCustomerNotificationsFetching } = useClosedAndNotifedData(
+    source,
+    filters.userType,
+    customerNotificationsRange.startTime,
+    customerNotificationsRange.endTime,
+  );
+
+  useEffect(() => {
+    setClosed2hDateRange(undefined);
+    setQuestionStatusDateRange(undefined);
+    setCustomerNotificationsDateRange(undefined);
+  }, [source]);
+  const [isInactiveWhatsappModalOpen, setIsInactiveWhatsappModalOpen] =
+    useState(false);
+  const handleWhatsappInactiveUsersClick = useCallback(() => {
+    setInactiveUsersPage(1);
+    setIsInactiveWhatsappModalOpen(true);
+  }, []);
+
+  const { ref: growthRef, isVisible: isGrowthVisible } = useInView();
+  const { ref: queryInsightsRef, isVisible: isQueryInsightsVisible } =
+    useInView();
+  const { ref: responseAdherenceRef, isVisible: isResponseAdherenceVisible } =
+    useInView();
+  const { ref: trendsRef, isVisible: isTrendsVisible } = useInView();
+  const { ref: faqsRef, isVisible: isFaqsVisible } = useInView();
+  const { ref: activeUsersRef, isVisible: isActiveUsersVisible } = useInView();
+  const { ref: weatherConcernRef, isVisible: isWeatherConcernVisible } =
+    useInView();
+  const { ref: farmerHeatMapRef, isVisible: isFarmerHeatMapVisible } =
+    useInView();
+  const { ref: userDetailsRef, isVisible: isUserDetailsVisible } = useInView();
+  // const { ref: userVerificationRef, isVisible: isUserVerificationVisible } = useInView();
+  const { ref: userDemographicsRef, isVisible: isUserDemographicsVisible } =
+    useInView();
+
+  const shouldLoadResponseAdherence =
+    loadImmediately || isResponseAdherenceVisible;
+  const shouldLoadQueryInsights = loadImmediately || isQueryInsightsVisible;
+  const shouldLoadTrends = loadImmediately || isTrendsVisible;
+  const shouldLoadFaqs = loadImmediately || isFaqsVisible;
+  const shouldLoadActiveUsers = loadImmediately || isActiveUsersVisible;
+  const shouldLoadWeatherConcern = loadImmediately || isWeatherConcernVisible;
+  const shouldLoadFarmerHeatMap = loadImmediately || isFarmerHeatMapVisible;
+  const shouldLoadUserDetails = loadImmediately || isUserDetailsVisible;
+  // const shouldUserVerification = loadImmediately || isUserVerificationVisible;
+  const shouldLoadUserDemographics = loadImmediately || isUserDemographicsVisible;
+
+  const { data: queryCategories } = useQueryCategories(
+    source,
+    filters.userType,
+    shouldLoadQueryInsights,
+  );
+  const [trendsDateRange, setTrendsDateRange] = useState<DateRange | undefined>(
+    undefined,
+  );
+  const [faqsDateRange, setFaqsDateRange] = useState<DateRange | undefined>(
+    undefined,
+  );
+  const [responseAdherenceDate, setResponseAdherenceDate] = useState<string>(
+    formatDateForInput(new Date()),
+  );
+
+  const trendsFilters = useMemo(
+    () => ({
+      ...filters,
+      startTime: trendsDateRange?.from,
+      endTime: trendsDateRange?.to,
+    }),
+    [filters, trendsDateRange],
+  );
+
+  const faqsFilters = useMemo(
+    () => ({
+      ...filters,
+      startTime: faqsDateRange?.from,
+      endTime: faqsDateRange?.to,
+    }),
+    [filters, faqsDateRange],
+  );
+
+  // const { data: trendsData, isLoading: trendsLoading, isFetching: trendsFetching } = useDashboardData(
+  //   trendsFilters,
+  //   source,
+  //   shouldLoadTrends,
+  // );
+  // const { data: faqsDataa, isLoading: faqsLoadinga, isFetching: faqsFetchinga } = useDashboardData(
+  //   faqsFilters,
+  //   source,
+  //   shouldLoadFaqs,
+  // );
+  const {
+    data: faqsData,
+    isLoading: faqsLoading,
+    isFetching: faqsFetching,
+  } = useTopFaqs(
+    source,
+    faqsFilters.userType,
+    faqsFilters.startTime,
+    faqsFilters.endTime,
+    shouldLoadFaqs,
+  );
+  // console.log(faqsDataa,"----faqs filters", faqsFilters, faqsData);
+  const responseAdherenceFilters = useMemo(() => {
+    const selectedDate = parseInputDateToLocalDate(responseAdherenceDate);
+    const startTime = new Date(selectedDate);
+    startTime.setHours(0, 0, 0, 0);
+
+    const endTime = new Date(selectedDate);
+    const now = new Date();
+    const isSelectedToday =
+      selectedDate.getFullYear() === now.getFullYear() &&
+      selectedDate.getMonth() === now.getMonth() &&
+      selectedDate.getDate() === now.getDate();
+
+    if (isSelectedToday) {
+      endTime.setHours(
+        now.getHours(),
+        now.getMinutes(),
+        now.getSeconds(),
+        now.getMilliseconds(),
+      );
+    } else {
+      endTime.setHours(23, 59, 59, 999);
+    }
+
+    return {
+      ...filters,
+      startTime,
+      endTime,
+    };
+  }, [filters, responseAdherenceDate]);
+
+  // const {
+  //   data: responseAdherenceData,
+  //   isLoading: isResponseAdherenceLoading,
+  //   isFetching: isResponseAdherenceFetching,
+  // } = useDashboardData(responseAdherenceFilters, source);
+
+  const {
+    data: responseAdherenceData,
+    isLoading: isResponseAdherenceLoading,
+    isFetching: isResponseAdherenceFetching,
+  } = useResponseAdherenceTable(
+    source,
+    filters.userType,
+    responseAdherenceFilters.startTime,
+    responseAdherenceFilters.endTime,
+    shouldLoadResponseAdherence,
+  );
+
+  // const {
+  //   data: dauTrend,
+  //   isLoading: dauLoading,
+  //   error: dauError,
+  // } = useDailyUserTrend(
+  //   30,
+  //   source,
+  //   filters.userType,
+  //   isGrowthVisible && isAppAnalyticsSource,
+  // );
+  const [userDetailsInitialFilters, setUserDetailsInitialFilters] = useState<
+    Partial<UserDetailsFilters> | undefined
+  >(undefined);
+
+  const {
+    data: topCrops,
+    isLoading: isLoadingTopCrops,
+    error: errorLoadingtopCrops,
+  } = useTopCrops(source, filters.userType, shouldLoadQueryInsights);
+  // const [isKnowledgeMaximized, setIsKnowledgeMaximized] = useState(false);
+
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [agriHovered, setAgriHovered] = useState<string | null>(null);
+
+  const sectionRefs = useRef<
+    Partial<Record<DashboardView, HTMLDivElement | null>>
+  >({});
+  const scrollTo = (view: DashboardView) => {
+    setTimeout(
+      () =>
+        sectionRefs.current[view]?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        }),
+      50,
+    );
+  };
+
+  // remove this varaible when data is dynamci
+  const dynamicIds = ["dau", "queries", "session"];
 
   const handleSegmentClick = useCallback(
-    (seg: FarmerSegment): void => {
+    (seg: Segment) => {
       if (activeSegment?.id === seg.id) {
         setActiveSegment(null);
         return;
       }
       setActiveSegment(seg);
-      setSidebarSegmentsOpen(true);
-      setTimeout(() => {
-        segmentsRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 50);
+      setTimeout(
+        () =>
+          sectionRefs.current["farmer-segments"]?.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          }),
+        50,
+      );
     },
-    [activeSegment]
+    [activeSegment],
   );
 
-  const handleSidebarSegmentClick = useCallback(
-    (seg: FarmerSegment): void => {
-      handleSegmentClick(seg);
-      setTimeout(() => {
-        segmentRowRefs.current[seg.id]?.scrollIntoView({
-          behavior: "smooth",
-          block: "nearest",
-        });
-      }, 350);
-    },
-    [handleSegmentClick]
+  const clearSegment = () => setActiveSegment(null);
+  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
+
+  // Navigate to User Details with low-feedback-only filter pre-applied
+  const handleLowFeedbackUsersClick = useCallback(() => {
+    setUserDetailsInitialFilters({
+      lowFeedbackOnly: true,
+      inactiveOnly: false,
+      search: "",
+      crop: "",
+      village: "",
+      profileCompleted: "all",
+    });
+    setActiveView("user-details");
+  }, []);
+
+  // Navigate to User Details with inactive-only filter pre-applied
+  const handleInactiveUsersClick = useCallback(() => {
+    // Align to midnight to match the backend KPI calculation in getKpiSummary
+    const threeDaysAgo = new Date();
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+    threeDaysAgo.setHours(0, 0, 0, 0);
+
+    // End of today (the useUserDetails hook adds +24h to endDate internally,
+    // so we set this to the start of today to cover through end-of-today)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    setUserDetailsInitialFilters({
+      inactiveOnly: true,
+      startTime: threeDaysAgo,
+      endTime: today,
+      search: "",
+      crop: "",
+      village: "",
+      profileCompleted: "all",
+    });
+    setActiveView("user-details");
+  }, []);
+
+  // Fetch today's active farmers to get accurate DAU count based on profile and lastActiveAt
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
+
+  const { data: todayActiveFarmersData } = useUserDetails(
+    todayStart,
+    todayEnd,
+    1,
+    1,
+    "",
+    source as any,
+    "",
+    [],
+    [],
+    "",
+    "",
+    "",
+    "",
+    "all",
+    false,
+    false,
+    filters.userType as any,
+    [],
+    "totalQuestions",
+    "desc",
+    true, // activeTodayByProfile
+    "",
+    "verified", // verificationStatus
+    true, // enabled
   );
 
-  const clearSegment = useCallback((): void => setActiveSegment(null), []);
+  // Patch the DAU card to show "today / total" instead of just total
+  
+  const patchedKpiRow1 = useMemo(() => {
+    if (!data?.kpiRow1) return data.kpiRow1;
+    const todayCount = todayActiveFarmersData?.totalUsers ?? null;
+    return data.kpiRow1.map((card) => {
+      if (card.id === "dau" && todayCount !== null) {
+        return {
+          ...card,
+          value: `${todayCount.toLocaleString()} / ${Number(card.value).toLocaleString()}`,
+        };
+      }
+      return card;
+    });
+  }, [data.kpiRow1, todayActiveFarmersData?.totalUsers]);
 
-  const criticalCount = data.alerts.filter((a) => a.level === "critical").length;
+  // Remove these two variables when data is dynamic
+  const kpiRow1WithOverlay = patchedKpiRow1
+    .filter((card) => dynamicIds.includes(card.id)) // Commented out dummy cards: filter only dynamic ones
+    .map((card) => ({
+      ...card,
+      isDummy: !dynamicIds.includes(card.id),
+    }));
+
+
+
+  const kpiRow2WithOverlay = data.kpiRow2
+    .filter((card) => card.id === "totalInstalls") // Commented out dummy cards: filter only totalInstalls
+    .map((card) => ({
+      ...card,
+      // isDummy: false, // temporarily disabled for testing
+      isDummy: card.id !== "totalInstalls",
+    }));
+
+  // const [newFilters, setNewFilters] = useState<Filters>({
+  //   sourceType: "application",
+  //   application: source,
+  // });
+  const [newFilters, setNewFilters] = useState<Filters>(() => {
+    const saved = localStorage.getItem("application-filter");
+
+    return {
+      sourceType: "application",
+      application: (saved as ApplicationSource) || source,
+    };
+  });
+  const [weatherConcernFilters, setWeatherConcernFilters] =
+    useState<WeatherConcernFilters>(DEFAULT_WEATHER_CONCERN_FILTERS);
+
+  const queryCard = data?.kpiRow1?.find((card) => card.id === "queries");
+
+  const dailyAnalytics = queryCard?.dailyAnalytics || [];
+
+  const weeklyAnalytics = queryCard?.weeklyAnalytics || [];
+
+  const monthlyAnalytics = queryCard?.monthlyAnalytics || [];
+
+  useEffect(() => {
+    if (source === "whatsapp") {
+      setFilters((prev) => ({
+        ...prev,
+        userType: "all",
+      }));
+    }
+  }, [source]);
+
+  const {
+    data: dailyQuestionTrendsData,
+    isLoading: trendsLoading,
+    isFetching: trendsFetching,
+  } = useDailyQuestionTrends(
+    source,
+    trendsFilters.userType as string,
+    trendsFilters.startTime,
+    trendsFilters.endTime,
+    shouldLoadTrends,
+  );
+
+  const {
+    data: userMetricesData,
+    isLoading: usermetricsLoading,
+    isFetching: usermetricsFetching,
+  } = useUserMertices(source, filters.userType, shouldLoadUserDemographics);
+  const [kwDataRefreshing, setKWDataRefreshing] = useState(false);
+  const handleKWRefresh = async ()=>{
+    setKWDataRefreshing(true);
+    await queryClient.refetchQueries({ queryKey: ["user-metrices"] });
+    setKWDataRefreshing(false);
+  }
+
+const {data: unqueWhatsAppUsers, isFetching: isUniqueWhatsAppUsersFetching, isLoading: isUniqueWhatsAppUsersLoading} = useUniqueWhatsappUsers(source === "whatsapp");
+
+  // Animation variants for staggered entrance
+  const containerVariants: Variants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.08,
+        delayChildren: 0.1,
+      },
+    },
+  };
+
+  const itemVariants: Variants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.5,
+        ease: [0.25, 0.46, 0.45, 0.94],
+      },
+    },
+  };
+
+  const cardVariants: Variants = {
+    hidden: { opacity: 0, scale: 0.95 },
+    visible: {
+      opacity: 1,
+      scale: 1,
+      transition: {
+        duration: 0.4,
+        ease: "easeOut",
+      },
+    },
+    hover: {
+      scale: 1.02,
+      transition: { duration: 0.2 },
+    },
+  };
+
+  const slideInVariants: Variants = {
+    hidden: { opacity: 0, x: -20 },
+    visible: {
+      opacity: 1,
+      x: 0,
+      transition: {
+        duration: 0.4,
+        ease: "easeOut",
+      },
+    },
+  };
+
+  const tabContentVariants: Variants = {
+    hidden: { opacity: 0, y: 10 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.3,
+        ease: "easeInOut",
+      },
+    },
+    exit: {
+      opacity: 0,
+      y: -10,
+      transition: {
+        duration: 0.2,
+        ease: "easeIn",
+      },
+    },
+  };
 
   return (
-    <div
-      style={{
-        fontFamily: "'DM Sans', 'Inter', system-ui, sans-serif",
-        background: "#f5f5f3",
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      {/* ── TOP NAV ─────────────────────────────────────── */}
-      <header
-        style={{
-          background: "#0F4A24",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "0 20px",
-          height: 52,
-          flexShrink: 0,
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <span
-            style={{
-              background: "#3AAA5A",
-              color: "#fff",
-              fontSize: 13,
-              fontWeight: 500,
-              padding: "4px 10px",
-              borderRadius: 6,
-            }}
-          >
-            ACE
-          </span>
-          <span style={{ color: "rgba(255,255,255,0.85)", fontSize: 13, fontWeight: 500 }}>
-            ANNAM.AI · Agri Intelligence Platform
-          </span>
+    <div className={cn("flex flex-col min-h-screen bg-background", className)}>
+      {/* Keyframe animations required by child components (seg-pulse, slideIn) */}
+      <style>{`
+        @keyframes slideIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes custom-pulse { 0%,100%{box-shadow:0 0 0 2.5px #3AAA5A,0 4px 24px rgba(58,170,90,0.18)} 50%{box-shadow:0 0 0 4px #3AAA5A,0 4px 32px rgba(58,170,90,0.28)} }
+        .seg-pulse { animation: custom-pulse 1.2s ease 2; }
+      `}</style>
+
+      {error && (
+        <div className="flex flex-1 items-center justify-center text-destructive">
+          Error fetching data: {error.message}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 5,
-              background: "rgba(74,220,100,0.15)",
-              color: "#4adc64",
-              fontSize: 11,
-              fontWeight: 500,
-              padding: "3px 9px",
-              borderRadius: 20,
-            }}
-          >
-            <span style={{ width: 5, height: 5, background: "#4adc64", borderRadius: "50%" }} />
-            Live
-          </span>
-          <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>
-            {data.meta.season} · Q3
-          </span>
-          <div
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: "50%",
-              background: "#1E7A3C",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#fff",
-              fontSize: 11,
-              fontWeight: 500,
-            }}
-          >
-            PK
-          </div>
-        </div>
-      </header>
+      )}
 
-      {/* ── BODY ────────────────────────────────────────── */}
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-
-        {/* SIDEBAR */}
-        <nav
-          style={{
-            width: 210,
-            background: "#fff",
-            borderRight: "0.5px solid #e5e5e5",
-            flexShrink: 0,
-            overflowY: "auto",
-            padding: "16px 0 80px",
-            position: "relative",
-          }}
-        >
-          <SidebarLabel>Core views</SidebarLabel>
-          <SidebarNavItem label="Overview" active />
-          <SidebarNavItem
-            label="Farmer segments"
-            onClick={() => setSidebarSegmentsOpen((o) => !o)}
-          />
-          {sidebarSegmentsOpen &&
-            data.farmerSegments.map((seg) => (
-              <SidebarNavItem
-                key={seg.id}
-                label={seg.label}
-                indent
-                isActiveSegment={activeSegment?.id === seg.id}
-                onClick={() => handleSidebarSegmentClick(seg)}
-              />
-            ))}
-          <SidebarNavItem label="Usage patterns" />
-          <SidebarNavItem label="Geo intelligence" />
-
-          <SidebarLabel>Quality</SidebarLabel>
-          <SidebarNavItem label="Feedback & sentiment" />
-          <SidebarNavItem label="Bugs & UX issues" badge="7" />
-
-          <SidebarLabel>Intelligence</SidebarLabel>
-          <SidebarNavItem label="Query analysis" badge="28%" badgeAmber />
-          <SidebarNavItem label="App health score" />
-
-          {/* Health score pinned widget */}
-          <div
-            style={{
-              position: "absolute",
-              bottom: 0,
-              left: 0,
-              width: 210,
-              padding: "12px 16px",
-              borderTop: "0.5px solid #e5e5e5",
-              background: "#fff",
-            }}
-          >
-            <div style={{ fontSize: 11, color: "#aaa" }}>Health score</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-              <div style={{ flex: 1, height: 4, background: "#f0f0f0", borderRadius: 2, overflow: "hidden" }}>
-                <div style={{ width: "70%", height: "100%", background: "#3AAA5A", borderRadius: 2 }} />
-              </div>
-              <span style={{ fontSize: 12, fontWeight: 500, color: "#1E7A3C" }}>70</span>
-            </div>
-            <div style={{ fontSize: 10, color: "#BA7517", marginTop: 2 }}>
-              Moderate · needs improvement
-            </div>
-          </div>
-        </nav>
-
-        {/* MAIN */}
-        <main style={{ flex: 1, overflowY: "auto", padding: 20 }}>
-
-          <DashboardFilters onFilterChange={setActiveFilters} />
-
-          {/* Segment detail banner */}
-          {activeSegment !== null && (
-            <SegmentDetailBanner seg={activeSegment} onClose={clearSegment} />
-          )}
-
-          {/* KPI row 1 */}
-          <div
-            style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 10 }}
-          >
-            {data.kpiRow1.map((k) => <KpiCard key={k.id} kpi={k} />)}
-          </div>
-
-          {/* KPI row 2 */}
-          <div
-            style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 16 }}
-          >
-            {data.kpiRow2.map((k) => <KpiCard key={k.id} kpi={k} />)}
-          </div>
-
-          {/* DAU chart + Channel split */}
-          <div
-            style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10, marginBottom: 16 }}
-          >
-            <DauTrendChart />
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Channel split</CardTitle>
-                <CardDescription>How farmers access ACE</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <DonutChart segments={data.channelSplit} />
-                <div style={{ marginTop: 14, paddingTop: 10, borderTop: "0.5px solid #f0f0f0" }}>
-                  <p style={{ fontSize: 11, color: "#888", marginBottom: 8, fontWeight: 500, margin: 0 }}>
-                    Voice accuracy by language
-                  </p>
-                  {data.voiceAccuracy.map((v) => (
-                    <ProgressBar key={v.lang} label={v.lang} pct={v.pct} color={v.color} />
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* 3-col row */}
-          <div
-            style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 16 }}
-          >
-            {/* Query categories */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">Query categories</CardTitle>
-                <CardDescription>This week · all channels</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {data.queryCategories.map((q) => (
-                  <ProgressBar
-                    key={q.label}
-                    label={q.label}
-                    pct={q.pct}
-                    color={q.color}
-                    valueColor={q.valueColor}
-                  />
-                ))}
-                <div
-                  style={{ marginTop: 10, paddingTop: 10, borderTop: "0.5px solid #f0f0f0" }}
-                >
-                  <p style={{ fontSize: 11, color: "#888", margin: 0 }}>Top unanswered cluster</p>
-                  <p style={{ fontSize: 12, fontWeight: 500, color: "#A32D2D", marginTop: 2, margin: 0 }}>
-                    Mandi pricing · 8,400 queries
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Farmer segments — interactive */}
-            <Card
-              ref={segmentsRef}
-              style={{
-                transition: "box-shadow 0.3s",
-                boxShadow: activeSegment
-                  ? "0 0 0 2.5px #3AAA5A, 0 4px 24px rgba(58,170,90,0.18)"
-                  : undefined,
+      {!error && data && (
+        <>
+          <div className="flex flex-1 overflow-hidden">
+            <DashboardSidebar
+              activeView={activeView}
+              onViewChange={(view) => {
+                setActiveView(view);
+                scrollTo(view);
+                // Clear AlertCard's pre-set filters when navigating via sidebar
+                // if (view === "user-details")
+                //   setUserDetailsInitialFilters(undefined);
+                // if (view !== "user-details") scrollTo(view);
               }}
-            >
-              <CardHeader className="pb-2">
-                <div
-                  style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}
-                >
-                  <div>
-                    <CardTitle className="text-sm font-medium">Farmer segments</CardTitle>
-                    <CardDescription>
-                      {activeSegment !== null
-                        ? `Viewing: ${activeSegment.label}`
-                        : "Click a row to inspect segment"}
-                    </CardDescription>
-                  </div>
-                  {activeSegment !== null && (
-                    <button
-                      onClick={clearSegment}
-                      style={{
-                        fontSize: 11, color: "#888", background: "none",
-                        border: "0.5px solid #ddd", borderRadius: 6,
-                        padding: "3px 8px", cursor: "pointer",
-                      }}
+              healthScore={70}
+              healthLabel="Moderate · needs improvement"
+              source={source}
+            />
+
+            <div className="flex-1 overflow-y-auto px-5 pb-5">
+              {/* Source Selection Tabs & All Users Filter */}
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+                className="flex items-center justify-between gap-4 border-b border-border pb-3 mb-5 pt-3"
+              >
+                {/* Source Tabs (Annam / WhatsApp) */}
+                <div className="flex items-center gap-2">
+                  {/* Annam Tab */}
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => onSourceChange?.("annam")}
+                    className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                      source === "annam"
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    }`}
+                  >
+                    Annam
+                  </motion.button>
+
+                  {/* WhatsApp Tab */}
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => onSourceChange?.("whatsapp")}
+                    className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                      source === "whatsapp"
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    }`}
+                  >
+                    WhatsApp
+                  </motion.button>
+                </div>
+
+                <div className="flex items-center ml-auto gap-4">
+                  <motion.button
+                    whileHover={{ scale: 1.05, backgroundColor: "hsl(var(--accent))" }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleRefreshAll}
+                    className="z-50 flex items-center gap-2 rounded-lg px-3 py-1.5 shadow-sm backdrop-blur-sm border transition-colors duration-200"
+                    title="Refresh"
+                  >
+                    <motion.div
+                      animate={{ rotate: invalidating ? 360 : 0 }}
+                      transition={{ duration: 0.5, repeat: invalidating ? Infinity : 0, ease: "linear" }}
                     >
-                      Clear
-                    </button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                  <thead>
-                    <tr style={{ background: "#fafafa" }}>
-                      {(["Segment", "Users", "Status"] as const).map((h) => (
-                        <th
-                          key={h}
-                          style={{
-                            textAlign: "left", fontSize: 10, fontWeight: 500,
-                            color: "#aaa", textTransform: "uppercase",
-                            letterSpacing: "0.4px", padding: "6px 16px",
-                            borderBottom: "0.5px solid #f0f0f0",
-                          }}
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.farmerSegments.map((seg) => (
-                      <tr
-                        key={seg.id}
-                        ref={(el: HTMLTableRowElement | null) => {
-                          segmentRowRefs.current[seg.id] = el;
-                        }}
-                        onClick={() => handleSegmentClick(seg)}
-                        style={{
-                          cursor: "pointer",
-                          background:
-                            activeSegment?.id === seg.id ? "#EAF6EC" : "transparent",
-                          transition: "background 0.2s",
-                        }}
-                      >
-                        <td
-                          style={{
-                            padding: "9px 16px",
-                            borderBottom: "0.5px solid #f0f0f0",
-                            fontWeight: activeSegment?.id === seg.id ? 500 : 400,
-                          }}
-                        >
-                          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            {activeSegment?.id === seg.id && (
-                              <span
-                                style={{
-                                  width: 6, height: 6, borderRadius: "50%",
-                                  background: "#3AAA5A", flexShrink: 0,
-                                  display: "inline-block",
-                                }}
-                              />
-                            )}
-                            {seg.label}
-                          </span>
-                        </td>
-                        <td style={{ padding: "9px 16px", borderBottom: "0.5px solid #f0f0f0" }}>
-                          {seg.users}
-                        </td>
-                        <td style={{ padding: "9px 16px", borderBottom: "0.5px solid #f0f0f0" }}>
-                          <Badge label={seg.status} variant={seg.statusVariant} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    </motion.div>
+                    <span className="text-sm font-medium">Refresh</span>
+                  </motion.button>
 
-            {/* Alerts */}
-            <Card>
-              <CardHeader className="pb-2">
+                  <SearchableSelect
+                    options={
+                      source === "whatsapp" ? [] : ["External", "Internal"]
+                    }
+                    value={
+                      filters.userType === "all"
+                        ? "All Users"
+                        : filters.userType.charAt(0).toUpperCase() +
+                          filters.userType.slice(1)
+                    }
+                    onChange={(v) =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        userType:
+                          v.toLowerCase() as DashboardFilterValues["userType"],
+                      }))
+                    }
+                    placeholder="All Users"
+                  />
+                </div>
+              </motion.div>
+
+              <DashboardFilters filters={filters} onFilterChange={setFilters} />
+ 
+              {(source === "annam" ||
+                // source === "vicharanashala" ||
+                source === "whatsapp") && (
                 <div
-                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
+                  ref={(el) => {
+                    sectionRefs.current["overview"] = el;
+                  }}
+                  className="relative"
                 >
-                  <CardTitle className="text-sm font-medium">Active alerts</CardTitle>
-                  <Badge label={`${criticalCount} critical`} variant="red" />
+                  {activeSegment && (
+                    <SegmentDetailBanner
+                      seg={activeSegment}
+                      onClose={clearSegment}
+                    />
+                  )}
+
+  
+                {/* 
+                  {isFetching && (
+                    <div className="absolute inset-0 z-50 flex items-center justify-center">
+                      {/* <Spinner
+                        text="Preparing dashboard insights and refreshing analytics..."
+                        fullScreen={false}
+                      /> 
+                      {loadingSkeletonRows.map((row, rowIndex) => (
+                        <div
+                          key={rowIndex}
+                          className={`grid gap-5 ${row.cols}`}
+                        >
+                          {row.items.map((item, itemIndex) => (
+                            <Skeleton
+                              key={itemIndex}
+                              className={`w-full rounded-2xl ${item.span}`}
+                              style={{ height: item.height }}
+                            />
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )} */}
+                  {/* {isLoading ? (
+                    <div className="space-y-5 animate-pulse">
+                      {loadingSkeletonRows.map((row, rowIndex) => (
+                        <div
+                          key={rowIndex}
+                          className={`grid gap-5 ${row.cols}`}
+                        >
+                          {row.items.map((item, itemIndex) => (
+                            <Skeleton
+                              key={itemIndex}
+                              className={`w-full rounded-2xl ${item.span}`}
+                              style={{ height: item.height }}
+                            />
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (  */}
+                    <>
+                      <div
+                        ref={(el) => {
+                          sectionRefs.current["overview"] = el;
+                        }}
+                        className={`relative transition-all duration-300 }`}
+                      >
+                        {/* {(isLoading || isFetching) && (
+                      <div className="absolute inset-0 z-50 flex items-center justify-center">
+                        <Spinner text="Fetching metrics asdfasdfasdfads..." fullScreen={false} />
+                      </div>
+                    )} */}
+
+                        {/* <EightCardsComponent
+                      kpiRow1={patchedKpiRow1}
+                      kpiRow2={data.kpiRow2}
+                    /> */}
+                        {/* Uncomment the above line when data is dynamic and delete the below code */}
+                        {(source === "annam" 
+                        // ||source === "vicharanashala"
+                        ) && (
+                          <EightCardsComponent
+                            kpiRow1={kpiRow1WithOverlay}
+                            kpiRow2={kpiRow2WithOverlay}
+                            source={source}
+                            userType={filters.userType}
+                            isLoading={isFetching}
+                          />
+                        )}
+                        {source === "whatsapp" && (
+                          <motion.div 
+                            className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6"
+                            variants={containerVariants}
+                            initial="hidden"
+                            animate="visible"
+                          >
+                            <motion.div variants={itemVariants}>
+                              <WhatsAppAnalyticsCard
+                                title="Daily Queries"
+                                analytics={dailyAnalytics}
+                                granularity="daily"
+                                isLoading={isFetching || isLoading}
+                              />
+                            </motion.div>
+
+                            <motion.div variants={itemVariants}>
+                              <WhatsAppAnalyticsCard
+                                title="Weekly Queries"
+                                analytics={weeklyAnalytics}
+                                granularity="weekly"
+                                isLoading={isFetching || isLoading}
+                              />
+                            </motion.div>
+
+                            <motion.div variants={itemVariants}>
+                              <WhatsAppAnalyticsCard
+                                title="Monthly Queries"
+                                analytics={monthlyAnalytics}
+                                granularity="monthly"
+                                isLoading={isFetching || isLoading}                              
+                              />
+                            </motion.div>
+                          </motion.div>
+                        )}
+                        <div
+                          className={`grid gap-4 mb-6 items-stretch ${
+                            source === "whatsapp"
+                              ? "grid-cols-1 lg:grid-cols-[0.6fr_1fr_1.4fr_1.4fr]"
+                              : "grid-cols-1 lg:grid-cols-[1fr_1.4fr_1.4fr]"
+                          }`}
+                        >
+                          {source === "whatsapp" && (
+                            <WhatsAppUniqueUsersCard
+                              totalUsers={unqueWhatsAppUsers}
+                              onClick={() => {
+                                setActiveView("user-details");
+                                scrollTo("user-details");
+                              }}
+                              isLoading={isUniqueWhatsAppUsersLoading || isUniqueWhatsAppUsersFetching}
+                            />
+                          )}
+
+                          <ClosedInLastTwoHoursCard
+                            source={source}
+                            userType={filters.userType}
+                            count={closed2hData?.closedInLastTwoHours}
+                            totalClosed={
+                              closed2hData?.closedVsTotalQuestions
+                                ?.closedQuestions
+                            }
+                            dateRange={closed2hDateRange}
+                            onDateRangeChange={setClosed2hDateRange}
+                            isLoading={isClosed2hFetching || isClosed2hLoading}
+                          />
+                          <ClosedQuestionsCard
+                            closedQuestions={
+                              questionStatusData?.closedVsTotalQuestions
+                                ?.closedQuestions
+                            }
+                            totalQuestions={
+                              questionStatusData?.closedVsTotalQuestions
+                                ?.totalQuestions
+                            }
+                            inReview={
+                              questionStatusData?.closedVsTotalQuestions
+                                ?.inReviewQuestions
+                            }
+                            dateRange={questionStatusDateRange}
+                            onDateRangeChange={setQuestionStatusDateRange}
+                            isLoading={isQuestionStatusFetching || isQuestionStatusLoading}
+                            carryForward={
+                              questionStatusData?.carryForward
+                            }
+                            avgCloseTimeMinutes={
+                              questionStatusData?.closedVsTotalQuestions
+                                ?.avgCloseTimeMinutes
+                            }
+                            previousMonthAvgCloseTimeMinutes={
+                              questionStatusData?.closedVsTotalQuestions
+                                ?.previousMonthAvgCloseTimeMinutes
+                            }
+                            statusBreakup={questionStatusData?.closedVsTotalQuestions}
+                            source ={source}
+                            userType = {filters.userType}
+                          />
+                          <CustomerNotificationsCard
+                            notified={
+                              customerNotificationsData?.notifiedVsClosed
+                                ?.notified
+                            }
+                            notNotified={
+                              customerNotificationsData?.notifiedVsClosed
+                                ?.notNotified
+                            }
+                            untrackedClosedQuestions={
+                              customerNotificationsData?.notifiedVsClosed
+                                ?.untrackedClosedQuestions
+                            }
+                            dateRange={customerNotificationsDateRange}
+                            onDateRangeChange={setCustomerNotificationsDateRange}
+                            isLoading={isCustomerNotificationsFetching || isCustomerNotificationsLoading}
+                            source = {source}
+                            userType = {filters.userType}
+                          />
+                        </div>
+                        {source !== "whatsapp" && (
+                          <div   ref={(el) => {
+                            sectionRefs.current["responsetable"] = el;
+                            responseAdherenceRef.current = el;
+                          }}>
+                            {shouldLoadResponseAdherence ? <ResponseAdherenceTableCard
+                              data={responseAdherenceData}
+                              selectedDate={responseAdherenceDate}
+                              onSelectedDateChange={setResponseAdherenceDate}
+                              isLoading={
+                                isResponseAdherenceLoading ||
+                                isResponseAdherenceFetching
+                              }
+                            /> : <LazySectionSkeleton className="h-[400px]" />}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* DAU trend + Alerts */}
+                      <div
+                        ref={(el) => {
+                          sectionRefs.current["usage-patterns"] = el;
+                          growthRef.current = el;
+                        }}
+                        className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3 mb-4 items-stretch"
+                      >
+                        {/* <DailyActiveUsers
+                    data={dauTrend}
+                    isLoading={dauLoading}
+                    error={dauError}
+                  /> */}
+                        {/* {isGrowthVisible ? source === "whatsapp" ?(<div className="h-full w-full blur-sm opacity-90"></div>):( */}
+                        {isGrowthVisible || loadImmediately ? (
+                          <Suspense fallback={<LazySectionSkeleton />}>
+                            <LazyUserGrowthChart source={source} userType = {filters.userType}/>
+                          </Suspense>
+                        ) : (
+                          <LazySectionSkeleton />
+                        )}
+
+                        <div
+                          ref={(el) => {
+                            sectionRefs.current["bugs-ux"] = el;
+                          }}
+                        >
+                          <AlertCard
+                            alerts={data.alerts}
+                            inactiveUsersLast3Days={
+                              source === "whatsapp"
+                                ? inactiveWhatsappUsers?.pagination?.total
+                                : ((data as any).inactiveUsersLast3Days ?? 0)
+                            }
+                            onInactiveClick={handleInactiveUsersClick}
+                            duplicateQuestionsCount={
+                              (data as any).duplicateQuestionsCount ?? 0
+                            }
+                            onDuplicateClick={() =>
+                              setIsDuplicateModalOpen(true)
+                            }
+                            lowFeedbackUsersCount={
+                              (data as any).lowFeedbackUsersCount ?? null
+                            }
+                            onLowFeedbackClick={handleLowFeedbackUsersClick}
+                            source={source}
+                            onInactiveWhatsAppUsersClick={
+                              handleWhatsappInactiveUsersClick
+                            }
+                            isFetching={isFetching}
+                          />
+                          {isDuplicateModalOpen && (
+                            <DuplicateQuestionsModal
+                              onClose={() => setIsDuplicateModalOpen(false)}
+                              source={source}
+                              userType={filters.userType}
+                            />
+                          )}
+                          <InactiveUsersModal
+                            open={isInactiveWhatsappModalOpen}
+                            onOpenChange={setIsInactiveWhatsappModalOpen}
+                            users={inactiveWhatsappUsers?.users ?? []}
+                            pagination={inactiveWhatsappUsers?.pagination}
+                            onPageChange={setInactiveUsersPage}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Demographics */}
+                      {source !== "whatsapp" && (
+                        <div
+                          ref={(el) => {
+                            sectionRefs.current["demographics"] = el;
+                            userDemographicsRef.current = el;
+                          }}
+                        >
+                          {/* <UserDemographicsSection
+                            data={{
+                              ageGroups: userMetricesData?.userDemographics?.ageGroups,
+                              genderSplit: userMetricesData?.userDemographics?.genderSplit,
+                              farmingExperience: userMetricesData?.userDemographics?.farmingExperience,
+                              landHolding: userMetricesData?.userDemographics?.landHolding ?? [],
+                            }}
+                            source={source}
+                            userType={filters.userType}
+                          /> */}
+                          {isUserDemographicsVisible || loadImmediately ? (
+                            <Suspense
+                              fallback={
+                                <LazySectionSkeleton className="h-[400px]" />
+                              }
+                            >
+                              <LazyUserDemographicsSection
+                                source={source}
+                                userType={filters.userType}
+                                shouldLoadUserDemographics={shouldLoadUserDemographics}
+                              />
+                            </Suspense>
+                          ) : (
+                            <LazySectionSkeleton />
+                          )}
+                        </div>
+                      )}
+                      {/* 2-col row */}
+
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4 auto-rows-fr items-stretch">
+                        {source !== "whatsapp" && (
+                          <div className="h-full">
+                            <PlatformDonutSegments
+                              source={source}
+                              userType={filters.userType}
+                            />
+                          </div>
+                        )}
+
+                        {source !== "whatsapp" && (
+                          <div
+                            className="h-full group"
+                            ref={(el) => {
+                              sectionRefs.current["farmer-segments"] = el;
+                            }}
+                          >
+                            {/* <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-primary/60 to-transparent" /> */}
+
+                            <div className="relative h-full rounded-xl border border-border/60 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm p-5 shadow-sm hover:shadow-md transition-shadow duration-300">
+                              <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
+
+                              <div className="flex items-center gap-2 mb-5">
+                                <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
+                                <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground flex items-center gap-1.5">
+                                  <span>Knowledge & Awareness</span>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground">
+                                        <InfoIcon className="h-3.5 w-3.5" />
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="normal-case tracking-normal">
+                                      Shows survey statistics on KCC awareness
+                                      and agricultural app usage.
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </h3>
+                                <button
+                                  onClick={handleKWRefresh}
+                                  className="rounded-lg shadow-sm backdrop-blur-sm transition-all duration-200"
+                                  title="Refresh"
+                                >
+                                  <RefreshCw
+                                    className={`h-3.5 w-3.5 ${
+                                      kwDataRefreshing ? "animate-spin" : ""
+                                    }`}
+                                  />
+                                </button>
+                              </div>
+                              {kwDataRefreshing ? (
+                                <div>
+                                  <LazySectionSkeleton/>
+                                </div>
+                              ):(
+                                <div className="flex flex-wrap gap-6 justify-center items-center h-[calc(100%-3rem)] overflow-hidden">
+                                {[
+                                  {
+                                    label: "KCC Awareness",
+                                    data: userMetricesData?.kccAndAgriAppUsage
+                                      ?.kccAwareness,
+                                    hovered,
+                                    setHover: setHovered,
+                                    color: "hsl(142 71% 45%)",
+                                    gradId: "kccGrad",
+                                  },
+                                  {
+                                    label: "Uses Agri Apps",
+                                    data: userMetricesData?.kccAndAgriAppUsage
+                                      ?.agriAppUsage,
+                                    hovered: agriHovered,
+                                    setHover: setAgriHovered,
+                                    color: "hsl(217 91% 60%)",
+                                    gradId: "agriGrad",
+                                  },
+                                ].map(
+                                  ({
+                                    label,
+                                    data: d,
+                                    hovered: h,
+                                    setHover,
+                                    color,
+                                    gradId,
+                                  }) => {
+                                    const yes = d?.[0]?.count || 0;
+                                    const no = d?.[1]?.count || 0;
+                                    const total = yes + no;
+                                    const r = 45,
+                                      cx = 60,
+                                      cy = 60;
+                                    const circ = 2 * Math.PI * r;
+                                    const yesDash = total
+                                      ? (yes / total) * circ
+                                      : 0;
+                                    const noDash = total
+                                      ? (no / total) * circ
+                                      : 0;
+                                    const yesPct = total
+                                      ? Math.round((yes / total) * 100)
+                                      : 0;
+
+                                    return (
+                                      <div
+                                        key={label}
+                                        className="flex flex-col items-center gap-3 min-w-0 group/chart"
+                                      >
+                                        <div className="relative">
+                                          {/* Soft glow */}
+
+                                          <svg
+                                            viewBox="0 0 120 120"
+                                            className="relative w-[120px] h-[120px]"
+                                          >
+                                            <defs>
+                                              <linearGradient
+                                                id={gradId}
+                                                x1="0%"
+                                                y1="0%"
+                                                x2="100%"
+                                                y2="100%"
+                                              >
+                                                <stop
+                                                  offset="0%"
+                                                  stopColor={color}
+                                                  stopOpacity="1"
+                                                />
+                                                <stop
+                                                  offset="100%"
+                                                  stopColor={color}
+                                                  stopOpacity="0.7"
+                                                />
+                                              </linearGradient>
+                                            </defs>
+
+                                            {/* Track */}
+                                            <circle
+                                              cx={cx}
+                                              cy={cy}
+                                              r={r}
+                                              fill="none"
+                                              className="stroke-muted"
+                                              strokeWidth={10}
+                                            />
+
+                                            {/* Yes arc */}
+                                            <circle
+                                              cx={cx}
+                                              cy={cy}
+                                              r={r}
+                                              fill="none"
+                                              stroke={`url(#${gradId})`}
+                                              strokeWidth={
+                                                h === "yes" ? 13 : 10
+                                              }
+                                              strokeLinecap="round"
+                                              strokeDasharray={`${yesDash} ${circ}`}
+                                              transform={`rotate(-90 ${cx} ${cy})`}
+                                              className="cursor-pointer transition-[stroke-width] duration-200"
+                                              onMouseEnter={() =>
+                                                setHover("yes")
+                                              }
+                                              onMouseLeave={() =>
+                                                setHover(null)
+                                              }
+                                            />
+
+                                            {/* No arc */}
+                                            <circle
+                                              cx={cx}
+                                              cy={cy}
+                                              r={r}
+                                              fill="none"
+                                              className="stroke-muted-foreground/40 cursor-pointer transition-[stroke-width] duration-200"
+                                              strokeWidth={h === "no" ? 13 : 10}
+                                              strokeLinecap="round"
+                                              strokeDasharray={`${noDash} ${circ}`}
+                                              strokeDashoffset={-yesDash}
+                                              transform={`rotate(-90 ${cx} ${cy})`}
+                                              onMouseEnter={() =>
+                                                setHover("no")
+                                              }
+                                              onMouseLeave={() =>
+                                                setHover(null)
+                                              }
+                                            />
+
+                                            {/* Center text */}
+                                            <text
+                                              x={cx}
+                                              y={cy - 2}
+                                              textAnchor="middle"
+                                              className="fill-foreground font-bold tabular-nums"
+                                              fontSize={h ? 16 : 20}
+                                            >
+                                              {h === "yes"
+                                                ? yes
+                                                : h === "no"
+                                                  ? no
+                                                  : total}
+                                            </text>
+                                            <text
+                                              x={cx}
+                                              y={cy + 12}
+                                              textAnchor="middle"
+                                              className="fill-muted-foreground"
+                                              fontSize={8}
+                                              style={{
+                                                letterSpacing: "0.1em",
+                                                textTransform: "uppercase",
+                                              }}
+                                            >
+                                              {h === "yes"
+                                                ? "Yes"
+                                                : h === "no"
+                                                  ? "No"
+                                                  : "Total"}
+                                            </text>
+                                          </svg>
+                                        </div>
+
+                                        <div className="flex flex-col items-center gap-1">
+                                          <span className="text-xs font-medium text-foreground">
+                                            {label}
+                                          </span>
+                                          <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground tabular-nums">
+                                            <span
+                                              className="w-1.5 h-1.5 rounded-full"
+                                              style={{ backgroundColor: color }}
+                                            />
+                                            {yesPct}% Yes
+                                          </span>
+                                        </div>
+                                      </div>
+                                    );
+                                  },
+                                )}
+                              </div>)}
+
+                            </div>
+                          </div>
+                        )}
+
+                        {source !== "whatsapp" && (
+                          <FeedbackCard
+                            title="Feedback Data"
+                            positiveFeedbacksCount={
+                              userMetricesData?.feedbackData?.stats
+                                ?.positiveCount
+                            }
+                            negativeFeedbacksCount={
+                              userMetricesData?.feedbackData?.stats
+                                ?.negativeCount
+                            }
+                            positiveFeedbacks={
+                              userMetricesData?.feedbackData?.positiveFeedbacks
+                            }
+                            negativeFeedbacks={
+                              userMetricesData?.feedbackData?.negativeFeedbacks
+                            }
+                            averageRating={
+                              userMetricesData?.feedbackData?.stats
+                                ?.averageRating
+                            }
+                          />
+                        )}
+                      </div>
+
+                      <div
+                        ref={(el) => {
+                          queryInsightsRef.current = el;
+                        }}
+                        className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+                      >
+                        <motion.div
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.4, ease: "easeOut" }}
+                          ref={(el) => {
+                            sectionRefs.current["query-analysis"] = el;
+                          }}
+                          className="h-full"
+                        >
+                          {shouldLoadQueryInsights ? (
+                            <DashboardQueryCategories
+                              categories={
+                                queryCategories
+                                // source === "whatsapp"
+                                //   ? queryCategories
+                                //   : data.queryCategories
+                              }
+                              source={source}
+                              userType={filters.userType}
+                            />
+                          ) : (
+                            <LazySectionSkeleton className="h-[360px]" />
+                          )}
+                        </motion.div>
+
+                        <motion.div
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{
+                            duration: 0.4,
+                            ease: "easeOut",
+                            delay: 0.08,
+                          }}
+                          ref={(el) => {
+                            sectionRefs.current["feedback-sentiment"] = el;
+                          }}
+                          className="h-full"
+                        >
+                          {shouldLoadQueryInsights ? (
+                            <TopCropsCard
+                              topCrops={topCrops}
+                              isLoadingTopCrops={isLoadingTopCrops}
+                              errorLoadingtopCrops={errorLoadingtopCrops}
+                              source={source}
+                              userType= {filters.userType}
+                            />
+                          ) : (
+                            <LazySectionSkeleton className="h-[360px]" />
+                          )}
+                        </motion.div>
+                      </div>
+
+                      {/* Chatbot Quality & FAQ Analytics Section Header */}
+                      {/* Daily Trends & FAQ Leaderboard Grid */}
+                      {/* Row 1: Daily Trends & Feedback Data */}
+                      <div
+                        ref={(el) => {
+                          trendsRef.current = el;
+                        }}
+                        className="grid grid-cols-1 lg:grid-cols-1 gap-3 mb-4 mt-6"
+                      >
+                        {shouldLoadTrends ? (
+                          <DailyQuestionTrendsChart
+                            trends={dailyQuestionTrendsData}
+                            dateRange={trendsDateRange}
+                            onDateRangeChange={setTrendsDateRange}
+                            isLoading={trendsLoading}
+                          />
+                        ) : (
+                          <LazySectionSkeleton className="h-[320px]" />
+                        )}
+                      </div>
+
+                      {/* Row 2: State Analytics & FAQ Leaderboard */}
+                      <div
+                        ref={(el) => {
+                          faqsRef.current = el;
+                        }}
+                        className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4"
+                      >
+                        {shouldLoadFaqs ? (
+                          <>
+                            <DashboardStateWiseAnalytics
+                              source={source}
+                              userType={filters.userType}
+                            />
+
+                            <TopFaqsLeaderboard
+                              faqs={(faqsData as any)?.topFaqs}
+                              topQuestionsFromCollection={
+                                (faqsData as any)?.topQuestionsFromCollection
+                              }
+                              repeatQueryCount={
+                                (faqsData as any)?.repeatQueryCount
+                              }
+                              repeatQueryRatePct={
+                                (faqsData as any)?.repeatQueryRatePct
+                              }
+                              avgQuestionsPerUserDay={
+                                (faqsData as any)?.avgQuestionsPerUserDay
+                              }
+                              dateRange={faqsDateRange}
+                              onDateRangeChange={setFaqsDateRange}
+                              isLoading={faqsLoading}
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <LazySectionSkeleton className="h-[500px]" />
+                            <LazySectionSkeleton className="h-[500px]" />
+                          </>
+                        )}
+                      </div>
+
+                      {/* Geo + Health */}
+                      <div
+                        ref={(el) => {
+                          sectionRefs.current["geo-intelligence"] = el;
+                        }}
+                        className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4"
+                      >
+                        {/* <ChannelSplitCard
+                channelSplit={data.channelSplit}
+                voiceAccuracy={data.voiceAccuracy}
+              /> */}
+                        {/* <DashboardStateWiseAnalytics source={source} userType={filters.userType}/> */}
+                        {/* <GeoCard states={data.geoStates} />*/}
+                        <div
+                          ref={(el) => {
+                            sectionRefs.current["app-health"] = el;
+                          }}
+                        >
+                          {/* <FeedbackCard title="Feedback Data" positiveFeedbacksCount={data.feedbackData.stats.positiveCount} negativeFeedbacksCount={data.feedbackData.stats.negativeCount} positiveFeedbacks={data.feedbackData.positiveFeedbacks} negativeFeedbacks={data.feedbackData.negativeFeedbacks} averageRating={data.feedbackData.stats.averageRating}/> */}
+                        </div>
+                      </div>
+                      {source !== "whatsapp" && (
+                        <div
+                          ref={(el) => {
+                            activeUsersRef.current = el;
+                          }}
+                          className=""
+                        >
+                          {shouldLoadActiveUsers ? (
+                            <Tabs
+                              value={activeChartTab}
+                              onValueChange={setActiveChartTab}
+                              className="w-full"
+                            >
+                              <TabsList className="grid w-full max-w-xl grid-cols-3 mb-4">
+                                <TabsTrigger
+                                  value="dau"
+                                  className="flex items-center justify-center gap-1.5"
+                                >
+                                  <Users className="h-3.5 w-3.5" />
+                                  <span>Daily Active Users</span>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="cursor-help inline-flex items-center p-0.5 text-muted-foreground/60 hover:text-muted-foreground">
+                                        <HelpCircle className="h-3.5 w-3.5" />
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      Shows daily, weekly, or monthly active
+                                      chatbot user trends based on latest
+                                      activity.
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TabsTrigger>
+                                <TabsTrigger
+                                  value="retention"
+                                  className="flex items-center justify-center gap-1.5"
+                                >
+                                  <RefreshCw className="h-3.5 w-3.5" />
+                                  <span>User Retention</span>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="cursor-help inline-flex items-center p-0.5 text-muted-foreground/60 hover:text-muted-foreground">
+                                        <HelpCircle className="h-3.5 w-3.5" />
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      Tracks D1, D7, and D30 cohort-based user
+                                      retention over time.
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TabsTrigger>
+                                <TabsTrigger
+                                  value="churn"
+                                  className="flex items-center justify-center gap-1.5"
+                                >
+                                  <UserMinus className="h-3.5 w-3.5" />
+                                  <span>Monthly Churn</span>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="cursor-help inline-flex items-center p-0.5 text-muted-foreground/60 hover:text-muted-foreground">
+                                        <HelpCircle className="h-3.5 w-3.5" />
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      Measures the percentage of users active in
+                                      the previous month who did not return.
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TabsTrigger>
+                              </TabsList>
+                              <TabsContent value="dau" className="mt-0">
+                                {activeChartTab === "dau" && (
+                                  <ActiveUsersChart
+                                    source={source}
+                                    userType={filters.userType}
+                                  />
+                                )}
+                              </TabsContent>
+                              <TabsContent value="retention" className="mt-0">
+                                {activeChartTab === "retention" && (
+                                  <RetentionMetricsChart
+                                    source={source}
+                                    userType={filters.userType}
+                                  />
+                                )}
+                              </TabsContent>
+                              <TabsContent value="churn" className="mt-0">
+                                {activeChartTab === "churn" && (
+                                  <ChurnRateChart
+                                    source={source}
+                                    userType={filters.userType}
+                                  />
+                                )}
+                              </TabsContent>
+                            </Tabs>
+                          ) : (
+                            <LazySectionSkeleton className="h-[400px]" />
+                          )}
+                        </div>
+                      )}
+                      {source !== "whatsapp" && (
+                        <div
+                          ref={(el) => {
+                            weatherConcernRef.current = el;
+                          }}
+                          className="mt-4 mb-4"
+                        >
+                          {shouldLoadWeatherConcern ? (
+                            <WeatherConcernAnalyticsCard
+                              source={source}
+                              userType={filters.userType}
+                              filters={weatherConcernFilters}
+                              onFiltersChange={setWeatherConcernFilters}
+                            />
+                          ) : (
+                            <LazySectionSkeleton className="h-[360px]" />
+                          )}
+                        </div>
+                      )}
+                      {source !== "whatsapp" && (
+                        <div
+                          ref={(el) => {
+                            farmerHeatMapRef.current = el;
+                          }}
+                          className="mt-4 mb-4"
+                        >
+                          {shouldLoadFarmerHeatMap ? (
+                            <FarmerAnalyticsHeatMap
+                              source={source}
+                              userType={filters.userType}
+                              enabled={shouldLoadFarmerHeatMap}
+                            />
+                          ) : (
+                            <LazySectionSkeleton className="h-[520px]" />
+                          )}
+                        </div>
+                      )}
+                      {source !== "whatsapp" && (
+                        <>
+                        <div
+                          ref={(el) => {
+                            sectionRefs.current["user-details"] = el;
+                            userDetailsRef.current = el;
+                          }}
+                        >
+                          {shouldLoadUserDetails ? (
+                            <UserDetailsView
+                              source={source}
+                              initialFilters={userDetailsInitialFilters}
+                              userType={filters.userType}
+                            />
+                          ) : (
+                            <LazySectionSkeleton className="h-[520px]" />
+                          )}
+                        </div>
+                        {/* user verification */}
+                            {/* {
+                              isAdmin && (
+                                <div
+                                  ref={(el) => {
+                                    sectionRefs.current["verify-users"] = el;
+                                    userVerificationRef.current = el;
+                                  }}
+                                >
+                                  {shouldUserVerification ? (
+                                    <VerifyUser
+                                      source={source}
+                                      initialFilters={userVerificationInitialFilters}
+                                      userType={filters.userType}
+                                    />
+                                  ) : (
+                                    <LazySectionSkeleton className="h-[520px]" />
+                                  )}
+                                </div>
+                              )
+                            } */}
+                        
+                        </>
+                      )}
+                      {source === "whatsapp" && (
+                        <div
+                          ref={(el) => {
+                            sectionRefs.current["user-details"] = el;
+                          }}
+                        >
+                          <WhatsAppUsersView />
+                        </div>
+                      )}
+                    </>
                 </div>
-                <CardDescription>Requires leadership action</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {data.alerts.map((a) => (
-                  <AlertItemRow key={a.id} item={a} />
-                ))}
-              </CardContent>
-            </Card>
+              )}
+            </div>
           </div>
 
-          {/* Geo + Health */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 10 }}>
-            <GeoCoverageCard states={data.geoStates} />
-            <HealthScoreCard pillars={data.healthPillars} />
-          </div>
-        </main>
-      </div>
-
-      {/* STATUS BAR */}
-      <StatusBar meta={data.meta} />
+          {/* Commented out footer as requested:
+          <StatusBar
+            lastSync={data.meta.lastSync}
+            datasetVersion={data.meta.datasetVersion}
+            llmVersion={data.meta.llmVersion}
+            p0Bugs={data.meta.p0Bugs}
+          />
+          */}
+        </>
+      )}
     </div>
   );
 }
-
-
-

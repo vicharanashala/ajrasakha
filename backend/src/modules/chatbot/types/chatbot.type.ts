@@ -2,6 +2,8 @@ export type GrowthQuery = {
   range?: number;
   startDate?: string;
   endDate?: string;
+  source?: string;
+  userType?: string,
 };
 
 export type GrowthResponse = {
@@ -12,3 +14,30 @@ export type GrowthResponse = {
     activeUsers: number[];
   };
 };
+
+export type ActiveUsersQuery = {
+  startDate?: string;
+  endDate?: string;
+  source?: string;
+  userType?: string;
+  requestType?: string;
+};
+
+export type RetentionMetricsQuery = {
+  startDate?: string;
+  endDate?: string;
+  source?: string;
+  userType?: string;
+  requestType?: string;
+}
+
+export type TopFaqsQuery = {
+  userType?: string;
+  source?: string;
+  startTime?: string;
+  endTime?: string;
+}
+
+export type userProfileQuery = {
+  userId: string;
+}

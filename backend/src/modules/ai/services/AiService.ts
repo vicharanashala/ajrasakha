@@ -18,11 +18,14 @@ export class AiService {
   private _whatsAppServerUrl =
     'http://' + aiConfig.serverIP + ':' + aiConfig.whatsAppServerPort;
 
+  private _gdbServerUrl =
+    'http://' + aiConfig.gdbServerIP + ':' + aiConfig.gdbServerPort;
+
   async getQuestionByContext(
     context: string,
   ): Promise<QuestionSearchResponse> {
     // const response = await fetch(`${this._aiServerUrl}/questions`, {
-    const response = await fetch(`${this._agentServerUrl}/search_all`, {
+    const response = await fetch(`${this._agentServerUrl}/search`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -48,7 +51,7 @@ export class AiService {
     domain?: string,
   ): Promise<QuestionSearchResponse> {
 
-    const response = await fetch(`${this._agentServerUrl}/search_all`, {
+    const response = await fetch(`${this._agentServerUrl}/search`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -58,7 +61,7 @@ export class AiService {
         top_k: 3,
         threshold: 0.85,
         state: state,
-        district: district,
+       // district: district,
         crop: crop,
         //season: season,
         //domain: domain
@@ -120,7 +123,6 @@ export class AiService {
   async getEmbedding(text: string): Promise<{ embedding: number[] }> {
     try {
       const fullUrl = `${this._aiServerUrl}/embed`;
-      console.log("FULL FETCH URL:", fullUrl);
       const response = await fetch(fullUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -316,7 +318,6 @@ export class AiService {
       }
 
       const fullUrl = `${this._whatsAppServerUrl}/threads/${threadId}/state`;
-      console.log("Fetching WhatsApp state from:", fullUrl);
 
       const response = await fetch(fullUrl);
 
@@ -326,14 +327,12 @@ export class AiService {
       }
 
       const data = (await response.json()) as AgriFlowResponse;
-
       if (!data?.values || !Array.isArray(data.values.messages)) {
         console.warn("Invalid API response", data);
         return null;
       }
 
       const messages = data.values.messages;
-
       const extractId = (id: any): string | null => {
         if (typeof id === 'string') return id;
         if (!id) return null;
@@ -436,7 +435,7 @@ export class AiService {
           }
 
           //  AI text answer
-          if (typeof msg.content === "string") {
+          if (typeof msg.content === "string" && !msg.content.startsWith("THIS IS AN AGRI EXPERT GENERATED MESSAGE")) {
             structuredContent.push({
               type: "ai",
               text: msg.content,
@@ -512,4 +511,46 @@ export class AiService {
     }
   }
 
+  async searchGdb(params: {
+    crop: string;
+    state: string;
+    rephrased_query: string;
+  }): Promise<GdbSearchResponse | null> {
+    try {
+      const response = await fetch(`${this._gdbServerUrl}/v1/gdb/search`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(params),
+      });
+      if (!response.ok) {
+        console.error(`[searchGdb] Failed: ${response.status} ${response.statusText}`);
+        return null;
+      }
+      return (await response.json()) as GdbSearchResponse;
+    } catch (error) {
+      console.error('[searchGdb] Error:', error);
+      return null;
+    }
+  }
+
+}
+
+export interface GdbMatchItem {
+  question_id: string;
+  similarity_score: number;
+  question: string;
+  answer?: string;
+  retrieval_source?: string;
+  details?: any[];
+  chosen_for_answer?: boolean;
+  answer_from_class?: string;
+}
+
+export interface GdbSearchResponse {
+  rephrased_query: string;
+  crop: string;
+  state: string;
+  exact_match: GdbMatchItem | null;
+  selected_match: GdbMatchItem | null;
+  classification_audit?: any;
 }

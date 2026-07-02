@@ -15,7 +15,7 @@ import type {
   SourceItem,
   UserRole,
 } from "@/types";
-import { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AnswerItemHeader } from "./answer_item/AnswerItemHeader";
 import { AnswerContent } from "./answer_item/AnswerContent";
@@ -36,6 +36,9 @@ interface AnswerItemProps {
   rerouteQuestion?: IRerouteHistoryResponse[];
   lastAnswerApprovalCount?: number;
   paeReview?: boolean;
+  isDedicatedView?: boolean;
+  assignedModerator?: { name: string; email: string } | null;
+  isAssignedModerator?: boolean;
 }
 
 export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
@@ -64,6 +67,24 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false);
   const isSubmittingAnswerRef = useRef(false);
+
+  // Edit-final-answer (admin/moderator) dialog state
+  const [editFinalOpen, setEditFinalOpen] = useState(false);
+  const [editFinalAnswer, setEditFinalAnswer] = useState(props.answer.answer);
+  const [editFinalSources, setEditFinalSources] = useState<SourceItem[]>(
+    props.answer.sources
+  );
+  const isEditingFinalRef = useRef(false);
+  const [isEditingFinal, setIsEditingFinal] = useState(false);
+
+  // Always re-seed the edit dialog with the latest answer/sources when it opens,
+  // so the moderator never sees a stale draft from a prior cancelled edit.
+  useEffect(() => {
+    if (editFinalOpen) {
+      setEditFinalAnswer(props.answer.answer);
+      setEditFinalSources(props.answer.sources);
+    }
+  }, [editFinalOpen, props.answer.answer, props.answer.sources]);
 
   const { mutateAsync: updateAnswer, isPending: isUpdatingAnswer } =
     useUpdateAnswer();
@@ -124,6 +145,51 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
     isSubmittingAnswerRef.current = false;
     setIsSubmittingAnswer(false);
   }, 1000); // 1 second delay to prevent rapid submissions
+    }
+  };
+
+  const handleEditFinalAnswer = async () => {
+    if (isEditingFinalRef.current || isEditingFinal || isUpdatingAnswer) {
+      return;
+    }
+
+    isEditingFinalRef.current = true;
+    setIsEditingFinal(true);
+
+    try {
+      if (!editFinalAnswer || editFinalAnswer.trim().length <= 3) {
+        toast.error("Updated answer should be at least more than 3 characters");
+        return;
+      }
+
+      if (editFinalSources.length <= 0) {
+        toast.error("Updated answer should contain atleast 1 source");
+        return;
+      }
+
+      const answerId = props.answer._id;
+      if (!answerId) {
+        toast.error("Answer ID not found. Cannot update.");
+        return;
+      }
+
+      await updateAnswer({
+        updatedAnswer: editFinalAnswer,
+        sources: editFinalSources,
+        answerId,
+      });
+
+      toast.success("Final answer updated successfully.");
+      setEditFinalOpen(false);
+    } catch (error: any) {
+      console.error("Failed to edit final answer:", error);
+      const errorMessage = error?.message || error?.msg || "Unknown error";
+      toast.error(`Failed to update final answer. ${errorMessage}`);
+    } finally {
+      setTimeout(() => {
+        isEditingFinalRef.current = false;
+        setIsEditingFinal(false);
+      }, 1000);
     }
   };
 
@@ -278,6 +344,14 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         questionStatus={props.questionStatus}
         lastAnswerId={props.lastAnswerId}
         userRole={props.userRole}
+        editFinalOpen={editFinalOpen}
+        setEditFinalOpen={setEditFinalOpen}
+        editFinalAnswer={editFinalAnswer}
+        setEditFinalAnswer={setEditFinalAnswer}
+        editFinalSources={editFinalSources}
+        setEditFinalSources={setEditFinalSources}
+        isUpdatingFinalAnswer={isUpdatingAnswer || isEditingFinal}
+        handleEditFinalAnswer={handleEditFinalAnswer}
       />
 
       <AnswerActions
@@ -321,6 +395,9 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         firstFalseOrMissingIndex={firstFalseOrMissingIndex}
         lastAnswerApprovalCount={props.lastAnswerApprovalCount}
         paeReview={props.paeReview}
+        isDedicatedView={props.isDedicatedView}
+        assignedModerator={props.assignedModerator}
+        isAssignedModerator={props.isAssignedModerator}
       />
 
       <AnswerContent answer={props.answer} />

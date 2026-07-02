@@ -15,14 +15,16 @@ import {
   Put,
   BadRequestError,
   InternalServerError,
+  ForbiddenError,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
+import { verifyNotTester } from '#root/shared/functions/verifyNotTester.js';
 import {IAnswer, IUser} from '#root/shared/interfaces/models.js';
 import { AnswerService } from '../services/AnswerService.js';
-import { AddAnswerBody, AnswerIdParam, DeleteAnswerParams, ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
+import { AddAnswerBody, AnswerIdParam, DeleteAnswerParams, FetchAiInitialAnswerBody, ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
 import { IAnswerService } from '../interfaces/IAnswerService.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
@@ -52,9 +54,46 @@ export class AnswerController {
   @Authorized()
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
   async addAnswer(@Body() body: AddAnswerBody, @CurrentUser() user: IUser) {
+    verifyNotTester(user);
     const {questionId, answer, sources} = body;
     const authorId = user._id.toString();
-    return this.answerService.addAnswer(questionId, authorId, answer, sources);
+    const auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.ANSWER,
+      action: AuditAction.ANSWER_CREATED,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: { questionId },
+      createdAt: new Date(),
+    };
+    try {
+      const result = await this.answerService.addAnswer(questionId, authorId, answer, sources);
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        changes: { after: { answer: answer?.substring(0, 200) } },
+        outcome: { status: OutComeStatus.SUCCESS },
+      });
+      return result;
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to add answer',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      });
+      if (err instanceof InternalServerError) {
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(err?.message || 'Failed to add answer');
+    }
   }
 
   @OpenAPI({summary: 'review and add a new answer to a question'})
@@ -66,12 +105,65 @@ export class AnswerController {
     @Body() body: ReviewAnswerBody,
     @CurrentUser() user: IUser,
   ): Promise<{message: string}> {
+    verifyNotTester(user);
     const userId = user._id.toString();
-    if(body.type=="reroute")
-    {
-      return this.answerService.reRouteReviewAnswer(userId, body)
+    const auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.ANSWER,
+      // No review status means the expert is creating the (first) answer rather than
+      // reviewing an existing one — log it as ANSWER_CREATED.
+      action: body.status ? AuditAction.REVIEW_ANSWER : AuditAction.ANSWER_CREATED,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: {
+        questionId: body.questionId,
+        type: body.type,
+        status: body.status,
+      },
+      createdAt: new Date(),
+    };
+    try {
+      let result;
+      if(body.type=="reroute")
+      {
+        result = await this.answerService.reRouteReviewAnswer(userId, body);
+      } else {
+        result = await this.answerService.reviewAnswer(userId, body);
+      }
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        outcome: { status: OutComeStatus.SUCCESS },
+      });
+      return result;
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to review answer',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      });
+      if (err instanceof InternalServerError) {
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(err?.message || 'Failed to review answer');
     }
-    return this.answerService.reviewAnswer(userId, body);
+  }
+
+  @OpenAPI({summary: 'Fetch AI initial answer through backend proxy'})
+  @Post('/fetch-ai-answer')
+  @HttpCode(200)
+  @Authorized()
+  @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
+  async fetchAiInitialAnswer(@Body() body: FetchAiInitialAnswerBody) {
+    return this.answerService.fetchAiInitialAnswer(body);
   }
 
   @Get('/submissions')
@@ -80,20 +172,21 @@ export class AnswerController {
   @ResponseSchema(SubmissionResponse, {isArray: true})
   @OpenAPI({summary: 'Get all submissions'})
   async getUnAnsweredQuestions(
-    @QueryParams() query: {page?: number; limit?: number; start:string | undefined,end:string | undefined,selectedHistoryId:string|undefined},
+    @QueryParams() query: {page?: number; limit?: number; start:string | undefined,end:string | undefined,selectedHistoryId:string|undefined,expertId?:string|undefined},
     @CurrentUser() user: IUser,
   ): Promise<SubmissionResponse[]> {
     const page = Number(query.page) ?? 1;
     const limit = Number(query.limit) ?? 10;
     const userId = user._id.toString();
     const selectedHistoryId=query.selectedHistoryId
+    const expertId=query.expertId
     let dateRange=undefined
     if(query.start && query.end){
     let end = new Date(query.end as string);
     end.setHours(23,59,59,999)
     dateRange = {from:new Date(query.start as string),to:end}
     }
-    return this.answerService.getSubmissions(userId, page, limit,dateRange,selectedHistoryId);
+    return this.answerService.getSubmissions(userId, page, limit,dateRange,selectedHistoryId,expertId);
   }
   @Get('/finalizedAnswers')
   @HttpCode(200)
@@ -140,6 +233,7 @@ export class AnswerController {
     @Body() body: UpdateAnswerBody,
     @CurrentUser() user: IUser,
   ) {
+    verifyNotTester(user);
     const {_id: userId} = user;
     let result;
     let prevAnswer;
@@ -168,6 +262,19 @@ export class AnswerController {
         prevAnswer = await this.answerService.getAnswerById(body.answerId);
       }
       questionData = await this.questionService.getQuestionDataById(prevAnswer?.questionId?.toString()||body.questionId);
+
+      // If editing an already-finalized answer on a closed question, log as EDIT_FINAL_ANSWER.
+      const isEditFinal =
+        questionData?.status === 'closed' &&
+        prevAnswer?.isFinalAnswer === true;
+      // Approving a duplicate question through this endpoint is the "Push to GDB" flow.
+      const isPushToGdb = questionData?.status === 'duplicate';
+      if (isEditFinal) {
+        auditPayload = {...auditPayload, action: AuditAction.EDIT_FINAL_ANSWER};
+      } else if (isPushToGdb) {
+        auditPayload = {...auditPayload, action: AuditAction.PUSH_TO_GDB};
+      }
+
       result = await this.answerService.approveAnswer(
         userId.toString(),
         body,
@@ -237,12 +344,13 @@ export class AnswerController {
     @Body() body: UpdateAnswerBody,
     @CurrentUser() user: IUser,
   ) {
+    verifyNotTester(user);
     const {_id: userId} = user;
     let result;
     let questionData;
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.ANSWER,
-      action: AuditAction.APPROVE_ANSWER,
+      action: AuditAction.APPROVE_LLM_ANSWER,
       actor: {
         id: userId,
         name: `${user.firstName} ${user.lastName}`,
@@ -310,9 +418,42 @@ export class AnswerController {
   @HttpCode(200)
   @Authorized()
   @ResponseSchema(BadRequestErrorResponse, {statusCode: 400})
-  async deleteAnswer(@Params() params: DeleteAnswerParams) {
+  async deleteAnswer(@Params() params: DeleteAnswerParams, @CurrentUser() user: IUser) {
+    verifyNotTester(user);
     const {answerId, questionId} = params;
-    return this.answerService.deleteAnswer(questionId, answerId);
+    const auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.ANSWER,
+      action: AuditAction.DELETE_ANSWER,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: { questionId, answerId },
+      createdAt: new Date(),
+    };
+    try {
+      const result = await this.answerService.deleteAnswer(questionId, answerId);
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        outcome: { status: OutComeStatus.SUCCESS },
+      });
+      return result;
+    } catch (err: any) {
+      this.auditTrailsService.createAuditTrail({
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to delete answer',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      });
+      throw err;
+    }
   }
 
   @Get('/faqs/mod')

@@ -9,6 +9,7 @@ import {PreferenceDto} from '#root/modules/user/validators/UserValidators.js';
 import {getBackgroundJobs} from './workerManager.js';
 import {appConfig} from '#root/config/app.js';
 import {DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT} from '#root/shared/constants/general.js';
+import { toTitleCase } from '#root/utils/ToTitlecase.js';
 
 interface WorkerData {
   questions: any[];
@@ -125,7 +126,9 @@ const {checkDuplicateQuestionHelper} =
     try {
       // 1. Normalization
       const low = normalizeKeysToLower(qRaw || {});
-      const rawCropName = (low.crop || '').toString();
+      // const rawCropName = (low.crop || '').toString();
+      const rawCropName = toTitleCase(low.crop);
+      const cleanState = toTitleCase(low.state)
       let normalised_crop: string | undefined;
 
       if (rawCropName.trim()) {
@@ -147,11 +150,16 @@ const {checkDuplicateQuestionHelper} =
       }
 
       const details: any = {
-        state: (low.state || '').toString(),
+        // state: (low.state || '').toString(),
+        state: cleanState,
         district: (low.district || '').toString(),
         crop: rawCropName.trim(),
         season: (low.season || '').toString(),
-        domain: (low.domain || '').toString(),
+        domain: Array.isArray(low.domain)
+          ? low.domain
+          : low.domain
+            ? [low.domain.toString()]
+            : [],
         ...(normalised_crop !== undefined && { normalised_crop }),
       };
 
@@ -248,6 +256,17 @@ const {checkDuplicateQuestionHelper} =
             processed++;
             duplicateCount++;
             parentPort?.postMessage({processed: 1, duplicateCount: 1});
+            continue; // Skip allocation
+          }
+
+          if (duplicateResult.isNonAgri) {
+            newQuestion.status = 'non_agri';
+            await questionRepo.addQuestion(newQuestion);
+            console.log(
+              `🚫 Non-agri question saved with status 'non_agri'. Skipping allocation.`,
+            );
+            processed++;
+            parentPort?.postMessage({processed: 1});
             continue; // Skip allocation
           }
         } catch (dupError: any) {

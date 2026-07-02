@@ -124,7 +124,7 @@ export const ViewMoreContent = ({
                 </span> */}
 
                 <div className="flex gap-2 items-center">
-                  {(userRole === "moderator" || userRole === "admin") && (
+                  {(userRole === "moderator" || userRole === "admin" || userRole === "tester") && (
                     <AvatarComponent
                       name={submissionData.updatedBy?.name}
                       image={submissionData.updatedBy?.avatar}

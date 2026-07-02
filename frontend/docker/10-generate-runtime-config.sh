@@ -1,0 +1,13 @@
+#!/bin/sh
+set -e
+
+: "${VITE_ENABLE_MOCKS:=false}"
+: "${VITE_API_BASE_URL:=/api}"
+: "${VITE_FIREBASE_MEASUREMENT_ID:=}"
+: "${VITE_FAQ_API_URL:=/api/faq}"
+: "${VITE_POP_API_URL:=/api/pop}"
+
+envsubst \
+  '${VITE_ENABLE_MOCKS} ${VITE_API_BASE_URL} ${VITE_FIREBASE_API_KEY} ${VITE_FIREBASE_AUTH_DOMAIN} ${VITE_FIREBASE_PROJECT_ID} ${VITE_FIREBASE_STORAGE_BUCKET} ${VITE_FIREBASE_MESSAGING_SENDER_ID} ${VITE_FIREBASE_APP_ID} ${VITE_FIREBASE_MEASUREMENT_ID} ${VITE_SARVAM_API_KEY} ${VITE_VAPID_PUBLIC_KEY} ${VITE_FAQ_API_URL} ${VITE_POP_API_URL}' \
+  < /etc/reviewer/runtime-config.js.template \
+  > /usr/share/nginx/html/runtime-config.js

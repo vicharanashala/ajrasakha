@@ -7,7 +7,11 @@ import type {
 import { apiFetch } from "../api/api-fetch";
 import type { IReviewAnswerPayload } from "../api/answer/useReviewAnswer";
 import { env } from "@/config/env";
-
+export interface IFetchAnswerPayload {
+  query: string;
+  crop: string;
+  state: string;
+}
 const API_BASE_URL = env.apiBaseUrl();
 
 export class AnswerService {
@@ -16,7 +20,7 @@ export class AnswerService {
   async submitAnswer(
     questionId: string,
     answer: string,
-    sources: SourceItem[]
+    sources: SourceItem[],
   ): Promise<SubmitAnswerResponse | null> {
     try {
       return await apiFetch<SubmitAnswerResponse>(this._baseUrl, {
@@ -40,7 +44,7 @@ export class AnswerService {
     reasonForModification,
     parameters,
     remarks,
-    type
+    type,
   }: IReviewAnswerPayload): Promise<SubmitAnswerResponse | null> {
     try {
       return await apiFetch<SubmitAnswerResponse>(`${this._baseUrl}/review`, {
@@ -57,7 +61,7 @@ export class AnswerService {
           reasonForModification,
           parameters,
           remarks,
-          type
+          type,
         }),
       });
     } catch (error) {
@@ -65,7 +69,7 @@ export class AnswerService {
       throw error;
     }
   }
- /* async updateAnswer(answerId: string, updatedAnswer: string,sources:SourceItem[]) {
+  /* async updateAnswer(answerId: string, updatedAnswer: string,sources:SourceItem[]) {
     try {
       return await apiFetch<SubmitAnswerResponse>(
         `${this._baseUrl}/${answerId}`,
@@ -87,19 +91,16 @@ export class AnswerService {
     questionId?: string,
   ) {
     try {
-      return await apiFetch<SubmitAnswerResponse>(
-        `${this._baseUrl}`,
-        {
-          method: "PUT",
-          body: JSON.stringify({
-            ...(answerId && { answerId }),
-            ...(updatedAnswer && { answer: updatedAnswer }),
-            ...(sources && { sources }),
-            ...(source && { source }),
-            ...(questionId && { questionId }),
-          }),
-        }
-      );
+      return await apiFetch<SubmitAnswerResponse>(`${this._baseUrl}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          ...(answerId && { answerId }),
+          ...(updatedAnswer && { answer: updatedAnswer }),
+          ...(sources && { sources }),
+          ...(source && { source }),
+          ...(questionId && { questionId }),
+        }),
+      });
     } catch (error) {
       console.error(`Error in updating(${answerId}):`, error);
       throw error;
@@ -123,7 +124,7 @@ export class AnswerService {
             sources,
             source,
           }),
-        }
+        },
       );
     } catch (error) {
       console.error(`Error in approveLLMAnswer(${questionId}):`, error);
@@ -134,26 +135,43 @@ export class AnswerService {
   async getSubmissions(
     pageParam: number,
     limit: number,
-    dateRange:any,
-    selectedHistoryId?:string,
+    dateRange: any,
+    selectedHistoryId?: string,
+    expertId?: string,
   ): Promise<any> {
     const params = new URLSearchParams();
-  params.append("page", String(pageParam));
-  params.append("limit", String(limit));
+    params.append("page", String(pageParam));
+    params.append("limit", String(limit));
 
-  if (dateRange?.start) params.append("start", dateRange.start);
-  if (dateRange?.end) params.append("end", dateRange.end);
-  if (selectedHistoryId) params.append("selectedHistoryId", selectedHistoryId);
+    if (dateRange?.start) params.append("start", dateRange.start);
+    if (dateRange?.end) params.append("end", dateRange.end);
+    if (selectedHistoryId)
+      params.append("selectedHistoryId", selectedHistoryId);
+    if (expertId) params.append("expertId", expertId);
 
-  return apiFetch<any>(`${this._baseUrl}/submissions?${params.toString()}`);
+    return apiFetch<any>(`${this._baseUrl}/submissions?${params.toString()}`);
   }
   async getFinalizedAnswers(
     userId: string,
     date: string,
-    status: string
+    status: string,
   ): Promise<FinalizedAnswersResponse | null> {
     return apiFetch<FinalizedAnswersResponse>(
-      `${this._baseUrl}/finalizedAnswers?userId=${userId}&date=${date}&status=${status}`
+      `${this._baseUrl}/finalizedAnswers?userId=${userId}&date=${date}&status=${status}`,
     );
+  }
+
+  async fetchAiInitialAnswer(
+    payload: IFetchAnswerPayload,
+  ): Promise<any | null> {
+    try {
+      return apiFetch<any>(`${this._baseUrl}/fetch-ai-answer`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    } catch (error) {
+      console.error(`Error in fetchAiInitialAnswer:`, error);
+      throw error;
+    }
   }
 }

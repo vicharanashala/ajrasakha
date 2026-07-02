@@ -4,6 +4,7 @@ import { env } from '@/config/env';
 
 export interface DuplicateQuestionEntry {
   questionId: string;
+  userId?: string;
   question: string;
   referenceQuestion: string;
   similarityScore: number;
@@ -14,15 +15,17 @@ export interface DuplicateQuestionEntry {
   block: string;
   district: string;
   state: string;
+  mobileNumber: string;
+  threadId: string;
 }
 
-export function useDuplicateQuestions(enabled = false, source: 'vicharanashala' | 'annam' = 'annam') {
+export function useDuplicateQuestions(enabled = false, source: 'annam' | 'whatsapp'= 'annam', userType: string) {
   return useQuery<DuplicateQuestionEntry[], Error>({
-    queryKey: ['duplicate-questions', source],
+    queryKey: ['duplicate-questions', source, userType],
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
       const result = await apiFetch<DuplicateQuestionEntry[]>(
-        `${API_BASE_URL}/analytics/duplicate-questions?source=${source}`
+        `${API_BASE_URL}/analytics/duplicate-questions?source=${source}&userType=${userType}`
       );
       return result ?? [];
     },

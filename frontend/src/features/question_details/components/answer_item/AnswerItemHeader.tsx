@@ -1,6 +1,7 @@
-import type { IAnswer, ISubmissionHistory, QuestionStatus, UserRole } from "@/types";
+import type { IAnswer, ISubmissionHistory, QuestionStatus, SourceItem, UserRole } from "@/types";
 import { Badge } from "@/components/atoms/badge";
 import { XCircle, Clock, UserCheck } from "lucide-react";
+import { ApproveAnswerDialog } from "./ApproveAnswerDialog";
 
 interface AnswerItemHeaderProps {
   answer: IAnswer;
@@ -10,6 +11,14 @@ interface AnswerItemHeaderProps {
   questionStatus: QuestionStatus;
   lastAnswerId: string;
   userRole:  UserRole;
+  editFinalOpen?: boolean;
+  setEditFinalOpen?: (open: boolean) => void;
+  editFinalAnswer?: string;
+  setEditFinalAnswer?: (value: string) => void;
+  editFinalSources?: SourceItem[];
+  setEditFinalSources?: (sources: SourceItem[]) => void;
+  isUpdatingFinalAnswer?: boolean;
+  handleEditFinalAnswer?: () => void;
 }
 
 export const AnswerItemHeader = ({
@@ -19,6 +28,15 @@ export const AnswerItemHeader = ({
   submissionData,
   questionStatus,
   lastAnswerId,
+  userRole,
+  editFinalOpen,
+  setEditFinalOpen,
+  editFinalAnswer,
+  setEditFinalAnswer,
+  editFinalSources,
+  setEditFinalSources,
+  isUpdatingFinalAnswer,
+  handleEditFinalAnswer,
 }: AnswerItemHeaderProps) => {
   const showRejectedBadge =
     (isRejected && !submissionData?.isReroute) ||
@@ -39,9 +57,28 @@ export const AnswerItemHeader = ({
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm">
       <div className="flex items-center gap-2">
         {answer.isFinalAnswer && (
-          <Badge variant="outline" className="text-green-600 border-green-600">
-            Final
-          </Badge>
+          <>
+            <Badge variant="outline" className="text-green-600 border-green-600">
+              Final
+            </Badge>
+            {userRole !== "expert" &&
+              setEditFinalOpen &&
+              setEditFinalAnswer &&
+              setEditFinalSources &&
+              handleEditFinalAnswer && (
+                <ApproveAnswerDialog
+                  mode="edit"
+                  editOpen={!!editFinalOpen}
+                  setEditOpen={setEditFinalOpen}
+                  editableAnswer={editFinalAnswer ?? ""}
+                  setEditableAnswer={setEditFinalAnswer}
+                  sources={editFinalSources ?? []}
+                  setSources={setEditFinalSources}
+                  isUpdatingAnswer={!!isUpdatingFinalAnswer}
+                  handleUpdateAnswer={handleEditFinalAnswer}
+                />
+              )}
+          </>
         )}
 
         {showRejectedBadge && (

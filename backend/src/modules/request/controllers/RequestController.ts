@@ -1,6 +1,6 @@
-import {BadRequestErrorResponse, IRequest, IRequestResponse, IUser} from '#root/shared/index.js';
-import {GLOBAL_TYPES} from '#root/types.js';
-import {inject, injectable} from 'inversify';
+import { BadRequestErrorResponse, IRequest, IRequestResponse, IUser, verifyNotTester } from '#root/shared/index.js';
+import { GLOBAL_TYPES } from '#root/types.js';
+import { inject, injectable } from 'inversify';
 import {
   JsonController,
   Post,
@@ -15,7 +15,7 @@ import {
   InternalServerError,
   BadRequestError,
 } from 'routing-controllers';
-import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
+import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
 import {
   CreateRequestBodyDto,
   GetAllRequestsQueryDto,
@@ -48,7 +48,7 @@ export class RequestController {
 
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
     private readonly auditTrailsService: IAuditTrailsService,
-  ) {}
+  ) { }
 
   @OpenAPI({
     summary: 'Create a new request',
@@ -142,7 +142,7 @@ export class RequestController {
     existingDoc: any;
     responses: IRequestResponse[]
   }> {
-    const {requestId} = params;
+    const { requestId } = params;
     const userId = user._id.toString();
     return this.requestService.getRequestDiff(userId, requestId);
   }
@@ -175,11 +175,12 @@ export class RequestController {
     @Body() body: UpdateRequestStatusDto,
     @CurrentUser() user: IUser,
   ): Promise<IRequestResponse> {
-    const {requestId} = params;
-    const {status, response} = body;
+    verifyNotTester(user);
+    const { requestId } = params;
+    const { status, response } = body;
     const userId = user._id.toString();
     let result;
-    let auditPayload : ModeratorAuditTrail = {
+    let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.REQUEST_QUEUE,
       action: AuditAction.CHANGE_STATUS,
       actor: {
@@ -207,7 +208,7 @@ export class RequestController {
     };
     try {
       result = await this.requestService.updateStatus(requestId, status, response, userId);
-    } catch(err: any){
+    } catch (err: any) {
       auditPayload = {
         ...auditPayload,
         outcome: {
@@ -219,7 +220,7 @@ export class RequestController {
         },
       };
       this.auditTrailsService.createAuditTrail(auditPayload);
-      if(err instanceof InternalServerError){
+      if (err instanceof InternalServerError) {
         throw new InternalServerError(err.message);
       }
       throw new BadRequestError(
@@ -257,10 +258,11 @@ export class RequestController {
     @Params() params: RequestParamsDto,
     @CurrentUser() user: IUser,
   ): Promise<void> {
-  const {requestId} = params;
+    verifyNotTester(user);
+    const { requestId } = params;
     const userId = user._id.toString();
     let previousRequest;
-    let auditPayload : ModeratorAuditTrail= {
+    let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.REQUEST_QUEUE,
       action: AuditAction.DELETE_REQUEST,
       actor: {
@@ -282,10 +284,10 @@ export class RequestController {
         status: OutComeStatus.SUCCESS,
       },
     };
-    try{
+    try {
       previousRequest = await this.requestService.getRequestById(requestId);
       await this.requestService.softDeleteRequest(requestId, userId);
-    } catch(err: any){
+    } catch (err: any) {
       auditPayload = {
         ...auditPayload,
         context: {
@@ -300,13 +302,13 @@ export class RequestController {
           errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
         },
       }
-        this.auditTrailsService.createAuditTrail(auditPayload);
-        if(err instanceof InternalServerError){
-          throw new InternalServerError(err.message);
-        }
-        throw new BadRequestError(
-          err?.message || 'Failed to delete request',
-        );
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      if (err instanceof InternalServerError) {
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(
+        err?.message || 'Failed to delete request',
+      );
     }
     auditPayload = {
       ...auditPayload,

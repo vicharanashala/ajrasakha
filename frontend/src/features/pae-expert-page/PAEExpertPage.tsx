@@ -17,7 +17,6 @@ import {
   useGetAllocatedQuestions,
 } from "@/hooks/api/question/useGetAllocatedQuestions";
 import { useGetQuestionById } from "@/hooks/api/question/useGetQuestionById";
-import { toast } from "sonner";
 import { SourceUrlManager } from "../../components/source-url-manager";
 import type { IReviewParmeters, SourceItem } from "@/types";
 import { ConfirmationModal } from "../../components/confirmation-modal";
@@ -28,6 +27,9 @@ import {
 import { QaHeader } from "../qa-interface-page/QaHeader";
 import type { QuestionFilter } from "../qa-interface-page/QA-interface";
 import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
+import { QuestionDetailsDialog } from "../qa-interface-page/QuestionDetailsDialog";
+import { toast } from "@/shared/components/toast";
+import { isEnglishCharacters } from "../questions/utils/checkLanguage";
 
 export const PAEExpertPage = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -221,6 +223,12 @@ export const PAEExpertPage = () => {
     if (!selectedQuestion || isResponding) return;
     setIsSidebarCollapsed(false);
 
+    const requiresSources = !status || status === "rejected" || status === "modified";
+    if (requiresSources && sources.length === 0) {
+      toast.error("At least one source is required!");
+      return;
+    }
+
     const payload = { questionId: selectedQuestion, parameters } as IReviewAnswerPayload;
 
     const answerToSubmit = overrideAnswer ?? newAnswer;
@@ -271,16 +279,31 @@ export const PAEExpertPage = () => {
     handleReset();
   };
 
+  const handleAiAnswerFetched = (
+    questionId: string,
+    answer: string,
+    aiSources: SourceItem[],
+  ) => {
+    setSelectedQuestion(questionId);
+    setTranslatedDraftText("");
+    setNewAnswer(answer);
+    setSources(aiSources);
+    setRemarks("AI Generated Answer");
+  };
+
   const renderRightPanel = () => {
     if (!selectedQuestionData) return null;
 
     return (
       <Card className="w-full border border-gray-200 dark:border-gray-700 shadow-sm rounded-lg bg-transparent mb-3 md:mb-0">
-        <CardHeader className="flex items-center gap-2 border-b border-gray-200 dark:border-gray-700">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <FileText className="w-5 h-5 text-primary" />
+        <CardHeader className="flex items-center justify-between gap-2 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <FileText className="w-5 h-5 text-primary" />
+            </div>
+            <CardTitle className="text-lg font-semibold">Response</CardTitle>
           </div>
-          <CardTitle className="text-lg font-semibold">Response</CardTitle>
+          <QuestionDetailsDialog question={selectedQuestionData} />
         </CardHeader>
         <CardContent className="h-full flex flex-col space-y-6 p-4 overflow-hidden">
           {isSelectedQuestionLoading ? (
@@ -294,11 +317,15 @@ export const PAEExpertPage = () => {
                 <div className="flex items-center justify-between gap-2">
                   <Label className="text-sm font-medium text-muted-foreground">
                     Current Query:
-                  </Label>
-                  <SarvamTranslateDropdown
-                    query={selectedQuestionData.text}
-                    onTranslate={(result) => setTranslatedText(result)}
-                  />
+                  </Label>    
+                    {
+                      selectedQuestionData.text?.trim() && !isEnglishCharacters(selectedQuestionData.text) && (
+                        <SarvamTranslateDropdown
+                          query={selectedQuestionData.text}
+                          onTranslate={(result) => setTranslatedText(result)}
+                        />
+                      )
+                    }
                 </div>
                 <p className="text-sm mt-1 p-3 rounded-md border border-gray-200 dark:border-gray-600 break-words">
                   {translatedText || selectedQuestionData.text}
@@ -319,10 +346,14 @@ export const PAEExpertPage = () => {
                     )}
                   </Label>
                   <div className="flex items-center gap-2">
-                    <SarvamTranslateDropdown
-                      query={newAnswer}
-                      onTranslate={(result) => setTranslatedDraftText(result)}
-                    />
+                      {
+                        newAnswer?.trim() && !isEnglishCharacters(newAnswer) && (
+                          <SarvamTranslateDropdown
+                            query={newAnswer}
+                            onTranslate={(result) => setTranslatedDraftText(result)}
+                          />
+                        )
+                      }
                     {selectedQuestionData.aiInitialAnswer && !newAnswer && (
                       <button
                         onClick={() => {
@@ -368,7 +399,11 @@ export const PAEExpertPage = () => {
                 </div>
 
                 <div className="bg-card border border-border rounded-xl p-6 shadow-sm mt-3 md:mt-6">
-                  <SourceUrlManager sources={sources} onSourcesChange={setSources} />
+                  <SourceUrlManager
+                    sources={sources}
+                    onSourcesChange={setSources}
+                    allowAnyUrl
+                  />
                   {sources.length > 0 && (
                     <div className="mt-6 pt-6 border-t border-border">
                       <p className="text-sm text-muted-foreground">
@@ -468,6 +503,7 @@ export const PAEExpertPage = () => {
               questionItemRefs={questionItemRefs}
               setQuestionRef={setQuestionRef}
               onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              onAiAnswerFetched={handleAiAnswerFetched}
               hideControls={true}
             />
           </div>

@@ -15,6 +15,7 @@ on:
           - agriculture
           - reviewer
           - llm_cache_proxy
+          - langgraph_openai_adapter
 
 permissions:
   contents: read
@@ -48,17 +49,17 @@ jobs:
 
           # Proxy API
           if [[ "$TARGET" == "all" || "$TARGET" == "proxy_api" ]]; then
-            add_entry "proxy_api" "./mcp/proxy_api/api_container" "./mcp/proxy_api/api_container/Dockerfile"
+            add_entry "proxy_api" "./apis/proxy_api/api_container" "./apis/proxy_api/api_container/Dockerfile"
           fi
 
           # Agriculture
           if [[ "$TARGET" == "all" || "$TARGET" == "agriculture" ]]; then
-            add_entry "agriculture" "./mcp/proxy_api/mcp_containers/agriculture" "./mcp/proxy_api/mcp_containers/agriculture/Dockerfile"
+            add_entry "agriculture" "./apis/proxy_api/mcp_containers/agriculture" "./apis/proxy_api/mcp_containers/agriculture/Dockerfile"
           fi
 
           # Market (UPDATED: using the one in proxy_api/mcp_containers as requested)
           if [[ "$TARGET" == "all" || "$TARGET" == "market" ]]; then
-            add_entry "market2" "./mcp/proxy_api/mcp_containers/market" "./mcp/proxy_api/mcp_containers/market/Dockerfile"
+            add_entry "market2" "./apis/proxy_api/mcp_containers/market" "./apis/proxy_api/mcp_containers/market/Dockerfile"
           fi
 
           # Reviewer
@@ -68,7 +69,12 @@ jobs:
 
           # LLM Cache Proxy
           if [[ "$TARGET" == "all" || "$TARGET" == "llm_cache_proxy" ]]; then
-            add_entry "llm_cache_proxy" "./mcp/proxy_api/llm_cache_proxy" "./mcp/proxy_api/llm_cache_proxy/Dockerfile"
+            add_entry "llm_cache_proxy" "./apis/proxy_api/llm_cache_proxy" "./apis/proxy_api/llm_cache_proxy/Dockerfile"
+          fi
+
+          # LangGraph OpenAI Adapter
+          if [[ "$TARGET" == "all" || "$TARGET" == "langgraph_openai_adapter" ]]; then
+            add_entry "langgraph_openai_adapter" "./apis/langgraph-openai-adapter" "./apis/langgraph-openai-adapter/Dockerfile"
           fi
 
           # Compact the JSON to single line to avoid issues with GHA outputs

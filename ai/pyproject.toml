@@ -12,7 +12,8 @@ dependencies = [
     "langchain-huggingface>=0.1.0",
     "langchain-mongodb>=0.2.0",
     "langchain-qwq>=0.1.0",
-    "langgraph>=0.2.0",
+    "langgraph>=1.1.4",
+    "langgraph-checkpoint>=2.0.0,<5.0.0",
     "pydantic>=2.0.0",
     "aiohttp>=3.10.0",
     "python-dotenv>=1.0.0",
@@ -21,9 +22,12 @@ dependencies = [
     "pytest-asyncio>=0.24.0",
     "fastmcp>=3.1.1",
     "ipykernel>=7.2.0",
-    #    "sentence-transformers>=2.6.0",
+    "sentence-transformers>=2.6.0",
     "langchain-mcp-adapters",
     "langchain-anthropic>=1.4.1",
+    "motor>=3.7.1",
+    "rapidfuzz>=3.0.0",
+    "unicodedataplus>=16.0.0",
 ]
 
 [build-system]
@@ -39,3 +43,8 @@ testpaths = ["ajrasakha"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
+
+[dependency-groups]
+dev = [
+    "langgraph-cli[inmem]>=0.4.26",
+]

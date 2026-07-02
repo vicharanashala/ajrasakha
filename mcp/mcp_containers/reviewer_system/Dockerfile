@@ -1,19 +1,19 @@
-# Use python 3.11 slim (Debian)
 FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Copy requirements
-COPY requirements.txt .
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl bash \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
+COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the application code
 COPY . .
+RUN chmod +x run.sh
 
-# Expose the port
-EXPOSE 9023
+EXPOSE 9022 9023
 
-# Run the MCP server
-CMD ["python", "reviewer_mcp.py"]
+CMD ["./run.sh"]

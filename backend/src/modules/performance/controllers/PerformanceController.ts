@@ -51,6 +51,7 @@ import {
   CheckInResponse,
   CronSnapshotReportResponse,
   LevelReportErrorResponse,
+  ShiftReportErrorResponse,
 } from '../classes/validators/PerformanceResponseValidators.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
@@ -146,9 +147,9 @@ export class PerformanceController {
   }
 
   @OpenAPI({ summary: 'Get detailed questions/answers analytics' })
-  @Get('/questions-analytics')
+  @Post('/questions-analytics')
   @Authorized()
-  async getQuestionsAnalytics(@QueryParams() query: GetQuestionsAnalyticsQuery): Promise<Analytics> {
+  async getQuestionsAnalytics(@Body() query: GetQuestionsAnalyticsQuery): Promise<Analytics> {
     return this.performanceService.getQuestionsAnalytics(query);
   }
 
@@ -352,5 +353,322 @@ export class PerformanceController {
     };
   }
 
+  @OpenAPI({
+    summary: 'Shift-based metrics',
+    description: 'Generates an report showing shift-based review statistics (opened/closed questions) for the specified date range and selected shift. Returns binary Excel data or JSON error response.',
+  })
+  @ResponseSchema(PerformanceErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - startDate and endDate are required',
+  })
+  @ResponseSchema(ShiftReportErrorResponse, {
+    statusCode: 200,
+    description: 'No data found for the selected filters',
+  })
+  @ResponseSchema(PerformanceErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @Get('/shift-based-metrics')
+  @HttpCode(200)
+  @Authorized()
+  @ContentType(
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  async getShiftBasedMetrics(
+    @QueryParams() query: {startDate: string; endDate: string; shift: string; source: string; from:string; to:string;},
+    @Res() response: any,
+  ) {
+    const startDate = query.startDate;
+    // const endDate = query.endDate;
+    const shift = query.shift;
+    if (!startDate || !shift) {
+      return response.status(400).json({
+        success: false,
+        message: 'startDate, endDate and shift are required',
+      });
+    }
+    const data = await this.performanceService.getShiftBasedMetrics(
+      startDate,
+      // endDate,
+      shift,
+      query.source ?? 'annam',
+      query.from ?? '00:00',
+      query.to ?? '23:59' 
+    );
+    if (!data) {
+      response.status(200).json({
+        success: false,
+        message: 'No data found for the selected filters',
+      });
+      return;
+    }
+    return data;
+  }
+
+  @OpenAPI({
+    summary: 'Shift-based trends',
+    description: 'Generates an report showing shift-wise review trends (...) for the specified date range and selected shift. Returns binary Excel data or JSON error response.',
+  })
+  @ResponseSchema(PerformanceErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - startDate and endDate are required',
+  })
+  @ResponseSchema(ShiftReportErrorResponse, {
+    statusCode: 200,
+    description: 'No data found for the selected filters',
+  })
+  @ResponseSchema(PerformanceErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @Get('/shift-based-trends')
+  @HttpCode(200)
+  @Authorized()
+  @ContentType(
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  async getShiftBasedTrends(
+    @QueryParams() query: {startDate: string; endDate: string; shift: string; source: string; from:string; to:string;},
+    @Res() response: any,
+  ) {
+    const startDate = query.startDate;
+    // const endDate = query.endDate;
+    const shift = query.shift;
+    if (!startDate || !shift) {
+      return response.status(400).json({
+        success: false,
+        message: 'startDate, endDate and shift are required',
+      });
+    }
+    const data = await this.performanceService.getShiftBasedTrends(
+      startDate,
+      // endDate,
+      shift,
+      query.source ?? 'annam',
+      query.from ?? '00:00',
+      query.to ?? '23:59' 
+    );
+    if (!data) {
+      response.status(200).json({
+        success: false,
+        message: 'No data found for the selected filters',
+      });
+      return;
+    }
+    return data;
+  }
+
+  @OpenAPI({
+    summary: 'Shift-based status distribution',
+    description: 'Generates an report showing shift-wise status distribution (...) for the specified date range and selected shift. Returns binary Excel data or JSON error response.',
+  })
+  @ResponseSchema(PerformanceErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - startDate and endDate are required',
+  })
+  @ResponseSchema(ShiftReportErrorResponse, {
+    statusCode: 200,
+    description: 'No data found for the selected filters',
+  })
+  @ResponseSchema(PerformanceErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @Get('/shift-based-status-distribution')
+  @HttpCode(200)
+  @Authorized()
+  @ContentType(
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  async getQuestionStatusDistribution(
+    @QueryParams() query: {startDate: string; endDate: string; shift: string; source: string; from:string; to:string;},
+    @Res() response: any,
+  ) {
+    const startDate = query.startDate;
+    // const endDate = query.endDate;
+    const shift = query.shift;
+    if (!startDate || !shift) {
+      return response.status(400).json({
+        success: false,
+        message: 'startDate, endDate and shift are required',
+      });
+    }
+    const data = await this.performanceService.getQuestionStatusDistribution(
+      startDate,
+      // endDate,
+      shift,
+      query.source ?? 'annam',
+      query.from ?? '00:00',
+      query.to ?? '23:59' 
+    );
+    if (!data) {
+      response.status(200).json({
+        success: false,
+        message: 'No data found for the selected filters',
+      });
+      return;
+    }
+    return data;
+  }
+
+  @OpenAPI({
+    summary: 'Shift-based level distribution',
+    description: 'Generates an report showing shift-wise level distribution (...) for the specified date range and selected shift. Returns binary Excel data or JSON error response.',
+  })
+  @ResponseSchema(PerformanceErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - startDate and endDate are required',
+  })
+  @ResponseSchema(ShiftReportErrorResponse, {
+    statusCode: 200,
+    description: 'No data found for the selected filters',
+  })
+  @ResponseSchema(PerformanceErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @Get('/shift-based-level-distribution')
+  @HttpCode(200)
+  @Authorized()
+  @ContentType(
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  async getQuestionLevelDistribution(
+    @QueryParams() query: {startDate: string; endDate: string; shift: string; source: string; from:string; to:string;},
+    @Res() response: any,
+  ) {
+    const startDate = query.startDate;
+    // const endDate = query.endDate;
+    const shift = query.shift;
+    if (!startDate || !shift) {
+      return response.status(400).json({
+        success: false,
+        message: 'startDate, endDate and shift are required',
+      });
+    }
+    const data = await this.performanceService.getQuestionLevelDistribution(
+      startDate,
+      // endDate,
+      shift,
+      query.source ?? 'annam',
+      query.from ?? '00:00',
+      query.to ?? '23:59' 
+    );
+    if (!data) {
+      response.status(200).json({
+        success: false,
+        message: 'No data found for the selected filters',
+      });
+      return;
+    }
+    return data;
+  }
+
+  @OpenAPI({
+    summary: 'Shift-based top experts',
+    description: 'Generates an report showing shift-wise top experts (...) for the specified date range and selected shift. Returns binary Excel data or JSON error response.',
+  })
+  @ResponseSchema(PerformanceErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - startDate and endDate are required',
+  })
+  @ResponseSchema(ShiftReportErrorResponse, {
+    statusCode: 200,
+    description: 'No data found for the selected filters',
+  })
+  @ResponseSchema(PerformanceErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @Get('/shift-based-top-experts')
+  @HttpCode(200)
+  @Authorized()
+  @ContentType(
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  async getShiftBasedTopExperts(
+    @QueryParams() query: {startDate: string; endDate: string; shift: string; source: string; from:string; to:string;},
+    @Res() response: any,
+  ) {
+    const startDate = query.startDate;
+    // const endDate = query.endDate;
+    const shift = query.shift;
+    if (!startDate  || !shift) {
+      return response.status(400).json({
+        success: false,
+        message: 'startDate, endDate and shift are required',
+      });
+    }
+    const data = await this.performanceService.getShiftBasedTopExperts(
+      startDate,
+      // endDate,
+      shift,
+      query.source ?? 'annam',
+      query.from ?? '00:00',
+      query.to ?? '23:59' 
+    );
+    if (!data) {
+      response.status(200).json({
+        success: false,
+        message: 'No data found for the selected filters',
+      });
+      return;
+    }
+    return data;
+  }
+
+  @OpenAPI({
+    summary: 'Shift-based top approving experts',
+    description: 'Generates an report showing shift-wise top approving experts (...) for the specified date range and selected shift. Returns binary Excel data or JSON error response.',
+  })
+  @ResponseSchema(PerformanceErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - startDate and endDate are required',
+  })
+  @ResponseSchema(ShiftReportErrorResponse, {
+    statusCode: 200,
+    description: 'No data found for the selected filters',
+  })
+  @ResponseSchema(PerformanceErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @Get('/shift-based-top-approving-experts')
+  @HttpCode(200)
+  @Authorized()
+  @ContentType(
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  )
+  async getShiftBasedTopApprovingExperts(
+    @QueryParams() query: {startDate: string; endDate: string; shift: string; source: string; from:string; to:string;},
+    @Res() response: any,
+  ) {
+    const startDate = query.startDate;
+    // const endDate = query.endDate;
+    const shift = query.shift;
+    if (!startDate || !shift) {
+      return response.status(400).json({
+        success: false,
+        message: 'startDate, endDate and shift are required',
+      });
+    }
+    const data = await this.performanceService.getShiftBasedTopApprovingExperts(
+      startDate,
+      // endDate,
+      shift,
+      query.source ?? 'annam',
+      query.from ?? '00:00',
+      query.to ?? '23:59' 
+    );
+    if (!data) {
+      response.status(200).json({
+        success: false,
+        message: 'No data found for the selected filters',
+      });
+      return;
+    }
+    return data;
+  }
 
 }

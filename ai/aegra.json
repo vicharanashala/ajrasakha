@@ -1,10 +1,9 @@
 {
-    "dependencies": [
-        "."
-    ],
+    "dependencies": ["."],
     "graphs": {
-        "ajrasakha_agent": "./ajrasakha/agents/orchestrator.py:master_graph"
+        "ajrasakha_agent": "./ajrasakha/agents/ajrasakha.py:graph",
+        "summary_agent": "./ajrasakha/agents/summary_agent.py:graph",
+        "acc_agent": "./ajrasakha/agents/acc_agent/__init__.py:acc_graph"
     },
     "env": ".env"
 }
-

@@ -15,28 +15,29 @@ type Props = {
 
 const LANGUAGES: Language[] = [
   { code: "en-IN", name: "English (English)" },
-  { code: "hi-IN", name: "Hindi (हिंदी)" },
-  { code: "bn-IN", name: "Bengali (বাংলা)" },
-  { code: "gu-IN", name: "Gujarati (ગુજરાતી)" },
-  { code: "kn-IN", name: "Kannada (ಕನ್ನಡ)" },
-  { code: "ml-IN", name: "Malayalam (മലയാളം)" },
-  { code: "mr-IN", name: "Marathi (मराठी)" },
-  { code: "od-IN", name: "Odia (ଓଡ଼ିଆ)" },
-  { code: "pa-IN", name: "Punjabi (ਪੰਜਾਬੀ)" },
-  { code: "ta-IN", name: "Tamil (தமிழ்)" },
-  { code: "te-IN", name: "Telugu (తెలుగు)" },
-  { code: "as-IN", name: "Assamese (অসমীয়া)" },
-  { code: "brx-IN", name: "Bodo (बर')" },
-  { code: "doi-IN", name: "Dogri (डोगरी)" },
-  { code: "kok-IN", name: "Konkani (कोंकणी)" },
-  { code: "ks-IN", name: "Kashmiri (کٲشُر)" },
-  { code: "mai-IN", name: "Maithili (मैथिली)" },
-  { code: "mni-IN", name: "Manipuri (Meiteilon) (ꯃꯤꯇꯩꯂꯣꯟ)" },
-  { code: "ne-IN", name: "Nepali (नेपाली)" },
-  { code: "sa-IN", name: "Sanskrit (संस्कृतम्)" },
-  { code: "sat-IN", name: "Santali (ᱥᱟᱱᱛᱟᱲᱤ)" },
-  { code: "sd-IN", name: "Sindhi (سنڌي)" },
-  { code: "ur-IN", name: "Urdu (اردو)" },
+  { code: "default", name: "Default" },
+  // { code: "hi-IN", name: "Hindi (हिंदी)" },
+  // { code: "bn-IN", name: "Bengali (বাংলা)" },
+  // { code: "gu-IN", name: "Gujarati (ગુજરાતી)" },
+  // { code: "kn-IN", name: "Kannada (ಕನ್ನಡ)" },
+  // { code: "ml-IN", name: "Malayalam (മലയാളം)" },
+  // { code: "mr-IN", name: "Marathi (मराठी)" },
+  // { code: "od-IN", name: "Odia (ଓଡ଼ିଆ)" },
+  // { code: "pa-IN", name: "Punjabi (ਪੰਜਾਬੀ)" },
+  // { code: "ta-IN", name: "Tamil (தமிழ்)" },
+  // { code: "te-IN", name: "Telugu (తెలుగు)" },
+  // { code: "as-IN", name: "Assamese (অসমীয়া)" },
+  // { code: "brx-IN", name: "Bodo (बर')" },
+  // { code: "doi-IN", name: "Dogri (डोगरी)" },
+  // { code: "kok-IN", name: "Konkani (कोंकणी)" },
+  // { code: "ks-IN", name: "Kashmiri (کٲشُر)" },
+  // { code: "mai-IN", name: "Maithili (मैथिली)" },
+  // { code: "mni-IN", name: "Manipuri (Meiteilon) (ꯃꯤꯇꯩꯂꯣꯟ)" },
+  // { code: "ne-IN", name: "Nepali (नेपाली)" },
+  // { code: "sa-IN", name: "Sanskrit (संस्कृतम्)" },
+  // { code: "sat-IN", name: "Santali (ᱥᱟᱱᱛᱟᱲᱤ)" },
+  // { code: "sd-IN", name: "Sindhi (سنڌي)" },
+  // { code: "ur-IN", name: "Urdu (اردو)" },
 ];
 
 export default function SarvamTranslateDropdown({ query, onTranslate, sourceLang }: Props) {
@@ -71,7 +72,7 @@ export default function SarvamTranslateDropdown({ query, onTranslate, sourceLang
 
     setIsOpen(false);
     setSelectedLang(lang);
-
+    if(lang.code === 'default') return onTranslate(query);
     const result = await translate(query, lang.code, sourceLang);
     if (result) {
       onTranslate(result);

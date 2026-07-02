@@ -167,6 +167,28 @@ export class LevelReportErrorResponse {
   message: string;
 }
 
+export class ShiftReportErrorResponse {
+  @JSONSchema({
+    description: 'Success status indicator',
+    example: false,
+    type: 'boolean',
+    readOnly: true,
+  })
+  @IsNotEmpty()
+  @IsBoolean()
+  success: boolean;
+
+  @JSONSchema({
+    description: 'Error message',
+    example: 'startDate and shift are required',
+    type: 'string',
+    readOnly: true,
+  })
+  @IsNotEmpty()
+  @IsString()
+  message: string;
+}
+
 // ─── Export all validators ────────────────────────────────────────────────────
 
 export const PERFORMANCE_RESPONSE_VALIDATORS = [
@@ -177,4 +199,5 @@ export const PERFORMANCE_RESPONSE_VALIDATORS = [
   CheckInResponse,
   CronSnapshotReportResponse,
   LevelReportErrorResponse,
+  ShiftReportErrorResponse
 ];

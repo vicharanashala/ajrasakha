@@ -1,5 +1,6 @@
 import { useAddComment } from "@/hooks/api/comment/useAddComment";
 import { useGetComments } from "@/hooks/api/comment/useGetComments";
+import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./atoms/accordion";
 import { Loader2, MessageSquare } from "lucide-react";
@@ -17,6 +18,7 @@ interface CommentsSectionProps {
 
 export const CommentsSection = forwardRef(
   ({ questionId, answerId, isMine }: CommentsSectionProps, ref) => {
+    const { data: user } = useGetCurrentUser({});
     const LIMIT = 1;
 
     const {
@@ -140,7 +142,7 @@ export const CommentsSection = forwardRef(
                 )}
 
                 {/* Add comment */}
-                {!isMine && (
+                {!isMine && user?.role !== "tester" && (
                   <div className="space-y-3 border-t-2 pt-3">
                     <Textarea
                       placeholder="Add your comment here..."

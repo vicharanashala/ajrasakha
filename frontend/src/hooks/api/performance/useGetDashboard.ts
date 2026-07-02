@@ -131,11 +131,245 @@ export const useGetQuestionsAnalytics = (query: {
   type: "question" | "answer";
   startTime?: Date;
   endTime?: Date;
-  status?: string;
+  status?: string[];
+  state?: string[];
+  source?: string[];
+  crop?: string[];
 }) => {
   return useQuery({
     queryKey: ["dashboard", "questions-analytics", query],
     queryFn: () => performaceService.getQuestionsAnalytics(query),
+    placeholderData: keepPreviousData,
+  });
+};
+
+export const useShiftBasedMetrics = (
+  query: {
+    fromDate: string;
+    // toDate: string;
+    shift: string;
+    source: string;
+    timeRange: {from:string, to: string}
+  }
+) => {
+  return useQuery({
+    queryKey: [
+      "dashboard",
+      "shift-based-metrics",
+      query.fromDate,
+      // query.toDate,
+      query.shift,
+      query.source,
+      query.timeRange
+    ],
+
+    queryFn: () =>
+      performaceService.getShiftBasedMetrics(
+        query.fromDate,
+        // query.toDate,
+        query.shift,
+        query.source,
+        query.timeRange
+      ),
+
+    placeholderData: keepPreviousData,
+  });
+};
+
+export const useShiftBasedTrends = (
+    query: {
+    fromDate: string;
+    // toDate: string;
+    shift: string;
+    source: string;
+    timeRange: {from:string, to: string}
+  }
+) => {
+  return useQuery({
+    queryKey: [
+      "dashboard",
+      "shift-based-trends",
+      query.fromDate,
+      // query.toDate,
+      query.shift,
+      query.source,
+      query.timeRange
+    ],
+
+    queryFn: () =>
+      performaceService.getShiftWiseTrends(
+        query.fromDate,
+        // query.toDate,
+        query.shift,
+        query.source,
+        query.timeRange
+      ),
+
+    placeholderData: keepPreviousData,
+  });
+};
+
+export const useShiftBasedStatusDistribution = (
+    query: {
+    fromDate: string;
+    // toDate: string;
+    shift: string;
+    source: string;
+    timeRange: {from:string, to: string}
+  }
+) => {
+  return useQuery({
+    queryKey: [
+      "dashboard",
+      "shift-based-status-distribution",
+      query.fromDate,
+      // query.toDate,
+      query.shift,
+      query.source,
+      query.timeRange
+    ],
+
+    queryFn: () =>
+      performaceService.getStatusDistribution(
+        query.fromDate,
+        // query.toDate,
+        query.shift,
+        query.source,
+        query.timeRange
+      ),
+
+    placeholderData: keepPreviousData,
+  });
+};
+
+
+export const useShiftBasedLevelDistribution = (
+    query: {
+    fromDate: string;
+    // toDate: string;
+    shift: string;
+    source: string;
+    timeRange: {from:string, to: string}
+  }
+) => {
+  return useQuery({
+    queryKey: [
+      "dashboard",
+      "shift-based-level-distribution",
+      query.fromDate,
+      // query.toDate,
+      query.shift,
+      query.source,
+      query.timeRange
+    ],
+
+    queryFn: () =>
+      performaceService.getLevelDistribution(
+        query.fromDate,
+        // query.toDate,
+        query.shift,
+        query.source,
+        query.timeRange
+      ),
+
+    placeholderData: keepPreviousData,
+  });
+};
+
+export const useShiftBasedTopExperts = (
+    query: {
+    fromDate: string;
+    // toDate: string;
+    shift: string;
+    source: string;
+    timeRange: {from:string, to: string}
+  }
+) => {
+  return useQuery({
+    queryKey: [
+      "dashboard",
+      "shift-based-top-experts",
+      query.fromDate,
+      // query.toDate,
+      query.shift,
+      query.source,
+      query.timeRange
+    ],
+
+    queryFn: () =>
+      performaceService.getShiftBasedTopExperts(
+        query.fromDate,
+        // query.toDate,
+        query.shift,
+        query.source,
+        query.timeRange
+      ),
+
+    placeholderData: keepPreviousData,
+  });
+};
+
+// getShiftBasedTopApprovingExperts
+export const useShiftBasedTopApprovingExperts = (
+    query: {
+    fromDate: string;
+    // toDate: string;
+    shift: string;
+    source: string;
+    timeRange: {from:string, to: string}
+  }
+) => {
+  return useQuery({
+    queryKey: [
+      "dashboard",
+      "shift-based-top-approving-experts",
+      query.fromDate,
+      // query.toDate,
+      query.shift,
+      query.source,
+      query.timeRange
+    ],
+
+    queryFn: () =>
+      performaceService.getShiftBasedTopApprovingExperts(
+        query.fromDate,
+        // query.toDate,
+        query.shift,
+        query.source,
+        query.timeRange
+      ),
+
+    placeholderData: keepPreviousData,
+  });
+};
+
+
+export const useShiftBasedAuditActionCounts = (
+    query: {
+    fromDate: string;
+    // toDate: string;
+    shift: string;
+    timeRange: {from:string, to: string}
+  }
+) => {
+  return useQuery({
+    queryKey: [
+      "dashboard",
+      "shift-based-audit-action-counts",
+      query.fromDate,
+      // query.toDate,
+      query.shift,
+      query.timeRange
+    ],
+
+    queryFn: () =>
+      performaceService.getShiftBasedAuditActionCounts(
+        query.fromDate,
+        // query.toDate,
+        query.shift,
+        query.timeRange
+      ),
+
     placeholderData: keepPreviousData,
   });
 };

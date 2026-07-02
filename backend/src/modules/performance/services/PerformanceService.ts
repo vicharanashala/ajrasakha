@@ -147,12 +147,12 @@ export class PerformanceService extends BaseService implements IPerformanceServi
 
   async getQuestionsAnalytics(query: GetQuestionsAnalyticsQuery): Promise<Analytics> {
     return await this._withTransaction(async (session: ClientSession) => {
-      const { type, startTime, endTime, status } = query;
+      const { type, startTime, endTime, status, state, source, crop } = query;
       if (type === 'question') {
-        const result = await this.questionRepo.getQuestionAnalytics(startTime, endTime, session, status);
+        const result = await this.questionRepo.getQuestionAnalytics(startTime, endTime, session, status, state, source, crop);
         return result.analytics;
       } else {
-        const result = await this.answerRepo.getAnswerAnalytics(startTime, endTime, session);
+        const result = await this.answerRepo.getAnswerAnalytics(startTime, endTime, session, state, source, status);
         return result.analytics;
       }
     });
@@ -296,4 +296,39 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     });
   }
 
+  getShiftBasedMetrics(startDate:string, shift: string, source: string, from:string, to:string): Promise<any> {
+    return this._withTransaction(async (session: ClientSession) => {
+      return await this.questionRepo.getShiftBasedMetrics(startDate, shift, source, from, to, session);
+    });
+  }
+
+  getShiftBasedTrends(startDate:string, shift: string, source: string, from:string, to:string): Promise<any> {
+    return this._withTransaction(async (session: ClientSession) => {
+      return await this.questionRepo.getShiftBasedTrends(startDate, shift, source, from, to, session);
+    });
+  }
+
+  getQuestionStatusDistribution(startDate:string, shift: string, source: string, from:string, to:string): Promise<any> {
+    return this._withTransaction(async (session: ClientSession) => {
+      return await this.questionRepo.getQuestionStatusDistribution(startDate, shift, source, from, to, session);
+    });
+  }
+
+  getQuestionLevelDistribution(startDate:string, shift: string, source: string, from:string, to:string): Promise<any> {
+    return this._withTransaction(async (session: ClientSession) => {
+      return await this.questionRepo.getQuestionLevelDistribution(startDate, shift, source, from, to, session);
+    });
+  }
+
+  getShiftBasedTopExperts(startDate:string, shift: string, source: string, from:string, to:string): Promise<any> {
+    return this._withTransaction(async (session: ClientSession) => {
+      return await this.questionRepo.getShiftBasedTopExperts(startDate, shift, source, from, to, session);
+    });
+  }
+
+  getShiftBasedTopApprovingExperts(startDate:string, shift: string, source: string, from:string, to:string): Promise<any> {
+    return this._withTransaction(async (session: ClientSession) => {
+      return await this.questionRepo.getShiftBasedTopApprovingExperts(startDate, shift, source, from, to, session);
+    });
+  }
 }

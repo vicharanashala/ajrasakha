@@ -4,12 +4,14 @@ import {
   NotificationRetentionType,
   IAnswer,
   ICropRef,
+  QuestionStatus,
+  QuestionSource,
 } from '#shared/interfaces/models.js';
 import { instanceToPlain } from 'class-transformer';
 import { injectable, inject } from 'inversify';
 import { Collection, MongoClient, ClientSession, ObjectId } from 'mongodb';
 import { MongoDatabase } from '../MongoDatabase.js';
-import { InternalServerError, NotFoundError } from 'routing-controllers';
+import { InternalServerError, NotFoundError, BadRequestError } from 'routing-controllers';
 import { GLOBAL_TYPES } from '#root/types.js';
 import { User } from '#auth/classes/transformers/User.js';
 import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
@@ -365,6 +367,11 @@ export class UserRepository implements IUserRepository {
                     { case: { $eq: ['$role', 'admin'] }, then: 1 },
                     { case: { $eq: ['$role', 'moderator'] }, then: 2 },
                     { case: { $eq: ['$role', 'expert'] }, then: 3 },
+                    { case: { $eq: ['$role', 'pae_expert'] }, then: 4 },
+                    { case: { $eq: ['$role', 'district_coordinator'] }, then: 5 },
+                    { case: { $eq: ['$role', 'block_coordinator'] }, then: 6 },
+                    { case: { $eq: ['$role', 'village_volunteer'] }, then: 7 },
+                    { case: { $eq: ['$role', 'tester'] }, then: 8 },
                   ],
                   default: 99,
                 },
@@ -549,7 +556,7 @@ export class UserRepository implements IUserRepository {
   ): Promise<void> {
     await this.init();
     const submissionCollection = await this.db.getCollection<any>('question_submissions');
-    
+
     const userObjectId = new ObjectId(userId);
     const userIdStr = userId.toString();
 
@@ -567,7 +574,7 @@ export class UserRepository implements IUserRepository {
         {
           $and: [
             { history: { $not: { $size: 0 } } },
-            { 
+            {
               $expr: {
                 $and: [
                   { $eq: [{ $arrayElemAt: ['$history.status', -1] }, 'in-review'] },
@@ -760,24 +767,39 @@ export class UserRepository implements IUserRepository {
   async findExpertsByReputationScore(
     details: PreferenceDto,
     session?: ClientSession,
+    limit?: number,
   ): Promise<IUser[]> {
     await this.init();
 
-    // 1. Fetch all experts
-    const allUsersRaw = await this.usersCollection
-      .find({ role: 'expert', isBlocked: false }, { session })
-      .toArray();
+    // 1. Fetch all experts (include role and isBlocked for queue details)
+    const query: any = { role: 'expert', isBlocked: false };
+    const cursor = this.usersCollection.find(query, { session });
+    if (limit) cursor.limit(limit);
+    const allUsersRaw = await cursor.toArray();
 
     // 2. Remove duplicates based on email
     const uniqueUsersMap = new Map<string, IUser>();
+    const droppedByDedup: string[] = [];
+    const noEmail: string[] = [];
     for (const user of allUsersRaw) {
-      if (!user.email) continue;
+      if (!user.email) { noEmail.push(user._id?.toString()); continue; }
       if (!uniqueUsersMap.has(user.email)) uniqueUsersMap.set(user.email, user);
+      else droppedByDedup.push(user._id?.toString());
     }
     let allUsers = Array.from(uniqueUsersMap.values());
     allUsers.sort((a, b) => {
       return a.reputation_score - b.reputation_score;
     });
+
+    // Funnel diagnostic: total unblocked expert docs → eligible after email dedup.
+    // Shows how many real experts are dropped (and their ids) so we can tell whether
+    // a "missing" available expert is being collapsed away by the dedup.
+   /* console.log(
+      `[findExpertsByReputationScore] unblockedExpertDocs=${allUsersRaw.length}, ` +
+      `eligibleAfterDedup=${allUsers.length}, droppedByEmailDedup=${droppedByDedup.length}, ` +
+      `noEmail=${noEmail.length}`,
+      JSON.stringify({ droppedByDedup, noEmail }),
+    );*/
 
     return allUsers;
   }
@@ -813,6 +835,140 @@ export class UserRepository implements IUserRepository {
   async findModerators(): Promise<IUser[]> {
     await this.init();
     return await this.usersCollection.find({ role: 'moderator' }).toArray();
+  }
+
+  /** Statuses that keep a moderator "busy". A held question in any other status
+   *  (notably 're-routed', which is handed off to an expert but kept in the array for
+   *  history) does NOT block new assignments. 'pae_submitted' blocks too: the moderator
+   *  still has to act on it, so they shouldn't be handed another question of that category. */
+  static readonly BLOCKING_ASSIGNED_STATUSES: QuestionStatus[] = ['in-review', 'duplicate', 'pae_submitted'];
+
+  /** Returns non-blocked moderators who can take a new question — i.e. they hold no
+   *  assignedQuestionIds entry in a blocking status. A moderator with an empty array,
+   *  or one holding only re-routed (or otherwise non-blocking) entries, is available.
+   *  `extraMatch` lets callers further restrict the set (e.g. STF only).
+   *
+   *  When `sources` is provided, availability is scoped to that source group: the
+   *  moderator only counts as "busy" if they hold a blocking question whose source is
+   *  in `sources`. This lets one moderator hold one time-bound AND one manual question
+   *  at the same time (they're available for a category as long as they don't already
+   *  hold a blocking question of that category). Omit `sources` for the legacy
+   *  "blocked by any blocking question" behaviour. */
+  private async findAvailableModeratorsWithMatch(
+    extraMatch: Record<string, unknown> = {},
+    sources?: QuestionSource[],
+  ): Promise<IUser[]> {
+    await this.init();
+    const blockingElemMatch: Record<string, unknown> = {
+      status: { $in: UserRepository.BLOCKING_ASSIGNED_STATUSES },
+    };
+    if (sources && sources.length > 0) {
+      // Block on entries of this source group. Legacy entries with a missing/null
+      // source are treated as blocking too (we can't tell their category), so this
+      // is never looser than the original "busy on any blocking question" behaviour.
+      blockingElemMatch.$or = [
+        { source: { $in: sources } },
+        { source: { $exists: false } },
+        { source: null },
+      ];
+    }
+    return this.usersCollection
+      .find({
+        role: 'moderator',
+        isBlocked: { $ne: true },
+        ...extraMatch,
+        // No element is in a blocking status (also true for missing/null/empty arrays).
+        // Scoped to `sources` when provided.
+        assignedQuestionIds: {
+          $not: { $elemMatch: blockingElemMatch },
+        },
+      })
+      .toArray();
+  }
+
+  /** Returns non-blocked moderators who can take a new question (see
+   *  findAvailableModeratorsWithMatch for the "available" definition). */
+  async findAvailableModerators(): Promise<IUser[]> {
+    return this.findAvailableModeratorsWithMatch();
+  }
+
+  /** Same as findAvailableModerators but restricted to Special Task Force moderators. */
+  async findAvailableStfModerators(): Promise<IUser[]> {
+    return this.findAvailableModeratorsWithMatch({ special_task_force: true });
+  }
+
+  /** STF moderators available for a specific source group (e.g. time-bound or manual):
+   *  they hold no blocking question whose source is in `sources`. Used by the
+   *  source-aware moderator-queue cron so a moderator can carry one question of each
+   *  category concurrently. */
+  async findAvailableStfModeratorsForSources(
+    sources: QuestionSource[],
+  ): Promise<IUser[]> {
+    return this.findAvailableModeratorsWithMatch(
+      { special_task_force: true },
+      sources,
+    );
+  }
+
+  /** Appends a question (with its current status) to a moderator's assigned-questions
+   *  array. Pulls any stale entry for the same question first so the questionId is never
+   *  duplicated and the stored status is fresh. The cron passes 'in-review'; manual
+   *  allocation passes the question's current status. */
+  async addAssignedQuestion(
+    moderatorId: string,
+    questionId: string,
+    status: QuestionStatus,
+    source?: QuestionSource,
+  ): Promise<void> {
+    await this.init();
+    const qid = new ObjectId(questionId);
+    await this.usersCollection.updateOne(
+      { _id: new ObjectId(moderatorId) },
+      {
+        $pull: { assignedQuestionIds: { questionId: qid } },
+        $set: { updatedAt: new Date() },
+      },
+    );
+    await this.usersCollection.updateOne(
+      { _id: new ObjectId(moderatorId) },
+      {
+        $push: { assignedQuestionIds: { questionId: qid, status, source } },
+        $set: { updatedAt: new Date() },
+      },
+    );
+  }
+
+  /** Removes a single question's entry from a moderator's assigned-questions array.
+   *  Called when the moderator acts on the question (answers/closes), or when the
+   *  question is manually removed/reassigned. */
+  async removeAssignedQuestion(moderatorId: string, questionId: string): Promise<void> {
+    await this.init();
+    await this.usersCollection.updateOne(
+      { _id: new ObjectId(moderatorId) },
+      {
+        $pull: { assignedQuestionIds: { questionId: new ObjectId(questionId) } },
+        $set: { updatedAt: new Date() },
+      },
+    );
+  }
+
+  /** Pulls a question's entry from whichever moderator(s) hold it, regardless of the
+   *  moderatorId stored on the question. Used when a question is deleted so no orphan
+   *  entry is left behind keeping a moderator wrongly "busy". */
+  async removeAssignedQuestionFromAllModerators(
+    questionId: string,
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    const qid = new ObjectId(questionId);
+    await this.usersCollection.updateMany(
+      { 'assignedQuestionIds.questionId': qid },
+      {
+        $pull: { assignedQuestionIds: { questionId: qid } },
+        $set: { updatedAt: new Date() },
+      },
+      { session },
+    );
   }
 
   async findAdmins(session?: ClientSession): Promise<IUser[]> {
@@ -1319,7 +1475,7 @@ export class UserRepository implements IUserRepository {
       throw new InternalServerError(`Failed to update IsBlock`);
     }
   }
-  
+
   async updateSTFStatus(
     userId: string,
     action: string,
@@ -1329,14 +1485,14 @@ export class UserRepository implements IUserRepository {
     try {
       const special_task_force = action === 'assign';
       await this.usersCollection.updateOne(
-        {_id: new ObjectId(userId)},
+        { _id: new ObjectId(userId) },
         {
           $set: {
             special_task_force,
             updatedAt: new Date(),
           },
         },
-        {upsert: true, session},
+        { upsert: true, session },
       );
     } catch (error) {
       throw new InternalServerError(`Failed to update STF status`);
@@ -1383,6 +1539,12 @@ export class UserRepository implements IUserRepository {
                     branches: [
                       { case: { $eq: ['$_id', 'expert'] }, then: 'Experts' },
                       { case: { $eq: ['$_id', 'moderator'] }, then: 'Moderators' },
+                      { case: { $eq: ['$_id', 'admin'] }, then: 'Admins' },
+                      { case: { $eq: ['$_id', 'pae_expert'] }, then: 'PAE Experts' },
+                      { case: { $eq: ['$_id', 'district_coordinator'] }, then: 'District Coordinators' },
+                      { case: { $eq: ['$_id', 'block_coordinator'] }, then: 'Block Coordinators' },
+                      { case: { $eq: ['$_id', 'village_volunteer'] }, then: 'Village Volunteers' },
+                      { case: { $eq: ['$_id', 'tester'] }, then: 'Testers' },
                     ],
                     default: 'Others',
                   },
@@ -1505,6 +1667,108 @@ export class UserRepository implements IUserRepository {
       throw new InternalServerError(
         'Failed to find inactive or blocked experts',
       );
+    }
+  }
+
+  async findCallAgents(session?: ClientSession): Promise<IUser[]> {
+    try {
+      await this.init();
+
+      const agents = await this.usersCollection
+        .find(
+          {
+            role: 'call_agent' as any,
+          },
+          { session },
+        )
+        .toArray();
+
+      // Convert ObjectId to string and return minimal data
+      return agents.map((agent) => ({
+        ...agent,
+        _id: agent._id.toString(),
+      })) as IUser[];
+    } catch (error) {
+      throw new InternalServerError('Failed to find call agents');
+    }
+  }
+
+  async setCallAgentStatus(
+    userId: string,
+    isCallAgent: boolean,
+    isCallAgentActive: boolean,
+    session?: ClientSession,
+  ): Promise<IUser> {
+    try {
+      await this.init();
+      
+      // When setting as call agent, change role from expert to call_agent
+      // When removing call agent, change role from call_agent back to expert
+      const newRole = isCallAgent ? ('call_agent' as any) : 'expert';
+      
+      const result = await this.usersCollection.findOneAndUpdate(
+        { _id: new ObjectId(userId) },
+        {
+          $set: {
+            role: newRole,
+            isCallAgentActive,
+            updatedAt: new Date(),
+          },
+          $unset: {
+            isCallAgent: 1,
+          },
+        },
+        { returnDocument: 'after', session },
+      );
+      if (!result) {
+        throw new NotFoundError('User not found');
+      }
+      const plainResult = JSON.parse(JSON.stringify(result));
+      return {
+        ...plainResult,
+        _id: result._id.toString(),
+      } as IUser;
+    } catch (error) {
+      console.error('setCallAgentStatus - error:', error);
+      throw new InternalServerError('Failed to set call agent status');
+    }
+  }
+
+  async toggleCallAgentActive(
+    userId: string,
+    session?: ClientSession,
+  ): Promise<IUser> {
+    try {
+      await this.init();
+      const user = await this.usersCollection.findOne(
+        { _id: new ObjectId(userId) },
+        { session },
+      );
+      if (!user) {
+        throw new NotFoundError('User not found');
+      }
+      // Only allow toggling active status for call_agent role
+      if (user.role !== ('call_agent' as any)) {
+        throw new BadRequestError('User is not a call agent');
+      }
+      const newStatus = !user.isCallAgentActive;
+      const result = await this.usersCollection.findOneAndUpdate(
+        { _id: new ObjectId(userId) },
+        {
+          $set: {
+            isCallAgentActive: newStatus,
+            updatedAt: new Date(),
+          },
+        },
+        { returnDocument: 'after', session },
+      );
+      const plainResult = JSON.parse(JSON.stringify(result));
+      return {
+        ...plainResult,
+        _id: result._id.toString(),
+      } as IUser;
+    } catch (error) {
+      throw new InternalServerError('Failed to toggle call agent active status');
     }
   }
 }

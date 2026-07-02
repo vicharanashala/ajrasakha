@@ -11,8 +11,8 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import type { DateRange } from "react-day-picker";
 import { useUserGrowth } from "../hooks/useUserGrowth";
-import Spinner from "@/components/atoms/spinner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
+import { Skeleton } from "@/components/atoms/skeleton";
 import { Maximize2, X, CalendarIcon, RefreshCcw } from "lucide-react";
 import { Calendar } from "@/components/atoms/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
@@ -60,19 +60,30 @@ const defaultDateRange: DateRange = {
   to: new Date(),
 };
 
-const UserGrowthChart = () => {
+type SourceType = "annam" | "whatsapp";
+
+interface UserGrowthChartProps {
+  source: SourceType;
+  userType: string;
+}
+
+const UserGrowthChart = ({ source , userType}: UserGrowthChartProps) => {
+
   const [dateRange, setDateRange] = useState<DateRange | undefined>(defaultDateRange);
   const [activeMetrics, setActiveMetrics] = useState(
     metricsConfig.map((m) => m.key)
   );
   const [hovered, setHovered] = useState<string | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
-  const { data, isLoading, isError } = useUserGrowth(dateRange?.from, dateRange?.to);
-
+  const [tablePage, setTablePage] = useState(1);
+  const { data, isLoading, isError } = useUserGrowth(source, userType, dateRange?.from, dateRange?.to);
+// console.log(dateRange,"data", data)
   if (isLoading) {
     return (
-      <Card className="h-full min-h-[300px] flex items-center justify-center dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
-        <Spinner text="Loading chart..." />
+      <Card className="h-full min-h-[300px] p-4 dark:bg-[#1a1a1a] dark:border-[#2a2a2a]">
+        <Skeleton className="h-6 w-40 rounded-md" />
+        <Skeleton className="mt-4 h-8 w-full rounded-md" />
+        <Skeleton className="mt-4 h-[220px] w-full rounded-lg" />
       </Card>
     );
   }
@@ -84,12 +95,29 @@ const UserGrowthChart = () => {
     );
   }
 
-  const chartData = data.labels.map((date, index) => ({
+  let chartData = data.labels.map((date, index) => ({
     date,
     idsCreated: data.series.idsCreated[index],
     installs: data.series.installs[index],
     activeUsers: data.series.activeUsers[index],
   }));
+
+  if (!dateRange?.from) {
+    const firstNonZeroIndex = chartData.findIndex(
+      (d) => d.idsCreated > 0 || d.installs > 0 || d.activeUsers > 0
+    );
+    if (firstNonZeroIndex > -1) {
+      chartData = chartData.slice(firstNonZeroIndex);
+    } else {
+      chartData = chartData.slice(-30);
+    }
+  }
+
+  const tableRowsPerPage = 10;
+  const tableTotalPages = Math.max(1, Math.ceil(chartData.length / tableRowsPerPage));
+  const currentTablePage = Math.min(tablePage, tableTotalPages);
+  const paginatedTableData = [...chartData].reverse().slice((currentTablePage - 1) * tableRowsPerPage, currentTablePage * tableRowsPerPage);
+
   const toggleMetric = (key: string) => {
     setActiveMetrics((prev) =>
       prev.includes(key)
@@ -98,10 +126,8 @@ const UserGrowthChart = () => {
     );
   };
   const resetDateRange = () => {
-    setDateRange({
-      from: subDays(new Date(), 29),
-      to: new Date(),
-    });
+    setDateRange(undefined);
+    setTablePage(1);
   };
   const tickInterval = getTickInterval(chartData.length);
   const visibleMetricCount = activeMetrics.length;
@@ -247,7 +273,7 @@ const UserGrowthChart = () => {
         variant="outline"
         size="icon"
         onClick={resetDateRange}
-        title="Reset to last 30 days"
+        title="Reset date range"
         className="shrink-0 bg-gray-100 dark:bg-[#2a2a2a] border-gray-300 dark:border-[#3a3a3a] text-gray-700 dark:text-gray-200"
       >
         <RefreshCcw className="h-4 w-4" />
@@ -257,7 +283,7 @@ const UserGrowthChart = () => {
 
   return (
     <>
-      <Card className="flex flex-col h-full bg-white dark:bg-[#1a1a1a] shadow-sm overflow-hidden relative dark:border-[#2a2a2a]">
+      <Card className={"flex flex-col h-full  shadow-sm overflow-hidden relative dark:border-[#2a2a2a]  bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300"}>
         <button
           onClick={() => setIsMaximized(true)}
           className="absolute top-4 right-4 p-1.5 rounded-md bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-700 transition-colors shadow-sm z-20"
@@ -353,39 +379,67 @@ const UserGrowthChart = () => {
 
               {/* Chart (left) + Table (right) */}
               <div className="flex gap-4 items-start">
-                {/* Chart — 65% */}
-                <div className="flex-[65] min-w-0 relative">
+                {/* Chart — 55% */}
+                <div className="flex-[55] min-w-0 relative">
                   <div className="absolute left-0 top-0 bottom-0 w-px bg-gray-300 dark:bg-gray-700 z-10" />
                   <div className="absolute left-0 right-0 bottom-0 h-px bg-gray-300 dark:bg-gray-700 z-10" />
                   {renderChart(460, 13)}
                 </div>
 
-                {/* Table — 35% */}
-                <div className="flex-[35] min-w-0 max-h-[460px] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
-                      <tr>
-                        <th className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Date</th>
-                        {metricsConfig.filter((m) => activeMetrics.includes(m.key)).map((m) => (
-                          <th key={m.key} className="px-3 py-2 text-right font-semibold whitespace-nowrap" style={{ color: m.color }}>
-                            {m.label}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {chartData.map((row, idx) => (
-                        <tr key={idx} className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                          <td className="px-3 py-1.5 text-gray-600 dark:text-gray-400 whitespace-nowrap">{row.date}</td>
+                {/* Table — 45% */}
+                <div className="flex-[45] min-w-0 max-h-[460px] flex flex-col border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-[#1a1a1a]">
+                  <div className="overflow-x-auto flex-1">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">Date</th>
                           {metricsConfig.filter((m) => activeMetrics.includes(m.key)).map((m) => (
-                            <td key={m.key} className="px-3 py-1.5 text-right font-medium text-gray-900 dark:text-gray-100">
-                              {(row[m.key as keyof typeof row] as number).toLocaleString()}
-                            </td>
+                            <th key={m.key} className="px-3 py-2 text-right font-semibold whitespace-nowrap" style={{ color: m.color }}>
+                              {m.label}
+                            </th>
                           ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {paginatedTableData.map((row, idx) => (
+                          <tr key={idx} className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                            <td className="px-3 py-1.5 text-gray-600 dark:text-gray-400 whitespace-nowrap">{row.date}</td>
+                            {metricsConfig.filter((m) => activeMetrics.includes(m.key)).map((m) => (
+                              <td key={m.key} className="px-3 py-1.5 text-right font-medium text-gray-900 dark:text-gray-100">
+                                {(row[m.key as keyof typeof row] as number).toLocaleString()}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {/* Pagination Controls */}
+                  <div className="flex items-center justify-between px-4 py-2 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">
+                      Page {currentTablePage} of {tableTotalPages}
+                    </span>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={currentTablePage <= 1}
+                        onClick={() => setTablePage(currentTablePage - 1)}
+                        className="h-8 px-3"
+                      >
+                        Prev
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={currentTablePage >= tableTotalPages}
+                        onClick={() => setTablePage(currentTablePage + 1)}
+                        className="h-8 px-3"
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

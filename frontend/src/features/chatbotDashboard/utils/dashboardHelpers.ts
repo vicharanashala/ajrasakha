@@ -5,6 +5,28 @@ export interface DailyEntry {
   count: number;
 }
 
+export interface AnalyticsEntry {
+  period: string;
+  queryCount: number;
+  totalQuestions: number;
+  closedQuestions: number;
+  averageCloseTime?: string;
+  averageCloseTimeMinutes?: number;
+  closedInPeriod?: number;
+  delayed?: number;
+  draft?: number;
+  duplicate?: number;
+  hold?: number;
+  inReview?: number;
+  open?: number;
+  paeSubmitted?: number;
+  pass?: number;
+  rerouted?: number;
+  carryForward?: number;
+  nonAgri?: number;
+  passedQuestions?: number;
+}
+
 // ─── Helper Functions ─────────────────────────────────────────────────────────
 
 /**
@@ -70,4 +92,58 @@ export function calcWeeklyDelta(
   if (pctChange > 0) return { text: `+${pctChange}% vs last week`, dir: 'up' };
   if (pctChange < 0) return { text: `${pctChange}% vs last week`, dir: 'down' };
   return { text: 'Stable vs last week', dir: 'neutral' };
+}
+
+export function calcMonthlyDelta(
+  monthlyArray: Array<{ month: string; count: number }>,
+): { text: string; dir: 'up' | 'down' | 'neutral' } {
+
+  if (!monthlyArray || monthlyArray.length < 2) {
+    return {
+      text: 'Not enough data',
+      dir: 'neutral',
+    };
+  }
+
+  const lastMonth =
+    monthlyArray[monthlyArray.length - 1];
+
+  const priorMonth =
+    monthlyArray[monthlyArray.length - 2];
+
+  const lastMonthTotal = lastMonth.count;
+  const priorMonthTotal = priorMonth.count;
+
+  if (priorMonthTotal === 0) {
+    return {
+      text: 'New data',
+      dir: 'up',
+    };
+  }
+
+  const pctChange = Math.round(
+    (
+      (lastMonthTotal - priorMonthTotal)
+      / priorMonthTotal
+    ) * 100
+  );
+
+  if (pctChange > 0) {
+    return {
+      text: `+${pctChange}% vs last month`,
+      dir: 'up',
+    };
+  }
+
+  if (pctChange < 0) {
+    return {
+      text: `${pctChange}% vs last month`,
+      dir: 'down',
+    };
+  }
+
+  return {
+    text: 'Stable vs last month',
+    dir: 'neutral',
+  };
 }

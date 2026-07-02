@@ -7,6 +7,7 @@ import type {
   ReviewAnswerBody,
   SubmissionResponse,
   UpdateAnswerBody,
+  FetchAiInitialAnswerBody,
 } from "../classes/validators/AnswerValidator.js";
 
 export interface IAnswerService {
@@ -37,6 +38,7 @@ export interface IAnswerService {
     limit: number,
     dateRange?: { from: string | undefined; to: string | undefined },
     selectedHistoryId?: string | undefined,
+    expertId?: string | undefined,
   ): Promise<SubmissionResponse[]>;
 
   getFinalAnswerQuestions(
@@ -45,6 +47,8 @@ export interface IAnswerService {
     date: string,
     status: string,
   ): Promise<{ finalizedSubmissions: any[] }>;
+
+  fetchAiInitialAnswer(body: FetchAiInitialAnswerBody): Promise<any>;
 
   /*approveAnswer(
     userId: string,

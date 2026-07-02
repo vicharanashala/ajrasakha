@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, User, Mail, Clock, Hash, Brain, Wrench, CheckCircle2, MessageSquareText, CheckCircle, XCircle, Save, Pencil, X, SkipForward, Loader2, RefreshCw, ExternalLink, ArrowUpRight, AlertCircle } from "lucide-react";
+import { ChevronDown, ChevronRight, User, Mail, Clock, Hash, Brain, Wrench, CheckCircle2, MessageSquareText, CheckCircle, XCircle, Pencil, X, SkipForward, Loader2, RefreshCw, ExternalLink, ArrowUpRight, AlertCircle } from "lucide-react";
 import { Badge } from "./atoms/badge";
 import { Skeleton } from "./atoms/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "./atoms/avatar";
-import { toast } from "sonner";
 import { Button } from "./atoms/button";
 import type { IQuestionFullData, SourceItem } from "@/types";
 import { useGetQuestionMessageDetailsByQuestionId } from "@/hooks/api/question/useGetQuestionMessageDetailsByQuestionId";
@@ -24,6 +23,8 @@ import {
 } from "@/components/atoms/alert-dialog";
 import { useGenerateInitialAnswer } from "@/hooks/api/question/useGenerateInitialAnswer";
 import { ScrollArea } from "./atoms/scroll-area";
+import { toast,useToast } from "@/shared/components/toast";
+import { isEnglishCharacters } from "@/features/questions/utils/checkLanguage";
 
 interface MessageDetailCardProps {
     question: IQuestionFullData;
@@ -197,27 +198,100 @@ const MessageDetail = ({
                                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
                                     Processing Steps ({msg.content.length})
                                 </p>
-                                {question.source === "WHATSAPP" ? (
+                                {
+                                    // question.source === "WHATSAPP" ? (
+                                    //     (() => {
+                                    //         const lastAiIndex = msg.content.map((item: any) => item.type).lastIndexOf("ai");
+                                    //         return msg.content.map((item: any, i: number) => {
+                                    //             if (item.type === "human") {
+                                    //                 return <ContentHuman key={i} text={item.text} />;
+                                    //             }
+
+                                    //             if (item.type === "ai") {
+                                    //                 if (i === lastAiIndex) {
+                                    //                     return (
+                                    //                         <ContentAnswer
+                                    //                             key={i}
+                                    //                             text={item.text}
+                                    //                             question={question}
+                                    //                             isQuestionAllocatedToExpert={isQuestionAllocatedToExpert}
+                                    //                             navigateToQuestionPage={navigateToQuestionPage}
+                                    //                         />
+                                    //                     );
+                                    //                 }
+                                    //                 return <ContentTextStep key={i} text={item.text} />;
+                                    //             }
+
+                                    //             if (item.type === "tool") {
+                                    //                 return (
+                                    //                     <ContentToolCall
+                                    //                         key={i}
+                                    //                         toolCall={{
+                                    //                             id: i.toString(),
+                                    //                             name: item.toolName || "tool",
+                                    //                             args: item.toolArgs || {},
+                                    //                             progress: item.toolResponse ? 1 : 0,
+                                    //                             output: item.toolResponse || "Calling tool..."
+                                    //                         }}
+                                    //                     />
+                                    //                 );
+                                    //             }
+
+                                    //             return null;
+                                    //         });
+                                    //     })()
+                                    // ) : (
+                                    // msg.content.map((item: any, i: number) => {
+                                    //     const isLastItem = i === msg.content.length - 1;
+
+                                    //     if (item.type === "think") {
+                                    //         const idx = thinkIndex++;
+                                    //         return <ContentThinkStep key={i} think={item.think} index={idx} />;
+                                    //     }
+
+                                    //     if (item.type === "tool_call") {
+                                    //         return <ContentToolCall key={i} toolCall={item.tool_call} />;
+                                    //     }
+
+                                    //     if (item.type === "text" && isLastItem) {
+                                    //         return (
+                                    //             <ContentAnswer
+                                    //                 key={i}
+                                    //                 text={item.text}
+                                    //                 question={question}
+                                    //                 isQuestionAllocatedToExpert={isQuestionAllocatedToExpert}
+                                    //                 navigateToQuestionPage={navigateToQuestionPage}
+                                    //             />
+                                    //         );
+                                    //     }
+
+                                    //     return null;
+                                    // })
+
                                     (() => {
-                                        const lastAiIndex = msg.content.map((item: any) => item.type).lastIndexOf("ai");
+                                        const lastAiIndex = msg.content
+                                            .map((item: any) => item.type)
+                                            .lastIndexOf("ai");
+
+                                        const lastTextIndex = msg.content
+                                            .map((item: any) => item.type)
+                                            .lastIndexOf("text");
+
                                         return msg.content.map((item: any, i: number) => {
+
                                             if (item.type === "human") {
                                                 return <ContentHuman key={i} text={item.text} />;
                                             }
 
-                                            if (item.type === "ai") {
-                                                if (i === lastAiIndex) {
-                                                    return (
-                                                        <ContentAnswer
-                                                            key={i}
-                                                            text={item.text}
-                                                            question={question}
-                                                            isQuestionAllocatedToExpert={isQuestionAllocatedToExpert}
-                                                            navigateToQuestionPage={navigateToQuestionPage}
-                                                        />
-                                                    );
-                                                }
-                                                return <ContentTextStep key={i} text={item.text} />;
+                                            if (item.type === "think") {
+                                                const idx = thinkIndex++;
+                                                return (
+                                                    <ContentThinkStep
+                                                        key={i}
+                                                        think={item.think}
+                                                        index={idx}
+                                                    />
+                                                );
                                             }
 
                                             if (item.type === "tool") {
@@ -235,37 +309,76 @@ const MessageDetail = ({
                                                 );
                                             }
 
+                                            // toolcall(old formt)
+                                            if (item.type === "tool_call") {
+                                                return (
+                                                    <ContentToolCall
+                                                        key={i}
+                                                        toolCall={item.tool_call}
+                                                    />
+                                                );
+                                            }
+
+                                            // AI
+                                            if (item.type === "ai") {
+
+                                                // final AI answer
+                                                if (i === lastAiIndex) {
+                                                    return (
+                                                        <ContentAnswer
+                                                            key={i}
+                                                            text={item.text}
+                                                            question={question}
+                                                            isQuestionAllocatedToExpert={
+                                                                isQuestionAllocatedToExpert
+                                                            }
+                                                            navigateToQuestionPage={
+                                                                navigateToQuestionPage
+                                                            }
+                                                        />
+                                                    );
+                                                }
+
+                                                return (
+                                                    <ContentTextStep
+                                                        key={i}
+                                                        text={item.text}
+                                                    />
+                                                );
+                                            }
+
+                                            // (Old format)
+                                            if (item.type === "text") {
+
+                                                if (i === lastTextIndex) {
+                                                    return (
+                                                        <ContentAnswer
+                                                            key={i}
+                                                            text={item.text}
+                                                            question={question}
+                                                            isQuestionAllocatedToExpert={
+                                                                isQuestionAllocatedToExpert
+                                                            }
+                                                            navigateToQuestionPage={
+                                                                navigateToQuestionPage
+                                                            }
+                                                        />
+                                                    );
+                                                }
+
+                                                return (
+                                                    <ContentTextStep
+                                                        key={i}
+                                                        text={item.text}
+                                                    />
+                                                );
+                                            }
+
                                             return null;
                                         });
                                     })()
-                                ) : (
-                                    msg.content.map((item: any, i: number) => {
-                                        const isLastItem = i === msg.content.length - 1;
-
-                                        if (item.type === "think") {
-                                            const idx = thinkIndex++;
-                                            return <ContentThinkStep key={i} think={item.think} index={idx} />;
-                                        }
-
-                                        if (item.type === "tool_call") {
-                                            return <ContentToolCall key={i} toolCall={item.tool_call} />;
-                                        }
-
-                                        if (item.type === "text" && isLastItem) {
-                                            return (
-                                                <ContentAnswer
-                                                    key={i}
-                                                    text={item.text}
-                                                    question={question}
-                                                    isQuestionAllocatedToExpert={isQuestionAllocatedToExpert}
-                                                    navigateToQuestionPage={navigateToQuestionPage}
-                                                />
-                                            );
-                                        }
-
-                                        return null;
-                                    })
-                                )}
+                                    // )
+                                }
                             </div>
                         </div>
                     )}
@@ -339,102 +452,123 @@ interface ParsedChatbotText {
 }
 
 // --- Parser function ---
+// const parseChatbotText = (text: string): ParsedChatbotText => {
+//     let workingText = text;
+//     // const noticeIdx = workingText.indexOf('\u26A0\uFE0F');
+//     // if (noticeIdx !== -1) workingText = workingText.substring(0, noticeIdx).trim();
+//     const testingNoticeIndex = workingText.indexOf(
+//         "⚠️ *Important Notice (Testing)*"
+//     );
+
+//     if (testingNoticeIndex !== -1) {
+//         workingText = workingText.substring(0, testingNoticeIndex).trim();
+//     }
+
+//     let answerBody = workingText;
+//     let sourcesSection = '';
+//     const parts = workingText.split(/\n---\n/);
+//     if (parts.length > 1) {
+//         const lastPart = parts[parts.length - 1].trim();
+//         const looksLikeSources = /\|\s*(?:Agri Specialist Name|Source\/PDF Link)/i.test(lastPart);
+//         if (looksLikeSources) {
+//             answerBody = parts[0].trim();
+//             sourcesSection = parts.slice(1).join('\n---\n').trim();
+//         }
+//     }
+//     if (!sourcesSection) {
+//         const sourceMarker = workingText.match(/\*?\*?The answer I provided[^*\n]*/i);
+//         if (sourceMarker && sourceMarker.index !== undefined) {
+//             answerBody = workingText.substring(0, sourceMarker.index).trim();
+//             sourcesSection = workingText.substring(sourceMarker.index).trim();
+//         }
+//     }
+//     answerBody = answerBody.replace(/\n---\s*$/, '').trim();
+
+//     const agriSpecialists: AgriSpecialist[] = [];
+//     const agriRows = sourcesSection.match(/\|\s*Agri Specialist Name\s*\|\s*Source Link\s*\|[^\n]*\n\|[^\n]*\n([\s\S]*?)(?=\n\s*\n|\n\s*\|[^|]*Source\/PDF|$)/i);
+//     if (agriRows) {
+//         for (const row of agriRows[1].trim().split('\n').filter((r: string) => r.startsWith('|'))) {
+//             const cells = row.split('|').filter((c: string) => c.trim() !== '');
+//             if (cells.length >= 2) {
+//                 const name = cells[0].trim();
+//                 const raw = cells[1].trim();
+//                 const links = [...raw.matchAll(/\[([^\]]+)\]\(([^)]+)\)/g)];
+//                 if (links.length > 0) {
+//                     for (const link of links) {
+//                         agriSpecialists.push({ name, sourceType: 'other', sourceLink: link[2] });
+//                     }
+//                 } else {
+//                     // plain URL(s), possibly semicolon-separated
+//                     for (const url of raw.split(';').map(s => s.trim()).filter(Boolean)) {
+//                         agriSpecialists.push({ name, sourceType: 'other', sourceLink: url });
+//                     }
+//                 }
+//             }
+//         }
+//     }
+
+//     const pdfSources: PdfSource[] = [];
+//     const pdfRows = sourcesSection.match(/\|\s*Source\/PDF Link\s*\|\s*Page Number\s*\|[^\n]*\n\|[^\n]*\n([\s\S]*?)(?=\n\s*\n|\n---|\n\u26A0|$)/i);
+//     if (pdfRows) {
+//         for (const row of pdfRows[1].trim().split('\n').filter((r: string) => r.startsWith('|'))) {
+//             const cells = row.split('|').filter((c: string) => c.trim() !== '');
+//             if (cells.length >= 2) {
+//                 const lm = cells[0].trim().match(/\[([^\]]+)\]\(([^)]+)\)/);
+//                 if (lm) {
+//                     pdfSources.push({ name: lm[1], link: lm[2], pages: cells[1].trim(), sourceType: 'other' });
+//                 } else {
+//                     const raw = cells[0].trim();
+//                     const isUrl = /^https?:\/\//.test(raw);
+//                     pdfSources.push({
+//                         name: isUrl ? cells[1].trim() : raw,
+//                         link: isUrl ? raw : '',
+//                         pages: isUrl ? '' : cells[1].trim(),
+//                         sourceType: 'other',
+//                     });
+//                 }
+//             }
+//         }
+//     }
+
+//     for (const line of sourcesSection.split('\n')) {
+//         if (!line.includes('📺')) continue;
+//         const lm = line.match(/\[([^\]]+)\]\(([^)]+)\)/);
+//         if (lm) pdfSources.push({ name: lm[1], link: lm[2], pages: '', sourceType: 'other' });
+//     }
+
+//     // Extract from tables where cells[1] is entirely a markdown link (e.g. Video Resources table)
+//     for (const line of workingText.split('\n')) {
+//         if (!line.startsWith('|')) continue;
+//         const cells = line.split('|').filter(c => c.trim() !== '');
+//         if (cells.length < 2) continue;
+//         const lm = cells[1].trim().match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+//         if (!lm) continue;
+//         const url = lm[2];
+//         if (pdfSources.some(s => s.link === url) || agriSpecialists.some(s => s.sourceLink === url)) continue;
+//         pdfSources.push({
+//             name: cells[0].trim(),
+//             link: url,
+//             pages: cells.length > 2 ? cells[2].trim() : '',
+//             sourceType: 'other',
+//         });
+//     }
+
+//     return { answerBody, agriSpecialists, pdfSources };
+// }
+
 const parseChatbotText = (text: string): ParsedChatbotText => {
     let workingText = text;
-    const noticeIdx = workingText.indexOf('\u26A0\uFE0F');
-    if (noticeIdx !== -1) workingText = workingText.substring(0, noticeIdx).trim();
+    workingText = workingText.replace(
+        /\n*\s*⚠️?\s*\*?\s*Important\s+Notice\s*\(Testing\)\s*\*?\s*⚠️?[\s\S]*$/i,
+        ''
+    ).trim();
 
-    let answerBody = workingText;
-    let sourcesSection = '';
-    const parts = workingText.split(/\n---\n/);
-    if (parts.length > 1) {
-        const lastPart = parts[parts.length - 1].trim();
-        const looksLikeSources = /\|\s*(?:Agri Specialist Name|Source\/PDF Link)/i.test(lastPart);
-        if (looksLikeSources) {
-            answerBody = parts[0].trim();
-            sourcesSection = parts.slice(1).join('\n---\n').trim();
-        }
-    }
-    if (!sourcesSection) {
-        const sourceMarker = workingText.match(/\*?\*?The answer I provided[^*\n]*/i);
-        if (sourceMarker && sourceMarker.index !== undefined) {
-            answerBody = workingText.substring(0, sourceMarker.index).trim();
-            sourcesSection = workingText.substring(sourceMarker.index).trim();
-        }
-    }
-    answerBody = answerBody.replace(/\n---\s*$/, '').trim();
-
-    const agriSpecialists: AgriSpecialist[] = [];
-    const agriRows = sourcesSection.match(/\|\s*Agri Specialist Name\s*\|\s*Source Link\s*\|[^\n]*\n\|[^\n]*\n([\s\S]*?)(?=\n\s*\n|\n\s*\|[^|]*Source\/PDF|$)/i);
-    if (agriRows) {
-        for (const row of agriRows[1].trim().split('\n').filter((r: string) => r.startsWith('|'))) {
-            const cells = row.split('|').filter((c: string) => c.trim() !== '');
-            if (cells.length >= 2) {
-                const name = cells[0].trim();
-                const raw = cells[1].trim();
-                const links = [...raw.matchAll(/\[([^\]]+)\]\(([^)]+)\)/g)];
-                if (links.length > 0) {
-                    for (const link of links) {
-                        agriSpecialists.push({ name, sourceType: 'other', sourceLink: link[2] });
-                    }
-                } else {
-                    // plain URL(s), possibly semicolon-separated
-                    for (const url of raw.split(';').map(s => s.trim()).filter(Boolean)) {
-                        agriSpecialists.push({ name, sourceType: 'other', sourceLink: url });
-                    }
-                }
-            }
-        }
-    }
-
-    const pdfSources: PdfSource[] = [];
-    const pdfRows = sourcesSection.match(/\|\s*Source\/PDF Link\s*\|\s*Page Number\s*\|[^\n]*\n\|[^\n]*\n([\s\S]*?)(?=\n\s*\n|\n---|\n\u26A0|$)/i);
-    if (pdfRows) {
-        for (const row of pdfRows[1].trim().split('\n').filter((r: string) => r.startsWith('|'))) {
-            const cells = row.split('|').filter((c: string) => c.trim() !== '');
-            if (cells.length >= 2) {
-                const lm = cells[0].trim().match(/\[([^\]]+)\]\(([^)]+)\)/);
-                if (lm) {
-                    pdfSources.push({ name: lm[1], link: lm[2], pages: cells[1].trim(), sourceType: 'other' });
-                } else {
-                    const raw = cells[0].trim();
-                    const isUrl = /^https?:\/\//.test(raw);
-                    pdfSources.push({
-                        name: isUrl ? cells[1].trim() : raw,
-                        link: isUrl ? raw : '',
-                        pages: isUrl ? '' : cells[1].trim(),
-                        sourceType: 'other',
-                    });
-                }
-            }
-        }
-    }
-
-    for (const line of sourcesSection.split('\n')) {
-        if (!line.includes('📺')) continue;
-        const lm = line.match(/\[([^\]]+)\]\(([^)]+)\)/);
-        if (lm) pdfSources.push({ name: lm[1], link: lm[2], pages: '', sourceType: 'other' });
-    }
-
-    // Extract from tables where cells[1] is entirely a markdown link (e.g. Video Resources table)
-    for (const line of workingText.split('\n')) {
-        if (!line.startsWith('|')) continue;
-        const cells = line.split('|').filter(c => c.trim() !== '');
-        if (cells.length < 2) continue;
-        const lm = cells[1].trim().match(/^\[([^\]]+)\]\(([^)]+)\)$/);
-        if (!lm) continue;
-        const url = lm[2];
-        if (pdfSources.some(s => s.link === url) || agriSpecialists.some(s => s.sourceLink === url)) continue;
-        pdfSources.push({
-            name: cells[0].trim(),
-            link: url,
-            pages: cells.length > 2 ? cells[2].trim() : '',
-            sourceType: 'other',
-        });
-    }
-
-    return { answerBody, agriSpecialists, pdfSources };
-};
+    return {
+        answerBody: workingText,
+        agriSpecialists: [],
+        pdfSources: [],
+    };
+};;
 
 interface ContentAnswerProps {
     text: string;
@@ -454,9 +588,16 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const [translatedText, setTranslatedText] = useState<string>("");
     const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; type: "pass" | "accept" | "save" | "cancel" | "push-to-gdb"; remark?: string }>({ open: false, type: "pass" });
     const [passRemarkError, setPassRemarkError] = useState("");
+    const [pendingApprovalAction, setPendingApprovalAction] = useState<"accept" | "push-to-gdb" | null>(null);
 
     const { mutateAsync: updateAnswer, isPending: isUpdating } = useUpdateAnswer();
     const { mutateAsync: updateQuestion, isPending: updatingQuestion } = useUpdateQuestion();
+
+    // Only the moderator the question is assigned to (by the moderator-queue cron) may
+    // act on it — Pass / Accept / Push to GDB are hidden from everyone else.
+    // The backend resolves this against the requesting user (avoids ObjectId
+    // serialization mismatches from comparing ids on the client).
+    const isAssignedModerator = question?.isAssignedModerator === true;
 
     useEffect(() => {
         const p = parseChatbotText(text);
@@ -469,7 +610,9 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const handleAccept = () => {
         if (!question?._id) { toast.error("Question data is missing."); return; }
         if (question.source !== "AJRASAKHA" && question.source !== "WHATSAPP") { toast.error("Only AJRASAKHA or WHATSAPP answers can be approved."); return; }
-        setConfirmDialog({ open: true, type: "accept" });
+        setPendingApprovalAction("accept");
+        setEditModalKey(k => k + 1);
+        setIsEditModalOpen(true);
     };
 
     const handlePushToGDB = () => {
@@ -482,10 +625,12 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
         if (question.status !== "duplicate") {
             toast.error("Only duplicate questions can be pushed to GDB."); return;
         }
-        setConfirmDialog({ open: true, type: "push-to-gdb" });
+        setPendingApprovalAction("push-to-gdb");
+        setEditModalKey(k => k + 1);
+        setIsEditModalOpen(true);
     };
 
-    const doApprove = async () => {
+    const doApprove = async (flowType?: "accept" | "push-to-gdb") => {
         try {
             const sources: SourceItem[] = [];
             for (const spec of editedSpecialists) {
@@ -497,16 +642,29 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                     sources.push({ sourceType: (pdf.sourceType || "other") as any, sourceName: pdf.name || "chatbot", source: pdf.link, page: trimmedPages || undefined });
                 }
             }
-            const isAcceptFlow = confirmDialog.type === "accept";
+
+            if (sources.length === 0) {
+                toast.error("At least one source is required to proceed.");
+                return;
+            }
+
+            const isAcceptFlow = (flowType ?? confirmDialog.type) === "accept";
 
             await updateAnswer({
                 updatedAnswer: editedAnswerBody.trim(),
-                sources: sources.length > 0 ? sources : [{ sourceType: "MODERATOR_REVIEW", source: "Answer reviewed and approved by moderator" }],
+                sources,
                 answerId: undefined,
                 questionId: question._id,
                 source: question.source,
                 isModeratorApproval: isAcceptFlow,
-            });
+            }),{
+                loading:"approving answer...",
+                success:isAcceptFlow
+                    ? "LLM answer submitted successfully for author review"
+                    : "Answer pushed to GDB successfully",
+                // error:"Failed to approve the answer. Please try again."
+                    error: (error:any) => error.message ? error.message : "Failed to approve the answer. Please try again."
+            };
             setApproved(true);
 
             toast.success(
@@ -521,15 +679,47 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
         }
     };
 
-    const handleEdit = () => { setEditModalKey(k => k + 1); setIsEditModalOpen(true); };
-    const handleCancelEdit = () => { const p = parseChatbotText(text); setEditedAnswerBody(p.answerBody); setEditedSpecialists(p.agriSpecialists); setEditedPdfSources(p.pdfSources); setIsEditModalOpen(false); };
-    const handleSaveEdit = () => { toast.success("Changes saved"); setIsEditModalOpen(false); };
-    const handleSkip = () => { setPassRemarkError(""); setConfirmDialog({ open: true, type: "pass", remark: "" }); };
+    const handleCancelEdit = () => {
+        const p = parseChatbotText(text);
+        setEditedAnswerBody(p.answerBody);
+        setEditedSpecialists(p.agriSpecialists);
+        setEditedPdfSources(p.pdfSources);
+        setIsEditModalOpen(false);
+        setPendingApprovalAction(null);
+    };
+    const handleSaveEdit = () => {
+        const hasAnySource =
+            editedSpecialists.some(s => s.sourceLink?.trim()) ||
+            editedPdfSources.some(s => s.link?.trim());
+        if (!hasAnySource) {
+            toast.error("At least one source is required to proceed.");
+            return;
+        }
+        const action = pendingApprovalAction;
+        setIsEditModalOpen(false);
+        setPendingApprovalAction(null);
+        if (action === "accept" || action === "push-to-gdb") {
+            doApprove(action);
+        }
+    };
+    const handleSkip = () => {
+        if (!question?.details?.normalised_crop?.trim()) {
+            toast.error("This question does not have a normalised crop. Please add the respective crop from the Agri Tech Management section before approving this answer.");
+            return;
+        }
+        setPassRemarkError("");
+        setConfirmDialog({ open: true, type: "pass", remark: "" });
+    };
 
     const doSkip = async (remark?: string) => {
-        await updateQuestion({ isHidden: true, status: 'pass', _id: question._id!, ...(remark ? { passingRemark: remark } : {}) } as any);
-        toast.success("Question has been hidden");
-        navigateToQuestionPage();
+        try {
+            await updateQuestion({ isHidden: true, status: 'pass', _id: question._id!, ...(remark ? { passingRemark: remark } : {}) } as any);
+            toast.success("Question has been hidden");
+            navigateToQuestionPage();
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.message || error?.message || "Failed to pass the question";
+            toast.error(errorMessage);
+        }
     };
 
     const handleConfirm = () => {
@@ -599,10 +789,14 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                     <span className="text-sm font-semibold text-foreground">Final Answer</span>
 
                     <div className="ml-auto flex items-center gap-2">
-                        <SarvamTranslateDropdown
-                            query={editedAnswerBody}
-                            onTranslate={(result) => setTranslatedText(result)}
-                        />
+                        {
+                            editedAnswerBody?.trim() && !isEnglishCharacters(editedAnswerBody) && (
+                                <SarvamTranslateDropdown
+                                    query={editedAnswerBody}
+                                    onTranslate={(result) => setTranslatedText(result)}
+                                />
+                            )
+                        }
                         {approved === true && <span className="flex items-center gap-1 text-xs text-success font-medium"><CheckCircle className="h-3.5 w-3.5" /> Approved</span>}
                         {approved === false && <span className="flex items-center gap-1 text-xs text-destructive font-medium"><XCircle className="h-3.5 w-3.5" /> Rejected</span>}
                     </div>
@@ -642,11 +836,21 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                         </div>
                     )}
                 </div>
-                {approved === null && question && (question.source == "AJRASAKHA" || question.source == "WHATSAPP") && question.status !== "closed" && !question.aiInitialAnswer && !isQuestionAllocatedToExpert && (
+                {/* Dynamic status: Show only Pass button (ignoring other conditions, role should not be expert) */}
+                {question.status === "dynamic" && question?.isHidden !== true && (
+                    <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
+                        <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">This is a dynamic question. You can pass it to skip processing.</p>
+                        <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
+                            <Button type="button" variant="outline" size="sm" disabled={updatingQuestion} onClick={handleSkip} className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}>{updatingQuestion ? <Loader2 className="h-4 w-4 animate-spin" /> : <SkipForward className="h-4 w-4" />}{updatingQuestion ? "Passing..." : "Pass"}</Button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Non-dynamic status: Full conditions with Pass, Accept, and Push to GDB buttons */}
+                {question.status !== "dynamic" && approved === null && question && isAssignedModerator && (question.source == "AJRASAKHA" || question.source == "WHATSAPP") && question.status !== "closed" && !question.aiInitialAnswer && !isQuestionAllocatedToExpert && (
                     <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
                         <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">Once you click on Accept, the LLM-generated answer will be set as the AI answer for this question and sent for moderation as a reference to create the initial answer for the question.</p>
                         <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
-                            <Button type="button" variant="outline" size="sm" onClick={handleEdit} className="gap-2 rounded-xl px-4"><Pencil className="h-4 w-4" /> Edit Answer</Button>
                             {
                                 question?.isHidden !== true && <Button type="button" variant="outline" size="sm" disabled={updatingQuestion} onClick={handleSkip} className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}>{updatingQuestion ? <Loader2 className="h-4 w-4 animate-spin" /> : <SkipForward className="h-4 w-4" />}{updatingQuestion ? "Passing..." : "Pass"}</Button>
                             }
@@ -663,10 +867,10 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                                 ) : (
                                     <CheckCircle className="h-4 w-4" />
                                 )}
-                                {isUpdating ? "Submitting AI Answer..." : "Accept"}
+                                {isUpdating ? "Submitting AI Answer..." : "Allocate Experts"}
                             </Button>
 
-                            {/*question.status == "duplicate" &&*/}
+                            {question.status === "duplicate" && (
                                 <Button
                                     type="button"
                                     variant="destructive"
@@ -682,7 +886,8 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                                     )}
                                     {isUpdating ? "Pushing to GDB..." : "Push to GDB"}
                                 </Button>
-                            
+                            )}
+
                         </div>
                     </div>
                 )}
@@ -705,6 +910,13 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                 onPdfSourcesChange={setEditedPdfSources}
                 onSave={handleSaveEdit}
                 onCancel={handleCancelEdit}
+                saveLabel={
+                    pendingApprovalAction === "push-to-gdb"
+                        ? "Push to GDB"
+                        : pendingApprovalAction === "accept"
+                            ? "Approve"
+                            : "Save Changes"
+                }
             />
 
             <AlertDialog open={confirmDialog.open} onOpenChange={(open) => {
@@ -780,6 +992,7 @@ interface EditAnswerModalProps {
     onSave: () => void;
     onCancel: () => void;
     initialTranslatedText?: string;
+    saveLabel?: string;
 }
 
 const EditAnswerModal = ({
@@ -794,6 +1007,7 @@ const EditAnswerModal = ({
     onSave,
     onCancel,
     initialTranslatedText,
+    saveLabel = "Save Changes",
 }: EditAnswerModalProps) => {
     const [pendingAction, setPendingAction] = useState<'save' | 'cancel' | null>(null);
     const [translatedText, setTranslatedText] = useState<string>(initialTranslatedText ?? "");
@@ -817,15 +1031,26 @@ const EditAnswerModal = ({
     const addPdfSource = () =>
         onPdfSourcesChange([...editedPdfSources, { name: '', link: '', pages: '', sourceType: '' }]);
 
+    const isZohoWorkDriveUrl = (url: string): boolean => {
+        try {
+            const hostname = new URL(url.trim()).hostname.toLowerCase();
+            return hostname.includes("zoho") && hostname.includes("workdrive");
+        } catch {
+            return false;
+        }
+    };
+
     const validateSources = (): boolean => {
         for (const spec of editedSpecialists) {
             if (!spec.name.trim()) { toast.error("Each agri specialist must have a name."); return false; }
             if (!spec.sourceLink.trim()) { toast.error("Each agri specialist must have a source URL."); return false; }
+            if (!isZohoWorkDriveUrl(spec.sourceLink)) { toast.error("Only Zoho WorkDrive URLs are allowed for sources."); return false; }
         }
         for (const src of editedPdfSources) {
             if (!src.name.trim()) { toast.error("Each reference source must have a name."); return false; }
             if (!src.sourceType.trim()) { toast.error("Each reference source must have a source type selected."); return false; }
             if (!src.link.trim()) { toast.error("Each reference source must have a source URL."); return false; }
+            if (!isZohoWorkDriveUrl(src.link)) { toast.error("Only Zoho WorkDrive URLs are allowed for sources."); return false; }
         }
         return true;
     };
@@ -847,10 +1072,15 @@ const EditAnswerModal = ({
                         <div className="space-y-3">
                             <div className="flex items-center justify-between">
                                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Answer Text</label>
-                                <SarvamTranslateDropdown
-                                    query={editedAnswerBody}
-                                    onTranslate={(result) => setTranslatedText(result)}
-                                />
+                                
+                                {
+                                    editedAnswerBody?.trim() && !isEnglishCharacters(editedAnswerBody) && (
+                                        <SarvamTranslateDropdown
+                                            query={editedAnswerBody}
+                                            onTranslate={(result) => setTranslatedText(result)}
+                                        />
+                                    )
+                                }
                             </div>
                             <textarea
                                 value={translatedText || editedAnswerBody}
@@ -934,16 +1164,9 @@ const EditAnswerModal = ({
                             <Button type="button" variant="outline" size="sm" onClick={() => setPendingAction('cancel')} className="gap-2 rounded-xl">
                                 <X className="h-4 w-4" /> Cancel
                             </Button>
-                            <Button type="button" size="sm" onClick={() => { if (validateSources()) setPendingAction('save'); }} className="gap-2 rounded-xl" disabled={!editedAnswerBody.trim()}>
-                                <Save className="h-4 w-4" /> Save Changes
+                            <Button type="button" size="sm" onClick={() => { if (validateSources()) onSave(); }} className="gap-2 rounded-xl" disabled={!editedAnswerBody.trim()}>
+                                <CheckCircle className="h-4 w-4" /> {saveLabel}
                             </Button>
-                        </>
-                    )}
-                    {pendingAction === 'save' && (
-                        <>
-                            <span className="text-sm text-muted-foreground mr-auto">Save changes?</span>
-                            <Button type="button" variant="outline" size="sm" onClick={() => setPendingAction(null)} className="rounded-xl">Go back</Button>
-                            <Button type="button" size="sm" onClick={() => { setPendingAction(null); onSave(); }} className="rounded-xl">Yes, save</Button>
                         </>
                     )}
                     {pendingAction === 'cancel' && (

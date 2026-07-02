@@ -1,40 +1,55 @@
-import type React from "react";
+import React, { useState } from "react";
+import { ScrollArea } from "@/components/atoms/scroll-area";
+import { InfoIcon, RefreshCw } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
+import { QueryCategoryQuestionsModal } from "./components/QueryCategoryQuestionsModal";
+import { useQueryClient } from "@tanstack/react-query";
+import { LazySectionSkeleton } from "./AnnamDashboard_dev";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
 interface QueryCategory {
     label: string;
-    pct: number;
-    color: string;
+    questionCount: number;
+    duplicateQuestionCount: number;
+    color?: string;
     valueColor?: string;
 }
 
 interface QueryCategoriesProps {
     categories?: QueryCategory[];
-    unansweredCluster?: {
-        label: string;
-        count: string;
-    };
+    source?: "vicharanashala" | "annam" | "whatsapp";
+    userType?: string;
+    isLoading?: boolean;
 }
 
-// ─── STATIC DATA ──────────────────────────────────────────────────────────────
+// ─── PREMIUM HARMONIOUS 15-COLOR PALETTE ─────────────────────────────────────
 
-const DEFAULT_CATEGORIES: QueryCategory[] = [
-    { label: "Pest & disease", pct: 34, color: "#E24B4A", valueColor: "#A32D2D" },
-    { label: "Fertilizer dosage", pct: 28, color: "#EF9F27", valueColor: "#633806" },
-    { label: "Irrigation timing", pct: 18, color: "#378ADD" },
-    { label: "Crop selection", pct: 12, color: "#3AAA5A" },
-    { label: "Govt. schemes", pct: 8, color: "#7C6FD4" },
-    { label: "Weather forecast", pct: 7, color: "#1D9E75" },
-    { label: "Seed varieties", pct: 6, color: "#E24B4A" },
-    { label: "Soil testing", pct: 5, color: "#EF9F27" },
-    { label: "Market prices", pct: 4, color: "#378ADD" },
+const PREMIUM_PALETTE = [
+    "#3AAA5A", // Active green
+    "#378ADD", // Calm ocean blue
+    "#EF9F27", // Warm orange-gold
+    "#E24B4A", // Soft vibrant red
+    "#7C6FD4", // Sleek modern purple
+    "#1D9E75", // Deep teal-green
+    "#EC4899", // Magenta-pink
+    "#06B6D4", // Turquoise cyan
+    "#8B5CF6", // Dynamic violet
+    "#F59E0B", // Bright amber
+    "#10B981", // Rich emerald
+    "#3B82F6", // Professional royal blue
+    "#F43F5E", // Rose red
+    "#6366F1", // Indigo
+    "#14B8A6", // Minty teal
 ];
 
-const DEFAULT_UNANSWERED = {
-    label: "Mandi pricing",
-    count: "8,400 queries",
-};
+const DEFAULT_CATEGORIES: QueryCategory[] = [
+    { label: "Disease Management", questionCount: 0, duplicateQuestionCount: 0 },
+    { label: "Farm Tools & Mechanisation", questionCount: 0, duplicateQuestionCount: 0 },
+    { label: "Fertilizer Use and Availability", questionCount: 0, duplicateQuestionCount: 0 },
+    { label: "Field Preparation", questionCount: 0, duplicateQuestionCount: 0 },
+    { label: "Plant Protection", questionCount: 0, duplicateQuestionCount: 0 },
+];
 
 // ─── PROGRESS BAR ─────────────────────────────────────────────────────────────
 
@@ -42,91 +57,142 @@ interface ProgressBarProps {
     label: string;
     pct: number;
     color: string;
-    valueColor?: string;
+    questionCount: number;
+    duplicateQuestionCount: number;
+    onClick?: () => void;
 }
 
-const ProgressBar: React.FC<ProgressBarProps> = ({ label, pct, color, valueColor }) => (
-    <div className="mb-3 last:mb-0">
-        <div className="flex justify-between items-center mb-1">
-            <span className="text-[11px] text-gray-500 dark:text-gray-400">{label}</span>
-            <span
-                className="text-[11px]"
-                style={{
-                    color: valueColor || undefined,
-                    fontWeight: valueColor ? 500 : 400,
-                }}
-            >
-                {!valueColor && (
-                    <span className="text-gray-500 dark:text-gray-400">{pct}%</span>
-                )}
-                {valueColor && (
-                    <span>{pct}%</span>
-                )}
-            </span>
-        </div>
-        <div className="w-full h-[5px] bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden">
-            <div
-                className="h-full rounded-full transition-all duration-700 ease-out"
-                style={{ width: `${pct}%`, background: color }}
-            />
-        </div>
-    </div>
-);
+const ProgressBar: React.FC<ProgressBarProps> = ({
+    label,
+    pct,
+    color,
+    questionCount,
+    duplicateQuestionCount,
+    onClick,
+}) => {
+    const total = questionCount + duplicateQuestionCount;
+
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className="mb-4 w-full cursor-pointer rounded-lg p-2 text-left transition-all duration-300 last:mb-0 hover:bg-gray-50/50 focus:outline-none focus:ring-2 focus:ring-[#3AAA5A]/40 dark:hover:bg-white/5"
+            aria-label={`View questions in ${label}`}
+        >
+            <div className="flex justify-between items-center mb-1.5">
+                <span className="text-[12px] font-medium text-gray-700 dark:text-gray-300">
+                    {label}
+                </span>
+                <div className="flex items-center gap-1 text-[11px] font-semibold text-gray-500 dark:text-gray-400">
+                    <span className="text-[10px] font-normal text-gray-400">Unique:</span>
+                    <span className="text-gray-700 dark:text-gray-200">{questionCount}</span>
+                    <span className="mx-1 text-gray-300 dark:text-gray-600">|</span>
+                    <span className="text-[10px] font-normal text-gray-400">Duplicate:</span>
+                    <span className="text-gray-700 dark:text-gray-200">{duplicateQuestionCount}</span>
+                    <span className="ml-1.5 text-[10px] text-gray-400 font-normal">({total} total)</span>
+                </div>
+            </div>
+            <div className="w-full h-[6px] bg-gray-100 dark:bg-white/10 rounded-full overflow-hidden">
+                <div
+                    className="h-full rounded-full transition-all duration-700 ease-out"
+                    style={{ width: `${pct}%`, background: color }}
+                />
+            </div>
+        </button>
+    );
+};
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
-export const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
+const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
     categories = DEFAULT_CATEGORIES,
-    unansweredCluster = DEFAULT_UNANSWERED,
+    source = "annam",
+    userType = "all",
+    isLoading = false,
 }) => {
+    const [selectedCategory, setSelectedCategory] = React.useState<QueryCategory | null>(null);
+    // Determine maximum total count among all categories to scale progress bars proportionally
+    const activeCategories = categories && categories.length > 0 ? categories : DEFAULT_CATEGORIES;
+    const totals = activeCategories.map((c) => c.questionCount + c.duplicateQuestionCount);
+    const maxTotal = Math.max(...totals, 1);
+    const queryClient = useQueryClient();
+    const [refreshing, setRefreshing] = useState(false);
+    const handleRefresh = async () => {
+        setRefreshing(true);
+        await queryClient.refetchQueries({ queryKey: ["query-categories"] });
+        setRefreshing(false);
+    };
+
+    const showSkeleton = isLoading || refreshing;
+
     return (
-        // Remove this div when data is dynamic
-        <div className="relative cursor-not-allowed h-full">
-        <div className="bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-gray-800 rounded-xl p-4 flex flex-col h-full">
+        <div className="bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300 border border-gray-200 dark:border-gray-800 rounded-xl p-4 flex flex-col h-full">
             {/* Header */}
             <div className="flex items-start justify-between mb-4">
-                <div>
-                    <div className="text-[13px] font-medium text-gray-900 dark:text-gray-100">
-                        Query categories
+                <div className="flex-1">
+                    <div className="text-[13px] font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
+                        <span>Query categories</span>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground">
+                                    <InfoIcon className="h-3.5 w-3.5" />
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                List of top domains/categories that chatbot users are asking questions about, showing unique vs duplicate counts.
+                            </TooltipContent>
+                        </Tooltip>
                     </div>
                     <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                        This week · all channels
+                        Dynamic Agriculture Domains (Top 15)
                     </div>
                 </div>
-                <button className="text-[11px] text-[#3AAA5A] hover:text-[#2e8c4a] transition-colors cursor-pointer whitespace-nowrap">
-                    See all ↗
+                <button
+                    onClick={handleRefresh}
+                    className="ml-2 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800"
+                    title="Refresh"
+                >
+                    <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
                 </button>
             </div>
 
-            {/* Progress bars — scrollable */}
-            <div className="flex-1 overflow-y-auto pr-1 max-h-[260px]">
-                {categories.map((q) => (
-                    <ProgressBar
-                        key={q.label}
-                        label={q.label}
-                        pct={q.pct}
-                        color={q.color}
-                        valueColor={q.valueColor}
-                    />
-                ))}
-            </div>
+            {/* Progress bars — scrollable or skeleton */}
+            {showSkeleton ? (
+                <div className="flex-1">
+                    <LazySectionSkeleton className="h-[300px]" />
+                </div>
+            ) : (
+                <ScrollArea className="flex-1 max-h-[300px] pr-1">
+                    {activeCategories.map((q, index) => {
+                        const total = q.questionCount + q.duplicateQuestionCount;
+                        const pct = (total / maxTotal) * 100;
+                        const color = q.color || PREMIUM_PALETTE[index % PREMIUM_PALETTE.length];
 
-            {/* Footer: top unanswered cluster */}
-            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-800">
-                <div className="text-[11px] text-gray-500 dark:text-gray-400">
-                    Top unanswered cluster
-                </div>
-                <div className="text-[12px] font-medium text-[#A32D2D] dark:text-[#f87171] mt-0.5">
-                    {unansweredCluster.label} · {unansweredCluster.count}
-                </div>
-            </div>
-            
-            {/* // Remove this div when data is dynamic */}
-            <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px] rounded-lg flex items-center justify-center z-10">
-				<span className="text-white text-xs font-semibold tracking-wide">
-				</span>
-			</div>
-        </div>
+                        return (
+                            <ProgressBar
+                                key={q.label}
+                                label={q.label}
+                                pct={pct}
+                                color={color}
+                                questionCount={q.questionCount}
+                                duplicateQuestionCount={q.duplicateQuestionCount}
+                                onClick={() => setSelectedCategory(q)}
+                            />
+                        );
+                    })}
+                </ScrollArea>
+            )}
+            {selectedCategory && (
+                <QueryCategoryQuestionsModal
+                    category={selectedCategory.label}
+                    source={source}
+                    userType={userType}
+                    isQueryCategory={true}
+                    onClose={() => setSelectedCategory(null)}
+                />
+            )}
         </div>
     );
 };
+
+export default DashboardQueryCategories;

@@ -1,5 +1,5 @@
 import { ObjectId, ClientSession } from 'mongodb';
-import { IQuestion,QuestionStatus } from '#root/shared/interfaces/models.js';
+import { IQuestion, QuestionStatus } from '#root/shared/interfaces/models.js';
 import { AiService } from '#root/modules/ai/services/AiService.js';
 import { IDuplicateQuestionRepository } from '#root/shared/database/interfaces/IDuplicateQuestionRepository.js';
 import { chatbotSimilarityLogger } from '../logger/chatbot-similarity.logger.js';
@@ -13,7 +13,7 @@ export async function checkDuplicateQuestionHelper(
   duplicateQuestionRepository: IDuplicateQuestionRepository,
   session?: ClientSession,
   fromOutReach?: boolean,
-): Promise<{ isDuplicate: boolean; duplicateData?: any }> {
+): Promise<{ isDuplicate: boolean; duplicateData?: any; isNonAgri?: boolean; nonAgriData?: any }> {
   const cropName = typeof details.crop === 'string' ? details.crop : details.crop?.name || '';
 
   const questions = await aiService.getQuestionByContextAndMetaData(
@@ -30,11 +30,9 @@ export async function checkDuplicateQuestionHelper(
       agri_specialist: item.source || "AGRI_EXPERT",
       referenceSource: "reviewer",
       score: item.score * 100,
-      id: item.id
-        ? new ObjectId(String(item.id))
-        : new ObjectId() // preserve the real reviewer question _id
-    })),
-    ...(questions.golden || []).map((item: any) => ({
+      id: new ObjectId(String(item.id)),
+    }))
+   /* ...(questions.golden || []).map((item: any) => ({
       question: item.question,
       answer: item.answer,
       agri_specialist: item.metadata?.["Agri Specialist"] || "Unknown",
@@ -43,7 +41,7 @@ export async function checkDuplicateQuestionHelper(
       id: item.id
         ? new ObjectId(String(item.id))
         : new ObjectId()
-    })),
+    })),*/
   ];
 
   merged = Array.from(
@@ -81,7 +79,7 @@ export async function checkDuplicateQuestionHelper(
   for (const match of topSimilar) {
     const highestScore = match.similarityScore;
 
-    // Rule 1: immediate duplicate
+    // Rule 1: immediate duplicate (>=95) — trust the embedding match, no LLM call.
     if (highestScore >= 95) {
       isDuplicate = true;
       matchedQuestion = match.question;
@@ -91,71 +89,65 @@ export async function checkDuplicateQuestionHelper(
       break;
     }
 
-    // Rule 2: collect candidates for LLM
+    // Rule 2: collect mid-score (85-95) candidates for LLM comparison.
     if (highestScore >= 85 && highestScore < 95) {
       llmCandidates.push(match);
     }
   }
 
-  // Rule 3: call LLM once
-  if (!isDuplicate && llmCandidates.length > 0) {
-    const candidateQuestions = llmCandidates.map(q => q.question);
-
-    const matchedQuestionfromllm = await checkConceptDuplicate(
-      baseQuestion.question,
-      candidateQuestions,
-    );
-    if (matchedQuestionfromllm!==null) {
-    /*  const filtermatchinQuestion = topSimilar.filter(
-        ele => ele.question == matchedQuestionfromllm,
+  // Rule 3: single combined LLM call.
+  // When there is NO immediate >=95 duplicate, call the LLM once. It returns
+  // one of three outcomes in a single round-trip (saves LLM cost vs. two calls):
+  //   - non-agri (greeting/smalltalk/unrelated) → mark status='non_agri'
+  //   - duplicate of candidate N → mark status='duplicate'
+  //   - neither → leave as a normal open question
+  // We still call this LLM when llmCandidates is empty, because pure non-agri
+  // inputs (like "hi") rarely produce any candidates above the 85 threshold.
+  if (!isDuplicate) {
+    try {
+      const candidateQuestions = llmCandidates.map(q => q.question);
+      const llmResult = await checkConceptDuplicate(
+        baseQuestion.question,
+        candidateQuestions,
       );
 
-      isDuplicate = true;
-      matchedQuestion = filtermatchinQuestion[0].question;
-      matchedQuestionId = filtermatchinQuestion[0].questionId;
-      matchedScore = filtermatchinQuestion[0].similarityScore;
-      referenceSourcefrom = filtermatchinQuestion[0].referenceSource;*/
+      // (a) Non-agri short-circuit — beats duplicate detection.
+      if (llmResult.isNonAgri) {
+        const nonAgriQuestion = {
+          ...baseQuestion,
+          status: 'non_agri' as QuestionStatus,
+        };
+        logData.outcome = 'NON_AGRI_DETECTED';
+        logData.nonAgri = true;
+        chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData);
+        return { isDuplicate: false, isNonAgri: true, nonAgriData: nonAgriQuestion };
+      }
+
+      // (b) LLM picked a candidate → treat as duplicate.
       if (
-        matchedQuestionfromllm < 0 ||
-        matchedQuestionfromllm >= llmCandidates.length
+        llmResult.matchedIndex !== null &&
+        llmResult.matchedIndex >= 0 &&
+        llmResult.matchedIndex < llmCandidates.length
       ) {
-        console.log("Invalid candidate index returned by LLM");
-        return { isDuplicate: false };
+        const matchedCandidate = llmCandidates[llmResult.matchedIndex];
+        console.log("Matched Candidate:", matchedCandidate);
+        isDuplicate = true;
+        matchedQuestion = matchedCandidate.question;
+        matchedQuestionId = matchedCandidate.questionId;
+        matchedScore = matchedCandidate.similarityScore;
+        referenceSourcefrom = matchedCandidate.referenceSource;
       }
-      
-      const matchedCandidate = llmCandidates[matchedQuestionfromllm];
-      console.log("Matched Candidate:", matchedCandidate);
-      isDuplicate = true;
-      matchedQuestion = matchedCandidate.question;
-      matchedQuestionId = matchedCandidate.questionId;
-      matchedScore = matchedCandidate.similarityScore;
-      referenceSourcefrom = matchedCandidate.referenceSource;
-
-      const duplicateQuestion = {
-        ...baseQuestion,
-        similarityScore: Number(matchedScore.toFixed(2)),
-        referenceQuestionId: matchedQuestionId,
-        referenceQuestion: matchedQuestion,
-        referenceSource: referenceSourcefrom,
-        status: 'duplicate' as QuestionStatus,
-      }
-
-      if(fromOutReach){
-        await duplicateQuestionRepository.addDuplicate(
-          duplicateQuestion,
-          session
-        )
-      }
-      logData.outcome = 'DUPLICATE_DETECTED'
-      logData.matchedQuestion = matchedQuestion
-      logData.similarityScore = matchedScore.toFixed(2)
-
-      chatbotSimilarityLogger.warn('ADD_QUESTION_LOG', logData)
-      return { isDuplicate: true, duplicateData: duplicateQuestion }
+      // (c) Otherwise → plain agri question, fall through to "no duplicate" return.
+    } catch (llmError: any) {
+      // LLM outage must never block the pipeline — fall through and treat as open.
+      console.error(
+        '⚠️ Combined LLM check failed, proceeding as open:',
+        llmError?.message,
+      );
     }
   }
 
-  // Final action: Persist duplicate and return
+  // Persist duplicate and return.
   if (isDuplicate && matchedQuestionId && matchedQuestion) {
     const duplicateQuestion = {
       ...baseQuestion,
@@ -166,12 +158,12 @@ export async function checkDuplicateQuestionHelper(
       status: 'duplicate' as QuestionStatus,
     };
 
-   if(fromOutReach){
-     await duplicateQuestionRepository.addDuplicate(
-      duplicateQuestion,
-      session,
-    );
-   }
+    if (fromOutReach) {
+      await duplicateQuestionRepository.addDuplicate(
+        duplicateQuestion,
+        session,
+      );
+    }
 
     logData.outcome = 'DUPLICATE_DETECTED';
     logData.matchedQuestion = matchedQuestion;

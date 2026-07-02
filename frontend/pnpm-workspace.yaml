@@ -1,6 +1,10 @@
+packages:
+  - '.'
+
 allowBuilds:
   '@firebase/util': false
   '@tailwindcss/oxide': false
   esbuild: false
   msw: false
   protobufjs: false
+  wasm-pack: set this to true or false

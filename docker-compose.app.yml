@@ -1,0 +1,70 @@
+# Reviewer backend + frontend — build locally
+#
+# Ports: APP_PORT, BACKEND_HOST_PORT, FRONTEND_PORT in .env (see .env.example)
+
+services:
+  reviewer-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.app
+    container_name: reviewer-backend
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_HOST_PORT:-${APP_PORT:-4000}}:${APP_PORT:-4000}"
+    env_file:
+      - .env
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/gcp-service-account.json
+    volumes:
+      - ${GCP_CREDENTIALS_HOST_PATH:-/opt/reviewer/secrets/gcp-service-account.json}:/run/secrets/gcp-service-account.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:$$APP_PORT/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - reviewer-net
+
+  reviewer-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_ENABLE_MOCKS: ${VITE_ENABLE_MOCKS:-false}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+        VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY}
+        VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN}
+        VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID}
+        VITE_FIREBASE_STORAGE_BUCKET: ${VITE_FIREBASE_STORAGE_BUCKET}
+        VITE_FIREBASE_MESSAGING_SENDER_ID: ${VITE_FIREBASE_MESSAGING_SENDER_ID}
+        VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID}
+        VITE_FIREBASE_MEASUREMENT_ID: ${VITE_FIREBASE_MEASUREMENT_ID:-}
+        VITE_SARVAM_API_KEY: ${VITE_SARVAM_API_KEY}
+        VITE_VAPID_PUBLIC_KEY: ${VITE_VAPID_PUBLIC_KEY}
+    container_name: reviewer-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    environment:
+      APP_PORT: ${APP_PORT:-4000}
+      VITE_ENABLE_MOCKS: ${VITE_ENABLE_MOCKS:-false}
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+      VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY}
+      VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN}
+      VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID}
+      VITE_FIREBASE_STORAGE_BUCKET: ${VITE_FIREBASE_STORAGE_BUCKET}
+      VITE_FIREBASE_MESSAGING_SENDER_ID: ${VITE_FIREBASE_MESSAGING_SENDER_ID}
+      VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID}
+      VITE_FIREBASE_MEASUREMENT_ID: ${VITE_FIREBASE_MEASUREMENT_ID:-}
+      VITE_SARVAM_API_KEY: ${VITE_SARVAM_API_KEY}
+      VITE_VAPID_PUBLIC_KEY: ${VITE_VAPID_PUBLIC_KEY}
+    depends_on:
+      reviewer-backend:
+        condition: service_healthy
+    networks:
+      - reviewer-net
+
+networks:
+  reviewer-net:
+    driver: bridge

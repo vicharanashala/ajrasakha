@@ -14,6 +14,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { CheckCheck, LogOut, NotepadText, User } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
+import { isCoordinatorRole } from "@/lib/roles";
 import { Badge } from "./badge";
 
 import {
@@ -56,6 +57,7 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
   const [imgError, setImgError] = React.useState(false);
   const navigate = useNavigate();
   const { data: userWithRole } = useGetCurrentUser({});
+  const isCoordinator = isCoordinatorRole(userWithRole?.role);
   const handleLogout = () => {
     const clearPlaygroundTabs = () => {
       Object.keys(localStorage).forEach((key) => {
@@ -78,7 +80,7 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
   };
 
   const handleViewProfile = () => {
-    navigate({ to: "/profile" });
+    navigate({ to: isCoordinator ? "/coordinator/profile" : "/profile" });
   };
 
   const handleViewAudit = () => {
@@ -135,11 +137,12 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
           className="text-foreground focus:text-foreground cursor-pointer mb-2"
         >
           <User className="mr-2 h-4 w-4" />
-          Profile
+          {isCoordinator ? "Coordinator Profile" : "Profile"}
         </DropdownMenuItem>
 
         {(userWithRole?.role === "admin" ||
-          userWithRole?.role === "moderator") && (
+          userWithRole?.role === "moderator" ||
+          userWithRole?.role === "tester") && (
           <DropdownMenuItem
             onClick={handleViewAudit}
             className="text-foreground focus:text-foreground cursor-pointer mb-2 relative"
@@ -155,6 +158,7 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
           </DropdownMenuItem>
         )}
 
+        {!isCoordinator && (
         <DropdownMenuItem
           onClick={handleViewHistory}
           className="text-foreground focus:text-foreground cursor-pointer mb-2 relative"
@@ -168,6 +172,7 @@ export function UserDropdown({ user, onLogout }: UserDropdownProps) {
             New
           </Badge>
         </DropdownMenuItem>
+        )}
 
         {/* <DropdownMenuItem
           onClick={handleLogout}

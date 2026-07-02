@@ -9,12 +9,15 @@ import {
   Req,
   UploadedFile,
   UseBefore,
+  Get,
+  ForbiddenError,
 } from 'routing-controllers';
-import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
-import {inject, injectable} from 'inversify';
-import {GLOBAL_TYPES} from '#root/types.js';
-import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
-import {IUser} from '#root/shared/index.js';
+import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
+import { inject, injectable } from 'inversify';
+import { GLOBAL_TYPES } from '#root/types.js';
+import { verifyNotTester } from '#root/shared/functions/verifyNotTester.js';
+import { BadRequestErrorResponse } from '#shared/middleware/errorHandler.js';
+import { IUser } from '#root/shared/index.js';
 import multer from 'multer';
 import { ContextResponse } from '../classes/validators/ContextValidator.js';
 import { ContextService } from '../services/ContextService.js';
@@ -37,7 +40,7 @@ export class ContextController {
   constructor(
     @inject(GLOBAL_TYPES.ContextService)
     private readonly contextService: IContextService,
-  ) {}
+  ) { }
 
   @OpenAPI({
     summary: 'Add a new context',
@@ -63,11 +66,34 @@ export class ContextController {
   @HttpCode(201)
   @Authorized()
   async addContext(
-    @Body() body: {transcript: string},
+    @Body() body: { transcript: string },
     @CurrentUser() user: IUser,
-  ): Promise<{insertedId: string}> {
-    const {transcript} = body;
+  ): Promise<{ insertedId: string }> {
+    verifyNotTester(user);
+    const { transcript } = body;
     const userId = user._id.toString();
     return this.contextService.addContext(userId, transcript);
+  }
+
+  @Post('/translate')
+  @HttpCode(200)
+  @Authorized()
+  async translate(
+    @Body() body: { text: string; targetLang: string; sourceLang?: string },
+  ): Promise<{ translated_text: string }> {
+    const { text, targetLang, sourceLang } = body;
+    return this.contextService.translate(text, targetLang, sourceLang);
+  }
+
+  @Post('/speech-to-text')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Proxy speech-to-text request to Sarvam API' })
+  async speechToText(
+    @UploadedFile('file', { options: { storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } } }) file: Express.Multer.File,
+    @Req() req: any,
+  ): Promise<unknown> {
+    const language = req.body?.language || 'hi-IN';
+    return this.contextService.speechToText(file, language);
   }
 }

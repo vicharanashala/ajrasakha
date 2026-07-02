@@ -7,8 +7,10 @@ import {
   Matches,
   IsOptional,
   IsBoolean,
+  IsIn,
 } from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
+import {COORDINATOR_ROLES, type CoordinatorRole} from '#root/shared/constants/roles.js';
 
 class SignUpBody {
   @JSONSchema({
@@ -88,6 +90,60 @@ class GoogleSignUpBody {
   // @Matches(/^[A-Za-z ]+$/)
   @IsOptional()
   lastName?: string;
+}
+
+class AdminCreateReviewUserBody {
+  @JSONSchema({
+    title: 'Email Address',
+    description: 'Email address of the review system user',
+    example: 'coordinator@example.com',
+    type: 'string',
+    format: 'email',
+  })
+  @IsEmail()
+  email: string;
+
+  @JSONSchema({
+    title: 'Full Name',
+    description: "Review system user's full name",
+    example: 'Anita Kumar',
+    type: 'string',
+  })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @JSONSchema({
+    title: 'Password',
+    description: 'Password for Firebase Authentication',
+    example: 'SecureP@ssw0rd',
+    type: 'string',
+    minLength: 8,
+    format: 'password',
+    writeOnly: true,
+  })
+  @IsNotEmpty()
+  @MinLength(8)
+  password: string;
+
+  @JSONSchema({
+    title: 'Role',
+    description: 'Review system coordinator role',
+    example: 'district_coordinator',
+    type: 'string',
+  })
+  @IsIn(COORDINATOR_ROLES)
+  role: CoordinatorRole;
+
+  @JSONSchema({
+    title: 'Verification Status',
+    description: 'Whether the review system user is verified in the application',
+    example: true,
+    type: 'boolean',
+  })
+  @IsOptional()
+  @IsBoolean()
+  isVerified?: boolean;
 }
 
 class VerifySignUpProviderBody {
@@ -357,6 +413,7 @@ class ForgotPasswordBody {
 export const AUTH_VALIDATORS = [
   SignUpBody,
   GoogleSignUpBody,
+  AdminCreateReviewUserBody,
   ChangePasswordBody,
   SignUpResponse,
   VerifySignUpProviderBody,
@@ -373,6 +430,7 @@ export const AUTH_VALIDATORS = [
 export {
   SignUpBody,
   GoogleSignUpBody,
+  AdminCreateReviewUserBody,
   ChangePasswordBody,
   SignUpResponse,
   VerifySignUpProviderBody,

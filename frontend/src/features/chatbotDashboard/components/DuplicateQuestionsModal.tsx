@@ -1,21 +1,36 @@
 import { createPortal } from 'react-dom';
 import { useState, useMemo } from 'react';
 import { X } from 'lucide-react';
-import { Spinner } from '@/components/atoms/spinner';
-import { useDuplicateQuestions } from '../hooks/useDuplicateQuestions';
+import {
+  useDuplicateQuestions,
+  type DuplicateQuestionEntry,
+} from '../hooks/useDuplicateQuestions';
 import {
   UserDetailsPreferenceFilter,
   type UserDetailsFilters,
 } from './UserDetailsPreferenceFilter';
+import {
+  FarmerInfoCell,
+  QuestionListTable,
+  type QuestionListColumn,
+} from './QuestionListTable';
+import WhatsappHistoryLink from './WhatsappHistoryLink';
+import { TranslatableText } from './TranslatableText';
+import { FarmerNameLink } from './FarmerNameLink';
+import { useSelectedQuestion } from '@/hooks/api/question/useSelectedQuestion';
 
 interface DuplicateQuestionsModalProps {
   onClose: () => void;
-  source?: 'vicharanashala' | 'annam';
+  source?: 'annam' | 'whatsapp';
+  userType: string;
 }
 
 const DEFAULT_FILTERS: UserDetailsFilters = {
   search: '',
   crop: '',
+  primaryCrops: [],
+  secondaryCrops: [],
+  roles: [],
   village: '',
   block: '',
   district: '',
@@ -24,22 +39,35 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
   endTime: undefined,
   profileCompleted: 'all',
   inactiveOnly: false,
+  lowFeedbackOnly: false,
   userType: 'all',
+  isVerified: true,
 };
 
-export function DuplicateQuestionsModal({ onClose, source = 'annam' }: DuplicateQuestionsModalProps) {
-  const { data, isLoading, isError } = useDuplicateQuestions(true, source);
+export function DuplicateQuestionsModal({ onClose, source = 'annam', userType }: DuplicateQuestionsModalProps) {
+  const {
+    setSelectedQuestionId,
+    setView,
+  } = useSelectedQuestion();
+  const { data, isLoading, isError } = useDuplicateQuestions(true, source, userType);
   const [filters, setFilters] = useState<UserDetailsFilters>(DEFAULT_FILTERS);
 
   const filtered = useMemo(() => {
     if (!data) return [];
     return data.filter(row => {
-      const q = (s: string) => s.toLowerCase();
-      if (filters.userType === 'external' && !row.email.toLowerCase().startsWith('rup')) return false;
-      if (filters.userType === 'internal' && row.email.toLowerCase().startsWith('rup')) return false;
+      const q = (s?: string | null) => (s ?? '').toLowerCase();
+      if (filters.userType === 'external' && !q(row.email).startsWith('rup')) return false;
+      if (filters.userType === 'internal' && q(row.email).startsWith('rup')) return false;
       if (filters.search) {
         const s = q(filters.search);
-        if (!q(row.farmerName).includes(s) && !q(row.email).includes(s)) return false;
+        if (
+          !q(row.farmerName).includes(s) &&
+          !q(row.email).includes(s) &&
+          !q(row.mobileNumber).includes(s) &&
+          !q(row.question).includes(s)
+        ) {
+          return false;
+        }
       }
       if (filters.village && !q(row.village).includes(q(filters.village))) return false;
       if (filters.block && !q(row.block).includes(q(filters.block))) return false;
@@ -58,9 +86,152 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
     });
   }, [data, filters]);
 
+  const columns = useMemo<QuestionListColumn<DuplicateQuestionEntry>[]>(() => {
+    const formatDate = (value?: string | null) =>
+      value ? new Date(value).toLocaleString() : undefined;
+
+    const scoreBadge = (score: number) => (
+      <span
+        className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+          score >= 90
+            ? "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400"
+            : score >= 75
+              ? "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400"
+              : "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400"
+        }`}
+      >
+        {score.toFixed(1)}%
+      </span>
+    );
+
+    return [
+      {
+        key: "index",
+        label: "#",
+        align: "center",
+        className: "w-10",
+        cellClassName: "text-xs text-gray-400 dark:text-gray-500",
+        render: (_row, index) => index + 1,
+      },
+      {
+        key: "farmer",
+        label: source === "whatsapp" ? "Mobile Number" : "Farmer",
+        sortable: true,
+        tooltip: "Farmer identity or WhatsApp contact when available",
+        sortAccessor: (row) =>
+          source === "whatsapp" ? row.mobileNumber : row.farmerName,
+        className: "w-[13%]",
+        cellClassName: "overflow-hidden",
+        render: (row) =>
+          source === "whatsapp" ? (
+            <WhatsappHistoryLink mobileNumber={row.mobileNumber} />
+          ) : (
+            <FarmerNameLink userId={row.userId} className="block w-full">
+              <FarmerInfoCell primary={row.farmerName} />
+            </FarmerNameLink>
+          ),
+      },
+      {
+        key: "username",
+        label: source === "whatsapp" ? "Thread ID" : "Username",
+        sortable: true,
+        sortAccessor: (row) => (source === "whatsapp" ? row.threadId : row.email),
+        className: "w-[15%]",
+        cellClassName: "truncate text-gray-600 dark:text-gray-300",
+        render: (row) => {
+          const value = source === "whatsapp" ? row.threadId : row.email;
+          return value;
+        },
+      },
+      {
+        key: "location",
+        label: "Village / Block",
+        visible: source !== "whatsapp",
+        sortable: true,
+        sortAccessor: (row) => `${row.village ?? ""} ${row.block ?? ""}`,
+        className: "w-[12%]",
+        cellClassName: "overflow-hidden",
+        render: (row) => (
+          <FarmerInfoCell primary={row.village} secondary={row.block} />
+        ),
+      },
+      {
+        key: "districtState",
+        label: "District / State",
+        sortable: true,
+        sortAccessor: (row) => `${row.district ?? ""} ${row.state ?? ""}`,
+        className: "w-[13%]",
+        cellClassName: "overflow-hidden",
+        render: (row) => (
+          <FarmerInfoCell primary={row.district} secondary={row.state} />
+        ),
+      },
+      {
+        key: "source",
+        label: "Source",
+        visible: source === "whatsapp",
+        sortable: true,
+        sortAccessor: () => source,
+        className: "w-[7%]",
+        cellClassName: "truncate",
+        render: () => source,
+      },
+      {
+        key: "createdAt",
+        label: "Created At",
+        sortable: true,
+        sortAccessor: (row) => new Date(row.createdAt),
+        className: "w-[14%]",
+        cellClassName: "truncate",
+        render: (row) => formatDate(row.createdAt),
+      },
+      {
+        key: "question",
+        label: "Question",
+        sortable: true,
+        tooltip: "Question asked by the farmer",
+        sortAccessor: (row) => row.question,
+        className: "w-[18%]",
+        cellClassName: "overflow-hidden",
+        render: (row) => (
+          <TranslatableText
+            text={row.question ?? ""}
+            showTooltip
+            textClassName="text-xs line-clamp-2"
+          />
+        ),
+      },
+      {
+        key: "referenceQuestion",
+        label: "Similar To",
+        sortable: true,
+        tooltip: "Reference question matched by duplicate detection",
+        sortAccessor: (row) => row.referenceQuestion,
+        className: "w-[18%]",
+        cellClassName: "overflow-hidden text-gray-500 dark:text-gray-400 italic",
+        render: (row) => (
+          <TranslatableText
+            text={row.referenceQuestion ?? ""}
+            showTooltip
+            textClassName="text-xs line-clamp-2"
+          />
+        ),
+      },
+      {
+        key: "similarityScore",
+        label: "Score",
+        align: "center",
+        sortable: true,
+        sortAccessor: (row) => row.similarityScore,
+        className: "w-[7%]",
+        render: (row) => scoreBadge(row.similarityScore),
+      },
+    ];
+  }, [source]);
+
   return createPortal(
     <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div
@@ -81,7 +252,7 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
             <UserDetailsPreferenceFilter
               filters={filters}
               onApply={setFilters}
-              hideFields={['crop', 'inactive', 'profile']}
+              hideFields={["crop", "inactive", "profile", "roles"]}
             />
             <button
               onClick={onClose}
@@ -93,89 +264,40 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-auto">
-          {isLoading && (
-            <div className="flex items-center justify-center py-20">
-              <Spinner text="Loading duplicate questions..." fullScreen={false} />
-            </div>
-          )}
-
-          {isError && (
-            <div className="flex items-center justify-center py-20 text-sm text-red-500">
-              Failed to load duplicate questions. Please try again.
-            </div>
-          )}
-
-          {!isLoading && !isError && filtered.length === 0 && (
-            <div className="flex items-center justify-center py-20 text-sm text-gray-400 dark:text-gray-500">
-              {data && data.length > 0 ? 'No results match your filters.' : 'No duplicate questions found.'}
-            </div>
-          )}
-
-          {!isLoading && !isError && filtered.length > 0 && (
-            <table className="w-full text-sm border-collapse">
-              <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-[#1f1f1f] border-b border-gray-200 dark:border-[#2a2a2a]">
-                <tr>
-                  {['#', 'Farmer', 'Email', 'Village / Block', 'District / State', 'Question Asked', 'Similar To', 'Score'].map((h, i) => (
-                    <th
-                      key={h}
-                      className={`px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 whitespace-nowrap ${i === 0 || i === 7 ? 'text-center' : 'text-left'}`}
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-[#2a2a2a]">
-                {filtered.map((row, idx) => (
-                  <tr
-                    key={row.questionId}
-                    className="hover:bg-gray-50 dark:hover:bg-[#1f1f1f] transition-colors"
-                  >
-                    <td className="px-4 py-3 text-center text-xs text-gray-400 dark:text-gray-500 w-8 align-top">
-                      {idx + 1}
-                    </td>
-                    <td className="px-4 py-3 align-top whitespace-nowrap">
-                      <span className="font-medium text-gray-800 dark:text-gray-100">
-                        {row.farmerName}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 align-top whitespace-nowrap text-gray-600 dark:text-gray-300">
-                      {row.email}
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <div className="text-gray-700 dark:text-gray-300 whitespace-nowrap">{row.village}</div>
-                      <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{row.block}</div>
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <div className="text-gray-700 dark:text-gray-300 whitespace-nowrap">{row.district}</div>
-                      <div className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{row.state}</div>
-                    </td>
-                    <td className="px-4 py-3 align-top text-gray-700 dark:text-gray-300 max-w-[220px]">
-                      {row.question}
-                    </td>
-                    <td className="px-4 py-3 align-top text-gray-500 dark:text-gray-400 italic max-w-[220px]">
-                      {row.referenceQuestion || '—'}
-                    </td>
-                    <td className="px-4 py-3 align-top text-center">
-                      <span
-                        className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-semibold ${
-                          row.similarityScore >= 90
-                            ? 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400'
-                            : row.similarityScore >= 75
-                            ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400'
-                            : 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'
-                        }`}
-                      >
-                        {row.similarityScore.toFixed(1)}%
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        <QuestionListTable
+          data={filtered}
+          columns={columns}
+          loading={isLoading}
+          loadingMessage="Loading duplicate questions..."
+          error={
+            isError
+              ? "Failed to load duplicate questions. Please try again."
+              : undefined
+          }
+          emptyMessage={
+            data && data.length > 0
+              ? "No results match your filters."
+              : "No duplicate questions found."
+          }
+          getRowKey={(row) => row.questionId}
+          enableInternalPagination
+          initialPageSize={12}
+          initialSortKey="similarityScore"
+          initialSortDirection="desc"
+          search={{
+            value: filters.search,
+            placeholder: "Search...",
+            onChange: (search) =>
+              setFilters((current) => ({
+                ...current,
+                search,
+              })),
+          }}
+          onRowClick={(row) => {
+            setSelectedQuestionId(row.questionId);
+            setView("lifecycle");
+          }}
+        />
 
         {/* Footer */}
         {!isLoading && data && (
@@ -183,7 +305,7 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam' }: Duplicate
             <span>
               {filtered.length !== data.length
                 ? `${filtered.length} of ${data.length} results`
-                : `${data.length} duplicate question${data.length !== 1 ? 's' : ''}`}
+                : `${data.length} duplicate question${data.length !== 1 ? "s" : ""}`}
             </span>
             {filtered.length !== data.length && (
               <button

@@ -20,15 +20,6 @@ services:
     env_file: .env
     restart: unless-stopped
 
-  mcp-imd:
-    build:
-      context: .
-      dockerfile: Dockerfile.mcp
-    command: fastmcp run ajrasakha/tools/weather/weather_imd_tool.py --transport streamable-http --port 8003 --host 0.0.0.0
-    ports:
-      - "8003:8003"
-    env_file: .env
-    restart: unless-stopped
 
   mcp-location:
     build:
@@ -40,14 +31,11 @@ services:
     env_file: .env
     restart: unless-stopped
 
-  mcp-golden:
+  golden-api:
     build:
       context: .
-      dockerfile: Dockerfile.mcp
-    command: fastmcp run ajrasakha/tools/golden/golden_rag_tool.py --transport streamable-http --port 8005 --host 0.0.0.0
+      dockerfile: ajrasakha/tools/golden/Dockerfile
     ports:
       - "8005:8005"
     env_file: .env
-    volumes:
-      - ~/.cache/huggingface:/root/.cache/huggingface
     restart: unless-stopped

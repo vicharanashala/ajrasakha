@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useCoordinatorRedirect } from "@/hooks/useCoordinatorRedirect";
 
 export const Route = createFileRoute("/notifications/")({
     component: Notification,
@@ -6,6 +7,8 @@ export const Route = createFileRoute("/notifications/")({
 
 function Notification() {
     const navigate = useNavigate();
+    const { isCheckingCoordinator, isCoordinator } = useCoordinatorRedirect();
+    if (isCheckingCoordinator || isCoordinator) return null;
 
     return (
         <div className="flex items-center justify-center min-h-[60vh]">

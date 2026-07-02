@@ -1,0 +1,60 @@
+# Pull-only stack for Portainer (no local build — avoids BuildKit errors in Portainer).
+#
+# Frontend reads VITE_* at container start from stack env → /runtime-config.js
+# Requires a frontend image that includes the runtime-config entrypoint (push via GitHub Actions).
+#
+#   docker compose -f docker-compose.pull.yml pull
+#   docker compose -f docker-compose.pull.yml up -d
+#
+# Portainer: paste all vars from .env.deployed into the stack Environment section.
+
+services:
+  reviewer-backend:
+    image: vicharanashala/reviewer-api:${IMAGE_TAG:-latest}
+    container_name: reviewer-backend
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_HOST_PORT:-${APP_PORT:-4000}}:${APP_PORT:-4000}"
+    env_file:
+      - .env
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/gcp-service-account.json
+    volumes:
+      - ${GCP_CREDENTIALS_HOST_PATH:-/opt/reviewer/secrets/gcp-service-account.json}:/run/secrets/gcp-service-account.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:$$APP_PORT/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - reviewer-net
+
+  reviewer-frontend:
+    image: vicharanashala/reviewer-frontend:${IMAGE_TAG:-latest}
+    container_name: reviewer-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-8020}:80"
+    environment:
+      APP_PORT: ${APP_PORT:-4000}
+      VITE_ENABLE_MOCKS: ${VITE_ENABLE_MOCKS:-false}
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+      VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY}
+      VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN}
+      VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID}
+      VITE_FIREBASE_STORAGE_BUCKET: ${VITE_FIREBASE_STORAGE_BUCKET}
+      VITE_FIREBASE_MESSAGING_SENDER_ID: ${VITE_FIREBASE_MESSAGING_SENDER_ID}
+      VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID}
+      VITE_FIREBASE_MEASUREMENT_ID: ${VITE_FIREBASE_MEASUREMENT_ID:-}
+      VITE_SARVAM_API_KEY: ${VITE_SARVAM_API_KEY}
+      VITE_VAPID_PUBLIC_KEY: ${VITE_VAPID_PUBLIC_KEY}
+    depends_on:
+      reviewer-backend:
+        condition: service_healthy
+    networks:
+      - reviewer-net
+
+networks:
+  reviewer-net:
+    driver: bridge

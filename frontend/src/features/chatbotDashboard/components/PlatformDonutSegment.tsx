@@ -1,11 +1,16 @@
-import { Globe, Maximize2, X } from "lucide-react";
+import { CardHeader, CardTitle } from "@/components/atoms/card";
+import { Globe, Maximize2, X, InfoIcon, RefreshCw } from "lucide-react";
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { useUserMertices } from "../hooks/useDashboardData";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
+import { useQueryClient } from "@tanstack/react-query";
+import { LazySectionSkeleton } from "../AnnamDashboard_dev";
 
-interface PlatformData {
-  count: number;
-  platform: string;
-}
+// interface PlatformData {
+//   // count: number;
+//   // platform: string;
+// }
 
 interface PlatformIconProps {
   platform: string;
@@ -14,7 +19,9 @@ interface PlatformIconProps {
 }
 
 interface PlatformDonutSegmentsProps {
-  rawData: PlatformData[];
+  // rawData: PlatformData[];
+  source: string,
+  userType: string,
 }
 
 const PlatformIcon: React.FC<PlatformIconProps> = ({ platform, color, className }) => {
@@ -74,9 +81,15 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({ platform, color, className 
   return <Globe className={className} style={{ color }} />;
 };
 
-export const PlatformDonutSegments: React.FC<PlatformDonutSegmentsProps> = ({ rawData }) => {
-  const [active, setActive] = useState<null | { label: string; count: number }>(null);
+ const PlatformDonutSegments: React.FC<PlatformDonutSegmentsProps> = ({
+  source, userType
+}) => {
+      const { data: userMetricesData, isLoading: usermetricsLoading, isFetching: usermetricsFetching } = useUserMertices(source, userType);
+  const [active, setActive] = useState<null | { label: string; count: number }>(
+    null,
+  );
   const [isMaximized, setIsMaximized] = useState(false);
+
   const PLATFORM_COLORS: Record<string, string> = {
     Android: "#22c55e",
     Windows: "#3b82f6",
@@ -87,246 +100,172 @@ export const PlatformDonutSegments: React.FC<PlatformDonutSegmentsProps> = ({ ra
   };
 
   const { segmentsLayout, totalCount } = useMemo(() => {
-    const total = rawData.reduce((sum, item) => sum + item.count, 0);
-    const layout = rawData.map((item) => {
-      const color = PLATFORM_COLORS[item.platform] || PLATFORM_COLORS.default;
-      return {
-        label: item.platform,
-        count: item.count,
-        color
-      };
-    });
-
+    const total = userMetricesData?.platformInstalls?.reduce((sum, item) => sum + item.count, 0);
+    const layout = userMetricesData?.platformInstalls?.map((item) => ({
+      label: item.platform,
+      count: item.count,
+      color: PLATFORM_COLORS[item.platform] || PLATFORM_COLORS.default,
+    }));
     return { segmentsLayout: layout, totalCount: total };
-  }, [rawData]);
+  }, [userMetricesData]);
 
-  const isEmpty = rawData.length === 0 || totalCount === 0;
+  const isEmpty = userMetricesData?.platformInstalls?.length === 0 || totalCount === 0;
 
-  const VIEW = 120;
-  const r = 45;
+  const VIEW = 130;
+  const r = 48;
   const cx = VIEW / 2;
   const cy = VIEW / 2;
   const circ = 2 * Math.PI * r;
+  const queryClient = useQueryClient();
+  const [dataRefreshing, setDataRefreshing] = useState(false);
+  const handleRefresh = async ()=>{
+    setDataRefreshing(true);
+    await queryClient.refetchQueries({ queryKey: ["user-metrices"] });
+    setDataRefreshing(false);
+  }
 
-  let offset = 0;
+  const renderDonut = (size: number, radius: number, stroke: number) => {
+    const c = size / 2;
+    const fullCirc = 2 * Math.PI * radius;
+    let off = 0;
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        className="flex-shrink-0 -rotate-90"
+      >
+        <defs>
+          {segmentsLayout?.map((s) => (
+            <linearGradient
+              key={s.label}
+              id={`grad-${s.label}-${size}`}
+              x1="0%"
+              y1="0%"
+              x2="100%"
+              y2="100%"
+            >
+              <stop offset="0%" stopColor={s.color} stopOpacity={1} />
+              <stop offset="100%" stopColor={s.color} stopOpacity={0.7} />
+            </linearGradient>
+          ))}
+        </defs>
+        <circle
+          cx={c}
+          cy={c}
+          r={radius}
+          fill="none"
+          className="stroke-muted/40"
+          strokeWidth={stroke}
+        />
+        {segmentsLayout?.map((seg) => {
+          const dash = (seg.count / totalCount) * fullCirc;
+          const el = (
+            <circle
+              key={seg.label}
+              cx={c}
+              cy={c}
+              r={radius}
+              fill="none"
+              stroke={`url(#grad-${seg.label}-${size})`}
+              strokeWidth={stroke}
+              strokeLinecap="round"
+              strokeDasharray={`${dash} ${fullCirc * 10}`}
+              strokeDashoffset={-off}
+              onMouseEnter={() =>
+                setActive({ label: seg.label, count: seg.count })
+              }
+              onMouseLeave={() => setActive(null)}
+              className="cursor-pointer transition-all duration-300 hover:opacity-80"
+              style={{
+                filter:
+                  active?.label === seg.label
+                    ? `drop-shadow(0 0 6px ${seg.color})`
+                    : undefined,
+              }}
+            />
+          );
+          off += dash;
+          return el;
+        })}
+      </svg>
+    );
+  };
 
   return (
     <>
-      <div className="w-full p-4 bg-white rounded-xl border border-gray-200 
-        dark:bg-[#1a1a1a] dark:border-[#2a2a2a] relative">
-        {/* Maximize Button */}
-        {!isEmpty && (
-          <button
-            onClick={() => setIsMaximized(true)}
-            className="absolute top-3 right-3 p-1.5 rounded-md bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-700 transition-colors shadow-sm z-20"
-            title="Maximize chart"
-          >
-            <Maximize2 className="w-4 h-4 text-gray-600 dark:text-gray-300" />
-          </button>
-        )}
+      <div className="group relative w-full h-full p-5 rounded-xl border border-border/60 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col overflow-hidden">
+        <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
 
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">
-          Installations by Platform
-        </h3>
-      {isEmpty ? (
-        <div className="flex flex-col items-center justify-center gap-3 py-6">
-          <svg width={120} height={120}>
-            <circle
-              cx="60"
-              cy="60"
-              r="45"
-              fill="none"
-              stroke="#e5e7eb"
-              strokeWidth="12"
-            />
-          </svg>
-
-          <p className="text-xs text-gray-400 italic">
-            No platform data available
-          </p>
-        </div>
-      ) : (
-        <div className="flex flex-col sm:flex-row items-center gap-6 w-full">
-          <div className="relative flex items-center justify-center">
-            <svg
-              width={VIEW}
-              height={VIEW}
-              viewBox={`0 0 ${VIEW} ${VIEW}`}
-              className="flex-shrink-0"
-            >
-              <circle
-                cx={cx}
-                cy={cy}
-                r={r}
-                fill="none"
-                stroke="#e5e7eb"
-                strokeWidth={14}
-              />
-
-              {segmentsLayout.map((seg) => {
-                const dash = (seg.count / totalCount) * circ;
-
-                const el = (
-                  <circle
-                    key={seg.label}
-                    cx={cx}
-                    cy={cy}
-                    r={r}
-                    fill="none"
-                    stroke={seg.color}
-                    strokeWidth={14}
-                    strokeDasharray={`${dash} ${circ * 10}`}
-                    strokeDashoffset={-offset}
-                    transform={`rotate(-90 ${cx} ${cy})`}
-                    onMouseEnter={() => setActive({ label: seg.label, count: seg.count })}
-                    onMouseLeave={() => setActive(null)}
-                    className="cursor-pointer transition-all duration-300 hover:stroke-[16px]"
-                  />
-                );
-
-                offset += dash;
-                return el;
-              })}
-            </svg>
-            <div className="absolute flex flex-col items-center justify-center pointer-events-none">
-              {active ? (
-                <>
-                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">
-                    {active.label}
-                  </span>
-                  <span className="text-lg font-bold text-gray-900 dark:text-white">
-                    {active.count}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="text-lg font-bold text-gray-900 dark:text-white">
-                    {totalCount}
-                  </span>
-                  <span className="text-[10px] text-gray-400 uppercase">
-                    Total
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2 w-full">
-            {segmentsLayout.map((s) => (
-              <div
-                key={s.label}
-                className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400"
-              >
-                <span
-                  className="w-2 h-2 rounded-sm"
-                  style={{ background: s.color }}
-                />
-
-                <PlatformIcon
-                  platform={s.label}
-                  color={s.color}
-                  className="h-3.5 w-3.5"
-                />
-
-                <span className="flex-1 truncate">{s.label}</span>
-
-                <span className="font-semibold text-gray-800 dark:text-white">
-                  {s.count}
+        <div className="flex items-center gap-2 mb-4">
+          <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
+          <h3 className="text-xs font-semibold tracking-wider uppercase text-foreground/60 flex items-center gap-1.5">
+            <span>Installations by Platform</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground">
+                  <InfoIcon className="h-3.5 w-3.5" />
                 </span>
-              </div>
-            ))}
-          </div>
+              </TooltipTrigger>
+              <TooltipContent className="normal-case tracking-normal">
+                Shows user distribution split across different operating systems (Android, iOS, Windows, macOS, Linux).
+              </TooltipContent>
+            </Tooltip>
+          </h3>
+            <button
+              onClick={handleRefresh}
+              className="rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
+              title="Refresh"
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${
+                  dataRefreshing ? "animate-spin" : ""
+                }`}
+              />
+            </button>
         </div>
-      )}
-    </div>
-
-    {/* Maximized Modal */}
-    {isMaximized && !isEmpty && createPortal(
-      <div 
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
-        onClick={() => setIsMaximized(false)}
-      >
-        <div 
-          className="bg-white dark:bg-[#1a1a1a] rounded-lg shadow-2xl max-w-3xl w-full p-8 relative"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Close Button */}
-          <button
-            onClick={() => setIsMaximized(false)}
-            className="absolute top-4 right-4 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-            title="Close"
-          >
-            <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-          </button>
-
-          {/* Header */}
-          <div className="mb-8">
-            <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
-              Installations by Platform
-            </h3>
+        {dataRefreshing ? (
+            <div>
+              <LazySectionSkeleton/>
+            </div>
+          ):(
+            <>
+        {isEmpty ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-6 flex-1">
+            <svg width={120} height={120}>
+              <circle
+                cx="60"
+                cy="60"
+                r="45"
+                fill="none"
+                className="stroke-muted/40"
+                strokeWidth="12"
+              />
+            </svg>
+            <p className="text-xs text-muted-foreground italic">
+              No platform data available
+            </p>
           </div>
-
-          {/* Enlarged Chart */}
-          <div className="flex flex-col lg:flex-row items-center justify-center gap-12 w-full">
+        ) : (
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 w-full flex-1">
             <div className="relative flex items-center justify-center">
-              <svg
-                width={240}
-                height={240}
-                viewBox="0 0 240 240"
-                className="flex-shrink-0"
-              >
-                <circle
-                  cx={120}
-                  cy={120}
-                  r={90}
-                  fill="none"
-                  stroke="#e5e7eb"
-                  strokeWidth={28}
-                />
-
-                {(() => {
-                  let enlargedOffset = 0;
-                  const enlargedCirc = 2 * Math.PI * 90;
-                  return segmentsLayout.map((seg) => {
-                    const dash = (seg.count / totalCount) * enlargedCirc;
-                    const el = (
-                      <circle
-                        key={seg.label}
-                        cx={120}
-                        cy={120}
-                        r={90}
-                        fill="none"
-                        stroke={seg.color}
-                        strokeWidth={28}
-                        strokeDasharray={`${dash} ${enlargedCirc * 10}`}
-                        strokeDashoffset={-enlargedOffset}
-                        transform="rotate(-90 120 120)"
-                        onMouseEnter={() => setActive({ label: seg.label, count: seg.count })}
-                        onMouseLeave={() => setActive(null)}
-                        className="cursor-pointer transition-all duration-300 hover:stroke-[32px]"
-                      />
-                    );
-                    enlargedOffset += dash;
-                    return el;
-                  });
-                })()}
-              </svg>
+              {renderDonut(VIEW, r, 14)}
               <div className="absolute flex flex-col items-center justify-center pointer-events-none">
                 {active ? (
                   <>
-                    <span className="text-lg font-semibold text-gray-700 dark:text-gray-200">
+                    <span className="text-[11px] font-medium text-foreground/70 uppercase tracking-wide">
                       {active.label}
                     </span>
-                    <span className="text-3xl font-bold text-gray-900 dark:text-white">
+                    <span className="text-xl font-bold text-foreground tabular-nums">
                       {active.count}
                     </span>
                   </>
                 ) : (
                   <>
-                    <span className="text-3xl font-bold text-gray-900 dark:text-white">
+                    <span className="text-xl font-bold text-foreground tabular-nums">
                       {totalCount}
                     </span>
-                    <span className="text-sm text-gray-400 uppercase">
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
                       Total
                     </span>
                   </>
@@ -334,36 +273,161 @@ export const PlatformDonutSegments: React.FC<PlatformDonutSegmentsProps> = ({ ra
               </div>
             </div>
 
-            <div className="flex flex-col gap-4 w-full max-w-md">
-              {segmentsLayout.map((s) => (
-                <div
-                  key={s.label}
-                  className="flex items-center gap-3 text-base text-gray-600 dark:text-gray-300"
-                >
-                  <span
-                    className="w-4 h-4 rounded-sm flex-shrink-0"
-                    style={{ background: s.color }}
-                  />
-
-                  <PlatformIcon
-                    platform={s.label}
-                    color={s.color}
-                    className="h-5 w-5 flex-shrink-0"
-                  />
-
-                  <span className="flex-1">{s.label}</span>
-
-                  <span className="font-semibold text-gray-800 dark:text-white text-lg">
-                    {s.count}
-                  </span>
-                </div>
-              ))}
+            <div className="flex flex-col gap-1.5 w-full">
+              {segmentsLayout?.map((s) => {
+                const pct = ((s.count / totalCount) * 100).toFixed(1);
+                const isActive = active?.label === s.label;
+                return (
+                  <div
+                    key={s.label}
+                    onMouseEnter={() =>
+                      setActive({ label: s.label, count: s.count })
+                    }
+                    onMouseLeave={() => setActive(null)}
+                    className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition-all ${
+                      isActive ? "bg-muted/60" : "hover:bg-muted/40"
+                    }`}
+                  >
+                    <span className="relative flex items-center justify-center">
+                      <span
+                        className="absolute w-4 h-4 rounded-full opacity-25"
+                        style={{ background: s.color }}
+                      />
+                      <PlatformIcon
+                        platform={s.label}
+                        color={s.color}
+                        className="h-3.5 w-3.5 relative"
+                      />
+                    </span>
+                    <span className="flex-1 truncate text-foreground/80 font-medium">
+                      {s.label}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground tabular-nums">
+                      {pct}%
+                    </span>
+                    <span className="font-semibold text-foreground tabular-nums min-w-[2ch] text-right">
+                      {s.count}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
-        </div>
-      </div>,
-      document.body
-    )}
-  </>
+        )}
+        </>)}
+      </div>
+
+      {/* Maximized Modal */}
+      {isMaximized &&
+        !isEmpty &&
+        createPortal(
+          <div
+            className="fixed inset-0 bg-background/70 backdrop-blur-md z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200"
+            onClick={() => setIsMaximized(false)}
+          >
+            <div
+              className="relative w-full max-w-4xl rounded-2xl border border-border/60 bg-gradient-to-br from-card to-card/80 backdrop-blur-xl shadow-2xl p-8 animate-in zoom-in-95 duration-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-primary/60 to-transparent rounded-t-2xl" />
+
+              <button
+                onClick={() => setIsMaximized(false)}
+                className="absolute top-4 right-4 p-2 rounded-md hover:bg-muted transition-colors"
+                title="Close"
+              >
+                <X className="w-5 h-5 text-foreground/70" />
+              </button>
+
+              <div className="mb-8">
+                <h3 className="text-xl font-semibold text-foreground">
+                  Installations by Platform
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {totalCount.toLocaleString()} total installations across{" "}
+                  {segmentsLayout.length} platforms
+                </p>
+              </div>
+
+              <div className="flex flex-col lg:flex-row items-center justify-center gap-12 w-full">
+                <div className="relative flex items-center justify-center">
+                  {renderDonut(260, 95, 30)}
+                  <div className="absolute flex flex-col items-center justify-center pointer-events-none">
+                    {active ? (
+                      <>
+                        <span className="text-sm font-medium text-foreground/70 uppercase tracking-wide">
+                          {active.label}
+                        </span>
+                        <span className="text-4xl font-bold text-foreground tabular-nums">
+                          {active.count}
+                        </span>
+                        <span className="text-xs text-muted-foreground tabular-nums mt-1">
+                          {((active.count / totalCount) * 100).toFixed(1)}%
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-4xl font-bold text-foreground tabular-nums">
+                          {totalCount}
+                        </span>
+                        <span className="text-xs text-muted-foreground uppercase tracking-wider mt-1">
+                          Total
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2 w-full max-w-md">
+                  {segmentsLayout.map((s) => {
+                    const pct = ((s.count / totalCount) * 100).toFixed(1);
+                    const isActive = active?.label === s.label;
+                    return (
+                      <div
+                        key={s.label}
+                        onMouseEnter={() =>
+                          setActive({ label: s.label, count: s.count })
+                        }
+                        onMouseLeave={() => setActive(null)}
+                        className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all ${
+                          isActive
+                            ? "bg-muted/70 ring-1 ring-border"
+                            : "hover:bg-muted/40"
+                        }`}
+                      >
+                        <span className="relative flex items-center justify-center">
+                          <span
+                            className="absolute w-7 h-7 rounded-full opacity-25"
+                            style={{ background: s.color }}
+                          />
+                          <PlatformIcon
+                            platform={s.label}
+                            color={s.color}
+                            className="h-5 w-5 relative"
+                          />
+                        </span>
+                        <span className="flex-1 text-base font-medium text-foreground/90">
+                          {s.label}
+                        </span>
+                        <div className="flex flex-col items-end">
+                          <span className="text-lg font-bold text-foreground tabular-nums">
+                            {s.count}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground tabular-nums">
+                            {pct}%
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+    </>
   );
 };
+
+export default PlatformDonutSegments;

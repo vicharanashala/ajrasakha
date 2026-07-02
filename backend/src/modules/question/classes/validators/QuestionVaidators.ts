@@ -99,8 +99,9 @@ class QuestionDetailsDto {
   @IsString()
   season!: string;
 
-  @IsString()
-  domain!: string;
+  @IsArray()
+  @IsString({ each: true })
+  domain!: string[];
 
   @IsOptional()
   @IsString()
@@ -338,7 +339,20 @@ class QuestionResponse {
   @IsString()
   userId?: string;
 
-  @IsEnum(['open', 'answered', 'closed'])
+  @IsEnum([
+    'open',
+    'answered',
+    'closed',
+    'delayed',
+    're-routed',
+    'hold',
+    'pae_submitted',
+    'draft',
+    'pass',
+    'duplicate',
+    'non_agri',
+    'pending',
+  ])
   status?: QuestionStatus;
 
   @IsEnum(['AJRASAKHA', 'AGRI_EXPERT', "WHATSAPP", "OUTREACH"])
@@ -436,6 +450,10 @@ class AddQuestionBodyDto {
 
   @IsString()
   @IsOptional()
+  threadId?: string;
+
+  @IsString()
+  @IsOptional()
   @IsMongoId()
   userId?: string;
 
@@ -448,12 +466,25 @@ class AddQuestionBodyDto {
   @IsString()
   @IsOptional()
   popContext?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tools_used?: string[];
 }
 
 class GenerateQuestionsBody {
   @IsString()
   @MinLength(10)
   query!: string;
+
+  @IsOptional()
+  @IsString()
+  state?: string;
+
+  @IsOptional()
+  @IsString()
+  crop?: string;
 }
 class ExpertInput {
   @IsString()
@@ -721,6 +752,16 @@ class GetDetailedQuestionsQuery {
   review_level?: string;
 
   @JSONSchema({
+    description:
+      "When 'true', also include questions pending reroute action for the user (used by the Expert Management dashboard). Defaults to off so the normal answering queue is unaffected.",
+    example: 'true',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsString()
+  includeRerouted?: string;
+
+  @JSONSchema({
     description: 'Start time for closedAt date range filter',
     example: '2025-11-12T18:30:00.000Z',
     type: 'string',
@@ -755,6 +796,14 @@ class GetDetailedQuestionsQuery {
   })
   @IsOptional()
   autoAllocateFilter?: string;
+
+  @JSONSchema({
+    description: 'to filter questions based on auto allocate moderator setting',
+    example: 'on',
+    type: 'string',
+  })
+  @IsOptional()
+  autoAllocateModeratorFilter?: string;
 
   @JSONSchema({
     description: 'Filter for questions closed within the last 2 hours',
@@ -792,12 +841,43 @@ class GetDetailedQuestionsQuery {
   isOnHold?: string;
 
   @JSONSchema({
+    description: 'filter unallocated questions (empty queue or last history status != in-review)',
+    example: 'true',
+    type: 'string',
+  })
+  @IsOptional()
+  unallocatedQuestions?: string;
+
+  @JSONSchema({
     description: 'filter questions assigned to PAE experts',
     example: 'true',
     type: 'string',
   })
   @IsOptional()
   pae_review?: string;
+
+  @JSONSchema({
+    description: 'filter questions with status=non_agri',
+    example: 'true',
+    type: 'string',
+  })
+  @IsOptional()
+  is_non_agri?: string | boolean;
+
+  @JSONSchema({
+    description: 'filter questions with status=dynamic',
+    example: 'true',
+    type: 'string',
+  })
+  @IsOptional()
+  is_dynamic?: string | boolean;
+  @JSONSchema({
+    description: 'filter questions assigned to the given moderator ID (dedicated tab)',
+    example: '64f1a2b3c4d5e6f7a8b9c0d1',
+    type: 'string',
+  })
+  @IsOptional()
+  moderatorId?: string;
 }
 
 export interface IQuestionWithAnswerTexts {

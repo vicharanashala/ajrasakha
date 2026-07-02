@@ -62,6 +62,7 @@ type UserTableProps = {
   setSelectExpertId?: (userId: string) => void;
   setRankPosition?: (rank: number) => void;
   setLimit: (val: number) => void;
+  showSensitive?: boolean;
 };
 
 export const UsersTable = ({
@@ -78,6 +79,7 @@ export const UsersTable = ({
   setSelectExpertId,
   setRankPosition,
   setLimit,
+  showSensitive = false,
 }: UserTableProps) => {
   const [userIdToBlock, setUserIdToBlock] = useState<string>("");
   const [isCurrentlyBlocked, setIsCurrentlyBlocked] = useState<boolean>(false);
@@ -108,6 +110,10 @@ export const UsersTable = ({
               {isAdmin && (
                 <TableHead className="text-center w-24">Role</TableHead>
               )}
+
+              {showSensitive && <TableHead className="text-center w-36">Phone</TableHead>}
+              {showSensitive && <TableHead className="text-center w-40">University</TableHead>}
+              {showSensitive && <TableHead className="text-center w-44">Domain</TableHead>}
 
               <TableHead className="text-center w-32">State</TableHead>
               <TableHead className="text-center w-24">
@@ -178,14 +184,14 @@ export const UsersTable = ({
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center py-10">
+                <TableCell colSpan={13} className="text-center py-10">
                   <Loader2 className="animate-spin w-6 h-6 mx-auto text-primary" />
                 </TableCell>
               </TableRow>
             ) : items?.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={10}
+                  colSpan={13}
                   rowSpan={10}
                   className="text-center py-10 text-muted-foreground"
                 >
@@ -209,6 +215,7 @@ export const UsersTable = ({
                   key={String(u._id)}
                   setSelectExpertId={setSelectExpertId}
                   setRankPosition={setRankPosition}
+                  showSensitive={showSensitive}
                 />
               ))
             )}
@@ -240,6 +247,7 @@ interface UserRowProps {
   onViewMore: (id: string) => void;
   setSelectExpertId?: (id: string) => void;
   setRankPosition?: (rank: number) => void;
+  showSensitive?: boolean;
 }
 
 const UserRow: React.FC<UserRowProps> = ({
@@ -251,6 +259,7 @@ const UserRow: React.FC<UserRowProps> = ({
   setSelectExpertId,
   setRankPosition,
   userRole,
+  showSensitive = false,
 }) => {
   const isBlocked = u.isBlocked || false;
   const { mutate: updateActivity } = useUpdateActivity();
@@ -285,6 +294,7 @@ const UserRow: React.FC<UserRowProps> = ({
     moderator: "Moderator",
     expert: "Expert",
     pae_expert: "PAE Expert",
+    tester: "Tester",
   };
 
   return (
@@ -434,6 +444,57 @@ const UserRow: React.FC<UserRowProps> = ({
       {isAdmin && (
         <TableCell className="align-middle w-32">
           <Badge variant="outline"> {ROLE_LABELS[u.role] || u.role}</Badge>
+        </TableCell>
+      )}
+      {/* Phone */}
+      {showSensitive && (
+        <TableCell className="align-middle w-36">
+          {u.mobile ? u.mobile : <span className="text-muted-foreground text-xs">—</span>}
+        </TableCell>
+      )}
+
+      {/* University */}
+      {showSensitive && (
+        <TableCell className="align-middle w-40">
+          {u.university ? truncate(u.university, 40) : <span className="text-muted-foreground text-xs">—</span>}
+        </TableCell>
+      )}
+
+      {/* Domain */}
+      {showSensitive && (
+        <TableCell className="align-middle w-44">
+          {(() => {
+            const raw = u.preference?.domain;
+            if (!raw || (Array.isArray(raw) && raw.length === 0)) {
+              return <span className="text-muted-foreground text-xs">—</span>;
+            }
+            const domains: string[] = Array.isArray(raw) ? raw : [raw];
+            const visible = domains.slice(0, 1);
+            const rest = domains.slice(1);
+            return (
+              <div className="flex flex-wrap items-center justify-center gap-1">
+                {visible.map((d, i) => (
+                  <span key={i} className="text-xs text-foreground">{d}</span>
+                ))}
+                {rest.length > 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="secondary" className="text-xs px-1.5 py-0 h-5 cursor-default">
+                        +{rest.length}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[200px]">
+                      <div className="flex flex-col gap-1">
+                        {rest.map((d, i) => (
+                          <span key={i} className="text-xs">{d}</span>
+                        ))}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+            );
+          })()}
         </TableCell>
       )}
 
@@ -593,6 +654,26 @@ const UserRow: React.FC<UserRowProps> = ({
                   </div>
                 </DropdownMenuItem>
               )}
+              {isAdmin && u.role === 'moderator' && (
+                <DropdownMenuItem
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    setIsOpen(false);
+                    setConfirmAction(u.special_task_force ? 'remove-stf' : 'make-stf');
+                  }}
+                >
+                  <div className="flex items-center gap-2 w-full">
+                    <Zap className="w-4 h-4 text-indigo-500" />
+                    <span>{u.special_task_force ? 'Remove STF' : 'Make STF'}</span>
+                    <Badge
+                      variant="default"
+                      className="h-4 text-[9px] px-1.5 py-0 ml-auto bg-red-500 text-white hover:bg-red-600 border-0 font-medium"
+                    >
+                      New
+                    </Badge>
+                  </div>
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
           <ConfirmationModal
@@ -625,9 +706,9 @@ const UserRow: React.FC<UserRowProps> = ({
                     : actionRole === "expert"
                       ? "This will restore the expert’s access to the review system and allow them to participate in reviews again. Are you sure you want to unblock this user?"
                       : confirmAction === "make-stf"
-                        ? "This expert will receive the highest priority for allocation of time-bound questions in the system. Are you sure you want to assign STF status?"
+                        ? "This user will receive the highest priority for allocation of time-bound questions in the system. Are you sure you want to assign STF status?"
                         : confirmAction === "remove-stf"
-                          ? "Are you sure you want to remove STF status from this expert?"
+                          ? "Are you sure you want to remove STF status from this user?"
                           : `This will restore the ${actionRole} access and administrative permissions on the platform. Are you sure you want to unblock this user?`
             }
             confirmText={

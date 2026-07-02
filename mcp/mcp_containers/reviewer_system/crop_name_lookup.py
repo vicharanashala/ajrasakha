@@ -65,6 +65,15 @@ def find_english_crop(english_name: str) -> str | None:
     return _load_lookup_data()["english_to_key"].get(english_norm)
 
 
+def crop_name_references_english(crop_name: str, english_name: str) -> bool:
+    """True when normalized crop_name contains the normalized English crop token."""
+    crop_norm = _normalize_name(crop_name)
+    english_norm = _normalize_name(english_name)
+    if not crop_norm or not english_norm:
+        return False
+    return english_norm in crop_norm
+
+
 def find_local_exact(local_name: str) -> str | None:
     local_norm = _normalize_name(local_name)
     if not local_norm:

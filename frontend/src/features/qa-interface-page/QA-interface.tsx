@@ -10,6 +10,7 @@ import {
   useGetAllocatedQuestions,
 } from "@/hooks/api/question/useGetAllocatedQuestions";
 import { useGetQuestionById } from "@/hooks/api/question/useGetQuestionById";
+import { QuestionService } from "@/hooks/services/questionService";
 import { toast } from "sonner";
 import { SourceUrlManager } from "../../components/source-url-manager";
 import {
@@ -37,6 +38,8 @@ import { ReRouteResponseTimeline } from "./ReRouteResponseTimeline";
 import { AnswerCreateDialog } from "./AnswerCreateDialog";
 import { QaHeader } from "./QaHeader";
 import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
+import { useToast } from "@/shared/components/toast";
+import { isEnglishCharacters } from "../questions/utils/checkLanguage";
 
 export type QuestionFilter =
   | "newest"
@@ -77,6 +80,7 @@ export const QAInterface = ({
   }, [selectQuestionType])
 
   const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null);
+  const questionServiceRef = useRef(new QuestionService());
   const [newAnswer, setNewAnswer] = useState<string>("");
   const [isFinalAnswer, setIsFinalAnswer] = useState<boolean>(false);
   const [filter, setFilter] = useState<QuestionFilter>("newest");
@@ -170,7 +174,12 @@ export const QAInterface = ({
     }
   }, [questionPages, questions]);
 
-
+  // Check if there are any timebound questions (AJRASAKHA or WHATSAPP) in the queue
+  const hasTimeboundQuestions = useMemo(() => {
+    return questions.some(
+      (q) => q?.source === "AJRASAKHA" || q?.source === "WHATSAPP"
+    );
+  }, [questions]);
 
   const { data: selectedQuestionData, isLoading: isSelectedQuestionLoading } =
     useGetQuestionById(selectedQuestion, actionType);
@@ -222,6 +231,14 @@ export const QAInterface = ({
     if (!isLoaded) return; // wait until drafts + selected are loaded
     if (autoSelectQuestionId) return;
 
+    const firstTimebound = questions.find(
+      (q) => q?.source === "AJRASAKHA" || q?.source === "WHATSAPP"
+    );
+    if (firstTimebound) {
+      setSelectedQuestion(firstTimebound.id);
+      return; // Stop here, timebound questions take absolute priority
+    }
+
     const savedSelected = localStorage.getItem("selectedQuestion");
 
     if (savedSelected && questions.some((q) => q?.id === savedSelected)) {
@@ -246,10 +263,66 @@ export const QAInterface = ({
     } else {
       setNewAnswer("");
       setSources([]);
+      setRemarks("")
     }
     // Reset translation state when question changes
     setTranslatedText("");
   }, [selectedQuestion]);
+
+  // ─── Time-bound question tracking with 5-minute grace period ─────────────
+  // Tracks which time-bound question the expert has open. When they navigate
+  // away, a 5-min timer starts. If they return within 5 min → timer cancels
+  // and openedAt stays intact. If they don't → backend clears openedAt so
+  // the cron can reallocate the question.
+  const pendingClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastOpenedTimeBoundRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!selectedQuestion || actionType !== "allocated") return;
+
+    const q = questionsRef.current.find((q) => q?.id === selectedQuestion);
+    const isCurrentTimeBound = q?.source === "AJRASAKHA" || q?.source === "WHATSAPP";
+
+    // Case 1: Expert RETURNED to the same time-bound question → cancel pending clear
+    if (isCurrentTimeBound && selectedQuestion === lastOpenedTimeBoundRef.current) {
+      if (pendingClearTimerRef.current) {
+        clearTimeout(pendingClearTimerRef.current);
+        pendingClearTimerRef.current = null;
+      }
+      return; // openedAt is already set from before, no action needed
+    }
+
+    // Case 2: Expert selected a NEW time-bound question → mark opened immediately
+    if (isCurrentTimeBound) {
+      if (pendingClearTimerRef.current) {
+        clearTimeout(pendingClearTimerRef.current);
+        pendingClearTimerRef.current = null;
+      }
+      questionServiceRef.current.markQuestionOpened(selectedQuestion);
+      lastOpenedTimeBoundRef.current = selectedQuestion;
+      return;
+    }
+
+    // Case 3: Expert navigated to a non-time-bound question while they had
+    // a time-bound one open → start 5-minute grace period before clearing
+    if (lastOpenedTimeBoundRef.current && !pendingClearTimerRef.current) {
+      pendingClearTimerRef.current = setTimeout(() => {
+        // 5 minutes passed and expert didn't return → clear the old question's openedAt
+        questionServiceRef.current.markQuestionOpened(selectedQuestion);
+        lastOpenedTimeBoundRef.current = null;
+        pendingClearTimerRef.current = null;
+      }, 5 * 60 * 1000);
+    }
+  }, [selectedQuestion, actionType]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (pendingClearTimerRef.current) {
+        clearTimeout(pendingClearTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!selectedQuestion) return;
@@ -530,6 +603,19 @@ export const QAInterface = ({
       onManualSelectQuestionType?.(null)
     }
     handleReset();
+
+  };
+
+  const handleAiAnswerFetched = (
+    questionId: string,
+    answer: string,
+    aiSources: SourceItem[],
+  ) => {
+    setSelectedQuestion(questionId);
+    setTranslatedDraftText("");
+    setNewAnswer(answer);
+    setSources(aiSources);
+    setRemarks("AI Generated Answer");
   };
 
 
@@ -586,6 +672,8 @@ export const QAInterface = ({
               questionItemRefs={questionItemRefs}
               setQuestionRef={setQuestionRef}
               onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              onAiAnswerFetched={handleAiAnswerFetched}
+              hasTimeboundQuestions={hasTimeboundQuestions}
             />
           </div>
           {selectedQuestionData &&
@@ -621,11 +709,15 @@ export const QAInterface = ({
                             <Label className="text-sm font-medium text-muted-foreground">
                               Current Query:
                             </Label>
-                            {/* Translate language dropdown */}
-                            <SarvamTranslateDropdown
-                              query={selectedQuestionData.text}
-                              onTranslate={(result) => setTranslatedText(result)}
-                            />
+                            {/* Translate language dropdown */}  
+                            {
+                              selectedQuestionData.text?.trim() && !isEnglishCharacters(selectedQuestionData.text) && (
+                                <SarvamTranslateDropdown
+                                  query={selectedQuestionData.text}
+                                  onTranslate={(result) => setTranslatedText(result)}
+                                />
+                              )
+                            }
                           </div>
 
                           <p className="text-sm mt-1 p-3 rounded-md border border-gray-200 dark:border-gray-600 break-words">
@@ -652,10 +744,14 @@ export const QAInterface = ({
                             </Label>
 
                             <div className="flex items-center gap-2">
-                              <SarvamTranslateDropdown
-                                query={newAnswer}
-                                onTranslate={(result) => setTranslatedDraftText(result)}
-                              />
+                              {
+                                newAnswer?.trim() && !isEnglishCharacters(newAnswer) && (
+                                  <SarvamTranslateDropdown
+                                    query={newAnswer}
+                                    onTranslate={(result) => setTranslatedDraftText(result)}
+                                  />
+                                )
+                              }
                               {selectedQuestionData.aiInitialAnswer &&
                                 !newAnswer && (
                                   <button

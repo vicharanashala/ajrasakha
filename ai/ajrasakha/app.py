@@ -59,6 +59,7 @@ async def chat_completions(request: ChatCompletionRequest):
             agent_response(
                 messages=request.messages,
                 graph=graph,
+                location=request.location,
             ), media_type="application/x-ndjson"
         )
     else:

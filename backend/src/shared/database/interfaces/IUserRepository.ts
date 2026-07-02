@@ -4,7 +4,7 @@ import {
   UserRoleOverview,
 } from '#root/modules/dashboard/validators/DashboardValidators.js';
 import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
-import { IUser, NotificationRetentionType } from '#shared/interfaces/models.js';
+import { IUser, NotificationRetentionType, QuestionStatus, QuestionSource } from '#shared/interfaces/models.js';
 import { MongoClient, ClientSession, ObjectId } from 'mongodb';
 
 /**
@@ -92,6 +92,13 @@ export interface IUserRepository {
 
   findActiveLowReputationExpertsToday(
     session?: ClientSession,
+  ): Promise<IUser[]>;
+
+  /** Returns all non-blocked experts sorted by reputation_score ascending (lowest workload first). */
+  findExpertsByReputationScore(
+    details: PreferenceDto,
+    session?: ClientSession,
+    limit?: number,
   ): Promise<IUser[]>;
 
   /**
@@ -286,4 +293,43 @@ export interface IUserRepository {
   findAdmins(session?: ClientSession): Promise<IUser[]>;
 
   findInactiveOrBlockedExperts(session?: ClientSession): Promise<IUser[]>;
+
+  /**
+   * Finds all call agents (users with isCallAgent: true)
+   * @param session - The session for transaction
+   * @returns A promise that resolves to an array of call agents
+   */
+  findCallAgents(session?: ClientSession): Promise<IUser[]>;
+
+  /**
+   * Sets a user as a call agent
+   * @param userId - The ID of the user to set as call agent
+   * @param isCallAgent - Whether the user is a call agent
+   * @param isCallAgentActive - Whether the call agent is active
+   * @param session - The session for transaction
+   * @returns A promise that resolves to the updated user
+   */
+  setCallAgentStatus(
+    userId: string,
+    isCallAgent: boolean,
+    isCallAgentActive: boolean,
+    session?: ClientSession,
+  ): Promise<IUser>;
+
+  /**
+   * Toggles the active status of a call agent
+   * @param userId - The ID of the call agent
+   * @param session - The session for transaction
+   * @returns A promise that resolves to the updated user
+   */
+  toggleCallAgentActive(
+    userId: string,
+    session?: ClientSession,
+  ): Promise<IUser>;
+  findAvailableModerators(): Promise<IUser[]>;
+  findAvailableStfModerators(): Promise<IUser[]>;
+  findAvailableStfModeratorsForSources(sources: QuestionSource[]): Promise<IUser[]>;
+  addAssignedQuestion(moderatorId: string, questionId: string, status: QuestionStatus, source?: QuestionSource): Promise<void>;
+  removeAssignedQuestion(moderatorId: string, questionId: string): Promise<void>;
+  removeAssignedQuestionFromAllModerators(questionId: string, session?: ClientSession): Promise<void>;
 }

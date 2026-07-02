@@ -30,6 +30,7 @@ export interface IQuestionSubmissionRepository {
     questionId: string,
     userSubmissionData: ISubmissionHistory,
     session?: ClientSession,
+    reviewDelayNotificationSent?: boolean
   ): Promise<void>;
 
   /**
@@ -172,6 +173,7 @@ export interface IQuestionSubmissionRepository {
     update: {
       queue?: ObjectId[];
       popHistory?: boolean;
+      expertIdToRemove?: string;
     },
     session?: ClientSession,
   ): Promise<void>;
@@ -190,4 +192,47 @@ export interface IQuestionSubmissionRepository {
     questionIds: string[],
     session?: ClientSession,
   ): Promise<IQuestionSubmission[]>;
+
+  getDelayedReviews(session?: ClientSession): Promise<{ _id: ObjectId; questionId: ObjectId; userId: ObjectId }[]>;
+  markDelayedNotificationsSent(notifiedSubmissionIds: ObjectId[], session?: ClientSession): Promise<void>;
+
+  /** Mark that the current expert has opened a time-bound question.
+   *  Sets currentExpertOpenedAt if not already set and expertId is the current assignee.
+   *  Once set, the question is excluded from 45-min auto-reallocation. */
+  markQuestionOpenedByExpert(questionId: string, expertId: string, isTimeBound?: boolean): Promise<void>;
+
+  /** Reset the 45-min allocation clock for the current expert.
+   *  Called on initial allocation and on every reallocation. Clears currentExpertOpenedAt. */
+  setCurrentExpertAllocatedAt(questionId: string, allocatedAt: Date): Promise<void>;
+
+  /** Clear currentExpertAllocatedAt + currentExpertOpenedAt after expert submits their response. */
+  clearCurrentExpertTracking(questionId: string, session?: ClientSession): Promise<void>;
+
+  /** Find all time-bound (WHATSAPP/AJRASAKHA) submissions where:
+   *  - currentExpertAllocatedAt > 45 min ago
+   *  - currentExpertOpenedAt is null (expert has NOT opened the question)
+   *  - question is not on hold, not closed/pass/duplicate/draft */
+  findTimeBoundQuestionsForReallocation(): Promise<IQuestionSubmission[]>;
+
+  /** Find all time-bound (WHATSAPP/AJRASAKHA) submissions that were never
+   *  allocated — queue is empty and currentExpertAllocatedAt is null/missing.
+   *  question is not on hold, not closed/pass/duplicate/draft */
+  findUnallocatedTimeBoundQuestions(limit?: number, skip?: number, startTime?: Date, endTime?: Date): Promise<IQuestionSubmission[]>;
+
+  /** Find time-bound submissions the current expert opened > 45 min ago but still
+   *  hasn't answered (latest history entry has no answer/approved/modified/rejected).
+   *  Distinct from stuck (allocated but never opened). */
+  findOpenedButIdleTimeBoundQuestions(): Promise<IQuestionSubmission[]>;
+
+  /** Find time-bound submissions where the initial answer was submitted (last
+   *  history entry has an answer) but status is still open/delayed — needs a reviewer. */
+  findAnsweredQuestionsNeedingReviewer(): Promise<IQuestionSubmission[]>;
+
+  /** Atomically push reviewer into queue, add an in-review history entry, and
+   *  reset the 45-min allocation clock (currentExpertAllocatedAt/OpenedAt). */
+  assignTimeBoundReviewer(questionId: string, reviewerId: string, now: Date): Promise<void>;
+
+  /** Single aggregation: returns a Map<expertId, count> of active time-bound
+   *  questions per expert. Used to enforce the 3-question hard cap. */
+  getTimeBoundActiveCountPerExpert(): Promise<Map<string, number>>;
 }

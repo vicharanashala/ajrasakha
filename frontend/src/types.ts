@@ -1,6 +1,7 @@
 import type { UserCredential } from "firebase/auth";
+import type { DemographicEntry } from "./features/chatbotDashboard/types";
 
-export type UserRole = "admin" | "moderator" | "expert" | "pae_expert";
+export type UserRole = "admin" | "moderator" | "expert" | "pae_expert" | "tester"| "district_coordinator"| "block_coordinator" | "village_volunteer" | "call_agent";
 
 export interface ExtendedUserCredential extends UserCredential {
   _tokenResponse?: {
@@ -44,12 +45,23 @@ export interface IUser {
   rankPosition?: number;
   expertRank?: number;
   status?: 'active' | 'in-active';
+  lastCheckInAt?: string | Date;
   avatar?: string;
   special_task_force?: boolean;
   special_task_force_moderator?: boolean
   mobile?: string;
   university?: string;
   isVerified?: boolean;
+  isCallAgentActive?: boolean;
+}
+
+export interface IUnverifiedUser {
+  _id: string;
+  username: string;
+  name?: string;
+  email: string;
+  createdAt?: Date;
+  role?: string;
 }
 export interface ReviewLevelCount {
   Review_level: 'Author' | 'Level 1' | 'Level 2' | 'Level 3' | 'Level 4' | 'Level 5' | 'Level 6' | 'Level 7' | 'Level 8' | 'Level 9';
@@ -261,7 +273,7 @@ export type SupportedLanguage =
   | "sat-IN"
   | "sd-IN";
 
-export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold" | "pae_submitted" | "draft" | "duplicate" | "pass";
+export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold" | "pae_submitted" | "draft" | "duplicate" | "pass" | "non_agri" | "dynamic";
 export type ReRouteStatus = "pending" | "expert_rejected" | "expert_completed" | "moderator_rejected" | "moderator_approved" | "approved" | "rejected" | "modified" | "in-review";
 export interface ResponseDto {
   id: string;
@@ -441,13 +453,14 @@ export interface IQuestionFullData {
   _id: string;
   question: string;
   status: QuestionStatus;
+  tag?: "dynamic" | "static_dynamic";
   details: {
     state: string;
     district: string;
     crop: string;
     normalised_crop?: string;
     season: string;
-    domain: string;
+    domain: string[];
   };
   isAutoAllocate: boolean;
   priority: QuestionPriority;
@@ -472,6 +485,8 @@ export interface IQuestionFullData {
   referenceQuestionId?: string;
   referenceQuestion?: string;
   referenceSource?: string;
+  isDuplicateChecked?: boolean;
+  autoAllocateModerator?: boolean;
   referenceQuestionData?: {
     question: string;
     status: string;
@@ -489,10 +504,20 @@ export interface IQuestionFullData {
   originalQuestion?: string;
   closedAt?: string;
   threadId?: string;
+  threadUserEmail?: string | null;
+  messageId?: string;
   approved_moderator:{
     name: string;
     email: string;
   }
+  /** Id of the moderator currently assigned to review this question (set by the moderator-queue cron). */
+  moderatorId?: string | null;
+  /** Moderator currently assigned to review this question (set by the moderator-queue cron). */
+  assigned_moderator?: { name: string; email: string } | null;
+  /** True when the requesting user is the moderator this question is assigned to. Gates the Pass / Accept / Push to GDB actions. */
+  isAssignedModerator?: boolean;
+  /** Timestamp when a moderator was assigned. Used to calculate moderator handling time (closedAt - moderatorAssignedAt). */
+  moderatorAssignedAt?: string | null;
   closedFinalAnswer?: {
     _id: string;
     questionId: string;
@@ -553,6 +578,7 @@ export interface IDetailedQuestion {
   context: string;
   aiInitialAnswer: string;
   status: QuestionStatus;
+  tag?: "dynamic" | "static_dynamic";
   totalAnswersCount: number;
   priority: QuestionPriority;
   metrics: IQuestionMetrics;
@@ -562,7 +588,7 @@ export interface IDetailedQuestion {
     crop: string;
     normalised_crop?: string;
     season: string;
-    domain: string;
+    domain: string[];
   };
   source: "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH";
   createdAt?: string;
@@ -583,10 +609,15 @@ export interface IDetailedQuestion {
     queue: IUserRef[];
   };
   pae_review?: boolean;
+  is_non_agri?: boolean;
   similarityScore?: number;        // percentage (0–100)
   referenceQuestionId?: string;
   referenceQuestion?: string
   referenceSource?: string;
+  isDuplicateChecked?: boolean;
+  autoAllocateModerator?: boolean;
+  /** Moderator currently assigned to review this question (set by the moderator-queue cron). */
+  moderatorId?: string | null;
 }
 
 export interface IDetailedQuestionResponse {
@@ -955,10 +986,16 @@ enum AuditCategory {
   OUTREACH_REPORT = 'OUTREACH_REPORT',
   AGENTS_INTERFACE = 'AGENTS_INTERFACE', // PENDING, not on priority
   DOWNLOAD_REPORTS = 'DOWNLOAD_REPORTS',
-  ANSWER = 'ANSWER'
+  ANSWER = 'ANSWER',
+  FARMER_MANAGEMENT = 'FARMER_MANAGEMENT',
 }
 
 enum AuditAction {
+  // Farmer
+  ADD_FARMER = 'ADD_FARMER',
+  UPDATE_FARMER = 'UPDATE_FARMER',
+  DELETE_FARMER = 'DELETE_FARMER',
+
   // Question
   QUESTION_ADD = 'QUESTION_ADD',
   QUESTION_UPDATE = 'QUESTION_UPDATE',
@@ -972,6 +1009,8 @@ enum AuditAction {
   EXPERTS_AUTO_ALLOCATE = 'EXPERTS_AUTO_ALLOCATE',
   SELECT_EXPERT = 'SELECT_EXPERT',
   DELETE_EXPERT = 'DELETE_EXPERT',
+  SELECT_MODERATOR = 'SELECT_MODERATOR',
+  DELETE_MODERATOR = 'DELETE_MODERATOR',
   EXPERTS_ADD_COMMENT = 'EXPERTS_ADD_COMMENT',
 
   //EXPERTS_MANAGEMENT
@@ -1040,3 +1079,64 @@ export interface IAuditTrailResponse {
   message: string;
 }
 
+export interface PlatformInstallEntry {
+  platform: string;
+  count: number;
+}
+
+export interface KccAndAgriAppStats {
+  kccAwareness: DemographicEntry[];
+  agriAppUsage: DemographicEntry[];
+}
+
+export interface FeedbackEntry {
+  rating: string;
+  tag: string;
+}
+
+export interface FeedbackData{
+  positiveFeedbacks: FeedbackEntry[];
+  negativeFeedbacks: FeedbackEntry[];
+  positiveFeedbackCounts: {tag: string, count: any}[],
+  negativeFeedbackCounts: {tag: string, count: any}[],
+  stats: {
+    "_id"?: null | string,
+    positiveCount: number,
+    negativeCount: number,
+    averageRating: number,
+    totalFeedbacks: number
+  }
+}
+
+
+export interface ResponseAdherenceTable {
+  date: string;
+  time: string;
+  timeWindow: string;
+  whatsappQueriesAsked: number;
+  ajrasakhaQueriesAsked: number;
+  whatsappPushedToReviewer: number;
+  ajrasakhaPushedToReviewer: number;
+  whatsappAnsweredWithin120Min: number;
+  ajrasakhaAnsweredWithin120Min: number;
+  whatsappMarkedDuplicate: number;
+  ajrasakhaMarkedDuplicate: number;
+  whatsappDynamicWeather: number;
+  ajrasakhaDynamicWeather: number;
+  whatsappDynamicMarket: number;
+  ajrasakhaDynamicMarket: number;
+  whatsappDynamicSchemes: number;
+  ajrasakhaDynamicSchemes: number;
+  whatsappNonGdbWithin120: number;
+  ajrasakhaNonGdbWithin120: number;
+  whatsappInReview: number;
+  ajrasakhaInReview: number;
+  whatsappOpen: number;
+  ajrasakhaOpen: number;
+  whatsappDelayed: number;
+  ajrasakhaDelayed: number;
+  whatsappAverageResponseMinutes: number;
+  ajrasakhaAverageResponseMinutes: number;
+  whatsappAdherencePct: number;
+  ajrasakhaAdherencePct: number;
+}

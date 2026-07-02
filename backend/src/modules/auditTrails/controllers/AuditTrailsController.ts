@@ -15,7 +15,7 @@ import {AUDIT_TRAILS_TYPES} from '../types.js';
 import {AuditTrailsService} from '../services/AuditTrailsService.js';
 import {BadRequestErrorResponse} from '#root/shared/index.js';
 // import { AuditTrailsResponse, AuditTrailUserIdParams } from "../classes/validators/AuditTrailsValidators.js";
-import {AuditTrailsResponse} from '../classes/Validators/AuditTrailsValidators.js';
+import {AuditTrailsResponse, AuditTrailsShiftReportResponse} from '../classes/Validators/AuditTrailsValidators.js';
 import { AuditFilters } from '../interfaces/IAuditTrails.js';
 
 @OpenAPI({
@@ -158,6 +158,75 @@ class AuditTrailsController {
       currentPage: page,
     };
   }
+
+  @OpenAPI({
+    summary: 'Get shift-based audit action counts',
+    description: 'Retrieve counts of audit actions for a specific shift',
+  })
+  @Authorized()
+  @Get('/shift-based-audit-action-counts')
+  @HttpCode(200)
+  @ResponseSchema(AuditTrailsShiftReportResponse, {
+    description: 'List of audit trails shift-based report',
+    statusCode: 200,
+  })
+  @ResponseSchema(BadRequestErrorResponse, {
+    description: 'Bad Request',
+    statusCode: 400,
+  })
+  async getShiftBasedAuditActionCounts(
+    @CurrentUser() user: any,
+    @QueryParam('startDate') startDate?: string,
+    // @QueryParam('endDate') endDate?: string,
+    @QueryParam('shift') shift?: string,
+    @QueryParam('from') from?: string,
+    @QueryParam('to') to?: string,
+  ) {
+    const actionCounts = await this.auditTrailsService.getShiftBasedAuditActionCounts(
+      startDate,
+      // endDate,
+      shift,
+      from ?? '00:00',
+      to ?? '23:59'
+    );
+
+    return {
+      message: 'Shift-based audit action counts retrieved successfully',
+      data: actionCounts,
+    };
+  }
+
+  @OpenAPI({
+    summary: 'Get audit trails by question ID',
+    description: 'Retrieve all audit trails related to a specific question',
+  })
+  @Authorized()
+  @Get('/question/:questionId')
+  @HttpCode(200)
+  async getAuditTrailsByQuestionId(
+    @Param('questionId') questionId: string,
+    @QueryParam('page') page: number = 1,
+    @QueryParam('limit') limit: number = 10,
+    @QueryParam('action') action?: string | null,
+    @QueryParam('order') order: "asc" | "desc" = "desc",
+  ) {
+    const result = await this.auditTrailsService.getAuditTrailsByQuestionId(
+      questionId,
+      page,
+      limit,
+      action,
+      order
+    );
+
+    return {
+      message: 'Audit trails retrieved successfully',
+      data: result.data,
+      totalDocuments: result.totalDocuments,
+      totalPages: Math.ceil(result.totalDocuments / limit),
+      currentPage: page,
+    };
+  }
+
 }
 
 export {AuditTrailsController};

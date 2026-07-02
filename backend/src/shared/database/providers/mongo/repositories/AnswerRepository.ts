@@ -17,6 +17,7 @@ import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerReposit
 import {
   Analytics,
   AnalyticsItem,
+  AnalyticsTableRow,
   AnswerStatusOverview,
   ModeratorApprovalRate,
 } from '#root/modules/dashboard/validators/DashboardValidators.js';
@@ -1188,6 +1189,9 @@ export class AnswerRepository implements IAnswerRepository {
     startTime?: string,
     endTime?: string,
     session?: ClientSession,
+    state?: string[],
+    source?: string[],
+    status?: string[],
   ): Promise<{analytics: Analytics}> {
     await this.init();
 
@@ -1206,6 +1210,18 @@ export class AnswerRepository implements IAnswerRepository {
       matchStage.createdAt = filterDate;
     }
 
+    // Post-lookup match applied after joining with the questions collection
+    const questionMatchStage: any = { 'questionDetails.details': { $exists: true } };
+    if (state?.length) {
+      questionMatchStage['questionDetails.details.state'] = { $in: state };
+    }
+    if (source?.length) {
+      questionMatchStage['questionDetails.source'] = { $in: source };
+    }
+    if (status?.length) {
+      questionMatchStage['questionDetails.status'] = { $in: status };
+    }
+
     const pipeline = [
       {$match: matchStage},
 
@@ -1219,11 +1235,7 @@ export class AnswerRepository implements IAnswerRepository {
       },
       {$unwind: '$questionDetails'},
 
-      {
-        $match: {
-          'questionDetails.details': {$exists: true},
-        },
-      },
+      {$match: questionMatchStage},
 
       // === CROPS ===
       {
@@ -1282,11 +1294,72 @@ export class AnswerRepository implements IAnswerRepository {
       ];
     };
 
+    // Table: group by state × crop × source, pivot status from joined question
+    const basePipeline = pipeline.slice(0, -2); // up to and including $match questionMatchStage
+    const tableData = await this.AnswerCollection.aggregate(
+      [
+        ...basePipeline,
+        {
+          $group: {
+            _id: {
+              state:  '$questionDetails.details.state',
+              crop:   '$questionDetails.details.crop',
+              source: '$questionDetails.source',
+            },
+            open:         {$sum: {$cond: [{$eq: ['$questionDetails.status', 'open']}, 1, 0]}},
+            closed:       {$sum: {$cond: [{$eq: ['$questionDetails.status', 'closed']}, 1, 0]}},
+            inReview:     {$sum: {$cond: [{$eq: ['$questionDetails.status', 'in-review']}, 1, 0]}},
+            delayed:      {$sum: {$cond: [{$eq: ['$questionDetails.status', 'delayed']}, 1, 0]}},
+            reRouted:     {$sum: {$cond: [{$eq: ['$questionDetails.status', 're-routed']}, 1, 0]}},
+            hold:         {$sum: {$cond: [{$eq: ['$questionDetails.status', 'hold']}, 1, 0]}},
+            paeSubmitted: {$sum: {$cond: [{$eq: ['$questionDetails.status', 'pae_submitted']}, 1, 0]}},
+            draft:        {$sum: {$cond: [{$eq: ['$questionDetails.status', 'draft']}, 1, 0]}},
+            duplicate:    {$sum: {$cond: [{$eq: ['$questionDetails.status', 'duplicate']}, 1, 0]}},
+            total:        {$sum: 1},
+            // Earliest question ever created in this group
+            lastPushedDate: {$min: '$questionDetails.createdAt'},
+            // Most recent closedAt among questions that are actually closed
+            lastClosedDate: {
+              $max: {
+                $cond: [
+                  {$eq: ['$questionDetails.status', 'closed']},
+                  '$questionDetails.closedAt',
+                  null,
+                ],
+              },
+            },
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            state: '$_id.state',
+            crop: '$_id.crop',
+            source: '$_id.source',
+            open: 1, closed: 1, inReview: 1, delayed: 1, reRouted: 1,
+            hold: 1, paeSubmitted: 1, draft: 1, duplicate: 1, total: 1,
+            lastPushedDate: 1,
+            lastClosedDate: 1,
+            completionPct: {
+              $cond: [
+                {$gt: ['$total', 0]},
+                {$round: [{$multiply: [{$divide: ['$closed', '$total']}, 100]}, 1]},
+                0,
+              ],
+            },
+          },
+        },
+        {$sort: {state: 1, crop: 1, source: 1}},
+      ],
+      {session},
+    ).toArray() as AnalyticsTableRow[];
+
     return {
       analytics: {
         cropData: getTopTenWithOthers(cropData),
         stateData: stateData,
         domainData: getTopTenWithOthers(domainData),
+        tableData,
       },
     };
   }
@@ -1771,6 +1844,60 @@ export class AnswerRepository implements IAnswerRepository {
     } catch (error) {
       throw new InternalServerError(
         `error in finding answers. More: ${error}`,
+      );
+    }
+  }
+
+  async getFinalAnswersByQuestionIds(
+    questionIds: string[],
+    session?: ClientSession,
+  ): Promise<IAnswer[]> {
+    try {
+      await this.init();
+      const objectIds = questionIds.map(id => new ObjectId(id));
+      
+      const answers = await this.AnswerCollection.find(
+        {
+          questionId: {$in: objectIds},
+          isFinalAnswer: true,
+        },
+        {session},
+      ).toArray();
+
+      return answers.map(a => ({
+        ...a,
+        _id: a._id?.toString(),
+        questionId: a.questionId?.toString(),
+        authorId: a.authorId?.toString(),
+        approvedBy: a.approvedBy?.toString(),
+      }));
+    } catch (error) {
+      throw new InternalServerError(
+        `Error fetching final answers: ${error}`,
+      );
+    }
+  }
+
+  async getFinalAnswerQuestionIdsByApprover(
+    moderatorIds: string[],
+    session?: ClientSession,
+  ): Promise<string[]> {
+    try {
+      await this.init();
+      if (!moderatorIds?.length) return [];
+      const answers = await this.AnswerCollection.find(
+        {
+          approvedBy: { $in: moderatorIds.map(id => new ObjectId(id)) },
+          isFinalAnswer: true,
+        },
+        { projection: { questionId: 1 }, session },
+      ).toArray();
+      return answers
+        .map(a => a.questionId?.toString())
+        .filter((id): id is string => Boolean(id));
+    } catch (error) {
+      throw new InternalServerError(
+        `Error fetching final answers by approver: ${error}`,
       );
     }
   }

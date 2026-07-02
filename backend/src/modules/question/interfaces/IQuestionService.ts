@@ -13,8 +13,162 @@ import {
   GetDetailedQuestionsQuery,
   QuestionResponse,
 } from '../classes/validators/QuestionVaidators.js';
-import {QuestionLevelResponse} from '#root/modules/question/classes/transformers/QuestionLevel.js';
-import {ClientSession, ObjectId} from 'mongodb';
+import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
+import { ClientSession, ObjectId } from 'mongodb';
+
+/** Lean question shape used in the moderator/admin "Queue Details" modal. */
+export interface QueueQuestionItem {
+  _id: string;
+  question: string;
+  status: string;
+  source: string;
+  priority?: string;
+  createdAt?: string | Date;
+  state?: string;
+  district?: string;
+  crop?: string;
+  /** Current assignee — present for allocated & stuck items. */
+  expertName?: string;
+  /** Assigned moderator's name — present for moderator-allocated items. */
+  moderatorName?: string;
+  /** All experts who have completed a step on this question, in turn order —
+   *  present for needs-reviewer items. */
+  completedExpertNames?: string[];
+  /** Full queue for the question, each entry as "Name (Level)" where level is
+   *  Author (position 0) then Reviewer 1, Reviewer 2, … Present for any section
+   *  whose questions have an allocation queue. For the allocated section the
+   *  level suffix is omitted (plain names) — see `lastPersonStatus`. */
+  queueExpertNames?: string[];
+  /** Status of the current/last expert in the queue — 'completed' when every
+   *  queue member has finished, otherwise 'waiting'. Present for allocated items. */
+  lastPersonStatus?: 'completed' | 'waiting';
+  /** When the current expert was allocated — present for stuck items. */
+  allocatedAt?: string | Date | null;
+  /** Minutes since the current expert was allocated — present for stuck items. */
+  minutesSinceAllocated?: number;
+  /** When the current expert opened the question — present for opened-but-idle items. */
+  openedAt?: string | Date | null;
+  /** Minutes since the current expert opened it — present for opened-but-idle items. */
+  minutesSinceOpened?: number;
+  /** Which time-bound work bucket this question falls in — present for totalWork items. */
+  workType?: 'stuck' | 'unallocated' | 'needsReviewer';
+}
+
+/** Lean expert shape for the "Experts waiting in queue" (free experts) list. */
+export interface QueueExpertItem {
+  _id: string;
+  name: string;
+  email?: string;
+  reputationScore?: number;
+  role?: string;
+  isSpecialTaskForce?: boolean;
+}
+
+export interface QueueDetailsResponse {
+  /** All time-bound (AJRASAKHA/WHATSAPP, auto-allocated) questions ever received. */
+  received: {count: number; items: QueueQuestionItem[]};
+  /** Per-status counts for the received section — accurate DB totals used for tab badges. */
+  receivedStatusCounts: {status: string; count: number}[];
+  /** AJRASAKHA/WHATSAPP questions with auto-allocation turned OFF (handled manually). */
+  autoAllocateOff: {count: number; items: QueueQuestionItem[]};
+  /** Auto-allocate ON questions that are currently OPEN. */
+  autoAllocateOpen: {count: number; items: QueueQuestionItem[]};
+  /** Auto-allocate ON questions that are currently DELAYED. */
+  autoAllocateDelayed: {count: number; items: QueueQuestionItem[]};
+  /** Received questions that have been allocated to at least one expert. */
+  allocated: {count: number; items: QueueQuestionItem[]};
+  /** Received questions still awaiting their first expert allocation. */
+  waiting: {count: number; items: QueueQuestionItem[]};
+  /** Experts with no active time-bound allocation (free / waiting in queue). */
+  freeExperts: {count: number; items: QueueExpertItem[]};
+  /** Allocated > 45 min but never opened by the assigned expert. */
+  stuck: {count: number; items: QueueQuestionItem[]};
+  /** Answered/reviewed but still awaiting the next reviewer (cron "NeedReviewer"). */
+  needsReviewer: {count: number; items: QueueQuestionItem[]};
+  /** Everything the time-bound cron tries to act on this run — stuck + unallocated +
+   *  needsReviewer combined (the cron's "totalWork"). */
+  totalWork: {count: number; items: QueueQuestionItem[]};
+  /** Opened by the current expert > 45 min ago but still no answer produced. */
+  openedIdle: {count: number; items: QueueQuestionItem[]};
+  /** In-review/duplicate questions with no moderator yet — the pool the
+   *  moderator-queue cron picks from (findUnassignedInReviewQuestions). */
+  moderatorWaiting: {count: number; items: QueueQuestionItem[]};
+  /** Questions currently assigned to a moderator (moderatorId set), including
+   *  re-routed questions. Each item carries the assigned moderator's name. */
+  moderatorAllocated: {count: number; items: QueueQuestionItem[]};
+  /** STF moderators with no question assigned — the pool the moderator-queue
+   *  cron assigns from (findAvailableStfModerators). */
+  availableModerators: {count: number; items: QueueExpertItem[]};
+
+  // ── Source-split moderator-queue sections ──
+  /** Time-bound (AJRASAKHA/WHATSAPP) questions with no moderator yet. */
+  moderatorWaitingTimeBound: {count: number; items: QueueQuestionItem[]};
+  /** Manual (AGRI_EXPERT/OUTREACH) questions with no moderator yet. */
+  moderatorWaitingManual: {count: number; items: QueueQuestionItem[]};
+  /** Time-bound questions currently assigned to a moderator. */
+  moderatorAllocatedTimeBound: {count: number; items: QueueQuestionItem[]};
+  /** Manual questions currently assigned to a moderator. */
+  moderatorAllocatedManual: {count: number; items: QueueQuestionItem[]};
+  /** STF moderators free to take a time-bound question. */
+  availableModeratorsTimeBound: {count: number; items: QueueExpertItem[]};
+  /** STF moderators free to take a manual question. */
+  availableModeratorsManual: {count: number; items: QueueExpertItem[]};
+}
+
+/** Raw lean row returned by the repository layer for queue-details questions. */
+export interface RawQueueQuestionRow {
+  _id: ObjectId | string;
+  question?: string;
+  status?: string;
+  source?: string;
+  priority?: string;
+  createdAt?: string | Date;
+  state?: string;
+  district?: string;
+  crop?: unknown;
+  firstAllocationAt?: string | Date | null;
+  queue?: (ObjectId | string)[];
+  history?: {updatedBy?: ObjectId | string; status?: string}[];
+}
+
+export interface QueueQuestionData {
+  receivedCount: number;
+  allocatedCount: number;
+  autoOffCount: number;
+  receivedItems: RawQueueQuestionRow[];
+  allocatedItems: RawQueueQuestionRow[];
+  autoOffItems: RawQueueQuestionRow[];
+}
+
+/** The paginatable Queue-Details sections. */
+export type QueueSectionName =
+  | 'received'
+  | 'autoAllocateOff'
+  | 'autoAllocateOpen'
+  | 'autoAllocateDelayed'
+  | 'allocated'
+  | 'waiting'
+  | 'freeExperts'
+  | 'stuck'
+  | 'needsReviewer'
+  | 'totalWork'
+  | 'openedIdle'
+  | 'moderatorWaiting'
+  | 'moderatorAllocated'
+  | 'availableModerators'
+  // Source-split variants (time-bound = AJRASAKHA/WHATSAPP, manual = AGRI_EXPERT/OUTREACH)
+  | 'moderatorWaitingTimeBound'
+  | 'moderatorWaitingManual'
+  | 'moderatorAllocatedTimeBound'
+  | 'moderatorAllocatedManual'
+  | 'availableModeratorsTimeBound'
+  | 'availableModeratorsManual';
+
+/** One page of a section: exact total + the requested page's items. */
+export interface QueueSectionResult {
+  count: number;
+  items: QueueQuestionItem[] | QueueExpertItem[];
+}
 
 export interface IQuestionService {
   /** Bulk insert questions (CSV / upload / AI generated) */
@@ -56,6 +210,49 @@ export interface IQuestionService {
     context: string,
   ): Promise<GeneratedQuestionResponse[]>;
 
+  /** Generate questions from call context (AI) */
+  getQuestionFromCallContext(
+    context: string,
+    state?: string,
+    crop?: string,
+  ): Promise<GeneratedQuestionResponse[]>;
+
+  getCallSummary(
+    query: string,
+  ): Promise<any>;
+
+  /** HIL Flow: Create thread for ACC Agent */
+  createAccAgentThread(): Promise<{ thread_id: string }>;
+
+  /** HIL Flow: Extract data from transcript */
+  extractAccAgentData(
+    threadId: string,
+    transcript: string
+  ): Promise<{
+    extracted_query: string;
+    extracted_crop: string;
+    extracted_state: string;
+    extracted_district: string;
+  }>;
+
+  /** HIL Flow: Update state with human corrections */
+  updateAccAgentState(
+    threadId: string,
+    correctedData: {
+      query: string;
+      crop: string;
+      state: string;
+      district: string;
+    }
+  ): Promise<void>;
+
+  /** HIL Flow: Resume and get final answer */
+  resumeAccAgentAndGetAnswer(threadId: string): Promise<{ final_answer: string }>;
+  /** Manually trigger duplicate check for a question without a reference */
+  manualCheckDuplicate(
+    questionId: string,
+  ): Promise<{ message: string; isDuplicate: boolean; referenceQuestionId?: string }>;
+
   /** Create a new question */
   addQuestion(
     userId: string,
@@ -72,19 +269,20 @@ export interface IQuestionService {
   updateQuestion(
     questionId: string,
     updates: Partial<IQuestion>,
-  ): Promise<{modifiedCount: number}>;
+    threadUpdate?: boolean
+  ): Promise<{ modifiedCount: number }>;
 
   /** Auto allocate experts */
   autoAllocateExperts(
     questionId: string,
     session?: any,
     batchSize?: number,
-  ): Promise<{data?: ObjectId[]; status: boolean}>;
+  ): Promise<{ data?: ObjectId[]; status: boolean }>;
 
   /** Toggle auto allocation on/off */
   toggleAutoAllocate(
     questionId: string,
-  ): Promise<{message: string; data?: ObjectId[]}>;
+  ): Promise<{ message: string; data?: ObjectId[] }>;
 
   /** Manually allocate experts */
   allocateExperts(
@@ -98,7 +296,7 @@ export interface IQuestionService {
     userId: string,
     questionIds: string[],
     paeExpertId: string,
-  ): Promise<{jobId: string; message: string}>;
+  ): Promise<{ jobId: string; message: string }>;
 
   /** Remove expert from allocation queue */
   removeExpertFromQueue(
@@ -121,13 +319,13 @@ export interface IQuestionService {
   deleteQuestion(
     questionId: string,
     session?: any,
-  ): Promise<{deletedCount: number}>;
+  ): Promise<{ deletedCount: number }>;
 
   /** Bulk delete (no limit, background worker) */
   bulkDeleteQuestions(
     userId: string,
     questionIds: string[],
-  ): Promise<{jobId: string; message: string}>;
+  ): Promise<{ jobId: string; message: string }>;
 
   /** Fetch question with answers, history & permissions */
   getQuestionFullData(
@@ -136,7 +334,15 @@ export interface IQuestionService {
   ): Promise<{
     question: IQuestion | null;
     approved_moderator: {name: string; email: string};
+    assigned_moderator: {name: string; email: string} | null;
+    isAssignedModerator: boolean;
   }>;
+
+  /** Manually (re)assign the moderator for a question. */
+  changeQuestionModerator(questionId: string, moderatorId: string): Promise<void>;
+
+  /** Remove the moderator currently assigned to a question (frees the moderator and nulls the question's moderator fields). */
+  removeQuestionModerator(questionId: string): Promise<void>;
 
   /** Get expert’s allocated question page */
   getAllocatedQuestionPage(userId: string, questionId: string): Promise<any>;
@@ -170,7 +376,7 @@ export interface IQuestionService {
     startDate: string,
     endDate: string,
     emails: string | string[],
-  ): Promise<{success: boolean; message: string}>;
+  ): Promise<{ success: boolean; message: string }>;
   generateQuestionReport(
     consecutiveApprovals?: number,
     startDate?: Date,
@@ -187,11 +393,13 @@ export interface IQuestionService {
     season?: string;
     domain?: string;
     status?: string;
+    source?: string;
     hiddenQuestions?: string;
     duplicateQuestions?: string;
     isOnHold?: string;
     startDate?: string;
     endDate?: string;
+    moderator?: string;
   }): Promise<ArrayBuffer | null>;
   generateDuplicateQuestionReport(
     startDate?: Date,
@@ -205,7 +413,7 @@ export interface IQuestionService {
     questionId: string,
     userId: string,
     action: 'hold' | 'unhold',
-  ): Promise<{id: string}>;
+  ): Promise<{ id: string }>;
   checkSubmissionExists(questionId: string): Promise<boolean>;
 
   /** Returns total question count and per-status breakdown with filters applied */
@@ -214,13 +422,14 @@ export interface IQuestionService {
     body: DetailedQuestionsBodyDto,
   ): Promise<{
     totalQuestions: number;
-    statuses: {status: string; count: number}[];
+    statuses: { status: string; count: number }[];
+    sourceCounts: { source: string; count: number }[];
   }>;
 
   getExprtIdByIndex(questionId: string, index: number): Promise<string | null>;
   generateAiInitialAnswer(
     questionId: string,
-  ): Promise<{aiInitialAnswer: string}>;
+  ): Promise<{ aiInitialAnswer: string }>;
 
   approveAiInitialAnswer(questionId: string, answer: string);
 
@@ -231,4 +440,25 @@ export interface IQuestionService {
   ): Promise<{ message: string; submissionsProcessed: number }>;
 
   balanceWorkloadSelectedQuestions(questionIds: string[]): Promise<{ message: string; expertsInvolved: number; submissionsProcessed: number }>;
+
+  /** Mark that the current expert opened a time-bound question.
+   *  Prevents the 45-min auto-reallocation for this question. */
+  markQuestionOpened(questionId: string, userId: string): Promise<void>;
+
+  /** Find time-bound questions pending > 45 min (not opened) and reallocate them
+   *  to experts with fewer than 3 active time-bound questions. */
+  reallocateTimeBoundQuestions(): Promise<{ message: string; reallocated: number; skipped: number }>;
+
+  /** Moderator/admin "Queue Details": counts + lean lists for received, allocated,
+   *  waiting-for-expert, free experts, and stuck (allocated >45min, never opened). */
+  getQueueDetails(startTime?: Date, endTime?: Date): Promise<QueueDetailsResponse>;
+
+  /** One server-side paginated section (exact total + requested page of items). */
+  getQueueSection(
+    section: QueueSectionName,
+    page?: number,
+    limit?: number,
+    startTime?: Date,
+    endTime?: Date,
+  ): Promise<QueueSectionResult>;
 }

@@ -211,6 +211,9 @@ export interface IAnswerRepository {
     startTime?: string,
     endTime?: string,
     session?: ClientSession,
+    state?: string[],
+    source?: string[],
+    status?: string[],
   ): Promise<{analytics: Analytics}>;
 
 
@@ -254,4 +257,21 @@ export interface IAnswerRepository {
       createdAt: Date;
     }>;
   }>;
+
+  /**
+   * Retrieves final answers for a list of question IDs
+   * @param questionIds - Array of question IDs to fetch final answers for
+   * @param session - Optional MongoDB client session for transactions
+   * @returns Promise resolving to array of final answers with isFinalAnswer=true
+   */
+  getFinalAnswersByQuestionIds(
+    questionIds: string[],
+    session?: ClientSession,
+  ): Promise<IAnswer[]>;
+
+  /** Question ids whose final answer was approved by any of the given moderators (approvedBy). */
+  getFinalAnswerQuestionIdsByApprover(
+    moderatorIds: string[],
+    session?: ClientSession,
+  ): Promise<string[]>;
 }

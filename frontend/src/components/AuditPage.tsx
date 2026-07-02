@@ -1689,6 +1689,7 @@ const AuditPage = () => {
     ADMIN_REPORT= 'Admin Report',
     AI_GENERATED= 'AI Generated',
     ROLE_MANAGEMENT = 'Role Management',
+    FARMER_MANAGEMENT = "Farmer Management",
   }
  
   enum AuditAction {
@@ -1719,6 +1720,9 @@ const AuditPage = () => {
     SEND_DASHBOARD_REPORT = "Send Dashboard Report",
     GENERATE_ANSWER = "Generate Answer",
     TOGGLE_ROLE = "Toggle Role",
+    ADD_FARMER = "Add Farmer",
+    UPDATE_FARMER = "Update Farmer",
+    DELETE_FARMER = "Delete Farmer",
   }
  
   enum reverseActionEnum {
@@ -1748,6 +1752,9 @@ const AuditPage = () => {
     "Send Dashboard Report" = "SEND_DASHBOARD_REPORT",
     "Generate Answer" = "GENERATE_ANSWER",
     "Toggle Role" = "TOGGLE_ROLE",
+    "Add Farmer" = "ADD_FARMER",
+    "Update Farmer" = "UPDATE_FARMER",
+    "Delete Farmer" = "DELETE_FARMER",
   }
  
   const actionObject = {
@@ -1763,6 +1770,7 @@ const AuditPage = () => {
     ADMIN_REPORT: [AuditAction.ALL, AuditAction.SEND_DASHBOARD_REPORT],
     AI_GENERATED: [AuditAction.ALL, AuditAction.GENERATE_ANSWER],
     ROLE_MANAGEMENT: [AuditAction.ALL, AuditAction.TOGGLE_ROLE],
+    FARMER_MANAGEMENT: [AuditAction.ALL, AuditAction.ADD_FARMER, AuditAction.UPDATE_FARMER, AuditAction.DELETE_FARMER],
   };
  
   enum AuditOutcomeStatus {
@@ -1814,6 +1822,7 @@ const AuditPage = () => {
             <DropdownMenuRadioItem value="ADMIN_REPORT">Admin Report</DropdownMenuRadioItem>
             <DropdownMenuRadioItem value="AI_GENERATED">AI Generated</DropdownMenuRadioItem>
             <DropdownMenuRadioItem value="ROLE_MANAGEMENT">Role Management</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="FARMER_MANAGEMENT">Farmer Management</DropdownMenuRadioItem>
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>

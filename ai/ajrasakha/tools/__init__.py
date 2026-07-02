@@ -1,3 +1,2 @@
-from .golden import *
-from .location import *
-from .weather import *
+# Subpackages are imported explicitly where needed.
+# Avoid eager imports here — golden tools connect to MongoDB at import time.

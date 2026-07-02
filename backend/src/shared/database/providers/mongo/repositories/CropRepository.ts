@@ -91,7 +91,7 @@ export class CropRepository implements ICropRepository {
       const resolvedType = type ?? 'crop';
       const now = new Date();
       const payload: ICrop = {
-        name: name.trim().toLowerCase(),
+       name:name.trim().split(/\s+/).map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' '),
         type: resolvedType,
         aliases: (aliases || []).map(a => ({
           language: (a.language ?? '').trim(),
@@ -143,11 +143,23 @@ export class CropRepository implements ICropRepository {
 
       // Filter by type if provided.
       // 'crop' includes documents where type is explicitly 'crop' OR type field doesn't exist (legacy data).
+      // 'other' is a catch-all for anything that is NOT 'crop' and NOT 'chemical'.
       if (query?.type) {
         if (query.type === 'crop') {
           filter.$and = [
             ...(filter.$and || []),
             { $or: [{ type: 'crop' }, { type: { $exists: false } }] },
+          ];
+        } else if (query.type === 'other') {
+          filter.$and = [
+            ...(filter.$and || []),
+            {
+              $and: [
+                { type: { $exists: true } },
+                { type: { $ne: 'crop' } },
+                { type: { $ne: 'chemical' } },
+              ],
+            },
           ];
         } else {
           filter.type = query.type;
@@ -334,8 +346,11 @@ export class CropRepository implements ICropRepository {
 
       const escaped = CropRepository.escapeRegex(cropName.trim());
       //const regex = new RegExp(`^${escaped}$`, 'i');
-      const regex = new RegExp(`\\b${escaped}\\b`, 'i');
-
+     // const regex = new RegExp(`\\b${escaped}\\b`, 'i');
+      const regex = new RegExp(
+            `(^|\\s*,\\s*)${escaped}(\\s*,\\s*|$)`,
+            'i'
+          );
       const crop = await this.CropCollection.findOne({
         $and: [
           {$or: [{type: 'crop'}, {type: {$exists: false}}]},
