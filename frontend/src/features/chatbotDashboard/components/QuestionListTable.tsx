@@ -67,6 +67,7 @@ type QuestionListTableProps<T> = {
   isPassed?: boolean,
   tag?: string,
   notificationType?: string,
+  totalClosedAndPassed?: number,
 };
 
 const alignClasses = {
@@ -131,7 +132,8 @@ export function QuestionListTable<T>({
   userType,
   isPassed,
   tag,
-  notificationType
+  notificationType,
+  totalClosedAndPassed
 }: QuestionListTableProps<T>) {
   // console.log("QuestionListTable----", isPassed);
   const [sortKey, setSortKey] = useState(initialSortKey);
@@ -355,6 +357,7 @@ export function QuestionListTable<T>({
         isPassed={isPassed}
         tag={tag}
         notificationType={notificationType}
+        totalClosedAndPassed={totalClosedAndPassed}
       />)}
       {(viewMode === "table") && (shouldPaginate && totalPages > 1) && (
         <div className="shrink-0 border-t border-gray-100 px-4 py-3 dark:border-[#2a2a2a]">

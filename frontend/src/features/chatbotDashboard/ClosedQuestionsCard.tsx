@@ -378,6 +378,7 @@ export function ClosedQuestionsCard({
             setIsPassed(false);
           }}
           tag="closed"
+          totalClosedAndPassed ={(closedQuestions || 0) + (passedQuestions || 0)}
         />
       )}
     </div>
