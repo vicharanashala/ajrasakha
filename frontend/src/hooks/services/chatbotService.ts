@@ -500,6 +500,62 @@ export class ChatbotService {
     );
   }
 
+  async getActiveUserDetails ({
+    page,
+    limit,
+    source,
+    userType,
+    district,
+    state,
+    search,
+  }:{
+    page: number,
+    limit: number,
+    source:string,
+    userType: string,
+    district?: string,
+    state?: string,
+    search?: string,
+  }){
+    const params = new URLSearchParams();
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
+    params.append('source', source)
+    params.append('userType', userType)
+    if(district) params.append('district', district);
+    if(state) params.append('state', state);
+    if(search) params.append('search', search);
+    return apiFetch<any>(`${this._baseUrl}/active-users-details?${params.toString()}`)
+  }
+
+  async getCoordinatorsDetails ({
+    page,
+    limit,
+    source,
+    userType,
+    district,
+    state,
+    search,
+  }:{
+    page: number,
+    limit: number,
+    source:string,
+    userType: string,
+    district?: string,
+    state?: string,
+    search?: string,
+  }){
+    const params = new URLSearchParams();
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
+    params.append('source', source)
+    params.append('userType', userType)
+    if(district) params.append('district', district);
+    if(state) params.append('state', state);
+    if(search) params.append('search', search);
+    return apiFetch<any>(`${this._baseUrl}/get-coordinators-details?${params.toString()}`)
+
+  }
   async getLifeCycleSummary(
     startDate?: string,
     endDate?: string,

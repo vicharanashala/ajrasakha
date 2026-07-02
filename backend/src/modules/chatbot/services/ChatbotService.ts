@@ -3624,6 +3624,45 @@ export class ChatbotService extends BaseService implements IChatbotService {
     return this.chatbotRepository.getQuestionLifecycle(questionId);
   }
 
+  async getQuestionFromState(
+    state: string,
+    questionType: 'all' | 'unique' | 'duplicate' = 'all',
+    page = 1,
+    limit = 10,
+    source = 'annam',
+    userType = 'all',
+    search?: string,
+  ): Promise<any> {
+    try {
+      return this.chatbotRepository.getQuestionFromState(
+        state,
+        questionType,
+        page,
+        limit,
+        source,
+        undefined,
+        userType,
+        search,)
+    }catch(error){
+      throw new InternalServerError(`Something whet wrong ${error}`)
+    }
+  }
+
+  async getActiveUsersDetails(page: number, limit: number, source: string, userType: string, state?: string, district?: string, search?: string): Promise<any> {
+    try {
+      return this.chatbotRepository.getActiveUsersDetails(page, limit, source, userType, undefined, state, district, search)
+    } catch (error) {
+      throw new InternalServerError(`Something whet wrong ${error}`)
+    }
+  }
+
+  async getCoordinatorsDetails(page: number, limit: number, source: string, userType: string, state?: string, district?: string, search?: string): Promise<any> {
+    try {
+      return this.chatbotRepository.getCoordinatorsDetails(page, limit, source, userType, undefined, state, district, search)
+    } catch (error) {
+      throw new InternalServerError(`Something whet wrong ${error}`)
+    }
+  }
   async getLifeCycleSummary(
       status?: string,
       source?: string,

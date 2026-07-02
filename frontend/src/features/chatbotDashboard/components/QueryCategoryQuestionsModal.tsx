@@ -391,7 +391,7 @@ export function QueryCategoryQuestionsModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-999 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
       onPointerDown={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
@@ -427,15 +427,11 @@ export function QueryCategoryQuestionsModal({
                   ? `Question related to crop of type ${crop}`
                   : status
                     ? "Question related to Question Stats"
-                      : tag === "slabreached" 
-                        ? "Question that is passed/closed and sla breached"
-                          : isPassed 
-                           ? "Question that is passed with in 2 hours" 
-                              : closedWithInTwohours
-                                ? "Question that closed with in 2 hours" 
-                                  :notificationType
-                                    ? "Question related to Notification users"
-                                    : period? `Question related to the ${period}` : `Question releated to the ${district}`}
+                    : closedWithInTwohours
+                      ? "Question that closed with in 2 hours"
+                      : notificationType
+                        ? "Question related to Notification users"
+                        : period? `Question related to the ${period}` : state ?`Question releated to the ${state}`: `Question releated to the ${district}`}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-3">

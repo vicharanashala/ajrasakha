@@ -443,7 +443,18 @@ export class ChatbotController {
         query.userType,
         query.search,
       );
-    } else if (query.district) {
+    } else if (query.state && !query.district) {
+      return this.chatbotService.getQuestionFromState(
+        query.state,
+        query.questionType,
+        query.page,
+        query.limit,
+        query.source,
+        query.userType,
+        query.search,
+      );
+    }
+    else if (query.district) {
       return this.chatbotService.getQuestionFromDistrict(
         query.district,
         query.state,
@@ -1962,6 +1973,67 @@ export class ChatbotController {
     );
   }
 
+  @Get('/active-users-details')
+  @HttpCode(200)
+  @Authorized()
+  async getActiveUsers(
+  @QueryParams()
+    query: {
+
+      page?: number;
+      limit?: number;
+      source?: string;
+      userType?: string;
+      district?: string;
+      state?: string;
+      search?: string;
+
+    },
+) {
+  const pageInNumber = Number(query.page)
+  const limitInNumber = Number(query.limit)
+  return this.chatbotService.getActiveUsersDetails(
+    pageInNumber,
+    limitInNumber,
+    query.source,
+    query.userType,
+    query.state,
+    query.district,
+    query.search,
+  );
+}
+
+
+
+@Get('/get-coordinators-details')
+  @HttpCode(200)
+  @Authorized()
+  async getCoordinatorsDetails(
+  @QueryParams()
+    query: {
+
+      page?: number;
+      limit?: number;
+      source?: string;
+      userType?: string;
+      district?: string;
+      state?: string;
+      search?: string;
+
+    },
+) {
+  const pageInNumber = Number(query.page)
+  const limitInNumber = Number(query.limit)
+  return this.chatbotService.getCoordinatorsDetails(
+    pageInNumber,
+    limitInNumber,
+    query.source,
+    query.userType,
+    query.state,
+    query.district,
+    query.search,
+  );
+}
   @Get('/lifecycle-summary')
   @HttpCode(200)
   @Authorized()
