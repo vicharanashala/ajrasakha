@@ -17,7 +17,12 @@ from ajrasakha.agents.location_context import (
     merge_location_dict,
 )
 from ajrasakha.agents.language import text_matches_user_language
-from ajrasakha.agents.config import resolve_question_source, resolve_thread_id
+from ajrasakha.agents.config import (
+    resolve_message_id,
+    resolve_question_source,
+    resolve_thread_id,
+    resolve_user_id,
+)
 from ajrasakha.agents.resolution_trace import trace_resolution, trace_thread_location
 from ajrasakha.agents.thread_trace import trace_event
 from ajrasakha.agents.domains import reviewer_upload_domain
@@ -32,6 +37,130 @@ ENABLE_CHEMICAL_CHECKER = False
 
 _SIMILAR_PAIR_KEYS = tuple(f"similar_pair{i}" for i in range(1, 6))
 _GDB_EMPTY_SENTINELS = frozenset({"NO_RELEVANT_CONTENT", "[]", "{}"})
+_WEATHER_TOOL_NAMES = frozenset({"weather", "weather_server", "weather_weather_server"})
+
+
+def _compute_tools_used(plan: PlannerPlan) -> list[str]:
+    """Compute the list of tools used based on plan flags.
+    
+    Returns a list of tool names that were used to generate the answer.
+    For non-agriculture queries, returns an empty list.
+    """
+    # Non-agriculture queries have no tools used
+    if plan.get("is_agriculture_related") is False:
+        return []
+    
+    tools: list[str] = []
+    
+    # Always include knowledge_base if it's an agriculture query
+    if plan.get("knowledge_base"):
+        tools.append("knowledge_base")
+    
+    if plan.get("weather"):
+        tools.append("weather")
+    
+    if plan.get("mandi"):
+        tools.append("mandi")
+    
+    if plan.get("soil"):
+        tools.append("soil")
+    
+    if plan.get("schemes"):
+        tools.append("schemes")
+    
+    if plan.get("chemical_checker"):
+        tools.append("chemical_checker")
+    
+    return tools
+
+
+
+
+def _is_useful_tool_response(message: ToolMessage) -> bool:
+    """Check if a tool message contains useful/non-empty data."""
+    text = _message_to_text(message)
+    if not text:
+        return False
+    # Check for empty sentinels
+    if text.upper() in _GDB_EMPTY_SENTINELS:
+        return False
+    # Check for truly empty responses
+    if text in {"[]", "{}", ""}:
+        return False
+    return True
+
+
+def _gdb_has_usable_answer(message: ToolMessage) -> bool:
+    """Check if GDB response has is_exact or is_similar set to true."""
+    text = _message_to_text(message)
+    if not text or text.upper() in _GDB_EMPTY_SENTINELS:
+        return False
+    try:
+        data = json.loads(text)
+        if isinstance(data, dict):
+            # Check for is_exact or is_similar flags
+            is_exact = data.get("is_exact", False)
+            is_similar = data.get("is_similar", False)
+            return bool(is_exact or is_similar)
+    except (json.JSONDecodeError, TypeError):
+        pass
+    return False
+
+
+def compute_actual_tools_used(messages: list[BaseMessage]) -> list[str]:
+    """Compute actual tools_used based on which tools returned useful data.
+    
+    Only includes tools that actually returned non-empty, useful responses.
+    For GDB: only counts if is_exact or is_similar is true.
+    """
+    tools: list[str] = []
+    
+    # Find the last human message index to only check current turn
+    last_human_idx = -1
+    for i in range(len(messages) - 1, -1, -1):
+        if isinstance(messages[i], HumanMessage):
+            last_human_idx = i
+            break
+    
+    if last_human_idx < 0:
+        return []
+    
+    # Check each tool message after the last human message
+    for i in range(last_human_idx + 1, len(messages)):
+        msg = messages[i]
+        if not isinstance(msg, ToolMessage):
+            continue
+        
+        name = getattr(msg, "name", None) or ""
+        
+        # Map tool names to our tools_used values
+        if name in {"gdb", "golden_db", "gdb_golden_db"}:
+            # Only count knowledge_base if GDB has usable answer (is_exact or is_similar)
+            if _gdb_has_usable_answer(msg) and "knowledge_base" not in tools:
+                tools.append("knowledge_base")
+        elif name in _WEATHER_TOOL_NAMES:
+            if (
+                _is_useful_tool_response(msg)
+                and not _weather_tool_message_unavailable(msg)
+                and "weather" not in tools
+            ):
+                tools.append("weather")
+        elif name in {"market", "agmarknet", "enam", "market_agmarknet_server", "market_enam_server"}:
+            if _is_useful_tool_response(msg) and "mandi" not in tools:
+                tools.append("mandi")
+        elif name in {"soil", "soil_server", "soil_soil_server"}:
+            if _is_useful_tool_response(msg) and "soil" not in tools:
+                tools.append("soil")
+        elif name in {"schemes", "schemes_govt_schemes"}:
+            if _is_useful_tool_response(msg) and "schemes" not in tools:
+                tools.append("schemes")
+        elif name in {"chemical_checker", "chemical_checker_chemical_checker"}:
+            if _is_useful_tool_response(msg) and "chemical_checker" not in tools:
+                tools.append("chemical_checker")
+    
+    return tools
+
+
 
 _CHEMICAL_NAME_RE = re.compile(
     r"\b(monocrotophos|chlorpyrifos|endosulfan|carbofuran|paraquat|"
@@ -62,6 +191,50 @@ def _message_to_text(message: BaseMessage) -> str:
                     parts.append(text)
         return " ".join(parts).strip()
     return str(content).strip()
+
+
+def _weather_tool_message_unavailable(message: ToolMessage) -> bool:
+    """Return whether one weather tool result explicitly has no usable data.
+
+    The current weather tool returns an empty string for API/geocoding failures,
+    while deployed or older versions may preserve a JSON ``success=false``
+    envelope. Support both representations so routing is deterministic.
+    """
+    text = _message_to_text(message)
+    if not text:
+        return True
+
+    try:
+        payload = json.loads(text)
+    except (json.JSONDecodeError, TypeError):
+        return False
+
+    if not isinstance(payload, dict):
+        return False
+    if payload.get("success") is False:
+        return True
+
+    result = payload.get("result")
+    return isinstance(result, dict) and result.get("success") is False
+
+
+def turn_has_unavailable_weather(messages: list[BaseMessage]) -> bool:
+    """Check weather results from the current farmer turn only."""
+    last_human_idx = -1
+    for i in range(len(messages) - 1, -1, -1):
+        if isinstance(messages[i], HumanMessage):
+            last_human_idx = i
+            break
+    if last_human_idx < 0:
+        return False
+
+    for msg in messages[last_human_idx + 1:]:
+        if not isinstance(msg, ToolMessage):
+            continue
+        name = getattr(msg, "name", None) or ""
+        if name in _WEATHER_TOOL_NAMES and _weather_tool_message_unavailable(msg):
+            return True
+    return False
 
 
 def _last_human_text(messages: list[BaseMessage]) -> str:
@@ -196,7 +369,7 @@ class ResolvedToolEntities(NamedTuple):
     state: str
     district: str
     crop: str
-    domain: str
+    domains: list[str]
     state_source: str
     district_source: str
     crop_source: str
@@ -233,7 +406,7 @@ def _resolve_reviewer_location(
             state="Not specified",
             district="all",
             crop="all",
-            domain=reviewer_upload_domain("General"),
+            domains=[reviewer_upload_domain("General")],
             state_source="greeting (no location)",
             district_source="greeting (no location)",
             crop_source="greeting_short_circuit",
@@ -259,12 +432,17 @@ def _resolve_reviewer_location(
         district_source = "default_all_when_state_known"
 
     crop, crop_source = _entity_with_source(plan, "crop", loc, "General")
-    domain_raw = plan.get("domain") or "General"
-    domain = reviewer_upload_domain(domain_raw)
-    if domain != domain_raw:
-        domain_source = f"reviewer_upload_domain({domain_raw!r} -> {domain!r})"
-    else:
-        domain_source = "plan.domain"
+    # Get all domains from plan, not just the first one
+    domains_list = plan.get("domains") or [plan.get("domain") or "General"]
+    # Normalize each domain for reviewer upload and deduplicate while preserving order
+    seen = set()
+    domains = []
+    for d in domains_list:
+        normalized = reviewer_upload_domain(d)
+        if normalized not in seen:
+            seen.add(normalized)
+            domains.append(normalized)
+    domain_source = "plan.domains (all)"
 
     trace_resolution(
         stage,
@@ -274,7 +452,7 @@ def _resolve_reviewer_location(
         district_source=district_source,
         crop=crop,
         crop_source=crop_source,
-        domain=domain,
+        domain=domains,
         domain_source=domain_source,
         latitude=None,
         longitude=None,
@@ -284,12 +462,43 @@ def _resolve_reviewer_location(
         state=state_name,
         district=district,
         crop=crop,
-        domain=domain,
+        domains=domains,
         state_source=state_source,
         district_source=district_source,
         crop_source=crop_source,
         domain_source=domain_source,
     )
+
+
+def _apply_reviewer_identity_args(
+    reviewer_args: dict[str, Any],
+    *,
+    question_source: str | None,
+    thread_id: str | None = None,
+    user_id: str | None = None,
+    message_id: str | None = None,
+) -> None:
+    if thread_id and str(thread_id).strip():
+        reviewer_args["thread_id"] = str(thread_id).strip()
+
+    src = (question_source or "").strip().upper()
+    if src != "AJRASAKHA":
+        return
+
+    missing: list[str] = []
+    if user_id and str(user_id).strip():
+        reviewer_args["user_id"] = str(user_id).strip()
+    else:
+        missing.append("user_id")
+    if message_id and str(message_id).strip():
+        reviewer_args["message_id"] = str(message_id).strip()
+    else:
+        missing.append("message_id")
+    if missing:
+        logger.warning(
+            "AJRASAKHA reviewer upload missing identity fields: %s",
+            ", ".join(missing),
+        )
 
 
 def build_reviewer_upload_calls(
@@ -301,6 +510,8 @@ def build_reviewer_upload_calls(
     reviewer_tool_name: str,
     question_source: str | None = None,
     thread_id: str | None = None,
+    user_id: str | None = None,
+    message_id: str | None = None,
     resolved: ResolvedToolEntities | None = None,
 ) -> list[dict[str, Any]]:
     """Location resolve (if needed) + upload_question_to_reviewer_system only."""
@@ -314,7 +525,7 @@ def build_reviewer_upload_calls(
     state_name = resolved.state
     district = resolved.district
     crop = resolved.crop
-    domain = resolved.domain
+    domains = resolved.domains
     reviewer_question = (plan.get("rephrased_query") or "").strip() or user_query
 
     # Do not call location_information_tool with thread GPS coordinates.
@@ -326,6 +537,8 @@ def build_reviewer_upload_calls(
     #     })
 
     if question_source and str(question_source).strip():
+        # Compute tools_used based on plan flags
+        tools_used = _compute_tools_used(plan)
         reviewer_args: dict[str, Any] = {
             "question": reviewer_question,
             "state_name": state_name,
@@ -335,12 +548,18 @@ def build_reviewer_upload_calls(
                 "district": district,
                 "crop": crop,
                 "season": "General",
-                "domain": domain,
+                "domain": domains,
+                "tools_used": tools_used,
             },
             "source": str(question_source).strip(),
         }
-        if thread_id and str(thread_id).strip():
-            reviewer_args["thread_id"] = str(thread_id).strip()
+        _apply_reviewer_identity_args(
+            reviewer_args,
+            question_source=question_source,
+            thread_id=thread_id,
+            user_id=user_id,
+            message_id=message_id,
+        )
         trace_resolution(
             "reviewer_upload_args",
             state=state_name,
@@ -349,7 +568,7 @@ def build_reviewer_upload_calls(
             district_source=resolved.district_source,
             crop=crop,
             crop_source=resolved.crop_source,
-            domain=domain,
+            domain=domains,
             domain_source=resolved.domain_source,
             question=reviewer_question[:200],
             reviewer_args=reviewer_args,
@@ -368,48 +587,31 @@ def build_reviewer_upload_calls(
     return calls
 
 
-async def build_tool_calls_from_plan(
+async def build_specialist_tool_calls_from_plan(
     plan: PlannerPlan,
     user_query: str,
     location: Optional[Location],
     *,
-    location_tool_name: str,
-    reviewer_tool_name: str,
-    question_source: str | None = None,
-    thread_id: str | None = None,
     extra_chemicals: Optional[list[str]] = None,
     out_transient_location: Optional[dict[str, Any]] = None,
-) -> list[dict[str, Any]]:
-    """Build LangChain tool_call dicts for one parallel batch."""
-    if not (question_source and str(question_source).strip()):
-        question_source = resolve_question_source(None)
-
+) -> tuple[list[dict[str, Any]], ResolvedToolEntities]:
+    """Build LangChain tool_call dicts for specialist tools ONLY (no reviewer upload).
+    
+    Returns tuple of (tool_calls, resolved_entities) so caller can use resolved values.
+    """
     calls: list[dict[str, Any]] = []
     loc = location or {}
     entities = plan.get("entities") or {}
     trace_thread_location(
-        "build_tool_calls_input",
+        "build_specialist_tool_calls_input",
         loc,
         plan_entities=entities,
-        note="compare thread location vs plan.entities before resolving tool args",
+        note="building specialist tool calls only (no reviewer upload)",
     )
-    resolved = _resolve_reviewer_location(plan, loc, stage="tool_call_batch")
+    resolved = _resolve_reviewer_location(plan, loc, stage="specialist_tool_batch")
     state_name = resolved.state
     district = resolved.district
     crop = resolved.crop
-
-    calls.extend(
-        build_reviewer_upload_calls(
-            plan,
-            user_query,
-            loc,
-            location_tool_name=location_tool_name,
-            reviewer_tool_name=reviewer_tool_name,
-            question_source=question_source,
-            thread_id=thread_id,
-            resolved=resolved,
-        )
-    )
 
     # Lat/lon only from forward-geocoding plan.entities — never thread GPS.
     lat: Optional[float] = None
@@ -445,7 +647,7 @@ async def build_tool_calls_from_plan(
         state_to_geocode = curr_state_ent if curr_state_ent and curr_state_ent.strip().lower() not in {"all", "not specified", "unknown"} else None
         dist_to_geocode = district if district and district.strip().lower() not in {"all", "not specified", "unknown"} else None
 
-        logger.info("build_tool_calls_from_plan: Geocoding custom transient location state=%s district=%s", state_to_geocode, dist_to_geocode)
+        logger.info("build_specialist_tool_calls_from_plan: Geocoding custom transient location state=%s district=%s", state_to_geocode, dist_to_geocode)
         if out_transient_location is not None:
             out_transient_location["state"] = state_to_geocode
             out_transient_location["city"] = dist_to_geocode
@@ -591,26 +793,94 @@ async def build_tool_calls_from_plan(
             "type": "tool_call",
         })
 
-    specialist_calls = [
-        {"name": c.get("name"), "args": c.get("args")}
-        for c in calls
-        if c.get("name") not in {reviewer_tool_name, location_tool_name}
-        and "upload_question" not in str(c.get("name", ""))
-    ]
-    if specialist_calls:
-        trace_resolution(
-            "specialist_tool_args",
-            specialist_calls=specialist_calls,
-            state=state_name,
-            state_source=resolved.state_source,
-            district=district,
-            district_source=resolved.district_source,
-            latitude=lat,
-            longitude=lon,
-            lat_long_source="nominatim_forward_geocode" if lat is not None else "unset",
-        )
+    trace_resolution(
+        "specialist_tool_args",
+        specialist_calls=[{"name": c.get("name"), "args": c.get("args")} for c in calls],
+        state=state_name,
+        state_source=resolved.state_source,
+        district=district,
+        district_source=resolved.district_source,
+        latitude=lat,
+        longitude=lon,
+        lat_long_source="nominatim_forward_geocode" if lat is not None else "unset",
+    )
 
-    return calls
+    return calls, resolved
+
+
+async def build_reviewer_upload_with_tools_used(
+    plan: PlannerPlan,
+    user_query: str,
+    location: Optional[Location],
+    tools_used: list[str],
+    *,
+    question_source: str | None = None,
+    thread_id: str | None = None,
+    user_id: str | None = None,
+    message_id: str | None = None,
+    resolved: ResolvedToolEntities | None = None,
+) -> list[dict[str, Any]]:
+    """Build reviewer upload call with computed tools_used."""
+    location_tool = await get_location_tool()
+    reviewer_tool = await get_reviewer_tool()
+    if not question_source:
+        question_source = resolve_question_source(None)
+    
+    loc = location or {}
+    if resolved is None:
+        resolved = _resolve_reviewer_location(plan, loc, stage="reviewer_upload_with_tools_used")
+    
+    state_name = resolved.state
+    district = resolved.district
+    crop = resolved.crop
+    domains = resolved.domains
+    reviewer_question = (plan.get("rephrased_query") or "").strip() or user_query
+
+    if not (question_source and str(question_source).strip()):
+        return []
+
+    reviewer_args: dict[str, Any] = {
+        "question": reviewer_question,
+        "state_name": state_name,
+        "crop": crop,
+        "details": {
+            "state": state_name,
+            "district": district,
+            "crop": crop,
+            "season": "General",
+            "domain": domains,
+            "tools_used": tools_used,
+        },
+        "source": str(question_source).strip(),
+    }
+    _apply_reviewer_identity_args(
+        reviewer_args,
+        question_source=question_source,
+        thread_id=thread_id,
+        user_id=user_id,
+        message_id=message_id,
+    )
+
+    trace_resolution(
+        "reviewer_upload_with_tools_used",
+        state=state_name,
+        state_source=resolved.state_source,
+        district=district,
+        district_source=resolved.district_source,
+        crop=crop,
+        crop_source=resolved.crop_source,
+        domain=domains,
+        domain_source=resolved.domain_source,
+        tools_used=tools_used,
+        question=reviewer_question[:200],
+    )
+    
+    return [{
+        "name": reviewer_tool.name,
+        "args": reviewer_args,
+        "id": _new_tool_call_id(),
+        "type": "tool_call",
+    }]
 
 
 def extract_chemicals_from_text(text: str) -> list[str]:
@@ -747,6 +1017,8 @@ async def upload_reviewer_only_node(
     reviewer_tool = await get_reviewer_tool()
     question_source = resolve_question_source(config)
     thread_id = resolve_thread_id(config)
+    user_id = resolve_user_id(config)
+    message_id = resolve_message_id(config)
     tool_calls = build_reviewer_upload_calls(
         plan,
         user_query,
@@ -755,6 +1027,8 @@ async def upload_reviewer_only_node(
         reviewer_tool_name=reviewer_tool.name,
         question_source=question_source,
         thread_id=thread_id,
+        user_id=user_id,
+        message_id=message_id,
     )
     if not tool_calls:
         return {}
@@ -800,27 +1074,50 @@ async def execute_plan_node(
     reviewer_tool = await get_reviewer_tool()
     question_source = resolve_question_source(config)
     thread_id = resolve_thread_id(config)
+    user_id = resolve_user_id(config)
+    message_id = resolve_message_id(config)
+    
+    # Step 1: Build and execute SPECIALIST tools ONLY (no reviewer upload)
+    # This allows us to compute actual tools_used after seeing responses
     transient_loc: dict[str, Any] = {}
-    tool_calls = await build_tool_calls_from_plan(
+    specialist_calls, resolved = await build_specialist_tool_calls_from_plan(
         plan,
         user_query,
         loc,
-        location_tool_name=location_tool.name,
-        reviewer_tool_name=reviewer_tool.name,
-        question_source=question_source,
-        thread_id=thread_id,
         out_transient_location=transient_loc,
     )
-    if not tool_calls:
+    
+    if not specialist_calls:
+        # No specialist tools needed, but still upload to reviewer with empty tools_used
+        reviewer_calls = await build_reviewer_upload_with_tools_used(
+            plan,
+            user_query,
+            loc,
+            tools_used=[],
+            question_source=question_source,
+            thread_id=thread_id,
+            user_id=user_id,
+            message_id=message_id,
+            resolved=resolved,
+        )
+        if reviewer_calls:
+            tool_node = await get_main_tool_node()
+            ai_msg = AIMessage(content="", tool_calls=reviewer_calls)
+            exec_state = {**state, "messages": list(messages) + [ai_msg]}
+            merged_configurable = dict((config.get("configurable") or {}))
+            merged_configurable["location"] = _plan_only_location(plan)
+            enriched = patch_config(config, configurable=merged_configurable)
+            result = await tool_node.ainvoke(exec_state, config=enriched)
+            return {"messages": [ai_msg] + (result.get("messages") or []), "location": result.get("location") or loc}
         return {}
 
     trace_event(
-        "execute_plan_tool_calls",
-        tools=[{"name": tc.get("name"), "args": tc.get("args")} for tc in tool_calls],
+        "execute_plan_specialist_calls",
+        tools=[{"name": tc.get("name"), "args": tc.get("args")} for tc in specialist_calls],
     )
 
     tool_node = await get_main_tool_node()
-    ai_msg = AIMessage(content="", tool_calls=tool_calls)
+    ai_msg = AIMessage(content="", tool_calls=specialist_calls)
     exec_state = {**state, "messages": list(messages) + [ai_msg]}
 
     merged_configurable = dict((config.get("configurable") or {}))
@@ -830,23 +1127,55 @@ async def execute_plan_node(
     enriched = patch_config(config, configurable=merged_configurable)
 
     result = await tool_node.ainvoke(exec_state, config=enriched)
-    new_msgs = result.get("messages") or []
+    specialist_results = result.get("messages") or []
     merged_loc = result.get("location") or loc
 
-    direct = reviewer_direct_answer(new_msgs)
-    if direct and text_matches_user_language(direct, user_query):
-        logger.info("Reviewer returned direct answer_text — reviewer direct → translate")
-        return {
-            "messages": [AIMessage(content=direct)],
-            "location": merged_loc,
-            "plan": {**plan, "skip_synthesize": True},
-        }
-    if direct:
-        logger.info(
-            "Reviewer answer language does not match farmer message — assemble/translate path"
-        )
+    # Step 2: Compute ACTUAL tools_used based on which tools returned useful data
+    all_messages = list(messages) + [ai_msg] + specialist_results
+    actual_tools_used = compute_actual_tools_used(all_messages)
+    
+    logger.info("execute_plan_node: computed actual tools_used=%s", actual_tools_used)
 
-    extra_chems = extract_chemicals_from_tool_messages(new_msgs)
+    # Step 3: Upload to reviewer with actual tools_used
+    reviewer_calls = await build_reviewer_upload_with_tools_used(
+        plan,
+        user_query,
+        merged_loc,
+        tools_used=actual_tools_used,
+        question_source=question_source,
+        thread_id=thread_id,
+        user_id=user_id,
+        message_id=message_id,
+        resolved=resolved,
+    )
+    
+    if reviewer_calls:
+        ai_reviewer = AIMessage(content="", tool_calls=reviewer_calls)
+        exec_state2 = {**state, "messages": list(all_messages) + [ai_reviewer]}
+        enriched2 = patch_config(config, configurable=merged_configurable)
+        result2 = await tool_node.ainvoke(exec_state2, config=enriched2)
+        reviewer_results = result2.get("messages") or []
+        merged_loc = result2.get("location") or merged_loc
+        
+        # Check for direct answer from reviewer
+        direct = reviewer_direct_answer(reviewer_results)
+        if direct and text_matches_user_language(direct, user_query):
+            logger.info("Reviewer returned direct answer_text — reviewer direct → translate")
+            return {
+                "messages": [AIMessage(content=direct)],
+                "location": merged_loc,
+                "plan": {**plan, "skip_synthesize": True},
+            }
+        if direct:
+            logger.info("Reviewer answer language does not match farmer message — assemble/translate path")
+        
+        # Combine all messages
+        new_msgs = specialist_results + [ai_reviewer] + reviewer_results
+    else:
+        new_msgs = specialist_results
+
+    # Check for chemical checker follow-up
+    extra_chems = extract_chemicals_from_tool_messages(specialist_results)
     if (
         ENABLE_CHEMICAL_CHECKER
         and extra_chems
@@ -854,21 +1183,18 @@ async def execute_plan_node(
         and not plan.get("chemical_checker")
     ):
         transient_loc2: dict[str, Any] = {}
-        second_calls = await build_tool_calls_from_plan(
+        second_calls, _ = await build_specialist_tool_calls_from_plan(
             {**plan, "chemical_checker": True},
             user_query,
             merged_loc,
-            location_tool_name=location_tool.name,
-            reviewer_tool_name=reviewer_tool.name,
-            question_source=question_source,
-            thread_id=thread_id,
             extra_chemicals=extra_chems,
             out_transient_location=transient_loc2,
         )
         chem_only = [c for c in second_calls if c.get("name") == "chemical_checker"]
         if chem_only:
             ai2 = AIMessage(content="", tool_calls=chem_only)
-            exec2 = {**state, "messages": list(messages) + [ai_msg] + new_msgs + [ai2]}
+            exec2 = {**state, "messages": list(messages) + [ai_msg] + specialist_results + [ai_reviewer if reviewer_calls else None] + [ai2]}
+            exec2["messages"] = [m for m in exec2["messages"] if m is not None]
             loc_for_enriched2 = (
                 transient_loc2 if transient_loc2 else _plan_only_location(plan)
             )
@@ -877,9 +1203,10 @@ async def execute_plan_node(
             new_msgs = (result2.get("messages") or [])[-len(chem_only):]
             merged_loc = result2.get("location") or merged_loc
             out = {
-                "messages": [ai_msg] + (result.get("messages") or []) + [ai2] + new_msgs,
+                "messages": [ai_msg] + specialist_results + [ai_reviewer if reviewer_calls else None] + [ai2] + new_msgs,
                 "location": merged_loc,
             }
+            out["messages"] = [m for m in out["messages"] if m is not None]
             audit = _golden_audit_from_messages(out["messages"])
             if audit:
                 out["golden_retrieval_audit"] = audit
@@ -950,6 +1277,8 @@ def _turn_has_specialist_tool_message(messages: list[BaseMessage]) -> bool:
         msg = messages[i]
         if isinstance(msg, ToolMessage):
             name = getattr(msg, "name", None) or ""
+            if name in _WEATHER_TOOL_NAMES and _weather_tool_message_unavailable(msg):
+                continue
             if name in _SPECIALIST_TOOL_NAMES and _message_to_text(msg):
                 return True
     return False
@@ -968,11 +1297,13 @@ def should_expert_queue_reply(state: AjraSakhaState) -> bool:
 
 def route_after_execute(state: AjraSakhaState) -> str:
     plan = state.get("plan") or {}
+    messages = state.get("messages") or []
+    if plan.get("weather") and turn_has_unavailable_weather(messages):
+        return "weather_unavailable_reply"
     if plan.get("skip_synthesize"):
         return "translate_answer"
     if plan.get("is_greeting") or plan.get("reasoning") == "greeting":
         return "assemble_answer_body"
-    messages = state.get("messages") or []
     if _gdb_has_usable_data(messages) and _turn_has_specialist_tool_message(messages):
         return "empty_gdb_reply"
     if should_expert_queue_reply(state):

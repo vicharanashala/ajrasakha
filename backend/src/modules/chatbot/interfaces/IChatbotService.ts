@@ -22,6 +22,7 @@ import type {
   UnverifiedUserEntry,
   FarmerHeatMapFilters,
   FarmerHeatMapResponse,
+  CoordinatorDuplicateQuestionHeatMapResponse,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {GrowthResponse} from '../types/chatbot.type.js';
 
@@ -169,6 +170,7 @@ export interface IChatbotService {
   ): Promise<Array<{question: string; count: number}>>;
   getDistrictAnalyticsByState(
     state: string,
+    selectedStateCode?: string,
     source?: string,
     userType?: string,
   ): Promise<DistrictAnalyticsEntry[]>;
@@ -177,9 +179,22 @@ export interface IChatbotService {
     source?: string,
     userType?: string,
   ): Promise<WeatherConcernAnalyticsResponse>;
+  getWeatherConcernQueries(
+    filters: WeatherConcernAnalyticsFilters,
+    concern: string,
+    page: number,
+    limit: number,
+    source?: string,
+    userType?: string,
+    search?: string,
+  ): Promise<PaginatedQueryCategoryQuestions>;
   getFarmerHeatMapAnalytics(
     filters?: FarmerHeatMapFilters,
   ): Promise<FarmerHeatMapResponse>;
+
+  getCoordinatorDuplicateQuestionHeatMap(
+    coordinatorId: string,
+  ): Promise<CoordinatorDuplicateQuestionHeatMapResponse>;
   getUserById(userId: string, source: string): Promise<any>;
   deleteUser(userId: string, source: string): Promise<boolean>;
   updateUser(
@@ -317,7 +332,9 @@ export interface IChatbotService {
     userType?: string,
     search?: string,
     startDate?: Date,
-    endDate?: Date 
+    endDate?: Date,
+    isPassed?: string,
+    tag?: string,
   ) : Promise<any>
 
   getQuestionsByNotificationStatus(
@@ -338,5 +355,71 @@ export interface IChatbotService {
       source: string,
       userType?: string,
       search?: string,
+    ): Promise<any>
+
+    // getStateQuestionsAndUsersData(  
+    //   state: string,
+    //   source: string,
+    //   userType: string
+    // ): Promise<any>
+
+    getAllStatesQuestionsAndUsersData(
+      source: string,
+      userType: string,
+    ): Promise<any>
+  getUserProfile(userId: string): Promise<any>
+  assignUsers(userId: string, targetIds: string[]): Promise<any>
+  unAssignUsers(userId: string, targetIds: string[]): Promise<any>
+
+    getVillageUserCounts(
+    state: string,
+    district: string,
+    source: string,
+    userType: string
+  ): Promise<any>
+  
+  getQuestionLifecycle(questionId: string): Promise<any>
+
+
+
+      getQuestionFromState(
+      state?: string,
+      questionType?: QueryCategoryQuestionType,
+      page?: number,
+      limit?: number,
+      source?: string,
+      userType?: string,
+      search?: string,
+    ): Promise<any>;
+
+    getActiveUsersDetails(
+      page:number,
+      limit:number,
+      source: string,
+      userType: string,
+      state?: string,
+      district?: string,
+      search?: string,
+    ): Promise<any>
+
+      getCoordinatorsDetails(
+      page:number,
+      limit:number,
+      source: string,
+      userType: string,
+      state?: string,
+      district?: string,
+      search?: string,
+): Promise<any>
+
+  getLifeCycleSummary(
+      status?: string,
+      source?: string,
+      userType?: string,
+      startDate?: Date,
+      endDate?: Date,
+      isPassed?: string,
+      tag?: string,
+      notificationType?: string,
     ): Promise<any>
 }

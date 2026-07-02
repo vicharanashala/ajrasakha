@@ -57,6 +57,7 @@ import {
   CircleSlash,
   Copy,
   AlertCircle,
+  Zap,
 } from "lucide-react";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import {
@@ -67,6 +68,7 @@ import {
 import type { IMyPreference } from "@/types";
 import { CROPS, STATES, DOMAINS, Review_Level } from "@/components/MetaData";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
+import { useGetStates } from "@/hooks/api/location/useLocations";
 export { STATES, CROPS, DOMAINS };
 import { DateRangeFilter } from "./DateRangeFilter";
 import { TopRightBadge } from "./NewBadge";
@@ -120,6 +122,7 @@ export type AdvanceFilterValues = {
   closedAtStart?: Date | undefined | null;
   consecutiveApprovals?: string;
   autoAllocateFilter?: string;
+  autoAllocateModeratorFilter?: string;
   closedInTwoHrs?: boolean;
   hiddenQuestions?: boolean;
   duplicateQuestions?: boolean;
@@ -127,6 +130,8 @@ export type AdvanceFilterValues = {
   unallocatedQuestions?: boolean;
   pae_review?: boolean;
   is_non_agri?: boolean;
+  /** When set, filters to questions whose moderatorId matches this ID (dedicated tab). */
+  moderatorId?: string;
 };
 
 
@@ -137,7 +142,6 @@ interface AdvanceFilterDialogProps {
   setAdvanceFilterValues: (values: any) => void;
   handleDialogChange: (key: string, value: any) => void;
   handleApplyFilters: (myPreference?: IMyPreference) => void;
-  normalizedStates: string[];
   crops: string[];
   activeFiltersCount: number;
   onReset: () => void;
@@ -150,7 +154,6 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
   setAdvanceFilterValues,
   handleDialogChange,
   handleApplyFilters,
-  normalizedStates,
   crops,
   activeFiltersCount,
   onReset,
@@ -161,6 +164,8 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
   const { data: userNameReponse, isLoading } = useGetAllUsers();
   const { data: cropsData } = useGetAllCrops({ type: "crop", limit: 500 });
   const dbCrops = cropsData?.crops || [];
+  const { data: statesResponse = [] } = useGetStates();
+  const stateOptions = statesResponse.map((s) => s.stateNameEnglish);
 
   const users = (userNameReponse?.users || []).sort((a, b) =>
     a.userName.localeCompare(b.userName),
@@ -235,18 +240,12 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     <FileText className="h-4 w-4 text-primary" />
                     Question Status
                   </Label>
-                  <Select
-                    value={advanceFilter.isOnHold ? "hold" : advanceFilter.status}
-                    onValueChange={(v) => {
-                      if (v === "hold") {
-                        handleDialogChange("status", "all");
-                        handleDialogChange("isOnHold", true);
-                      } else {
+                    <Select
+                      value={advanceFilter.status}
+                      onValueChange={(v) => {
                         handleDialogChange("status", v);
-                        handleDialogChange("isOnHold", false);
-                      }
-                    }}
-                  >
+                      }}
+                    >
                     <SelectTrigger className="bg-background w-full relative">
                       <SelectValue />
                     </SelectTrigger>
@@ -325,6 +324,20 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                           <span>Hold</span>
                         </div>
                       </SelectItem>
+
+                      <SelectItem value="non_agri">
+                        <div className="flex items-center gap-2">
+                          <CircleSlash className="w-4 h-4 text-slate-500" />
+                          <span>Non Agri</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="dynamic">
+                        <div className="flex items-center gap-2">
+                          <Zap className="w-4 h-4 text-yellow-500" />
+                          <span>Dynamic</span>
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -398,7 +411,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   )}
                 </Label>
                 <StateMultiSelect
-                  states={normalizedStates}
+                  states={stateOptions}
                   selected={advanceFilter.states || []}
                   onChange={(next) => handleDialogChange("states", next)}
                 />
@@ -578,25 +591,6 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
               </div>
             </div>
 
-            <Separator />
-            <div className="space-y-2 mb-4">
-              <Label className="flex items-center gap-2 text-sm font-semibold">
-                <Clock className="h-4 w-4 text-primary" />
-                Closed within 2 Hours
-              </Label>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  className="w-3.5 h-3.5 border-primary"
-                  checked={advanceFilter.closedInTwoHrs ?? false}
-                  onCheckedChange={(checked) =>
-                    handleDialogChange("closedInTwoHrs", checked === true)
-                  }
-                />
-                <span className="text-sm text-muted-foreground">
-                  Show questions closed within 2 hours
-                </span>
-              </div>
-            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
               <div className="space-y-2 min-w-0">
                 <DateRangeFilter
@@ -719,6 +713,48 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
             </div>
 
             <Separator />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2 min-w-0 ">
+                <Label className="relative flex items-center gap-2 text-sm font-semibold">
+                  <UserRound className="h-4 w-4 text-primary" />
+                  Auto Allocate Moderator
+                </Label>
+                <Select
+                  value={advanceFilter.autoAllocateModeratorFilter}
+                  onValueChange={(v) =>
+                    handleDialogChange("autoAllocateModeratorFilter", v)
+                  }
+                >
+                  <SelectTrigger className="bg-background w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      <div className="flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-green-500 fill-green-500/20" />
+                        <span>All</span>
+                      </div>
+                    </SelectItem>
+
+                    <SelectItem value="on">
+                      <div className="flex items-center gap-2">
+                        <Bot className="w-4 h-4 text-green-500 fill-green-500/20" />
+                        <span>ON</span>
+                      </div>
+                    </SelectItem>
+
+                    <SelectItem value="off">
+                      <div className="flex items-center gap-2">
+                        <Hand className="w-4 h-4 text-red-500 fill-green-500/20" />
+                        <span>OFF</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <Separator />
 
             {/* Number of Answers Slider */}
             <div className="space-y-4">
@@ -751,6 +787,25 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
               <p className="text-xs text-muted-foreground">
                 Filter questions based on the number of answers received
               </p>
+            </div>
+            <Separator />
+            <div className="space-y-2 mb-4">
+              <Label className="flex items-center gap-2 text-sm font-semibold">
+                <Clock className="h-4 w-4 text-primary" />
+                Closed within 2 Hours
+              </Label>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  className="w-3.5 h-3.5 border-primary"
+                  checked={advanceFilter.closedInTwoHrs ?? false}
+                  onCheckedChange={(checked) =>
+                    handleDialogChange("closedInTwoHrs", checked === true)
+                  }
+                />
+                <span className="text-sm text-muted-foreground">
+                  Show questions closed within 2 hours
+                </span>
+              </div>
             </div>
             {/* Hidden and Duplicate Questions */}
             <div className="space-y-4">
@@ -915,6 +970,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   closedAtEnd: undefined,
                   consecutiveApprovals: "all",
                   autoAllocateFilter: "all",
+                  autoAllocateModeratorFilter: "all",
                   unallocatedQuestions: false,
                 });
                 onReset();

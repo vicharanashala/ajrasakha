@@ -55,6 +55,13 @@ import { WhatsAppUniqueUsersCard } from "./WhatsAppUniqueUsersCard";
 import { ClosedInLastTwoHoursCard } from "./ClosedInLastTwoHoursCard";
 import { ClosedQuestionsCard } from "./ClosedQuestionsCard";
 import { CustomerNotificationsCard } from "./CustomerNotificationsCard";
+import { Skeleton } from "@/components/atoms/skeleton";
+import { ChurnRateChart } from "./ChurnRateChart";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/atoms/tabs";
+import AnalyticsMap from "./components/map/AnalyticsMap";
+import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
+// import { useQueryClient } from "@tanstack/react-query";
+import { Button } from "@/components/atoms/button";
 import { SourceTabsHeader } from "./components/SourceTabs";
 import { QueryInsightsSection } from "./components/QueryInsightsSection";
 import { useDashboardHandlers } from "./hooks/useDashboardHandlers";
@@ -118,6 +125,8 @@ export function AnnamDashboard_dev({
   // Hover states for Knowledge Awareness Donuts
   const [hovered, setHovered] = useState<string | null>(null);
   const [agriHovered, setAgriHovered] = useState<string | null>(null);
+
+  const [mapView, setMapView] = useState<boolean>(false)
   
   // User details initial filters
   const [userDetailsInitialFilters, setUserDetailsInitialFilters] = useState<Partial<UserDetailsFilters> | undefined>(undefined);
@@ -134,12 +143,20 @@ export function AnnamDashboard_dev({
   const closed2hRange = useMemo(() => getISOStringsForDateRange(closed2hDateRange), [closed2hDateRange]);
   const questionStatusRange = useMemo(() => getISOStringsForDateRange(questionStatusDateRange), [questionStatusDateRange]);
   const customerNotificationsRange = useMemo(() => getISOStringsForDateRange(customerNotificationsDateRange), [customerNotificationsDateRange]);
-  
+  const [closed2hSource, setClosed2hSource] = useState<
+    "both" | "annam" | "whatsapp"
+  >("both");
+  const [questionStatusSource, setQuestionStatusSource] = useState<
+    "both" | "annam" | "whatsapp"
+  >("both");
+  const [notificationsSource, setNotificationsSource] = useState<
+    "both" | "annam" | "whatsapp"
+  >("both");
   // Data queries with date ranges
-  const { data: closed2hData, isFetching: isClosed2hFetching } = useClosedAndNotifedData(source, filters.userType, closed2hRange.startTime, closed2hRange.endTime);
-  const { data: questionStatusData } = useClosedAndNotifedData(source, filters.userType, questionStatusRange.startTime, questionStatusRange.endTime);
-  const { data: customerNotificationsData } = useClosedAndNotifedData(source, filters.userType, customerNotificationsRange.startTime, customerNotificationsRange.endTime);
-  
+  const { data: closed2hData, isFetching: isClosed2hFetching } = useClosedAndNotifedData(closed2hSource, filters.userType, closed2hRange.startTime, closed2hRange.endTime);
+  const { data: questionStatusData } = useClosedAndNotifedData(questionStatusSource, filters.userType, questionStatusRange.startTime, questionStatusRange.endTime);
+  const { data: customerNotificationsData } = useClosedAndNotifedData(notificationsSource, filters.userType, customerNotificationsRange.startTime, customerNotificationsRange.endTime);
+
   // Filter date range data
   const trendsFilters = useMemo(() => ({ ...filters, startTime: trendsDateRange?.from, endTime: trendsDateRange?.to }), [filters, trendsDateRange]);
   const faqsFilters = useMemo(() => ({ ...filters, startTime: faqsDateRange?.from, endTime: faqsDateRange?.to }), [filters, faqsDateRange]);
@@ -248,6 +265,14 @@ export function AnnamDashboard_dev({
     setQuestionStatusDateRange(undefined);
     setCustomerNotificationsDateRange(undefined);
   }, []);
+
+  const handleCardClick = useCallback((id: string) => {
+    if (id === "totalInstalls") {
+      setUserDetailsInitialFilters({ profileCompleted: "yes" });
+      setActiveView("user-details");
+      scrollTo("user-details");
+    }
+  }, [setUserDetailsInitialFilters, setActiveView, scrollTo]);
   
   // ─── Computed KPI Data ─────────────────────────────────────────────────────
   const patchedKpiRow1 = useMemo(() => {
@@ -277,6 +302,7 @@ export function AnnamDashboard_dev({
   }, [source]);
   
   // ─── Render ────────────────────────────────────────────────────────────────
+  // return <AnalyticsMap source={source} userType={filters.userType} questionStatusData={questionStatusData} todayActiveFarmersData= {todayActiveFarmersData}/>
   return (
     <div className={cn("flex flex-col min-h-screen bg-background", className)}>
       <style>{CSS_KEYFRAMES}</style>
@@ -290,15 +316,67 @@ export function AnnamDashboard_dev({
       {!error && data && (
         <>
           <div className="flex flex-1 overflow-hidden">
-            <DashboardSidebar
+            {mapView === false && <DashboardSidebar
               activeView={activeView}
               onViewChange={handleViewChange}
               healthScore={70}
               healthLabel="Moderate · needs improvement"
               source={source}
-            />
+            />}
             
             <div className="flex-1 overflow-y-auto px-5 pb-5">
+              {!mapView && 
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 items-stretch">
+ <ClosedQuestionsCard
+                  closedQuestions={questionStatusData?.closedVsTotalQuestions?.closed?.count}
+                  totalQuestions={questionStatusData?.closedVsTotalQuestions?.totalQuestions}
+                  dateRange={questionStatusDateRange}
+                  onDateRangeChange={setQuestionStatusDateRange}
+                  isLoading={false}
+                  isFetching={false}
+                  carryForward={questionStatusData?.carryForward}
+                  avgCloseTimeMinutes={questionStatusData?.closedVsTotalQuestions?.closed?.avgTimeMinutes}
+                  previousMonthAvgCloseTimeMinutes={questionStatusData?.closedVsTotalQuestions?.previousMonthAvgCloseTimeMinutes}
+                  statusBreakup={questionStatusData?.closedVsTotalQuestions}
+                  source={questionStatusSource}
+                  userType={filters.userType}
+                  onRefresh={handleRefreshStatsCards}
+                  passedQuestions={questionStatusData?.closedVsTotalQuestions?.statuses?.pass}
+                  avgPassTimeMinutes={questionStatusData?.closedVsTotalQuestions?.pass?.avgTimeMinutes}
+                  combinedCount={questionStatusData?.closedVsTotalQuestions?.combined?.count}
+                  combinedAvgTime={questionStatusData?.closedVsTotalQuestions?.combined?.avgTimeMinutes}
+                  onSourceChange={setQuestionStatusSource}
+                />
+                
+                <ClosedInLastTwoHoursCard
+                  source={closed2hSource}
+                  onSourceChange={setClosed2hSource}
+                  userType={filters.userType}
+                  closedInLastTwoHours={closed2hData?.closedInLastTwoHours?.closedInTwoHoursCount}
+                  totalClosed={closed2hData?.closedInLastTwoHours?.totalClosedCount}
+                  dateRange={closed2hDateRange}
+                  onDateRangeChange={setClosed2hDateRange}
+                  isLoading={false}
+                  isFetching={isClosed2hFetching}
+                  onRefresh={handleRefreshStatsCards}
+                  passedInLastTwoHours={closed2hData?.closedInLastTwoHours?.passInTwoHoursCount}
+                  totalPassed={closed2hData?.closedInLastTwoHours?.totalPassCount}
+                />
+                
+                <CustomerNotificationsCard
+                  notified={customerNotificationsData?.notifiedVsClosed?.notified}
+                  notNotified={customerNotificationsData?.notifiedVsClosed?.notNotified}
+                  untrackedClosedQuestions={customerNotificationsData?.notifiedVsClosed?.untrackedClosedQuestions}
+                  dateRange={customerNotificationsDateRange}
+                  onDateRangeChange={setCustomerNotificationsDateRange}
+                  isLoading={false}
+                  isFetching={false}
+                  source={notificationsSource}
+                  userType={filters.userType}
+                  onRefresh={handleRefreshStatsCards}
+                  onSourceChange={setNotificationsSource}
+                />
+              </div>}
               {/* Source Selection Tabs & Refresh */}
               <SourceTabsHeader
                 source={source}
@@ -307,10 +385,18 @@ export function AnnamDashboard_dev({
                 onFilterChange={setFilters}
                 invalidating={invalidating}
                 onRefresh={handleRefreshAll}
+                mapView= {mapView}
+                setMapView= {setMapView}
               />
               
-              <DashboardFilters filters={filters} onFilterChange={setFilters} />
-              
+              {/* <DashboardFilters filters={filters} onFilterChange={setFilters} /> */}
+              {mapView ? (
+                <AnalyticsMap
+                  source={source}
+                  userType={filters.userType}
+                  todayActiveFarmersData={todayActiveFarmersData}
+                />
+              ) :(<>
               {(source === "annam" || source === "whatsapp") && (
                 <div ref={(el) => { sectionRefs.current["overview"] = el; }} className="relative">
                   {activeSegment && <SegmentDetailBanner seg={activeSegment} onClose={() => setActiveSegment(null)} />}
@@ -323,6 +409,7 @@ export function AnnamDashboard_dev({
                       source={source}
                       userType={filters.userType}
                       isLoading={isFetching}
+                      onCardClick={handleCardClick}
                     />
                   )}
                   
@@ -356,45 +443,7 @@ export function AnnamDashboard_dev({
                       />
                     )}
 
-                    <ClosedInLastTwoHoursCard
-                      source={source}
-                      userType={filters.userType}
-                      count={closed2hData?.closedInLastTwoHours}
-                      totalClosed={closed2hData?.closedVsTotalQuestions?.closedQuestions}
-                      dateRange={closed2hDateRange}
-                      onDateRangeChange={setClosed2hDateRange}
-                      isLoading={false}
-                      isFetching={isClosed2hFetching}
-                      onRefresh={handleRefreshStatsCards}
-                    />
-                    <ClosedQuestionsCard
-                      closedQuestions={questionStatusData?.closedVsTotalQuestions?.closedQuestions}
-                      totalQuestions={questionStatusData?.closedVsTotalQuestions?.totalQuestions}
-                      inReview={questionStatusData?.closedVsTotalQuestions?.inReviewQuestions}
-                      dateRange={questionStatusDateRange}
-                      onDateRangeChange={setQuestionStatusDateRange}
-                      isLoading={false}
-                      isFetching={false}
-                      carryForward={questionStatusData?.carryForward}
-                      avgCloseTimeMinutes={questionStatusData?.closedVsTotalQuestions?.avgCloseTimeMinutes}
-                      previousMonthAvgCloseTimeMinutes={questionStatusData?.closedVsTotalQuestions?.previousMonthAvgCloseTimeMinutes}
-                      statusBreakup={questionStatusData?.closedVsTotalQuestions}
-                      source={source}
-                      userType={filters.userType}
-                      onRefresh={handleRefreshStatsCards}
-                    />
-                    <CustomerNotificationsCard
-                      notified={customerNotificationsData?.notifiedVsClosed?.notified}
-                      notNotified={customerNotificationsData?.notifiedVsClosed?.notNotified}
-                      untrackedClosedQuestions={customerNotificationsData?.notifiedVsClosed?.untrackedClosedQuestions}
-                      dateRange={customerNotificationsDateRange}
-                      onDateRangeChange={setCustomerNotificationsDateRange}
-                      isLoading={false}
-                      isFetching={false}
-                      source={source}
-                      userType={filters.userType}
-                      onRefresh={handleRefreshStatsCards}
-                    />
+
                   </div>
                   
                   {/* Response Adherence Table */}
@@ -586,6 +635,7 @@ export function AnnamDashboard_dev({
                   <WhatsAppUsersView />
                 </div>
               )}
+              </>)}
             </div>
           </div>
         </>

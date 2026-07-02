@@ -36,6 +36,9 @@ interface AnswerItemProps {
   rerouteQuestion?: IRerouteHistoryResponse[];
   lastAnswerApprovalCount?: number;
   paeReview?: boolean;
+  isDedicatedView?: boolean;
+  assignedModerator?: { name: string; email: string } | null;
+  isAssignedModerator?: boolean;
 }
 
 export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
@@ -392,6 +395,9 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         firstFalseOrMissingIndex={firstFalseOrMissingIndex}
         lastAnswerApprovalCount={props.lastAnswerApprovalCount}
         paeReview={props.paeReview}
+        isDedicatedView={props.isDedicatedView}
+        assignedModerator={props.assignedModerator}
+        isAssignedModerator={props.isAssignedModerator}
       />
 
       <AnswerContent answer={props.answer} />

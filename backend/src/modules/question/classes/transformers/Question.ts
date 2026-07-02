@@ -55,11 +55,20 @@ class Question implements IQuestion {
     district: string;
     crop: string;
     season: string;
-    domain: string;
+    domain: string[];
   };
 
   @Expose()
   source: QuestionSource;
+
+  @Expose()
+  closedAt?: Date;
+
+  @Expose()
+  passedAt?: Date | null;
+
+  @Expose()
+  isClosed?: boolean;
 
   @Expose()
   isAutoAllocate: boolean;

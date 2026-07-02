@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import logging
 
-from llm_client import filter_relevant_contexts, generate_answer, strip_expert_disclaimer
+from llm_client import (
+    filter_relevant_contexts,
+    generate_answer,
+    rephrase_query_for_retrieval,
+    strip_expert_disclaimer,
+)
 from models import (
     AnsGenPopResponse,
     ContextPOP,
@@ -84,7 +89,15 @@ def _build_response(answer: str, contexts: list[ContextPOP]) -> AnsGenPopRespons
 
 
 async def generate_pop_answer(query: str, state: str, crop: str) -> AnsGenPopResponse:
-    pop_response: POPContextResponse = await fetch_pop_contexts(query, state, crop)
+    retrieval_query = await rephrase_query_for_retrieval(query, state, crop)
+    if retrieval_query != query:
+        log.info("Retrieval query rephrased: %r -> %r", query, retrieval_query)
+    else:
+        log.info("Retrieval query unchanged: %r", query)
+
+    pop_response: POPContextResponse = await fetch_pop_contexts(
+        retrieval_query, state, crop
+    )
 
     if not pop_response.contexts:
         log.info("pop_v2 returned no contexts")

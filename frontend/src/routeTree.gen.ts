@@ -20,6 +20,8 @@ import { Route as FlagsReportedIndexRouteImport } from './routes/flags-reported/
 import { Route as CoordinatorIndexRouteImport } from './routes/coordinator/index'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as AuditIndexRouteImport } from './routes/audit/index'
+import { Route as UserUserIdRouteImport } from './routes/user/$userId'
+import { Route as CoordinatorProfileRouteImport } from './routes/coordinator/profile'
 
 const WhatsappHistoryRoute = WhatsappHistoryRouteImport.update({
   id: '/whatsapp-history',
@@ -76,10 +78,22 @@ const AuditIndexRoute = AuditIndexRouteImport.update({
   path: '/audit/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const UserUserIdRoute = UserUserIdRouteImport.update({
+  id: '/user/$userId',
+  path: '/user/$userId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CoordinatorProfileRoute = CoordinatorProfileRouteImport.update({
+  id: '/coordinator/profile',
+  path: '/coordinator/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/whatsapp-history': typeof WhatsappHistoryRoute
+  '/coordinator/profile': typeof CoordinatorProfileRoute
+  '/user/$userId': typeof UserUserIdRoute
   '/audit': typeof AuditIndexRoute
   '/auth': typeof AuthIndexRoute
   '/coordinator': typeof CoordinatorIndexRoute
@@ -93,6 +107,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/whatsapp-history': typeof WhatsappHistoryRoute
+  '/coordinator/profile': typeof CoordinatorProfileRoute
+  '/user/$userId': typeof UserUserIdRoute
   '/audit': typeof AuditIndexRoute
   '/auth': typeof AuthIndexRoute
   '/coordinator': typeof CoordinatorIndexRoute
@@ -107,6 +123,8 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/whatsapp-history': typeof WhatsappHistoryRoute
+  '/coordinator/profile': typeof CoordinatorProfileRoute
+  '/user/$userId': typeof UserUserIdRoute
   '/audit/': typeof AuditIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/coordinator/': typeof CoordinatorIndexRoute
@@ -122,6 +140,8 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/whatsapp-history'
+    | '/coordinator/profile'
+    | '/user/$userId'
     | '/audit'
     | '/auth'
     | '/coordinator'
@@ -135,6 +155,8 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/whatsapp-history'
+    | '/coordinator/profile'
+    | '/user/$userId'
     | '/audit'
     | '/auth'
     | '/coordinator'
@@ -148,6 +170,8 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/whatsapp-history'
+    | '/coordinator/profile'
+    | '/user/$userId'
     | '/audit/'
     | '/auth/'
     | '/coordinator/'
@@ -162,6 +186,8 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   WhatsappHistoryRoute: typeof WhatsappHistoryRoute
+  CoordinatorProfileRoute: typeof CoordinatorProfileRoute
+  UserUserIdRoute: typeof UserUserIdRoute
   AuditIndexRoute: typeof AuditIndexRoute
   AuthIndexRoute: typeof AuthIndexRoute
   CoordinatorIndexRoute: typeof CoordinatorIndexRoute
@@ -252,12 +278,28 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuditIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/user/$userId': {
+      id: '/user/$userId'
+      path: '/user/$userId'
+      fullPath: '/user/$userId'
+      preLoaderRoute: typeof UserUserIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/coordinator/profile': {
+      id: '/coordinator/profile'
+      path: '/coordinator/profile'
+      fullPath: '/coordinator/profile'
+      preLoaderRoute: typeof CoordinatorProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   WhatsappHistoryRoute: WhatsappHistoryRoute,
+  CoordinatorProfileRoute: CoordinatorProfileRoute,
+  UserUserIdRoute: UserUserIdRoute,
   AuditIndexRoute: AuditIndexRoute,
   AuthIndexRoute: AuthIndexRoute,
   CoordinatorIndexRoute: CoordinatorIndexRoute,

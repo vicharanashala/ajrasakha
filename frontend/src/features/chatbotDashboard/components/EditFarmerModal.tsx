@@ -14,15 +14,23 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
-import {
-  STATES,
-  BLOCKS,
-  CROPS,
-  DISTRICTS,
+import{  CROPS,
   INDIAN_LANGUAGES,
-  KVKS,
-  VILLAGES,
 } from "../utils/metaData";
+import { KVK } from "../utils/KVKS";
+import { 
+  useGetStates, 
+  useGetDistricts, 
+  useGetBlocks, 
+  useGetVillages 
+} from "@/hooks/api/location/useLocations";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/atoms/select";
 
 type EditableUser = {
   userId: string;
@@ -329,12 +337,12 @@ export function EditFarmerModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!max-w-3xl w-[95vw] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[96vw] !max-w-[1120px] max-h-[90vh] overflow-y-auto overflow-x-hidden [&_[data-slot=select-trigger]]:min-w-0 [&_[data-slot=select-trigger]]:max-w-full [&_[data-slot=select-trigger]]:overflow-hidden [&_[data-slot=select-value]]:min-w-0 [&_[data-slot=select-value]]:max-w-full [&_[data-slot=select-value]]:truncate">
         <DialogHeader>
           <DialogTitle>Edit Farmer</DialogTitle>
         </DialogHeader>
 
-        <div>
+        <div className="min-w-0 max-w-full">
           <UserInformationSection
             form={form}
             setForm={setForm}
@@ -441,21 +449,21 @@ const UserInformationSection = ({
         <div>
           <label className="text-sm font-medium">User Role</label>
 
-          <select
-            value={form.userRole}
-            onChange={(e) => handleChange("userRole", e.target.value)}
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          <Select
+            value={form.userRole || undefined}
+            onValueChange={(val) => handleChange("userRole", val)}
           >
-
-
-            <option value="FARMER">FARMER</option>
-
-            <option value="INTERNAL">INTERNAL</option>
-
-            <option value="district_coordinator">district_coordinator</option>
-            <option value="block_coordinator">block_coordinator</option>
-            <option value="village_volunteer">village_volunteer</option>
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select User Role" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="FARMER">FARMER</SelectItem>
+              <SelectItem value="INTERNAL">INTERNAL</SelectItem>
+              <SelectItem value="district_coordinator">district_coordinator</SelectItem>
+              <SelectItem value="block_coordinator">block_coordinator</SelectItem>
+              <SelectItem value="village_volunteer">village_volunteer</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
     </div>
@@ -469,32 +477,16 @@ const DemographicDetails = ({
   setErrors,
   validateFields,
 }: DemographicDetailsProps) => {
-  // const handleChange = (
-  //   key: keyof FormState,
-  //   value: string,
-  // ) => {
-  //   setForm((prev) => ({
-  //     ...prev,
-  //     [key]: value,
-  //   }));
+  const { data: states = [] } = useGetStates();
+  const selectedStateCode = states.find((s) => s.stateNameEnglish === form.state)?.stateCode;
 
-  //   setErrors((prev) => {
-  //     const updated = { ...prev };
+  const { data: districts = [] } = useGetDistricts(selectedStateCode);
+  const selectedDistrictCode = districts.find((d) => d.districtNameEnglish === form.district)?.districtCode;
 
-  //     if (key === "phoneNo") {
-  //       if (!value.trim()) {
-  //         updated.phoneNo = "Phone Number is required";
-  //       } else if (!/^\d{10}$/.test(value)) {
-  //         updated.phoneNo =
-  //           "Phone Number must be exactly 10 digits";
-  //       } else {
-  //         delete updated.phoneNo;
-  //       }
-  //     }
+  const { data: blocks = [] } = useGetBlocks(selectedDistrictCode);
+  const selectedBlockCode = blocks.find((b) => b.blockNameEnglish === form.blockName)?.blockCode;
 
-  //     return updated;
-  //   });
-  // };
+  const { data: villages = [] } = useGetVillages(selectedBlockCode);
 
   const handleChange = (key: keyof FormState, value: string) => {
     setForm((prev) => ({
@@ -567,19 +559,19 @@ const DemographicDetails = ({
         <div>
           <label className="text-sm font-medium">Gender</label>
 
-          <select
-            value={form.gender}
-            onChange={(e) => handleChange("gender", e.target.value)}
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          <Select
+            value={form.gender || undefined}
+            onValueChange={(val) => handleChange("gender", val)}
           >
-            <option value="">Select option</option>
-
-            <option value="Male">Male</option>
-
-            <option value="Female">Female</option>
-
-            <option value="Other">Other</option>
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select option" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Male">Male</SelectItem>
+              <SelectItem value="Female">Female</SelectItem>
+              <SelectItem value="Other">Other</SelectItem>
+            </SelectContent>
+          </Select>
           {errors.gender && (
             <p className="mt-1 text-sm text-red-600">{errors.gender}</p>
           )}
@@ -602,11 +594,9 @@ const DemographicDetails = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="text-sm font-medium">State</label>
-          <select
-            value={form.state}
-            onChange={(e) => {
-              const state = e.target.value;
-
+          <Select
+            value={form.state || undefined}
+            onValueChange={(state) => {
               setForm((prev) => ({
                 ...prev,
                 state,
@@ -616,29 +606,28 @@ const DemographicDetails = ({
                 nearestKVK: "",
               }));
             }}
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
           >
-            <option value="">Select State</option>
-            {STATES.map((state, index) => {
-              return (
-                <option key={index} value={state}>
-                  {state}
-                </option>
-              );
-            })}
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select State" />
+            </SelectTrigger>
+            <SelectContent>
+              {states.map((state) => (
+                <SelectItem key={state.stateCode} value={state.stateNameEnglish}>
+                  {state.stateNameEnglish}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {/* {errors.state && (
             <p className="mt-1 text-sm text-red-600">{errors.state}</p>
           )} */}
         </div>
         <div>
           <label className="text-sm font-medium">District</label>
-          <select
-            value={form.district}
+          <Select
+            value={form.district || undefined}
             disabled={!form.state}
-            onChange={(e) => {
-              const district = e.target.value;
-
+            onValueChange={(district) => {
               setForm((prev) => ({
                 ...prev,
                 district,
@@ -647,13 +636,18 @@ const DemographicDetails = ({
                 nearestKVK: "",
               }));
             }}
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
           >
-            <option value="">Select District</option>
-            {(DISTRICTS[form.state] || []).map((district) => {
-              return <option value={district}>{district}</option>;
-            })}
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select District" />
+            </SelectTrigger>
+            <SelectContent>
+              {districts.map((district) => (
+                <SelectItem key={district.districtCode} value={district.districtNameEnglish}>
+                  {district.districtNameEnglish}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {/* {errors.district && (
             <p className="mt-1 text-sm text-red-600">{errors.district}</p>
           )} */}
@@ -661,64 +655,68 @@ const DemographicDetails = ({
       </div>
       <div>
         <label className="text-sm font-medium">Block</label>
-        <select
-          value={form.blockName}
+        <Select
+          value={form.blockName || undefined}
           disabled={!form.district}
-          onChange={(e) => {
-            const block = e.target.value;
-
+          onValueChange={(block) => {
             setForm((prev) => ({
               ...prev,
               blockName: block,
               villageName: "",
             }));
           }}
-          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
         >
-          <option value="">Select Block</option>
-
-          {(BLOCKS[form.district] || []).map((block) => (
-            <option key={block} value={block}>
-              {block}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select Block" />
+          </SelectTrigger>
+          <SelectContent>
+            {blocks.map((block) => (
+              <SelectItem key={block.blockCode} value={block.blockNameEnglish}>
+                {block.blockNameEnglish}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div>
         <label className="text-sm font-medium">Village</label>
-        <select
-          value={form.villageName}
+        <Select
+          value={form.villageName || undefined}
           disabled={!form.blockName}
-          onChange={(e) => handleChange("villageName", e.target.value)}
-          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          onValueChange={(val) => handleChange("villageName", val)}
         >
-          <option value="">Select Village</option>
-
-          {(VILLAGES[form.blockName] || []).map((village) => (
-            <option key={village} value={village}>
-              {village}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select Village" />
+          </SelectTrigger>
+          <SelectContent>
+            {villages.map((village) => (
+              <SelectItem key={village.villageCode} value={village.villageNameEnglish}>
+                {village.villageNameEnglish}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div>
         <label className="text-sm font-medium">Nearest KVK</label>
-        <select
-          value={form.nearestKVK}
+        <Select
+          value={form.nearestKVK || undefined}
           disabled={!form.district}
-          onChange={(e) => handleChange("nearestKVK", e.target.value)}
-          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          onValueChange={(val) => handleChange("nearestKVK", val)}
         >
-          <option value="">Select KVK</option>
-
-          {(KVKS[form.district] || []).map((kvk) => (
-            <option key={kvk} value={kvk}>
-              {kvk}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select KVK" />
+          </SelectTrigger>
+          <SelectContent>
+            {(KVK[form.district] || []).map((kvk) => (
+              <SelectItem key={kvk} value={kvk}>
+                {kvk}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {errors.nearestKVK && (
           <p className="mt-1 text-sm text-red-600">{errors.nearestKVK}</p>
         )}
@@ -805,19 +803,21 @@ const AgriculturalBackgroundSection = ({
         <div>
           <label className="text-sm font-medium">Primary Crop</label>
 
-          <select
-            value={form.primaryCrop}
-            onChange={(e) => handleChange("primaryCrop", e.target.value)}
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          <Select
+            value={form.primaryCrop || undefined}
+            onValueChange={(val) => handleChange("primaryCrop", val)}
           >
-            <option value="">Select Primary Crop</option>
-
-            {CROPS.map((crop) => (
-              <option key={crop} value={crop}>
-                {crop}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select Primary Crop" />
+            </SelectTrigger>
+            <SelectContent>
+              {CROPS.map((crop) => (
+                <SelectItem key={crop} value={crop}>
+                  {crop}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {/* {errors.primaryCrop && (
             <p className="mt-1 text-sm text-red-600">{errors.primaryCrop}</p>
           )} */}
@@ -826,19 +826,21 @@ const AgriculturalBackgroundSection = ({
         <div>
           <label className="text-sm font-medium">Secondary Crop</label>
 
-          <select
-            value={form.secondaryCrop}
-            onChange={(e) => handleChange("secondaryCrop", e.target.value)}
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          <Select
+            value={form.secondaryCrop || undefined}
+            onValueChange={(val) => handleChange("secondaryCrop", val)}
           >
-            <option value="">Select Secondary Crop</option>
-
-            {CROPS.map((crop) => (
-              <option key={crop} value={crop}>
-                {crop}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select Secondary Crop" />
+            </SelectTrigger>
+            <SelectContent>
+              {CROPS.map((crop) => (
+                <SelectItem key={crop} value={crop}>
+                  {crop}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {errors.secondaryCrop && (
             <p className="mt-1 text-sm text-red-600">{errors.secondaryCrop}</p>
           )}
@@ -895,17 +897,18 @@ const DigitalAwarenessSection = ({
             Awareness Of KCC
           </label>
 
-          <select
-            value={form.awarenessOfKCC}
-            onChange={(e) => handleChange("awarenessOfKCC", e.target.value)}
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          <Select
+            value={form.awarenessOfKCC || undefined}
+            onValueChange={(val) => handleChange("awarenessOfKCC", val)}
           >
-            <option value="">Select Option</option>
-
-            <option value="true">Yes</option>
-
-            <option value="false">No</option>
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select Option" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="true">Yes</SelectItem>
+              <SelectItem value="false">No</SelectItem>
+            </SelectContent>
+          </Select>
           {errors.awarenessOfKCC && (
             <p className="mt-1 text-sm text-red-600">{errors.awarenessOfKCC}</p>
           )}
@@ -917,17 +920,18 @@ const DigitalAwarenessSection = ({
             Uses Agricultural Apps
           </label>
 
-          <select
-            value={form.usesAgriApps}
-            onChange={(e) => handleChange("usesAgriApps", e.target.value)}
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          <Select
+            value={form.usesAgriApps || undefined}
+            onValueChange={(val) => handleChange("usesAgriApps", val)}
           >
-            <option value="">Select Option</option>
-
-            <option value="true">Yes</option>
-
-            <option value="false">No</option>
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select Option" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="true">Yes</SelectItem>
+              <SelectItem value="false">No</SelectItem>
+            </SelectContent>
+          </Select>
           {errors.usesAgriApps && (
             <p className="mt-1 text-sm text-red-600">{errors.usesAgriApps}</p>
           )}
@@ -982,21 +986,21 @@ const SocioEconomicIndicatorsSection = ({
         <div>
           <label className="text-sm font-medium">Highest Educated Person</label>
 
-          <select
-            value={form.highestEducatedPerson}
-            onChange={(e) =>
-              handleChange("highestEducatedPerson", e.target.value)
+          <Select
+            value={form.highestEducatedPerson || undefined}
+            onValueChange={(val) =>
+              handleChange("highestEducatedPerson", val)
             }
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
           >
-            <option value="">Select Education Level</option>
-
-            <option value="Under Graduate">Under Graduate</option>
-
-            <option value="Graduate">Graduate</option>
-
-            <option value="Post Graduate">Post Graduate</option>
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select Education Level" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Under Graduate">Under Graduate</SelectItem>
+              <SelectItem value="Graduate">Graduate</SelectItem>
+              <SelectItem value="Post Graduate">Post Graduate</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Smartphones */}

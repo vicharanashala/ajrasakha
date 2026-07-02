@@ -4,6 +4,7 @@ import { Input } from "@/components/atoms/input";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { Pagination } from "@/components/pagination";
 import { cn } from "@/lib/utils";
+import { QuestionLifecycleSummary } from "../QuestionLifecycleSummary";
 
 export type QuestionListSortDirection = "asc" | "desc";
 
@@ -55,6 +56,17 @@ type QuestionListTableProps<T> = {
   showPageSizeSelector?: boolean;
   className?: string;
   tableClassName?: string;
+  onRowClick?: (row: T) => void;
+  summary?: any;
+  viewMode?: string;
+  startDate?: string,
+  endDate?: string,
+  source?: string,
+  status?: string,
+  userType?: string,
+  isPassed?: boolean,
+  tag?: string,
+  notificationType?: string,
 };
 
 const alignClasses = {
@@ -110,7 +122,18 @@ export function QuestionListTable<T>({
   showPageSizeSelector = false,
   className,
   tableClassName,
+  onRowClick,
+  viewMode,
+  startDate,
+  endDate,
+  source,
+  status,
+  userType,
+  isPassed,
+  tag,
+  notificationType
 }: QuestionListTableProps<T>) {
+  // console.log("QuestionListTable----", isPassed);
   const [sortKey, setSortKey] = useState(initialSortKey);
   const [sortDirection, setSortDirection] =
     useState<QuestionListSortDirection>(initialSortDirection);
@@ -236,6 +259,7 @@ export function QuestionListTable<T>({
           onResetPage={() => setInternalPage(1)}
         />
       )}
+      {viewMode !== "lifecycle" ?(
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
         <table className={cn("w-full table-fixed text-sm border-collapse", tableClassName)}>
           <thead className="sticky top-0 z-10 bg-gray-50 dark:bg-[#1f1f1f] border-b border-gray-200 dark:border-[#2a2a2a]">
@@ -289,7 +313,11 @@ export function QuestionListTable<T>({
               return (
                 <tr
                   key={getRowKey?.(row, absoluteIndex) ?? absoluteIndex}
-                  className="hover:bg-gray-50 dark:hover:bg-[#1f1f1f] transition-colors"
+                    onClick={() => onRowClick?.(row)}
+                    className={cn(
+                      "hover:bg-gray-50 dark:hover:bg-[#1f1f1f] transition-colors",
+                      onRowClick && "cursor-pointer"
+                    )}
                 >
                   {visibleColumns.map((column) => {
                     const value = column.render
@@ -317,9 +345,18 @@ export function QuestionListTable<T>({
             })}
           </tbody>
         </table>
-      </div>
-
-      {shouldPaginate && totalPages > 1 && (
+      </div>): (
+      <QuestionLifecycleSummary
+        startDate={startDate}
+        endDate={endDate}
+        source={source}
+        status={status}
+        userType={userType}
+        isPassed={isPassed}
+        tag={tag}
+        notificationType={notificationType}
+      />)}
+      {(viewMode === "table") && (shouldPaginate && totalPages > 1) && (
         <div className="shrink-0 border-t border-gray-100 px-4 py-3 dark:border-[#2a2a2a]">
           <Pagination
             currentPage={displayPage}

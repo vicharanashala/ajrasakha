@@ -16,7 +16,8 @@ import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from 
 import { Badge } from "../../components/atoms/badge";
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import { Separator } from "@/components/atoms/separator";
-import { STATES, CROPS } from "@/components/MetaData";
+import { CROPS } from "@/components/MetaData";
+import { useGetStates } from "@/hooks/api/location/useLocations";
 import { StateMultiSelect } from "@/components/atoms/StateMultiSelect";
 import { CropMultiSelect } from "@/components/atoms/CropMultiSelect";
 import { Label } from "../../components/atoms/label";
@@ -70,6 +71,7 @@ type QaHeaderProps = {
   onToggleCollapse: () => void;
   onAiAnswerFetched?: (questionId: string, answer: string, sources: SourceItem[]) => void;
   hideControls?: boolean;
+  hasTimeboundQuestions?: boolean;
 }
 
 const normalizeAiAnswerSources = (result: AiAnswerResponse | null | undefined): SourceItem[] => {
@@ -103,6 +105,8 @@ const QaPreferencesDialog = ({
   const [open, setOpen] = useState(false);
   const { data: cropsData } = useGetAllCrops({ type: "crop", limit: 500 });
   const dbCrops = cropsData?.crops || [];
+  const { data: statesResponse = [] } = useGetStates();
+  const stateOptions = statesResponse.map((s) => s.stateNameEnglish);
   const [localReviewLevel, setLocalReviewLevel] = useState(reviewLevel);
   const [localSource, setLocalSource] = useState(source);
   const [localStates, setLocalStates] = useState<string[]>(states);
@@ -234,7 +238,7 @@ const QaPreferencesDialog = ({
                   State/Region
                 </Label>
                 <StateMultiSelect
-                  states={STATES}
+                  states={stateOptions}
                   selected={localStates}
                   onChange={setLocalStates}
                 />
@@ -278,6 +282,7 @@ const QaQuestionItem = ({
   selectedState,
   onStateChange,
   onAiAnswerFetched,
+  hasTimeboundQuestions = false,
 }: {
   question: any;
   selectedQuestion: string | null;
@@ -287,9 +292,11 @@ const QaQuestionItem = ({
   selectedState: string;
   onStateChange: (state: string) => void;
   onAiAnswerFetched?: (questionId: string, answer: string, sources: SourceItem[]) => void;
+  hasTimeboundQuestions?: boolean;
 }) => {
   const { mutate: fetchAnswer, isPending } = useFetchAnswer();
-  const states = STATES;
+  const { data: statesResponse = [] } = useGetStates();
+  const states = statesResponse.map((s) => s.stateNameEnglish);
   const fetchAiInitialAnswer = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     onQuestionSelect(question.id);
@@ -351,6 +358,10 @@ const QaQuestionItem = ({
     sourceStyles[question.source as keyof typeof sourceStyles] ||
     sourceStyles.DEFAULT;
 
+  // Check if this is a non-timebound question that should be disabled
+  const isTimeboundQuestion = question.source === "AJRASAKHA" || question.source === "WHATSAPP";
+  const shouldDisable = hasTimeboundQuestions && !isTimeboundQuestion;
+
   // Get correct timer start time based on user role (Author vs Level Expert)
   const timerStartTime = getTimerStartTime(question);
   const { timer } = useQuestionTimer(
@@ -374,6 +385,7 @@ const QaQuestionItem = ({
           ? `${currentStyle.selected} shadow-md ring-2`
           : `bg-card ${currentStyle.hover} hover:bg-accent/20 hover:shadow-sm`
         }
+        ${shouldDisable ? "opacity-50 cursor-not-allowed select-none" : ""}
   `}
     >
       {selectedQuestion === question?.id && (
@@ -396,7 +408,8 @@ const QaQuestionItem = ({
           <RadioGroupItem
             value={question?.id || ""}
             id={question?.id}
-            className="mt-1  w-5 h-5 rounded-full border-2 border-gray-400 dark:border-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 checked:bg-green-600 dark:checked:bg-green-400"
+             disabled={shouldDisable}
+            className={`mt-1 w-5 h-5 rounded-full border-2 border-gray-400 dark:border-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 checked:bg-green-600 dark:checked:bg-green-400 ${shouldDisable ? "cursor-not-allowed opacity-50" : ""}`}
           />
 
           <div className="flex-1 min-w-0">
@@ -407,7 +420,8 @@ const QaQuestionItem = ({
             )}
             <Label
               htmlFor={question?.id}
-              className="text-sm md:text-base font-medium leading-relaxed cursor-pointer text-foreground group-hover:text-foreground/90 transition-colors block"
+              // className="text-sm md:text-base font-medium leading-relaxed cursor-pointer text-foreground group-hover:text-foreground/90 transition-colors block"
+               className={`text-sm md:text-base font-medium leading-relaxed text-foreground group-hover:text-foreground/90 transition-colors block ${shouldDisable ? "cursor-not-allowed" : "cursor-pointer"}`}
             >
               {question?.text}
             </Label>
@@ -491,6 +505,26 @@ const QaQuestionItem = ({
             </span>
           </div>
 
+          {question?.assignedAt && (
+            <div className="hidden md:flex items-center gap-1.5">
+              <svg
+                className="w-3 h-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 00-2 2z"
+                />
+              </svg>
+              <span className="font-medium">Assigned:</span>
+              <span>{formatDate(new Date(question.assignedAt))}</span>
+            </div>
+          )}
+
           <div className="hidden md:flex items-center gap-1.5">
             <svg
               className="w-3 h-3"
@@ -557,6 +591,7 @@ export const QaHeader = ({ questions,
   onToggleCollapse,
   onAiAnswerFetched,
   hideControls = false,
+  hasTimeboundQuestions = false,
 }: QaHeaderProps) => {
   const [questionStates, setQuestionStates] = useState<
     Record<string, string>
@@ -725,6 +760,7 @@ export const QaHeader = ({ questions,
                     }))
                   }
                   onAiAnswerFetched={onAiAnswerFetched}
+                  hasTimeboundQuestions={hasTimeboundQuestions}
                 />
               ))}
             </RadioGroup>

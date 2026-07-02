@@ -8,13 +8,15 @@ import {
   X,
   Check,
   AlertCircle,
-  Clock,
   FileText,
   Pencil,
   User,
   Send,
   Loader2,
   ArrowLeft,
+  CalendarClock,
+  CheckCheck,
+  Layers,
 } from "lucide-react";
 import { useGetSubmissions } from "@/hooks/api/answer/useGetSubmissions";
 import { DateRangeFilter } from "./DateRangeFilter";
@@ -302,8 +304,10 @@ const ViewContextModal = ({
 
 export default function UserActivityHistory({
   selectedHistoryId,
+  expertId,
 }: {
   selectedHistoryId?: string | null;
+  expertId?: string | null;
 }) {
   const [dateRange, setDateRange] = useState({
     // start: new Date(),
@@ -313,10 +317,10 @@ export default function UserActivityHistory({
   });
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [limit, setLimit] = useState(12);
+  const [limit, setLimit] = useState(15);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [selectedQuestionId, setSelectedQuestionId] = useState("");
-  const { data, isLoading } = useGetSubmissions(currentPage, limit, dateRange,selectedHistoryId?.toString());
+  const { data, isLoading } = useGetSubmissions(currentPage, limit, dateRange,selectedHistoryId?.toString(),expertId?.toString());
   const {
     data: questionDetails,
     refetch: refechSelectedQuestion,
@@ -399,11 +403,30 @@ export default function UserActivityHistory({
                   <CardContent className="p-0">
                     <div className="px-4 sm:px-6  bg-card border-b border-gray-100 dark:border-gray-800 backdrop-blur-sm">
                       <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2 sm:gap-4 text-sm">
-                        <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300 font-medium bg-card px-3 py-1.5 rounded-lg shadow-xs w-full sm:w-auto">
-                          <Clock className="w-4 h-4 text-primary flex-shrink-0" />
-                          <span className="text-xs sm:text-sm truncate">
-                            {formatTimestamp(item.createdAt)}
-                          </span>
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                          {/* Assigned At */}
+                          {item.assignedAt && (
+                            <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300 font-medium bg-card px-3 py-1.5 rounded-lg shadow-xs">
+                              <CalendarClock className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                              <span className="flex items-center gap-1.5 text-xs sm:text-sm truncate">
+                                <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+                                  Assigned
+                                </span>
+                                {formatTimestamp(item.assignedAt)}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Completed / Submitted At */}
+                          <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300 font-medium bg-card px-3 py-1.5 rounded-lg shadow-xs">
+                            <CheckCheck className="w-4 h-4 text-green-500 flex-shrink-0" />
+                            <span className="flex items-center gap-1.5 text-xs sm:text-sm truncate">
+                              <span className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+                                Completed
+                              </span>
+                              {formatTimestamp(item.completedAt ?? item.createdAt)}
+                            </span>
+                          </div>
                         </div>
 
                         <Badge
@@ -483,12 +506,25 @@ export default function UserActivityHistory({
                             )}
                           </span>
                         </Badge>
+
+                        {/* Review level (queue position). Author (0) is already
+                            conveyed by the action badge, so only show Level N. */}
+                        {typeof item.level === "number" && item.level >= 1 && (
+                          <Badge
+                            variant="outline"
+                            className="w-full sm:w-auto justify-center rounded-full bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-900/30 dark:text-violet-300 dark:border-violet-800 font-semibold"
+                          >
+                            <span className="flex items-center gap-1">
+                              <Layers className="w-3 h-3" />
+                              {`Level ${item.level}`}
+                            </span>
+                          </Badge>
+                        )}
+
                         {item.activityType === "reroute" && (
-                          <div className="sm:ml-auto ml-0">
-                            <Badge variant="outline" className="rounded-full bg-indigo-100 text-indigo-700 border-indigo-200 text-xs px-2 py-1">
-                              <span className="uppercase font-semibold">ReRoute</span>
-                            </Badge>
-                          </div>
+                          <Badge variant="outline" className="w-full sm:w-auto justify-center rounded-full bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800 text-xs px-2 py-1">
+                            <span className="uppercase font-semibold">ReRoute</span>
+                          </Badge>
                         )}
                       </div>
                     </div>

@@ -44,6 +44,7 @@ import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
 import { DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT } from '#root/shared/constants/general.js';
 import { th } from '@faker-js/faker';
 import { triggerWebhook } from '../utils/triggerWebhook.js';
+import { threadId } from 'worker_threads';
 
 @injectable()
 export class AnswerService extends BaseService implements IAnswerService {
@@ -487,6 +488,7 @@ export class AnswerService extends BaseService implements IAnswerService {
             );
             // Decrement workload: PAE expert was incremented on allocation and is now done
             await this.userRepo.updateReputationScore(userId, false, session);
+            await this.questionSubmissionRepo.clearCurrentExpertTracking(questionId, session);
             return;
           }
         }
@@ -540,7 +542,7 @@ export class AnswerService extends BaseService implements IAnswerService {
               session,
             );
 
-            const wasOpenOrDelayed = question.status === 'open' || question.status === 'delayed';
+            const wasOpenOrDelayed = question.status === 'open' || question.status === 'delayed' || question.status === 'duplicate';
             await this.questionRepo.updateQuestion(
               questionId,
               { status: 'in-review' },
@@ -558,6 +560,7 @@ export class AnswerService extends BaseService implements IAnswerService {
               session,
             );
 
+            await this.questionSubmissionRepo.clearCurrentExpertTracking(questionId, session);
             return { message: 'Your response recorded successfully, thank you!' };
           }
         }
@@ -804,7 +807,7 @@ export class AnswerService extends BaseService implements IAnswerService {
 
         // Check the history limit reaced, if reached then question status will be in-review
         if (currentSubmissionHistory.length == 10) {
-          const wasOpenOrDelayed = question.status === 'open' || question.status === 'delayed';
+          const wasOpenOrDelayed = question.status === 'open' || question.status === 'delayed' || question.status === 'duplicate';
           await this.questionRepo.updateQuestion(
             questionId,
             { status: 'in-review' },
@@ -815,8 +818,9 @@ export class AnswerService extends BaseService implements IAnswerService {
           }
         }
 
-        // Clear opened-at timestamp now that expert has submitted their response
-        await this.questionSubmissionRepo.clearCurrentExpertOpenedAt(questionId, session);
+        // Reset current-expert tracking now that the expert has submitted their
+        // response — both allocated-at and opened-at are cleared.
+        await this.questionSubmissionRepo.clearCurrentExpertTracking(questionId, session);
 
         // Decrement the reputation score of user since the user reviewed
         const IS_INCREMENT = false;
@@ -965,7 +969,7 @@ export class AnswerService extends BaseService implements IAnswerService {
               'Failed to create review entry. Please try again.',
             );
           }
-          const wasOpenOrDelayed = question.status === 'open' || question.status === 'delayed';
+          const wasOpenOrDelayed = question.status === 'open' || question.status === 'delayed' || question.status === 'duplicate';
           await this.questionRepo.updateQuestion(
             questionId,
             { status: 'in-review' },
@@ -1579,9 +1583,37 @@ export class AnswerService extends BaseService implements IAnswerService {
     limit: number,
     dateRange?: { from: string | undefined; to: string | undefined },
     selectedHistoryId?: string | undefined,
+    expertId?: string | undefined,
   ): Promise<SubmissionResponse[]> {
     return await this._withTransaction(async (session: ClientSession) => {
       const user = await this.userRepo.findById(userId);
+      // Moderator/admin viewing another user's activity history. Route by the
+      // TARGET user's role (expert vs moderator pipelines differ), and never
+      // expose an admin's history.
+      if (expertId && (user.role === 'moderator' || user.role === 'admin')) {
+        const target = await this.userRepo.findById(expertId);
+        if (!target || target.role === 'admin') {
+          return [];
+        }
+        if (target.role === 'moderator') {
+          return await this.answerRepo.getModeratorActivityHistory(
+            expertId,
+            page,
+            limit,
+            dateRange,
+            selectedHistoryId,
+            session,
+          );
+        }
+        return await this.questionSubmissionRepo.getUserActivityHistory(
+          expertId,
+          page,
+          limit,
+          dateRange,
+          session,
+          selectedHistoryId,
+        );
+      }
       if (user.role === 'expert') {
         return await this.questionSubmissionRepo.getUserActivityHistory(
           userId,
@@ -1740,8 +1772,14 @@ export class AnswerService extends BaseService implements IAnswerService {
         throw new BadRequestError(`Question with ID ${questionId} not found`);
       }
 
-      // Block approval if normalised_crop is missing or not registered in the crop list
-      const normalisedCrop = question.details?.normalised_crop?.trim();
+      // Block approval only if the crop genuinely isn't registered. If normalised_crop
+      // is missing but the raw crop now exists in the crop master (e.g. registered in
+      // Agri Tech Management after the question was created, or missed by the backfill),
+      // this resolves and persists it so approval isn't blocked unnecessarily.
+      const normalisedCrop = await this.questionService.ensureNormalisedCrop(
+        questionId,
+        session,
+      );
       if (!normalisedCrop) {
         throw new BadRequestError(
           `This question does not have a normalised crop. Please add the respective crop from the Agri Tech Management section before approving this answer.`,
@@ -1945,7 +1983,10 @@ answer: ${updates.answer}`;
         session,
       );
 
-      // CLOSE QUESTION
+      // CLOSE QUESTION. For normal questions keep moderatorId on the question for
+      // historical reference and only clear the moderator's user-document entry.
+      // For DUPLICATE questions, clear the moderator details from the question too.
+      const isDuplicateApproval = question.status === 'duplicate';
       const questionEmbedding = await generateEmbedding(text);
 
       await this.questionRepo.updateQuestion(
@@ -1953,12 +1994,21 @@ answer: ${updates.answer}`;
         {
           text,
           embedding: questionEmbedding,
-          status: 'closed',
+          status: question?.tag === 'static_dynamic'?'dynamic_closed':'closed',
           closedAt: new Date(),
         },
         session,
         true,
       );
+
+      // Pull this question from whichever moderator holds it so the cron sees them as
+      // available again. Keyed by questionId, so a malformed/missing moderatorId can't
+      // leave an orphan entry behind.
+      try {
+        await this.userRepo.removeAssignedQuestionFromAllModerators(questionId, session);
+      } catch (err: any) {
+        console.error('[ModeratorQueue] Failed to clear question from moderators:', err?.message);
+      }
 
       // UPDATE ANSWER
       const answerEmbedding = await generateEmbedding(text);
@@ -1981,7 +2031,7 @@ answer: ${updates.answer}`;
       //  WEBHOOK HANDLERS
       const webhookPayload = {
         question_id: questionId,
-        status: 'closed',
+        status: question?.tag === 'static_dynamic'?'dynamic_closed':'closed',
         answer: updates.answer ?? '',
         author:
           `${author?.firstName ?? ''} ${author?.lastName ?? ''}`.trim() ||
@@ -2017,6 +2067,7 @@ answer: ${updates.answer}`;
               ...webhookPayload,
               question: question.question,
               messageId: question.messageId,
+              threadId:question.threadId
             },
             'Browser',
           );
@@ -2101,6 +2152,10 @@ answer: ${updates.answer}`;
       // }
 
       const isAddTextRequired = true;
+      // The moderator currently assigned to this question (set by the moderator-queue
+      // cron). Approving moves the question back to "open", so the moderation step is
+      // done — release the assignment so the moderator becomes available again.
+      const assignedModeratorId = (question as any).moderatorId?.toString();
       // Update question with approved AI answer details
       await this.questionRepo.updateQuestion(
         updates.questionId,
@@ -2111,11 +2166,20 @@ answer: ${updates.answer}`;
           aiInitialAnswer: updates.answer ?? '',
           // totalAnswersCount: 1,
           isAutoAllocate: true,
-          status:"open"
+          status: 'open',
+          // Clear the moderator assignment — status is going back to "open".
+          moderatorId: null,
+          moderatorAssignedAt: null,
         },
         session,
         isAddTextRequired,
       );
+
+      // Pull this question from the previously-assigned moderator's assignedQuestionIds
+      // array so the cron sees them as available again once their array is empty.
+      if (assignedModeratorId) {
+        await this.userRepo.removeAssignedQuestion(assignedModeratorId, updates.questionId);
+      }
 
     /*  if (question.status !== 'open' && question.status !== 'delayed') {
         let queue: ObjectId[] = [];

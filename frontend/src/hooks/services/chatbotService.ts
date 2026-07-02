@@ -246,6 +246,8 @@ export class ChatbotService {
     stringStartDate,
     stringEndDate,
     search,
+    isPassed,
+    tag
   }: {
     category?: string;
     district?: string;
@@ -264,6 +266,8 @@ export class ChatbotService {
     stringStartDate?: string;
     stringEndDate?: string;
     search?: string;
+    isPassed?: boolean;
+    tag?: string;
   }) {
     const params = new URLSearchParams();
     if (category) params.append("category", category);
@@ -284,6 +288,12 @@ export class ChatbotService {
     if (stringEndDate) params.append("endDate", stringEndDate);
     if (search?.trim()) {
       params.append("search", search.trim());
+    }
+    if (isPassed !== undefined) {
+      params.append("isPassed", String(isPassed));
+    }
+    if(tag){
+      params.append("tag", tag)
     }
     return apiFetch<any>(
       `${this._baseUrl}/filtered-questions?${params.toString()}`,
@@ -353,6 +363,237 @@ export class ChatbotService {
     params.append("requestType", requestType);
     return apiFetch<any>(
       `${this._baseUrl}/active-users-trend?${params.toString()}`,
+    );
+  }
+
+    async getAllStatesQuestionsAndUsersData({
+    // category,
+    // district,
+    // state,
+    // crop,
+    // crops,
+    // status,
+    // closedWithInTwohours,
+    // notificationType,
+    // period,
+    // questionType,
+    // page,
+    // limit,
+    source,
+    userType,
+    // stringStartDate,
+    // stringEndDate,
+    // search,
+  }: {
+    // category?: string;
+    // district?: string;
+    // state?: string;
+    // crop?: string;
+    // crops?: string[];
+    // status?: string;
+    // closedWithInTwohours?: boolean
+    // notificationType?: string
+    // period?: string
+    // questionType: "all" | "unique" | "duplicate";
+    // page: number;
+    // limit: number;
+    source: string;
+    userType?: string;
+    // stringStartDate?: string;
+    // stringEndDate?: string;
+    // search?: string;
+  }) {
+    const params = new URLSearchParams();
+    // if (category) params.append("category", category);
+    // if (district) params.append("district", district);
+    // if (state) params.append("state", state);
+    // if (crop) params.append("crop", crop);
+    // if (crops?.length) params.append("crops", crops?.join(","));
+    // if (status) params.append("status", status);
+    // if (closedWithInTwohours) params.append("closedWithInTwohours", closedWithInTwohours.toString());
+    // if (notificationType) params.append('notificationType', notificationType);
+    // if (period) params.append('period', period)
+    // params.append("questionType", questionType);
+    // params.append("page", page.toString());
+    // params.append("limit", limit.toString());
+    params.append("source", source);
+    if (userType) params.append("userType", userType);
+    // if (stringStartDate) params.append("startDate", stringStartDate);
+    // if (stringEndDate) params.append("endDate", stringEndDate);
+    // if (search?.trim()) {
+    //   params.append("search", search.trim());
+    // }
+    return apiFetch<any>(
+      `${this._baseUrl}/state-user-data?${params.toString()}`,
+    );
+  }
+
+  async getVillageUserCounts({
+    // category,
+    state,
+    district,
+    // crop,
+    // crops,
+    // status,
+    // closedWithInTwohours,
+    // notificationType,
+    // period,
+    // questionType,
+    // page,
+    // limit,
+    source,
+    userType,
+    // stringStartDate,
+    // stringEndDate,
+    // search,
+  }: {
+    // category?: string;
+    state: string;
+    district: string;
+    // crop?: string;
+    // crops?: string[];
+    // status?: string;
+    // closedWithInTwohours?: boolean
+    // notificationType?: string
+    // period?: string
+    // questionType: "all" | "unique" | "duplicate";
+    // page: number;
+    // limit: number;
+    source: string;
+    userType?: string;
+    // stringStartDate?: string;
+    // stringEndDate?: string;
+    // search?: string;
+  }) {
+    const params = new URLSearchParams();
+    // if (category) params.append("category", category);
+    params.append("state", state);
+    params.append("district", district);
+    // if (crop) params.append("crop", crop);
+    // if (crops?.length) params.append("crops", crops?.join(","));
+    // if (status) params.append("status", status);
+    // if (closedWithInTwohours) params.append("closedWithInTwohours", closedWithInTwohours.toString());
+    // if (notificationType) params.append('notificationType', notificationType);
+    // if (period) params.append('period', period)
+    // params.append("questionType", questionType);
+    // params.append("page", page.toString());
+    // params.append("limit", limit.toString());
+    params.append("source", source);
+    if (userType) params.append("userType", userType);
+    // if (stringStartDate) params.append("startDate", stringStartDate);
+    // if (stringEndDate) params.append("endDate", stringEndDate);
+    // if (search?.trim()) {
+    //   params.append("search", search.trim());
+    // }
+    return apiFetch<any>(
+      `${this._baseUrl}/village-data?${params.toString()}`,
+    );
+  }
+
+  async getQuestionLifeCycle(
+    questionId: string,
+  ): Promise<any> {
+    const params = new URLSearchParams();
+    params.append("questionId", questionId);
+    return apiFetch<any>(
+      `${this._baseUrl}/question-lifecycle?${params.toString()}`,
+    );
+  }
+
+  async getActiveUserDetails ({
+    page,
+    limit,
+    source,
+    userType,
+    district,
+    state,
+    search,
+  }:{
+    page: number,
+    limit: number,
+    source:string,
+    userType: string,
+    district?: string,
+    state?: string,
+    search?: string,
+  }){
+    const params = new URLSearchParams();
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
+    params.append('source', source)
+    params.append('userType', userType)
+    if(district) params.append('district', district);
+    if(state) params.append('state', state);
+    if(search) params.append('search', search);
+    return apiFetch<any>(`${this._baseUrl}/active-users-details?${params.toString()}`)
+  }
+
+  async getCoordinatorsDetails ({
+    page,
+    limit,
+    source,
+    userType,
+    district,
+    state,
+    search,
+  }:{
+    page: number,
+    limit: number,
+    source:string,
+    userType: string,
+    district?: string,
+    state?: string,
+    search?: string,
+  }){
+    const params = new URLSearchParams();
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
+    params.append('source', source)
+    params.append('userType', userType)
+    if(district) params.append('district', district);
+    if(state) params.append('state', state);
+    if(search) params.append('search', search);
+    return apiFetch<any>(`${this._baseUrl}/get-coordinators-details?${params.toString()}`)
+
+  }
+  async getLifeCycleSummary(
+    startDate?: string,
+    endDate?: string,
+    source?: string,
+    status?: string,
+    userType?: string,
+    isPassed?: boolean,
+    tag?: string,
+    notificationType?: string,
+  ): Promise<any> {
+    const params = new URLSearchParams();
+    if (startDate) {
+      params.append("startDate", startDate);
+    }
+    if (endDate) {
+      params.append("endDate", endDate);
+    }
+    if (source) {
+      params.append("source", source);
+    }
+    if (status) {
+      params.append("status", status);
+    }
+    if (userType) {
+      params.append("userType", userType);
+    }
+    if (isPassed != null) {
+      params.append("isPassed", String(isPassed));
+    }
+    if (tag) {
+      params.append("tag", String(tag));
+    }
+    if (notificationType) {
+      params.append("notificationType", String(notificationType));
+    }
+
+    return apiFetch<any>(
+      `${this._baseUrl}/lifecycle-summary?${params.toString()}`
     );
   }
 }

@@ -1,4 +1,4 @@
-"""Post-synthesis: translate advisory body; append sheet footers (sources, testing)."""
+"""Post-synthesis: translate advisory body; append catalog footers (sources, testing)."""
 
 from __future__ import annotations
 
@@ -11,9 +11,9 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from langchain_core.runnables import RunnableConfig
 
 from ajrasakha.agents.answer_footers import build_expert_queue_content, finalize_synthesis_answer
-from ajrasakha.agents.config import TRANSLATE_MODEL
+from ajrasakha.agents.config import TRANSLATE_MODEL, resolve_question_source
 from ajrasakha.agents.state import AjraSakhaState, TRANSLATE_PATH_EMPTY_GDB
-from ajrasakha.agents.translation_catalog import language_pair_from_plan, needs_translation
+from ajrasakha.agents.translation_catalog import language_pair_from_plan, needs_translation, get_two_hour_disclaimer
 from ajrasakha.agents.llm_trace import trace_llm_request, trace_llm_response
 from ajrasakha.agents.thread_trace import trace_event
 from ajrasakha.agents.thread_logging import end_conversation_turn
@@ -157,11 +157,12 @@ async def translate_answer_node(
 
     final_msg = _last_farmer_facing_ai(messages)
     gdb_data = _extract_gdb_from_messages(messages)
+    question_source = resolve_question_source(config)
 
-    # Path A: empty_gdb_reply only — sheet 2-hour + testing (no translate LLM)
+    # Path A: empty_gdb_reply only — catalog 2-hour + testing (no translate LLM)
     if plan.get("translate_path") == TRANSLATE_PATH_EMPTY_GDB:
         logger.info(
-            "translate_answer: path=empty_gdb — sheet 2-hour + testing (script=%s vocal=%s)",
+            "translate_answer: path=empty_gdb — catalog 2-hour + testing (script=%s vocal=%s)",
             script,
             vocal,
         )
@@ -204,7 +205,21 @@ async def translate_answer_node(
             vocal_language=vocal,
             gdb_data=gdb_data,
             is_greeting=plan.get("is_greeting", False),
+            question_source=question_source,
         )
+        
+        # Check if we need to add the 2-hour disclaimer due to insufficient answer relevance
+        # This handles cases like "What crops are best for weather?" where only weather data is returned
+        if plan.get("needs_relevance_disclaimer", False):
+            logger.info(
+                "translate_answer: adding 2-hour disclaimer due to insufficient answer relevance. "
+                "Reason: %s, Missing: %s",
+                plan.get("relevance_check_result", {}).get("reason", "unknown"),
+                plan.get("relevance_check_result", {}).get("missing_aspects", []),
+            )
+            two_hour_disclaimer = get_two_hour_disclaimer(script, vocal)
+            content = f"{content.rstrip()}\n\n{two_hour_disclaimer}"
+        
         trace_event(
             "translate_answer_final",
             content_preview=content[:2000],
@@ -220,7 +235,12 @@ async def translate_answer_node(
             vocal_language=vocal,
             gdb_data=gdb_data,
             is_greeting=plan.get("is_greeting", False),
+            question_source=question_source,
         )
+        # Add relevance disclaimer on fallback path too
+        if plan.get("needs_relevance_disclaimer", False):
+            two_hour_disclaimer = get_two_hour_disclaimer(script, vocal)
+            content = f"{content.rstrip()}\n\n{two_hour_disclaimer}"
         return _finish_turn_reply(content, final_msg, state, outcome="answer_fallback")
     except APIStatusError as exc:
         logger.warning(
@@ -233,5 +253,10 @@ async def translate_answer_node(
             vocal_language=vocal,
             gdb_data=gdb_data,
             is_greeting=plan.get("is_greeting", False),
+            question_source=question_source,
         )
+        # Add relevance disclaimer on fallback path too
+        if plan.get("needs_relevance_disclaimer", False):
+            two_hour_disclaimer = get_two_hour_disclaimer(script, vocal)
+            content = f"{content.rstrip()}\n\n{two_hour_disclaimer}"
         return _finish_turn_reply(content, final_msg, state, outcome="answer_fallback")

@@ -127,7 +127,7 @@ export const STATES = [
   "Haryana",
   "Himachal Pradesh",
   "Jharkhand",
-  "Jammu and Kashmir",
+  "Jammu And Kashmir",
   "Karnataka",
   "Kerala",
   "Ladakh",
@@ -230,7 +230,7 @@ export const STATUS=[
   "pae_submitted",
   //"pae_closed",
   "pass",
- // "closed"
+  "closed"
 ]
 export const Review_Level_QAI=[
   "Author",

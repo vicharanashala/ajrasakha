@@ -16,6 +16,8 @@ import {
 } from './QuestionListTable';
 import WhatsappHistoryLink from './WhatsappHistoryLink';
 import { TranslatableText } from './TranslatableText';
+import { FarmerNameLink } from './FarmerNameLink';
+import { useSelectedQuestion } from '@/hooks/api/question/useSelectedQuestion';
 
 interface DuplicateQuestionsModalProps {
   onClose: () => void;
@@ -43,6 +45,10 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
 };
 
 export function DuplicateQuestionsModal({ onClose, source = 'annam', userType }: DuplicateQuestionsModalProps) {
+  const {
+    setSelectedQuestionId,
+    setView,
+  } = useSelectedQuestion();
   const { data, isLoading, isError } = useDuplicateQuestions(true, source, userType);
   const [filters, setFilters] = useState<UserDetailsFilters>(DEFAULT_FILTERS);
 
@@ -120,7 +126,9 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam', userType }:
           source === "whatsapp" ? (
             <WhatsappHistoryLink mobileNumber={row.mobileNumber} />
           ) : (
-            <FarmerInfoCell primary={row.farmerName} />
+            <FarmerNameLink userId={row.userId} className="block w-full">
+              <FarmerInfoCell primary={row.farmerName} />
+            </FarmerNameLink>
           ),
       },
       {
@@ -284,6 +292,10 @@ export function DuplicateQuestionsModal({ onClose, source = 'annam', userType }:
                 ...current,
                 search,
               })),
+          }}
+          onRowClick={(row) => {
+            setSelectedQuestionId(row.questionId);
+            setView("lifecycle");
           }}
         />
 

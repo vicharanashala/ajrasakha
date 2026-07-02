@@ -6,7 +6,7 @@ import json
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-from ajrasakha.agents.answer_footers import build_expert_queue_content
+from ajrasakha.agents.answer_footers import FOOTER_SEPARATOR, build_expert_queue_content
 from ajrasakha.agents.prompts import EXPERT_QUEUE_REPLY_MARKER
 from ajrasakha.agents.state import TRANSLATE_PATH_EMPTY_GDB
 from ajrasakha.agents.translate_answer import translate_answer_node
@@ -28,7 +28,7 @@ def _gdb_with_answer() -> dict:
     }
 
 
-def test_empty_gdb_path_sheet_only():
+def test_empty_gdb_path_catalog_only():
     state = {
         "messages": [
             HumanMessage(content="Unknown crop question?"),
@@ -46,6 +46,7 @@ def test_empty_gdb_path_sheet_only():
     text = result["messages"][0].content
     expected = build_expert_queue_content("English", "English")
     assert text == expected
+    assert FOOTER_SEPARATOR in text
     assert EXPERT_QUEUE_REPLY_MARKER in text
     assert "Growing barley" not in text
 
@@ -75,6 +76,8 @@ def test_synthesis_path_body_sources_testing_no_two_hour():
     result = asyncio.run(translate_answer_node(state, {}))
     text = result["messages"][0].content
     assert synthesis_body in text
+    assert FOOTER_SEPARATOR in text
+    assert text.index(FOOTER_SEPARATOR) > text.index(synthesis_body)
     assert "PAU" in text
     assert "Expert" in text
     assert get_testing_disclaimer("English", "English") in text
@@ -97,4 +100,5 @@ def test_stale_expert_queue_flag_uses_synthesis_path():
     result = asyncio.run(translate_answer_node(state, {}))
     text = result["messages"][0].content
     assert synthesis_body in text
+    assert FOOTER_SEPARATOR in text
     assert EXPERT_QUEUE_REPLY_MARKER not in text

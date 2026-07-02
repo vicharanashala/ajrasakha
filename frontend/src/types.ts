@@ -169,6 +169,7 @@ export interface IQuestion {
   text: string;
   createdAt: string;
   updatedAt: string;
+  assignedAt?: string;
   totalAnswersCount: number;
   priority: QuestionPriority;
   status: QuestionStatus;
@@ -453,13 +454,14 @@ export interface IQuestionFullData {
   _id: string;
   question: string;
   status: QuestionStatus;
+  tag?: "dynamic" | "static_dynamic";
   details: {
     state: string;
     district: string;
     crop: string;
     normalised_crop?: string;
     season: string;
-    domain: string;
+    domain: string[];
   };
   isAutoAllocate: boolean;
   priority: QuestionPriority;
@@ -485,6 +487,7 @@ export interface IQuestionFullData {
   referenceQuestion?: string;
   referenceSource?: string;
   isDuplicateChecked?: boolean;
+  autoAllocateModerator?: boolean;
   referenceQuestionData?: {
     question: string;
     status: string;
@@ -502,11 +505,20 @@ export interface IQuestionFullData {
   originalQuestion?: string;
   closedAt?: string;
   threadId?: string;
+  threadUserEmail?: string | null;
   messageId?: string;
   approved_moderator:{
     name: string;
     email: string;
   }
+  /** Id of the moderator currently assigned to review this question (set by the moderator-queue cron). */
+  moderatorId?: string | null;
+  /** Moderator currently assigned to review this question (set by the moderator-queue cron). */
+  assigned_moderator?: { name: string; email: string } | null;
+  /** True when the requesting user is the moderator this question is assigned to. Gates the Pass / Accept / Push to GDB actions. */
+  isAssignedModerator?: boolean;
+  /** Timestamp when a moderator was assigned. Used to calculate moderator handling time (closedAt - moderatorAssignedAt). */
+  moderatorAssignedAt?: string | null;
   closedFinalAnswer?: {
     _id: string;
     questionId: string;
@@ -567,6 +579,7 @@ export interface IDetailedQuestion {
   context: string;
   aiInitialAnswer: string;
   status: QuestionStatus;
+  tag?: "dynamic" | "static_dynamic";
   totalAnswersCount: number;
   priority: QuestionPriority;
   metrics: IQuestionMetrics;
@@ -576,7 +589,7 @@ export interface IDetailedQuestion {
     crop: string;
     normalised_crop?: string;
     season: string;
-    domain: string;
+    domain: string[];
   };
   source: "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH";
   createdAt?: string;
@@ -603,6 +616,9 @@ export interface IDetailedQuestion {
   referenceQuestion?: string
   referenceSource?: string;
   isDuplicateChecked?: boolean;
+  autoAllocateModerator?: boolean;
+  /** Moderator currently assigned to review this question (set by the moderator-queue cron). */
+  moderatorId?: string | null;
 }
 
 export interface IDetailedQuestionResponse {
@@ -743,6 +759,7 @@ export interface ReroutedQuestionItem {
   priority: Priority;
   createdAt: string;
   updatedAt: string;
+  assignedAt?: string;
   totalAnswersCount: number;
   moderator: Moderator;
   question: Question;
@@ -994,6 +1011,8 @@ enum AuditAction {
   EXPERTS_AUTO_ALLOCATE = 'EXPERTS_AUTO_ALLOCATE',
   SELECT_EXPERT = 'SELECT_EXPERT',
   DELETE_EXPERT = 'DELETE_EXPERT',
+  SELECT_MODERATOR = 'SELECT_MODERATOR',
+  DELETE_MODERATOR = 'DELETE_MODERATOR',
   EXPERTS_ADD_COMMENT = 'EXPERTS_ADD_COMMENT',
 
   //EXPERTS_MANAGEMENT

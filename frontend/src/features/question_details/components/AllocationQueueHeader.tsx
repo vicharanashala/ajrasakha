@@ -38,6 +38,8 @@ export const AllocationQueueHeader = ({
   queue = [],
   currentUser,
 }: AllocationQueueHeaderProps) => {
+  const isDuplicate = question.status === "duplicate";
+
   const [autoAllocate, setAutoAllocate] = useState(question.isAutoAllocate);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedExperts, setSelectedExperts] = useState<string[]>([]);
@@ -156,8 +158,11 @@ export const AllocationQueueHeader = ({
           </div>
         </div>
 
-        {/* RIGHT SECTION */}
-        {currentUser.role !== "expert" && question.status!=='non_agri' && (
+        {/* RIGHT SECTION — for duplicate questions the auto-allocate toggle and
+            "Select Experts" only show to the moderator the question is assigned to
+            (i.e. from "My Assignment"); hidden on every other tab. Non-duplicate
+            questions are unaffected. */}
+        {currentUser.role !== "expert" && question.status!=='non_agri' && (!isDuplicate || question.isAssignedModerator) && (
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full md:w-auto">
             {/* Auto-Allocate Block */}
             <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">

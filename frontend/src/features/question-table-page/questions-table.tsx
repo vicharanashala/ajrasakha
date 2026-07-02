@@ -45,6 +45,7 @@ type QuestionsTableProps = {
   onSort?: (key: string) => void;
   view: "table" | "grid";
   setLimit: (val: number) => void;
+  isDedicatedView?: boolean;
 };
 
 export const QuestionsTable = ({
@@ -67,6 +68,7 @@ export const QuestionsTable = ({
   onSort,
   view,
   setLimit,
+  isDedicatedView,
 }: QuestionsTableProps) => {
   //visible columns
   const visibleColumns = useQuestionTableStore((state) => state.visibleColumns);
@@ -164,14 +166,45 @@ export const QuestionsTable = ({
           return;
         }
 
-        if (!updatedData.details?.domain?.trim()) {
+        if (!updatedData.details?.domain?.length) {
           toast.error("Domain is required.");
           return;
         }
 
-        const payload: IDetailedQuestion = status
-          ? { ...updatedData, status }
-          : updatedData;
+        // Only send fields that actually changed — keep all untouched fields as
+        // they are on the server. Sending the whole question object back would
+        // overwrite server-owned fields (e.g. isAutoAllocate, which is toggled
+        // through its own endpoint) with stale values from when the dialog opened.
+        const original = selectedQuestion;
+        const changed: Partial<IDetailedQuestion> = { _id: entityId };
+
+        if (original) {
+          const editableKeys: (keyof IDetailedQuestion)[] = [
+            "question",
+            "context",
+            "aiInitialAnswer",
+            "priority",
+            "status",
+          ];
+          for (const key of editableKeys) {
+            if (updatedData[key] !== original[key]) {
+              (changed as Record<string, unknown>)[key] = updatedData[key];
+            }
+          }
+          if (
+            JSON.stringify(updatedData.details) !==
+            JSON.stringify(original.details)
+          ) {
+            changed.details = updatedData.details;
+          }
+        } else {
+          // No original to diff against — fall back to sending the edited data.
+          Object.assign(changed, updatedData);
+        }
+
+        const payload: Partial<IDetailedQuestion> = status
+          ? { ...changed, status }
+          : changed;
 
         await updateQuestion(payload);
       }
@@ -505,6 +538,7 @@ export const QuestionsTable = ({
                       selectedQuestionIds={selectedQuestionIds}
                       showClosedAt={showClosedAt}
                       isLoading={isLoading}
+                      isDedicatedView={isDedicatedView}
                     />
                   ))
                 )}

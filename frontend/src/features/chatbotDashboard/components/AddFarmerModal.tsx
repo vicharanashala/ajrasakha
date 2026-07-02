@@ -9,7 +9,7 @@ import {
 } from "@/components/atoms/dialog";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
-import { Eye, EyeOff, RefreshCw } from "lucide-react";
+import { Eye, EyeOff, RefreshCw, Info } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/atoms/radio-group";
 import { Tabs, TabsList, TabsTrigger } from "@/components/atoms/tabs";
 
@@ -255,7 +255,7 @@ export function AddFarmerModal({
                   transition={{ duration: 0.2, ease: "easeOut" }}
                   className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-2"
                 >
-                  <motion.div
+                  {/* <motion.div
                     custom={0}
                     variants={formFieldVariants}
                     initial="hidden"
@@ -267,7 +267,7 @@ export function AddFarmerModal({
                         handleModeChange(value as ModalMode)
                       }
                     >
-                      <TabsList className="grid h-9 w-full grid-cols-2">
+                      <TabsList className="grid h-9 w-full grid-cols-1">
                         <TabsTrigger value="web_app">
                           Web Application
                         </TabsTrigger>
@@ -276,7 +276,7 @@ export function AddFarmerModal({
                         </TabsTrigger>
                       </TabsList>
                     </Tabs>
-                  </motion.div>
+                  </motion.div> */}
 
                   <motion.div
                     custom={1}
@@ -586,6 +586,25 @@ export function AddFarmerModal({
                     </AnimatePresence>
                   </motion.div>
                 </motion.div>
+              </AnimatePresence>
+
+              <AnimatePresence>
+                {["district_coordinator", "block_coordinator"].includes(role) && mode === "web_app" && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8, height: 0 }}
+                    animate={{ opacity: 1, y: 0, height: "auto" }}
+                    exit={{ opacity: 0, y: -8, height: 0 }}
+                    transition={{ duration: 0.25, ease: "easeOut" }}
+                    className="overflow-hidden px-5 pb-1"
+                  >
+                    <div className="flex items-start gap-2.5 rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-3 text-[13px] leading-relaxed text-blue-800 dark:border-blue-500/20 dark:bg-blue-950/40 dark:text-blue-300">
+                      <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-500 dark:text-blue-400" />
+                      <span>
+                        District Coordinator and Block Coordinator accounts will be automatically created in both the Review System and Web Application.
+                      </span>
+                    </div>
+                  </motion.div>
+                )}
               </AnimatePresence>
 
               <motion.div
