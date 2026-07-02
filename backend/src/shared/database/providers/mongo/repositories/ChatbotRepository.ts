@@ -514,14 +514,6 @@ export class ChatbotRepository implements IChatbotRepository {
     this.ReviewUsers = await this.db.getCollection<any>('users');
   }
 
-  // private normalizeDistrictName(district: string): string {
-  //   return district
-  //     .replace(/\([^)]*\)/g, '')
-  //     .replace(/\s+/g, ' ')
-  //     .trim()
-  //     .toLowerCase();
-  // }
-
   private DISTRICT_ALIASES: Record<string, string> = {
   // Jammu & Kashmir
   "baramula": "baramulla",
@@ -2794,7 +2786,6 @@ private isInvalidHeatMapLocation(value?: string | null) {
       const districts = district.map((d)=>{
         return d.districtNameEnglish;
       });
-      console.log('Districts for state', state, districts);
 
       if (!districts.length) {
         return [];
