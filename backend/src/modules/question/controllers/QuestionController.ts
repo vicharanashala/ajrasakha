@@ -1370,7 +1370,7 @@ export class QuestionController {
         context: { questionId },
         createdAt: new Date(),
       };
-
+      updates.passedBy = new ObjectId(user._id.toString());
       try {
         prevQuestion = await this.questionService.getQuestionById(questionId);
         response = await this.questionService.updateQuestion(questionId, updates);

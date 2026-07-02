@@ -26,6 +26,7 @@ interface Props {
   isPassed?: boolean;
   tag?: string;
   notificationType?: string;
+  totalClosedAndPassed?: number;
 }
 
 const formatDuration = (ms?: number) => {
@@ -57,6 +58,7 @@ export function QuestionLifecycleSummary({
   isPassed,
   tag,
   notificationType,
+  totalClosedAndPassed
 }: Props) {
   const {
     data: summary,
@@ -205,7 +207,7 @@ export function QuestionLifecycleSummary({
     },
     {
       ...topMetrics[3],
-      value: summary?.totalQuestions - summary?.slaBreachedCount,
+      value: Math.max((totalClosedAndPassed || 0) - summary?.slaBreachedCount, 0),
       valueClass: "text-green-500",
     },
   ];
