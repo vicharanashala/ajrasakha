@@ -169,6 +169,7 @@ export interface IQuestion {
   text: string;
   createdAt: string;
   updatedAt: string;
+  assignedAt?: string;
   totalAnswersCount: number;
   priority: QuestionPriority;
   status: QuestionStatus;
@@ -758,6 +759,7 @@ export interface ReroutedQuestionItem {
   priority: Priority;
   createdAt: string;
   updatedAt: string;
+  assignedAt?: string;
   totalAnswersCount: number;
   moderator: Moderator;
   question: Question;
