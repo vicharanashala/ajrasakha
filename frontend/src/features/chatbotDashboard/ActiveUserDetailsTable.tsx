@@ -945,6 +945,7 @@ export function ActiveUserDetailsModal({
                   : "No moderators found."
             }
             getRowKey={(row) => row.userId}
+            viewMode="table"
             pagination={{
               page,
               pageSize: PAGE_SIZE,

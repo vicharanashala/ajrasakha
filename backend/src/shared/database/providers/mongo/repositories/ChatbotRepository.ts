@@ -514,27 +514,64 @@ export class ChatbotRepository implements IChatbotRepository {
     this.ReviewUsers = await this.db.getCollection<any>('users');
   }
 
-  // private normalizeDistrictName(district: string): string {
-  //   return district
-  //     .replace(/\([^)]*\)/g, '')
-  //     .replace(/\s+/g, ' ')
-  //     .trim()
-  //     .toLowerCase();
-  // }
-  private normalizeDistrictName(district: string): string {
-    const normalized = district
-      .replace(/\([^)]*\)/g, '')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .toLowerCase();
+  private DISTRICT_ALIASES: Record<string, string> = {
+  // Jammu & Kashmir
+  "baramula": "baramulla",
+  "ladakh (leh)": "leh",
 
-  const aliases: Record<string, string> = {
-    anantapur: 'ananthapuramu',
-    chamarajanagara: 'chamarajanagar',
-    baramula: 'baramulla',
-  };
+  // Uttarakhand
+  "naini tal": "nainital",
+  "dehra dun": "dehradun",
 
-  return aliases[normalized] ?? normalized;
+  // Karnataka
+  "belgaum": "belagavi",
+  "mysore": "mysuru",
+  "tumkur": "tumakuru",
+  "bagalkot": "bagalkote",
+  "chikmagalur": "chikkamagaluru",
+  "chamrajnagar": "chamarajanagara",
+  "chamarajanagar": "chamarajanagara",
+  "chamarajanagara": "chamarajanagara",
+
+  // Andhra Pradesh
+  "vishakhapatnam": "visakhapatnam",
+  "anantapur": "ananthapuramu",
+
+  // Tealangana
+  "komaram bheem asifabad": "kumuram bheem asifabad",
+
+  // Tamil Nadu
+  "tiruchchirappalli": "tiruchirappalli",
+  "villupuram": "viluppuram",
+
+  // Maharashtra
+  "aurangabad": "chhatrapati sambhajinagar",
+  "gondiya": "gondia",
+
+  // Odisha
+  "keonjhar": "kendujhar",
+
+  // Rajasthan
+  "chittaurgarh": "chittorgarh",
+
+  // Uttar Pradesh
+  "kanpur": "kanpur nagar",
+};
+  
+private normalizeDistrictName(district?: string): string {
+  if (!district) return "";
+
+  let normalized = district
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, "")
+    .replace(/\bdistrict\b/g, "")
+    .replace(/[-_]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  normalized = this.DISTRICT_ALIASES[normalized]?.toLowerCase() ?? normalized;
+
+  return normalized;
 }
 
 private getEquivalentLocationNames(value: string): string[] {
@@ -2746,7 +2783,9 @@ private isInvalidHeatMapLocation(value?: string | null) {
 
       const source = _source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
 
-      const districts = district.map(d => d.districtNameEnglish);
+      const districts = district.map((d)=>{
+        return d.districtNameEnglish;
+      });
 
       if (!districts.length) {
         return [];
