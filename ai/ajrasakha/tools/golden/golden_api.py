@@ -178,7 +178,7 @@ async def search_gdb(body: GDBSearchRequest):
     description=(
         "**Pipeline:**\n"
         "1. Resolve query/crop/state from `question_id` or request fields.\n"
-        "2. **Exact** normalized text match among open/delayed AJRASAKHA/WHATSAPP questions.\n"
+        "2. **Exact** normalized text match among open/delayed/in-review AJRASAKHA/WHATSAPP questions.\n"
         "3. Else **vector top-3** + Gemma question-only duplicate verification.\n"
         "4. Return `referenceQuestionId` when the matched question has one, else matched `_id`.\n"
         "5. Optional `created_before` limits candidates to questions created earlier."

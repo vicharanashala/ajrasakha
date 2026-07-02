@@ -1,4 +1,4 @@
-"""Pending duplicate check: open/delayed AJRASAKHA/WHATSAPP questions."""
+"""Pending duplicate check: open/delayed/in-review AJRASAKHA/WHATSAPP questions."""
 
 from __future__ import annotations
 
