@@ -2,10 +2,7 @@ import { useEffect, useState } from "react";
 import { subDays } from "date-fns";
 import { ApprovalRateCard } from "./dashboard/approval-rate";
 import { ExpertsPerformance } from "./dashboard/experts-performance";
-import {
-  GoldenDatasetOverview,
-  type GoldenDataset,
-} from "./dashboard/golden-dataset";
+import { GoldenDatasetOverview } from "./dashboard/golden-dataset";
 import { ModeratorsOverview } from "./dashboard/overview";
 import { StatusCharts } from "./dashboard/question-status";
 import {
@@ -35,7 +32,6 @@ import { ReviewLevelComponent } from "./ReviewLevelComponent";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { PerformaneService } from "@/hooks/services/performanceService";
 import { toast } from "sonner";
-import { TopRightBadge } from "./NewBadge";
 import { QuestionsAnsweredAfter120MinProps } from "./dashboard/questions-answered-after-120min";
 import { Clock, CheckCircle } from "lucide-react";
 import { useCheckIn } from "@/hooks/api/performance/useCheckIn";
@@ -210,11 +206,20 @@ export const Dashboard = () => {
     startTime: undefined,
     endTime: undefined,
   });
+  const [overviewSelectedDate, setOverviewSelectedDate] = useState(
+    () => new Date().toISOString().split("T")[0] ?? ""
+  );
+  const [overviewStartTime, setOverviewStartTime] = useState("00:00");
+  const [overviewEndTime, setOverviewEndTime] = useState("23:59");
 
   const { data: user } = useGetCurrentUser();
 
   // Granular Hooks
-  const { data: overviewData, isLoading: isOverviewLoading } = useGetOverview();
+  const { data: overviewData, isLoading: isOverviewLoading } = useGetOverview({
+    selectedDate: overviewSelectedDate,
+    startTime: overviewStartTime,
+    endTime: overviewEndTime,
+  });
   const { data: goldenData, isLoading: isGoldenLoading } = useGetGoldenDataset({
     viewType,
     selectedYear,
@@ -305,7 +310,17 @@ export const Dashboard = () => {
             loading={isOverviewLoading}
             text="Fetching role overview..."
           >
-            <ModeratorsOverview data={overviewData?.userRoleOverview ?? []} />
+            <ModeratorsOverview
+              data={overviewData?.userRoleOverview ?? []}
+              stfExpertCount={overviewData?.stfExpertCount ?? 0}
+              stfModeratorCount={overviewData?.stfModeratorCount ?? 0}
+              selectedDate={overviewSelectedDate}
+              startTime={overviewStartTime}
+              endTime={overviewEndTime}
+              onSelectedDateChange={setOverviewSelectedDate}
+              onStartTimeChange={setOverviewStartTime}
+              onEndTimeChange={setOverviewEndTime}
+            />
           </LoadingWrapper>
           <LoadingWrapper
             loading={isOverviewLoading}

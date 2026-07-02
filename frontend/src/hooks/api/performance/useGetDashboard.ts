@@ -1,6 +1,6 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { PerformaneService } from "../../services/performanceService";
-import type { UserRoleOverview } from "@/components/dashboard/overview";
+import type { OverviewResponse, UserRoleOverview } from "@/components/dashboard/overview";
 import type { ModeratorApprovalRate } from "@/components/dashboard/approval-rate";
 import type { GoldenDataset } from "@/components/dashboard/golden-dataset";
 import type { StatusOverview } from "@/components/dashboard/question-status";
@@ -82,10 +82,17 @@ export const useGetDashboardData = ({
   return { data, isLoading, isFetching, error, refetch };
 };
 
-export const useGetOverview = () => {
-  return useQuery({
-    queryKey: ["dashboard", "overview"],
-    queryFn: () => performaceService.getOverview(),
+export const useGetOverview = (query: {
+  selectedDate: string;
+  startTime?: string;
+  endTime?: string;
+}) => {
+  return useQuery<OverviewResponse & {
+    moderatorApprovalRate: ModeratorApprovalRate;
+  } | null>({
+    queryKey: ["dashboard", "overview", query.selectedDate, query.startTime, query.endTime],
+    queryFn: () => performaceService.getOverview(query),
+    placeholderData: keepPreviousData,
   });
 };
 
