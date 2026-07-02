@@ -521,20 +521,65 @@ export class ChatbotRepository implements IChatbotRepository {
   //     .trim()
   //     .toLowerCase();
   // }
-  private normalizeDistrictName(district: string): string {
-    const normalized = district
-      .replace(/\([^)]*\)/g, '')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .toLowerCase();
 
-  const aliases: Record<string, string> = {
-    anantapur: 'ananthapuramu',
-    chamarajanagara: 'chamarajanagar',
-    baramula: 'baramulla',
-  };
+  private DISTRICT_ALIASES: Record<string, string> = {
+  // Jammu & Kashmir
+  "baramula": "baramulla",
+  "ladakh (leh)": "leh",
 
-  return aliases[normalized] ?? normalized;
+  // Uttarakhand
+  "naini tal": "nainital",
+  "dehra dun": "dehradun",
+
+  // Karnataka
+  "belgaum": "belagavi",
+  "mysore": "mysuru",
+  "tumkur": "tumakuru",
+  "bagalkot": "bagalkote",
+  "chikmagalur": "chikkamagaluru",
+  "chamrajnagar": "chamarajanagara",
+  "chamarajanagar": "chamarajanagara",
+  "chamarajanagara": "chamarajanagara",
+
+  // Andhra Pradesh
+  "vishakhapatnam": "visakhapatnam",
+  "anantapur": "ananthapuramu",
+
+  // Tealangana
+  "komaram bheem asifabad": "kumuram bheem asifabad",
+
+  // Tamil Nadu
+  "tiruchchirappalli": "tiruchirappalli",
+  "villupuram": "viluppuram",
+
+  // Maharashtra
+  "aurangabad": "chhatrapati sambhajinagar",
+  "gondiya": "gondia",
+
+  // Odisha
+  "keonjhar": "kendujhar",
+
+  // Rajasthan
+  "chittaurgarh": "chittorgarh",
+
+  // Uttar Pradesh
+  "kanpur": "kanpur nagar",
+};
+  
+private normalizeDistrictName(district?: string): string {
+  if (!district) return "";
+
+  let normalized = district
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, "")
+    .replace(/\bdistrict\b/g, "")
+    .replace(/[-_]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  normalized = this.DISTRICT_ALIASES[normalized]?.toLowerCase() ?? normalized;
+
+  return normalized;
 }
 
 private getEquivalentLocationNames(value: string): string[] {
@@ -2746,7 +2791,10 @@ private isInvalidHeatMapLocation(value?: string | null) {
 
       const source = _source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
 
-      const districts = district.map(d => d.districtNameEnglish);
+      const districts = district.map((d)=>{
+        return d.districtNameEnglish;
+      });
+      console.log('Districts for state', state, districts);
 
       if (!districts.length) {
         return [];
