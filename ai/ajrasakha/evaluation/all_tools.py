@@ -39,6 +39,7 @@ TOOL_TO_MCP_SERVICE = {
     "get_scheme_details": "schemes",
 
     # Golden DB / RAG
+    "gdb": "golden_db",
     "golden_retriever_tool": "golden_db",
     "golden_exact_search_tool": "golden_db",
     "get_available_states": "golden_db",
