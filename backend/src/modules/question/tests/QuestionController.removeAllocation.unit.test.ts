@@ -29,6 +29,7 @@ describe('QuestionController.removeAllocation', () => {
       getExprtIdByIndex: vi.fn(),
       getQuestionById: vi.fn(),
       removeExpertFromQueue: vi.fn(),
+      updateQuestion: vi.fn(),
     };
 
     mockUserService = {
