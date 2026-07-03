@@ -1602,11 +1602,40 @@ export class UserRepository implements IUserRepository {
   ): Promise<void> {
     await this.init();
     try {
-      await this.usersCollection.updateOne(
+      const updatedAt = new Date();
+      const result =await this.usersCollection.findOneAndUpdate(
         { _id: new ObjectId(userId) },
-        { $set: { status, updatedAt: new Date() } },
-        { session },
+        { $set: { status, updatedAt: new Date(), isBlocked: status === 'active'?false:true } },
+        { returnDocument: 'after', session },
       );
+
+      await Promise.all([
+        this.userRoleHistoryCollection.updateOne(
+          {
+            userId: new ObjectId(userId),
+            to: null,
+          },
+          {
+            $set: {
+              to: updatedAt,
+              updatedAt,
+            },
+          },
+          { session },
+        ),
+        this.userRoleHistoryCollection.insertOne(
+          {
+            userId: new ObjectId(userId),
+            role: result.role,
+            from: updatedAt,
+            to: null,
+            isVerified: result.isVerified ?? false,
+            status: result.status,
+            isBlocked: result.isBlocked,
+            special_task_force: result.special_task_force,
+          },
+          { session },
+        )])
     } catch (error) {
       throw new InternalServerError(`Failed to update activity status`);
     }
