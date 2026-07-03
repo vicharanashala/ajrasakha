@@ -6,6 +6,7 @@ export interface ExtractDataResponse {
   extracted_crop: string;
   extracted_state: string;
   extracted_district: string;
+  extracted_domain?: string | string[];
 }
 
 export interface CorrectedData {
@@ -13,6 +14,18 @@ export interface CorrectedData {
   crop: string;
   state: string;
   district: string;
+  domain: string | string[];
+  season: string;
+}
+
+export interface QAMetadata {
+  extracted_query: string;
+  extracted_crop: string;
+  extracted_state: string;
+  extracted_district: string;
+  extracted_domain?: string | string[];
+  standardized_domains?: string | string[];
+  extracted_season: string;
 }
 const API_BASE_URL = env.apiBaseUrl();
 export class AccAgentService {
@@ -64,10 +77,10 @@ export class AccAgentService {
   /**
    * Step 4: Resume execution and get final answer
    */
-  async resumeAndGetAnswer(threadId: string): Promise<{ final_answer: string }> {
-    const result = await apiFetch<{ final_answer: string }>(`${this.baseUrl}/acc-agent/resume`, {
+  async resumeAndGetAnswer(threadId: string, callUuid?: string, metadata?: QAMetadata): Promise<any> {
+    const result = await apiFetch<any>(`${this.baseUrl}/acc-agent/resume`, {
       method: 'POST',
-      body: JSON.stringify({ threadId }),
+      body: JSON.stringify({ threadId, callUuid, metadata }),
     });
     if (!result) {
       throw new Error('Failed to resume and get answer: no response from server');

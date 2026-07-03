@@ -159,7 +159,7 @@ function weeklyRange(entries: Array<{ week: string }>): string {
 
 function transformApiResponse(
   result: DashboardApiResponse,
-  source: "vicharanashala" | "annam" | "whatsapp" = "vicharanashala",
+  source: "vicharanashala" | "annam" | "whatsapp" | "acc" = "vicharanashala",
   userType: "all" | "external" | "internal" = "all",
 ): DashboardDataType & {
   inactiveUsersLast3Days: number;
@@ -415,7 +415,7 @@ function transformApiResponse(
 // Custom hook to fetch and transform dashboard data based on filters
 export function useDashboardData(
   filters?: DashboardFilterValues,
-  source: "vicharanashala" | "annam" | "whatsapp"= "vicharanashala",
+  source: "vicharanashala" | "annam" | "whatsapp" | "acc" = "vicharanashala",
   enabled?: boolean
 ) {
   const startISO = filters?.startTime?.toISOString();

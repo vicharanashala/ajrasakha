@@ -173,6 +173,21 @@ export const ManageCallAgents = () => {
                     >
                       {agent.isCallAgentActive ? "Active" : "Inactive"}
                     </span>
+                    {agent.agent && agent.agent !== "not_available" && (
+                      <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700">
+                        {agent.agent}
+                      </span>
+                    )}
+                    {agent.isBusy && (
+                      <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-700">
+                        In Call
+                      </span>
+                    )}
+                    {agent.currentCallUuid && (
+                      <span className="text-xs px-2 py-1 rounded-full bg-orange-100 text-orange-700">
+                        Call: {agent.currentCallUuid.slice(0, 8)}...
+                      </span>
+                    )}
                   </div>
                 </div>
                 {canManageCallAgents && (

@@ -6,7 +6,7 @@ import type { IUser } from "@/types";
 const userService = new UserService();
 
 export const useGetCurrentUser = (options?:{enabled?:boolean}) => {
-  const { data, isLoading, error } = useQuery<IUser | null, Error>({
+  const { data, isLoading, error, refetch } = useQuery<IUser | null, Error>({
     queryKey: ["user"],
     queryFn: async () => {
       return await userService.getCurrentUser();
@@ -14,5 +14,5 @@ export const useGetCurrentUser = (options?:{enabled?:boolean}) => {
     enabled:options?.enabled
   });
 
-  return { data, isLoading, error };
+  return { data, isLoading, error, refetch };
 };
