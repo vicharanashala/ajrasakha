@@ -3,7 +3,7 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 import * as pushNotification from '#root/utils/pushNotification.js';
 import {NotificationService} from '../services/NotificationService.js';
 
-describe('NotificationService (Basic)', () => {
+describe('NotificationService ', () => {
   let service: NotificationService;
 
   const mockNotificationRepository = {
@@ -846,6 +846,312 @@ describe('NotificationService (Basic)', () => {
           'comment',
         ),
       ).rejects.toThrow('Push notification failed');
+    });
+  });
+  describe('resolveDashboardAndReviewUsers', () => {
+    it('throws when annam database is not configured', async () => {
+      const serviceWithoutAnnam = new NotificationService(
+        mockNotificationRepository as any,
+        mockDatabase as any,
+        undefined,
+      );
+
+      await expect(
+        (serviceWithoutAnnam as any).resolveDashboardAndReviewUsers(
+          '507f1f77bcf86cd799439011',
+        ),
+      ).rejects.toThrow('Annam database is not configured');
+    });
+    it('throws when target dashboard user is not found', async () => {
+      const annamUsersCollection = {
+        findOne: vi.fn().mockResolvedValue(null),
+      };
+
+      mockAnnamDatabase.getCollection.mockReturnValue(annamUsersCollection);
+
+      await expect(
+        (service as any).resolveDashboardAndReviewUsers(
+          '507f1f77bcf86cd799439011',
+        ),
+      ).rejects.toThrow('Target user not found');
+    });
+    it('throws when notification receiver is not found', async () => {
+      const annamUsersCollection = {
+        findOne: vi.fn().mockResolvedValue({
+          _id: 'dashboard-user',
+          email: 'abc@test.com',
+        }),
+      };
+
+      const reviewUsersCollection = {
+        findOne: vi.fn().mockResolvedValue(null),
+      };
+
+      mockAnnamDatabase.getCollection.mockResolvedValue(annamUsersCollection);
+      mockDatabase.getCollection.mockResolvedValue(reviewUsersCollection);
+
+      await expect(
+        (service as any).resolveDashboardAndReviewUsers(
+          '507f1f77bcf86cd799439011',
+        ),
+      ).rejects.toThrow('Notification receiver not found');
+
+      expect(reviewUsersCollection.findOne).toHaveBeenCalledWith({
+        $or: [
+          {
+            email: /^abc@test\.com$/i,
+          },
+        ],
+      });
+    });
+    it('returns dashboard user and review user successfully', async () => {
+      const targetAnnamUser = {
+        _id: 'dashboard-user',
+        email: 'abc@test.com',
+        firebaseUID: 'firebase-123',
+      };
+
+      const receiver = {
+        _id: {
+          toString: () => 'review-user',
+        },
+        email: 'abc@test.com',
+      };
+
+      const annamUsersCollection = {
+        findOne: vi.fn().mockResolvedValue(targetAnnamUser),
+      };
+
+      const reviewUsersCollection = {
+        findOne: vi.fn().mockResolvedValue(receiver),
+      };
+
+      mockAnnamDatabase.getCollection.mockResolvedValue(annamUsersCollection);
+      mockDatabase.getCollection.mockResolvedValue(reviewUsersCollection);
+
+      const result = await (service as any).resolveDashboardAndReviewUsers(
+        '507f1f77bcf86cd799439011',
+      );
+
+      expect(result).toEqual({
+        targetAnnamUser,
+        annamUsers: annamUsersCollection,
+        receiver,
+      });
+
+      expect(reviewUsersCollection.findOne).toHaveBeenCalledWith({
+        $or: [
+          {
+            email: /^abc@test\.com$/i,
+          },
+          {
+            firebaseUID: 'firebase-123',
+          },
+        ],
+      });
+    });
+    it('resolveReviewUserFromDashboardUser throws for invalid target user id', async () => {
+      await expect(
+        (service as any).resolveReviewUserFromDashboardUser(''),
+      ).rejects.toThrow('Invalid target user id');
+    });
+    it('resolveReviewUserFromDashboardUser returns review user', async () => {
+      const receiver = {
+        _id: {
+          toString: () => 'review-user',
+        },
+      };
+
+      vi.spyOn(
+        service as any,
+        'resolveDashboardAndReviewUsers',
+      ).mockResolvedValue({
+        receiver,
+      });
+
+      const result = await (service as any).resolveReviewUserFromDashboardUser(
+        '507f1f77bcf86cd799439011',
+      );
+
+      expect(result).toBe(receiver);
+
+      expect(
+        (service as any).resolveDashboardAndReviewUsers,
+      ).toHaveBeenCalledWith('507f1f77bcf86cd799439011');
+    });
+    it('resolveReviewUserFromDashboardUser propagates lookup errors', async () => {
+      vi.spyOn(
+        service as any,
+        'resolveDashboardAndReviewUsers',
+      ).mockRejectedValue(new Error('Lookup failed'));
+
+      await expect(
+        (service as any).resolveReviewUserFromDashboardUser(
+          '507f1f77bcf86cd799439011',
+        ),
+      ).rejects.toThrow('Lookup failed');
+    });
+    it('allows district coordinator to notify block coordinator in same district', () => {
+      expect(() =>
+        (service as any).assertNotificationWithinHierarchy(
+          {
+            userRole: 'district_coordinator',
+            farmerProfile: {
+              district: 'Ludhiana',
+            },
+          },
+          {
+            userRole: 'block_coordinator',
+            farmerProfile: {
+              district: 'Ludhiana',
+            },
+          },
+        ),
+      ).not.toThrow();
+    });
+    it('throws when district coordinator targets another district', () => {
+      expect(() =>
+        (service as any).assertNotificationWithinHierarchy(
+          {
+            userRole: 'district_coordinator',
+            farmerProfile: {
+              district: 'Ludhiana',
+            },
+          },
+          {
+            userRole: 'block_coordinator',
+            farmerProfile: {
+              district: 'Patiala',
+            },
+          },
+        ),
+      ).toThrow(
+        'District coordinators can only notify users in their district',
+      );
+    });
+    it('allows block coordinator to notify village volunteer in same block', () => {
+      expect(() =>
+        (service as any).assertNotificationWithinHierarchy(
+          {
+            userRole: 'block_coordinator',
+            farmerProfile: {
+              district: 'Ludhiana',
+              blockName: 'Samrala',
+            },
+          },
+          {
+            userRole: 'village_volunteer',
+            farmerProfile: {
+              district: 'Ludhiana',
+              blockName: 'Samrala',
+            },
+          },
+        ),
+      ).not.toThrow();
+    });
+    it('throws when block coordinator targets another block', () => {
+      expect(() =>
+        (service as any).assertNotificationWithinHierarchy(
+          {
+            userRole: 'block_coordinator',
+            farmerProfile: {
+              district: 'Ludhiana',
+              blockName: 'Samrala',
+            },
+          },
+          {
+            userRole: 'village_volunteer',
+            farmerProfile: {
+              district: 'Ludhiana',
+              blockName: 'Khanna',
+            },
+          },
+        ),
+      ).toThrow('Block coordinators can only notify users in their block');
+    });
+    it('allows village volunteer to notify farmer in same village', () => {
+      expect(() =>
+        (service as any).assertNotificationWithinHierarchy(
+          {
+            userRole: 'village_volunteer',
+            farmerProfile: {
+              district: 'Ludhiana',
+              blockName: 'Samrala',
+              villageName: 'Village A',
+            },
+          },
+          {
+            userRole: 'farmer',
+            farmerProfile: {
+              district: 'Ludhiana',
+              blockName: 'Samrala',
+              villageName: 'Village A',
+            },
+          },
+        ),
+      ).not.toThrow();
+    });
+    it('throws when village volunteer targets another village', () => {
+      expect(() =>
+        (service as any).assertNotificationWithinHierarchy(
+          {
+            userRole: 'village_volunteer',
+            farmerProfile: {
+              district: 'Ludhiana',
+              blockName: 'Samrala',
+              villageName: 'Village A',
+            },
+          },
+          {
+            userRole: 'farmer',
+            farmerProfile: {
+              district: 'Ludhiana',
+              blockName: 'Samrala',
+              villageName: 'Village B',
+            },
+          },
+        ),
+      ).toThrow('Village volunteers can only notify users in their village');
+    });
+    it('throws when target role is outside coordinator hierarchy', () => {
+      expect(() =>
+        (service as any).assertNotificationWithinHierarchy(
+          {
+            userRole: 'district_coordinator',
+            farmerProfile: {
+              district: 'Ludhiana',
+            },
+          },
+          {
+            userRole: 'farmer',
+            farmerProfile: {
+              district: 'Ludhiana',
+            },
+          },
+        ),
+      ).toThrow('Target user role is outside this coordinator hierarchy');
+    });
+  });
+
+  describe('escapeRegex', () => {
+    it('escapes regex special characters', () => {
+      const result = (service as any).escapeRegex('abc.*+?^${}()|[]\\');
+
+      expect(result).toBe('abc\\.\\*\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\');
+    });
+    it('returns normal string unchanged', () => {
+      expect((service as any).escapeRegex('Punjab')).toBe('Punjab');
+    });
+  });
+
+  describe('normalizeLocation', () => {
+    it('normalizes location', () => {
+      expect((service as any).normalizeLocation('  Ludhiana  ')).toBe(
+        'ludhiana',
+      );
+    });
+    it('returns empty string for undefined', () => {
+      expect((service as any).normalizeLocation(undefined)).toBe('');
     });
   });
 });

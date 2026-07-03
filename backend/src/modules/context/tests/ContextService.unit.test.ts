@@ -217,5 +217,101 @@ describe('ContextService', () => {
       expect(result.translated_text).toContain('chunk1');
       expect(result.translated_text).toContain('chunk2');
     });
+
+    it('speechToText uploads file successfully', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          transcript: 'Hello world',
+        }),
+      });
+
+      const file = {
+        buffer: Buffer.from('audio'),
+        mimetype: 'audio/webm',
+        originalname: 'audio.webm',
+      };
+
+      const result = await service.speechToText(file as any, 'en-IN');
+
+      expect(fetch).toHaveBeenCalledWith(
+        'https://api.sarvam.ai/speech-to-text-translate',
+        expect.objectContaining({
+          method: 'POST',
+          headers: {
+            'api-subscription-key': 'fake-api-key',
+          },
+        }),
+      );
+
+      expect(result).toEqual({
+        transcript: 'Hello world',
+      });
+    });
+    it('speechToText throws when api key missing', async () => {
+      appConfig.sarvamAPI = '';
+
+      const file = {
+        buffer: Buffer.from('abc'),
+        mimetype: 'audio/webm',
+        originalname: 'a.webm',
+      };
+
+      await expect(service.speechToText(file as any, 'en-IN')).rejects.toThrow(
+        BadRequestError,
+      );
+    });
+    it('speechToText throws when Sarvam returns error', async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: vi.fn().mockResolvedValue('Internal Error'),
+      });
+
+      const file = {
+        buffer: Buffer.from('abc'),
+        mimetype: 'audio/webm',
+        originalname: 'a.webm',
+      };
+
+      await expect(service.speechToText(file as any, 'en-IN')).rejects.toThrow(
+        InternalServerError,
+      );
+    });
+    it('splitIntoChunks returns one chunk for short text', () => {
+      const chunks = (service as any)._splitIntoChunks('hello', 100);
+
+      expect(chunks).toEqual(['hello']);
+    });
+    it('splitIntoChunks prefers newline', () => {
+      const text = 'hello\nworld\n' + 'a'.repeat(100);
+
+      const chunks = (service as any)._splitIntoChunks(text, 20);
+
+      expect(chunks.length).toBeGreaterThan(1);
+    });
+    it('translateInBatches processes chunks in batches', async () => {
+      const spy = vi
+        .spyOn(service as any, '_callSarvamTranslate')
+        .mockResolvedValue('translated');
+
+      const result = await (service as any)._translateInBatches(
+        ['1', '2', '3', '4'],
+        'auto',
+        'fr-FR',
+        'mayura:v1',
+        'key',
+        2,
+      );
+
+      expect(result).toEqual([
+        'translated',
+        'translated',
+        'translated',
+        'translated',
+      ]);
+
+      expect(spy).toHaveBeenCalledTimes(4);
+    });
   });
 });
