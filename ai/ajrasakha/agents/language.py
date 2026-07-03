@@ -504,7 +504,7 @@ def get_localized_warning_text(
     script_language: Optional[str] = None,
     vocal_language: Optional[str] = None,
 ) -> str:
-    """Return exact testing disclaimer from translated_languages.xlsx."""
+    """Return exact testing disclaimer from the translation catalog."""
     from ajrasakha.agents.translation_catalog import get_testing_disclaimer
 
     if script_language is not None and vocal_language is not None:
@@ -519,7 +519,7 @@ def get_localized_empty_reply_body(
     script_language: Optional[str] = None,
     vocal_language: Optional[str] = None,
 ) -> str:
-    """Return exact 2-hour expert-queue text from translated_languages.xlsx."""
+    """Return exact 2-hour expert-queue text from the translation catalog."""
     from ajrasakha.agents.translation_catalog import get_two_hour_disclaimer
 
     if script_language is not None and vocal_language is not None:

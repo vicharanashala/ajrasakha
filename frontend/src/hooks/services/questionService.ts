@@ -32,6 +32,7 @@ export type QueueQuestionItem = {
   district?: string;
   crop?: string;
   expertName?: string;
+  moderatorName?: string;
   allocatedAt?: string | null;
   minutesSinceAllocated?: number;
   openedAt?: string | null;
@@ -55,7 +56,13 @@ export type QueueSectionResponse = {
 
 export type QueueDetailsResponse = {
   received: { count: number; items: QueueQuestionItem[] };
+  /** Per-status counts for the received section — accurate DB totals for tab badges. */
+  receivedStatusCounts: { status: string; count: number }[];
   autoAllocateOff: { count: number; items: QueueQuestionItem[] };
+  /** Auto-allocate ON questions that are currently OPEN (accurate count from DB). */
+  autoAllocateOpen: { count: number; items: QueueQuestionItem[] };
+  /** Auto-allocate ON questions that are currently DELAYED (accurate count from DB). */
+  autoAllocateDelayed: { count: number; items: QueueQuestionItem[] };
   allocated: { count: number; items: QueueQuestionItem[] };
   waiting: { count: number; items: QueueQuestionItem[] };
   freeExperts: { count: number; items: QueueExpertItem[] };
@@ -63,6 +70,16 @@ export type QueueDetailsResponse = {
   needsReviewer: { count: number; items: QueueQuestionItem[] };
   totalWork: { count: number; items: QueueQuestionItem[] };
   openedIdle: { count: number; items: QueueQuestionItem[] };
+  moderatorWaiting: { count: number; items: QueueQuestionItem[] };
+  moderatorAllocated: { count: number; items: QueueQuestionItem[] };
+  availableModerators: { count: number; items: QueueExpertItem[] };
+  // Source-split moderator-queue sections (time-bound vs manual)
+  moderatorWaitingTimeBound: { count: number; items: QueueQuestionItem[] };
+  moderatorWaitingManual: { count: number; items: QueueQuestionItem[] };
+  moderatorAllocatedTimeBound: { count: number; items: QueueQuestionItem[] };
+  moderatorAllocatedManual: { count: number; items: QueueQuestionItem[] };
+  availableModeratorsTimeBound: { count: number; items: QueueExpertItem[] };
+  availableModeratorsManual: { count: number; items: QueueExpertItem[] };
 };
 export class QuestionService {
   private _baseUrl = `${API_BASE_URL}/questions`;
@@ -114,6 +131,9 @@ export class QuestionService {
     if (filter.autoAllocateFilter) {
       params.append("autoAllocateFilter", filter.autoAllocateFilter);
     }
+    if (filter.autoAllocateModeratorFilter) {
+      params.append("autoAllocateModeratorFilter", filter.autoAllocateModeratorFilter);
+    }
 
     if (filter.answersCount) {
       params.append("answersCountMin", filter.answersCount[0].toString());
@@ -135,6 +155,10 @@ export class QuestionService {
 
     if (filter.is_non_agri === true) {
       params.append("is_non_agri", "true");
+    }
+
+    if (filter.moderatorId) {
+      params.append("moderatorId", filter.moderatorId);
     }
 
     // states and normalisedCrops sent as JSON arrays in request body
@@ -160,6 +184,7 @@ export class QuestionService {
     actionType: string,
     autoSelectQuestionId?: string | null,
     reviewLevel?: string,
+    includeRerouted?: boolean,
   ): Promise<IQuestion[] | ReroutedQuestionItem[] | null> {
     const params = new URLSearchParams({
       page: pageParam.toString(),
@@ -188,6 +213,10 @@ export class QuestionService {
     }
     if (reviewLevel) {
       params.append("review_level", reviewLevel);
+    }
+    // Opt-in: also surface reroute-pending questions (Expert Management dashboard).
+    if (includeRerouted) {
+      params.append("includeRerouted", "true");
     }
     if (preferences.dateRange && preferences.dateRange !== "all")
       params.append("dateRange", preferences.dateRange);
@@ -480,6 +509,9 @@ export class QuestionService {
     if (filter.autoAllocateFilter) {
       params.append("autoAllocateFilter", filter.autoAllocateFilter);
     }
+    if (filter.autoAllocateModeratorFilter) {
+      params.append("autoAllocateModeratorFilter", filter.autoAllocateModeratorFilter);
+    }
 
     if (filter.dateRange && filter.dateRange !== "all")
       params.append("dateRange", filter.dateRange);
@@ -683,10 +715,12 @@ export class QuestionService {
     season?: string;
     domain?: string;
     status?: string;
+    source?: string;
     hiddenQuestions?: boolean;
     duplicateQuestions?: boolean;
     startDate?: string;
     endDate?: string;
+    moderator?: string;
   }): Promise<Blob> {
     const params = new URLSearchParams();
     if (filters.startDate) {
@@ -713,11 +747,17 @@ export class QuestionService {
     if (filters.status && filters.status !== "all") {
       params.append("status", filters.status);
     }
+    if (filters.source && filters.source !== "all") {
+      params.append("source", filters.source);
+    }
     if (filters.hiddenQuestions) {
       params.append("hiddenQuestions", String(filters.hiddenQuestions));
     }
     if (filters.duplicateQuestions) {
       params.append("duplicateQuestions", String(filters.duplicateQuestions));
+    }
+    if (filters.moderator && filters.moderator !== "all") {
+      params.append("moderator", filters.moderator);
     }
 
     // Get the current Firebase user and token
@@ -773,6 +813,24 @@ export class QuestionService {
     return apiFetch(`${this._baseUrl}/${questionId}/check-duplicate`, { method: "POST" });
   }
 
+  async changeModerator(
+    questionId: string,
+    moderatorId: string,
+  ): Promise<{ success: boolean; message: string } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/moderator`, {
+      method: "PATCH",
+      body: JSON.stringify({ moderatorId }),
+    });
+  }
+
+  async removeModerator(
+    questionId: string,
+  ): Promise<{ success: boolean; message: string } | null> {
+    return apiFetch(`${this._baseUrl}/${questionId}/moderator`, {
+      method: "DELETE",
+    });
+  }
+
   async getQuestionStatusSummary(
     filter: AdvanceFilterValues,
     search: string,
@@ -813,6 +871,9 @@ export class QuestionService {
     }
     if (filter.autoAllocateFilter) {
       params.append("autoAllocateFilter", filter.autoAllocateFilter);
+    }
+    if (filter.autoAllocateModeratorFilter) {
+      params.append("autoAllocateModeratorFilter", filter.autoAllocateModeratorFilter);
     }
 
     if (filter.answersCount) {

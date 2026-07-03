@@ -9,11 +9,15 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from ajrasakha.agents.ajrasakha import graph, use_planner_graph
-from ajrasakha.agents.plan_executor import build_reviewer_upload_calls, build_tool_calls_from_plan
+from ajrasakha.agents.plan_executor import build_reviewer_upload_calls
 from ajrasakha.agents.planner import route_after_ensure_location
-from ajrasakha.agents.planner_rules import apply_non_agriculture_gate
+from ajrasakha.agents.planner_rules import (
+    apply_non_agriculture_gate,
+    should_inherit_crop,
+    merge_entities_from_rephrased_query,
+)
 from ajrasakha.agents.prompts import PLANNER_SYSTEM_PROMPT
-from ajrasakha.agents.state import AjraSakhaState
+from ajrasakha.agents.state import AjraSakhaState, PlannerEntities, PlannerPlan
 
 
 def test_apply_non_agriculture_gate_clears_flags_and_forces_complete():
@@ -72,12 +76,18 @@ async def test_build_reviewer_upload_calls_only_reviewer():
         location_tool_name="location_information_tool",
         reviewer_tool_name="upload_question_to_reviewer_system",
         question_source="AJRASAKHA",
+        thread_id="conv-abc-123",
+        user_id="user-456",
+        message_id="msg-789",
     )
     names = [c["name"] for c in calls]
     assert names == ["upload_question_to_reviewer_system"]
     reviewer = calls[0]
     assert reviewer["args"]["question"] == "How can I make money?"
     assert reviewer["args"]["state_name"] == "Punjab"
+    assert reviewer["args"]["thread_id"] == "conv-abc-123"
+    assert reviewer["args"]["user_id"] == "user-456"
+    assert reviewer["args"]["message_id"] == "msg-789"
 
 
 @pytest.mark.asyncio
@@ -114,6 +124,40 @@ def test_planner_prompt_covers_mixed_intent_examples():
 def test_graph_includes_upload_reviewer_only_node():
     assert use_planner_graph() is True
     assert "upload_reviewer_only" in graph.nodes
+    assert "non_agriculture_reply" in graph.nodes
+    assert "weather_unavailable_reply" in graph.nodes
+
+
+def test_non_agriculture_graph_path_is_terminal_and_isolated():
+    graph_edges = graph.get_graph().edges
+    outgoing = {edge.target for edge in graph_edges if edge.source == "upload_reviewer_only"}
+    non_ag_outgoing = {
+        edge.target for edge in graph_edges if edge.source == "non_agriculture_reply"
+    }
+
+    assert outgoing == {"non_agriculture_reply"}
+    assert non_ag_outgoing == {"__end__"}
+    assert not outgoing.intersection({"execute_plan", "empty_gdb_reply", "translate_answer"})
+
+
+def test_agriculture_empty_gdb_and_translation_edges_are_unchanged():
+    edges = {(edge.source, edge.target) for edge in graph.get_graph().edges}
+
+    assert ("execute_plan", "empty_gdb_reply") in edges
+    assert ("empty_gdb_reply", "translate_answer") in edges
+    assert ("translate_answer", "__end__") in edges
+
+
+def test_weather_unavailable_graph_path_is_terminal():
+    edges = {(edge.source, edge.target) for edge in graph.get_graph().edges}
+    outgoing = {
+        edge.target
+        for edge in graph.get_graph().edges
+        if edge.source == "weather_unavailable_reply"
+    }
+
+    assert ("execute_plan", "weather_unavailable_reply") in edges
+    assert outgoing == {"__end__"}
 
 
 @pytest.mark.asyncio
@@ -169,3 +213,141 @@ async def test_upload_reviewer_only_node_ignores_reviewer_answer_text():
         isinstance(m, AIMessage) and m.content == "Cached answer about money"
         for m in result["messages"]
     )
+
+
+# --- Tests for crop inheritance logic ---
+
+class TestShouldInheritCrop:
+    """Tests for should_inherit_crop() helper function."""
+
+    def test_should_inherit_crop_current_mentioned(self):
+        """Should NOT inherit when current query mentions a crop."""
+        result = should_inherit_crop("wheat", current_crop_mentioned=True, domains=["Varieties"])
+        assert result is False
+
+    def test_should_inherit_crop_domain_requires_crop_prev_is_all(self):
+        """Should NOT inherit when domain requires crop but previous was 'all'."""
+        result = should_inherit_crop("all", current_crop_mentioned=False, domains=["Varieties"])
+        assert result is False
+
+    def test_should_inherit_crop_domain_requires_crop_prev_is_general(self):
+        """Should NOT inherit when domain requires crop but previous was 'general'."""
+        result = should_inherit_crop("general", current_crop_mentioned=False, domains=["Seeds"])
+        assert result is False
+
+    def test_should_inherit_crop_domain_requires_crop_prev_specific(self):
+        """Should inherit when domain requires crop and previous had specific crop."""
+        result = should_inherit_crop("wheat", current_crop_mentioned=False, domains=["Varieties"])
+        assert result is True
+
+    def test_should_inherit_crop_domain_no_requirement_prev_all(self):
+        """Should inherit when domain doesn't require specific crop (even if prev was 'all')."""
+        result = should_inherit_crop("all", current_crop_mentioned=False, domains=["Weather"])
+        assert result is True
+
+    def test_should_inherit_crop_domain_no_requirement_prev_specific(self):
+        """Should inherit when domain doesn't require specific crop and prev had specific crop."""
+        result = should_inherit_crop("wheat", current_crop_mentioned=False, domains=["Livestock & Animal Husbandry"])
+        assert result is True
+
+    def test_should_inherit_crop_mixed_domains_requires_crop(self):
+        """Should NOT inherit if any domain requires crop and prev was 'all'."""
+        result = should_inherit_crop("all", current_crop_mentioned=False, domains=["Weather", "Varieties"])
+        assert result is False
+
+    def test_should_inherit_crop_mixed_domains_no_requirement(self):
+        """Should inherit if no domain requires crop."""
+        result = should_inherit_crop("all", current_crop_mentioned=False, domains=["Weather", "Government Schemes"])
+        assert result is True
+
+
+class TestMergeEntitiesCropInheritance:
+    """Tests for crop inheritance in merge_entities_from_rephrased_query()."""
+
+    def test_crop_all_not_inherited_for_crop_required_domain(self):
+        """Crop 'all' from previous turn should NOT be inherited for crop-required domain.
+        
+        Scenario: First query about livestock (crop='all'), second query about varieties (no crop mentioned).
+        The crop='all' should be cleared so user is asked for crop.
+        """
+        prev_entities: PlannerEntities = {"crop": "all", "state": "Punjab"}
+        plan: PlannerPlan = {
+            "domain": "Varieties",
+            "domains": ["Varieties"],
+            "entities": {},
+            "rephrased_query": "Which variety gives the highest yield?",
+        }
+        messages = [HumanMessage(content="Which variety gives the highest yield?")]
+
+        result = merge_entities_from_rephrased_query(
+            plan=plan,
+            messages=messages,
+            location=None,
+            prev_entities=prev_entities,
+        )
+
+        # Crop should be cleared since domain requires specific crop and prev was 'all'
+        assert result.get("crop") is None or result.get("crop") != "all"
+
+    def test_specific_crop_inherited_for_crop_required_domain(self):
+        """Specific crop from previous turn should be inherited for crop-required domain."""
+        prev_entities: PlannerEntities = {"crop": "Wheat", "state": "Punjab"}
+        plan: PlannerPlan = {
+            "domain": "Varieties",
+            "domains": ["Varieties"],
+            "entities": {},
+            "rephrased_query": "Which wheat variety gives the highest yield?",
+        }
+        messages = [HumanMessage(content="Which wheat variety gives the highest yield?")]
+
+        result = merge_entities_from_rephrased_query(
+            plan=plan,
+            messages=messages,
+            location=None,
+            prev_entities=prev_entities,
+        )
+
+        # Crop should be inherited
+        assert result.get("crop") == "Wheat"
+
+    def test_crop_all_inherited_for_non_crop_required_domain(self):
+        """Crop 'all' from previous turn should be inherited for non-crop-required domain."""
+        prev_entities: PlannerEntities = {"crop": "all", "state": "Punjab"}
+        plan: PlannerPlan = {
+            "domain": "Weather",
+            "domains": ["Weather"],
+            "entities": {},
+            "rephrased_query": "What is the weather forecast?",
+        }
+        messages = [HumanMessage(content="What is the weather forecast?")]
+
+        result = merge_entities_from_rephrased_query(
+            plan=plan,
+            messages=messages,
+            location=None,
+            prev_entities=prev_entities,
+        )
+
+        # Crop 'all' should be inherited for non-crop-required domain
+        assert result.get("crop") == "all"
+
+    def test_current_query_crop_takes_precedence(self):
+        """Crop mentioned in current query should take precedence over previous."""
+        prev_entities: PlannerEntities = {"crop": "Wheat", "state": "Punjab"}
+        plan: PlannerPlan = {
+            "domain": "Varieties",
+            "domains": ["Varieties"],
+            "entities": {},
+            "rephrased_query": "Which rice variety gives the highest yield?",
+        }
+        messages = [HumanMessage(content="Which rice variety gives the highest yield?")]
+
+        result = merge_entities_from_rephrased_query(
+            plan=plan,
+            messages=messages,
+            location=None,
+            prev_entities=prev_entities,
+        )
+
+        # Current query mentions rice, so crop should be Paddy (rice is mapped to paddy in crop patterns)
+        assert result.get("crop") == "Paddy"

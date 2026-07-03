@@ -260,6 +260,46 @@ export class UserController {
     );
   }
 
+  @Get('/moderators')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'List all moderators ({_id, name, email}) for filter dropdowns' })
+  async getModerators() {
+    return await this.userService.getModeratorsList();
+  }
+
+  @OpenAPI({
+    summary: 'Get STF moderators',
+    description: 'Returns non-blocked moderators that have Special Task Force enabled.',
+  })
+  @Get('/stf-moderators')
+  @HttpCode(200)
+  @Authorized(['admin', 'moderator'])
+  async getStfModerators() {
+    const { users } = await this.userService.getAllUsers(
+      1,
+      1000,
+      '',
+      '',
+      'ALL',
+      'moderator',
+      false,
+      undefined,
+      true,
+    );
+    return users.map(u => ({
+      _id: u._id?.toString(),
+      name: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim(),
+      email: u.email,
+      // The questions this moderator currently holds, each with its denormalised status
+      // ({ questionId, status }). Empty when free. Re-routed entries do not mark busy.
+      assignedQuestionIds: (u.assignedQuestionIds ?? []).map((a: any) => ({
+        questionId: a.questionId?.toString(),
+        status: a.status,
+      })),
+    }));
+  }
+
   @OpenAPI({
     summary: 'Update notification auto-delete preference',
     description: 'Updates the notification auto-delete preference for the current user (3d, 1w, 2w, 1m, never).',

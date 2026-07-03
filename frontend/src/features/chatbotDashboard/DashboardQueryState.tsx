@@ -29,6 +29,7 @@ import { ChevronsUpDown, Check, InfoIcon, RefreshCw } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { QueryCategoryQuestionsModal } from "./components/QueryCategoryQuestionsModal";
 import { useQueryClient } from "@tanstack/react-query";
+import { useGetStates } from "@/hooks/api/location/useLocations";
 
 // ─── TYPES ─────────────────────────────────────────────
 
@@ -218,8 +219,13 @@ export const DashboardStateWiseAnalytics = ({
 
   const [open, setOpen] = useState(false);
 
+  const { data: responseData } = useGetStates();
+  // console.log("Data from the hook is", responseData);
+  const neededStateCode = responseData?.find(s => s.stateNameEnglish === selectedState);
+  const selectedStateCode = neededStateCode?.stateCode
   const { data, isLoading } = useStateWiseAnalytics(
     selectedState,
+    selectedStateCode,
     source,
     userType,
   );

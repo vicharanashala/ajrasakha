@@ -43,6 +43,7 @@ import {
   useWeatherConcernAnalytics,
 } from "../hooks/useWeatherConcernAnalytics";
 import { useQueryClient } from "@tanstack/react-query";
+import { WeatherConcernQueriesModal } from "./WeatherConcernQueriesModal";
 
 interface WeatherConcernAnalyticsCardProps {
   source: "vicharanashala" | "annam";
@@ -194,8 +195,8 @@ export function WeatherConcernAnalyticsCard({
     userType,
   );
 
-  const [showAllConcerns, setShowAllConcerns] =
-    useState(false);
+  const [showAllConcerns, setShowAllConcerns] = useState(false);
+  const [selectedConcern, setSelectedConcern] = useState<string | null>(null);
 
   const districtOptions = useMemo(() => {
     if (filters.state === "all") return [];
@@ -494,7 +495,8 @@ const handleRefresh = async () => {
                   return (
                     <div
                       key={item.concern}
-                      className="rounded-md border border-border/60 bg-background p-4"
+                      className="rounded-md border border-border/60 bg-background p-4 cursor-pointer hover:border-border hover:shadow-sm transition-all"
+                      onClick={() => setSelectedConcern(item.concern)}
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex min-w-0 items-center gap-3">
@@ -570,6 +572,14 @@ const handleRefresh = async () => {
           )}
         </div>
       </CardContent>
+
+      <WeatherConcernQueriesModal
+        concern={selectedConcern}
+        filters={filters}
+        source={source}
+        userType={userType}
+        onClose={() => setSelectedConcern(null)}
+      />
     </Card>
   );
 }

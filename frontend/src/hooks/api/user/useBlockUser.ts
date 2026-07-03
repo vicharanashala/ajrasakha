@@ -1,13 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { UserService } from "../../services/userService";
+import { toast } from "@/shared/components/toast";
 
 const userService = new UserService();
 
-interface UseBlockUserProps {
-  isAdmin?: boolean;
-}
-
-export const useBlockUser = ({ isAdmin }: UseBlockUserProps = {}) => {
+export const useBlockUser = () => {
   const queryClient =useQueryClient();
   return useMutation({
     mutationKey:['block_user'],
@@ -16,23 +13,21 @@ export const useBlockUser = ({ isAdmin }: UseBlockUserProps = {}) => {
     },
     onSuccess: () => {
       //  Refresh admin users list
-      if (isAdmin) {
-        queryClient.invalidateQueries({
-          queryKey: ["admin"],
-          exact: false,
-        });
-      }
+      queryClient.invalidateQueries({
+        queryKey: ["users"],
+        exact: false,
+      });
 
       //  Refresh moderator experts list
       queryClient.invalidateQueries({
         queryKey: ["experts"],
         exact: false,
       });
-      // toast.success("User Updated succesfully")
+      toast.success("User Updated succesfully")
     },
-    // onError:(error) => {
-    //   console.error("Error blocking/unblocking user:", error);
-    //   // toast.error(error?.message || `Failed to Block or unBlock Expert`)
-    // }
+    onError: (error: any) => {
+      console.error("Error blocking/unblocking user:", error);
+      toast.error(error?.message || `Failed to Block or unBlock Expert`);
+    }
   })
 }

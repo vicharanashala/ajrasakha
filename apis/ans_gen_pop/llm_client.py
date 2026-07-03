@@ -17,11 +17,22 @@ LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 LLM_TIMEOUT_SECONDS = float(os.getenv("LLM_TIMEOUT_SECONDS", "60"))
 LLM_MAX_TOKENS_FILTER = int(os.getenv("LLM_MAX_TOKENS_FILTER", "32"))
 LLM_MAX_TOKENS_ANSWER = int(os.getenv("LLM_MAX_TOKENS_ANSWER", "1000"))
+LLM_MAX_TOKENS_REPHRASE = int(os.getenv("LLM_MAX_TOKENS_REPHRASE", "128"))
 CHUNK_TEXT_MAX_CHARS = int(os.getenv("CHUNK_TEXT_MAX_CHARS", "1500"))
 
+_REPHRASE_SYSTEM_PROMPT = """You rephrase farmer questions for semantic search over agricultural documents.
+The crop and state are already provided as separate filters — remove them from the question.
+Rules:
+- Remove the crop name, state name, and location references that duplicate those filters.
+- Keep the core agricultural topic and intent unchanged.
+- Do not add new information or assumptions.
+- Return only the rephrased question as plain text (one sentence or short phrase).
+- If the question does not mention crop or state, return it unchanged."""
+
 _FILTER_SYSTEM_PROMPT = """You are a strict relevance validator for Package of Practices (PoP) agricultural documents.
-You will receive a user query and numbered context chunks from PoP records.
-Return only comma-separated chunk numbers (e.g., 1,3) that contain information relevant to answering the query.
+You will receive a user query and context chunks labeled [CHUNK 1], [CHUNK 2], etc.
+Return only comma-separated CHUNK numbers (e.g., 1,3) whose text is relevant to the query.
+Use the [CHUNK N] labels only — do NOT return line or bullet numbers from inside chunk text.
 Return multiple chunk numbers only if the query explicitly needs information from multiple chunks.
 If no chunk is relevant, return exactly: null
 Do not return any other text."""
@@ -90,7 +101,25 @@ def _base_payload(messages: list[dict], max_tokens: int) -> dict:
     return payload
 
 
-async def _chat_completion(messages: list[dict], max_tokens: int) -> str:
+def _format_messages_for_log(messages: list[dict]) -> str:
+    parts: list[str] = []
+    for msg in messages:
+        role = msg.get("role", "unknown")
+        content = msg.get("content", "")
+        parts.append(f"[{role}]\n{content}")
+    return "\n---\n".join(parts)
+
+
+async def _chat_completion(
+    messages: list[dict], max_tokens: int, *, call_label: str = "chat"
+) -> str:
+    log.info(
+        "LLM request [%s] model=%s max_tokens=%s\n%s",
+        call_label,
+        LLM_MODEL.strip('"'),
+        max_tokens,
+        _format_messages_for_log(messages),
+    )
     async with httpx.AsyncClient(timeout=LLM_TIMEOUT_SECONDS) as client:
         response = await client.post(
             LLM_API_URL,
@@ -106,7 +135,9 @@ async def _chat_completion(messages: list[dict], max_tokens: int) -> str:
     content = msg.get("content") or msg.get("reasoning") or ""
     if not str(content).strip():
         raise ValueError("LLM returned empty content")
-    return str(content).strip()
+    content = str(content).strip()
+    log.info("LLM response [%s]\n%s", call_label, content)
+    return content
 
 
 def _chunk_to_filter_text(chunk: ContextPOP, idx: int) -> str:
@@ -115,7 +146,8 @@ def _chunk_to_filter_text(chunk: ContextPOP, idx: int) -> str:
     if len(text) > CHUNK_TEXT_MAX_CHARS:
         text = text[:CHUNK_TEXT_MAX_CHARS] + "..."
     return (
-        f"{idx}. source_name: {meta.source_name or 'unknown'}\n"
+        f"[CHUNK {idx}]\n"
+        f"source_name: {meta.source_name or 'unknown'}\n"
         f"similarity_score: {meta.similarity_score}\n"
         f"text: {text}"
     )
@@ -140,6 +172,31 @@ def _parse_chunk_indices(raw_output: str, max_index: int) -> Optional[List[int]]
     return result or None
 
 
+async def rephrase_query_for_retrieval(query: str, state: str, crop: str) -> str:
+    """Strip crop/state from query so embedding search focuses on the topic."""
+    messages = [
+        {"role": "system", "content": _REPHRASE_SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": (
+                f"Crop: {crop}\n"
+                f"State: {state}\n"
+                f"Question: {query}\n\n"
+                "Rephrase the question without crop or state:"
+            ),
+        },
+    ]
+    try:
+        rephrased = await _chat_completion(
+            messages, LLM_MAX_TOKENS_REPHRASE, call_label="rephrase_for_retrieval"
+        )
+        if rephrased:
+            return rephrased
+    except Exception as exc:
+        log.warning("LLM query rephrase failed, using original query: %s", exc)
+    return query
+
+
 async def filter_relevant_contexts(
     query: str, contexts: List[ContextPOP]
 ) -> Optional[List[ContextPOP]]:
@@ -155,12 +212,27 @@ async def filter_relevant_contexts(
             "role": "user",
             "content": (
                 f"Query:\n{query}\n\nContext chunks:\n{chunk_text}\n\n"
-                "Return only chunk numbers or null."
+                "Return only [CHUNK N] numbers (1 to "
+                f"{len(contexts)}) or null."
             ),
         },
     ]
-    raw_output = await _chat_completion(messages, LLM_MAX_TOKENS_FILTER)
+    raw_output = await _chat_completion(
+        messages, LLM_MAX_TOKENS_FILTER, call_label="filter_relevant_contexts"
+    )
     selected_indices = _parse_chunk_indices(raw_output, len(contexts))
+    if not selected_indices and raw_output.strip().lower() not in ("", "null"):
+        log.warning(
+            "LLM filter returned %r but no valid chunk index in 1..%d "
+            "(model may have picked a line number inside chunk text)",
+            raw_output.strip(),
+            len(contexts),
+        )
+    log.info(
+        "LLM filter parsed chunk indices: %s (from %d contexts)",
+        selected_indices,
+        len(contexts),
+    )
     if not selected_indices:
         return None
     return [contexts[idx - 1] for idx in selected_indices]
@@ -224,5 +296,10 @@ async def generate_answer(
             ),
         },
     ]
-    raw_answer = await _chat_completion(messages, LLM_MAX_TOKENS_ANSWER)
-    return strip_expert_disclaimer(raw_answer)
+    raw_answer = await _chat_completion(
+        messages, LLM_MAX_TOKENS_ANSWER, call_label="generate_answer"
+    )
+    answer = strip_expert_disclaimer(raw_answer)
+    if answer != raw_answer:
+        log.info("LLM answer after disclaimer strip:\n%s", answer)
+    return answer

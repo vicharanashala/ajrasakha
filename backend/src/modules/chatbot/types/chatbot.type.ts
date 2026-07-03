@@ -37,3 +37,7 @@ export type TopFaqsQuery = {
   startTime?: string;
   endTime?: string;
 }
+
+export type userProfileQuery = {
+  userId: string;
+}

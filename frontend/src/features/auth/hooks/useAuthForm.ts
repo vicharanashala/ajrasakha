@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useAuthStore } from "@/stores/auth-store";
+import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
 import { loginWithEmail } from "@/lib/firebase";
 import { useSignup } from "@/hooks/api/auth/useSignup";
@@ -12,7 +13,6 @@ import {
 } from "../utils/validate";
 import type { AuthError, AuthFormData, UseAuthFormReturn } from "../types";
 import { isDevelopment } from "@/shared/app";
-import { useToast } from "@/shared/components/toast";
 import { isCoordinatorRole } from "@/lib/roles";
 
 /**
@@ -35,9 +35,6 @@ export const useAuthForm = (
     confirmPassword: "",
     name: "",
   });
-
-  //new toast 
-  const {error:toastError,warning:toastWarning,success:toastSuccess} = useToast();
   const [errors, setErrors] = useState<Record<string, string>>({}); // validation errors
   const [isLoading, setIsLoading] = useState(false); // tracks API submission
   const [showPassword, setShowPassword] = useState(false); // password visibility toggle
@@ -111,7 +108,7 @@ export const useAuthForm = (
 
     // Stop submission if form is invalid
     if (!validateForm()) {
-      toastError("Please fix form errors.");
+      toast.error("Please fix form errors.");
       return;
     }
 
@@ -133,7 +130,7 @@ export const useAuthForm = (
         if (!isDevelopment) {
           setIsEmailSent(true);
         }
-        toastSuccess(response?.message || "Registration successful!");
+        toast.success(response?.message || "Registration successful!");
         handleModeChange("login")
 
         return;
@@ -150,7 +147,14 @@ export const useAuthForm = (
         avatar: result!.user.photoURL || "",
       });
 
-      navigate({ to: isCoordinatorRole(result?.appUser?.role) ? "/coordinator" : "/home", });
+      if (isCoordinatorRole(result?.appUser?.role)) {
+        navigate({
+          to: "/user/$userId",
+          params: { userId: result?.appUser?._id || result!.user.uid },
+        });
+      } else {
+        navigate({ to: "/home" });
+      }
     } catch (error: unknown) {
       const authError = error as AuthError;
       console.error("Auth failed", error);
@@ -161,13 +165,13 @@ export const useAuthForm = (
         console.error("Auth failed", error);
       }
       if (code === "auth/email-already-in-use" || code === "EMAIL_EXISTS") {
-        toastError("This email is already registered. Please log in instead.");
+        toast.error("This email is already registered. Please log in instead.");
       } else if (
         code === "auth/invalid-credential" ||
         code === "auth/wrong-password" ||
         code === "INVALID_LOGIN_CREDENTIALS"
       ) {
-        toastError("Invalid Credentials");
+        toast.error("Invalid Credentials");
       } else {
         // toast.error("Something went wrong. Please try again.");
         let message =
@@ -196,9 +200,9 @@ export const useAuthForm = (
           // fallback: do nothing, use original message
         }
         if (message === "User Is Blocked. Please Contact Moderator") {
-          toastWarning(authError.message??message);
+          toast.warning(authError.message);
         } else {
-          toastError(message);
+          toast.error(message);
         }
       }
     } finally {

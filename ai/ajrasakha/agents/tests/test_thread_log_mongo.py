@@ -48,7 +48,6 @@ def test_sync_turn_to_mongo_pushes_turn_without_text(tmp_path: Path, monkeypatch
     tlm.sync_turn_to_mongo(
         "thread-abc",
         turn_record,
-        full_logs="turn 1 trace\n",
         background=False,
     )
 
@@ -56,11 +55,37 @@ def test_sync_turn_to_mongo_pushes_turn_without_text(tmp_path: Path, monkeypatch
     filter_doc, update_doc = mock_col.update_one.call_args[0]
     assert filter_doc == {"_id": "thread-abc"}
     assert update_doc["$push"]["turns"] == turn_record
-    assert update_doc["$set"]["full_logs"] == "turn 1 trace\n"
     assert "text" not in update_doc.get("$set", {})
     assert update_doc["$unset"] == {"text": ""}
     assert "updated_at" in update_doc["$set"]
     assert mock_col.update_one.call_args[1]["upsert"] is True
+
+
+def test_sync_missing_turns_only_pushes_absent(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("GOLDEN_MONGODB_URI", "mongodb://localhost:27017")
+    mock_col = MagicMock()
+    monkeypatch.setattr(tlm, "_collection", mock_col)
+    monkeypatch.setattr(
+        tlm,
+        "read_thread_turns",
+        lambda thread_id: [{"turn": 2, "user_message": "punjab"}],
+    )
+
+    records = [
+        {"turn": 1, "user_message": "disease", "log_text": "turn1"},
+        {"turn": 2, "user_message": "punjab", "log_text": "turn2"},
+    ]
+    tlm.sync_completed_turns_to_mongo(
+        "thread-abc",
+        records,
+        full_logs="full file text",
+        background=False,
+    )
+
+    mock_col.update_one.assert_called_once()
+    _, update_doc = mock_col.update_one.call_args[0]
+    assert update_doc["$push"]["turns"]["turn"] == 1
+    assert update_doc["$set"]["full_logs"] == "full file text"
 
 
 def test_sync_turn_to_mongo_swallows_errors(tmp_path: Path, monkeypatch):
@@ -68,6 +93,7 @@ def test_sync_turn_to_mongo_swallows_errors(tmp_path: Path, monkeypatch):
     mock_col = MagicMock()
     mock_col.update_one.side_effect = RuntimeError("db down")
     monkeypatch.setattr(tlm, "_collection", mock_col)
+    monkeypatch.setattr(tlm, "read_thread_turns", lambda thread_id: [])
 
     log_file = tmp_path / "thread-abc.txt"
     log_file.write_text("hello\n", encoding="utf-8")
@@ -166,16 +192,18 @@ def test_read_thread_log_text_from_turns(monkeypatch):
     )
 
 
-def test_read_thread_log_text_prefers_full_logs(monkeypatch):
+def test_read_max_turn_number(monkeypatch):
     monkeypatch.setenv("GOLDEN_MONGODB_URI", "mongodb://localhost:27017")
     mock_col = MagicMock()
     mock_col.find_one.return_value = {
-        "full_logs": "complete txt snapshot\n",
-        "turns": [{"turn": 1, "log_text": "trace 1\n"}],
+        "turns": [
+            {"turn": 1, "log_text": "a"},
+            {"turn": 2, "log_text": "b"},
+        ]
     }
     monkeypatch.setattr(tlm, "_collection", mock_col)
 
-    assert tlm.read_thread_log_text("thread-abc") == "complete txt snapshot\n"
+    assert tlm.read_max_turn_number("thread-abc") == 2
 
 
 def test_read_thread_log_text(monkeypatch):

@@ -1,5 +1,6 @@
 // import { useMutation, useQueryClient } from "@tanstack/react-query";
-// import { UserService } from "../../services/userService"
+// import { UserService } from "../../services/userService";
+// import { toast } from "sonner";
 
 // const userService = new UserService();
 
@@ -37,6 +38,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { UserService } from "../../services/userService";
+import { toast } from "sonner";
 
 const userService = new UserService();
 
@@ -57,7 +59,7 @@ export const useToggleRole = () => {
     }) => {
       return userService.toggleUserRole(userId, currentUserRole, selectedRole);
     },
-    onSuccess: async () => {
+    onSuccess: async (updatedUser: any) => {
       await queryClient.invalidateQueries({
         queryKey: ["admin"],
         exact: false,
@@ -67,6 +69,14 @@ export const useToggleRole = () => {
         queryKey: ["experts"],
         exact: false,
       });
+
+      toast.success(
+        `Role of user ${updatedUser?.user?.firstName} switched successfully to ${updatedUser?.user?.role}`,
+      );
+    },
+
+    onError: () => {
+      toast.error("Failed to switch role");
     },
   });
 };

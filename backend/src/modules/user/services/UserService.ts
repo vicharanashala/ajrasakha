@@ -2,6 +2,7 @@ import { inject, injectable } from 'inversify';
 import { GLOBAL_TYPES } from '#root/types.js';
 import {
   IUser,
+  INotificationType,
   NotificationRetentionType,
   UserRole,
 } from '#root/shared/interfaces/models.js';
@@ -25,6 +26,7 @@ import {getFromContainer} from 'class-validator';
 import {FirebaseAuthService} from '#root/modules/auth/services/FirebaseAuthService.js';
 import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
 import {sendEmailNotification} from '#root/utils/mailer.js';
+import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
 
 @injectable()
 export class UserService extends BaseService {
@@ -43,8 +45,23 @@ export class UserService extends BaseService {
 
     @inject(GLOBAL_TYPES.QuestionRepository)
     private readonly questionRepo: IQuestionRepository,
+
+    @inject(GLOBAL_TYPES.NotificationService)
+    private readonly notificationService: NotificationService,
   ) {
     super(mongoDatabase);
+  }
+
+  /** Lean list of all moderators ({_id, name, email}) for filter dropdowns. */
+  async getModeratorsList(): Promise<{ _id: string; name: string; email: string }[]> {
+    const moderators = await this.userRepo.findModerators();
+    return moderators
+      .map(m => ({
+        _id: m._id?.toString() ?? '',
+        name: `${m.firstName ?? ''} ${m.lastName ?? ''}`.trim() || m.email || 'Unknown',
+        email: m.email ?? '',
+      }))
+      .filter(m => m._id);
   }
 
   async getUserById(userId: string): Promise<IUser> {
@@ -97,26 +114,49 @@ export class UserService extends BaseService {
     try {
       if (!userId) throw new NotFoundError('User ID is required');
 
-      if (data.firstName !== undefined && !data.firstName.trim())
+      const editableFields = [
+        'firstName',
+        'lastName',
+        'mobile',
+        'university',
+        'preference',
+        'avatar',
+      ] as const;
+      const sanitizedData: Partial<IUser> = {};
+
+      for (const field of editableFields) {
+        if (Object.prototype.hasOwnProperty.call(data, field)) {
+          (sanitizedData as any)[field] = (data as any)[field];
+        }
+      }
+
+      if (
+        Object.keys(sanitizedData).length === 0 &&
+        Object.keys(data).length > 0
+      ) {
+        throw new BadRequestError('No editable profile fields provided');
+      }
+
+      if (sanitizedData.firstName !== undefined && !sanitizedData.firstName.trim())
         throw new BadRequestError('Firstname cannot be empty or blank space');
-      if (data.mobile !== undefined && !data.mobile.trim())
+      if (sanitizedData.mobile !== undefined && !sanitizedData.mobile.trim())
         throw new BadRequestError(
           'Mobile number cannot be empty or blank space',
         );
-      if (data.university !== undefined && !data.university.trim())
+      if (sanitizedData.university !== undefined && !sanitizedData.university.trim())
         throw new BadRequestError(
           'University name cannot be empty or blank space',
         );
       const authService = getFromContainer(FirebaseAuthService);
 
       return this._withTransaction(async (session: ClientSession) => {
-        const updatedUser = await this.userRepo.edit(userId, data, session);
+        const updatedUser = await this.userRepo.edit(userId, sanitizedData, session);
         if (!updatedUser)
           throw new NotFoundError(`User with ID ${userId} not found`);
-        if (data.firstName || data.lastName) {
+        if (sanitizedData.firstName || sanitizedData.lastName) {
           await authService.updateFirebaseUser(updatedUser.firebaseUID, {
-            firstName: data.firstName ?? updatedUser.firstName,
-            lastName: data.lastName ?? updatedUser.lastName,
+            firstName: sanitizedData.firstName ?? updatedUser.firstName,
+            lastName: sanitizedData.lastName ?? updatedUser.lastName,
           });
         }
         return updatedUser;
@@ -253,6 +293,10 @@ export class UserService extends BaseService {
             university: u.university ?? '',
             state: u.preference?.state ?? null,
             domain: u.preference?.domain ?? null,
+            assignedQuestionIds: (u.assignedQuestionIds ?? []).map(a => ({
+              questionId: a.questionId?.toString(),
+              status: a.status,
+            })),
           })),
           totalUsers: users.length,
           totalPages: 5,
@@ -315,11 +359,11 @@ export class UserService extends BaseService {
           const nonBlockedExpertsCount =
             await this.userRepo.countNonBlockedExperts(session);
 
-          if (nonBlockedExpertsCount <= 10) {
+         /* if (nonBlockedExpertsCount <= 10) {
             throw new BadRequestError(
               'Minimum 10 active experts required. Cannot block more experts.',
             );
-          }
+          }*/
         }
       }
       return await this.userRepo.updateIsBlocked(userId, action, session);
@@ -337,11 +381,11 @@ export class UserService extends BaseService {
       if (status === 'in-active') {
         const activeExpertsCount =
           await this.userRepo.countActiveExperts(session);
-        if (activeExpertsCount <= 10) {
+      /*  if (activeExpertsCount <= 10) {
           throw new BadRequestError(
             'Minimum 10 active experts required. Cannot mark more experts inactive.',
           );
-        }
+        }*/
       }
       return await this.userRepo.updateActivityStatus(userId, status, session);
     });
@@ -496,6 +540,29 @@ export class UserService extends BaseService {
           },
           session,
         );
+
+        // Send notification to the expert that they have been removed from allocation
+        try {
+          const question = await this.questionRepo.getById(questionId, session);
+          const truncatedQuestionText = question?.question
+            ? question.question.length > 50
+              ? question.question.substring(0, 50) + '...'
+              : question.question
+            : 'Question';
+          
+          await this.notificationService.saveTheNotifications(
+            `You have been removed from the allocation. All your allocations have been cleared by an administrator.`,
+            'Allocation Removed',
+            questionId,
+            expertId,
+            'allocation_removal' as INotificationType,
+          );
+        } catch (notificationError) {
+          console.error(
+            `[removeExpertAllocations] ❌ Failed to send notification to expert ${expertId}:`,
+            notificationError,
+          );
+        }
 
         questionsAffected += 1;
         questionIds.push(submission.questionId.toString());

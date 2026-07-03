@@ -148,6 +148,8 @@ export const useShiftBasedMetrics = (
     fromDate: string;
     // toDate: string;
     shift: string;
+    source: string;
+    timeRange: {from:string, to: string}
   }
 ) => {
   return useQuery({
@@ -157,13 +159,17 @@ export const useShiftBasedMetrics = (
       query.fromDate,
       // query.toDate,
       query.shift,
+      query.source,
+      query.timeRange
     ],
 
     queryFn: () =>
       performaceService.getShiftBasedMetrics(
         query.fromDate,
         // query.toDate,
-        query.shift
+        query.shift,
+        query.source,
+        query.timeRange
       ),
 
     placeholderData: keepPreviousData,
@@ -175,6 +181,8 @@ export const useShiftBasedTrends = (
     fromDate: string;
     // toDate: string;
     shift: string;
+    source: string;
+    timeRange: {from:string, to: string}
   }
 ) => {
   return useQuery({
@@ -184,13 +192,17 @@ export const useShiftBasedTrends = (
       query.fromDate,
       // query.toDate,
       query.shift,
+      query.source,
+      query.timeRange
     ],
 
     queryFn: () =>
       performaceService.getShiftWiseTrends(
         query.fromDate,
         // query.toDate,
-        query.shift
+        query.shift,
+        query.source,
+        query.timeRange
       ),
 
     placeholderData: keepPreviousData,
@@ -202,6 +214,8 @@ export const useShiftBasedStatusDistribution = (
     fromDate: string;
     // toDate: string;
     shift: string;
+    source: string;
+    timeRange: {from:string, to: string}
   }
 ) => {
   return useQuery({
@@ -211,13 +225,17 @@ export const useShiftBasedStatusDistribution = (
       query.fromDate,
       // query.toDate,
       query.shift,
+      query.source,
+      query.timeRange
     ],
 
     queryFn: () =>
       performaceService.getStatusDistribution(
         query.fromDate,
         // query.toDate,
-        query.shift
+        query.shift,
+        query.source,
+        query.timeRange
       ),
 
     placeholderData: keepPreviousData,
@@ -230,6 +248,8 @@ export const useShiftBasedLevelDistribution = (
     fromDate: string;
     // toDate: string;
     shift: string;
+    source: string;
+    timeRange: {from:string, to: string}
   }
 ) => {
   return useQuery({
@@ -239,13 +259,17 @@ export const useShiftBasedLevelDistribution = (
       query.fromDate,
       // query.toDate,
       query.shift,
+      query.source,
+      query.timeRange
     ],
 
     queryFn: () =>
       performaceService.getLevelDistribution(
         query.fromDate,
         // query.toDate,
-        query.shift
+        query.shift,
+        query.source,
+        query.timeRange
       ),
 
     placeholderData: keepPreviousData,
@@ -257,6 +281,8 @@ export const useShiftBasedTopExperts = (
     fromDate: string;
     // toDate: string;
     shift: string;
+    source: string;
+    timeRange: {from:string, to: string}
   }
 ) => {
   return useQuery({
@@ -266,13 +292,17 @@ export const useShiftBasedTopExperts = (
       query.fromDate,
       // query.toDate,
       query.shift,
+      query.source,
+      query.timeRange
     ],
 
     queryFn: () =>
       performaceService.getShiftBasedTopExperts(
         query.fromDate,
         // query.toDate,
-        query.shift
+        query.shift,
+        query.source,
+        query.timeRange
       ),
 
     placeholderData: keepPreviousData,
@@ -285,6 +315,8 @@ export const useShiftBasedTopApprovingExperts = (
     fromDate: string;
     // toDate: string;
     shift: string;
+    source: string;
+    timeRange: {from:string, to: string}
   }
 ) => {
   return useQuery({
@@ -294,13 +326,17 @@ export const useShiftBasedTopApprovingExperts = (
       query.fromDate,
       // query.toDate,
       query.shift,
+      query.source,
+      query.timeRange
     ],
 
     queryFn: () =>
       performaceService.getShiftBasedTopApprovingExperts(
         query.fromDate,
         // query.toDate,
-        query.shift
+        query.shift,
+        query.source,
+        query.timeRange
       ),
 
     placeholderData: keepPreviousData,
@@ -313,6 +349,7 @@ export const useShiftBasedAuditActionCounts = (
     fromDate: string;
     // toDate: string;
     shift: string;
+    timeRange: {from:string, to: string}
   }
 ) => {
   return useQuery({
@@ -322,13 +359,15 @@ export const useShiftBasedAuditActionCounts = (
       query.fromDate,
       // query.toDate,
       query.shift,
+      query.timeRange
     ],
 
     queryFn: () =>
       performaceService.getShiftBasedAuditActionCounts(
         query.fromDate,
         // query.toDate,
-        query.shift
+        query.shift,
+        query.timeRange
       ),
 
     placeholderData: keepPreviousData,

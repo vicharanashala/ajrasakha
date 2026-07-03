@@ -16,13 +16,13 @@ import {
 import { Plus, Cpu, Wheat, Pencil, X, Loader2, Check, Languages, Trash2, Search, FlaskConical, LayoutGrid, Upload } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
+import { toast } from "sonner";
 import { useCreateCrop } from "@/hooks/api/crop/useCreateCrop";
 import { useUpdateCrop } from "@/hooks/api/crop/useUpdateCrop";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import { useBulkUploadCrops } from "@/hooks/api/crop/useBulkUploadCrops";
 import type { ICropAlias, ICropResponse } from "@/hooks/services/cropService";
 import { CropMultiSelect } from "@/components/atoms/CropMultiSelect";
-import { toast } from "@/shared/components/toast";
 
 type EntryType = "crop" | "chemical" | "other";
 
@@ -343,7 +343,6 @@ const AliasManagerModal = ({
   const handleSave = async () => {
     if (!crop._id) return;
     if (!window.confirm(`Update "${crop.name}"?`)) return;
-    let toastId;
     try {
       const payload: { aliases: (ICropAliasObject | string)[]; status?: string; crops?: string[] } = {
         aliases: [...legacyAliases, ...structuredAliases],
@@ -352,15 +351,12 @@ const AliasManagerModal = ({
         payload.status = chemicalStatus;
         payload.crops = chemicalCrops;
       }
-      toastId = toast.loading('updating crop...')
       const res = await updateCrop({ cropId: crop._id, payload });
       if (res?.success) {
-        toast.dismiss(toastId)
         toast.success(`"${crop.name}" updated successfully!`);
         onClose();
       }
     } catch (error: any) {
-      toast.dismiss(toastId)
       toast.error(error?.message || "Failed to update");
     }
   };
@@ -386,7 +382,7 @@ const AliasManagerModal = ({
               );
             })()}
             <div className="min-w-0">
-              <h2 className="text-sm font-bold text-gray-900 dark:text-white capitalize leading-tight">
+              <h2 className="text-sm font-bold text-gray-900 dark:text-white leading-tight">
                 {crop.name}
               </h2>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
@@ -441,7 +437,7 @@ const AliasManagerModal = ({
                         key={cropName}
                         className="inline-flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-lg text-xs font-medium border bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700"
                       >
-                        <span className="capitalize">{cropName}</span>
+                        <span>{cropName}</span>
                         <button
                           type="button"
                           onClick={() =>
@@ -726,9 +722,7 @@ export const CropManagementModal = ({
     const name = newCropName.trim();
     if (!name) return;
     if (!window.confirm(`Are you sure you want to create "${name}"?`)) return;
-    let toastId;
     try {
-      toastId=toast.loading('creating crop...')
       const res = await createCrop({
         name,
         type: entryType === "other" && otherType.trim() ? otherType.trim() : entryType,
@@ -736,12 +730,10 @@ export const CropManagementModal = ({
         aliases: newAliases.length > 0 ? newAliases : undefined,
       });
       if (res?.success) {
-        toast.dismiss(toastId)
         toast.success(`"${name}" added successfully!`);
         resetAddForm();
       }
     } catch (error: any) {
-      toast.dismiss(toastId)
       toast.error(error?.message || "Failed to add entry");
     }
   };
@@ -761,16 +753,12 @@ export const CropManagementModal = ({
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
-    let toastId;
     try {
-      toastId = toast.loading('bulk uploading crops....')
       const res = await bulkUploadCrops({ file, type: entryType as "crop" | "chemical" });
       if (res?.success) {
-        toast.dismiss(toastId)
         toast.success(`${res.count} rows are being processed in the background. The list will refresh shortly.`);
       }
     } catch (err: any) {
-      toast.dismiss(toastId)
       toast.error(err?.message || "Failed to upload CSV");
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -808,7 +796,7 @@ export const CropManagementModal = ({
             </div>
             {/* Crop Name */}
             <div className="px-3 py-2.5 min-w-0">
-              <span className="text-sm font-semibold text-gray-900 dark:text-white capitalize truncate block">
+              <span className="text-sm font-semibold text-gray-900 dark:text-white truncate block">
                 {item.name}
               </span>
             </div>
@@ -866,7 +854,7 @@ export const CropManagementModal = ({
             </div>
             {/* Chemical Name */}
             <div className="px-3 py-2.5 min-w-0">
-              <span className="text-sm font-semibold text-gray-900 dark:text-white capitalize truncate block">
+              <span className="text-sm font-semibold text-gray-900 dark:text-white truncate block">
                 {item.name}
               </span>
             </div>
@@ -940,7 +928,7 @@ export const CropManagementModal = ({
             </div>
             {/* Name */}
             <div className="px-3 py-2.5 min-w-0">
-              <span className="text-sm font-semibold text-gray-900 dark:text-white capitalize truncate block">
+              <span className="text-sm font-semibold text-gray-900 dark:text-white truncate block">
                 {item.name}
               </span>
             </div>

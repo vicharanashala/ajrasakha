@@ -1,5 +1,25 @@
 TEST_CASES = [
     {
+        "name": "non_agriculture_question_english",
+        "query": "How can I make money quickly?",
+        "location": {"city": "Ropar", "state": "Punjab"},
+        "expected_domain": "General",
+        "stable": False,
+        "expected_nodes": [
+            "planner",
+            "ensure_location",
+            "upload_reviewer_only",
+            "non_agriculture_reply",
+        ],
+        "expected_tools": ["upload_question_to_reviewer_system"],
+        "expected_plan": {
+            "is_agriculture_related": False,
+            "is_complete": True,
+            "state": "Punjab",
+            "crop": "all",
+        },
+    },
+    {
         "name": "weather_question_1",
         "query": "What is the weather today in Ropar district of Punjab state?",
         "location": {"city": "Ropar", "state": "Punjab"},
@@ -219,4 +239,4 @@ TEST_CASES = [
         "schemes": False,
     },
 }
-] 
+]

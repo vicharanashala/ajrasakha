@@ -259,7 +259,7 @@ export const PlaygroundPage = () => {
                   </TabsTrigger>
                 )}
 
-                {user?.role === "call_agent" && (
+                {user?.role === "call_agent" && user?.isCallAgentActive && (
                   <>
                     <TabsTrigger
                       value="call_dashboard"

@@ -22,11 +22,7 @@ services:
     volumes:
       - ${GCP_CREDENTIALS_HOST_PATH:-/opt/reviewer/secrets/gcp-service-account.json}:/run/secrets/gcp-service-account.json:ro
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "wget -q --spider http://127.0.0.1:$$APP_PORT/health || exit 1",
-        ]
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:$$APP_PORT/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -53,10 +49,6 @@ services:
       VITE_FIREBASE_MEASUREMENT_ID: ${VITE_FIREBASE_MEASUREMENT_ID:-}
       VITE_SARVAM_API_KEY: ${VITE_SARVAM_API_KEY}
       VITE_VAPID_PUBLIC_KEY: ${VITE_VAPID_PUBLIC_KEY}
-      VITE_PLIVO_STREAM_URL: ${VITE_PLIVO_STREAM_URL}
-      VITE_PLIVO_ENDPOINT_USERNAME: ${VITE_PLIVO_ENDPOINT_USERNAME}
-      VITE_PLIVO_ENDPOINT_PASSWORD: ${VITE_PLIVO_ENDPOINT_PASSWORD}
-      VITE_CALL_AGENT_MANAGER_USER_IDS: ${VITE_CALL_AGENT_MANAGER_USER_IDS}
     depends_on:
       reviewer-backend:
         condition: service_healthy

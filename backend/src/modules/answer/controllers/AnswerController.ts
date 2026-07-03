@@ -59,7 +59,7 @@ export class AnswerController {
     const authorId = user._id.toString();
     const auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.ANSWER,
-      action: AuditAction.SUBMIT_ANSWER,
+      action: AuditAction.ANSWER_CREATED,
       actor: {
         id: user._id.toString(),
         name: `${user.firstName} ${user.lastName}`,
@@ -109,7 +109,9 @@ export class AnswerController {
     const userId = user._id.toString();
     const auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.ANSWER,
-      action: AuditAction.REVIEW_ANSWER,
+      // No review status means the expert is creating the (first) answer rather than
+      // reviewing an existing one — log it as ANSWER_CREATED.
+      action: body.status ? AuditAction.REVIEW_ANSWER : AuditAction.ANSWER_CREATED,
       actor: {
         id: user._id.toString(),
         name: `${user.firstName} ${user.lastName}`,
@@ -170,20 +172,21 @@ export class AnswerController {
   @ResponseSchema(SubmissionResponse, {isArray: true})
   @OpenAPI({summary: 'Get all submissions'})
   async getUnAnsweredQuestions(
-    @QueryParams() query: {page?: number; limit?: number; start:string | undefined,end:string | undefined,selectedHistoryId:string|undefined},
+    @QueryParams() query: {page?: number; limit?: number; start:string | undefined,end:string | undefined,selectedHistoryId:string|undefined,expertId?:string|undefined},
     @CurrentUser() user: IUser,
   ): Promise<SubmissionResponse[]> {
     const page = Number(query.page) ?? 1;
     const limit = Number(query.limit) ?? 10;
     const userId = user._id.toString();
     const selectedHistoryId=query.selectedHistoryId
+    const expertId=query.expertId
     let dateRange=undefined
     if(query.start && query.end){
     let end = new Date(query.end as string);
     end.setHours(23,59,59,999)
     dateRange = {from:new Date(query.start as string),to:end}
     }
-    return this.answerService.getSubmissions(userId, page, limit,dateRange,selectedHistoryId);
+    return this.answerService.getSubmissions(userId, page, limit,dateRange,selectedHistoryId,expertId);
   }
   @Get('/finalizedAnswers')
   @HttpCode(200)
@@ -264,8 +267,12 @@ export class AnswerController {
       const isEditFinal =
         questionData?.status === 'closed' &&
         prevAnswer?.isFinalAnswer === true;
+      // Approving a duplicate question through this endpoint is the "Push to GDB" flow.
+      const isPushToGdb = questionData?.status === 'duplicate';
       if (isEditFinal) {
         auditPayload = {...auditPayload, action: AuditAction.EDIT_FINAL_ANSWER};
+      } else if (isPushToGdb) {
+        auditPayload = {...auditPayload, action: AuditAction.PUSH_TO_GDB};
       }
 
       result = await this.answerService.approveAnswer(
@@ -343,7 +350,7 @@ export class AnswerController {
     let questionData;
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.ANSWER,
-      action: AuditAction.APPROVE_ANSWER,
+      action: AuditAction.APPROVE_LLM_ANSWER,
       actor: {
         id: userId,
         name: `${user.firstName} ${user.lastName}`,

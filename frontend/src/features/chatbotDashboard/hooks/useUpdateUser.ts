@@ -67,3 +67,63 @@ export function useUpdateUser() {
     },
   });
 }
+
+export function useAssignUsers() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      userId,
+      userIds,
+    }: {
+      userId: string;
+      userIds: string[];
+    }) => {
+      return apiFetch(
+        `${env.apiBaseUrl()}/analytics/assign-users/${userId}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            userIds,
+          }),
+        },
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["assign-users"],
+      });
+      toast.success("Users assigned successfully");
+    },
+  });
+}
+
+export function useUnassignUsers() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      userId,
+      userIds,
+    }: {
+      userId: string;
+      userIds: string[];
+    }) => {
+      return apiFetch(
+        `${env.apiBaseUrl()}/analytics/unassign-users/${userId}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            userIds,
+          }),
+        },
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["unassign-users"],
+      });
+      toast.success("Users unassigned successfully");
+    },
+  });
+}

@@ -16,7 +16,8 @@ import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from 
 import { Badge } from "../../components/atoms/badge";
 import { ScrollArea } from "@/components/atoms/scroll-area";
 import { Separator } from "@/components/atoms/separator";
-import { STATES, CROPS } from "@/components/MetaData";
+import { CROPS } from "@/components/MetaData";
+import { useGetStates } from "@/hooks/api/location/useLocations";
 import { StateMultiSelect } from "@/components/atoms/StateMultiSelect";
 import { CropMultiSelect } from "@/components/atoms/CropMultiSelect";
 import { Label } from "../../components/atoms/label";
@@ -27,7 +28,7 @@ import { TimerDisplay } from "../../components/timer-display";
 import { getTimerStartTime } from "@/utils/getTimerStartTime";
 import { useFetchAnswer } from "@/hooks/api/answer/useGetAiInitialAnswer";
 import type { SourceItem } from "@/types";
-import { toast } from "@/shared/components/toast";
+import { toast } from "sonner";
 
 type AiAnswerResponse = {
   answer?: string;
@@ -104,6 +105,8 @@ const QaPreferencesDialog = ({
   const [open, setOpen] = useState(false);
   const { data: cropsData } = useGetAllCrops({ type: "crop", limit: 500 });
   const dbCrops = cropsData?.crops || [];
+  const { data: statesResponse = [] } = useGetStates();
+  const stateOptions = statesResponse.map((s) => s.stateNameEnglish);
   const [localReviewLevel, setLocalReviewLevel] = useState(reviewLevel);
   const [localSource, setLocalSource] = useState(source);
   const [localStates, setLocalStates] = useState<string[]>(states);
@@ -235,7 +238,7 @@ const QaPreferencesDialog = ({
                   State/Region
                 </Label>
                 <StateMultiSelect
-                  states={STATES}
+                  states={stateOptions}
                   selected={localStates}
                   onChange={setLocalStates}
                 />
@@ -292,11 +295,11 @@ const QaQuestionItem = ({
   hasTimeboundQuestions?: boolean;
 }) => {
   const { mutate: fetchAnswer, isPending } = useFetchAnswer();
-  const states = STATES;
+  const { data: statesResponse = [] } = useGetStates();
+  const states = statesResponse.map((s) => s.stateNameEnglish);
   const fetchAiInitialAnswer = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     onQuestionSelect(question.id);
-    const toastId = toast.loading('fetching answer...')
     fetchAnswer(
       {
         query: question.text,
@@ -306,7 +309,6 @@ const QaQuestionItem = ({
       {
         onSuccess: (result: AiAnswerResponse | null) => {
           if (!result?.answer) {
-            toast.dismiss(toastId)
             toast.error("AI answer was not returned.");
             return;
           }
@@ -316,11 +318,9 @@ const QaQuestionItem = ({
             result.answer,
             normalizeAiAnswerSources(result),
           );
-          toast.dismiss(toastId)
           toast.success("AI answer added to draft.");
         },
         onError: () => {
-          toast.dismiss(toastId)
           toast.error("Failed to fetch AI answer.");
         },
       },
@@ -385,7 +385,7 @@ const QaQuestionItem = ({
           ? `${currentStyle.selected} shadow-md ring-2`
           : `bg-card ${currentStyle.hover} hover:bg-accent/20 hover:shadow-sm`
         }
-    ${shouldDisable ? "opacity-50 cursor-not-allowed select-none" : ""}
+        ${shouldDisable ? "opacity-50 cursor-not-allowed select-none" : ""}
   `}
     >
       {selectedQuestion === question?.id && (
@@ -408,7 +408,7 @@ const QaQuestionItem = ({
           <RadioGroupItem
             value={question?.id || ""}
             id={question?.id}
-            disabled={shouldDisable}
+             disabled={shouldDisable}
             className={`mt-1 w-5 h-5 rounded-full border-2 border-gray-400 dark:border-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 checked:bg-green-600 dark:checked:bg-green-400 ${shouldDisable ? "cursor-not-allowed opacity-50" : ""}`}
           />
 
@@ -418,35 +418,13 @@ const QaQuestionItem = ({
                 PAE Reroute
               </span>
             )}
-            <div className="flex items-center gap-2 flex-wrap">
-              <Label
-                htmlFor={question?.id}
-                // className="text-sm md:text-base font-medium leading-relaxed cursor-pointer text-foreground group-hover:text-foreground/90 transition-colors block"
-                className={`text-sm md:text-base font-medium leading-relaxed text-foreground group-hover:text-foreground/90 transition-colors block ${shouldDisable ? "cursor-not-allowed" : "cursor-pointer"}`}
-              >
-                {question?.text}
-              </Label>
-              {question?.status && ['non_agri', 'dynamic'].includes(question.status.toLowerCase()) && (
-                <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    flexShrink: 0,
-                    fontSize: '10px',
-                    fontWeight: 600,
-                    padding: '2px 8px',
-                    borderRadius: '9999px',
-                    border: '1px solid',
-                    borderColor: question.status.toLowerCase() === 'non_agri' ? '#fdba74' : '#d8b4fe',
-                    backgroundColor: question.status.toLowerCase() === 'non_agri' ? '#fff7ed' : '#faf5ff',
-                    color: question.status.toLowerCase() === 'non_agri' ? '#c2410c' : '#7e22ce',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {question.status.toLowerCase() === 'non_agri' ? 'Non Agri' : 'Dynamic'}
-                </span>
-              )}
-            </div>
+            <Label
+              htmlFor={question?.id}
+              // className="text-sm md:text-base font-medium leading-relaxed cursor-pointer text-foreground group-hover:text-foreground/90 transition-colors block"
+               className={`text-sm md:text-base font-medium leading-relaxed text-foreground group-hover:text-foreground/90 transition-colors block ${shouldDisable ? "cursor-not-allowed" : "cursor-pointer"}`}
+            >
+              {question?.text}
+            </Label>
             {question.totalAnswersCount === 0 && (
               <div className="mt-2 flex items-center gap-2">
                 <Select
@@ -526,6 +504,26 @@ const QaQuestionItem = ({
               {formatDate(new Date(question?.createdAt!))}
             </span>
           </div>
+
+          {question?.assignedAt && (
+            <div className="hidden md:flex items-center gap-1.5">
+              <svg
+                className="w-3 h-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 00-2 2z"
+                />
+              </svg>
+              <span className="font-medium">Assigned:</span>
+              <span>{formatDate(new Date(question.assignedAt))}</span>
+            </div>
+          )}
 
           <div className="hidden md:flex items-center gap-1.5">
             <svg

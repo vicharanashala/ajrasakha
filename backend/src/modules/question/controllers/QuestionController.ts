@@ -25,6 +25,7 @@ import {
   ForbiddenError,
 } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
+import { ObjectId } from 'mongodb';
 import { inject, injectable } from 'inversify';
 import { GLOBAL_TYPES } from '#root/types.js';
 import {
@@ -773,10 +774,12 @@ export class QuestionController {
       season?: string;
       domain?: string;
       status?: string;
+      source?: string;
       hiddenQuestions?: string;
       duplicateQuestions?: string;
       startDate?: string;
       endDate?: string;
+      moderator?: string;
     },
     @CurrentUser() user: IUser,
     @Res() response: any,
@@ -808,10 +811,12 @@ export class QuestionController {
         season: query.season,
         domain: query.domain,
         status: query.status,
+        source: query.source,
         hiddenQuestions: query.hiddenQuestions,
         duplicateQuestions: query.duplicateQuestions,
         startDate: query.startDate,
         endDate: query.endDate,
+        moderator: query.moderator,
       });
     } catch (err: any) {
       auditPayload = {
@@ -938,7 +943,7 @@ export class QuestionController {
   ) {
     const { questionId } = params;
     const userId = user._id.toString();
-    const { question, approved_moderator } = await this.questionService.getQuestionFullData(
+    const { question, approved_moderator, assigned_moderator, isAssignedModerator } = await this.questionService.getQuestionFullData(
       questionId,
       userId,
     );
@@ -947,7 +952,7 @@ export class QuestionController {
       throw new NotFoundError(`Question with id ${questionId} not found`);
     }
 
-    return { success: true, data: { ...question, approved_moderator } };
+    return { success: true, data: { ...question, approved_moderator, assigned_moderator, isAssignedModerator } };
   }
 
   @Patch('/:questionId/toggle-auto-allocate')
@@ -1035,6 +1040,161 @@ export class QuestionController {
     };
     this.auditTrailsService.createAuditTrail(auditPayload);
     return result.message;
+  }
+
+  @Patch('/:questionId/moderator')
+  @HttpCode(200)
+  @Authorized(['admin', 'moderator'])
+  @OpenAPI({ summary: 'Change the moderator assigned to a question' })
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  async changeModerator(
+    @Params() params: QuestionIdParam,
+    @Body() body: { moderatorId: string },
+    @CurrentUser() user: IUser,
+  ) {
+    verifyNotTester(user);
+    const { questionId } = params;
+    const { moderatorId } = body;
+    if (!moderatorId) {
+      throw new BadRequestError('moderatorId is required');
+    }
+
+    let questionDetails: any;
+    let prevModerator: any;
+    let newModerator: any;
+    const moderatorLabel = (m: any) =>
+      m ? `${m.firstName ?? ''} ${m.lastName ?? ''}`.trim() + (m.email ? ` (${m.email})` : '') : null;
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.EXPERTS_CATEGORY,
+      action: AuditAction.SELECT_MODERATOR,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: { questionId },
+      changes: {},
+      outcome: { status: OutComeStatus.SUCCESS },
+    };
+
+    try {
+      questionDetails = await this.questionService.getQuestionDataById(questionId);
+      const prevModeratorId = (questionDetails as any)?.moderatorId?.toString();
+      // Guard against a malformed previous moderatorId so a bad stored value can't
+      // throw a BSONError when we look up the previous moderator.
+      [prevModerator, newModerator] = await Promise.all([
+        prevModeratorId && ObjectId.isValid(prevModeratorId)
+          ? this.userService.getUserById(prevModeratorId)
+          : null,
+        this.userService.getUserById(moderatorId),
+      ]);
+
+      await this.questionService.changeQuestionModerator(questionId, moderatorId);
+
+      auditPayload = {
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: {
+          before: { moderator: moderatorLabel(prevModerator) ?? 'Unassigned' },
+          after: { moderator: moderatorLabel(newModerator) ?? moderatorId },
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return { success: true, message: 'Moderator updated successfully' };
+    } catch (err: any) {
+      auditPayload = {
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: {
+          before: { moderator: moderatorLabel(prevModerator) ?? 'Unassigned' },
+        },
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to change moderator',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      if (err instanceof InternalServerError) {
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(err?.message || 'Failed to change moderator');
+    }
+  }
+
+  @Delete('/:questionId/moderator')
+  @HttpCode(200)
+  @Authorized(['admin', 'moderator'])
+  @OpenAPI({ summary: 'Remove the moderator assigned to a question' })
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  async removeModerator(
+    @Params() params: QuestionIdParam,
+    @CurrentUser() user: IUser,
+  ) {
+    verifyNotTester(user);
+    const { questionId } = params;
+
+    let questionDetails: any;
+    let prevModerator: any;
+    const moderatorLabel = (m: any) =>
+      m ? `${m.firstName ?? ''} ${m.lastName ?? ''}`.trim() + (m.email ? ` (${m.email})` : '') : null;
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.EXPERTS_CATEGORY,
+      action: AuditAction.DELETE_MODERATOR,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: { questionId },
+      changes: {},
+      outcome: { status: OutComeStatus.SUCCESS },
+    };
+
+    try {
+      questionDetails = await this.questionService.getQuestionDataById(questionId);
+      const prevModeratorId = (questionDetails as any)?.moderatorId?.toString();
+      prevModerator = prevModeratorId ? await this.userService.getUserById(prevModeratorId) : null;
+
+      await this.questionService.removeQuestionModerator(questionId);
+
+      auditPayload = {
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: {
+          before: { moderator: moderatorLabel(prevModerator) ?? 'Unassigned' },
+          after: { moderator: 'Unassigned' },
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      return { success: true, message: 'Moderator removed successfully' };
+    } catch (err: any) {
+      auditPayload = {
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.question },
+        changes: {
+          before: { moderator: moderatorLabel(prevModerator) ?? 'Unassigned' },
+        },
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to remove moderator',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      if (err instanceof InternalServerError) {
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(err?.message || 'Failed to remove moderator');
+    }
   }
 
   @Post('/bulk-pae-allocate')
@@ -1215,7 +1375,7 @@ export class QuestionController {
         context: { questionId },
         createdAt: new Date(),
       };
-
+      updates.passedBy = new ObjectId(user._id.toString());
       try {
         prevQuestion = await this.questionService.getQuestionById(questionId);
         response = await this.questionService.updateQuestion(questionId, updates);
@@ -1253,84 +1413,72 @@ export class QuestionController {
       }
     }
 
-    // ─── Generic update (non-pass) — existing behavior preserved ─────────────
-    // let auditPayload: ModeratorAuditTrail = {
-    //   category: AuditCategory.QUESTION,
-    //   action: AuditAction.QUESTION_UPDATE,
-    //   actor: {
-    //     id: user._id.toString(),
-    //     name: `${user.firstName} ${user.lastName}`,
-    //     email: user.email,
-    //     role: user.role,
-    //     avatar: user?.avatar || '',
-    //   },
-    //   context: {
-    //     questionId: questionId,
-    //   },
-    //   outcome: {
-    //     status: OutComeStatus.SUCCESS,
-    //   },
-    // };
+    // ─── Generic update (non-pass) — audited as QUESTION_UPDATE ──────────────
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.QUESTION,
+      action: AuditAction.QUESTION_UPDATE,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: { questionId },
+      outcome: { status: OutComeStatus.SUCCESS },
+      createdAt: new Date(),
+    };
     try {
-      // prevQuestion = await this.questionService.getQuestionById(questionId);
-      // questionDetails = {
-      //   text: prevQuestion.text,
-      //   details: prevQuestion.details,
-      //   status: prevQuestion.status,
-      //   priority: prevQuestion.priority,
-      //   aiInitialAnswer: prevQuestion.aiInitialAnswer,
-      // }
+      // Snapshot the current values before applying the edit (for the before/after diff).
+      prevQuestion = await this.questionService.getQuestionById(questionId);
+      questionDetails = {
+        question: (prevQuestion as any)?.question,
+        text: prevQuestion?.text,
+        details: prevQuestion?.details,
+        status: prevQuestion?.status,
+        priority: prevQuestion?.priority,
+        aiInitialAnswer: (prevQuestion as any)?.aiInitialAnswer,
+      };
       response = await this.questionService.updateQuestion(questionId, updates);
-    }
-    catch (err: any) {
-      // auditPayload = {
-      //   ...auditPayload,
-      //   changes: {
-      //     before: {
-      //       question: questionDetails,
-      //     },
-      //   },
-      //   context: {
-      //     ...auditPayload.context,
-      //     question: questionDetails.text,
-      //   },
-      //   outcome: {
-      //     status: OutComeStatus.FAILED,
-      //     errorCode: err?.errorCode || 'INTERNAL_ERROR',
-      //     errorMessage: err?.message || 'Failed to update question',
-      //     errorName: err?.name || 'Error',
-      //     errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available', 
-      //   },
-      // };
-      // this.auditTrailsService.createAuditTrail(auditPayload);
+    } catch (err: any) {
+      auditPayload = {
+        ...auditPayload,
+        context: { ...auditPayload.context, question: questionDetails?.text },
+        changes: questionDetails ? { before: questionDetails } : {},
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to update question',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
       if (err instanceof InternalServerError) {
         throw new InternalServerError(err.message);
       }
-      throw new BadRequestError(
-        err?.message || 'Failed to update question',
-      );
+      throw new BadRequestError(err?.message || 'Failed to update question');
     }
-    // const updatedQuestion = {
-    //   text: updates.question || questionDetails.text,
-    //   details: updates.details || questionDetails.details,
-    //   status: updates.status || questionDetails.status,
-    //   priority: updates.priority || questionDetails.priority,
-    //   aiInitialAnswer: updates.aiInitialAnswer || questionDetails.aiInitialAnswer,
-    // }
 
-    // auditPayload = {
-    //   ...auditPayload,
-    //   changes: {
-    //     before: {
-    //       question: questionDetails,
-    //     },
-    //     ...auditPayload.changes,
-    //     after: {
-    //       question: updatedQuestion,
-    //     },
-    //   },
-    // };
-    // this.auditTrailsService.createAuditTrail(auditPayload);
+    // Log only the fields that actually changed (before → after).
+    const before: Record<string, any> = {};
+    const after: Record<string, any> = {};
+    const trackedKeys = ['question', 'status', 'priority', 'aiInitialAnswer', 'details'] as const;
+    for (const key of trackedKeys) {
+      const next = (updates as any)[key];
+      const prev = (questionDetails as any)?.[key];
+      if (next !== undefined && JSON.stringify(next) !== JSON.stringify(prev)) {
+        before[key] = prev;
+        after[key] = next;
+      }
+    }
+
+    auditPayload = {
+      ...auditPayload,
+      context: { ...auditPayload.context, question: questionDetails?.text },
+      changes: { before, after },
+    };
+    this.auditTrailsService.createAuditTrail(auditPayload);
     return response;
   }
 
@@ -1396,6 +1544,15 @@ export class QuestionController {
         questionId,
         index,
       );
+
+      // When no history remains after removal, the question is effectively
+      // un-allocated again → clear firstAllocationAt so the allocation crons treat it
+      // as never-allocated.
+      if ((result?.history?.length ?? 0) === 0) {
+        await this.questionService.updateQuestion(questionId, {
+          firstAllocationAt: null as any,
+        });
+      }
     } catch (err: any) {
       auditPayload = {
         ...auditPayload,

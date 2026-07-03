@@ -194,7 +194,7 @@ export const AuthForm = ({
         }
 
         console.error(error);
-        if (message === 'User Is Blocked Please Contact Moderator') {
+        if (message === 'User marked as Inactive Please Contact Moderator') {
           toastWarning(error.message)
         } else {
           toastError(message);

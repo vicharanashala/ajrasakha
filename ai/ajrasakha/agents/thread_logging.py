@@ -27,8 +27,9 @@ from langchain_core.runnables import RunnableConfig
 from ajrasakha.agents.config import resolve_thread_id
 from ajrasakha.agents.thread_log_mongo import (
     mongo_thread_log_enabled,
+    read_max_turn_number,
     read_thread_log_text,
-    sync_turn_to_mongo,
+    sync_completed_turns_to_mongo,
 )
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -51,6 +52,12 @@ _FARMER_MESSAGE_RE = re.compile(
     r"┏━ FARMER MESSAGE ━+\n(.*?)\n┗━",
     re.DOTALL,
 )
+_BOT_MESSAGE_RE = re.compile(
+    r"┏━ BOT MESSAGE ━+\n(.*?)\n┗━",
+    re.DOTALL,
+)
+_OUTCOME_RE = re.compile(r"── bot reply \(turn \d+\) \| outcome=(\w+)")
+_STARTED_AT_RE = re.compile(r"#  started: (.+)")
 _BOX_WIDTH = 76
 
 # Thread log files: application logs only (skip httpx / MCP transport noise).
@@ -128,12 +135,21 @@ def _read_thread_log_text(thread_id: str) -> str:
 
 
 def _max_turn_from_log(thread_id: str) -> int:
-    """Read highest completed turn from the local thread log file."""
+    """Read highest completed turn from local file, then Mongo (for multi-replica / restart)."""
     text = _read_local_thread_log_text(thread_id)
-    if not text:
-        return 0
-    turns = [int(m) for m in _END_TURN_RE.findall(text)]
-    return max(turns) if turns else 0
+    local_max = 0
+    if text:
+        turns = [int(m) for m in _END_TURN_RE.findall(text)]
+        local_max = max(turns) if turns else 0
+
+    mongo_max = 0
+    if mongo_thread_log_enabled():
+        try:
+            mongo_max = read_max_turn_number(thread_id)
+        except Exception:
+            pass
+
+    return max(local_max, mongo_max)
 
 
 def _get_active_turn(thread_id: str | None) -> dict[str, Any] | None:
@@ -175,6 +191,56 @@ def _extract_user_message_from_log(log_text: str) -> str:
         for line in raw.splitlines()
     ]
     return "\n".join(lines).strip()
+
+
+def _extract_bot_message_from_log(log_text: str) -> str:
+    match = _BOT_MESSAGE_RE.search(log_text)
+    if not match:
+        return ""
+    raw = match.group(1)
+    lines = [
+        line[2:] if line.startswith("┃ ") else line.lstrip("┃")
+        for line in raw.splitlines()
+    ]
+    return "\n".join(lines).strip()
+
+
+def _completed_turn_numbers_in_file(thread_id: str) -> list[int]:
+    text = _read_local_thread_log_text(thread_id)
+    if not text:
+        return []
+    return sorted({int(m) for m in _END_TURN_RE.findall(text)})
+
+
+def _turn_record_from_log_text(turn: int, log_text: str) -> dict[str, Any]:
+    outcome_match = _OUTCOME_RE.search(log_text)
+    started_match = _STARTED_AT_RE.search(log_text)
+    ended_at = ""
+    for line in log_text.splitlines():
+        if "── bot reply" in line and "IST" in line:
+            parts = line.rsplit("IST", 1)
+            if parts:
+                ended_at = parts[0].strip().split("─")[-1].strip() + " IST"
+            break
+    return {
+        "turn": turn,
+        "user_message": _extract_user_message_from_log(log_text),
+        "bot_message": _extract_bot_message_from_log(log_text),
+        "outcome": outcome_match.group(1) if outcome_match else "unknown",
+        "started_at": started_match.group(1).strip() if started_match else "",
+        "ended_at": ended_at,
+        "log_text": log_text,
+    }
+
+
+def build_turn_records_from_local_file(thread_id: str) -> list[dict[str, Any]]:
+    """Build structured turn records for every completed turn in the local log file."""
+    records: list[dict[str, Any]] = []
+    for turn in _completed_turn_numbers_in_file(thread_id):
+        log_text = _extract_turn_text_from_file(thread_id, turn)
+        if log_text.strip():
+            records.append(_turn_record_from_log_text(turn, log_text))
+    return records
 
 
 def _append_to_turn_buffer(text: str, *, thread_id: str | None = None) -> None:
@@ -308,8 +374,20 @@ def end_conversation_turn(
     _turn_num_ctx.set(None)
 
     if mongo_thread_log_enabled():
-        full_logs = _read_local_thread_log_text(tid)
-        sync_turn_to_mongo(tid, turn_record, full_logs=full_logs)
+        full_logs = _read_local_thread_log_text(tid) or None
+        records = build_turn_records_from_local_file(tid)
+        if not records:
+            records = [turn_record]
+        else:
+            updated = False
+            for idx, record in enumerate(records):
+                if record.get("turn") == turn:
+                    records[idx] = turn_record
+                    updated = True
+                    break
+            if not updated:
+                records.append(turn_record)
+        sync_completed_turns_to_mongo(tid, records, full_logs=full_logs)
 
 
 def _resolve_config_thread_id(config: RunnableConfig | dict[str, Any] | None) -> str | None:

@@ -33,9 +33,8 @@ async function bootstrap() {
     const root = ReactDOM.createRoot(rootElement);
     root.render(
       <StrictMode>
-        <ToastProvider position="bottom-right" defaultDuration={4000}>
-          <RouterProvider router={router} />
-        </ToastProvider>
+        <ToastProvider position="bottom-right" defaultDuration={4000} />
+        <RouterProvider router={router} />
       </StrictMode>,
     );
   }

@@ -4,6 +4,7 @@ import { Container } from 'inversify';
 import { MongoDatabase } from '#root/shared/index.js';
 import { GLOBAL_TYPES } from '#root/types.js';
 import { ObjectId } from 'mongodb';
+import { AuditAction, AuditCategory, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
 
 interface AssignmentJob {
   submissionId: string;
@@ -55,6 +56,11 @@ const notificationRepo = new NotificationRepository(database);
 await (notificationRepo as any).init();
 
 const notificationService = new NotificationService(notificationRepo, database);
+
+const { AuditTrailsRepository } = await import('#root/modules/auditTrails/repositories/provider/mongodb/AuditTrailRepository.js');
+const auditRepo = new AuditTrailsRepository(database);
+const { AuditTrailsService } = await import('#root/modules/auditTrails/services/AuditTrailsService.js');
+const auditService = new AuditTrailsService(auditRepo as any, database);
 
 async function getExpertDisplayName(expertId?: string | null): Promise<string> {
   if (!expertId) return 'Unknown';
@@ -181,7 +187,13 @@ async function getExpertDisplayName(expertId?: string | null): Promise<string> {
       }
       */
 
-      if (job.appendExpert) {
+      // No current expert to replace (queue fully consumed and the tail isn't
+      // in-review, so currentExpertIndex points past the end of the queue). There's no
+      // slot to swap, so fall back to appending the new expert — otherwise this job
+      // would silently no-op while the main process has already spent the expert's slot.
+      const appendNewExpert = job.appendExpert || (!modified && !currentExpertId);
+
+      if (appendNewExpert) {
         // ── PUSH MODE (time-bound reallocation) ──────────────────────────────
         // Append the new expert instead of replacing the stuck one so the full
         // allocation history is preserved.
@@ -231,6 +243,13 @@ async function getExpertDisplayName(expertId?: string | null): Promise<string> {
         });
 
         affectedExpertIds.add(newExpertId);
+        await notificationService.saveTheNotifications(
+          'You have been replaced from the Allocated question. The question has been reassigned to another expert.',
+          'Allocation Removed',
+          submission.questionId.toString(),
+          currentExpertId,
+          'allocation_removal',
+        );
         await notificationService.saveTheNotifications(
           'A time-bound question has been reassigned to you',
           'Question Reassigned',
@@ -297,44 +316,64 @@ async function getExpertDisplayName(expertId?: string | null): Promise<string> {
           isAuthorPosition ? 'answer_creation' : 'peer_review',
         );
 
-        // 5. Notify all moderators and admins about the reallocation
+        // 4.1 Notify the old expert that they have been removed from the allocation.
+        if (currentExpertId) {
+          await notificationService.saveTheNotifications(
+            'You have been replaced from the Allocated question. The question has been reassigned to another expert.',
+            'Allocation Removed',
+            submission.questionId.toString(),
+            currentExpertId,
+            'allocation_removal',
+          );
+        }
+
+        // 4.2 Audit trail — replaces the moderator/admin broadcast. Records that this
+        // question was reallocated from one expert to another, and how long it sat with
+        // the previous expert. (Both experts are still notified above at steps 4 / 4.1.)
         try {
-          console.log(`📢 [Worker] Fetching moderators and admins for reallocation notification...`);
-          const [moderators, admins] = await Promise.all([
-            (userRepo as any).findModerators(),
-            (userRepo as any).findAdmins(),
-          ]);
-          console.log(`📢 [Worker] Found ${moderators?.length ?? 0} moderators and ${admins?.length ?? 0} admins`);
           const [oldExpertName, newExpertName] = await Promise.all([
             getExpertDisplayName(currentExpertId),
             getExpertDisplayName(newExpertId),
           ]);
           const rawQuestionText = (question as any)?.question?.toString().trim() || '';
-          const truncatedQuestion = rawQuestionText.length > 80
-            ? `${rawQuestionText.slice(0, 80)}...`
+          const truncatedQuestion = rawQuestionText.length > 120
+            ? `${rawQuestionText.slice(0, 120)}...`
             : rawQuestionText;
-          const notifTitle = truncatedQuestion || 'Time-Bound Question Reallocated';
-          const notifMessage = `Question auto-reallocated from expert ${oldExpertName} to ${newExpertName} (${isAuthorPosition ? 'author' : 'reviewer'})`;
-          const allRecipients = [...(moderators || []), ...(admins || [])];
-          for (const recipient of allRecipients) {
-            const recipientId = recipient._id?.toString();
-            if (!recipientId) continue;
-            try {
-              await notificationService.saveTheNotifications(
-                notifMessage,
-                notifTitle,
-                submission.questionId.toString(),
-                recipientId,
-                'expert_replacement',
-              );
-              console.log(`📢 [Worker] Notified moderator/admin ${recipientId}`);
-            } catch (notifErr: any) {
-              console.error(`⚠️ [Worker] Failed to notify ${recipientId}:`, notifErr?.message);
-            }
-          }
-        } catch (err: any) {
-          console.error(`⚠️ [Worker] Failed to notify moderators/admins for submission ${job.submissionId}:`, err?.message);
+          // "Waited" = how long it sat with the previous expert before being moved.
+          const allocatedAt = submission.currentExpertAllocatedAt
+            ? new Date(submission.currentExpertAllocatedAt)
+            : null;
+          const waitedMs = allocatedAt ? Math.max(0, now.getTime() - allocatedAt.getTime()) : null;
+          const waitedMinutes = waitedMs != null ? Math.round(waitedMs / 60000) : null;
+
+          await auditService.createAuditTrail({
+            category: AuditCategory.QUESTION,
+            action: AuditAction.REALLOCATE_QUESTIONS,
+            actor: { name: 'System (auto-reallocation)', role: 'system', source: 'time-bound-reallocation' },
+            context: {
+              questionId: submission.questionId.toString(),
+              questionText: truncatedQuestion,
+              waitedMs,
+              waitedMinutes,
+            },
+            changes: {
+              before: { expertId: currentExpertId, expertName: oldExpertName },
+              after: { expertId: newExpertId, expertName: newExpertName },
+            },
+            outcome: { status: OutComeStatus.SUCCESS },
+            createdAt: now,
+          });
+          console.log(`🧾 [Worker] Audit: question reallocated ${oldExpertName} → ${newExpertName} (waited ${waitedMinutes ?? '?'} min)`);
+        } catch (auditErr: any) {
+          console.error(`⚠️ [Worker] Failed to write reallocation audit trail for submission ${job.submissionId}:`, auditErr?.message);
         }
+      }
+
+      // Update firstAllocationAt if history is empty (first allocation for this submission)
+      if (history.length === 0) {
+        await (questionRepo as any).updateQuestion(questionId, {
+          firstAllocationAt: now,
+        });
       }
 
       processed++;

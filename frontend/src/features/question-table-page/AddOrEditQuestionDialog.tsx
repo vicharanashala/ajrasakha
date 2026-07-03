@@ -49,13 +49,17 @@ import {
 } from "../../components/atoms/select";
 import { Separator } from "../../components/atoms/separator";
 import { Input } from "../../components/atoms/input";
-import { STATES, CROPS, DOMAINS, SEASONS, DISTRICTS } from "../../components/MetaData";
+import { CROPS, DOMAINS, SEASONS} from "../../components/MetaData";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import { Label } from "@/components/atoms/label";
 import { Switch } from "@/components/atoms/switch";
 import { TopLeftBadge, TopRightBadge } from "@/components/NewBadge";
 import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
 import { toast } from "@/shared/components/toast";
+import { 
+  useGetStates, 
+  useGetDistricts
+} from "@/hooks/api/location/useLocations";
 
 
 
@@ -98,8 +102,6 @@ export type AddQuestionValidationErrors = Partial<
 
 type DetailField = keyof NonNullable<IDetailedQuestion["details"]>;
 const OPTIONS: Partial<Record<DetailField, string[]>> = {
-  state: STATES,
-
   crop: CROPS,
   season: SEASONS,
   domain: DOMAINS,
@@ -136,6 +138,7 @@ const CropSelect = ({
     }
   };
 
+  
   return (
     <Select
       value={value?.trim() || undefined}
@@ -193,6 +196,13 @@ export const AddOrEditQuestionDialog = ({
   const invalidFieldClass =
     "border-red-500 dark:border-red-400 focus-visible:ring-red-500/60";
 
+  const { data: states = [] } = useGetStates();
+  const selectedStateCode = states.find(
+    (state) => state.stateNameEnglish === updatedData?.details?.state
+  )?.stateCode;
+  const { data: districts = [] } = useGetDistricts(selectedStateCode);
+  const districtNames = districts.map((district) => district.districtNameEnglish);
+
   useEffect(() => {
     if (mode === "edit" && question) {
       setUpdatedData(question);
@@ -208,7 +218,7 @@ export const AddOrEditQuestionDialog = ({
           district: "",
           crop: "",
           season: "",
-          domain: "",
+          domain: [] as string[],
         },
       } as IDetailedQuestion);
       // Reset upload mode and file when dialog opens in add mode
@@ -284,7 +294,7 @@ export const AddOrEditQuestionDialog = ({
                             district: "",
                             crop: "",
                             season: "",
-                            domain: "",
+                            domain: [],
                           },
                         }
                         : prev
@@ -774,7 +784,7 @@ export const AddOrEditQuestionDialog = ({
                           <label>Status*</label>
                         </div>
                         <Select
-                          value={updatedData?.status || "open"}
+                          value={updatedData?.status || question?.status || "open"}
                           onValueChange={(v) =>
                             setUpdatedData((prev) =>
                               prev
@@ -804,14 +814,19 @@ export const AddOrEditQuestionDialog = ({
                       "district",
                     ] as DetailField[]
                   ).map((field) => {
-                    const stateVal = updatedData?.details?.state?.trim();
-                    const districtKey = stateVal
-                      ? Object.keys(DISTRICTS).find((k) => k.toLowerCase() === stateVal.toLowerCase())
-                      : undefined;
                     const fieldOptions =
-                      field === "district"
-                        ? districtKey ? DISTRICTS[districtKey] : []
-                        : OPTIONS[field];
+                      field === "state"
+                        ? states.map((state) => state.stateNameEnglish)
+                        : field === "district"
+                          ? districtNames
+                          : OPTIONS[field];
+                    const rawFieldValue = updatedData?.details?.[field];
+                    const stringValue = Array.isArray(rawFieldValue)
+                      ? rawFieldValue[0]
+                      : rawFieldValue;
+                    const safeValue =
+                      typeof stringValue === "string" ? stringValue.trim() : "";
+
                     return (
                       <div key={field} className="flex flex-col gap-2">
                         <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -822,10 +837,10 @@ export const AddOrEditQuestionDialog = ({
                         {fieldOptions ? (
                           <Select
                             value={
-                              updatedData?.details?.[field]?.trim()
+                              safeValue
                                 ? fieldOptions.find(
-                                  (o) => o.toLowerCase() === updatedData.details![field].toLowerCase().trim()
-                                ) ?? updatedData.details[field]
+                                    (o) => o.toLowerCase() === safeValue.toLowerCase()
+                                  ) ?? safeValue
                                 : undefined
                             }
                             onValueChange={(val) => {
@@ -833,21 +848,23 @@ export const AddOrEditQuestionDialog = ({
                               setUpdatedData((prev) =>
                                 prev
                                   ? {
-                                    ...prev,
-                                    details: {
-                                      ...prev.details,
-                                      [field]: val,
-                                    },
-                                  }
+                                      ...prev,
+                                      details: {
+                                        ...prev.details,
+                                        [field]: val,
+                                        ...(field === "state" ? { district: "" } : {}),
+                                      },
+                                    }
                                   : prev
                               );
                             }}
                           >
                             <SelectTrigger
-                              className={`w-full ${mode === "add" && validationErrors?.[field as AddQuestionField]
-                                ? invalidFieldClass
-                                : ""
-                                }`}
+                              className={`w-full ${
+                                mode === "add" && validationErrors?.[field as AddQuestionField]
+                                  ? invalidFieldClass
+                                  : ""
+                              }`}
                             >
                               <SelectValue placeholder={`Select ${field}`} />
                             </SelectTrigger>
@@ -859,10 +876,13 @@ export const AddOrEditQuestionDialog = ({
                                 </SelectItem>
                               ))}
                               {(() => {
-                                const raw = updatedData?.details?.[field]?.trim();
-                                const hasMatch = raw && fieldOptions.some((o) => o.toLowerCase() === raw.toLowerCase());
-                                return raw && !hasMatch ? (
-                                  <SelectItem key={raw} value={raw}>{raw}</SelectItem>
+                                const hasMatch =
+                                  safeValue &&
+                                  fieldOptions.some((o) => o.toLowerCase() === safeValue.toLowerCase());
+                                return safeValue && !hasMatch ? (
+                                  <SelectItem key={safeValue} value={safeValue}>
+                                    {safeValue}
+                                  </SelectItem>
                                 ) : null;
                               })()}
                             </SelectContent>
@@ -870,18 +890,18 @@ export const AddOrEditQuestionDialog = ({
                         ) : (
                           <Input
                             type="text"
-                            value={updatedData?.details?.district || ""}
+                            value={safeValue}
                             onChange={(e) => {
-                              onFieldValidatedChange?.("district");
+                              onFieldValidatedChange?.(field as AddQuestionField);
                               setUpdatedData((prev) =>
                                 prev
                                   ? {
-                                    ...prev,
-                                    details: {
-                                      ...prev.details,
-                                      district: e.target.value,
-                                    },
-                                  }
+                                      ...prev,
+                                      details: {
+                                        ...prev.details,
+                                        district: e.target.value,
+                                      },
+                                    }
                                   : prev
                               );
                             }}
@@ -959,107 +979,187 @@ export const AddOrEditQuestionDialog = ({
                     />
                   </div>
 
-                  {(
-                    [
-                      "season",
-                      "domain",
-                    ] as DetailField[]
-                  ).map((field) => {
-                    const fieldOptions =
-                      field === "district"
-                        ? updatedData?.details?.state &&
-                          DISTRICTS[updatedData.details.state]
-                          ? DISTRICTS[updatedData.details.state]
-                          : []
-                        : OPTIONS[field];
-                    return (
-                      <div key={field} className="flex flex-col gap-2">
-                        <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                          <label>
-                            {field.charAt(0).toUpperCase() + field.slice(1)}*
-                          </label>
-                        </div>
-                        {fieldOptions ? (
-                          <Select
-                            value={
-                              updatedData?.details?.[field]?.trim()
-                                ? fieldOptions.find(
-                                  (o) => o.toLowerCase() === updatedData.details![field].toLowerCase().trim()
-                                ) ?? updatedData.details[field]
-                                : undefined
-                            }
-                            onValueChange={(val) => {
-                              onFieldValidatedChange?.(field as AddQuestionField);
-                              setUpdatedData((prev) =>
-                                prev
-                                  ? {
-                                    ...prev,
-                                    details: {
-                                      ...prev.details,
-                                      [field]: val,
-                                    },
-                                  }
-                                  : prev
-                              );
-                            }}
-                          >
-                            <SelectTrigger
-                              className={`w-full ${mode === "add" && validationErrors?.[field as AddQuestionField]
-                                ? invalidFieldClass
-                                : ""
-                                }`}
-                            >
-                              <SelectValue placeholder={`Select ${field}`} />
-                            </SelectTrigger>
+                      {(
+                        [
+                          "season",
+                          "domain",
+                        ] as DetailField[]
+                      ).map((field) => {
+                        const rawFieldValue = updatedData?.details?.[field];
+                        const fieldOptions = OPTIONS[field];
 
-                            <SelectContent>
-                              {fieldOptions.map((option) => (
-                                <SelectItem key={option} value={option}>
-                                  {option}
-                                </SelectItem>
-                              ))}
-                              {(() => {
-                                const raw = updatedData?.details?.[field]?.trim();
-                                const hasMatch = raw && fieldOptions.some((o) => o.toLowerCase() === raw.toLowerCase());
-                                return raw && !hasMatch ? (
-                                  <SelectItem key={raw} value={raw}>{raw}</SelectItem>
-                                ) : null;
-                              })()}
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <Input
-                            type="text"
-                            value={updatedData?.details?.district || ""}
-                            onChange={(e) => {
-                              onFieldValidatedChange?.("district");
-                              setUpdatedData((prev) =>
-                                prev
-                                  ? {
-                                    ...prev,
-                                    details: {
-                                      ...prev.details,
-                                      district: e.target.value,
-                                    },
-                                  }
-                                  : prev
-                              );
-                            }}
-                            className={
-                              mode === "add" && validationErrors?.district
-                                ? invalidFieldClass
-                                : undefined
-                            }
-                          />
-                        )}
-                        {mode === "add" && validationErrors?.[field as AddQuestionField] && (
-                          <p className="text-sm font-medium text-red-600 dark:text-red-300 mt-1">
-                            {validationErrors[field as AddQuestionField]}
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
+                        // 1. Determine if this field should be multi-select
+                        const isMulti = field === "domain";
+
+                        // 2. Safely parse the values into an array (for multi) or a string (for single)
+                        const arrayValues = Array.isArray(rawFieldValue)
+                          ? rawFieldValue
+                          : (rawFieldValue ? [rawFieldValue] : []);
+                        
+                        // 3. Check if the maximum limit has been reached
+                        const isMaxReached = isMulti && arrayValues.length >= 3;
+
+                        const stringValue = typeof arrayValues[0] === "string" ? arrayValues[0].trim() : "";
+                        const safeValue = stringValue;
+
+                        return (
+                          <div key={field} className="flex flex-col gap-2">
+                            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                              <label>
+                                {field.charAt(0).toUpperCase() + field.slice(1)}*
+                              </label>
+                            </div>
+
+                            {/* RENDER THE SELECT OR INPUT FIRST */}
+                            {fieldOptions ? (
+                              <Select
+                                key={isMulti ? `multi-${field}-${arrayValues.length}` : `single-${field}`}
+                                // FIX: Disable the select dropdown if the limit is reached
+                                disabled={isMaxReached}
+                                value={
+                                  isMulti
+                                    ? undefined
+                                    : (safeValue
+                                      ? fieldOptions.find(
+                                        (o) => o.toLowerCase() === safeValue.toLowerCase()
+                                      ) ?? safeValue
+                                      : undefined)
+                                }
+                                onValueChange={(val) => {
+                                  onFieldValidatedChange?.(field as AddQuestionField);
+                                  setUpdatedData((prev) => {
+                                    if (!prev) return prev;
+
+                                    let newValue;
+                                    if (isMulti) {
+                                      newValue = arrayValues.includes(val)
+                                        ? arrayValues
+                                        : [...arrayValues, val];
+                                    } else {
+                                      newValue = val;
+                                    }
+
+                                    return {
+                                      ...prev,
+                                      details: {
+                                        ...prev.details,
+                                        [field]: newValue,
+                                      },
+                                    };
+                                  });
+                                }}
+                              >
+                                <SelectTrigger
+                                  className={`w-full ${mode === "add" && validationErrors?.[field as AddQuestionField]
+                                      ? invalidFieldClass
+                                      : ""
+                                    }`}
+                                >
+                                  {isMulti ? (
+                                    <span className={arrayValues.length === 0 || isMaxReached ? "text-muted-foreground" : ""}>
+                                      {/* FIX: Update the text dynamically based on the limit */}
+                                      {isMaxReached
+                                        ? `Maximum 3 ${field}s selected`
+                                        : arrayValues.length > 0
+                                          ? `Add another ${field}...`
+                                          : `Select ${field}`}
+                                    </span>
+                                  ) : (
+                                    <SelectValue placeholder={`Select ${field}`} />
+                                  )}
+                                </SelectTrigger>
+
+                                <SelectContent>
+                                  {fieldOptions
+                                    .filter((option) => !isMulti || !arrayValues.includes(option))
+                                    .map((option) => (
+                                      <SelectItem key={option} value={option}>
+                                        {option}
+                                      </SelectItem>
+                                    ))}
+
+                                  {!isMulti && (() => {
+                                    const hasMatch =
+                                      safeValue &&
+                                      fieldOptions.some((o) => o.toLowerCase() === safeValue.toLowerCase());
+                                    return safeValue && !hasMatch ? (
+                                      <SelectItem key={safeValue} value={safeValue}>
+                                        {safeValue}
+                                      </SelectItem>
+                                    ) : null;
+                                  })()}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <Input
+                                type="text"
+                                value={safeValue}
+                                onChange={(e) => {
+                                  onFieldValidatedChange?.(field as AddQuestionField);
+                                  setUpdatedData((prev) =>
+                                    prev
+                                      ? {
+                                        ...prev,
+                                        details: {
+                                          ...prev.details,
+                                          [field]: isMulti ? [e.target.value] : e.target.value,
+                                        },
+                                      }
+                                      : prev
+                                  );
+                                }}
+                                className={
+                                  mode === "add" && validationErrors?.[field as AddQuestionField]
+                                    ? invalidFieldClass
+                                    : undefined
+                                }
+                              />
+                            )}
+
+                            {/* MULTI-SELECT BADGES MOVED HERE: Below the input, with mt-1 for spacing */}
+                            {isMulti && arrayValues.length > 0 && (
+                              <div className="flex flex-wrap gap-2 mt-1">
+                                {arrayValues.map((val) => (
+                                  <div
+                                    key={val}
+                                    className="flex items-center gap-1 bg-secondary text-secondary-foreground border px-2 py-1 rounded-md text-xs"
+                                  >
+                                    <span>{val}</span>
+                                    <button
+                                      type="button"
+                                      className="text-muted-foreground hover:text-destructive focus:outline-none ml-1"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        onFieldValidatedChange?.(field as AddQuestionField);
+                                        setUpdatedData((prev) =>
+                                          prev
+                                            ? {
+                                              ...prev,
+                                              details: {
+                                                ...prev.details,
+                                                [field]: arrayValues.filter((item) => item !== val),
+                                              },
+                                            }
+                                            : prev
+                                        );
+                                      }}
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Validation Errors */}
+                            {mode === "add" && validationErrors?.[field as AddQuestionField] && (
+                              <p className="text-sm font-medium text-red-600 dark:text-red-300 mt-1">
+                                {validationErrors[field as AddQuestionField]}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
                 </div>
 
                 {userRole === "expert" && mode === "edit" && (

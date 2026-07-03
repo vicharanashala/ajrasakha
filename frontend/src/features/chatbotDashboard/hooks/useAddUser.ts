@@ -1,16 +1,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '@/hooks/api/api-fetch';
 import { env } from '@/config/env';
-import { toast } from '@/shared/components/toast';
+import { toast } from 'sonner';
 
 export function useAddUser() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    onMutate: ()=>{
-      const toastId = toast.loading('adding user...')
-      return {toastId}
-    },
     mutationFn: async ({
       source,
       data,
@@ -26,8 +22,14 @@ export function useAddUser() {
         target?: 'web_app' | 'review_system';
       };
     }) => {
-      if (data.target === 'review_system') {
-        const result = await apiFetch<any>(
+      let reviewResult;
+
+      if (
+        data.target === 'review_system' ||
+        data.userRole === 'district_coordinator' ||
+        data.userRole === 'block_coordinator'
+      ) {
+        reviewResult = await apiFetch<any>(
           `${env.apiBaseUrl()}/auth/admin/review-users`,
           {
             method: 'POST',
@@ -35,12 +37,14 @@ export function useAddUser() {
               email: data.email,
               name: data.name,
               password: data.password,
-              role: data.role,
+              role: data.role || data.userRole,
               isVerified: data.isVerified,
             }),
           },
         );
-        return result;
+        if (data.target === 'review_system') {
+          return reviewResult;
+        }
       }
 
       const result = await apiFetch<any>(
@@ -50,20 +54,26 @@ export function useAddUser() {
           body: JSON.stringify(data),
         },
       );
-      return result;
+      return { ...result, reviewResult };
     },
-    onSuccess: (_data, variables,context) => {
-      if(context?.toastId)toast.dismiss(context.toastId)
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['user-details'] });
       if (variables.data.target === 'review_system') {
         queryClient.invalidateQueries({ queryKey: ['admin'] });
         toast.success('Review system user added successfully');
         return;
       }
+      if (
+        variables.data.userRole === 'district_coordinator' ||
+        variables.data.userRole === 'block_coordinator'
+      ) {
+        queryClient.invalidateQueries({ queryKey: ['admin'] });
+        toast.success('User added to both systems successfully');
+        return;
+      }
       toast.success('Farmer added successfully');
     },
-    onError: (error: any,_,context) => {
-      if(context?.toastId)toast.dismiss(context.toastId)
+    onError: (error: any) => {
       toast.error(error?.message || 'Failed to add user');
     },
   });

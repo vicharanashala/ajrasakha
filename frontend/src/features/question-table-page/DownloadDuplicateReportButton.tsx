@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "../../components/atoms/button";
 import { Download, Loader2, CalendarIcon } from "lucide-react";
+import { toast } from "sonner";
 import { QuestionService } from "@/hooks/services/questionService";
 import {
   Dialog,
@@ -15,7 +16,6 @@ import { Calendar } from "@/components/atoms/calendar";
 import { formatDateLocal } from "@/utils/formatDate";
 import type { DateRange } from "react-day-picker";
 import { format, differenceInDays } from "date-fns";
-import { toast } from "@/shared/components/toast";
 
 export const DownloadDuplicateReportButton = ({ onOpenDialog }: { onOpenDialog?: () => void }) => {
   const questionService = new QuestionService();
@@ -37,10 +37,10 @@ export const DownloadDuplicateReportButton = ({ onOpenDialog }: { onOpenDialog?:
       toast.error("Date range cannot exceed 1 month. Please select a shorter range.");
       return;
     }
-    let toastId;
+
     try {
       setIsDownloading(true);
-      toastId=toast.loading("Preparing download...");
+      toast.info("Preparing download...");
 
       const startDate = formatDateLocal(downloadDateRange.from);
       const endDate = formatDateLocal(downloadDateRange.to);
@@ -60,11 +60,10 @@ export const DownloadDuplicateReportButton = ({ onOpenDialog }: { onOpenDialog?:
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      toast.dismiss(toastId)
+
       toast.success("Similar Questions report downloaded successfully!");
       setIsDateDialogOpen(false);
     } catch (error) {
-      toast.dismiss(toastId)
       console.error("Download error:", error);
       const errorMessage = error instanceof Error ? error.message : "Failed to download similar questions report";
       toast.error(errorMessage);

@@ -1,11 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AnswerService } from "../../services/answerService";
+import { toast } from "sonner";
 import type {
   IReviewParmeters,
   SourceItem,
   SubmitAnswerResponse,
 } from "@/types";
-import { useToast } from "@/shared/components/toast";
 
 export interface IReviewAnswerPayload {
   questionId: string;
@@ -23,16 +23,8 @@ export interface IReviewAnswerPayload {
 }
 const questionService = new AnswerService();
 export const useReviewAnswer = () => {
-  const {loading: toastLoading, success: toastSuccess, error: toastError, dismiss: toastDismiss} = useToast()
   const queryClient = useQueryClient();
-  return useMutation<SubmitAnswerResponse | null, Error, IReviewAnswerPayload, {toastId:string}>({
-    onMutate: () => {
-      const toastId = toastLoading('Submitting Response...', {
-        desc: "please wait while submiting the response"
-      })
-
-      return { toastId };
-    },
+  return useMutation<SubmitAnswerResponse | null, Error, IReviewAnswerPayload>({
     mutationFn: async ({
       questionId,
       status,
@@ -66,15 +58,12 @@ export const useReviewAnswer = () => {
         throw error instanceof Error ? error : new Error("Unknown error");
       }
     },
-    onSuccess: (_,__,context) => {
-      if (context?.toastId)toastDismiss(context.toastId);
-      toastSuccess("Your response has been submitted. Thank you!");
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["question"] });
       queryClient.invalidateQueries({ queryKey: ["questions"] });
     },
-    onError: (error,_,context) => {
-      if (context?.toastId)toastDismiss(context.toastId);
-      toastError(error.message || "Failed to submit response! Try again.");
+    onError: (error) => {
+      toast.error(error.message || "Failed to submit response! Try again.");
       console.error("Failed to submit response:", error.message);
     },
   });

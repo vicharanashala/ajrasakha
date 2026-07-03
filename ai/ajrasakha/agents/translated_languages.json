@@ -1,0 +1,725 @@
+{
+  "schema_version": 1,
+  "rows": [
+    {
+      "script_language": "English",
+      "vocal_language": "English",
+      "texts": {
+        "two_hour_disclaimer": "Your question has been shared with our agri expert at annam.ai. You will get the answer within 2 hours.\nThank You.",
+        "state_follow_up": "Which state and district are you in?",
+        "crop_follow_up": "Which crop are you growing?",
+        "testing_disclaimer": "⚠️ Important Notice (Testing) ⚠️\n\nThis AjraSakha application is under development and intended only for testing and validation.\nAdvisories are experimental and currently cover major crops in selected states.\n_____________________________\n\nWeather data is sourced from IMD.\nMarket data from eNAM, Agmarknet, and State APMCs.\nSoil health guidance from https://soilhealth.dac.gov.in/fertilizer-dosage.\nGovernment schemes from https://www.myscheme.gov.in/. \nOther agricultural information and advisories are expert-verified by Annam.ai. \n\nUsers should independently validate recommendations before acting.",
+        "late_night_disclaimer": "Your question has been forwarded to our agri expert. You will receive a response by tomorrow, 8:00 AM.",
+        "early_morning_disclaimer": "Your question has been forwarded to our agri expert. You will receive a response by today, 8:00 AM.",
+        "non_agriculture_reply": "Thank you for reaching out to Annam.ai.\n\nAjraSakha is an AI-powered agricultural assistance platform designed to answer farming-related questions. Your query appears to be outside the scope of our agricultural services.\n\nIf you have questions about crop cultivation, pest and disease management, fertilizers, irrigation, weather advisories, market prices, government schemes or other farming practices, we're here to help.\n\nPlease ask an agriculture-related question, and we'll be happy to assist you.",
+        "weather_unavailable_for_dynamic_weather_queries": "Thank you for reaching out to Annam.ai.\n\nWe’re sorry, but we’re unable to retrieve the weather information for your location at the moment.\n\nWeather forecasts are provided based on the availability of official weather data. Please try again after some time or ask another agriculture-related question.",
+        "crop_price_not_available_in_selected_mandi": "Thank you for reaching out to Annam.ai.\n\nPrice information for [Crop Name] is currently unavailable in [Mandi Name] mandi.\n\nThis may be because no recent market arrivals or price records are available for the selected crop at this mandi. You may check any nearby mandi or try again later.",
+        "mandi_not_available": "Thank you for reaching out to Annam.ai.\n\n[Mandi Name] mandi’s information could not be displayed at this time. We are continuously expanding our mandi coverage across India. Please verify the mandi name or search for a nearby mandi to view the latest market prices."
+      }
+    },
+    {
+      "script_language": "Bengali-Assamese",
+      "vocal_language": "Assamese",
+      "texts": {
+        "two_hour_disclaimer": "আপোনাৰ প্ৰশ্নটো annam.ai-ৰ আমাৰ কৃষি বিশেষজ্ঞৰ সৈতে ভাগ-বতৰা কৰা হৈছে। আপুনি ২ ঘণ্টাৰ ভিতৰত উত্তৰ পাব।\nধন্যবাদ।",
+        "state_follow_up": "আপুনি কোনখন ৰাজ্য আৰু জিলাত আছে?",
+        "crop_follow_up": "আপুনি কোনটো  শস্যৰ খেতি কৰিছে?",
+        "testing_disclaimer": "⚠️ গুৰুত্বপূৰ্ণ জাননী (পৰীক্ষামূলক) ⚠️\n\nএই AjraSakha এপ্লিকেচনটো বিকাশৰ পৰ্যায়ত আছে আৰু কেৱল পৰীক্ষা আৰু বৈধকৰণৰ বাবেহে উদ্দিষ্ট।\nপৰামৰ্শসমূহ পৰীক্ষামূলক আৰু বৰ্তমান নিৰ্বাচিত ৰাজ্যসমূহৰ প্ৰধান শস্যসমূহ সামৰি লয়।\n_____________________________\n\nবতৰৰ তথ্য IMD-ৰ পৰা সংগ্ৰহ কৰা হৈছে।\nবজাৰৰ তথ্য eNAM, Agmarknet, আৰু ৰাজ্যিক APMC-সমূহৰ পৰা লোৱা হৈছে।\nমাটিৰ স্বাস্থ্য সম্পৰ্কীয় নিৰ্দেশনা https://soilhealth.dac.gov.in/fertilizer-dosage-ৰ পৰা।\nচৰকাৰী আঁচনিসমূহ https://www.myscheme.gov.in/-ৰ পৰা।\nঅন্যান্য কৃষি তথ্য আৰু পৰামৰ্শসমূহ Annam.ai-ৰ দ্বাৰা বিশেষজ্ঞ-যাচাইকৃত।\n\nব্যৱহাৰকাৰীসকলে কাৰ্যব্যৱস্থা গ্ৰহণ কৰাৰ আগতে পৰামৰ্শসমূহ স্বতন্ত্ৰভাৱে যাচাই কৰি ল'ব লাগে।",
+        "late_night_disclaimer": "আপোনাৰ প্ৰশ্নটো আমাৰ কৃষি বিশেষজ্ঞৰ ওচৰলৈ প্ৰেৰণ কৰা হৈছে। আপুনি কাইলৈ পুৱা ৮:০০ বজাৰ ভিতৰত উত্তৰ পাব।",
+        "early_morning_disclaimer": "আপোনাৰ প্ৰশ্নটো আমাৰ কৃষি বিশেষজ্ঞৰ ওচৰলৈ প্ৰেৰণ কৰা হৈছে। আপুনি আজি পুৱা ৮:০০ বজাৰ ভিতৰত উত্তৰ পাব।",
+        "non_agriculture_reply": "Annam.ai-ৰ সৈতে যোগাযোগ কৰাৰ বাবে ধন্যবাদ।\n\nAjraSakha হৈছে এটা কৃত্ৰিম বুদ্ধিমত্তা চালিত কৃষি সহায়ক মঞ্চ যি কৃষি সম্পৰ্কীয় প্ৰশ্নৰ উত্তৰ দিবলৈ প্ৰস্তুত কৰা হৈছে। আপোনাৰ প্ৰশ্নটো আমাৰ কৃষি সেৱাৰ পৰিসৰৰ বাহিৰত যেন লাগিছে।\n\nযদি আপোনাৰ শস্য খেতি, কীট-পতংগ আৰু ৰোগ ব্যৱস্থাপনা, সাৰ, জলসিঞ্চন, বতৰৰ পৰামৰ্শ, বজাৰ মূল্য, চৰকাৰী আঁচনি বা অন্যান্য কৃষি পদ্ধতি সম্পৰ্কে প্ৰশ্ন আছে, আমি সহায় কৰিবলৈ ইয়াত আছোঁ।\n\nঅনুগ্ৰহ কৰি কৃষি সম্পৰ্কীয় এটা প্ৰশ্ন সোধক, আৰু আমি আপোনাক সহায় কৰি সুখী হ'ম।",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai-ৰ সৈতে যোগাযোগ কৰাৰ বাবে ধন্যবাদ।\n\nআমি দুঃখিত, কিন্তু আমি এই মুহূৰ্তত আপোনাৰ অৱস্থানৰ বতৰৰ তথ্য প্ৰাপ্ত কৰিবলৈ অসমৰ্থ।\n\nবতৰৰ পূৰ্বাভাস চৰকাৰী বতৰ তথ্যৰ উপলব্ধতাৰ ওপৰত ভিত্তি কৰি প্ৰদান কৰা হয়। অনুগ্ৰহ কৰি কিছু সময়ৰ পিছত পুনৰ চেষ্টা কৰক বা কৃষি সম্পৰ্কীয় আন কোনো প্ৰশ্ন সোধক।",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai-ৰ সৈতে যোগাযোগ কৰাৰ বাবে ধন্যবাদ।\n\n[Crop Name]-ৰ মূল্যৰ তথ্য বৰ্তমান [Mandi Name] মাণ্ডীত উপলব্ধ নহয়।\n\nএইটো হ'ব পাৰে কাৰণ এই মাণ্ডীত নিৰ্বাচিত শস্যৰ বাবে কোনো শেহতীয়া বজাৰ আগমন বা মূল্যৰ তথ্য উপলব্ধ নহয়। আপুনি ওচৰৰ যিকোনো মাণ্ডী পৰীক্ষা কৰিব পাৰে বা পিছত পুনৰ চেষ্টা কৰিব পাৰে।",
+        "mandi_not_available": "Annam.ai-ৰ সৈতে যোগাযোগ কৰাৰ বাবে ধন্যবাদ।\n\n[Mandi Name] মাণ্ডিৰ তথ্য এই মুহূৰ্তত প্ৰদৰ্শন কৰিব পৰা নগ'ল। আমি ভাৰতজুৰি আমাৰ মাণ্ডি সেৱা অবিৰতভাৱে সম্প্ৰসাৰিত কৰি আছোঁ। অনুগ্ৰহ কৰি মাণ্ডিৰ নাম পৰীক্ষা কৰক বা শেহতীয়া বজাৰ মূল্য চাবলৈ ওচৰৰ কোনো মাণ্ডি বিচাৰক।"
+      }
+    },
+    {
+      "script_language": "English",
+      "vocal_language": "Assamese",
+      "texts": {
+        "two_hour_disclaimer": "Aapunar prashnatō annam.ai-r aamar krishi bisheshagyor soite bhag-batora kora hoise. Aapuni 2 ghontar bhitore uttor pabo.\nDhanyabad.",
+        "state_follow_up": "Aapuni konkhon rajya aru zillat ase?",
+        "crop_follow_up": "Aapuni konto shasya kheti korise?",
+        "testing_disclaimer": "⚠️ Gurutbopurna jannani (porikhamulok) ⚠️\n\nEi AjraSakha application-tō bikashor paryayot ase aru kebol poriksha aru baedhakaronor babehe uddishtō.\nPoramarshosomuh porikhamulok aru bortoman nirbachit rajyosomuhot prodhan shasya-somuh samori loy.\n_____________________________\n\nBotaror totho IMD-r pora songrah kora hoise.\nBajaror totho eNAM, Agmarknet, aru rajyik APMC-somuhor pora lowa hoise.\nMati-r swasthya somporkiyo nirdeshona https://soilhealth.dac.gov.in/fertilizer-dosage-r pora.\nSorkaori aachoni-somuh https://www.myscheme.gov.in/-r pora.\nAnyanyo krishi totho aru poramarshosomuh Annam.ai-r dwara bisheshagya-jachai-krito.\n\nByaboharkarisokole karyabyabastha grohon korar agote poramarshosomuh swotontrobhabe jachai kori lob lage.",
+        "late_night_disclaimer": "\"Aapunar prashnatō aamar krishi bisheshagyor oloi forward kora hoise. Aapuni kaligoi puwa 8:00 bozat uttor pabo.\"",
+        "early_morning_disclaimer": "\"Aapunar prashnatō aamar krishi bisheshagyor logot pathai diya hoise. Aapuni aaji puwa 8:00 bozaloi uttor pabo.\"",
+        "non_agriculture_reply": "Annam.ai-r soite jogajog korar babe dhanyabad.\n\nAjraSakha hol ekta AI-shotho krisir sohayotar manchpotro jitu kheti-sombondheyo proshnor uttor diyar babe toiri kora hoisilo. Apunar proshno aamaar krisir seba-khonr bahirot buli protiyon hoisilo.\n\nJodi apunar pholor kheti, poka-bojar aru rogiyar beboshtapona, saad, sinjon, moushumee poramorsho, bajar moolyo, sorkaree achoni ba onnano kheti korar prokriya-r bishoye proshno thake, amee iyaat sahajyo korar babe asu.\n\nMokromokori krishi-sombondheyo proshno koribok, aru amee apunak sahajyo kori khushi pam.",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai-r soite jogajog korar babe dhanyabad.\n\nAmak khyama koribi, kintu amak etyar babe apunar thanar babe mausam or tothyo uliyaabo naparisu.\n\nMausam or anuman sorkari mausam tothyo upolobdho howar upor vitti kori diya hoi. Kripa kori kunuwa xomoy pichot punor chesta korrok athoba krishi xomporkit anyti prosno koribi.",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai-r soite jogajog korar babe dhanyabad.\n\n[Mandi Name] mandi-t [Crop Name]-r daam-r tothyo etihar uplabdha nohoi.\n\nEi karone hoi pare je nirbachito fasal-r babe ei mandi-t kono shalehor bazar-r agomon ba daam-r record nai. Apuni usorot kono mandi sai lob pare ba pichot punor proichesta koribo pare.",
+        "mandi_not_available": "Annam.ai-r soite jogajog korar babe dhanyabad.\n\n[Mandi Name] mandi-r tothyo etiya dekhuwa nai. Amra Bharatbhorshito amaar mandi coverage bikashit kori ase. Krpaya mandi-r naam xatya kori lobok ba najikore thaka mandi bisari najabo holei market price saai lobok paribo."
+      }
+    },
+    {
+      "script_language": "Bengali-Assamese",
+      "vocal_language": "Bengali",
+      "texts": {
+        "two_hour_disclaimer": "আপনার প্রশ্নটি annam.ai-এর আমাদের কৃষি বিশেষজ্ঞের সাথে শেয়ার করা হয়েছে। আপনি ২ ঘণ্টার মধ্যে উত্তর পাবেন।\nধন্যবাদ।",
+        "state_follow_up": "আপনি কোন রাজ্য এবং জেলায় আছেন?",
+        "crop_follow_up": "আপনি কোন ফসল চাষ করছেন?",
+        "testing_disclaimer": "⚠️ গুরুত্বপূর্ণ বিজ্ঞপ্তি (পরীক্ষামূলক) ⚠️\n\nএই AjraSakha অ্যাপ্লিকেশনটি বিকাশের পর্যায়ে রয়েছে এবং শুধুমাত্র পরীক্ষা ও যাচাইয়ের উদ্দেশ্যে তৈরি।\nপরামর্শগুলি পরীক্ষামূলক এবং বর্তমানে নির্বাচিত রাজ্যগুলিতে প্রধান ফসলগুলিকে অন্তর্ভুক্ত করে।\n_____________________________\n\nআবহাওয়ার তথ্য IMD থেকে সংগ্রহ করা হয়েছে।\nবাজারের তথ্য eNAM, Agmarknet এবং রাজ্য APMC থেকে নেওয়া হয়েছে।\nমাটির স্বাস্থ্য সংক্রান্ত নির্দেশনা https://soilhealth.dac.gov.in/fertilizer-dosage থেকে নেওয়া হয়েছে।\nসরকারি প্রকল্পের তথ্য https://www.myscheme.gov.in/ থেকে নেওয়া হয়েছে।\nঅন্যান্য কৃষি তথ্য ও পরামর্শ Annam.ai দ্বারা বিশেষজ্ঞ-যাচাইকৃত।\n\nব্যবহারকারীদের উচিত কোনো পদক্ষেপ নেওয়ার আগে স্বাধীনভাবে সুপারিশগুলি যাচাই করে নেওয়া।",
+        "late_night_disclaimer": "আপনার প্রশ্নটি আমাদের কৃষি বিশেষজ্ঞের কাছে পাঠানো হয়েছে। আপনি আগামীকাল সকাল ৮:০০ টার মধ্যে উত্তর পাবেন।",
+        "early_morning_disclaimer": "আপনার প্রশ্নটি আমাদের কৃষি বিশেষজ্ঞের কাছে পাঠানো হয়েছে। আজ সকাল ৮:০০ টার মধ্যে আপনি উত্তর পাবেন।",
+        "non_agriculture_reply": "Annam.ai-তে যোগাযোগ করার জন্য ধন্যবাদ।\n\nAjraSakha হল একটি কৃত্রিম বুদ্ধিমত্তা চালিত কৃষি সহায়তা প্ল্যাটফর্ম যা চাষাবাদ সম্পর্কিত প্রশ্নের উত্তর দেওয়ার জন্য ডিজাইন করা হয়েছে। আপনার প্রশ্নটি আমাদের কৃষি সেবার পরিধির বাইরে বলে মনে হচ্ছে।\n\nআপনার যদি ফসল চাষ, কীটপতঙ্গ ও রোগ ব্যবস্থাপনা, সার, সেচ, আবহাওয়া পরামর্শ, বাজার মূল্য, সরকারি প্রকল্প বা অন্যান্য চাষাবাদ পদ্ধতি সম্পর্কে প্রশ্ন থাকে, আমরা সাহায্য করতে এখানে আছি।\n\nঅনুগ্রহ করে একটি কৃষি সম্পর্কিত প্রশ্ন করুন, এবং আমরা আপনাকে সাহায্য করতে খুশি হব।",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai-তে যোগাযোগ করার জন্য ধন্যবাদ।\n\nআমরা দুঃখিত, কিন্তু এই মুহূর্তে আপনার এলাকার আবহাওয়ার তথ্য পেতে আমরা অক্ষম।\n\nআবহাওয়ার পূর্বাভাস সরকারি আবহাওয়া তথ্যের প্রাপ্যতার উপর ভিত্তি করে প্রদান করা হয়। অনুগ্রহ করে কিছুক্ষণ পরে আবার চেষ্টা করুন অথবা কৃষি সম্পর্কিত অন্য কোনো প্রশ্ন করুন।",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai-তে যোগাযোগ করার জন্য ধন্যবাদ।\n\n[Crop Name]-এর দাম সংক্রান্ত তথ্য বর্তমানে [Mandi Name] মান্ডিতে পাওয়া যাচ্ছে না।\n\nএটি হতে পারে কারণ এই মান্ডিতে নির্বাচিত ফসলের সাম্প্রতিক বাজার আগমন বা দামের কোনো তথ্য নেই। আপনি কাছাকাছি কোনো মান্ডি দেখতে পারেন অথবা পরে আবার চেষ্টা করতে পারেন।",
+        "mandi_not_available": "Annam.ai-তে যোগাযোগ করার জন্য ধন্যবাদ।\n\n[Mandi Name] মান্ডির তথ্য এই মুহূর্তে প্রদর্শন করা সম্ভব হচ্ছে না। আমরা সমগ্র ভারত জুড়ে আমাদের মান্ডি কভারেজ ক্রমাগত সম্প্রসারিত করছি। অনুগ্রহ করে মান্ডির নাম যাচাই করুন অথবা সর্বশেষ বাজার মূল্য দেখতে কাছাকাছি কোনো মান্ডি খুঁজুন।"
+      }
+    },
+    {
+      "script_language": "English",
+      "vocal_language": "Bengali",
+      "texts": {
+        "two_hour_disclaimer": "Apnar proshhnoti annam.ai-er amader krishi bisheshogyer shathe share kora hoyeche. Apni 2 ghontar modhye uttor paben.\nDhonyobad.",
+        "state_follow_up": "Apni kon rajye o district-e achen?",
+        "crop_follow_up": "Apni kon phosol chash korchen?",
+        "testing_disclaimer": "⚠️ Guruttopurno Biggopti (Porikkshamulok) ⚠️\n\nEi AjraSakha application ti bikasher porjaye royeche ebong shudhumatro poriksha o jachaier uddeshye toiri.\nPoramorshoguli porikkshamulok ebong bortomane nirbachito rajyogulite prodhan phosolguloke ontorbhukt kore.\n_____________________________\n\nAbohawar tothyo IMD theke songgroho kora hoyeche.\nBajarer tothyo eNAM, Agmarknet ebong rajyo APMC theke neowa hoyeche.\nMatir shasthyo songkranto nirdeshona https://soilhealth.dac.gov.in/fertilizer-dosage theke neowa hoyeche.\nSorkaari prokolper tothyo https://www.myscheme.gov.in/ theke neowa hoyeche.\nOnyanya krishi tothyo o poramorsh Annam.ai dwara bisheshogyo-jachaikkrit.\n\nByaboharkariider uchit kono podokkhep newar age shadhinobhabe suparishshoguli jachai kore neowa.",
+        "late_night_disclaimer": "\"Apnar proshnoti amader krishi biseshogner kache pathano hoyeche. Apni agamikaal sokal 8:00 TAr modhye uttor paben.\"",
+        "early_morning_disclaimer": "\"Apnar proshno amader krishi biseshogyer kachhe pathano hoyeche. Apni ajker modhye, sokal 8:00 TAr modhye uttor paben.\"",
+        "non_agriculture_reply": "Annam.ai-te jogajog korar jonno dhonnobad.\n\nAjraSakha ekti AI-cholito krishi sahayata platform ja chash-abader sathe somporkit proshner uttor debar jonno toiri kora hoyeche. Apnar proshno amader krishi sebar sima theke baire bole mone hochhe.\n\nJodi apnar foshol chash, potongo o roger byabosthapona, shar, sinchan, abohawar poramorsho, bajarer dam, sorkari prokolpo athoba onyanno chash-abader somporke kono proshno thake, amra apnake sahajyo korte prostut achi.\n\nDoya kore krishi somporkit kono proshno korun, amra khushi hoye apnake sahajyo korbo.",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai-te jogajog korar jonno dhonnobad.\n\nAmra dukkhito, kintu ekhon apnar elakay abohawar tothyo aante parchi na.\n\nAbohawar purbanuman sorkari abohawar tothyer upolobotar upor nirbhor kore. Kripa kore kichu somoy por abar chesta korun ba kritir somporkito onno kono prosno korun.",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai-te jogajog korar jonno dhonnobad.\n\n[Mandi Name] mandi-te [Crop Name]-er daam er tothyo ekhon pawa jacche na.\n\nEta hote pare karon ei mandi-te nirbachito foshol er kono somprottik bazar agomon ba daam er tothyo nei. Apni kache kono mandi check korte paren ba pore abar try korte paren.",
+        "mandi_not_available": "Annam.ai-te jogajog korar jonno dhonnobad.\n\n[Mandi Name] mandi-r tothyo ei muhurte dekhanoo jachchhe na. Amra nirantar Bharatjure amader mandi coverage bariye cholchhi. Kripa kore mandi-r naam tik ache kina dekhun othoba sarbosesh bazar dam dekhte kachakachi kono mandi khujun."
+      }
+    },
+    {
+      "script_language": "Devanagari",
+      "vocal_language": "Bodo",
+      "texts": {
+        "two_hour_disclaimer": "आपुनार सोंथिखौ annam.ai-नि आमार कृषि बिशेसोज्ञजों बाँटिनाय जायो। आपुनि 2 घन्टानि भितराव जबाब पाबो।\nबादायबो।",
+        "state_follow_up": "आपुनि माबे रायजो आरो जिलाआव आसो?",
+        "crop_follow_up": "आपुनि माबे फसल फलायो?",
+        "testing_disclaimer": "⚠️ दान्थाइ जानगार (परिक्षा) ⚠️\n\nबे AjraSakha एपलिकेसनखौ थाखोनाय जायो आरो केवल परिक्षा आरो सत्यापनाव बाहायनो हागौ।\nसलाहसमूहखौ प्रयोगात्मक रूपाव बानायनाय जायो आरो दाननि बायदि बायदि रायजोनि मुलु फसलखौ फारसे फारसे राजखान्थिनि गेजेराव हेफाजाब करो।\n_____________________________\n\nमौसम दाटा IMD-नि जाय।\nबाजार दाटा eNAM, Agmarknet, आरो रायजो APMCs-नि जाय।\nमाटि स्वास्थ्य सलाह https://soilhealth.dac.gov.in/fertilizer-dosage-नि जाय।\nसरकारि आखाइखौ https://www.myscheme.gov.in/-नि जाय।\nबेसेबां कृषि थाखोनाय आरो सलाहखौ Annam.ai-नि बिशेसोज्ञजों सत्यापन करनाय जायो।\n\nबाहायग्रा मानसिफोरा खुंथायखौ लानो आगोनाव सोलोंथाय सत्यापन करनो हागौ।",
+        "late_night_disclaimer": "\"नंथिनि सुबुंथाव नंथिनि खेती बिसेसग्यजों लामाव खौ बिजिरदों। नंथाय दाहान्नै सिगां 8:00 आव जाबाय फैगौ।\"",
+        "early_morning_disclaimer": "\"नायनि होंनाय गोसो नांथाय खेथि बिसेसगेयाव थायखिदिखौ जादों। नोंथांनि फिन्नाय दिनैसिम नाजा 8:00 बाजाफोरा मोनदों।\"",
+        "non_agriculture_reply": "Annam.ai आव सम्फोथाखौ फैनाइ धन्यबाद।\n\nAjraSakha बेखौ AI-आव खौरांनाय गाहाय सायखि मदतनि प्लेटफर्म हागौ जायनि सुबुंखौ गाहाय सायखिनि फिसाथावनि सोदोबफोरनि जाबाब होनो दं। नोङा सोदोब बेखौ नोङा गाहाय सायखिनि सेवाफोरनि दायखौनिफ्राय बाहायनो थानाय होन्ना।\n\nनोङा फारफोरनि फुरबो, रक्खा आरो रावनि हाबाफारि, जाबोरनाय, खार होनाय, बाव-फादोंनि सुंथि, बाजारनि दाम, सारकारनि फोरोमफोर एबा गुबै गाहाय सायखिनि आचारफोरनि सोदोब दं नो हाया, बे नोङाखौ मदत खालामनो थाङो।\n\nअननुग्रह खालामला गाहाय सायखिनि सोदोब सोद आरो बे नोङाखौ सुखनि सायाव मदत होनानै थाङो।",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai आव सोमोन्दो जानाय होननाय थाखाय धन्यबाद।\n\nमाफ खालामनो, नोजोरा बिसिम नोंथांनि जायगानि हावानि सुसूं मोन्नो हायाखौ फैनाखाइ।\n\nहावानि आगाबस्तु बिसोराव आफिसियेल हावानि डाटानि मोननायखौ बुंनो होयो। अननो गाबै समयनि उनाव दावबाय नांगौ आरो गुबुन खेतिबारीनि सोरोबसिन दावबाय।",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai आव सम्पर्क खालामनाय थुनलाइ धन्यबाद।\n\n[Crop Name] नि दाम गोनां [Mandi Name] मण्डिआव दानो बेयाव।\n\nबे होन्दोनो दानायनि गोजौ बे मण्डिआव सायखि फसलनि थाखाय लासिम बजारआव हायै दं जाथाय नाङा दाम रेकर्ड दं। नोङा गोबां नाजिकसिम बेफोरा मण्डि सायख्रा नाङा उननायाव होदोरदिहां।",
+        "mandi_not_available": "Annam.ai आव सम्पर्क खालामनाय थुनलाइ धन्यबाद।\n\nबे समाव [Mandi Name] मण्डिनि सुंदों दिन्थाय हायानै फोजोबनाय जाइ। बिसोरा भारतनि हरायबो मण्डि कभारेज बांसिनो दंलाइ। अननाय मण्डिनि मुं मोजां खालाम एबा आरो खुंथि आरो मण्डि मोनो मोजां थाखाय बजार दामफोरखौ दिनाव लानानै।"
+      }
+    },
+    {
+      "script_language": "English",
+      "vocal_language": "Bodo",
+      "texts": {
+        "two_hour_disclaimer": "Apunar sonthikhau annam.ai-ni aamar krishi bishesognjong bantinay jaayo. Apuni 2 ghontani bhitoraav jobab paabo.\nBadaaybo.",
+        "state_follow_up": "Apuni maabe raayjoaav aar districtaav aaso?",
+        "crop_follow_up": "Apuni maabe phosal phalaayo?",
+        "testing_disclaimer": "⚠️ Danthai Jangar (Porikha) ⚠️\n\nBe AjraSakha application khau thaakhonay jaayo aaro keval porikha aaro satyapanaav bahaynо haagau.\nSolahsamuhkhau proyogatmak ruphaav baanaynay jaayo aaro dannai baydai baydai raayjoni mulu phosalkhau pharose pharose raajkhanthinai gejeraav hefaajab koro.\n_____________________________\n\nMausam data IMD-ni jaay.\nBaajaar data eNAM, Agmarknet, aaro raayjo APMCs-ni jaay.\nMaati swasthya solah https://soilhealth.dac.gov.in/fertilizer-dosage-ni jaay.\nSorkari aakhaaikhau https://www.myscheme.gov.in/-ni jaay.\nBesebang krishi thaakhonay aaro solahkhau Annam.ai-ni bishesogngjong satyapan kornay jaayo.\n\nBahaygra mansifoora khunthaykhau laano aagonaav solongthaay satyapan korno haagau.",
+        "late_night_disclaimer": "\"Nwngni khonthai-a hamni krishi biseshogya khou phaitha jaisri. Nwng thimani 8:00 AM khou phali gwjab paigwn.\"",
+        "early_morning_disclaimer": "\"नंथाइनि सोदोब सिम बिजिरनायाव फोरमायनाय जानो। नं दिनै सिगां 8:00 बजाफोरआव फोरमायनि खौरां पाबाय गोनां।\"",
+        "non_agriculture_reply": "Annam.ai jwng phwnangjab khalamnaini thakhay sabaykhar.\n\nAjraSakha ha AI-powered jarayarwi khorang sangkhrwmnino lamw platform nung, bini jarayarwi khorang sambondhou swalabkhwu phorau sorgwna habarwi. Nwngni swal ha nwngni jarayarwi sibai khwmani bayhayao hwnna nwng.\n\nNwngni jarayarwi baobathanao, khiphu arao jwrmabwi rwkhablo, phinthaikhumw, dabnai bikhlamnai, mourwmni lama songkho, hajw daoni mol, sarkar giphlengkha aaro adhamgwi jarayarwi sosomjwnai gwbwi swal dong, be nwngkhwu manwi habarwi.\n\nOda maya, jarayarwi sambondhou swal nung bisarnw, arao be nwngkhwu khousi hongbw manwi.",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai jwng phwnangjab khalamnaini thakhay sabaykhar.\n\nNwng maaphw hwnnanw, adwbw nwngni jaygani thangkha-haonayni gwnang bidwlwi tungkhang doyla ongkhardwngnai.\n\nHaonayni gwnang bidwlwi aaba-gwdangni sarkaari haonayni thangni gwlai angni hwnnanw bilai bwi. Daikhwunai jarimin lamani hobth swrangfwnnanw nwngthwn bw arw gwbwn nwsulnaikhanani bihab oro dongdwi.",
+        "crop_price_not_available_in_selected_mandi": "Thank you for reaching out to Annam.ai.\n\n[Crop Name] ni daam bwrai [Mandi Name] mandi ao solaimani bainai.\n\nBenibai be hambwi bwswr hababw nangou mandi ao [Crop Name] ni market arrival nathai daam record bainai. Nwng kherkhathwi mandi check jwbw hwi nathai phansw dobor try jwbw hwi.",
+        "mandi_not_available": "Annam.ai jwng phwnangjab khalamnaini thakhay sabaykhar.\n\n[Mandi Name] mandi ni thotho be samjaoni nangou haba hwnai. Bini India sobni mandi coverage khou lagaikhou hwnai. Mandi ni ming khou phwrlainai aro najao mandi khwndwi khou rwjanw bar latest market price nwi thwng."
+      }
+    },
+    {
+      "script_language": "Devanagari",
+      "vocal_language": "Dogri",
+      "texts": {
+        "two_hour_disclaimer": "तुंदा सवाल साड्डे कृषि विशेषज्ञ कोल annam.ai उप्पर साझा कीता गेआ ऐ। तुसेंगी 2 घैंटें दे अंदर जवाब मिलग। धन्यवाद।",
+        "state_follow_up": "तुसीं किस राज्य ते जिले च ओ?",
+        "crop_follow_up": "तुसीं कौन जेई फसल उगा'रे ओ?",
+        "testing_disclaimer": "⚠️ जरूरी सूचना (परीक्षण) ⚠️\n\nएह् AjraSakha एप्लीकेशन विकास दे अधीन ऐ ते केवल परीक्षण ते सत्यापन लेई ऐ।\nसलाहां प्रयोगात्मक न ते इस बेल्लै चुनिंदा राज्यें च मुक्ख फसलें गी कवर करदियां न।\n_____________________________\n\nमौसम दा डेटा IMD थमां लैता गेआ ऐ।\nबजार दा डेटा eNAM, Agmarknet, ते राज्य APMCs थमां ऐ।\nमिट्टी दी सेहत दी अगवाई https://soilhealth.dac.gov.in/fertilizer-dosage थमां ऐ।\nसरकारी योजनाएं https://www.myscheme.gov.in/ थमां न।\nहोर कृषि जानकारी ते सलाहां Annam.ai द्वारा विशेषज्ञें कोलोंं सत्यापित कीतियां गेइयां न।\n\nयूजरें गी चाहिदा जे ओ कोई कदम चुक्कने थमां पैहलें सिफारशें गी अपने आप सत्यापित करन।",
+        "late_night_disclaimer": "\"तुंदा सवाल साढ़े कृषि विशेषज्ञ गी भेज दित्ता गेदा ऐ। तुसेंगी कल सवेरे 8 बजे तगर जवाब मिल जाग।\"",
+        "early_morning_disclaimer": "\"तुंदा सवाल साढ़े कृषि विशेषज्ञ गी भेज दित्ता गेदा ऐ। तुसेंगी अज्ज सवेरे 8:00 बजे तगर जवाब मिल जाग।\"",
+        "non_agriculture_reply": "तुहाडी Annam.ai कन्नै संपर्क करने लेई धन्नवाद।\n\nAjraSakha इक AI-आधारित खेतीबाड़ी सहायता मंच ऐ जेह् ड़ा खेतीबाड़ी कन्नै सरबंधत सवालें दे जवाब देने लेई बनाया गेदा ऐ। तुहाडा सवाल साढ़ी खेतीबाड़ी सेवाएं दे दायरे थमां बाह्र दिक्खदा ऐ।\n\nजेकर तुसेंगी फसलें दी खेती, कीट ते बमारी प्रबंधन, खाद, सिंचाई, मौसम सलाह, बजार भाव, सरकारी योजनाएं जां होर खेतीबाड़ी प्रथाएं दे बारे च सवाल न तां अस मदद करने लेई तैयार आं।\n\nकृपया इक खेतीबाड़ी कन्नै सरबंधत सवाल पुच्छो ते अस तुहाडी सहायता करने च खुश होङे।",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai कन्नै संपर्क करने आस्तै तुंदा धन्नवाद।\n\nसाढ़ें खेद ऐ, पर अस इस समें तुंदे इलाके दा मौसम दी जानकारी हासल नेईं करी सकदे।\n\nमौसम दा पूर्वानुमान सरकारी मौसम डेटा दी उपलब्धता दे आधार उप्पर दित्ता जंदा ऐ। किरपा करियै किश समें बाद दोबारा कोशिश करो जां खेतीबाड़ी कन्नै जुड़ेआ होर कोई सवाल पुच्छो।",
+        "crop_price_not_available_in_selected_mandi": "धन्नवाद Annam.ai कन्नै संपर्क करने आस्तै।\n\n[Crop Name] दी कीमत दी जानकारी [Mandi Name] मंडी च इस बकत उपलब्ध नेईं ऐ।\n\nएह् इस करी होई सकदा ऐ जे इस मंडी च चुनी दी फसल आस्तै कोई हाल दे बजार आमद जां कीमत दे रिकार्ड उपलब्ध नेईं न। तुस नेड़ै दी कोई होर मंडी च जांच करी सकदे ओ जां बाद च दुबारा कोशश करी सकदे ओ।",
+        "mandi_not_available": "तुहाडे Annam.ai कन्नै संपर्क करने आस्तै धन्नवाद।\n\n[Mandi Name] मंडी दी जानकारी इस समें दस्सी नेईं जाई सकदी। अस पूरे भारत च अपने मंडी कवरेज गी लगातार बधा करदे आं। कृपया करियै मंडी दा नांऽ सही करो जां नेड़ली मंडी तलाश करो ताकि ताजा बजार दी कीमतें दिक्खी सकन।"
+      }
+    },
+    {
+      "script_language": "English",
+      "vocal_language": "Dogri",
+      "texts": {
+        "two_hour_disclaimer": "Tunda sawaal sadde krishi visheshagya kol annam.ai upar saajha keeta gea ai. Tusengi 2 ghainten de andar jawaab milga. Dhanyawaad.",
+        "state_follow_up": "Tuseen kis raajya te zile ch o?",
+        "crop_follow_up": "Tuseen kaun jei fasal ugaare o?",
+        "testing_disclaimer": "⚠️ Zaroori Soochna (Parikshan) ⚠️\n\nEh AjraSakha application vikaas de adheen ai te kewal parikshan te satyaapan lei ai.\nSalaahaan prayogatmak ne te is bellai chuninda raajyen ch mukhkh faslen gi cover kardiyaan ne.\n_____________________________\n\nMausam da data IMD thaman laita gea ai.\nBazaar da data eNAM, Agmarknet, te raajya APMCs thaman ai.\nMitti di sehat di agwaai https://soilhealth.dac.gov.in/fertilizer-dosage thaman ai.\nSarkaari yojanaen https://www.myscheme.gov.in/ thaman ne.\nHor krishi jaankaari te salaahaan Annam.ai dwaara visheshaagyen kolonn satyaapit keetiyaan geiyaan ne.\n\nYuzaron gi chaahida je o koi kadam chukne thaman pehlan sifarshan gi apne aap satyaapit karan.",
+        "late_night_disclaimer": "\"Tuhada sawal saade kheti maahir kol bhej ditta gaya hai. Tuhanu kal savere 8 baje tak jawab mil jauga.\"",
+        "early_morning_disclaimer": "\"Tuhada sawal saade kheti maahir gai bhejja gea hai. Tuhanu ajj, savere 8 baje tak jawaab mil jauga.\"",
+        "non_agriculture_reply": "Annam.ai naal sampark karne aaste dhanyavaad.\n\nAjraSakha ikk AI-powered kheti-baadi sahayata manch hai jo kheti naal judde sawalan de jawab dende aaste banaaya gya hai. Tuhada sawal saadi kheti-baadi sewaawan de dabbre ton bahar lagda hai.\n\nJe tuhade kol fasal ugaaune, keede-makodde te beemaarian di sambhaal, khaadan, sichaayi, mausam salah, bazaar bhaav, sarkari yojnaawan ya hor kheti-baadi tarreekeyan baare sawal ne, assi tuhadi madad karne aaste hazir aan.\n\nMeharbani karke kheti-baadi naal judda koi sawal pucho, te assi khushi naal tuhadi madad karanga.",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai naal sampark karne aaste dhanyavaad.\n\nSaanu maaf karna, par assi is wele tuhade location da mausam di jaankari haasil nahi kar sakde.\n\nMausam di peshanbandi sarkari mausam data di uplabdhta te aadharit hai. Meharbani karke kujh samein baad dubara koshish karo ya koi hor kheti naal sambandhit sawal puchho.",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai naal sampark karne aaste dhanyavaad.\n\n[Crop Name] diya kimata di jaankari filahal [Mandi Name] mandi ch uplabdh nahi hai.\n\nEh islayi ho sakda hai kyunki is mandi ch chunni gayi fasal aaste koi taazi mandi aagaman ya kimat de record uplabdh nahi ne. Tusi koi nazdeeki mandi check kar sakde oh ya baad ch dubara koshish kar sakde oh.",
+        "mandi_not_available": "Annam.ai naal sampark karne aaste dhanyavaad.\n\n[Mandi Name] mandi di jaankari is samein dikhaayi nahi ditti sakdi. Assi poore Bharat ch apni mandi coverage nu lagaataar wadhaa rahe aan. Meherbaani karke mandi da naam confirm karo ya nazdiki mandi talaash karo taaki tuhanu taza mandi bhaav dikhai de sakkan."
+      }
+    },
+    {
+      "script_language": "Gujarati",
+      "vocal_language": "Gujarati",
+      "texts": {
+        "two_hour_disclaimer": "તમારો પ્રશ્ન annam.ai પર અમારા કૃષિ નિષ્ણાત સાથે શેર કરવામાં આવ્યો છે. તમને 2 કલાકની અંદર જવાબ મળશે.\nઆભાર.",
+        "state_follow_up": "તમે કયા રાજ્ય અને જિલ્લામાં છો?",
+        "crop_follow_up": "તમે કઈ પાક ઉગાડો છો?",
+        "testing_disclaimer": "⚠️ મહત્વપૂર્ણ સૂચના (પરીક્ષણ) ⚠️\n\nઆ AjraSakha એપ્લિકેશન વિકાસ હેઠળ છે અને માત્ર પરીક્ષણ અને માન્યતા માટે જ બનાવવામાં આવી છે.\nસલાહ પ્રાયોગિક છે અને હાલમાં પસંદ કરેલ રાજ્યોમાં મુખ્ય પાકોને આવરી લે છે.\n_____________________________\n\nહવામાન ડેટા IMD માંથી લેવામાં આવ્યો છે.\nબજાર ડેટા eNAM, Agmarknet અને રાજ્ય APMCs માંથી લેવામાં આવ્યો છે.\nમાટીના સ્વાસ્થ્ય માર્ગદર્શન https://soilhealth.dac.gov.in/fertilizer-dosage માંથી.\nસરકારી યોજનાઓ https://www.myscheme.gov.in/ માંથી.\nઅન્ય કૃષિ માહિતી અને સલાહ Annam.ai દ્વારા નિષ્ણાત-ચકાસાયેલ છે.\n\nઉપયોગકર્તાઓએ કાર્ય કરતા પહેલા ભલામણોને સ્વતંત્ર રીતે ચકાસવી જોઈએ.",
+        "late_night_disclaimer": "\"તમારો પ્રશ્ન અમારા કૃષિ નિષ્ણાતને મોકલી આપવામાં આવ્યો છે. તમને કાલે સવારે 8:00 વાગ્યા સુધીમાં જવાબ મળશે.\"",
+        "early_morning_disclaimer": "\"તમારો પ્રશ્ન અમારા કૃષિ નિષ્ણાતને મોકલી આપવામાં આવ્યો છે. તમને આજે સવારે 8:00 વાગ્યા સુધીમાં જવાબ મળશે.\"",
+        "non_agriculture_reply": "Annam.ai સાથે સંપર્ક કરવા બદલ આભાર.\n\nAjraSakha એ AI-સંચાલિત કૃષિ સહાય પ્લેટફોર્મ છે જે ખેતી સંબંધિત પ્રશ્નોના જવાબ આપવા માટે રચાયેલ છે. તમારો પ્રશ્ન અમારી કૃષિ સેવાઓની બહાર હોય તેવું લાગે છે.\n\nજો તમને પાક ઉગાડવા, જીવાત અને રોગ વ્યવસ્થાપન, ખાતરો, સિંચાઈ, હવામાન સલાહ, બજાર ભાવ, સરકારી યોજનાઓ અથવા અન્ય ખેતી પદ્ધતિઓ વિશે પ્રશ્નો હોય, તો અમે મદદ કરવા અહીં છીએ.\n\nકૃપા કરીને કૃષિ સંબંધિત પ્રશ્ન પૂછો, અને અમને તમને મદદ કરવામાં ખુશી થશે.",
+        "weather_unavailable_for_dynamic_weather_queries": "તમે Annam.ai સાથે સંપર્ક કર્યો તેના માટે આભાર.\n\nઅમને ખેદ છે, પરંતુ અમે આ સમયે તમારા સ્થાન માટે હવામાનની માહિતી મેળવવામાં અસમર્થ છીએ.\n\nહવામાનની આગાહી સત્તાવાર હવામાન માહિતીની ઉપલબ્ધતાના આધારે પ્રદાન કરવામાં આવે છે. કૃપા કરીને થોડા સમય પછી ફરી પ્રયાસ કરો અથવા ખેતી સંબંધિત અન્ય કોઈ પ્રશ્ન પૂછો.",
+        "crop_price_not_available_in_selected_mandi": "આપનો Annam.ai સાથે સંપર્ક કરવા બદલ આભાર.\n\n[Mandi Name] મંડીમાં [Crop Name] માટે ભાવની માહિતી હાલમાં ઉપલબ્ધ નથી.\n\nઆનું કારણ એ હોઈ શકે કે આ મંડીમાં પસંદ કરેલ પાક માટે તાજેતરના બજાર આગમન અથવા ભાવ રેકોર્ડ ઉપલબ્ધ નથી. તમે નજીકની કોઈ મંડી તપાસી શકો અથવા થોડા સમય પછી ફરી પ્રયાસ કરો.",
+        "mandi_not_available": "આપનો Annam.ai સાથે સંપર્ક કરવા બદલ આભાર.\n\n[Mandi Name] મંડીની માહિતી આ સમયે પ્રદર્શિત કરી શકાઈ નથી. અમે સતત ભારતભરમાં અમારા મંડી કવરેજનો વિસ્તાર કરી રહ્યા છીએ. કૃપા કરીને મંડીનું નામ ચકાસો અથવા નવીનતમ બજાર ભાવો જોવા માટે નજીકની મંડી શોધો."
+      }
+    },
+    {
+      "script_language": "English",
+      "vocal_language": "Gujarati",
+      "texts": {
+        "two_hour_disclaimer": "Tamaro prashna annam.ai par amara krushi nishnat sathe share karavama avyo chhe. Tamane 2 kalakni andar javab malashe.\nAbhar.",
+        "state_follow_up": "Tame kaya rajya ane jillama chho?",
+        "crop_follow_up": "Tame kai pak ugado chho?",
+        "testing_disclaimer": "⚠️ Matvapurna suchana (Parikshan) ⚠️\n\nAa AjraSakha application vikas hethal chhe ane matra parikshan ane manyata mate j banavavama avi chhe.\nSalah prayogik chhe ane halma pasand karayel rajyoma mukhya pakone avari le chhe.\n_____________________________\n\nHavaman data IMD mathi lavama avyo chhe.\nBajar data eNAM, Agmarknet ane rajya APMCs mathi lavama avyo chhe.\nMatana swasthya margadarshan https://soilhealth.dac.gov.in/fertilizer-dosage mathi.\nSarkari yojnao https://www.myscheme.gov.in/ mathi.\nAnya krushi mahiti ane salah Annam.ai dwara nishnat-chakasayel chhe.\n\nUpayogkartaoe karya karata pahela bhalamano swatantra rite chakasavi joie.",
+        "late_night_disclaimer": "Tamaro prashn amara krushi nishnant ne mokalva ma aavyo che. Tamne kal savare 8:00 vagya sudhi ma javab malase.",
+        "early_morning_disclaimer": "Tamaro prashna amara krushi nishnant ne mokalva ma aavyo che. Tamne aaje savare 8:00 vaagya sudhi javab malase.",
+        "non_agriculture_reply": "Annam.ai sathe sampark karava badat aabhar.\n\nAjraSakha ek AI-powered kheti sahayta platform chhe je kheti sathe sambandhi prashnona jawab aapva mate design karelu chhe. Tamaro prashn amari kheti seva ni bahar lagtu chhe.\n\nJyare tamne fasal ni kheti, kidi ane rog nu niyantran, khatar, sinchan, havaman ni salah, market bhav, sarkar ni yojana athva biji kheti ni paddhationo prashn hoy, toh ame tamari madad karva mate hajar chhiye.\n\nKrupya kheti sathe sambandhi prashn pucho, ane ame tamari madad karva khush thaisu.",
+        "weather_unavailable_for_dynamic_weather_queries": "Thank you for reaching out to Annam.ai.\n\nAme maaf maangiye chiye, pan ame aaje tamare sthaL mate mausam ni mahiti aapva asmarth chiye.\n\nMausam ni jaankari sarkaari mausam data ni uplabdhta par aadharit chhe. Thodi vaar baad fari prayas karo athva koi anya kheti sambhandhit prashna puchho.",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai sathe sambandh rakhva badal aabhar.\n\n[Crop Name] ni kimmat ni mahiti haal maa [Mandi Name] mandi maa upalabdh nathi.\n\nAavanu karan e hoi shake ke aa mandi maa chuntayel fasal mate koi hal nu market arrival ke kimmat nu record upalabdh nathi. Tame najik ni koi mandi check kari shakao athva pachi fari prayas karo.",
+        "mandi_not_available": "Annam.ai sathe sambandh rakhva badal aabhar.\n\nAa samaye [Mandi Name] mandi ni mahiti darshavi shakayi nathi. Ame Bharat bhar ma amari mandi coverage satat vadhaviye chiye. Krupa karine mandi nu naam check karo athva taaja market bhav jovaa mate nazik ni mandi shodhva prayas karo."
+      }
+    },
+    {
+      "script_language": "Devanagari",
+      "vocal_language": "Hindi",
+      "texts": {
+        "two_hour_disclaimer": "आपका प्रश्न annam.ai पर हमारे कृषि विशेषज्ञ के साथ साझा किया गया है। आपको 2 घंटे के भीतर उत्तर मिलेगा। धन्यवाद।",
+        "state_follow_up": "आप किस राज्य और जिले में हैं?",
+        "crop_follow_up": "आप कौन सी फसल उगा रहे हैं?",
+        "testing_disclaimer": "⚠️ महत्वपूर्ण सूचना (परीक्षण) ⚠️\n\nयह AjraSakha एप्लिकेशन विकास के अधीन है और केवल परीक्षण और सत्यापन के लिए है।\nसलाहें प्रयोगात्मक हैं और वर्तमान में चुनिंदा राज्यों में प्रमुख फसलों को कवर करती हैं।\n_____________________________\n\nमौसम डेटा IMD से लिया गया है।\nबाजार डेटा eNAM, Agmarknet और राज्य APMCs से लिया गया है।\nमृदा स्वास्थ्य मार्गदर्शन https://soilhealth.dac.gov.in/fertilizer-dosage से लिया गया है।\nसरकारी योजनाएं https://www.myscheme.gov.in/ से ली गई हैं।\nअन्य कृषि जानकारी और सलाहें Annam.ai द्वारा विशेषज्ञ-सत्यापित हैं।\n\nउपयोगकर्ताओं को कार्य करने से पहले सिफारिशों को स्वतंत्र रूप से सत्यापित करना चाहिए।",
+        "late_night_disclaimer": "आपका प्रश्न हमारे कृषि विशेषज्ञ को भेज दिया गया है। आपको कल सुबह 8:00 बजे तक उत्तर मिल जाएगा।",
+        "early_morning_disclaimer": "आपका प्रश्न हमारे कृषि विशेषज्ञ को भेज दिया गया है। आपको आज सुबह 8:00 बजे तक उत्तर मिल जाएगा।",
+        "non_agriculture_reply": "Annam.ai से संपर्क करने के लिए धन्यवाद।\n\nAjraSakha एक AI-संचालित कृषि सहायता मंच है जो खेती से संबंधित प्रश्नों का उत्तर देने के लिए बनाया गया है। आपका प्रश्न हमारी कृषि सेवाओं के दायरे से बाहर प्रतीत होता है।\n\nयदि आपके पास फसल की खेती, कीट और रोग प्रबंधन, उर्वरक, सिंचाई, मौसम सलाह, बाजार भाव, सरकारी योजनाओं या अन्य खेती के तरीकों के बारे में प्रश्न हैं, तो हम आपकी मदद के लिए यहाँ हैं।\n\nकृपया कृषि से संबंधित प्रश्न पूछें, और हम आपकी सहायता करने में प्रसन्न होंगे।",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai से संपर्क करने के लिए धन्यवाद।\n\nहमें खेद है, लेकिन हम इस समय आपके स्थान के लिए मौसम की जानकारी प्राप्त करने में असमर्थ हैं।\n\nमौसम का पूर्वानुमान आधिकारिक मौसम डेटा की उपलब्धता के आधार पर प्रदान किया जाता है। कृपया कुछ समय बाद पुनः प्रयास करें या कोई अन्य कृषि संबंधित प्रश्न पूछें।",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai से संपर्क करने के लिए धन्यवाद।\n\n[Crop Name] के लिए मूल्य की जानकारी [Mandi Name] मंडी में फिलहाल उपलब्ध नहीं है।\n\nऐसा इसलिए हो सकता है क्योंकि इस मंडी में चुनी गई फसल के लिए हाल ही में बाजार आवक या मूल्य रिकॉर्ड उपलब्ध नहीं है। आप नजदीकी किसी मंडी को देख सकते हैं या बाद में फिर से कोशिश कर सकते हैं।",
+        "mandi_not_available": "Annam.ai से संपर्क करने के लिए धन्यवाद।\n\n[Mandi Name] मंडी की जानकारी इस समय प्रदर्शित नहीं की जा सकी। हम भारत भर में अपनी मंडी कवरेज का लगातार विस्तार कर रहे हैं। कृपया मंडी के नाम की पुष्टि करें या नवीनतम बाजार मूल्य देखने के लिए पास की किसी मंडी को खोजें।"
+      }
+    },
+    {
+      "script_language": "English",
+      "vocal_language": "Hindi",
+      "texts": {
+        "two_hour_disclaimer": "Aapka prashna annam.ai par hamare krishi visheshagya ke saath saajha kiya gaya hai. Aapko 2 ghante ke bheetar uttar milega. Dhanyavaad.",
+        "state_follow_up": "Aap kis rajya aur zile mein hain?",
+        "crop_follow_up": "Aap kaun si fasal uga rahe hain?",
+        "testing_disclaimer": "⚠️ Mahatvapurn Soochna (Parikshan) ⚠️\n\nYeh AjraSakha application vikas ke adhin hai aur keval parikshan aur satyapan ke liye hai.\nSalaahein prayogatmak hain aur vartaman mein chuninda rajyon mein pramukh faslon ko cover karti hain.\n_____________________________\n\nMausam data IMD se liya gaya hai.\nBazaar data eNAM, Agmarknet aur rajya APMCs se liya gaya hai.\nMrida swasthya margadarshan https://soilhealth.dac.gov.in/fertilizer-dosage se liya gaya hai.\nSarkaari yojanaen https://www.myscheme.gov.in/ se li gayi hain.\nAnya krishi jaankari aur salaahein Annam.ai dwara visheshagya-satyapit hain.\n\nUpayogkartaon ko kaarya karne se pehle sifaarsho ko swatantra roop se satyapit karna chahiye.",
+        "late_night_disclaimer": "\"Aapka prashna hamare krishi visheshagya ko bhej diya gaya hai. Aapko kal subah 8:00 baje tak uttar mil jayega.\"",
+        "early_morning_disclaimer": "\"Aapka prashna hamare krishi visheshagya ko bhej diya gaya hai. Aapko aaj subah 8:00 baje tak uttar mil jayega.\"",
+        "non_agriculture_reply": "Annam.ai se sampark karne ke liye dhanyavaad.\n\nAjraSakha ek AI-powered kheti-baadi sahayata platform hai jo kheti se jude sawalon ka jawab dene ke liye banaaya gaya hai. Aapka sawal hamare kheti-baadi sevaon ke daayre se bahar lagta hai.\n\nAgar aapke paas fasal utpaadan, keet aur rog prabandhan, khaad, sinchai, mausam salah, bazaar bhaav, sarkari yojanayen ya anya kheti-baadi tareekon ke baare mein sawal hain, toh hum madad ke liye haazir hain.\n\nKripya kheti-baadi se juda sawal poochhiye, aur hum khushi se aapki madad karenge.",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai se sampark karne ke liye dhanyavaad.\n\nHume khed hai, lekin hum is samay aapke sthaan ke liye mausam ki jaankari prapt karne mein asmarth hain.\n\nMausam ka puurvaanumaan sarkari mausam data ki upalabdhata ke aadhaar par diya jaata hai. Kripya kuch samay baad punah prayaas karein ya koi anya kheti se sambandhit prashn poochein.",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai se sampark karne ke liye dhanyavaad.\n\n[Crop Name] ke liye keemat ki jaankari abhi [Mandi Name] mandi mein uplabdh nahi hai.\n\nYeh is wajah se ho sakta hai ki is mandi mein chungi gayi fasal ke liye haal hi mein koi bazaar aagman ya keemat ka record uplabdh nahi hai. Aap kisi nazdeeki mandi ko check kar sakte hain ya baad mein phir se koshish kar sakte hain.",
+        "mandi_not_available": "Annam.ai se sampark karne ke liye dhanyavaad.\n\n[Mandi Name] mandi ki jaankari is samay dikhayi nahi ja sakti. Hum poore Bharat mein apni mandi coverage ko lagatar badha rahe hain. Kripya mandi ka naam verify karein ya nazdiki mandi search karein taaza bazaar bhaav dekhne ke liye."
+      }
+    },
+    {
+      "script_language": "Kannada",
+      "vocal_language": "Kannada",
+      "texts": {
+        "two_hour_disclaimer": "ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು annam.ai ನಲ್ಲಿರುವ ನಮ್ಮ ಕೃಷಿ ತಜ್ಞರೊಂದಿಗೆ ಹಂಚಿಕೊಳ್ಳಲಾಗಿದೆ. ನಿಮಗೆ 2 ಗಂಟೆಗಳ ಒಳಗೆ ಉತ್ತರ ಸಿಗುತ್ತದೆ.\nಧನ್ಯವಾದಗಳು.",
+        "state_follow_up": "ನೀವು ಯಾವ ರಾಜ್ಯ ಮತ್ತು ಜಿಲ್ಲೆಯಲ್ಲಿದ್ದೀರಿ?",
+        "crop_follow_up": "ನೀವು ಯಾವ ಬೆಳೆ ಬೆಳೆಯುತ್ತಿದ್ದೀರಿ?",
+        "testing_disclaimer": "⚠️ ಮಹತ್ವದ ಸೂಚನೆ (ಪರೀಕ್ಷಾ ಹಂತ) ⚠️\n\nಈ AjraSakha ಅಪ್ಲಿಕೇಶನ್ ಅಭಿವೃದ್ಧಿ ಹಂತದಲ್ಲಿದ್ದು, ಕೇವಲ ಪರೀಕ್ಷೆ ಮತ್ತು ಮೌಲ್ಯಮಾಪನಕ್ಕಾಗಿ ಮಾತ್ರ ಉದ್ದೇಶಿಸಲಾಗಿದೆ.\nಸಲಹೆಗಳು ಪ್ರಾಯೋಗಿಕವಾಗಿದ್ದು, ಪ್ರಸ್ತುತ ಆಯ್ದ ರಾಜ್ಯಗಳಲ್ಲಿ ಪ್ರಮುಖ ಬೆಳೆಗಳನ್ನು ಒಳಗೊಂಡಿವೆ.\n_____________________________\n\nಹವಾಮಾನ ಮಾಹಿತಿಯನ್ನು IMD ನಿಂದ ಪಡೆಯಲಾಗಿದೆ.\nಮಾರುಕಟ್ಟೆ ಮಾಹಿತಿಯನ್ನು eNAM, Agmarknet ಮತ್ತು ರಾಜ್ಯ APMCಗಳಿಂದ ಪಡೆಯಲಾಗಿದೆ.\nಮಣ್ಣಿನ ಆರೋಗ್ಯ ಮಾರ್ಗದರ್ಶನವನ್ನು https://soilhealth.dac.gov.in/fertilizer-dosage ನಿಂದ ಪಡೆಯಲಾಗಿದೆ.\nಸರ್ಕಾರಿ ಯೋಜನೆಗಳನ್ನು https://www.myscheme.gov.in/ ನಿಂದ ಪಡೆಯಲಾಗಿದೆ.\nಇತರ ಕೃಷಿ ಮಾಹಿತಿ ಮತ್ತು ಸಲಹೆಗಳನ್ನು Annam.ai ನ ತಜ್ಞರು ಪರಿಶೀಲಿಸಿ ದೃಢೀಕರಿಸಿದ್ದಾರೆ.\n\nಬಳಕೆದಾರರು ಯಾವುದೇ ಕ್ರಮ ತೆಗೆದುಕೊಳ್ಳುವ ಮೊದಲು ಶಿಫಾರಸುಗಳನ್ನು ಸ್ವತಂತ್ರವಾಗಿ ಪರಿಶೀಲಿಸಬೇಕು.",
+        "late_night_disclaimer": "\"ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು ನಮ್ಮ ಕೃಷಿ ತಜ್ಞರಿಗೆ ರವಾನಿಸಲಾಗಿದೆ. ನಾಳೆ ಬೆಳಿಗ್ಗೆ 8:00 ಗಂಟೆಗೆ ನಿಮಗೆ ಉತ್ತರ ಸಿಗುತ್ತದೆ.\"",
+        "early_morning_disclaimer": "\"ನಿಮ್ಮ ಪ್ರಶ್ನೆಯನ್ನು ನಮ್ಮ ಕೃಷಿ ತಜ್ಞರಿಗೆ ಕಳುಹಿಸಲಾಗಿದೆ. ನೀವು ಇಂದು ಬೆಳಿಗ್ಗೆ 8:00 ಗಂಟೆಗೆ ಉತ್ತರವನ್ನು ಸ್ವೀಕರಿಸುತ್ತೀರಿ.\"",
+        "non_agriculture_reply": "Annam.ai ಅನ್ನು ಸಂಪರ್ಕಿಸಿದ್ದಕ್ಕಾಗಿ ಧನ್ಯವಾದಗಳು.\n\nAjraSakha ಎನ್ನುವುದು ಕೃಷಿ ಸಂಬಂಧಿತ ಪ್ರಶ್ನೆಗಳಿಗೆ ಉತ್ತರಿಸಲು ವಿನ್ಯಾಸಗೊಳಿಸಲಾದ AI-ಚಾಲಿತ ಕೃಷಿ ಸಹಾಯ ವೇದಿಕೆಯಾಗಿದೆ. ನಿಮ್ಮ ಪ್ರಶ್ನೆಯು ನಮ್ಮ ಕೃಷಿ ಸೇವೆಗಳ ವ್ಯಾಪ್ತಿಯಿಂದ ಹೊರಗಿರುವಂತೆ ತೋರುತ್ತಿದೆ.\n\nಬೆಳೆ ಕೃಷಿ, ಕೀಟ ಮತ್ತು ರೋಗ ನಿರ್ವಹಣೆ, ಗೊಬ್ಬರಗಳು, ನೀರಾವರಿ, ಹವಾಮಾನ ಸಲಹೆಗಳು, ಮಾರುಕಟ್ಟೆ ಬೆಲೆಗಳು, ಸರ್ಕಾರಿ ಯೋಜನೆಗಳು ಅಥವಾ ಇತರ ಕೃಷಿ ಪದ್ಧತಿಗಳ ಬಗ್ಗೆ ನಿಮಗೆ ಪ್ರಶ್ನೆಗಳಿದ್ದರೆ, ನಾವು ನಿಮಗೆ ಸಹಾಯ ಮಾಡಲು ಇಲ್ಲಿದ್ದೇವೆ.\n\nದಯವಿಟ್ಟು ಕೃಷಿ-ಸಂಬಂಧಿತ ಪ್ರಶ್ನೆಯನ್ನು ಕೇಳಿ, ಮತ್ತು ನಾವು ನಿಮಗೆ ಸಹಾಯ ಮಾಡಲು ಸಂತೋಷಪಡುತ್ತೇವೆ.",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai ಅನ್ನು ಸಂಪರ್ಕಿಸಿದ್ದಕ್ಕಾಗಿ ಧನ್ಯವಾದಗಳು.\n\nಕ್ಷಮಿಸಿ, ಈ ಕ್ಷಣ ನಿಮ್ಮ ಸ್ಥಳದ ಹವಾಮಾನ ಮಾಹಿತಿಯನ್ನು ಪಡೆಯಲು ನಮಗೆ ಸಾಧ್ಯವಾಗುತ್ತಿಲ್ಲ.\n\nಹವಾಮಾನ ಮುನ್ಸೂಚನೆಗಳು ಅಧಿಕೃತ ಹವಾಮಾನ ದತ್ತಾಂಶಗಳ ಲಭ್ಯತೆಯ ಆಧಾರದ ಮೇಲೆ ಒದಗಿಸಲಾಗುತ್ತದೆ. ದಯವಿಟ್ಟು ಸ್ವಲ್ಪ ಸಮಯದ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ ಅಥವಾ ಇತರ ಕೃಷಿ-ಸಂಬಂಧಿತ ಪ್ರಶ್ನೆಯನ್ನು ಕೇಳಿ.",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai ಅನ್ನು ಸಂಪರ್ಕಿಸಿದ್ದಕ್ಕಾಗಿ ಧನ್ಯವಾದಗಳು.\n\n[Crop Name] ಗೆ ಬೆಲೆ ಮಾಹಿತಿಯು ಪ್ರಸ್ತುತ [Mandi Name] ಮಂಡಿಯಲ್ಲಿ ಲಭ್ಯವಿಲ್ಲ.\n\nಈ ಮಂಡಿಯಲ್ಲಿ ಆಯ್ಕೆ ಮಾಡಿದ ಬೆಳೆಗೆ ಇತ್ತೀಚಿನ ಮಾರುಕಟ್ಟೆ ಆಗಮನಗಳು ಅಥವಾ ಬೆಲೆ ದಾಖಲೆಗಳು ಲಭ್ಯವಿಲ್ಲದ ಕಾರಣ ಇದು ಆಗಿರಬಹುದು. ನೀವು ಹತ್ತಿರದ ಯಾವುದಾದರೂ ಮಂಡಿಯನ್ನು ಪರಿಶೀಲಿಸಬಹುದು ಅಥವಾ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಬಹುದು.",
+        "mandi_not_available": "ಅನ್ನಂ.ಏಐಗೆ ಸಂಪರ್ಕಿಸಿದ್ದಕ್ಕೆ ಧನ್ಯವಾದಗಳು.\n\n[Mandi Name] ಮಂಡಿಯ ಮಾಹಿತಿಯನ್ನು ಈ ಸಮಯದಲ್ಲಿ ಪ್ರದರ್ಶಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ನಾವು ಭಾರತದಾದ್ಯಂತ ನಮ್ಮ ಮಂಡಿ ವ್ಯಾಪ್ತಿಯನ್ನು ನಿರಂತರವಾಗಿ ವಿಸ್ತರಿಸುತ್ತಿದ್ದೇವೆ. ದಯವಿಟ್ಟು ಮಂಡಿಯ ಹೆಸರನ್ನು ಪರಿಶೀಲಿಸಿ ಅಥವಾ ಇತ್ತೀಚಿನ ಮಾರುಕಟ್ಟೆ ಬೆಲೆಗಳನ್ನು ವೀಕ್ಷಿಸಲು ಹತ್ತಿರದ ಮಂಡಿಯನ್ನು ಹುಡುಕಿ."
+      }
+    },
+    {
+      "script_language": "English",
+      "vocal_language": "Kannada",
+      "texts": {
+        "two_hour_disclaimer": "Nimma prashneyanu annam.ai nalli iruva namma krushi tajnarodige hanchikollalaagide. Nimage 2 gantegala olage uttara siguttade.\nDhanyavaadagalu.",
+        "state_follow_up": "Neevu yaava raajya mattu jilleyalli iddiri?",
+        "crop_follow_up": "Neevu yaava bele beleyuttiddiri?",
+        "testing_disclaimer": "⚠️ Mahathvada soochane (Pareeksha hanta) ⚠️\n\nEe AjraSakha application abhivruddhi hantadalli iddu, kevala pareekshe mattu maulyamaapanakkaagi maatra uddeshisalaagide.\nSalahegalu praayogikavaagiddu, prastuta aayda raajyagalalli pramukha belegalu olagondiwe.\n_____________________________\n\nHavamaana maahitiyanu IMD ninda padeyalaagide.\nMaarukatte maahitiyanu eNAM, Agmarknet mattu raajya APMCgalinda padeyalaagide.\nMannina aarogya maargadarshanannu https://soilhealth.dac.gov.in/fertilizer-dosage ninda padeyalaagide.\nSarkaari yojanegalu https://www.myscheme.gov.in/ ninda padeyalaagide.\nItara krushi maahiti mattu salahegalu Annam.ai na tajnaru parisheelisi drudheekarisiddaare.\n\nBalakadaararu yaavude krama tegedukolluva modalu shifarasugalanu swatantravagi parisheelisabeeku.",
+        "late_night_disclaimer": "\"Nimma prashneyanu nammi krushi vidwamsakke forward madiddeevi. Neevu naaley beleyaaru 8:00 gantege pratikriye receive maadteeri.\"",
+        "early_morning_disclaimer": "\"Nimma prashneyanu namm krushi visharada varigey forward maaditteevi. Nimgey ivattey beligge 8:00 gaantege uttara sigutte.\"",
+        "non_agriculture_reply": "Annam.ai annu samparkisiddakkagi dhanyavaadagalu.\n\nAjraSakha ondhu AI-powered krishi sahaya platform aagi, krishigeelida prashnegalige uttara koduvanthaha roopaisalaagide. Nimma prashne namm krishi sevegala vishayakke baharavaagide.\n\nNimge saleya belavanige, keeta mattu roga niyantranege, uparigalanige, neeregattigege, havanilaya salaheyemge, santhe belegege, sarkaara yojhanegalige athava itara krishiya paddhathigaligge sambandhaisida prashnegalu idhdare, naavu sahaya madake tayaagidhevi.\n\nDayamadi krishige sambandhaisida prashneyannu keliri, mathu naavu nimge sahaya maduvudhakke sanhthosha padutheve.",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai annu samparkisiddakkagi dhanyavaadagalu.\n\nKshamisi, naavu ee samayakke nimma sthaladalli havanilaya vivarannu tegedukolalu sadhyavaagililla.\n\nHavanilaya purvanumaanagalu sarkaarada havanilaya maahiti upaladbhateyemele kodalaaguttave. Dayaviṭṭu kelnda samaya kaledaagu prayatnisi athavaa bere krishiyinda sambandhisida prashnegalannu keli.",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai annu samparkisiddakkagi dhanyavaadagalu.\n\n[Crop Name] ge sambandisida bele mahiti [Mandi Name] mandi yalli eegaailable illa.\n\nIdu aytha bekadre ee mandi yalli thorisida belege adhva santhe ge hogisida samagri yavude mahiti illa ansuva karana. Nimge santheya mandi check madbahudu athava illa andre kaisi kaladalli matte srutne madi.",
+        "mandi_not_available": "Annam.ai annu samparkisiddakkagi dhanyavaadagalu.\n\n[Mandi Name] mandi ina vivarangalu ee samayadaalli pradarshisalu saadhyavaagilva. Naavu Bharatadalli namm mandi coverage annu niraantaravagi vishaarisuttiiddeevi. Dayamaadi mandi hesarannu sathyaapaisiri athavaa hattira mandi annu thedukondu hosa santhe belegalannu nodiri."
+      }
+    },
+    {
+      "script_language": "Perso-Arabic",
+      "vocal_language": "Kashmiri",
+      "texts": {
+        "two_hour_disclaimer": "آپکا سوال annam.ai پر ہمارے زراعت ماہر کے ساتھ شیئر کیا گیا چھُ۔ آپس 2 گھنٹن اندر جواب ملہِ۔\nشکریہ۔",
+        "state_follow_up": "آپ کُس صوبس تہٕ ضِلس منز چھِو؟",
+        "crop_follow_up": "آپ کُس فصلس اُگاوان چھِو؟",
+        "testing_disclaimer": "⚠️ اہم اطلاع (ٹیسٹنگ) ⚠️\n\nیہ AjraSakha اپلیکیشن ترقی تلہ چھیہ تہ صرف ٹیسٹنگ تہ توثیق کیتہ مخصوص چھیہ۔\nمشورے تجرباتی چھہِ تہ فی الحال منتخب صوبن منز اہم فصلن پیٹھ مشتمل چھہِ۔\n_____________________________\n\nموسمی ڈیٹا IMD ہنز طرفہ چھُ۔\nمارکیٹ ڈیٹا eNAM، Agmarknet تہ ریاستی APMCs ہنز طرفہ چھُ۔\nمٹی صحت رہنمائی https://soilhealth.dac.gov.in/fertilizer-dosage ہنز طرفہ چھیہ۔\nسرکاری اسکیمیں https://www.myscheme.gov.in/ ہنز طرفہ چھہِ۔\nبیاکھ زرعی معلومات تہ مشورے Annam.ai ہنز طرفہ ماہرین تصدیق شدہ چھہِ۔\n\nاستعمال کرنہ والین پیٹھ لازم چھُ کہ عمل کرنہ سیتی پہلہ سفارشن کی آزادانہ تصدیق کرن۔",
+        "late_night_disclaimer": "آپکا سوال اسۍ زراعت ماہر کس آگے بھیٚجمُت چھُ۔ آپس پگاہ صبحُک ٮ۪ بجے تام جواب ملہِ۔",
+        "early_morning_disclaimer": "آپکا سوال أسِندِس زراعت ماہر کُن فاروَرڑ کرنہ آمُت چھُ۔ آپس اَز، صُبحُک 8 بجے تام جواب ملِہ۔",
+        "non_agriculture_reply": "Annam.ai سان رابطہ کرنُک شکریہ۔\n\nAjraSakha چھُ اکھ AI-powered زرٲعتی مدد پلیٹ فارم یُس زرٲعت سٕتی تعلق رٲکھان سوالن ہُند جواب دِنہ خٲطرہ بنٲومُت چھُ۔ تُہنز سوال چھُ نہٕ اسہِ زرٲعتی خدمتن ہندِ دٲیرس منٛز آسان۔\n\nاگر تُہنز چھِ فصلن ہُند کاشت، کیڑن تہٕ بیمٲرین ہُند انتظام، کھٲد، آبپٲشی، موسمُک مشورہ، بازار ہنٛد نرخ، سرکٲری سکیمہٕ یا باقی کاشتکٲری طریقن بٲرہ سوال، اسہِ چھہِ تُہنزِ مدد کرنہ خٲطرہ ییتہِ۔\n\nمہربٲنی کٔرِتھ کٔرِو زرٲعت سٕتی تعلق رٲکھان سوال، تہٕ اسہِ چھہِ خوشی سان تُہنزِ مدد کرٕنۍ۔",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai سان رابطہ کرنُک شکریہ۔\n\nاسہ چھ معذرت خواہ، مگر اسہ ہیکو نہ تُہندِ جاے کِس موسمُک معلومات حاصل کرتھ۔\n\nموسمُک پیشن گوی چھ سرکاری موسمی ڈیٹا کِس دستیابی پیٹھ فراہم کرنہ یوان۔ مہربأنی کٔرتھ کینٛہہ وقتہ پتہ دوبارہ کوشش کٔریو یا کأنسہ باغبأنی سٲتؠ تعلق تھاوان سوال پوٗچھیو۔",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai سان رابطہ کرنُک شکریہ۔\n\n[Crop Name] ہُند قیمتی معلومات [Mandi Name] منڈی منز موجودہ وقتس منز دستیاب چھ نہ۔\n\nیہ شاید اتھ وجہ سیتی چھ زِ چھنہ نہ کانہہ تازہ منڈی آمد یا قیمتی ریکارڈ یتھ منڈی منز منتخب فصلس باپت دستیاب۔ توہہ ہیکیو کانہہ قریبی منڈی چیک کٔرتھ یا بیاکھ دوبارہ کوشش کٔرتھ۔",
+        "mandi_not_available": "Annam.ai سان رابطہ کرنُک شکریہ۔\n\n[Mandi Name] منڈیُک معلومات یتھ وختہ ہأیکن نہ ڈسپلے۔ أسۍ ہندوستانس منٛز مسلسل پنن منڈی کوریج توسیع کران چھُ۔ مہربأنی کٔرِتھ منڈیُک ناو تصدیق کٔرِو یا تازہ بازار قیمتن وُچھنہ باپت کأنۍ نزدیکی منڈی تلاش کٔرِو۔"
+      }
+    },
+    {
+      "script_language": "English",
+      "vocal_language": "Kashmiri",
+      "texts": {
+        "two_hour_disclaimer": "Aapka sawal annam.ai par hamarey zaraet maahir keth saath share kiya gaye chhu. Aapas 2 ghanten andar jawaab milhi.\nShukriya.",
+        "state_follow_up": "Aap kus soobas te kus zilas manz chhiv?",
+        "crop_follow_up": "Aap kus faslas ugaavan chhiv?",
+        "testing_disclaimer": "⚠️ Aham Ittila (Testing) ⚠️\n\nYih AjraSakha application taraqqi talah chhyeh tah sirf testing tah tasdeeq kyeth makhsoos chhyeh.\nMashwarey tajrbaati chhih tah fil-haal muntakhab soobon manz aham faslon pyeth mushtamil chhih.\n_____________________________\n\nMausami data IMD hanz tarafah chhu.\nMarket data eNAM, Agmarknet tah riyaasti APMCs hanz tarafah chhu.\nMatti sehat rahnumai https://soilhealth.dac.gov.in/fertilizer-dosage hanz tarafah chhyeh.\nSarkari schemes https://www.myscheme.gov.in/ hanz tarafah chhih.\nByaakh zaraei maloomaat tah mashwarey Annam.ai hanz tarafah maahireen tasdeeq shuddah chhih.\n\nIstimaal karnih waalien pyeth laazim chhu keh amal karnih syeti pehle sifaarshan ki aazaadaanah tasdeeq karan.",
+        "late_night_disclaimer": "\"Tuhund sawal chhu aasaani ziraat maahir kus pathaavnay aamut. Tuhis milih paagah, 8:00 AM tak jawaab.\"",
+        "early_morning_disclaimer": "\"Tuhund sawal chhu asi peyith agri expert kas. Tuhis milith aadz, 8:00 AM tak jawab.\"",
+        "non_agriculture_reply": "Annam.ai saan rabta karne khatir shukriya.\n\nAjraSakha chu akh AI-powered zirat madad platform yus zirat saan talluq sawalun kani jawab dyan khatir banaavmut. Tohyund sawal chu lagaan ki asi kuv zirat khidmatan khatar baahar chu.\n\nAgar tohyi khatas sawal chuna fasl ugayani, keet te bemaran badaavani, khaad, aab-yari, mausam salah, market ratan, sarkaari skeemat ya baki zirat tareekun baari manz, asi tohyund madad khatir teyaar chi.\n\nMeherbaani karith akh zirat saan talluq sawal puchiv, te asi khushi saan tohyund madad karang.",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai saan rabta karne khatir shukriya.\n\nMaaf kariv, aasikh haaluk tuhund jagahun manzh mausaman jaankari hasil karan manz nakami aasaan.\n\nMausaman andaza sarkaari mausaman data uplabd gatshine peyth deyaan chhuh. Meharbani karith kichh waqtan baad dubara koshish kariv ya biyi khaytbaadi saval puchiv.",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai saan rabta karne khatir shukriya.\n\n[Crop Name] khethe qeemat chi halya [Mandi Name] mandi manz uplabdh nish.\n\nYeh chhu shayad tatekarah ki chuni mandi manz intikhaab karnakh aayis fasslas khethe kohnoh haal hund baazaar amdani ya qeemat rekaad chhe nish uplabdh. Tsi hekiv kohnoh nazdeeki mandi check karun ya baad manz dubara koshish karun.",
+        "mandi_not_available": "Annam.ai saan rabta karne khatir shukriya.\n\n[Mandi Name] mandi chi malumat yeti wakhti peshi karan nashi hekakh. Asi Hindustan manz pana mandi coverage barabar badawan chunay. Meharbani karith mandi naav tasdeek kariv ya kanh nazdeeki mandi tshiv taki taza mandi qeemat vyotith hekiv."
+      }
+    },
+    {
+      "script_language": "Devanagari",
+      "vocal_language": "Konkani",
+      "texts": {
+        "two_hour_disclaimer": "तुमचो प्रस्न आमच्या annam.ai च्या कृषी तज्ञाकडे पाठयला आसा. तुमकां 2 वरांभितर जाप मेळटली.\nधन्यवाद.",
+        "state_follow_up": "तुमी कोणत्या राज्यांत आनी जिल्ह्यांत आसात?",
+        "crop_follow_up": "तुमी कोणती पीक लायल्यात?",
+        "testing_disclaimer": "⚠️ म्हत्वाची सुचोवणी (परीक्षण) ⚠️\n\nही AjraSakha अर्जी विकासाधीन आसा आनी फकत परीक्षण आनी प्रमाणीकरणा खातीर आसा.\nसल्ले प्रायोगिक आसात आनी सद्याक निवडिल्ल्या राज्यांतल्या मुखेल पिकांक व्यापतात.\n_____________________________\n\nहवामान माहिती IMD कडसून घेतल्या.\nबाजार माहिती eNAM, Agmarknet, आनी राज्य APMC कडसून.\nमाती आरोग्य मार्गदर्शन https://soilhealth.dac.gov.in/fertilizer-dosage कडसून.\nसरकारी येवजण्यो https://www.myscheme.gov.in/ कडसून.\nइतर कृषी माहिती आनी सल्ले Annam.ai द्वारे तज्ञांनी प्रमाणित केल्यात.\n\nवापरकर्त्यांनी शिफारशींचेर अमल करचे आदीं स्वतंत्रपणान पडताळणी करची.",
+        "late_night_disclaimer": "तुमचो प्रश्न आमच्या कृषी तज्ञाक धाडला. तुमकां फाल्यां सकाळीं ८:०० वरांक जाप मेळटली.",
+        "early_morning_disclaimer": "तुमचो प्रश्न आमच्या कृषी तज्ञाक धाडला. तुमकां आयज सकाळीं ८:०० वरांक जाप मेळटली. ",
+        "non_agriculture_reply": "Annam.ai क धाडून संपर्क केल्याबद्दल धन्यवाद.\n\nAjraSakha ही एक AI-आधारीत शेती सहाय्यता मंच आसा जी शेतकी संबंधीत प्रस्नांचीं उत्तरां दिवपाखातीर तयार केल्लें आसा. तुमचो प्रस्न आमच्या शेतकी सेवांच्या व्याप्तीभायर आसा अशें दिसता.\n\nजर तुमकां पीक लागवड, किडी आनी रोग व्यवस्थापन, खत, पालवा, हवामान सल्ल्यो, बाजार भाव, सरकारी योजनो वा हेर शेतकी पद्धतींविशीं प्रस्न आसात जाल्यार आमी मदत करपाक तयार आसात.\n\nउपकार करून शेतकी संबंधीत प्रस्न विचारात, आनी आमी तुमकां आनंदान मदत करतलीं.",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai क धाडून येवपाखातीर तुमचो उपकार.\n\nआमकां खंत आसा, पूण सध्या तुमच्या सुवातेखातीर हवामान म्हायती मेळोवंक आमकां शक्य जावंक ना.\n\nहवामानाचे अदमास अधिकृत हवामान म्हायती मेळपाचेर आदारिल्ले आसतात. उपकार करून थोड्या वेळा उपरांत परतून यत्न करात वा शेतवडेविशीं दुसरो सवाल विचारात.",
+        "crop_price_not_available_in_selected_mandi": "धन्यवाद Annam.ai कडे संपर्क केल्याबद्दल.\n\n[Crop Name] हाची किंमत माहिती सध्या [Mandi Name] मंडयेंत उपलब्ध ना.\n\nहें अशें आसूं शकता कारण ह्या मंडयेंत वेंचिल्ल्या पिकाचे अलीकडचे बाजार आगमन वा किंमत नोंदी उपलब्ध नात. तुमी लागसारच्या मंडयेंत तपासूं शकता वा उपरांत परतून यत्न करात.",
+        "mandi_not_available": "Annam.ai कडे संपर्क केल्याबद्दल धन्यवाद.\n\n[Mandi Name] मंडीची माहिती सध्या दाखोवंक शक्य जाली ना. आमी भारतांतल्यान आमच्या मंडी कव्हरेज सतत वाडोवंक लागलां. कृपया मंडीचें नांव तपासात वा लागसारच्या मंडीची सोद घेवन तांवडी बाजार भाव पळयात."
+      }
+    },
+    {
+      "script_language": "English",
+      "vocal_language": "Konkani",
+      "texts": {
+        "two_hour_disclaimer": "Tumcho proshno amchya annam.ai chya krushi tajnyakade pathyila asa. Tumkam 2 varambitr jaap meltoli.\nDhanyavad.",
+        "state_follow_up": "Tumi konthya rajyant ani districtant asat?",
+        "crop_follow_up": "Tumi konthi pik lailyat?",
+        "testing_disclaimer": "⚠️ Mhottvaachi suchovni (Parikshan) ⚠️\n\nHi AjraSakha arji vikasadheen asa ani fokat parikshan ani pramanikaran khatir asa.\nSalle prayogik asat ani sadyak nividillea rajyantle mukhel pikank vyaptat.\n_____________________________\n\nHavaman mahiti IMD kadasun ghetlya.\nBazar mahiti eNAM, Agmarknet, ani rajyo APMC kadasun.\nMati arogya margadarshan https://soilhealth.dac.gov.in/fertilizer-dosage kadasun.\nSarkaari yevjonnyo https://www.myscheme.gov.in/ kadasun.\nItor krushi mahiti ani salle Annam.ai dvare tajnyannim pramanit kelyat.\n\nVaparkartyanni shifarashincher amal korche adim swatantropanan padtalni korchi.",
+        "late_night_disclaimer": "\" Tumcho proshn amchya krushi tajnyak dhadla. Tumkam falyam sokallim 8:00 vorank jaap melltoli.\"",
+        "early_morning_disclaimer": "\" Tumcho proshn amchya krushi tajnyak dhadla. Tumkam aij sokallim 8:00 vorank jaap melltoli. \"",
+        "non_agriculture_reply": "Annam.ai khatir sampark kellyak dhanyavaad.\n\nAjraSakha hea ek AI-powered shetkichea sohayya manch asa zho shetki-sombondhit proshnanche uttar divpak toiar kelam. Tumcho proshna amchea shetkichea sevakadlo dikana.\n\nTumkam pik lagvop, kidd ani rog vyavasthapan, khata, udk puravnni, hava sundar, bazar bhav, sorkari yozna va her shetkichea protha vixim proshna asat zalear, amhi tumkam modat korpak tayar asat.\n\nUpkar korun shetki-sombondhit proshna vichara, ani amhi tumkam khushin modat kortelem.",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai kaden sampark kellyak dhanyavaad.\n\nAmkam maaf kora, punn amchea hatak tujea thikanacher havn samayar havo maiti mellonk shakta na.\n\nHavo anumaan sarkari havo mahiti mellcheapelea meren ditat. Upkar korun thode vellar punn ek pavtt prayas kor vo dusro shetki vixoiak proshn vichar.",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai kaden sampark kellyak dhanyavaad.\n\n[Crop Name] hachea kimtichea mahiti ata [Mandi Name] mandi'nt uplabdh na.\n\nHem ashu shakta karon ho vevsor ya mandi'nt halo pick nivedlo navaso kimtichi nond milonant. Tumhi lagcheo konnchyoch mandi'cho tapas korunk shakta vo uprant poroth prothon korunk shakta.",
+        "mandi_not_available": "Annam.ai kaden sampark kellyak dhanyavaad.\n\n[Mandi Name] mandyechi mahiti hea vellar dakhounk zali na. Amhi Bharatant amlim mandi coverage soddun vadd'ta asat. Upkar korun mandi naav tapsun polleiat vo lagim asleleya mandyek sodun tazeo bazar bhav polleiat."
+      }
+    },
+    {
+      "script_language": "Devanagari",
+      "vocal_language": "Maithili",
+      "texts": {
+        "two_hour_disclaimer": "अहाँक प्रश्न annam.ai पर हमर कृषि विशेषज्ञ संग साझा कयल गेल अछि। अहाँकेँ २ घंटाक भीतर उत्तर भेटत। धन्यवाद।",
+        "state_follow_up": "अहाँ कोन राज्य आ जिलामे छी?",
+        "crop_follow_up": "अहाँ कोन फसल उगा रहल छी?",
+        "testing_disclaimer": "⚠️ महत्वपूर्ण सूचना (परीक्षण) ⚠️\n\nई AjraSakha एप्लिकेशन विकासक अधीन अछि आ केवल परीक्षण आ सत्यापनक लेल बनाओल गेल अछि।\nसलाह प्रयोगात्मक अछि आ वर्तमानमे चुनल राज्यमे प्रमुख फसल सभकेँ कवर करैत अछि।\n_____________________________\n\nमौसम डेटा IMD सँ लेल गेल अछि।\nबाजार डेटा eNAM, Agmarknet, आ राज्य APMC सँ लेल गेल अछि।\nमृदा स्वास्थ्य मार्गदर्शन https://soilhealth.dac.gov.in/fertilizer-dosage सँ लेल गेल अछि।\nसरकारी योजना https://www.myscheme.gov.in/ सँ लेल गेल अछि।\nअन्य कृषि जानकारी आ सलाह Annam.ai द्वारा विशेषज्ञ-सत्यापित अछि।\n\nउपयोगकर्ता सभकेँ कोनो कार्य करबासँ पहिने सिफारिशकेँ स्वतंत्र रूपसँ सत्यापित करबाक चाही।",
+        "late_night_disclaimer": "\"अहाँक प्रश्न हमर कृषि विशेषज्ञ कें भेज देल गेल अछि। अहाँ कें काल्हि भोरे ८:०० बजे तक उत्तर भेटत।\"",
+        "early_morning_disclaimer": "\"अहाँक प्रश्न हमर कृषि विशेषज्ञ केँ भेज देल गेल अछि। अहाँ केँ आइ भोर ८:०० बजे तक उत्तर भेटत।\"",
+        "non_agriculture_reply": "Annam.ai सँ संपर्क करबाक लेल धन्यवाद।\n\nAjraSakha एकटा AI-powered कृषि सहायता मंच अछि जे खेती सँ संबंधित प्रश्नक उत्तर देबाक लेल बनाओल गेल अछि। अहाँक प्रश्न हमर कृषि सेवाक दायरा सँ बाहर लागैत अछि।\n\nयदि अहाँ केँ फसल खेती, कीट आ रोग प्रबंधन, उर्वरक, सिंचाई, मौसम सलाह, बाजार मूल्य, सरकारी योजना वा आन खेती-किसानीक बारे मे प्रश्न अछि, तँ हम मदतिक लेल उपलब्ध छी।\n\nकृपया कृषि सँ संबंधित प्रश्न पूछू, आ हम अहाँक मदति करबामे प्रसन्न होएब।",
+        "weather_unavailable_for_dynamic_weather_queries": "धन्यवाद Annam.ai सँ संपर्क करबाक लेल।\n\nहमरा खेद छै, लेकिन एहि समय अहाँक स्थानक मौसम जानकारी प्राप्त करबामे असमर्थ छी।\n\nमौसम पूर्वानुमान आधिकारिक मौसम डेटाक उपलब्धताक आधार पर प्रदान कएल जाइत अछि। कृपया किछु समयक बाद फेर प्रयास करू वा कोनो आन कृषि सँ संबंधित प्रश्न पूछू।",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai सँ संपर्क करबाक लेल धन्यवाद।\n\n[Crop Name] लेल मूल्य सूचना [Mandi Name] मंडी मे एखन उपलब्ध नहि अछि।\n\nई एहि लेल भऽ सकैत अछि जे चयनित फसलक लेल एहि मंडी मे कोनो हालक बाजार आगमन या मूल्य रिकॉर्ड उपलब्ध नहि अछि। अहाँ कोनो नजदीकक मंडी जाँच कऽ सकैत छी या बाद मे फेर प्रयास कऽ सकैत छी।",
+        "mandi_not_available": "Annam.ai सँ संपर्क करबाक लेल धन्यवाद।\n\n[Mandi Name] मंडीक जानकारी एहि समय प्रदर्शित नहि कएल जा सकल। हम भारत भरि मे अपन मंडी कवरेज केँ लगातार बढ़ा रहल छी। कृपया मंडीक नाम केँ सत्यापित करू वा नवीनतम बजार मूल्य देखबाक लेल लग-पासक कोनो मंडी केँ खोजू।"
+      }
+    },
+    {
+      "script_language": "English",
+      "vocal_language": "Maithili",
+      "texts": {
+        "two_hour_disclaimer": "Ahaank prashna annam.ai par hamar krishi visheshagya sang saajha kayal gel achhi. Ahaankein 2 ghantaak bhitar uttar bhetat. Dhanyavaad.",
+        "state_follow_up": "Ahaan kon rajya aur district me chhi?",
+        "crop_follow_up": "Ahaan kon fasal uga rahal chhi?",
+        "testing_disclaimer": "⚠️ Mahatvapurn Suchana (Parikshan) ⚠️\n\nI AjraSakha application vikaasak adhin achhi aa keval parikshan aa satyapanakk lel banaol gel achhi.\nSalaah prayogaatmak achhi aa vartamanme chunal rajyame pramukh fasal sabhakein cover karait achhi.\n_____________________________\n\nMausam data IMD san lel gel achhi.\nBaajaar data eNAM, Agmarknet, aa rajya APMC san lel gel achhi.\nMrida swasthya maargadarshan https://soilhealth.dac.gov.in/fertilizer-dosage san lel gel achhi.\nSarkaari yojana https://www.myscheme.gov.in/ san lel gel achhi.\nAnya krishi jaankaari aa salaah Annam.ai dwaara visheshagya-satyapit achhi.\n\nUpayogkarta sabhakein kono kaary karabasaan pahine sifarishakein swatantra ruupasaan satyaapit karbaak chaahi.",
+        "late_night_disclaimer": "\"Ahank prashn hamaar krishi vishesgya ke pathawa deल gेल achhi. Ahank kal bिहाne 8:00 baje tak uttar bhेट jaयत.\"",
+        "early_morning_disclaimer": "\"Ahank prasna hamaar krishi vishesgya ke pathao gail chhai. Ahank ke aaji bihane 8:00 baje tak uttar bhet jaet.\"",
+        "non_agriculture_reply": "Annam.ai san sampark karbak lel dhanyavaad.\n\nAjraSakha ek AI-powered krishi sahayata platform chhi je kheti san sambandhit prashnank uttar debak lel banayel gel chhi. Ahankar prashn hamra krishi sevanak daireh san bahar bulait chhi.\n\nYadi ahanke fasal kheti, keet aur rog prabandhan, khad, sinchai, mausam salah, bazar mulya, sarkar yojanaa athawa anya kheti prathaon san sambandhit prashn chhi, ta hum ahanke sahayata karbak lel upasthit chhi.\n\nKrpaya krishi san sambandhit prashn puchhah, aur hum ahanke khushi san sahayata kareb.",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai san sampark karbak lel dhanyavaad.\n\nHum kshama chahait chhi, kintu aahan lel ahank sthaan ke mausam jaankari ee samay prapt nahi kar sakai chhi.\n\nMausam ke bhavishyavani sarkari mausam data ke uplabdhta par aadharit chhi. Kripya kichh samay baad phir se prayas karu va koi dusra kheti san sambandhit prashna puchu.",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai san sampark karbak lel dhanyavaad.\n\n[Crop Name] lel daam ke jaankari aehi samay [Mandi Name] mandi me uplabdh nahi chhai.\n\nEi aehen lel bhae sakeit chhai je chunu'l fasal lel aehi mandi me kono haalak bajar aagman ya daam ke record nahi chhai. Aahan lagak kono mandi jaanch sakait chhee ya baad me fero prayas karu.",
+        "mandi_not_available": "Annam.ai san sampark karbak lel dhanyavaad.\n\n[Mandi Name] mandi ke jaankari aikhane dekhaawal nahi jaa sakal chhai. Ham bharat bhar mein apan mandi coverage ke lagaatar badhaa rahal chhi. Kripaya mandi naam ke jaanch karu athwa najdik ke kono mandi khoji kar taaja bajar ke bhaw dekhak lel."
+      }
+    },
+    {
+      "script_language": "Malayalam",
+      "vocal_language": "Malayalam",
+      "texts": {
+        "two_hour_disclaimer": "നിങ്ങളുടെ ചോദ്യം annam.ai-ലെ ഞങ്ങളുടെ കാർഷിക വിദഗ്ധനുമായി പങ്കുവെച്ചിരിക്കുന്നു. 2 മണിക്കൂറിനുള്ളിൽ നിങ്ങൾക്ക് ഉത്തരം ലഭിക്കും.\nനന്ദി.",
+        "state_follow_up": "നിങ്ങൾ ഏത് സംസ്ഥാനത്തും ജില്ലയിലുമാണ് ഉള്ളത്?",
+        "crop_follow_up": "നിങ്ങൾ ഏത് വിളയാണ് കൃഷി ചെയ്യുന്നത്?",
+        "testing_disclaimer": "⚠️ പ്രധാന അറിയിപ്പ് (പരീക്ഷണം) ⚠️\n\nഈ AjraSakha ആപ്ലിക്കേഷൻ വികസന ഘട്ടത്തിലാണ്. ഇത് നിലവിൽ പരീക്ഷണത്തിനും സാധൂകരണത്തിനുമായി മാത്രം ഉദ്ദേശിച്ചിട്ടുള്ളതാണ്. ഉപദേശങ്ങൾ പരീക്ഷണാത്മക സ്വഭാവമുള്ളവയാണ്. നിലവിൽ തിരഞ്ഞെടുത്ത സംസ്ഥാനങ്ങളിലെ പ്രധാന വിളകൾ മാത്രമാണ്   ഉൾപ്പെടുത്തിയിരിക്കുന്നത്.\n\n_____________________________\n\nകാലാവസ്ഥാ വിവരങ്ങൾ IMD-ൽ നിന്നാണ് ശേഖരിക്കുന്നത്. വിപണി വിവരങ്ങൾ eNAM, Agmarknet, വിവിധ സംസ്ഥാനങ്ങളിലെ APMC-കളിൽ നിന്നാണ് ലഭ്യമാക്കുന്നത്. മണ്ണിന്റെ ആരോഗ്യവുമായി ബന്ധപ്പെട്ട മാർഗ്ഗനിർദ്ദേശങ്ങൾ https://soilhealth.dac.gov.in/fertilizer-dosage ൽ നിന്നാണ് ലഭ്യമാക്കുന്നത്. സർക്കാർ പദ്ധതികളുമായി ബന്ധപ്പെട്ട വിവരങ്ങൾ https://www.myscheme.gov.in/ ൽ നിന്നാണ് ലഭ്യമാക്കുന്നത്. മറ്റ് കാർഷിക വിവരങ്ങളും ഉപദേശങ്ങളും Annam.ai-യിലെ വിദഗ്ധർ പരിശോധിച്ച് സ്ഥിരീകരിച്ചവയാണ്.\n\nശുപാർശകൾ പ്രാവർത്തികമാക്കുന്നതിന് മുമ്പ് ഉപയോക്താക്കൾ അവ സ്വതന്ത്രമായി പരിശോധിച്ച് സ്ഥിരീകരിക്കണം.",
+        "late_night_disclaimer": "\"നിങ്ങളുടെ ചോദ്യം ഞങ്ങളുടെ കാർഷിക വിദഗ്ധന് കൈമാറിയിട്ടുണ്ട്. നാളെ രാവിലെ 8:00 മണിക്കുള്ളിൽ നിങ്ങൾക്ക് മറുപടി ലഭിക്കുന്നതാണ്.\"",
+        "early_morning_disclaimer": "\"നിങ്ങളുടെ ചോദ്യം ഞങ്ങളുടെ കാർഷിക വിദഗ്ധന് കൈമാറിയിട്ടുണ്ട്. ഇന്ന് രാവിലെ 8:00 മണിക്കുള്ളിൽ നിങ്ങൾക്ക് മറുപടി ലഭിക്കുന്നതാണ്.\"",
+        "non_agriculture_reply": "Annam.ai-നെ ബന്ധപ്പെട്ടതിന് നന്ദി.\n\nAjraSakha എന്നത് കൃഷിയുമായി ബന്ധപ്പെട്ട ചോദ്യങ്ങൾക്ക് ഉത്തരം നൽകുന്നതിനായി രൂപകൽപ്പന ചെയ്ത ഒരു AI-powered കാർഷിക സഹായ പ്ലാറ്റ്‌ഫോമാണ്. നിങ്ങളുടെ ചോദ്യം ഞങ്ങളുടെ കാർഷിക സേവനങ്ങളുടെ പരിധിക്ക് പുറത്താണെന്ന് തോന്നുന്നു.\n\nവിള കൃഷി, കീടനിയന്ത്രണവും രോഗനിയന്ത്രണവും, വളങ്ങൾ, ജലസേചനം, കാലാവസ്ഥാ മുന്നറിയിപ്പുകൾ, വിപണി വില, സർക്കാർ പദ്ധതികൾ അല്ലെങ്കിൽ മറ്റ് കാർഷിക രീതികൾ എന്നിവയെക്കുറിച്ച് നിങ്ങൾക്ക് ചോദ്യങ്ങളുണ്ടെങ്കിൽ, ഞങ്ങൾ സഹായിക്കാൻ ഇവിടെയുണ്ട്.\n\nദയവായി കൃഷിയുമായി ബന്ധപ്പെട്ട ഒരു ചോദ്യം ചോദിക്കുക, ഞങ്ങൾ നിങ്ങളെ സഹായിക്കാൻ സന്തോഷിക്കുന്നു.",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai-നെ ബന്ധപ്പെട്ടതിന് നന്ദി.\n\nക്ഷമിക്കണം, ഇപ്പോൾ നിങ്ങളുടെ പ്രദേശത്തെ കാലാവസ്ഥാ വിവരങ്ങൾ ലഭ്യമാക്കാൻ ഞങ്ങൾക്ക് കഴിയുന്നില്ല.\n\nഔദ്യോഗിക കാലാവസ്ഥാ ഡാറ്റയുടെ ലഭ്യതയെ അടിസ്ഥാനമാക്കിയാണ് കാലാവസ്ഥാ പ്രവചനങ്ങൾ നൽകുന്നത്. ദയവായി കുറച്ച് സമയത്തിന് ശേഷം വീണ്ടും ശ്രമിക്കുക അല്ലെങ്കിൽ കൃഷിയുമായി ബന്ധപ്പെട്ട മറ്റേതെങ്കിലും ചോദ്യം ചോദിക്കുക.",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai-നെ ബന്ധപ്പെട്ടതിന് നന്ദി.\n\n[Crop Name]-ന്റെ വില വിവരങ്ങൾ നിലവിൽ [Mandi Name] മണ്ഡിയിൽ ലഭ്യമല്ല.\n\nതിരഞ്ഞെടുത്ത വിളയുടെ സമീപകാല വിപണി വരവുകളോ വില രേഖകളോ ഈ മണ്ഡിയിൽ ലഭ്യമല്ലാത്തതുകൊണ്ടാകാം ഇത്. അടുത്തുള്ള ഏതെങ്കിലും മണ്ഡി പരിശോധിക്കുകയോ പിന്നീട് വീണ്ടും ശ്രമിക്കുകയോ ചെയ്യാം.",
+        "mandi_not_available": "Annam.ai-നെ ബന്ധപ്പെടുന്നതിനായി നന്ദി.\n\n[Mandi Name] മണ്ടിയുടെ വിവരങ്ങൾ ഇപ്പോൾ പ്രദർശിപ്പിക്കാൻ സാധിച്ചില്ല. ഞങ്ങൾ ഇന്ത്യയിലുടനീളം ഞങ്ങളുടെ മണ്ടി കവറേജ് തുടർച്ചയായി വിപുലീകരിക്കുകയാണ്. ഏറ്റവും പുതിയ മാർക്കറ്റ് വിലകൾ കാണുന്നതിന് മണ്ടിയുടെ പേര് പരിശോധിക്കുകയോ അടുത്തുള്ള ഒരു മണ്ടിക്കായി തിരയുകയോ ചെയ്യുക."
+      }
+    },
+    {
+      "script_language": "English",
+      "vocal_language": "Malayalam",
+      "texts": {
+        "two_hour_disclaimer": "Ningalude chodyam Annam.ai-yile njangalude kaarshika vidagdharumaayi pankuvechittundu. 2 manikkoorinnullil ningalkku marupadi labhikkunnathaanu.\n\nNandi.",
+        "state_follow_up": "Ningal ethu samsthaanathilum jillayilumaanu ullath?",
+        "crop_follow_up": "Ningal ethu vilayaanu krishi cheyyunnath?",
+        "testing_disclaimer": "⚠️ Pradhaana Ariyippu (Pareekshanam) ⚠️\n\nEe AjraSakha application vikasanaghattathilaanu. Ithu nilavil pareekshanathinum saadhookaranathinumaayi maathram uddeshichittullathaanu. Upadeshangal pareekshanaathmaka swabhaavamullavayaanu. Nilavil thiranjedutha samsthaanangalile pradhaana vilakal maathramaanu ulppeduthiyirikkunnath.\n\n_____________________________\n\nKaalaavastha vivarangal IMD-il ninnaanu shekharikkunnath. Vipani vivarangal eNAM, Agmarknet, vividha samsthaanangalile APMC-kalil ninnaanu labhyamaakkunnath. Manninte aarogyavumaayi bandhapetta maargganirdeshangal https://soilhealth.dac.gov.in/fertilizer-dosage il ninnaanu labhyamaakkunnath. Sarkkaar padhathikalumaayi bandhapetta vivarangal https://www.myscheme.gov.in/ il ninnaanu labhyamaakkunnath. Matthu kaarshika vivarangalum upadeshangalum Annam.ai-yile vidagdhar parishodhichu sthirikarichavayaanu.\n\nEthengilum shupaarshakal praavarthikamaakkunnathinu munpu upayokthakkal ava swathanthramaayi parishodhikkukayum sthirikarikkukayum cheyyendathaanu.\n",
+        "late_night_disclaimer": "\"Ningalude chodyam njangalude kaarshika vidagdhanu kaimaarriyittundu. Naale raavile 8:00 manikkakam ningalkku marupadi labhikkunnathaanu.\"",
+        "early_morning_disclaimer": "\"Ningalude chodyam njangalude kaarshika vidagdhanu kaimaarriyittundu. Innu raavile 8:00 manikkakam ningalkku marupadi labhikkunnathaanu.\"",
+        "non_agriculture_reply": "Annam.ai-ne bandhappedunnathinayi nandi.\n\nAjraSakha oru AI-powered krishi sahaya platform aanu, krishi sambandhiccha chodyangalkku utharam nalkan design cheythirikkunnathu. Ningalude chodiyam njangalude krishi sevakallude pareethiyilekku purathanu ennu thonnunnu.\n\nVidya krishi, jeevikalude rogangalude niyanthranam, urangal, neechanam, kalavasta salahangal, angadi vilagal, government schemes athava mattu krishi reethakal pattiya chodyangal undenkil, njangal sahayikkaan tayyaranu.\n\nDayavayi oru krishi sambandhiccha chodyam chodhikku, njangal ningale sahayikkaan santhoshamundu.",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai-ne bandhappedunnathinayi nandi.\n\nKshamikkanam, ee samayathu ningalude sthalaththinulla kaalavasthavivarangal praaptikkan saadhyamaayilla.\n\nKaalavasthaa poorveekshanaṅṅal saarkaar kaalavasthavidayankalude labhyatha anusarichu nalkappedunnu. Dayavayi korachusamayam kazhinjittu veendum prasnamikkanamennoo mattu krishi sambandhicha chodyaṅṅal chodikkanamennoo abhyarthikkunnu.",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai-ne bandhappedunnathinayi nandi.\n\n[Crop Name]-nte vila vivaram ippol [Mandi Name] mandi-yil labhyamalla.\n\nIthinte kaaranam aa mandi-yil therenjedutha vilaykkulla adutthidekkaala market arrival-ukal o vila rekordkal o labhyamallaathe irikkaam. Ningalkku aduththulla vere mandi-yil nokkaavunnathaanu athavaa pinne shramikaavunnathaanu.",
+        "mandi_not_available": "Annam.ai-ne bandhappedunnathinayi nandi.\n\nEe samayathu [Mandi Name] mandi-yude vivaram kaanikan saadhichilla. Njangal Bharathathiloodeyum njangalude mandi coverage thodarnnukondirikkunnu. Dayavaayi mandi peru sheriyaano ennu parisheelikuka athava adutha mandi-kku vendi search cheythu puthiya market vilakkal kaanuka."
+      }
+    },
+    {
+      "script_language": "Devanagari",
+      "vocal_language": "Marathi",
+      "texts": {
+        "two_hour_disclaimer": "तुमचा प्रश्न annam.ai च्या आमlच्या कृषी तज्ञांसोबत शेअर करण्यात आला आहे. तुम्हाला २ तासांच्या आत उत्तर मिळेल.\nधन्यवाद.",
+        "state_follow_up": "तुम्ही कोणत्या राज्यात आणि जिल्ह्यात आहात?",
+        "crop_follow_up": "तुम्ही कोणते पीक घेत आहात?",
+        "testing_disclaimer": "⚠️ महत्त्वाची सूचना (चाचणी) ⚠️\n\nही AjraSakha अॅप्लिकेशन विकासाधीन आहे आणि केवळ चाचणी आणि प्रमाणीकरणासाठी आहे.\nसल्ले प्रायोगिक आहेत आणि सध्या निवडक राज्यांमधील प्रमुख पिकांसाठी उपलब्ध आहेत.\n_____________________________\n\nहवामान डेटा IMD कडून घेतला आहे.\nबाजार डेटा eNAM, Agmarknet आणि राज्य APMC कडून घेतला आहे.\nमाती आरोग्य मार्गदर्शन https://soilhealth.dac.gov.in/fertilizer-dosage वरून घेतले आहे.\nसरकारी योजना https://www.myscheme.gov.in/ वरून घेतल्या आहेत.\nइतर कृषी माहिती आणि सल्ले Annam.ai द्वारे तज्ञ-सत्यापित आहेत.\n\nवापरकर्त्यांनी कृती करण्यापूर्वी शिफारसींची स्वतंत्रपणे पडताळणी करावी.",
+        "late_night_disclaimer": "\"तुमचा प्रश्न आमच्या कृषी तज्ञाकडे पाठवण्यात आला आहे. तुम्हाला उद्या सकाळी ८:०० वाजेपर्यंत प्रतिसाद मिळेल.\"",
+        "early_morning_disclaimer": "\"तुमचा प्रश्न आमच्या कृषी तज्ञांकडे पाठवला आहे. तुम्हाला आज सकाळी ८:०० वाजेपर्यंत प्रतिसाद मिळेल.\"",
+        "non_agriculture_reply": "Annam.ai शी संपर्क साधल्याबद्दल धन्यवाद.\n\nAjraSakha हे शेतीशी संबंधित प्रश्नांची उत्तरे देण्यासाठी तयार केलेले AI-powered कृषी सहाय्य व्यासपीठ आहे. तुमचा प्रश्न आमच्या कृषी सेवांच्या व्याप्तीबाहेरचा आहे असे दिसते.\n\nजर तुम्हाला पीक लागवड, कीटक आणि रोग व्यवस्थापन, खते, सिंचन, हवामान सल्ले, बाजार भाव, सरकारी योजना किंवा इतर शेती पद्धतींबद्दल प्रश्न असतील, तर आम्ही मदतीसाठी येथे आहोत.\n\nकृपया शेतीशी संबंधित प्रश्न विचारा आणि आम्ही तुम्हाला मदत करण्यास आनंदित होऊ.",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai शी संपर्क साधल्याबद्दल धन्यवाद.\n\nआम्हाला खेद आहे, परंतु आम्ही या क्षणी तुमच्या स्थानासाठी हवामान माहिती मिळवू शकत नाही.\n\nहवामान अंदाज अधिकृत हवामान डेटाच्या उपलब्धतेवर आधारित प्रदान केले जातात. कृपया थोड्या वेळाने पुन्हा प्रयत्न करा किंवा शेतीशी संबंधित दुसरा प्रश्न विचारा.",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai शी संपर्क साधल्याबद्दल धन्यवाद.\n\n[Crop Name] साठी किंमत माहिती सध्या [Mandi Name] मंडीमध्ये उपलब्ध नाही.\n\nहे कदाचित या कारणामुळे असू शकते की या मंडीत निवडलेल्या पिकासाठी अलीकडील बाजार आवक किंवा किंमत नोंदी उपलब्ध नाहीत. तुम्ही जवळपासची कोणतीही मंडी तपासू शकता किंवा नंतर पुन्हा प्रयत्न करू शकता.",
+        "mandi_not_available": "Annam.ai शी संपर्क साधल्याबद्दल धन्यवाद.\n\n[Mandi Name] मंडीची माहिती यावेळी दाखवता आली नाही. आम्ही संपूर्ण भारतात आमची मंडी कव्हरेज सतत वाढवत आहोत. कृपया मंडीचे नाव तपासा किंवा नवीनतम बाजार भाव पाहण्यासाठी जवळपासच्या मंडीचा शोध घ्या."
+      }
+    },
+    {
+      "script_language": "English",
+      "vocal_language": "Marathi",
+      "texts": {
+        "two_hour_disclaimer": "Tumcha prashna annam.ai chya aamchya krushi tajnyansobat share karnyat aala ahe. Tumhala 2 tasanch्ya aat uttar milelel.\nDhanyavad ",
+        "state_follow_up": "Tumhi kontyaa raajyaat aani kontyaa jilhyaat aahat?",
+        "crop_follow_up": "Tumhi konthe pik ghet aahat?",
+        "testing_disclaimer": "⚠️ Mahattvachi soochana (Chaachani) ⚠️\n\nHi AjraSakha application vikasaadheen ahe aani keval chaachani aani pramaanikaranasaathi ahe.\nSalle praayogik aahet aani sadhya nivadak raajyanmadheel pramukh pikansaathi upalabdh aahet.\n_____________________________\n\nHavamaan data IMD kadoon ghetal ahe.\nBaajaar data eNAM, Agmarknet aani raajya APMC kadoon ghetal ahe.\nMaati aarogya maargadarshan https://soilhealth.dac.gov.in/fertilizer-dosage varun ghetal ahe.\nSarkaari yojana https://www.myscheme.gov.in/ varun ghetlya aahet.\nItar krushi maahiti aani salle Annam.ai dwara tajnya-satyaapith aahet.\n\nVaaparkartyanni kruti karnyapoorvi shifarashinchi swatantrapane padataalni karaavi.",
+        "late_night_disclaimer": "\"Tumcha prashn amchya krushi tanjnya kade pathavla ahe. Tumhala udya sakalі 8:00 varta paryant pratisar milel.\"",
+        "early_morning_disclaimer": "\"Tumcha prashn amchya krushi tanjnyakade pathavla ahe. Tumhala aaj sakali 8:00 vाजेपर्यंत pratiसाद milel.\"",
+        "non_agriculture_reply": "Annam.ai shi sampark sadhlyabaddal dhanyavaad.\n\nAjraSakha ha ek AI-powered sheti sahayya vyastha aahe jo sheti-sanbandhit prashnanchi uttare denyasathi tayar kelay aahe. Tumcha prashna amchya sheti sevanchya vyaptibahera disato aahe.\n\nJar tumhala pik lagvad, kide ani rog vyavasthapan, khate, sinchan, havamanachi sallaa, bajar bhaav, sarkari yojana kiva itar sheti padhhatinchi prashn asatil tar, amhi madatisathi tayar aahot.\n\nKrupaya sheti-sanbandhit prashna vichara, ani amhi tumhala madati karnyat khush honaar.",
+        "weather_unavailable_for_dynamic_weather_queries": "Thank you for reaching out to Annam.ai.\n\nMaf kara, pan aamhi samya tumchya thikaanasaathi hawamanachi mahiti milavat naahi aahot.\n\nHawamanache anuman sarkaari hawamanachi mahiti uplabdh asleli aslyavar dile jatat. Kripaya thodyavelani punha prayatna kara kiva sheti vishayak dusra prashn vichara.",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai shi sampark sadhlyabaddal dhanyavaad.\n\n[Crop Name] sathi kimmat mahiti sadhya [Mandi Name] mandi madhe uplabdh nahi.\n\nHe yaa karanaane asoo shakate ki nivadlela pik ya mandi madhe kuthlehi takache bajar aagman kiva kimmat abhilekh uplabdh nahi ahet. Tumhi javalchi kuthli tari mandi tapasoo shakta kiva nantar punha prayatna karoo shakta.",
+        "mandi_not_available": "Annam.ai shi sampark sadhlyabaddal dhanyavaad.\n\n[Mandi Name] mandichi mahiti yaveli tyavat darshavili jau shakli nahi. Aamhi satatpane Bharatbhar aaplya mandi vyaptichi vishvruddhi karat aahot. Krupaya mandi che naav tapsun pahaa kiva najikchya mandila shodha jenekarun atyavashyak bajar bhav pahat shakaal."
+      }
+    },
+    {
+      "script_language": "Devanagari",
+      "vocal_language": "Nepali",
+      "texts": {
+        "two_hour_disclaimer": "तपाईंको प्रश्न annam.ai का हाम्रा कृषि विशेषज्ञसँग साझा गरिएको छ। तपाईंले २ घण्टाभित्र उत्तर पाउनुहुनेछ।\nधन्यवाद।",
+        "state_follow_up": "तपाईं कुन राज्य र जिल्लामा हुनुहुन्छ?",
+        "crop_follow_up": "तपाईं कुन बाली उमार्दै हुनुहुन्छ?",
+        "testing_disclaimer": "⚠️ महत्त्वपूर्ण सूचना (परीक्षण) ⚠️\n\nयो AjraSakha एप्लिकेसन विकासको क्रममा छ र यो केवल परीक्षण र प्रमाणीकरणको लागि मात्र हो।\nसल्लाहहरू प्रयोगात्मक छन् र हाल चयनित राज्यहरूमा प्रमुख बालीहरू समेट्छन्।\n_____________________________\n\nमौसम डेटा IMD बाट लिइएको छ।\nबजार डेटा eNAM, Agmarknet, र राज्य APMCहरूबाट लिइएको छ।\nमाटोको स्वास्थ्य मार्गदर्शन https://soilhealth.dac.gov.in/fertilizer-dosage बाट लिइएको छ।\nसरकारी योजनाहरू https://www.myscheme.gov.in/ बाट लिइएको छ।\nअन्य कृषि सम्बन्धी जानकारी र सल्लाहहरू Annam.ai द्वारा विशेषज्ञ-प्रमाणित छन्।\n\nप्रयोगकर्ताहरूले कुनै पनि कदम चाल्नु अघि सिफारिसहरू स्वतन्त्र रूपमा प्रमाणित गर्नुपर्छ।",
+        "late_night_disclaimer": "तपाईंको प्रश्न हाम्रो कृषि विशेषज्ञलाई पठाइएको छ। तपाईंले भोलि बिहान ८:०० बजे सम्ममा जवाफ प्राप्त गर्नुहुनेछ।",
+        "early_morning_disclaimer": "तपाईंको प्रश्न हाम्रो कृषि विशेषज्ञलाई पठाइएको छ। तपाईंले आज बिहान ८:०० बजेसम्म जवाफ प्राप्त गर्नुहुनेछ।",
+        "non_agriculture_reply": "Annam.ai मा सम्पर्क गर्नुभएकोमा धन्यवाद।\n\nAjraSakha एक AI-powered कृषि सहायता प्लेटफर्म हो जुन खेतीपातीसँग सम्बन्धित प्रश्नहरूको जवाफ दिन डिजाइन गरिएको छ। तपाईंको प्रश्न हाम्रो कृषि सेवाको दायरा बाहिर रहेको देखिन्छ।\n\nयदि तपाईंसँग बाली खेती, कीरा र रोग व्यवस्थापन, मल, सिँचाइ, मौसम परामर्श, बजार मूल्य, सरकारी योजनाहरू वा अन्य खेती अभ्यासहरूको बारेमा प्रश्नहरू छन् भने, हामी मद्दत गर्न यहाँ छौं।\n\nकृपया कृषिसँग सम्बन्धित प्रश्न सोध्नुहोस्, र हामी तपाईंलाई सहयोग गर्न खुसी हुनेछौं।",
+        "weather_unavailable_for_dynamic_weather_queries": "धन्यवाद Annam.ai मा सम्पर्क गर्नुभएकोमा।\n\nहामी माफी चाहन्छौं, तर हामी अहिले तपाईंको स्थानको मौसम जानकारी प्राप्त गर्न सक्दैनौं।\n\nमौसम पूर्वानुमान आधिकारिक मौसम डेटाको उपलब्धताको आधारमा प्रदान गरिन्छ। कृपया केही समय पछि पुनः प्रयास गर्नुहोस् वा कृषि सम्बन्धित अर्को प्रश्न सोध्नुहोस्।",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai मा सम्पर्क गर्नुभएकोमा धन्यवाद।\n\n[Crop Name] को मूल्य जानकारी हाल [Mandi Name] मण्डीमा उपलब्ध छैन।\n\nयो यसकारण हुन सक्छ कि यस मण्डीमा चयन गरिएको बालीको हालैको बजार आगमन वा मूल्य अभिलेख उपलब्ध छैन। तपाईंले नजिकैको कुनै मण्डी जाँच गर्न सक्नुहुन्छ वा पछि पुनः प्रयास गर्न सक्नुहुन्छ।",
+        "mandi_not_available": "Annam.ai मा सम्पर्क गर्नुभएकोमा धन्यवाद।\n\n[Mandi Name] मण्डीको जानकारी यस समय प्रदर्शन गर्न सकिएन। हामी भारतभरि हाम्रो मण्डी कभरेज निरन्तर विस्तार गरिरहेका छौं। कृपया मण्डीको नाम प्रमाणित गर्नुहोस् वा नजिकैको मण्डी खोजी गरेर नवीनतम बजार मूल्यहरू हेर्नुहोस्।"
+      }
+    },
+    {
+      "script_language": "English",
+      "vocal_language": "Nepali",
+      "texts": {
+        "two_hour_disclaimer": "Tapaaiko prashna annam.ai ka hamaara krishi visheshagyasanga saajha gariyeko chha. Tapaaile 2 ghantabitra uttar paaunuhunechha.\nDhanyabaad.",
+        "state_follow_up": "Tapaain kun raajya ra jillama hunuhunchha?",
+        "crop_follow_up": "Tapaain kun baali umaardai hunuhunchha?",
+        "testing_disclaimer": "⚠️ Mahattwapurna Soochana (Parikshan) ⚠️\n\nYo AjraSakha application bikasako kramama chha ra yo kewal parikshan ra pramaanikaranako laagi maatra ho.\nSallaahaharu prayogaatmak chhan ra haal chayit raajyaharu ma pramukh baaliharu sametanchhan.\n_____________________________\n\nMausam data IMD bata liyeko chha.\nBajar data eNAM, Agmarknet, ra raajya APMChaaru bata liyeko chha.\nMaatoko swasthya maargadarshan https://soilhealth.dac.gov.in/fertilizer-dosage bata liyeko chha.\nSarkaari yojanaaharu https://www.myscheme.gov.in/ bata liyeko chha.\nAnya krishi sambandhi jaankaari ra sallaahaharu Annam.ai dwaara visheshagya-pramaanit chhan.\n\nPrayogakartaaharu le kunai pani kadam chaalnu aghi sifaarishaharu swatantra ruupama praamaanit garnuparchha.",
+        "late_night_disclaimer": "\"Tapaiko prashna haamiley hamro krishi visheshagya lai pathayi sakeka chhaun. Tapaile bholi bihaana 8:00 bajey samma jawaf paunu hunechha.\"",
+        "early_morning_disclaimer": "\"Tapaiko prashna hamro krishi bisheshagya lai pathaaeko chha. Tapailai aaja bihaana 8:00 bajey samma jawaf prapta hunechha.\"",
+        "non_agriculture_reply": "Annam.ai ma samparka garnubhako ma dhanyabad.\n\nAjraSakha ek AI-powered krishisambandhit sahayta platform ho jun kheti-kisanisanga sambandhit prashnaharu ko uttar dina ko lagi dizain gariyeko chha. Tapainko prashn hamro krishisambandhit sewaharuko daira bhanda bahira jasto dekhindachha.\n\nYadi tapai lai bali kheti, kira ra rog byabasthapan, mala, sinchai, mausam salah, bazar mulya, sarkari yojanahar wa aru kheti-kisani abhyasharuko barema prashnahar chhanna bhane, hami yaha tapainlai sahayog garna ko lagi tayar chhau.\n\nKripaya krishisambandhit prashn sodhnus, ra hami tapainlai sahayog garna khusi hunechhaun.",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai ma samparka garnubhako ma dhanyavaad.\n\nHami maafi chhahancha, tara hami yati bela tapaaiko sthaanko mausam jaankaari prapta garna sakdainau.\n\nMausam purvanumaanharu aadikaarik mausam tatyaankako upalabdhatama aadharit hunchhan. Kripaya kehi samay pachhi feri prayas garnuhos wa aru krishi-sambandhit prashna sodhnus.",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai ma samparka garnubhako ma dhanyavaad.\n\n[Crop Name] ko mulya janakari haal [Mandi Name] mandi ma uplabdha chhaina.\n\nYo yaha yo mandi ma chayan garriyeko bali ko halai bajar aagaman wa mulya record uplabdha nahuda huna sakchha. Tapai najikai ko kunai mandi janch garna saknu hunchha wa pachi pheri prayaas garna saknu hunchha.",
+        "mandi_not_available": "Annam.ai ma samparka garnubhako ma dhanyavaad.\n\n[Mandi Name] mandi ko jaankari yo samayama dekhaauna sakiyena. Hami bharatbhari hamro mandi coverage lagataar badhairaakheka chhaun. Kripaya mandi ko naam pramaanikaran garnuhos wa najikai ko mandi khojnuhos latest bazar mulya herna."
+      }
+    },
+    {
+      "script_language": "Odia",
+      "vocal_language": "Odia",
+      "texts": {
+        "two_hour_disclaimer": "ଆପଣଙ୍କ ପ୍ରଶ୍ନ annam.ai ର ଆମ କୃଷି ବିଶେଷଜ୍ଞଙ୍କ ସହ ସାଝା କରାଯାଇଛି। ଆପଣ ୨ ଘଣ୍ଟା ମଧ୍ୟରେ ଉତ୍ତର ପାଇବେ।\nଧନ୍ୟବାଦ।",
+        "state_follow_up": "ଆପଣ କେଉଁ ରାଜ୍ୟ ଓ ଜିଲ୍ଲାରେ ଅଛନ୍ତି?",
+        "crop_follow_up": "ଆପଣ କେଉଁ ଫସଲ ଚାଷ କରୁଛନ୍ତି?",
+        "testing_disclaimer": "⚠️ ଗୁରୁତ୍ୱପୂର୍ଣ୍ଣ ସୂଚନା (ପରୀକ୍ଷଣ) ⚠️\n\nଏହି AjraSakha ଆପ୍ଲିକେସନ ବିକାଶ ଅଧୀନରେ ଅଛି ଏବଂ କେବଳ ପରୀକ୍ଷଣ ଓ ବୈଧତା ନିରୂପଣ ପାଇଁ ଉଦ୍ଦିଷ୍ଟ।\nପରାମର୍ଶଗୁଡ଼ିକ ପ୍ରାୟୋଗିକ ଏବଂ ବର୍ତ୍ତମାନ ଚୟନିତ ରାଜ୍ୟଗୁଡ଼ିକରେ ପ୍ରମୁଖ ଫସଲଗୁଡ଼ିକୁ ଅନ୍ତର୍ଭୁକ୍ତ କରୁଛି।\n_____________________________\n\nଆବହାୱା ତଥ୍ୟ IMD ରୁ ସଂଗ୍ରହ କରାଯାଇଛି।\nବଜାର ତଥ୍ୟ eNAM, Agmarknet ଏବଂ ରାଜ୍ୟ APMC ଗୁଡ଼ିକରୁ ନିଆଯାଇଛି।\nମୃତ୍ତିକା ସ୍ୱାସ୍ଥ୍ୟ ମାର୍ଗଦର୍ଶନ https://soilhealth.dac.gov.in/fertilizer-dosage ରୁ ନିଆଯାଇଛି।\nସରକାରୀ ଯୋଜନା https://www.myscheme.gov.in/ ରୁ ନିଆଯାଇଛି।\nଅନ୍ୟ କୃଷି ସୂଚନା ଓ ପରାମର୍ଶ Annam.ai ଦ୍ୱାରା ବିଶେଷଜ୍ଞ-ଯାଞ୍ଚିତ।\n\nବ୍ୟବହାରକାରୀମାନେ କାର୍ଯ୍ୟ କରିବା ପୂର୍ବରୁ ସୁପାରିଶଗୁଡ଼ିକୁ ସ୍ୱାଧୀନ ଭାବରେ ଯାଞ୍ଚ କରିବା ଉଚିତ।",
+        "late_night_disclaimer": "\"ଆପଣଙ୍କ ପ୍ରଶ୍ନ ଆମର କୃଷି ବିଶେଷଜ୍ଞଙ୍କ ନିକଟକୁ ପଠାଯାଇଛି। ଆପଣ ଆସନ୍ତାକାଲି ସକାଳ ୮:୦୦ ଟା ସୁଦ୍ଧା ଉତ୍ତର ପାଇବେ।\"",
+        "early_morning_disclaimer": "\"ଆପଣଙ୍କ ପ୍ରଶ୍ନ ଆମର କୃଷି ବିଶେଷଜ୍ଞଙ୍କ ନିକଟକୁ ପଠାଯାଇଛି। ଆପଣ ଆଜି ସକାଳ ୮:୦୦ ଟା ସୁଦ୍ଧା ଉତ୍ତର ପାଇବେ।\"",
+        "non_agriculture_reply": "Annam.ai ସହିତ ଯୋଗାଯୋଗ କରିଥିବାରୁ ଧନ୍ୟବାଦ।\n\nAjraSakha ହେଉଛି ଏକ AI-powered କୃଷି ସହାୟତା ପ୍ଲାଟଫର୍ମ ଯାହା କୃଷି ସମ୍ବନ୍ଧୀୟ ପ୍ରଶ୍ନର ଉତ୍ତର ଦେବା ପାଇଁ ପରିକଳ୍ପିତ। ଆପଣଙ୍କ ପ୍ରଶ୍ନ ଆମର କୃଷି ସେବା ପରିସର ବାହାରେ ଥିବା ପରି ଦେଖାଯାଉଛି।\n\nଯଦି ଆପଣଙ୍କର ଫସଲ ଚାଷ, କୀଟ ଏବଂ ରୋଗ ପରିଚାଳନା, ସାର, ଜଳସେଚନ, ପାଣିପାଗ ପରାମର୍ଶ, ବଜାର ମୂଲ୍ୟ, ସରକାରୀ ଯୋଜନା କିମ୍ବା ଅନ୍ୟାନ୍ୟ କୃଷି ପ୍ରଥା ସମ୍ବନ୍ଧରେ ପ୍ରଶ୍ନ ଅଛି, ତେବେ ଆମେ ସାହାଯ୍ୟ କରିବାକୁ ଏଠାରେ ଅଛୁ।\n\nଦୟାକରି କୃଷି ସମ୍ବନ୍ଧୀୟ ପ୍ରଶ୍ନ ପଚାରନ୍ତୁ, ଏବଂ ଆମେ ଆପଣଙ୍କୁ ସାହାଯ୍ୟ କରି ଖୁସି ହେବୁ।",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai ସହିତ ଯୋଗାଯୋଗ କରିଥିବାରୁ ଧନ୍ୟବାଦ।\n\nଆମେ ଦୁଃଖିତ, କିନ୍ତୁ ବର୍ତ୍ତମାନ ଆପଣଙ୍କ ସ୍ଥାନ ପାଇଁ ପାଣିପାଗ ସୂଚନା ପ୍ରାପ୍ତ କରିବାରେ ଆମେ ଅସମର୍ଥ।\n\nପାଣିପାଗ ପୂର୍ବାନୁମାନ ସରକାରୀ ପାଣିପାଗ ତଥ୍ୟର ଉପଲବ୍ଧତା ଉପରେ ଆଧାରିତ ଭାବେ ପ୍ରଦାନ କରାଯାଏ। ଦୟାକରି କିଛି ସମୟ ପରେ ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ କିମ୍ବା କୃଷି ସମ୍ବନ୍ଧୀୟ ଅନ୍ୟ ପ୍ରଶ୍ନ ପଚାରନ୍ତୁ।",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai ସହିତ ଯୋଗାଯୋଗ କରିଥିବାରୁ ଧନ୍ୟବାଦ।\n\n[Crop Name] ପାଇଁ ମୂଲ୍ୟ ସୂଚନା ବର୍ତ୍ତମାନ [Mandi Name] ମଣ୍ଡିରେ ଉପଲବ୍ଧ ନାହିଁ।\n\nଏହା ହୋଇପାରେ କାରଣ ଏହି ମଣ୍ଡିରେ ମନୋନୀତ ଫସଲ ପାଇଁ କୌଣସି ସାମ୍ପ୍ରତିକ ବଜାର ଆଗମନ କିମ୍ବା ମୂଲ୍ୟ ରେକର୍ଡ ଉପଲବ୍ଧ ନାହିଁ। ଆପଣ ନିକଟସ୍ଥ କୌଣସି ମଣ୍ଡି ଯାଞ୍ଚ କରିପାରନ୍ତି କିମ୍ବା ପରେ ପୁଣି ଚେଷ୍ଟା କରିପାରନ୍ତି।",
+        "mandi_not_available": "Annam.ai ସହିତ ଯୋଗାଯୋଗ କରିଥିବାରୁ ଧନ୍ୟବାଦ।\n\n[Mandi Name] ମଣ୍ଡିର ସୂଚନା ଏହି ସମୟରେ ପ୍ରଦର୍ଶିତ ହୋଇପାରିଲା ନାହିଁ। ଆମେ ସମଗ୍ର ଭାରତରେ ଆମର ମଣ୍ଡି କଭରେଜକୁ ନିରନ୍ତର ବିସ୍ତାର କରୁଛୁ। ଦୟାକରି ମଣ୍ଡି ନାମ ଯାଞ୍ଚ କରନ୍ତୁ କିମ୍ବା ସର୍ବଶେଷ ବଜାର ମୂଲ୍ୟ ଦେଖିବା ପାଇଁ ନିକଟସ୍ଥ ମଣ୍ଡି ଖୋଜନ୍ତୁ।"
+      }
+    },
+    {
+      "script_language": "English",
+      "vocal_language": "Odia",
+      "texts": {
+        "two_hour_disclaimer": "Aapananka prashna annam.ai ra aama krushi bisheshagyanka saha sajha karayaichi. Aapana 2 ghanta madhyare uttara paibe.\nDhanyabaada.",
+        "state_follow_up": "Aapana keun rajya o district re achhanti?",
+        "crop_follow_up": "Aapana keun phasala chaasha karuchanti?",
+        "testing_disclaimer": "⚠️ Gurutwapurna suchana (Parikshana) ⚠️\n\nEhi AjraSakha application bikaasha adhinare achhi ebam kebala parikshana o baidhataa nirupana paain uddishtaa.\nParaamarshagudika praayogika ebam bartamaana chayanita raajyagudikare pramukha phasalagudiku antarbhukta karuchhi.\n_____________________________\n\nAabahaawaaa tathya IMD ru sangrahaa karayaichi.\nBajaara tathya eNAM, Agmarknet ebam raajya APMC gudikaru niaayaichi.\nMruttikaa swaasthya maargadarshana https://soilhealth.dac.gov.in/fertilizer-dosage ru niaayaichi.\nSarakaari yojanaa https://www.myscheme.gov.in/ ru niaayaichi.\nAnya krushi suchana o paraamarsha Annam.ai dwaara bishesha-yaanchita.\n\nByabahaarakaarimaane kaarya karibaa purbe supaariishagudiku swaadhina bhaabere yaancha karibaa uchita.",
+        "late_night_disclaimer": "\"Apananka prashna amara krushi bishejagyna nikataku  patha jaichi. Apana asanta kali sakalara 8:00  Sudha uttara paebe.\"",
+        "early_morning_disclaimer": "\"Apananka prashna amara krushi bishejagyna nikataku  patha jaichi. Apana asanta kali sakalara 8:00  Sudha uttara paebe.\"",
+        "non_agriculture_reply": "Annam.ai sahita jogajoga karithibaru dhanyabad.\n\nAjraSakha heucha eka AI-powered krushi sahayata platform jaha krushi sambandita prashna ra uttar deibaku nirmmit. Apananka prashna amara krushi seba ra bisayabahara bahare bale laguchhi.\n\nJadi apanankara fasal chasa, kita o roga prabandhan, sar, sinchan, mausam poramarsho, bajara mulya, sarkaari yojana kiba anya krushi paddhatira prashna thile, amhe sahayata karibaku achhu.\n\nDayakari eka krushi sambandita prashna puchantu, amhe apananku sahayata karibaku khusi heba.",
+        "weather_unavailable_for_dynamic_weather_queries": "Thank you for reaching out to Annam.ai.\n\nAmhe dukhita, kintu ehi samaye amhe apananka sthanara mausam tathya prapti karibaku asamartha.\n\nMausam anuman sarkari mausam tathyara upalabdhata upare nibhar kare. Dayakari kichi samaya pare punah prayasa karantu athaba krushi sambandhe anya prashna puchhhantu.",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai sahita jogajoga karithibaru dhanyabad.\n\n[Mandi Name] mandi re [Crop Name] pain dara tathya bartamana upaladbha nahin.\n\nEitihasre ei mandi re nirbachita fasala pain kichi notun bazar agamana ba dara rakarda upaladbha nahin. Apana nikata sthita anya mandi pariksha kariparen kinthiba puni pache prayasa kariparen.",
+        "mandi_not_available": "Annam.ai sahita jogajoga karithibaru dhanyabad.\n\n[Mandi Name] mandi ra suchana e samayare dekhayiba sahita parilani. Amhe bharata byapi amara mandi coverage ku nirantara visthara karuchhu. Dayakari mandi naama satya kariba athaba najika mandi khojiba jaha najika bazar mulya dekhiba pain."
+      }
+    },
+    {
+      "script_language": "Gurmukhi",
+      "vocal_language": "Punjabi",
+      "texts": {
+        "two_hour_disclaimer": "ਤੁਹਾਡਾ ਸਵਾਲ annam.ai 'ਤੇ ਸਾਡੇ ਖੇਤੀਬਾੜੀ ਮਾਹਰ ਨਾਲ ਸਾਂਝਾ ਕੀਤਾ ਗਿਆ ਹੈ। ਤੁਹਾਨੂੰ 2 ਘੰਟਿਆਂ ਦੇ ਅੰਦਰ ਜਵਾਬ ਮਿਲੇਗਾ। ਧੰਨਵਾਦ।",
+        "state_follow_up": "ਤੁਸੀਂ ਕਿਸ ਰਾਜ ਅਤੇ ਜ਼ਿਲ੍ਹੇ ਵਿੱਚ ਹੋ?",
+        "crop_follow_up": "ਤੁਸੀਂ ਕਿਹੜੀ ਫ਼ਸਲ ਉਗਾ ਰਹੇ ਹੋ?",
+        "testing_disclaimer": "⚠️ ਮਹੱਤਵਪੂਰਨ ਸੂਚਨਾ (ਟੈਸਟਿੰਗ) ⚠️\n\nਇਹ AjraSakha ਐਪਲੀਕੇਸ਼ਨ ਵਿਕਾਸ ਅਧੀਨ ਹੈ ਅਤੇ ਸਿਰਫ਼ ਟੈਸਟਿੰਗ ਅਤੇ ਪ੍ਰਮਾਣਿਕਤਾ ਲਈ ਹੈ।\nਸਲਾਹਾਂ ਪ੍ਰਯੋਗਾਤਮਕ ਹਨ ਅਤੇ ਇਸ ਵੇਲੇ ਚੁਣੇ ਹੋਏ ਰਾਜਾਂ ਵਿੱਚ ਮੁੱਖ ਫ਼ਸਲਾਂ ਨੂੰ ਕਵਰ ਕਰਦੀਆਂ ਹਨ।\n_____________________________\n\nਮੌਸਮ ਡੇਟਾ IMD ਤੋਂ ਲਿਆ ਗਿਆ ਹੈ।\nਮਾਰਕੀਟ ਡੇਟਾ eNAM, Agmarknet ਅਤੇ ਰਾਜ APMCs ਤੋਂ ਲਿਆ ਗਿਆ ਹੈ।\nਮਿੱਟੀ ਸਿਹਤ ਮਾਰਗਦਰਸ਼ਨ https://soilhealth.dac.gov.in/fertilizer-dosage ਤੋਂ ਲਿਆ ਗਿਆ ਹੈ।\nਸਰਕਾਰੀ ਯੋਜਨਾਵਾਂ https://www.myscheme.gov.in/ ਤੋਂ ਲਈਆਂ ਗਈਆਂ ਹਨ।\nਹੋਰ ਖੇਤੀਬਾੜੀ ਜਾਣਕਾਰੀ ਅਤੇ ਸਲਾਹਾਂ Annam.ai ਦੁਆਰਾ ਮਾਹਰਾਂ ਦੁਆਰਾ ਪ੍ਰਮਾਣਿਤ ਕੀਤੀਆਂ ਗਈਆਂ ਹਨ।\n\nਉਪਭੋਗਤਾਵਾਂ ਨੂੰ ਕੋਈ ਵੀ ਕਦਮ ਚੁੱਕਣ ਤੋਂ ਪਹਿਲਾਂ ਸਿਫ਼ਾਰਸ਼ਾਂ ਨੂੰ ਸੁਤੰਤਰ ਤੌਰ 'ਤੇ ਪ੍ਰਮਾਣਿਤ ਕਰਨਾ ਚਾਹੀਦਾ ਹੈ।",
+        "late_night_disclaimer": "ਤੁਹਾਡਾ ਸਵਾਲ ਸਾਡੇ ਖੇਤੀਬਾੜੀ ਮਾਹਰ ਨੂੰ ਭੇਜ ਦਿੱਤਾ ਗਿਆ ਹੈ। ਤੁਹਾਨੂੰ ਕੱਲ੍ਹ ਸਵੇਰੇ 8:00 ਵਜੇ ਤੱਕ ਜਵਾਬ ਮਿਲ ਜਾਵੇਗਾ।",
+        "early_morning_disclaimer": "ਤੁਹਾਡਾ ਸਵਾਲ ਸਾਡੇ ਖੇਤੀਬਾੜੀ ਮਾਹਰ ਨੂੰ ਭੇਜ ਦਿੱਤਾ ਗਿਆ ਹੈ। ਤੁਹਾਨੂੰ ਅੱਜ ਸਵੇਰੇ 8:00 ਵਜੇ ਤੱਕ ਜਵਾਬ ਮਿਲ ਜਾਵੇਗਾ।",
+        "non_agriculture_reply": "Annam.ai ਨਾਲ ਸੰਪਰਕ ਕਰਨ ਲਈ ਧੰਨਵਾਦ।\n\nAjraSakha ਇੱਕ AI-powered ਖੇਤੀਬਾੜੀ ਸਹਾਇਤਾ ਪਲੇਟਫਾਰਮ ਹੈ ਜੋ ਖੇਤੀ ਨਾਲ ਸਬੰਧਤ ਸਵਾਲਾਂ ਦੇ ਜਵਾਬ ਦੇਣ ਲਈ ਤਿਆਰ ਕੀਤਾ ਗਿਆ ਹੈ। ਤੁਹਾਡੀ ਪੁੱਛਗਿੱਛ ਸਾਡੀਆਂ ਖੇਤੀਬਾੜੀ ਸੇਵਾਵਾਂ ਦੇ ਦਾਇਰੇ ਤੋਂ ਬਾਹਰ ਜਾਪਦੀ ਹੈ।\n\nਜੇਕਰ ਤੁਹਾਡੇ ਕੋਲ ਫਸਲ ਦੀ ਕਾਸ਼ਤ, ਕੀੜੇ ਅਤੇ ਬਿਮਾਰੀ ਪ੍ਰਬੰਧਨ, ਖਾਦਾਂ, ਸਿੰਚਾਈ, ਮੌਸਮ ਸੰਬੰਧੀ ਸਲਾਹ, ਮੰਡੀ ਭਾਅ, ਸਰਕਾਰੀ ਯੋਜਨਾਵਾਂ ਜਾਂ ਹੋਰ ਖੇਤੀ ਅਭਿਆਸਾਂ ਬਾਰੇ ਸਵਾਲ ਹਨ, ਤਾਂ ਅਸੀਂ ਮਦਦ ਲਈ ਹਾਜ਼ਰ ਹਾਂ।\n\nਕਿਰਪਾ ਕਰਕੇ ਖੇਤੀਬਾੜੀ ਨਾਲ ਸਬੰਧਤ ਸਵਾਲ ਪੁੱਛੋ, ਅਤੇ ਅਸੀਂ ਤੁਹਾਡੀ ਮਦਦ ਕਰਨ ਵਿੱਚ ਖੁਸ਼ ਹੋਵਾਂਗੇ।",
+        "weather_unavailable_for_dynamic_weather_queries": "ਅੰਨਮ Annam.ai ਨਾਲ ਸੰਪਰਕ ਕਰਨ ਲਈ ਧੰਨਵਾਦ।\n\nਸਾਨੂੰ ਅਫ਼ਸੋਸ ਹੈ, ਪਰ ਅਸੀਂ ਇਸ ਸਮੇਂ ਤੁਹਾਡੇ ਸਥਾਨ ਲਈ ਮੌਸਮ ਦੀ ਜਾਣਕਾਰੀ ਪ੍ਰਾਪਤ ਕਰਨ ਵਿੱਚ ਅਸਮਰੱਥ ਹਾਂ।\n\nਮੌਸਮ ਦੀ ਭਵਿੱਖਬਾਣੀ ਸਰਕਾਰੀ ਮੌਸਮ ਡੇਟਾ ਦੀ ਉਪਲਬਧਤਾ ਦੇ ਆਧਾਰ 'ਤੇ ਪ੍ਰਦਾਨ ਕੀਤੀ ਜਾਂਦੀ ਹੈ। ਕਿਰਪਾ ਕਰਕੇ ਕੁਝ ਸਮੇਂ ਬਾਅਦ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ ਜਾਂ ਖੇਤੀਬਾੜੀ ਨਾਲ ਸਬੰਧਤ ਕੋਈ ਹੋਰ ਸਵਾਲ ਪੁੱਛੋ।",
+        "crop_price_not_available_in_selected_mandi": "ਧੰਨਵਾਦ Annam.ai ਨਾਲ ਸੰਪਰਕ ਕਰਨ ਲਈ।\n\n[Crop Name] ਲਈ ਕੀਮਤ ਦੀ ਜਾਣਕਾਰੀ ਇਸ ਸਮੇਂ [Mandi Name] ਮੰਡੀ ਵਿੱਚ ਉਪਲਬਧ ਨਹੀਂ ਹੈ।\n\nਇਹ ਇਸ ਕਰਕੇ ਹੋ ਸਕਦਾ ਹੈ ਕਿਉਂਕਿ ਇਸ ਮੰਡੀ ਵਿੱਚ ਚੁਣੀ ਗਈ ਫਸਲ ਲਈ ਕੋਈ ਤਾਜ਼ਾ ਮੰਡੀ ਆਮਦ ਜਾਂ ਕੀਮਤ ਦੇ ਰਿਕਾਰਡ ਉਪਲਬਧ ਨਹੀਂ ਹਨ। ਤੁਸੀਂ ਨੇੜੇ ਦੀ ਕੋਈ ਮੰਡੀ ਚੈੱਕ ਕਰ ਸਕਦੇ ਹੋ ਜਾਂ ਬਾਅਦ ਵਿੱਚ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
+        "mandi_not_available": "Annam.ai ਨਾਲ ਸੰਪਰਕ ਕਰਨ ਲਈ ਧੰਨਵਾਦ।\n\n[Mandi Name] ਮੰਡੀ ਦੀ ਜਾਣਕਾਰੀ ਇਸ ਸਮੇਂ ਦਿਖਾਈ ਨਹੀਂ ਜਾ ਸਕੀ। ਅਸੀਂ ਭਾਰਤ ਭਰ ਵਿੱਚ ਆਪਣੀ ਮੰਡੀ ਕਵਰੇਜ ਨੂੰ ਲਗਾਤਾਰ ਵਧਾ ਰਹੇ ਹਾਂ। ਕਿਰਪਾ ਕਰਕੇ ਮੰਡੀ ਦੇ ਨਾਮ ਦੀ ਪੁਸ਼ਟੀ ਕਰੋ ਜਾਂ ਨਵੀਨਤਮ ਮੰਡੀ ਭਾਅ ਵੇਖਣ ਲਈ ਨੇੜੇ ਦੀ ਮੰਡੀ ਖੋਜੋ।"
+      }
+    },
+    {
+      "script_language": "English",
+      "vocal_language": "Punjabi",
+      "texts": {
+        "two_hour_disclaimer": "Tuhada sawaal annam.ai 'te saade khetibadi mahar naal saanjha kita gaya hai. Tuhanu 2 ghantian de andar jawab milega. Dhannvaad.",
+        "state_follow_up": "Tusi kis raaj te zile vich ho?",
+        "crop_follow_up": "Tusi kehdi fasal uga rahe ho?",
+        "testing_disclaimer": "⚠️ Mahatvapurn Soochna (Testing) ⚠️\n\nIh AjraSakha application vikaas adhin hai ate sirf testing ate pramanikta layi hai.\nSalaahan prayogatmak han ate is vele chunne hoye raajan vich mukhya faslan nu cover kardi han.\n_____________________________\n\nMausam data IMD ton liya gaya hai.\nMarket data eNAM, Agmarknet ate raaj APMCs ton liya gaya hai.\nMitti sihat margdarshan https://soilhealth.dac.gov.in/fertilizer-dosage ton liya gaya hai.\nSarkari yojnavan https://www.myscheme.gov.in/ ton liyan giyan han.\nHor khetibadi jaankari ate salaahan Annam.ai dwara maharan dwara pramanit kitiyan giyan han.\n\nUpbhogtavan nu koi vi kadam chukkan ton pehlan sifaarshan nu sutantar taur 'te pramanit karna chahida hai.",
+        "late_night_disclaimer": "\"Tuhada sawaal saade khetibadi mahar nu bhej dita gaya hai. Tuhanu kal savere 8 vaje tak jawab mil jayega.\"",
+        "early_morning_disclaimer": "\"Tuhada sawaal saade khetibadi mahar nu bhej dita gaya hai. Tuhanu aj subah 8 vajje tak jawab mil jayega.\"",
+        "non_agriculture_reply": "Annam.ai naal sampark karan lai dhannavaad.\n\nAjraSakha ik AI-powered kheti-baadi sahayata platform hai jo kheti naal judhe sawalan de jawab denda hai. Tuhada sawal saadi kheti-baadi sevaawan di had ton bahar lagda hai.\n\nJe tuhade kol fasal ugaune, keede-makode te beemariyan di sambhal, khadan, seenchaayi, mausam salah, bazaar bhaav, sarkari yojnaawan ya hor kheti-baadi tatkaaran baare sawal han, aseen tuhadi madad lai haazir haan.\n\nMeherbani karke kheti-baadi naal judha sawal puchho, te aseen khushi naal tuhadi madad karange.",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai naal sampark karan lai dhannavaad.\n\nSaanu afsos hai, par assi iss samay tuhade location lai mausam di jaankari prapt nahi kar sakde.\n\nMausam di peshanbandi sarkari mausam data di uplabdhta te aadharit hai. Kripya kujh samay baad dobara koshish karo ya koi hor kheti naal sambandhit sawal pucho.",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai naal sampark karan lai dhannavaad.\n\n[Crop Name] di keemat di jaankari haal filhaal [Mandi Name] mandi vich uplabdh nahin hai.\n\nEh is karke ho sakda hai kyunki chuni gayi fasal lai is mandi vich koi haaliya mandi aagman ya keemat da record uplabdh nahin hai. Tusi koi nazdeeki mandi check kar sakte ho ya baad vich dobara koshish kar sakte ho.",
+        "mandi_not_available": "Annam.ai naal sampark karan lai dhannavaad.\n\n[Mandi Name] mandi di jaankari is samay dikhaayi nahi jaa sakdi. Aseen poore Bharat vich apni mandi coverage nu lagaatar vadha rahe haan. Kirpaa karke mandi da naam check karo ya nazdiki mandi search karo taaki taaza mandi bhaav dekhe jaa sakan."
+      }
+    },
+    {
+      "script_language": "Devanagari",
+      "vocal_language": "Sanskrit",
+      "texts": {
+        "two_hour_disclaimer": "भवतः प्रश्नः अस्माकं कृषि-विशेषज्ञेन annam.ai इत्यत्र साझितः अस्ति। भवान् २ घण्टाभ्यन्तरे उत्तरं प्राप्स्यति। धन्यवादाः।",
+        "state_follow_up": "भवान् कस्मिन् राज्ये जनपदे च अस्ति?",
+        "crop_follow_up": "भवान् कं शस्यं वपति?",
+        "testing_disclaimer": "⚠️ महत्त्वपूर्णं सूचनम् (परीक्षणम्) ⚠️\n\nएषः AjraSakha अनुप्रयोगः विकासाधीनः अस्ति तथा च केवलं परीक्षणाय एवं सत्यापनाय अभिप्रेतः अस्ति।\nपरामर्शाः प्रायोगिकाः सन्ति तथा च सम्प्रति चयनितेषु राज्येषु प्रमुखशस्येषु एव उपलब्धाः सन्ति।\n_____________________________\n\nवायुमण्डलीयाः आँकडाः IMD इत्यस्मात् प्राप्ताः सन्ति।\nबाजारस्य आँकडाः eNAM, Agmarknet तथा राज्य-APMC इत्येभ्यः सन्ति।\nमृत्तिका-स्वास्थ्य-मार्गदर्शनं https://soilhealth.dac.gov.in/fertilizer-dosage इत्यस्मात् प्राप्तम्।\nसर्कारीयाः योजनाः https://www.myscheme.gov.in/ इत्यस्मात् प्राप्ताः।\nअन्यानि कृषि-सम्बन्धीनि सूचनानि परामर्शाश्च Annam.ai द्वारा विशेषज्ञ-सत्यापिताः सन्ति।\n\nउपयोक्तारः कार्यं कर्तुं पूर्वं स्वतन्त्रतया अनुशंसाः सत्यापयेयुः।",
+        "late_night_disclaimer": "आपनः प्रश्नः अस्माकं कृषिविशेषज्ञं प्रति प्रेषितः अस्ति। भवान् श्वः प्रातः अष्टवादने उत्तरं प्राप्स्यति।",
+        "early_morning_disclaimer": "भवतः प्रश्नः अस्माकं कृषि विशेषज्ञाय प्रेषितः। भवान् अद्य प्रातः ८:०० वादनेन उत्तरं प्राप्स्यति।",
+        "non_agriculture_reply": "Annam.ai इत्यनेन सम्पर्कं कृतवते धन्यवादः।\n\nAjraSakha इति AI-powered कृषिसहायतामञ्चः अस्ति यः कृषिसम्बन्धितप्रश्नानाम् उत्तरार्थं निर्मितः। भवतः प्रश्नः अस्माकं कृषिसेवानां परिधेः बहिः इव प्रतीयते।\n\nयदि भवतः कृते शस्यसंवर्धनम्, कीटरोगप्रबन्धनम्, उर्वरकाणि, सेचनम्, मौसमसूचनाः, विपण्यमूल्यानि, सर्वकारयोजनाः अथवा अन्ये कृषिप्रथाः इत्येषु प्रश्नाः सन्ति तर्हि वयं साहाय्यार्थं उपस्थिताः स्मः।\n\nकृपया कृषिसम्बन्धितं प्रश्नं पृच्छतु, वयं भवन्तं साहाय्यं कर्तुं प्रसन्नाः भविष्यामः।",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai इत्यनेन सम्पर्कं कृतवते धन्यवादः।\n\nक्षम्यतां, वयं सम्प्रति भवतः स्थानस्य वातावरणस्य सूचनां प्राप्तुं न शक्नुमः।\n\nवातावरणस्य पूर्वसूचना सरकारीयवातावरणदत्तांशस्य उपलब्धतायां आधारिता भवति। कृपया किञ्चित् कालानन्तरं पुनः प्रयतन्तु अथवा कृषिसम्बन्धितं अन्यं प्रश्नं पृच्छन्तु।",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai इत्यनेन सम्पर्कं कृतवते धन्यवादः।\n\n[Crop Name] इत्यस्य मूल्यविवरणं [Mandi Name] मण्डी इत्यत्र सम्प्रति उपलब्धं नास्ति।\n\nएतस्य कारणं भवितुम् अर्हति यत् अस्मिन् मण्डी इत्यत्र चयनितस्य फसलस्य कृते सद्य आगमनं वा मूल्यलेखाः वा उपलब्धाः न सन्ति। भवान् समीपस्थं मण्डीं परीक्षितुं शक्नोति अथवा पुनः पश्चात् प्रयत्नं कर्तुं शक्नोति।",
+        "mandi_not_available": "Annam.ai इत्यनेन सम्पर्कं कृतवते धन्यवादः।\n\n[Mandi Name] मण्डस्य सूचनाः इदानीं प्रदर्शयितुं न शक्यन्ते। वयं भारते मण्डिसंकलनं निरन्तरं विस्तारयामः। कृपया मण्डिनाम परीक्षयन्तु अथवा नवीनतमान् विपण्यमूल्यान् द्रष्टुं समीपस्थं मण्डिं अन्विष्यन्तु।"
+      }
+    },
+    {
+      "script_language": "English",
+      "vocal_language": "Sanskrit",
+      "texts": {
+        "two_hour_disclaimer": "Bhavataḥ praśnaḥ asmākaṃ kṛṣi-viśeṣajñena annam.ai ityatra sājhitaḥ asti. Bhavān 2 ghaṇṭābhyantare uttaraṃ prāpsyati. Dhanyavādāḥ.",
+        "state_follow_up": "Bhavān kasmin rājye janapadhe ca asti?",
+        "crop_follow_up": "Bhavān kaṃ śasyaṃ vapati?",
+        "testing_disclaimer": "⚠️ Mahattvapūrṇaṃ sūcanam (Parīkṣaṇam) ⚠️\n\nEṣaḥ AjraSakha anuprayogaḥ vikāsādhīnaḥ asti tathā ca kevalaṃ parīkṣaṇāya evaṃ satyāpanāya abhipretaḥ asti.\nParāmarśāḥ prāyogikāḥ santi tathā ca samprati cayiteṣu rājyeṣu pramukhaśasyeṣu eva upalabdhāḥ santi.\n_____________________________\n\nVāyumaṇḍalīyāḥ āṃkaḍāḥ IMD ityasmāt prāptāḥ santi.\nBājārasya āṃkaḍāḥ eNAM, Agmarknet tathā rājya-APMC ityebhyaḥ santi.\nMṛttikā-svāsthya-mārgadarśanaṃ https://soilhealth.dac.gov.in/fertilizer-dosage ityasmāt prāptam.\nSarkārīyāḥ yojanāḥ https://www.myscheme.gov.in/ ityasmāt prāptāḥ.\nAnyāni kṛṣi-sambandhīni sūcanāni parāmarśāśca Annam.ai dvārā viśeṣajña-satyāpitāḥ santi.\n\nUpayoktāraḥ kāryaṃ kartuṃ pūrvaṃ svatantratayā anuśaṃsāḥ satyāpayeyuḥ.",
+        "late_night_disclaimer": "\"Bhavataḥ praśnaḥ asmākaṃ kṛṣi viśeṣajñaṃ prati preṣitaḥ astī. Bhavān śvaḥ prātaḥ aṣṭavādane uttaraṃ prāpsyati.\"",
+        "early_morning_disclaimer": "\"Bhavataḥ praśnaḥ asmākaṃ kṛṣi-viśeṣajñaṃ prati preṣitaḥ abhavat. Bhavān adya prātaḥ 8:00 vādane uttaraṃ prāpsyati.\"",
+        "non_agriculture_reply": "Annam.ai ity anena samparkam kritavate dhanyavadah.\n\nAjraSakha iti AI-powered kritshimantram sahayata mancha asti ya krishisambandhinam prashnaanam uttarebhyah nirmita asti. Bhavantam prashnam asmakam krishisevaanam vistaarasya bahistam pratibhati.\n\nYadi bhavate sasyasamvardhanam, keetarogaprabandhanam, urvarak, sinchanam, vaayuparichayah, baazaarmoolyani, sarkarayojanaani athava anyani krishikriyavidhayah vimrishya prashnaah santi, vayam upakartum atrasti.\n\nKripaya krishisambandhinam prashnam prichchhatu, vayam cha bhavantam sahayatum harshitah bhavishyamah.",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai ity anena samparkam kritavate dhanyavadah.\n\nVayam kshantum prarthayamah, kintu idanim bhavataḥ sthanasya vatavaranasambandhini sutranani praptum asamarthah sma.\n\nVatavaranasutranancha sarkari vatavaranasambandhini sutrananaṃ upalabdhataya adi pradiyante. Kripaya kimapi samayat param punaḥ prayatnaya athava anyam krishi sambandhitam prasnam prichchatu.",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai ity anena samparkam kritavate dhanyavadah.\n\n[Crop Name] iti shasyasya mulya-vivechanam [Mandi Name] mandau idanim na labdhum shakyate.\n\nEtat syat yatah atra mandau nirvachita-shasyasya krteh nadyatana-mandya-aagamanani athava mulya-lekhaah na santi. Bhavan samipe mandyam pashyatu athava punah pashchat prayatnam kurvantu.",
+        "mandi_not_available": "Annam.ai ity anena samparkam kritavate dhanyavadah.\n\n[Mandi Name] mandi vishayi suchana idanim pradarshayitum na shakyate. Vayam Bharate sarvatra mandi samvaranam nityam vistarayan smah. Kripaya mandi namani parishilya samipe mandinam anvishya navīnatamān hattamūlyāni pashyantu."
+      }
+    },
+    {
+      "script_language": "Perso-Arabic",
+      "vocal_language": "Sindhi",
+      "texts": {
+        "two_hour_disclaimer": "توهانجو سوال اسانجي زرعي ماهر کي annam.ai تي شيئر ڪيو ويو آهي. توهان کي 2 ڪلاڪن اندر جواب ملندو.\nمهرباني.",
+        "state_follow_up": "توهان ڪهڙي رياست ۽ ضلعي ۾ آهيو؟",
+        "crop_follow_up": "توهان ڪهڙي فصل جي پوکي ڪري رهيا آهيو؟",
+        "testing_disclaimer": "⚠️ اهم نوٽيس (ٽيسٽنگ) ⚠️\n\nهي AjraSakha ايپليڪيشن ترقي هيٺ آهي ۽ صرف ٽيسٽنگ ۽ تصديق لاءِ آهي.\nصلاحون تجرباتي آهن ۽ في الحال چونڊيل رياستن ۾ وڏن فصلن کي ڍڪين ٿيون.\n_____________________________\n\nموسم جو ڊيٽا IMD مان ورتو ويو آهي.\nمارڪيٽ ڊيٽا eNAM، Agmarknet، ۽ رياستي APMCs مان آهي.\nمٽيءَ جي صحت جي رهنمائي https://soilhealth.dac.gov.in/fertilizer-dosage مان آهي.\nسرڪاري اسڪيمون https://www.myscheme.gov.in/ مان آهن.\nٻيون زرعي معلومات ۽ صلاحون Annam.ai پاران ماهرن ذريعي تصديق ٿيل آهن.\n\nاستعمال ڪندڙن کي گهرجي ته عمل ڪرڻ کان اڳ سفارشن جي آزاديءَ سان تصديق ڪن.",
+        "late_night_disclaimer": "\"توهان جو سوال اسان جي زرعي ماهر ڏانهن موڪليو ويو آهي. توهان کي سڀاڻي صبح 8:00 وڳي جواب ملي ويندو.\"",
+        "early_morning_disclaimer": "\"توهان جو سوال اسان جي زرعي ماهر ڏانهن موڪليو ويو آهي. توهان کي اڄ صبح 8:00 وڳي جواب ملي ويندو.\"",
+        "non_agriculture_reply": "Annam.ai سان رابطو ڪرڻ جي مهرباني.\n\nAjraSakha هڪ AI-powered زرعي مدد جو پليٽ فارم آهي جيڪو زراعت سان لاڳاپيل سوالن جا جواب ڏيڻ لاءِ ٺاهيو ويو آهي. توهان جو سوال اسان جي زرعي خدمتن جي دائري کان ٻاهر لڳي ٿو.\n\nجيڪڏهن توهان وٽ فصلن جي پوک، حشرن ۽ بيمارين جي انتظام، ڀاڻ، آبپاشي، موسم جي مشورن، منڊي جي قيمتن، سرڪاري اسڪيمن يا ٻين زرعي طريقن بابت سوال آهن، ته اسان مدد لاءِ موجود آهيون.\n\nمهرباني ڪري زراعت سان لاڳاپيل سوال پڇو، ۽ اسان توهان جي مدد ڪرڻ ۾ خوش ٿينداسين.",
+        "weather_unavailable_for_dynamic_weather_queries": "توهان جي Annam.ai سان رابطو ڪرڻ جي مهرباني.\n\nاسان کي افسوس آهي، پر هن وقت اسان توهان جي جڳهه لاءِ موسم جي معلومات حاصل ڪرڻ ۾ ناڪام آهيون.\n\nموسم جي اڳڪٿيون سرڪاري موسم جي ڊيٽا جي دستيابي جي بنياد تي مهيا ڪيون وينديون آهن. مهرباني ڪري ڪجهه وقت کان پوءِ ٻيهر ڪوشش ڪريو يا زراعت سان لاڳاپيل ڪو ٻيو سوال پڇو.",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai سان رابطو ڪرڻ جي مهرباني.\n\n[Crop Name] لاءِ قيمت جي معلومات هن وقت [Mandi Name] منڊي ۾ دستياب ناهي.\n\nاهو شايد ان ڪري آهي جو چونڊيل فصل لاءِ هن منڊي ۾ ڪو به تازو بازار جو آمد يا قيمت جو رڪارڊ دستياب ناهي. توهان ڪنهن ويجھي منڊي کي چيڪ ڪري سگهو ٿا يا بعد ۾ ٻيهر ڪوشش ڪري سگهو ٿا.",
+        "mandi_not_available": "Annam.ai سان رابطو ڪرڻ جي مهرباني.\n\n[Mandi Name] منڊي جي معلومات هن وقت ڏيکاري نه ٿي سگھي. اسان لڳاتار سڄي هندستان ۾ پنهنجي منڊي ڪوريج کي وڌائي رهيا آهيون. مهرباني ڪري منڊي جو نالو تصديق ڪريو يا تازي منڊي جون قيمتون ڏسڻ لاءِ ويجھي منڊي ڳوليو."
+      }
+    },
+    {
+      "script_language": "English",
+      "vocal_language": "Sindhi",
+      "texts": {
+        "two_hour_disclaimer": "Tohānjo sawāl asānī zar'ī māhir khe annam.ai te share kayo wiyo āhe. Tohān khe 2 kalākan andar jawāb milandо.\nMeharbāni.",
+        "state_follow_up": "Tohān kahrī riyāsat ۽ zilē mẽ āhiyo?",
+        "crop_follow_up": "Tohān kahrī fasal jī pokhi kari rahiyā āhiyo?",
+        "testing_disclaimer": "⚠️ Aham Notice (Testing) ⚠️\n\nHi AjraSakha application taraqqī heth āhe ۽ sirf testing ۽ tasdīq lāī āhe.\nSalāhoon tajrabātī āhen ۽ fi-al-hāl chonḍyal riyāstan mẽ waḍan faslan khe ḍhakin thiyoon.\n_____________________________\n\nMausam jo data IMD māñ warto wiyo āhe.\nMarket data eNAM, Agmarknet, ۽ riyāstī APMCs māñ āhe.\nMaṭīyā jī sehat jī rahnumāī https://soilhealth.dac.gov.in/fertilizer-dosage māñ āhe.\nSarkārī iskīmoon https://www.myscheme.gov.in/ māñ āhen.\nBiyoon zar'ī ma'lūmāt ۽ salāhoon Annam.ai pāran māhiran zariye tasdīq thyal āhen.\n\nIstimāl kandaṛan khe ghurje te amal karañ khān aga sifārshan jī āzādīyā sān tasdīq kan.",
+        "late_night_disclaimer": "\"Tawhanji sawaal asanji ziraatiماهر ڏانهن موڪليو ويو آهي. Tawhanji کي سڀاڻي صبح جو 8:00 وڳي جواب ملي ويندو.\"",
+        "early_morning_disclaimer": "\"Tawhanjو sawaal asaan جي agri expert ڏانهون موڪليو ويو آهي. Tawhaan کي aaj، صبح 8:00 وڳي تائين جواب ملي ويندو.\"",
+        "non_agriculture_reply": "Annam.ai saan rabto karan ji meherbani.\n\nAjraSakha hik AI-powered zarai madadgar platform aahe, jeeko kheti baari saan laqal sawalan ja jawab dena lai tayar kayo wayo aahe. Tuhanjō sawal asaanji zarai khidmatun ji daayre khaan baahar lagē tho.\n\nJe tuhankhe faslan ji pokh, keedan ain bimarin ji sambhal, khaad, aabpashi, mausam ji salah, bazaar ja bhav, sarkari schemes ya biyan kheti baari ji tareeqan baabat sawal aahan, ta asaan madad lai maujood aahiyoon.\n\nMeherbani kare ziraat saan laqal sawal pucho, ain asaan tuhankhi madad karan mein khushi mehsoos kandasin.",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai saan rabto karan ji meherbani.\n\nAsaan maafi ghurandasin, par haane asaan tuhanji jagah lai mausam ji maloomat hasil karan mein asamarth aahiyoon.\n\nMausam ji agkathiyoon sarkari mausam data ji dastiyabi te aadharit aahin. Meherbani kare kujh waqt khan poi wapas koshish karo ya ziraat saan laqal ko biyo sawal pucho.",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai saan rabto karan ji meherbani.\n\n[Crop Name] ji keemat ji malumat halen [Mandi Name] mandi mein uplabdh nahe aahay.\n\nHee shayad iyan sababu aahay jo chonriyal fasal ji hune mandi mein koi hal ji bazaar amdani ya keemat ja record uplabdh nahe aahyan. Towhan koi aasjuaar ji mandi check kariyo sakjo ya baad mein koish kariyo.",
+        "mandi_not_available": "Annam.ai saan rabto karan ji meherbani.\n\n[Mandi Name] mandi ji maloomat haane zahir na thi sake. Asaan saari Bharat mein panhinji mandi coverage lagataar vadhaay raheya aahiyoon. Meherbani kare mandi jo naalo verify karo ya taza bazaar ja bhav disan lai najdeeki mandi search karo."
+      }
+    },
+    {
+      "script_language": "Tamil",
+      "vocal_language": "Tamil",
+      "texts": {
+        "two_hour_disclaimer": "உங்கள் கேள்வி annam.ai-யில் உள்ள எங்கள் வேளாண் நிபுணருடன் பகிரப்பட்டது. உங்களுக்கு 2 மணி நேரத்திற்குள் பதில் கிடைக்கும். நன்றி.",
+        "state_follow_up": "நீங்கள் எந்த மாநிலம் மற்றும் மாவட்டத்தில் இருக்கிறீர்கள்?",
+        "crop_follow_up": "நீங்கள் எந்த பயிரை பயிரிடுகிறீர்கள்?",
+        "testing_disclaimer": "⚠️ முக்கியமான அறிவிப்பு (சோதனை) ⚠️\n\nஇந்த AjraSakha பயன்பாடு மேம்பாட்டில் உள்ளது மற்றும் சோதனை மற்றும் சரிபார்ப்புக்காக மட்டுமே நோக்கப்பட்டுள்ளது.\nஆலோசனைகள் சோதனை முறையிலானவை மற்றும் தற்போது தேர்ந்தெடுக்கப்பட்ட மாநிலங்களில் முக்கிய பயிர்களை உள்ளடக்கியுள்ளன.\n_____________________________\n\nவானிலை தரவு IMD-யிலிருந்து பெறப்படுகிறது.\nசந்தை தரவு eNAM, Agmarknet மற்றும் மாநில APMC-களிலிருந்து பெறப்படுகிறது.\nமண் ஆரோக்கிய வழிகாட்டுதல் https://soilhealth.dac.gov.in/fertilizer-dosage-யிலிருந்து பெறப்படுகிறது.\nஅரசு திட்டங்கள் https://www.myscheme.gov.in/-யிலிருந்து பெறப்படுகின்றன.\nமற்ற வேளாண் தகவல்கள் மற்றும் ஆலோசனைகள் Annam.ai-யால் நிபுணர் சரிபார்ப்பு செய்யப்பட்டவை.\n\nபயனர்கள் பரிந்துரைகளின் படி செயல்படுவதற்கு முன் சுயாதீனமாக சரிபார்க்க வேண்டும்.",
+        "late_night_disclaimer": "\"உங்கள் கேள்வி எங்கள் விவசாய நிபுணரிடம் அனுப்பப்பட்டுள்ளது. நாளை காலை 8:00 மணிக்குள் பதிலைப் பெறுவீர்கள்.\"",
+        "early_morning_disclaimer": "\"உங்கள் கேள்வி எங்கள் வேளாண் நிபுணரிடம் அனுப்பப்பட்டுள்ளது. இன்று காலை 8:00 மணிக்குள் பதில் கிடைக்கும்.\"",
+        "non_agriculture_reply": "Annam.ai-ஐ தொடர்பு கொண்டதற்கு நன்றி.\n\nAjraSakha என்பது விவசாயம் தொடர்பான கேள்விகளுக்கு பதிலளிக்க வடிவமைக்கப்பட்ட ஒரு AI-powered விவசாய உதவி தளமாகும். உங்கள் கேள்வி எங்கள் விவசாய சேவைகளின் எல்லைக்கு அப்பாற்பட்டதாக தெரிகிறது.\n\nபயிர் சாகுபடி, பூச்சி மற்றும் நோய் மேலாண்மை, உரங்கள், நீர்ப்பாசனம், வானிலை ஆலோசனைகள், சந்தை விலைகள், அரசு திட்டங்கள் அல்லது பிற விவசாய நடைமுறைகள் பற்றி உங்களுக்கு கேள்விகள் இருந்தால், நாங்கள் உதவ இங்கே இருக்கிறோம்.\n\nதயவுசெய்து விவசாயம் தொடர்பான கேள்வியைக் கேளுங்கள், நாங்கள் மகிழ்ச்சியுடன் உங்களுக்கு உதவுவோம்.",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai-ஐ தொடர்பு கொண்டதற்கு நன்றி.\n\nமன்னிக்கவும், தற்போது உங்கள் இடத்திற்கான வானிலை தகவலை எங்களால் பெற முடியவில்லை.\n\nஉத்தியோகபூர்வ வானிலை தரவு கிடைக்கும் பட்சத்தில் வானிலை முன்னறிவிப்புகள் வழங்கப்படுகின்றன. சிறிது நேரம் கழித்து மீண்டும் முயற்சிக்கவும் அல்லது வேளாண்மை தொடர்பான வேறொரு கேள்வியைக் கேளுங்கள்.",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai-ஐ தொடர்பு கொண்டதற்கு நன்றி.\n\n[Crop Name]-க்கான விலை தகவல் தற்போது [Mandi Name] மண்டியில் கிடைக்கவில்லை.\n\nஇது தேர்ந்தெடுக்கப்பட்ட பயிருக்கு இந்த மண்டியில் சமீபத்திய சந்தை வரத்துகள் அல்லது விலைப் பதிவுகள் இல்லாததால் இருக்கலாம். நீங்கள் அருகிலுள்ள மண்டியை சரிபார்க்கலாம் அல்லது பின்னர் மீண்டும் முயற்சிக்கலாم்.",
+        "mandi_not_available": "Annam.ai-ஐ தொடர்பு கொண்டதற்கு நன்றி.\n\n[Mandi Name] மண்டியின் தகவல்களை இந்த நேரத்தில் காண்பிக்க முடியவில்லை. இந்தியா முழுவதும் எங்கள் மண்டி கவரேஜை தொடர்ந்து விரிவுபடுத்தி வருகிறோம். மண்டி பெயரை சரிபார்க்கவும் அல்லது சமீபத்திய சந்தை விலைகளைப் பார்க்க அருகிலுள்ள மண்டியைத் தேடவும்."
+      }
+    },
+    {
+      "script_language": "English",
+      "vocal_language": "Tamil",
+      "texts": {
+        "two_hour_disclaimer": "Ungal kelvvi annam.ai-yilulla engal velaaN nipuNarudan pagirappattadu. Ungalukku 2 maNi nErattiRkuL badil kidaikkum. NanRi.",
+        "state_follow_up": "Neengal enda maanilam mattum district-il irukkeeRgal?",
+        "crop_follow_up": "Neengal enda payirai payiridugeeRgal?",
+        "testing_disclaimer": "⚠️ Mukkiyamaana aRivippu (Sodanai) ⚠️\n\nInda AjraSakha payanaadu mEmpaattil ulladhu maRRum sodanai maRRum saripaarppukkaga maattumE nOkkappattulladhu.\nAalosanaikal sodanai muraiyilaanaavai maRRum tarpOdu tErndedukkapatta maanilangalil mukkiya payirgalai ulladakkiyulladhu.\n_____________________________\n\nVaanilai daravu IMD-yilirundhu peRappadugidRadu.\nSandai daravu eNAM, Agmarknet maRRum maanila APMC-galilirundhu peRappadugidRadu.\nMaN aarokkiya vazhikaattudhal https://soilhealth.dac.gov.in/fertilizer-dosage-yilirundhu peRappadugidRadu.\nAraasu thittangal https://www.myscheme.gov.in/-yilirundhu peRappadugidRana.\nMaRRa velaaN thagavalgal maRRum aalosanaikal Annam.ai-yaal nipuNar saripaarpu seyyappattatavai.\n\nPayanargal parindhuraigalin padi seyal paduvadaRku mun suyaadeenamaaga saripaarkkavendum.",
+        "late_night_disclaimer": "\"Ungal kelviyai engal velanmai nibunar-ku anuppi vaitom. Naalai kaalai 8:00 maniku ungaluku badhil kidaikkum.\"",
+        "early_morning_disclaimer": "\"Ungal kelvi engal velanmai nibunar-ku anuppa pattadhu. Indru kaalai 8:00 manikku ungalukku pathil kidaikkum.\"",
+        "non_agriculture_reply": "Annam.ai-ai thodarbu kondatharku nandri.\n\nAjraSakha endrathu AI-powered vivasaya udhavi thalamaadum, ithu vivasayam sarpaana kelvigaluku badhil alikkum vagai valarkkappattadhu. Ungal kelvi engal vivasaya sevaikul varavillai endru thonrugirathu.\n\nPasu vaларpu, puzhu matrum noi maanagement, urangal, neer paananam, kaala nilai arivuruthal, sandhai vilai, arasu thittangal athava pira vivasaya muraigal patri kelvigal irundhaal, naangal ungaluku udhava thayaaraaga irukkiroam.\n\nThayavu seidhu vivasayam sarpaana kelvi ketkaavum, naangal ungaluku udhaduvadharku magirzhchi adaivoam.",
+        "weather_unavailable_for_dynamic_weather_queries": "Thank you for reaching out to Annam.ai.\n\nMannikkavum, indha nerathil ungal idathirkana vaanil nilai thagavalgalai engalaal pera mudiyavillai.\n\nVaanil nilai mun arivippugal udhyogapoorva vaanil nilai thagavalgal kidaikum pozhuthu mattume kodukkappadum. Konjam nerathil marupadi muyarchi seiyungal athava veliyanmai thodarbaana veru kelvikal ketpatharkum varaverkirom.",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai-ai thodarbu kondatharku nandri.\n\n[Crop Name]-ku vidai vivarangal ippozhuthu [Mandi Name] mandiyil kidaikavillai.\n\nIntha mandiyil therinthedutha payirukkaga sameepatthiya sandhaikku varagal illai athava vidai vivarangal kidaikkavillai endraal ithu irukkalaam. Neengal aduthulla mandiyai paarkkalaam athava pinnar meedum muyarchikkalaam.",
+        "mandi_not_available": "Annam.ai-ai thodarbu kondatharku nandri.\n\n[Mandi Name] mandi-yin thagaval ippozhuthu kaatamudiyavillai. Naangal Indhiya muzhuvathumum engal mandi porvai nirainthu virivetrukiraom. Thayavu seidhu mandi peyarai sariyaaga parithidungal athava sameebathiya mandi-ai thedi chutriya sandhaikku kudiya saipugalai paarkavum."
+      }
+    },
+    {
+      "script_language": "Telugu",
+      "vocal_language": "Telugu",
+      "texts": {
+        "two_hour_disclaimer": "మీ ప్రశ్న annam.ai లోని మా వ్యవసాయ నిపుణుడితో పంచుకోబడింది. మీకు 2 గంటల్లో సమాధానం వస్తుంది.\nధన్యవాదాలు.",
+        "state_follow_up": "మీరు ఏ రాష్ట్రంలో మరియు ఏ జిల్లాలో ఉన్నారు?",
+        "crop_follow_up": "మీరు ఏ పంట పండిస్తున్నారు?",
+        "testing_disclaimer": "⚠️ ముఖ్యమైన నోటీసు (పరీక్షా దశ) ⚠️\n\nఈ AjraSakha అప్లికేషన్ అభివృద్ధిలో ఉంది మరియు కేవలం పరీక్ష మరియు ధృవీకరణ కోసం మాత్రమే ఉద్దేశించబడింది.\nసలహాలు ప్రయోగాత్మకమైనవి మరియు ప్రస్తుతం ఎంచుకున్న రాష్ట్రాల్లో ప్రధాన పంటలను మాత్రమే కవర్ చేస్తున్నాయి.\n_____________________________\n\nవాతావరణ డేటా IMD నుండి సేకరించబడింది.\nమార్కెట్ డేటా eNAM, Agmarknet మరియు రాష్ట్ర APMCల నుండి తీసుకోబడింది.\nనేల ఆరోగ్య మార్గదర్శకత్వం https://soilhealth.dac.gov.in/fertilizer-dosage నుండి తీసుకోబడింది.\nప్రభుత్వ పథకాలు https://www.myscheme.gov.in/ నుండి తీసుకోబడ్డాయి.\nఇతర వ్యవసాయ సమాచారం మరియు సలహాలు Annam.ai ద్వారా నిపుణులచే ధృవీకరించబడ్డాయి.\n\nవినియోగదారులు చర్య తీసుకునే ముందు సిఫార్సులను స్వతంత్రంగా ధృవీకరించాలి.",
+        "late_night_disclaimer": "\"మీ ప్రశ్న మా వ్యవసాయ నిపుణులకు పంపబడింది. మీకు రేపు ఉదయం 8:00 గంటలలోపు సమాధానం అందుతుంది.\"",
+        "early_morning_disclaimer": "\"మీ ప్రశ్న మా వ్యవసాయ నిపుణుడికి పంపబడింది. ఈ రోజు ఉదయం 8:00 గంటలలోపు మీకు సమాధానం అందుతుంది.\"",
+        "non_agriculture_reply": "Annam.ai-ని సంప్రదించినందుకు ధన్యవాదాలు.\n\nAjraSakha అనేది వ్యవసాయ సంబంధిత ప్రశ్నలకు సమాధానం ఇవ్వడానికి రూపొందించబడిన AI-powered వ్యవసాయ సహాయ వేదిక. మీ ప్రశ్న మా వ్యవసాయ సేవల పరిధికి వెలుపల ఉన్నట్లు కనిపిస్తోంది.\n\nపంట సాగు, తెగులు మరియు వ్యాధి నిర్వహణ, ఎరువులు, నీటిపారుదల, వాతావరణ సలహాలు, మార్కెట్ ధరలు, ప్రభుత్వ పథకాలు లేదా ఇతర వ్యవసాయ పద్ధతుల గురించి మీకు ప్రశ్నలు ఉంటే, మేము సహాయం చేయడానికి ఇక్కడ ఉన్నాము.\n\nదయచేసి వ్యవసాయ సంబంధిత ప్రశ్న అడగండి, మరియు మేము మీకు సహాయం చేయడానికి సంతోషిస్తాము.",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai-ని సంప్రదించినందుకు ధన్యవాదాలు.\n\nమేము క్షమాపణలు కోరుతున్నాము, కానీ ప్రస్తుతం మీ ప్రాంతానికి వాతావరణ సమాచారాన్ని పొందలేకపోతున్నాము.\n\nఅధికారిక వాతావరణ డేటా లభ్యతపై ఆధారపడి వాతావరణ అంచనాలు అందించబడతాయి. దయచేసి కొంత సమయం తర్వాత మళ్లీ ప్రయత్నించండి లేదా వ్యవసాయానికి సంబంధించిన మరో ప్రశ్న అడగండి.",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai-ని సంప్రదించినందుకు ధన్యవాదాలు.\n\n[Crop Name] కోసం ధర సమాచారం ప్రస్తుతం [Mandi Name] మండీలో అందుబాటులో లేదు.\n\nఎంచుకున్న పంటకు ఈ మండీలో ఇటీవలి మార్కెట్ రాకలు లేదా ధర రికార్డులు అందుబాటులో లేకపోవడం దీనికి కారణం కావచ్చు. మీరు సమీపంలోని ఏదైనా మండీని తనిఖీ చేయవచ్చు లేదా కొంత సమయం తర్వాత మళ్లీ ప్రయత్నించవచ్చు.",
+        "mandi_not_available": "Annam.ai-ని సంప్రదించినందుకు ధన్యవాదాలు.\n\n[Mandi Name] మండీ సమాచారం ప్రస్తుతం ప్రదర్శించడం సాధ్యం కాలేదు. మేము భారతదేశం అంతటా మా మండీ కవరేజీని నిరంతరం విస్తరిస్తున్నాము. దయచేసి మండీ పేరును ధృవీకరించండి లేదా తాజా మార్కెట్ ధరలను చూడటానికి సమీపంలోని మండీని వెతకండి."
+      }
+    },
+    {
+      "script_language": "English",
+      "vocal_language": "Telugu",
+      "texts": {
+        "two_hour_disclaimer": "Mee prashna annam.ai loni maa vyavasaaya nipunudito panchukobadinadi. Meeku 2 gantallo samaadhanam vasthundi.\nDhanyavaadaalu.",
+        "state_follow_up": "Meeru ee rashtram mariyu zilla lо unnaru?",
+        "crop_follow_up": "Meeru ee panta pandistaunnaru?",
+        "testing_disclaimer": "⚠️ Mukhyamaina Notiisu (Pareeksha Dasha) ⚠️\n\nEe AjraSakha application abhivruddhilo undi mariyu kevalam pareeksha mariyu dhruveekarana kosam maatrame uddeshinchababdinadi.\nSalahaalu prayogaatmakamainavee mariyu prastutam enchukuna raashtraallo pradhaana pantalu maatrame cover chestaunnaayi.\n_____________________________\n\nVaatavarana data IMD nundi seekarinchababdinadi.\nMarket data eNAM, Agmarknet mariyu raashtra APMCla nundi teesukobababdinadi.\nNela aarogya maargadarshakathvam https://soilhealth.dac.gov.in/fertilizer-dosage nundi teesukonabadindi.\nPrabhutvaa pathakalu https://www.myscheme.gov.in/ nundi teesukobabaddaayi.\nItara vyavasaaya samaacharamu mariyu salahaalu Annam.ai dwaara nipunula dwara dhruveekarinchababdaayi.\n\nViniyogadarulu charyaa teesukune mundu sifaarsulaanu svatanthranga dhruveekarinchali.",
+        "late_night_disclaimer": "\"Mee prashna maa krishi nippununiki pampinchamu. Mee repu udayam 8:00 gantala loga samadhanam anduthundi.\"",
+        "early_morning_disclaimer": "\"Mee prasna maa krishi nippunulavariki pampinchamu. Meeku ee roju udayam 8:00 ganitala lope samadhanam anduthundi.\"",
+        "non_agriculture_reply": "Annam.ai-ni sampradinchinanduku dhanyavaadalu.\n\nAjraSakha anedi AI-powered vyavasaya sahaya platform, idi vyavasayam sambandhita prashnalaku samadhanalu ivvadaniki rachiminchindi. Mee prashna maa vyavasaya sevala paridhini bahanga undhi.\n\nMee daggara poddu sagubaadi, kidalaku mariyu rogala niyantrana, saruvulu, neellu panchuta, vadha nibbandhalu, market rates, prabhutva pathakalu leda itara vyavasaya paddathula gurinchi prashnalu unte, maemu mimmalni sahayinchadaniki siddhamga unnam.\n\nDayachesi vyavasayam sambandhita prashna adugandi, maemu mimmalni santhoshanga sahayinchadaniki siddhamga unnam.",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai-ni sampradinchinanduku dhanyavaadalu.\n\nMemu kshaminchamani adugutunnamu, kani mee pradeshaaniki vaataavarna suchanalanu ippudu pondalemu.\n\nVaataavarna poorvabhavitalu official vaataavarna data andubatulo meeda aadharapadathayi. Dayachesi konthasepu tharvaatha malli prayatninchamani leda inkoka vyavasaayam sambandhita prashnanu adagamani manam vinnapistunnamu.",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai-ni sampradinchinanduku dhanyavaadalu.\n\n[Crop Name] kosam [Mandi Name] mandi lo ee samayamlo viluvala suchana andubatulo ledu.\n\nEe mandi lo enchikunna pandalaku eevaela market lo raakapovadam leda viluvala records lekapovadam valla idhi jarigiyundavachu. Meeru deegaralo unna mandi ni check cheyavachu leda tarvata malli try cheyandi.",
+        "mandi_not_available": "Annam.ai-ni sampradinchinanduku dhanyavaadalu.\n\nEe samayamlo [Mandi Name] mandi yokka vyavaralu chupinchalekapoyamu. Memu India antha mandi coverage-nu nirantaram peruguchestunnamu. Dayachesi mandi peru confirm cheyandi leda taja market ratalu chudataniki dggara mandi kosam vetakandi."
+      }
+    },
+    {
+      "script_language": "Perso-Arabic",
+      "vocal_language": "Urdu",
+      "texts": {
+        "two_hour_disclaimer": "آپ کا سوال annam.ai پر ہمارے زرعی ماہر کے ساتھ شیئر کیا گیا ہے۔ آپ کو 2 گھنٹوں کے اندر جواب مل جائے گا۔\nشکریہ۔",
+        "state_follow_up": "آپ کس ریاست اور ضلع میں ہیں؟",
+        "crop_follow_up": "آپ کون سی فصل اگا رہے ہیں؟",
+        "testing_disclaimer": "⚠️ اہم اطلاع (ٹیسٹنگ) ⚠️\n\nیہ AjraSakha ایپلیکیشن ابھی زیرِ تعمیر ہے اور صرف ٹیسٹنگ اور توثیق کے لیے ہے۔\nمشورے تجرباتی ہیں اور فی الحال منتخب ریاستوں میں بڑی فصلوں کا احاطہ کرتے ہیں۔\n_____________________________\n\nموسمی ڈیٹا IMD سے حاصل کیا گیا ہے۔\nمارکیٹ ڈیٹا eNAM، Agmarknet اور ریاستی APMCs سے لیا گیا ہے۔\nمٹی کی صحت سے متعلق رہنمائی https://soilhealth.dac.gov.in/fertilizer-dosage سے ہے۔\nسرکاری اسکیمیں https://www.myscheme.gov.in/ سے ہیں۔\nدیگر زرعی معلومات اور مشورے Annam.ai کے ماہرین کے ذریعے تصدیق شدہ ہیں۔\n\nصارفین کو چاہیے کہ عمل کرنے سے پہلے سفارشات کی آزادانہ طور پر تصدیق کریں۔",
+        "late_night_disclaimer": "آپ کا سوال ہمارے زرعی ماہر کو بھیج دیا گیا ہے۔ آپ کو کل صبح 8:00 بجے تک جواب مل جائے گا۔",
+        "early_morning_disclaimer": "آپ کا سوال ہمارے زرعی ماہر کو بھیج دیا گیا ہے۔ آپ کو آج صبح 8:00 بجے تک جواب مل جائے گا۔",
+        "non_agriculture_reply": "Annam.ai سے رابطہ کرنے کے لیے شکریہ۔\n\nAjraSakha ایک AI-powered زرعی معاونت کا پلیٹ فارم ہے جو کاشتکاری سے متعلق سوالات کے جوابات دینے کے لیے ڈیزائن کیا گیا ہے۔ آپ کا سوال ہماری زرعی خدمات کے دائرہ کار سے باہر معلوم ہوتا ہے۔\n\nاگر آپ کے پاس فصلوں کی کاشت، کیڑوں اور بیماریوں کے انتظام، کھادوں، آبپاشی، موسمی مشوروں، مارکیٹ کی قیمتوں، حکومتی اسکیموں یا دیگر کاشتکاری کے طریقوں کے بارے میں سوالات ہیں، تو ہم مدد کے لیے حاضر ہیں۔\n\nبراہ کرم زراعت سے متعلق کوئی سوال پوچھیں، اور ہمیں آپ کی مدد کرنے میں خوشی ہوگی۔",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai سے رابطہ کرنے کے لیے شکریہ۔\n\nہمیں افسوس ہے، لیکن ہم اس وقت آپ کے مقام کے لیے موسم کی معلومات حاصل کرنے سے قاصر ہیں۔\n\nموسم کی پیشن گوئیاں سرکاری موسمی ڈیٹا کی دستیابی کی بنیاد پر فراہم کی جاتی ہیں۔ براہ کرم کچھ وقت بعد دوبارہ کوشش کریں یا زراعت سے متعلق کوئی اور سوال پوچھیں۔",
+        "crop_price_not_available_in_selected_mandi": "شکریہ کہ آپ نے Annam.ai سے رابطہ کیا۔\n\n[Crop Name] کی قیمت کی معلومات فی الوقت [Mandi Name] منڈی میں دستیاب نہیں ہیں۔\n\nیہ اس لیے ہو سکتا ہے کیونکہ اس منڈی میں منتخب فصل کی حالیہ مارکیٹ آمد یا قیمت کے ریکارڈ دستیاب نہیں ہیں۔ آپ قریبی کسی منڈی کو چیک کر سکتے ہیں یا بعد میں دوبارہ کوشش کریں۔",
+        "mandi_not_available": "Annam.ai سے رابطہ کرنے کے لیے شکریہ۔\n\n[Mandi Name] منڈی کی معلومات اس وقت دکھائی نہیں جا سکیں۔ ہم پورے ہندوستان میں اپنی منڈی کوریج کو مسلسل بڑھا رہے ہیں۔ براہ کرم منڈی کا نام تصدیق کریں یا تازہ ترین مارکیٹ قیمتیں دیکھنے کے لیے قریبی منڈی تلاش کریں۔"
+      }
+    },
+    {
+      "script_language": "English",
+      "vocal_language": "Urdu",
+      "texts": {
+        "two_hour_disclaimer": "Aap ka sawal annam.ai par hamare zar'i mahir ke saath share kiya gaya hai. Aap ko 2 ghanton ke andar jawab mil jayega.\nShukriya.",
+        "state_follow_up": "Aap kis riyasat aur zile mein hain?",
+        "crop_follow_up": "Aap kaun si fasal uga rahe hain?",
+        "testing_disclaimer": "⚠️ Ahem Ittila (Testing) ⚠️\n\nYeh AjraSakha application abhi zer-e-tameer hai aur sirf testing aur tauseeq ke liye hai.\nMashware tajrbaati hain aur filhaal muntakhab riyasaton mein badi faslon ka ahata karte hain.\n_____________________________\n\nMausami data IMD se haasil kiya gaya hai.\nMarket data eNAM, Agmarknet aur riyasati APMCs se liya gaya hai.\nMitti ki sehat se mutaliq rahnumai https://soilhealth.dac.gov.in/fertilizer-dosage se hai.\nSarkari iskimein https://www.myscheme.gov.in/ se hain.\nDeeegar zar'i maloomat aur mashware Annam.ai ke mahireen ke zariye tasdeeq shuda hain.\n\nSarifeen ko chahiye ke amal karne se pehle sifarishaat ki azadana taur par tasdeeq karein.",
+        "late_night_disclaimer": "\"Aapka sawal hamare ziraati maahir ko bhej diya gaya hai. Aapko kal subah 8 baje tak jawab mil jayega.\"",
+        "early_morning_disclaimer": "\"Aapka sawal hamare agri expert ko bhej diya gaya hai. Aapko aaj subah 8:00 baje tak jawab mil jayega.\"",
+        "non_agriculture_reply": "Annam.ai se rabta karne ka shukriya.\n\nAjraSakha aik AI-powered zirai imdad ka platform hai jo kheti se mutaliq sawalat ka jawab dene ke liye banaaya gaya hai. Aapka sawal hamari zirai khidmat ki had se bahar lagta hai.\n\nAgar aapke paas fasal ki kasht kari, keeray aur bimariyon ka idara, khaad, aabi paashi, mausam ki hidayat, bazar ki qeemtein, hukumti schemes ya doosri kheti ki aadat ke baare mein sawalat hain, to hum madad ke liye hazir hain.\n\nMeherbani karke ziraat se mutaliq koi sawal poochhiye, aur hum khushi se aapki madad karenge.",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai se rabta karne ke liye shukriya.\n\nMaafi chahte hain, lekin hum is waqt aapki jagah ke liye mausam ki maloomat hasil nahi kar pa rahe hain.\n\nMausam ki peshgoi sarkari mausam ke data ki farahmi par mabni hoti hai. Meherbani karke kuch der baad dobara koshish karein ya kisi aur ziraati sawal ka tasawwur karein.",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai se rabta karne ke liye shukriya.\n\n[Crop Name] ke liye qeemat ki maloomat is waqt [Mandi Name] mandi mein uplabdh nahi hai.\n\nYeh is liye ho sakta hai ke chunida fasal ke liye is mandi mein koi haal hi ki mandi ki aamad ya qeemat ka record uplabdh nahi hai. Aap kisi qareeb ki mandi ko check kar sakte hain ya baad mein dubara koshish karein.",
+        "mandi_not_available": "Annam.ai se rabta karne ke liye shukriya.\n\n[Mandi Name] mandi ki maloomat is waqt dikhaayi nahi ja sakti. Hum poore Hindustan mein apni mandi coverage ko lagatar barha rahe hain. Meherbani karke mandi ka naam verify karein ya qareeb ki kisi mandi ko dhundein taake taaza mandi ke bhaav dekh sakein."
+      }
+    },
+    {
+      "script_language": "Meitei Mayek",
+      "vocal_language": "Manipuri (Meitei)",
+      "texts": {
+        "two_hour_disclaimer": "ꯑꯩꯈꯣꯏꯒꯤ ꯑꯒ꯭ꯔꯤ ꯑꯦꯛꯁꯄꯔꯇ annam.ai ꯗꯥ ꯑꯃꯨꯛ ꯈꯔꯥ ꯁꯤꯖꯤꯟꯅꯒꯗꯕꯥ ꯃꯇꯥꯡꯗꯥ ꯁꯦꯌꯔ ꯇꯧꯔꯦ꯫ ꯆꯥꯎꯔꯥꯛ ꯀꯥꯡꯂꯩ ꯂꯣꯏꯁꯤꯟꯅꯕꯥ ꯑꯃꯨꯛ ꯂꯃꯥꯏ ꯂꯩꯐꯝ ꯂꯩꯕꯥ ꯌꯥꯏ꯫\nꯊꯥꯒꯠꯆꯔꯤ꯫",
+        "state_follow_up": "ꯑꯃꯨꯛ ꯀꯩꯐꯥ ꯁ꯭ꯇꯦꯇ ꯑꯃꯁꯨꯡ ꯗꯤꯁ꯭ꯠꯔꯤꯛꯇꯥ ꯂꯩꯔꯤ?",
+        "crop_follow_up": "ꯑꯃꯨꯛ ꯀꯩꯐꯥ ꯐꯥꯎꯕꯤ ꯆꯥꯅꯕꯤꯔꯤ?",
+        "testing_disclaimer": "⚠️ ꯃꯔꯨꯑꯣꯏꯕꯥ ꯈꯔꯥ (ꯇꯦꯁ꯭ꯇꯤꯡ) ⚠️\n\nꯑꯖ꯭ꯔꯥꯁꯈꯥ ꯑꯦꯞꯂꯤꯀꯦꯁꯟ ꯑꯁꯤ ꯃꯁꯛ ꯁꯦꯝꯒꯠꯂꯕꯥ ꯑꯃꯁꯨꯡ ꯇꯦꯁ꯭ꯇꯤꯡ ꯑꯃꯁꯨꯡ ꯕꯦꯂꯤꯗꯦꯁꯟꯒꯤ ꯑꯣꯏꯅꯥ ꯃꯇꯦꯡ ꯄꯥꯡꯕꯥ ꯌꯥꯏ꯫\nꯑꯦꯗꯚꯥꯏꯖꯔꯤꯁꯀꯤ ꯃꯇꯥꯡꯗꯥ ꯂꯩꯕꯥ ꯑꯁꯤ ꯑꯦꯛꯁꯄꯦꯔꯤꯃꯦꯟꯇꯦꯂ ꯑꯃꯁꯨꯡ ꯃꯁꯛ ꯁꯦꯂꯦꯛꯇꯦꯗ ꯁ꯭ꯇꯦꯇꯇꯥ ꯃꯔꯨꯑꯣꯏꯕꯥ ꯐꯥꯎꯕꯤꯁꯤꯡꯒꯤ ꯑꯣꯏꯅꯥ ꯂꯩ꯫\n_____________________________\n\nꯋꯦꯗꯔ ꯗꯦꯇꯥ IMD ꯗꯒꯤ ꯂꯩꯕꯥ꯫\nꯃꯥꯔꯀꯦꯠ ꯗꯦꯇꯥ eNAM, Agmarknet, ꯑꯃꯁꯨꯡ ꯁ꯭ꯇꯦꯠ APMC ꯁꯤꯡꯗꯒꯤ꯫\nꯁꯣꯏꯂ ꯍꯦꯜꯊ ꯒꯥꯏꯗꯦꯟꯁ https://soilhealth.dac.gov.in/fertilizer-dosage ꯗꯒꯤ꯫\nꯒꯚꯔꯅꯃꯦꯟꯇ ꯁ꯭ꯀꯤꯃꯁꯤꯡ https://www.myscheme.gov.in/ ꯗꯒꯤ꯫\nꯃꯔꯨꯑꯣꯏꯕꯥ ꯀꯦꯁꯤꯒꯤ ꯑꯒ꯭ꯔꯤꯀꯂꯆꯔꯦꯜ ꯑꯤꯟꯐꯣꯔꯃꯦꯁꯟ ꯑꯃꯁꯨꯡ ꯑꯦꯗꯚꯥꯏꯖꯔꯤꯁꯀꯤ ꯃꯇꯥꯡꯗꯥ Annam.ai ꯅꯥ ꯑꯦꯛꯁꯄꯔꯇ ꯚꯦꯔꯤꯐꯥꯏꯗ ꯇꯧꯔꯦ꯫\n\nꯌꯨꯖꯔꯁꯤꯡꯅꯥ ꯑꯦꯛꯁꯟ ꯇꯧꯕꯥ ꯃꯇꯃꯗꯥ ꯔꯦꯀꯃꯦꯟꯗꯦꯁꯟꯁꯤꯡ ꯑꯤꯟꯗꯤꯄꯦꯟꯗꯦꯟꯇꯂꯤ ꯚꯦꯂꯤꯗꯦꯠ ꯇꯧꯕꯥ ꯄꯥꯝꯕꯤ꯫",
+        "late_night_disclaimer": "ꯅꯍꯥꯛꯀꯤ ꯋꯥꯍꯪ ꯑꯗꯨ ꯑꯩꯈꯣꯌꯒꯤ ꯂꯧꯎ-ꯁꯤꯡꯎꯒꯤ ꯃꯔꯨꯑꯣꯏꯕ ꯑꯦꯛꯁꯄꯥꯔꯇꯇꯥ ꯊꯥꯔꯦ꯫ ꯅꯍꯥꯛꯅꯥ ꯇꯃꯊꯨꯝ ꯑꯌꯨꯛ ꯸:꯰꯰ ꯕꯖꯦꯗꯥ ꯄꯥꯎꯈꯨꯝ ꯐꯪꯒꯅꯤ꯫",
+        "early_morning_disclaimer": "ꯅꯍꯥꯛꯀꯤ ꯋꯥꯍꯪ ꯑꯗꯨ ꯑꯩꯈꯣꯌꯒꯤ ꯂꯧꯎ-ꯁꯤꯡꯎꯒꯤ ꯃꯇꯥꯡꯗꯥ ꯈꯉꯅꯕ ꯑꯣꯏꯔꯤꯕꯥ ꯃꯤꯑꯣꯏꯗꯥ ꯊꯥꯔꯦ꯫ ꯅꯍꯥꯛꯅꯥ ꯉꯁꯤ ꯑꯌꯨꯛ ꯸:꯰꯰ ꯑꯃꯗꯥ ꯄꯥꯎꯈꯨꯝ ꯐꯪꯒꯅꯤ꯫",
+        "non_agriculture_reply": "Annam.ai ꯒꯥ ꯄꯥꯎ ꯐꯥꯑꯣꯅꯕꯒꯤ ꯊꯥꯒꯠꯆꯔꯤ꯫\n\nAjraSakha ꯑꯁꯤ ꯂꯧꯎ-ꯁꯤꯡꯎꯒꯤ ꯋꯥꯍꯪꯁꯤꯡꯗꯥ ꯄꯥꯎꯈꯨꯝ ꯄꯤꯅꯕꯥ ꯁꯦꯃꯈꯤꯕꯥ AI-powered ꯂꯧꯎ-ꯁꯤꯡꯎꯒꯤ ꯃꯇꯦꯡ ꯄꯥꯡꯅꯕꯒꯤ ꯄ꯭ꯂꯦꯇꯐꯣꯔꯝ ꯑꯃꯅꯤ꯫ ꯅꯍꯥꯛꯀꯤ ꯋꯥꯍꯪ ꯑꯁꯤ ꯑꯩꯈꯣꯌꯒꯤ ꯂꯧꯎ-ꯁꯤꯡꯎꯒꯤ ꯁꯦꯕꯥꯁꯤꯡꯒꯤ ꯃꯐꯝ ꯃꯊꯛꯇꯒꯤ ꯃꯄꯥꯟꯗꯥ ꯂꯩꯔꯤ꯫\n\nꯀꯔꯤꯒꯨꯝꯕꯥ ꯅꯍꯥꯛꯅꯥ ꯃꯍꯩ-ꯃꯔꯣꯡ ꯊꯥꯕꯥ, ꯂꯥꯏꯊꯦ ꯑꯃꯁꯨꯡ ꯂꯥꯌꯅꯥ ꯀꯣꯏꯅꯥ ꯊꯦꯡꯅꯕꯥ, ꯃꯍꯩ ꯌꯥꯝꯅꯥ ꯁꯣꯀꯍꯅꯕꯒꯤ ꯊꯕꯛ, ꯏꯁꯤꯡ ꯄꯤꯕꯥ, ꯅꯣꯡꯖꯨ-ꯅꯨꯡꯁꯥꯒꯤ ꯋꯥꯐꯝ, ꯀꯩꯊꯦꯂꯒꯤ ꯃꯃꯜ, ꯁꯔꯀꯥꯔꯒꯤ ꯁ꯭ꯀꯤꯃꯁꯤꯡ ꯅꯠꯠꯔꯒꯥ ꯑꯇꯩ ꯂꯧꯎ-ꯁꯤꯡꯎꯒꯤ ꯊꯕꯛ ꯊꯧꯔꯥꯡꯁꯤꯡꯒꯤ ꯃꯇꯥꯡꯗꯥ ꯋꯥꯍꯪ ꯂꯩꯔꯕꯗꯤ, ꯑꯩꯈꯣꯌ ꯃꯐꯝ ꯑꯁꯤꯗꯥ ꯂꯩꯔꯤ꯫\n\nꯆꯥꯅꯕꯤꯗꯨꯅꯥ ꯂꯧꯎ-ꯁꯤꯡꯎꯒꯥ ꯃꯔꯤ ꯂꯩꯅꯕꯥ ꯋꯥꯍꯪ ꯑꯃꯥ ꯍꯪꯕꯤꯌꯨ, ꯑꯃꯁꯨꯡ ꯑꯩꯈꯣꯌꯅꯥ ꯅꯍꯥꯀꯄꯨ ꯃꯇꯦꯡ ꯄꯥꯡꯅꯕꯗꯥ ꯅꯨꯡꯉꯥꯏꯕꯥ ꯐꯥꯑꯣꯒꯅꯤ꯫",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai ꯒꯥ ꯄꯥꯎ ꯐꯥꯑꯣꯅꯕꯒꯤ ꯊꯥꯒꯠꯆꯔꯤ.\n\nꯑꯩꯈꯣꯌꯅꯥ ꯅꯨꯡꯉꯥꯏꯇꯕꯥ ꯐꯥꯑꯣꯏ, ꯑꯗꯨꯕꯨ ꯍꯧꯖꯤꯛ ꯅꯍꯥꯛꯀꯤ ꯃꯐꯝ ꯑꯗꯨꯒꯤ ꯅꯣꯡꯖꯨ-ꯅꯨꯡꯁꯥꯒꯤ ꯏꯅꯐꯣꯔꯃꯦꯁꯟ ꯑꯁꯤ ꯄꯤꯕꯥ ꯉꯃꯗ꯭ꯔꯤ.\n\nꯅꯣꯡꯖꯨ-ꯅꯨꯡꯁꯥꯒꯤ ꯐꯣꯔꯀꯥꯁ꯭ꯇ ꯑꯁꯤ ꯑꯣꯐꯤꯁꯤꯑꯦꯜ ꯅꯣꯡꯖꯨ-ꯅꯨꯡꯁꯥꯒꯤ ꯗꯦꯇꯥ ꯐꯪꯕꯥ ꯌꯥꯕꯒꯤ ꯃꯇꯨꯡꯗꯥ ꯄꯤꯔꯤ. ꯆꯥꯅꯕꯤꯗꯨꯅꯥ ꯃꯇꯝ ꯈꯔꯥ ꯇꯪꯗꯨꯅꯥ ꯍꯣꯠꯅꯧ ꯅꯠꯠꯔꯒꯥ ꯂꯧꯎ-ꯁꯤꯡꯎꯒꯥ ꯃꯔꯤ ꯂꯩꯅꯕꯥ ꯑꯇꯣꯞꯄꯥ ꯋꯥꯍꯪ ꯑꯃꯥ ꯍꯪꯕꯤꯌꯨ.",
+        "crop_price_not_available_in_selected_mandi": "ꯊꯥꯒꯠꯄꯥ ꯐꯣꯡꯗꯣꯀꯄꯤꯌꯨ Annam.ai ꯗ ꯌꯦꯡꯁꯤꯅꯕꯒꯤꯗꯃꯛ꯫\n\n[Crop Name] ꯒꯤ ꯃꯃꯂꯒꯤ ꯏꯅꯐꯣꯔꯃꯦꯁꯟ ꯍꯧꯖꯤꯛ ꯃꯇꯃꯗ [Mandi Name] ꯃꯟꯗꯤꯗ ꯐꯪꯗꯦ꯫\n\nꯃꯁꯤ ꯑꯁꯤꯅꯥ ꯃꯔꯝ ꯑꯣꯏꯗꯨꯅꯥ ꯈꯅꯒꯠꯂꯛꯂꯕꯥ ꯃꯟꯗꯤꯗ ꯈꯅꯒꯠꯂꯛꯂꯕꯥ ꯀꯦꯝ ꯑꯁꯤꯒꯤ ꯍꯧꯈꯤꯕꯥ ꯃꯥꯔꯀꯦꯠ ꯑꯦꯔꯥꯏꯚꯦꯜ ꯅꯠꯠꯔꯒꯥ ꯃꯃꯂꯒꯤ ꯔꯦꯀꯣꯔꯗ ꯂꯩꯇꯦ꯫ ꯅꯍꯥꯛꯅ ꯃꯅꯥꯛ ꯅꯀꯄꯥ ꯃꯟꯗꯤ ꯑꯃꯗ ꯆꯦꯛꯁꯤꯟꯅꯕꯥ ꯌꯥꯏ ꯅꯠꯠꯔꯒꯥ ꯇꯨꯡꯗ ꯑꯃꯨꯛ ꯍꯣꯠꯅꯧ꯫",
+        "mandi_not_available": "ꯊꯥꯒꯠꯆꯔꯤ Annam.ai ꯗ ꯌꯧꯍꯅꯕꯒꯤꯗꯃꯛ꯫\n\n[Mandi Name] ꯃꯟꯗꯤꯒꯤ ꯏꯅꯐꯣꯔꯃꯦꯁꯟ ꯍꯧꯖꯤꯛ ꯎꯠꯄ ꯉꯃꯗꯦ꯫ ꯑꯩꯈꯣꯌꯅ ꯚꯥꯔꯇꯀꯤ ꯃꯐꯝ ꯈꯨꯗꯤꯡꯃꯛꯇ ꯃꯟꯗꯤꯒꯤ ꯀꯚꯔꯦꯖ ꯍꯦꯟꯅ ꯄꯥꯀꯊꯣꯛꯂꯤ꯫ ꯆꯥꯅꯕꯤꯗꯨꯅ ꯃꯟꯗꯤꯒꯤ ꯃꯃꯤꯡ ꯆꯦꯛꯁꯤꯟꯅꯕꯤꯌꯨ ꯅꯠꯠꯔꯒ ꯈ꯭ꯕꯥꯏꯗꯒꯤ ꯅꯀꯄ ꯃꯟꯗꯤ ꯊꯤꯕꯤꯌꯨ ꯑꯃꯁꯨꯡ ꯈ꯭ꯕꯥꯏꯗꯒꯤ ꯅꯧꯕ ꯀꯩꯊꯦꯂꯒꯤ ꯃꯃꯜ ꯌꯦꯡꯕꯤꯌꯨ꯫"
+      }
+    },
+    {
+      "script_language": "English",
+      "vocal_language": "Manipuri (Meitei)",
+      "texts": {
+        "two_hour_disclaimer": "Annam.ai gi agri expert ta amuk khara sijinnagadaba matangda share tawre. Chawrak kanglei loisinnaba amuk lamai leiphom leiba yai.\nThagatchari.",
+        "state_follow_up": "Amuk keifa state amasung district ta leiri?",
+        "crop_follow_up": "Amuk keifa phaobi chanabiri?",
+        "testing_disclaimer": "⚠️ Maruoiba khara (Testing) ⚠️\n\nAjraSakha application asi masak semgathlaba amasung testing amasung validation gi oina mateng pangba yai.\nAdvisories ki matangda leiba asi experimental amasung masak selected state ta maruoiba phaobi sigi oina lei.\n_____________________________\n\nWeather data IMD dagi leiba.\nMarket data eNAM, Agmarknet, amasung State APMC singdagi.\nSoil health guidance https://soilhealth.dac.gov.in/fertilizer-dosage dagi.\nGovernment schemes https://www.myscheme.gov.in/ dagi.\nMaruoiba kesi gi agricultural information amasung advisories ki matangda Annam.ai na expert verified tawre.\n\nUsers singna action tawba matamda recommendations independently validate tawba pambi.",
+        "late_night_disclaimer": "\"Nahakki wahang asi eikhoigi agri expert-ta thabirak-halle. Nahakna hayeng, numit 8:00 AM da paokhum phangani.\"",
+        "early_morning_disclaimer": "\"Nahakki wahang asi eikhoigi agri expert-ta thare. Nahakna ngasi, numidang 8:00 AM-da paokhum phangani.\"",
+        "non_agriculture_reply": "Annam.ai da pao phaonabagi thagatchari.\n\nAjraSakha asi AI-powered lousinggi matangda panba wahangsing hangdoknaba semba agricultural assistance platform amani. Nahakki wahang asi eikhoigi agricultural service-gi mayek thadana leibak ngamde.\n\nKarigumba nahakna makhong pukning, lamdang amadi laiyenggi maramda, fertilizer-gi maramda, irrigation-gi maramda, nungsigi lamjel, keinagi maramda, government scheme nattraga atei lousinggi thoudanggi maramda wahang lei haibadi, eikhoina nahakpu mateng pangbagidamak hapchillakpa yaorage.\n\nChadam-biduna lousinggi maramda wahang amada hanglu, aduga eikhoina nangonda mateng pangbage.",
+        "weather_unavailable_for_dynamic_weather_queries": "Thank you for reaching out to Annam.ai.\n\nNungaiba oire, adubu houjikti nakhoigi mapham aduda weather-gi maramda eigi phangba ngamdre.\n\nWeather forecast asi official weather data leiba aduda yumfam oina pibani. Chumthokpa matam amada amuk hanna hotnabiro nattraga lou-lairibak mari leinaba amasung wahang ama hanglu.",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai da pao phaonabagi thagat chari.\n\n[Mandi Name] mandi da houjikti [Crop Name] gi mahak ki pao pamjadaba ngamde.\n\nMasi keisumdagi oiribadi asi khanbiba mandi asida mahak asi layeng houna lakpa nattraga mahak ki record pamjadaba ngamdrabagi maramna oiriba yai. Nakhoina manaktagi mandi amadi chenba yamna ngamgani nattrabadi matam kayada amuk hanna hotnaraga yengnaba yai.",
+        "mandi_not_available": "Annam.ai da pao phaonabagi thagat chari.\n\nMatam asida [Mandi Name] mandi gi wahang asi utpa ngamde. Eikhoina India pumnamakta eikhoigi mandi coverage asi yenthokhaningle. Chadaraba mandi ming adu yengjillaga nattraga makhao naiba mandi ama thijinbiyu adubu ahanbagi market price adu yengnaba."
+      }
+    },
+    {
+      "script_language": "Ol Chiki",
+      "vocal_language": "Santali",
+      "texts": {
+        "two_hour_disclaimer": "ᱟᱯᱮᱱ ᱯᱩᱪᱷᱩᱱ annam.ai ᱨᱮᱱᱟᱜ ᱟᱜᱨᱤ ᱵᱤᱥᱮᱥᱚᱡᱽᱱᱟ ᱠᱟᱛᱮ ᱵᱟᱹᱫᱷᱟᱹᱭ ᱦᱩᱭᱩᱜ ᱠᱟᱱᱟ᱾ ᱟᱯᱮ ᱒ ᱸᱴᱟ ᱥᱟᱦᱴᱮ ᱡᱚᱵᱟᱵ ᱯᱟᱭᱚᱜ ᱠᱟᱱᱟ᱾\nᱫᱷᱚᱱᱵᱟᱫ᱾",
+        "state_follow_up": "ᱟᱯᱮ ᱠᱚᱱ ᱨᱟᱡᱽᱭᱚ ᱟᱨ ᱡᱤᱞᱟ ᱨᱮ ᱢᱮᱱᱟᱜ ᱠᱟᱱᱟ?",
+        "crop_follow_up": "ᱟᱯᱮ ᱠᱚᱱ ᱮᱸᱫᱽᱨᱮ ᱵᱟᱭᱥᱤ ᱠᱟᱛᱮ ᱢᱮᱱᱟᱜ ᱠᱟᱱᱟ?",
+        "testing_disclaimer": "⚠️ ᱢᱩᱱᱩᱫ ᱥᱩᱪᱮᱛ (ᱯᱨᱚᱵᱷᱟ) ⚠️\n\nᱱᱚᱶᱟ AjraSakha ᱯᱨᱚᱜᱽᱨᱟᱢ ᱵᱟᱱᱟᱣ ᱦᱩᱭᱩᱜ ᱠᱟᱱᱟ ᱟᱨ ᱠᱮᱣᱟᱞ ᱯᱨᱚᱵᱷᱟ ᱟᱨ ᱥᱟᱫᱷᱩ ᱡᱚᱜᱽ ᱵᱮᱵᱷᱟᱨ ᱡᱚᱜᱽ ᱛᱮᱭᱟᱨ ᱦᱩᱭᱩᱜ ᱠᱟᱱᱟ᱾\nᱥᱟᱞᱟᱦ ᱯᱨᱚᱭᱚᱜᱤᱠ ᱠᱟᱱᱟ ᱟᱨ ᱱᱤᱛᱚᱜ ᱪᱷᱟᱸᱴᱤᱭᱟ ᱨᱟᱡᱽᱭᱚ ᱨᱮᱱᱟᱜ ᱢᱩᱞ ᱮᱸᱫᱽ ᱠᱚ ᱡᱚᱜᱽ ᱠᱟᱢ ᱠᱟᱛᱮ ᱢᱮᱱᱟᱜ ᱠᱟᱱᱟ᱾\n_____________________________\n\nᱵᱟᱫᱽᱞᱟ ᱫᱟᱛᱟ IMD ᱠᱟᱛᱮ ᱟᱣᱟ᱾\nᱵᱟᱡᱟᱨ ᱫᱟᱛᱟ eNAM, Agmarknet, ᱟᱨ ᱨᱟᱡᱽᱭᱚ APMC ᱠᱟᱛᱮ ᱟᱣᱟ᱾\nᱢᱤᱫᱤ ᱥᱣᱟᱥᱛᱷᱭ ᱥᱟᱞᱟᱦ https://soilhealth.dac.gov.in/fertilizer-dosage ᱠᱟᱛᱮ ᱟᱣᱟ᱾\nᱥᱚᱨᱠᱟᱨ ᱭᱚᱡᱚᱱᱟ https://www.myscheme.gov.in/ ᱠᱟᱛᱮ ᱟᱣᱟ᱾\nᱵᱮᱱᱟᱣ ᱠᱨᱤᱥᱤ ᱡᱟᱱᱠᱟᱨᱤ ᱟᱨ ᱥᱟᱞᱟᱦ Annam.ai ᱵᱤᱥᱮᱥᱚᱡᱽᱱᱟ ᱠᱟᱛᱮ ᱥᱟᱫᱷᱩ ᱦᱩᱭᱩᱜ ᱠᱟᱱᱟ᱾\n\nᱵᱮᱵᱷᱟᱨᱠᱟᱨᱤ ᱠᱚ ᱠᱟᱢ ᱠᱟᱛᱮ ᱥᱟᱞᱟᱦ ᱵᱮᱵᱷᱟᱨ ᱠᱟᱛᱮ ᱟᱜᱮ ᱥᱟᱫᱷᱩ ᱠᱟᱛᱮ ᱪᱮᱪᱮᱫ ᱠᱟᱛᱮ ᱠᱟᱢ ᱠᱟᱛᱮ ᱦᱩᱭᱩᱜ ᱠᱟᱱᱟ᱾",
+        "late_night_disclaimer": "ᱟᱢᱟᱜ ᱠᱩᱠᱞᱤ ᱫᱚ ᱟᱞᱮᱭᱟᱜ ᱪᱟᱥ ᱯᱟᱹᱨᱩᱠᱷᱤᱭᱟᱹ ᱴᱷᱮᱱ ᱠᱩᱞ ᱟᱠᱟᱱᱟ᱾ ᱟᱢ ᱫᱚ ᱜᱟᱯᱟ ᱢᱟᱦᱟᱸ ᱥᱮᱛᱟᱜ ᱘:᱐᱐ ᱴᱟᱲᱟᱝ ᱨᱮ ᱛᱮᱞᱟ ᱧᱟᱢᱟᱢᱟ᱾",
+        "early_morning_disclaimer": "\"ᱟᱢᱟᱜ ᱠᱩᱠᱞᱤ ᱞᱮᱠᱟᱛᱮ ᱟᱞᱮᱭᱟᱜ ᱪᱟᱥ ᱜᱩᱨᱩ ᱴᱷᱮᱱ ᱠᱩᱞ ᱟᱠᱟᱱᱟ᱾ ᱛᱤᱱᱟᱹᱝ ᱫᱤᱱ, ᱥᱟᱨᱜᱤᱧ ᱘:᱐᱐ ᱴᱟᱬᱟᱝ ᱨᱮ ᱟᱢ ᱡᱚᱵᱟᱵᱽ ᱧᱟᱢᱟᱢ ᱫᱟᱲᱮᱭᱟᱜᱼᱟ᱾\"",
+        "non_agriculture_reply": "Annam.ai ᱥᱟᱶ ᱡᱚᱲᱟᱣ ᱞᱟᱹᱜᱤᱫ ᱡᱚᱦᱟᱨ᱾\n\nAjraSakha ᱫᱚ ᱢᱤᱫ AI-powered ᱪᱟᱥ ᱜᱚᱲᱚ ᱢᱚᱸᱪ ᱠᱟᱱᱟ ᱡᱟᱦᱟᱸ ᱪᱟᱥ ᱵᱟᱵᱚᱛ ᱠᱩᱞᱤ ᱠᱚᱨᱮ ᱛᱮᱞᱟ ᱮᱢᱟᱭ᱾ ᱟᱢᱟᱜ ᱠᱩᱞᱤ ᱫᱚ ᱟᱞᱮᱭᱟᱜ ᱪᱟᱥ ᱥᱮᱵᱟ ᱠᱷᱚᱱ ᱵᱟᱦᱨᱮ ᱧᱮᱞᱚᱜᱼᱟ᱾\n\nᱡᱩᱫᱤ ᱟᱢ ᱴᱷᱮᱱ ᱡᱚ ᱪᱟᱥ, ᱯᱳᱠᱟ ᱟᱨ ᱨᱳᱜᱽ ᱵᱮᱵᱚᱥᱛᱟ, ᱠᱷᱟᱫᱽ, ᱫᱟᱜ ᱡᱚ, ᱦᱚᱭᱦᱤᱥᱤᱫ ᱞᱟᱹᱭ ᱞᱟᱠᱪᱟᱨ, ᱵᱟᱡᱟᱨ ᱫᱟᱢ, ᱥᱚᱨᱠᱟᱨᱤ ᱥᱠᱤᱢ ᱟᱨᱵᱟᱝ ᱮᱴᱟᱜ ᱪᱟᱥ ᱠᱟᱹᱢᱤ ᱵᱟᱵᱚᱛ ᱠᱩᱞᱤ ᱢᱮᱱᱟᱜᱼᱟ, ᱟᱞᱮ ᱱᱚᱰᱮ ᱜᱚᱲᱚ ᱮᱢ ᱞᱟᱹᱜᱤᱫ ᱢᱮᱱᱟᱞᱮᱭᱟ᱾\n\nᱫᱚᱭᱟᱠᱟᱛᱮ ᱪᱟᱥ ᱵᱟᱵᱚᱛ ᱠᱩᱞᱤ ᱠᱩᱞᱤᱭ ᱢᱮ, ᱟᱨ ᱟᱞᱮ ᱨᱟᱹᱥᱠᱟᱹ ᱥᱟᱶᱛᱮ ᱜᱚᱲᱚ ᱮᱢᱟ ᱞᱮᱭᱟ᱾",
+        "weather_unavailable_for_dynamic_weather_queries": "ᱡᱚᱦᱟᱨ Annam.ai ᱥᱟᱶ ᱡᱚᱲᱟᱣ ᱞᱟᱹᱜᱤᱫ᱾\n\nᱟᱞᱮ ᱫᱩᱠᱷᱤᱛ ᱜᱮᱭᱟ, ᱢᱮᱱᱠᱷᱟᱱ ᱱᱤᱛᱚᱜ ᱟᱞᱮ ᱟᱢᱟᱜ ᱡᱟᱭᱜᱟ ᱞᱟᱹᱜᱤᱫ ᱦᱚᱭᱫᱟᱜ ᱠᱷᱚᱵᱚᱨ ᱟᱹᱜᱩ ᱵᱟᱝ ᱫᱟᱲᱮᱭᱟᱜ ᱠᱟᱱᱟ᱾\n\nᱦᱚᱭᱫᱟᱜ ᱯᱩᱨᱩᱵᱽ ᱠᱷᱚᱵᱚᱨ ᱫᱚ ᱥᱚᱨᱠᱟᱨᱤ ᱦᱚᱭᱫᱟᱜ ᱰᱟᱴᱟ ᱦᱚᱛᱮᱛᱮ ᱮᱢᱚᱜ ᱠᱟᱱᱟ᱾ ᱫᱟᱭᱟᱠᱟᱛᱮ ᱛᱷᱚᱲᱟ ᱫᱤᱱ ᱛᱟᱭᱚᱢ ᱫᱚᱦᱲᱟ ᱠᱩᱥᱤᱭᱟᱹᱢ ᱟᱨᱵᱟᱝ ᱮᱴᱟᱜ ᱪᱟᱥᱵᱟᱥ ᱥᱟᱶ ᱡᱚᱲᱟᱣ ᱠᱩᱠᱞᱤ ᱠᱩᱥᱤᱭᱟᱹᱢ᱾",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai ᱥᱟᱶ ᱡᱚᱲᱟᱣ ᱞᱟᱹᱜᱤᱫ ᱡᱚᱦᱟᱨ᱾\n\n[Crop Name] ᱞᱟᱹᱜᱤᱫ ᱫᱟᱢ ᱠᱷᱚᱵᱚᱨ ᱱᱤᱛᱚᱜ [Mandi Name] ᱢᱚᱱᱰᱤ ᱨᱮ ᱵᱟᱹᱱᱩᱜᱼᱟ᱾\n\nᱱᱚᱶᱟ ᱫᱚ ᱦᱩᱭ ᱫᱟᱲᱮᱭᱟᱜᱼᱟ ᱪᱮᱫᱟᱜ ᱥᱮ ᱱᱚᱶᱟ ᱢᱚᱱᱰᱤ ᱨᱮ ᱵᱟᱪᱷᱚᱱ ᱟᱠᱟᱱ ᱡᱚ ᱞᱟᱹᱜᱤᱫ ᱱᱟᱶᱟ ᱢᱚᱱᱰᱤ ᱦᱤᱡᱩᱜ ᱥᱮ ᱫᱟᱢ ᱨᱮᱠᱚᱰ ᱵᱟᱹᱱᱩᱜᱼᱟ᱾ ᱟᱢ ᱥᱩᱨ ᱨᱮᱱᱟᱜ ᱮᱴᱟᱜ ᱢᱚᱱᱰᱤ ᱧᱮᱞ ᱫᱟᱲᱮᱭᱟᱜᱼᱟ ᱥᱮ ᱛᱟᱭᱚᱢ ᱛᱮ ᱫᱚᱦᱲᱟ ᱠᱩᱨᱩᱢᱩᱴᱩ ᱢᱮ᱾",
+        "mandi_not_available": "Annam.ai ᱥᱟᱶ ᱡᱚᱲᱟᱣ ᱞᱟᱹᱜᱤᱫ ᱡᱚᱦᱟᱨ᱾\n\n[Mandi Name] ᱢᱟᱱᱰᱤ ᱨᱮᱭᱟᱜ ᱠᱷᱚᱵᱚᱨ ᱱᱤᱛᱚᱜ ᱫᱚ ᱵᱟᱝ ᱩᱫᱩᱜ ᱫᱟᱲᱮᱭᱟᱠᱟᱱᱟ᱾ ᱟᱞᱮ ᱥᱤᱧᱚᱛ ᱡᱟᱠᱟᱛ ᱨᱮ ᱟᱞᱮᱭᱟᱜ ᱢᱟᱱᱰᱤ ᱠᱷᱚᱵᱚᱨ ᱞᱟᱦᱟ ᱛᱮᱜᱮ ᱟᱞᱮ ᱯᱟᱥᱱᱟᱣ ᱮᱫᱟ᱾ ᱫᱟᱭᱟ ᱠᱟᱛᱮ ᱢᱟᱱᱰᱤ ᱧᱩᱛᱩᱢ ᱧᱮᱞ ᱵᱤᱲᱟᱹᱣ ᱢᱮ ᱟᱨᱵᱟᱝ ᱥᱩᱨ ᱨᱮᱭᱟᱜ ᱢᱟᱱᱰᱤ ᱯᱟᱱᱛᱮ ᱢᱮ ᱱᱟᱶᱟ ᱦᱟᱴ ᱨᱮᱭᱟᱜ ᱫᱚᱨ ᱧᱮᱞ ᱞᱟᱹᱜᱤᱫ᱾"
+      }
+    },
+    {
+      "script_language": "English",
+      "vocal_language": "Santali",
+      "texts": {
+        "two_hour_disclaimer": "Apem puchun annam.ai renak agri bisesojjna kate badhay huyug kana. Ape 2 ghanta sahte jobab payog kana.\nDhonbad.",
+        "state_follow_up": "Ape kon rajyo ar distrik re menag kana?",
+        "crop_follow_up": "Ape kon edre baysi kate menag kana?",
+        "testing_disclaimer": "⚠️ Munud Suchet (Probha) ⚠️\n\nNowa AjraSakha program banaw huyug kana ar kewal probha ar sadhu jog bebahar jog teyar huyug kana.\nSalah proyogik kana ar nitog chhantiya rajyo renak mul ed ko jog kam kate menag kana.\n_____________________________\n\nBadla data IMD kate awa.\nBajar data eNAM, Agmarknet, ar rajyo APMC kate awa.\nMidi swasthya salah https://soilhealth.dac.gov.in/fertilizer-dosage kate awa.\nSorkar yojona https://www.myscheme.gov.in/ kate awa.\nBenaw krishi jankari ar salah Annam.ai bisesojjna kate sadhu huyug kana.\n\nBebaharkari ko kam kate salah bebahar kate age sadhu kate cechhed kate kam kate huyug kana.",
+        "late_night_disclaimer": "\"ᱟᱢᱟᱜ ᱠᱩᱠᱞᱤ ᱟᱞᱮ ᱪᱟᱹᱥᱤ ᱯᱟᱹᱨᱩᱠᱷᱤᱭᱟᱹ ᱴᱷᱮᱱ ᱵᱷᱮᱡᱟ ᱠᱟᱱᱟ᱾ ᱜᱟᱯᱟ ᱫᱤᱱ ᱥᱮᱛᱟᱜ ᱘:᱐᱐ ᱴᱟᱲᱟᱝ ᱨᱮ ᱡᱚᱵᱟᱵᱽ ᱧᱟᱢᱚᱜᱼᱟ᱾\"",
+        "early_morning_disclaimer": "\"ᱟᱢᱟᱜ ᱠᱩᱞᱤ ᱟᱞᱮ ᱠᱟᱹᱢᱤ ᱜᱟᱹᱠᱷᱩᱲ ᱴᱷᱮᱱ ᱠᱩᱞ ᱟᱠᱟᱱᱟ᱾ ᱛᱮᱦᱮᱧ, ᱥᱮᱛᱟᱜ ᱘:᱐᱐ ᱴᱟᱬᱟᱢ ᱨᱮ ᱟᱢ ᱡᱚᱵᱟᱵᱽ ᱧᱟᱢᱟ᱾\"",
+        "non_agriculture_reply": "Annam.ai saw joraw lagid johar.\n\nAjraSakha do AI-powered kheti sengel sahayak manchok kanaa je kheti akon katha ko ar kutli lekate ar horon deya' reak. Aama kutli do am reak kheti seba ko reak katha saking bain kanaa.\n\nAmakin jodi janam rakaob, jintis ar hasuh bayra', sarad ar baha, khawti, mausam suchina, haat dar, sarkar yojona o daka kheti katha reak kutli menaok chi khaan, ala ko gidraa leka menaa.\n\nDayako are kheti akon kutli kutli ben ar ala amakin sahayok hoyoka.",
+        "weather_unavailable_for_dynamic_weather_queries": "Annam.ai saw joraw lagid johar.\n\nAsaan dukhi kana, menkhan noa okat asaan amaḥ ṭhenaḥ lagit haowa beora reaḥ janaw daṛeyaḥ okoye khon.\n\nHaowa anuman ko sarkariaḥ haowa beora reaḥ menaḥ upor lekate emhoḥ kana. Daya katet kichu okat pinchat katet ona arok kheti joṅaḥ kulireaḥ kuliyme.",
+        "crop_price_not_available_in_selected_mandi": "Annam.ai saw joraw lagid johar.\n\n[Crop Name] reaḱ dam reaḱ khabar nit [Mandi Name] mandi re banuḱa.\n\nNewa hoyoḱ huyḍaḱa ćhiṭaw do nit okoy mandi re barabar ćhiṭaw aṛaw dam reaḱ tahenya banuḱa. Amaḱ netoraḱ mandi muċaḍme aṛaw dubaṛaḱte kurumuṭume.",
+        "mandi_not_available": "Annam.ai saw joraw lagid johar.\n\n[Mandi Name] mandi reaḱ katha noa ãṭ re uduḱ daṛeyaḱa. Alang do pura Bharat juṛaw mandi re alangaḱ phaylawaḱ lagatar kamiyen kana. Daya katet mandi reaḱ ñutum sakam mayam ben ńeṛe mandi re sed me, jemon sabse nãwã hạṭ damaḱ ńel daṛeyaḱa."
+      }
+    }
+  ]
+}

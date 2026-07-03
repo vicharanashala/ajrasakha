@@ -11,6 +11,7 @@ import {
   Delete,
   Params,
   Patch,
+  Param,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject} from 'inversify';
@@ -19,6 +20,7 @@ import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {IUser} from '#root/shared/interfaces/models.js';
 import { AddNotificationBody, AddPushSubscriptionBody, DeleteNotificationParams, MessageBody, NotificationResponse } from '#root/modules/notification/validators/NotificationValidators.js';
 import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
+import {COORDINATOR_ROLES} from '#root/shared/constants/roles.js';
 import {
   NotificationErrorResponse,
   InsertedIdResponse,
@@ -92,6 +94,53 @@ export class NotificationController {
     const limit = Number(query.limit) ?? 10;
     const userId = user._id.toString();
     return this.notificationService.getNotifications(userId,page,limit,user.role)
+  }
+
+  @Get('/user/:userId')
+  @HttpCode(200)
+  @Authorized(['admin'])
+  async getUserNotifications(
+    @Params() params: {userId: string},
+    @QueryParams() query: {page?: number; limit?: number},
+  ) {
+    const page = Number(query.page) ?? 1;
+    const limit = Number(query.limit) ?? 10;
+    return this.notificationService.getDashboardUserNotifications(
+      params.userId,
+      page,
+      limit,
+    );
+  }
+
+  @Post('/user/:userId/send')
+  @HttpCode(201)
+  @Authorized(['admin', ...COORDINATOR_ROLES])
+  async sendUserNotification(
+    @Param('userId') userId: string,
+    @Body() body: {title?: string; message: string},
+    @CurrentUser() currentUser: IUser,
+  ) {
+    return this.notificationService.sendUserNotification(
+      userId,
+      currentUser,
+      body.message,
+      body.title,
+    );
+  }
+
+  @Post('/users/send')
+  @HttpCode(201)
+  @Authorized(['admin', ...COORDINATOR_ROLES])
+  async sendBulkUserNotifications(
+    @Body() body: {userIds: string[]; title?: string; message: string},
+    @CurrentUser() currentUser: IUser,
+  ) {
+    return this.notificationService.sendBulkUserNotifications(
+      body.userIds,
+      currentUser,
+      body.message,
+      body.title,
+    );
   }
 
   @OpenAPI({

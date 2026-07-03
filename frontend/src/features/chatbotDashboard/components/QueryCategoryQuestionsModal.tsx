@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { X, Copy, Check } from "lucide-react";
+import { X, Copy, Check, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/atoms/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/atoms/tabs";
 import {
@@ -11,11 +11,13 @@ import {
   type QueryCategoryQuestionType,
 } from "../hooks/useActiveUsersAnalytics";
 import {
-  FarmerInfoCell,
   QuestionListTable,
   type QuestionListColumn,
 } from "./QuestionListTable";
 import { TranslatableText } from "./TranslatableText";
+import { FarmerNameLink } from "./FarmerNameLink";
+import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
+import { useQueryClient } from "@tanstack/react-query";
 
 const CopyableIdCell = ({ id }: { id?: string }) => {
   const [copied, setCopied] = useState(false);
@@ -60,13 +62,16 @@ interface QueryCategoryQuestionsModalProps {
   closedWithInTwohours?: boolean;
   notificationType?: string;
   period?: string;
-  source?: "vicharanashala" | "annam" | "whatsapp";
+  source?: "both" | "annam" | "whatsapp";
   // source? : string;
   userType?: string;
   isQueryCategory?: boolean;
   startDate?: Date;
   endDate?: Date;
   onClose: () => void;
+  isPassed?: boolean;
+  tag?: string;
+  totalClosedAndPassed?: number;
 }
 
 const PAGE_SIZE = 10;
@@ -87,13 +92,21 @@ export function QueryCategoryQuestionsModal({
   startDate,
   endDate,
   onClose,
+  isPassed,
+  tag,
+  totalClosedAndPassed
 }: QueryCategoryQuestionsModalProps) {
+  const {
+    setSelectedQuestionId,
+    setView,
+  } = useSelectedQuestion();
+
   const [questionType, setQuestionType] =
     useState<QueryCategoryQuestionType>("all");
   const [page, setPage] = useState(1);
 
-  console.log("StartDate", startDate);
-  console.log("EndDate", endDate);
+  // console.log("StartDate", startDate);
+  // console.log("EndDate", endDate);
 
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -132,8 +145,10 @@ export function QueryCategoryQuestionsModal({
     endDate,
     search: debouncedSearch,
     enabled: true,
+    isPassed,
+    tag
   });
-
+// console.log("dta----", data)
   // const columns = useMemo<QuestionListColumn<QueryCategoryQuestionEntry>[]>(
   //   () => [
   //     {
@@ -266,7 +281,11 @@ export function QueryCategoryQuestionsModal({
         sortAccessor: (row) => row.name || row.farmerName || "N/A",
         className: "w-[14%]",
         cellClassName: "truncate",
-        accessor: (row) => row.name || row.farmerName || "N/A",
+        render: (row) => (
+          <FarmerNameLink userId={row.userId}>
+            {row.name || row.farmerName || "N/A"}
+          </FarmerNameLink>
+        ),
       },
 
       {
@@ -277,12 +296,20 @@ export function QueryCategoryQuestionsModal({
         className: "w-[32%]",
         cellClassName: "overflow-hidden",
         render: (row) => (
+        <button
+          className="text-left hover:underline"
+          onClick={() => {
+            setSelectedQuestionId(row.questionId);
+            setView("lifecycle");
+            onClose();
+          }}
+        >
           <TranslatableText
             text={row.question ?? ""}
             showTooltip
             textClassName="text-xs line-clamp-2"
           />
-        ),
+        </button>),
       },
 
       {
@@ -350,9 +377,23 @@ export function QueryCategoryQuestionsModal({
 
   const total = data?.total ?? 0;
 
+  const [viewMode, setViewMode] =
+  useState<"table" | "lifecycle">("table");
+
+  
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await queryClient.refetchQueries({ queryKey: ["lifecycle-summary"] });
+    await queryClient.refetchQueries({ queryKey: ["get-question-filter"] });
+    setRefreshing(false);
+  };
+
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-999 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
       onPointerDown={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
@@ -361,6 +402,22 @@ export function QueryCategoryQuestionsModal({
     >
       <div className="flex max-h-[88vh] w-full max-w-6xl flex-col rounded-xl bg-white shadow-2xl dark:bg-[#1a1a1a]">
         <div className="flex shrink-0 items-center justify-between gap-4 border-b border-gray-100 px-6 py-4 dark:border-[#2a2a2a]">
+          <Tabs
+            value={viewMode}
+            onValueChange={(value) =>
+              setViewMode(value as "table" | "lifecycle")
+            }
+          >
+            <TabsList>
+              <TabsTrigger value="table">
+                Questions
+              </TabsTrigger>
+
+              <TabsTrigger value="lifecycle">
+                Lifecycle Summary
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
           <div className="min-w-0">
             <h2 className="truncate text-base font-semibold text-gray-900 dark:text-gray-100">
               {category}
@@ -376,10 +433,21 @@ export function QueryCategoryQuestionsModal({
                       ? "Question that closed with in 2 hours"
                       : notificationType
                         ? "Question related to Notification users"
-                        : period? `Question related to the ${period}` : `Question releated to the ${district}`}
+                        : period? `Question related to the ${period}` : state ?`Question releated to the ${state}`: `Question releated to the ${district}`}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-3">
+            <button
+              onClick={handleRefresh}
+              className=" rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
+              title="Refresh"
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 bg-background ${
+                  refreshing ? "animate-spin" : ""
+                }`}
+              />
+            </button>
             <input
               type="text"
               placeholder="Search by name or email..."
@@ -412,8 +480,7 @@ export function QueryCategoryQuestionsModal({
             </button>
           </div>
         </div>
-
-        <QuestionListTable
+            <QuestionListTable
           data={questions}
           columns={columns}
           loading={isLoading}
@@ -433,6 +500,16 @@ export function QueryCategoryQuestionsModal({
           }}
           initialSortKey="createdAt"
           initialSortDirection="desc"
+          viewMode={viewMode}
+          startDate={startDate?.toString()}
+          endDate= {endDate?.toString()}
+          source= {source}
+          status= {status}
+          userType= {userType}
+          isPassed={isPassed}
+          tag={tag}
+          notificationType={notificationType}
+          totalClosedAndPassed={totalClosedAndPassed}
         />
 
         <div className="flex shrink-0 items-center justify-between border-t border-gray-100 px-6 py-3 text-xs text-gray-400 dark:border-[#2a2a2a] dark:text-gray-500">

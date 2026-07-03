@@ -155,7 +155,11 @@ const {checkDuplicateQuestionHelper} =
         district: (low.district || '').toString(),
         crop: rawCropName.trim(),
         season: (low.season || '').toString(),
-        domain: (low.domain || '').toString(),
+        domain: Array.isArray(low.domain)
+          ? low.domain
+          : low.domain
+            ? [low.domain.toString()]
+            : [],
         ...(normalised_crop !== undefined && { normalised_crop }),
       };
 

@@ -46,6 +46,7 @@ export interface PaginatedUserDetailsResponse {
   users: UserDetail[];
   totalUsers: number;
   totalPages: number;
+  // userRoleCounts?: {coordinator: number, farmer: number, internal: number};
   activeUsers: number;
   inactiveUsers: number;
   totalQuestions: number;
@@ -131,4 +132,24 @@ export function useUserDetails(
     error,
     refetch,
   };
+}
+
+export function useUserProfile(userId: string, enabled?: boolean) {
+  return useQuery<any, Error>({
+    queryKey: ['user-profile', userId],
+    staleTime: 30 * 1000,
+    enabled,
+    queryFn: async () => {
+      const API_BASE_URL = env.apiBaseUrl();
+
+      const params = new URLSearchParams();
+      params.set('userId', userId);
+
+      const result = await apiFetch<any>(
+        `${API_BASE_URL}/analytics/user-profile?${params.toString()}`
+      );
+
+      return result ?? {};
+    },
+  });
 }

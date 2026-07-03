@@ -93,20 +93,14 @@ def test_thread_file_handler_routes_by_context(tmp_path: Path):
 
 
 def test_end_conversation_turn_syncs_turn_to_mongo(tmp_path: Path, monkeypatch):
-    sync_calls: list[tuple[str, dict, str | None]] = []
+    sync_calls: list[tuple[str, list]] = []
 
-    def _capture_sync(
-        thread_id: str,
-        turn_record: dict,
-        *,
-        full_logs: str | None = None,
-        background=True,
-    ):
-        sync_calls.append((thread_id, turn_record, full_logs))
+    def _capture_sync(thread_id: str, turn_records, *, full_logs=None, background=True):
+        sync_calls.append((thread_id, turn_records))
 
     monkeypatch.setattr(tl, "thread_log_dir", lambda: tmp_path)
     monkeypatch.setattr(tl, "mongo_thread_log_enabled", lambda: True)
-    monkeypatch.setattr(tl, "sync_turn_to_mongo", _capture_sync)
+    monkeypatch.setattr(tl, "sync_completed_turns_to_mongo", _capture_sync)
 
     tl.set_thread_log_context("thread-mongo")
     tl.begin_conversation_turn("Hi")
@@ -114,8 +108,10 @@ def test_end_conversation_turn_syncs_turn_to_mongo(tmp_path: Path, monkeypatch):
     tl.clear_thread_log_context()
 
     assert len(sync_calls) == 1
-    thread_id, turn_record, full_logs = sync_calls[0]
+    thread_id, turn_records = sync_calls[0]
     assert thread_id == "thread-mongo"
+    assert len(turn_records) == 1
+    turn_record = turn_records[0]
     assert turn_record["turn"] == 1
     assert turn_record["user_message"] == "Hi"
     assert turn_record["bot_message"] == "Hello!"
@@ -123,27 +119,50 @@ def test_end_conversation_turn_syncs_turn_to_mongo(tmp_path: Path, monkeypatch):
     assert "FARMER MESSAGE" in turn_record["log_text"]
     assert "BOT MESSAGE" in turn_record["log_text"]
     assert "END TURN 1" in turn_record["log_text"]
-    assert full_logs is not None
-    assert "END TURN 1" in full_logs
     assert (tmp_path / "thread-mongo.txt").is_file()
+
+
+def test_end_conversation_turn_backfills_missing_turn_one(tmp_path: Path, monkeypatch):
+    """Turn 2 end should send both turn 1 (clarify) and turn 2 records to Mongo sync."""
+    sync_calls: list[list] = []
+
+    def _capture_sync(thread_id: str, turn_records, *, full_logs=None, background=True):
+        sync_calls.append(turn_records)
+
+    monkeypatch.setattr(tl, "thread_log_dir", lambda: tmp_path)
+    monkeypatch.setattr(tl, "mongo_thread_log_enabled", lambda: True)
+    monkeypatch.setattr(tl, "sync_completed_turns_to_mongo", _capture_sync)
+
+    tl.set_thread_log_context("thread-backfill")
+    tl.begin_conversation_turn("my potatoes have leaf blight disease")
+    tl.end_conversation_turn("Please share your state.", outcome="clarify")
+    tl.clear_thread_log_context()
+
+    tl.set_thread_log_context("thread-backfill")
+    tl.begin_conversation_turn("punjab")
+    tl.end_conversation_turn("Here is advice.", outcome="answer")
+    tl.clear_thread_log_context()
+
+    assert len(sync_calls) == 2
+    second_batch = sync_calls[1]
+    assert len(second_batch) == 2
+    assert second_batch[0]["turn"] == 1
+    assert second_batch[0]["outcome"] == "clarify"
+    assert "leaf blight" in second_batch[0]["user_message"]
+    assert second_batch[1]["turn"] == 2
+    assert second_batch[1]["user_message"] == "punjab"
 
 
 def test_turn_state_survives_node_context_reset(tmp_path: Path, monkeypatch):
     """Simulate LangGraph: planner sets turn, later node clears ContextVar but ends turn."""
-    sync_calls: list[dict] = []
+    sync_calls: list[list] = []
 
-    def _capture_sync(
-        thread_id: str,
-        turn_record: dict,
-        *,
-        full_logs: str | None = None,
-        background=True,
-    ):
-        sync_calls.append(turn_record)
+    def _capture_sync(thread_id: str, turn_records, *, full_logs=None, background=True):
+        sync_calls.append(turn_records)
 
     monkeypatch.setattr(tl, "thread_log_dir", lambda: tmp_path)
     monkeypatch.setattr(tl, "mongo_thread_log_enabled", lambda: True)
-    monkeypatch.setattr(tl, "sync_turn_to_mongo", _capture_sync)
+    monkeypatch.setattr(tl, "sync_completed_turns_to_mongo", _capture_sync)
 
     tl.set_thread_log_context("thread-nodes")
     tl.begin_conversation_turn("hii")
@@ -154,27 +173,21 @@ def test_turn_state_survives_node_context_reset(tmp_path: Path, monkeypatch):
     tl.clear_thread_log_context()
 
     assert len(sync_calls) == 1
-    assert sync_calls[0]["user_message"] == "hii"
-    assert "hii" in sync_calls[0]["log_text"]
-    assert "Hi there!" in sync_calls[0]["log_text"]
-    assert "END TURN 1" in sync_calls[0]["log_text"]
+    assert sync_calls[0][0]["user_message"] == "hii"
+    assert "hii" in sync_calls[0][0]["log_text"]
+    assert "Hi there!" in sync_calls[0][0]["log_text"]
+    assert "END TURN 1" in sync_calls[0][0]["log_text"]
 
 
 def test_turn_buffer_captures_handler_logs(tmp_path: Path, monkeypatch):
-    sync_calls: list[dict] = []
+    sync_calls: list[list] = []
 
-    def _capture_sync(
-        thread_id: str,
-        turn_record: dict,
-        *,
-        full_logs: str | None = None,
-        background=True,
-    ):
-        sync_calls.append(turn_record)
+    def _capture_sync(thread_id: str, turn_records, *, full_logs=None, background=True):
+        sync_calls.append(turn_records)
 
     monkeypatch.setattr(tl, "thread_log_dir", lambda: tmp_path)
     monkeypatch.setattr(tl, "mongo_thread_log_enabled", lambda: True)
-    monkeypatch.setattr(tl, "sync_turn_to_mongo", _capture_sync)
+    monkeypatch.setattr(tl, "sync_completed_turns_to_mongo", _capture_sync)
 
     handler = tl.ThreadFileLogHandler(tmp_path)
     handler.addFilter(tl.ThreadLogFilter())
@@ -190,8 +203,8 @@ def test_turn_buffer_captures_handler_logs(tmp_path: Path, monkeypatch):
     logger.removeHandler(handler)
 
     assert len(sync_calls) == 1
-    assert "planner resolved state=Punjab" in sync_calls[0]["log_text"]
-    assert "Weather?" in sync_calls[0]["log_text"]
+    assert "planner resolved state=Punjab" in sync_calls[0][0]["log_text"]
+    assert "Weather?" in sync_calls[0][0]["log_text"]
 
 
 def test_handler_emit_writes_file_only_not_mongo_per_line(tmp_path: Path, monkeypatch):
@@ -201,7 +214,7 @@ def test_handler_emit_writes_file_only_not_mongo_per_line(tmp_path: Path, monkey
         sync_calls.append(thread_id)
 
     monkeypatch.setattr(tl, "mongo_thread_log_enabled", lambda: True)
-    monkeypatch.setattr(tl, "sync_turn_to_mongo", _capture_sync)
+    monkeypatch.setattr(tl, "sync_completed_turns_to_mongo", _capture_sync)
 
     handler = tl.ThreadFileLogHandler(tmp_path)
     handler.addFilter(tl.ThreadLogFilter())
