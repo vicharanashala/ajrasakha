@@ -584,6 +584,19 @@ private normalizeDistrictName(district?: string): string {
   return normalized;
 }
 
+private getDistrictVariants(district: string): string[] {
+  const normalized = this.normalizeDistrictName(district);
+
+  return Object.entries(this.DISTRICT_ALIASES)
+    .filter(([oldName, canonical]) =>
+      this.normalizeDistrictName(oldName) === normalized ||
+      this.normalizeDistrictName(canonical) === normalized,
+    )
+    .flatMap(([oldName, canonical]) => [oldName, canonical])
+    .concat(district)
+    .filter((v, i, arr) => arr.indexOf(v) === i);
+}
+
 private getEquivalentLocationNames(value: string): string[] {
   const normalized = this.normalizeDistrictName(value);
   const equivalents: Record<string, string[]> = {
@@ -3234,10 +3247,25 @@ for (const item of districtUsers) {
       if (!districtLabel) {
         throw new BadRequestError('district is required');
       }
-      const districtMatch = {
-        'details.state': state,
-        'details.district': districtLabel,
-      };
+      // const districtMatch = {
+      //   'details.state': state,
+      //   'details.district': districtLabel,
+      // };
+
+      const variants = this.getDistrictVariants(districtLabel);
+
+const districtMatch = {
+  "details.state": {
+    $regex: `^${state}$`,
+    $options: "i",
+  },
+  $or: variants.map(name => ({
+    "details.district": {
+      $regex: `^${name}$`,
+      $options: "i",
+    },
+  })),
+};
       const typeMatch =
         questionType === 'duplicate'
           ? {status: 'duplicate'}
