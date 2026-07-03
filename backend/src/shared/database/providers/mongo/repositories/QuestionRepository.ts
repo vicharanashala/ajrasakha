@@ -7365,7 +7365,8 @@ export class QuestionRepository implements IQuestionRepository {
   }
 
   /** Sets or clears a role assignee (gateKeeperId / auditorId) and its assignedAt
-   *  timestamp on a question. */
+   *  timestamp on a question. Resets the matching finishedAt (a new/removed assignment
+   *  starts a fresh turn). */
   async setRoleAssignee(
     questionId: string,
     assigneeField: 'gateKeeperId' | 'auditorId',
@@ -7374,15 +7375,34 @@ export class QuestionRepository implements IQuestionRepository {
   ): Promise<void> {
     await this.init();
     const now = new Date();
+    const finishedAtField =
+      assigneeField === 'gateKeeperId'
+        ? 'gateKeeperFinishedAt'
+        : 'auditorFinishedAt';
     await this.QuestionCollection.updateOne(
       { _id: new ObjectId(questionId) },
       {
         $set: {
           [assigneeField]: assigneeId ? new ObjectId(assigneeId) : null,
           [assignedAtField]: assigneeId ? now : null,
+          [finishedAtField]: null,
           updatedAt: now,
         },
       },
+    );
+  }
+
+  /** Stamps the finished-at time for a role assignee (gate keeper / auditor) when they
+   *  act on the question. The assignee id is intentionally kept for history. */
+  async markRoleFinished(
+    questionId: string,
+    finishedAtField: 'gateKeeperFinishedAt' | 'auditorFinishedAt',
+    finishedAt: Date,
+  ): Promise<void> {
+    await this.init();
+    await this.QuestionCollection.updateOne(
+      { _id: new ObjectId(questionId) },
+      { $set: { [finishedAtField]: finishedAt, updatedAt: new Date() } },
     );
   }
   /** One page (skip/limit) + exact total for a Queue-Details question section.

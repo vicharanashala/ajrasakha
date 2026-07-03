@@ -6718,28 +6718,38 @@ export class QuestionService extends BaseService implements IQuestionService {
       // doesn't pass one — e.g. after an answer approval/close.
       const status = newStatus ?? question.status;
 
+      // When the question leaves the role's handling statuses, the assignee has acted:
+      // free the user (assignedQuestionIds) and stamp finishedAt — but keep the assignee
+      // id on the question for history/timeline. Guarded by finishedAt so a later status
+      // change doesn't overwrite the original finish time.
       const gkId = (question as any).gateKeeperId?.toString();
-      if (gkId && !QuestionService.GATE_KEEPER_STATUSES.includes(status)) {
+      if (
+        gkId &&
+        !QuestionService.GATE_KEEPER_STATUSES.includes(status) &&
+        !(question as any).gateKeeperFinishedAt
+      ) {
         await Promise.all([
           this.userRepo.removeAssignedQuestion(gkId, questionId),
-          this.questionRepo.setRoleAssignee(
+          this.questionRepo.markRoleFinished(
             questionId,
-            'gateKeeperId',
-            'gateKeeperAssignedAt',
-            null,
+            'gateKeeperFinishedAt',
+            new Date(),
           ),
         ]);
       }
 
       const audId = (question as any).auditorId?.toString();
-      if (audId && !QuestionService.AUDITOR_STATUSES.includes(status)) {
+      if (
+        audId &&
+        !QuestionService.AUDITOR_STATUSES.includes(status) &&
+        !(question as any).auditorFinishedAt
+      ) {
         await Promise.all([
           this.userRepo.removeAssignedQuestion(audId, questionId),
-          this.questionRepo.setRoleAssignee(
+          this.questionRepo.markRoleFinished(
             questionId,
-            'auditorId',
-            'auditorAssignedAt',
-            null,
+            'auditorFinishedAt',
+            new Date(),
           ),
         ]);
       }

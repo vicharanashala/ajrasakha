@@ -148,20 +148,25 @@ export interface IQuestion {
    *  gate-keeper/auditor queue cron. New questions default to true. Gate keepers
    *  handle dynamic / duplicate / queue_duplicate questions, one at a time. */
   autoAllocateGateKeeper?: boolean;
-  /** Gate keeper currently assigned to this question (set by the cron; cleared when
-   *  the gate keeper acts — pass / allocate experts / push to auditor). */
+  /** Gate keeper assigned to this question (set by the cron). Kept for history after
+   *  they act (pass / allocate experts / push to auditor) — gateKeeperFinishedAt is
+   *  stamped then and the gate keeper is freed via their assignedQuestionIds. */
   gateKeeperId?: ObjectId | string | null;
   /** Timestamp when a gate keeper was assigned. */
   gateKeeperAssignedAt?: Date | null;
+  /** Timestamp when the gate keeper finished (acted on) the question. */
+  gateKeeperFinishedAt?: Date | null;
   /** Whether this question is eligible to be auto-allocated to an auditor by the
    *  gate-keeper/auditor queue cron. New questions default to true. Auditors handle
    *  auditor_review questions, one at a time. */
   autoAllocateAuditor?: boolean;
-  /** Auditor currently assigned to this question (set by the cron; cleared when the
-   *  auditor acts — push to GDB / notify user). */
+  /** Auditor assigned to this question (set by the cron). Kept for history after they
+   *  act (push to GDB / notify user) — auditorFinishedAt is stamped then. */
   auditorId?: ObjectId | string | null;
   /** Timestamp when an auditor was assigned. */
   auditorAssignedAt?: Date | null;
+  /** Timestamp when the auditor finished (acted on) the question. */
+  auditorFinishedAt?: Date | null;
   referenceQuestionDetails?: Array<{
     _id: ObjectId | string;
     duplicate: boolean;

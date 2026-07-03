@@ -523,6 +523,8 @@ export interface IQuestionFullData {
   auditorId?: string | null;
   gateKeeperAssignedAt?: string | null;
   auditorAssignedAt?: string | null;
+  gateKeeperFinishedAt?: string | null;
+  auditorFinishedAt?: string | null;
   autoAllocateGateKeeper?: boolean;
   autoAllocateAuditor?: boolean;
   /** True when the requesting user is the moderator this question is assigned to. Gates the Pass / Accept / Push to GDB actions. */

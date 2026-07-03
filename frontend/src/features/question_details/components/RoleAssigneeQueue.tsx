@@ -64,6 +64,9 @@ export const RoleAssigneeQueue = ({
   const assignedAt = isGK
     ? question.gateKeeperAssignedAt
     : question.auditorAssignedAt;
+  const finishedAt = isGK
+    ? question.gateKeeperFinishedAt
+    : question.auditorFinishedAt;
   // Auto-allocate is ON unless explicitly false (default true on new questions).
   const autoAllocate =
     (isGK ? question.autoAllocateGateKeeper : question.autoAllocateAuditor) !==
@@ -252,7 +255,7 @@ export const RoleAssigneeQueue = ({
                   </p>
                 </div>
                 <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap bg-green-500/10 text-green-600 dark:text-green-400">
-                  Assigned
+                  {finishedAt ? "Completed" : "Assigned"}
                 </span>
               </div>
 
@@ -277,13 +280,19 @@ export const RoleAssigneeQueue = ({
                     </div>
                   </div>
                   <div className="flex items-start gap-1.5 rounded-md bg-background/40 border border-border/30 px-1.5 py-1">
-                    <CheckCheck className="w-3 h-3 mt-0.5 shrink-0 text-amber-500" />
+                    <CheckCheck
+                      className={`w-3 h-3 mt-0.5 shrink-0 ${
+                        finishedAt ? "text-green-500" : "text-amber-500"
+                      }`}
+                    />
                     <div className="flex flex-col min-w-0">
                       <span className="text-[8px] uppercase tracking-wide text-muted-foreground font-medium">
                         Finished
                       </span>
                       <span className="text-[10px] font-semibold text-foreground leading-snug break-words">
-                        In Progress
+                        {finishedAt
+                          ? new Date(finishedAt).toLocaleString()
+                          : "In Progress"}
                       </span>
                     </div>
                   </div>
