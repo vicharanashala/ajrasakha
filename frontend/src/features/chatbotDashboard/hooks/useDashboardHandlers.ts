@@ -15,7 +15,7 @@ interface SectionRefs {
 }
 
 interface DashboardHandlersProps {
-  source: "annam" | "whatsapp";
+  source: "annam" | "whatsapp" | "acc";
   loadImmediately: boolean;
   onSetActiveView: (view: DashboardView) => void;
   onSetUserDetailsInitialFilters: (filters: any) => void;

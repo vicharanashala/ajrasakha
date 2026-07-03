@@ -88,6 +88,7 @@ import { Button } from "@/components/atoms/button";
 import { SourceTabsHeader } from "./components/SourceTabs";
 import { QueryInsightsSection } from "./components/QueryInsightsSection";
 import { useDashboardHandlers } from "./hooks/useDashboardHandlers";
+import { ACCAnalyticsDashboard } from "@/components/ACCAnalyticsDashboard";
 
 // ─── Lazy Loaded Components ──────────────────────────────────────────────────
 const LazyUserGrowthChart = React.lazy(
@@ -125,13 +126,13 @@ export function AnnamDashboard_dev({
   // onSourceChange,
 }: {
   className?: string;
-  source?: "annam" | "whatsapp";
-  onSourceChange?: (source: "annam" | "whatsapp") => void;
+  source?: "annam" | "whatsapp" | "acc";
+  onSourceChange?: (source: "annam" | "whatsapp" | "acc") => void;
 }) {
   const queryClient = useQueryClient();
 
   // ─── Core State ────────────────────────────────────────────────────────────
-  const [source, setSource] = useState<"annam" | "whatsapp">(initialSource);
+  const [source, setSource] = useState<"annam" | "whatsapp" | "acc">(initialSource);
   const [activeView, setActiveView] = useState<DashboardView>("overview");
   const [activeChartTab, setActiveChartTab] = useState<string>("dau");
   const [activeSegment, setActiveSegment] = useState<Segment | null>(null);
@@ -414,7 +415,7 @@ export function AnnamDashboard_dev({
   }, [queryClient]);
 
   // ─── Source Change Handler ─────────────────────────────────────────────────
-  const handleSourceChange = useCallback((newSource: "annam" | "whatsapp") => {
+  const handleSourceChange = useCallback((newSource: "annam" | "whatsapp" | "acc") => {
     setSource(newSource);
     if (newSource === "whatsapp") {
       setFilters((prev) => ({ ...prev, userType: "all" }));
@@ -499,7 +500,7 @@ export function AnnamDashboard_dev({
             )}
 
             <div className="flex-1 overflow-y-auto px-5 pb-5">
-              {!mapView && (
+              {!mapView && source !== "acc" && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 items-stretch">
                   <ClosedQuestionsCard
                     closedQuestions={
@@ -601,7 +602,15 @@ export function AnnamDashboard_dev({
               />
 
               {/* <DashboardFilters filters={filters} onFilterChange={setFilters} /> */}
-              {mapView ? (
+              {source === "acc" ? (
+                <div
+                  ref={(el) => {
+                    sectionRefs.current["overview"] = el;
+                  }}
+                >
+                  <ACCAnalyticsDashboard />
+                </div>
+              ) : mapView ? (
                 <AnalyticsMap
                   source={source}
                   userType={filters.userType}
