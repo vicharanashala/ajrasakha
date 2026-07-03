@@ -134,16 +134,16 @@ export const ModeratorsOverview: React.FC<ModeratorsOverviewProps> = ({
 
   return (
     <Card ref={ref} className="flex flex-col">
-      <CardHeader className="flex flex-col gap-5 pb-0 xl:flex-row xl:items-start xl:justify-between">
-        <div>
+      <CardHeader className="flex flex-col gap-4 pb-0 2xl:flex-row 2xl:items-start 2xl:justify-between">
+        <div className="min-w-0 space-y-1">
           <CardTitle>Role Overview</CardTitle>
           <CardDescription>
             Active users by role for the selected time window
           </CardDescription>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-[minmax(160px,1fr)_minmax(220px,1fr)] xl:w-auto">
-          <div className="flex flex-col gap-1">
+        <div className="grid w-full gap-3 lg:grid-cols-[minmax(160px,220px)_minmax(0,1fr)] 2xl:max-w-[520px]">
+          <div className="flex min-w-0 flex-col gap-1">
             <label className="text-xs font-medium text-muted-foreground">
               Select Date
             </label>
@@ -151,27 +151,27 @@ export const ModeratorsOverview: React.FC<ModeratorsOverviewProps> = ({
               type="date"
               value={selectedDate}
               onChange={(e) => onSelectedDateChange(e.target.value)}
-              className="h-9 rounded-md border bg-background px-3 text-sm"
+              className="h-9 w-full min-w-0 rounded-md border bg-background px-3 text-sm"
             />
           </div>
 
-          <div className="flex flex-col gap-1">
+          <div className="flex min-w-0 flex-col gap-1">
             <label className="text-xs font-medium text-muted-foreground">
               Active Time Window
             </label>
-            <div className="flex items-center gap-2">
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">
               <input
                 type="time"
                 value={startTime}
                 onChange={(e) => onStartTimeChange(e.target.value)}
-                className="h-9 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm"
+                className="h-9 w-full min-w-0 rounded-md border bg-background px-3 text-sm"
               />
-              <span className="text-sm text-muted-foreground">to</span>
+              <span className="text-sm text-muted-foreground sm:text-center">to</span>
               <input
                 type="time"
                 value={endTime}
                 onChange={(e) => onEndTimeChange(e.target.value)}
-                className="h-9 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm"
+                className="h-9 w-full min-w-0 rounded-md border bg-background px-3 text-sm"
               />
             </div>
           </div>
@@ -179,16 +179,16 @@ export const ModeratorsOverview: React.FC<ModeratorsOverviewProps> = ({
       </CardHeader>
 
       <CardContent className="pb-0">
-        <div className="grid gap-6 xl:grid-cols-[240px_minmax(0,1fr)] xl:items-start">
-          <div className="relative mx-auto w-[220px] xl:mx-0">
-            <ResponsiveContainer width="100%" height={220}>
+        <div className="grid gap-6 md:grid-cols-2 md:items-start">
+          <div className="relative mx-auto w-full max-w-[300px] md:max-w-none">
+            <ResponsiveContainer width="100%" height={240}>
               <PieChart key={key}>
                 <Pie
                   data={roleRows}
                   dataKey="count"
                   nameKey="role"
-                  innerRadius={70}
-                  outerRadius={100}
+                  innerRadius={76}
+                  outerRadius={110}
                   paddingAngle={4}
                   cursor="pointer"
                   stroke="none"
@@ -214,17 +214,17 @@ export const ModeratorsOverview: React.FC<ModeratorsOverviewProps> = ({
             </div>
           </div>
 
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
+          <div className="min-w-0 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-sm font-semibold text-foreground">
                 Role Breakdown
               </h3>
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline" className="shrink-0 text-xs">
                 {roleRows.length} roles
               </Badge>
             </div>
 
-            <ScrollArea className="h-[220px] rounded-md border p-1">
+            <ScrollArea className="h-[240px] rounded-md border p-1">
               <div className="space-y-2 pr-2">
                 {roleRows.map((item) => (
                   <div
@@ -233,7 +233,7 @@ export const ModeratorsOverview: React.FC<ModeratorsOverviewProps> = ({
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <div
                             className="h-3 w-3 shrink-0 rounded-full"
                             style={{ backgroundColor: item.fill }}
@@ -241,12 +241,6 @@ export const ModeratorsOverview: React.FC<ModeratorsOverviewProps> = ({
                           <span className="truncate text-sm font-medium text-foreground">
                             {item.role}
                           </span>
-                          <Badge
-                            variant="outline"
-                            className={`shrink-0 text-[10px] ${item.chipClass}`}
-                          >
-                            Role
-                          </Badge>
                         </div>
 
                         {(item.role === "Experts" ||
@@ -265,7 +259,7 @@ export const ModeratorsOverview: React.FC<ModeratorsOverviewProps> = ({
                         )}
                       </div>
 
-                      <div className="text-right">
+                      <div className="shrink-0 text-right">
                         <div className="text-xs text-muted-foreground">
                           Active
                         </div>

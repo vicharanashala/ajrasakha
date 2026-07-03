@@ -267,13 +267,15 @@ export const Dashboard = () => {
   const LoadingWrapper = ({
     loading,
     text,
+    className,
     children,
   }: {
     loading: boolean;
     text: string;
+    className?: string;
     children: React.ReactNode;
   }) => (
-    <div className={`relative overflow-hidden rounded-xl min-h-[300px] transition-all duration-300 ${loading ? "opacity-50 blur-sm pointer-events-none" : ""}`}>
+    <div className={`relative min-h-[300px] overflow-hidden rounded-xl transition-all duration-300 ${className ?? ""} ${loading ? "opacity-50 blur-sm pointer-events-none" : ""}`}>
       {loading && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/50 backdrop-blur-sm rounded-xl">
           <Spinner text={text} fullScreen={false} />
@@ -305,10 +307,11 @@ export const Dashboard = () => {
         </div>
 
         {/* Top Stats Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div className="mb-6 grid grid-cols-1 items-start gap-6 xl:grid-cols-2 xl:items-stretch">
           <LoadingWrapper
             loading={isOverviewLoading}
             text="Fetching role overview..."
+            className="xl:h-full"
           >
             <ModeratorsOverview
               data={overviewData?.userRoleOverview ?? []}
@@ -325,6 +328,7 @@ export const Dashboard = () => {
           <LoadingWrapper
             loading={isOverviewLoading}
             text="Fetching approval stats..."
+            className="xl:h-full"
           >
             <ApprovalRateCard
               data={
