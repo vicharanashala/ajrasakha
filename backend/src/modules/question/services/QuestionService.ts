@@ -3853,6 +3853,8 @@ export class QuestionService extends BaseService implements IQuestionService {
     assigned_gate_keeper: {name: string; email: string} | null;
     assigned_auditor: {name: string; email: string} | null;
     isAssignedModerator: boolean;
+    isAssignedGateKeeper: boolean;
+    isAssignedAuditor: boolean;
   }> {
     try {
       const user = await this.userRepo.findById(userId);
@@ -3935,6 +3937,12 @@ export class QuestionService extends BaseService implements IQuestionService {
       // Used by the UI to gate the Pass / Accept / Push to GDB actions.
       const isAssignedModerator =
         !!assignedModeratorId && assignedModeratorId === userId;
+      // Same, for the gate keeper / auditor role queues — computed server-side to
+      // avoid ObjectId serialization mismatches when comparing ids on the client.
+      const isAssignedGateKeeper =
+        !!assignedGateKeeperId && assignedGateKeeperId === userId;
+      const isAssignedAuditor =
+        !!assignedAuditorId && assignedAuditorId === userId;
 
       // Resolve user email from conversation collection using threadId
       let threadUserEmail: string | null = null;
@@ -3955,6 +3963,8 @@ export class QuestionService extends BaseService implements IQuestionService {
         assigned_gate_keeper,
         assigned_auditor,
         isAssignedModerator,
+        isAssignedGateKeeper,
+        isAssignedAuditor,
       };
     } catch (error) {
       throw new InternalServerError(`Failed to fetch question data: ${error}`);

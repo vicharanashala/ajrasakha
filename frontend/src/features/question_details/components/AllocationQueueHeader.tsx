@@ -391,7 +391,7 @@ export const AllocationQueueHeader = ({
               </Dialog>
             )}
           </div>
-        ) : currentUser.role !== "expert" ? (
+        ) : (
           <div className="flex items-center gap-2 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
             <span
               className={`h-2.5 w-2.5 rounded-full ${
@@ -402,7 +402,7 @@ export const AllocationQueueHeader = ({
               Auto-allocate: {autoAllocate ? "On" : "Off"}
             </span>
           </div>
-        ) : null}
+        )}
       </div>
     </div>
   );

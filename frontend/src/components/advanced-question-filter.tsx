@@ -132,6 +132,9 @@ export type AdvanceFilterValues = {
   is_non_agri?: boolean;
   /** When set, filters to questions whose moderatorId matches this ID (dedicated tab). */
   moderatorId?: string;
+  /** Dedicated tab for gate keepers / auditors — filters by their assigned questions. */
+  gateKeeperId?: string;
+  auditorId?: string;
 };
 
 

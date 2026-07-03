@@ -938,7 +938,7 @@ export class QuestionController {
   ) {
     const { questionId } = params;
     const userId = user._id.toString();
-    const { question, approved_moderator, assigned_moderator, assigned_gate_keeper, assigned_auditor, isAssignedModerator } = await this.questionService.getQuestionFullData(
+    const { question, approved_moderator, assigned_moderator, assigned_gate_keeper, assigned_auditor, isAssignedModerator, isAssignedGateKeeper, isAssignedAuditor } = await this.questionService.getQuestionFullData(
       questionId,
       userId,
     );
@@ -947,7 +947,7 @@ export class QuestionController {
       throw new NotFoundError(`Question with id ${questionId} not found`);
     }
 
-    return { success: true, data: { ...question, approved_moderator, assigned_moderator, assigned_gate_keeper, assigned_auditor, isAssignedModerator } };
+    return { success: true, data: { ...question, approved_moderator, assigned_moderator, assigned_gate_keeper, assigned_auditor, isAssignedModerator, isAssignedGateKeeper, isAssignedAuditor } };
   }
 
   @Patch('/:questionId/toggle-auto-allocate')

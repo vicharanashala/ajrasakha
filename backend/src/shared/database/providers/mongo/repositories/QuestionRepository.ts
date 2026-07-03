@@ -367,6 +367,8 @@ export class QuestionRepository implements IQuestionRepository {
         pae_review,
         is_non_agri,
         moderatorId,
+        gateKeeperId,
+        auditorId,
       } = query;
       //  const filter: any = {};
       const filter: any = {
@@ -518,6 +520,26 @@ export class QuestionRepository implements IQuestionRepository {
         // A moderator's assignments span all question types (including PAE questions),
         // so drop the pae_review restriction applied above for the normal tabs —
         // otherwise pae_review:true assignments would be hidden from "My Assignments".
+        delete filter.$or;
+        delete filter.pae_review;
+      }
+
+      // --- Gate keeper "My Assignments" tab: questions assigned to this gate keeper,
+      // restricted to the gate-keeper handling statuses. ---
+      if (gateKeeperId) {
+        if (!filter.$and) filter.$and = [];
+        filter.$and.push({ gateKeeperId: new ObjectId(gateKeeperId as string) });
+        filter.status = { $in: ['dynamic', 'duplicate', 'queue_duplicate'] };
+        delete filter.$or;
+        delete filter.pae_review;
+      }
+
+      // --- Auditor "My Assignments" tab: questions assigned to this auditor,
+      // restricted to the auditor_review status. ---
+      if (auditorId) {
+        if (!filter.$and) filter.$and = [];
+        filter.$and.push({ auditorId: new ObjectId(auditorId as string) });
+        filter.status = { $in: ['auditor_review'] };
         delete filter.$or;
         delete filter.pae_review;
       }

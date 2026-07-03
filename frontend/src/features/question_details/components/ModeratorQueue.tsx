@@ -98,18 +98,11 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
     );
   }, [stfModerators, searchTerm]);
 
-  // Moderators/admins manage this section; gate keepers and auditors see it as
-  // read-only (the moderator queue is visible to them, but the management controls —
-  // auto-allocate toggle, Select Moderator, Remove Moderator — are hidden).
+  // The moderator queue is visible to everyone (including experts) as read-only;
+  // only moderators/admins get the management controls (auto-allocate toggle,
+  // Select Moderator, Remove Moderator).
   const canManageModerator =
     currentUser.role === "moderator" || currentUser.role === "admin";
-  const canViewModeratorQueue =
-    canManageModerator ||
-    currentUser.role === "gate_keeper" ||
-    currentUser.role === "auditor";
-  if (!canViewModeratorQueue) {
-    return null;
-  }
 
   // Dynamic / duplicate questions and anything in auditor review go through the
   // Gate Keeper → Auditor flow, not normal moderator allocation — hide all

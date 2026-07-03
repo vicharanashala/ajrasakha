@@ -361,6 +361,8 @@ export interface IQuestionService {
     assigned_gate_keeper: {name: string; email: string} | null;
     assigned_auditor: {name: string; email: string} | null;
     isAssignedModerator: boolean;
+    isAssignedGateKeeper: boolean;
+    isAssignedAuditor: boolean;
   }>;
 
   /** Manually (re)assign the moderator for a question. */

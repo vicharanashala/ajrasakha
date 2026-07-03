@@ -722,7 +722,11 @@ export const QuestionsFilters = ({
         hasSearch={!!search}
         sourceCounts={statusSummary?.sourceCounts}
         totalSearchCount={search ? statusSummary?.totalQuestions : undefined}
-        showDedicated={userRole === "moderator"}
+        showDedicated={
+          userRole === "moderator" ||
+          userRole === "gate_keeper" ||
+          userRole === "auditor"
+        }
         isDedicatedView={viewMode === "dedicated"}
         onDedicatedClick={() => setViewMode(viewMode === "dedicated" ? "all" : "dedicated")}
       />

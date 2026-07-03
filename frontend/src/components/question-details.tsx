@@ -271,30 +271,22 @@ export const QuestionDetails = ({
 
           {/* Queue order: Gate Keeper → Auditor → Expert → Moderator → Re-route */}
 
-          {/* 1. Gate keeper / auditor role queues — same layout as the Moderator Queue */}
-          {currentUser.role !== "expert" &&
-            (question.assigned_gate_keeper ||
-              ["dynamic", "duplicate", "queue_duplicate", "auditor_review"].includes(
-                question.status,
-              )) && (
-              <RoleAssigneeQueue
-                title="Gate Keeper Queue"
-                noun="gate keeper"
-                role="gate_keeper"
-                question={question}
-                currentUser={currentUser}
-              />
-            )}
-          {currentUser.role !== "expert" &&
-            (question.assigned_auditor || question.status === "auditor_review") && (
-              <RoleAssigneeQueue
-                title="Auditor Queue"
-                noun="auditor"
-                role="auditor"
-                question={question}
-                currentUser={currentUser}
-              />
-            )}
+          {/* 1. Gate keeper / auditor role queues — always shown (read-only unless the
+                viewer is a moderator/admin who can manage). */}
+          <RoleAssigneeQueue
+            title="Gate Keeper Queue"
+            noun="gate keeper"
+            role="gate_keeper"
+            question={question}
+            currentUser={currentUser}
+          />
+          <RoleAssigneeQueue
+            title="Auditor Queue"
+            noun="auditor"
+            role="auditor"
+            question={question}
+            currentUser={currentUser}
+          />
 
           {/* 2. Expert allocation queue */}
           <AllocationTimeline

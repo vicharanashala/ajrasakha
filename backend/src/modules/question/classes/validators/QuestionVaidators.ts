@@ -882,6 +882,12 @@ class GetDetailedQuestionsQuery {
   })
   @IsOptional()
   moderatorId?: string;
+
+  @IsOptional()
+  gateKeeperId?: string;
+
+  @IsOptional()
+  auditorId?: string;
 }
 
 export interface IQuestionWithAnswerTexts {

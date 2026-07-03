@@ -527,6 +527,9 @@ export interface IQuestionFullData {
   autoAllocateAuditor?: boolean;
   /** True when the requesting user is the moderator this question is assigned to. Gates the Pass / Accept / Push to GDB actions. */
   isAssignedModerator?: boolean;
+  /** True when the requesting user is the assigned gate keeper / auditor (server-computed). */
+  isAssignedGateKeeper?: boolean;
+  isAssignedAuditor?: boolean;
   /** Set when a Gate Keeper pushes to the Auditor (status → 'auditor_review'); records
    *  whether the question was 'dynamic' or 'duplicate' so the Auditor shows the right
    *  action (Notify User vs Push to GDB). */

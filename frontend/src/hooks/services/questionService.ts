@@ -168,6 +168,12 @@ export class QuestionService {
     if (filter.moderatorId) {
       params.append("moderatorId", filter.moderatorId);
     }
+    if (filter.gateKeeperId) {
+      params.append("gateKeeperId", filter.gateKeeperId);
+    }
+    if (filter.auditorId) {
+      params.append("auditorId", filter.auditorId);
+    }
 
     // states and normalisedCrops sent as JSON arrays in request body
     const requestBody: { states?: string[]; normalisedCrops?: string[] } = {};
