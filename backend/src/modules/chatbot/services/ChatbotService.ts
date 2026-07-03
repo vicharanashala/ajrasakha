@@ -1212,8 +1212,30 @@ export class ChatbotService extends BaseService implements IChatbotService {
     source = 'annam',
     userType = 'all',
     search?: string,
+    knownDistricts?: string[],
   ): Promise<any> {
     try {
+      let districtNames = knownDistricts;
+
+      if (
+        district.trim().toLowerCase() === 'others' &&
+        (!districtNames || districtNames.length === 0)
+      ) {
+        const states = await this.lgdService.getStates();
+        const selectedState = states.find(
+          (s) =>
+            this.normalizeLocationName(s.stateNameEnglish) ===
+            this.normalizeLocationName(state),
+        );
+
+        if (selectedState) {
+          const districts = await this.lgdService.getDistricts(
+            selectedState.stateCode,
+          );
+          districtNames = districts.map((d) => d.districtNameEnglish);
+        }
+      }
+
       return await this.chatbotRepository.getQuestionFromDistrict(
         district,
         state,
@@ -1224,6 +1246,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         undefined,
         userType,
         search,
+        districtNames,
       );
     } catch (error) {
       throw new InternalServerError(

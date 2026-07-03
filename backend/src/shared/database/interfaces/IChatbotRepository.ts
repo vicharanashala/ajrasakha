@@ -521,6 +521,7 @@ export interface IChatbotRepository {
     session?: ClientSession,
     userType?: string,
     search?: string,
+    knownDistricts?: string[],
   ): Promise<any>;
 
   getTopCrops(

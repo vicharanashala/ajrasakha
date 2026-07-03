@@ -3155,6 +3155,7 @@ for (const item of districtUsers) {
     session?: ClientSession,
     userType = 'all',
     search?: string,
+    knownDistricts?: string[],
   ): Promise<any> {
     try {
       await this.initReviewSystem();
@@ -3181,10 +3182,23 @@ for (const item of districtUsers) {
       if (!districtLabel) {
         throw new BadRequestError('district is required');
       }
-      const districtMatch = {
+
+      const districtMatch: Record<string, unknown> = {
         'details.state': state,
-        'details.district': districtLabel,
       };
+
+      if (districtLabel.toLowerCase() === 'others') {
+        if (knownDistricts && knownDistricts.length > 0) {
+          districtMatch['details.district'] = {
+            $nin: knownDistricts.map(
+              (name) => new RegExp(`^${this.escapeRegex(name.trim())}$`, 'i'),
+            ),
+          };
+        }
+      } else {
+        districtMatch['details.district'] = districtLabel;
+      }
+
       const typeMatch =
         questionType === 'duplicate'
           ? {status: 'duplicate'}
