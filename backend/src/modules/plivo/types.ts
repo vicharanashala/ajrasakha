@@ -6,6 +6,7 @@ export const PLIVO_TYPES = {
   // Services
   PlivoService: Symbol.for('PlivoService'),
   FarmerService: Symbol.for('FarmerService'),
+  AgentAssignmentService: Symbol.for('AgentAssignmentService'),
 
   // Repositories
   CallFarmerRepository: Symbol.for('CallFarmerRepository'),
