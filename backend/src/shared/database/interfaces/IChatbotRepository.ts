@@ -417,6 +417,17 @@ export interface IChatbotRepository {
     search?: string,
   ): Promise<PaginatedQueryCategoryQuestions>;
 
+  getWeatherConcernQueries(
+    filters: WeatherConcernAnalyticsFilters,
+    concern: string,
+    page: number,
+    limit: number,
+    source: 'vicharanashala' | 'annam' | 'whatsapp',
+    session?: ClientSession,
+    userType?: string,
+    search?: string,
+  ): Promise<PaginatedQueryCategoryQuestions>;
+
   getQuestionFromDistrict(
     district: string,
     state?: string,
@@ -911,6 +922,8 @@ export interface IChatbotRepository {
     conversationId: string,
     source?: string,
   ): Promise<string | null>
+    
+  getQuestionLifecycle(questionId: string): Promise<any>
 }
 
 export interface ChatbotConversationData {

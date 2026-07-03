@@ -34,6 +34,7 @@ const actionLabels: Record<string, string> = {
   CHECK_DUPLICATE: "Duplicate Check",
   APPROVE_AI_INITIAL_ANSWER: "AI Initial Answer Approved",
   EXPERTS_AUTO_ALLOCATE: "Expert Auto-allocated",
+  SYSTEM_ALLOCATED: "System Allocated",
   SELECT_EXPERT: "Expert Selected",
   DELETE_EXPERT: "Expert Deleted",
   SELECT_MODERATOR: "Moderator Selected",
@@ -244,7 +245,7 @@ export const AuditTrailModal = ({ open, onClose, questionId }: AuditTrailModalPr
   );
 
   // Debug log
-  console.log("AuditTrailModal - action:", action, "page:", page, "totalDocs:", data?.totalDocuments);
+  // console.log("AuditTrailModal - action:", action, "page:", page, "totalDocs:", data?.totalDocuments);
 
   // Reset page when filters change
   useEffect(() => {

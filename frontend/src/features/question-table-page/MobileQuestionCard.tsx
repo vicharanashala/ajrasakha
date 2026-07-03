@@ -165,6 +165,11 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
     q?.referenceQuestion &&
     q?.referenceSource
   );
+  const domainValues = Array.isArray(q.details?.domain)
+    ? q.details.domain
+    : typeof q.details?.domain === "string" && q.details.domain.trim()
+      ? [q.details.domain]
+      : [];
 
   return (
     <div className="rounded-lg border p-4 bg-card shadow-sm text-sm leading-snug">
@@ -185,7 +190,15 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
 
       {visibleColumns.question && (
         <>
-      <div className="mt-1 h-6 flex items-start">
+      <div className="mt-1 h-6 flex items-start gap-1.5">
+        {q.tag === "dynamic" && (
+          <Badge
+            variant="outline"
+            className="bg-green-500/10 text-green-600 border-green-500/30"
+          >
+            Dynamic
+          </Badge>
+        )}
         {isDuplicate && (
           <Badge
             variant="outline"
@@ -250,8 +263,8 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
             <div className="truncate">
               <span className="text-muted-foreground">Domain:</span>
               <span className="ml-1">
-                {q.details?.domain?.length > 0
-                  ? q.details.domain
+                {domainValues.length > 0
+                  ? domainValues
                     .map((item) =>
                       item.length > 12 ? `${item.substring(0, 12)}...` : item
                     )

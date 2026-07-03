@@ -43,7 +43,7 @@ import type {
   FarmerHeatMapRow,
   FarmerHeatMapMetricTotals,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
-import {IQuestion, QuestionSource} from '#root/shared/interfaces/models.js';
+import {IQuestion, IQuestionSubmission, QuestionSource} from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
 import {DISTRICTS} from '#root/utils/districts.js';
 import {getFirebaseAuth} from '#root/config/firebaseAdmin.js';
@@ -55,6 +55,7 @@ import {BLOCKS, VILLAGES} from '#root/metaData.js';
 import {ILocationDistrict, ILocationState} from '#root/modules/lgd/interfaces/ILocationService.js';
 // import { BLOCKS, VILLAGES } from '#root/metaData.js';
 import { buildBaseQuestionMatch } from '#root/utils/dashboard-filters.js';
+import { buildReviewTimeline } from '#root/utils/buildReviewTat.js';
 
 const EXTERNAL_USER_ROLES = ['FARMER', ...COORDINATOR_ROLES] as const;
 
@@ -487,12 +488,18 @@ export class ChatbotRepository implements IChatbotRepository {
   }
   private QuestionCollection: Collection<IQuestion>;
   private duplicateQuestionCollection: Collection<any>;
+  private QuestionSubmissionsCollection: Collection<IQuestionSubmission>;
+  private Reroutes: Collection<any>;
+  private ReviewUsers: Collection<any>;
   private async initReviewSystem() {
     this.QuestionCollection =
       await this.db.getCollection<IQuestion>('questions');
     this.duplicateQuestionCollection = await this.db.getCollection<any>(
       'duplicate_questions',
     );
+    this.QuestionSubmissionsCollection = await this.db.getCollection<IQuestionSubmission>("question_submissions")
+    this.Reroutes = await this.db.getCollection<any>("reroutes");
+    this.ReviewUsers = await this.db.getCollection<any>("users");
   }
 
   // private normalizeDistrictName(district: string): string {
@@ -580,7 +587,19 @@ private normalizeDistrictName(
               $regexMatch: {
                 input: {
                   $concat: [
-                    {$ifNull: ['$details.domain', '']},
+                    {
+                      $cond: {
+                        if: { $isArray: '$details.domain' },
+                        then: {
+                          $reduce: {
+                            input: '$details.domain',
+                            initialValue: '',
+                            in: { $concat: ['$$value', ' ', '$$this'] }
+                          }
+                        },
+                        else: { $ifNull: ['$details.domain', ''] }
+                      }
+                    },
                     ' ',
                     {$ifNull: ['$details.category', '']},
                     ' ',
@@ -1836,7 +1855,6 @@ private normalizeDistrictName(
         },
         {
           $unwind: '$details.domain',
-          preserveNullAndEmptyArrays: false,
         },
         // ...lookupStages,
 
@@ -5069,7 +5087,7 @@ if (!districts.length) {
       }
 
       return Array.from(mergedMap.values()).sort((a, b) =>
-        a.period.localeCompare(b.period),
+        b.period.localeCompare(a.period),
       );
     } catch (error) {
       throw new InternalServerError(`Failed to get daily analytics: ${error}`);
@@ -5310,7 +5328,7 @@ if (!districts.length) {
       }
 
       return Array.from(mergedMap.values()).sort((a, b) =>
-        a.period.localeCompare(b.period),
+        b.period.localeCompare(a.period),
       );
     } catch (error) {
       throw new InternalServerError(`Failed to get weekly analytics: ${error}`);
@@ -5543,7 +5561,7 @@ if (!districts.length) {
       }
 
       return Array.from(mergedMap.values()).sort((a, b) =>
-        a.period.localeCompare(b.period),
+        b.period.localeCompare(a.period),
       );
     } catch (error) {
       throw new InternalServerError(
@@ -10308,10 +10326,8 @@ if (!districts.length) {
       };
 
       const dupeQuestions = await this.QuestionCollection.find(
-        {
-          $match: matchQuery,
-        },
-        {session},
+        matchQuery,
+        { session },
       )
         .project<{
           _id: any;
@@ -14675,17 +14691,884 @@ existing.villageVolunteers +=
             },
           },
 
-          {
-            $sort: {
-              totalUsers: -1,
+      {
+        $sort: {
+          totalUsers: -1,
+        },
+      },
+    ])
+    .toArray();
+    // console.log("Data got it", data)
+    return data;
+  }catch(error){
+    throw new InternalServerError(`Internal Server Error ${error}`)
+  }
+  
+}
+
+
+  async getQuestionLifecycle(questionId: string): Promise<any[]> {
+    try{
+      await this.initReviewSystem();
+      await this.init('annam');
+
+      const question = await this.QuestionCollection.findOne({
+        _id: new ObjectId(questionId),
+      });
+
+      if (!question) {
+        throw new Error('Question not found');
+      }
+
+      const conversation = question.threadId
+        ? await this.conversations.findOne(
+            {
+              conversationId: question.threadId,
             },
+            {
+              projection: {
+                createdAt: 1,
+                title: 1,
+                user: 1,
+              },
+            },
+          )
+        : null;
+      let questionAskedBy;
+      if(conversation){
+        questionAskedBy = await this.users.findOne({
+          _id: new ObjectId(conversation.user),
+        },{
+          projection:{
+            email: 1,
+          }
+        })
+      }
+
+      const submission =
+        await this.QuestionSubmissionsCollection.findOne({
+          questionId: question._id,
+        });
+
+      const rerouteDoc = await this.Reroutes.findOne({
+        questionId: question._id,
+      });
+
+      const reviewTimeline = buildReviewTimeline(
+        submission?.history || [],
+        submission?.queue || [],
+        question.createdAt,
+        question.status,
+        question.firstAllocationAt,
+      );
+
+      // ---------------------------------------------------
+      // Build User Map
+      // ---------------------------------------------------
+
+      const userIds = new Set<string>();
+
+      reviewTimeline.forEach((r: any) => {
+        if (r.reviewerId) {
+          userIds.add(r.reviewerId);
+        }
+      });
+
+      submission?.history?.forEach((h: any) => {
+        if (h.updatedBy) {
+          userIds.add(h.updatedBy.toString());
+        }
+      });
+
+      rerouteDoc?.reroutes?.forEach((r: any) => {
+        if (r.reroutedBy) {
+          userIds.add(r.reroutedBy.toString());
+        }
+
+        if (r.reroutedTo) {
+          userIds.add(r.reroutedTo.toString());
+        }
+      });
+
+      if (question.moderatorAssignedAt && question.moderatorId) {
+        userIds.add(question.moderatorId.toString());
+      }
+
+      const users = await this.ReviewUsers.find(
+        {
+          _id: {
+            $in: [...userIds].map((id) => new ObjectId(id)),
           },
-        ])
-        .toArray();
-      // console.log('Data got it', data);
-      return data;
-    } catch (error) {
-      throw new InternalServerError(`Internal Server Error ${error}`);
+        },
+        {
+          projection: {
+            firstName: 1,
+            lastName: 1,
+          },
+        },
+      ).toArray();
+
+      const userMap = new Map<string, string>();
+
+      users.forEach((u: any) => {
+        userMap.set(
+          u._id.toString(),
+          `${u.firstName || ''} ${u.lastName || ''}`.trim(),
+        );
+      });
+
+      // ---------------------------------------------------
+      // Timeline
+      // ---------------------------------------------------
+
+      const timeline: any[] = [];
+      // ---------------------------------------------------
+      // Reroutes
+      // ---------------------------------------------------
+
+      rerouteDoc?.reroutes?.forEach((r: any) => {
+        const isPending = r.status === "pending";
+
+        let action = "Approval Review";
+
+        if (r.status === "approved") {
+          action = "Approval Review";
+        } else if (r.status === "modified") {
+          action = "Modified";
+        } else if (r.status === "rejected") {
+          action = "Rejected";
+        } else if (r.status === "pending") {
+          action = "Approval Review";
+        }
+
+        timeline.push({
+          timestamp: r.reroutedAt,
+          user:
+            userMap.get(r.reroutedTo?.toString()) ||
+            "Unknown User",
+          action,
+          duration: isPending
+            ? Date.now() -
+              new Date(r.reroutedAt).getTime()
+            : r.updatedAt.getTime() -
+              r.reroutedAt.getTime(),
+          remarks: r.comment || "",
+          endTime: isPending ? new Date() : r.updatedAt,
+          eventType: "reroute",
+        });
+      });
+
+      const isDuplicate = question.status === "duplicate" || !!question.referenceQuestionId;
+      
+      if (question.status === "duplicate") {
+        return [
+          {
+            timestamp: question.createdAt,
+            user: "-",
+            action: "Duplicate Question",
+            duration: null,
+            remarks:
+              "Original question lifecycle is not available.",
+            endTime: null,
+            eventType: "duplicate",
+          },
+          {
+            timestamp: question.closedAt || question.updatedAt,
+            user: "Buffer Time",
+            action: "Question Marked As Duplicate",
+            duration: question.updatedAt.getTime() - question.createdAt.getTime(),
+            remarks: "Closed as duplicate",
+            endTime: question.closedAt || question.updatedAt,
+            eventType: "closure",
+          },
+        ];
+      }
+
+        
+      if (isDuplicate) {
+        timeline.push({
+          timestamp: question.createdAt,
+          user: questionAskedBy?.email ? questionAskedBy?.email : "-",
+          action: "Duplicate Question",
+          duration: null,
+          remarks:
+            "Original question lifecycle is not available.",
+          endTime: null,
+          eventType: "inception",
+        });
+      } else if (conversation?.createdAt) {
+        timeline.push({
+          timestamp: conversation.createdAt,
+          user: questionAskedBy?.email,
+          action: "Question Asked On Web Application",
+          duration: null,
+          remarks: "",
+          endTime: conversation.createdAt,
+          eventType: "inception",
+        });
+
+        timeline.push({
+          timestamp: conversation.createdAt,
+          user: "Buffer Time",
+          action: "Pushed To Review System",
+          duration:
+            question.createdAt.getTime() -
+            conversation.createdAt.getTime(),
+          remarks: "",
+          endTime: question.createdAt,
+          eventType: "system_wait",
+        });
+      } else if(question.source === "AGRI_EXPERT"){
+                timeline.push({
+          timestamp: question.createdAt.getTime(),
+          user: "-",
+          action: "Question Created Internally",
+          duration: null,
+          remarks: "Conversation mapping not found",
+          endTime: question.createdAt.getTime(),
+          eventType: "inception",
+        });
+      }else {
+        timeline.push({
+          timestamp: null,
+          user: "Buffer Time",
+          action: "Question Inception Time Unavailable",
+          duration: null,
+          remarks: "Conversation mapping not found",
+          endTime: null,
+          eventType: "inception",
+        });
+      }
+      // ---------------------------------------------------
+      // Initial Allocation Wait
+      // ---------------------------------------------------
+
+      const firstAllocationAt = question.firstAllocationAt
+        ? new Date(question.firstAllocationAt)
+        : null;
+
+      if (firstAllocationAt &&( firstAllocationAt.getTime() -
+            new Date(question.createdAt).getTime() > 1000)) {
+        timeline.push({
+          timestamp: question.createdAt,
+          user: "Buffer Time",
+          action: "Initial Allocation Pending",
+          duration:
+            firstAllocationAt.getTime() -
+            new Date(question.createdAt).getTime(),
+          remarks: "",
+          endTime: firstAllocationAt,
+          eventType: "system_wait",
+        });
+      }
+
+      // ---------------------------------------------------
+      // Review Timeline
+      // ---------------------------------------------------
+
+      reviewTimeline.forEach((review: any, index: number) => {
+        const historyItem = submission?.history?.[index];
+
+        const reviewerName =
+          userMap.get(review.reviewerId) || 'Unknown User';
+
+        let action = 'Review';
+
+        if (index === 0) {
+          action = review.isCompleted
+            ? 'Authored Answer'
+            : 'Authoring Answer';
+        } else if (historyItem?.modifiedAnswer) {
+          action = 'Modified';
+        } else if (historyItem?.status) {
+          action =
+            historyItem.status.charAt(0).toUpperCase() +
+            historyItem.status.slice(1);
+        }
+
+        timeline.push({
+          timestamp: review.assignedAt,
+          user: reviewerName,
+          action,
+          duration: review.isCompleted
+            ? review.timeTakenMs
+            : Date.now() -
+              new Date(review.assignedAt).getTime(),
+          remarks:
+            historyItem?.reasonForRejection ||
+            historyItem?.reasonForLastModification ||
+            '',
+          endTime:
+            review.completedAt || review.assignedAt,
+          eventType:
+            index === 0 ? 'author' : 'reviewer',
+        });
+      });
+
+      const lastReview = reviewTimeline[reviewTimeline.length - 1];
+      const finalReviewerCompletedAt =
+        lastReview?.completedAt ||
+        lastReview?.assignedAt ||
+        question.createdAt;
+
+      if (
+        question.moderatorAssignedAt &&
+        question.moderatorId
+      ) {
+        const moderatorName =
+          userMap.get(question.moderatorId.toString()) ||
+          "Unknown User";
+
+        if (
+          question.moderatorAssignedAt &&
+          question.moderatorId &&
+          question.moderatorAssignedAt.getTime() >
+            new Date(finalReviewerCompletedAt).getTime()
+        ) {
+          timeline.push({
+            timestamp: finalReviewerCompletedAt,
+            user: "Buffer Time",
+            action: "Awaiting Moderator Assignment",
+            duration:
+              question.moderatorAssignedAt.getTime() -
+              new Date(finalReviewerCompletedAt).getTime(),
+            remarks: "",
+            endTime: question.moderatorAssignedAt,
+            eventType: "system_wait",
+          });
+        }
+
+        timeline.push({
+          timestamp: question.moderatorAssignedAt,
+          user: moderatorName,
+          action: "Approval Review",
+          duration:
+            question.closedAt?.getTime() -
+            question.moderatorAssignedAt.getTime(),
+          remarks: "",
+          endTime: question.closedAt,
+          eventType: "moderator",
+        });
+      }
+
+      // ---------------------------------------------------
+      // Sort
+      // ---------------------------------------------------
+
+      timeline.sort((a, b) => {
+        const aTime = a.timestamp
+          ? new Date(a.timestamp).getTime()
+          : -1;
+
+        const bTime = b.timestamp
+          ? new Date(b.timestamp).getTime()
+          : -1;
+
+        return aTime - bTime;
+      });
+
+      // ---------------------------------------------------
+      // Insert Gaps
+      // ---------------------------------------------------
+
+      const finalTimeline: any[] = [];
+
+      for (let i = 0; i < timeline.length; i++) {
+        finalTimeline.push(timeline[i]);
+
+        const current = timeline[i];
+        const next = timeline[i + 1];
+
+        if (!next) {
+          continue;
+        }
+
+        if (!current.endTime || !next.timestamp) {
+          continue;
+        }
+
+        const currentEnd = current.endTime;
+        const nextStart = next.timestamp;
+
+        const gap =
+          new Date(nextStart).getTime() -
+          new Date(currentEnd).getTime();
+
+        const shouldInsertGap =
+          gap > 1000 &&
+          current.eventType !== "reroute" &&
+          ![
+            'Question Asked',
+            'Question Inception Time Unavailable',
+            'Pushed To Review System',
+            'Initial Allocation Pending',
+          ].includes(current.action);
+
+        if (shouldInsertGap) {
+          const nextEvent = timeline[i + 1];
+          const action =
+            nextEvent?.eventType === "reroute"
+              ? "Re-routed For Review"
+              : "Pending Next Assignment";
+
+          finalTimeline.push({
+            timestamp: currentEnd,
+            user: 'Buffer Time',
+            action,
+            duration: gap,
+            remarks: '',
+            endTime: nextStart,
+            eventType: 'system_wait',
+          });
+        }
+      }
+
+      // ---------------------------------------------------
+      // Open Questions
+      // ---------------------------------------------------
+
+      const isClosed =
+        !!question.closedAt || !!question.passedAt;
+
+      const currentAssigneeInProgress =
+        reviewTimeline.length > 0 &&
+        reviewTimeline[reviewTimeline.length - 1].isCompleted === false;
+
+      const hasActiveWork =
+        currentAssigneeInProgress ||
+        rerouteDoc?.reroutes?.some(
+          (r: any) => r.status === "pending",
+        );
+
+      if (!isClosed && !hasActiveWork) {
+        const last =
+          finalTimeline[finalTimeline.length - 1];
+
+        if (last) {
+          const lastEnd = new Date(
+            last.endTime || last.timestamp || question.createdAt,
+          );
+
+          finalTimeline.push({
+            timestamp: lastEnd ?? question.createdAt.getTime(),
+            user: 'Buffer Time',
+            action:
+              question.status === 'hold'
+                ? 'On Hold'
+                : 'Awaiting Action',
+            duration:
+              Date.now() - lastEnd.getTime(),
+            remarks: '',
+            endTime: new Date(),
+            eventType: 'system_wait',
+          });
+        }
+      }
+
+      // ---------------------------------------------------
+      // Awaiting Closure
+      // ---------------------------------------------------
+
+      let completionTime =
+        question.closedAt || question.passedAt;
+
+      if (completionTime) {
+        const last =
+          finalTimeline[finalTimeline.length - 1];
+
+        if (last) {
+          const lastEnd = new Date(
+            last.endTime || last.timestamp,
+          );
+          if(typeof completionTime === "string"){
+            completionTime = new Date(completionTime)
+          }
+          const waitForClosure =
+            completionTime.getTime() -
+            lastEnd.getTime();
+
+          if (waitForClosure > 1000) {
+            finalTimeline.push({
+              timestamp: lastEnd ?? question.createdAt.getTime(),
+              user: 'Buffer Time',
+              action: 'Awaiting Closure/Pass',
+              duration: waitForClosure,
+              remarks: '',
+              endTime: completionTime,
+              eventType: 'system_wait',
+            });
+          }
+        
+        }
+      }
+
+      // ---------------------------------------------------
+      // Final Closed / Passed Event
+      // ---------------------------------------------------
+
+      if (question.closedAt) {
+        finalTimeline.push({
+          timestamp: question.closedAt,
+          user: '-',
+          action: `Question Closed ${
+            question.isCustomerNotified
+              ? '(Customer Notified)'
+              : '(Customer Not Notified)'
+          }`,
+          duration: null,
+          remarks: "",
+          endTime: question.closedAt,
+          eventType: 'closure',
+        });
+      } else if (question.passedAt) {
+        finalTimeline.push({
+          timestamp: question.passedAt,
+          user: '-',
+          action: `Question Passed ${
+            question.isCustomerNotified
+              ? '(Customer Notified)'
+              : '(Customer Not Notified)'
+          }`,
+          duration: null,
+          remarks: "",
+          endTime: question.passedAt,
+          eventType: 'closure',
+        });
+      }
+      // console.log("finalTimeline--", question)
+      return finalTimeline;
+    } catch(err){
+      // console.log("err----", err);
+      throw Error(err);
     }
   }
+  async getWeatherConcernQueries(
+    filters: WeatherConcernAnalyticsFilters,
+    concern: string,
+    page: number,
+    limit: number,
+    source = 'annam',
+    session?: ClientSession,
+    userType = 'all',
+    search?: string,
+  ): Promise<PaginatedQueryCategoryQuestions> {
+    try {
+      await this.init(source);
+
+      const safePage = Math.max(Number(page) || 1, 1);
+      const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
+      const skip = (safePage - 1) * safeLimit;
+
+      // ============================================
+      // LOCATION FILTERS
+      // ============================================
+
+      const locationMatch: Record<string, any> = {};
+
+      const stateRegex = this.buildExactTextRegex(filters.state);
+      const districtRegex = this.buildExactTextRegex(filters.district);
+      const blockRegex = this.buildExactTextRegex(filters.block);
+      const villageRegex = this.buildExactTextRegex(filters.village);
+
+      if (stateRegex) {
+        locationMatch['userDetails.farmerProfile.state'] = stateRegex;
+      }
+
+      if (districtRegex) {
+        locationMatch['userDetails.farmerProfile.district'] = districtRegex;
+      }
+
+      if (blockRegex) {
+        locationMatch['userDetails.farmerProfile.blockName'] = blockRegex;
+      }
+
+      if (villageRegex) {
+        locationMatch['userDetails.farmerProfile.villageName'] = villageRegex;
+      }
+
+      // ============================================
+      // USER TYPE FILTER
+      // ============================================
+
+      const userDocFilter = this.buildUserDocFilter(userType);
+
+      const userTypeMatch = this.buildJoinedUserDocFilter(
+        userDocFilter,
+        'userDetails',
+      );
+
+      // ============================================
+      // MATCH WEATHER AI RESPONSES
+      // ============================================
+
+      const messageMatch: Record<string, any> = {
+        isDeleted: {$ne: true},
+        isCreatedByUser: false,
+        'content.tool_call.name': {
+          $regex: 'weather',
+          $options: 'i',
+        },
+      };
+
+      // ============================================
+      // DATE FILTER
+      // ============================================
+
+      if (filters.startDate || filters.endDate) {
+        messageMatch.createdAt = {};
+
+        if (filters.startDate) {
+          messageMatch.createdAt.$gte = new Date(filters.startDate);
+        }
+
+        if (filters.endDate) {
+          messageMatch.createdAt.$lte = new Date(filters.endDate);
+        }
+      }
+
+      // ============================================
+      // CONCERN REGEX EXPRESSIONS
+      // ============================================
+
+      const concernExpressions = Object.fromEntries(
+        Object.entries(WEATHER_CONCERNS).map(([c, keywords]) => [
+          c,
+          {
+            $regexMatch: {
+              input: '$contentSignal',
+              regex: keywords
+                .map(keyword => this.escapeRegex(keyword))
+                .join('|'),
+              options: 'i',
+            },
+          },
+        ]),
+      );
+
+      // ============================================
+      // PIPELINE
+      // ============================================
+
+      const pipeline: any[] = [
+        {
+          $match: messageMatch,
+        },
+        {
+          $lookup: {
+            from: 'messages',
+            localField: 'parentMessageId',
+            foreignField: 'messageId',
+            as: 'userMessage',
+          },
+        },
+        {
+          $unwind: '$userMessage',
+        },
+        {
+          $match: {
+            'userMessage.isCreatedByUser': true,
+          },
+        },
+        {
+          $addFields: {
+            _userRef: {
+              $ifNull: ['$userMessage.user', '$userMessage.userId'],
+            },
+          },
+        },
+        {
+          $addFields: {
+            _userOid: {
+              $cond: [
+                {
+                  $eq: [{$type: '$_userRef'}, 'objectId'],
+                },
+                '$_userRef',
+                {
+                  $cond: [
+                    {
+                      $and: [
+                        { $ne: ['$_userRef', null] },
+                        { $ne: ['$_userRef', ''] },
+                      ],
+                    },
+                    { $toObjectId: '$_userRef' },
+                    null,
+                  ],
+                },
+              ],
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: 'users',
+            localField: '_userOid',
+            foreignField: '_id',
+            as: 'userDetails',
+          },
+        },
+        {
+          $unwind: {
+            path: '$userDetails',
+            preserveNullAndEmptyArrays: userType !== 'external',
+          },
+        },
+      ];
+
+      if (Object.keys(userTypeMatch).length > 0) {
+        pipeline.push({ $match: userTypeMatch });
+      }
+
+      if (Object.keys(locationMatch).length > 0) {
+        pipeline.push({ $match: locationMatch });
+      }
+
+      pipeline.push({
+        $addFields: {
+          contentSignal: {
+            $toLower: {
+              $ifNull: ['$userMessage.text', ''],
+            },
+          },
+        },
+      });
+
+      const seasonRegex = this.buildContainsTextRegex(filters.season);
+
+      if (seasonRegex) {
+        pipeline.push({
+          $match: {
+            contentSignal: seasonRegex,
+          },
+        });
+      }
+
+      pipeline.push(
+        {
+          $addFields: {
+            detectedConcerns: concernExpressions,
+          },
+        },
+        {
+          $addFields: {
+            hasKnownConcern: {
+              $anyElementTrue: [
+                Object.keys(WEATHER_CONCERNS).map(
+                  c => `$detectedConcerns.${c}`,
+                ),
+              ],
+            },
+          },
+        }
+      );
+
+      // ============================================
+      // MATCH SPECIFIC CONCERN
+      // ============================================
+
+      if (concern === 'Others') {
+        pipeline.push({
+          $match: { hasKnownConcern: false }
+        });
+      } else {
+        const concernEntry = Object.entries(WEATHER_CONCERN_LABELS).find(
+          ([_, label]) => label === concern
+        );
+        
+        if (!concernEntry) {
+          throw new BadRequestError(`Invalid concern label: ${concern}`);
+        }
+        
+        const concernKey = concernEntry[0];
+        
+        pipeline.push({
+          $match: {
+            [`detectedConcerns.${concernKey}`]: true
+          }
+        });
+      }
+
+      // ============================================
+      // PROJECT AND PAGINATE
+      // ============================================
+
+      pipeline.push({
+        $project: {
+          questionId: '$userMessage.messageId',
+          question: '$userMessage.text',
+          status: { $ifNull: ['$userMessage.status', 'unique'] },
+          questionType: {
+            $cond: [
+              { $eq: ['$userMessage.status', 'duplicate'] },
+              'duplicate',
+              'unique'
+            ]
+          },
+          category: { $literal: concern },
+          createdAt: '$userMessage.createdAt',
+          farmerName: '$userDetails.farmerProfile.farmerName',
+          email: '$userDetails.email',
+          village: '$userDetails.farmerProfile.villageName',
+          block: '$userDetails.farmerProfile.blockName',
+          district: '$userDetails.farmerProfile.district',
+          state: '$userDetails.farmerProfile.state',
+        }
+      });
+
+      // ============================================
+      // SEARCH FILTER
+      // ============================================
+
+      if (search && search.trim()) {
+        const escapedSearch = this.escapeRegex(search.trim());
+        const searchRegex = { $regex: escapedSearch, $options: 'i' };
+
+        pipeline.push({
+          $match: {
+            $or: [
+              { farmerName: searchRegex },
+              { email: searchRegex },
+              { question: searchRegex },
+              { questionId: searchRegex },
+            ],
+          },
+        });
+      }
+
+      pipeline.push({
+        $facet: {
+          questions: [
+            { $sort: { createdAt: -1 } },
+            { $skip: skip },
+            { $limit: safeLimit }
+          ],
+          total: [
+            { $count: 'count' }
+          ]
+        }
+      });
+
+      const [result] = await this.messagesCollection
+        .aggregate(pipeline, {session})
+        .toArray();
+
+      const questions = result?.questions || [];
+      const total = result?.total?.[0]?.count || 0;
+      const totalPages = Math.ceil(total / safeLimit);
+
+      return {
+        questions,
+        total,
+        totalPages,
+        page: safePage,
+        limit: safeLimit,
+      };
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get weather concern queries: ${error}`,
+      );
+    }
+  }
+
 }

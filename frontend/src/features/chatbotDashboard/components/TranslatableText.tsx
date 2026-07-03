@@ -6,6 +6,7 @@ import {
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
 import { cn } from "@/lib/utils";
+import { isEnglishCharacters } from "@/features/questions/utils/checkLanguage";
 
 interface TranslatableTextProps {
   text: string;
@@ -74,17 +75,21 @@ export function TranslatableText({
           )}
         </div>
 
-        <CompactTranslateDropdown
-          query={text}
-          sourceLang={sourceLang}
-          onTranslate={setTranslatedText}
-          onError={setError}
-          buttonClassName={cn(
-            "shrink-0 gap-1 rounded-md text-[11px]",
-            translateButtonClassName,
-          )}
-          dropdownClassName={translateDropdownClassName}
-        />
+        {
+          text?.trim() && !isEnglishCharacters(text) && (
+            <CompactTranslateDropdown
+              query={text}
+              sourceLang={sourceLang}
+              onTranslate={setTranslatedText}
+              onError={setError}
+              buttonClassName={cn(
+                "shrink-0 gap-1 rounded-md text-[11px]",
+                translateButtonClassName,
+              )}
+              dropdownClassName={translateDropdownClassName}
+            />
+          )
+        }
       </div>
 
       {error && (

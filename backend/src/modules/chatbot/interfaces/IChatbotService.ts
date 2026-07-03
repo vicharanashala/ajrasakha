@@ -178,6 +178,15 @@ export interface IChatbotService {
     source?: string,
     userType?: string,
   ): Promise<WeatherConcernAnalyticsResponse>;
+  getWeatherConcernQueries(
+    filters: WeatherConcernAnalyticsFilters,
+    concern: string,
+    page: number,
+    limit: number,
+    source?: string,
+    userType?: string,
+    search?: string,
+  ): Promise<PaginatedQueryCategoryQuestions>;
   getFarmerHeatMapAnalytics(
     filters?: FarmerHeatMapFilters,
   ): Promise<FarmerHeatMapResponse>;
@@ -362,4 +371,6 @@ export interface IChatbotService {
     source: string,
     userType: string
   ): Promise<any>
+  
+  getQuestionLifecycle(questionId: string): Promise<any>
 }

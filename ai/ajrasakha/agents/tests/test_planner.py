@@ -5,7 +5,7 @@ import json
 import pytest
 
 from ajrasakha.agents.plan_executor import (
-    build_tool_calls_from_plan,
+    build_reviewer_upload_calls,
     extract_chemicals_from_text,
     reviewer_direct_answer,
 )
@@ -93,7 +93,7 @@ async def test_reviewer_upload_uses_rephrased_query_not_raw_user_text():
         "entities": {"crop": "wheat", "state": "Punjab", "district": "Ropar"},
     }
     raw_user = "ਪੰਜਾਬ ਵਿੱਚ ਕਣਕ ਤੇ ਪੀਲਾ ਜੰਗ ਨਿਵਾਰਣ?"
-    calls = await build_tool_calls_from_plan(
+    calls = build_reviewer_upload_calls(
         plan,
         raw_user,
         {"state": "Punjab", "city": "Ropar"},
@@ -118,7 +118,7 @@ async def test_reviewer_upload_falls_back_to_user_query_without_rephrased():
         "is_complete": True,
         "entities": {"crop": "wheat", "state": "Punjab", "district": "Ropar"},
     }
-    calls = await build_tool_calls_from_plan(
+    calls = build_reviewer_upload_calls(
         plan,
         user_text,
         {"state": "Punjab", "city": "Ropar"},
@@ -130,7 +130,7 @@ async def test_reviewer_upload_falls_back_to_user_query_without_rephrased():
 
 
 @pytest.mark.asyncio
-async def test_reviewer_upload_includes_thread_id_when_provided():
+async def test_reviewer_upload_includes_identity_fields_for_ajrasakha():
     plan = {
         "weather": False,
         "mandi": False,
@@ -141,7 +141,7 @@ async def test_reviewer_upload_includes_thread_id_when_provided():
         "is_complete": True,
         "entities": {"crop": "wheat", "state": "Punjab", "district": "Ropar"},
     }
-    calls = await build_tool_calls_from_plan(
+    calls = build_reviewer_upload_calls(
         plan,
         "Yellow rust on wheat",
         {"state": "Punjab", "city": "Ropar"},
@@ -149,9 +149,42 @@ async def test_reviewer_upload_includes_thread_id_when_provided():
         reviewer_tool_name="upload_question_to_reviewer_system",
         question_source="AJRASAKHA",
         thread_id="conv-abc-123",
+        user_id="user-456",
+        message_id="msg-789",
     )
     reviewer = next(c for c in calls if c["name"] == "upload_question_to_reviewer_system")
     assert reviewer["args"]["thread_id"] == "conv-abc-123"
+    assert reviewer["args"]["user_id"] == "user-456"
+    assert reviewer["args"]["message_id"] == "msg-789"
+
+
+@pytest.mark.asyncio
+async def test_reviewer_upload_omits_identity_fields_for_non_ajrasakha():
+    plan = {
+        "weather": False,
+        "mandi": False,
+        "soil": False,
+        "schemes": False,
+        "chemical_checker": False,
+        "knowledge_base": True,
+        "is_complete": True,
+        "entities": {"crop": "wheat", "state": "Punjab", "district": "Ropar"},
+    }
+    calls = build_reviewer_upload_calls(
+        plan,
+        "Yellow rust on wheat",
+        {"state": "Punjab", "city": "Ropar"},
+        location_tool_name="location_information_tool",
+        reviewer_tool_name="upload_question_to_reviewer_system",
+        question_source="WHATSAPP",
+        thread_id="conv-abc-123",
+        user_id="user-456",
+        message_id="msg-789",
+    )
+    reviewer = next(c for c in calls if c["name"] == "upload_question_to_reviewer_system")
+    assert reviewer["args"]["thread_id"] == "conv-abc-123"
+    assert "user_id" not in reviewer["args"]
+    assert "message_id" not in reviewer["args"]
 
 
 @pytest.mark.asyncio
@@ -166,7 +199,7 @@ async def test_reviewer_upload_omits_thread_id_when_not_provided():
         "is_complete": True,
         "entities": {"crop": "wheat", "state": "Punjab", "district": "Ropar"},
     }
-    calls = await build_tool_calls_from_plan(
+    calls = build_reviewer_upload_calls(
         plan,
         "Yellow rust on wheat",
         {"state": "Punjab", "city": "Ropar"},

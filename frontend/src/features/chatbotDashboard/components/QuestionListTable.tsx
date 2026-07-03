@@ -4,6 +4,7 @@ import { Input } from "@/components/atoms/input";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { Pagination } from "@/components/pagination";
 import { cn } from "@/lib/utils";
+import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
 
 export type QuestionListSortDirection = "asc" | "desc";
 
@@ -55,6 +56,7 @@ type QuestionListTableProps<T> = {
   showPageSizeSelector?: boolean;
   className?: string;
   tableClassName?: string;
+  onRowClick?: (row: T) => void;
 };
 
 const alignClasses = {
@@ -110,6 +112,7 @@ export function QuestionListTable<T>({
   showPageSizeSelector = false,
   className,
   tableClassName,
+  onRowClick,
 }: QuestionListTableProps<T>) {
   const [sortKey, setSortKey] = useState(initialSortKey);
   const [sortDirection, setSortDirection] =
@@ -289,7 +292,11 @@ export function QuestionListTable<T>({
               return (
                 <tr
                   key={getRowKey?.(row, absoluteIndex) ?? absoluteIndex}
-                  className="hover:bg-gray-50 dark:hover:bg-[#1f1f1f] transition-colors"
+                    onClick={() => onRowClick?.(row)}
+                    className={cn(
+                      "hover:bg-gray-50 dark:hover:bg-[#1f1f1f] transition-colors",
+                      onRowClick && "cursor-pointer"
+                    )}
                 >
                   {visibleColumns.map((column) => {
                     const value = column.render
