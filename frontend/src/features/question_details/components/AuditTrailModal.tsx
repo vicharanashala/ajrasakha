@@ -32,6 +32,8 @@ const actionLabels: Record<string, string> = {
   BULK_PAE_ALLOCATE: "Bulk PAE Allocation",
   REPLACE_QUEUE_EXPERT: "Queue Expert Replaced",
   CHECK_DUPLICATE: "Duplicate Check",
+  CONFIRM_DUPLICATE: "Duplicate Confirmed",
+  CANCEL_DUPLICATE: "Duplicate Cancelled",
   APPROVE_AI_INITIAL_ANSWER: "AI Initial Answer Approved",
   EXPERTS_AUTO_ALLOCATE: "Expert Auto-allocated",
   SYSTEM_ALLOCATED: "System Allocated",
