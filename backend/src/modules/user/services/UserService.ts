@@ -359,11 +359,11 @@ export class UserService extends BaseService {
           const nonBlockedExpertsCount =
             await this.userRepo.countNonBlockedExperts(session);
 
-          if (nonBlockedExpertsCount <= 10) {
+         /* if (nonBlockedExpertsCount <= 10) {
             throw new BadRequestError(
               'Minimum 10 active experts required. Cannot block more experts.',
             );
-          }
+          }*/
         }
       }
       return await this.userRepo.updateIsBlocked(userId, action, session);
@@ -381,11 +381,11 @@ export class UserService extends BaseService {
       if (status === 'in-active') {
         const activeExpertsCount =
           await this.userRepo.countActiveExperts(session);
-        if (activeExpertsCount <= 10) {
+      /*  if (activeExpertsCount <= 10) {
           throw new BadRequestError(
             'Minimum 10 active experts required. Cannot mark more experts inactive.',
           );
-        }
+        }*/
       }
       return await this.userRepo.updateActivityStatus(userId, status, session);
     });

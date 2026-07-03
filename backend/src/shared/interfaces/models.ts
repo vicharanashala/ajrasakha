@@ -144,7 +144,8 @@ export interface IQuestion {
   popContext?: string;
   isCustomerNotified?: boolean;
   isDuplicateChecked?: boolean;
-  toolsUsed?: string[]
+  toolsUsed?: string[];
+  passedBy?: ObjectId | string | null;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';

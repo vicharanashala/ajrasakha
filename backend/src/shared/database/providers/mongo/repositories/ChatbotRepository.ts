@@ -2803,12 +2803,6 @@ private isInvalidHeatMapLocation(value?: string | null) {
         return d.districtNameEnglish;
       });
 
-      console.log('Districts for state', state, districts);
-
-      if (!districts.length) {
-        return [];
-      }
-
       if (!districts.length) {
         return [];
       }
@@ -15407,6 +15401,17 @@ for (const item of districtUsers) {
         userIds.add(question.moderatorId.toString());
       }
 
+      let questionPassedBy;
+      if(question.passedAt && question.passedBy){       
+        questionPassedBy = await this.ReviewUsers.findOne({
+          _id: new ObjectId(question.passedBy.toString()),
+        },{
+          projection:{
+            email: 1,
+          }
+        })
+      }
+
       const users = await this.ReviewUsers.find(
         {
           _id: {
@@ -15820,11 +15825,11 @@ for (const item of districtUsers) {
       } else if (question.passedAt) {
         finalTimeline.push({
           timestamp: question.passedAt,
-          user: '-',
+          user: questionPassedBy?.email || '-',
           action: `Question Passed ${
-            question.isCustomerNotified
-              ? '(Customer Notified)'
-              : '(Customer Not Notified)'
+            question.passingRemark
+              ? ` (Remark: ${question.passingRemark})`
+              : ''
           }`,
           duration: null,
           remarks: '',

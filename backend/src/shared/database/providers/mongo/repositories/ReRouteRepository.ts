@@ -225,6 +225,7 @@ export class ReRouteRepository implements IReRouteRepository {
                 $project: {
                   _id: 0,
                   rerouteId: {$toString: '$_id'},
+                  assignedAt: '$latestReroute.reroutedAt',
 
                   reroute: {
                     status: '$latestReroute.status',
