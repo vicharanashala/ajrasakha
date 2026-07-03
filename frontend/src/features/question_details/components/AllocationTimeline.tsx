@@ -471,9 +471,8 @@ export const AllocationTimeline = ({
                             {getUserActivityText(index)}
                           </p>
                         </div>
-                        {/* timeline*/}
-                        {/* ========================= PREMIUM TIMELINE SECTION ========================= */}
-                        {userSubmission?.assignedAt && currentUser.role != "expert" && (
+                        {/* timeline*/}                        {/* ========================= PREMIUM TIMELINE SECTION ========================= */}
+                        {assignedAt && currentUser.role != "expert" && (
                           <div className="w-full mt-3 rounded-2xl border border-border/50 bg-gradient-to-br from-muted/40 to-muted/20 backdrop-blur-sm px-3 py-3 shadow-sm">
                         
                             {/* <div className="flex items-center gap-2 mb-3">
@@ -500,7 +499,7 @@ export const AllocationTimeline = ({
                                   </span>
 
                                   <span className="text-[11px] font-semibold text-foreground break-words leading-snug">
-                                    {new Date(userSubmission.assignedAt).toLocaleString()}
+                                    {new Date(assignedAt).toLocaleString()}
                                   </span>
                                 </div>
                               </div>
@@ -509,14 +508,14 @@ export const AllocationTimeline = ({
                               <div className="flex items-start gap-2 rounded-lg bg-background/40 border border-border/30 px-2.5 py-2">
                                 <div
                                   className={`mt-0.5 flex h-6 w-6 items-center justify-center rounded-full ${
-                                    userSubmission.completedAt
+                                    userSubmission?.completedAt
                                       ? "bg-green-500/10"
                                       : "bg-amber-500/10"
                                   }`}
                                 >
                                   <CheckCheck
                                     className={`w-3.5 h-3.5 ${
-                                      userSubmission.completedAt
+                                      userSubmission?.completedAt
                                         ? "text-green-500"
                                         : "text-amber-500"
                                     }`}
@@ -529,7 +528,7 @@ export const AllocationTimeline = ({
                                   </span>
 
                                   <span className="text-[11px] font-semibold text-foreground break-words leading-snug">
-                                    {userSubmission.completedAt
+                                    {userSubmission?.completedAt
                                       ? new Date(
                                           userSubmission.completedAt
                                         ).toLocaleString()
@@ -550,7 +549,7 @@ export const AllocationTimeline = ({
                                   </span>
 
                                   <span className="text-xs font-bold text-primary leading-snug">
-                                    {userSubmission.timeTakenMs
+                                    {userSubmission?.timeTakenMs
                                       ? formatDuration(userSubmission.timeTakenMs)
                                       : "Ongoing"}
                                   </span>

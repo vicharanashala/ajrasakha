@@ -38,7 +38,8 @@ class GDBSearchRequest(BaseModel):
         description=(
             "Crop filter. Normalised to title case with underscores as spaces "
             "(e.g. bengal_gram → Bengal Gram). Matched on MongoDB details.normalised_crop. "
-            "Use all to skip crop filter."
+            "Use all to skip crop filter. If crop-filtered retrieval finds nothing, "
+            "search retries without the crop filter."
         ),
         examples=["Wheat", "round_gourd", "all"],
     )
@@ -155,7 +156,8 @@ async def health():
         "**Pipeline:**\n"
         "1. **Strict exact** on `rephrased_query` (+ crop/state filters) → if hit, return `exact_match` only.\n"
         "2. Else **vector RAG** on `rephrased_query`.\n"
-        "3. **Gemma** relevance + classify + select one answer using the same `rephrased_query`."
+        "3. If both return no hits and crop is not `all`, retry steps 1–2 with `crop=all`.\n"
+        "4. **Gemma** relevance + classify + select one answer using the same `rephrased_query`."
     ),
 )
 async def search_gdb(body: GDBSearchRequest):
@@ -176,7 +178,7 @@ async def search_gdb(body: GDBSearchRequest):
     description=(
         "**Pipeline:**\n"
         "1. Resolve query/crop/state from `question_id` or request fields.\n"
-        "2. **Exact** normalized text match among open/delayed AJRASAKHA/WHATSAPP questions.\n"
+        "2. **Exact** normalized text match among open/delayed/in-review AJRASAKHA/WHATSAPP questions.\n"
         "3. Else **vector top-3** + Gemma question-only duplicate verification.\n"
         "4. Return `referenceQuestionId` when the matched question has one, else matched `_id`.\n"
         "5. Optional `created_before` limits candidates to questions created earlier."

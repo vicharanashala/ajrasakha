@@ -1,5 +1,6 @@
 import React from "react";
 import { ChevronUp, ChevronDown } from "lucide-react";
+import { Input } from "./input";
 
 interface MultiSelectItem {
   value: string;
@@ -14,6 +15,7 @@ interface MultiSelectProps {
   getDisplayLabel?: (selected: string[]) => string;
   headerSlot?: React.ReactNode;
   direction?: "up" | "down";
+  searchable?: boolean;
 }
 
 export const MultiSelect = ({
@@ -24,8 +26,10 @@ export const MultiSelect = ({
   getDisplayLabel,
   headerSlot,
   direction = "down",
+  searchable = false,
 }: MultiSelectProps) => {
   const [open, setOpen] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState("");
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const scrollInterval = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -48,6 +52,28 @@ export const MultiSelect = ({
     return () => stopScroll();
   }, []);
 
+  React.useEffect(() => {
+    if (!open) {
+      setSearchQuery("");
+    }
+  }, [open]);
+
+  const getSearchText = (label: React.ReactNode): string => {
+    if (typeof label === "string" || typeof label === "number") {
+      return String(label);
+    }
+
+    if (React.isValidElement<{ children?: React.ReactNode }>(label)) {
+      return getSearchText(label.props.children);
+    }
+
+    if (Array.isArray(label)) {
+      return label.map(getSearchText).join(" ");
+    }
+
+    return "";
+  };
+
   const toggle = (value: string) =>
     onChange(selected.includes(value) ? selected.filter((x) => x !== value) : [...selected, value]);
 
@@ -58,6 +84,15 @@ export const MultiSelect = ({
     : selected.length === 1
     ? selected[0]
     : `${selected.length} selected`;
+
+  const normalizedSearchQuery = searchable ? searchQuery.trim().toLowerCase() : "";
+  const visibleItems = normalizedSearchQuery
+    ? items.filter((item) =>
+        `${item.value} ${getSearchText(item.label)}`
+          .toLowerCase()
+          .includes(normalizedSearchQuery),
+      )
+    : items;
 
   return (
     <div className="relative">
@@ -75,7 +110,9 @@ export const MultiSelect = ({
       </button>
 
       {open && (
-        <div className={`absolute z-50 left-0 right-0 rounded-md border border-input bg-popover shadow-md ${direction === "up" ? "bottom-full mb-1" : "mt-1"}`}>
+        <div
+          className={`absolute z-50 left-0 right-0 rounded-md border border-input bg-popover shadow-md ${direction === "up" ? "bottom-full mb-1" : "mt-1"}`}
+        >
           <div className="flex items-center justify-between px-3 py-2 border-b">
             <span className="text-xs font-medium text-muted-foreground">
               {selected.length} selected
@@ -91,6 +128,20 @@ export const MultiSelect = ({
 
           {headerSlot}
 
+          {searchable && (
+            <div className="px-3 py-2 border-b">
+              <Input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                onKeyDown={(event) => event.stopPropagation()}
+                onPointerDown={(event) => event.stopPropagation()}
+                placeholder="Search"
+                className="h-8"
+                autoFocus
+              />
+            </div>
+          )}
+
           <div
             className="flex items-center justify-center h-6 cursor-pointer select-none text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
             onMouseEnter={() => startScroll("up")}
@@ -100,7 +151,7 @@ export const MultiSelect = ({
           </div>
 
           <div ref={scrollRef} className="max-h-64 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            {items.map((item) => {
+            {visibleItems.map((item) => {
               const isSelected = selected.includes(item.value);
               return (
                 <button

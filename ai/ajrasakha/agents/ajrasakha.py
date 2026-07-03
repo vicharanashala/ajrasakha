@@ -49,6 +49,7 @@ from ajrasakha.agents.prompts import (
 from ajrasakha.agents.state import AjraSakhaState, Location
 from ajrasakha.agents.assemble_answer_body import assemble_answer_body_node
 from ajrasakha.agents.non_agriculture_reply import non_agriculture_reply_node
+from ajrasakha.agents.weather_unavailable_reply import weather_unavailable_reply_node
 from ajrasakha.agents.tool_registry import get_main_tool_node
 
 load_dotenv()
@@ -206,7 +207,7 @@ async def tools_node(state: AjraSakhaState, config: RunnableConfig) -> dict:
 
 
 def route_after_tools_planner(state: AjraSakhaState) -> str:
-    """After execute_plan: assemble body, translate, or empty gdb sheet path."""
+    """After execute_plan: assemble body, translate, or empty GDB catalog path."""
     return route_after_execute(state)
 
 
@@ -269,7 +270,7 @@ def route_after_tools(state: AjraSakhaState) -> str:
 
 
 async def empty_gdb_reply_node(state: AjraSakhaState) -> dict:
-    """Planner graph: empty body; translate_answer adds sheet 2-hour + testing."""
+    """Planner graph: empty body; translate_answer adds catalog 2-hour + testing."""
     from ajrasakha.agents.answer_footers import build_expert_queue_content
     from ajrasakha.agents.state import TRANSLATE_PATH_EMPTY_GDB
     from ajrasakha.agents.translation_catalog import language_pair_from_plan
@@ -407,6 +408,10 @@ def _build_graph():
         builder.add_node("ensure_location", with_thread_logging(ensure_location_node))
         builder.add_node("upload_reviewer_only", with_thread_logging(upload_reviewer_only_node))
         builder.add_node("non_agriculture_reply", with_thread_logging(non_agriculture_reply_node))
+        builder.add_node(
+            "weather_unavailable_reply",
+            with_thread_logging(weather_unavailable_reply_node),
+        )
         builder.add_node("execute_plan", with_thread_logging(execute_plan_node))
         builder.add_node("assemble_answer_body", with_thread_logging(assemble_answer_body_node))
         from ajrasakha.agents.translate_answer import translate_answer_node
@@ -437,8 +442,10 @@ def _build_graph():
                 "assemble_answer_body": "assemble_answer_body",
                 "translate_answer": "translate_answer",
                 "empty_gdb_reply": "empty_gdb_reply",
+                "weather_unavailable_reply": "weather_unavailable_reply",
             },
         )
+        builder.add_edge("weather_unavailable_reply", END)
         builder.add_edge("assemble_answer_body", "translate_answer")
         builder.add_edge("translate_answer", END)
         builder.add_edge("empty_gdb_reply", "translate_answer")

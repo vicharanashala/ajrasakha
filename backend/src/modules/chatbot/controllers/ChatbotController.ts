@@ -32,6 +32,7 @@ import {AUDIT_TRAILS_TYPES} from '#root/modules/auditTrails/types.js';
 import {IAuditTrailsService} from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import {
   DashboardQueryDto,
+  DemographicUsersQueryDto,
   QueryAnalyticsQueryDto,
   QueryCategoryQuestionsQueryDto,
   SourceQueryDto,
@@ -430,6 +431,7 @@ export class ChatbotController {
       startDate?: Date;
       endDate?: Date;
       isPassed?: string;
+      tag?: string;
     },
   ) {
     if (query.category) {
@@ -442,7 +444,18 @@ export class ChatbotController {
         query.userType,
         query.search,
       );
-    } else if (query.district) {
+    } else if (query.state && !query.district) {
+      return this.chatbotService.getQuestionFromState(
+        query.state,
+        query.questionType,
+        query.page,
+        query.limit,
+        query.source,
+        query.userType,
+        query.search,
+      );
+    }
+    else if (query.district) {
       return this.chatbotService.getQuestionFromDistrict(
         query.district,
         query.state,
@@ -489,6 +502,7 @@ export class ChatbotController {
         startDate,
         endDate,
         query.isPassed,
+        query.tag,
       );
     } else {
       if(query.period){
@@ -585,6 +599,9 @@ export class ChatbotController {
     @QueryParam('source') source: string,
     @QueryParam('userType') userType: string,
     @QueryParam('state') state: string,
+    @QueryParam('district') district: string,
+    @QueryParam('block') block: string,
+    @QueryParam('village') village: string,
     @QueryParam('granularity')
     granularity: 'monthly' | 'weekly' | 'daily' | 'hourly',
     @QueryParam('startDate') startDate?: string,
@@ -594,10 +611,30 @@ export class ChatbotController {
       source,
       userType,
       state,
+      district,
+      block,
+      village,
       granularity,
       startDate,
       endDate,
     });
+  }
+
+  @OpenAPI({
+    summary: 'Get coordinator duplicate question heat map',
+    description:
+      'Returns coordinator-scoped duplicate question counts by block and village. Repeated identical questions from the same user count as one duplicate group.',
+  })
+  @Get('/coordinator-duplicate-heat-map/:userId')
+  @HttpCode(200)
+  @Authorized(['admin', ...COORDINATOR_ROLES])
+  async getCoordinatorDuplicateQuestionHeatMap(
+    @Param('userId') userId: string,
+    @CurrentUser() currentUser: IUser,
+  ) {
+    await this.assertCoordinatorOwnDashboard(userId, currentUser);
+
+    return this.chatbotService.getCoordinatorDuplicateQuestionHeatMap(userId);
   }
 
   @OpenAPI({
@@ -674,6 +711,28 @@ export class ChatbotController {
     statusCode: 500,
     description: 'Internal server error - Failed to fetch user details',
   })
+  @OpenAPI({
+    summary: 'Get users by demographic category',
+    description:
+      'Returns paginated users filtered by a demographic category and value such as age, gender, experience, or landholding.',
+  })
+  @Get('/users-by-demographic')
+  @HttpCode(200)
+  @Authorized()
+  async getUsersByDemographic(@QueryParams() query: DemographicUsersQueryDto) {
+    return this.chatbotService.getUsersByDemographic(
+      query.category,
+      query.value,
+      query.source,
+      query.userType,
+      query.page,
+      query.limit,
+      query.search,
+      query.sortBy,
+      query.sortOrder,
+    );
+  }
+
   @Get('/user-details')
   @HttpCode(200)
   @Authorized()
@@ -1934,6 +1993,98 @@ export class ChatbotController {
   ): Promise<any> {
     return this.chatbotService.getQuestionLifecycle(
       questionId
+    );
+  }
+
+  @Get('/active-users-details')
+  @HttpCode(200)
+  @Authorized()
+  async getActiveUsers(
+  @QueryParams()
+    query: {
+
+      page?: number;
+      limit?: number;
+      source?: string;
+      userType?: string;
+      district?: string;
+      state?: string;
+      search?: string;
+
+    },
+) {
+  const pageInNumber = Number(query.page)
+  const limitInNumber = Number(query.limit)
+  return this.chatbotService.getActiveUsersDetails(
+    pageInNumber,
+    limitInNumber,
+    query.source,
+    query.userType,
+    query.state,
+    query.district,
+    query.search,
+  );
+}
+
+
+
+@Get('/get-coordinators-details')
+  @HttpCode(200)
+  @Authorized()
+  async getCoordinatorsDetails(
+  @QueryParams()
+    query: {
+
+      page?: number;
+      limit?: number;
+      source?: string;
+      userType?: string;
+      district?: string;
+      state?: string;
+      search?: string;
+
+    },
+) {
+  const pageInNumber = Number(query.page)
+  const limitInNumber = Number(query.limit)
+  return this.chatbotService.getCoordinatorsDetails(
+    pageInNumber,
+    limitInNumber,
+    query.source,
+    query.userType,
+    query.state,
+    query.district,
+    query.search,
+  );
+}
+  @Get('/lifecycle-summary')
+  @HttpCode(200)
+  @Authorized()
+  async getLifecycleSummary(
+    @QueryParam('status') status: string = 'all',
+    @QueryParam('source') source: string = 'annam',
+    @QueryParam('userType') userType: string = 'all',
+    @QueryParam('startDate') startDate?: string,
+    @QueryParam('endDate') endDate?: string,
+    @QueryParam('isPassed') isPassed?: string,
+    @QueryParam('tag') tag?: string,
+    @QueryParam('notificationType') notificationType?: string,
+  ): Promise<any> {
+    const start= startDate
+        ? new Date(startDate)
+        : undefined;
+    const end= endDate
+        ? new Date(endDate)
+        : undefined;
+    return this.chatbotService.getLifeCycleSummary(
+      status,
+      source,
+      userType,
+      start,
+      end,
+      isPassed,
+      tag,
+      notificationType
     );
   }
 }

@@ -34,6 +34,7 @@ import {
   IUser,
   IcheckStatusResponseDto
 } from '#root/shared/interfaces/models.js';
+import type { QAMetadata } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
 import { BadRequestErrorResponse } from '#shared/middleware/errorHandler.js';
 import { verifyNotTester } from '#root/shared/functions/verifyNotTester.js';
 import {
@@ -262,6 +263,7 @@ export class QuestionController {
     extracted_crop: string;
     extracted_state: string;
     extracted_district: string;
+    extracted_domain?: string | string[];
   }> {
     try {
       const result = await this.questionService.extractAccAgentData(body.threadId, body.transcript);
@@ -284,6 +286,8 @@ export class QuestionController {
         crop: string;
         state: string;
         district: string;
+        domain: string | string[];
+        season: string;
       };
     }
   ): Promise<{ success: boolean }> {
@@ -301,10 +305,11 @@ export class QuestionController {
   @Authorized()
   @OpenAPI({ summary: 'Resume ACC Agent and get final answer' })
   async resumeAccAgentAndGetAnswer(
-    @Body() body: { threadId: string }
-  ): Promise<{ final_answer: string }> {
+    @Body() body: { threadId: string; callUuid?: string; metadata?: QAMetadata }
+  ): Promise<any> {
     try {
-      const result = await this.questionService.resumeAccAgentAndGetAnswer(body.threadId);
+      // const result = await this.questionService.resumeAccAgentAndGetAnswer(body.threadId, body.callUuid, body.metadata);
+      const result = await this.questionService.getAccAgentState(body.threadId, body.callUuid, body.metadata);
       return result;
     } catch (error) {
       console.error('[QuestionController] resumeAccAgentAndGetAnswer: Error', error);
@@ -1370,7 +1375,7 @@ export class QuestionController {
         context: { questionId },
         createdAt: new Date(),
       };
-
+      updates.passedBy = new ObjectId(user._id.toString());
       try {
         prevQuestion = await this.questionService.getQuestionById(questionId);
         response = await this.questionService.updateQuestion(questionId, updates);
@@ -2131,7 +2136,7 @@ export class QuestionController {
       const result = await this.questionService.replaceQueueExpert(
         userId.toString(),
         questionId,
-        levelIndex+1,
+        levelIndex + 1,
         newExpertId,
         isAuthor,
         reasonForChange,
