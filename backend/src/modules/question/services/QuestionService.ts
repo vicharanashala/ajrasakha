@@ -6723,35 +6723,30 @@ export class QuestionService extends BaseService implements IQuestionService {
       // id on the question for history/timeline. Guarded by finishedAt so a later status
       // change doesn't overwrite the original finish time.
       const gkId = (question as any).gateKeeperId?.toString();
-      if (
-        gkId &&
-        !QuestionService.GATE_KEEPER_STATUSES.includes(status) &&
-        !(question as any).gateKeeperFinishedAt
-      ) {
-        await Promise.all([
-          this.userRepo.removeAssignedQuestion(gkId, questionId),
-          this.questionRepo.markRoleFinished(
+      if (gkId && !QuestionService.GATE_KEEPER_STATUSES.includes(status)) {
+        // Always pull the question from the gate keeper's assigned list so they're
+        // freed (e.g. on cancel duplicate → open). Only stamp finishedAt once so a
+        // later status change doesn't overwrite the original finish time.
+        await this.userRepo.removeAssignedQuestion(gkId, questionId);
+        if (!(question as any).gateKeeperFinishedAt) {
+          await this.questionRepo.markRoleFinished(
             questionId,
             'gateKeeperFinishedAt',
             new Date(),
-          ),
-        ]);
+          );
+        }
       }
 
       const audId = (question as any).auditorId?.toString();
-      if (
-        audId &&
-        !QuestionService.AUDITOR_STATUSES.includes(status) &&
-        !(question as any).auditorFinishedAt
-      ) {
-        await Promise.all([
-          this.userRepo.removeAssignedQuestion(audId, questionId),
-          this.questionRepo.markRoleFinished(
+      if (audId && !QuestionService.AUDITOR_STATUSES.includes(status)) {
+        await this.userRepo.removeAssignedQuestion(audId, questionId);
+        if (!(question as any).auditorFinishedAt) {
+          await this.questionRepo.markRoleFinished(
             questionId,
             'auditorFinishedAt',
             new Date(),
-          ),
-        ]);
+          );
+        }
       }
     } catch (err: any) {
       console.error(
