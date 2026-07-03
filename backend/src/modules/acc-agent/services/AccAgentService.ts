@@ -123,7 +123,6 @@ export class AccAgentService {
         }
       );
 
-      console.log("from update state id function, status:", result.status);
     } catch (error) {
       console.error('[AccAgentService] updateState: Error calling LangGraph API', error);
       throw new InternalServerError('Failed to update ACC Agent thread state');
@@ -183,25 +182,19 @@ export class AccAgentService {
           timeout: this.TIMEOUT,
         }
       );
-
       const data = response.data;
-
-      console.log("[ACC Agent service], data returned from AI api keys:", Object.keys(data));
 
       if (!data.final_answer) {
         throw new InternalServerError('Invalid response from ACC Agent API: missing final_answer');
       }
 
       let finalAnswer = data.final_answer;
-      // If final_answer is a stringified JSON (as returned by the agent server),
-      // parse it and extract the actual markdown content from the internal 'final_answer' key
       try {
         const parsed = JSON.parse(finalAnswer);
         if (parsed && typeof parsed === 'object' && parsed.final_answer) {
           finalAnswer = parsed.final_answer;
         }
       } catch (e) {
-        // Keep original if it's already plain markdown text
       }
 
       return {

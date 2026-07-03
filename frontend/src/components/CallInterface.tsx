@@ -83,40 +83,7 @@ const getAutoSelectedSeason = (): string => {
   }
 };
 
-const DUMMY_TRANSCRIPTS: CallTranscript[] = [
-  {
-    track: "inbound",
-    text: "नमस्ते, मैं पंजाब से बोल रहा हूँ। मेरी आलू की फसल में पत्तियों पर भूरे धब्बे आ रहे हैं और वे सूखने लगी हैं। क्या यह लीफ ब्लाइट बीमारी है? और क्या आज बारिश होने की संभावना है?",
-    originalText: "नमस्ते, मैं पंजाब से बोल रहा हूँ। मेरी आलू की फसल में पत्तियों पर भूरे धब्बे आ रहे हैं और वे सूखने लगी हैं। क्या यह लीफ ब्लाइट बीमारी है? और क्या आज बारिश होने की संभावना है?",
-    translatedText: "Hello, I am calling from Punjab. Brown spots have appeared on the leaves of my potato crop, and they are starting to dry. Is this leaf blight disease? Also, is there a chance of rain today?",
-    detectedLanguage: "hi-IN",
-    timestamp: new Date(Date.now() - 120000).toISOString()
-  },
-  {
-    track: "outbound",
-    text: "नमस्ते। यदि पत्तियों पर भूरे धब्बे तेजी से फैल रहे हैं और नमी अधिक है, तो यह अर्ली या लेट ब्लाइट के लक्षण हो सकते हैं। क्या धब्बों के चारों ओर पीला घेरा भी दिखाई दे रहा है?",
-    originalText: "नमस्ते। यदि पत्तियों पर भूरे धब्बे तेजी से फैल रहे हैं और नमी अधिक है, तो यह अर्ली या लेट ब्लाइट के लक्षण हो सकते हैं। क्या धब्बों के चारों ओर पीला घेरा भी दिखाई दे रहा है?",
-    translatedText: "Hello. If the brown spots are spreading rapidly and humidity is high, these could be symptoms of early or late blight. Do you also notice a yellow halo around the spots?",
-    detectedLanguage: "hi-IN",
-    timestamp: new Date(Date.now() - 90000).toISOString()
-  },
-  {
-    track: "inbound",
-    text: "हाँ, कुछ पत्तियों पर पीला घेरा भी है और पिछले कुछ दिनों से मौसम भी नम रहा है।",
-    originalText: "हाँ, कुछ पत्तियों पर पीला घेरा भी है और पिछले कुछ दिनों से मौसम भी नम रहा है।",
-    translatedText: "Yes, some leaves have a yellow halo around the spots, and the weather has been humid for the past few days.",
-    detectedLanguage: "hi-IN",
-    timestamp: new Date(Date.now() - 60000).toISOString()
-  },
-  {
-    track: "outbound",
-    text: "यह लीफ ब्लाइट का संक्रमण हो सकता है। आप तुरंत प्रभावित पत्तियों को हटाएँ और अनुशंसित फफूंदनाशक का छिड़काव करें। जहाँ तक आज बारिश का सवाल है, कृपया अपना जिला बताइए ताकि मैं मौसम की सही जानकारी दे सकूँ।",
-    originalText: "यह लीफ ब्लाइट का संक्रमण हो सकता है। आप तुरंत प्रभावित पत्तियों को हटाएँ और अनुशंसित फफूंदनाशक का छिड़काव करें। जहाँ तक आज बारिश का सवाल है, कृपया अपना जिला बताइए ताकि मैं मौसम की सही जानकारी दे सकूँ।",
-    translatedText: "This could be a leaf blight infection. Remove the affected leaves immediately and spray a recommended fungicide. As for today's rain forecast, please tell me your district so I can provide accurate weather information.",
-    detectedLanguage: "hi-IN",
-    timestamp: new Date(Date.now() - 30000).toISOString()
-  }
-];
+
 
 const renderMarkdown = (text: string) => {
   if (!text) return null;
@@ -416,9 +383,9 @@ export const CallInterface = () => {
   const { data: currentUser, refetch: refetchCurrentUser } = useGetCurrentUser();
   const { mutateAsync: submitTranscript, isPending } = useSubmitTranscript();
   const [editableTranslatedTranscript, setEditableTranslatedTranscript] = useState("");
-  const [transcriptsList, setTranscriptsList] = useState<CallTranscript[]>(DUMMY_TRANSCRIPTS);
-  const [isCallActive, setIsCallActive] = useState(true);
-  const [callUuid, setCallUuid] = useState<string | null>("8abb85d7-aa02-4b69-95de-cf82034f0988");
+  const [transcriptsList, setTranscriptsList] = useState<CallTranscript[]>([]);
+  const [isCallActive, setIsCallActive] = useState(false);
+  const [callUuid, setCallUuid] = useState<string | null>(null);
   const [lastCallUuid, setLastCallUuid] = useState<string | null>(null);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
   interface ExtGeneratedQuestion extends GeneratedQuestion {
@@ -455,26 +422,7 @@ export const CallInterface = () => {
   const [editableDomain, setEditableDomain] = useState<string[]>([]);
   const [editableSeason, setEditableSeason] = useState("");
 
-  // Simulated conversation testing state
-  const [simulatedSpeaker, setSimulatedSpeaker] = useState<"inbound" | "outbound">("inbound");
-  const [simulatedText, setSimulatedText] = useState("");
 
-  const handleSimulateAddMessage = () => {
-    if (!simulatedText.trim()) return;
-
-    const newMessage: CallTranscript = {
-      track: simulatedSpeaker,
-      text: simulatedText,
-      originalText: simulatedSpeaker === "inbound" ? simulatedText : "",
-      translatedText: simulatedText,
-      detectedLanguage: simulatedSpeaker === "inbound" ? "hi-IN" : "en-IN",
-      timestamp: new Date().toISOString()
-    };
-
-    setTranscriptsList(prev => [...prev, newMessage]);
-    setSimulatedText("");
-    toast.success(`Added simulated ${simulatedSpeaker} message`);
-  };
 
   // Auto-scroll to bottom of chat bubbles
   useEffect(() => {
@@ -571,29 +519,7 @@ export const CallInterface = () => {
     toast.success("Conversation cleared");
   };
 
-  const handleLoadTestData = () => {
-    setTranscriptsList(DUMMY_TRANSCRIPTS);
-    setIsCallActive(true);
-    setCallUuid("8abb85d7-aa02-4b69-95de-cf82034f0988");
-    setLastCallUuid(null);
-    setIsSummaryOpen(false);
-    setEditableSummaryText("");
-    setExtractedState("");
-    setExtractedCrop("");
-    setHasGeneratedQuestions(false);
-    setQuestions([]);
-    // Reset HITL state
-    setThreadId(null);
-    setExtractedData(null);
-    setIsHumanVerificationMode(false);
-    setEditableQuery("");
-    setEditableCrop("");
-    setEditableState("");
-    setEditableDistrict("");
-    setEditableDomain([]);
-    setEditableSeason("");
-    toast.success("Loaded test dummy transcript data!");
-  };
+
 
   const handleResetQuestions = () => {
     setQuestions([]);
@@ -920,14 +846,7 @@ export const CallInterface = () => {
                 >
                   {isExtracting ? "Extracting..." : "Extract & Verify"}
                 </Button>
-                <Button
-                  onClick={handleLoadTestData}
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs border-indigo-300 hover:bg-indigo-50 dark:border-indigo-900/30 text-indigo-600 dark:text-indigo-400"
-                >
-                  Load Test Data
-                </Button>
+
                 <Button
                   onClick={handleResetConversation}
                   disabled={transcriptsList.length === 0}
@@ -1016,97 +935,6 @@ export const CallInterface = () => {
                 ) : null}
               </div>
 
-              {/* Simulation/Testing Controls Panel */}
-              <div className="pt-2 space-y-3 bg-zinc-50/50 dark:bg-zinc-900/30 p-3.5 rounded-xl border border-zinc-200/50 dark:border-zinc-800/50 animate-in fade-in duration-300">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <span className="h-1.5 w-1.5 rounded-full bg-indigo-600 dark:bg-indigo-400 animate-pulse" />
-                    Testing & Simulation Panel
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Call Status:</span>
-                    <Button
-                      onClick={() => setIsCallActive(!isCallActive)}
-                      size="sm"
-                      variant="outline"
-                      className={`h-6 text-[10px] px-2 font-medium transition-colors ${isCallActive
-                        ? "border-emerald-300 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-900 dark:text-emerald-400 dark:hover:bg-emerald-950/20"
-                        : "border-zinc-300 text-zinc-500 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
-                        }`}
-                    >
-                      {isCallActive ? "Streaming Active" : "Call Concluded"}
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="test-call-uuid" className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1 block">
-                      Testing Call UUID
-                    </Label>
-                    <Input
-                      id="test-call-uuid"
-                      value={callUuid || ""}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setCallUuid(val || null);
-                        if (!val && callUuid) {
-                          setLastCallUuid(callUuid);
-                        }
-                      }}
-                      placeholder="e.g. 8abb85d7-aa02-4b69-95de-cf82034f0988"
-                      className="h-8 text-xs font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="test-msg-type" className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1 block">
-                      Speaker Type
-                    </Label>
-                    <Select
-                      value={simulatedSpeaker}
-                      onValueChange={(val: "inbound" | "outbound") => setSimulatedSpeaker(val)}
-                    >
-                      <SelectTrigger id="test-msg-type" className="h-8 text-xs">
-                        <SelectValue placeholder="Select speaker" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="inbound" className="text-xs">Farmer (Inbound / Request)</SelectItem>
-                        <SelectItem value="outbound" className="text-xs">Expert (Outbound / Response)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="test-msg-text" className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1 block">
-                    Simulate Message / Speech Text
-                  </Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="test-msg-text"
-                      value={simulatedText}
-                      onChange={(e) => setSimulatedText(e.target.value)}
-                      placeholder="Type simulated farmer/expert text and press Add Message..."
-                      className="h-8 text-xs flex-1"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSimulateAddMessage();
-                        }
-                      }}
-                    />
-                    <Button
-                      onClick={handleSimulateAddMessage}
-                      disabled={!simulatedText.trim()}
-                      size="sm"
-                      className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 font-semibold rounded-lg shadow-sm"
-                    >
-                      Add Message
-                    </Button>
-                  </div>
-                </div>
-              </div>
             </CardContent>
           </div>
         </Card>

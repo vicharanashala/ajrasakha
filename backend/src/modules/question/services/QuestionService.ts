@@ -621,7 +621,6 @@ export class QuestionService extends BaseService implements IQuestionService {
     try {
       const result = await this.accAgentService.extractData(threadId, transcript);
 
-      console.log('[QuestionService] extractAccAgentData - Received result:', result);
       return result;
     } catch (error) {
       console.error('[QuestionService] extractAccAgentData: Error', error);
@@ -660,15 +659,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     metadata?: QAMetadata
   ): Promise<{ final_answer: string }> {
     try {
-      console.log('[QuestionService] resumeAccAgentAndGetAnswer - Received params:', {
-        threadId,
-        callUuid,
-        metadata: metadata ? JSON.stringify(metadata, null, 2) : 'undefined'
-      });
-
       const result = await this.accAgentService.resumeAndGetAnswer(threadId);
-
-      console.log('[QuestionService] resumeAccAgentAndGetAnswer Recived results', result);
 
       // If callUuid and metadata are provided, store Q/A pairs in call_details
       if (callUuid && metadata) {
@@ -685,15 +676,12 @@ export class QuestionService extends BaseService implements IQuestionService {
           ]
         };
 
-        // console.log('[QuestionService] Storing Q/A pairs:', JSON.stringify(qaPairs, null, 2));
-
         // Check if call_details document exists
         const existingCallDetails = await this.callDetailsRepository.getByCallUuid(callUuid);
 
         if (existingCallDetails) {
           // Update existing document
           await this.callDetailsRepository.updateQA_Pairs(callUuid, qaPairs);
-          console.log(`[QuestionService] Successfully stored Q/A pairs for callUuid: ${callUuid}`);
         } else {
           console.warn(`[QuestionService] Call details document not found for callUuid: ${callUuid}. Creating new document.`);
           // Create a new call_details document with the Q/A pairs
@@ -705,10 +693,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             caller: { transcript: '', translation: '', detectedLanguage: 'unknown' },
             agent: { transcript: '', translation: '', detectedLanguage: 'unknown' }
           });
-          console.log(`[QuestionService] Created new call details document for callUuid: ${callUuid}`);
         }
-      } else {
-        console.log('[QuestionService] Skipping Q/A storage - callUuid or metadata missing');
       }
 
       return result;
@@ -724,7 +709,6 @@ export class QuestionService extends BaseService implements IQuestionService {
     metadata?: QAMetadata
   ): Promise<any> {
     try {
-      // console.log('[QuestionService] getAccAgentState - Resuming agent first for thread:', threadId);
       // 1. Resume the agent
       await this.accAgentService.resumeAndGetAnswer(threadId);
 
@@ -765,7 +749,6 @@ export class QuestionService extends BaseService implements IQuestionService {
         if (existingCallDetails) {
           // Update existing document
           await this.callDetailsRepository.updateQA_Pairs(callUuid, qaPairs);
-          console.log(`[QuestionService] Successfully stored Q/A pairs for callUuid: ${callUuid}`);
         } else {
           console.warn(`[QuestionService] Call details document not found for callUuid: ${callUuid}. Creating new document.`);
           // Create a new call_details document with the Q/A pairs
@@ -777,10 +760,7 @@ export class QuestionService extends BaseService implements IQuestionService {
             caller: { transcript: '', translation: '', detectedLanguage: 'unknown' },
             agent: { transcript: '', translation: '', detectedLanguage: 'unknown' }
           });
-          console.log(`[QuestionService] Created new call details document for callUuid: ${callUuid}`);
         }
-      } else {
-        console.log('[QuestionService] Skipping Q/A storage - callUuid or metadata missing');
       }
 
       // 4. Return the full thread state

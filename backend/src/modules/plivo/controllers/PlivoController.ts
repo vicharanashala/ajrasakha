@@ -55,22 +55,10 @@ export class PlivoController {
       const myPlivoNumber = appConfig.plivo.plivo_number;
       const callUuid = req.body?.CallUUID || req.query?.CallUUID;
 
-      console.log('📞 [PLIVO-CONTROLLER] Answer endpoint called with:', {
-        body: req.body,
-        query: req.query,
-        callUuid
-      });
 
       // Atomically find and mark an available agent as busy (prevents race conditions)
       const availableAgent = await this.userService.findAndMarkAvailableAgent(callUuid);
 
-      // console.log('🔍 [PLIVO-CONTROLLER] Available agent found:', availableAgent ? {
-      //   id: availableAgent._id,
-      //   name: `${availableAgent.firstName} ${availableAgent.lastName}`,
-      //   agent: availableAgent.agent,
-      //   isBusy: availableAgent.isBusy,
-      //   isCallAgentActive: availableAgent.isCallAgentActive
-      // } : null);
 
       let endpointUser: string;
       let fallbackMessage: string;
@@ -81,21 +69,15 @@ export class PlivoController {
         const credentials = appConfig.plivo.getAgentCredentials(agentNumber);
         endpointUser = credentials.username;
 
-        // // console.log(`🔐 [PLIVO-CONTROLLER] Agent credentials for ${agentNumber}:`, {
-        //   username: credentials.username,
-        //   hasPassword: !!credentials.password
-        // });
 
         // Store the agent userid for this call in PlivoService
         this.plivoService.setCallAgent(callUuid, availableAgent._id.toString());
 
-        // console.log(`✅ [PLIVO-CONTROLLER] Routing call ${callUuid} to ${agentNumber} (${availableAgent.firstName} ${availableAgent.lastName})`);
         fallbackMessage = 'The specialist is busy. Please stay on the line.';
       } else {
         // No available agents - play busy message
         endpointUser = '';
         fallbackMessage = 'All agents are busy. Please call back later.';
-        // console.log(`⚠️ [PLIVO-CONTROLLER] No available agents for call ${callUuid}`);
       }
 
       // FIXED XML Structure: Stream outside Dial, proper fallback handling
@@ -132,59 +114,6 @@ export class PlivoController {
   }
 
 
-
-  @Post('/webhook/call-answered')
-  @HttpCode(200)
-  @UseBefore(urlencoded({ extended: true }))
-  @OpenAPI({ summary: 'Handle Plivo call answered webhook' })
-  async handleCallAnswered(@Req() req: Request, @Res() res: Response): Promise<void> {
-    try {
-      const callUuid = req.body?.CallUUID || req.query?.CallUUID;
-      const fromNumber = req.body?.From || req.query?.From;
-
-      console.log(`📞 [PLIVO-CONTROLLER] Call answered webhook received: CallUUID=${callUuid}, From=${fromNumber}`);
-
-      // The agent is already marked as busy in the answer endpoint
-      // This webhook is just for logging and potential future enhancements
-
-      res.status(200).send('OK');
-    } catch (error: any) {
-      console.error('❌ [PLIVO-CONTROLLER] Error in call answered webhook:', error);
-      res.status(500).send('Internal Server Error');
-    }
-  }
-
-  @Post('/webhook/call-ended')
-  @HttpCode(200)
-  @UseBefore(urlencoded({ extended: true }))
-  @OpenAPI({ summary: 'Handle Plivo call ended webhook' })
-  async handleCallEnded(@Req() req: Request, @Res() res: Response): Promise<void> {
-    try {
-      const callUuid = req.body?.CallUUID || req.query?.CallUUID;
-      const fromNumber = req.body?.From || req.query?.From;
-      const callStatus = req.body?.CallStatus || req.query?.CallStatus;
-
-      console.log(`📞 [PLIVO-CONTROLLER] Call ended webhook received: CallUUID=${callUuid}, From=${fromNumber}, Status=${callStatus}`);
-
-      // Find the agent who was handling this call and mark them as available
-      const allCallAgents = await this.userService.getCallAgents();
-      const agentWithCall = allCallAgents.find(agent => agent.currentCallUuid === callUuid);
-
-      if (agentWithCall) {
-        await this.userService.markAgentAsAvailable(agentWithCall._id.toString());
-        // Clear the agent mapping from PlivoService
-        this.plivoService.clearTranscript(callUuid);
-        console.log(`✅ [PLIVO-CONTROLLER] Marked agent ${agentWithCall.agent} (${agentWithCall.firstName} ${agentWithCall.lastName}) as available`);
-      } else {
-        console.log(`⚠️ [PLIVO-CONTROLLER] No agent found with currentCallUuid=${callUuid}`);
-      }
-
-      res.status(200).send('OK');
-    } catch (error: any) {
-      console.error('❌ [PLIVO-CONTROLLER] Error in call ended webhook:', error);
-      res.status(500).send('Internal Server Error');
-    }
-  }
 
 
 
@@ -224,10 +153,6 @@ export class PlivoController {
       // Fetching the list of calls from Plivo
       const response = await this.client.calls.list(plivoQuery);
 
-      // console.log('✅ [PLIVO-CONTROLLER] Fetched calls:', response);
-
-      // Map the data to a cleaner format for your Frontend
-      // Response is an array of call objects with a meta object at the end
       const history = (response as any)
         .filter((item: any) => item.callUuid) // Filter out meta object
         .map((call: any) => ({
@@ -258,6 +183,8 @@ export class PlivoController {
       throw new InternalServerError('Failed to fetch call history');
     }
   }
+
+
   @Post('/send-message')
   @Authorized()
   @OpenAPI({
@@ -270,8 +197,7 @@ export class PlivoController {
     @Res() res: Response
   ) {
     try {
-      // console.log("🚀 ~ PlivoController ~ sendMessage ~ destination:", body.destination);
-      // console.log("🚀 ~ PlivoController ~ sendMessage ~ text:", body.text);
+
 
       if (!body.destination || !body.text) {
         return res.status(400).json({

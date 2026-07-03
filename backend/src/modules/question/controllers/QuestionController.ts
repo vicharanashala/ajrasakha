@@ -307,10 +307,8 @@ export class QuestionController {
     @Body() body: { threadId: string; callUuid?: string; metadata?: QAMetadata }
   ): Promise<any> {
     try {
-      // console.log('[QuestionController] resumeAccAgentAndGetAnswer - Received body:', JSON.stringify(body, null, 2));
       // const result = await this.questionService.resumeAccAgentAndGetAnswer(body.threadId, body.callUuid, body.metadata);
       const result = await this.questionService.getAccAgentState(body.threadId, body.callUuid, body.metadata);
-      console.log("[question Controller] new flow implemented", result);
       return result;
     } catch (error) {
       console.error('[QuestionController] resumeAccAgentAndGetAnswer: Error', error);
