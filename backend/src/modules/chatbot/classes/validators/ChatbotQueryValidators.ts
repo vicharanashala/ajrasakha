@@ -163,6 +163,57 @@ export class WeatherConcernQueriesQueryDto extends WeatherConcernAnalyticsQueryD
   search?: string;
 }
 
+export class DemographicUsersQueryDto {
+  @JSONSchema({ example: 'age', description: 'Demographic category to filter by' })
+  @IsNotEmpty()
+  @IsString()
+  category!: string;
+
+  @JSONSchema({ example: '16-30', description: 'Demographic value to filter by' })
+  @IsNotEmpty()
+  @IsString()
+  value!: string;
+
+  @JSONSchema({ example: 'annam', description: 'Data source to query' })
+  @IsOptional()
+  @IsIn(['annam', 'whatsapp'])
+  source: 'annam' | 'whatsapp' = 'annam';
+
+  @JSONSchema({ example: 'all', description: 'Filter by user type: all, external (username starts with rup), or internal' })
+  @IsOptional()
+  @IsIn(['all', 'external', 'internal'])
+  userType: 'all' | 'external' | 'internal' = 'all';
+
+  @JSONSchema({ example: 1, description: 'Page number' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page: number = 1;
+
+  @JSONSchema({ example: 10, description: 'Results per page' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  limit: number = 10;
+
+  @JSONSchema({ example: 'john', description: 'Search by name, username, or email' })
+  @IsOptional()
+  @IsString()
+  search: string = '';
+
+  @JSONSchema({ example: 'name', description: 'Sort by field: name, farmerName, email, or createdAt' })
+  @IsOptional()
+  @IsIn(['name', 'farmerName', 'email', 'createdAt'])
+  sortBy: 'name' | 'farmerName' | 'email' | 'createdAt' = 'createdAt';
+
+  @JSONSchema({ example: 'asc', description: 'Sort order: asc or desc' })
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  sortOrder: 'asc' | 'desc' = 'desc';
+}
+
 export class UserDetailsQueryDto {
   @JSONSchema({ example: '2025-01-01', description: 'Filter start date (ISO string)' })
   @IsOptional()
