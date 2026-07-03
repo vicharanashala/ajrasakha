@@ -1532,12 +1532,40 @@ export class UserRepository implements IUserRepository {
   ): Promise<void> {
     await this.init();
     try {
+      const updatedAt = new Date();
       const isBlocked = action === 'block';
-      await this.usersCollection.updateOne(
+      const result = await this.usersCollection.findOneAndUpdate(
         { _id: new ObjectId(userId) },
         { $set: { isBlocked } },
-        { upsert: true, session },
+        { upsert: true, returnDocument: 'after', session },
       );
+       await Promise.all([
+        this.userRoleHistoryCollection.updateOne(
+          {
+            userId: new ObjectId(userId),
+            to: null,
+          },
+          {
+            $set: {
+              to: updatedAt,
+              updatedAt,
+            },
+          },
+          { session },
+        ),
+        this.userRoleHistoryCollection.insertOne(
+          {
+            userId: new ObjectId(userId),
+            role: result.role,
+            from: updatedAt,
+            to: null,
+            isVerified: result.isVerified ?? false,
+            status: result.status,
+            isBlocked: result.isBlocked,
+            special_task_force: result.special_task_force,
+          },
+          { session },
+        )])
     } catch (error) {
       throw new InternalServerError(`Failed to update IsBlock`);
     }
@@ -1551,18 +1579,19 @@ export class UserRepository implements IUserRepository {
     await this.init();
     try {
       const special_task_force = action === 'assign';
+      const updatedAt = new Date();
       const updatedUser =await this.usersCollection.findOneAndUpdate(
         { _id: new ObjectId(userId) },
         {
           $set: {
             special_task_force,
-            updatedAt: new Date(),
+            updatedAt,
           },
         },
         { upsert: true, returnDocument: 'after', session },
       );
 
-      const updatedAt = new Date();
+      
       await Promise.all([
         this.userRoleHistoryCollection.updateOne(
           {
