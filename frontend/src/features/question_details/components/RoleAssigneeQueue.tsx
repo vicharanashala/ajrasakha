@@ -69,9 +69,9 @@ export const RoleAssigneeQueue = ({
     : question.auditorFinishedAt;
   // Auto-allocate is ON unless explicitly false (default true on new questions).
   const autoAllocate =
-    (isGK ? question.autoAllocateGateKeeper : question.autoAllocateAuditor) !==
-    false;
-
+  isGK
+    ? question.autoAllocateGateKeeper === true
+    : question.autoAllocateAuditor === true;
   const canManage =
     currentUser.role === "moderator" || currentUser.role === "admin";
 
