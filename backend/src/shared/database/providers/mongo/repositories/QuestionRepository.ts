@@ -7340,6 +7340,8 @@ export class QuestionRepository implements IQuestionRepository {
     await this.init();
     const filter: Record<string, unknown> = {
       status: { $in: statuses },
+      // Gate keeper / auditor only handle time-bound (chatbot) questions.
+      source: { $in: ['AJRASAKHA', 'WHATSAPP'] },
       [assigneeField]: { $in: [null, undefined] },
       // Eligible unless the flag is explicitly false (default is true / missing).
       [autoAllocateField]: { $ne: false },
@@ -7360,6 +7362,8 @@ export class QuestionRepository implements IQuestionRepository {
     return this.QuestionCollection.find({
       [assigneeField]: { $ne: null, $exists: true },
       status: { $in: statuses },
+      // Gate keeper / auditor only handle time-bound (chatbot) questions.
+      source: { $in: ['AJRASAKHA', 'WHATSAPP'] },
     } as any)
       .toArray();
   }
