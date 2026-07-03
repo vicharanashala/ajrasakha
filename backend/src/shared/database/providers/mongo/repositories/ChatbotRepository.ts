@@ -556,6 +556,16 @@ export class ChatbotRepository implements IChatbotRepository {
 
   // Uttar Pradesh
   "kanpur": "kanpur nagar",
+
+  // Punjab
+ "sahibzada ajit singh nagar": "s.a.s nagar",
+"sahibzada ajit singh nagar (mohali)": "s.a.s nagar",
+
+"mohali": "s.a.s nagar",
+
+"s.a.s nagar": "s.a.s nagar",
+"sas nagar": "s.a.s nagar",
+"s a s nagar": "s.a.s nagar",
 };
   
 private normalizeDistrictName(district?: string): string {
@@ -2784,8 +2794,16 @@ private isInvalidHeatMapLocation(value?: string | null) {
       const source = _source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
 
       const districts = district.map((d)=>{
+        if(d.districtNameEnglish === "S.A.S Nagar"){
+          return "Sahibzada Ajit Singh Nagar"
+        }
+        if(d.districtNameEnglish === "Shahid Bhagat Singh Nagar"){
+          return "Nawanshahr"
+        } 
         return d.districtNameEnglish;
       });
+
+      console.log('Districts for state', state, districts);
 
       if (!districts.length) {
         return [];
@@ -3171,6 +3189,8 @@ for (const item of districtUsers) {
           coordinators: 0,
         });
       }
+
+
 
       return result.sort((a, b) => {
         if (a.district.toLowerCase() === 'all') return 1;
