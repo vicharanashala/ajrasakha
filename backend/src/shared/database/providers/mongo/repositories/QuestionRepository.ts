@@ -7343,8 +7343,9 @@ export class QuestionRepository implements IQuestionRepository {
       // Gate keeper / auditor only handle time-bound (chatbot) questions.
       source: { $in: ['AJRASAKHA', 'WHATSAPP'] },
       [assigneeField]: { $in: [null, undefined] },
-      // Eligible unless the flag is explicitly false (default is true / missing).
-      [autoAllocateField]: { $ne: false },
+      // Only fetch when auto-allocation is explicitly ON — a missing field or `false`
+      // both mean "don't auto-assign".
+      [autoAllocateField]: { $eq: true },
       isOnHold: { $ne: true },
     };
     return this.QuestionCollection.find(filter as any)
