@@ -26,19 +26,45 @@
  *      queue match) back to 'open', recording the reason + auto-allocate choice
  *      in the audit trail only (CANCEL_DUPLICATE).
  *
- *   4. CLOSE-PROPAGATION — approving/closing any question now auto-closes every
- *      'queue_duplicate' question that referenced it: the final answer is
- *      replicated, each child is stamped closedBy:'System', its moderator
- *      assignment is cleared, and its own customer webhook fires independently
- *      (AnswerService.notifyCustomerOnClose, extracted for exactly this reuse).
+ *   4. CONFIRM DUPLICATE — POST /api/answers/:questionId/confirm-duplicate
+ *      (AnswerService.confirmDuplicate). Gate Keeper confirms a 'queue_duplicate'
+ *      question is indeed a duplicate of its referenceQuestionId:
+ *        - reference already closed  → replicates its final answer, closes THIS
+ *          question ('closed'), notifies the customer immediately.
+ *        - reference still open      → moves to 'duplicate_confirmed' to await the
+ *          reference's own close (see CLOSE-PROPAGATION below).
+ *      Either way frees the gate keeper (freeRoleAssigneeOnStatusChange).
+ *
+ *   5. CLOSE-PROPAGATION — approving/closing any question now auto-closes every
+ *      'duplicate_confirmed' question that referenced it (status gate changed from
+ *      'queue_duplicate' on 2026-07-03, once Confirm Duplicate landed — an
+ *      unconfirmed 'queue_duplicate' child is now deliberately left untouched): the
+ *      final answer is replicated, each child is stamped closedBy:'System', its
+ *      moderator assignment is cleared, and its own customer webhook fires
+ *      independently (AnswerService.notifyCustomerOnClose, extracted for reuse).
+ *
+ *   6. QUEUE CRON (single-allocation) — gateKeeperAuditorQueueCron.ts /
+ *      QuestionService.runGateKeeperAuditorQueueCron. Every minute (prod only; gated
+ *      by `!appConfig.isDevelopment`), pairs each free gate_keeper/auditor (zero
+ *      `assignedQuestionIds`, not blocked) with the oldest unassigned eligible
+ *      question for their role (status match, `autoAllocate{GateKeeper,Auditor}`
+ *      explicitly true, not on hold, source ∈ {AJRASAKHA, WHATSAPP}), atomically
+ *      stamping gateKeeperId/auditorId + assignedAt and pushing the user's
+ *      assignedQuestionIds. freeRoleAssigneeOnStatusChange (called from
+ *      updateQuestion/approveAnswer/confirmDuplicate) frees the user again — clears
+ *      assignedQuestionIds, stamps gateKeeperFinishedAt/auditorFinishedAt — once the
+ *      question's status leaves that role's handling set, enabling the next pass.
  *
  * WHAT THIS DOES NOT COVER
  * ------------------------
  * Ingestion-time detection of 'queue_duplicate' (AiService.checkPendingDuplicate
  * called from runDuplicateCheckPipeline) is covered in WhatsAppQuestion.e2e.test.ts
  * and AjrasakhaQuestion.e2e.test.ts, not here — this suite seeds terminal-state
- * questions directly and drives only the gate-keeper/auditor/close-propagation
- * transitions.
+ * questions directly and drives only the gate-keeper/auditor/close-propagation/
+ * queue-cron transitions. Also not covered: the manual role-(re)assignment
+ * endpoints (PATCH/DELETE /questions/:questionId/role-assignee) and the
+ * autoAllocate toggle endpoint — these are admin/moderator tooling around the same
+ * assignedQuestionIds mechanics exercised here via the cron.
  *
  * STRATEGY
  * --------
@@ -53,6 +79,15 @@
  * The customer webhook (triggerWebhook, called via AnswerService.notifyCustomerOnClose)
  * is vi.mock'd so payloads (status/messageId/threadId per question) can be asserted
  * directly, instead of relying on a real/failing network call like the other suites.
+ *
+ * The queue cron (runGateKeeperAuditorQueueCron) never self-schedules in this harness
+ * (NODE_ENV='development' disables the node-cron registration) — tests call
+ * questionService.runGateKeeperAuditorQueueCron() directly, same pattern as
+ * questionService.reallocateTimeBoundQuestions() in AutoAllocation.e2e.test.ts.
+ * Because this runs against the real shared Atlas DB, cron tests avoid asserting
+ * exact global pairing (which of possibly-many real free users gets which question)
+ * and instead check filtering logic in isolation, or use a deliberately ancient
+ * createdAt so a seeded question is guaranteed the global oldest match.
  */
 
 process.env.NODE_ENV = 'development';
@@ -81,6 +116,9 @@ const INTERNAL_API_KEY = 'e2e-gatekeeper-auditor-key';
 
 let app: express.Express;
 let db: any;
+let questionService: any;
+let questionRepo: any;
+let userRepo: any;
 
 let gateKeeperUser: any;
 let auditorUser: any;
@@ -92,6 +130,30 @@ let currentTestUser: any = null;
 
 const createdQuestionIds: ObjectId[] = [];
 const createdUserIds: ObjectId[] = [];
+let userCounter = 0;
+
+/** Insert a fresh RUN_TAG-tagged user of the given role directly into Mongo (no
+ *  .env.test fixtures exist for gate_keeper/auditor). `assignedQuestionIds` lets a
+ *  test seed a user as already "busy" for single-allocation cron tests. */
+async function makeUser(role: string, assignedQuestionIds?: any[]): Promise<any> {
+  const users = await db.getCollection('users');
+  const tag = `${role}_${++userCounter}`;
+  const { insertedId } = await users.insertOne({
+    firebaseUID: `${RUN_TAG}_${tag}`,
+    email: `${RUN_TAG}_${tag}@example.com`,
+    firstName: RUN_TAG,
+    lastName: role,
+    role,
+    incentive: 0,
+    penalty: 0,
+    isBlocked: false,
+    assignedQuestionIds: assignedQuestionIds ?? [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  createdUserIds.push(insertedId);
+  return users.findOne({ _id: insertedId });
+}
 
 beforeAll(async () => {
   // Resolve the AnswerService circular-import warm-up before loadAppModules
@@ -107,6 +169,9 @@ beforeAll(async () => {
   const { controllers } = await loadAppModules('all');
   const container = getContainer();
   db = container.get(GLOBAL_TYPES.Database);
+  questionService = container.get(CORE_TYPES.QuestionService);
+  questionRepo = container.get(CORE_TYPES.QuestionRepository);
+  userRepo = container.get(CORE_TYPES.UserRepository);
 
   const dummyAi = {
     getEmbedding: async () => ({ embedding: [] }),
@@ -128,23 +193,6 @@ beforeAll(async () => {
     currentUserChecker: async () => currentTestUser,
   });
 
-  // No .env.test fixtures exist for the new roles — insert real user docs.
-  const users = await db.getCollection('users');
-  const makeUser = async (role: string) => {
-    const { insertedId } = await users.insertOne({
-      firebaseUID: `${RUN_TAG}_${role}`,
-      email: `${RUN_TAG}_${role}@example.com`,
-      firstName: RUN_TAG,
-      lastName: role,
-      role,
-      incentive: 0,
-      penalty: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-    createdUserIds.push(insertedId);
-    return users.findOne({ _id: insertedId });
-  };
   gateKeeperUser = await makeUser('gate_keeper');
   auditorUser = await makeUser('auditor');
   expertUser = await makeUser('expert');
@@ -237,6 +285,12 @@ async function seedQuestion(opts: {
   messageId?: string;
   threadId?: string;
   label?: string;
+  autoAllocateGateKeeper?: boolean;
+  autoAllocateAuditor?: boolean;
+  isOnHold?: boolean;
+  createdAt?: Date;
+  gateKeeperId?: ObjectId;
+  auditorId?: ObjectId;
 }): Promise<string> {
   const questions = await db.getCollection('questions');
   const submissions = await db.getCollection('question_submissions');
@@ -263,7 +317,7 @@ async function seedQuestion(opts: {
     embedding: [],
     metrics: null,
     details,
-    createdAt: new Date(),
+    createdAt: opts.createdAt ?? new Date(),
     updatedAt: new Date(),
   };
   if (opts.source === 'WHATSAPP' || opts.source === 'AJRASAKHA') {
@@ -273,6 +327,11 @@ async function seedQuestion(opts: {
   if (opts.referenceQuestionId) doc.referenceQuestionId = opts.referenceQuestionId;
   if (opts.referenceSource) doc.referenceSource = opts.referenceSource;
   if (opts.auditorReviewType) doc.auditorReviewType = opts.auditorReviewType;
+  if (opts.autoAllocateGateKeeper !== undefined) doc.autoAllocateGateKeeper = opts.autoAllocateGateKeeper;
+  if (opts.autoAllocateAuditor !== undefined) doc.autoAllocateAuditor = opts.autoAllocateAuditor;
+  if (opts.isOnHold !== undefined) doc.isOnHold = opts.isOnHold;
+  if (opts.gateKeeperId) doc.gateKeeperId = opts.gateKeeperId;
+  if (opts.auditorId) doc.auditorId = opts.auditorId;
 
   const { insertedId } = await questions.insertOne(doc);
   createdQuestionIds.push(insertedId);
@@ -621,11 +680,179 @@ describe('Gate Keeper — Cancel Duplicate', () => {
 });
 
 // ════════════════════════════════════════════════════════════════════════
-// 4. CLOSE-PROPAGATION — approving a question auto-closes its queue_duplicate children
+// 4. CONFIRM DUPLICATE — Gate Keeper confirms a queue_duplicate question
+//    (POST /api/answers/:questionId/confirm-duplicate, AnswerService.confirmDuplicate)
 // ════════════════════════════════════════════════════════════════════════
 
-describe('Close-propagation — approving a question closes its queue_duplicate children', () => {
-  it('replicates the final answer onto each queue_duplicate child, closes them as System, and fires each child\'s own customer webhook', async () => {
+describe('Gate Keeper — Confirm Duplicate', () => {
+  it('CASE A: reference question already closed — replicates its final answer, closes the question, and notifies the customer', async () => {
+    const refId = await seedQuestion({
+      status: 'closed',
+      source: 'WHATSAPP',
+      label: 'confirm-dup-ref-closed',
+    });
+    const answers = await db.getCollection('answers');
+    await answers.insertOne({
+      questionId: new ObjectId(refId),
+      authorId: auditorUser._id,
+      answerIteration: 1,
+      approvalCount: 1,
+      isFinalAnswer: true,
+      answer: `${RUN_TAG} the reference's final answer`,
+      sources: [{ source: 'https://icar.org.in', page: '1' }],
+      embedding: [],
+      status: 'approved',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const qId = await seedQuestion({
+      status: 'queue_duplicate',
+      source: 'WHATSAPP',
+      referenceQuestionId: new ObjectId(refId),
+      gateKeeperId: gateKeeperUser._id,
+      label: 'confirm-dup-case-a',
+    });
+
+    as(gateKeeperUser);
+    const postRes = await request(app)
+      .post(`${ROUTE_PREFIX}/answers/${qId}/confirm-duplicate`)
+      .set('x-internal-api-key', INTERNAL_API_KEY)
+      .send({});
+    expect(postRes.status).toBe(200);
+    expect(postRes.body?.status).toBe('closed');
+
+    const q = await getQuestion(qId);
+    expect(q.status).toBe('closed');
+    expect(q.closedAt).toBeInstanceOf(Date);
+    expect(q.closedBy).toBe('System');
+
+    const replicated = await answers.findOne({ questionId: new ObjectId(qId) });
+    expect(replicated).not.toBeNull();
+    expect(replicated.answer).toBe(`${RUN_TAG} the reference's final answer`);
+    expect(replicated.isFinalAnswer).toBe(true);
+
+    expect(triggerWebhook).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ question_id: qId, status: 'closed' }),
+      'WhatsApp',
+    );
+  });
+
+  it('CASE B: reference question still open — moves the question to duplicate_confirmed without closing it', async () => {
+    const refId = await seedQuestion({ status: 'open', source: 'WHATSAPP', label: 'confirm-dup-ref-open' });
+    const qId = await seedQuestion({
+      status: 'queue_duplicate',
+      source: 'WHATSAPP',
+      referenceQuestionId: new ObjectId(refId),
+      label: 'confirm-dup-case-b',
+    });
+
+    const res = await request(app)
+      .post(`${ROUTE_PREFIX}/answers/${qId}/confirm-duplicate`)
+      .set('x-internal-api-key', INTERNAL_API_KEY)
+      .send({});
+    expect(res.status).toBe(200);
+
+    const q = await getQuestion(qId);
+    expect(q.status).toBe('duplicate_confirmed');
+    expect(q.closedAt).toBeUndefined();
+    expect(triggerWebhook).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ question_id: qId }),
+      expect.anything(),
+    );
+  });
+
+  it('frees the assigned gate keeper (assignedQuestionIds cleared, gateKeeperFinishedAt stamped) once confirmed', async () => {
+    const freeGateKeeper = await makeUser('gate_keeper');
+    const refId = await seedQuestion({ status: 'open', source: 'WHATSAPP', label: 'confirm-dup-free-ref' });
+    const qId = await seedQuestion({
+      status: 'queue_duplicate',
+      source: 'WHATSAPP',
+      referenceQuestionId: new ObjectId(refId),
+      gateKeeperId: freeGateKeeper._id,
+      label: 'confirm-dup-free-gk',
+    });
+    const users = await db.getCollection('users');
+    await users.updateOne(
+      { _id: freeGateKeeper._id },
+      { $set: { assignedQuestionIds: [{ questionId: new ObjectId(qId), status: 'queue_duplicate', source: 'WHATSAPP' }] } },
+    );
+
+    await request(app)
+      .post(`${ROUTE_PREFIX}/answers/${qId}/confirm-duplicate`)
+      .set('x-internal-api-key', INTERNAL_API_KEY)
+      .send({});
+
+    const q = await getQuestion(qId);
+    expect(q.status).toBe('duplicate_confirmed');
+    expect(q.gateKeeperFinishedAt).toBeInstanceOf(Date);
+
+    const refreshedUser = await users.findOne({ _id: freeGateKeeper._id });
+    expect(refreshedUser.assignedQuestionIds ?? []).toHaveLength(0);
+  });
+
+  it('rejects confirm-duplicate on a question that is not queue_duplicate (precondition)', async () => {
+    const qId = await seedQuestion({ status: 'open', label: 'confirm-dup-wrong-status' });
+
+    const res = await request(app)
+      .post(`${ROUTE_PREFIX}/answers/${qId}/confirm-duplicate`)
+      .set('x-internal-api-key', INTERNAL_API_KEY)
+      .send({});
+    expect(res.status).toBe(400);
+
+    const q = await getQuestion(qId);
+    expect(q.status).toBe('open'); // unchanged
+  });
+
+  it('rejects confirm-duplicate when the question has no referenceQuestionId', async () => {
+    const qId = await seedQuestion({ status: 'queue_duplicate', label: 'confirm-dup-no-ref' });
+
+    const res = await request(app)
+      .post(`${ROUTE_PREFIX}/answers/${qId}/confirm-duplicate`)
+      .set('x-internal-api-key', INTERNAL_API_KEY)
+      .send({});
+    expect(res.status).toBe(400);
+  });
+
+  // [KNOWN GAP] Consistent with Push to Auditor / Cancel Duplicate: the endpoint is
+  // only `@Authorized()` + verifyNotTester(user) — no `gate_keeper` role restriction.
+  it('[KNOWN GAP] an expert user can confirm-duplicate directly via the API', async () => {
+    const refId = await seedQuestion({ status: 'open', source: 'WHATSAPP', label: 'confirm-dup-rbac-ref' });
+    const qId = await seedQuestion({
+      status: 'queue_duplicate',
+      source: 'WHATSAPP',
+      referenceQuestionId: new ObjectId(refId),
+      label: 'confirm-dup-rbac-gap',
+    });
+
+    as(expertUser);
+    const res = await request(app)
+      .post(`${ROUTE_PREFIX}/answers/${qId}/confirm-duplicate`)
+      .set('x-internal-api-key', INTERNAL_API_KEY)
+      .send({});
+    // No role guard exists on this endpoint either — the request succeeds.
+    expect(res.status).toBe(200);
+
+    const q = await getQuestion(qId);
+    expect(q.status).toBe('duplicate_confirmed');
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════
+// 5. CLOSE-PROPAGATION — approving a question auto-closes its duplicate_confirmed children
+//    (child status gate changed from 'queue_duplicate' → 'duplicate_confirmed' on
+//    2026-07-03, once Confirm Duplicate landed — see AnswerService.approveAnswer,
+//    ~line 2073: `findByReferenceQuestionId(questionId, 'duplicate_confirmed', session)`.
+//    An unconfirmed 'queue_duplicate' child is now left untouched by the parent's
+//    close — it stays in the gate-keeper queue until a gate keeper acts on it.)
+// ════════════════════════════════════════════════════════════════════════
+
+describe('Close-propagation — approving a question closes its duplicate_confirmed children', () => {
+  it('replicates the final answer onto each duplicate_confirmed child, closes them as System, and fires each child\'s own customer webhook', async () => {
     const parentId = await seedQuestion({
       status: 'duplicate',
       source: 'OUTREACH',
@@ -633,7 +860,7 @@ describe('Close-propagation — approving a question closes its queue_duplicate 
     });
 
     const whatsappChildId = await seedQuestion({
-      status: 'queue_duplicate',
+      status: 'duplicate_confirmed',
       source: 'WHATSAPP',
       referenceQuestionId: new ObjectId(parentId),
       referenceSource: 'reviewer',
@@ -644,7 +871,7 @@ describe('Close-propagation — approving a question closes its queue_duplicate 
     });
 
     const ajrasakhaChildId = await seedQuestion({
-      status: 'queue_duplicate',
+      status: 'duplicate_confirmed',
       source: 'AJRASAKHA',
       referenceQuestionId: new ObjectId(parentId),
       referenceSource: 'reviewer',
@@ -654,10 +881,10 @@ describe('Close-propagation — approving a question closes its queue_duplicate 
       label: 'propagation-child-ajrasakha',
     });
 
-    // An unrelated queue_duplicate question (references a DIFFERENT parent) must
+    // An unrelated duplicate_confirmed question (references a DIFFERENT parent) must
     // NOT be touched by this approval — guards against an overbroad query.
     const unrelatedChildId = await seedQuestion({
-      status: 'queue_duplicate',
+      status: 'duplicate_confirmed',
       source: 'WHATSAPP',
       referenceQuestionId: new ObjectId(), // some other question entirely
       referenceSource: 'reviewer',
@@ -684,7 +911,7 @@ describe('Close-propagation — approving a question closes its queue_duplicate 
     expect(ajChild.closedBy).toBe('System');
 
     const unrelated = await getQuestion(unrelatedChildId);
-    expect(unrelated.status).toBe('queue_duplicate'); // untouched
+    expect(unrelated.status).toBe('duplicate_confirmed'); // untouched
     expect(unrelated.closedBy).toBeUndefined();
 
     const answers = await db.getCollection('answers');
@@ -725,11 +952,11 @@ describe('Close-propagation — approving a question closes its queue_duplicate 
   });
 
   // FINDING-007 (documented, not fixed): the child-close code path
-  // (AnswerService.approveAnswer, ~line 2092) hardcodes `status: 'closed'` for every
-  // queue_duplicate child, regardless of what the PARENT actually closed as. When the
-  // parent is a 'dynamic' question (closes 'dynamic_closed'), its children still end
-  // up 'closed', not 'dynamic_closed' — a status mismatch between parent and replica.
-  it('[FINDING] when the parent closes as dynamic_closed, its queue_duplicate children still close as plain closed (status mismatch)', async () => {
+  // (AnswerService.approveAnswer, ~line 2073) hardcodes `status: 'closed'` for every
+  // duplicate_confirmed child, regardless of what the PARENT actually closed as. When
+  // the parent is a 'dynamic' question (closes 'dynamic_closed'), its children still
+  // end up 'closed', not 'dynamic_closed' — a status mismatch between parent and replica.
+  it('[FINDING] when the parent closes as dynamic_closed, its duplicate_confirmed children still close as plain closed (status mismatch)', async () => {
     const parentId = await seedQuestion({
       status: 'dynamic',
       source: 'WHATSAPP',
@@ -737,7 +964,7 @@ describe('Close-propagation — approving a question closes its queue_duplicate 
     });
 
     const childId = await seedQuestion({
-      status: 'queue_duplicate',
+      status: 'duplicate_confirmed',
       source: 'WHATSAPP',
       referenceQuestionId: new ObjectId(parentId),
       referenceSource: 'reviewer',
@@ -767,10 +994,373 @@ describe('Close-propagation — approving a question closes its queue_duplicate 
       'WhatsApp',
     );
   });
+
+  // Since 2026-07-03 (commit 22d5622c8), the propagation query targets
+  // 'duplicate_confirmed' children, not 'queue_duplicate' ones — an unconfirmed
+  // queue_duplicate question (a gate keeper hasn't run Confirm Duplicate on it yet)
+  // is deliberately left alone when its would-be parent closes; it stays in the
+  // gate-keeper queue until a gate keeper acts on it (Confirm Duplicate or Cancel).
+  it('leaves an unconfirmed queue_duplicate child untouched when its reference question closes (propagation requires duplicate_confirmed first)', async () => {
+    const parentId = await seedQuestion({
+      status: 'duplicate',
+      source: 'WHATSAPP',
+      label: 'unconfirmed-propagation-parent',
+    });
+
+    const unconfirmedChildId = await seedQuestion({
+      status: 'queue_duplicate',
+      source: 'WHATSAPP',
+      referenceQuestionId: new ObjectId(parentId),
+      referenceSource: 'reviewer',
+      isAutoAllocate: false,
+      label: 'unconfirmed-propagation-child',
+    });
+
+    as(auditorUser);
+    const res = await apiPut(`${ROUTE_PREFIX}/answers`).send({
+      questionId: parentId,
+      answer: `${RUN_TAG} parent closes while child is still unconfirmed`,
+      sources: [],
+    });
+    expect(res.status).toBe(200);
+
+    const parent = await getQuestion(parentId);
+    expect(parent.status).toBe('closed');
+
+    const child = await getQuestion(unconfirmedChildId);
+    expect(child.status).toBe('queue_duplicate'); // untouched — never confirmed
+    expect(child.closedBy).toBeUndefined();
+
+    expect(triggerWebhook).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.objectContaining({ question_id: unconfirmedChildId }),
+      expect.anything(),
+    );
+  });
 });
 
 // ════════════════════════════════════════════════════════════════════════
-// 5. KNOWN GAP — no role guard on Gate Keeper / Auditor-only actions
+// 5. QUEUE CRON — single-allocation auto-assignment
+//    (gateKeeperAuditorQueueCron.ts → QuestionService.runGateKeeperAuditorQueueCron)
+//
+//    The cron itself only registers when `!appConfig.isDevelopment`
+//    (bootstrap/jobs/gateKeeperAuditorQueueCron.ts) — this harness runs with
+//    NODE_ENV='development' (TLS workaround, see file header), so node-cron never
+//    schedules the job here. Same pattern as reallocateTimeBoundQuestions() in
+//    AutoAllocation.e2e.test.ts: call the underlying service method directly.
+//
+//    Because this suite runs against the real (shared) Atlas DB, tests avoid
+//    asserting exact global pairing outcomes (which free user among possibly many
+//    real ones gets which question) and instead assert:
+//      - filtering logic in isolation (findUnassignedQuestionsForRole /
+//        findAvailableUsersByRole), checking only the RELATIVE presence/order of
+//        this test's own seeded documents — robust regardless of unrelated data;
+//      - one full runGateKeeperAuditorQueueCron() integration test using a
+//        deliberately ancient createdAt so the seeded question is guaranteed to be
+//        the global oldest match (the gate_keeper/auditor roles/statuses didn't
+//        exist before 2026-07-01, so no real data can be older);
+//      - freeRoleAssigneeOnStatusChange via the existing manual-action endpoints,
+//        which is the other half of single-allocation (freeing a user once they act).
+// ════════════════════════════════════════════════════════════════════════
+
+describe('Queue Cron — eligibility filtering (findUnassignedQuestionsForRole / findAvailableUsersByRole)', () => {
+  it('findUnassignedQuestionsForRole returns eligible dynamic/duplicate/queue_duplicate questions oldest-first', async () => {
+    const older = await seedQuestion({
+      status: 'dynamic',
+      source: 'WHATSAPP',
+      autoAllocateGateKeeper: true,
+      createdAt: new Date('2000-01-01'),
+      label: 'cron-order-older',
+    });
+    const newer = await seedQuestion({
+      status: 'dynamic',
+      source: 'WHATSAPP',
+      autoAllocateGateKeeper: true,
+      createdAt: new Date('2000-06-01'),
+      label: 'cron-order-newer',
+    });
+
+    const results = await questionRepo.findUnassignedQuestionsForRole(
+      ['dynamic', 'duplicate', 'queue_duplicate'],
+      'gateKeeperId',
+      'autoAllocateGateKeeper',
+    );
+    const ids = results.map((q: any) => q._id.toString());
+    expect(ids).toContain(older);
+    expect(ids).toContain(newer);
+    expect(ids.indexOf(older)).toBeLessThan(ids.indexOf(newer));
+  });
+
+  it('findUnassignedQuestionsForRole excludes a question whose autoAllocateGateKeeper is false or missing', async () => {
+    const offId = await seedQuestion({
+      status: 'dynamic',
+      source: 'WHATSAPP',
+      autoAllocateGateKeeper: false,
+      label: 'cron-autoalloc-off',
+    });
+    const missingId = await seedQuestion({
+      status: 'dynamic',
+      source: 'WHATSAPP',
+      label: 'cron-autoalloc-missing', // autoAllocateGateKeeper never set
+    });
+
+    const results = await questionRepo.findUnassignedQuestionsForRole(
+      ['dynamic', 'duplicate', 'queue_duplicate'],
+      'gateKeeperId',
+      'autoAllocateGateKeeper',
+    );
+    const ids = results.map((q: any) => q._id.toString());
+    expect(ids).not.toContain(offId);
+    expect(ids).not.toContain(missingId);
+  });
+
+  it('findUnassignedQuestionsForRole excludes a question that is on hold', async () => {
+    const onHoldId = await seedQuestion({
+      status: 'dynamic',
+      source: 'WHATSAPP',
+      autoAllocateGateKeeper: true,
+      isOnHold: true,
+      label: 'cron-on-hold',
+    });
+
+    const results = await questionRepo.findUnassignedQuestionsForRole(
+      ['dynamic', 'duplicate', 'queue_duplicate'],
+      'gateKeeperId',
+      'autoAllocateGateKeeper',
+    );
+    const ids = results.map((q: any) => q._id.toString());
+    expect(ids).not.toContain(onHoldId);
+  });
+
+  it('findUnassignedQuestionsForRole excludes non-chatbot sources even if otherwise eligible (gate keeper/auditor only handle AJRASAKHA/WHATSAPP)', async () => {
+    const agriExpertId = await seedQuestion({
+      status: 'dynamic',
+      source: 'AGRI_EXPERT',
+      autoAllocateGateKeeper: true,
+      label: 'cron-source-agri-expert',
+    });
+    const outreachId = await seedQuestion({
+      status: 'dynamic',
+      source: 'OUTREACH',
+      autoAllocateGateKeeper: true,
+      label: 'cron-source-outreach',
+    });
+
+    const results = await questionRepo.findUnassignedQuestionsForRole(
+      ['dynamic', 'duplicate', 'queue_duplicate'],
+      'gateKeeperId',
+      'autoAllocateGateKeeper',
+    );
+    const ids = results.map((q: any) => q._id.toString());
+    expect(ids).not.toContain(agriExpertId);
+    expect(ids).not.toContain(outreachId);
+  });
+
+  it('findUnassignedQuestionsForRole excludes a question that already has a gateKeeperId assigned', async () => {
+    const alreadyAssignedId = await seedQuestion({
+      status: 'dynamic',
+      source: 'WHATSAPP',
+      autoAllocateGateKeeper: true,
+      gateKeeperId: gateKeeperUser._id,
+      label: 'cron-already-assigned',
+    });
+
+    const results = await questionRepo.findUnassignedQuestionsForRole(
+      ['dynamic', 'duplicate', 'queue_duplicate'],
+      'gateKeeperId',
+      'autoAllocateGateKeeper',
+    );
+    const ids = results.map((q: any) => q._id.toString());
+    expect(ids).not.toContain(alreadyAssignedId);
+  });
+
+  it('findAvailableUsersByRole excludes a gate keeper who already holds an assigned question (single-allocation)', async () => {
+    const busyGateKeeper = await makeUser('gate_keeper', [
+      { questionId: new ObjectId(), status: 'dynamic', source: 'WHATSAPP' },
+    ]);
+    const freeGateKeeper = await makeUser('gate_keeper');
+
+    const available = await userRepo.findAvailableUsersByRole('gate_keeper');
+    const ids = available.map((u: any) => u._id.toString());
+    expect(ids).not.toContain(busyGateKeeper._id.toString());
+    expect(ids).toContain(freeGateKeeper._id.toString());
+  });
+});
+
+describe('Queue Cron — runGateKeeperAuditorQueueCron (full integration)', () => {
+  it('assigns a free gate keeper to an eligible dynamic question, stamping gateKeeperId/gateKeeperAssignedAt and adding it to the assignee\'s assignedQuestionIds', async () => {
+    const qId = await seedQuestion({
+      status: 'dynamic',
+      source: 'WHATSAPP',
+      autoAllocateGateKeeper: true,
+      // Guaranteed globally oldest — gate_keeper/autoAllocateGateKeeper didn't exist
+      // before 2026-07-01, so no unrelated real data can predate this.
+      createdAt: new Date('1990-01-01'),
+      label: 'cron-full-gatekeeper',
+    });
+
+    await questionService.runGateKeeperAuditorQueueCron();
+
+    const q = await getQuestion(qId);
+    expect(q.gateKeeperId).toBeTruthy();
+    expect(q.gateKeeperAssignedAt).toBeInstanceOf(Date);
+
+    const users = await db.getCollection('users');
+    const assignee = await users.findOne({ _id: new ObjectId(q.gateKeeperId) });
+    expect(assignee).not.toBeNull();
+    expect(assignee.role).toBe('gate_keeper');
+    const entry = (assignee.assignedQuestionIds ?? []).find(
+      (a: any) => a.questionId.toString() === qId,
+    );
+    expect(entry).toBeDefined();
+
+    // No longer eligible for a second pass — it now has a gateKeeperId.
+    const stillUnassigned = await questionRepo.findUnassignedQuestionsForRole(
+      ['dynamic', 'duplicate', 'queue_duplicate'],
+      'gateKeeperId',
+      'autoAllocateGateKeeper',
+    );
+    expect(stillUnassigned.map((r: any) => r._id.toString())).not.toContain(qId);
+  });
+
+  it('assigns a free auditor to an eligible auditor_review question, stamping auditorId/auditorAssignedAt', async () => {
+    const qId = await seedQuestion({
+      status: 'auditor_review',
+      source: 'AJRASAKHA',
+      autoAllocateAuditor: true,
+      auditorReviewType: 'dynamic',
+      createdAt: new Date('1990-01-01'),
+      label: 'cron-full-auditor',
+    });
+
+    await questionService.runGateKeeperAuditorQueueCron();
+
+    const q = await getQuestion(qId);
+    expect(q.auditorId).toBeTruthy();
+    expect(q.auditorAssignedAt).toBeInstanceOf(Date);
+
+    const users = await db.getCollection('users');
+    const assignee = await users.findOne({ _id: new ObjectId(q.auditorId) });
+    expect(assignee?.role).toBe('auditor');
+  });
+
+  it('does not touch a busy gate keeper\'s assignment count — a pre-assigned user is skipped entirely by the cron', async () => {
+    const preAssignedQuestionId = new ObjectId();
+    const busyGateKeeper = await makeUser('gate_keeper', [
+      { questionId: preAssignedQuestionId, status: 'dynamic', source: 'WHATSAPP' },
+    ]);
+    await seedQuestion({
+      status: 'dynamic',
+      source: 'WHATSAPP',
+      autoAllocateGateKeeper: true,
+      createdAt: new Date('1990-06-01'),
+      label: 'cron-busy-skip',
+    });
+
+    await questionService.runGateKeeperAuditorQueueCron();
+
+    const users = await db.getCollection('users');
+    const refreshed = await users.findOne({ _id: busyGateKeeper._id });
+    // Still exactly the one pre-existing assignment — cron never touched this user.
+    expect(refreshed.assignedQuestionIds).toHaveLength(1);
+    expect(refreshed.assignedQuestionIds[0].questionId.toString()).toBe(
+      preAssignedQuestionId.toString(),
+    );
+  });
+});
+
+describe('Queue Cron — freeRoleAssigneeOnStatusChange (frees a user once they act, enabling the next cron pass)', () => {
+  it('Push to Auditor frees the gate keeper: assignedQuestionIds entry removed and gateKeeperFinishedAt stamped', async () => {
+    const freeingGateKeeper = await makeUser('gate_keeper');
+    const qId = await seedQuestion({
+      status: 'dynamic',
+      source: 'WHATSAPP',
+      gateKeeperId: freeingGateKeeper._id,
+      label: 'free-on-push-to-auditor',
+    });
+    const users = await db.getCollection('users');
+    await users.updateOne(
+      { _id: freeingGateKeeper._id },
+      { $set: { assignedQuestionIds: [{ questionId: new ObjectId(qId), status: 'dynamic', source: 'WHATSAPP' }] } },
+    );
+
+    as(gateKeeperUser);
+    const res = await apiPut(`${ROUTE_PREFIX}/questions/${qId}`).send({
+      status: 'auditor_review',
+      gateKeeperComment: `${RUN_TAG} handing off to the auditor`,
+    });
+    expect(res.status).toBe(200);
+
+    const q = await getQuestion(qId);
+    expect(q.gateKeeperFinishedAt).toBeInstanceOf(Date);
+
+    const refreshed = await users.findOne({ _id: freeingGateKeeper._id });
+    expect(refreshed.assignedQuestionIds ?? []).toHaveLength(0);
+  });
+
+  it('Auditor finalize (PUT /answers) frees the auditor: assignedQuestionIds entry removed and auditorFinishedAt stamped', async () => {
+    const freeingAuditor = await makeUser('auditor');
+    const qId = await seedQuestion({
+      status: 'auditor_review',
+      auditorReviewType: 'dynamic',
+      source: 'WHATSAPP',
+      auditorId: freeingAuditor._id,
+      label: 'free-on-auditor-finalize',
+    });
+    const users = await db.getCollection('users');
+    await users.updateOne(
+      { _id: freeingAuditor._id },
+      { $set: { assignedQuestionIds: [{ questionId: new ObjectId(qId), status: 'auditor_review', source: 'WHATSAPP' }] } },
+    );
+
+    as(freeingAuditor);
+    const res = await apiPut(`${ROUTE_PREFIX}/answers`).send({
+      questionId: qId,
+      answer: `${RUN_TAG} finalizing to free the auditor`,
+      sources: [],
+    });
+    expect(res.status).toBe(200);
+
+    const q = await getQuestion(qId);
+    expect(q.auditorFinishedAt).toBeInstanceOf(Date);
+
+    const refreshed = await users.findOne({ _id: freeingAuditor._id });
+    expect(refreshed.assignedQuestionIds ?? []).toHaveLength(0);
+  });
+
+  it('Cancel Duplicate frees the gate keeper the same way (status leaves queue_duplicate → open)', async () => {
+    const freeingGateKeeper = await makeUser('gate_keeper');
+    const qId = await seedQuestion({
+      status: 'queue_duplicate',
+      referenceQuestionId: new ObjectId(),
+      gateKeeperId: freeingGateKeeper._id,
+      label: 'free-on-cancel-duplicate',
+    });
+    const users = await db.getCollection('users');
+    await users.updateOne(
+      { _id: freeingGateKeeper._id },
+      { $set: { assignedQuestionIds: [{ questionId: new ObjectId(qId), status: 'queue_duplicate', source: 'WHATSAPP' }] } },
+    );
+
+    as(gateKeeperUser);
+    const res = await apiPut(`${ROUTE_PREFIX}/questions/${qId}`).send({
+      isDuplicateCancelled: true,
+      duplicateCancelReason: `${RUN_TAG} freeing via cancel`,
+      isAutoAllocate: false,
+    });
+    expect(res.status).toBe(200);
+
+    const q = await getQuestion(qId);
+    expect(q.gateKeeperFinishedAt).toBeInstanceOf(Date);
+
+    const refreshed = await users.findOne({ _id: freeingGateKeeper._id });
+    expect(refreshed.assignedQuestionIds ?? []).toHaveLength(0);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════
+// 6. KNOWN GAP — no role guard on Gate Keeper / Auditor-only actions
 // ════════════════════════════════════════════════════════════════════════
 //
 // The frontend hides Push-to-Auditor / Cancel-Duplicate behind
