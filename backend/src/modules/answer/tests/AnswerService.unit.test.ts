@@ -29,6 +29,8 @@ describe('AnswerService', () => {
     deleteAnswer: vi.fn(),
     getGoldenFaqs: vi.fn(),
     approveLLMAnswer: vi.fn(),
+    resetApprovalCount: vi.fn(),
+    addAnswerModification: vi.fn(),
   };
 
   const mockReviewRepo = {
@@ -44,6 +46,10 @@ describe('AnswerService', () => {
   const mockQuestionSubmissionRepo = {
     getUserActivityHistory: vi.fn(),
     getByQuestionId: vi.fn(),
+    clearCurrentExpertTracking: vi.fn(),
+    update: vi.fn(),
+    markQuestionOpenedByExpert: vi.fn(),
+    updateHistoryByUserId: vi.fn(),
   };
 
   const mockUserRepo = {
@@ -53,12 +59,13 @@ describe('AnswerService', () => {
     updatePenaltyAndIncentive: vi.fn(),
     removeAssignedQuestion: vi.fn(),
     removeAssignedQuestionFromAllModerators: vi.fn(),
+    updateReputationScore: vi.fn(),
   };
 
   const mockQuestionService = {
     addDummyQuestions: vi.fn(),
-
     ensureNormalisedCrop: vi.fn(),
+    autoAllocateExperts: vi.fn(),
   };
 
   const mockNotificationService = {
@@ -91,8 +98,13 @@ describe('AnswerService', () => {
       mockDatabase as any,
     );
 
+    // vi.spyOn(service as any, '_withTransaction').mockImplementation(
+    //   async (callback: any) => callback({}),
+    // );
     vi.spyOn(service as any, '_withTransaction').mockImplementation(
-      async (callback: any) => callback({}),
+      async (callback: any) => {
+        return callback({});
+      },
     );
 
     appConfig.ENABLE_AI_SERVER = false;
@@ -144,6 +156,223 @@ describe('AnswerService', () => {
     });
   }
 
+  function setupRejectedReview() {
+    mockUserRepo.findById.mockResolvedValue({
+      _id: expertId,
+      role: 'expert',
+    });
+
+    mockQuestionRepo.getById.mockResolvedValue({
+      _id: questionId,
+      source: 'WEB',
+      status: 'open',
+      isAutoAllocate: false,
+    });
+
+    mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+      queue: [expertId],
+      history: [
+        {
+          updatedBy: expertId, // IMPORTANT: reviewer must equal current user
+          answer: answerId,
+          status: 'in-review',
+        },
+      ],
+    });
+
+    mockReviewRepo.createReview.mockResolvedValue({
+      insertedId: '507f1f77bcf86cd799439099',
+    });
+
+    mockAnswerRepo.getById.mockResolvedValue({
+      _id: answerId,
+      answer: 'Old Answer',
+      authorId: moderatorId,
+    });
+
+    vi.spyOn(service, 'addAnswer').mockResolvedValue({
+      insertedId: '507f1f77bcf86cd799439015',
+    } as any);
+
+    mockUserRepo.updatePenaltyAndIncentive.mockResolvedValue(undefined);
+    mockAnswerRepo.updateAnswerStatus.mockResolvedValue(undefined);
+    mockQuestionSubmissionRepo.updateHistoryByUserId.mockResolvedValue(
+      undefined,
+    );
+    mockNotificationService.saveTheNotifications.mockResolvedValue(undefined);
+    mockQuestionSubmissionRepo.clearCurrentExpertTracking.mockResolvedValue(
+      undefined,
+    );
+    mockUserRepo.updateReputationScore.mockResolvedValue(undefined);
+  }
+  function setupModifiedReview() {
+    mockUserRepo.findById.mockResolvedValue({
+      _id: expertId,
+      role: 'expert',
+    });
+
+    mockQuestionRepo.getById.mockResolvedValue({
+      _id: questionId,
+      source: 'WEB',
+      status: 'open',
+      isAutoAllocate: false,
+    });
+
+    mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+      queue: [expertId],
+      history: [
+        {
+          updatedBy: expertId,
+          answer: answerId,
+          status: 'in-review',
+        },
+      ],
+    });
+
+    mockReviewRepo.createReview.mockResolvedValue({
+      insertedId: '507f1f77bcf86cd799439099',
+    });
+
+    mockAnswerRepo.getById.mockResolvedValue({
+      _id: answerId,
+      answer: 'Old Answer',
+      authorId: expertId,
+    });
+
+    mockAnswerRepo.updateAnswer.mockResolvedValue({
+      modifiedCount: 1,
+    });
+
+    mockAnswerRepo.resetApprovalCount.mockResolvedValue(undefined);
+
+    mockAnswerRepo.addAnswerModification.mockResolvedValue(undefined);
+
+    mockQuestionSubmissionRepo.updateHistoryByUserId.mockResolvedValue(
+      undefined,
+    );
+
+    mockNotificationService.saveTheNotifications.mockResolvedValue(undefined);
+
+    mockQuestionSubmissionRepo.clearCurrentExpertTracking.mockResolvedValue(
+      undefined,
+    );
+
+    mockUserRepo.updateReputationScore.mockResolvedValue(undefined);
+  }
+  function setupQueueAllocationReview() {
+    mockUserRepo.findById.mockResolvedValue({
+      _id: expertId,
+      role: 'expert',
+    });
+
+    mockQuestionRepo.getById.mockResolvedValue({
+      _id: questionId,
+      question: 'Question',
+      source: 'WEB',
+      status: 'open',
+      isAutoAllocate: false,
+    });
+
+    mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+      queue: [expertId, '507f1f77bcf86cd799439099'],
+      history: [
+        {
+          updatedBy: expertId,
+          answer: answerId,
+          status: 'in-review',
+        },
+      ],
+    });
+
+    mockReviewRepo.createReview.mockResolvedValue({
+      insertedId: '507f1f77bcf86cd799439055',
+    });
+
+    mockAnswerRepo.getById.mockResolvedValue({
+      _id: answerId,
+      answer: 'Old Answer',
+      authorId: expertId,
+    });
+
+    mockAnswerRepo.incrementApprovalCount.mockResolvedValue(1);
+
+    mockQuestionSubmissionRepo.updateHistoryByUserId.mockResolvedValue(
+      undefined,
+    );
+
+    mockQuestionSubmissionRepo.update.mockResolvedValue(undefined);
+
+    mockUserRepo.updateReputationScore.mockResolvedValue(undefined);
+
+    mockNotificationService.saveTheNotifications.mockResolvedValue(undefined);
+
+    mockQuestionSubmissionRepo.clearCurrentExpertTracking.mockResolvedValue(
+      undefined,
+    );
+
+    mockQuestionService.autoAllocateExperts.mockResolvedValue(undefined);
+  }
+  function setupAcceptedReviewWithThreeApprovals() {
+    setupQueueAllocationReview();
+
+    mockAnswerRepo.incrementApprovalCount.mockResolvedValue(3);
+
+    mockAnswerRepo.updateAnswerStatus.mockResolvedValue(undefined);
+
+    mockQuestionSubmissionRepo.updateHistoryByUserId.mockResolvedValue(
+      undefined,
+    );
+
+    mockQuestionRepo.updateQuestion.mockResolvedValue(undefined);
+
+    mockQuestionSubmissionRepo.clearCurrentExpertTracking.mockResolvedValue(
+      undefined,
+    );
+
+    mockUserRepo.updateReputationScore.mockResolvedValue(undefined);
+  }
+  function setupFirstSubmissionReview() {
+    mockUserRepo.findById.mockResolvedValue({
+      _id: expertId,
+      role: 'expert',
+    });
+
+    mockQuestionRepo.getById.mockResolvedValue({
+      _id: questionId,
+      question: 'Question',
+      source: 'WEB',
+      status: 'open',
+    });
+
+    mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+      queue: [expertId],
+      history: [],
+    });
+
+    vi.spyOn(service, 'addAnswer').mockResolvedValue({
+      insertedId: answerId,
+    } as any);
+
+    mockQuestionSubmissionRepo.update.mockResolvedValue(undefined);
+
+    mockQuestionSubmissionRepo.clearCurrentExpertTracking.mockResolvedValue(
+      undefined,
+    );
+
+    mockUserRepo.updateReputationScore.mockResolvedValue(undefined);
+    mockQuestionRepo.updateQuestion.mockResolvedValue(undefined);
+
+    mockQuestionSubmissionRepo.markQuestionOpenedByExpert.mockResolvedValue(
+      undefined,
+    );
+  }
+  function setupReviewCreation() {
+    setupQueueAllocationReview();
+
+    mockReviewRepo.createReview.mockResolvedValue({
+      insertedId: '507f1f77bcf86cd799439055',
+    });
+  }
   describe('addAnswer', () => {
     it('adds answer successfully', async () => {
       appConfig.ENABLE_AI_SERVER = false;
@@ -2625,6 +2854,1711 @@ describe('AnswerService', () => {
         'incentive',
         expect.anything(),
       );
+    });
+  });
+  describe('approveLLMAnswer', () => {
+    it('throws when source is not AJRASAKHA or WHATSAPP', async () => {
+      await expect(
+        service.approveLLMAnswer(moderatorId, {
+          source: 'WEB',
+          questionId,
+        } as any),
+      ).rejects.toThrow(
+        'Only AJRASAKHA or WHATSAPP sources are supported for this action',
+      );
+    });
+    it('throws when questionId is missing', async () => {
+      await expect(
+        service.approveLLMAnswer(moderatorId, {
+          source: 'AJRASAKHA',
+        } as any),
+      ).rejects.toThrow('questionId is required');
+    });
+    it('throws when user is not found', async () => {
+      mockUserRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        service.approveLLMAnswer(moderatorId, {
+          source: 'AJRASAKHA',
+          questionId,
+        } as any),
+      ).rejects.toThrow("You don't have permission to approve an answer!");
+    });
+    it('throws when question is not found', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: moderatorId,
+        role: 'moderator',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue(null);
+
+      await expect(
+        service.approveLLMAnswer(moderatorId, {
+          source: 'AJRASAKHA',
+          questionId,
+        } as any),
+      ).rejects.toThrow(`Question with ID ${questionId} not found`);
+    });
+    it('throws when expert tries to approve', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: expertId,
+        role: 'expert',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+        status: 'open',
+      });
+
+      await expect(
+        service.approveLLMAnswer(expertId, {
+          source: 'AJRASAKHA',
+          questionId,
+        } as any),
+      ).rejects.toThrow("You don't have permission to approve an answer!");
+    });
+    it('throws when question is already in-review', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: moderatorId,
+        role: 'moderator',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+        status: 'in-review',
+      });
+
+      await expect(
+        service.approveLLMAnswer(moderatorId, {
+          source: 'AJRASAKHA',
+          questionId,
+        } as any),
+      ).rejects.toThrow(
+        "Can't approve this answer. Current question status is 'in-review'.",
+      );
+    });
+    it('throws when question is already closed', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: moderatorId,
+        role: 'moderator',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+        status: 'closed',
+      });
+
+      await expect(
+        service.approveLLMAnswer(moderatorId, {
+          source: 'AJRASAKHA',
+          questionId,
+        } as any),
+      ).rejects.toThrow(
+        "Can't approve this answer. Current question status is 'closed'.",
+      );
+    });
+    it('approves an AJRASAKHA LLM answer successfully', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: moderatorId,
+        role: 'moderator',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+        status: 'open',
+        moderatorId,
+        source: 'AJRASAKHA',
+      });
+
+      mockQuestionRepo.updateQuestion.mockResolvedValue(undefined);
+
+      mockUserRepo.removeAssignedQuestion.mockResolvedValue(undefined);
+
+      const result = await service.approveLLMAnswer(moderatorId, {
+        questionId,
+        source: 'AJRASAKHA',
+        answer: 'Approved answer',
+        sources: ['source-1'],
+      } as any);
+
+      expect(result).toEqual({
+        modifiedCount: 1,
+      });
+
+      expect(mockQuestionRepo.updateQuestion).toHaveBeenCalledWith(
+        questionId,
+        expect.objectContaining({
+          aiInitialAnswer: 'Approved answer',
+          aiApprovedSources: ['source-1'],
+          status: 'open',
+          moderatorId: null,
+          moderatorAssignedAt: null,
+          isAutoAllocate: true,
+        }),
+        expect.anything(),
+        true,
+      );
+    });
+    it('removes assigned moderator after approval', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: moderatorId,
+        role: 'moderator',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+        status: 'open',
+        source: 'AJRASAKHA',
+        moderatorId,
+      });
+
+      mockQuestionRepo.updateQuestion.mockResolvedValue(undefined);
+
+      mockUserRepo.removeAssignedQuestion.mockResolvedValue(undefined);
+
+      await service.approveLLMAnswer(moderatorId, {
+        questionId,
+        source: 'AJRASAKHA',
+        answer: 'Approved',
+        sources: [],
+      } as any);
+
+      expect(mockUserRepo.removeAssignedQuestion).toHaveBeenCalledWith(
+        moderatorId,
+        questionId,
+      );
+    });
+    it('does not remove moderator when no moderator is assigned', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: moderatorId,
+        role: 'moderator',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+        status: 'open',
+        source: 'AJRASAKHA',
+        moderatorId: null,
+      });
+
+      mockQuestionRepo.updateQuestion.mockResolvedValue(undefined);
+
+      await service.approveLLMAnswer(moderatorId, {
+        questionId,
+        source: 'AJRASAKHA',
+        answer: 'Approved',
+        sources: [],
+      } as any);
+
+      expect(mockUserRepo.removeAssignedQuestion).not.toHaveBeenCalled();
+    });
+    it('approves a WHATSAPP LLM answer successfully', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: moderatorId,
+        role: 'moderator',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+        status: 'open',
+        source: 'WHATSAPP',
+        moderatorId,
+      });
+
+      mockQuestionRepo.updateQuestion.mockResolvedValue(undefined);
+
+      mockUserRepo.removeAssignedQuestion.mockResolvedValue(undefined);
+
+      const result = await service.approveLLMAnswer(moderatorId, {
+        questionId,
+        source: 'WHATSAPP',
+        answer: 'Approved',
+        sources: [],
+      } as any);
+
+      expect(result).toEqual({
+        modifiedCount: 1,
+      });
+
+      expect(mockQuestionRepo.updateQuestion).toHaveBeenCalled();
+    });
+    it('propagates updateQuestion errors', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: moderatorId,
+        role: 'moderator',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+        status: 'open',
+        source: 'AJRASAKHA',
+      });
+
+      mockQuestionRepo.updateQuestion.mockRejectedValue(
+        new Error('Database failure'),
+      );
+
+      await expect(
+        service.approveLLMAnswer(moderatorId, {
+          questionId,
+          source: 'AJRASAKHA',
+          answer: 'Approved',
+          sources: [],
+        } as any),
+      ).rejects.toThrow('Database failure');
+    });
+    it('does not remove assigned moderator when moderatorId is undefined', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: moderatorId,
+        role: 'moderator',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+        status: 'open',
+        source: 'AJRASAKHA',
+      });
+
+      mockQuestionRepo.updateQuestion.mockResolvedValue(undefined);
+
+      await service.approveLLMAnswer(moderatorId, {
+        questionId,
+        source: 'AJRASAKHA',
+        answer: 'Approved',
+        sources: [],
+      } as any);
+
+      expect(mockUserRepo.removeAssignedQuestion).not.toHaveBeenCalled();
+    });
+  });
+  describe('reviewAnswer', () => {
+    it('throws when user is not an expert', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: moderatorId,
+        role: 'moderator',
+      });
+
+      await expect(
+        service.reviewAnswer(moderatorId, {} as any),
+      ).rejects.toThrow('You are not authorized to perform reviews');
+
+      expect(mockQuestionRepo.getById).not.toHaveBeenCalled();
+    });
+    it('throws when question is not found', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: expertId,
+        role: 'expert',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue(null);
+
+      await expect(
+        service.reviewAnswer(expertId, {
+          questionId,
+        } as any),
+      ).rejects.toThrow('Failed to find question');
+
+      expect(mockQuestionSubmissionRepo.getByQuestionId).not.toHaveBeenCalled();
+    });
+    it('throws when submission details are missing', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: expertId,
+        role: 'expert',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue(null);
+
+      await expect(
+        service.reviewAnswer(expertId, {
+          questionId,
+        } as any),
+      ).rejects.toThrow('Failed to find submission details for this question.');
+    });
+    it('throws when first reviewer is not assigned reviewer', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: expertId,
+        role: 'expert',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        history: [],
+        queue: ['another-user'],
+      });
+
+      await expect(
+        service.reviewAnswer(expertId, {
+          questionId,
+        } as any),
+      ).rejects.toThrow('You are not authorized to review this question.');
+    });
+    it('throws when another expert is currently reviewing', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: expertId,
+        role: 'expert',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        queue: [],
+        history: [
+          {
+            updatedBy: 'someone-else',
+          },
+        ],
+      });
+
+      await expect(
+        service.reviewAnswer(expertId, {
+          questionId,
+        } as any),
+      ).rejects.toThrow(
+        'This question is currently being reviewed by another expert.',
+      );
+    });
+    it('throws when reviewer information is missing', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: expertId,
+        role: 'expert',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        queue: [],
+        history: [{}],
+      });
+
+      await expect(
+        service.reviewAnswer(expertId, {
+          questionId,
+        } as any),
+      ).rejects.toThrow('Unable to find reviewer info for this question.');
+    });
+    it('throws when no answer exists for review', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: expertId,
+        role: 'expert',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        queue: [expertId],
+        history: [],
+      });
+
+      await expect(
+        service.reviewAnswer(expertId, {
+          questionId,
+          status: 'accepted',
+          approvedAnswer: answerId,
+        } as any),
+      ).rejects.toThrow(
+        'No answer found for review. Please check submission history.',
+      );
+    });
+    it('throws when approvedAnswer does not match current answer', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: expertId,
+        role: 'expert',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        queue: [],
+        history: [
+          {
+            updatedBy: expertId,
+            answer: answerId,
+            status: 'in-review',
+          },
+        ],
+      });
+
+      await expect(
+        service.reviewAnswer(expertId, {
+          questionId,
+          status: 'accepted',
+          approvedAnswer: '507f1f77bcf86cd799439099',
+        } as any),
+      ).rejects.toThrow(
+        'You are reviewing an answer that is not currently under review.',
+      );
+    });
+    it('throws when rejectedAnswer does not match current answer', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: expertId,
+        role: 'expert',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        queue: [],
+        history: [
+          {
+            updatedBy: expertId,
+            answer: answerId,
+            status: 'in-review',
+          },
+        ],
+      });
+
+      await expect(
+        service.reviewAnswer(expertId, {
+          questionId,
+          status: 'rejected',
+          rejectedAnswer: '507f1f77bcf86cd799439099',
+        } as any),
+      ).rejects.toThrow(
+        'You are reviewing an answer that is not currently under review.',
+      );
+    });
+    it('throws when review creation fails', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: expertId,
+        role: 'expert',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        queue: [],
+        history: [
+          {
+            updatedBy: expertId,
+            answer: answerId,
+            status: 'in-review',
+          },
+        ],
+      });
+
+      mockReviewRepo.createReview.mockResolvedValue({});
+
+      await expect(
+        service.reviewAnswer(expertId, {
+          questionId,
+          status: 'accepted',
+          approvedAnswer: answerId,
+        } as any),
+      ).rejects.toThrow('Failed to create review entry. Please try again.');
+    });
+    it('throws when review creation fails', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: expertId,
+        role: 'expert',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        queue: [],
+        history: [
+          {
+            updatedBy: expertId,
+            answer: answerId,
+            status: 'in-review',
+          },
+        ],
+      });
+
+      mockReviewRepo.createReview.mockResolvedValue({});
+
+      await expect(
+        service.reviewAnswer(expertId, {
+          questionId,
+          status: 'accepted',
+          approvedAnswer: answerId,
+        } as any),
+      ).rejects.toThrow('Failed to create review entry. Please try again.');
+    });
+    it('marks AJRASAKHA question as opened by expert', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: expertId,
+        role: 'expert',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+        source: 'AJRASAKHA',
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId
+        .mockResolvedValueOnce({
+          queue: [expertId],
+          history: [],
+        })
+        .mockResolvedValueOnce({
+          currentExpertOpenedAt: null,
+        });
+
+      vi.spyOn(service, 'addAnswer').mockResolvedValue({
+        insertedId: answerId,
+      } as any);
+
+      mockQuestionSubmissionRepo.update.mockResolvedValue(undefined);
+
+      mockQuestionSubmissionRepo.markQuestionOpenedByExpert.mockResolvedValue(
+        undefined,
+      );
+
+      mockQuestionSubmissionRepo.clearCurrentExpertTracking.mockResolvedValue(
+        undefined,
+      );
+
+      mockUserRepo.updateReputationScore.mockResolvedValue(undefined);
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        answer: 'Sample answer',
+        sources: [],
+      } as any);
+
+      expect(
+        mockQuestionSubmissionRepo.markQuestionOpenedByExpert,
+      ).toHaveBeenCalledWith(questionId, expertId);
+    });
+    it('does not mark question opened if already opened', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: expertId,
+        role: 'expert',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+        source: 'AJRASAKHA',
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId
+        .mockResolvedValueOnce({
+          queue: [expertId],
+          history: [],
+        })
+        .mockResolvedValueOnce({
+          currentExpertOpenedAt: new Date(),
+        });
+
+      vi.spyOn(service, 'addAnswer').mockResolvedValue({
+        insertedId: answerId,
+      } as any);
+
+      mockQuestionSubmissionRepo.update.mockResolvedValue(undefined);
+      mockQuestionSubmissionRepo.clearCurrentExpertTracking.mockResolvedValue(
+        undefined,
+      );
+      mockUserRepo.updateReputationScore.mockResolvedValue(undefined);
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        answer: 'Answer',
+        sources: [],
+      } as any);
+
+      expect(
+        mockQuestionSubmissionRepo.markQuestionOpenedByExpert,
+      ).not.toHaveBeenCalled();
+    });
+    it('marks question as pae_submitted for PAE expert', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: expertId,
+        role: 'pae_expert',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+        source: 'WEB',
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        queue: [expertId],
+        history: [],
+      });
+
+      vi.spyOn(service, 'addAnswer').mockResolvedValue({
+        insertedId: answerId,
+      } as any);
+
+      mockQuestionSubmissionRepo.update.mockResolvedValue(undefined);
+
+      mockQuestionRepo.updateQuestion.mockResolvedValue(undefined);
+
+      mockQuestionSubmissionRepo.clearCurrentExpertTracking.mockResolvedValue(
+        undefined,
+      );
+
+      mockUserRepo.updateReputationScore.mockResolvedValue(undefined);
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        answer: 'Answer',
+        sources: [],
+      } as any);
+
+      expect(mockQuestionRepo.updateQuestion).toHaveBeenCalledWith(
+        questionId,
+        {status: 'pae_submitted'},
+        expect.anything(),
+      );
+    });
+    it('moves answer to pending-with-moderator after three approvals', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: expertId,
+        role: 'expert',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+        status: 'open',
+        question: 'Question',
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        queue: [],
+        history: [
+          {
+            updatedBy: expertId,
+            answer: answerId,
+            status: 'in-review',
+          },
+        ],
+      });
+
+      mockReviewRepo.createReview.mockResolvedValue({
+        insertedId: '507f1f77bcf86cd799439015',
+      });
+
+      vi.spyOn(service, 'incrementApprovalCount').mockResolvedValue(3);
+
+      mockQuestionSubmissionRepo.updateHistoryByUserId.mockResolvedValue(
+        undefined,
+      );
+      mockAnswerRepo.updateAnswerStatus.mockResolvedValue(undefined);
+      mockQuestionRepo.updateQuestion.mockResolvedValue(undefined);
+      mockUserRepo.updateReputationScore.mockResolvedValue(undefined);
+      mockQuestionSubmissionRepo.clearCurrentExpertTracking.mockResolvedValue(
+        undefined,
+      );
+
+      vi.spyOn(
+        service as any,
+        'notifyModeratorsAndAdminsForApproval',
+      ).mockResolvedValue(undefined);
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'accepted',
+        approvedAnswer: answerId,
+      } as any);
+
+      expect(mockAnswerRepo.updateAnswerStatus).toHaveBeenCalledWith(
+        answerId,
+        {
+          status: 'pending-with-moderator',
+        },
+        expect.anything(),
+      );
+    });
+    it('marks original expert as approved after three approvals', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: expertId,
+        role: 'expert',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+        status: 'open',
+        question: 'Question',
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        queue: [],
+        history: [
+          {
+            updatedBy: expertId,
+            answer: answerId,
+            status: 'in-review',
+          },
+        ],
+      });
+
+      mockReviewRepo.createReview.mockResolvedValue({
+        insertedId: '507f1f77bcf86cd799439015',
+      });
+
+      vi.spyOn(service, 'incrementApprovalCount').mockResolvedValue(3);
+
+      mockQuestionSubmissionRepo.updateHistoryByUserId.mockResolvedValue(
+        undefined,
+      );
+      mockAnswerRepo.updateAnswerStatus.mockResolvedValue(undefined);
+      mockQuestionRepo.updateQuestion.mockResolvedValue(undefined);
+      mockUserRepo.updateReputationScore.mockResolvedValue(undefined);
+      mockQuestionSubmissionRepo.clearCurrentExpertTracking.mockResolvedValue(
+        undefined,
+      );
+
+      vi.spyOn(
+        service as any,
+        'notifyModeratorsAndAdminsForApproval',
+      ).mockResolvedValue(undefined);
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'accepted',
+        approvedAnswer: answerId,
+      } as any);
+
+      expect(
+        mockQuestionSubmissionRepo.updateHistoryByUserId,
+      ).toHaveBeenCalledWith(
+        questionId,
+        expertId,
+        expect.objectContaining({
+          status: 'approved',
+        }),
+        expect.anything(),
+      );
+    });
+    it('updates question to in-review after enough approvals', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: expertId,
+        role: 'expert',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+        status: 'open',
+        question: 'Question',
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        queue: [],
+        history: [
+          {
+            updatedBy: expertId,
+            answer: answerId,
+            status: 'in-review',
+          },
+        ],
+      });
+
+      mockReviewRepo.createReview.mockResolvedValue({
+        insertedId: '507f1f77bcf86cd799439015',
+      });
+
+      vi.spyOn(service, 'incrementApprovalCount').mockResolvedValue(3);
+
+      mockQuestionSubmissionRepo.updateHistoryByUserId.mockResolvedValue(
+        undefined,
+      );
+      mockAnswerRepo.updateAnswerStatus.mockResolvedValue(undefined);
+      mockQuestionRepo.updateQuestion.mockResolvedValue(undefined);
+      mockUserRepo.updateReputationScore.mockResolvedValue(undefined);
+      mockQuestionSubmissionRepo.clearCurrentExpertTracking.mockResolvedValue(
+        undefined,
+      );
+
+      vi.spyOn(
+        service as any,
+        'notifyModeratorsAndAdminsForApproval',
+      ).mockResolvedValue(undefined);
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'accepted',
+        approvedAnswer: answerId,
+      } as any);
+
+      expect(mockQuestionRepo.updateQuestion).toHaveBeenCalledWith(
+        questionId,
+        {status: 'in-review'},
+        expect.anything(),
+      );
+    });
+    it('rejects an answer successfully', async () => {
+      setupRejectedReview();
+
+      const result = await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'rejected',
+        rejectedAnswer: answerId,
+        answer: 'New Answer',
+        reasonForRejection: 'Incorrect',
+        sources: [],
+      } as any);
+
+      expect(mockUserRepo.updatePenaltyAndIncentive).toHaveBeenCalledWith(
+        expertId,
+        'penalty',
+        expect.anything(),
+      );
+
+      expect(mockAnswerRepo.updateAnswerStatus).toHaveBeenCalledWith(answerId, {
+        status: 'rejected',
+      });
+
+      expect(service.addAnswer).toHaveBeenCalled();
+
+      expect(result).toEqual({
+        message: 'Your response recorded sucessfully, thankyou!',
+      });
+    });
+    it('throws when rejected replacement answer is identical', async () => {
+      setupRejectedReview();
+
+      mockAnswerRepo.getById.mockResolvedValue({
+        _id: answerId,
+        answer: 'Same Answer',
+        authorId: moderatorId,
+      });
+
+      await expect(
+        service.reviewAnswer(expertId, {
+          questionId,
+          status: 'rejected',
+          rejectedAnswer: answerId,
+          answer: 'Same Answer',
+          reasonForRejection: 'Wrong',
+          sources: [],
+        } as any),
+      ).rejects.toThrow(
+        'The submitted answer is either identical to the existing answer',
+      );
+
+      expect(service.addAnswer).not.toHaveBeenCalled();
+    });
+    it('modifies an answer successfully', async () => {
+      setupModifiedReview();
+
+      const result = await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'modified',
+        modifiedAnswer: answerId,
+        answer: 'Updated Answer',
+        reasonForModification: 'Grammar',
+        sources: [],
+      } as any);
+
+      expect(mockAnswerRepo.updateAnswer).toHaveBeenCalled();
+
+      expect(mockAnswerRepo.resetApprovalCount).toHaveBeenCalledWith(
+        answerId,
+        expect.anything(),
+      );
+
+      expect(mockAnswerRepo.addAnswerModification).toHaveBeenCalled();
+
+      expect(result).toEqual({
+        message: 'Your response recorded sucessfully, thankyou!',
+      });
+    });
+    it('throws when modified answer is identical', async () => {
+      setupModifiedReview();
+
+      mockAnswerRepo.getById.mockResolvedValue({
+        _id: answerId,
+        answer: 'Same Answer',
+        authorId: expertId,
+      });
+
+      await expect(
+        service.reviewAnswer(expertId, {
+          questionId,
+          status: 'modified',
+          modifiedAnswer: answerId,
+          answer: 'Same Answer',
+          reasonForModification: 'Grammar',
+          sources: [],
+        } as any),
+      ).rejects.toThrow(
+        'The submitted answer is identical to the existing answer',
+      );
+
+      expect(mockAnswerRepo.updateAnswer).not.toHaveBeenCalled();
+    });
+    it('resets approval count after modification', async () => {
+      setupModifiedReview();
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'modified',
+        modifiedAnswer: answerId,
+        answer: 'Updated Answer',
+        reasonForModification: 'Grammar',
+        sources: [],
+      } as any);
+
+      expect(mockAnswerRepo.resetApprovalCount).toHaveBeenCalledWith(
+        answerId,
+        expect.anything(),
+      );
+    });
+    it('stores answer modification history', async () => {
+      setupModifiedReview();
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'modified',
+        modifiedAnswer: answerId,
+        answer: 'Updated Answer',
+        reasonForModification: 'Grammar',
+        sources: [],
+      } as any);
+
+      expect(mockAnswerRepo.addAnswerModification).toHaveBeenCalledTimes(1);
+    });
+    it('sends notification after modification', async () => {
+      setupModifiedReview();
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'modified',
+        modifiedAnswer: answerId,
+        answer: 'Updated Answer',
+        reasonForModification: 'Grammar',
+        sources: [],
+      } as any);
+
+      expect(
+        mockNotificationService.saveTheNotifications,
+      ).toHaveBeenCalledTimes(1);
+    });
+    it('allocates review to the next expert in queue', async () => {
+      setupQueueAllocationReview();
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'accepted',
+        approvedAnswer: answerId,
+        answer: 'Approved',
+      } as any);
+
+      expect(mockQuestionSubmissionRepo.update).toHaveBeenCalled();
+
+      expect(mockUserRepo.updateReputationScore).toHaveBeenCalledWith(
+        '507f1f77bcf86cd799439099',
+        true,
+        expect.anything(),
+      );
+
+      expect(mockNotificationService.saveTheNotifications).toHaveBeenCalled();
+    });
+    it('auto allocates more experts when current reviewer is last in queue', async () => {
+      setupQueueAllocationReview();
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+        question: 'Question',
+        source: 'WEB',
+        status: 'open',
+        isAutoAllocate: true,
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        queue: [expertId],
+        history: [
+          {
+            updatedBy: expertId,
+            answer: answerId,
+            status: 'in-review',
+          },
+        ],
+      });
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'accepted',
+        approvedAnswer: answerId,
+        answer: 'Approved',
+      } as any);
+
+      expect(mockQuestionService.autoAllocateExperts).toHaveBeenCalledWith(
+        questionId,
+        expect.anything(),
+      );
+    });
+    it('does not auto allocate experts for AJRASAKHA questions', async () => {
+      setupQueueAllocationReview();
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+        question: 'Question',
+        source: 'AJRASAKHA',
+        status: 'open',
+        isAutoAllocate: true,
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        queue: [expertId],
+        history: [
+          {
+            updatedBy: expertId,
+            answer: answerId,
+            status: 'in-review',
+          },
+        ],
+      });
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'accepted',
+        approvedAnswer: answerId,
+        answer: 'Approved',
+      } as any);
+
+      expect(mockQuestionService.autoAllocateExperts).not.toHaveBeenCalled();
+    });
+    it('does not auto allocate experts for WhatsApp questions', async () => {
+      setupQueueAllocationReview();
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+        question: 'Question',
+        source: 'WHATSAPP',
+        status: 'open',
+        isAutoAllocate: true,
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        queue: [expertId],
+        history: [
+          {
+            updatedBy: expertId,
+            answer: answerId,
+            status: 'in-review',
+          },
+        ],
+      });
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'accepted',
+        approvedAnswer: answerId,
+        answer: 'Approved',
+      } as any);
+
+      expect(mockQuestionService.autoAllocateExperts).not.toHaveBeenCalled();
+    });
+    it('does not auto allocate experts when auto allocation is disabled', async () => {
+      setupQueueAllocationReview();
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+        question: 'Question',
+        source: 'WEB',
+        status: 'open',
+        isAutoAllocate: false,
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        queue: [expertId],
+        history: [
+          {
+            updatedBy: expertId,
+            answer: answerId,
+            status: 'in-review',
+          },
+        ],
+      });
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'accepted',
+        approvedAnswer: answerId,
+        answer: 'Approved',
+      } as any);
+
+      expect(mockQuestionService.autoAllocateExperts).not.toHaveBeenCalled();
+    });
+    it('moves question to in-review after ten reviews', async () => {
+      setupQueueAllocationReview();
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+        question: 'Question',
+        source: 'WEB',
+        status: 'open',
+        isAutoAllocate: false,
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        queue: [expertId],
+        history: Array.from({length: 10}, () => ({
+          updatedBy: expertId,
+          answer: answerId,
+          status: 'reviewed',
+        })),
+      });
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'accepted',
+        approvedAnswer: answerId,
+        answer: 'Approved',
+      } as any);
+
+      expect(mockQuestionRepo.updateQuestion).toHaveBeenCalledWith(
+        questionId,
+        {
+          status: 'in-review',
+        },
+        expect.anything(),
+      );
+    });
+    it('notifies moderators when review history reaches ten', async () => {
+      setupQueueAllocationReview();
+
+      vi.spyOn(
+        service as any,
+        'notifyModeratorsAndAdminsForApproval',
+      ).mockResolvedValue(undefined);
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        queue: [expertId],
+        history: Array.from({length: 10}, () => ({
+          updatedBy: expertId,
+          answer: answerId,
+          status: 'reviewed',
+        })),
+      });
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'accepted',
+        approvedAnswer: answerId,
+        answer: 'Approved',
+      } as any);
+
+      expect(
+        (service as any).notifyModeratorsAndAdminsForApproval,
+      ).toHaveBeenCalledWith(questionId, 'Question', expect.anything());
+    });
+    it('clears current expert tracking after review', async () => {
+      setupQueueAllocationReview();
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'accepted',
+        approvedAnswer: answerId,
+        answer: 'Approved',
+      } as any);
+
+      expect(
+        mockQuestionSubmissionRepo.clearCurrentExpertTracking,
+      ).toHaveBeenCalledWith(questionId, expect.anything());
+    });
+    it('decrements reviewer workload after review', async () => {
+      setupQueueAllocationReview();
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'accepted',
+        approvedAnswer: answerId,
+        answer: 'Approved',
+      } as any);
+
+      expect(mockUserRepo.updateReputationScore).toHaveBeenLastCalledWith(
+        expertId,
+        false,
+        expect.anything(),
+      );
+    });
+    it('does not notify moderators when question is already in-review', async () => {
+      setupQueueAllocationReview();
+
+      const notifySpy = vi
+        .spyOn(service as any, 'notifyModeratorsAndAdminsForApproval')
+        .mockResolvedValue(undefined);
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+        question: 'Question',
+        source: 'WEB',
+        status: 'in-review',
+        isAutoAllocate: false,
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        queue: [expertId],
+        history: Array.from({length: 10}, () => ({
+          updatedBy: expertId,
+          answer: answerId,
+          status: 'reviewed',
+        })),
+      });
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'accepted',
+        approvedAnswer: answerId,
+        answer: 'Approved',
+      } as any);
+
+      expect(notifySpy).not.toHaveBeenCalled();
+    });
+    it('does not allocate next reviewer when current reviewer is not in queue', async () => {
+      setupQueueAllocationReview();
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        queue: ['507f1f77bcf86cd799439099'],
+        history: [
+          {
+            updatedBy: expertId,
+            answer: answerId,
+            status: 'in-review',
+          },
+        ],
+      });
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'accepted',
+        approvedAnswer: answerId,
+        answer: 'Approved',
+      } as any);
+
+      expect(mockQuestionSubmissionRepo.update).not.toHaveBeenCalled();
+    });
+    it('does not allocate next reviewer when current reviewer is last in queue', async () => {
+      setupQueueAllocationReview();
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        queue: [expertId],
+        history: [
+          {
+            updatedBy: expertId,
+            answer: answerId,
+            status: 'in-review',
+          },
+        ],
+      });
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'accepted',
+        approvedAnswer: answerId,
+        answer: 'Approved',
+      } as any);
+
+      expect(mockQuestionSubmissionRepo.update).not.toHaveBeenCalled();
+    });
+    it('does not allocate another reviewer when history already has ten entries', async () => {
+      setupQueueAllocationReview();
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        queue: [expertId, '507f1f77bcf86cd799439099'],
+        history: Array.from({length: 10}, () => ({
+          updatedBy: expertId,
+          answer: answerId,
+          status: 'reviewed',
+        })),
+      });
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'accepted',
+        approvedAnswer: answerId,
+        answer: 'Approved',
+      } as any);
+
+      expect(mockQuestionSubmissionRepo.update).not.toHaveBeenCalled();
+    });
+    it('marks answer as pending with moderator after three approvals', async () => {
+      setupAcceptedReviewWithThreeApprovals();
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'accepted',
+        approvedAnswer: answerId,
+        answer: 'Approved',
+      } as any);
+
+      expect(mockAnswerRepo.updateAnswerStatus).toHaveBeenCalledWith(
+        answerId,
+        {
+          status: 'pending-with-moderator',
+        },
+        expect.anything(),
+      );
+    });
+    it('marks expert history as approved after three approvals', async () => {
+      setupAcceptedReviewWithThreeApprovals();
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'accepted',
+        approvedAnswer: answerId,
+        answer: 'Approved',
+      } as any);
+
+      expect(
+        mockQuestionSubmissionRepo.updateHistoryByUserId,
+      ).toHaveBeenLastCalledWith(
+        questionId,
+        expertId,
+        {
+          status: 'approved',
+        },
+        expect.anything(),
+      );
+    });
+    it('updates question to in-review after three approvals', async () => {
+      setupAcceptedReviewWithThreeApprovals();
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'accepted',
+        approvedAnswer: answerId,
+        answer: 'Approved',
+      } as any);
+
+      expect(mockQuestionRepo.updateQuestion).toHaveBeenCalledWith(
+        questionId,
+        {
+          status: 'in-review',
+        },
+        expect.anything(),
+      );
+    });
+    it('clears current expert tracking after three approvals', async () => {
+      setupAcceptedReviewWithThreeApprovals();
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'accepted',
+        approvedAnswer: answerId,
+        answer: 'Approved',
+      } as any);
+
+      expect(
+        mockQuestionSubmissionRepo.clearCurrentExpertTracking,
+      ).toHaveBeenCalledWith(questionId, expect.anything());
+    });
+    it('returns success immediately after three approvals', async () => {
+      setupAcceptedReviewWithThreeApprovals();
+
+      const result = await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'accepted',
+        approvedAnswer: answerId,
+        answer: 'Approved',
+      } as any);
+
+      expect(result).toEqual({
+        message: 'Your response recorded sucessfully, thankyou!',
+      });
+
+      expect(mockQuestionSubmissionRepo.update).not.toHaveBeenCalled();
+    });
+    it('creates the first answer successfully', async () => {
+      setupFirstSubmissionReview();
+
+      const result = await service.reviewAnswer(expertId, {
+        questionId,
+        answer: 'First answer',
+        sources: [],
+        remarks: 'remarks',
+      } as any);
+
+      expect(service.addAnswer).toHaveBeenCalledWith(
+        questionId,
+        expertId,
+        'First answer',
+        [],
+        expect.anything(),
+        'in-review',
+        'remarks',
+      );
+
+      expect(mockQuestionSubmissionRepo.update).toHaveBeenCalled();
+
+      expect(result).toEqual({
+        message: 'Your response recorded sucessfully, thankyou!',
+      });
+    });
+    it('stores first answer in submission history', async () => {
+      setupFirstSubmissionReview();
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        answer: 'First answer',
+        sources: [],
+      } as any);
+
+      expect(mockQuestionSubmissionRepo.update).toHaveBeenCalledWith(
+        questionId,
+        expect.objectContaining({
+          answer: expect.anything(),
+          status: 'in-review',
+        }),
+        expect.anything(),
+      );
+    });
+    it('clears expert tracking after first submission', async () => {
+      setupFirstSubmissionReview();
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        answer: 'First answer',
+        sources: [],
+      } as any);
+
+      expect(
+        mockQuestionSubmissionRepo.clearCurrentExpertTracking,
+      ).toHaveBeenCalledWith(questionId, expect.anything());
+    });
+    it('decrements expert workload after first submission', async () => {
+      setupFirstSubmissionReview();
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        answer: 'First answer',
+        sources: [],
+      } as any);
+
+      expect(mockUserRepo.updateReputationScore).toHaveBeenLastCalledWith(
+        expertId,
+        false,
+        expect.anything(),
+      );
+    });
+    it('marks question as pae_submitted for PAE expert', async () => {
+      setupFirstSubmissionReview();
+
+      mockUserRepo.findById.mockResolvedValue({
+        _id: expertId,
+        role: 'pae_expert',
+      });
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        answer: 'Answer',
+        sources: [],
+      } as any);
+
+      expect(mockQuestionRepo.updateQuestion).toHaveBeenCalledWith(
+        questionId,
+        {
+          status: 'pae_submitted',
+        },
+        expect.anything(),
+      );
+
+      expect(mockUserRepo.updateReputationScore).toHaveBeenCalledWith(
+        expertId,
+        false,
+        expect.anything(),
+      );
+
+      expect(
+        mockQuestionSubmissionRepo.clearCurrentExpertTracking,
+      ).toHaveBeenCalledWith(questionId, expect.anything());
+    });
+    it('marks AJRASAKHA question as opened by expert', async () => {
+      setupFirstSubmissionReview();
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+        question: 'Question',
+        source: 'AJRASAKHA',
+        status: 'open',
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId
+        .mockResolvedValueOnce({
+          queue: [expertId],
+          history: [],
+        })
+        .mockResolvedValueOnce({
+          currentExpertOpenedAt: null,
+        });
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        answer: 'Answer',
+        sources: [],
+      } as any);
+
+      expect(
+        mockQuestionSubmissionRepo.markQuestionOpenedByExpert,
+      ).toHaveBeenCalledWith(questionId, expertId);
+    });
+    it('marks WhatsApp question as opened by expert', async () => {
+      setupFirstSubmissionReview();
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+        question: 'Question',
+        source: 'WHATSAPP',
+        status: 'open',
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId
+        .mockResolvedValueOnce({
+          queue: [expertId],
+          history: [],
+        })
+        .mockResolvedValueOnce({
+          currentExpertOpenedAt: null,
+        });
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        answer: 'Answer',
+        sources: [],
+      } as any);
+
+      expect(
+        mockQuestionSubmissionRepo.markQuestionOpenedByExpert,
+      ).toHaveBeenCalledWith(questionId, expertId);
+    });
+    it('does not mark question opened when currentExpertOpenedAt already exists', async () => {
+      setupFirstSubmissionReview();
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+        question: 'Question',
+        source: 'AJRASAKHA',
+        status: 'open',
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId
+        .mockResolvedValueOnce({
+          queue: [expertId],
+          history: [],
+        })
+        .mockResolvedValueOnce({
+          currentExpertOpenedAt: new Date(),
+        });
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        answer: 'Answer',
+        sources: [],
+      } as any);
+
+      expect(
+        mockQuestionSubmissionRepo.markQuestionOpenedByExpert,
+      ).not.toHaveBeenCalled();
+    });
+    it('throws when review creation fails', async () => {
+      setupQueueAllocationReview();
+
+      mockReviewRepo.createReview.mockResolvedValue({});
+
+      await expect(
+        service.reviewAnswer(expertId, {
+          questionId,
+          status: 'accepted',
+          approvedAnswer: answerId,
+          answer: 'Approved',
+        } as any),
+      ).rejects.toThrow('Failed to create review entry. Please try again.');
+    });
+    it('creates an accepted review entry', async () => {
+      setupQueueAllocationReview();
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'accepted',
+        approvedAnswer: answerId,
+        answer: 'Approved',
+      } as any);
+
+      expect(mockReviewRepo.createReview).toHaveBeenCalledWith(
+        'answer',
+        'accepted',
+        questionId,
+        expertId,
+        answerId,
+        '',
+        undefined,
+        false,
+        expect.anything(),
+      );
+    });
+    it('stores rejection reason in review', async () => {
+      setupRejectedReview();
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'rejected',
+        rejectedAnswer: answerId,
+        answer: 'New Answer',
+        reasonForRejection: 'Incorrect',
+        sources: [],
+      } as any);
+
+      expect(mockReviewRepo.createReview).toHaveBeenCalledWith(
+        'answer',
+        'rejected',
+        questionId,
+        expertId,
+        answerId,
+        'Incorrect',
+        undefined,
+        false,
+        expect.anything(),
+      );
+    });
+    it('stores modification reason in review', async () => {
+      setupModifiedReview();
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        status: 'modified',
+        modifiedAnswer: answerId,
+        answer: 'Updated',
+        reasonForModification: 'Grammar',
+        sources: [],
+      } as any);
+
+      expect(mockReviewRepo.createReview).toHaveBeenCalledWith(
+        'answer',
+        'modified',
+        questionId,
+        expertId,
+        answerId,
+        'Grammar',
+        undefined,
+        false,
+        expect.anything(),
+      );
+    });
+    it('does not create a review entry for first submission', async () => {
+      setupFirstSubmissionReview();
+
+      await service.reviewAnswer(expertId, {
+        questionId,
+        answer: 'First Answer',
+        sources: [],
+      } as any);
+
+      expect(mockReviewRepo.createReview).not.toHaveBeenCalled();
     });
   });
 });
