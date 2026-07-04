@@ -17511,9 +17511,6 @@ export class ChatbotRepository implements IChatbotRepository {
         const moderatorCompletedAt =
           question.closedAt || question.passedAt;
 
-        const moderatorCompletedAt =
-          question.closedAt || question.passedAt;
-
         timeline.push({
           timestamp: moderatorAssignedAt,
           user: "-",
