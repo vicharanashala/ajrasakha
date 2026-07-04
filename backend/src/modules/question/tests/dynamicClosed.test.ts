@@ -43,6 +43,7 @@ function buildService(): QuestionService {
     {} as any, // chatbotRepository
     {} as any, // mongoDatabase
     {} as any, // userService
+    {} as any, // callDetailsRepository
     {createAuditTrail: vi.fn()} as any, // auditTrailsService
   );
 }
