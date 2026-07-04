@@ -74,7 +74,8 @@ describe('AnswerService', () => {
   const mockDatabase = {};
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    // vi.clearAllMocks();
+    vi.resetAllMocks();
 
     service = new AnswerService(
       mockAiService as any,
@@ -1523,6 +1524,7 @@ describe('AnswerService', () => {
         expect.objectContaining({
           answer: 'Final approved answer',
           sources: ['source-1'],
+          approvedBy: expect.any(Object),
           isFinalAnswer: true,
           status: 'approved',
         }),
@@ -1530,11 +1532,7 @@ describe('AnswerService', () => {
       );
     });
     it('throws when answer does not exist after submission validation', async () => {
-      appConfig.isDevelopment = true;
-
-      const moderatorId = '507f1f77bcf86cd799439011';
-      const questionId = '507f1f77bcf86cd799439012';
-      const answerId = '507f1f77bcf86cd799439013';
+      setupApproveAnswer();
 
       mockQuestionRepo.getById.mockResolvedValue({
         _id: questionId,
@@ -2361,6 +2359,272 @@ describe('AnswerService', () => {
           sources: [],
         } as any),
       ).rejects.toThrow(`Answer with ID ${answerId} not found`);
+    });
+    it('propagates incentive update failure', async () => {
+      setupApproveAnswer();
+
+      mockUserRepo.updatePenaltyAndIncentive.mockRejectedValue(
+        new Error('Incentive update failed'),
+      );
+
+      await expect(
+        service.approveAnswer(moderatorId, {
+          questionId,
+          answerId,
+          answer: 'Approved',
+          sources: [],
+        } as any),
+      ).rejects.toThrow('Incentive update failed');
+
+      expect(mockAnswerRepo.updateAnswer).not.toHaveBeenCalled();
+    });
+    it('propagates question update failure', async () => {
+      setupApproveAnswer();
+
+      mockQuestionRepo.updateQuestion.mockRejectedValue(
+        new Error('Question update failed'),
+      );
+
+      await expect(
+        service.approveAnswer(moderatorId, {
+          questionId,
+          answerId,
+          answer: 'Approved',
+          sources: [],
+        } as any),
+      ).rejects.toThrow('Question update failed');
+
+      expect(mockAnswerRepo.updateAnswer).not.toHaveBeenCalled();
+    });
+    it('propagates updateAnswer repository failure', async () => {
+      setupApproveAnswer();
+
+      mockAnswerRepo.updateAnswer.mockRejectedValue(
+        new Error('Update answer failed'),
+      );
+
+      await expect(
+        service.approveAnswer(moderatorId, {
+          questionId,
+          answerId,
+          answer: 'Approved',
+          sources: [],
+        } as any),
+      ).rejects.toThrow('Update answer failed');
+    });
+    it('removes assigned question from moderators', async () => {
+      setupApproveAnswer();
+
+      await service.approveAnswer(moderatorId, {
+        questionId,
+        answerId,
+        answer: 'Approved',
+        sources: [],
+      } as any);
+
+      expect(
+        mockUserRepo.removeAssignedQuestionFromAllModerators,
+      ).toHaveBeenCalledWith(questionId, expect.anything());
+    });
+    it('continues approval when WhatsApp webhook fails', async () => {
+      setupApproveAnswer();
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+        question: 'Question',
+        status: 'in-review',
+        source: 'WHATSAPP',
+        tag: '',
+      });
+
+      (triggerWebhook as any).mockRejectedValue(new Error('Webhook failed'));
+
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      const result = await service.approveAnswer(moderatorId, {
+        questionId,
+        answerId,
+        answer: 'Approved',
+        sources: [],
+      } as any);
+
+      expect(result).toEqual({
+        modifiedCount: 1,
+      });
+
+      expect(mockQuestionRepo.updateQuestion).toHaveBeenLastCalledWith(
+        questionId,
+        {
+          isCustomerNotified: false,
+        },
+        expect.anything(),
+        false,
+      );
+
+      consoleSpy.mockRestore();
+    });
+    it('marks customer as notified when AJRASAKHA webhook succeeds', async () => {
+      setupApproveAnswer();
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+        question: 'Question',
+        status: 'in-review',
+        source: 'AJRASAKHA',
+        tag: '',
+        messageId: 'msg-1',
+        threadId: 'thread-1',
+      });
+
+      await service.approveAnswer(moderatorId, {
+        questionId,
+        answerId,
+        answer: 'Approved',
+        sources: [],
+      } as any);
+
+      expect(triggerWebhook).toHaveBeenCalled();
+
+      expect(mockQuestionRepo.updateQuestion).toHaveBeenLastCalledWith(
+        questionId,
+        {
+          isCustomerNotified: true,
+        },
+        expect.anything(),
+        false,
+      );
+    });
+    it('continues approval when AJRASAKHA webhook fails', async () => {
+      setupApproveAnswer();
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+        question: 'Question',
+        status: 'in-review',
+        source: 'AJRASAKHA',
+        tag: '',
+        messageId: 'msg-1',
+        threadId: 'thread-1',
+      });
+
+      (triggerWebhook as any).mockRejectedValue(new Error('Webhook failed'));
+
+      const result = await service.approveAnswer(moderatorId, {
+        questionId,
+        answerId,
+        answer: 'Approved',
+        sources: [],
+      } as any);
+
+      expect(result).toEqual({
+        modifiedCount: 1,
+      });
+
+      expect(mockQuestionRepo.updateQuestion).toHaveBeenLastCalledWith(
+        questionId,
+        {
+          isCustomerNotified: false,
+        },
+        expect.anything(),
+        false,
+      );
+    });
+    it('does not update customer notification for WEB questions', async () => {
+      setupApproveAnswer();
+
+      await service.approveAnswer(moderatorId, {
+        questionId,
+        answerId,
+        answer: 'Approved',
+        sources: [],
+      } as any);
+
+      expect(mockQuestionRepo.updateQuestion).toHaveBeenCalledTimes(1);
+
+      expect(triggerWebhook).not.toHaveBeenCalled();
+    });
+    it('closes question as dynamic_closed for static_dynamic tag', async () => {
+      setupApproveAnswer();
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: questionId,
+        question: 'Question',
+        status: 'in-review',
+        source: 'WEB',
+        tag: 'static_dynamic',
+      });
+
+      await service.approveAnswer(moderatorId, {
+        questionId,
+        answerId,
+        answer: 'Approved',
+        sources: [],
+      } as any);
+
+      expect(mockQuestionRepo.updateQuestion).toHaveBeenCalledWith(
+        questionId,
+        expect.objectContaining({
+          status: 'dynamic_closed',
+        }),
+        expect.anything(),
+        true,
+      );
+    });
+    it('closes question with closed status for normal questions', async () => {
+      setupApproveAnswer();
+
+      await service.approveAnswer(moderatorId, {
+        questionId,
+        answerId,
+        answer: 'Approved',
+        sources: [],
+      } as any);
+
+      expect(mockQuestionRepo.updateQuestion).toHaveBeenCalledWith(
+        questionId,
+        expect.objectContaining({
+          status: 'closed',
+        }),
+        expect.anything(),
+        true,
+      );
+    });
+    it('marks answer as final and approved', async () => {
+      setupApproveAnswer();
+
+      await service.approveAnswer(moderatorId, {
+        questionId,
+        answerId,
+        answer: 'Approved',
+        sources: ['source'],
+      } as any);
+
+      expect(mockAnswerRepo.updateAnswer).toHaveBeenCalledWith(
+        answerId,
+        expect.objectContaining({
+          isFinalAnswer: true,
+          status: 'approved',
+          answer: 'Approved',
+          sources: ['source'],
+        }),
+        expect.anything(),
+      );
+    });
+    it('increments author incentive', async () => {
+      setupApproveAnswer();
+
+      await service.approveAnswer(moderatorId, {
+        questionId,
+        answerId,
+        answer: 'Approved',
+        sources: [],
+      } as any);
+
+      expect(mockUserRepo.updatePenaltyAndIncentive).toHaveBeenCalledWith(
+        expertId,
+        'incentive',
+        expect.anything(),
+      );
     });
   });
 });
