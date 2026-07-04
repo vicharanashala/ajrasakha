@@ -24,7 +24,7 @@ import {
 import {
   UserCheck,
   UserX,
-  // CalendarClock, // used by the temporarily-hidden "Assigned" calendar row
+  CalendarClock,
   CheckCheck,
   Loader2,
   Trash2,
@@ -61,10 +61,9 @@ export const RoleAssigneeQueue = ({
   const assignee = isGK
     ? question.assigned_gate_keeper
     : question.assigned_auditor;
-  // Used by the temporarily-hidden "Assigned" calendar row — uncomment when restoring it.
-  // const assignedAt = isGK
-  //   ? question.gateKeeperAssignedAt
-  //   : question.auditorAssignedAt;
+  const assignedAt = isGK
+    ? question.gateKeeperAssignedAt
+    : question.auditorAssignedAt;
   const finishedAt = isGK
     ? question.gateKeeperFinishedAt
     : question.auditorFinishedAt;
@@ -269,8 +268,7 @@ export const RoleAssigneeQueue = ({
                 }}
               >
                 <div className="w-full space-y-1.5">
-                  {/* Assigned (calendar) row — temporarily hidden; uncomment to restore. */}
-                  {/* <div className="flex items-start gap-1.5 rounded-md bg-background/40 border border-border/30 px-1.5 py-1">
+                  <div className="flex items-start gap-1.5 rounded-md bg-background/40 border border-border/30 px-1.5 py-1">
                     <CalendarClock className="w-3 h-3 text-blue-500 mt-0.5 shrink-0" />
                     <div className="flex flex-col min-w-0">
                       <span className="text-[8px] uppercase tracking-wide text-muted-foreground font-medium">
@@ -280,7 +278,7 @@ export const RoleAssigneeQueue = ({
                         {assignedAt ? new Date(assignedAt).toLocaleString() : "—"}
                       </span>
                     </div>
-                  </div> */}
+                  </div>
                   <div className="flex items-start gap-1.5 rounded-md bg-background/40 border border-border/30 px-1.5 py-1">
                     <CheckCheck
                       className={`w-3 h-3 mt-0.5 shrink-0 ${
