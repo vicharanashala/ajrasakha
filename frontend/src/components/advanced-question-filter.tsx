@@ -74,7 +74,7 @@ export { STATES, CROPS, DOMAINS };
 import { DateRangeFilter } from "./DateRangeFilter";
 import { TopRightBadge } from "./NewBadge";
 
-export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed" | "pae_submitted" | "draft" | "hold" | "dynamic";
+export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed" | "pae_submitted" | "draft" | "hold" | "dynamic" | "auditor_review" | "queue_duplicate";
 export type QuestionDateRangeFilter =
   | "all"
   | "today"
@@ -133,6 +133,9 @@ export type AdvanceFilterValues = {
   is_non_agri?: boolean;
   /** When set, filters to questions whose moderatorId matches this ID (dedicated tab). */
   moderatorId?: string;
+  /** Dedicated tab for gate keepers / auditors — filters by their assigned questions. */
+  gateKeeperId?: string;
+  auditorId?: string;
 };
 
 
@@ -472,14 +475,120 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     <FileText className="h-4 w-4 text-primary" />
                     Question Status
                   </Label>
-                  <SearchableFilterSelect
-                    value={advanceFilter.status}
-                    onValueChange={(v) => {
-                      handleDialogChange("status", v);
-                    }}
-                    options={statusOptions}
-                    triggerClassName="bg-background w-full relative"
-                  />
+                    <Select
+                      value={advanceFilter.status}
+                      onValueChange={(v) => {
+                        handleDialogChange("status", v);
+                      }}
+                    >
+                    <SelectTrigger className="bg-background w-full relative">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">
+                        <div className="flex items-center gap-2 ">
+                          <Eye className="w-4 h-4 text-primary" />
+                          <span>All Statuses</span>
+                          <TopRightBadge label="new" />
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="open">
+                        <div className="flex items-center gap-2">
+                          <Circle className="w-4 h-4 text-green-500 fill-green-500/20" />
+                          <span>Open</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="in-review">
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-blue-500" />
+                          <span>In Review</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="delayed">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                          <span>Delayed</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="re-routed">
+                        <div className="flex items-center gap-2">
+                          <Send className="w-4 h-4 text-green-500" />
+                          <span>Re Routed</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="pae_submitted">
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-amber-600" />
+                          <span>PAE Submitted</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="closed">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-red-500" />
+                          <span>Closed</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="pass">
+                        <div className="flex items-center gap-2">
+                          <CircleSlash className="w-4 h-4 text-gray-500" />
+                          <span>Passed</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="duplicate">
+                        <div className="flex items-center gap-2">
+                          <Copy className="w-4 h-4 text-orange-500" />
+                          <span>Duplicate</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="draft">
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-gray-400" />
+                          <span>Draft</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="hold">
+                        <div className="flex items-center gap-2">
+                          <Hand className="w-4 h-4 text-orange-600" />
+                          <span>Hold</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="non_agri">
+                        <div className="flex items-center gap-2">
+                          <CircleSlash className="w-4 h-4 text-slate-500" />
+                          <span>Non Agri</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="dynamic">
+                        <div className="flex items-center gap-2">
+                          <Zap className="w-4 h-4 text-yellow-500" />
+                          <span>Dynamic</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="auditor_review">
+                        <div className="flex items-center gap-2">
+                          <BadgeCheck className="w-4 h-4 text-purple-500" />
+                          <span>Auditor Review</span>
+                        </div>
+                      </SelectItem>
+
+                      <SelectItem value="queue_duplicate">
+                        <div className="flex items-center gap-2">
+                          <Copy className="w-4 h-4 text-rose-500" />
+                          <span>Queue Duplicate</span>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
 

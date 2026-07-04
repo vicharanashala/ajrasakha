@@ -38,8 +38,6 @@ export const AllocationQueueHeader = ({
   queue = [],
   currentUser,
 }: AllocationQueueHeaderProps) => {
-  const isDuplicate = question.status === "duplicate";
-
   const [autoAllocate, setAutoAllocate] = useState(question.isAutoAllocate);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedExperts, setSelectedExperts] = useState<string[]>([]);
@@ -139,6 +137,22 @@ export const AllocationQueueHeader = ({
     setSelectedExperts([]);
     setIsModalOpen(false);
   };
+
+  // The auto-allocate toggle is shown to moderators/admins regardless of status (so
+  // they can turn allocation on/off ahead of time). The "Select Experts" action only
+  // shows when the question is actually in a normal expert-answering status — never for
+  // triage statuses (dynamic / duplicate / queue_duplicate / auditor_review / non_agri).
+  const canManageAllocation =
+    currentUser.role !== "expert" &&
+    currentUser.role !== "gate_keeper" &&
+    currentUser.role !== "auditor";
+  const isExpertStatus =
+    question.status !== "non_agri" &&
+    question.status !== "queue_duplicate" &&
+    question.status !== "auditor_review" &&
+    question.status !== "dynamic" &&
+    question.status !== "duplicate";
+
   return (
     <div className="flex flex-col gap-4 pb-6 border-b border-border">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -161,8 +175,10 @@ export const AllocationQueueHeader = ({
         {/* RIGHT SECTION — for duplicate questions the auto-allocate toggle and
             "Select Experts" only show to the moderator the question is assigned to
             (i.e. from "My Assignment"); hidden on every other tab. Non-duplicate
-            questions are unaffected. */}
-        {currentUser.role !== "expert" && question.status!=='non_agri' && (!isDuplicate || question.isAssignedModerator) && (
+            questions are unaffected.
+            Queue-duplicate questions: NO auto-allocate / Select Experts until the
+            status is changed away from 'queue_duplicate'. */}
+        {canManageAllocation ? (
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full md:w-auto">
             {/* Auto-Allocate Block */}
             <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
@@ -201,8 +217,9 @@ export const AllocationQueueHeader = ({
               </TooltipProvider>
             </div>
 
-            {/* Select Experts Button */}
-            {!autoAllocate && (
+            {/* Select Experts Button — only when auto-allocate is OFF and the question
+                is in a normal expert-answering status (not a triage status). */}
+            {!autoAllocate && isExpertStatus && (
               <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                 {/* <DialogTrigger asChild> */}
                 <Button variant="default" className="gap-2 w-full sm:w-auto"
@@ -373,6 +390,17 @@ export const AllocationQueueHeader = ({
                 </DialogContent>
               </Dialog>
             )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
+            <span
+              className={`h-2.5 w-2.5 rounded-full ${
+                autoAllocate ? "bg-green-500" : "bg-muted-foreground/50"
+              }`}
+            />
+            <span className="font-medium text-sm text-foreground">
+              Auto-allocate: {autoAllocate ? "On" : "Off"}
+            </span>
           </div>
         )}
       </div>
