@@ -515,106 +515,130 @@ export class ChatbotRepository implements IChatbotRepository {
   }
 
   private DISTRICT_ALIASES: Record<string, string> = {
-  // Jammu & Kashmir
-  "baramula": "baramulla",
-  "ladakh (leh)": "leh",
+    // Jammu & Kashmir
+    baramula: 'baramulla',
+    'ladakh (leh)': 'leh',
 
-  // Uttarakhand
-  "naini tal": "nainital",
-  "dehra dun": "dehradun",
+    // Uttarakhand
+    'naini tal': 'nainital',
+    'dehra dun': 'dehradun',
 
-  // Karnataka
-  "belgaum": "belagavi",
-  "mysore": "mysuru",
-  "tumkur": "tumakuru",
-  "bagalkot": "bagalkote",
-  "chikmagalur": "chikkamagaluru",
-  "chamrajnagar": "chamarajanagara",
-  "chamarajanagar": "chamarajanagara",
-  "chamarajanagara": "chamarajanagara",
+    // Karnataka
+    belgaum: 'belagavi',
+    mysore: 'mysuru',
+    tumkur: 'tumakuru',
+    bagalkot: 'bagalkote',
+    chikmagalur: 'chikkamagaluru',
+    chamrajnagar: 'chamarajanagara',
+    chamarajanagar: 'chamarajanagara',
+    chamarajanagara: 'chamarajanagara',
 
-  // Andhra Pradesh
-  "vishakhapatnam": "visakhapatnam",
-  "anantapur": "ananthapuramu",
+    // Andhra Pradesh
+    vishakhapatnam: 'visakhapatnam',
+    anantapur: 'ananthapuramu',
 
-  // Tealangana
-  "komaram bheem asifabad": "kumuram bheem asifabad",
+    // Tealangana
+    'komaram bheem asifabad': 'kumuram bheem asifabad',
 
-  // Tamil Nadu
-  "tiruchchirappalli": "tiruchirappalli",
-  "villupuram": "viluppuram",
+    // Tamil Nadu
+    tiruchchirappalli: 'tiruchirappalli',
+    villupuram: 'viluppuram',
 
-  // Maharashtra
-  "aurangabad": "chhatrapati sambhajinagar",
-  "gondiya": "gondia",
+    // Maharashtra
+    aurangabad: 'chhatrapati sambhajinagar',
+    gondiya: 'gondia',
 
-  // Odisha
-  "keonjhar": "kendujhar",
+    // Odisha
+    keonjhar: 'kendujhar',
 
-  // Rajasthan
-  "chittaurgarh": "chittorgarh",
+    // Rajasthan
+    chittaurgarh: 'chittorgarh',
 
-  // Uttar Pradesh
-  "kanpur": "kanpur nagar",
-};
-  
-private normalizeDistrictName(district?: string): string {
-  if (!district) return "";
+    // Uttar Pradesh
+    kanpur: 'kanpur nagar',
 
-  let normalized = district
-    .toLowerCase()
-    .replace(/\([^)]*\)/g, "")
-    .replace(/\bdistrict\b/g, "")
-    .replace(/[-_]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+    // Punjab
+    'sahibzada ajit singh nagar': 's.a.s nagar',
+    'sahibzada ajit singh nagar (mohali)': 's.a.s nagar',
 
-  normalized = this.DISTRICT_ALIASES[normalized]?.toLowerCase() ?? normalized;
+    mohali: 's.a.s nagar',
 
-  return normalized;
-}
-
-private getEquivalentLocationNames(value: string): string[] {
-  const normalized = this.normalizeDistrictName(value);
-  const equivalents: Record<string, string[]> = {
-    ananthapuramu: ['Ananthapuramu', 'Anantapur'],
-    chamarajanagar: ['Chamarajanagar', 'Chamarajanagara'],
-    baramulla: ['Baramulla', 'Baramula'],
+    's.a.s nagar': 's.a.s nagar',
+    'sas nagar': 's.a.s nagar',
+    's a s nagar': 's.a.s nagar',
   };
 
-  return [...new Set([value, ...(equivalents[normalized] || [])])];
-}
+  private normalizeDistrictName(district?: string): string {
+    if (!district) return '';
 
-private matchesEquivalentLocation(
-  actual: string | undefined,
-  expectedValues: string[],
-) {
-  const normalizedActual = this.normalizeDistrictName(String(actual || ''));
+    let normalized = district
+      .toLowerCase()
+      .replace(/\([^)]*\)/g, '')
+      .replace(/\bdistrict\b/g, '')
+      .replace(/[-_]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
 
-  return expectedValues.some(
-    expected =>
-      normalizedActual === this.normalizeDistrictName(String(expected || '')),
-  );
-}
+    normalized = this.DISTRICT_ALIASES[normalized]?.toLowerCase() ?? normalized;
 
-private isInvalidHeatMapLocation(value?: string | null) {
-  const normalized = this.normalizeDistrictName(String(value || ''));
-  const invalidValues = new Set([
-    '',
-    '-',
-    'na',
-    'n/a',
-    'nil',
-    'null',
-    'test',
-    'testing',
-    'undefined',
-    'unknown',
-    'not specified',
-  ]);
+    return normalized;
+  }
 
-  return invalidValues.has(normalized);
-}
+  private getDistrictVariants(district: string): string[] {
+    const normalized = this.normalizeDistrictName(district);
+
+    return Object.entries(this.DISTRICT_ALIASES)
+      .filter(
+        ([oldName, canonical]) =>
+          this.normalizeDistrictName(oldName) === normalized ||
+          this.normalizeDistrictName(canonical) === normalized,
+      )
+      .flatMap(([oldName, canonical]) => [oldName, canonical])
+      .concat(district)
+      .filter((v, i, arr) => arr.indexOf(v) === i);
+  }
+
+  private getEquivalentLocationNames(value: string): string[] {
+    const normalized = this.normalizeDistrictName(value);
+    const equivalents: Record<string, string[]> = {
+      ananthapuramu: ['Ananthapuramu', 'Anantapur'],
+      chamarajanagar: ['Chamarajanagar', 'Chamarajanagara'],
+      baramulla: ['Baramulla', 'Baramula'],
+    };
+
+    return [...new Set([value, ...(equivalents[normalized] || [])])];
+  }
+
+  private matchesEquivalentLocation(
+    actual: string | undefined,
+    expectedValues: string[],
+  ) {
+    const normalizedActual = this.normalizeDistrictName(String(actual || ''));
+
+    return expectedValues.some(
+      expected =>
+        normalizedActual === this.normalizeDistrictName(String(expected || '')),
+    );
+  }
+
+  private isInvalidHeatMapLocation(value?: string | null) {
+    const normalized = this.normalizeDistrictName(String(value || ''));
+    const invalidValues = new Set([
+      '',
+      '-',
+      'na',
+      'n/a',
+      'nil',
+      'null',
+      'test',
+      'testing',
+      'undefined',
+      'unknown',
+      'not specified',
+    ]);
+
+    return invalidValues.has(normalized);
+  }
   private readonly coordinatorsRoles = COORDINATOR_ROLES;
 
   private async getSourceAdherenceStats(
@@ -2783,13 +2807,15 @@ private isInvalidHeatMapLocation(value?: string | null) {
 
       const source = _source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
 
-      const districts = district.map((d)=>{
+      const districts = district.map(d => {
+        if (d.districtNameEnglish === 'S.A.S Nagar') {
+          return 'Sahibzada Ajit Singh Nagar';
+        }
+        if (d.districtNameEnglish === 'Shahid Bhagat Singh Nagar') {
+          return 'Nawanshahr';
+        }
         return d.districtNameEnglish;
       });
-
-      if (!districts.length) {
-        return [];
-      }
 
       if (!districts.length) {
         return [];
@@ -2908,7 +2934,6 @@ private isInvalidHeatMapLocation(value?: string | null) {
         .aggregate([
           {
             $match: {
-
               'farmerProfile.state': {
                 $regex: `^${state}$`,
                 $options: 'i',
@@ -2993,22 +3018,22 @@ private isInvalidHeatMapLocation(value?: string | null) {
 
       const userMap = new Map();
 
-for (const item of districtUsers) {
-  const key = this.normalizeDistrictName(item._id);
+      for (const item of districtUsers) {
+        const key = this.normalizeDistrictName(item._id);
 
-  const existing = userMap.get(key);
+        const existing = userMap.get(key);
 
-  if (existing) {
-    existing.totalUsers += item.totalUsers;
-    existing.activeUsers += item.activeUsers;
-    existing.coordinators += item.coordinators;
-    existing.villageVolunteer += item.villageVolunteer;
-    existing.districtCoordinator += item.districtCoordinator;
-    existing.blockCoordinator += item.blockCoordinator;
-  } else {
-    userMap.set(key, { ...item });
-  }
-}
+        if (existing) {
+          existing.totalUsers += item.totalUsers;
+          existing.activeUsers += item.activeUsers;
+          existing.coordinators += item.coordinators;
+          existing.villageVolunteer += item.villageVolunteer;
+          existing.districtCoordinator += item.districtCoordinator;
+          existing.blockCoordinator += item.blockCoordinator;
+        } else {
+          userMap.set(key, {...item});
+        }
+      }
 
       const districtMap = new Map<
         string,
@@ -3221,23 +3246,26 @@ for (const item of districtUsers) {
       if (!districtLabel) {
         throw new BadRequestError('district is required');
       }
+      const isOthers = districtLabel.toLowerCase() === 'others';
 
-      const districtMatch: Record<string, unknown> = {
-        'details.state': state,
-      };
+      let districtMatch = {};
 
-      if (districtLabel.toLowerCase() === 'others') {
-        if (knownDistricts && knownDistricts.length > 0) {
-          districtMatch['details.district'] = {
-            $nin: knownDistricts.map(
-              (name) => new RegExp(`^${this.escapeRegex(name.trim())}$`, 'i'),
-            ),
-          };
-        }
-      } else {
-        districtMatch['details.district'] = districtLabel;
+      if (!isOthers) {
+        const variants = this.getDistrictVariants(districtLabel);
+
+        districtMatch = {
+          'details.state': {
+            $regex: `^${state}$`,
+            $options: 'i',
+          },
+          $or: variants.map(name => ({
+            'details.district': {
+              $regex: `^${name}$`,
+              $options: 'i',
+            },
+          })),
+        };
       }
-
       const typeMatch =
         questionType === 'duplicate'
           ? {status: 'duplicate'}
@@ -3289,63 +3317,127 @@ for (const item of districtUsers) {
         };
       }
 
-      const result = await this.QuestionCollection.aggregate(
-        [
-          {
-            $match: {
-              ...baseMatch,
-              ...districtMatch,
-              ...typeMatch,
-              ...searchMatch,
-            },
-          },
-          {
-            $sort: {
-              createdAt: -1,
-            },
-          },
-          {
-            $facet: {
-              data: [
-                {$skip: skip},
-                {$limit: safeLimit},
-                {
-                  $project: {
-                    _id: 0,
-                    questionId: {$toString: '$_id'},
-                    userId: 1,
-                    threadId: 1,
-                    messageId: 1,
-                    question: 1,
-                    status: 1,
-                    questionType: {
-                      $cond: [
-                        {$eq: ['$status', 'duplicate']},
-                        'duplicate',
-                        'unique',
-                      ],
-                    },
-                    createdAt: 1,
-                    district: '$details.district',
-                    crop: '$details.crop',
-                    village: '$details.village',
-                    block: '$details.block',
-                  },
-                },
-              ],
-              metadata: [
-                {
-                  $count: 'total',
-                },
-              ],
-            },
-          },
-        ],
-        {session},
-      ).toArray();
+      let total = 0;
+      let questions: any[] = [];
 
-      const total = result[0]?.metadata?.[0]?.total ?? 0;
-      const questions = result[0]?.data ?? [];
+      if (!isOthers) {
+        const result = await this.QuestionCollection.aggregate(
+          [
+            {
+              $match: {
+                ...baseMatch,
+                ...districtMatch,
+                ...typeMatch,
+                ...searchMatch,
+              },
+            },
+            {
+              $sort: {
+                createdAt: -1,
+              },
+            },
+            {
+              $facet: {
+                data: [
+                  {$skip: skip},
+                  {$limit: safeLimit},
+                  {
+                    $project: {
+                      _id: 0,
+                      questionId: {$toString: '$_id'},
+                      userId: 1,
+                      threadId: 1,
+                      messageId: 1,
+                      question: 1,
+                      status: 1,
+                      questionType: {
+                        $cond: [
+                          {$eq: ['$status', 'duplicate']},
+                          'duplicate',
+                          'unique',
+                        ],
+                      },
+                      createdAt: 1,
+                      district: '$details.district',
+                      crop: '$details.crop',
+                      village: '$details.village',
+                      block: '$details.block',
+                    },
+                  },
+                ],
+                metadata: [
+                  {
+                    $count: 'total',
+                  },
+                ],
+              },
+            },
+          ],
+          {session},
+        ).toArray();
+
+        total = result[0]?.metadata?.[0]?.total ?? 0;
+        questions = result[0]?.data ?? [];
+      } else {
+        const allQuestions = await this.QuestionCollection.aggregate(
+          [
+            {
+              $match: {
+                ...baseMatch,
+                'details.state': {
+                  $regex: `^${state}$`,
+                  $options: 'i',
+                },
+                ...typeMatch,
+                ...searchMatch,
+              },
+            },
+            {
+              $sort: {
+                createdAt: -1,
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                questionId: {$toString: '$_id'},
+                userId: 1,
+                threadId: 1,
+                messageId: 1,
+                question: 1,
+                status: 1,
+                questionType: {
+                  $cond: [
+                    {$eq: ['$status', 'duplicate']},
+                    'duplicate',
+                    'unique',
+                  ],
+                },
+                createdAt: 1,
+                district: '$details.district',
+                crop: '$details.crop',
+                village: '$details.village',
+                block: '$details.block',
+              },
+            },
+          ],
+          {session},
+        ).toArray();
+
+        const validDistricts = new Set(
+          (knownDistricts ?? []).map(d => this.normalizeDistrictName(d)),
+        );
+
+        const filteredQuestions = allQuestions.filter(question => {
+          const normalized = this.normalizeDistrictName(question.district);
+
+          return !validDistricts.has(normalized);
+        });
+
+        total = filteredQuestions.length;
+
+        questions = filteredQuestions.slice(skip, skip + safeLimit);
+      }
 
       const {userMap, questionUserMap} =
         await this.resolveQuestionUsers(questions);
@@ -3850,7 +3942,10 @@ for (const item of districtUsers) {
 
         for (const [key, values] of Object.entries(selectedLocationFilters)) {
           if (
-            !this.matchesEquivalentLocation(userDoc.farmerProfile?.[key], values)
+            !this.matchesEquivalentLocation(
+              userDoc.farmerProfile?.[key],
+              values,
+            )
           ) {
             return [];
           }
@@ -3859,7 +3954,8 @@ for (const item of districtUsers) {
         const location = userDoc.farmerProfile?.[locationField];
         if (!location) return [];
 
-        const name = `${userDoc.firstName || ''} ${userDoc.lastName || ''}`.trim();
+        const name =
+          `${userDoc.firstName || ''} ${userDoc.lastName || ''}`.trim();
 
         return [
           {
@@ -4154,7 +4250,10 @@ for (const item of districtUsers) {
         {session},
       );
 
-      if (!coordinator || !COORDINATOR_ROLES.includes(coordinator.userRole as any)) {
+      if (
+        !coordinator ||
+        !COORDINATOR_ROLES.includes(coordinator.userRole as any)
+      ) {
         throw new BadRequestError('Coordinator not found');
       }
 
@@ -4174,7 +4273,8 @@ for (const item of districtUsers) {
         farmerFilter['farmerProfile.district'] = this.exactRegex(district);
       }
       if (role === 'block_coordinator' || role === 'village_volunteer') {
-        if (block) farmerFilter['farmerProfile.blockName'] = this.exactRegex(block);
+        if (block)
+          farmerFilter['farmerProfile.blockName'] = this.exactRegex(block);
       }
       if (role === 'village_volunteer' && village) {
         farmerFilter['farmerProfile.villageName'] = this.exactRegex(village);
@@ -4233,7 +4333,9 @@ for (const item of districtUsers) {
         )
         .toArray();
       const messageIds = [
-        ...new Set(userMessages.map((message: any) => message.messageId).filter(Boolean)),
+        ...new Set(
+          userMessages.map((message: any) => message.messageId).filter(Boolean),
+        ),
       ];
       // const threadIds = [
       //   ...new Set(
@@ -4245,7 +4347,10 @@ for (const item of districtUsers) {
       const messageUserMap = new Map(
         userMessages
           .filter((message: any) => message.messageId)
-          .map((message: any) => [String(message.messageId), String(message.user)]),
+          .map((message: any) => [
+            String(message.messageId),
+            String(message.user),
+          ]),
       );
       // const threadUserMap = new Map(
       //   userMessages
@@ -4299,14 +4404,19 @@ for (const item of districtUsers) {
       >();
 
       for (const question of questions) {
-        const directUserId = question.userId?.toString?.() || String(question.userId || '');
+        const directUserId =
+          question.userId?.toString?.() || String(question.userId || '');
         const resolvedUserId =
           (directUserId && userMap.has(directUserId) ? directUserId : undefined) ||
           (question.messageId ? messageUserMap.get(String(question.messageId)) : undefined);
           // || (question.threadId ? threadUserMap.get(String(question.threadId)) : undefined);
         const normalizedQuestion = normalizeQuestionText(question.question);
 
-        if (!resolvedUserId || !userMap.has(resolvedUserId) || !normalizedQuestion) {
+        if (
+          !resolvedUserId ||
+          !userMap.has(resolvedUserId) ||
+          !normalizedQuestion
+        ) {
           continue;
         }
 
@@ -4329,19 +4439,28 @@ for (const item of districtUsers) {
           .trim()
           .toLowerCase()
           .replace(/\s+/g, ' ');
-      const detailsByBlockVillage = new Map<string, CoordinatorDuplicateQuestionDetail[]>();
+      const detailsByBlockVillage = new Map<
+        string,
+        CoordinatorDuplicateQuestionDetail[]
+      >();
       for (const group of groups.values()) {
         if (group.questions.length < 2) continue;
 
         const user = userMap.get(group.userId);
         const blockName = String(user?.farmerProfile?.blockName || '').trim();
-        const villageName = String(user?.farmerProfile?.villageName || '').trim();
+        const villageName = String(
+          user?.farmerProfile?.villageName || '',
+        ).trim();
         if (!blockName || !villageName) continue;
 
         const key = `${normalizeLocationKey(blockName)}__${normalizeLocationKey(villageName)}`;
         const dates = group.questions
-          .map((question: any) => question.createdAt ? new Date(question.createdAt) : null)
-          .filter((date: Date | null) => date && !Number.isNaN(date.getTime())) as Date[];
+          .map((question: any) =>
+            question.createdAt ? new Date(question.createdAt) : null,
+          )
+          .filter(
+            (date: Date | null) => date && !Number.isNaN(date.getTime()),
+          ) as Date[];
         const sortedDates = dates.sort((a, b) => a.getTime() - b.getTime());
         const detail: CoordinatorDuplicateQuestionDetail = {
           question: group.question,
@@ -4353,8 +4472,9 @@ for (const item of districtUsers) {
           village: villageName,
           firstAskedAt: sortedDates[0],
           lastAskedAt: sortedDates[sortedDates.length - 1],
-          questionIds: group.questions.map((question: any) =>
-            question._id?.toString?.() || String(question._id),
+          questionIds: group.questions.map(
+            (question: any) =>
+              question._id?.toString?.() || String(question._id),
           ),
         };
 
@@ -4410,7 +4530,9 @@ for (const item of districtUsers) {
 
       for (const user of scopedUsers as any[]) {
         const blockName = String(user.farmerProfile?.blockName || '').trim();
-        const villageName = String(user.farmerProfile?.villageName || '').trim();
+        const villageName = String(
+          user.farmerProfile?.villageName || '',
+        ).trim();
         if (!blockName || !villageName) continue;
 
         addBlockVillage(blockName, villageName);
@@ -4429,7 +4551,9 @@ for (const item of districtUsers) {
             .map(([, villageEntry]) => ({
               village: villageEntry.villageName,
               count: villageEntry.details.length,
-              details: villageEntry.details.sort((a, b) => b.repeatCount - a.repeatCount),
+              details: villageEntry.details.sort(
+                (a, b) => b.repeatCount - a.repeatCount,
+              ),
             }));
 
           return {
@@ -5732,7 +5856,7 @@ for (const item of districtUsers) {
       };
 
       const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
-      
+
       if (source === 'whatsapp') {
         return await this.getWeeklyAnalyticsForWhatsApp(qStart, qEnd);
       }
@@ -8647,48 +8771,66 @@ for (const item of districtUsers) {
     }
   }
 
-  private buildDemographicFilter(category: string, value: string): Record<string, any> {
+  private buildDemographicFilter(
+    category: string,
+    value: string,
+  ): Record<string, any> {
     const isNotProvided = value.toLowerCase() === 'not provided';
 
     const getNotProvidedFilter = (field: string) => ({
-      $or: [
-        { [field]: { $exists: false } },
-        { [field]: null },
-        { [field]: '' }
-      ]
+      $or: [{[field]: {$exists: false}}, {[field]: null}, {[field]: ''}],
     });
 
     switch (category) {
       case 'age':
         if (isNotProvided) return getNotProvidedFilter('farmerProfile.age');
-        if (value === 'Less than 16') return { 'farmerProfile.age': { $gte: 0, $lt: 16 } };
-        if (value === '16-30') return { 'farmerProfile.age': { $gte: 16, $lt: 30 } };
-        if (value === '30-45') return { 'farmerProfile.age': { $gte: 30, $lt: 45 } };
-        if (value === '45-60') return { 'farmerProfile.age': { $gte: 45, $lt: 60 } };
-        if (value === '60+') return { 'farmerProfile.age': { $gte: 60 } };
+        if (value === 'Less than 16')
+          return {'farmerProfile.age': {$gte: 0, $lt: 16}};
+        if (value === '16-30')
+          return {'farmerProfile.age': {$gte: 16, $lt: 30}};
+        if (value === '30-45')
+          return {'farmerProfile.age': {$gte: 30, $lt: 45}};
+        if (value === '45-60')
+          return {'farmerProfile.age': {$gte: 45, $lt: 60}};
+        if (value === '60+') return {'farmerProfile.age': {$gte: 60}};
         break;
-      
+
       case 'gender':
         if (isNotProvided) return getNotProvidedFilter('farmerProfile.gender');
-        return { 'farmerProfile.gender': { $regex: `^${value.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`, $options: 'i' } };
+        return {
+          'farmerProfile.gender': {
+            $regex: `^${value.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`,
+            $options: 'i',
+          },
+        };
 
       case 'experience':
-        if (isNotProvided) return getNotProvidedFilter('farmerProfile.yearsOfExperience');
-        if (value === 'Less than 2 yrs') return { 'farmerProfile.yearsOfExperience': { $gte: 0, $lt: 2 } };
-        if (value === '2 - 5 yrs') return { 'farmerProfile.yearsOfExperience': { $gte: 2, $lt: 5 } };
-        if (value === '5 - 10 yrs') return { 'farmerProfile.yearsOfExperience': { $gte: 5, $lt: 10 } };
-        if (value === '10 - 20 yrs') return { 'farmerProfile.yearsOfExperience': { $gte: 10, $lt: 20 } };
-        if (value === '20+ yrs') return { 'farmerProfile.yearsOfExperience': { $gte: 20 } };
+        if (isNotProvided)
+          return getNotProvidedFilter('farmerProfile.yearsOfExperience');
+        if (value === 'Less than 2 yrs')
+          return {'farmerProfile.yearsOfExperience': {$gte: 0, $lt: 2}};
+        if (value === '2 - 5 yrs')
+          return {'farmerProfile.yearsOfExperience': {$gte: 2, $lt: 5}};
+        if (value === '5 - 10 yrs')
+          return {'farmerProfile.yearsOfExperience': {$gte: 5, $lt: 10}};
+        if (value === '10 - 20 yrs')
+          return {'farmerProfile.yearsOfExperience': {$gte: 10, $lt: 20}};
+        if (value === '20+ yrs')
+          return {'farmerProfile.yearsOfExperience': {$gte: 20}};
         break;
 
       case 'landholding':
-        if (isNotProvided) return getNotProvidedFilter('farmerProfile.landhold');
-        if (value.startsWith('Small')) return { 'farmerProfile.landhold': { $gte: 0, $lt: 2 } };
-        if (value.startsWith('Medium')) return { 'farmerProfile.landhold': { $gte: 2, $lt: 10 } };
-        if (value.startsWith('Large')) return { 'farmerProfile.landhold': { $gte: 10 } };
+        if (isNotProvided)
+          return getNotProvidedFilter('farmerProfile.landhold');
+        if (value.startsWith('Small'))
+          return {'farmerProfile.landhold': {$gte: 0, $lt: 2}};
+        if (value.startsWith('Medium'))
+          return {'farmerProfile.landhold': {$gte: 2, $lt: 10}};
+        if (value.startsWith('Large'))
+          return {'farmerProfile.landhold': {$gte: 10}};
         break;
     }
-    
+
     return {};
   }
 
@@ -8712,25 +8854,24 @@ for (const item of districtUsers) {
       };
 
       if (search && search.trim()) {
-        const escaped = search.trim().replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
-        const regex = { $regex: escaped, $options: 'i' };
+        const escaped = search
+          .trim()
+          .replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
+        const regex = {$regex: escaped, $options: 'i'};
         userFilter.$and = [
           ...(userFilter.$and ?? []),
-          { $or: [{ name: regex }, { username: regex }, { email: regex }] },
+          {$or: [{name: regex}, {username: regex}, {email: regex}]},
         ];
       }
 
       const demographicFilter = this.buildDemographicFilter(category, value);
       if (Object.keys(demographicFilter).length > 0) {
-        userFilter.$and = [
-          ...(userFilter.$and ?? []),
-          demographicFilter,
-        ];
+        userFilter.$and = [...(userFilter.$and ?? []), demographicFilter];
       }
 
       const sortOptions: Record<string, 1 | -1> = {};
       const sortDirection = sortOrder === 'asc' ? 1 : -1;
-      
+
       switch (sortBy) {
         case 'name':
           sortOptions.name = sortDirection;
@@ -8751,12 +8892,12 @@ for (const item of districtUsers) {
 
       const [users, totalUsers] = await Promise.all([
         this.users
-          .find(userFilter, { session })
+          .find(userFilter, {session})
           .sort(sortOptions)
           .skip(skip)
           .limit(limit)
           .toArray(),
-        this.users.countDocuments(userFilter, { session }),
+        this.users.countDocuments(userFilter, {session}),
       ]);
 
       const formattedUsers: UserDetailEntry[] = users.map(user => ({
@@ -8782,7 +8923,9 @@ for (const item of districtUsers) {
         totalQuestions: 0,
       } as unknown as PaginatedUserDetails;
     } catch (error) {
-      throw new InternalServerError(`Failed to get users by demographic: ${error}`);
+      throw new InternalServerError(
+        `Failed to get users by demographic: ${error}`,
+      );
     }
   }
 
@@ -13371,9 +13514,9 @@ for (const item of districtUsers) {
           $in: ['closed'],
         };
       }
-      if(status === "pending"){
+      if (status === 'pending') {
         matchQuery.status = {
-          $nin: ["closed", "pass"],
+          $nin: ['closed', 'pass'],
         };
       }
 
@@ -13578,13 +13721,13 @@ for (const item of districtUsers) {
         $in: ['AJRASAKHA', 'WHATSAPP'],
       };
     }
-    if(tag !== "slabreached"){
-      matchQuery.status = { 
-        $in: ["closed"],
+    if (tag !== 'slabreached') {
+      matchQuery.status = {
+        $in: ['closed'],
       };
-      if(isPassed === "true"){
-        matchQuery.status = { 
-          $in: ["pass"],
+      if (isPassed === 'true') {
+        matchQuery.status = {
+          $in: ['pass'],
         };
       }
     }
@@ -13658,14 +13801,11 @@ for (const item of districtUsers) {
     }
 
     const slaCondition =
-      tag === "slabreached"
+      tag === 'slabreached'
         ? {
             $gt: [
               {
-                $subtract: [
-                  "$_operationalCompletionAt",
-                  "$createdAt",
-                ],
+                $subtract: ['$_operationalCompletionAt', '$createdAt'],
               },
               2 * 60 * 60 * 1000,
             ],
@@ -13673,10 +13813,7 @@ for (const item of districtUsers) {
         : {
             $lte: [
               {
-                $subtract: [
-                  "$_operationalCompletionAt",
-                  "$createdAt",
-                ],
+                $subtract: ['$_operationalCompletionAt', '$createdAt'],
               },
               2 * 60 * 60 * 1000,
             ],
@@ -15496,14 +15633,17 @@ for (const item of districtUsers) {
       }
 
       let questionPassedBy;
-      if(question.passedAt && question.passedBy){       
-        questionPassedBy = await this.ReviewUsers.findOne({
-          _id: new ObjectId(question.passedBy.toString()),
-        },{
-          projection:{
-            email: 1,
-          }
-        })
+      if (question.passedAt && question.passedBy) {
+        questionPassedBy = await this.ReviewUsers.findOne(
+          {
+            _id: new ObjectId(question.passedBy.toString()),
+          },
+          {
+            projection: {
+              email: 1,
+            },
+          },
+        );
       }
 
       const users = await this.ReviewUsers.find(
@@ -15648,7 +15788,7 @@ for (const item of districtUsers) {
           duration: null,
           remarks: 'Conversation mapping not found',
           endTime: null,
-          eventType: "inception",
+          eventType: 'inception',
           // questionId: question._id,
         });
       }
@@ -15724,7 +15864,7 @@ for (const item of districtUsers) {
           userMap.get(question.moderatorId.toString()) || 'Unknown User';
 
         const moderatorAssignedAt =
-          typeof question.moderatorAssignedAt === "string"
+          typeof question.moderatorAssignedAt === 'string'
             ? new Date(question.moderatorAssignedAt)
             : question.moderatorAssignedAt;
 
@@ -15741,9 +15881,9 @@ for (const item of districtUsers) {
             duration:
               moderatorAssignedAt.getTime() -
               new Date(finalReviewerCompletedAt).getTime(),
-            remarks: "",
+            remarks: '',
             endTime: moderatorAssignedAt,
-            eventType: "system_wait",
+            eventType: 'system_wait',
           });
         }
         const moderatorCompletedAt = question.closedAt || question.passedAt;
@@ -15869,40 +16009,36 @@ for (const item of districtUsers) {
       let completionTime = question.closedAt || question.passedAt;
 
       if (completionTime) {
-          const last = finalTimeline[finalTimeline.length - 1];
+        const last = finalTimeline[finalTimeline.length - 1];
 
-          if (last) {
-              const lastTimestamp =
-                  last.endTime ??
-                  last.timestamp;
+        if (last) {
+          const lastTimestamp = last.endTime ?? last.timestamp;
 
-              if (lastTimestamp) {
-                  const lastEnd = new Date(lastTimestamp);
+          if (lastTimestamp) {
+            const lastEnd = new Date(lastTimestamp);
 
-                  if (!isNaN(lastEnd.getTime())) {
-
-                      if (typeof completionTime === "string") {
-                          completionTime = new Date(completionTime);
-                      }
-
-                      const waitForClosure =
-                          completionTime.getTime() -
-                          lastEnd.getTime();
-
-                      if (waitForClosure > 1000) {
-                          finalTimeline.push({
-                              timestamp: lastEnd,
-                              user: "Buffer Time",
-                              action: "Awaiting Closure/Pass",
-                              duration: waitForClosure,
-                              remarks: "",
-                              endTime: completionTime,
-                              eventType: "system_wait",
-                          });
-                      }
-                  }
+            if (!isNaN(lastEnd.getTime())) {
+              if (typeof completionTime === 'string') {
+                completionTime = new Date(completionTime);
               }
+
+              const waitForClosure =
+                completionTime.getTime() - lastEnd.getTime();
+
+              if (waitForClosure > 1000) {
+                finalTimeline.push({
+                  timestamp: lastEnd,
+                  user: 'Buffer Time',
+                  action: 'Awaiting Closure/Pass',
+                  duration: waitForClosure,
+                  remarks: '',
+                  endTime: completionTime,
+                  eventType: 'system_wait',
+                });
+              }
+            }
           }
+        }
       }
 
       // ---------------------------------------------------
@@ -15928,9 +16064,7 @@ for (const item of districtUsers) {
           timestamp: question.passedAt,
           user: questionPassedBy?.email || '-',
           action: `Question Passed ${
-            question.passingRemark
-              ? ` (Remark: ${question.passingRemark})`
-              : ''
+            question.passingRemark ? ` (Remark: ${question.passingRemark})` : ''
           }`,
           duration: null,
           remarks: '',
@@ -16742,76 +16876,71 @@ for (const item of districtUsers) {
     }
   }
 
-  async getLifeCycleSummary(    
-      status = "all",
-      source = "annam",
-      userType = "all",
-      startDate?: Date,
-      endDate?: Date,
-      isPassed?: string,
-      tag?: string,
-      notificationType?: string,
-    ) {
-    try{
+  async getLifeCycleSummary(
+    status = 'all',
+    source = 'annam',
+    userType = 'all',
+    startDate?: Date,
+    endDate?: Date,
+    isPassed?: string,
+    tag?: string,
+    notificationType?: string,
+  ) {
+    try {
       await this.initReviewSystem();
       await this.init('annam');
-      const sourceType =
-        source === "whatsapp"
-        ? "WHATSAPP"
-        : "AJRASAKHA";
+      const sourceType = source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
 
-      const matchQuery =
-        buildBaseQuestionMatch(sourceType);
+      const matchQuery = buildBaseQuestionMatch(sourceType);
 
-      if (source === "both") {
+      if (source === 'both') {
         matchQuery.source = {
-          $in: ["AJRASAKHA", "WHATSAPP"],
+          $in: ['AJRASAKHA', 'WHATSAPP'],
         };
       }
-      if(tag === "closed"){
-        if (status === "closed") {
+      if (tag === 'closed') {
+        if (status === 'closed') {
           matchQuery.status = {
-            $in: ["closed"],
+            $in: ['closed'],
           };
-        } else if (status === "pending") {
+        } else if (status === 'pending') {
           matchQuery.status = {
-            $nin: ["closed", "pass"],
+            $nin: ['closed', 'pass'],
           };
-        } else if (status !== "all") {
+        } else if (status !== 'all') {
           matchQuery.status = status;
         }
-      } else if(tag === "sla"){
-        if (isPassed === "true") {
+      } else if (tag === 'sla') {
+        if (isPassed === 'true') {
           matchQuery.status = {
-            $in: ["pass"],
+            $in: ['pass'],
           };
         }
-        if(isPassed === "false"){
+        if (isPassed === 'false') {
           matchQuery.status = {
-            $in: ["closed"],
+            $in: ['closed'],
           };
         }
-      }  else if (tag === "notify") {
+      } else if (tag === 'notify') {
         matchQuery.status = {
-          $in: ["closed"],
+          $in: ['closed'],
         };
 
-        if (isPassed === "true") {
+        if (isPassed === 'true') {
           matchQuery.isCustomerNotified = true;
-        } else if (isPassed === "false") {
+        } else if (isPassed === 'false') {
           matchQuery.isCustomerNotified = false;
-        } else if (isPassed === "untracked") {
+        } else if (isPassed === 'untracked') {
           matchQuery.isCustomerNotified = {
             $exists: false,
           };
         }
       }
 
-      const query =
-        await this.buildQuestionUserTypeMatchQuery(
-          source,
-          userType,
-        );
+      const query = await this.buildQuestionUserTypeMatchQuery(
+        source,
+        userType,
+      );
 
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
@@ -16826,215 +16955,176 @@ for (const item of districtUsers) {
 
         if (endDate) {
           const endOfDay = new Date(endDate);
-          endOfDay.setHours(
-            23,
-            59,
-            59,
-            999,
-          );
-          matchQuery.createdAt.$lte =
-            endOfDay;
+          endOfDay.setHours(23, 59, 59, 999);
+          matchQuery.createdAt.$lte = endOfDay;
         }
       }
 
-      if (tag === "notify") {
+      if (tag === 'notify') {
         switch (notificationType) {
-          case "notified":
+          case 'notified':
             matchQuery.isCustomerNotified = true;
             break;
-          case "not-notified":
+          case 'not-notified':
             matchQuery.isCustomerNotified = false;
             break;
-          case "untracked":
+          case 'untracked':
             matchQuery.isCustomerNotified = {
               $exists: false,
             };
             break;
         }
       }
-      
-      let questionIds;
-      if(tag === "closed"){
-       questionIds =
-        await this.QuestionCollection
-          .find(
-            matchQuery,
-            {
-              projection: {
-                _id: 1,
-              },
-            },
-          )
-          .map(
-            (x) => x._id.toString(),
-          )
-          .toArray();
-      } else if (tag === "sla") {
-        const result = await this.QuestionCollection
-          .aggregate([
-            {
-              $match: matchQuery,
-            },
-            {
-              $addFields: {
-                _statusLower: {
-                  $toLower: {
-                    $ifNull: ["$status", ""],
-                  },
-                },
-                _operationalCompletionAt: {
-                  $cond: [
-                    {
-                      $eq: [
-                        {
-                          $toLower: {
-                            $ifNull: ["$status", ""],
-                          },
-                        },
-                        "pass",
-                      ],
-                    },
-                    "$passedAt",
-                    "$closedAt",
-                  ],
-                },
-              },
-            },
-            {
-              $match: {
-                _statusLower: {
-                  $in: ["closed", "pass"],
-                },
-                _operationalCompletionAt: {
-                  $ne: null,
-                },
-                $expr: {
-                  $and: [
-                    {
-                      $gte: [
-                        "$_operationalCompletionAt",
-                        "$createdAt",
-                      ],
-                    },
-                    {
-                      $lte: [
-                        {
-                          $subtract: [
-                            "$_operationalCompletionAt",
-                            "$createdAt",
-                          ],
-                        },
-                        2 * 60 * 60 * 1000,
-                      ],
-                    },
-                  ],
-                },
-              },
-            },
-            {
-              $project: {
-                _id: 1,
-              },
-            },
-          ])
-          .toArray();
 
-        questionIds = result.map((x) =>
-          x._id.toString(),
-        );
-      } else if (tag === "slabreached") {
+      let questionIds;
+      if (tag === 'closed') {
+        questionIds = await this.QuestionCollection.find(matchQuery, {
+          projection: {
+            _id: 1,
+          },
+        })
+          .map(x => x._id.toString())
+          .toArray();
+      } else if (tag === 'sla') {
+        const result = await this.QuestionCollection.aggregate([
+          {
+            $match: matchQuery,
+          },
+          {
+            $addFields: {
+              _statusLower: {
+                $toLower: {
+                  $ifNull: ['$status', ''],
+                },
+              },
+              _operationalCompletionAt: {
+                $cond: [
+                  {
+                    $eq: [
+                      {
+                        $toLower: {
+                          $ifNull: ['$status', ''],
+                        },
+                      },
+                      'pass',
+                    ],
+                  },
+                  '$passedAt',
+                  '$closedAt',
+                ],
+              },
+            },
+          },
+          {
+            $match: {
+              _statusLower: {
+                $in: ['closed', 'pass'],
+              },
+              _operationalCompletionAt: {
+                $ne: null,
+              },
+              $expr: {
+                $and: [
+                  {
+                    $gte: ['$_operationalCompletionAt', '$createdAt'],
+                  },
+                  {
+                    $lte: [
+                      {
+                        $subtract: ['$_operationalCompletionAt', '$createdAt'],
+                      },
+                      2 * 60 * 60 * 1000,
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+          {
+            $project: {
+              _id: 1,
+            },
+          },
+        ]).toArray();
+
+        questionIds = result.map(x => x._id.toString());
+      } else if (tag === 'slabreached') {
         matchQuery.status = {
-          $in: ["closed", "pass"],
+          $in: ['closed', 'pass'],
         };
 
-        const breachedQuestions =
-          await this.QuestionCollection.aggregate([
-            {
-              $match: matchQuery,
-            },
-            {
-              $addFields: {
-                _statusLower: {
-                  $toLower: {
-                    $ifNull: ["$status", ""],
+        const breachedQuestions = await this.QuestionCollection.aggregate([
+          {
+            $match: matchQuery,
+          },
+          {
+            $addFields: {
+              _statusLower: {
+                $toLower: {
+                  $ifNull: ['$status', ''],
+                },
+              },
+              _operationalCompletionAt: {
+                $cond: [
+                  {
+                    $eq: [
+                      {
+                        $toLower: {
+                          $ifNull: ['$status', ''],
+                        },
+                      },
+                      'pass',
+                    ],
                   },
-                },
-                _operationalCompletionAt: {
-                  $cond: [
-                    {
-                      $eq: [
-                        {
-                          $toLower: {
-                            $ifNull: ["$status", ""],
-                          },
-                        },
-                        "pass",
-                      ],
-                    },
-                    "$passedAt",
-                    "$closedAt",
-                  ],
-                },
+                  '$passedAt',
+                  '$closedAt',
+                ],
               },
             },
-            {
-              $match: {
-                _statusLower: {
-                  $in: ["closed", "pass"],
-                },
-                _operationalCompletionAt: {
-                  $ne: null,
-                },
-                $expr: {
-                  $and: [
-                    {
-                      $gte: [
-                        "$_operationalCompletionAt",
-                        "$createdAt",
-                      ],
-                    },
-                    {
-                      $gt: [
-                        {
-                          $subtract: [
-                            "$_operationalCompletionAt",
-                            "$createdAt",
-                          ],
-                        },
-                        2 * 60 * 60 * 1000,
-                      ],
-                    },
-                  ],
-                },
+          },
+          {
+            $match: {
+              _statusLower: {
+                $in: ['closed', 'pass'],
+              },
+              _operationalCompletionAt: {
+                $ne: null,
+              },
+              $expr: {
+                $and: [
+                  {
+                    $gte: ['$_operationalCompletionAt', '$createdAt'],
+                  },
+                  {
+                    $gt: [
+                      {
+                        $subtract: ['$_operationalCompletionAt', '$createdAt'],
+                      },
+                      2 * 60 * 60 * 1000,
+                    ],
+                  },
+                ],
               },
             },
-            {
-              $project: {
-                _id: 1,
-              },
+          },
+          {
+            $project: {
+              _id: 1,
             },
-          ]).toArray();
+          },
+        ]).toArray();
 
-        questionIds = breachedQuestions.map(
-          (q) => q._id.toString(),
-        );
-      } else if (tag === "notify") {
-        questionIds = await this.QuestionCollection
-          .find(
-            matchQuery,
-            {
-              projection: {
-                _id: 1,
-              },
-            },
-          )
-          .map((x) => x._id.toString())
+        questionIds = breachedQuestions.map(q => q._id.toString());
+      } else if (tag === 'notify') {
+        questionIds = await this.QuestionCollection.find(matchQuery, {
+          projection: {
+            _id: 1,
+          },
+        })
+          .map(x => x._id.toString())
           .toArray();
       }
-      const lifecycles =
-        await this.getQuestionLifecycleForSummary(
-          questionIds,
-        );
+      const lifecycles = await this.getQuestionLifecycleForSummary(questionIds);
 
       const totalQuestions = questionIds.length;
 
@@ -17065,9 +17155,7 @@ for (const item of districtUsers) {
       for (const lifecycleObj of lifecycles) {
         const lifecycle = lifecycleObj.timeline;
         const validEvents = lifecycle.filter(
-          (x) =>
-            x.timestamp &&
-            new Date(x.timestamp).getTime() > 0,
+          x => x.timestamp && new Date(x.timestamp).getTime() > 0,
         );
         const first = validEvents[0];
         const last = validEvents.at(-1);
@@ -17077,29 +17165,28 @@ for (const item of districtUsers) {
         // =====================
 
         if (
-            first &&
-            (lifecycleObj.status === "closed" || lifecycleObj.status === "pass")
+          first &&
+          (lifecycleObj.status === 'closed' || lifecycleObj.status === 'pass')
         ) {
-            const resolutionTime =
-            lifecycleObj.status === "pass"
-                ? lifecycleObj.passedAt
-                : lifecycleObj.closedAt;
-            if (!resolutionTime) continue;
-            const lifecycleTime =
-                new Date(resolutionTime).getTime() -
-                new Date(first.timestamp).getTime();
-            resolvedQuestions++;
-            if (lifecycleTime > 2 * 60 * 60 * 1000) {
-                slaBreachedCount++;
-            }
+          const resolutionTime =
+            lifecycleObj.status === 'pass'
+              ? lifecycleObj.passedAt
+              : lifecycleObj.closedAt;
+          if (!resolutionTime) continue;
+          const lifecycleTime =
+            new Date(resolutionTime).getTime() -
+            new Date(first.timestamp).getTime();
+          resolvedQuestions++;
+          if (lifecycleTime > 2 * 60 * 60 * 1000) {
+            slaBreachedCount++;
+          }
         }
 
         if (first && last) {
-            const lifecycleTime =
-                new Date(last.timestamp).getTime()
-                -
-                new Date(first.timestamp).getTime();
-            totalLifecycleTime += lifecycleTime;
+          const lifecycleTime =
+            new Date(last.timestamp).getTime() -
+            new Date(first.timestamp).getTime();
+          totalLifecycleTime += lifecycleTime;
         }
 
         // =====================
@@ -17107,13 +17194,13 @@ for (const item of districtUsers) {
         // =====================
 
         lifecycle
-          .filter((x) => x.eventType === "system_wait")
-          .forEach((x) => {
+          .filter(x => x.eventType === 'system_wait')
+          .forEach(x => {
             switch (x.action) {
-              case "Pushed To Review System":
+              case 'Pushed To Review System':
                 totalPushToReviewTime += x.duration || 0;
                 break;
-              case "Initial Allocation Pending":
+              case 'Initial Allocation Pending':
                 totalInitialAllocationTime += x.duration || 0;
                 break;
               case "Pending Next Assignment":
@@ -17135,9 +17222,7 @@ for (const item of districtUsers) {
         // Authoring (R0)
         // =====================
 
-        const authors = lifecycle.filter(
-          (x) => x.eventType === "author",
-        );
+        const authors = lifecycle.filter(x => x.eventType === 'author');
 
         if (authors.length) {
           authoringCount++;
@@ -17151,15 +17236,11 @@ for (const item of districtUsers) {
         // Reviewers (R1/R2/R3)
         // =====================
 
-        const reviewers = lifecycle.filter(
-          (x) => x.eventType === "reviewer",
-        );
+        const reviewers = lifecycle.filter(x => x.eventType === 'reviewer');
 
         if (reviewers.length) {
           questionsWithReviewers++;
-          totalReviewers += new Set(
-            reviewers.map((x) => x.user),
-          ).size;
+          totalReviewers += new Set(reviewers.map(x => x.user)).size;
         }
         if (reviewers[0]) {
           totalR1Time += reviewers[0].duration || 0;
@@ -17178,9 +17259,7 @@ for (const item of districtUsers) {
         // Moderator
         // =====================
 
-        const moderators = lifecycle.filter(
-          (x) => x.eventType === "moderator",
-        );
+        const moderators = lifecycle.filter(x => x.eventType === 'moderator');
         if (moderators.length) {
           moderatorCount++;
           totalModeratorTime += moderators.reduce(
@@ -17193,9 +17272,7 @@ for (const item of districtUsers) {
         // Reroutes
         // =====================
 
-        const reroutes = lifecycle.filter(
-          (x) => x.eventType === "reroute",
-        );
+        const reroutes = lifecycle.filter(x => x.eventType === 'reroute');
         totalReroutes += reroutes.length;
         totalRerouteTime += reroutes.reduce(
           (sum, x) => sum + (x.duration || 0),
@@ -17207,134 +17284,88 @@ for (const item of districtUsers) {
       return {
         totalQuestions,
         avgLifecycleTime:
-          resolvedQuestions > 0
-            ? totalLifecycleTime / resolvedQuestions
-            : 0,
-        avgPushToReviewTime:
-          totalPushToReviewTime / totalQuestions,
-        avgInitialAllocationTime:
-          totalInitialAllocationTime / totalQuestions,
-        avgPendingAssignmentTime:
-          totalPendingAssignmentTime / totalQuestions,
-        avgAwaitingModeratorTime:
-          totalAwaitingModeratorTime / totalQuestions,
-        avgAwaitingClosureTime:
-          totalAwaitingClosureTime / totalQuestions,
+          resolvedQuestions > 0 ? totalLifecycleTime / resolvedQuestions : 0,
+        avgPushToReviewTime: totalPushToReviewTime / totalQuestions,
+        avgInitialAllocationTime: totalInitialAllocationTime / totalQuestions,
+        avgPendingAssignmentTime: totalPendingAssignmentTime / totalQuestions,
+        avgAwaitingModeratorTime: totalAwaitingModeratorTime / totalQuestions,
+        avgAwaitingClosureTime: totalAwaitingClosureTime / totalQuestions,
         avgAuthoringTime:
-          authoringCount > 0
-            ? totalAuthoringTime / authoringCount
-            : 0,
-        avgR1Time:
-          r1Count > 0
-            ? totalR1Time / r1Count
-            : 0,
-        avgR2Time:
-          r2Count > 0
-            ? totalR2Time / r2Count
-            : 0,
-        avgR3Time:
-          r3Count > 0
-            ? totalR3Time / r3Count
-            : 0,
+          authoringCount > 0 ? totalAuthoringTime / authoringCount : 0,
+        avgR1Time: r1Count > 0 ? totalR1Time / r1Count : 0,
+        avgR2Time: r2Count > 0 ? totalR2Time / r2Count : 0,
+        avgR3Time: r3Count > 0 ? totalR3Time / r3Count : 0,
         avgModeratorTime:
-          moderatorCount > 0
-            ? totalModeratorTime / moderatorCount
-            : 0,
+          moderatorCount > 0 ? totalModeratorTime / moderatorCount : 0,
         totalReroutes,
         avgReroutesPerQuestion:
-          totalQuestions > 0
-            ? totalReroutes / totalQuestions
-            : 0,
+          totalQuestions > 0 ? totalReroutes / totalQuestions : 0,
         avgRerouteTime:
-          totalReroutes > 0
-            ? totalRerouteTime / totalReroutes
-            : 0,
+          totalReroutes > 0 ? totalRerouteTime / totalReroutes : 0,
         avgReviewersPerQuestion:
           questionsWithReviewers > 0
             ? totalReviewers / questionsWithReviewers
             : 0,
         slaBreachedCount,
         resolutionRate:
-        totalQuestions > 0
-          ? (resolvedQuestions / totalQuestions) * 100
-          : 0,
+          totalQuestions > 0 ? (resolvedQuestions / totalQuestions) * 100 : 0,
       };
-    } catch(err){
-      console.log("error in getlifecyclesummary:", err);
+    } catch (err) {
+      console.log('error in getlifecyclesummary:', err);
       throw Error(err);
     }
   }
 
-  async getQuestionLifecycleForSummary(
-    questionIds: string[],
-  ): Promise<any[]> {
+  async getQuestionLifecycleForSummary(questionIds: string[]): Promise<any[]> {
     await this.initReviewSystem();
-    await this.init("annam");
+    await this.init('annam');
 
-    const objectIds = questionIds.map(
-      (id) => new ObjectId(id),
-    );
+    const objectIds = questionIds.map(id => new ObjectId(id));
 
     // -------------------------
     // Bulk fetch
     // -------------------------
 
-    const [questions, submissions, reroutes] =
-      await Promise.all([
-        this.QuestionCollection.find({
-          _id: { $in: objectIds },
-        }).toArray(),
+    const [questions, submissions, reroutes] = await Promise.all([
+      this.QuestionCollection.find({
+        _id: {$in: objectIds},
+      }).toArray(),
 
-        this.QuestionSubmissionsCollection.find({
-          questionId: { $in: objectIds },
-        }).toArray(),
+      this.QuestionSubmissionsCollection.find({
+        questionId: {$in: objectIds},
+      }).toArray(),
 
-        this.Reroutes.find({
-          questionId: { $in: objectIds },
-        }).toArray(),
-      ]);
+      this.Reroutes.find({
+        questionId: {$in: objectIds},
+      }).toArray(),
+    ]);
 
     // -------------------------
     // Maps
     // -------------------------
 
     const submissionMap = new Map(
-      submissions.map((s) => [
-        s.questionId.toString(),
-        s,
-      ]),
+      submissions.map(s => [s.questionId.toString(), s]),
     );
 
-    const rerouteMap = new Map(
-      reroutes.map((r) => [
-        r.questionId.toString(),
-        r,
-      ]),
-    );
+    const rerouteMap = new Map(reroutes.map(r => [r.questionId.toString(), r]));
 
     // -------------------------
     // Build lifecycles
     // -------------------------
 
-    return questions.map((question) => {
-      const submission =
-        submissionMap.get(
-          question._id.toString(),
-        );
+    return questions.map(question => {
+      const submission = submissionMap.get(question._id.toString());
 
-      const rerouteDoc =
-        rerouteMap.get(
-          question._id.toString(),
-        );
+      const rerouteDoc = rerouteMap.get(question._id.toString());
 
-      const reviewTimeline =
-        buildReviewTimeline(
-          submission?.history || [],
-          submission?.queue || [],
-          question.createdAt,
-          question.status,
-          question.firstAllocationAt,
-        );
+      const reviewTimeline = buildReviewTimeline(
+        submission?.history || [],
+        submission?.queue || [],
+        question.createdAt,
+        question.status,
+        question.firstAllocationAt,
+      );
 
       const timeline: any[] = [];
 
@@ -17342,42 +17373,35 @@ for (const item of districtUsers) {
       // Duplicate questions
       // -------------------------
 
-      if (question.status === "duplicate") {
-          return {
-              questionId: question._id,
-              createdAt: question.createdAt,
-              closedAt: question.closedAt,
-              passedAt: question.passedAt,
-              status: question.status,
-              timeline: [
-                  {
-                      timestamp: question.createdAt,
-                      user: "-",
-                      action: "Duplicate Question",
-                      duration: null,
-                      remarks:
-                          "Original question lifecycle is not available.",
-                      endTime: null,
-                      eventType: "duplicate",
-                  },
-                  {
-                      timestamp:
-                          question.closedAt ||
-                          question.updatedAt,
-                      user: "Buffer Time",
-                      action:
-                          "Question Marked As Duplicate",
-                      duration:
-                          question.updatedAt.getTime() -
-                          question.createdAt.getTime(),
-                      remarks: "Closed as duplicate",
-                      endTime:
-                          question.closedAt ||
-                          question.updatedAt,
-                      eventType: "closure",
-                  },
-              ],
-          };
+      if (question.status === 'duplicate') {
+        return {
+          questionId: question._id,
+          createdAt: question.createdAt,
+          closedAt: question.closedAt,
+          passedAt: question.passedAt,
+          status: question.status,
+          timeline: [
+            {
+              timestamp: question.createdAt,
+              user: '-',
+              action: 'Duplicate Question',
+              duration: null,
+              remarks: 'Original question lifecycle is not available.',
+              endTime: null,
+              eventType: 'duplicate',
+            },
+            {
+              timestamp: question.closedAt || question.updatedAt,
+              user: 'Buffer Time',
+              action: 'Question Marked As Duplicate',
+              duration:
+                question.updatedAt.getTime() - question.createdAt.getTime(),
+              remarks: 'Closed as duplicate',
+              endTime: question.closedAt || question.updatedAt,
+              eventType: 'closure',
+            },
+          ],
+        };
       }
 
       // -------------------------
@@ -17386,15 +17410,15 @@ for (const item of districtUsers) {
 
       timeline.push({
         timestamp: question.createdAt,
-        user: "-",
+        user: '-',
         action:
-          question.source === "AGRI_EXPERT"
-            ? "Question Created Internally"
-            : "Question Asked",
+          question.source === 'AGRI_EXPERT'
+            ? 'Question Created Internally'
+            : 'Question Asked',
         duration: null,
-        remarks: "",
+        remarks: '',
         endTime: question.createdAt,
-        eventType: "inception",
+        eventType: 'inception',
       });
 
       // -------------------------
@@ -17403,26 +17427,20 @@ for (const item of districtUsers) {
 
       if (
         question.firstAllocationAt &&
-        new Date(
-          question.firstAllocationAt,
-        ).getTime() -
+        new Date(question.firstAllocationAt).getTime() -
           question.createdAt.getTime() >
           1000
       ) {
         timeline.push({
           timestamp: question.createdAt,
-          user: "Buffer Time",
-          action:
-            "Initial Allocation Pending",
+          user: 'Buffer Time',
+          action: 'Initial Allocation Pending',
           duration:
-            new Date(
-              question.firstAllocationAt,
-            ).getTime() -
+            new Date(question.firstAllocationAt).getTime() -
             question.createdAt.getTime(),
-          remarks: "",
-          endTime:
-            question.firstAllocationAt,
-          eventType: "system_wait",
+          remarks: '',
+          endTime: question.firstAllocationAt,
+          eventType: 'system_wait',
         });
       }
 
@@ -17430,104 +17448,68 @@ for (const item of districtUsers) {
       // Reviews
       // -------------------------
 
-      reviewTimeline.forEach(
-        (review, index) => {
-          const historyItem =
-            submission?.history?.[index];
+      reviewTimeline.forEach((review, index) => {
+        const historyItem = submission?.history?.[index];
 
-          let action = "Review";
+        let action = 'Review';
 
-          if (index === 0) {
-            action = review.isCompleted
-              ? "Authored Answer"
-              : "Authoring Answer";
-          } else if (
-            historyItem?.modifiedAnswer
-          ) {
-            action = "Modified";
-          } else if (
-            historyItem?.status
-          ) {
-            action =
-              historyItem.status
-                .charAt(0)
-                .toUpperCase() +
-              historyItem.status.slice(1);
-          }
+        if (index === 0) {
+          action = review.isCompleted ? 'Authored Answer' : 'Authoring Answer';
+        } else if (historyItem?.modifiedAnswer) {
+          action = 'Modified';
+        } else if (historyItem?.status) {
+          action =
+            historyItem.status.charAt(0).toUpperCase() +
+            historyItem.status.slice(1);
+        }
 
-          timeline.push({
-            timestamp:
-              review.assignedAt,
-            user: "-",
-            action,
-            duration:
-              review.isCompleted
-                ? review.timeTakenMs
-                : Date.now() -
-                  new Date(
-                    review.assignedAt,
-                  ).getTime(),
-            remarks:
-              historyItem?.reasonForRejection ||
-              historyItem?.reasonForLastModification ||
-              "",
-            endTime:
-              review.completedAt ||
-              review.assignedAt,
-            eventType:
-              index === 0
-                ? "author"
-                : "reviewer",
-          });
-        },
-      );
+        timeline.push({
+          timestamp: review.assignedAt,
+          user: '-',
+          action,
+          duration: review.isCompleted
+            ? review.timeTakenMs
+            : Date.now() - new Date(review.assignedAt).getTime(),
+          remarks:
+            historyItem?.reasonForRejection ||
+            historyItem?.reasonForLastModification ||
+            '',
+          endTime: review.completedAt || review.assignedAt,
+          eventType: index === 0 ? 'author' : 'reviewer',
+        });
+      });
 
       // -------------------------
       // Moderator
       // -------------------------
 
-      const lastReview =
-        reviewTimeline[
-          reviewTimeline.length - 1
-        ];
+      const lastReview = reviewTimeline[reviewTimeline.length - 1];
 
       const finalReviewerCompletedAt =
-        lastReview?.completedAt ||
-        lastReview?.assignedAt ||
-        question.createdAt;
+        lastReview?.completedAt || lastReview?.assignedAt || question.createdAt;
 
-      if (
-        question.moderatorAssignedAt &&
-        question.moderatorId
-      ) {
-        const moderatorAssignedAt =
-          new Date(
-            question.moderatorAssignedAt,
-          );
+      if (question.moderatorAssignedAt && question.moderatorId) {
+        const moderatorAssignedAt = new Date(question.moderatorAssignedAt);
 
         if (
           moderatorAssignedAt.getTime() >
-          new Date(
-            finalReviewerCompletedAt,
-          ).getTime()
+          new Date(finalReviewerCompletedAt).getTime()
         ) {
           timeline.push({
-            timestamp:
-              finalReviewerCompletedAt,
-            user: "Buffer Time",
-            action:
-              "Awaiting Moderator Assignment",
+            timestamp: finalReviewerCompletedAt,
+            user: 'Buffer Time',
+            action: 'Awaiting Moderator Assignment',
             duration:
               moderatorAssignedAt.getTime() -
-              new Date(
-                finalReviewerCompletedAt,
-              ).getTime(),
-            remarks: "",
-            endTime:
-              moderatorAssignedAt,
-            eventType: "system_wait",
+              new Date(finalReviewerCompletedAt).getTime(),
+            remarks: '',
+            endTime: moderatorAssignedAt,
+            eventType: 'system_wait',
           });
         }
+
+        const moderatorCompletedAt =
+          question.closedAt || question.passedAt;
 
         const moderatorCompletedAt =
           question.closedAt || question.passedAt;
@@ -17550,43 +17532,31 @@ for (const item of districtUsers) {
       // Reroutes
       // -------------------------
 
-      rerouteDoc?.reroutes?.forEach(
-        (r: any) => {
-          const isPending =
-            r.status === "pending";
+      rerouteDoc?.reroutes?.forEach((r: any) => {
+        const isPending = r.status === 'pending';
 
-          let action =
-            "Approval Review";
+        let action = 'Approval Review';
 
-          if (r.status === "modified") {
-            action = "Modified";
-          }
+        if (r.status === 'modified') {
+          action = 'Modified';
+        }
 
-          if (r.status === "rejected") {
-            action = "Rejected";
-          }
+        if (r.status === 'rejected') {
+          action = 'Rejected';
+        }
 
-          timeline.push({
-            timestamp:
-              r.reroutedAt,
-            user: "-",
-            action,
-            duration: isPending
-              ? Date.now() -
-                new Date(
-                  r.reroutedAt,
-                ).getTime()
-              : r.updatedAt.getTime() -
-                r.reroutedAt.getTime(),
-            remarks:
-              r.comment || "",
-            endTime: isPending
-              ? new Date()
-              : r.updatedAt,
-            eventType: "reroute",
-          });
-        },
-      );
+        timeline.push({
+          timestamp: r.reroutedAt,
+          user: '-',
+          action,
+          duration: isPending
+            ? Date.now() - new Date(r.reroutedAt).getTime()
+            : r.updatedAt.getTime() - r.reroutedAt.getTime(),
+          remarks: r.comment || '',
+          endTime: isPending ? new Date() : r.updatedAt,
+          eventType: 'reroute',
+        });
+      });
 
       // -------------------------
       // Sort
@@ -17594,68 +17564,39 @@ for (const item of districtUsers) {
 
       timeline.sort(
         (a, b) =>
-          new Date(
-            a.timestamp,
-          ).getTime() -
-          new Date(
-            b.timestamp,
-          ).getTime(),
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
       );
 
       // -------------------------
       // Insert gaps
       // -------------------------
 
-      const finalTimeline: any[] =
-        [];
+      const finalTimeline: any[] = [];
 
-      for (
-        let i = 0;
-        i < timeline.length;
-        i++
-      ) {
-        finalTimeline.push(
-          timeline[i],
-        );
+      for (let i = 0; i < timeline.length; i++) {
+        finalTimeline.push(timeline[i]);
 
-        const current =
-          timeline[i];
+        const current = timeline[i];
 
-        const next =
-          timeline[i + 1];
+        const next = timeline[i + 1];
 
-        if (
-          !next ||
-          !current.endTime
-        ) {
+        if (!next || !current.endTime) {
           continue;
         }
 
         const gap =
-          new Date(
-            next.timestamp,
-          ).getTime() -
-          new Date(
-            current.endTime,
-          ).getTime();
+          new Date(next.timestamp).getTime() -
+          new Date(current.endTime).getTime();
 
-        if (
-          gap > 1000 &&
-          current.eventType !==
-            "reroute"
-        ) {
+        if (gap > 1000 && current.eventType !== 'reroute') {
           finalTimeline.push({
-            timestamp:
-              current.endTime,
-            user: "Buffer Time",
-            action:
-              "Pending Next Assignment",
+            timestamp: current.endTime,
+            user: 'Buffer Time',
+            action: 'Pending Next Assignment',
             duration: gap,
-            remarks: "",
-            endTime:
-              next.timestamp,
-            eventType:
-              "system_wait",
+            remarks: '',
+            endTime: next.timestamp,
+            eventType: 'system_wait',
           });
         }
       }
@@ -17664,8 +17605,7 @@ for (const item of districtUsers) {
       // Awaiting closure
       // -------------------------
 
-      let completionTime =
-        question.closedAt || question.passedAt;
+      let completionTime = question.closedAt || question.passedAt;
 
       if (completionTime && finalTimeline.length) {
         if (!(completionTime instanceof Date)) {
@@ -17675,24 +17615,20 @@ for (const item of districtUsers) {
         if (!isNaN(completionTime.getTime())) {
           const last = finalTimeline.at(-1);
 
-          const lastEnd = new Date(
-            last.endTime || last.timestamp,
-          );
+          const lastEnd = new Date(last.endTime || last.timestamp);
 
           if (!isNaN(lastEnd.getTime())) {
-            const wait =
-              completionTime.getTime() -
-              lastEnd.getTime();
+            const wait = completionTime.getTime() - lastEnd.getTime();
 
             if (wait > 1000) {
               finalTimeline.push({
                 timestamp: lastEnd,
-                user: "Buffer Time",
-                action: "Awaiting Closure/Pass",
+                user: 'Buffer Time',
+                action: 'Awaiting Closure/Pass',
                 duration: wait,
-                remarks: "",
+                remarks: '',
                 endTime: completionTime,
-                eventType: "system_wait",
+                eventType: 'system_wait',
               });
             }
           }
@@ -17705,41 +17641,33 @@ for (const item of districtUsers) {
 
       if (question.closedAt) {
         finalTimeline.push({
-          timestamp:
-            question.closedAt,
-          user: "-",
-          action:
-            "Question Closed",
+          timestamp: question.closedAt,
+          user: '-',
+          action: 'Question Closed',
           duration: null,
-          remarks: "",
-          endTime:
-            question.closedAt,
-          eventType: "closure",
+          remarks: '',
+          endTime: question.closedAt,
+          eventType: 'closure',
         });
-      } else if (
-        question.passedAt
-      ) {
+      } else if (question.passedAt) {
         finalTimeline.push({
-          timestamp:
-            question.passedAt,
-          user: "-",
-          action:
-            "Question Passed",
+          timestamp: question.passedAt,
+          user: '-',
+          action: 'Question Passed',
           duration: null,
-          remarks: "",
-          endTime:
-            question.passedAt,
-          eventType: "closure",
+          remarks: '',
+          endTime: question.passedAt,
+          eventType: 'closure',
         });
       }
 
       return {
-          questionId: question._id,
-          createdAt: question.createdAt,
-          closedAt: question.closedAt,
-          passedAt: question.passedAt,
-          status: question.status,
-          timeline: finalTimeline,
+        questionId: question._id,
+        createdAt: question.createdAt,
+        closedAt: question.closedAt,
+        passedAt: question.passedAt,
+        status: question.status,
+        timeline: finalTimeline,
       };
     });
   }
