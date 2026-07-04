@@ -1248,7 +1248,12 @@ export class QuestionController {
         this.userService.getUserById(userId),
       ]);
 
-      await this.questionService.changeQuestionRoleAssignee(questionId, role, userId);
+      await this.questionService.changeQuestionRoleAssignee(
+        questionId,
+        role,
+        userId,
+        `${user.firstName} ${user.lastName ?? ''}`.trim(),
+      );
 
       auditPayload = {
         ...auditPayload,
@@ -1310,7 +1315,11 @@ export class QuestionController {
       const prevId = (questionDetails as any)?.[role === 'gate_keeper' ? 'gateKeeperId' : 'auditorId']?.toString();
       prevUser = prevId && ObjectId.isValid(prevId) ? await this.userService.getUserById(prevId) : null;
 
-      await this.questionService.removeQuestionRoleAssignee(questionId, role);
+      await this.questionService.removeQuestionRoleAssignee(
+        questionId,
+        role,
+        `${user.firstName} ${user.lastName ?? ''}`.trim(),
+      );
 
       auditPayload = {
         ...auditPayload,

@@ -376,12 +376,14 @@ export interface IQuestionService {
     questionId: string,
     role: 'gate_keeper' | 'auditor',
     userId: string,
+    actorName?: string,
   ): Promise<void>;
 
   /** Remove the gate keeper / auditor currently assigned to a question. */
   removeQuestionRoleAssignee(
     questionId: string,
     role: 'gate_keeper' | 'auditor',
+    actorName?: string,
   ): Promise<void>;
 
   /** Get expert’s allocated question page */

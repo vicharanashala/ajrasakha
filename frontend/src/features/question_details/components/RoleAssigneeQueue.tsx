@@ -24,7 +24,7 @@ import {
 import {
   UserCheck,
   UserX,
-  CalendarClock,
+  // CalendarClock, // used by the temporarily-hidden "Assigned" calendar row
   CheckCheck,
   Loader2,
   Trash2,
@@ -61,9 +61,10 @@ export const RoleAssigneeQueue = ({
   const assignee = isGK
     ? question.assigned_gate_keeper
     : question.assigned_auditor;
-  const assignedAt = isGK
-    ? question.gateKeeperAssignedAt
-    : question.auditorAssignedAt;
+  // Used by the temporarily-hidden "Assigned" calendar row — uncomment when restoring it.
+  // const assignedAt = isGK
+  //   ? question.gateKeeperAssignedAt
+  //   : question.auditorAssignedAt;
   const finishedAt = isGK
     ? question.gateKeeperFinishedAt
     : question.auditorFinishedAt;
@@ -268,7 +269,8 @@ export const RoleAssigneeQueue = ({
                 }}
               >
                 <div className="w-full space-y-1.5">
-                  <div className="flex items-start gap-1.5 rounded-md bg-background/40 border border-border/30 px-1.5 py-1">
+                  {/* Assigned (calendar) row — temporarily hidden; uncomment to restore. */}
+                  {/* <div className="flex items-start gap-1.5 rounded-md bg-background/40 border border-border/30 px-1.5 py-1">
                     <CalendarClock className="w-3 h-3 text-blue-500 mt-0.5 shrink-0" />
                     <div className="flex flex-col min-w-0">
                       <span className="text-[8px] uppercase tracking-wide text-muted-foreground font-medium">
@@ -278,7 +280,7 @@ export const RoleAssigneeQueue = ({
                         {assignedAt ? new Date(assignedAt).toLocaleString() : "—"}
                       </span>
                     </div>
-                  </div>
+                  </div> */}
                   <div className="flex items-start gap-1.5 rounded-md bg-background/40 border border-border/30 px-1.5 py-1">
                     <CheckCheck
                       className={`w-3 h-3 mt-0.5 shrink-0 ${
@@ -362,6 +364,9 @@ export const RoleAssigneeQueue = ({
               {!usersLoading &&
                 candidates.map((u) => {
                   const isSelected = selectedUserId === u._id;
+                  // Availability — how many questions this user currently holds
+                  // (assignedQuestionIds length). 0 → Available, else Assigned (N).
+                  const heldCount = u.assignedQuestionIds?.length ?? 0;
                   return (
                     <Label
                       key={u._id}
@@ -389,6 +394,17 @@ export const RoleAssigneeQueue = ({
                           {u.email}
                         </div>
                       </div>
+
+                      {/* Availability — number of questions this user currently holds */}
+                      <span
+                        className={`shrink-0 self-center text-[10px] font-semibold px-2.5 py-0.5 rounded-full whitespace-nowrap ${
+                          heldCount
+                            ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                            : "bg-green-500/10 text-green-600 dark:text-green-400"
+                        }`}
+                      >
+                        {heldCount ? `Assigned (${heldCount})` : "Available"}
+                      </span>
                     </Label>
                   );
                 })}

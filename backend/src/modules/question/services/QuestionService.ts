@@ -4051,10 +4051,12 @@ export class QuestionService extends BaseService implements IQuestionService {
     questionId: string,
     role: 'gate_keeper' | 'auditor',
     userId: string,
+    actorName?: string,
   ): Promise<void> {
     const {assigneeField, assignedAtField} = this.roleAssigneeFields(role);
     const question = await this.questionRepo.getById(questionId);
     const previousId = (question as any)?.[assigneeField]?.toString();
+    const noun = role === 'gate_keeper' ? 'gate keeper' : 'auditor';
 
     await this.questionRepo.setRoleAssignee(
       questionId,
@@ -4065,6 +4067,23 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     if (previousId && ObjectId.isValid(previousId) && previousId !== userId) {
       await this.userRepo.removeAssignedQuestion(previousId, questionId);
+
+      // Notify the replaced user that their allocation was taken away, naming who did it.
+      try {
+        const by = actorName ? ` by ${actorName}` : '';
+        await this.notificationService.saveTheNotifications(
+          `This question's ${noun} allocation has been removed${by}.`,
+          'Allocation Removed',
+          questionId,
+          previousId,
+          'moderator_approval',
+        );
+      } catch (err: any) {
+        console.error(
+          `[RoleAssignee] Failed to send reassignment-removal notification for ${questionId} → ${previousId}:`,
+          err?.message,
+        );
+      }
     }
     await this.userRepo.addAssignedQuestion(
       userId,
@@ -4072,12 +4091,34 @@ export class QuestionService extends BaseService implements IQuestionService {
       ((question as any)?.status ?? 'open') as QuestionStatus,
       (question as any)?.source,
     );
+
+    // Notify the newly-assigned user, mirroring the auto-allocation cron so a manual
+    // assignment by a moderator/admin triggers the same "Question Assigned" alert.
+    try {
+      await this.notificationService.saveTheNotifications(
+        role === 'gate_keeper'
+          ? 'A question has been assigned to you for review'
+          : 'A question has been assigned to you for audit',
+        'Question Assigned',
+        questionId,
+        userId,
+        'moderator_approval',
+      );
+    } catch (err: any) {
+      console.error(
+        `[RoleAssignee] Failed to send assignment notification for ${questionId} → ${userId}:`,
+        err?.message,
+      );
+    }
   }
 
-  /** Remove the gate keeper / auditor currently assigned to a question. */
+  /** Remove the gate keeper / auditor currently assigned to a question. When an actor
+   *  name is supplied (manual removal by a moderator/admin), the removed user is notified
+   *  that their allocation was taken away and by whom. */
   async removeQuestionRoleAssignee(
     questionId: string,
     role: 'gate_keeper' | 'auditor',
+    actorName?: string,
   ): Promise<void> {
     const {assigneeField, assignedAtField} = this.roleAssigneeFields(role);
     const question = await this.questionRepo.getById(questionId);
@@ -4092,6 +4133,23 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     if (previousId && ObjectId.isValid(previousId)) {
       await this.userRepo.removeAssignedQuestion(previousId, questionId);
+
+      // Notify the user who lost the assignment, naming who removed it.
+      try {
+        const by = actorName ? ` by ${actorName}` : '';
+        await this.notificationService.saveTheNotifications(
+          `This question's ${role === 'gate_keeper' ? 'gate keeper' : 'auditor'} allocation has been removed${by}.`,
+          'Allocation Removed',
+          questionId,
+          previousId,
+          'moderator_approval',
+        );
+      } catch (err: any) {
+        console.error(
+          `[RoleAssignee] Failed to send removal notification for ${questionId} → ${previousId}:`,
+          err?.message,
+        );
+      }
     }
   }
 
