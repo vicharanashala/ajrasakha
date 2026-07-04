@@ -351,6 +351,7 @@ export interface UserDetailEntry {
   role?: string;
   userRole?: string;
   totalQuestions: number;
+  activeSessionCount?: number;
   farmerProfile?: FarmerProfile;
   createdAt: Date;
   isVerified?: boolean;

@@ -37,6 +37,7 @@ export interface UserDetail {
   role?: string;
   userRole?: string;
   totalQuestions: number;
+  activeSessionCount?: number;
   farmerProfile?: FarmerProfile;
   createdAt?: string;
   isVerified?: boolean;

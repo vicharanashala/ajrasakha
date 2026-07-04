@@ -514,6 +514,66 @@ export class ChatbotRepository implements IChatbotRepository {
     this.ReviewUsers = await this.db.getCollection<any>('users');
   }
 
+  private buildActiveSessionFilter(userIds: ObjectId[], now = new Date()) {
+    return {
+      user: {$in: userIds},
+      revoked: {$ne: true},
+      isRevoked: {$ne: true},
+      status: {$nin: ['expired', 'invalid', 'revoked', 'inactive']},
+      $and: [
+        {
+          $or: [{invalidatedAt: {$exists: false}}, {invalidatedAt: null}],
+        },
+        {
+          $or: [
+            {expiresAt: {$exists: false}},
+            {expiresAt: null},
+            {expiresAt: {$gt: now}},
+          ],
+        },
+        {
+          $or: [
+            {expires: {$exists: false}},
+            {expires: null},
+            {expires: {$gt: now}},
+          ],
+        },
+      ],
+    };
+  }
+
+  private async attachActiveSessionCounts(
+    users: UserDetailEntry[],
+    session?: ClientSession,
+  ): Promise<UserDetailEntry[]> {
+    const userIds = users
+      .map(user => user.userId)
+      .filter(ObjectId.isValid)
+      .map(userId => new ObjectId(userId));
+
+    if (userIds.length === 0) {
+      return users.map(user => ({...user, activeSessionCount: 0}));
+    }
+
+    const sessionCounts = await this.sessionCollection
+      .aggregate(
+        [
+          {$match: this.buildActiveSessionFilter(userIds)},
+          {$group: {_id: '$user', count: {$sum: 1}}},
+        ],
+        {session},
+      )
+      .toArray();
+    const sessionCountMap = new Map(
+      sessionCounts.map(entry => [String(entry._id), Number(entry.count)]),
+    );
+
+    return users.map(user => ({
+      ...user,
+      activeSessionCount: sessionCountMap.get(user.userId) ?? 0,
+    }));
+  }
+
   private DISTRICT_ALIASES: Record<string, string> = {
   // Jammu & Kashmir
   "baramula": "baramulla",
@@ -7308,7 +7368,10 @@ for (const item of districtUsers) {
 
       // Paginate
       const startIdx = (page - 1) * limit;
-      const users = finalList.slice(startIdx, startIdx + limit);
+      const users = await this.attachActiveSessionCounts(
+        finalList.slice(startIdx, startIdx + limit),
+        session,
+      );
 
       return {
         users,
