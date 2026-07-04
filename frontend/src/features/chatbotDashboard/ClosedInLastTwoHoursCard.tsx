@@ -87,9 +87,9 @@ export function ClosedInLastTwoHoursCard({
   const slaBreached =
     safeTotalClosed + totalPassed - safeCount - passedInLastTwoHours;
   const slaBreachedPct =
-    ((safeTotalClosed + totalPassed - safeCount - passedInLastTwoHours) /
+    (((safeTotalClosed + totalPassed - safeCount - passedInLastTwoHours) /
       (safeTotalClosed + totalPassed)) *
-    100;
+    100) || 0;
   // const completedWithInTwoHours = (safeCount || 0) + (passedInLastTwoHours || 0)
 
   const [isPassed, setIsPassed] = useState(false);

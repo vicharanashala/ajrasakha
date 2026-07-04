@@ -3849,15 +3849,17 @@ export class ChatbotRepository implements IChatbotRepository {
             .filter(id => id !== undefined && id !== null && id !== ''),
         ),
       ];
-      const questionThreadIds = [
-        ...new Set(
-          questionDocs
-            .map(row => row.threadId)
-            .filter(id => id !== undefined && id !== null && id !== ''),
-        ),
-      ];
+      // const questionThreadIds = [
+      //   ...new Set(
+      //     questionDocs
+      //       .map(row => row.threadId)
+      //       .filter(id => id !== undefined && id !== null && id !== ''),
+      //   ),
+      // ];
 
-      const [questionMessages, questionConversations] = await Promise.all([
+      const [questionMessages, 
+        // questionConversations
+      ] = await Promise.all([
         questionMessageIds.length
           ? this.messagesCollection
               .find(
@@ -3866,14 +3868,14 @@ export class ChatbotRepository implements IChatbotRepository {
               )
               .toArray()
           : Promise.resolve([]),
-        questionThreadIds.length
-          ? this.conversations
-              .find(
-                {conversationId: {$in: questionThreadIds}},
-                {projection: {conversationId: 1, user: 1}, session},
-              )
-              .toArray()
-          : Promise.resolve([]),
+        // questionThreadIds.length
+        //   ? this.conversations
+        //       .find(
+        //         {conversationId: {$in: questionThreadIds}},
+        //         {projection: {conversationId: 1, user: 1}, session},
+        //       )
+        //       .toArray()
+        //   : Promise.resolve([]),
       ]);
 
       const questionMessageUserMap = new Map(
@@ -3882,12 +3884,12 @@ export class ChatbotRepository implements IChatbotRepository {
           message.user?.toString(),
         ]),
       );
-      const questionConversationUserMap = new Map(
-        questionConversations.map(conversation => [
-          String(conversation.conversationId),
-          conversation.user?.toString(),
-        ]),
-      );
+      // const questionConversationUserMap = new Map(
+      //   questionConversations.map(conversation => [
+      //     String(conversation.conversationId),
+      //     conversation.user?.toString(),
+      //   ]),
+      // );
 
       const resolvedUserIdByQuestionId = new Map<string, string>();
       for (const row of questionDocs) {
@@ -3896,12 +3898,13 @@ export class ChatbotRepository implements IChatbotRepository {
           row.messageId !== undefined && row.messageId !== null
             ? questionMessageUserMap.get(String(row.messageId))
             : undefined;
-        const conversationUserId =
-          row.threadId !== undefined && row.threadId !== null
-            ? questionConversationUserMap.get(String(row.threadId))
-            : undefined;
+        // const conversationUserId =
+        //   row.threadId !== undefined && row.threadId !== null
+        //     ? questionConversationUserMap.get(String(row.threadId))
+        //     : undefined;
         const resolvedUserId =
-          directUserId || messageUserId || conversationUserId;
+          directUserId || messageUserId ;
+          // || conversationUserId;
         if (resolvedUserId) {
           resolvedUserIdByQuestionId.set(row._id.toString(), resolvedUserId);
         }
@@ -4334,13 +4337,13 @@ export class ChatbotRepository implements IChatbotRepository {
           userMessages.map((message: any) => message.messageId).filter(Boolean),
         ),
       ];
-      const threadIds = [
-        ...new Set(
-          userMessages
-            .map((message: any) => message.threadId || message.conversationId)
-            .filter(Boolean),
-        ),
-      ];
+      // const threadIds = [
+      //   ...new Set(
+      //     userMessages
+      //       .map((message: any) => message.threadId || message.conversationId)
+      //       .filter(Boolean),
+      //   ),
+      // ];
       const messageUserMap = new Map(
         userMessages
           .filter((message: any) => message.messageId)
@@ -4349,14 +4352,14 @@ export class ChatbotRepository implements IChatbotRepository {
             String(message.user),
           ]),
       );
-      const threadUserMap = new Map(
-        userMessages
-          .filter((message: any) => message.threadId || message.conversationId)
-          .map((message: any) => [
-            String(message.threadId || message.conversationId),
-            String(message.user),
-          ]),
-      );
+      // const threadUserMap = new Map(
+      //   userMessages
+      //     .filter((message: any) => message.threadId || message.conversationId)
+      //     .map((message: any) => [
+      //       String(message.threadId || message.conversationId),
+      //       String(message.user),
+      //     ]),
+      // );
 
       const questionFilter: any = buildBaseQuestionMatch('AJRASAKHA');
       const questionUserMatches: any[] = [
@@ -4366,9 +4369,9 @@ export class ChatbotRepository implements IChatbotRepository {
       if (messageIds.length > 0) {
         questionUserMatches.push({messageId: {$in: messageIds}});
       }
-      if (threadIds.length > 0) {
-        questionUserMatches.push({threadId: {$in: threadIds}});
-      }
+      // if (threadIds.length > 0) {
+      //   questionUserMatches.push({threadId: {$in: threadIds}});
+      // }
       questionFilter.$and.push({$or: questionUserMatches});
 
       const questions = await this.QuestionCollection.find(questionFilter, {
@@ -4404,15 +4407,9 @@ export class ChatbotRepository implements IChatbotRepository {
         const directUserId =
           question.userId?.toString?.() || String(question.userId || '');
         const resolvedUserId =
-          (directUserId && userMap.has(directUserId)
-            ? directUserId
-            : undefined) ||
-          (question.messageId
-            ? messageUserMap.get(String(question.messageId))
-            : undefined) ||
-          (question.threadId
-            ? threadUserMap.get(String(question.threadId))
-            : undefined);
+          (directUserId && userMap.has(directUserId) ? directUserId : undefined) ||
+          (question.messageId ? messageUserMap.get(String(question.messageId)) : undefined);
+          // || (question.threadId ? threadUserMap.get(String(question.threadId)) : undefined);
         const normalizedQuestion = normalizeQuestionText(question.question);
 
         if (
@@ -12470,7 +12467,7 @@ export class ChatbotRepository implements IChatbotRepository {
                           },
                         },
                         user: {
-                          $ifNull: ['$userId', '$threadId'],
+                          $ifNull: ['$userId', '$messageId'],
                         },
                       },
                       userDailyCount: {
@@ -12841,14 +12838,17 @@ export class ChatbotRepository implements IChatbotRepository {
     }
 
     // External users
-    const externalUserIds = await this.getUserIdsByUserType(source, 'external');
+    const externalUserIds = await this.getUserIdsByUserType(
+      source,
+      'external',
+    );
 
     const externalUserStrings = externalUserIds.map(id => id.toString());
 
     const externalUserSet = new Set(externalUserStrings);
 
     // Questions with null userId
-    const questionWithNullUsers = await this.QuestionCollection.find(
+    const questionsWithNullUsers = await this.QuestionCollection.find(
       {
         ...buildBaseQuestionMatch(source),
         userId: null,
@@ -12856,42 +12856,20 @@ export class ChatbotRepository implements IChatbotRepository {
       {
         projection: {
           _id: 1,
-          threadId: 1,
           messageId: 1,
         },
       },
     ).toArray();
-    const threadIds = questionWithNullUsers
-      .filter(q => q.threadId)
-      .map(q => q.threadId);
 
-    const messageIds = questionWithNullUsers
-      .filter(q => !q.threadId && q.messageId)
+    const messageIds = questionsWithNullUsers
+      .filter(q => q.messageId)
       .map(q => q.messageId);
-    // Resolve threadId -> user
-    const conversations = await this.conversations
-      .find(
-        {
-          conversationId: {$in: threadIds},
-        },
-        {
-          projection: {
-            conversationId: 1,
-            user: 1,
-          },
-        },
-      )
-      .toArray();
-
-    const conversationUserMap = new Map(
-      conversations.map(c => [c.conversationId, c.user?.toString()]),
-    );
 
     // Resolve messageId -> user
     const messages = await this.messagesCollection
       .find(
         {
-          messageId: {$in: messageIds},
+          messageId: { $in: messageIds },
         },
         {
           projection: {
@@ -12907,17 +12885,14 @@ export class ChatbotRepository implements IChatbotRepository {
     );
 
     // Questions whose null userId resolves to an EXTERNAL user
-    const externalResolvedQuestionIds = questionWithNullUsers
+    const externalResolvedQuestionIds = questionsWithNullUsers
       .filter(q => {
-        let resolvedUserId: string | undefined;
+        const resolvedUserId = messageUserMap.get(q.messageId);
 
-        if (q.threadId) {
-          resolvedUserId = conversationUserMap.get(q.threadId);
-        } else if (q.messageId) {
-          resolvedUserId = messageUserMap.get(q.messageId);
-        }
-
-        return resolvedUserId && externalUserSet.has(resolvedUserId);
+        return (
+          resolvedUserId &&
+          externalUserSet.has(resolvedUserId)
+        );
       })
       .map(q => q._id);
 
@@ -12960,46 +12935,15 @@ export class ChatbotRepository implements IChatbotRepository {
     questionUserMap: Map<string, string>;
   }> {
     const directUserIds = new Set<string>();
-
-    const threadIds: string[] = [];
-
     const messageIds: string[] = [];
 
     for (const question of questions) {
       if (question.userId) {
         directUserIds.add(question.userId.toString());
-      } else if (question.threadId) {
-        threadIds.push(question.threadId);
       } else if (question.messageId) {
         messageIds.push(question.messageId);
       }
     }
-
-    // Resolve threadId -> user
-    const conversations = threadIds.length
-      ? await this.conversations
-          .find(
-            {
-              conversationId: {
-                $in: threadIds,
-              },
-            },
-            {
-              projection: {
-                conversationId: 1,
-                user: 1,
-              },
-            },
-          )
-          .toArray()
-      : [];
-
-    const conversationUserMap = new Map(
-      conversations.map(conversation => [
-        conversation.conversationId,
-        conversation.user?.toString(),
-      ]),
-    );
 
     // Resolve messageId -> user
     const messages = messageIds.length
@@ -13021,10 +12965,13 @@ export class ChatbotRepository implements IChatbotRepository {
       : [];
 
     const messageUserMap = new Map(
-      messages.map(message => [message.messageId, message.user?.toString()]),
+      messages.map(message => [
+        message.messageId,
+        message.user?.toString(),
+      ]),
     );
 
-    const resolvedUserIds = new Set<string>();
+    const resolvedUserIds = new Set<string>(directUserIds);
 
     const questionUserMap = new Map<string, string>();
 
@@ -13035,8 +12982,6 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (question.userId) {
         resolvedUserId = question.userId.toString();
-      } else if (question.threadId) {
-        resolvedUserId = conversationUserMap.get(question.threadId);
       } else if (question.messageId) {
         resolvedUserId = messageUserMap.get(question.messageId);
       }
@@ -13055,13 +13000,17 @@ export class ChatbotRepository implements IChatbotRepository {
         ? await this.users
             .find({
               _id: {
-                $in: [...resolvedUserIds].map(id => new ObjectId(id)),
+                $in: [...resolvedUserIds].map(
+                  id => new ObjectId(id),
+                ),
               },
             })
             .toArray()
         : [];
 
-    const userMap = new Map(users.map(user => [user._id.toString(), user]));
+    const userMap = new Map(
+      users.map(user => [user._id.toString(), user]),
+    );
 
     return {
       userMap,
@@ -15607,10 +15556,10 @@ export class ChatbotRepository implements IChatbotRepository {
         throw new Error('Question not found');
       }
 
-      const conversation = question.threadId
-        ? await this.conversations.findOne(
+      const conversation = question.messageId
+        ? await this.messagesCollection.findOne(
             {
-              conversationId: question.threadId,
+              messageId: question.messageId,
             },
             {
               projection: {
@@ -15784,6 +15733,12 @@ export class ChatbotRepository implements IChatbotRepository {
         ];
       }
 
+      const questionAskedAt =
+        conversation?.createdAt &&
+        conversation.createdAt < question.createdAt
+          ? conversation.createdAt
+          : new Date(question.createdAt.getTime() - 5000);
+
       if (isDuplicate) {
         timeline.push({
           timestamp: question.createdAt,
@@ -15796,17 +15751,17 @@ export class ChatbotRepository implements IChatbotRepository {
         });
       } else if (conversation?.createdAt) {
         timeline.push({
-          timestamp: conversation.createdAt,
+          timestamp: questionAskedAt,
           user: questionAskedBy?.email,
           action: 'Question Asked On Web Application',
           duration: null,
           remarks: '',
-          endTime: conversation.createdAt,
+          endTime: questionAskedAt,
           eventType: 'inception',
         });
 
         timeline.push({
-          timestamp: conversation.createdAt,
+          timestamp: questionAskedAt,
           user: 'Buffer Time',
           action: 'Pushed To Review System',
           duration:
