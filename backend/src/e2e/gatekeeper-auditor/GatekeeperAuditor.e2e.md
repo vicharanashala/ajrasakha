@@ -248,6 +248,35 @@ Pinned in `Close-propagation ... > [FINDING] when the parent closes as dynamic_c
 
 ## Last Run
 
-**Date:** 2026-07-01 | **Result:** ✅ all 17 passed | **Duration:** ~23 s (up from 11 tests / ~19s)
+**Date:** 2026-07-04 &nbsp;|&nbsp; **Result:** ✅ all 36 passed &nbsp;|&nbsp; **Duration:** 29.1 s
 
-Full e2e suite run alongside `WhatsAppQuestion.e2e.test.ts` / `AjrasakhaQuestion.e2e.test.ts` (which own the ingestion-time `queue_duplicate` coverage) confirmed no regressions from the 6 added test cases.
+> ⚠ Vitest only printed 26 of 36 test lines (passing suites are truncated in the output).
+
+| # | Test | Result | Failure reason |
+|---|------|:------:|----------------|
+| 1 | Gate Keeper — Push to Auditor > moves a dynamic question to auditor_review and stamps a... | ✅ | — |
+| 2 | Gate Keeper — Push to Auditor > moves a duplicate question to auditor_review and stamps... | ✅ | — |
+| 3 | Gate Keeper — Push to Auditor > [KNOWN GAP] pushes a question to auditor_review from an... | ✅ | — |
+| 4 | Auditor — Notify User (dynamic close) / Push to GDB (duplicate close) > closes a dynami... | ✅ | — |
+| 5 | Auditor — Notify User (dynamic close) / Push to GDB (duplicate close) > closes a duplic... | ✅ | — |
+| 6 | Auditor — Notify User (dynamic close) / Push to GDB (duplicate close) > back-compat: a ... | ✅ | — |
+| 7 | Auditor — Notify User (dynamic close) / Push to GDB (duplicate close) > back-compat: a ... | ✅ | — |
+| 8 | Auditor — Notify User (dynamic close) / Push to GDB (duplicate close) > [documented] re... | ✅ | — |
+| 9 | Gate Keeper — Cancel Duplicate > reopens a queue_duplicate question to open, stamps isD... | ✅ | — |
+| 10 | Gate Keeper — Cancel Duplicate > [KNOWN GAP] accepts isDuplicateCancelled on a question... | ✅ | — |
+| 11 | Gate Keeper — Confirm Duplicate > CASE A: reference question already closed — replicate... | ✅ | — |
+| 12 | Gate Keeper — Confirm Duplicate > CASE B: reference question still open — moves the que... | ✅ | — |
+| 13 | Gate Keeper — Confirm Duplicate > frees the assigned gate keeper (assignedQuestionIds c... | ✅ | — |
+| 14 | Gate Keeper — Confirm Duplicate > [KNOWN GAP] an expert user can confirm-duplicate dire... | ✅ | — |
+| 15 | Close-propagation — approving a question closes its duplicate_confirmed children > repl... | ✅ | — |
+| 16 | Close-propagation — approving a question closes its duplicate_confirmed children > [FIN... | ✅ | — |
+| 17 | Close-propagation — approving a question closes its duplicate_confirmed children > leav... | ✅ | — |
+| 18 | Queue Cron — runGateKeeperAuditorQueueCron (full integration) > assigns a free gate kee... | ✅ | — |
+| 19 | Queue Cron — runGateKeeperAuditorQueueCron (full integration) > assigns a free auditor ... | ✅ | — |
+| 20 | Queue Cron — freeRoleAssigneeOnStatusChange (frees a user once they act, enabling the n... | ✅ | — |
+| 21 | Queue Cron — freeRoleAssigneeOnStatusChange (frees a user once they act, enabling the n... | ✅ | — |
+| 22 | Queue Cron — freeRoleAssigneeOnStatusChange (frees a user once they act, enabling the n... | ✅ | — |
+| 23 | [KNOWN GAP] no backend role guard on Gate Keeper / Auditor actions > an expert user can... | ✅ | — |
+| 24 | [KNOWN GAP] no backend role guard on Gate Keeper / Auditor actions > an expert user can... | ✅ | — |
+| 25 | [KNOWN GAP] no backend role guard on Gate Keeper / Auditor actions > an expert user is ... | ✅ | — |
+| 26 | [KNOWN GAP] no backend role guard on Gate Keeper / Auditor actions > [KNOWN GAP] a call... | ✅ | — |

@@ -236,7 +236,7 @@ NODE_ENV=test pnpm exec vitest run src/e2e/chemical/ChemicalCrud.e2e.test.ts
 
 ## Last Run
 
-**Date:** 2026-07-04 &nbsp;|&nbsp; **Result:** ✅ all 15 passed &nbsp;|&nbsp; **Duration:** 4.7 s
+**Date:** 2026-07-04 &nbsp;|&nbsp; **Result:** ✅ all 15 passed &nbsp;|&nbsp; **Duration:** 5.2 s
 
 > ⚠ Vitest only printed 1 of 15 test lines (passing suites are truncated in the output).
 

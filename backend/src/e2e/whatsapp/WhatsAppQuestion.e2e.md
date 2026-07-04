@@ -569,7 +569,7 @@ The controller (QuestionController.ts:332-354) catches service errors and re-thr
 
 ## Last Run
 
-**Date:** 2026-07-04 &nbsp;|&nbsp; **Result:** ❌ 16 failed / 5 passed &nbsp;|&nbsp; **Duration:** 11.9 min
+**Date:** 2026-07-04 &nbsp;|&nbsp; **Result:** ❌ 7 failed / 14 passed &nbsp;|&nbsp; **Duration:** 3.9 min
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
@@ -578,19 +578,19 @@ The controller (QuestionController.ts:332-354) catches service errors and re-thr
 | 3 | WhatsApp ingestion — invalid payload (missing required detail field) > rejects with 400... | ✅ | — |
 | 4 | WhatsApp ingestion — question FOUND (GDB duplicate, reference answer linked) > marks th... | ❌ | expected "spy" to be called at least once |
 | 5 | WhatsApp ingestion — question SIMILAR (GDB selected_match, non-exact duplicate) > marks... | ✅ | — |
-| 6 | WhatsApp ingestion — question NOT FOUND (common pipeline -> open) > opens the question ... | ❌ | Timed out waiting for question 6a48f17a009fe07e40c033bf. Last status='pending', isTesting=undefined |
-| 7 | WhatsApp ingestion — non-agricultural question (LLM filter) > marks the question as non... | ❌ | Timed out waiting for question 6a48f1a3009fe07e40c033c4. Last status='pending', isTesting=undefined |
-| 8 | WhatsApp ingestion — invalid thread (time-bound thread validation fails) > flags the qu... | ❌ | Timed out waiting for question 6a48f1cb009fe07e40c033c7. Last status='pending', isTesting=undefined |
-| 9 | WhatsApp ingestion — LLM failure degrades gracefully to open > still opens the question... | ❌ | Timed out waiting for question 6a48f217009fe07e40c033cc. Last status='pending', isTesting=undefined |
-| 10 | WhatsApp ingestion — valid threadId, API returns "not found" on all retries → isTesting... | ❌ | Timed out waiting for question 6a48f23f009fe07e40c033d1. Last status='pending', isTesting=undefined |
-| 11 | WhatsApp ingestion — WhatsApp API completely unreachable → question proceeds to open > ... | ❌ | Timed out waiting for question 6a48f27b009fe07e40c033d6. Last status='pending', isTesting=undefined |
-| 12 | WhatsApp ingestion — GDB service throws → degrades gracefully to open > still opens the... | ❌ | Timed out waiting for question 6a48f2b8009fe07e40c033db. Last status='pending', isTesting=undefined |
-| 13 | WhatsApp ingestion — transient thread API failure then retry succeeds → open > proceeds... | ❌ | Test timed out in 60000ms. |
-| 14 | WhatsApp ingestion — GDB exact_match has invalid question_id → falls through to open > ... | ❌ | Timed out waiting for question 6a48f31d009fe07e40c033e5. Last status='pending', isTesting=undefined |
-| 15 | WhatsApp ingestion — GDB selected_match has invalid question_id → falls through to open... | ❌ | Timed out waiting for question 6a48f346009fe07e40c033ea. Last status='pending', isTesting=undefined |
-| 16 | WhatsApp ingestion — GDB exact_match uses $oid format → marked duplicate > marks the qu... | ❌ | Timed out waiting for question 6a48f36f009fe07e40c033f0. Last status='pending', isTesting=undefined |
-| 17 | WhatsApp ingestion — GDB returns both exact_match and selected_match → exact_match wins... | ❌ | Timed out waiting for question 6a48f397009fe07e40c033f5. Last status='pending', isTesting=undefined |
-| 18 | WhatsApp ingestion — question matches the GDB pending-duplicate queue > marks the quest... | ❌ | Timed out waiting for question 6a48f3bf009fe07e40c033f9. Last status='pending', isTesting=undefined |
-| 19 | WhatsApp ingestion — question matches the GDB pending-duplicate queue > ignores a pendi... | ❌ | Timed out waiting for question 6a48f3e8009fe07e40c033fc. Last status='pending', isTesting=undefined |
-| 20 | WhatsApp ingestion — pending-duplicate-queue check throws → degrades gracefully to open... | ❌ | Timed out waiting for question 6a48f411009fe07e40c03401. Last status='pending', isTesting=undefined |
+| 6 | WhatsApp ingestion — question NOT FOUND (common pipeline -> open) > opens the question ... | ✅ | — |
+| 7 | WhatsApp ingestion — non-agricultural question (LLM filter) > marks the question as non... | ✅ | — |
+| 8 | WhatsApp ingestion — invalid thread (time-bound thread validation fails) > flags the qu... | ❌ | Timed out waiting for question 6a48fb005783fd449d698904. Last status='open', isTesting=undefined |
+| 9 | WhatsApp ingestion — LLM failure degrades gracefully to open > still opens the question... | ❌ | Timed out waiting for question 6a48fb4b5783fd449d69890b. Last status='pending', isTesting=undefined |
+| 10 | WhatsApp ingestion — valid threadId, API returns "not found" on all retries → isTesting... | ❌ | Timed out waiting for question 6a48fb745783fd449d698910. Last status='open', isTesting=undefined |
+| 11 | WhatsApp ingestion — WhatsApp API completely unreachable → question proceeds to open > ... | ❌ | expected "spy" to be called at least once |
+| 12 | WhatsApp ingestion — GDB service throws → degrades gracefully to open > still opens the... | ✅ | — |
+| 13 | WhatsApp ingestion — transient thread API failure then retry succeeds → open > proceeds... | ❌ | expected "spy" to be called at least once |
+| 14 | WhatsApp ingestion — GDB exact_match has invalid question_id → falls through to open > ... | ✅ | — |
+| 15 | WhatsApp ingestion — GDB selected_match has invalid question_id → falls through to open... | ❌ | Timed out waiting for question 6a48fbb25783fd449d698929. Last status='pending', isTesting=undefined |
+| 16 | WhatsApp ingestion — GDB exact_match uses $oid format → marked duplicate > marks the qu... | ✅ | — |
+| 17 | WhatsApp ingestion — GDB returns both exact_match and selected_match → exact_match wins... | ✅ | — |
+| 18 | WhatsApp ingestion — question matches the GDB pending-duplicate queue > marks the quest... | ✅ | — |
+| 19 | WhatsApp ingestion — question matches the GDB pending-duplicate queue > ignores a pendi... | ✅ | — |
+| 20 | WhatsApp ingestion — pending-duplicate-queue check throws → degrades gracefully to open... | ✅ | — |
 | 21 | WhatsApp ingestion — invalid payload (empty question text) > rejects when the question ... | ✅ | — |

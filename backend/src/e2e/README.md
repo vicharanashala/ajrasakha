@@ -39,6 +39,7 @@ pnpm exec vitest run src/e2e/manual-allocation/ManualAllocation.e2e.test.ts
 pnpm exec vitest run src/e2e/auto-allocation/AutoAllocation.e2e.test.ts
 pnpm exec vitest run src/e2e/allocation-ordering/AllocationOrdering.e2e.test.ts
 pnpm exec vitest run src/e2e/post-allocation/PostAllocation.e2e.test.ts
+pnpm exec vitest run src/e2e/gatekeeper-auditor/GatekeeperAuditor.e2e.test.ts
 
 # Run all e2e at once (~2 min)
 pnpm exec vitest run src/e2e
@@ -76,13 +77,14 @@ preference-scoring test (#5) to be deterministic.
 | Chemical CRUD | `chemical/ChemicalCrud.e2e.test.ts` | 15 | ✅ 15/15 | Auth smoke tests, admin + moderator CRUD, role guards (expert blocked) |
 | Question CRUD | `question/QuestionCreate.e2e.test.ts` | 15 | ✅ 15/15 | Moderator create / get / update / delete / bulk-delete (OUTREACH source) |
 | Reviewer queue | `reviewer-queue/ReviewerQueue.e2e.test.ts` | 14 | ❌ 13/14 | `POST /allocated` visibility: author slot, reviewer slot, exclusions, `review_level_number` |
-| WhatsApp ingestion | `whatsapp/WhatsAppQuestion.e2e.test.ts` | 21 | ❌ 5/21 | Full ingestion pipeline: auth, GDB duplicate paths, LLM filter, thread validation + retry |
-| AjraSakha ingestion | `ajrasakha/AjrasakhaQuestion.e2e.test.ts` | 11 | ❌ 7/11 | AJRASAKHA-specific fields (userId from `@CurrentUser`, notification type), representative pipeline cases |
+| WhatsApp ingestion | `whatsapp/WhatsAppQuestion.e2e.test.ts` | 21 | ❌ 14/21 | Full ingestion pipeline: auth, GDB duplicate paths, LLM filter, thread validation + retry |
+| AjraSakha ingestion | `ajrasakha/AjrasakhaQuestion.e2e.test.ts` | 11 | ❌ 8/11 | AJRASAKHA-specific fields (userId from `@CurrentUser`, notification type), representative pipeline cases |
 | Manual allocation | `manual-allocation/ManualAllocation.e2e.test.ts` | 10 | ✅ 10/10 | `POST /allocate-experts` + `DELETE /allocation` on an OUTREACH question |
 | Auto allocation | `auto-allocation/AutoAllocation.e2e.test.ts` | 55 | ✅ 55/55 | AGRI_EXPERT background queue, preference scoring, toggle, time-bound allocation (WHATSAPP/AJRASAKHA), capacity, reviewer, concurrent guard |
 | Allocation ordering | `allocation-ordering/AllocationOrdering.e2e.test.ts` | 8 | ✅ 8/8 | Chronological ordering + history exclusion for `reallocateTimeBoundQuestions()` (Issues #3, #5) |
 | Post-allocation | `post-allocation/PostAllocation.e2e.test.ts` | 27 | ✅ 27/27 | Full expert peer-review → moderator-approval state machine |
-| **Total** | | **176** | **155/176** | |
+| Gatekeeper / Auditor | `gatekeeper-auditor/GatekeeperAuditor.e2e.test.ts` | 36 | ✅ 36/36 | Push to auditor, finalize, cancel/confirm duplicate, close-propagation, single-allocation queue cron |
+| **Total** | | **212** | **201/212** | |
 
 ---
 
@@ -91,29 +93,19 @@ preference-scoring test (#5) to be deterministic.
 **Reviewer queue** — 1 failing → see `reviewer-queue/ReviewerQueue.e2e.md`
 - Reviewer queue — author-slot question appears before reviewer-slot question for STF expert (Issue #2) > author-slot question appears before reviewer-slot question in the /allocated response → expected 2 to be less than 0
 
-**WhatsApp ingestion** — 16 failing → see `whatsapp/WhatsAppQuestion.e2e.md`
+**WhatsApp ingestion** — 7 failing → see `whatsapp/WhatsAppQuestion.e2e.md`
 - WhatsApp ingestion — question FOUND (GDB duplicate, reference answer linked) > marks the question as duplicate and records the reference question → expected "spy" to be called at least once
-- WhatsApp ingestion — question NOT FOUND (common pipeline -> open) > opens the question and creates an unallocated submission (hand-off to common pipeline) → Timed out waiting for question 6a48f17a009fe07e40c033bf. Last status='pending', isTesting=undefined
-- WhatsApp ingestion — non-agricultural question (LLM filter) > marks the question as non_agri when the LLM classifies it as non-agri → Timed out waiting for question 6a48f1a3009fe07e40c033c4. Last status='pending', isTesting=undefined
-- WhatsApp ingestion — invalid thread (time-bound thread validation fails) > flags the question isTesting=true and drops it before the duplicate pipeline → Timed out waiting for question 6a48f1cb009fe07e40c033c7. Last status='pending', isTesting=undefined
-- WhatsApp ingestion — LLM failure degrades gracefully to open > still opens the question when the non-agri classifier throws → Timed out waiting for question 6a48f217009fe07e40c033cc. Last status='pending', isTesting=undefined
-- WhatsApp ingestion — valid threadId, API returns "not found" on all retries → isTesting > flags the question isTesting after exhausting all retry attempts → Timed out waiting for question 6a48f23f009fe07e40c033d1. Last status='pending', isTesting=undefined
-- WhatsApp ingestion — WhatsApp API completely unreachable → question proceeds to open > proceeds to open (not isTesting) when the thread API throws non-not-found errors → Timed out waiting for question 6a48f27b009fe07e40c033d6. Last status='pending', isTesting=undefined
-- WhatsApp ingestion — GDB service throws → degrades gracefully to open > still opens the question when searchGdb throws → Timed out waiting for question 6a48f2b8009fe07e40c033db. Last status='pending', isTesting=undefined
-- WhatsApp ingestion — transient thread API failure then retry succeeds → open > proceeds to open when the thread API fails on first attempt but succeeds on retry → Test timed out in 60000ms.
-- WhatsApp ingestion — GDB exact_match has invalid question_id → falls through to open > ignores the invalid exact_match and reaches open via LLM classification → Timed out waiting for question 6a48f31d009fe07e40c033e5. Last status='pending', isTesting=undefined
-- WhatsApp ingestion — GDB selected_match has invalid question_id → falls through to open > ignores the invalid selected_match and reaches open via LLM classification → Timed out waiting for question 6a48f346009fe07e40c033ea. Last status='pending', isTesting=undefined
-- WhatsApp ingestion — GDB exact_match uses $oid format → marked duplicate > marks the question as duplicate when exact_match.question_id is in {$oid} format → Timed out waiting for question 6a48f36f009fe07e40c033f0. Last status='pending', isTesting=undefined
-- WhatsApp ingestion — GDB returns both exact_match and selected_match → exact_match wins > marks duplicate with isExact=true and references the exact_match, not selected_match → Timed out waiting for question 6a48f397009fe07e40c033f5. Last status='pending', isTesting=undefined
-- WhatsApp ingestion — question matches the GDB pending-duplicate queue > marks the question as queue_duplicate, records the reference, and turns off auto-allocate → Timed out waiting for question 6a48f3bf009fe07e40c033f9. Last status='pending', isTesting=undefined
-- WhatsApp ingestion — question matches the GDB pending-duplicate queue > ignores a pending-duplicate response with no usable duplicate_question_id and falls through to the LLM → Timed out waiting for question 6a48f3e8009fe07e40c033fc. Last status='pending', isTesting=undefined
-- WhatsApp ingestion — pending-duplicate-queue check throws → degrades gracefully to open > still opens the question when checkPendingDuplicate throws → Timed out waiting for question 6a48f411009fe07e40c03401. Last status='pending', isTesting=undefined
+- WhatsApp ingestion — invalid thread (time-bound thread validation fails) > flags the question isTesting=true and drops it before the duplicate pipeline → Timed out waiting for question 6a48fb005783fd449d698904. Last status='open', isTesting=undefined
+- WhatsApp ingestion — LLM failure degrades gracefully to open > still opens the question when the non-agri classifier throws → Timed out waiting for question 6a48fb4b5783fd449d69890b. Last status='pending', isTesting=undefined
+- WhatsApp ingestion — valid threadId, API returns "not found" on all retries → isTesting > flags the question isTesting after exhausting all retry attempts → Timed out waiting for question 6a48fb745783fd449d698910. Last status='open', isTesting=undefined
+- WhatsApp ingestion — WhatsApp API completely unreachable → question proceeds to open > proceeds to open (not isTesting) when the thread API throws non-not-found errors → expected "spy" to be called at least once
+- WhatsApp ingestion — transient thread API failure then retry succeeds → open > proceeds to open when the thread API fails on first attempt but succeeds on retry → expected "spy" to be called at least once
+- WhatsApp ingestion — GDB selected_match has invalid question_id → falls through to open > ignores the invalid selected_match and reaches open via LLM classification → Timed out waiting for question 6a48fbb25783fd449d698929. Last status='pending', isTesting=undefined
 
-**AjraSakha ingestion** — 4 failing → see `ajrasakha/AjrasakhaQuestion.e2e.md`
+**AjraSakha ingestion** — 3 failing → see `ajrasakha/AjrasakhaQuestion.e2e.md`
 - Ajrasakha ingestion — happy path (open, agri, thread valid) > creates an open question attributed to the authenticated user with AJRASAKHA-specific fields → expected "spy" to be called at least once
-- Ajrasakha ingestion — non-agricultural question (LLM filter) > marks the question as non_agri when the LLM classifies it as non-agri → Timed out waiting for question 6a48f440bc0c17caf7f23f80. Last status='pending', isTesting=undefined
-- Ajrasakha ingestion — invalid thread (empty threadId → isTesting) > flags the question isTesting=true when threadId is empty, before any pipeline step → Timed out waiting for question 6a48f469bc0c17caf7f23f84. Last status='open', isTesting=undefined
-- Ajrasakha ingestion — LLM failure degrades gracefully to open > still opens the question when the non-agri classifier throws → Timed out waiting for question 6a48f491bc0c17caf7f23f89. Last status='pending', isTesting=undefined
+- Ajrasakha ingestion — pending-duplicate-queue check throws → degrades gracefully to open > still opens the question when checkPendingDuplicate throws → Timed out waiting for question 6a48fbe28b3494025fa96212. Last status='pending', isTesting=undefined
+- Ajrasakha ingestion — invalid thread (empty threadId → isTesting) > flags the question isTesting=true when threadId is empty, before any pipeline step → Timed out waiting for question 6a48fc0b8b3494025fa9621b. Last status='open', isTesting=undefined
 ---
 
 ## The in-process harness — boilerplate every suite shares
@@ -292,65 +284,30 @@ const createdQuestionIds: string[] = []; // push every created id
 | `PATCH` | `/api/questions/:id/toggle-auto-allocate` | Firebase JWT (moderator/admin) | Flips isAutoAllocate; OFF→ON triggers `autoAllocateExperts` synchronously |
 | `POST` | `/api/answers/review` | Firebase JWT (expert/pae_expert) | Submit / peer-review an answer |
 | `PUT` | `/api/answers` | Firebase JWT (moderator/admin) | Final moderator approval → closes question |
+| `PUT` | `/api/questions/:id` | Firebase JWT (**no role guard** — BUG-006) | Gate Keeper actions: push to `auditor_review`, cancel duplicate |
+| `POST` | `/api/answers/:questionId/confirm-duplicate` | Firebase JWT (**no role guard** — BUG-006) | Gate Keeper confirms a `queue_duplicate` question against its reference |
 
 ---
 
-## Known bugs (cross-suite)
+## Known bugs
 
-### BUG-001 — Empty question text returns 500 instead of 400
+Every bug below is currently reproducible; none are fixed. Each maps to the suite doc that
+demonstrates it — open that file for the exact test and assertion.
 
-`POST /api/questions` with `question: ''` — expected 400, got 500.
-`QuestionService.addQuestion` throws `BadRequestError` for empty question text but the outer
-`catch` wraps it as `InternalServerError` → 500. Tests document 500 as the expected value.
-
-### BUG-002 (manual-alloc) — Duplicate expert guard never fires
-
-`POST /allocate-experts` with an already-queued expert — expected 400, got 200 and the
-expert is added again. `allocateExperts` compares `queue` (array of `ObjectId`) with
-`expertId` (string) using `Array.includes` → always false → duplicate silently allowed.
-
-### BUG-003 (manual-alloc) — `removeExpertFromQueuebyIndex` removes by value, not index
-
-`DELETE /allocation` — removes by `ObjectId` value via `$pull`, ignoring the index param.
-Cascades badly when BUG-002 creates duplicate entries.
-
-### BUG-004 (post-alloc) — `reviewAnswer` wraps all errors as 500
-
-`POST /answers/review` with wrong role, wrong reviewer, duplicate submission, or closed
-question — expected 4xx, got 500. `AnswerService.reviewAnswer` has a catch that rethrows
-everything as `InternalServerError`.
-
-### ~~BUG-011 (question-crud) — Bulk-delete retrieval check times out (2026-06-19)~~ *(fixed 2026-06-23)*
-
-The `it()` block was missing an explicit timeout, so Vitest's default 5 s killed the test before
-`pollUntil`'s 15 s window expired. Fixed by passing `30_000` ms to the `it()` call.
-
-### ~~BUG-012 (whatsapp) — "NOT FOUND → open" case has unexpected submission record (2026-06-19)~~ *(fixed 2026-06-23)*
-
-`WhatsApp ingestion — question NOT FOUND (common pipeline → open)` — `expected [ …(1) ] to deeply equal []`.
-When the question reaches `open` via the common pipeline (no GDB/LLM match), a `question_submissions`
-document is written that the test does not expect. The assertion checks that the submissions
-array is empty for a newly-opened question that hasn't been allocated yet.
-
----
-
-## Production issues coverage (2026-06-19)
-
-Ten issues were reported in production. The table below maps each to its e2e coverage
-status and explains why non-covered cases are not capturable in this framework.
-
-| # | Issue | Coverage | Suite / Group | Notes |
-|---|-------|----------|---------------|-------|
-| 1 | STFs not receiving author-level questions even when in queue | ✅ **New** | `reviewer-queue` G4 | Seeds STF expert in queue[0] for a WHATSAPP question; verifies STF sees it in `/allocated` at Author level |
-| 2 | STFs getting reviewer-level questions before author-level | ✅ **New** | `reviewer-queue` G5 | Seeds both slots for same STF; asserts author-slot appears before reviewer-slot in `/allocated` response |
-| 3 | Older questions not allocated first; newer ones jump the queue | ✅ **New** | `allocation-ordering` G1 | Seeds OLD (2 min ago) and NEW (now) WHATSAPP questions with only 1 free STF expert; asserts OLD gets the expert |
-| 4 | Expert attends question but answer not in history/audit trail | ❌ **Not capturable** | — | "Attending" sets `currentExpertOpenedAt` via an undocumented client event; no API endpoint available to trigger it in the harness |
-| 5 | Same question assigned to same person twice | ✅ **New** | `allocation-ordering` G2 | Seeds a question where stfExperts[0] is in history (previous author) and stfExperts[1] is stuck reviewer; asserts replacement is neither |
-| 6 | One question assigned to two people simultaneously | ❌ **Not capturable** | — | Requires true HTTP-level concurrency; concurrent cron guard already covered by `auto-allocation` G9 |
-| 7 | Notification received but question not visible in dashboard | ✅ **New** (+ existing) | `reviewer-queue` G4 (STF-specific) + G1 (generic) | G4 seeds answer_creation notification for STF expert and verifies consistency between notification and `/allocated` visibility |
-| 8 | Training model: single moderator allocation broken | ❌ **Not capturable** | — | "Training model" is not a documented code path; relevant business logic not identified for testing |
-| 9 | Timeline discrepancy: `firstAllocationAt` vs `currentExpertAllocatedAt` | ✅ **New** | `auto-allocation` G5 | Asserts both timestamps differ by < 60 s after the same cron allocation operation |
-| 10 | Display of submissions during blocked period | ❌ **Not capturable** | — | No documented API or repository method for "submissions during a user's blocked window" |
+| # | Bug | File |
+|---|-----|------|
+| BUG-001 | `POST /api/questions` with empty `question` text returns 500, not 400. `QuestionService.addQuestion` throws `BadRequestError` but the outer `catch` rewraps everything as `InternalServerError`. | `whatsapp/WhatsAppQuestion.e2e.md`, `ajrasakha/AjrasakhaQuestion.e2e.md` |
+| BUG-002 | `POST /allocate-experts` silently re-adds an already-queued expert instead of rejecting with 400. `allocateExperts` compares `queue` (`ObjectId[]`) against `expertId` (`string`) via `Array.includes` — always `false`. | `manual-allocation/ManualAllocation.e2e.md` |
+| BUG-003 | `DELETE /allocation` removes by `ObjectId` value (`$pull`), ignoring the index param — cascades badly once BUG-002 has created duplicate queue entries. | `manual-allocation/ManualAllocation.e2e.md` |
+| BUG-004 | `POST /answers/review` returns 500 for wrong role, wrong reviewer, duplicate submission, or a closed question — `AnswerService.reviewAnswer`'s catch rethrows everything as `InternalServerError` regardless of cause. | `post-allocation/PostAllocation.e2e.md` |
+| BUG-005 | `isClosed` is never stamped for `dynamic_closed` questions — `AnswerService.approveAnswer` bypasses `QuestionService.updateQuestion`, the only place that sets it. | `gatekeeper-auditor/GatekeeperAuditor.e2e.md` |
+| BUG-006 | No role guard on Gate Keeper actions: `PUT /questions/:id` (push-to-auditor, cancel-duplicate) and `POST /answers/:questionId/confirm-duplicate` are `@Authorized()`/`FlexibleAuth` only — any authenticated user (expert, `call_agent`) can call them directly. | `gatekeeper-auditor/GatekeeperAuditor.e2e.md` |
+| BUG-007 | Cancel Duplicate has no precondition that the question is actually `queue_duplicate` — accepts `isDuplicateCancelled` on any status. | `gatekeeper-auditor/GatekeeperAuditor.e2e.md` |
+| BUG-008 | Push to Auditor has no precondition on prior status at all — `auditorReviewType` is derived as `prevStatus==='dynamic' ? 'dynamic' : 'duplicate'`, silently mislabeling any other prior status. | `gatekeeper-auditor/GatekeeperAuditor.e2e.md` |
+| BUG-009 | `AnswerRepository.getById` does `{...answer, _id: answer._id?.toString()}` — `answer._id` is evaluated before the `?.` guard, so `PUT /answers` with a non-existent `answerId` 500s instead of 400ing. | `gatekeeper-auditor/GatekeeperAuditor.e2e.md` |
+| BUG-010 | An existing `answerId` can never finalize an `auditor_review` question via `PUT /answers` — the fast-path reroutes past it. | `gatekeeper-auditor/GatekeeperAuditor.e2e.md` |
+| BUG-011 | Close-propagation hardcodes child status to `closed` regardless of the parent's actual `closeStatus` — a `dynamic` parent closing as `dynamic_closed` still produces plain-`closed` children. | `gatekeeper-auditor/GatekeeperAuditor.e2e.md` |
+| BUG-012 | `AnswerService.approveAnswer`'s role check is a blacklist of only `role==='expert'` — a `call_agent` user can also finalize via `PUT /answers`, bypassing the intended moderator/admin-only gate. | `gatekeeper-auditor/GatekeeperAuditor.e2e.md` |
 
 ---
 
@@ -403,13 +360,13 @@ WHATSAPP / AJRASAKHA ingestion
   ├─ thread: transient fail → retry → open            [WA ✗]
   ├─ GDB exact_match → duplicate                      [WA ✗] [AJ ✓]
   ├─ GDB selected_match → duplicate                   [WA ✓]
-  ├─ GDB both → exact wins                            [WA ✗]
-  ├─ GDB invalid ObjectId → LLM fallthrough           [WA ✗]
-  ├─ GDB $oid format → duplicate                      [WA ✗]
-  ├─ GDB throws → open                                [WA ✗]
-  ├─ LLM non-agri → non_agri                         [WA ✗] [AJ ✗]
-  ├─ LLM agri → open (common pipeline → open)         [WA ✗] BUG-012: unexpected submission record [AJ ✗]
-  └─ LLM throws → open (degrade)                      [WA ✗] [AJ ✗]
+  ├─ GDB both → exact wins                            [WA ✓]
+  ├─ GDB invalid ObjectId → LLM fallthrough           [WA ✓]
+  ├─ GDB $oid format → duplicate                      [WA ✓]
+  ├─ GDB throws → open                                [WA ✓]
+  ├─ LLM non-agri → non_agri                         [WA ✓] [AJ ✓]
+  ├─ LLM agri → open (common pipeline → open)         [WA ✓] [AJ ✗]
+  └─ LLM throws → open (degrade)                      [WA ✗] [AJ ✓]
 
 AGRI_EXPERT auto-allocation
   ├─ background fills queue (1 expert)                [AA ✓]
@@ -481,4 +438,17 @@ Post-allocation review workflow
   ├─ moderator approves pae_submitted → closed        [PA ✓]
   ├─ delete non-final answer → removed                [PA ✓]
   └─ approvalCount=1/2 does NOT escalate to moderator [PA ✓]
+
+Gatekeeper / Auditor (gate_keeper / auditor roles, single-allocation queue cron)
+  ├─ push to auditor / cancel / confirm-duplicate (happy paths)     [GA ✓]
+  ├─ BUG-008: no precondition on prior status for push-to-auditor   [GA ✓]
+  ├─ BUG-007: cancel-duplicate has no status precondition           [GA ✓]
+  ├─ BUG-006: no role guard on push-to-auditor / cancel-duplicate   [GA ✓]
+  ├─ BUG-006: no role guard on confirm-duplicate                   [GA ✓]
+  ├─ BUG-009: non-existent answerId 500s instead of 400             [GA ✓]
+  ├─ BUG-010: existing answerId can never finalize auditor_review   [GA ✓]
+  ├─ close-propagation only fires for duplicate_confirmed children  [GA ✓]
+  ├─ BUG-011: close-propagation hardcodes child status=closed       [GA ✓]
+  ├─ single-allocation queue cron (runGateKeeperAuditorQueueCron)   [GA ✓]
+  └─ BUG-012: approveAnswer role check is a blacklist, not a whitelist [GA ✓]
 ```

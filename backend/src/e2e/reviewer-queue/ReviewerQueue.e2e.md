@@ -267,7 +267,7 @@ pnpm exec vitest run src/e2e/reviewer-queue/ReviewerQueue.e2e.test.ts
 
 ## Last Run
 
-**Date:** 2026-07-04 &nbsp;|&nbsp; **Result:** ❌ 1 failed / 13 passed &nbsp;|&nbsp; **Duration:** 7.7 s
+**Date:** 2026-07-04 &nbsp;|&nbsp; **Result:** ❌ 1 failed / 13 passed &nbsp;|&nbsp; **Duration:** 7.3 s
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|

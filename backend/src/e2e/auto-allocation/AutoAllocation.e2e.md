@@ -582,7 +582,7 @@ pnpm exec vitest run src/e2e/auto-allocation/AutoAllocation.e2e.test.ts
 
 ## Last Run
 
-**Date:** 2026-07-04 &nbsp;|&nbsp; **Result:** ✅ all 55 passed &nbsp;|&nbsp; **Duration:** 14.8 s
+**Date:** 2026-07-04 &nbsp;|&nbsp; **Result:** ✅ all 55 passed &nbsp;|&nbsp; **Duration:** 14.5 s
 
 > ⚠ Vitest only printed 7 of 55 test lines (passing suites are truncated in the output).
 

@@ -303,7 +303,7 @@ Because expert1 was never in the queue, `getExprtIdByIndex(questionId, 0)` retur
 
 ## Last Run
 
-**Date:** 2026-07-04 &nbsp;|&nbsp; **Result:** ✅ all 10 passed &nbsp;|&nbsp; **Duration:** 6.9 s
+**Date:** 2026-07-04 &nbsp;|&nbsp; **Result:** ✅ all 10 passed &nbsp;|&nbsp; **Duration:** 7.0 s
 
 > ⚠ Vitest only printed 6 of 10 test lines (passing suites are truncated in the output).
 
