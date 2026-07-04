@@ -151,6 +151,8 @@ flowchart TD
     recorded, isAutoAllocate=false
     LLM NOT consulted
     -> see GatekeeperAuditor.e2e.md"]:::ok
+    D12["no duplicate_question_id in response (miss)
+    -> falls through to the LLM"]:::warn
     D13["checkPendingDuplicate throws
     -> DEGRADATION: falls through to the LLM
     exactly as before this feature existed"]:::warn
@@ -168,7 +170,8 @@ flowchart TD
     D2 -- "no match" --> D8
     D8 --> D9 --> D10
     D10 -- FOUND --> D11
-    D10 -- "throws" --> D13 --> D14
+    D10 -- MISS --> D12 --> D14
+    D10 -- THROWS --> D13 --> D14
     D14 --> D15
     D15 -- "non-agri" --> D16
     D15 -- "agri" --> D17

@@ -44,6 +44,25 @@ the current reviewer becomes stuck.
 **Root cause if broken:** the expert-exclusion predicate checks `queue` but not
 `history`, allowing a previous author to be re-assigned as the replacement.
 
+> **Known test-design gap:** in the G2 seed (see `B1` below and
+> `AllocationOrdering.e2e.test.ts:521-547`), `stfExperts[0]` is placed in
+> **both** `queue` and `history`. The production code
+> (`AllocationService.ts:6708-6733`) excludes a candidate if they appear in
+> *either* set, checked independently:
+> ```ts
+> if (historyExpertIds.has(expertId)) continue;
+> if (queueExpertIds.has(expertId)) continue;
+> ```
+> Because `stfExperts[0]` is already covered by the `queue` check alone, this
+> test cannot distinguish "the history exclusion works" from "the history
+> exclusion is dead code that never runs because `queue` already covers it."
+> To actually prove the history-only branch, the seed would need
+> `stfExperts[0]` present in `history` but **absent** from `queue` — a state
+> that may not be reachable in production given the append-only queue model
+> (no code path was found that removes a completed expert from `queue` while
+> leaving their `history` entry intact). This is a test-coverage caveat, not
+> a functional bug in the app.
+
 ---
 
 ## What is NOT capturable in the current test framework
