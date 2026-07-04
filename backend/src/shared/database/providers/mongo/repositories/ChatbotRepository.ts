@@ -8948,16 +8948,31 @@ export class ChatbotRepository implements IChatbotRepository {
       };
 
       const normalizedPlatform = platform?.trim();
+      const basePlatformFilter = {
+        farmerProfile: {$exists: true, $ne: null},
+      };
       const platformFilter =
         normalizedPlatform === 'Unknown'
           ? {
+              ...basePlatformFilter,
               $or: [
                 {'farmerProfile.platform': {$exists: false}},
                 {'farmerProfile.platform': null},
                 {'farmerProfile.platform': ''},
+                {
+                  $expr: {
+                    $eq: [
+                      {$trim: {input: {$ifNull: ['$farmerProfile.platform', '']}}},
+                      '',
+                    ],
+                  },
+                },
               ],
             }
-          : {'farmerProfile.platform': normalizedPlatform};
+          : {
+              ...basePlatformFilter,
+              'farmerProfile.platform': normalizedPlatform,
+            };
 
       userFilter.$and = [...(userFilter.$and ?? []), platformFilter];
 
