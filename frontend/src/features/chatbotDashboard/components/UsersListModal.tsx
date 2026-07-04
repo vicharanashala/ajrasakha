@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useUserDetails } from "../hooks/useUserDetails";
 import type { UserDetail } from "../hooks/useUserDetails";
 import { useUsersByDemographic } from "../hooks/useUsersByDemographic";
+import { useUsersByPlatform } from "../hooks/useUsersByPlatform";
 import { X, Search, Filter } from "lucide-react";
 import { FarmerNameLink } from "./FarmerNameLink";
 
@@ -42,6 +43,7 @@ export function UsersListModal({
   const [filterValue, setFilterValue] = useState(initialFilterValue);
 
   const shouldUseDemographicApi = Boolean(category && value);
+  const shouldUsePlatformApi = dynamicFieldKey === "platform";
 
   const demographicUsersQuery = useUsersByDemographic(
     category,
@@ -54,6 +56,18 @@ export function UsersListModal({
     sortBy,
     sortOrder,
     isOpen && shouldUseDemographicApi,
+  );
+
+  const platformUsersQuery = useUsersByPlatform(
+    shouldUsePlatformApi ? value ?? initialFilterValue : undefined,
+    page,
+    limit,
+    search,
+    source,
+    userType,
+    sortBy,
+    sortOrder,
+    isOpen && shouldUsePlatformApi,
   );
 
   const userDetailsQuery = useUserDetails(
@@ -83,9 +97,11 @@ export function UsersListModal({
     isOpen && !shouldUseDemographicApi,
   );
 
-  const { data, isLoading } = shouldUseDemographicApi
-    ? demographicUsersQuery
-    : userDetailsQuery;
+  const { data, isLoading } = shouldUsePlatformApi
+    ? platformUsersQuery
+    : shouldUseDemographicApi
+      ? demographicUsersQuery
+      : userDetailsQuery;
 
   const rawUsers = data?.users || [];
   const totalPages = data?.totalPages || 1;
@@ -98,10 +114,13 @@ export function UsersListModal({
       let val: any = undefined;
       if (dynamicFieldKey === 'platform') {
         val = u.farmerProfile?.platform;
+        if (filterValue.toLowerCase() === 'unknown') {
+          return [undefined, null, ''].includes(val) || String(val ?? '').trim() === '';
+        }
       } else {
         val = (u.farmerProfile as any)?.[dynamicFieldKey];
       }
-      return String(val).toLowerCase() === filterValue.toLowerCase();
+      return String(val ?? '').toLowerCase() === filterValue.toLowerCase();
     });
   }, [rawUsers, filterValue, dynamicFieldKey]);
 
