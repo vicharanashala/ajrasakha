@@ -9,13 +9,15 @@ interface MapLegendProps {
   minV: number;
   maxV: number;
   dark: boolean;
+  isIndiaView?: boolean;
+  metric?: "users" | "activeUsers" | "questions";
 }
 
-export function MapLegend({ minV, maxV, dark }: MapLegendProps) {
+export function MapLegend({ minV, maxV, dark, isIndiaView, metric }: MapLegendProps) {
   return (
     <div className="pointer-events-none absolute left-3 bottom-3 z-[400] rounded-xl border border-border bg-card/95 p-3 text-xs shadow backdrop-blur">
-      <div className="mb-1 font-medium text-foreground">Questions asked</div>
-      <div className="flex h-2 w-44 overflow-hidden rounded">
+      <div className="mb-1 font-medium text-foreground">{isIndiaView ? `State Activity Rank Based on ${metric}`: `District Activity Rank Based on ${metric}`}</div>
+      <div className="flex h-2 w-58 overflow-hidden rounded">
         {[0.1, 0.3, 0.5, 0.75, 1].map((t, i) => (
           <div
             key={i}

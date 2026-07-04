@@ -119,6 +119,36 @@ export function useMapAnalytics({
     );
   }, [districtAnalytics]);
 
+  const metricRankMap  = useMemo(() => {
+  if (!districtAnalytics) return new Map<string, number>();
+
+  const sorted = [...districtAnalytics]
+    .filter((d) => d.district.toLowerCase() !== "others")
+    .sort((a, b) => {
+      switch (metric) {
+        case "users":
+          return b.totalUsers - a.totalUsers;
+
+        case "activeUsers":
+          return b.activeUsers - a.activeUsers;
+
+        default:
+          return b.totalQuestions - a.totalQuestions;
+      }
+    });
+
+  const map = new Map<string, number>();
+
+  sorted.forEach((district, index) => {
+    map.set(
+      district.district.toLowerCase(),
+      sorted.length - index,
+    );
+  });
+
+  return map;
+}, [districtAnalytics, metric]);
+
   // Filter districts by selected state
 
   const districtsOfState = useMemo(() => {
@@ -157,14 +187,19 @@ export function useMapAnalytics({
             ...f.properties,
             _name: districtName,
             _parent: f.properties.NAME_1 as string,
-            _analytics: {
-              questions: analytics?.totalQuestions ?? 0,
-              answers: analytics?.closedQuestions ?? 0,
-              users: analytics?.totalUsers ?? 0,
-              activeUsers: analytics?.activeUsers ?? 0,
-              coordinators: analytics?.coordinators ?? 0,
-              closureHrs: analytics?.avgClosingMsTime ?? 0,
-            },
+          _analytics: {
+    questions: analytics?.totalQuestions ?? 0,
+    answers: analytics?.closedQuestions ?? 0,
+    users: analytics?.totalUsers ?? 0,
+    activeUsers: analytics?.activeUsers ?? 0,
+    coordinators: analytics?.coordinators ?? 0,
+    closureHrs: analytics?.avgClosingMsTime ?? 0,
+
+    rank:
+      districtName === "Others"
+        ? -1
+        : metricRankMap.get(districtName.toLowerCase()) ?? 0,
+},
           },
         };
       });
@@ -178,19 +213,16 @@ export function useMapAnalytics({
         properties: {
           _name: "Others",
           _parent: selectedState,
-          _analytics: {
-            questions: othersAnalytics.totalQuestions ?? 0,
+         _analytics: {
+    questions: othersAnalytics.totalQuestions ?? 0,
+    answers: othersAnalytics.closedQuestions ?? 0,
+    users: othersAnalytics.totalUsers ?? 0,
+    activeUsers: othersAnalytics.activeUsers ?? 0,
+    coordinators: othersAnalytics.coordinators ?? 0,
+    closureHrs: 0,
 
-            answers: othersAnalytics.closedQuestions ?? 0,
-
-            users: othersAnalytics.totalUsers ?? 0,
-
-            activeUsers: othersAnalytics.activeUsers ?? 0,
-
-            coordinators: othersAnalytics.coordinators ?? 0,
-
-            closureHrs: 0,
-          },
+    rank: -1,
+},
         },
       });
     }
@@ -199,7 +231,13 @@ export function useMapAnalytics({
       type: "FeatureCollection",
       features,
     };
-  }, [districtsAll, selectedState, districtMap]);
+  }, [
+    districtsAll,
+    selectedState,
+    districtMap,
+    metricRankMap,
+    metric,
+]);
 
   // Active geo to render
   const activeGeo =
@@ -216,30 +254,45 @@ export function useMapAnalytics({
   // );
 
   // Min/max for color ramp
+
+
   const [minV, maxV] = useMemo(() => {
-    if (!activeGeo) return [0, 1];
-    const geo = activeGeo as {
-      features: Array<{ properties: { _analytics: Analytics } }>;
-    };
-    // const arr = geo.features.map((f) => f.properties._analytics.questions);
+  if (!activeGeo) return [0, 1];
 
-    const arr = geo.features.map((f) => {
-  const analytics =
-    f.properties._analytics;
+  const geo = activeGeo as {
+    features: Array<{ properties: { _analytics: Analytics & { rank?: number } } }>;
+  };
 
-  switch (metric) {
-    case "users":
-      return analytics.users;
+  let arr: number[];
 
-    case "activeUsers":
-      return analytics.activeUsers;
+  if (level === "state") {
+    // District map -> use ranks
+    arr = geo.features
+      .map((f) => f.properties._analytics.rank ?? -1)
+      .filter((v) => v >= 0);
+  } else {
+    // India map -> use actual values
+    arr = geo.features.map((f) => {
+      const analytics = f.properties._analytics;
 
-    default:
-      return analytics.questions;
+      switch (metric) {
+        case "users":
+          return analytics.users;
+
+        case "activeUsers":
+          return analytics.activeUsers;
+
+        default:
+          return analytics.questions;
+      }
+    });
   }
-});
-    return [Math.min(...arr), Math.max(...arr)];
-  }, [activeGeo, metric]);
+
+  return [
+    Math.min(...arr),
+    Math.max(...arr),
+  ];
+}, [activeGeo, metric, level]);
 
   // Compute active analytics
   const activeAnalytics = useMemo(() => {

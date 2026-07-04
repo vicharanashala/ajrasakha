@@ -165,19 +165,24 @@ export default function IndiaAnalyticsMap({
     }): L.PathOptions => {
       const analytics = feat.properties._analytics;
 
-      const v =
-        metric === "users"
-          ? analytics.users
-          : metric === "activeUsers"
-            ? analytics.activeUsers
-            : analytics.questions;
+ const v =
+    level === "state"
+        ? analytics.rank
+        : metric === "users"
+            ? analytics.users
+            : metric === "activeUsers"
+                ? analytics.activeUsers
+                : analytics.questions;
       const name = feat.properties._name;
       const isHovered = hovered === name;
       const isSelected =
         (level === "india" && selectedState === name) ||
         (level !== "india" && selectedDistrict === name);
       return {
-        fillColor: colorFor(v, minV, maxV, dark),
+        fillColor:
+  level === "state" && analytics.rank === -1
+    ? "#9CA3AF"
+    : colorFor(v, minV, maxV, dark),
         fillOpacity: isSelected ? 0.95 : isHovered ? 0.85 : 0.7,
         color: dark ? "#0f172a" : "#ffffff",
         weight: isSelected ? 2.5 : isHovered ? 2 : 1,
@@ -382,7 +387,7 @@ export default function IndiaAnalyticsMap({
           </MapContainer>}
 
           {/* Legend */}
-          <MapLegend minV={minV} maxV={maxV} dark={dark} />
+          <MapLegend minV={minV} maxV={maxV} dark={dark} isIndiaView={isIndiaView} metric={metric}/>
         </div>
       </div>
 
