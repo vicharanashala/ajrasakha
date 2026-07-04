@@ -84,8 +84,16 @@ export function ClosedInLastTwoHoursCard({
     ((safeCount + passedInLastTwoHours) / (safeTotalClosed + totalPassed)) *
       100 || 0;
   const [closedWithInTwohours, setClosedWithInTowhours] = useState(false);
+  const slaBreached =
+    safeTotalClosed + totalPassed - safeCount - passedInLastTwoHours;
+  const slaBreachedPct =
+    (((safeTotalClosed + totalPassed - safeCount - passedInLastTwoHours) /
+      (safeTotalClosed + totalPassed)) *
+    100) || 0;
+  // const completedWithInTwoHours = (safeCount || 0) + (passedInLastTwoHours || 0)
 
   const [isPassed, setIsPassed] = useState(false);
+  const [slaBreachedQs, setSlaBreachedQs] = useState("");
 
   return (
     <div
@@ -100,7 +108,7 @@ export function ClosedInLastTwoHoursCard({
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-500/40 to-transparent" />
 
       <div className="p-5">
-        {(isLoading || refreshing) ? (
+        {isLoading || refreshing ? (
           <div className="space-y-5">
             <Skeleton className="h-4 w-40" />
             <Skeleton className="h-2 w-full rounded-full" />
@@ -238,33 +246,39 @@ export function ClosedInLastTwoHoursCard({
                 <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted/40">
                   <motion.div
                     initial={{ width: 0 }}
-                    animate={{ width: `${closedWithinTwoHoursPct}%` }}
+                    animate={{ width: `${combinedPct}%` }}
                     transition={{ duration: 0.8, ease: "easeOut" }}
                     className="bg-emerald-500"
                   />
-                  <motion.div
+                  {/* <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${passedPct}%` }}
                     transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
                     className="bg-sky-500"
-                  />
+                  /> */}
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{
-                      width: `${Math.max(100 - closedWithinTwoHoursPct - passedPct, 0)}%`,
+                      width: `${slaBreachedPct}%`,
                     }}
                     transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
                     className="bg-muted-foreground/30"
                   />
                 </div>
                 <div className="flex justify-between text-[10px] text-muted-foreground">
-                  <span>{closedWithinTwoHoursPct.toFixed(1)}% closed</span>
-                  <span>{passedPct.toFixed(1)}% passed</span>
+                  <span className="flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                    {combinedPct.toFixed(1)}% Resolved within SLA
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                    {slaBreachedPct.toFixed(1)}% SLA Breached 
+                  </span>
                 </div>
               </div>
 
               {/* Stats Grid */}
-              <div className="grid grid-cols-3 gap-2.5">
+              <div className="grid grid-cols-4 gap-2.5">
                 <StatTile
                   label="Closed"
                   count={safeCount}
@@ -274,6 +288,7 @@ export function ClosedInLastTwoHoursCard({
                   onClick={() => {
                     setIsPassed(false);
                     setClosedWithInTowhours(true);
+                    setSlaBreachedQs("")
                   }}
                 />
                 <StatTile
@@ -285,6 +300,7 @@ export function ClosedInLastTwoHoursCard({
                   onClick={() => {
                     setIsPassed(true);
                     setClosedWithInTowhours(true);
+                    setSlaBreachedQs("")
                   }}
                 />
                 <StatTile
@@ -294,6 +310,20 @@ export function ClosedInLastTwoHoursCard({
                   decimals={1}
                   accent="emerald"
                   tooltip="Completion rate within 2 hours"
+                />
+                <StatTile
+                  label="sla breached"
+                  count={slaBreached || 0}
+                  of={(safeTotalClosed || 0) + (totalPassed || 0)}
+                  suffix=""
+                  decimals={0}
+                  accent="red"
+                  tooltip="Question resolution took more than 2 hours"
+                  onClick={() => {
+                    setIsPassed(true);
+                    setClosedWithInTowhours(true);
+                    setSlaBreachedQs("slabreached")
+                  }}
                 />
               </div>
 
@@ -344,6 +374,7 @@ export function ClosedInLastTwoHoursCard({
               </div>
             </div>
           </TooltipProvider>
+          
         )}
       </div>
       {closedWithInTwohours && (
@@ -355,6 +386,7 @@ export function ClosedInLastTwoHoursCard({
           startDate={dateRange?.from}
           endDate={dateRange?.to}
           isPassed={isPassed}
+          tag= {slaBreachedQs ? slaBreachedQs : "sla"}
         />
       )}
     </div>
@@ -381,6 +413,11 @@ const ACCENT = {
     dot: "bg-muted-foreground/50",
     ring: "group-hover/tile:ring-muted-foreground/20",
     glow: "group-hover/tile:shadow-muted-foreground/5",
+  },
+  red: {
+    dot: "bg-red-500",
+    ring: "group-hover/tile:ring-red-500/30",
+    glow: "group-hover/tile:shadow-red-500/10",
   },
 } as const;
 

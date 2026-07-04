@@ -286,7 +286,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
                           onViewMore(q._id?.toString() || "");
                         }}
                       >
-                        {q.tag === "dynamic" && (
+                        {(q.tag === "dynamic" || q.auditorReviewType === "dynamic") && (
                           <span className='text-xs text-green-600 mr-1'>(DYNAMIC)</span>
                         )}
                         {truncate(q.question, 50)}
@@ -360,7 +360,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
                           onViewMore(q._id?.toString() || "");
                         }}
                       >
-                        {q.tag === "dynamic" && (
+                        {(q.tag === "dynamic" || q.auditorReviewType === "dynamic") && (
                           <span className='text-xs text-green-600 mr-1'>(DYNAMIC)</span>
                         )}
                         {
@@ -408,8 +408,8 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
           {visibleColumns.crop && (
             <TableCell className="align-middle">
             {truncate(
-              (q.details.normalised_crop || q.details.crop || "")
-                .replace(/\b\w/g, char => char.toUpperCase()),
+              (q.details.normalised_crop || q.details.crop || ""),
+                // .replace(/\b\w/g, char => char.toUpperCase()),
               10
             )}
           </TableCell>

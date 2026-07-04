@@ -31,6 +31,7 @@ import { DetailSidebar } from "./components/DetailSidebar";
 import { useAllStatesandUserData } from "./hooks/useMapAnalytics";
 import { useStateWiseAnalytics } from "../../hooks/useStateQueryData";
 import { useClosedAndNotifedData } from "../../hooks/useActiveUsersAnalytics";
+import { se } from "date-fns/locale";
 
 /* ============================================================
    MAIN COMPONENT
@@ -45,6 +46,12 @@ export default function IndiaAnalyticsMap({
   const [metric, setMetric] = useState<"questions" | "users" | "activeUsers">(
     "questions",
   );
+
+    const [status, setStatus] = useState<string | null>(null);
+
+
+
+  
 
   const dark = useIsDark();
   const { statesGeo, districtsAll, loading } = useGeoJson();
@@ -234,6 +241,23 @@ export default function IndiaAnalyticsMap({
 
   const geoKey = `${level}:${selectedState}:${metric}:${dark}:${minV}-${maxV}:${selectedDistrict}`;
 
+   const isIndiaView = !selectedState && !selectedDistrict;
+
+   const [clickedState, setClickedState] = useState<string | null >(selectedState)
+
+   const [clickedDistrict, setClickedDistrict] = useState<string | null >(selectedDistrict)
+
+     const handleClick = (statusValue?: string) => {
+      if(isIndiaView){
+         setStatus(statusValue);
+      }else if(!selectedDistrict){
+        setClickedState(selectedState);
+      }else{
+        setClickedDistrict(selectedDistrict);
+      }
+      return;
+  };
+
   // Tile layer
   const tileUrl = dark
     ? "https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png"
@@ -324,16 +348,16 @@ export default function IndiaAnalyticsMap({
               </div>
             </div>
           )}
-          <MapContainer
+          {!status && <MapContainer
             center={[22.5, 80]}
             zoom={5}
             minZoom={4.4}
             maxZoom={11}
-              maxBounds={[
-    [5, 65],    // southwest
-    [38, 100],  // northeast
-  ]}
-  maxBoundsViscosity={1.0}
+            maxBounds={[
+              [5, 65], // southwest
+              [38, 100], // northeast
+            ]}
+            maxBoundsViscosity={1.0}
             zoomControl={false}
             style={{ height: "100%", width: "100%", background: "transparent" }}
             scrollWheelZoom
@@ -355,7 +379,7 @@ export default function IndiaAnalyticsMap({
               </>
             )}
             <FlyTo target={flyTarget} />
-          </MapContainer>
+          </MapContainer>}
 
           {/* Legend */}
           <MapLegend minV={minV} maxV={maxV} dark={dark} />
@@ -379,6 +403,14 @@ export default function IndiaAnalyticsMap({
         isLoading={isLoading || isFetching}
         districtAnalytic={districtAnalytics}
         metric={metric}
+        handleClick={handleClick}
+        status={status}
+        setStatus={setStatus}
+        isIndiaView = {isIndiaView}
+        clickedState={clickedState}
+        setClickedState={setClickedState}
+        clickedDistrict={clickedDistrict}
+        setClickedDistrict={setClickedDistrict}
       />
     </div>
   );

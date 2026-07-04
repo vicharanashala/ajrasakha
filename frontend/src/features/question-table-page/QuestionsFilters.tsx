@@ -73,7 +73,7 @@ import {
 import ViewDropdown from "../questions/components/ViewDropdown";
 import DownloadLevelWiseReportButton from "./DownloadLevelWiseReportButton";
 import { CropManagementModal } from "./CropManagementModal";
-import { QueueDetailsModal } from "./QueueDetailsModal";
+import { QueueDetailsModal, GateKeeperAuditorQueueModal } from "./QueueDetailsModal";
 import { ChemicalManagementModal } from "./ChemicalManagementModal";
 import { CropService } from "@/hooks/services/cropService";
 import { AnswerModeSwitcher } from "./AnswerModeSwitcher";
@@ -722,7 +722,11 @@ export const QuestionsFilters = ({
         hasSearch={!!search}
         sourceCounts={statusSummary?.sourceCounts}
         totalSearchCount={search ? statusSummary?.totalQuestions : undefined}
-        showDedicated={userRole === "moderator"}
+        showDedicated={
+          userRole === "moderator" ||
+          userRole === "gate_keeper" ||
+          userRole === "auditor"
+        }
         isDedicatedView={viewMode === "dedicated"}
         onDedicatedClick={() => setViewMode(viewMode === "dedicated" ? "all" : "dedicated")}
       />
@@ -1188,6 +1192,11 @@ export const QuestionsFilters = ({
               {/* queue details — moderators & admins only */}
               {(userRole === "admin" || userRole === "moderator") && (
                 <QueueDetailsModal setIsSidebarOpen={setIsSidebarOpen} />
+              )}
+
+              {/* gate keeper / auditor queue — moderators & admins only */}
+              {(userRole === "admin" || userRole === "moderator") && (
+                <GateKeeperAuditorQueueModal setIsSidebarOpen={setIsSidebarOpen} />
               )}
             </div>
           </section>

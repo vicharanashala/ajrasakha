@@ -367,6 +367,8 @@ export class QuestionRepository implements IQuestionRepository {
         pae_review,
         is_non_agri,
         moderatorId,
+        gateKeeperId,
+        auditorId,
       } = query;
       //  const filter: any = {};
       const filter: any = {
@@ -518,6 +520,26 @@ export class QuestionRepository implements IQuestionRepository {
         // A moderator's assignments span all question types (including PAE questions),
         // so drop the pae_review restriction applied above for the normal tabs —
         // otherwise pae_review:true assignments would be hidden from "My Assignments".
+        delete filter.$or;
+        delete filter.pae_review;
+      }
+
+      // --- Gate keeper "My Assignments" tab: questions assigned to this gate keeper,
+      // restricted to the gate-keeper handling statuses. ---
+      if (gateKeeperId) {
+        if (!filter.$and) filter.$and = [];
+        filter.$and.push({ gateKeeperId: new ObjectId(gateKeeperId as string) });
+        filter.status = { $in: ['dynamic', 'duplicate', 'queue_duplicate'] };
+        delete filter.$or;
+        delete filter.pae_review;
+      }
+
+      // --- Auditor "My Assignments" tab: questions assigned to this auditor,
+      // restricted to the auditor_review status. ---
+      if (auditorId) {
+        if (!filter.$and) filter.$and = [];
+        filter.$and.push({ auditorId: new ObjectId(auditorId as string) });
+        filter.status = { $in: ['auditor_review'] };
         delete filter.$or;
         delete filter.pae_review;
       }
@@ -1522,6 +1544,26 @@ export class QuestionRepository implements IQuestionRepository {
         }),
       );
 
+      const assignedAtByQuestionId = new Map(
+        submissions.map((sub: any) => {
+          const historyCount = sub?.historyCount ?? 0;
+          const assignedAt = historyCount === 0
+            ? sub?.currentExpertAllocatedAt
+            : (sub?.lastHistory?.assignedAt ?? sub?.lastHistory?.createdAt);
+          return [sub?.questionId?.toString(), assignedAt];
+        }),
+      );
+
+      const assignedAtByQuestionId = new Map(
+        submissions.map((sub: any) => {
+          const historyCount = sub?.historyCount ?? 0;
+          const assignedAt = historyCount === 0
+            ? sub?.currentExpertAllocatedAt
+            : (sub?.lastHistory?.assignedAt ?? sub?.lastHistory?.createdAt);
+          return [sub?.questionId?.toString(), assignedAt];
+        }),
+      );
+
       // Author-slot questions (historyCount=0, expert is queue[0]) must appear
       // before reviewer-slot questions in the response, regardless of createdAt.
       // Build the set of author question IDs so we can compute slotOrder in the
@@ -1542,6 +1584,7 @@ export class QuestionRepository implements IQuestionRepository {
         query.includeRerouted === 'true' &&
         (query.review_level === 'all' || query.review_level === 'rerouted');
 
+      const reroutedAssignedAtByQuestionId = new Map();
       let reroutedQuestionIds: ObjectId[] = [];
       if (includeRerouted) {
         const reroutedDocs = await this.ReRouteCollection.find(
@@ -1553,8 +1596,19 @@ export class QuestionRepository implements IQuestionRepository {
               },
             },
           },
-          {projection: {questionId: 1}, session},
+          {projection: {questionId: 1, reroutes: 1}, session},
         ).toArray();
+
+        reroutedDocs.forEach(doc => {
+          if (doc?.questionId) {
+            const pendingReroute = doc.reroutes
+              ?.filter((r: any) => r.reroutedTo?.toString() === userObjectId.toString() && r.status === 'pending')
+              ?.sort((a: any, b: any) => new Date(b.reroutedAt).getTime() - new Date(a.reroutedAt).getTime())[0];
+            if (pendingReroute) {
+              reroutedAssignedAtByQuestionId.set(doc.questionId.toString(), pendingReroute.reroutedAt);
+            }
+          }
+        });
 
         reroutedQuestionIds = reroutedDocs
           .filter(doc => doc?.questionId)
@@ -1707,12 +1761,19 @@ export class QuestionRepository implements IQuestionRepository {
         pipeline,
         {session},
       ).toArray();
-      return results.map((q: any) => ({
-        ...q,
-        review_level_number: reroutedQuestionIdSet.has(q.id)
-          ? 'rerouted'
-          : reviewLevelByQuestionId.get(q.id) ?? 'Author',
-      }));
+      return results.map((q: any) => {
+        const isRerouted = reroutedQuestionIdSet.has(q.id);
+        const assignedAt = isRerouted
+          ? reroutedAssignedAtByQuestionId.get(q.id)
+          : assignedAtByQuestionId.get(q.id);
+        return {
+          ...q,
+          assignedAt: assignedAt ?? null,
+          review_level_number: isRerouted
+            ? 'rerouted'
+            : reviewLevelByQuestionId.get(q.id) ?? 'Author',
+        };
+      });
     } catch (error) {
       throw new InternalServerError(
         `Failed to fetch unanswered questions: ${error}`,
@@ -7319,6 +7380,90 @@ export class QuestionRepository implements IQuestionRepository {
           updatedAt: now,
         },
       },
+    );
+  }
+
+  /** Unassigned questions in the given statuses eligible for role auto-allocation
+   *  (gate keeper / auditor). Returns oldest-first questions whose assignee field is
+   *  null/missing and whose autoAllocate flag is not explicitly false. */
+  async findUnassignedQuestionsForRole(
+    statuses: QuestionStatus[],
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    autoAllocateField: 'autoAllocateGateKeeper' | 'autoAllocateAuditor',
+  ): Promise<IQuestion[]> {
+    await this.init();
+    const filter: Record<string, unknown> = {
+      status: { $in: statuses },
+      // Gate keeper / auditor only handle time-bound (chatbot) questions.
+      source: { $in: ['AJRASAKHA', 'WHATSAPP'] },
+      [assigneeField]: { $in: [null, undefined] },
+      // Only fetch when auto-allocation is explicitly ON — a missing field or `false`
+      // both mean "don't auto-assign".
+      [autoAllocateField]: { $eq: true },
+      isOnHold: { $ne: true },
+    };
+    return this.QuestionCollection.find(filter as any)
+      .sort({ createdAt: 1 })
+      .toArray();
+  }
+
+  /** Questions currently assigned to a given role assignee (gateKeeperId / auditorId),
+   *  restricted to the statuses that role handles. Used to compute per-user busy state. */
+  async findQuestionsAssignedToRole(
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    statuses: QuestionStatus[],
+  ): Promise<IQuestion[]> {
+    await this.init();
+    return this.QuestionCollection.find({
+      [assigneeField]: { $ne: null, $exists: true },
+      status: { $in: statuses },
+      // Gate keeper / auditor only handle time-bound (chatbot) questions.
+      source: { $in: ['AJRASAKHA', 'WHATSAPP'] },
+    } as any)
+      .toArray();
+  }
+
+  /** Sets or clears a role assignee (gateKeeperId / auditorId) and its assignedAt
+   *  timestamp on a question. Resets the matching finishedAt (a new/removed assignment
+   *  starts a fresh turn). */
+  async setRoleAssignee(
+    questionId: string,
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    assignedAtField: 'gateKeeperAssignedAt' | 'auditorAssignedAt',
+    assigneeId: string | null,
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    const now = new Date();
+    const finishedAtField =
+      assigneeField === 'gateKeeperId'
+        ? 'gateKeeperFinishedAt'
+        : 'auditorFinishedAt';
+    await this.QuestionCollection.updateOne(
+      { _id: new ObjectId(questionId) },
+      {
+        $set: {
+          [assigneeField]: assigneeId ? new ObjectId(assigneeId) : null,
+          [assignedAtField]: assigneeId ? now : null,
+          [finishedAtField]: null,
+          updatedAt: now,
+        },
+      },
+      { session },
+    );
+  }
+
+  /** Stamps the finished-at time for a role assignee (gate keeper / auditor) when they
+   *  act on the question. The assignee id is intentionally kept for history. */
+  async markRoleFinished(
+    questionId: string,
+    finishedAtField: 'gateKeeperFinishedAt' | 'auditorFinishedAt',
+    finishedAt: Date,
+  ): Promise<void> {
+    await this.init();
+    await this.QuestionCollection.updateOne(
+      { _id: new ObjectId(questionId) },
+      { $set: { [finishedAtField]: finishedAt, updatedAt: new Date() } },
     );
   }
   /** One page (skip/limit) + exact total for a Queue-Details question section.

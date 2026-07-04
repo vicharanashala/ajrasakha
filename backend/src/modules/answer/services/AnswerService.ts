@@ -1752,7 +1752,7 @@ export class AnswerService extends BaseService implements IAnswerService {
     userId: string,
     updates: UpdateAnswerBody,
   ): Promise<{ modifiedCount: number } | { insertedId: string }> {
-    return this._withTransaction(async (session: ClientSession) => {
+    const approveResult = await this._withTransaction(async (session: ClientSession) => {
       let questionId = updates.questionId;
       if (!questionId && updates.answerId) {
         const answer = await this.answerRepo.getById(updates.answerId, session);
@@ -2063,19 +2063,22 @@ answer: ${updates.answer}`;
         sources: updates.sources ?? [],
       };
 
-      // ── Propagate the close to queue-duplicate children ───────────────────────
-      // Any question that was matched to this one in the GDB pending-duplicate queue
-      // (referenceQuestionId === this question, status 'queue_duplicate') is closed too:
-      // the same final answer is replicated onto it and it's stamped closedBy 'System'.
+      // ── Propagate the close to confirmed-duplicate children ───────────────────
+      // Any question a gate keeper has confirmed as a duplicate of this one
+      // (referenceQuestionId === this question, status 'duplicate_confirmed') is closed
+      // too: the same final answer is replicated onto it and it's stamped closedBy
+      // 'System'. Unconfirmed 'queue_duplicate' children are left in the gate-keeper
+      // queue until a gate keeper acts on them.
       try {
         const childQuestions = await this.questionRepo.findByReferenceQuestionId(
           questionId,
-          'queue_duplicate',
+          'duplicate_confirmed',
           session,
         );
         for (const child of childQuestions) {
           const childId = child._id!.toString();
-          // Replicate the parent's final answer onto the child.
+          // Replicate the parent's final answer onto the child. The same actor is
+          // recorded as both author and approver (the question is system-closed).
           await this.answerRepo.addAnswer(
             childId,
             userId,
@@ -2087,6 +2090,8 @@ answer: ${updates.answer}`;
             session,
             'approved',
             'Answer replicated from the parent question on close',
+            undefined, // type
+            userId, // approvedBy — same id as author
           );
           // Close the child question, marking it system-closed.
           await this.questionRepo.updateQuestion(
@@ -2136,6 +2141,131 @@ answer: ${updates.answer}`;
 
       return result;
     });
+
+    // After commit: the question is now closed — free the auditor (and any gate
+    // keeper) assigned to it so the role queue cron can give them another.
+    if (updates.questionId) {
+      await this.questionService.freeRoleAssigneeOnStatusChange(updates.questionId);
+    }
+    return approveResult;
+  }
+
+  /**
+   * Gate keeper confirms a queue-duplicate question is a genuine duplicate of its
+   * reference question.
+   *
+   *  - If the reference question is already closed, the reference's final answer is
+   *    replicated onto this question, the question is system-closed and the customer
+   *    webhook is fired immediately (same behaviour as approveAnswer's child close).
+   *  - Otherwise the question is moved to `duplicate_confirmed` and waits for the
+   *    reference question to close, at which point approveAnswer propagates the
+   *    answer to it (findByReferenceQuestionId(..., 'duplicate_confirmed')).
+   *
+   * Either way the gate keeper is freed (assignedQuestionIds) once the status leaves
+   * the gate-keeper handling statuses.
+   */
+  async confirmDuplicate(
+    userId: string,
+    questionId: string,
+  ): Promise<{ status: QuestionStatus; closed: boolean }> {
+    const result = await this._withTransaction(
+      async (session: ClientSession) => {
+        const question = await this.questionRepo.getById(questionId);
+        if (!question) {
+          throw new NotFoundError(`Question with ID ${questionId} not found`);
+        }
+        if (question.status !== 'queue_duplicate') {
+          throw new BadRequestError(
+            `Only queue-duplicate questions can be confirmed (current status: ${question.status}).`,
+          );
+        }
+        const referenceId = (question as any).referenceQuestionId?.toString();
+        if (!referenceId) {
+          throw new BadRequestError(
+            'This duplicate question has no reference question.',
+          );
+        }
+        const reference = await this.questionRepo.getById(referenceId);
+        if (!reference) {
+          throw new BadRequestError('Reference question not found.');
+        }
+
+        const referenceClosed =
+          reference.status === 'closed' ||
+          reference.status === 'dynamic_closed';
+
+        // CASE A — reference already closed: replicate its final answer onto this
+        // question, system-close it and notify the customer.
+        if (referenceClosed) {
+          const [refAnswer] =
+            await this.answerRepo.getFinalAnswersByQuestionIds(
+              [referenceId],
+              session,
+            );
+          if (!refAnswer) {
+            throw new BadRequestError(
+              'Reference question is closed but has no final answer to replicate.',
+            );
+          }
+          const answerText = refAnswer.answer ?? '';
+          const sources = refAnswer.sources ?? [];
+          const embedding = refAnswer.embedding ?? [];
+
+          await this.answerRepo.addAnswer(
+            questionId,
+            userId,
+            answerText,
+            sources,
+            embedding,
+            true, // isFinalAnswer
+            1, // answerIteration
+            session,
+            'approved',
+            'Answer replicated from the reference question on duplicate confirm',
+            undefined, // type
+            userId, // approvedBy — same id as author (system close)
+          );
+
+          await this.questionRepo.updateQuestion(
+            questionId,
+            { status: 'closed', closedAt: new Date(), closedBy: 'System' },
+            session,
+          );
+
+          const author = await this.userRepo.findById(userId, session);
+          const authorName =
+            `${author?.firstName ?? ''} ${author?.lastName ?? ''}`.trim() ||
+            'Expert';
+
+          await this.notifyCustomerOnClose(
+            question,
+            answerText,
+            sources,
+            authorName,
+            session,
+          );
+
+          return { status: 'closed' as QuestionStatus, closed: true };
+        }
+
+        // CASE B — reference still open: mark this question duplicate_confirmed so
+        // the parent's later close propagates the answer to it (see approveAnswer).
+        await this.questionRepo.updateQuestion(
+          questionId,
+          { status: 'duplicate_confirmed' },
+          session,
+        );
+        return {
+          status: 'duplicate_confirmed' as QuestionStatus,
+          closed: false,
+        };
+      },
+    );
+
+    // The status has left the gate-keeper handling statuses — free the gate keeper
+    // holding this question so the role queue cron can hand them another.
+    await this.questionService.freeRoleAssigneeOnStatusChange(questionId);
+    return result;
   }
 
   /**
@@ -2217,7 +2347,7 @@ answer: ${updates.answer}`;
     userId: string,
     updates: UpdateAnswerBody,
   ): Promise<{ modifiedCount: number }> {
-    return this._withTransaction(async (session: ClientSession) => {
+    const llmResult = await this._withTransaction(async (session: ClientSession) => {
       const isAjrasakha = updates.source === 'AJRASAKHA';
       const isWhatsApp = updates.source === 'WHATSAPP';
 
@@ -2397,6 +2527,13 @@ answer: ${updates.answer}`;
 
       return { modifiedCount: 1 };
     });
+
+    // "Allocate Experts" moved the question to `open` — free the gate keeper who was
+    // assigned to it so the role queue cron can hand them another.
+    if (updates.questionId) {
+      await this.questionService.freeRoleAssigneeOnStatusChange(updates.questionId);
+    }
+    return llmResult;
   }
 
   async deleteAnswer(

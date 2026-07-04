@@ -1,6 +1,7 @@
 import { IUserRepository } from '#shared/database/interfaces/IUserRepository.js';
 import {
   IUser,
+  UserRole,
   NotificationRetentionType,
   IAnswer,
   ICropRef,
@@ -794,12 +795,12 @@ export class UserRepository implements IUserRepository {
     // Funnel diagnostic: total unblocked expert docs → eligible after email dedup.
     // Shows how many real experts are dropped (and their ids) so we can tell whether
     // a "missing" available expert is being collapsed away by the dedup.
-   /* console.log(
-      `[findExpertsByReputationScore] unblockedExpertDocs=${allUsersRaw.length}, ` +
-      `eligibleAfterDedup=${allUsers.length}, droppedByEmailDedup=${droppedByDedup.length}, ` +
-      `noEmail=${noEmail.length}`,
-      JSON.stringify({ droppedByDedup, noEmail }),
-    );*/
+    /* console.log(
+       `[findExpertsByReputationScore] unblockedExpertDocs=${allUsersRaw.length}, ` +
+       `eligibleAfterDedup=${allUsers.length}, droppedByEmailDedup=${droppedByDedup.length}, ` +
+       `noEmail=${noEmail.length}`,
+       JSON.stringify({ droppedByDedup, noEmail }),
+     );*/
 
     return allUsers;
   }
@@ -910,6 +911,25 @@ export class UserRepository implements IUserRepository {
     );
   }
 
+  /** Users of a given role who can take a new question — not blocked and currently
+   *  holding no assigned question (one question at a time). Used by the gate-keeper /
+   *  auditor queue cron to find a free assignee. */
+  async findAvailableUsersByRole(role: UserRole): Promise<IUser[]> {
+    await this.init();
+    return this.usersCollection
+      .find({
+        role,
+        isBlocked: { $ne: true },
+        // Empty / missing assigned-questions array = free.
+        $or: [
+          { assignedQuestionIds: { $exists: false } },
+          { assignedQuestionIds: null },
+          { assignedQuestionIds: { $size: 0 } },
+        ],
+      })
+      .toArray();
+  }
+
   /** Appends a question (with its current status) to a moderator's assigned-questions
    *  array. Pulls any stale entry for the same question first so the questionId is never
    *  duplicated and the stored status is fresh. The cron passes 'in-review'; manual
@@ -919,6 +939,7 @@ export class UserRepository implements IUserRepository {
     questionId: string,
     status: QuestionStatus,
     source?: QuestionSource,
+    session?: ClientSession,
   ): Promise<void> {
     await this.init();
     const qid = new ObjectId(questionId);
@@ -928,6 +949,7 @@ export class UserRepository implements IUserRepository {
         $pull: { assignedQuestionIds: { questionId: qid } },
         $set: { updatedAt: new Date() },
       },
+      { session },
     );
     await this.usersCollection.updateOne(
       { _id: new ObjectId(moderatorId) },
@@ -935,6 +957,7 @@ export class UserRepository implements IUserRepository {
         $push: { assignedQuestionIds: { questionId: qid, status, source } },
         $set: { updatedAt: new Date() },
       },
+      { session },
     );
   }
 
@@ -1701,11 +1724,11 @@ export class UserRepository implements IUserRepository {
   ): Promise<IUser> {
     try {
       await this.init();
-      
+
       // When setting as call agent, change role from expert to call_agent
       // When removing call agent, change role from call_agent back to expert
       const newRole = isCallAgent ? ('call_agent' as any) : 'expert';
-      
+
       const result = await this.usersCollection.findOneAndUpdate(
         { _id: new ObjectId(userId) },
         {
@@ -1769,6 +1792,52 @@ export class UserRepository implements IUserRepository {
       } as IUser;
     } catch (error) {
       throw new InternalServerError('Failed to toggle call agent active status');
+    }
+  }
+
+  async findAndMarkAvailableAgent(
+    callUuid: string,
+    session?: ClientSession,
+  ): Promise<IUser | null> {
+    try {
+      await this.init();
+      // Atomically find and update an available agent
+      // Query: active, not busy, has agent number assigned
+      // Sort by agent number (smallest first)
+      // Update: mark as busy and set currentCallUuid
+      const result = await this.usersCollection.findOneAndUpdate(
+        {
+          role: 'call_agent' as any,
+          isCallAgentActive: true,
+          isBusy: false,
+          agent: { $exists: true, $ne: 'not_available' },
+        },
+        {
+          $set: {
+            isBusy: true,
+            currentCallUuid: callUuid,
+            updatedAt: new Date(),
+          },
+        },
+        {
+          returnDocument: 'after',
+          session,
+          sort: { agent: 1 }, // Sort by agent number to get smallest first
+        },
+      );
+
+      if (!result) {
+        return null;
+      }
+
+      const plainResult = JSON.parse(JSON.stringify(result));
+      return {
+        ...plainResult,
+        _id: result._id.toString(),
+      } as IUser;
+    } catch (error) {
+      console.error('findAndMarkAvailableAgent - error:', error);
+      throw new InternalServerError('Failed to find and mark available agent');
     }
   }
 }

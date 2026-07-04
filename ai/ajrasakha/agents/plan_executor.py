@@ -37,6 +37,7 @@ ENABLE_CHEMICAL_CHECKER = False
 
 _SIMILAR_PAIR_KEYS = tuple(f"similar_pair{i}" for i in range(1, 6))
 _GDB_EMPTY_SENTINELS = frozenset({"NO_RELEVANT_CONTENT", "[]", "{}"})
+_WEATHER_TOOL_NAMES = frozenset({"weather", "weather_server", "weather_weather_server"})
 
 
 def _compute_tools_used(plan: PlannerPlan) -> list[str]:
@@ -137,8 +138,12 @@ def compute_actual_tools_used(messages: list[BaseMessage]) -> list[str]:
             # Only count knowledge_base if GDB has usable answer (is_exact or is_similar)
             if _gdb_has_usable_answer(msg) and "knowledge_base" not in tools:
                 tools.append("knowledge_base")
-        elif name in {"weather", "weather_server", "weather_weather_server"}:
-            if _is_useful_tool_response(msg) and "weather" not in tools:
+        elif name in _WEATHER_TOOL_NAMES:
+            if (
+                _is_useful_tool_response(msg)
+                and not _weather_tool_message_unavailable(msg)
+                and "weather" not in tools
+            ):
                 tools.append("weather")
         elif name in {"market", "agmarknet", "enam", "market_agmarknet_server", "market_enam_server"}:
             if _is_useful_tool_response(msg) and "mandi" not in tools:
@@ -186,6 +191,50 @@ def _message_to_text(message: BaseMessage) -> str:
                     parts.append(text)
         return " ".join(parts).strip()
     return str(content).strip()
+
+
+def _weather_tool_message_unavailable(message: ToolMessage) -> bool:
+    """Return whether one weather tool result explicitly has no usable data.
+
+    The current weather tool returns an empty string for API/geocoding failures,
+    while deployed or older versions may preserve a JSON ``success=false``
+    envelope. Support both representations so routing is deterministic.
+    """
+    text = _message_to_text(message)
+    if not text:
+        return True
+
+    try:
+        payload = json.loads(text)
+    except (json.JSONDecodeError, TypeError):
+        return False
+
+    if not isinstance(payload, dict):
+        return False
+    if payload.get("success") is False:
+        return True
+
+    result = payload.get("result")
+    return isinstance(result, dict) and result.get("success") is False
+
+
+def turn_has_unavailable_weather(messages: list[BaseMessage]) -> bool:
+    """Check weather results from the current farmer turn only."""
+    last_human_idx = -1
+    for i in range(len(messages) - 1, -1, -1):
+        if isinstance(messages[i], HumanMessage):
+            last_human_idx = i
+            break
+    if last_human_idx < 0:
+        return False
+
+    for msg in messages[last_human_idx + 1:]:
+        if not isinstance(msg, ToolMessage):
+            continue
+        name = getattr(msg, "name", None) or ""
+        if name in _WEATHER_TOOL_NAMES and _weather_tool_message_unavailable(msg):
+            return True
+    return False
 
 
 def _last_human_text(messages: list[BaseMessage]) -> str:
@@ -1228,6 +1277,8 @@ def _turn_has_specialist_tool_message(messages: list[BaseMessage]) -> bool:
         msg = messages[i]
         if isinstance(msg, ToolMessage):
             name = getattr(msg, "name", None) or ""
+            if name in _WEATHER_TOOL_NAMES and _weather_tool_message_unavailable(msg):
+                continue
             if name in _SPECIALIST_TOOL_NAMES and _message_to_text(msg):
                 return True
     return False
@@ -1246,11 +1297,13 @@ def should_expert_queue_reply(state: AjraSakhaState) -> bool:
 
 def route_after_execute(state: AjraSakhaState) -> str:
     plan = state.get("plan") or {}
+    messages = state.get("messages") or []
+    if plan.get("weather") and turn_has_unavailable_weather(messages):
+        return "weather_unavailable_reply"
     if plan.get("skip_synthesize"):
         return "translate_answer"
     if plan.get("is_greeting") or plan.get("reasoning") == "greeting":
         return "assemble_answer_body"
-    messages = state.get("messages") or []
     if _gdb_has_usable_data(messages) and _turn_has_specialist_tool_message(messages):
         return "empty_gdb_reply"
     if should_expert_queue_reply(state):

@@ -98,18 +98,11 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
     );
   }, [stfModerators, searchTerm]);
 
-  // Moderators/admins manage this section; gate keepers and auditors see it as
-  // read-only (the moderator queue is visible to them, but the management controls —
-  // auto-allocate toggle, Select Moderator, Remove Moderator — are hidden).
+  // The moderator queue is visible to everyone (including experts) as read-only;
+  // only moderators/admins get the management controls (auto-allocate toggle,
+  // Select Moderator, Remove Moderator).
   const canManageModerator =
     currentUser.role === "moderator" || currentUser.role === "admin";
-  const canViewModeratorQueue =
-    canManageModerator ||
-    currentUser.role === "gate_keeper" ||
-    currentUser.role === "auditor";
-  if (!canViewModeratorQueue) {
-    return null;
-  }
 
   // Dynamic / duplicate questions and anything in auditor review go through the
   // Gate Keeper → Auditor flow, not normal moderator allocation — hide all
@@ -209,10 +202,10 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
           {/* RIGHT SECTION — Auto-allocate toggle + Select moderator. */}
           <div className="flex flex-wrap items-center gap-3">
             {/* Auto Allocate toggle — controls whether the moderator-queue cron may
-                auto-assign this question to a moderator. Styled to match the
-                "Auto-allocate Experts" block in the Allocation Queue header.
-                Hidden for queue-duplicate questions until their status changes. */}
-            {showModeratorControls && !isQueueDuplicate && (
+                auto-assign this question to a moderator. Shown to moderators/admins
+                regardless of status (so they can turn allocation on/off ahead of time);
+                hidden only for queue-duplicate questions. */}
+            {canManageModerator && !isQueueDuplicate && (
             <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
               <Switch
                 id="auto-allocate-moderator"
@@ -266,10 +259,9 @@ export const ModeratorQueue = ({ question, currentUser }: ModeratorQueueProps) =
               </Button>
             )}
 
-            {/* When the management controls are hidden (gate keeper / auditor, or
-                dynamic / duplicate / auditor-review questions) just show a read-only
-                field indicating whether moderator auto-allocation is on or off. */}
-            {!showModeratorControls && (
+            {/* Non-managers (gate keeper / auditor) get a read-only field indicating
+                whether moderator auto-allocation is on or off. */}
+            {!canManageModerator && (
               <div className="flex items-center gap-2 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
                 <span
                   className={`h-2.5 w-2.5 rounded-full ${

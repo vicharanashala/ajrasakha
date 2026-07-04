@@ -11,6 +11,33 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
+# India's 22 scheduled languages + English (23 total)
+OFFICIAL_LANGUAGES = [
+    "Assamese",
+    "Bengali",
+    "Bodo",
+    "Dogri",
+    "English",
+    "Gujarati",
+    "Hindi",
+    "Kannada",
+    "Kashmiri",
+    "Konkani",
+    "Maithili",
+    "Malayalam",
+    "Marathi",
+    "Nepali",
+    "Odia",
+    "Punjabi",
+    "Sanskrit",
+    "Sindhi",
+    "Tamil",
+    "Telugu",
+    "Urdu",
+    "Manipuri (Meitei)",
+    "Santali",
+]
+
 # 12 native Indian script Unicode ranges
 _DEVANAGARI = re.compile(r"[\u0900-\u097F]")
 _BENGALI_ASSAMESE = re.compile(r"[\u0980-\u09FF]")
@@ -206,13 +233,33 @@ def _llm_detect_language(text: str) -> str:
         llm = ChatAnthropic(model=SANITIZER_MODEL)
         
         prompt = (
-            "Analyze the following text from an Indian farmer and identify the underlying spoken language. "
-            "Even if the text is written in English/Latin alphabets, identify the spoken language (e.g., if the text is "
-            "'Mera sawal gehu ke baare me hai', the underlying language is Hindi, not English).\n\n"
-            "Spoken languages include: English, Hindi, Punjabi, Bengali, Assamese, Gujarati, Odia, Tamil, Telugu, Kannada, Malayalam, Urdu, Kashmiri, Sindhi, Santali, Manipuri.\n\n"
-            "Return ONLY the language name as a single word (e.g., 'Hindi', 'English', 'Punjabi', 'Tamil'). Do not include any other text, reasoning, or punctuation.\n\n"
-            "Focus more on hepling verbs, prepositions, conjuctions, tenses, articles to decide the vocol language"
-            "**Strictly** Never take vocal language based on state name, distict name, crop name, mentioned in question."
+            "Analyze the following text from an Indian farmer and identify the underlying spoken language.\n\n"
+            "Examples:\n"
+            "- 'What weather-related risks should I watch for over the next 7 days?' → English\n"
+            "- 'Mera sawal gehu ke baare me hai' → Hindi\n\n"
+            "Hinglish/Hindi markers to look for (indicates Hindi, not English):\n"
+            "- Hindi postpositions: me, ke liye, se, ko, par\n"
+            "- Hindi verb forms: hai, hain, sakta hai, karna\n"
+            "- Hindi conjunctions: aur, ya, lekin, ki\n"
+            "- Hindi pronouns: mera, aap, hum, unka\n"
+            "- Hindi question words: kya, kahan, kab, kaise\n"
+            "- Hindi articles: ek\n\n"
+            "CRITICAL RULE:\n"
+            "- If the text uses standard English words, English prepositions (in, for, to, with, over, next), "
+            "English verb forms (is, are, can, should, will, watch), and English grammar → classify as ENGLISH\n"
+            "- If the text contains ANY of the Hindi markers above → classify as the underlying Indian language\n"
+            "- NEVER classify as Hindi just because the text mentions Indian place names (Villupuram, Tamil Nadu), "
+            "crop names (paddy, wheat), or state names — UNLESS the crop name itself is in Hindi (gehu, chawal, kanak)\n\n"
+            "CROP NAME RULE (apply ONLY if text is exactly a crop name, nothing else):\n"
+            "- English crop names: paddy, wheat, rice, maize, cotton, sugarcane, soybean, groundnut, potato, onion, tomato → English\n"
+            "- Hindi crop names: gehu, chawal, makka, ganne, aloo, pyaz, tamatar, kanak → Hindi\n"
+            "- For crop names in other Indian languages, use your judgment based on the word\n\n"
+            "LOCATION-ONLY RULE (apply ONLY if text is exactly a place name, nothing else):\n"
+            "- If text is only a state/district name in Latin script (Uttar Pradesh, Tamil Nadu, Villupuram, etc.) → English\n"
+            "- If text is only a state/district name in Devanagari script (उत्तर प्रदेश, महाराष्ट्र, etc.) → Hindi\n"
+            "- If text is only a state/district name in other native scripts → the corresponding language\n\n"
+            f"Return language from this EXACT list only:\n{', '.join(OFFICIAL_LANGUAGES)}.\n\n"
+            "Return ONLY the language name. Do not include any other text, reasoning, or punctuation.\n\n"
             f"Text: {t}\n"
             "Language:"
         )
@@ -220,21 +267,12 @@ def _llm_detect_language(text: str) -> str:
         response = llm.invoke(prompt)
         lang = str(response.content).strip()
         
-        known_languages = [
-            "Hindi", "English", "Punjabi", "Bengali", "Assamese", "Gujarati", 
-            "Odia", "Tamil", "Telugu", "Kannada", "Malayalam", "Urdu", 
-            "Kashmiri", "Sindhi", "Santali", "Manipuri"
-        ]
-        
-        # Check if any known language name is contained as a standalone word
-        for l in known_languages:
-            if re.search(rf"\b{l}\b", lang, re.IGNORECASE):
+        # Validate against OFFICIAL_LANGUAGES
+        for l in OFFICIAL_LANGUAGES:
+            if re.search(rf"\b{re.escape(l)}\b", lang, re.IGNORECASE):
                 return l
-                
-        # Clean up any non-alphabetic characters as a fallback
-        lang_title = lang.title()
-        cleaned = re.sub(r'[^a-zA-Z-]', '', lang_title)
-        return cleaned if cleaned else "English"
+        
+        return "English"
     except Exception as e:
         logger.warning("LLM language detection failed with exception: %s", e, exc_info=True)
         return "English"
@@ -251,11 +289,33 @@ async def _allm_detect_language(text: str) -> str:
         llm = ChatAnthropic(model=SANITIZER_MODEL)
         
         prompt = (
-            "Analyze the following text from an Indian farmer and identify the underlying spoken language. "
-            "Even if the text is written in English/Latin alphabets, identify the spoken language (e.g., if the text is "
-            "'Mera sawal gehu ke baare me hai', the underlying language is Hindi, not English).\n\n"
-            "Spoken languages include: English, Hindi, Punjabi, Bengali, Assamese, Gujarati, Odia, Tamil, Telugu, Kannada, Malayalam, Urdu, Kashmiri, Sindhi, Santali, Manipuri.\n\n"
-            "Return ONLY the language name as a single word (e.g., 'Hindi', 'English', 'Punjabi', 'Tamil'). Do not include any other text, reasoning, or punctuation.\n\n"
+            "Analyze the following text from an Indian farmer and identify the underlying spoken language.\n\n"
+            "Examples:\n"
+            "- 'What weather-related risks should I watch for over the next 7 days?' → English\n"
+            "- 'Mera sawal gehu ke baare me hai' → Hindi\n\n"
+            "Hinglish/Hindi markers to look for (indicates Hindi, not English):\n"
+            "- Hindi postpositions: me, ke liye, se, ko, par\n"
+            "- Hindi verb forms: hai, hain, sakta hai, karna\n"
+            "- Hindi conjunctions: aur, ya, lekin, ki\n"
+            "- Hindi pronouns: mera, aap, hum, unka\n"
+            "- Hindi question words: kya, kahan, kab, kaise\n"
+            "- Hindi articles: ek\n\n"
+            "CRITICAL RULE:\n"
+            "- If the text uses standard English words, English prepositions (in, for, to, with, over, next), "
+            "English verb forms (is, are, can, should, will, watch), and English grammar → classify as ENGLISH\n"
+            "- If the text contains ANY of the Hindi markers above → classify as the underlying Indian language\n"
+            "- NEVER classify as Hindi just because the text mentions Indian place names (Villupuram, Tamil Nadu), "
+            "crop names (paddy, wheat), or state names — UNLESS the crop name itself is in Hindi (gehu, chawal, kanak)\n\n"
+            "CROP NAME RULE (apply ONLY if text is exactly a crop name, nothing else):\n"
+            "- English crop names: paddy, wheat, rice, maize, cotton, sugarcane, soybean, groundnut, potato, onion, tomato → English\n"
+            "- Hindi crop names: gehu, chawal, makka, ganne, aloo, pyaz, tamatar, kanak → Hindi\n"
+            "- For crop names in other Indian languages, use your judgment based on the word\n\n"
+            "LOCATION-ONLY RULE (apply ONLY if text is exactly a place name, nothing else):\n"
+            "- If text is only a state/district name in Latin script (Uttar Pradesh, Tamil Nadu, Villupuram, etc.) → English\n"
+            "- If text is only a state/district name in Devanagari script (उत्तर प्रदेश, महाराष्ट्र, etc.) → Hindi\n"
+            "- If text is only a state/district name in other native scripts → the corresponding language\n\n"
+            f"Return language from this EXACT list only:\n{', '.join(OFFICIAL_LANGUAGES)}.\n\n"
+            "Return ONLY the language name. Do not include any other text, reasoning, or punctuation.\n\n"
             f"Text: {t}\n"
             "Language:"
         )
@@ -263,21 +323,12 @@ async def _allm_detect_language(text: str) -> str:
         response = await llm.ainvoke(prompt)
         lang = str(response.content).strip()
         
-        known_languages = [
-            "Hindi", "English", "Punjabi", "Bengali", "Assamese", "Gujarati", 
-            "Odia", "Tamil", "Telugu", "Kannada", "Malayalam", "Urdu", 
-            "Kashmiri", "Sindhi", "Santali", "Manipuri"
-        ]
-        
-        # Check if any known language name is contained as a standalone word
-        for l in known_languages:
-            if re.search(rf"\b{l}\b", lang, re.IGNORECASE):
+        # Validate against OFFICIAL_LANGUAGES
+        for l in OFFICIAL_LANGUAGES:
+            if re.search(rf"\b{re.escape(l)}\b", lang, re.IGNORECASE):
                 return l
-                
-        # Clean up any non-alphabetic characters as a fallback
-        lang_title = lang.title()
-        cleaned = re.sub(r'[^a-zA-Z-]', '', lang_title)
-        return cleaned if cleaned else "English"
+        
+        return "English"
     except Exception as e:
         logger.warning("Async LLM language detection failed with exception: %s", e, exc_info=True)
         return "English"
@@ -453,7 +504,7 @@ def get_localized_warning_text(
     script_language: Optional[str] = None,
     vocal_language: Optional[str] = None,
 ) -> str:
-    """Return exact testing disclaimer from translated_languages.xlsx."""
+    """Return exact testing disclaimer from the translation catalog."""
     from ajrasakha.agents.translation_catalog import get_testing_disclaimer
 
     if script_language is not None and vocal_language is not None:
@@ -468,7 +519,7 @@ def get_localized_empty_reply_body(
     script_language: Optional[str] = None,
     vocal_language: Optional[str] = None,
 ) -> str:
-    """Return exact 2-hour expert-queue text from translated_languages.xlsx."""
+    """Return exact 2-hour expert-queue text from the translation catalog."""
     from ajrasakha.agents.translation_catalog import get_two_hour_disclaimer
 
     if script_language is not None and vocal_language is not None:

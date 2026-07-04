@@ -12,6 +12,7 @@ import { useHoldQuestion } from "@/hooks/api/question/useHoldQuestion";
 import { useManualCheckDuplicate } from "@/hooks/api/question/useManualCheckDuplicate";
 import { toast } from "sonner";
 import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
+import { useConfirmDuplicate } from "@/hooks/api/answer/useConfirmDuplicate";
 import { Textarea } from "@/components/atoms/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/atoms/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/atoms/dialog";
@@ -86,9 +87,43 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
   const originalQuestion = question.originalQuestion?.trim();
   const { view, setView } = useSelectedQuestion();
 
-  // ─── Cancel Duplicate (gate keeper only) ───────────────────────────────────
+  // "Closed by" label. For system-closed questions (e.g. queue-duplicate children
+  // auto-closed when their parent closed) show the acting moderator's name with a
+  // "(System)" suffix, since the close was performed by the system on their behalf.
+  const closedByName = question.approved_moderator?.name || "Unknown";
+  const closedByLabel =
+    question.closedBy === "System" ? `${closedByName} (System)` : closedByName;
+
+  // ─── Cancel / Confirm Duplicate (assigned gate keeper only) ────────────────
+  // Both actions are only offered to the gate keeper this question is currently
+  // assigned to (server-computed to avoid ObjectId serialization mismatches).
+  const isAssignedGateKeeper = Boolean(question.isAssignedGateKeeper);
   const isDuplicateCancelled = Boolean(question.isDuplicateCancelled);
   const [cancelDuplicateOpen, setCancelDuplicateOpen] = useState(false);
+  const [confirmDuplicateOpen, setConfirmDuplicateOpen] = useState(false);
+  const { mutateAsync: confirmDuplicate, isPending: isConfirmingDuplicate } =
+    useConfirmDuplicate();
+
+  const handleConfirmDuplicate = async () => {
+    let toastId;
+    try {
+      toastId = toast.loading("Confirming duplicate...");
+      const res = await confirmDuplicate(question._id!);
+      toast.dismiss(toastId);
+      toast.success(
+        res?.closed
+          ? "Duplicate confirmed. The reference question is already closed, so this question was closed and the user will be notified."
+          : "Duplicate confirmed. This question will close automatically once the reference question is closed."
+      );
+      setConfirmDuplicateOpen(false);
+      goBack();
+    } catch (error) {
+      console.error(error);
+      toast.dismiss(toastId);
+      toast.error("Failed to confirm duplicate");
+    }
+  };
+
   const [cancelReason, setCancelReason] = useState("");
   // null = not chosen yet; the moderator must confirm whether to turn auto-allocation on.
   const [autoAllocate, setAutoAllocate] = useState<boolean | null>(null);
@@ -285,15 +320,25 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                 Show Reference
               </Button>
             )}
-            {isDuplicate && currentUser.role === "gate_keeper" && !isDuplicateCancelled && (question.status === "queue_duplicate") && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setCancelDuplicateOpen(true)}
-                className="border-amber-400/30 text-amber-600 hover:bg-amber-400/10 hover:text-amber-600"
-              >
-                Cancel Duplicate
-              </Button>
+            {isDuplicate && currentUser.role === "gate_keeper" && isAssignedGateKeeper && !isDuplicateCancelled && (question.status === "queue_duplicate") && (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setConfirmDuplicateOpen(true)}
+                  className="border-green-500/30 text-green-700 hover:bg-green-500/10 hover:text-green-700"
+                >
+                  Confirm Duplicate
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setCancelDuplicateOpen(true)}
+                  className="border-amber-400/30 text-amber-600 hover:bg-amber-400/10 hover:text-amber-600"
+                >
+                  Cancel Duplicate
+                </Button>
+              </>
             )}
             {isDuplicateCancelled && (
               <div className="flex items-center gap-1.5">
@@ -393,7 +438,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                 <span>
                   Closed by{" "}
                   <span className="font-medium text-foreground">
-                    {question.approved_moderator?.name || "Unknown"}
+                    {closedByLabel}
                   </span>
                 </span>
 
@@ -447,7 +492,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                         <span>
                           Closed by{" "}
                           <span className="font-medium text-foreground">
-                            {question.approved_moderator?.name || "Unknown"}
+                            {closedByLabel}
                           </span>
                         </span>
                         <span>•</span>
@@ -530,6 +575,41 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
               disabled={isCancellingDuplicate || !cancelReason.trim() || autoAllocate === null}
             >
               {isCancellingDuplicate ? "Cancelling..." : "Confirm"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={confirmDuplicateOpen}
+        onOpenChange={setConfirmDuplicateOpen}
+      >
+        <DialogContent className="!max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm Duplicate</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This confirms the question is a genuine duplicate of its reference
+            question. If the reference question is already closed, this question
+            will be closed now with the reference's answer and the user will be
+            notified. Otherwise it will move to <b>duplicate confirmed</b> and
+            close automatically when the reference question is closed.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirmDuplicateOpen(false)}
+              disabled={isConfirmingDuplicate}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="bg-green-600 hover:bg-green-700 text-white"
+              onClick={handleConfirmDuplicate}
+              disabled={isConfirmingDuplicate}
+            >
+              {isConfirmingDuplicate ? "Confirming..." : "Confirm Duplicate"}
             </Button>
           </div>
         </DialogContent>

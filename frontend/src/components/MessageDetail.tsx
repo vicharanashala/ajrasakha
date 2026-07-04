@@ -607,18 +607,32 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
     const role = currentUser?.role;
     const isGateKeeper = role === "gate_keeper";
     const isAuditor = role === "auditor";
+    // Only the gate keeper / auditor the question is currently assigned to (by the
+    // role-queue cron or a manual reassign) may act on it — the action buttons are
+    // hidden from every other gate keeper / auditor. Resolved server-side to avoid
+    // ObjectId serialization mismatches (same as isAssignedModerator).
+    const isAssignedGateKeeper = question?.isAssignedGateKeeper === true;
+    const isAssignedAuditor = question?.isAssignedAuditor === true;
     // Once pushed to the Auditor the question's status is `auditor_review`. The
     // dynamic/duplicate distinction (needed for the Auditor's action — Notify User vs
     // Push to GDB) is then read from `auditorReviewType`, stamped at push time.
     const isPushedToAuditor = question?.status === "auditor_review";
+    // Fallback when `auditorReviewType` wasn't stamped at push time (older questions,
+    // or ones that reached auditor_review another way): infer duplicate vs dynamic
+    // from the question itself — a duplicate carries a referenceQuestionId.
+    const hasDuplicateRef = !!question?.referenceQuestionId;
     const isDynamicQuestion =
         question?.status === "dynamic" ||
-        (isPushedToAuditor && question?.auditorReviewType === "dynamic");
+        (isPushedToAuditor &&
+            (question?.auditorReviewType === "dynamic" ||
+                (!question?.auditorReviewType && !hasDuplicateRef)));
     // queue_duplicate is intentionally excluded: those questions only expose the
     // "Cancel Duplicate" action (in the question header), not the triage/GDB actions.
     const isDuplicateQuestion =
         question?.status === "duplicate" ||
-        (isPushedToAuditor && question?.auditorReviewType === "duplicate");
+        (isPushedToAuditor &&
+            (question?.auditorReviewType === "duplicate" ||
+                (!question?.auditorReviewType && hasDuplicateRef)));
 
     // Push to Auditor moves the question to `auditor_review`. The comment is sent for
     // the audit trail only (not persisted). This hides the Gate Keeper actions and
@@ -892,7 +906,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                         <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">Once you click on Accept, the LLM-generated answer will be set as the AI answer for this question and sent for moderation as a reference to create the initial answer for the question.</p>
                         <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
                             {
-                                question?.isHidden !== true && question.status !== "duplicate" && question.status !== "auditor_review" && <Button type="button" variant="outline" size="sm" disabled={updatingQuestion} onClick={handleSkip} className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}>{updatingQuestion ? <Loader2 className="h-4 w-4 animate-spin" /> : <SkipForward className="h-4 w-4" />}{updatingQuestion ? "Passing..." : "Pass"}</Button>
+                                question?.isHidden !== true && question.status !== "auditor_review" && <Button type="button" variant="outline" size="sm" disabled={updatingQuestion} onClick={handleSkip} className={`gap-2 rounded-xl px-4 ${updatingQuestion ? "cursor-not-allowed opacity-50" : ""}`}>{updatingQuestion ? <Loader2 className="h-4 w-4 animate-spin" /> : <SkipForward className="h-4 w-4" />}{updatingQuestion ? "Passing..." : "Pass"}</Button>
                             }
 
                             <Button
@@ -933,7 +947,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                 )}
 
                 {/* Gate Keeper: triage actions available for BOTH dynamic and duplicate questions. */}
-                {isGateKeeper && !isPushedToAuditor && approved === null && (isDynamicQuestion || isDuplicateQuestion) && question?.isHidden !== true && (
+                {isGateKeeper && isAssignedGateKeeper && !isPushedToAuditor && approved === null && (isDynamicQuestion || isDuplicateQuestion) && question?.isHidden !== true && (
                     <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
                         <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">As Gate Keeper you can Pass this question, push it to an Auditor, or allocate experts.</p>
                         <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
@@ -972,7 +986,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                     </div>
                 )}
 
-                {isAuditor && isPushedToAuditor && approved === null && (isDynamicQuestion || isDuplicateQuestion) && question?.isHidden !== true && (
+                {isAuditor && isAssignedAuditor && isPushedToAuditor && approved === null && (isDynamicQuestion || isDuplicateQuestion) && question?.isHidden !== true && (
                     <div className="w-full flex flex-col gap-3 px-4 py-3 border-t border-border md:flex-row md:items-center md:justify-between">
                         <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">
                             {isDynamicQuestion
@@ -1015,11 +1029,9 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                 onSave={handleSaveEdit}
                 onCancel={handleCancelEdit}
                 saveLabel={
-                    pendingApprovalAction === "push-to-gdb"
-                        ? "Push to GDB"
-                        : pendingApprovalAction === "accept"
-                            ? "Approve"
-                            : "Save Changes"
+                    pendingApprovalAction === "accept"
+                        ? "Approve"
+                        : "Save Changes"
                 }
             />
 
