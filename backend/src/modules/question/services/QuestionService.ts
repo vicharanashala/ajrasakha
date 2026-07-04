@@ -6717,27 +6717,32 @@ export class QuestionService extends BaseService implements IQuestionService {
         const questionId = next._id!.toString();
         claimed.add(questionId);
         try {
-          await Promise.all([
-            this.questionRepo.setRoleAssignee(
+          // Run the three writes in one transaction so a failure in any of them
+          // rolls back the whole assignment (no half-assigned question / user).
+          await this._withTransaction(async (session: ClientSession) => {
+            await this.questionRepo.setRoleAssignee(
               questionId,
               cfg.assigneeField,
               cfg.assignedAtField,
               userId,
-            ),
-            this.userRepo.addAssignedQuestion(
+              session,
+            );
+            await this.userRepo.addAssignedQuestion(
               userId,
               questionId,
               next.status,
               next.source,
-            ),
-            this.notificationService.saveTheNotifications(
+              session,
+            );
+            await this.notificationService.saveTheNotifications(
               cfg.notificationMessage,
               cfg.notificationTitle,
               questionId,
               userId,
               'moderator_approval',
-            ),
-          ]);
+              session,
+            );
+          });
           console.log(
             `[${cfg.label}] Assigned question ${questionId} → ${cfg.role} ${userId}`,
           );

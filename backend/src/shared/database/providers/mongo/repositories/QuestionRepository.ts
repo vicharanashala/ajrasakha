@@ -7377,6 +7377,7 @@ export class QuestionRepository implements IQuestionRepository {
     assigneeField: 'gateKeeperId' | 'auditorId',
     assignedAtField: 'gateKeeperAssignedAt' | 'auditorAssignedAt',
     assigneeId: string | null,
+    session?: ClientSession,
   ): Promise<void> {
     await this.init();
     const now = new Date();
@@ -7394,6 +7395,7 @@ export class QuestionRepository implements IQuestionRepository {
           updatedAt: now,
         },
       },
+      { session },
     );
   }
 

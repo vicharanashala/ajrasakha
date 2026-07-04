@@ -939,6 +939,7 @@ export class UserRepository implements IUserRepository {
     questionId: string,
     status: QuestionStatus,
     source?: QuestionSource,
+    session?: ClientSession,
   ): Promise<void> {
     await this.init();
     const qid = new ObjectId(questionId);
@@ -948,6 +949,7 @@ export class UserRepository implements IUserRepository {
         $pull: { assignedQuestionIds: { questionId: qid } },
         $set: { updatedAt: new Date() },
       },
+      { session },
     );
     await this.usersCollection.updateOne(
       { _id: new ObjectId(moderatorId) },
@@ -955,6 +957,7 @@ export class UserRepository implements IUserRepository {
         $push: { assignedQuestionIds: { questionId: qid, status, source } },
         $set: { updatedAt: new Date() },
       },
+      { session },
     );
   }
 

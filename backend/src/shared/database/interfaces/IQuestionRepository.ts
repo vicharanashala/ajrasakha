@@ -582,6 +582,7 @@ export interface IQuestionRepository {
     assigneeField: 'gateKeeperId' | 'auditorId',
     assignedAtField: 'gateKeeperAssignedAt' | 'auditorAssignedAt',
     assigneeId: string | null,
+    session?: ClientSession,
   ): Promise<void>;
   markRoleFinished(
     questionId: string,
