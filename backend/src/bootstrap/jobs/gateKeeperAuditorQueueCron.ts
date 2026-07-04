@@ -8,7 +8,7 @@ import { appConfig } from '#root/config/app.js';
 //   - dynamic / duplicate / queue_duplicate → assigned to a free gate keeper
 //   - auditor_review                        → assigned to a free auditor
 // One question per user at a time; the user is freed when they act on it.
-if (appConfig.isDevelopment) {
+if (!appConfig.isDevelopment) {
   cron.schedule(
     '0 */1 * * * *',
     async () => {
