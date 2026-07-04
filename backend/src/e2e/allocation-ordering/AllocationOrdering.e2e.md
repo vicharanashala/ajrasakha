@@ -233,7 +233,7 @@ pnpm exec vitest run src/e2e/allocation-ordering/AllocationOrdering.e2e.test.ts
 
 ## Last Run
 
-**Date:** 2026-07-04 &nbsp;|&nbsp; **Result:** ✅ all 8 passed &nbsp;|&nbsp; **Duration:** 4.5 s
+**Date:** 2026-07-04 &nbsp;|&nbsp; **Result:** ✅ all 8 passed &nbsp;|&nbsp; **Duration:** 6.0 s
 
 > ⚠ Vitest only printed 0 of 8 test lines (passing suites are truncated in the output).
 

@@ -221,9 +221,9 @@ NODE_ENV=test pnpm exec vitest run src/e2e/question/QuestionCreate.e2e.test.ts
 
 ## Last Run
 
-**Date:** 2026-07-04 &nbsp;|&nbsp; **Result:** ✅ all 15 passed &nbsp;|&nbsp; **Duration:** 8.3 s
+**Date:** 2026-07-04 &nbsp;|&nbsp; **Result:** ✅ all 15 passed &nbsp;|&nbsp; **Duration:** 9.4 s
 
-> ⚠ Vitest only printed 9 of 15 test lines (passing suites are truncated in the output).
+> ⚠ Vitest only printed 10 of 15 test lines (passing suites are truncated in the output).
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
@@ -233,6 +233,7 @@ NODE_ENV=test pnpm exec vitest run src/e2e/question/QuestionCreate.e2e.test.ts
 | 4 | Question Create E2E > question reflects updated values | ✅ | — |
 | 5 | Question Create E2E > Question Moderator Assignment > assigns question to moderator suc... | ✅ | — |
 | 6 | Question Create E2E > Question Moderator Assignment > removes moderator successfully | ✅ | — |
-| 7 | Question Create E2E > moderator deletes question successfully | ✅ | — |
-| 8 | Question Create E2E > moderator bulk deletes questions | ✅ | — |
-| 9 | Question Create E2E > bulk deleted questions are not retrievable | ✅ | — |
+| 7 | Question Create E2E > Question Moderator Assignment > removing moderator twice is idemp... | ✅ | — |
+| 8 | Question Create E2E > moderator deletes question successfully | ✅ | — |
+| 9 | Question Create E2E > moderator bulk deletes questions | ✅ | — |
+| 10 | Question Create E2E > bulk deleted questions are not retrievable | ✅ | — |

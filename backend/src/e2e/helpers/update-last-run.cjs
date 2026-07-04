@@ -504,6 +504,67 @@ function buildReadmeTable(suites, date) {
   ].join('\n');
 }
 
+// Real failing test names + reasons, sourced straight from the same parsed log
+// data as everything else — always in sync, never hand-maintained, never stale.
+const CURRENTLY_FAILING_HEADING = '## Currently Failing';
+
+function buildCurrentlyFailingSection(suites, date) {
+  const failingBlocks = [];
+
+  for (const { key, name } of SUITE_META) {
+    const data = suites[key];
+    if (!data || data.failed === 0) continue;
+    const mdRel = SUITE_MAP[key];
+    const rows = data.tests
+      .filter(t => !t.pass)
+      .map(t => `- ${t.name}${t.reason ? ` → ${t.reason}` : ''}`);
+    failingBlocks.push(
+      `**${name}** — ${data.failed} failing → see \`${mdRel}\`\n${rows.join('\n')}`,
+    );
+  }
+
+  const body = failingBlocks.length
+    ? failingBlocks.join('\n\n')
+    : `✅ All suites passing as of ${date}.`;
+
+  return [CURRENTLY_FAILING_HEADING, '', body].join('\n');
+}
+
+// Inserts/replaces the "Currently Failing" section right after "Suites at a
+// glance" — first run inserts a new section, later runs replace it in place.
+function patchCurrentlyFailing(content, suites, date) {
+  const section = buildCurrentlyFailingSection(suites, date);
+
+  const existingStart = content.indexOf(CURRENTLY_FAILING_HEADING);
+  if (existingStart !== -1) {
+    const existingEnd = content.indexOf('\n---', existingStart);
+    if (existingEnd === -1) {
+      console.warn('  ⚠  README.md: closing --- not found after Currently Failing section');
+      return content;
+    }
+    console.log('  ✓  README.md (Currently Failing)');
+    return content.slice(0, existingStart) + section + content.slice(existingEnd);
+  }
+
+  const suitesStart = content.indexOf(README_SUITES_HEADING);
+  if (suitesStart === -1) {
+    console.warn(`  ⚠  README.md: "${README_SUITES_HEADING}" not found, cannot anchor Currently Failing`);
+    return content;
+  }
+  const insertAt = content.indexOf('\n---', suitesStart);
+  if (insertAt === -1) {
+    console.warn('  ⚠  README.md: closing --- not found after Suites table, cannot anchor Currently Failing');
+    return content;
+  }
+  const afterBoundary = insertAt + '\n---'.length;
+  console.log('  ✓  README.md (Currently Failing) — inserted new section');
+  return (
+    content.slice(0, afterBoundary) +
+    '\n\n' + section + '\n\n---' +
+    content.slice(afterBoundary)
+  );
+}
+
 function patchReadme(suites, date) {
   const readmePath = path.join(E2E_DIR, 'README.md');
   if (!fs.existsSync(readmePath)) {
@@ -527,10 +588,13 @@ function patchReadme(suites, date) {
     }
   }
 
-  // 2. Pipeline coverage map markers
+  // 2. "Currently Failing" section — real test names + reasons, not just counts
+  content = patchCurrentlyFailing(content, suites, date);
+
+  // 3. Pipeline coverage map markers
   content = applyPipelineMapPatch(content, suites);
 
-  // 3. Known bugs — mark resolved entries
+  // 4. Known bugs — mark resolved entries
   content = applyKnownBugsPatch(content, date);
 
   fs.writeFileSync(readmePath, content, 'utf8');
@@ -569,7 +633,20 @@ function main() {
     process.exit(1);
   }
 
-  const raw    = fs.readFileSync(LOG_FILE, 'utf8');
+  const raw = fs.readFileSync(LOG_FILE, 'utf8');
+
+  // A finished vitest run always prints a "Test Files  N failed | M passed (T)"
+  // summary line. Its absence means last-run.log is a fragment from a run that's
+  // still in progress (or was killed) — patching docs from it would silently
+  // overwrite good data with "no log data" placeholders for every suite.
+  if (!/^\s*Test Files\s+/m.test(raw)) {
+    console.error(
+      `Error: ${LOG_FILE} has no "Test Files" summary line — the run it came from ` +
+      `hasn't finished (or was interrupted). Refusing to patch docs from a partial log.`,
+    );
+    process.exit(1);
+  }
+
   const suites = parseLog(raw);
   const date   = new Date().toISOString().slice(0, 10);
 

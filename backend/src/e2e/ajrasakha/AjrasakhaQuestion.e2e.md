@@ -458,7 +458,7 @@ See `src/e2e/whatsapp/WhatsAppQuestion.e2e.md` BUG-001 for the full analysis.
 
 ## Last Run
 
-**Date:** 2026-07-04 &nbsp;|&nbsp; **Result:** ❌ 2 failed / 9 passed &nbsp;|&nbsp; **Duration:** 47.4 s
+**Date:** 2026-07-04 &nbsp;|&nbsp; **Result:** ❌ 4 failed / 7 passed &nbsp;|&nbsp; **Duration:** 2.1 min
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
@@ -468,8 +468,8 @@ See `src/e2e/whatsapp/WhatsAppQuestion.e2e.md` BUG-001 for the full analysis.
 | 4 | Ajrasakha ingestion — question FOUND (GDB exact match → duplicate) > marks the question... | ✅ | — |
 | 5 | Ajrasakha ingestion — question matches the GDB pending-duplicate queue > marks the ques... | ✅ | — |
 | 6 | Ajrasakha ingestion — pending-duplicate-queue check throws → degrades gracefully to ope... | ✅ | — |
-| 7 | Ajrasakha ingestion — non-agricultural question (LLM filter) > marks the question as no... | ✅ | — |
+| 7 | Ajrasakha ingestion — non-agricultural question (LLM filter) > marks the question as no... | ❌ | Timed out waiting for question 6a48f440bc0c17caf7f23f80. Last status='pending', isTesting=undefined |
 | 8 | Ajrasakha ingestion — invalid payload (missing required detail field) > rejects with 40... | ✅ | — |
 | 9 | Ajrasakha ingestion — invalid payload (empty question text) > rejects when the question... | ✅ | — |
-| 10 | Ajrasakha ingestion — invalid thread (empty threadId → isTesting) > flags the question ... | ❌ | Timed out waiting for question 6a48e69c02e717bfb2aacca2. Last status='open', isTesting=undefined |
-| 11 | Ajrasakha ingestion — LLM failure degrades gracefully to open > still opens the questio... | ✅ | — |
+| 10 | Ajrasakha ingestion — invalid thread (empty threadId → isTesting) > flags the question ... | ❌ | Timed out waiting for question 6a48f469bc0c17caf7f23f84. Last status='open', isTesting=undefined |
+| 11 | Ajrasakha ingestion — LLM failure degrades gracefully to open > still opens the questio... | ❌ | Timed out waiting for question 6a48f491bc0c17caf7f23f89. Last status='pending', isTesting=undefined |
