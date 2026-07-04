@@ -11,6 +11,7 @@ export interface Analytics {
   activeUsers: number;
   coordinators: number;
   closureHrs: number;
+  rank: number;
 }
 
 export interface Village {
