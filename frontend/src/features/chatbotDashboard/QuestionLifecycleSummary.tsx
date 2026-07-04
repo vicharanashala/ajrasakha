@@ -153,7 +153,7 @@ export function QuestionLifecycleSummary({
     {
       title: "Resolution Rate",
       value: summary?.resolutionRate,
-      formatter: (v: number) => `${v.toFixed(1)}%`,
+      formatter: (v: number) => `${v?.toFixed(1)}%`,
       tooltip:
         "Percentage of questions that are closed or passed.\n\nFormula:\nResolved Questions ÷ Total Questions × 100.",
     },

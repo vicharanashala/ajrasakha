@@ -15746,16 +15746,17 @@ for (const item of districtUsers) {
             eventType: "system_wait",
           });
         }
-
+        const moderatorCompletedAt = question.closedAt || question.passedAt;
         timeline.push({
           timestamp: moderatorAssignedAt,
           user: moderatorName,
           action: 'Approval Review',
-          duration:
-            question.closedAt?.getTime() -
-            moderatorAssignedAt.getTime(),
+          duration: moderatorCompletedAt
+            ? moderatorCompletedAt.getTime() -
+              moderatorAssignedAt.getTime()
+            : 0,
           remarks: "",
-          endTime: question.closedAt,
+          endTime: moderatorCompletedAt,
           eventType: 'moderator',
         });
       }
@@ -17116,11 +17117,14 @@ for (const item of districtUsers) {
                 totalInitialAllocationTime += x.duration || 0;
                 break;
               case "Pending Next Assignment":
-                totalPendingAssignmentTime += x.duration || 0;
-                break;
               case "Awaiting Moderator Assignment":
-                totalAwaitingModeratorTime += x.duration || 0;
-                break;
+                  totalPendingAssignmentTime += x.duration || 0;
+
+                  if (x.action === "Awaiting Moderator Assignment") {
+                      totalAwaitingModeratorTime += x.duration || 0;
+                  }
+
+                  break;
               case "Awaiting Closure/Pass":
                 totalAwaitingClosureTime += x.duration || 0;
                 break;
@@ -17525,18 +17529,19 @@ for (const item of districtUsers) {
           });
         }
 
+        const moderatorCompletedAt =
+          question.closedAt || question.passedAt;
+
         timeline.push({
-          timestamp:
-            moderatorAssignedAt,
+          timestamp: moderatorAssignedAt,
           user: "-",
-          action:
-            "Approval Review",
-          duration:
-            question.closedAt?.getTime() -
-            moderatorAssignedAt.getTime(),
+          action: "Approval Review",
+          duration: moderatorCompletedAt
+            ? moderatorCompletedAt.getTime() -
+              moderatorAssignedAt.getTime()
+            : 0,
           remarks: "",
-          endTime:
-            question.closedAt,
+          endTime: moderatorCompletedAt,
           eventType: "moderator",
         });
       }
