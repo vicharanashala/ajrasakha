@@ -1546,11 +1546,11 @@ export class ChatbotService extends BaseService implements IChatbotService {
       };
     }
 
-    const threadIds =
-  await this.chatbotRepository.getUserConversationIds(
-    user.userId,
-    source,
-  );
+    const threadIds = []
+  // await this.chatbotRepository.getUserConversationIds(
+  //   user.userId,
+  //   source,
+  // );
 
     // Extract messageIds
     const messageIds = await this.chatbotRepository.getAllUserMessageIds(
