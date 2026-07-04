@@ -569,31 +569,28 @@ The controller (QuestionController.ts:332-354) catches service errors and re-thr
 
 ## Last Run
 
-**Date:** 2026-06-25 &nbsp;|&nbsp; **Result:** ✅ all 18 passed &nbsp;|&nbsp; **Duration:** 1.4 min
-
-> ⚠ Vitest only printed 12 of 18 test lines (passing suites are truncated in the output).
+**Date:** 2026-07-04 &nbsp;|&nbsp; **Result:** ❌ 6 failed / 15 passed &nbsp;|&nbsp; **Duration:** 4.2 min
 
 | # | Test | Result | Failure reason |
 |---|------|:------:|----------------|
-| 1 | WhatsApp ingestion — question FOUND (GDB duplicate, reference answer linked) > marks th... | ✅ | — |
-| 2 | WhatsApp ingestion — question NOT FOUND (common pipeline -> open) > opens the question ... | ✅ | — |
-| 3 | WhatsApp ingestion — invalid thread (time-bound thread validation fails) > flags the qu... | ✅ | — |
-| 4 | WhatsApp ingestion — LLM failure degrades gracefully to open > still opens the question... | ✅ | — |
-| 5 | WhatsApp ingestion — valid threadId, API returns "not found" on all retries → isTesting... | ✅ | — |
-| 6 | WhatsApp ingestion — WhatsApp API completely unreachable → question proceeds to open > ... | ✅ | — |
-| 7 | WhatsApp ingestion — GDB service throws → degrades gracefully to open > still opens the... | ✅ | — |
-| 8 | WhatsApp ingestion — transient thread API failure then retry succeeds → open > proceeds... | ✅ | — |
-| 9 | WhatsApp ingestion — GDB exact_match has invalid question_id → falls through to open > ... | ✅ | — |
-| 10 | WhatsApp ingestion — GDB selected_match has invalid question_id → falls through to open... | ✅ | — |
-| 11 | WhatsApp ingestion — GDB exact_match uses $oid format → marked duplicate > marks the qu... | ✅ | — |
-| 12 | WhatsApp ingestion — GDB returns both exact_match and selected_match → exact_match wins... | ✅ | — |
-
-## 2026-07-01 (21 total — added queue_duplicate coverage)
-
-**Total:** 21 tests — **20 passed, 1 failed**
-
-The 1 failure (`WhatsApp API completely unreachable → question proceeds to open`) is
-KNOWN BUG-002 (see project memory `project_e2e_inprocess_harness`), found the same
-day and unrelated to the queue_duplicate additions — a pre-existing hang in
-`validateTimeBoundQuestionThread`'s "API down" branch introduced by commit
-`e20e8b8e`, not something this change touches. All 3 new queue_duplicate tests passed.
+| 1 | WhatsApp ingestion — authentication (FlexibleAuth / internal key) > rejects ingestion w... | ✅ | — |
+| 2 | WhatsApp ingestion — authentication (FlexibleAuth / internal key) > rejects ingestion w... | ✅ | — |
+| 3 | WhatsApp ingestion — invalid payload (missing required detail field) > rejects with 400... | ✅ | — |
+| 4 | WhatsApp ingestion — question FOUND (GDB duplicate, reference answer linked) > marks th... | ❌ | expected "spy" to be called at least once |
+| 5 | WhatsApp ingestion — question SIMILAR (GDB selected_match, non-exact duplicate) > marks... | ✅ | — |
+| 6 | WhatsApp ingestion — question NOT FOUND (common pipeline -> open) > opens the question ... | ✅ | — |
+| 7 | WhatsApp ingestion — non-agricultural question (LLM filter) > marks the question as non... | ✅ | — |
+| 8 | WhatsApp ingestion — invalid thread (time-bound thread validation fails) > flags the qu... | ❌ | Timed out waiting for question 6a48e5a39d072360e6044478. Last status='open', isTesting=undefined |
+| 9 | WhatsApp ingestion — LLM failure degrades gracefully to open > still opens the question... | ❌ | Timed out waiting for question 6a48e5ef9d072360e604447f. Last status='pending', isTesting=undefined |
+| 10 | WhatsApp ingestion — valid threadId, API returns "not found" on all retries → isTesting... | ❌ | Timed out waiting for question 6a48e6189d072360e6044484. Last status='pending', isTesting=undefined |
+| 11 | WhatsApp ingestion — WhatsApp API completely unreachable → question proceeds to open > ... | ❌ | expected "spy" to be called at least once |
+| 12 | WhatsApp ingestion — GDB service throws → degrades gracefully to open > still opens the... | ✅ | — |
+| 13 | WhatsApp ingestion — transient thread API failure then retry succeeds → open > proceeds... | ❌ | Test timed out in 60000ms. |
+| 14 | WhatsApp ingestion — GDB exact_match has invalid question_id → falls through to open > ... | ✅ | — |
+| 15 | WhatsApp ingestion — GDB selected_match has invalid question_id → falls through to open... | ✅ | — |
+| 16 | WhatsApp ingestion — GDB exact_match uses $oid format → marked duplicate > marks the qu... | ✅ | — |
+| 17 | WhatsApp ingestion — GDB returns both exact_match and selected_match → exact_match wins... | ✅ | — |
+| 18 | WhatsApp ingestion — question matches the GDB pending-duplicate queue > marks the quest... | ✅ | — |
+| 19 | WhatsApp ingestion — question matches the GDB pending-duplicate queue > ignores a pendi... | ✅ | — |
+| 20 | WhatsApp ingestion — pending-duplicate-queue check throws → degrades gracefully to open... | ✅ | — |
+| 21 | WhatsApp ingestion — invalid payload (empty question text) > rejects when the question ... | ✅ | — |

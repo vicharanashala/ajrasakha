@@ -71,18 +71,18 @@ preference-scoring test (#5) to be deterministic.
 
 ## Suites at a glance
 
-| Suite | File | Tests | Last run (2026-06-25) | What it covers |
+| Suite | File | Tests | Last run (2026-07-04) | What it covers |
 |-------|------|------:|----------------------|----------------|
 | Chemical CRUD | `chemical/ChemicalCrud.e2e.test.ts` | 15 | ✅ 15/15 | Auth smoke tests, admin + moderator CRUD, role guards (expert blocked) |
 | Question CRUD | `question/QuestionCreate.e2e.test.ts` | 15 | ✅ 15/15 | Moderator create / get / update / delete / bulk-delete (OUTREACH source) |
-| Reviewer queue | `reviewer-queue/ReviewerQueue.e2e.test.ts` | 14 | ✅ 14/14 | `POST /allocated` visibility: author slot, reviewer slot, exclusions, `review_level_number` |
-| WhatsApp ingestion | `whatsapp/WhatsAppQuestion.e2e.test.ts` | 18 | ✅ 18/18 | Full ingestion pipeline: auth, GDB duplicate paths, LLM filter, thread validation + retry |
-| AjraSakha ingestion | `ajrasakha/AjrasakhaQuestion.e2e.test.ts` | 9 | ✅ 9/9 | AJRASAKHA-specific fields (userId from `@CurrentUser`, notification type), representative pipeline cases |
+| Reviewer queue | `reviewer-queue/ReviewerQueue.e2e.test.ts` | 14 | ❌ 13/14 | `POST /allocated` visibility: author slot, reviewer slot, exclusions, `review_level_number` |
+| WhatsApp ingestion | `whatsapp/WhatsAppQuestion.e2e.test.ts` | 21 | ❌ 15/21 | Full ingestion pipeline: auth, GDB duplicate paths, LLM filter, thread validation + retry |
+| AjraSakha ingestion | `ajrasakha/AjrasakhaQuestion.e2e.test.ts` | 11 | ❌ 9/11 | AJRASAKHA-specific fields (userId from `@CurrentUser`, notification type), representative pipeline cases |
 | Manual allocation | `manual-allocation/ManualAllocation.e2e.test.ts` | 10 | ✅ 10/10 | `POST /allocate-experts` + `DELETE /allocation` on an OUTREACH question |
 | Auto allocation | `auto-allocation/AutoAllocation.e2e.test.ts` | 55 | ✅ 55/55 | AGRI_EXPERT background queue, preference scoring, toggle, time-bound allocation (WHATSAPP/AJRASAKHA), capacity, reviewer, concurrent guard |
 | Allocation ordering | `allocation-ordering/AllocationOrdering.e2e.test.ts` | 8 | ✅ 8/8 | Chronological ordering + history exclusion for `reallocateTimeBoundQuestions()` (Issues #3, #5) |
 | Post-allocation | `post-allocation/PostAllocation.e2e.test.ts` | 27 | ✅ 27/27 | Full expert peer-review → moderator-approval state machine |
-| **Total** | | **171** | **171/171** | |
+| **Total** | | **176** | **167/176** | |
 
 ---
 
@@ -359,7 +359,7 @@ Reviewer queue (POST /api/questions/allocated)
   ├─ review_level_number = "Author" for STF expert   [RQ ✓] Issue #1
   ├─ notification-visibility consistent for STF       [RQ ✓] Issue #7
   ├─ both author-slot + reviewer-slot visible         [RQ ✓] Issue #2
-  └─ author-slot appears before reviewer-slot (ord.)  [RQ ✓] Issue #2
+  └─ author-slot appears before reviewer-slot (ord.)  [RQ ✗] Issue #2
   ├─ in-review question NOT in allocated for experts  [RQ ✓]
   └─ expert NOT in queue cannot see question          [RQ ✓]
 
@@ -367,19 +367,19 @@ WHATSAPP / AJRASAKHA ingestion
   ├─ auth failures                                    [WA ✓] [AJ ✓]
   ├─ invalid payload (missing field → 400)            [WA ✓] [AJ ✓]
   ├─ invalid payload (empty text → 500)               [WA ✓] [AJ ✓] BUG-001 documented
-  ├─ thread: empty → isTesting                        [WA ✓] [AJ ✓]
-  ├─ thread: not found after retries → isTesting      [WA ✓]
-  ├─ thread: API down → open                          [WA ✓]
-  ├─ thread: transient fail → retry → open            [WA ✓]
-  ├─ GDB exact_match → duplicate                      [WA ✓] [AJ ✓]
+  ├─ thread: empty → isTesting                        [WA ✗] [AJ ✗]
+  ├─ thread: not found after retries → isTesting      [WA ✗]
+  ├─ thread: API down → open                          [WA ✗]
+  ├─ thread: transient fail → retry → open            [WA ✗]
+  ├─ GDB exact_match → duplicate                      [WA ✗] [AJ ✓]
   ├─ GDB selected_match → duplicate                   [WA ✓]
   ├─ GDB both → exact wins                            [WA ✓]
   ├─ GDB invalid ObjectId → LLM fallthrough           [WA ✓]
   ├─ GDB $oid format → duplicate                      [WA ✓]
   ├─ GDB throws → open                                [WA ✓]
   ├─ LLM non-agri → non_agri                         [WA ✓] [AJ ✓]
-  ├─ LLM agri → open (common pipeline → open)         [WA ✓] [AJ ✓]
-  └─ LLM throws → open (degrade)                      [WA ✓] [AJ ✓]
+  ├─ LLM agri → open (common pipeline → open)         [WA ✓] [AJ ✗]
+  └─ LLM throws → open (degrade)                      [WA ✗] [AJ ✓]
 
 AGRI_EXPERT auto-allocation
   ├─ background fills queue (1 expert)                [AA ✓]

@@ -92,6 +92,11 @@ const PIPELINE_TESTS = [
   { suite: 'reviewer-queue/ReviewerQueue.e2e.test.ts', test: 'reviewer (expertUser2) sees the question in POST /allocated',     lineAnchor: 'reviewer (queue[1]) sees question in allocated' },
   { suite: 'reviewer-queue/ReviewerQueue.e2e.test.ts', test: 'review_level_number is 1 for the reviewer slot',                  lineAnchor: 'review_level_number = "Level 1" for reviewer' },
   { suite: 'reviewer-queue/ReviewerQueue.e2e.test.ts', test: 'completed author (expertUser1) does NOT see the question',        lineAnchor: 'completed author no longer sees question' },
+  { suite: 'reviewer-queue/ReviewerQueue.e2e.test.ts', test: 'STF expert sees their WHATSAPP question in POST /allocated',      lineAnchor: 'STF expert sees WHATSAPP question (author slot)' },
+  { suite: 'reviewer-queue/ReviewerQueue.e2e.test.ts', test: 'review_level_number is "Author" for the STF expert',             lineAnchor: 'review_level_number = "Author" for STF expert' },
+  { suite: 'reviewer-queue/ReviewerQueue.e2e.test.ts', test: 'answer_creation notification for STF expert resolves',            lineAnchor: 'notification-visibility consistent for STF' },
+  { suite: 'reviewer-queue/ReviewerQueue.e2e.test.ts', test: 'STF expert can see both the author-slot and the reviewer-slot question', lineAnchor: 'both author-slot + reviewer-slot visible' },
+  { suite: 'reviewer-queue/ReviewerQueue.e2e.test.ts', test: 'author-slot question appears before reviewer-slot question in the /allocated response', lineAnchor: 'author-slot appears before reviewer-slot (ord.)' },
   { suite: 'reviewer-queue/ReviewerQueue.e2e.test.ts', test: 'question with status="in-review"',                                lineAnchor: 'in-review question NOT in allocated for experts' },
   { suite: 'reviewer-queue/ReviewerQueue.e2e.test.ts', test: 'expert NOT in queue cannot see the question',                     lineAnchor: 'expert NOT in queue cannot see question' },
 

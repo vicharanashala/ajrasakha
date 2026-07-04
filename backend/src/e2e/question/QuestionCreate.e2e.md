@@ -221,7 +221,7 @@ NODE_ENV=test pnpm exec vitest run src/e2e/question/QuestionCreate.e2e.test.ts
 
 ## Last Run
 
-**Date:** 2026-06-25 &nbsp;|&nbsp; **Result:** ✅ all 15 passed &nbsp;|&nbsp; **Duration:** 10.0 s
+**Date:** 2026-07-04 &nbsp;|&nbsp; **Result:** ✅ all 15 passed &nbsp;|&nbsp; **Duration:** 8.3 s
 
 > ⚠ Vitest only printed 9 of 15 test lines (passing suites are truncated in the output).
 
