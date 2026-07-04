@@ -239,7 +239,7 @@ export interface IUserRepository {
     action: string,
     session?: ClientSession,
   ): Promise<void>;
-  
+
   updateSTFStatus(
     userId: string,
     action: string,
@@ -326,6 +326,18 @@ export interface IUserRepository {
     userId: string,
     session?: ClientSession,
   ): Promise<IUser>;
+
+  /**
+   * Atomically finds and marks an available agent as busy
+   * Uses findOneAndUpdate to prevent race conditions
+   * @param callUuid - The UUID of the call to assign
+   * @param session - The session for transaction
+   * @returns A promise that resolves to the updated agent if found, or null if no available agent
+   */
+  findAndMarkAvailableAgent(
+    callUuid: string,
+    session?: ClientSession,
+  ): Promise<IUser | null>;
   findAvailableModerators(): Promise<IUser[]>;
   findAvailableStfModerators(): Promise<IUser[]>;
   findAvailableStfModeratorsForSources(sources: QuestionSource[]): Promise<IUser[]>;

@@ -1,7 +1,8 @@
 import { WebSocketServer, WebSocket } from 'ws';
 
 import { IncomingMessage, Server } from 'http';
-import { PlivoService } from '../modules/plivo/services/PlivoService.js';
+import { PLIVO_TYPES } from '../modules/plivo/types.js';
+import type { PlivoService } from '../modules/plivo/services/PlivoService.js';
 import { getContainer } from './loadModules.js';
 // import path from 'path';
 // import fs from 'fs';
@@ -11,7 +12,7 @@ export const initWebSocket = (server: Server) => {
     server,
     path: '/plivo-stream',
   });
-  const plivoService = getContainer().get(PlivoService);
+  const plivoService = getContainer().get<PlivoService>(PLIVO_TYPES.PlivoService);
 
   // const logsDir = path.join(process.cwd(), 'call_logs');
   // if (!fs.existsSync(logsDir)) {

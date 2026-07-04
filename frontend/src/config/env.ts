@@ -28,6 +28,14 @@ type EnvKey =
   | "VITE_PLIVO_ENDPOINT_USERNAME"
   | "VITE_PLIVO_ENDPOINT_PASSWORD"
   | "VITE_PLIVO_STREAM_URL"
+  | "VITE_PLIVO_AGENT_1_USERNAME"
+  | "VITE_PLIVO_AGENT_1_PASSWORD"
+  | "VITE_PLIVO_AGENT_2_USERNAME"
+  | "VITE_PLIVO_AGENT_2_PASSWORD"
+  | "VITE_PLIVO_AGENT_3_USERNAME"
+  | "VITE_PLIVO_AGENT_3_PASSWORD"
+  | `VITE_PLIVO_${string}_USERNAME`
+  | `VITE_PLIVO_${string}_PASSWORD`
   // FAQ / POP processing servers
   | "VITE_FAQ_API_URL"
   | "VITE_POP_API_URL"
@@ -77,6 +85,11 @@ export const env = {
     endpointUsername: () => getEnv("VITE_PLIVO_ENDPOINT_USERNAME", false, "dummy_endpoint_username"),
     endpointPassword: () => getEnv("VITE_PLIVO_ENDPOINT_PASSWORD", false, "dummy_endpoint_password"),
     streamUrl: () => getEnv("VITE_PLIVO_STREAM_URL", false, "wss://dummy-stream-url.plivo.com"),
+    getAgentCredentials: (agentNumber: string) => {
+      const username = getEnv(`VITE_PLIVO_${agentNumber.toUpperCase()}_USERNAME`, false, "");
+      const password = getEnv(`VITE_PLIVO_${agentNumber.toUpperCase()}_PASSWORD`, false, "");
+      return { username, password };
+    },
   },
 
   internalApiKey: () => getEnv("VITE_INTERNAL_API_KEY", true, "dummy-internal-api-key"),
