@@ -1716,19 +1716,9 @@ export class UserRepository implements IUserRepository {
                   from: { $lte: end },
                 },
                 {
-                  isBlocked: false,
-                },
-                {
                   $or: [
                     { to: null },
                     { to: { $gt: start } },
-                  ],
-                },
-                {
-                  $or: [
-                    { status: 'active' },
-                    { status: null },
-                    { status: { $exists: false } },
                   ],
                 },
               ],
@@ -1770,6 +1760,22 @@ export class UserRepository implements IUserRepository {
           {
             $replaceRoot: {
               newRoot: '$latest',
+            },
+          },
+
+          // -------------------------------------------------------------------------
+          // Filter based on the latest snapshot only.
+          // This ensures we evaluate the user's latest status/block state
+          // within the selected period.
+          // -------------------------------------------------------------------------
+          {
+            $match: {
+              isBlocked: false,
+              $or: [
+                { status: 'active' },
+                { status: null },
+                { status: { $exists: false } },
+              ],
             },
           },
 
