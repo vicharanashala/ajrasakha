@@ -445,7 +445,7 @@ function StatTile({
           whileTap={{ scale: 0.98 }}
           transition={{ duration: 0.15 }}
           className={cn(
-            "group/tile relative flex flex-col items-start gap-1.5 overflow-hidden rounded-xl p-3 text-left",
+            "group/tile relative flex flex-col items-start gap-1.5 overflow-hidden rounded-xl p-1 text-left",
             "bg-background/40 ring-1 ring-border/50 transition-all duration-200",
             "hover:bg-background/80 hover:shadow-md",
             a.ring,
