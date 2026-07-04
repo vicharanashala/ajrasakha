@@ -777,6 +777,18 @@ export interface IChatbotRepository {
     userType?: string,
   ): Promise<PlatformInstallEntry[]>;
 
+  getUsersByPlatform(
+    platform: string,
+    source?: string,
+    page?: number,
+    limit?: number,
+    search?: string,
+    sortBy?: string,
+    sortOrder?: string,
+    userType?: string,
+    session?: ClientSession,
+  ): Promise<PaginatedUserDetails>;
+
   /** Duplicate questions (questions with a similarityScore) enriched with farmer details. */
   getDuplicateQuestions(
     source?: string,
