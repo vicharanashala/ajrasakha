@@ -1554,24 +1554,6 @@ export class QuestionRepository implements IQuestionRepository {
         }),
       );
 
-      const assignedAtByQuestionId = new Map(
-        submissions.map((sub: any) => {
-          const historyCount = sub?.historyCount ?? 0;
-          const assignedAt = historyCount === 0
-            ? sub?.currentExpertAllocatedAt
-            : (sub?.lastHistory?.assignedAt ?? sub?.lastHistory?.createdAt);
-          return [sub?.questionId?.toString(), assignedAt];
-        }),
-      );
-
-      // Author-slot questions (historyCount=0, expert is queue[0]) must appear
-      // before reviewer-slot questions in the response, regardless of createdAt.
-      // Build the set of author question IDs so we can compute slotOrder in the
-      // pipeline (0=author, 1=reviewer).
-      const authorQuestionIds = submissions
-        .filter((sub: any) => (sub?.historyCount ?? 0) === 0)
-        .map((sub: any) => new ObjectId(sub.questionId));
-
       // Rerouted questions live in the `reroutes` collection, not in the
       // submission history/queue, so the allocation logic above never surfaces
       // them. Pull the ones still pending action for this expert and merge them
@@ -1726,17 +1708,10 @@ export class QuestionRepository implements IQuestionRepository {
               default: 9,
             },
           },
-          slotOrder: {
-            $cond: {
-              if: {$in: ['$_id', authorQuestionIds]},
-              then: 0,
-              else: 1,
-            },
-          },
         },
       });
 
-      pipeline.push({$sort: {priorityOrder: 1, slotOrder: 1, createdAt: 1, _id: 1}});
+      pipeline.push({$sort: {priorityOrder: 1, createdAt: 1, _id: 1}});
 
       pipeline.push({$skip: skip});
       pipeline.push({$limit: limit});
