@@ -366,6 +366,16 @@ export class UserDetailEntryResponse {
   totalQuestions: number;
 
   @JSONSchema({
+    description: 'Number of currently active login sessions for this user',
+    example: 2,
+    type: 'number',
+    readOnly: true,
+  })
+  @IsOptional()
+  @IsNumber()
+  activeSessionCount?: number;
+
+  @JSONSchema({
     description: 'Farmer profile details (present only if the user has filled their profile)',
     type: 'object',
     nullable: true,

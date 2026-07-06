@@ -379,4 +379,9 @@ export class UserDetailsQueryDto {
   @IsOptional()
   @IsString()
   isVerified?: string;
+
+  @JSONSchema({ example: 'loggedIn', description: 'Filter by login status: all, loggedIn, or loggedOut' })
+  @IsOptional()
+  @IsIn(['all', 'loggedIn', 'loggedOut'])
+  loginStatus: 'all' | 'loggedIn' | 'loggedOut' = 'all';
 }

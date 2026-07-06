@@ -514,6 +514,66 @@ export class ChatbotRepository implements IChatbotRepository {
     this.ReviewUsers = await this.db.getCollection<any>('users');
   }
 
+  private buildActiveSessionFilter(userIds: ObjectId[], now = new Date()) {
+    return {
+      user: {$in: userIds},
+      revoked: {$ne: true},
+      isRevoked: {$ne: true},
+      status: {$nin: ['expired', 'invalid', 'revoked', 'inactive']},
+      $and: [
+        {
+          $or: [{invalidatedAt: {$exists: false}}, {invalidatedAt: null}],
+        },
+        {
+          $or: [
+            {expiresAt: {$exists: false}},
+            {expiresAt: null},
+            {expiresAt: {$gt: now}},
+          ],
+        },
+        {
+          $or: [
+            {expires: {$exists: false}},
+            {expires: null},
+            {expires: {$gt: now}},
+          ],
+        },
+      ],
+    };
+  }
+
+  private async attachActiveSessionCounts(
+    users: UserDetailEntry[],
+    session?: ClientSession,
+  ): Promise<UserDetailEntry[]> {
+    const userIds = users
+      .map(user => user.userId)
+      .filter(ObjectId.isValid)
+      .map(userId => new ObjectId(userId));
+
+    if (userIds.length === 0) {
+      return users.map(user => ({...user, activeSessionCount: 0}));
+    }
+
+    const sessionCounts = await this.sessionCollection
+      .aggregate(
+        [
+          {$match: this.buildActiveSessionFilter(userIds)},
+          {$group: {_id: '$user', count: {$sum: 1}}},
+        ],
+        {session},
+      )
+      .toArray();
+    const sessionCountMap = new Map(
+      sessionCounts.map(entry => [String(entry._id), Number(entry.count)]),
+    );
+
+    return users.map(user => ({
+      ...user,
+      activeSessionCount: sessionCountMap.get(user.userId) ?? 0,
+    }));
+  }
+
   private DISTRICT_ALIASES: Record<string, string> = {
     // Jammu & Kashmir
     baramula: 'baramulla',
@@ -7074,6 +7134,7 @@ export class ChatbotRepository implements IChatbotRepository {
     activeTodayByProfile = false,
     missingDemographicField = '',
     isVerfied?: boolean,
+    loginStatus: 'all' | 'loggedIn' | 'loggedOut' = 'all',
   ): Promise<PaginatedUserDetails> {
     try {
       await this.init(source);
@@ -7356,10 +7417,15 @@ export class ChatbotRepository implements IChatbotRepository {
           : undefined,
       }));
 
+      const withSessionCounts =
+        loginStatus !== 'all'
+          ? await this.attachActiveSessionCounts(merged, session)
+          : merged;
+
       // Filter to inactive users only if requested
       const afterInactive = inactiveOnly
-        ? merged.filter(u => u.totalQuestions === 0)
-        : merged;
+        ? withSessionCounts.filter(u => u.totalQuestions === 0)
+        : withSessionCounts;
 
       // Filter to low-feedback users only if requested (all-time, no date range on feedback)
       let finalList = afterInactive;
@@ -7380,6 +7446,12 @@ export class ChatbotRepository implements IChatbotRepository {
           feedbackDocs.map((d: any) => String(d._id)),
         );
         finalList = afterInactive.filter(u => !usersWithFeedback.has(u.userId));
+      }
+
+      if (loginStatus === 'loggedIn') {
+        finalList = finalList.filter(u => (u.activeSessionCount ?? 0) > 0);
+      } else if (loginStatus === 'loggedOut') {
+        finalList = finalList.filter(u => (u.activeSessionCount ?? 0) === 0);
       }
 
       // Sort based on sortBy and sortOrder parameters
@@ -7432,7 +7504,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
       // Paginate
       const startIdx = (page - 1) * limit;
-      const users = finalList.slice(startIdx, startIdx + limit);
+      const users = await this.attachActiveSessionCounts(
+        finalList.slice(startIdx, startIdx + limit),
+        session,
+      );
 
       return {
         users,
@@ -15402,6 +15477,17 @@ export class ChatbotRepository implements IChatbotRepository {
         }
       }
 
+      const usersWithSessions = await this.attachActiveSessionCounts(
+        [
+          {
+            userId: userIdString,
+            ...users[0],
+          } as any,
+        ],
+        session,
+      );
+      const activeSessionCount = usersWithSessions[0]?.activeSessionCount ?? 0;
+
       return {
         userId: users[0]._id,
         name: users[0].name,
@@ -15412,6 +15498,7 @@ export class ChatbotRepository implements IChatbotRepository {
         createdAt: users[0].createdAt,
         isVerified: users[0].isVerified,
         userRole: users[0].userRole,
+        activeSessionCount,
         totalQuestions: farmerDashboard.questionMetrics.totalQuestionsAsked,
         farmerDashboard,
         unAssigned: unAssigned ?? [],
