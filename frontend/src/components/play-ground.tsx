@@ -24,12 +24,8 @@ import { ExpertDashboard } from "./ExpertDashboard";
 import { NotificationModal } from "./NotificationModal";
 import { AnnamDashboard_dev as AnnamDashboard } from "../features/chatbotDashboard/AnnamDashboard_dev";
 import { cn } from "@/lib/utils";
-import { CallInterface } from "./CallInterface";
-import { CallHistory } from "./CallHistory";
-import { ManageCallAgents } from "./ManageCallAgents";
 import { env } from "@/config/env";
 import { DataProcessingDashboard } from "../features/faq-pop/DataProcessingDashboard";
-import { CallAgentDashboard } from "./CallAgentDashboard";
 
 export const PlaygroundPage = () => {
   const { data: user } = useGetCurrentUser({});
@@ -259,48 +255,7 @@ export const PlaygroundPage = () => {
                   </TabsTrigger>
                 )}
 
-                {user?.role === "call_agent" && user?.isCallAgentActive && (
-                  <>
-                    <TabsTrigger
-                      value="call_dashboard"
-                      className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                    >
-                      <HoverCard openDelay={150}>
-                        <span>Dashboard</span>
-                      </HoverCard>
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="call_interface"
-                      className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                    >
-                      <HoverCard openDelay={150}>
-                        <span>Call Interface</span>
-                      </HoverCard>
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="call_history"
-                      className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                    >
-                      <HoverCard openDelay={150}>
-                        <span>Call History</span>
-                      </HoverCard>
-                    </TabsTrigger>
-                  </>
-                )}
 
-                {user?.role === "admin" && (
-                  <TabsTrigger
-                    value="manage_agents"
-                    onClick={() => handleTabChange("manage_agents")}
-                    className={
-                      activeTab === "manage_agents"
-                        ? "bg-accent text-accent-foreground"
-                        : ""
-                    }
-                  >
-                    Manage Agents
-                  </TabsTrigger>
-                )}
 
                 {user &&
                   user.role !== "expert" &&
@@ -506,54 +461,7 @@ export const PlaygroundPage = () => {
                 </TabsContent>
               )}
 
-              {user?.role === "call_agent" && (
-                <TabsContent
-                  value="call_dashboard"
-                  className={cn(
-                    "mt-0 border-0 md:px-8 outline-none",
-                    "data-[state=active]:animate-in",
-                    "data-[state=active]:fade-in-0",
-                    "data-[state=active]:zoom-in-[0.98]",
-                    "data-[state=active]:slide-in-from-bottom-3",
-                    "duration-500 ease-out",
-                  )}
-                >
-                  <CallAgentDashboard />
-                </TabsContent>
-              )}
 
-              {user?.role === "call_agent" && (
-                <TabsContent
-                  value="call_interface"
-                  className={cn(
-                    "mt-0 border-0 md:px-8 outline-none",
-                    "data-[state=active]:animate-in",
-                    "data-[state=active]:fade-in-0",
-                    "data-[state=active]:zoom-in-[0.98]",
-                    "data-[state=active]:slide-in-from-bottom-3",
-                    "duration-500 ease-out",
-                  )}
-                >
-                  <CallInterface />
-                </TabsContent>
-              )}
-              {user?.role === "call_agent" && (
-                <TabsContent
-                  value="call_history"
-                  className={cn(
-                    "mt-0 border-0 md:px-8 outline-none",
-                    "data-[state=active]:animate-in",
-                    "data-[state=active]:fade-in-0",
-                    "data-[state=active]:zoom-in-[0.98]",
-                    "data-[state=active]:slide-in-from-bottom-3",
-                    "duration-500 ease-out",
-                  )}
-                >
-                  <div className="w-full max-w-full px-4 md:px-6 py-2">
-                    <CallHistory onRedial={() => {}} />
-                  </div>
-                </TabsContent>
-              )}
 
               {user && user.role === "admin" && (
                 <TabsContent
@@ -571,21 +479,7 @@ export const PlaygroundPage = () => {
                 </TabsContent>
               )}
 
-              {user?.role === "admin" && (
-                <TabsContent
-                  value="manage_agents"
-                  className={cn(
-                    "mt-0 border-0 outline-none",
-                    "data-[state=active]:animate-in",
-                    "data-[state=active]:fade-in-0",
-                    "data-[state=active]:zoom-in-[0.98]",
-                    "data-[state=active]:slide-in-from-bottom-3",
-                    "duration-500 ease-out",
-                  )}
-                >
-                  <ManageCallAgents />
-                </TabsContent>
-              )}
+
               {/* {user && (
                 <TabsContent
                   value="history"

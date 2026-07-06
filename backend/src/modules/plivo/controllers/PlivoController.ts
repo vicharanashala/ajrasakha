@@ -114,6 +114,58 @@ export class PlivoController {
   }
 
 
+  @Post('/webhook/call-answered')
+  @HttpCode(200)
+  @UseBefore(urlencoded({ extended: true }))
+  @OpenAPI({ summary: 'Handle Plivo call answered webhook' })
+  async handleCallAnswered(@Req() req: Request, @Res() res: Response): Promise<void> {
+    try {
+      const callUuid = req.body?.CallUUID || req.query?.CallUUID;
+      const fromNumber = req.body?.From || req.query?.From;
+
+      console.log(`📞 [PLIVO-CONTROLLER] Call answered webhook received: CallUUID=${callUuid}, From=${fromNumber}`);
+
+      // The agent is already marked as busy in the answer endpoint
+
+      // This webhook is just for logging and potential future enhancements
+
+      res.status(200).send('OK');
+    } catch (error: any) {
+      console.error('❌ [PLIVO-CONTROLLER] Error in call answered webhook:', error);
+      res.status(500).send('Internal Server Error');
+    }
+  }
+
+  @Post('/webhook/call-ended')
+  @HttpCode(200)
+  @UseBefore(urlencoded({ extended: true }))
+  @OpenAPI({ summary: 'Handle Plivo call ended webhook' })
+  async handleCallEnded(@Req() req: Request, @Res() res: Response): Promise<void> {
+    try {
+      const callUuid = req.body?.CallUUID || req.query?.CallUUID;
+      const fromNumber = req.body?.From || req.query?.From;
+      const callStatus = req.body?.CallStatus || req.query?.CallStatus;
+
+      console.log(`📞 [PLIVO-CONTROLLER] Call ended webhook received: CallUUID=${callUuid}, From=${fromNumber}, Status=${callStatus}`);
+
+      // Find the agent who was handling this call and mark them as available
+      const allCallAgents = await this.userService.getCallAgents();
+      const agentWithCall = allCallAgents.find(agent => agent.currentCallUuid === callUuid);
+
+      if (agentWithCall) {
+        await this.userService.markAgentAsAvailable(agentWithCall._id.toString());
+        console.log(`✅ [PLIVO-CONTROLLER] Marked agent ${agentWithCall.agent} (${agentWithCall.firstName} ${agentWithCall.lastName}) as available`);
+      } else {
+        console.log(`⚠️ [PLIVO-CONTROLLER] No agent found with currentCallUuid=${callUuid}`);
+      }
+
+      res.status(200).send('OK');
+    } catch (error: any) {
+      console.error('❌ [PLIVO-CONTROLLER] Error in call ended webhook:', error);
+      res.status(500).send('Internal Server Error');
+    }
+  }
+
 
 
 

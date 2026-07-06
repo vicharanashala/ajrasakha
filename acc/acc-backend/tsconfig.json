@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "baseUrl": "src",
+    "target": "esnext",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "lib": ["ESNext"],
+    "outDir": "build",
+    "rootDir": "src",
+    "sourceMap": true,
+    "strict": false,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "allowArbitraryExtensions": false,
+    "incremental": true,
+    "paths": {
+      "#root/*": ["./*"],
+      "#shared/*": ["./shared/*"]
+    },
+    "types": ["node", "express"],
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "noEmitOnError": true,
+    "skipLibCheck": true,
+    "inlineSources": true
+  },
+  "exclude": [
+    "build",
+    "dist",
+    "**/*.spec.ts",
+    "**/*.d.ts"
+  ]
+}
