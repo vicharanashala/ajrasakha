@@ -179,16 +179,51 @@ class AuditTrailsController {
     @QueryParam('startDate') startDate?: string,
     // @QueryParam('endDate') endDate?: string,
     @QueryParam('shift') shift?: string,
+    @QueryParam('from') from?: string,
+    @QueryParam('to') to?: string,
   ) {
     const actionCounts = await this.auditTrailsService.getShiftBasedAuditActionCounts(
       startDate,
       // endDate,
-      shift
+      shift,
+      from ?? '00:00',
+      to ?? '23:59'
     );
 
     return {
       message: 'Shift-based audit action counts retrieved successfully',
       data: actionCounts,
+    };
+  }
+
+  @OpenAPI({
+    summary: 'Get audit trails by question ID',
+    description: 'Retrieve all audit trails related to a specific question',
+  })
+  @Authorized()
+  @Get('/question/:questionId')
+  @HttpCode(200)
+  async getAuditTrailsByQuestionId(
+    @Param('questionId') questionId: string,
+    @QueryParam('page') page: number = 1,
+    @QueryParam('limit') limit: number = 10,
+    @QueryParam('action') action?: string | null,
+    @QueryParam('order') order: "asc" | "desc" = "desc",
+  ) {
+    const result = await this.auditTrailsService.getAuditTrailsByQuestionId(
+      questionId,
+      page,
+      limit,
+      action,
+      order
+    );
+
+    return {
+      message: 'Audit trails retrieved successfully',
+      data: result.data,
+      totalDocuments: result.totalDocuments,
+      totalPages: Math.ceil(result.totalDocuments / limit),
+      currentPage: page,
     };
   }
 

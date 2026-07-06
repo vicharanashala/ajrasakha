@@ -211,6 +211,8 @@ export class AuditTrailsRepository implements IAuditTrailsRepository {
     startDate: string,
     // endDate: string,
     shift: "morning" | "evening" | "all",
+    from: string,
+    to: string,
     session?: ClientSession
   ): Promise<
     {
@@ -249,7 +251,9 @@ export class AuditTrailsRepository implements IAuditTrailsRepository {
               },
               ...getShiftFilter(
                 "createdAt",
-                shift
+                shift,
+                from,
+                to
               ),
             },
           },
@@ -295,5 +299,43 @@ export class AuditTrailsRepository implements IAuditTrailsRepository {
 
       // console.log("Shift-based audit action counts:", result);
     return result;
+  }
+
+  async getAuditTrailsByQuestionId(
+    questionId: string,
+    page: number = 1,
+    limit: number = 10,
+    action?: string | null,
+    order: "asc" | "desc" = "desc",
+    session?: ClientSession,
+  ): Promise<{ data: ModeratorAuditTrail[]; totalDocuments: number }> {
+    await this.init();
+    
+    // Build query - match documents where questionId is in the context
+    const query: any = {
+      $or: [
+        { 'context.questionId': questionId },
+        { 'context.questionId': new ObjectId(questionId) },
+        { 'context.questionIds': questionId },
+        { 'context.questionIds': new ObjectId(questionId) },
+      ],
+    };
+
+    // Add action filter if provided
+    if (action && action.trim() !== '') {
+      query.action = action;
+    }
+
+    const skip = (page - 1) * limit;
+
+    return {
+      data: await this.auditTrailsCollection
+        .find(query, { session })
+        .sort({ createdAt: order === "asc" ? 1 : -1 })
+        .skip(skip)
+        .limit(limit)
+        .toArray(),
+      totalDocuments: await this.auditTrailsCollection.countDocuments(query, { session }),
+    };
   }
 }

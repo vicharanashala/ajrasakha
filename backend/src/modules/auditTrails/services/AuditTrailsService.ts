@@ -219,12 +219,36 @@ export class AuditTrailsService
     startDate: string,
     // endDate: string,
     shift: string,
+    from: string,
+    to: string,
   ): Promise<any> {
     // Implement the logic to get shift based audit action counts
     return this.auditTrailsRepository.getShiftBasedAuditActionCounts(
       startDate,
       // endDate,
       shift,
+      from,
+      to
     );
+  }
+
+  async getAuditTrailsByQuestionId(
+    questionId: string,
+    page?: number,
+    limit?: number,
+    action?: string | null,
+    order?: "asc" | "desc"
+  ): Promise<{ data: ModeratorAuditTrail[]; totalDocuments: number }> {
+    const result = await this.auditTrailsRepository.getAuditTrailsByQuestionId(
+      questionId,
+      page,
+      limit,
+      action,
+      order
+    );
+    return {
+      data: result.data.map(audit => this.normalizeAudit(audit)),
+      totalDocuments: result.totalDocuments,
+    };
   }
 }

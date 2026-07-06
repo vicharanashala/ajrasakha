@@ -18,4 +18,8 @@ export const aiConfig = {
   vicharanashala_api_token: env('VICHARANASHALA_API_TOKEN'),
   gdbServerIP: env('GDB_SERVER_IP') || 'localhost',
   gdbServerPort: Number(env('GDB_SERVER_PORT')?.trim()) || 8110,
+  // ACC Agent (Human-in-the-Loop) Configuration
+  accAgentBaseUrl: env('ACC_AGENT_BASE_URL'),
+  accAgentAssistantId: env('ACC_AGENT_ASSISTANT_ID'),
+  accAgentTimeout: Number(env('ACC_AGENT_TIMEOUT')?.trim()) || 10000,
 };

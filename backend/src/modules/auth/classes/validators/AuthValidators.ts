@@ -10,6 +10,7 @@ import {
   IsIn,
 } from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
+import {COORDINATOR_ROLES, type CoordinatorRole} from '#root/shared/constants/roles.js';
 
 class SignUpBody {
   @JSONSchema({
@@ -131,8 +132,8 @@ class AdminCreateReviewUserBody {
     example: 'district_coordinator',
     type: 'string',
   })
-  @IsIn(['district_coordinator', 'block_coordinator', 'village_coordinator'])
-  role: 'district_coordinator' | 'block_coordinator' | 'village_coordinator';
+  @IsIn(COORDINATOR_ROLES)
+  role: CoordinatorRole;
 
   @JSONSchema({
     title: 'Verification Status',

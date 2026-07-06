@@ -2,10 +2,7 @@ import { useEffect, useState } from "react";
 import { subDays } from "date-fns";
 import { ApprovalRateCard } from "./dashboard/approval-rate";
 import { ExpertsPerformance } from "./dashboard/experts-performance";
-import {
-  GoldenDatasetOverview,
-  type GoldenDataset,
-} from "./dashboard/golden-dataset";
+import { GoldenDatasetOverview } from "./dashboard/golden-dataset";
 import { ModeratorsOverview } from "./dashboard/overview";
 import { StatusCharts } from "./dashboard/question-status";
 import {
@@ -35,10 +32,117 @@ import { ReviewLevelComponent } from "./ReviewLevelComponent";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { PerformaneService } from "@/hooks/services/performanceService";
 import { toast } from "sonner";
-import { TopRightBadge } from "./NewBadge";
 import { QuestionsAnsweredAfter120MinProps } from "./dashboard/questions-answered-after-120min";
+import { Clock, CheckCircle } from "lucide-react";
+import { useCheckIn } from "@/hooks/api/performance/useCheckIn";
+import { useBlockUser } from "@/hooks/api/user/useBlockUser";
+import type { IUser } from "@/types";
 
 export type ViewType = "year" | "month" | "week" | "day";
+
+/** Moderator check-in / check-out control. Kept as its own component so its
+ *  per-second timer re-render stays isolated here and does NOT re-render the
+ *  whole Dashboard (which would restart all the card count-up animations).
+ *  Reuses the existing check-in + block/unblock endpoints; for a moderator,
+ *  isBlocked is the availability flag (checked-in = not blocked). */
+const ModeratorCheckInControl = ({ user }: { user?: IUser | null }) => {
+  const { checkIn, isPending: isCheckingIn } = useCheckIn();
+  const blockUser = useBlockUser();
+
+  const isModerator = user?.role === "moderator";
+
+  // Local, optimistic state seeded from the server. Check-in/checkout updates
+  // ONLY this state (no global ["user"] invalidation), so just this control
+  // re-renders — the dashboard and its cards are never re-rendered/re-animated.
+  const [checkedIn, setCheckedIn] = useState(
+    () => isModerator && user?.isBlocked === false,
+  );
+  const [checkedInAt, setCheckedInAt] = useState<number | null>(() =>
+    user?.lastCheckInAt ? new Date(user.lastCheckInAt).getTime() : null,
+  );
+  const [timer, setTimer] = useState("00:00:00");
+  const busy = isCheckingIn || blockUser.isPending;
+
+  // Re-sync with the server only when /me genuinely changes (initial load,
+  // window-focus refetch, etc.) — not on our own optimistic toggles.
+  useEffect(() => {
+    setCheckedIn(isModerator && user?.isBlocked === false);
+    setCheckedInAt(
+      user?.lastCheckInAt ? new Date(user.lastCheckInAt).getTime() : null,
+    );
+  }, [isModerator, user?.isBlocked, user?.lastCheckInAt]);
+
+  useEffect(() => {
+    if (!checkedIn || !checkedInAt) {
+      setTimer("00:00:00");
+      return;
+    }
+    const tick = () => {
+      const diff = Date.now() - checkedInAt;
+      const f = (n: number) => Math.max(0, n).toString().padStart(2, "0");
+      setTimer(
+        `${f(Math.floor(diff / 3600000))}:${f(Math.floor((diff / 60000) % 60))}:${f(
+          Math.floor((diff / 1000) % 60),
+        )}`,
+      );
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [checkedIn, checkedInAt]);
+
+  if (!isModerator) return null;
+
+  const handleCheckIn = async () => {
+    if (!user?._id || busy) return;
+    try {
+      await blockUser.mutateAsync({ userId: user._id, action: "unblock" });
+      await checkIn();
+      setCheckedInAt(Date.now());
+      setCheckedIn(true);
+    } catch {
+      /* errors surfaced via the hooks' toasts */
+    }
+  };
+
+  const handleCheckOut = async () => {
+    if (!user?._id || busy) return;
+    try {
+      await blockUser.mutateAsync({ userId: user._id, action: "block" });
+      setCheckedIn(false);
+    } catch {
+      /* errors surfaced via the hooks' toasts */
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      {checkedIn && (
+        <span className="text-lg px-1 font-semibold tracking-widest w-full text-center">
+          {timer}
+        </span>
+      )}
+      <button
+        disabled={busy}
+        onClick={() => (checkedIn ? handleCheckOut() : handleCheckIn())}
+        className={`flex items-center gap-2 px-2 py-2 rounded-xl border transition-all duration-200 cursor-pointer ${
+          checkedIn
+            ? "bg-card border-red-300 text-red-600 hover:bg-red-50"
+            : "bg-card border-green-300 text-green-600 hover:bg-green-50"
+        } ${busy ? "opacity-60 cursor-not-allowed" : ""}`}
+      >
+        {checkedIn ? (
+          <CheckCircle className="w-4 h-4 text-red-500" />
+        ) : (
+          <Clock className="w-5 h-5 text-green-500" />
+        )}
+        <span className="text-sm font-medium">
+          {checkedIn ? "Check Out" : "Check In"}
+        </span>
+      </button>
+    </div>
+  );
+};
 
 export const Dashboard = () => {
 
@@ -49,9 +153,35 @@ export const Dashboard = () => {
   const [selectedYear, setSelectedYear] = useState(
     new Date().getFullYear().toString()
   );
-  const [selectedMonth, setSelectedMonth] = useState("January");
-  const [selectedWeek, setSelectedWeek] = useState("Week 1");
-  const [selectedDay, setSelectedDay] = useState("Mon");
+
+  // Helper: derive today's month, week-of-month, and day-of-week
+  const getTodayDefaults = () => {
+    const today = new Date();
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December",
+    ];
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const month = monthNames[today.getMonth()];
+    const weekNumber = Math.ceil(today.getDate() / 7);
+    const week = `Week ${Math.min(weekNumber, 5)}`;
+    const day = dayNames[today.getDay()];
+    return { month, week, day };
+  };
+
+  const todayDefaults = getTodayDefaults();
+  const [selectedMonth, setSelectedMonth] = useState(todayDefaults.month);
+  const [selectedWeek, setSelectedWeek] = useState(todayDefaults.week);
+  const [selectedDay, setSelectedDay] = useState(todayDefaults.day);
+
+  // When switching tabs, reset selections back to today's defaults
+  const handleSetViewType = (v: ViewType) => {
+    const defaults = getTodayDefaults();
+    setSelectedMonth(defaults.month);
+    setSelectedWeek(defaults.week);
+    setSelectedDay(defaults.day);
+    setViewType(v);
+  };
   const [customStartDateTime, setCustomStartDateTime] = useState<string>("");
   const [customEndDateTime, setCustomEndDateTime] = useState<string>("");
 
@@ -76,11 +206,20 @@ export const Dashboard = () => {
     startTime: undefined,
     endTime: undefined,
   });
+  const [overviewSelectedDate, setOverviewSelectedDate] = useState(
+    () => new Date().toISOString().split("T")[0] ?? ""
+  );
+  const [overviewStartTime, setOverviewStartTime] = useState("00:00");
+  const [overviewEndTime, setOverviewEndTime] = useState("23:59");
 
   const { data: user } = useGetCurrentUser();
 
   // Granular Hooks
-  const { data: overviewData, isLoading: isOverviewLoading } = useGetOverview();
+  const { data: overviewData, isLoading: isOverviewLoading } = useGetOverview({
+    selectedDate: overviewSelectedDate,
+    startTime: overviewStartTime,
+    endTime: overviewEndTime,
+  });
   const { data: goldenData, isLoading: isGoldenLoading } = useGetGoldenDataset({
     viewType,
     selectedYear,
@@ -128,13 +267,15 @@ export const Dashboard = () => {
   const LoadingWrapper = ({
     loading,
     text,
+    className,
     children,
   }: {
     loading: boolean;
     text: string;
+    className?: string;
     children: React.ReactNode;
   }) => (
-    <div className={`relative overflow-hidden rounded-xl min-h-[300px] transition-all duration-300 ${loading ? "opacity-50 blur-sm pointer-events-none" : ""}`}>
+    <div className={`relative min-h-[300px] overflow-hidden rounded-xl transition-all duration-300 ${className ?? ""} ${loading ? "opacity-50 blur-sm pointer-events-none" : ""}`}>
       {loading && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/50 backdrop-blur-sm rounded-xl">
           <Spinner text={text} fullScreen={false} />
@@ -160,21 +301,34 @@ export const Dashboard = () => {
           </div>
 
           <div className="flex items-center gap-4">
+            <ModeratorCheckInControl user={user} />
             <DashboardClock />
           </div>
         </div>
 
         {/* Top Stats Row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div className="mb-6 grid grid-cols-1 items-start gap-6 xl:grid-cols-2 xl:items-stretch">
           <LoadingWrapper
             loading={isOverviewLoading}
             text="Fetching role overview..."
+            className="xl:h-full"
           >
-            <ModeratorsOverview data={overviewData?.userRoleOverview ?? []} />
+            <ModeratorsOverview
+              data={overviewData?.userRoleOverview ?? []}
+              stfExpertCount={overviewData?.stfExpertCount ?? 0}
+              stfModeratorCount={overviewData?.stfModeratorCount ?? 0}
+              selectedDate={overviewSelectedDate}
+              startTime={overviewStartTime}
+              endTime={overviewEndTime}
+              onSelectedDateChange={setOverviewSelectedDate}
+              onStartTimeChange={setOverviewStartTime}
+              onEndTimeChange={setOverviewEndTime}
+            />
           </LoadingWrapper>
           <LoadingWrapper
             loading={isOverviewLoading}
             text="Fetching approval stats..."
+            className="xl:h-full"
           >
             <ApprovalRateCard
               data={
@@ -212,7 +366,7 @@ export const Dashboard = () => {
             setSelectedDay={setSelectedDay}
             setSelectedMonth={setSelectedMonth}
             setSelectedWeek={setSelectedWeek}
-            setViewType={setViewType}
+            setViewType={handleSetViewType}
             viewType={viewType}
             customStartDateTime={customStartDateTime}
             setCustomStartDateTime={setCustomStartDateTime}

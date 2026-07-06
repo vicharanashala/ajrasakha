@@ -15,6 +15,7 @@ import {
   Body,
   BadRequestError,
   CurrentUser,
+  ForbiddenError,
 } from 'routing-controllers';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -31,11 +32,13 @@ import {AUDIT_TRAILS_TYPES} from '#root/modules/auditTrails/types.js';
 import {IAuditTrailsService} from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import {
   DashboardQueryDto,
+  DemographicUsersQueryDto,
   QueryAnalyticsQueryDto,
   QueryCategoryQuestionsQueryDto,
   SourceQueryDto,
   UserDetailsQueryDto,
   WeatherConcernAnalyticsQueryDto,
+  WeatherConcernQueriesQueryDto,
 } from '../classes/validators/ChatbotQueryValidators.js';
 import {
   ChatbotErrorResponse,
@@ -56,6 +59,7 @@ import {
   GrowthResponse,
   RetentionMetricsQuery,
   TopFaqsQuery,
+  userProfileQuery,
 } from '../types/chatbot.type.js';
 import {IActiveUser} from '#root/shared/database/providers/mongo/repositories/ChatbotRepository.js';
 import {
@@ -66,6 +70,7 @@ import {
   ResponseAdherenceTable,
   UserDemographics,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
+import {COORDINATOR_ROLES} from '#root/shared/constants/roles.js';
 
 @OpenAPI({
   tags: ['analytics'],
@@ -181,14 +186,18 @@ export class ChatbotController {
   async getDistrictAnalyticsByState(
     @QueryParam('state') state: string,
 
+    @QueryParam('selectedStateCode') selectedStateCode: string,
+
     @QueryParam('source')
     source: string,
 
     @QueryParam('userType')
     userType: string = 'all',
   ) {
+    // console.log("Selected state code controller", selectedStateCode);
     return this.chatbotService.getDistrictAnalyticsByState(
       state,
+      selectedStateCode,
       source,
       userType,
     );
@@ -421,6 +430,8 @@ export class ChatbotController {
       search?: string;
       startDate?: Date;
       endDate?: Date;
+      isPassed?: string;
+      tag?: string;
     },
   ) {
     if (query.category) {
@@ -433,7 +444,18 @@ export class ChatbotController {
         query.userType,
         query.search,
       );
-    } else if (query.district) {
+    } else if (query.state && !query.district) {
+      return this.chatbotService.getQuestionFromState(
+        query.state,
+        query.questionType,
+        query.page,
+        query.limit,
+        query.source,
+        query.userType,
+        query.search,
+      );
+    }
+    else if (query.district) {
       return this.chatbotService.getQuestionFromDistrict(
         query.district,
         query.state,
@@ -479,6 +501,8 @@ export class ChatbotController {
         query.search,
         startDate,
         endDate,
+        query.isPassed,
+        query.tag,
       );
     } else {
       if(query.period){
@@ -534,6 +558,36 @@ export class ChatbotController {
   }
 
   @OpenAPI({
+    summary: 'Get paginated queries for a specific weather concern',
+    description:
+      'Returns paginated weather queries that fall under a specific weather concern, filtered by season and farmer location.',
+  })
+  @Get('/weather-concern-queries')
+  @HttpCode(200)
+  @Authorized()
+  async getWeatherConcernQueries(
+    @QueryParams() query: WeatherConcernQueriesQueryDto,
+  ) {
+    return this.chatbotService.getWeatherConcernQueries(
+      {
+        season: query.season,
+        state: query.state,
+        district: query.district,
+        block: query.block,
+        village: query.village,
+        startDate: query.startDate,
+        endDate: query.endDate,
+      },
+      query.concern,
+      query.page,
+      query.limit,
+      query.source,
+      query.userType,
+      query.search,
+    );
+  }
+
+  @OpenAPI({
     summary: 'Get farmer heat map analytics',
     description:
       'Returns state or district heat map metrics by month, week, day, or hour for farmer activity and question status analysis.',
@@ -545,6 +599,9 @@ export class ChatbotController {
     @QueryParam('source') source: string,
     @QueryParam('userType') userType: string,
     @QueryParam('state') state: string,
+    @QueryParam('district') district: string,
+    @QueryParam('block') block: string,
+    @QueryParam('village') village: string,
     @QueryParam('granularity')
     granularity: 'monthly' | 'weekly' | 'daily' | 'hourly',
     @QueryParam('startDate') startDate?: string,
@@ -554,10 +611,30 @@ export class ChatbotController {
       source,
       userType,
       state,
+      district,
+      block,
+      village,
       granularity,
       startDate,
       endDate,
     });
+  }
+
+  @OpenAPI({
+    summary: 'Get coordinator duplicate question heat map',
+    description:
+      'Returns coordinator-scoped duplicate question counts by block and village. Repeated identical questions from the same user count as one duplicate group.',
+  })
+  @Get('/coordinator-duplicate-heat-map/:userId')
+  @HttpCode(200)
+  @Authorized(['admin', ...COORDINATOR_ROLES])
+  async getCoordinatorDuplicateQuestionHeatMap(
+    @Param('userId') userId: string,
+    @CurrentUser() currentUser: IUser,
+  ) {
+    await this.assertCoordinatorOwnDashboard(userId, currentUser);
+
+    return this.chatbotService.getCoordinatorDuplicateQuestionHeatMap(userId);
   }
 
   @OpenAPI({
@@ -634,6 +711,28 @@ export class ChatbotController {
     statusCode: 500,
     description: 'Internal server error - Failed to fetch user details',
   })
+  @OpenAPI({
+    summary: 'Get users by demographic category',
+    description:
+      'Returns paginated users filtered by a demographic category and value such as age, gender, experience, or landholding.',
+  })
+  @Get('/users-by-demographic')
+  @HttpCode(200)
+  @Authorized()
+  async getUsersByDemographic(@QueryParams() query: DemographicUsersQueryDto) {
+    return this.chatbotService.getUsersByDemographic(
+      query.category,
+      query.value,
+      query.source,
+      query.userType,
+      query.page,
+      query.limit,
+      query.search,
+      query.sortBy,
+      query.sortOrder,
+    );
+  }
+
   @Get('/user-details')
   @HttpCode(200)
   @Authorized()
@@ -854,7 +953,7 @@ export class ChatbotController {
       const state = query.state;
       const format = query.downloadFormat || 'xlsx';
 
-      console.log('state is', state);
+      // console.log('state is', state);
 
       let data: ArrayBuffer | Buffer | null = null;
 
@@ -1106,7 +1205,7 @@ export class ChatbotController {
   })
   @Patch('/users/:userId')
   @HttpCode(200)
-  @Authorized(['admin'])
+  @Authorized(['admin', ...COORDINATOR_ROLES])
   async updateUser(
     @Param('userId') userId: string,
     @QueryParam('source') source: string,
@@ -1171,6 +1270,29 @@ export class ChatbotController {
       beforeUser = await this.chatbotService.getUserById(userId, source);
     } catch (e) {
       console.error('Failed to fetch user before update for audit trail', e);
+    }
+
+    if (user.role !== 'admin') {
+      if (source !== 'annam') {
+        throw new ForbiddenError(
+          'Coordinators can only update their linked Annam profile',
+        );
+      }
+
+      const targetEmail = beforeUser?.email?.trim().toLowerCase();
+      const actorEmail = user.email?.trim().toLowerCase();
+
+      if (!targetEmail || !actorEmail || targetEmail !== actorEmail) {
+        throw new ForbiddenError(
+          'Coordinators can only update their own linked farmer profile',
+        );
+      }
+
+      if (body.userRole && body.userRole !== beforeUser?.userRole) {
+        throw new ForbiddenError('Coordinators cannot change coordinator role');
+      }
+
+      delete body.userRole;
     }
 
     try {
@@ -1261,6 +1383,7 @@ export class ChatbotController {
     @Body()
     body: {
       newPassword: string;
+      keepLoggedIn: boolean;
     },
     @CurrentUser() user: IUser,
   ) {
@@ -1303,6 +1426,7 @@ export class ChatbotController {
         userId,
         source,
         body.newPassword,
+        body.keepLoggedIn
       );
 
       auditPayload = {
@@ -1767,6 +1891,200 @@ export class ChatbotController {
       userType,
       startDate,
       endDate,
+    );
+  }
+
+  @Get('/state-user-data')
+  @HttpCode(200)
+  @Authorized()
+  async getAllStatesQuestionsAndUsersData(
+        @QueryParams()
+    query: {
+      source: string,
+      userType: string,
+    }
+  ): Promise<any>{
+    return this.chatbotService.getAllStatesQuestionsAndUsersData(query.source, query.userType)
+  }
+  
+  @Get('/user-profile')
+  @HttpCode(200)
+  @Authorized()
+  async getUserProfile(
+    @QueryParams() query: userProfileQuery
+  ) {
+    return await this.chatbotService.getUserProfile(
+      query.userId,
+    );
+  }
+
+  @Patch('/assign-users/:userId')
+  @HttpCode(200)
+  @Authorized(['admin', ...COORDINATOR_ROLES])
+  async assignUsers(
+    @Param('userId') userId: string,
+    @Body() body: {userIds: string[]},
+    @CurrentUser() currentUser: IUser,
+  ) {
+    await this.assertCoordinatorOwnDashboard(userId, currentUser);
+
+    return await this.chatbotService.assignUsers(
+      userId,
+      body.userIds,
+    );
+  }
+
+  @Patch('/unassign-users/:userId')
+  @HttpCode(200)
+  @Authorized(['admin', ...COORDINATOR_ROLES])
+  async unAssignUsers(
+    @Param('userId') userId: string,
+    @Body() body: {userIds: string[]},
+    @CurrentUser() currentUser: IUser,
+  ) {
+    await this.assertCoordinatorOwnDashboard(userId, currentUser);
+
+    return await this.chatbotService.unAssignUsers(
+      userId,
+      body.userIds,
+    );
+  }
+
+  private async assertCoordinatorOwnDashboard(userId: string, currentUser: IUser) {
+    if (currentUser.role === 'admin') return;
+
+    const profile = await this.chatbotService.getUserProfile(userId);
+    const profileEmail = profile?.email?.trim().toLowerCase();
+    const currentUserEmail = currentUser.email?.trim().toLowerCase();
+
+    if (!profileEmail || !currentUserEmail || profileEmail !== currentUserEmail) {
+      throw new ForbiddenError(
+        'Coordinators can only manage users from their own dashboard',
+      );
+    }
+  }
+
+  @Get('/village-data')
+  @HttpCode(200)
+  @Authorized()
+  async getVillageUserCounts(
+    @QueryParams()
+    query: {
+      state: string;
+      district: string;
+      source: string;
+      userType: string;
+    }
+  ): Promise<any> {
+    return this.chatbotService.getVillageUserCounts(
+      query.state,
+      query.district,
+      query.source,
+      query.userType,
+    );
+  }
+
+  @Get('/question-lifecycle')
+  @HttpCode(200)
+  @Authorized()
+  async getQuestionLifecycle(
+    @QueryParam('questionId')
+    questionId: string
+  ): Promise<any> {
+    return this.chatbotService.getQuestionLifecycle(
+      questionId
+    );
+  }
+
+  @Get('/active-users-details')
+  @HttpCode(200)
+  @Authorized()
+  async getActiveUsers(
+  @QueryParams()
+    query: {
+
+      page?: number;
+      limit?: number;
+      source?: string;
+      userType?: string;
+      district?: string;
+      state?: string;
+      search?: string;
+
+    },
+) {
+  const pageInNumber = Number(query.page)
+  const limitInNumber = Number(query.limit)
+  return this.chatbotService.getActiveUsersDetails(
+    pageInNumber,
+    limitInNumber,
+    query.source,
+    query.userType,
+    query.state,
+    query.district,
+    query.search,
+  );
+}
+
+
+
+@Get('/get-coordinators-details')
+  @HttpCode(200)
+  @Authorized()
+  async getCoordinatorsDetails(
+  @QueryParams()
+    query: {
+
+      page?: number;
+      limit?: number;
+      source?: string;
+      userType?: string;
+      district?: string;
+      state?: string;
+      search?: string;
+
+    },
+) {
+  const pageInNumber = Number(query.page)
+  const limitInNumber = Number(query.limit)
+  return this.chatbotService.getCoordinatorsDetails(
+    pageInNumber,
+    limitInNumber,
+    query.source,
+    query.userType,
+    query.state,
+    query.district,
+    query.search,
+  );
+}
+  @Get('/lifecycle-summary')
+  @HttpCode(200)
+  @Authorized()
+  async getLifecycleSummary(
+    @QueryParam('status') status: string = 'all',
+    @QueryParam('source') source: string = 'annam',
+    @QueryParam('userType') userType: string = 'all',
+    @QueryParam('startDate') startDate?: string,
+    @QueryParam('endDate') endDate?: string,
+    @QueryParam('isPassed') isPassed?: string,
+    @QueryParam('tag') tag?: string,
+    @QueryParam('notificationType') notificationType?: string,
+  ): Promise<any> {
+    const start= startDate
+        ? new Date(startDate)
+        : undefined;
+    const end= endDate
+        ? new Date(endDate)
+        : undefined;
+    return this.chatbotService.getLifeCycleSummary(
+      status,
+      source,
+      userType,
+      start,
+      end,
+      isPassed,
+      tag,
+      notificationType
     );
   }
 }

@@ -11,6 +11,7 @@ import {
 import { Type, Transform } from 'class-transformer';
 import { NotificationRetentionType } from '#root/shared/index.js';
 import { ICropRef, UserRole } from '#root/shared/interfaces/models.js';
+import { USER_ROLES } from '#root/shared/constants/roles.js';
 
 class PreferenceDto {
   @IsOptional()
@@ -132,7 +133,13 @@ class VerifyUserBody {
   isVerified: boolean;
 }
 
-export const USER_VALIDATORS = [PreferenceDto, UsersNameResponseDto, UserDto, NotificationDeletePreferenceDTO, UpdatePenaltyAndIncentive, BlockUnblockBody, VerifyUserBody];
+export class VerificationRequestDto {
+  @IsString()
+  @IsNotEmpty({ message: 'Identifier cannot be empty' })
+  identifier: string;
+}
+
+export const USER_VALIDATORS = [PreferenceDto, UsersNameResponseDto, UserDto, NotificationDeletePreferenceDTO, UpdatePenaltyAndIncentive, BlockUnblockBody, VerifyUserBody, VerificationRequestDto];
 
 class UpdateUserDto {
   @IsOptional()
@@ -150,7 +157,7 @@ class UpdateUserDto {
   lastName?: string;
 
   @IsOptional()
-  @IsEnum(['expert', 'moderator', 'admin', 'pae_expert', 'tester', 'district_coordinator', 'block_coordinator', 'village_coordinator', ],)
+  @IsEnum(USER_ROLES)
   role?: UserRole;
   @IsOptional()
   @IsString()

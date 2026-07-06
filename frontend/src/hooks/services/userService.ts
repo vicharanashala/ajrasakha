@@ -6,6 +6,24 @@ import { env } from "@/config/env";
 
 const API_BASE_URL = env.apiBaseUrl();
 
+/** One question a moderator currently holds, with its denormalised status. */
+export interface AssignedQuestion {
+  questionId: string;
+  status: string;
+}
+
+/** Statuses that mark a moderator "busy". Re-routed (and other) held questions do not. */
+export const BLOCKING_ASSIGNED_STATUSES = ["in-review", "duplicate"];
+
+export interface StfModerator {
+  _id: string;
+  name: string;
+  email: string;
+  /** The questions this moderator currently holds (empty when free). A moderator is
+   *  busy only while holding an entry in a blocking status; re-routed entries don't count. */
+  assignedQuestionIds?: AssignedQuestion[] | null;
+}
+
 export class UserService {
   private _baseUrl = `${API_BASE_URL}/users`;
 
@@ -15,6 +33,13 @@ export class UserService {
 
   async useGetAllUsers(): Promise<IUsersNameResponse | null> {
     return apiFetch<IUsersNameResponse>(`${this._baseUrl}/all`);
+  }
+
+  /** All moderators ({_id, name, email}) — used for the report's moderator filter. */
+  async getModerators(): Promise<{ _id: string; name: string; email: string }[] | null> {
+    return apiFetch<{ _id: string; name: string; email: string }[]>(
+      `${this._baseUrl}/moderators`,
+    );
   }
 
 
@@ -48,6 +73,10 @@ export class UserService {
       body: JSON.stringify({ userId, action }),
       method: "PATCH",
     });
+  }
+
+  async getStfModerators(): Promise<StfModerator[] | null> {
+    return apiFetch<StfModerator[]>(`${this._baseUrl}/stf-moderators`);
   }
 
   async updateUserStatus(userId: string, status: string) {
@@ -139,6 +168,20 @@ export class UserService {
       method: "PATCH",
     });
   }
+
+  async toggleAgentStatus(online: boolean): Promise<IUser | null> {
+    return apiFetch<IUser>(`${this._baseUrl}/call-agents/toggle-status`, {
+      method: "POST",
+      body: JSON.stringify({ online }),
+    });
+  }
+
+  async markAgentAsAvailable(): Promise<IUser | null> {
+    return apiFetch<IUser>(`${this._baseUrl}/call-agents/available`, {
+      method: "POST",
+    });
+  }
+
   /**
    * Get unverified users with search capability
    * @param page - Page number (default: 1)

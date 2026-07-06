@@ -111,11 +111,13 @@ export class PerformanceController {
   @OpenAPI({ summary: 'Get role overview and approval rates' })
   @Get('/overview')
   @Authorized()
-  async getOverview(@CurrentUser() user: IUser): Promise<{
+  async getOverview(@CurrentUser() user: IUser,@QueryParams() query: { startDateTime?: string; endDateTime?: string;}): Promise<{
     userRoleOverview: UserRoleOverview[];
+    stfExpertCount: number;
+    stfModeratorCount: number;
     moderatorApprovalRate: ModeratorApprovalRate;
   }> {
-    return this.performanceService.getOverview(user._id.toString());
+    return this.performanceService.getOverview(user._id.toString(),query);
   }
 
   @OpenAPI({ summary: 'Get golden dataset analytics' })
@@ -376,7 +378,7 @@ export class PerformanceController {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   )
   async getShiftBasedMetrics(
-    @QueryParams() query: {startDate: string; endDate: string; shift: string},
+    @QueryParams() query: {startDate: string; endDate: string; shift: string; source: string; from:string; to:string;},
     @Res() response: any,
   ) {
     const startDate = query.startDate;
@@ -392,6 +394,9 @@ export class PerformanceController {
       startDate,
       // endDate,
       shift,
+      query.source ?? 'annam',
+      query.from ?? '00:00',
+      query.to ?? '23:59' 
     );
     if (!data) {
       response.status(200).json({
@@ -426,7 +431,7 @@ export class PerformanceController {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   )
   async getShiftBasedTrends(
-    @QueryParams() query: {startDate: string; endDate: string; shift: string},
+    @QueryParams() query: {startDate: string; endDate: string; shift: string; source: string; from:string; to:string;},
     @Res() response: any,
   ) {
     const startDate = query.startDate;
@@ -442,6 +447,9 @@ export class PerformanceController {
       startDate,
       // endDate,
       shift,
+      query.source ?? 'annam',
+      query.from ?? '00:00',
+      query.to ?? '23:59' 
     );
     if (!data) {
       response.status(200).json({
@@ -476,7 +484,7 @@ export class PerformanceController {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   )
   async getQuestionStatusDistribution(
-    @QueryParams() query: {startDate: string; endDate: string; shift: string},
+    @QueryParams() query: {startDate: string; endDate: string; shift: string; source: string; from:string; to:string;},
     @Res() response: any,
   ) {
     const startDate = query.startDate;
@@ -492,6 +500,9 @@ export class PerformanceController {
       startDate,
       // endDate,
       shift,
+      query.source ?? 'annam',
+      query.from ?? '00:00',
+      query.to ?? '23:59' 
     );
     if (!data) {
       response.status(200).json({
@@ -526,7 +537,7 @@ export class PerformanceController {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   )
   async getQuestionLevelDistribution(
-    @QueryParams() query: {startDate: string; endDate: string; shift: string},
+    @QueryParams() query: {startDate: string; endDate: string; shift: string; source: string; from:string; to:string;},
     @Res() response: any,
   ) {
     const startDate = query.startDate;
@@ -542,6 +553,9 @@ export class PerformanceController {
       startDate,
       // endDate,
       shift,
+      query.source ?? 'annam',
+      query.from ?? '00:00',
+      query.to ?? '23:59' 
     );
     if (!data) {
       response.status(200).json({
@@ -576,7 +590,7 @@ export class PerformanceController {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   )
   async getShiftBasedTopExperts(
-    @QueryParams() query: {startDate: string; endDate: string; shift: string},
+    @QueryParams() query: {startDate: string; endDate: string; shift: string; source: string; from:string; to:string;},
     @Res() response: any,
   ) {
     const startDate = query.startDate;
@@ -592,6 +606,9 @@ export class PerformanceController {
       startDate,
       // endDate,
       shift,
+      query.source ?? 'annam',
+      query.from ?? '00:00',
+      query.to ?? '23:59' 
     );
     if (!data) {
       response.status(200).json({
@@ -626,7 +643,7 @@ export class PerformanceController {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   )
   async getShiftBasedTopApprovingExperts(
-    @QueryParams() query: {startDate: string; endDate: string; shift: string},
+    @QueryParams() query: {startDate: string; endDate: string; shift: string; source: string; from:string; to:string;},
     @Res() response: any,
   ) {
     const startDate = query.startDate;
@@ -642,6 +659,9 @@ export class PerformanceController {
       startDate,
       // endDate,
       shift,
+      query.source ?? 'annam',
+      query.from ?? '00:00',
+      query.to ?? '23:59' 
     );
     if (!data) {
       response.status(200).json({

@@ -1847,4 +1847,58 @@ export class AnswerRepository implements IAnswerRepository {
       );
     }
   }
+
+  async getFinalAnswersByQuestionIds(
+    questionIds: string[],
+    session?: ClientSession,
+  ): Promise<IAnswer[]> {
+    try {
+      await this.init();
+      const objectIds = questionIds.map(id => new ObjectId(id));
+      
+      const answers = await this.AnswerCollection.find(
+        {
+          questionId: {$in: objectIds},
+          isFinalAnswer: true,
+        },
+        {session},
+      ).toArray();
+
+      return answers.map(a => ({
+        ...a,
+        _id: a._id?.toString(),
+        questionId: a.questionId?.toString(),
+        authorId: a.authorId?.toString(),
+        approvedBy: a.approvedBy?.toString(),
+      }));
+    } catch (error) {
+      throw new InternalServerError(
+        `Error fetching final answers: ${error}`,
+      );
+    }
+  }
+
+  async getFinalAnswerQuestionIdsByApprover(
+    moderatorIds: string[],
+    session?: ClientSession,
+  ): Promise<string[]> {
+    try {
+      await this.init();
+      if (!moderatorIds?.length) return [];
+      const answers = await this.AnswerCollection.find(
+        {
+          approvedBy: { $in: moderatorIds.map(id => new ObjectId(id)) },
+          isFinalAnswer: true,
+        },
+        { projection: { questionId: 1 }, session },
+      ).toArray();
+      return answers
+        .map(a => a.questionId?.toString())
+        .filter((id): id is string => Boolean(id));
+    } catch (error) {
+      throw new InternalServerError(
+        `Error fetching final answers by approver: ${error}`,
+      );
+    }
+  }
 }

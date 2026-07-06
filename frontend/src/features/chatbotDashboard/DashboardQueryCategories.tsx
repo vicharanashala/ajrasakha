@@ -20,6 +20,7 @@ interface QueryCategoriesProps {
     categories?: QueryCategory[];
     source?: "vicharanashala" | "annam" | "whatsapp";
     userType?: string;
+    isLoading?: boolean;
 }
 
 // ─── PREMIUM HARMONIOUS 15-COLOR PALETTE ─────────────────────────────────────
@@ -103,10 +104,11 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
- const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
+const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
     categories = DEFAULT_CATEGORIES,
     source = "annam",
     userType = "all",
+    isLoading = false,
 }) => {
     const [selectedCategory, setSelectedCategory] = React.useState<QueryCategory | null>(null);
     // Determine maximum total count among all categories to scale progress bars proportionally
@@ -114,87 +116,82 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
     const totals = activeCategories.map((c) => c.questionCount + c.duplicateQuestionCount);
     const maxTotal = Math.max(...totals, 1);
     const queryClient = useQueryClient();
-    const [loading, setLoading] = useState(false);
-    const handleRefresh = async ()=>{
-      setLoading(true);
-      await queryClient.refetchQueries({ queryKey: ["query-categories"] });
-      setLoading(false);
-    }
+    const [refreshing, setRefreshing] = useState(false);
+    const handleRefresh = async () => {
+        setRefreshing(true);
+        await queryClient.refetchQueries({ queryKey: ["query-categories"] });
+        setRefreshing(false);
+    };
+
+    const showSkeleton = isLoading || refreshing;
 
     return (
-      <div
-        className="          bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
- border border-gray-200 dark:border-gray-800 rounded-xl p-4 flex flex-col h-full"
-      >
-        {/* Header */}
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <div className="text-[13px] font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
-              <span>Query categories</span>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground">
-                    <InfoIcon className="h-3.5 w-3.5" />
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  List of top domains/categories that chatbot users are asking questions about, showing unique vs duplicate counts.
-                </TooltipContent>
-              </Tooltip>
-            <button
-              onClick={handleRefresh}
-              className="absolute top-3 right-6 z-20 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
-              title="Refresh"
-            >
-              <RefreshCw
-                className={`h-3.5 w-3.5 bg-background ${
-                  loading ? "animate-spin" : ""
-                }`}
-              />
-            </button>
+        <div className="bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300 border border-gray-200 dark:border-gray-800 rounded-xl p-4 flex flex-col h-full">
+            {/* Header */}
+            <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                    <div className="text-[13px] font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-1.5">
+                        <span>Query categories</span>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <span className="cursor-help inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground">
+                                    <InfoIcon className="h-3.5 w-3.5" />
+                                </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                List of top domains/categories that chatbot users are asking questions about, showing unique vs duplicate counts.
+                            </TooltipContent>
+                        </Tooltip>
+                    </div>
+                    <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                        Dynamic Agriculture Domains (Top 15)
+                    </div>
+                </div>
+                <button
+                    onClick={handleRefresh}
+                    className="ml-2 rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800"
+                    title="Refresh"
+                >
+                    <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+                </button>
             </div>
-            <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-              Dynamic Agriculture Domains (Top 15)
-            </div>
-          </div>
+
+            {/* Progress bars — scrollable or skeleton */}
+            {showSkeleton ? (
+                <div className="flex-1">
+                    <LazySectionSkeleton className="h-[300px]" />
+                </div>
+            ) : (
+                <ScrollArea className="flex-1 max-h-[300px] pr-1">
+                    {activeCategories.map((q, index) => {
+                        const total = q.questionCount + q.duplicateQuestionCount;
+                        const pct = (total / maxTotal) * 100;
+                        const color = q.color || PREMIUM_PALETTE[index % PREMIUM_PALETTE.length];
+
+                        return (
+                            <ProgressBar
+                                key={q.label}
+                                label={q.label}
+                                pct={pct}
+                                color={color}
+                                questionCount={q.questionCount}
+                                duplicateQuestionCount={q.duplicateQuestionCount}
+                                onClick={() => setSelectedCategory(q)}
+                            />
+                        );
+                    })}
+                </ScrollArea>
+            )}
+            {selectedCategory && (
+                <QueryCategoryQuestionsModal
+                    category={selectedCategory.label}
+                    source={source}
+                    userType={userType}
+                    isQueryCategory={true}
+                    onClose={() => setSelectedCategory(null)}
+                />
+            )}
         </div>
-
-        {/* Progress bars — scrollable */}
-        {loading ? (
-          <div>
-            <LazySectionSkeleton/>
-          </div>
-        ):(
-        <ScrollArea className="flex-1 max-h-[300px] pr-1">
-          {activeCategories.map((q, index) => {
-            const total = q.questionCount + q.duplicateQuestionCount;
-            const pct = (total / maxTotal) * 100;
-            const color =
-              q.color || PREMIUM_PALETTE[index % PREMIUM_PALETTE.length];
-
-            return (
-              <ProgressBar
-                key={q.label}
-                label={q.label}
-                pct={pct}
-                color={color}
-                questionCount={q.questionCount}
-                duplicateQuestionCount={q.duplicateQuestionCount}
-                onClick={() => setSelectedCategory(q)}
-              />
-            );
-          })}
-        </ScrollArea>)}
-        {selectedCategory && (
-          <QueryCategoryQuestionsModal
-            category={selectedCategory.label}
-            source={source}
-            userType={userType}
-            isQueryCategory = {true}
-            onClose={() => setSelectedCategory(null)}
-          />
-        )}
-      </div>
     );
 };
 

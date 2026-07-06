@@ -52,6 +52,14 @@ interface AnswerActionsProps {
   firstFalseOrMissingIndex?: number;
   lastAnswerApprovalCount?: number;
   paeReview?: boolean;
+  /** When true the question was opened from the moderator's Dedicated tab.
+   *  Approve and Re-route actions are only available in this view. */
+  isDedicatedView?: boolean;
+  /** The moderator currently assigned to this question (shown in the Re-route dialog). */
+  assignedModerator?: { name: string; email: string } | null;
+  /** Whether the current user is the moderator this question is assigned to. Required
+   *  for pae_submitted questions so Approve/Re-route only show for the assigned moderator. */
+  isAssignedModerator?: boolean;
 }
 
 export const AnswerActions = ({
@@ -95,15 +103,30 @@ export const AnswerActions = ({
   firstFalseOrMissingIndex,
   lastAnswerApprovalCount,
   paeReview,
+  isDedicatedView = false,
+  assignedModerator,
+  isAssignedModerator = false,
 }: AnswerActionsProps) => {
+  // Approve and Re-route are restricted to the Dedicated (moderator-assigned) tab.
+  // For pae_submitted questions (PAE tab) they are restricted to the assigned moderator
+  // only — other moderators viewing the PAE tab don't see Approve/Re-route.
+  const canModerate =
+    isDedicatedView ||
+    (questionStatus === "pae_submitted" && isAssignedModerator);
+
   const showActions =
     userRole !== "expert" &&
     userRole !== "tester" &&
+    canModerate &&
     (questionStatus === "in-review" || questionStatus === "re-routed" || questionStatus === "pae_submitted") &&
     lastAnswerId === answer?._id;
-  const showAprroveButton = userRole !== "tester" && (userRole !== "expert" &&
-    ((questionStatus === "in-review" || questionStatus === "re-routed") &&
-      (lastAnswerApprovalCount ?? 0) >= 3) || questionStatus === "pae_submitted")
+  const showAprroveButton =
+    userRole !== "tester" &&
+    userRole !== "expert" &&
+    canModerate &&
+    (((questionStatus === "in-review" || questionStatus === "re-routed") &&
+      (lastAnswerApprovalCount ?? 0) >= 3) ||
+      questionStatus === "pae_submitted");
 
   return (
     <div className="flex items-center justify-center gap-2">
@@ -146,6 +169,7 @@ export const AnswerActions = ({
             handleCancel={handleCancel}
             lastReroutedTo={lastReroutedTo}
             isAllocatingExperts={isAllocatingExperts}
+            assignedModerator={assignedModerator}
           />
 
           {lastReroutedTo?.status === "pending" && (

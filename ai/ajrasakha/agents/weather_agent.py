@@ -154,149 +154,15 @@ async def fetch_api_weather(lat: float, lon: float, data_type: str) -> dict:
         async with httpx.AsyncClient() as client:
             response = await client.get(url, params=params, timeout=10.0)
             response.raise_for_status()
-            return response.json()
+            data = response.json()
+            # Check if API returned an error status (e.g., 404 or success=false)
+            if isinstance(data, dict) and data.get("success") is False:
+                logger.warning("IMD API returned error: %s, returning empty to trigger empty_gdb_reply", data.get("error"))
+                return ""
+            return data
     except Exception as e:
-        logger.warning("Connection to IMD API failed (%s), falling back to mock weather engine", e)
-        # Return a realistic mock payload matching the API schemas
-        import random
-        from datetime import datetime
-        dt = data_type.lower().replace("-", "_")
-        
-        # Resolve to standard types
-        aliases = {
-            "current": "current_aws",
-            "aws": "current_aws",
-            "live": "current_aws",
-            "warnings": "district_warnings",
-            "rainfall": "district_rainfall",
-            "district_all": "district",
-            "sub_warnings": "subdivision_warnings",
-            "subdivision_warning": "subdivision_warnings",
-            "sub_rainfall": "subdivision_rainfall",
-            "subdivision_rf": "subdivision_rainfall",
-            "all": "bundle",
-            "full": "bundle",
-        }
-        resolved = aliases.get(dt, dt)
-        
-        m = datetime.now().month
-        season = "summer" if m in [3, 4, 5] else ("monsoon" if m in [6, 7, 8, 9] else "winter")
-        
-        temp_range = (32, 46) if season == "summer" else ((24, 34) if season == "monsoon" else (5, 22))
-        hum_range = (20, 55) if season == "summer" else ((70, 95) if season == "monsoon" else (40, 75))
-        rain_range = (0, 5) if season == "summer" else ((10, 120) if season == "monsoon" else (0, 15))
-        
-        temp = round(random.uniform(*temp_range), 1)
-        humidity = round(random.uniform(*hum_range), 1)
-        rain = round(random.uniform(*rain_range), 1)
-        wind = round(random.uniform(5, 25), 1)
-        
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-        
-        result_payload = {}
-        if resolved == "forecast":
-            result_payload = {
-                "city": "Rohtak",
-                "state": "Haryana",
-                "season": season,
-                "issued_at": now_str,
-                "temp": temp,
-                "humidity": humidity,
-                "wind_speed": wind,
-                "rain": rain,
-                "forecast": [
-                    {
-                        "day": i + 1,
-                        "temp_max": round(temp + random.uniform(1, 5), 1),
-                        "temp_min": round(temp - random.uniform(1, 5), 1),
-                        "rainfall": round(random.uniform(*rain_range), 1),
-                        "wind": round(random.uniform(5, 25), 1),
-                        "humidity": round(random.uniform(*hum_range), 1),
-                        "condition": random.choice(["Partly Cloudy", "Sunny", "Cloudy", "Light Rain", "Thunderstorm"])
-                    }
-                    for i in range(7)
-                ]
-            }
-        elif resolved == "current_aws":
-            result_payload = {
-                "city": "Rohtak",
-                "state": "Haryana",
-                "observed_at": now_str,
-                "temp": temp,
-                "humidity": humidity,
-                "wind_speed": wind,
-                "wind_dir": random.choice(["N", "NE", "E", "SE", "S", "SW", "W", "NW"]),
-                "rain": round(rain * 0.3, 1),
-                "pressure": round(random.uniform(995, 1015), 1),
-                "visibility": round(random.uniform(4, 15), 1),
-                "condition": random.choice(["Clear", "Haze", "Mist", "Partly Cloudy", "Overcast"])
-            }
-        elif resolved == "district_warnings":
-            result_payload = {
-                "district": "Rohtak",
-                "state": "Haryana",
-                "issued_at": now_str,
-                "warnings": [
-                    {
-                        "day": i + 1,
-                        "warning_code": random.choice(["NO_WARNING", "HEAVY_RAIN_WARNING", "THUNDERSTORM_WARNING", "HAILSTORM_WARNING"]),
-                        "severity": random.choice(["NONE", "LOW", "MEDIUM", "HIGH"])
-                    }
-                    for i in range(5)
-                ]
-            }
-        elif resolved == "district_rainfall":
-            result_payload = {
-                "district": "Rohtak",
-                "state": "Haryana",
-                "issued_at": now_str,
-                "cumulative_mm": round(random.uniform(50, 500), 1),
-                "normal_mm": round(random.uniform(100, 300), 1),
-                "departure_pct": round(random.uniform(-40, 60), 1),
-                "status": random.choice(["Normal", "Excess", "Deficient", "Large Excess"])
-            }
-        elif resolved == "district":
-            result_payload = {
-                "warnings": {
-                    "day": 1, "warning_code": "NO_WARNING", "severity": "NONE"
-                },
-                "rainfall": {
-                    "cumulative_mm": 120.0, "normal_mm": 110.0, "status": "Normal"
-                }
-            }
-        elif resolved == "subdivision_warnings":
-            result_payload = {
-                "note": "National product",
-                "warnings": [
-                    {"subdivision": "Haryana, Delhi & Chandigarh", "warning": "THUNDERSTORM_WARNING", "severity": "LOW"},
-                    {"subdivision": "Punjab", "warning": "NO_WARNING", "severity": "NONE"}
-                ]
-            }
-        elif resolved == "subdivision_rainfall":
-            result_payload = {
-                "note": "National product",
-                "subdivisions": [
-                    {"subdivision": "Haryana, Delhi & Chandigarh", "actual_mm": 12.5, "normal_mm": 10.0, "status": "Normal"},
-                    {"subdivision": "Punjab", "actual_mm": 18.2, "normal_mm": 12.0, "status": "Excess"}
-                ]
-            }
-        else: # bundle
-            result_payload = {
-                "forecast": {"success": True, "temp": temp, "humidity": humidity},
-                "current_aws": {"success": True, "temp": temp, "humidity": humidity},
-                "district_warnings": {"success": True, "severity": "NONE"},
-                "district_rainfall": {"success": True, "status": "Normal"}
-            }
-            
-        return {
-            "success": True,
-            "data_type": resolved,
-            "latitude": lat,
-            "longitude": lon,
-            "note": "Dev Mock fallback active",
-            "result": result_payload
-        }
-
+        logger.warning("Connection to IMD API failed (%s), returning empty to trigger empty_gdb_reply", e)
+        return ""
 
 
 class WeatherInput(BaseModel):
@@ -339,13 +205,17 @@ async def weather(
         #     lon = injected.get("longitude")
 
         if lat is None or lon is None:
-            return "⚠️ Weather coordinates are unavailable."
+            return ""
             
         data_type = await classify_weather_query(query)
         logger.info("Gemma 4 classified weather intent: %s", data_type)
         
         result = await fetch_api_weather(lat, lon, data_type)
+        # Return empty string directly when API fails (empty string from fetch_api_weather)
+        # This ensures empty_gdb_reply path is triggered instead of outputting '""'
+        if not result:
+            return ""
         return json.dumps(result, ensure_ascii=False)
     except Exception as exc:
         logger.error("weather sub-agent failed: %s", exc, exc_info=True)
-        return f"⚠️ The weather service is temporarily unavailable. Error: {type(exc).__name__}"
+        return ""

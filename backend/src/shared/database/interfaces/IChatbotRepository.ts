@@ -1,3 +1,4 @@
+import { ILocationDistrict, ILocationState } from '#root/modules/lgd/interfaces/ILocationService.js';
 import type {ClientSession, ObjectId} from 'mongodb';
 
 // ─── Shared return types ──────────────────────────────────────────────────────
@@ -20,6 +21,7 @@ export interface KpiSummary {
 
 export interface DuplicateQuestionEntry {
   questionId: string;
+  userId?: string;
   question: string;
   referenceQuestion: string;
   similarityScore: number;
@@ -87,8 +89,12 @@ export interface PaginatedQueryCategoryQuestions {
 export interface DistrictAnalyticsEntry {
   district: string;
   totalQuestions: number;
+  closedQuestions: number;
   uniqueQuestions: number;
   duplicateQuestions: number;
+  totalUsers: number
+  activeUsers: number
+  coordinators: number
 }
 
 export interface WeatherConcernAnalyticsFilters {
@@ -132,14 +138,29 @@ export interface FarmerHeatMapFilters {
   source?: string;
   userType?: string;
   state?: string;
+  district?: string;
+  block?: string;
+  village?: string;
   granularity?: FarmerHeatMapGranularity;
   startDate?: string;
   endDate?: string;
 }
 
+export type FarmerHeatMapLocationScope =
+  | 'state'
+  | 'district'
+  | 'block'
+  | 'village';
+
+export interface FarmerHeatMapLocationHierarchy {
+  scope: FarmerHeatMapLocationScope;
+  labels: string[];
+}
+
 export interface FarmerHeatMapMetricTotals {
   activeFarmers: number;
   totalQuestions: number;
+  duplicateQuestions: number;
   closedQuestions: number;
   notifiedQuestions: number;
   averageClosureTimeMinutes: number;
@@ -153,21 +174,42 @@ export interface FarmerHeatMapBucket {
   totals: FarmerHeatMapMetricTotals;
 }
 
+export interface FarmerHeatMapQuestionDetail {
+  questionId: string;
+  question: string;
+  status: string;
+  askedBy?: string;
+  email?: string;
+  userId?: string;
+  state?: string;
+  district?: string;
+  block?: string;
+  village?: string;
+  crop?: string;
+  domain?: string;
+  createdAt?: Date;
+  isCustomerNotified?: boolean;
+  referenceQuestionId?: string;
+  referenceQuestion?: string;
+}
+
 export interface FarmerHeatMapCell {
   bucket: string;
   label: string;
   activeFarmers: number;
   totalQuestions: number;
+  duplicateQuestions: number;
   closedQuestions: number;
   notifiedQuestions: number;
   averageClosureTimeMinutes: number;
   statusDistribution: Record<string, number>;
+  questionDetails: FarmerHeatMapQuestionDetail[];
 }
 
 export interface FarmerHeatMapRow {
   id: string;
   label: string;
-  scope: 'state' | 'district';
+  scope: FarmerHeatMapLocationScope;
   cells: FarmerHeatMapCell[];
   totals: FarmerHeatMapMetricTotals;
 }
@@ -180,10 +222,54 @@ export interface FarmerHeatMapResponse {
   maxValues: {
     activeFarmers: number;
     totalQuestions: number;
+    duplicateQuestions: number;
     closedQuestions: number;
     notifiedQuestions: number;
     averageClosureTimeMinutes: number;
   };
+}
+
+export interface CoordinatorDuplicateQuestionDetail {
+  question: string;
+  repeatCount: number;
+  userId: string;
+  userName?: string;
+  email?: string;
+  block?: string;
+  village?: string;
+  firstAskedAt?: Date;
+  lastAskedAt?: Date;
+  questionIds: string[];
+}
+
+export interface CoordinatorDuplicateQuestionVillage {
+  village: string;
+  count: number;
+  details: CoordinatorDuplicateQuestionDetail[];
+}
+
+export interface CoordinatorDuplicateQuestionBlock {
+  block: string;
+  count: number;
+  villages: CoordinatorDuplicateQuestionVillage[];
+}
+
+export interface CoordinatorDuplicateQuestionLocationHierarchy {
+  blocks: {
+    block: string;
+    villages: string[];
+  }[];
+}
+
+export interface CoordinatorDuplicateQuestionHeatMapResponse {
+  coordinatorId: string;
+  coordinatorRole: string;
+  scope: 'district' | 'block' | 'village';
+  state?: string;
+  district?: string;
+  block?: string;
+  totalDuplicateQuestions: number;
+  blocks: CoordinatorDuplicateQuestionBlock[];
 }
 
 export interface WeeklySessionDurationEntry {
@@ -274,6 +360,10 @@ export interface PaginatedUserDetails {
   users: UserDetailEntry[];
   totalUsers: number;
   totalPages: number;
+  currentPage?: number;
+  page?: number;
+  limit?: number;
+  userRoleCounts?: {farmer: number, coordinator: number, internal: number}
   activeUsers?: number;
   inactiveUsers?: number;
   totalQuestions?: number;
@@ -330,6 +420,8 @@ export interface ResponseAdherenceTable {
   ajrasakhaPushedToReviewer: number;
   whatsappAnsweredWithin120Min: number;
   ajrasakhaAnsweredWithin120Min: number;
+  whatsappPassedQuestions: number;
+  ajrasakhaPassedQuestions: number;
   whatsappMarkedDuplicate: number;
   ajrasakhaMarkedDuplicate: number;
   whatsappDynamicWeather: number;
@@ -408,6 +500,17 @@ export interface IChatbotRepository {
     search?: string,
   ): Promise<PaginatedQueryCategoryQuestions>;
 
+  getWeatherConcernQueries(
+    filters: WeatherConcernAnalyticsFilters,
+    concern: string,
+    page: number,
+    limit: number,
+    source: 'vicharanashala' | 'annam' | 'whatsapp',
+    session?: ClientSession,
+    userType?: string,
+    search?: string,
+  ): Promise<PaginatedQueryCategoryQuestions>;
+
   getQuestionFromDistrict(
     district: string,
     state?: string,
@@ -418,6 +521,7 @@ export interface IChatbotRepository {
     session?: ClientSession,
     userType?: string,
     search?: string,
+    knownDistricts?: string[],
   ): Promise<any>;
 
   getTopCrops(
@@ -477,6 +581,8 @@ export interface IChatbotRepository {
     source?: string,
     session?: ClientSession,
     userType?: string,
+    startTime?: string,
+    endTime?: string,
   ): Promise<any[]>;
 
   /** Count of user messages created today from the messages collection. */
@@ -491,6 +597,8 @@ export interface IChatbotRepository {
     source?: string,
     session?: ClientSession,
     userType?: string,
+    startTime?: string,
+    endTime?: string,
   ): Promise<any[]>;
 
   getMonthlyAnalytics(
@@ -619,6 +727,7 @@ export interface IChatbotRepository {
     days: number,
     userType: string,
     month?: string,
+    districts?: ILocationDistrict[],
     state?: string,
     source?: string,
     session?: ClientSession,
@@ -630,6 +739,19 @@ export interface IChatbotRepository {
     session?: ClientSession,
     userType?: string,
   ): Promise<UserDemographics>;
+
+  getUsersByDemographic(
+    category: string,
+    value: string,
+    source?: string,
+    userType?: string,
+    page?: number,
+    limit?: number,
+    search?: string,
+    sortBy?: string,
+    sortOrder?: string,
+    session?: ClientSession,
+  ): Promise<PaginatedUserDetails>;
 
   /** Aggregate KCC policy awareness and agri app usage splits from farmerProfile. */
   getKccAndAgriAppStats(
@@ -703,6 +825,7 @@ export interface IChatbotRepository {
   ): Promise<ResponseAdherenceTable>;
   getDistrictAnalyticsByState(
     state: string,
+    districts?: ILocationDistrict[],
     source?: string,
     session?: ClientSession,
     userType?: string,
@@ -717,8 +840,15 @@ export interface IChatbotRepository {
 
   getFarmerHeatMapAnalytics(
     filters?: FarmerHeatMapFilters,
+    locationHierarchy?: FarmerHeatMapLocationHierarchy,
     session?: ClientSession,
   ): Promise<FarmerHeatMapResponse>;
+
+  getCoordinatorDuplicateQuestionHeatMap(
+    coordinatorId: string,
+    locationHierarchy?: CoordinatorDuplicateQuestionLocationHierarchy,
+    session?: ClientSession,
+  ): Promise<CoordinatorDuplicateQuestionHeatMapResponse>;
 
   getUserById(userId: string, source: string): Promise<any>;
   deleteUser(userId: string, source: string): Promise<boolean>;
@@ -735,6 +865,7 @@ export interface IChatbotRepository {
     userId: string,
     source: string,
     newPassword: string,
+    keepLoggedIn: boolean,
   ): Promise<boolean>;
   addUser(
     source: string,
@@ -836,7 +967,9 @@ export interface IChatbotRepository {
     userType?: string,
     search?: string,
     startDate?: Date,
-    endDate?: Date 
+    endDate?: Date,
+    isPassed?: string,
+    tag?: string,
   ): Promise<any>
 
   getQuestionsByNotificationStatus(
@@ -861,10 +994,88 @@ export interface IChatbotRepository {
     search?: string,
   ): Promise<any>
 
+
+//   getStateQuestionsAndUsersData(
+//   state: string,
+//   source: string,
+//   userType: string,
+//   session?: string
+// ): Promise<any> 
+
+  getAllStatesQuestionsAndUsersData(
+    source: string,
+    userType: string,
+    allState?:ILocationState[],
+    session?: string
+  ): Promise<any>
+
+
+
   getUserConversationIds(
     userId: string,
     source: string,
   ): Promise<any>
+
+  getUserProfile(userId: string) : Promise<any>
+  assignUsers(userId: string, targetIds: string[]): Promise<any>
+  unAssignUsers(userId: string, targetIds: string[]): Promise<any>
+
+  getVillageUserCounts(  
+    state: string,
+    district: string,
+    source: string,
+    userType: string,
+    session?: ClientSession): Promise<any>
+
+  getUserEmailByConversationId(
+    conversationId: string,
+    source?: string,
+  ): Promise<string | null>
+    
+  getQuestionLifecycle(questionId: string): Promise<any>
+
+    getQuestionFromState(
+    state?: string,
+    questionType?: QueryCategoryQuestionType,
+    page?: number,
+    limit?: number,
+    source?: string,
+    session?: ClientSession,
+    userType?: string,
+    search?: string,
+  ): Promise<any>;
+
+  getActiveUsersDetails(
+    page: number, 
+    limit: number, 
+    source: string, 
+    userType: string, 
+    session?:ClientSession, 
+    state?:string, 
+    district?:string, 
+    search?: string
+  ): Promise<any>
+
+    getCoordinatorsDetails(
+    page: number, 
+    limit: number, 
+    source: string, 
+    userType: string, 
+    session?:ClientSession, 
+    state?:string, 
+    district?:string, 
+    search?: string
+  ): Promise<any>
+  getLifeCycleSummary(
+      status?: string,
+      source?: string,
+      userType?: string,
+      startDate?: Date,
+      endDate?: Date,
+      isPassed?: string,
+      tag?: string,
+      notificationType?: string,
+    ): Promise<any>
 }
 
 export interface ChatbotConversationData {

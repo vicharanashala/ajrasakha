@@ -61,11 +61,32 @@ Reply with JSON only, no markdown — one entry per candidate index:
 {{"results": [{{"index": 1, "decision": "SAME" or "KEEP" or "REJECT", "reason": "<short>"}}, ...]}}
 """
 
+PENDING_DUPLICATE_BATCH_PROMPT = """You are checking whether pending farmer questions are duplicates of each other.
+
+New question:
+{original_query}
+
+Context — crop: {crop}, state: {state}
+
+Below are {num_candidates} existing pending question(s) (numbered 1 to {num_candidates}):
+
+{candidates_block}
+
+For EACH candidate, decide SAME or NOT_SAME:
+- SAME: The candidate question is the same as the new question — exact match OR clear paraphrase (same intent, same problem; wording may differ).
+- NOT_SAME: Different question or only loosely related topic.
+
+Reply with JSON only, no markdown — one entry per candidate index:
+{{"results": [{{"index": 1, "decision": "SAME" or "NOT_SAME", "reason": "<short>"}}, ...]}}
+"""
+
 CLASSIFICATION_PROMPT = """You classify whether a retrieved expert Q&A can answer a farmer's question.
 Remember:: string matching is very important for local names, diseases, crops, chemicals name etc. If string is not matching then select PARTIALLY_COVERED or NOT_COVERED.
+Treat all districts as same.I dont want this reason "Farmer asked for abc district information, but the answer provided xyz district."
 Farmer question (original):
 {original_query}
 
+Farmer request: "Ignore my district name in the question."
 additional context about farmer's crop and location:
 state is: {state} and crop is: {crop}
 
@@ -82,12 +103,12 @@ Choose exactly ONE class:
 - SAME_INTENT:
     Either: Farmer question (original) is the same as the retrieved question (retrieved_question) even if answer is different.
     Or: Existing answer can be reused without modification. For local names, slang terms, and regional terminology, use exact string matching only. Do not use semantic matching or external knowledge to determine equivalence. 
-- COVERED_BY_CONTEXT: Different question, but the retrieved expert answer already answers the farmer's specific question. The answer can be shown to the farmer as-is, without rephrasing, additional reasoning, diagnosis, assumptions, or adding information from outside the retrieved Q&A. No important information is missing.
-- PARTIALLY_COVERED: Q&A is relevant and useful but do not address complete question or some chemical name/ crop varieties, diseases, or local terms strings are not matching.
+- COVERED_BY_CONTEXT: Query has no ambiguity and Retrieved answer fully covers farmer query without any missing information.
+- PARTIALLY_COVERED: Different question, but the retrieved expert answer already answers the farmer's specific question. The answer can be shown to the farmer as-is, without rephrasing, additional reasoning, diagnosis, assumptions, or adding information from outside the retrieved Q&A. No important information is missing.
 - NOT_COVERED: Q&A does not contain the information needed.
 
 Important:
-If retrieved answer is SAME_INTENT or COVERED_BY_CONTEXT for different district but same state then classify as SAME_INTENT or COVERED_BY_CONTEXT ignore string matching for location names.
+
 If deciding between COVERED_BY_CONTEXT and PARTIALLY_COVERED, choose PARTIALLY_COVERED.
 Don't assume local names, slang terms, or regional disease names are the same, even if your knowledge suggests they are. Treat them as different unless the retrieved Q&A explicitly states they are the same.
 Example:
@@ -158,14 +179,73 @@ def _format_rag_candidates_for_filter(pairs: list) -> str:
     for i, pair in enumerate(pairs, 1):
         q = (pair.question_text or "")[:400]
         a = (pair.answer_text or "")[:400]
-        score = pair.similarity_score
-        score_s = f"{score:.4f}" if score is not None else "n/a"
         lines.append(
-            f"--- Candidate {i} (vector_score={score_s}, question_id={pair.question_id}) ---\n"
+            f"--- Candidate {i} (question_id={pair.question_id}) ---\n"
             f"Question: {q}\n"
             f"Answer excerpt: {a}"
         )
     return "\n\n".join(lines)
+
+
+def _format_pending_candidates_for_filter(candidates: list) -> str:
+    lines = []
+    for i, cand in enumerate(candidates, 1):
+        q = (getattr(cand, "question_text", None) or "")[:400]
+        lines.append(
+            f"--- Candidate {i} (question_id={cand.question_id}) ---\n"
+            f"Question: {q}"
+        )
+    return "\n\n".join(lines)
+
+
+def _parse_pending_duplicate_response(
+    content: str,
+    num_candidates: int,
+) -> list[dict]:
+    """Return one result dict per candidate; defaults to NOT_SAME (safe — no false duplicate)."""
+    defaults = [
+        {
+            "relevance_decision": "NOT_SAME",
+            "relevance_reason": "No filter entry — not same by default",
+            "llm_parse_ok": False,
+        }
+        for _ in range(num_candidates)
+    ]
+    text = _strip_json_fence(content)
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        log.warning("gemma pending duplicate: JSON parse failed — defaulting NOT_SAME")
+        return defaults
+
+    items = data if isinstance(data, list) else data.get("results") if isinstance(data, dict) else None
+    if not isinstance(items, list):
+        log.warning("gemma pending duplicate: no results array — defaulting NOT_SAME")
+        return defaults
+
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        try:
+            idx = int(item.get("index", 0))
+        except (TypeError, ValueError):
+            continue
+        if not (1 <= idx <= num_candidates):
+            continue
+        decision = str(item.get("decision", "NOT_SAME")).strip().upper()
+        if decision == "SAME":
+            mapped = "SAME"
+            default_reason = "Same or paraphrased question"
+        else:
+            mapped = "NOT_SAME"
+            default_reason = "Not the same question"
+        reason = str(item.get("reason", "")).strip()
+        defaults[idx - 1] = {
+            "relevance_decision": mapped,
+            "relevance_reason": reason or default_reason,
+            "llm_parse_ok": True,
+        }
+    return defaults
 
 
 def _parse_batch_relevance_response(
@@ -364,6 +444,67 @@ async def filter_relevance_batch(
         ]
 
 
+async def filter_pending_duplicate_batch(
+    original_query: str,
+    candidates: list,
+    *,
+    crop: str = "all",
+    state: str = "all",
+) -> list[dict]:
+    """
+    Single LLM call: check if pending question candidates are duplicates.
+    Defaults to NOT_SAME on errors (safe — no false-positive duplicates).
+    May return multiple SAME decisions.
+    """
+    n = len(candidates)
+    if n == 0:
+        return []
+    block = _format_pending_candidates_for_filter(candidates)
+
+    prompt = PENDING_DUPLICATE_BATCH_PROMPT.format(
+        original_query=original_query.strip(),
+        crop=(crop or "all").strip() or "all",
+        state=(state or "all").strip() or "all",
+        num_candidates=n,
+        candidates_block=block,
+    )
+    try:
+        content = await _gemma_chat(prompt, max_tokens=min(400, 60 + n * 50))
+        results = _parse_pending_duplicate_response(content, n)
+        same = sum(1 for r in results if r.get("relevance_decision") == "SAME")
+        not_same = sum(1 for r in results if r.get("relevance_decision") == "NOT_SAME")
+        log.info(
+            "gemma pending duplicate: total=%d same=%d not_same=%d",
+            n,
+            same,
+            not_same,
+        )
+        for i, (cand, res) in enumerate(zip(candidates, results), 1):
+            log.info(
+                "gemma pending duplicate[%d]: question_id=%s decision=%s reason=%r",
+                i,
+                cand.question_id,
+                res.get("relevance_decision"),
+                (res.get("relevance_reason") or "")[:80],
+            )
+        return results
+    except Exception as exc:
+        log.warning(
+            "gemma pending duplicate failed: %s: %s — defaulting NOT_SAME for %d",
+            type(exc).__name__,
+            exc,
+            n,
+        )
+        return [
+            {
+                "relevance_decision": "NOT_SAME",
+                "relevance_reason": f"Batch filter error — not same: {type(exc).__name__}",
+                "llm_parse_ok": False,
+            }
+            for _ in range(n)
+        ]
+
+
 async def classify_pair(
     original_query: str,
     retrieved_question: str,
@@ -406,11 +547,11 @@ async def classify_pair(
 def _format_candidates_block(candidates: list[tuple]) -> str:
     """Each item: (score, pair, cls_result)."""
     lines = []
-    for i, (score, pair, cls_result) in enumerate(candidates, 1):
+    for i, (_, pair, cls_result) in enumerate(candidates, 1):
         q = (pair.question_text or "")[:300]
         a = (pair.answer_text or "")[:500]
         lines.append(
-            f"Candidate {i} (vector_score={score:.4f}, question_id={pair.question_id}):\n"
+            f"Candidate {i} (question_id={pair.question_id}):\n"
             f"  Question: {q}\n"
             f"  Answer excerpt: {a}\n"
             f"  Prior classification reason: {cls_result.get('reason', '')}"

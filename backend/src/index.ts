@@ -29,6 +29,7 @@ import { faqPopConfig } from './config/faqPop.js';
 
 const app = express();
 
+
 app.get(`${appConfig.routePrefix}/health`, (_req, res) => {
   res.status(200).json({
     status: 'healthy',

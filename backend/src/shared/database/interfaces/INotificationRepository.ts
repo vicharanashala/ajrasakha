@@ -26,6 +26,8 @@ export interface INotificationRepository {
    */
   getNotifications(userId:string,page:number,limit:number,session?:ClientSession):Promise<{notifications:NotificationResponse[]; page:number; totalCount:number; totalPages:number}>
 
+  getUserNotificationHistory(userId:string,page:number,limit:number,session?:ClientSession):Promise<{notifications:NotificationResponse[]; page:number; totalCount:number; totalPages:number}>
+
   getNotificationsCount(userId:string,session?:ClientSession):Promise<number>
 
   deleteNotification(notificationId:string,session?:ClientSession):Promise<{deletedCount: number}>

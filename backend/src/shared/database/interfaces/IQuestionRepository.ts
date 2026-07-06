@@ -16,16 +16,36 @@ import {
   IQuestion,
   IUser,
   QuestionStatus,
+  QuestionSource,
   IQuestionEmbedding,
   ISimilarQuestion,
   ICheckStatusResponse
 } from '#root/shared/interfaces/models.js';
 import {ClientSession, ObjectId} from 'mongodb';
+import {RawQueueQuestionRow} from '#root/modules/question/interfaces/IQuestionService.js';
 
 /**
  * Interface representing a repository for question-related operations.
  */
 export interface IQuestionRepository {
+  /** One page (skip/limit) + exact total for a Queue-Details question section
+   *  ('received' | 'allocated' | 'autoOff' | 'autoAllocateOpen' | 'autoAllocateDelayed').
+   *  Status scope: open/delayed/duplicate. */
+  getQueueQuestionSection(
+    kind: 'received' | 'allocated' | 'autoOff' | 'autoAllocateOpen' | 'autoAllocateDelayed',
+    skip: number,
+    limit: number,
+    startTime?: Date,
+    endTime?: Date,
+  ): Promise<{count: number; items: RawQueueQuestionRow[]}>;
+
+  /** Per-status counts for the "Questions Received" section — used so tab badges
+   *  show the true DB total rather than a page-slice count. */
+  getReceivedStatusCounts(
+    startTime?: Date,
+    endTime?: Date,
+  ): Promise<{status: string; count: number}[]>;
+
   /**
    * Adds multiple questions for a specific context and user.
    * @param userId - The ID of the user creating the questions.
@@ -415,6 +435,7 @@ export interface IQuestionRepository {
     filters: any,
     session?: ClientSession,
     useDuplicateCollection?: boolean,
+    limit?: number,
   ): Promise<IQuestion[]>;
 
   getAllQuestionEmbeddings(
@@ -478,6 +499,9 @@ export interface IQuestionRepository {
     startDate:string,
     // endDate:string,
     shift: string,
+    source: string,
+    from: string,
+    to: string,
     session?: ClientSession
   ): Promise<any>;
 
@@ -485,6 +509,9 @@ export interface IQuestionRepository {
     startDate:string,
     // endDate:string,
     shift: string,
+    source: string,
+    from: string,
+    to: string,
     session?: ClientSession
   ): Promise<any>;
 
@@ -492,6 +519,9 @@ export interface IQuestionRepository {
     startDate: string,
     // endDate: string,
     shift: string,
+    source: string,
+    from: string,
+    to: string,
     session?: ClientSession,
   ): Promise<any>;
 
@@ -499,6 +529,9 @@ export interface IQuestionRepository {
     startDate: string,
     // endDate: string,
     shift: string,
+    source: string,
+    from: string,
+    to: string,
     session?: ClientSession
   ): Promise<any>
 
@@ -506,6 +539,9 @@ export interface IQuestionRepository {
     startDate: string,
     // endDate: string,
     shift: string,
+    source: string,
+    from: string,
+    to: string,
     session?: ClientSession
   ): Promise<any> 
 
@@ -513,6 +549,13 @@ export interface IQuestionRepository {
     startDate: string,
     // endDate: string,
     shift: string,
+    source: string,
+    from: string,
+    to: string,
     session?: ClientSession
   ): Promise<any>
+
+  findUnassignedInReviewQuestions(sources?: QuestionSource[]): Promise<IQuestion[]>
+  findModeratorAssignedQuestions(sources?: QuestionSource[]): Promise<IQuestion[]>
+  updateModeratorId(questionId: string, moderatorId: string | null): Promise<void>
 }

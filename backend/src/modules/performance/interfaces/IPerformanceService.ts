@@ -41,8 +41,10 @@ export interface IPerformanceService {
     data: DashboardResponse;
   }>;
 
-  getOverview(currentUserId: string): Promise<{
+  getOverview(currentUserId: string, query: { startDateTime?: string; endDateTime?: string }): Promise<{
     userRoleOverview: UserRoleOverview[];
+    stfExpertCount: number;
+    stfModeratorCount: number;
     moderatorApprovalRate: ModeratorApprovalRate;
   }>;
 
@@ -64,15 +66,15 @@ export interface IPerformanceService {
 
   getLevelWiseReport(startDate:string, endDate:string): Promise<ArrayBuffer | null>;
 
-  getShiftBasedMetrics(startDate:string, shift: string):  Promise<any>;
+  getShiftBasedMetrics(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
 
-  getShiftBasedTrends(startDate:string, shift: string):  Promise<any>;
+  getShiftBasedTrends(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
 
-  getQuestionStatusDistribution(startDate:string, shift: string):  Promise<any>;
+  getQuestionStatusDistribution(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
 
-  getQuestionLevelDistribution(startDate:string, shift: string):  Promise<any>;
+  getQuestionLevelDistribution(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
 
-  getShiftBasedTopExperts(startDate:string, shift: string):  Promise<any>;
+  getShiftBasedTopExperts(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
 
-  getShiftBasedTopApprovingExperts(startDate:string, shift: string):  Promise<any>;
+  getShiftBasedTopApprovingExperts(startDate:string, shift: string, source: string, from:string, to:string):  Promise<any>;
 }

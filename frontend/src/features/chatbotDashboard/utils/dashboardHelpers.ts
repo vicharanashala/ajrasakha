@@ -24,6 +24,7 @@ export interface AnalyticsEntry {
   rerouted?: number;
   carryForward?: number;
   nonAgri?: number;
+  passedQuestions?: number;
 }
 
 // ─── Helper Functions ─────────────────────────────────────────────────────────

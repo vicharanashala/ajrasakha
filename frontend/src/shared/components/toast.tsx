@@ -610,8 +610,22 @@ function Toast({
 
 // ─── Hook (optional, for component-level control) ─────────────────────────────
 
+// No-op fallback when context is not available (e.g., during SSR or early renders)
+const noopToast = {
+  success: () => {},
+  error: () => {},
+  warning: () => {},
+  info: () => {},
+  loading: () => "",
+  dismiss: () => {},
+};
+
 export function useToast() {
-  const ctx = useToastContext();
+  const ctx = useContext(ToastContext);
+  if (!ctx) {
+    console.warn("AgriToast: useToast() called outside <ToastProvider />. Using no-op fallback.");
+    return noopToast;
+  }
   return {
     success: (title: string, options?: ToastOptions) =>
       ctx.add({ type: "success", title, ...options }),

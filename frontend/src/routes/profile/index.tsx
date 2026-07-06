@@ -1,4 +1,5 @@
-import { CROPS, STATES, pae_domains as DOMAINS } from "@/components/MetaData";
+import { pae_domains as DOMAINS } from "@/components/MetaData";
+import { useGetStates } from "@/hooks/api/location/useLocations";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/atoms/avatar";
 import { MultiSelect } from "@/components/atoms/MultiSelect";
 import { Button } from "@/components/atoms/button";
@@ -15,11 +16,11 @@ import { Separator } from "@/components/atoms/separator";
 import { ConfirmationModal } from "@/components/confirmation-modal";
 import { useEditUser } from "@/hooks/api/user/useEditUser";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
+import { isCoordinatorRole } from "@/lib/roles";
 import { useAuthStore } from "@/stores/auth-store";
 import type { IUser } from "@/types";
-import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useState, useRef } from "react";
-import { toast } from "sonner";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useCallback, useState, useRef, useEffect } from "react";
 import {
   Edit2,
   ArrowLeft,
@@ -48,6 +49,7 @@ import {
 } from "@/components/atoms/dialog";
 import { updateUserPassword, verifyCurrentPassword } from "@/lib/firebase";
 import { calculatePasswordStrength } from "@/components/auth-form";
+import { toast, useToast } from "@/shared/components/toast";
 
 export const Route = createFileRoute("/profile/")({
   component: ProfilePage,
@@ -55,9 +57,25 @@ export const Route = createFileRoute("/profile/")({
 
 export default function ProfilePage() {
   const { data: user, isLoading } = useGetCurrentUser({});
+  const navigate = useNavigate();
   const { mutateAsync: updateUser, isPending: isUpdating } = useEditUser();
+  const { success: toastSuccess, loading:toastLoading, dismiss: toastDismiss} = useToast();
 
-  const handleSubmit = async (data: IUser, showToast: boolean = true) => {
+  useEffect(() => {
+    if (user && isCoordinatorRole(user.role)) {
+      navigate({ to: "/coordinator/profile" });
+    }
+  }, [navigate, user]);
+
+  const handleSubmit = async (data: IUser, showToast: boolean = true, id?: string) => {
+    let currentToastId;
+    if (showToast) {
+      currentToastId = toastLoading("Saving profile...", {
+        desc: "Please wait while we update your details.",
+      });
+    } else {
+      currentToastId = id;
+    }
     try {
       await updateUser(data);
       if (showToast) {
@@ -96,7 +114,7 @@ export default function ProfilePage() {
             </p>
           </div>
         </div>
-        {user && !isLoading ? (
+        {user && !isLoading && !isCoordinatorRole(user.role) ? (
           <ProfileForm
             user={user!}
             onSubmit={handleSubmit}
@@ -211,6 +229,9 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
       domain: user?.preference?.domain ?? "all",
     },
   });
+
+  const { data: statesResponse = [] } = useGetStates();
+  const stateOptions = statesResponse.map((s) => s.stateNameEnglish);
 
   const presetDomainSet = new Set(DOMAINS.filter((d) => d !== "Others"));
 
@@ -1023,7 +1044,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All States</SelectItem>
-                  {STATES.map((state) => (
+                  {stateOptions.map((state) => (
                     <SelectItem key={state} value={state}>
                       <MapPin className="h-4 w-4 mr-2 inline" /> {state}
                     </SelectItem>

@@ -1,4 +1,3 @@
-import { Card, CardHeader } from "@/components/atoms/card";
 import {
   Tooltip,
   TooltipContent,
@@ -14,262 +13,180 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/atoms/popover";
-import { CalendarIcon, Clock3, X, InfoIcon } from "lucide-react";
-import { format, isSameDay } from "date-fns";
+import { Clock3, X, InfoIcon, ListChecks, RefreshCw } from "lucide-react";
+import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/atoms/skeleton";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { QueryCategoryQuestionsModal } from "./components/QueryCategoryQuestionsModal";
+import { cn } from "@/lib/utils";
+import { useQueryClient } from "@tanstack/react-query";
 
 type ClosedQuestionsCardProps = {
   closedQuestions: number;
   totalQuestions: number;
-  inReview: number;
+  passedQuestions?: number;
   dateRange?: DateRange;
   onDateRangeChange?: (range: DateRange | undefined) => void;
   isLoading?: boolean;
-  carryForward: number;
+  isFetching?: boolean;
+  carryForward?: number;
   statusBreakup: any;
   avgCloseTimeMinutes?: number;
   previousMonthAvgCloseTimeMinutes?: number;
-  source?: "vicharanashala" | "annam" | "whatsapp"
+  source?: "both" | "annam" | "whatsapp";
   userType?: string;
+  onRefresh?: () => void;
+  avgPassTimeMinutes?: number;
+  combinedCount?: number;
+  combinedAvgTime?: number;
+  onSourceChange?: (source: "both" | "annam" | "whatsapp") => void;
 };
 
 export function ClosedQuestionsCard({
   closedQuestions,
   totalQuestions,
-  inReview,
+  passedQuestions,
   dateRange,
   onDateRangeChange,
   isLoading,
-  carryForward,
   statusBreakup,
   avgCloseTimeMinutes = 0,
-  previousMonthAvgCloseTimeMinutes = 0,
-  source = "annam",
+  avgPassTimeMinutes = 0,
+  combinedAvgTime = 0,
+  source = "both",
   userType,
+  onRefresh,
+  onSourceChange,
 }: ClosedQuestionsCardProps) {
-  const today = new Date();
-
-  const isTodaySelected = Boolean(
-    dateRange?.from &&
-    dateRange?.to &&
-    isSameDay(dateRange.from, today) &&
-    isSameDay(dateRange.to, today),
-  );
-
-  console.log("DateRange", dateRange)
-
+  const pendingQuestions =
+    (totalQuestions || 0) - (closedQuestions || 0) - (passedQuestions || 0);
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries({ queryKey: ["closed-notified-data"] });
+    setRefreshing(false);
+  }, [queryClient]);
+  const sourceOptions = [
+    { label: "Both", value: "both" },
+    { label: "Web Application", value: "annam" },
+    { label: "WhatsApp", value: "whatsapp" },
+  ] as const;
+  const [sourcePopoverOpen, setSourcePopoverOpen] = useState(false);
+  const [isPassed, setIsPassed] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
-
-  const handleClick = (status: string) => {
-    setStatus(status);
+  const handleClick = (statusValue: string) => {
+    setStatus(statusValue);
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.45, ease: "easeOut" }}
+    <div
+      className={cn(
+        "group relative flex flex-col overflow-hidden rounded-2xl",
+        "bg-gradient-to-br from-card via-card to-card/40",
+        "ring-1 ring-border/60 transition-all duration-300",
+        "hover:ring-border hover:shadow-lg hover:shadow-primary/5",
+      )}
     >
-      <Card
-        className="
-          border
-          border-border
-          rounded-2xl
-          bg-background/80
-          h-fit
-          bg-gradient-to-br from-card to-card/50 backdrop-blur-sm shadow-sm hover:shadow-md transition-shadow duration-300     
+      {/* Decorative top accent */}
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
 
-        "
-      >
-        <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
-
-        <CardHeader className="pb-4">
-          {isLoading ? (
-            <div className="space-y-4 mt-4">
-              <Skeleton className="h-5 w-44" />
-
-              <div className="grid grid-cols-3 gap-4">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-              </div>
-
-              <div className="flex gap-4">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-4 w-28" />
-                <Skeleton className="h-4 w-24" />
-              </div>
+      <div className="p-5">
+        {isLoading || refreshing ? (
+          <div className="space-y-5">
+            <Skeleton className="h-4 w-36" />
+            <Skeleton className="h-2 w-full rounded-full" />
+            <div className="grid grid-cols-3 gap-3">
+              <Skeleton className="h-24 w-full rounded-xl" />
+              <Skeleton className="h-24 w-full rounded-xl" />
+              <Skeleton className="h-24 w-full rounded-xl" />
             </div>
-          ) : (
-            <>
+            <Skeleton className="h-4 w-48" />
+          </div>
+        ) : (
+          <TooltipProvider delayDuration={200}>
+            <div className="space-y-5">
               {/* Header */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-sm text-muted-foreground flex gap-2 items-center">
-                  <div className="flex items-center gap-2">
-                    <span className="h-4 w-1 rounded-full bg-gradient-to-b from-primary to-primary/40" />
-                    Question Status
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-primary/20">
+                    <ListChecks className="h-4 w-4 text-primary" />
                   </div>
-
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help ml-1" />
-                    </TooltipTrigger>
-
-                    <TooltipContent
-                      side="top"
-                      className="
-                        min-w-[240px]
-                        rounded-xl
-                        p-4
-                        max-h-[35vh]
-                        overflow-y-auto
-                        scrollbar-thin
-                        scrollbar-track-transparent
-                        scrollbar-thumb-emerald-700
-                        hover:scrollbar-thumb-emerald-600
-                      "
-                    >
-                      <div className="space-y-2">
-                        <div className="flex justify-between gap-6">
-                          <span className="text-muted-foreground">
-                            Total Questions opened
-                          </span>
-
-                          <span className="font-medium">
-                            {statusBreakup?.totalQuestions}
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between gap-6">
-                          <span className="text-muted-foreground">
-                            Questions closed
-                          </span>
-
-                          <span className="font-medium">
-                            {statusBreakup?.closedQuestions}
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between gap-6">
-                          <span className="text-muted-foreground">
-                            Questions Delayed
-                          </span>
-
-                          <span className="font-medium">
-                            {statusBreakup?.delayed}
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between gap-6">
-                          <span className="text-muted-foreground">
-                            Questions in draft
-                          </span>
-
-                          <span className="font-medium">
-                            {statusBreakup?.draft}
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between gap-6">
-                          <span className="text-muted-foreground">
-                            Duplicate Questions
-                          </span>
-
-                          <span className="font-medium">
-                            {statusBreakup?.duplicate}
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between gap-6">
-                          <span className="text-muted-foreground">
-                            Questions in hold
-                          </span>
-
-                          <span className="font-medium">
-                            {statusBreakup?.hold}
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between gap-6">
-                          <span className="text-muted-foreground">
-                            Questions in Review
-                          </span>
-
-                          <span className="font-medium">
-                            {statusBreakup?.inReview}
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between gap-6">
-                          <span className="text-muted-foreground">
-                            Questions open
-                          </span>
-
-                          <span className="font-medium">
-                            {statusBreakup?.open}
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between gap-6">
-                          <span className="text-muted-foreground">
-                            Questions paeSubmitted
-                          </span>
-
-                          <span className="font-medium">
-                            {statusBreakup?.paeSubmitted}
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between gap-6">
-                          <span className="text-muted-foreground">
-                            Questions pass
-                          </span>
-
-                          <span className="font-medium">
-                            {statusBreakup?.pass}
-                          </span>
-                        </div>
-                        <div className="flex justify-between gap-6">
-                          <span className="text-muted-foreground">
-                            Questions rerouted
-                          </span>
-
-                          <span className="font-medium">
-                            {statusBreakup?.rerouted}
-                          </span>
-                        </div>
-
-                        <div className="flex justify-between gap-6">
-                          <span className="text-muted-foreground">
-                            Non agri Questions
-                          </span>
-
-                          <span className="font-medium">
-                            {statusBreakup?.nonAgri}
-                          </span>
-                        </div>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-semibold tracking-tight text-foreground">
+                        Question Status
+                      </span>
+                      <button
+                        onClick={handleRefresh}
+                        className=" rounded-lg p-1.5 shadow-sm backdrop-blur-sm transition-all duration-200"
+                        title="Refresh"
+                      >
+                        <RefreshCw
+                          className={`h-3.5 w-3.5 bg-background ${
+                            refreshing ? "animate-spin" : ""
+                          }`}
+                        />
+                      </button>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground">
+                      {(totalQuestions ?? 0).toLocaleString()} total questions
+                    </span>
+                  </div>
                 </div>
 
+                {/* Filters */}
                 <div
-                  className="flex items-center gap-1.5"
+                  className="flex items-center gap-1.5 shrink-0"
                   onClick={(e) => e.stopPropagation()}
                 >
+                  <Popover
+                    open={sourcePopoverOpen}
+                    onOpenChange={setSourcePopoverOpen}
+                  >
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 rounded-full border-border/50 bg-background/60 px-3 text-[11px] font-medium capitalize hover:bg-muted/50"
+                      >
+                        {sourceOptions.find((s) => s.value === source)?.label ??
+                          "Both"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-40 p-1.5 z-[100]" align="end">
+                      <div className="space-y-0.5">
+                        {sourceOptions.map((item) => (
+                          <Button
+                            key={item.value}
+                            variant={
+                              source === item.value ? "secondary" : "ghost"
+                            }
+                            size="sm"
+                            className="h-7 w-full justify-start text-xs"
+                            onClick={() => {
+                              onSourceChange?.(item.value);
+                              setSourcePopoverOpen(false);
+                            }}
+                          >
+                            {item.label}
+                          </Button>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
-                        className="h-7 px-2 text-[11px] font-normal border-border/70 bg-background/80 backdrop-blur-sm shadow-sm hover:bg-muted/40 gap-1 flex items-center shrink-0"
+                        size="sm"
+                        className="h-7 rounded-full border-border/50 bg-background/60 px-3 text-[11px] font-medium hover:bg-muted/50"
                       >
-                        <CalendarIcon className="h-3 w-3 text-muted-foreground" />
                         {dateRange?.from
                           ? dateRange.to
-                            ? `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd")}`
+                            ? `${format(dateRange.from, "MMM dd")} – ${format(dateRange.to, "MMM dd")}`
                             : format(dateRange.from, "MMM dd")
                           : "All Time"}
                       </Button>
@@ -286,11 +203,12 @@ export function ClosedQuestionsCard({
                       />
                     </PopoverContent>
                   </Popover>
+
                   {dateRange && (
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full shrink-0"
+                      className="h-6 w-6 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
                       onClick={() => onDateRangeChange?.(undefined)}
                     >
                       <X className="h-3 w-3" />
@@ -299,179 +217,298 @@ export function ClosedQuestionsCard({
                 </div>
               </div>
 
-              {/* Stats */}
-              <motion.div
-                className={`mt-5 flex items-center justify-between gap-4 ${isLoading ? "opacity-50" : ""}`}
-                initial="hidden"
-                animate="visible"
-                variants={{
-                  hidden: {},
-                  visible: {
-                    transition: {
-                      staggerChildren: 0.1,
-                    },
-                  },
-                }}
-              >
-                {/* Total */}
-                <motion.div
-                  className="flex flex-1 flex-col hover:cursor-pointer"
-                  variants={{
-                    hidden: { opacity: 0, y: 12 },
-                    visible: { opacity: 1, y: 0 },
+              {/* Segmented progress — closed vs passed vs open */}
+              {(() => {
+                const total = Math.max(totalQuestions ?? 0, 1);
+                const closedPct = ((closedQuestions ?? 0) / total) * 100;
+                const passedPct =
+                  (Math.max(passedQuestions ?? 0, 0) / total) * 100;
+                const openPct = Math.max(100 - closedPct - passedPct, 0);
+                // const pendingPct = Math.max(100 - pens)
+                return (
+                  <div className="space-y-1.5">
+                    <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted/40">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${closedPct}%` }}
+                        transition={{ duration: 0.8, ease: "easeOut" }}
+                        className="bg-sky-500"
+                      />
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${passedPct}%` }}
+                        transition={{
+                          duration: 0.8,
+                          ease: "easeOut",
+                          delay: 0.1,
+                        }}
+                        className="bg-emerald-500"
+                      />
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${openPct}%` }}
+                        transition={{
+                          duration: 0.8,
+                          ease: "easeOut",
+                          delay: 0.2,
+                        }}
+                        className="bg-muted-foreground/30"
+                      />
+                    </div>
+                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
+                        {closedPct.toFixed(1)}% closed
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                        {passedPct.toFixed(1)}% passed
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50" />
+                        {openPct.toFixed(1)}% others
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Stats Grid */}
+              <div className="grid grid-cols-4 gap-2.5">
+                <StatTile
+                  label="Total"
+                  count={totalQuestions ?? 0}
+                  accent="primary"
+                  tooltip="All questions in range"
+                  onClick={() => {
+                    handleClick("all");
                   }}
-                  transition={{ duration: 0.4, ease: "easeOut" }}
-                  onClick={() => handleClick("all")}
-                >
-                  <span className="text-xs text-muted-foreground">Total</span>
-
-                  <motion.span
-                    key={totalQuestions ?? 0}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.35, ease: "easeOut" }}
-                   
-                    className="
-                  text-3xl
-                  font-bold
-                  tracking-tight
-                "
-                  >
-                    <CountUp
-                      end={totalQuestions ?? 0}
-                      duration={1.5}
-                      preserveValue
-                    />
-                  </motion.span>
-                </motion.div>
-
-                {/* Closed */}
-                <motion.div
-                  className="flex flex-1 flex-col hover:cursor-pointer"
-                  variants={{
-                    hidden: { opacity: 0, y: 12 },
-                    visible: { opacity: 1, y: 0 },
+                />
+                <StatTile
+                  label="Closed"
+                  count={closedQuestions ?? 0}
+                  accent="sky"
+                  tooltip="Closed questions"
+                  onClick={() => {
+                    setIsPassed(false);
+                    handleClick("closed");
                   }}
-                  transition={{ duration: 0.4, ease: "easeOut" }}
-                  onClick={() => handleClick("closed")}
-                >
-                  <span className="text-xs text-muted-foreground">Closed</span>
-
-                  <motion.span
-                    key={closedQuestions ?? 0}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.35, ease: "easeOut" }}
-                    
-                    className="
-                  text-3xl
-                  font-bold
-                  tracking-tight
-                "
-                  >
-                    <CountUp
-                      end={closedQuestions ?? 0}
-                      duration={1.5}
-                      preserveValue
-                    />
-                  </motion.span>
-                </motion.div>
-
-                <motion.div
-                  className="flex flex-1 flex-col hover:cursor-pointer"
-                  variants={{
-                    hidden: { opacity: 0, y: 12 },
-                    visible: { opacity: 1, y: 0 },
+                />
+                <StatTile
+                  label="Passed"
+                  count={Math.max(passedQuestions ?? 0, 0)}
+                  accent="emerald"
+                  tooltip="Questions with pass status"
+                  onClick={() => {
+                    setIsPassed(true);
+                    handleClick("pass");
                   }}
-                  transition={{ duration: 0.4, ease: "easeOut" }}
-                  onClick={()=>handleClick("in-review")}
-                >
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <motion.span
-                          whileHover={{ scale: 1.05 }}
-                          className="text-xs text-muted-foreground cursor-help w-full whitespace-nowrap"
-                        >
-                          {isTodaySelected ? "Carry Forward" : "In review"}
-                        </motion.span>
-                      </TooltipTrigger>
+                />
+                <StatTile
+                  label="Others"
+                  count={Math.max(pendingQuestions ?? 0, 0)}
+                  accent="muted"
+                  tooltip="Questions neither closed nor passed"
+                  onClick={() => {
+                    setIsPassed(true);
+                    handleClick("pending");
+                  }}
+                  showInfo={true}
+                  statusBreakup={statusBreakup}
+                  setIsPassed={setIsPassed}
+                  handleClick={handleClick}
+                />
+              </div>
 
-                      <TooltipContent>
-                        {isTodaySelected ? (
-                          <p>
-                            The questions that were carry forwarded from last
-                            day (10:30 PM to 12:00 AM)
-                          </p>
-                        ) : (
-                          <p>
-                            The count of questions that are currently in review
-                            by the moderators.
-                          </p>
-                        )}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-
-                  <motion.span
-                    key={
-                      isTodaySelected
-                        ? `cf-${carryForward ?? 0}`
-                        : `ir-${inReview ?? 0}`
-                    }
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.35, ease: "easeOut" }}
-                    className="
-                  text-3xl
-                  font-bold
-                  tracking-tight
-                "
-                  >
-                    <CountUp
-                      end={
-                        isTodaySelected
-                          ? Math.max(carryForward ?? 0, 0)
-                          : Math.max(inReview ?? 0, 0)
-                      }
-                      duration={1.5}
-                      preserveValue
-                    />
-                  </motion.span>
-                </motion.div>
-              </motion.div>
-
-              <div
-                className={`mt-3 flex flex-wrap items-center gap-3 ${
-                  isLoading ? "opacity-50" : ""
-                }`}
-              >
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Clock3 className="h-4 w-4 text-primary" />
-                  <span className="font-medium">Average Resolution Time:</span>
-                  <span className="font-semibold">
-                    {formatDurationFromMinutes(avgCloseTimeMinutes)}
+              {/* Avg Resolution footer */}
+              <div className="mt-auto flex items-center justify-between gap-2 rounded-lg border border-border/40 bg-background/40 px-3 py-2">
+                <div className="flex items-center gap-1.5">
+                  <Clock3 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                    Avg Resolution
                   </span>
                 </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="cursor-help text-xs font-semibold tabular-nums text-foreground underline-offset-2 hover:underline">
+                      {formatDurationFromMinutes(combinedAvgTime)}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="w-56 p-3">
+                    <div className="space-y-2 text-xs">
+                      <div className="font-semibold">
+                        Resolution Time Breakdown
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Closed</span>
+                        <span className="tabular-nums">
+                          {formatDurationFromMinutes(avgCloseTimeMinutes)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Passed</span>
+                        <span className="tabular-nums">
+                          {formatDurationFromMinutes(avgPassTimeMinutes)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between border-t pt-2 font-medium">
+                        <span>Combined</span>
+                        <span className="tabular-nums">
+                          {formatDurationFromMinutes(combinedAvgTime)}
+                        </span>
+                      </div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
               </div>
-            </>
-          )}
-        </CardHeader>
-      </Card>
+            </div>
+          </TooltipProvider>
+        )}
+      </div>
       {status && (
         <QueryCategoryQuestionsModal
           status={status}
           source={source}
           userType={userType}
-          onClose={() => setStatus(null)}
-          isQueryCategory={false}
           startDate={dateRange?.from}
           endDate={dateRange?.to}
+          isPassed={isPassed}
+          onClose={() => {
+            setStatus(null);
+            setIsPassed(false);
+          }}
+          tag="closed"
+          totalClosedAndPassed ={(closedQuestions || 0) + (passedQuestions || 0)}
         />
       )}
-    </motion.div>
+    </div>
   );
 }
+
+const ACCENT = {
+  primary: {
+    dot: "bg-primary",
+    ring: "group-hover/tile:ring-primary/30",
+    glow: "group-hover/tile:shadow-primary/10",
+  },
+  sky: {
+    dot: "bg-sky-500",
+    ring: "group-hover/tile:ring-sky-500/30",
+    glow: "group-hover/tile:shadow-sky-500/10",
+  },
+  emerald: {
+    dot: "bg-emerald-500",
+    ring: "group-hover/tile:ring-emerald-500/30",
+    glow: "group-hover/tile:shadow-emerald-500/10",
+  },
+  amber: {
+    dot: "bg-amber-500",
+    ring: "group-hover/tile:ring-amber-500/30",
+    glow: "group-hover/tile:shadow-amber-500/10",
+  },
+  muted: {
+    dot: "bg-muted-foreground/50",
+    ring: "group-hover/tile:ring-muted-foreground/20",
+    glow: "group-hover/tile:shadow-muted-foreground/5",
+  },
+} as const;
+
+function StatTile({
+  label,
+  count,
+  accent,
+  tooltip,
+  onClick,
+  showInfo = false,
+  statusBreakup,
+  setIsPassed,
+  handleClick,
+}: {
+  label: string;
+  count: number;
+  accent: keyof typeof ACCENT;
+  tooltip: string;
+  onClick?: () => void;
+  showInfo?: boolean;
+  statusBreakup?: any;
+  setIsPassed?: (value: boolean) => void;
+  handleClick?: (status: string) => void;
+}) {
+  const a = ACCENT[accent];
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <motion.button
+          type="button"
+          onClick={onClick}
+          whileHover={{ y: -2 }}
+          whileTap={{ scale: 0.98 }}
+          transition={{ duration: 0.15 }}
+          className={cn(
+            "group/tile relative flex flex-col items-start gap-1.5 overflow-hidden rounded-xl p-1 text-left",
+            "bg-background/40 ring-1 ring-border/50 transition-all duration-200",
+            "hover:bg-background/80 hover:shadow-md",
+            a.ring,
+            a.glow,
+          )}
+        >
+          <div className="flex items-center gap-1.5">
+            <span className={cn("h-1.5 w-1.5 rounded-full", a.dot)} />
+            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground flex items-center justify-center gap-1">
+              {label}
+
+              {showInfo && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <InfoIcon className="h-3 w-3 cursor-help text-muted-foreground/60" />
+                  </TooltipTrigger>
+
+                  <TooltipContent
+                    side="top"
+                    className="min-w-[200px] rounded-lg p-3"
+                  >
+                    <div className="space-y-1.5 text-xs">
+                      {Object.entries(statusBreakup?.statuses ?? {})
+                        .filter(([key, value]) => {
+                          return key !== "pass" && key !== "closed"
+                        })
+                        .map(([key, value]) => (
+                          <div
+                            key={key}
+                            className="flex justify-between gap-4 cursor-pointer hover:bg-muted/80 p-1 -mx-1 px-1 rounded transition-colors"
+                            onClick={(e) => {
+                              setIsPassed?.(key === "pass");
+                              handleClick?.(key);
+                              e.stopPropagation();
+                            }}
+                          >
+                            <span className="text-muted-foreground">
+                              {key
+                                .replace(/[_-]/g, " ")
+                                .replace(/\b\w/g, (c) => c.toUpperCase())}
+                            </span>
+
+                            <span className="font-medium">{String(value)}</span>
+                          </div>
+                        ))}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </span>
+          </div>
+          <span className="text-2xl font-bold leading-none tracking-tight tabular-nums text-foreground">
+            <CountUp end={count} duration={1.2} preserveValue />
+          </span>
+        </motion.button>
+      </TooltipTrigger>
+      <TooltipContent side="top">
+        <p className="text-xs">{tooltip}</p>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 const formatDurationFromMinutes = (mins: number): string => {
   if (!mins || mins <= 0) return "0m";
   const totalMinutes = Math.round(mins);

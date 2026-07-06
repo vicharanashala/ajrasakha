@@ -654,6 +654,26 @@ const UserRow: React.FC<UserRowProps> = ({
                   </div>
                 </DropdownMenuItem>
               )}
+              {isAdmin && u.role === 'moderator' && (
+                <DropdownMenuItem
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    setIsOpen(false);
+                    setConfirmAction(u.special_task_force ? 'remove-stf' : 'make-stf');
+                  }}
+                >
+                  <div className="flex items-center gap-2 w-full">
+                    <Zap className="w-4 h-4 text-indigo-500" />
+                    <span>{u.special_task_force ? 'Remove STF' : 'Make STF'}</span>
+                    <Badge
+                      variant="default"
+                      className="h-4 text-[9px] px-1.5 py-0 ml-auto bg-red-500 text-white hover:bg-red-600 border-0 font-medium"
+                    >
+                      New
+                    </Badge>
+                  </div>
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
           <ConfirmationModal
@@ -686,9 +706,9 @@ const UserRow: React.FC<UserRowProps> = ({
                     : actionRole === "expert"
                       ? "This will restore the expert’s access to the review system and allow them to participate in reviews again. Are you sure you want to unblock this user?"
                       : confirmAction === "make-stf"
-                        ? "This expert will receive the highest priority for allocation of time-bound questions in the system. Are you sure you want to assign STF status?"
+                        ? "This user will receive the highest priority for allocation of time-bound questions in the system. Are you sure you want to assign STF status?"
                         : confirmAction === "remove-stf"
-                          ? "Are you sure you want to remove STF status from this expert?"
+                          ? "Are you sure you want to remove STF status from this user?"
                           : `This will restore the ${actionRole} access and administrative permissions on the platform. Are you sure you want to unblock this user?`
             }
             confirmText={

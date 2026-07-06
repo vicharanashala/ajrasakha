@@ -21,7 +21,7 @@ import {
 import { TimerDisplay } from "../../components/timer-display";
 import { formatDate } from "@/utils/formatDate";
 import { getTimerStartTime } from "@/utils/getTimerStartTime";
-import { AlertCircle, AlertTriangle, BadgeCheck, CheckCircle, Circle, Clock, Edit, Eye, Square, Trash, User, XCircle } from "lucide-react";
+import { AlertCircle, AlertTriangle, BadgeCheck, CheckCircle, Circle, Clock, Edit, Eye, Square, Trash, User, XCircle,ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmationModal } from "../../components/confirmation-modal";
 import { useQuestionTableStore } from "@/stores/all-questions";
@@ -59,6 +59,7 @@ interface QuestionRowProps {
   onViewMore: (id: string) => void;
   showClosedAt?: boolean;
   isLoading?: boolean;
+  isDedicatedView?: boolean;
 }
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
@@ -85,6 +86,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
   selectedQuestionIds,
   showClosedAt,
   isLoading,
+  isDedicatedView,
 }) => {
   //visible columns
   const visibleColumns = useQuestionTableStore((state) => state.visibleColumns);
@@ -284,6 +286,9 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
                           onViewMore(q._id?.toString() || "");
                         }}
                       >
+                        {q.tag === "dynamic" && (
+                          <span className='text-xs text-green-600 mr-1'>(DYNAMIC)</span>
+                        )}
                         {truncate(q.question, 50)}
                       </span>
                     </TooltipTrigger>
@@ -328,6 +333,11 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
           <TableCell className="text-start ps-0">
             <div className="flex items-center gap-2">
               {visibleColumns.priority && <PriorityBadge priority={q.priority} />}
+              {isDedicatedView && q.source && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border bg-blue-500/10 text-blue-600 border-blue-500/30 whitespace-nowrap">
+                  {q.source === "AGRI_EXPERT" ? "Manual" : q.source}
+                </span>
+              )}
               {q.pae_review && (
                 <span className="inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-[10px] font-medium border bg-purple-500/10 text-purple-600 border-purple-500/30 whitespace-nowrap">
                   PAE
@@ -350,6 +360,9 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
                           onViewMore(q._id?.toString() || "");
                         }}
                       >
+                        {q.tag === "dynamic" && (
+                          <span className='text-xs text-green-600 mr-1'>(DYNAMIC)</span>
+                        )}
                         {
                         q?.similarityScore&&
                         q?.referenceQuestionId&&
@@ -395,15 +408,57 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
           {visibleColumns.crop && (
             <TableCell className="align-middle">
             {truncate(
-              (q.details.normalised_crop || q.details.crop || "")
-                .replace(/\b\w/g, char => char.toUpperCase()),
+              (q.details.normalised_crop || q.details.crop || ""),
+                // .replace(/\b\w/g, char => char.toUpperCase()),
               10
             )}
           </TableCell>
           )}
           {visibleColumns.domain && (
             <TableCell className="align-middle">
-              {truncate(q.details.domain, 22)}
+              {(() => {
+                // 1. Safely extract the domains
+                const domains = Array.isArray(q.details.domain)
+                  ? q.details.domain
+                  : typeof q.details.domain === "string" && q?.details?.domain
+                    ? [q.details.domain]
+                    : [];
+
+                // 2. Fallback if empty
+                if (domains.length === 0) {
+                  return <span className="text-muted-foreground text-sm">N/A</span>;
+                }
+
+                return (
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        {/* The badges act as the trigger */}
+                        <div className="flex w-max items-center gap-1.5 cursor-default">
+                          <div className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 dark:border-[oklch(0.2809_0_0)] dark:bg-[oklch(0.2_0_0)] dark:text-foreground">
+                            {truncate(domains[0], 22)}
+                          </div>
+                          {/* Count Badge: Shows +X if there are more domains */}
+                          {domains.length > 1 && (
+                            <div className="inline-flex h-6 items-center rounded-full border border-slate-200 bg-slate-100 px-2 text-[10px] font-bold text-slate-600 dark:border-[oklch(0.2809_0_0)] dark:bg-[oklch(0.2_0_0)] dark:text-foreground">
+                              +{domains.length - 1}
+                            </div>
+                          )}
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" align="start" className="max-w-[300px] p-2 z-[100]">
+                        <div className="flex flex-col gap-1.5">
+                          {domains.map((domain, index) => (
+                            <span key={index} className="text-xs break-words">
+                              • {domain}
+                            </span>
+                          ))}
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                );
+              })()}
             </TableCell>
           )}
 

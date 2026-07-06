@@ -36,7 +36,8 @@ import {
   ExpertReviewLevelDto,
   UpdateUserDto,
   ToggleUserRoleDto,
-  VerifyUserBody
+  VerifyUserBody,
+  VerificationRequestDto
 } from '#root/modules/user/validators/UserValidators.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
@@ -257,6 +258,46 @@ export class UserController {
       sort,
       filter,
     );
+  }
+
+  @Get('/moderators')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'List all moderators ({_id, name, email}) for filter dropdowns' })
+  async getModerators() {
+    return await this.userService.getModeratorsList();
+  }
+
+  @OpenAPI({
+    summary: 'Get STF moderators',
+    description: 'Returns non-blocked moderators that have Special Task Force enabled.',
+  })
+  @Get('/stf-moderators')
+  @HttpCode(200)
+  @Authorized(['admin', 'moderator'])
+  async getStfModerators() {
+    const { users } = await this.userService.getAllUsers(
+      1,
+      1000,
+      '',
+      '',
+      'ALL',
+      'moderator',
+      false,
+      undefined,
+      true,
+    );
+    return users.map(u => ({
+      _id: u._id?.toString(),
+      name: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim(),
+      email: u.email,
+      // The questions this moderator currently holds, each with its denormalised status
+      // ({ questionId, status }). Empty when free. Re-routed entries do not mark busy.
+      assignedQuestionIds: (u.assignedQuestionIds ?? []).map((a: any) => ({
+        questionId: a.questionId?.toString(),
+        status: a.status,
+      })),
+    }));
   }
 
   @OpenAPI({
@@ -1029,5 +1070,81 @@ export class UserController {
     @CurrentUser() currentUser: IUser,
   ): Promise<IUser> {
     return await this.userService.toggleCallAgentActive(userId, currentUser.role);
+  }
+
+  @OpenAPI({
+    summary: 'Toggle call agent online/offline status',
+    description: 'Sets a call agent as online or offline. Online agents are assigned an agent number and can receive calls. Offline agents release their agent number. Call agents can control their own status.',
+  })
+  @ResponseSchema(UserEntryResponse, {
+    statusCode: 200,
+    description: 'Call agent status updated successfully',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - User is not a call agent',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @Post('/call-agents/toggle-status')
+  @HttpCode(200)
+  @Authorized(['call_agent'])
+  async toggleAgentStatus(
+    @Body() body: { online: boolean },
+    @CurrentUser() currentUser: IUser,
+  ): Promise<IUser> {
+    const userId = currentUser._id.toString();
+    if (body.online) {
+      return await this.userService.setAgentOnline(userId);
+    } else {
+      return await this.userService.setAgentOffline(userId);
+    }
+  }
+
+
+  @OpenAPI({
+    summary: 'Mark call agent as available',
+    description: 'Marks a call agent as available (not busy) if they are active and currently busy.',
+  })
+  @Post('/call-agents/available')
+  @HttpCode(200)
+  @Authorized(['call_agent'])
+  async markAvailable(
+    @CurrentUser() currentUser: IUser,
+  ): Promise<IUser> {
+    const userId = currentUser._id.toString();
+    const user = await this.userService.getUserById(userId);
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+    if (user.isCallAgentActive && user.isBusy) {
+      return await this.userService.markAgentAsAvailable(userId);
+    }
+    return user;
+  }
+
+
+  @OpenAPI({
+    summary: 'Request account verification',
+    description: 'Allows unverified users to send a verification request to all system admins.',
+  })
+  @ResponseSchema(UserSuccessMessageResponse, {
+    statusCode: 200,
+    description: 'Verification request sent successfully',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 400,
+    description: 'Bad request - Identifier is missing',
+  })
+  @Post('/verification-request')
+  @HttpCode(200)
+  async requestVerification(
+    @Body() body: VerificationRequestDto
+  ): Promise<{ message: string }> {
+    const { identifier } = body;
+    await this.userService.requestVerification(identifier);
+    return { message: 'Verification request sent to administrators.' };
   }
 }

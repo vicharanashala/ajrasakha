@@ -17,13 +17,19 @@ export function useAddUser() {
         name: string;
         password: string
         userRole?: string;
-        role?: 'district_coordinator' | 'block_coordinator' | 'village_coordinator';
+        role?: 'district_coordinator' | 'block_coordinator' | 'village_volunteer';
         isVerified?: boolean;
         target?: 'web_app' | 'review_system';
       };
     }) => {
-      if (data.target === 'review_system') {
-        const result = await apiFetch<any>(
+      let reviewResult;
+
+      if (
+        data.target === 'review_system' ||
+        data.userRole === 'district_coordinator' ||
+        data.userRole === 'block_coordinator'
+      ) {
+        reviewResult = await apiFetch<any>(
           `${env.apiBaseUrl()}/auth/admin/review-users`,
           {
             method: 'POST',
@@ -31,12 +37,14 @@ export function useAddUser() {
               email: data.email,
               name: data.name,
               password: data.password,
-              role: data.role,
+              role: data.role || data.userRole,
               isVerified: data.isVerified,
             }),
           },
         );
-        return result;
+        if (data.target === 'review_system') {
+          return reviewResult;
+        }
       }
 
       const result = await apiFetch<any>(
@@ -46,13 +54,21 @@ export function useAddUser() {
           body: JSON.stringify(data),
         },
       );
-      return result;
+      return { ...result, reviewResult };
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['user-details'] });
       if (variables.data.target === 'review_system') {
         queryClient.invalidateQueries({ queryKey: ['admin'] });
         toast.success('Review system user added successfully');
+        return;
+      }
+      if (
+        variables.data.userRole === 'district_coordinator' ||
+        variables.data.userRole === 'block_coordinator'
+      ) {
+        queryClient.invalidateQueries({ queryKey: ['admin'] });
+        toast.success('User added to both systems successfully');
         return;
       }
       toast.success('Farmer added successfully');

@@ -113,7 +113,8 @@ const inputClass =
 const selectTriggerClass =
   "h-10 w-full min-w-0 text-sm rounded-lg border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#1e1e1e] [&>span]:truncate";
 
-const ROLE_OPTIONS = ["Farmer", "Internal", "Coordinator"];
+const ROLE_OPTIONS = ["Farmer", "Internal","district_coordinator","block_coordinator","village_volunteer",
+];
 
 function FilterSection({
   icon,

@@ -80,6 +80,7 @@ import UserQuestionsModal from "./UserQuestionModal";
 import { EditFarmerModal } from "./components/EditFarmerModal";
 import { AddFarmerModal } from "./components/AddFarmerModal";
 import { FarmerDetailsModal } from "./components/FarmerDetailsModal";
+import { FarmerNameLink } from "./components/FarmerNameLink";
 import { useAddUser } from "./hooks/useAddUser";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/atoms/badge";
@@ -114,7 +115,14 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
 };
 
 const rolesForUserType = (value: "all" | "external" | "internal"): string[] => {
-  if (value === "external") return ["Farmer", "Coordinator"];
+  if (value === "external") {
+    return [
+      "Farmer",
+      "district_coordinator",
+      "block_coordinator",
+      "village_volunteer",
+    ];
+  }
   if (value === "internal") return ["Internal"];
   return [];
 };
@@ -199,6 +207,8 @@ export function UserDetailsView({
   // }, []);
 
   // Apply initialFilters when they change (e.g. clicking from AlertCard in overview)
+  // Note: We don't auto-scroll here because the parent dashboard handles scrolling
+  // via the scrollTo function when handlers are called
   useEffect(() => {
     if (initialFilters) {
       setFilters((prev) => ({
@@ -210,9 +220,6 @@ export function UserDetailsView({
           (userType === "internal" ? "all" : prev.profileCompleted),
       }));
       setCurrentPage(1);
-      if (initialFilters.inactiveOnly || initialFilters.lowFeedbackOnly) {
-        scrollToTable();
-      }
     }
   }, [initialFilters, userType]);
 
@@ -436,7 +443,7 @@ export function UserDetailsView({
     name: string;
     password: string;
     userRole?: string;
-    role?: "district_coordinator" | "block_coordinator" | "village_coordinator";
+    role?: "district_coordinator" | "block_coordinator" | "village_volunteer";
     isVerified?: boolean;
     target: "web_app" | "review_system";
   }) => {
@@ -449,12 +456,14 @@ export function UserDetailsView({
 
   const handleChangeViewedUserPassword = async (payload: {
     newPassword: string;
+    keepLoggedIn: boolean;
   }) => {
     if (!userToView) return;
     await changeUserPasswordMutation.mutateAsync({
       userId: userToView.userId,
       source,
       newPassword: payload.newPassword,
+      keepLoggedIn: payload.keepLoggedIn,
     });
   };
 
@@ -1182,7 +1191,13 @@ export function UserDetailsView({
 
                                 <TableCell className="align-middle font-medium whitespace-nowrap">
                                   <div className="inline-flex items-center justify-center gap-1.5">
-                                    <span>{user.name || <EmptyValue />}</span>
+                                    {currentUser?.role === "admin" ? (
+                                      <FarmerNameLink userId={user.userId}>
+                                        {user.name || <EmptyValue />}
+                                      </FarmerNameLink>
+                                    ) : (
+                                      <span>{user.name || <EmptyValue />}</span>
+                                    )}
                                     {!isUserVerified && (
                                       <Tooltip>
                                         <TooltipTrigger asChild>
@@ -1557,7 +1572,15 @@ function RoleBadge({ role }: { role?: string }) {
       icon: <User className="h-3 w-3" />,
       className: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300 border border-green-200 dark:border-green-800",
     },
-    coordinator: {
+    district_coordinator: {
+      icon: <UsersRound className="h-3 w-3" />,
+      className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
+    },
+    block_coordinator: {
+      icon: <UsersRound className="h-3 w-3" />,
+      className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
+    },
+    village_volunteer: {
       icon: <UsersRound className="h-3 w-3" />,
       className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800",
     },

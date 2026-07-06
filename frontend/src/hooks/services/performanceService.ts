@@ -4,6 +4,11 @@ import type {
   DashboardAnalyticsResponse,
   DashboardFilters,
 } from "../api/performance/useGetDashboard";
+import type { OverviewResponse } from "@/components/dashboard/overview";
+import type { ModeratorApprovalRate } from "@/components/dashboard/approval-rate";
+import type { GoldenDataset } from "@/components/dashboard/golden-dataset";
+import type { StatusOverview } from "@/components/dashboard/question-status";
+import type { ExpertPerformance } from "@/components/dashboard/experts-performance";
 import { formatDateLocal } from "@/utils/formatDate";
 import type { DateRange, QuestionsAnalytics } from "@/components/dashboard/questions-analytics";
 import { env } from "@/config/env";
@@ -75,14 +80,22 @@ export class PerformaneService {
     );
   }
 
-  async getOverview(): Promise<{
-    userRoleOverview: UserRoleOverview[];
+  async getOverview(query: {
+    selectedDate: string;
+    startTime?: string;
+    endTime?: string;
+  }): Promise<(OverviewResponse & {
     moderatorApprovalRate: ModeratorApprovalRate;
-  } | null> {
-    return apiFetch<{
-      userRoleOverview: UserRoleOverview[];
+  }) | null> {
+    const startDate = new Date(`${query.selectedDate}T${query.startTime}:00`);
+    const endDate = new Date(`${query.selectedDate}T${query.endTime}:59.999`);
+    const params = new URLSearchParams();
+    params.append("startDateTime", startDate.toISOString());
+    params.append("endDateTime", endDate.toISOString());
+
+    return apiFetch<OverviewResponse & {
       moderatorApprovalRate: ModeratorApprovalRate;
-    }>(`${this._baseUrl}/overview`);
+    }>(`${this._baseUrl}/overview?${params.toString()}`);
   }
 
   async getGoldenDataset(query: {
@@ -207,12 +220,16 @@ async downloadLevelWiseReport(fromDate:string,toDate:string): Promise<Blob> {
 
   async getShiftBasedMetrics(fromDate:string,
     // toDate:string,
-     shift: string): Promise<any> {
+     shift: string,source: string, timeRange:{from:string, to:string}): Promise<any> {
 
     const params = new URLSearchParams();
     params.append("startDate", fromDate);
     // params.append("endDate", toDate);
     params.append("shift", shift);
+
+    params.append("source",source);
+    params.append("from", timeRange.from);
+    params.append("to", timeRange.to);
 
     // Get the current Firebase user and token
       const firebaseUser = auth.currentUser;
@@ -235,12 +252,15 @@ async downloadLevelWiseReport(fromDate:string,toDate:string): Promise<Blob> {
 // /shift-based-trends
   async getShiftWiseTrends(fromDate:string,
     // toDate:string,
-     shift: string): Promise<any> {
+     shift: string, source: string, timeRange:{from:string, to:string}): Promise<any> {
 
     const params = new URLSearchParams();
     params.append("startDate", fromDate);
     // params.append("endDate", toDate);
     params.append("shift", shift);
+    params.append("source",source);
+    params.append("from", timeRange.from);
+    params.append("to", timeRange.to);
 
     // Get the current Firebase user and token
       const firebaseUser = auth.currentUser;
@@ -262,12 +282,15 @@ async downloadLevelWiseReport(fromDate:string,toDate:string): Promise<Blob> {
 
   async getStatusDistribution(fromDate:string,
     // toDate:string, 
-    shift: string): Promise<any> {
+    shift: string, source: string, timeRange:{from:string, to:string}): Promise<any> {
 
     const params = new URLSearchParams();
     params.append("startDate", fromDate);
     // params.append("endDate", toDate);
     params.append("shift", shift);
+    params.append('source',source);
+    params.append("from", timeRange.from);
+    params.append("to", timeRange.to);
 
     // Get the current Firebase user and token
       const firebaseUser = auth.currentUser;
@@ -290,12 +313,15 @@ async downloadLevelWiseReport(fromDate:string,toDate:string): Promise<Blob> {
 
   async getLevelDistribution(fromDate:string,
     // toDate:string,
-     shift: string): Promise<any> {
+     shift: string, source: string, timeRange:{from:string, to:string}): Promise<any> {
 
     const params = new URLSearchParams();
     params.append("startDate", fromDate);
     // params.append("endDate", toDate);
     params.append("shift", shift);
+    params.append("source",source);
+    params.append("from", timeRange.from);
+    params.append("to", timeRange.to);
 
     // Get the current Firebase user and token
       const firebaseUser = auth.currentUser;
@@ -317,12 +343,15 @@ async downloadLevelWiseReport(fromDate:string,toDate:string): Promise<Blob> {
 
   async getShiftBasedTopExperts(fromDate:string,
     // toDate:string,
-     shift: string): Promise<any> {
+     shift: string, source: string, timeRange:{from:string, to:string}): Promise<any> {
 
     const params = new URLSearchParams();
     params.append("startDate", fromDate);
     // params.append("endDate", toDate);
     params.append("shift", shift);
+    params.append("source",source);
+    params.append("from", timeRange.from);
+    params.append("to", timeRange.to);
 
     // Get the current Firebase user and token
       const firebaseUser = auth.currentUser;
@@ -344,12 +373,15 @@ async downloadLevelWiseReport(fromDate:string,toDate:string): Promise<Blob> {
 
   async getShiftBasedTopApprovingExperts(fromDate:string,
     // toDate:string,
-     shift: string): Promise<any> {
+     shift: string, source: string, timeRange:{from:string, to:string}): Promise<any> {
 
     const params = new URLSearchParams();
     params.append("startDate", fromDate);
     // params.append("endDate", toDate);
     params.append("shift", shift);
+    params.append("source",source);
+    params.append("from", timeRange.from);
+    params.append("to", timeRange.to);
 
     // Get the current Firebase user and token
       const firebaseUser = auth.currentUser;
@@ -371,12 +403,14 @@ async downloadLevelWiseReport(fromDate:string,toDate:string): Promise<Blob> {
 
   async getShiftBasedAuditActionCounts(fromDate:string,
     // toDate:string, 
-    shift: string): Promise<any> {
+    shift: string, timeRange:{from:string, to:string}): Promise<any> {
 
     const params = new URLSearchParams();
     params.append("startDate", fromDate);
     // params.append("endDate", toDate);
     params.append("shift", shift);
+    params.append("from", timeRange.from);
+    params.append("to", timeRange.to);
      // Get the current Firebase user and token
       const firebaseUser = auth.currentUser;
       if (!firebaseUser) {

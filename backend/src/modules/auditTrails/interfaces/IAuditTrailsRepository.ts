@@ -41,6 +41,17 @@ export interface IAuditTrailsRepository {
     startDate: string,
     // endDate: string,
     shift: string,
+    from: string,
+    to: string,
     session?: ClientSession
   ): Promise<any>;
+
+  getAuditTrailsByQuestionId(
+    questionId: string,
+    page?: number,
+    limit?: number,
+    action?: string | null,
+    order?: "asc" | "desc",
+    session?: ClientSession,
+  ): Promise<{ data: ModeratorAuditTrail[]; totalDocuments: number }>;
 }

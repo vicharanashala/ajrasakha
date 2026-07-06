@@ -24,6 +24,7 @@ import { useGetReRoutedQuestionFullData } from "@/hooks/api/question/useGetReRou
 import { AnswerTimeline } from "@/features/question_details/components/AnswerTimeline";
 import { RerouteTimeline } from "@/features/question_details/components/RerouteTimeline";
 import { AllocationTimeline } from "@/features/question_details/components/AllocationTimeline";
+import { ModeratorQueue } from "@/features/question_details/components/ModeratorQueue";
 import { flattenAnswers } from "@/features/question_details/utils/flattenAnswers";
 import { QuestionHeader } from "@/features/question_details/components/QuestionHeader";
 import { QuestionDetailsCard } from "@/features/question_details/components/QuestionDetailsCard";
@@ -48,6 +49,9 @@ interface QuestionDetailProps {
   onPrev?: () => void;
   hasNext?: boolean;
   hasPrev?: boolean;
+  /** True when the question is opened from the moderator's Dedicated tab.
+   *  Only in this view can moderators approve or reroute answers. */
+  isDedicatedView?: boolean;
 }
 
 export const QuestionDetails = ({
@@ -63,6 +67,7 @@ export const QuestionDetails = ({
   onPrev,
   hasNext,
   hasPrev,
+  isDedicatedView = false,
 }: QuestionDetailProps) => {
   const ANSWER_VISIBLE_COUNT = 5;
 
@@ -70,7 +75,7 @@ export const QuestionDetails = ({
     () => flattenAnswers(question?.submission),
     [question.submission],
   );
-  console.log("Answers", answers);
+  // console.log("Answers", answers);
   const [answerVisibleCount, setAnswerVisibleCount] =
     useState(ANSWER_VISIBLE_COUNT);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -270,6 +275,7 @@ export const QuestionDetails = ({
             currentUser={currentUser}
             question={question}
           />
+          <ModeratorQueue question={question} currentUser={currentUser} />
           {reroutequestionDetails && reroutequestionDetails.length >= 1 && (
             <RerouteTimeline
               currentUser={currentUser}
@@ -371,6 +377,7 @@ export const QuestionDetails = ({
                 userRole={currentUser.role}
                 queue={question.submission.queue}
                 rerouteQuestion={reroutequestionDetails ?? undefined}
+                isDedicatedView={isDedicatedView}
               />
               {answerVisibleCount < answers.length && (
                 <div className="flex justify-center">

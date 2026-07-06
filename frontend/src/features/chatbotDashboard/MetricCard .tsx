@@ -328,11 +328,13 @@ function KpiCard({
   source = "annam",
   userType,
   isLoading,
+  onCardClick,
 }: {
   kpi: KpiCardData;
   source?: "vicharanashala" | "annam" | "whatsapp";
   userType?: string;
-  isLoading: boolean;
+  isLoading?: boolean;
+  onCardClick?: (id: string) => void;
 }) {
   const queryClient = useQueryClient();
   const handleKPIrefresh = async () => {
@@ -407,13 +409,14 @@ function KpiCard({
   return (
     <>
       <Card
+        onClick={() => onCardClick?.(kpi.id)}
         className={`group relative overflow-hidden rounded-2xl border border-gray-200/80 bg-white p-0 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg dark:border-[#2a2a2a] dark:bg-gradient-to-br dark:from-[#1a1a1a] dark:to-[#161616] ${
           shouldHide
             ? "pointer-events-none hidden select-none"
             : shouldBlur
               ? "pointer-events-none select-none opacity-90 blur-sm"
               : ""
-        }`}
+        } ${onCardClick && kpi.id === "totalInstalls" ? "cursor-pointer" : ""}`}
       >
         {/* Accent bar */}
         <div
@@ -771,12 +774,14 @@ export function EightCardsComponent({
   source = "annam",
   userType,
   isLoading,
+  onCardClick,
 }: {
   kpiRow1: KpiCardData[];
   kpiRow2: KpiCardData[];
   source?: "vicharanashala" | "annam" | "whatsapp";
   userType?: string;
   isLoading: boolean;
+  onCardClick?: (id: string) => void;
 }) {
   const combinedKpis = [...kpiRow1, ...kpiRow2];
   const customOrder = [
@@ -837,7 +842,7 @@ export function EightCardsComponent({
       */}
       <div className="mb-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5">
         {combinedKpis.map((kpi) => (
-          <KpiCard key={kpi.id} kpi={kpi} source={source} userType={userType} />
+          <KpiCard key={kpi.id} kpi={kpi} source={source} userType={userType} onCardClick={onCardClick} />
         ))}
       </div>
     </>

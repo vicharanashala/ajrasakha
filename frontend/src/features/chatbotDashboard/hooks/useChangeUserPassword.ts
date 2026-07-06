@@ -11,16 +11,18 @@ export function useChangeUserPassword() {
       userId,
       source,
       newPassword,
+      keepLoggedIn,
     }: {
       userId: string;
       source: string;
       newPassword: string;
+      keepLoggedIn: boolean;
     }) => {
       const result = await apiFetch<{success?: boolean; message?: string}>(
         `${env.apiBaseUrl()}/analytics/admin/users/${userId}/change-password?source=${source}`,
         {
           method: "POST",
-          body: JSON.stringify({ newPassword }),
+          body: JSON.stringify({ newPassword, keepLoggedIn }),
         },
       );
 

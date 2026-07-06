@@ -22,6 +22,7 @@ import { Separator } from "@/components/atoms/separator";
 import { Badge } from "@/components/atoms/badge";
 import { Slider } from "@/components/atoms/slider";
 import { Checkbox } from "@/components/atoms/checkbox";
+import { Input } from "@/components/atoms/input";
 import { StateMultiSelect } from "./atoms/StateMultiSelect";
 import { CropMultiSelect } from "./atoms/CropMultiSelect";
 import {
@@ -57,6 +58,7 @@ import {
   CircleSlash,
   Copy,
   AlertCircle,
+  Zap,
 } from "lucide-react";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import {
@@ -67,6 +69,7 @@ import {
 import type { IMyPreference } from "@/types";
 import { CROPS, STATES, DOMAINS, Review_Level } from "@/components/MetaData";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
+import { useGetStates } from "@/hooks/api/location/useLocations";
 export { STATES, CROPS, DOMAINS };
 import { DateRangeFilter } from "./DateRangeFilter";
 import { TopRightBadge } from "./NewBadge";
@@ -120,6 +123,7 @@ export type AdvanceFilterValues = {
   closedAtStart?: Date | undefined | null;
   consecutiveApprovals?: string;
   autoAllocateFilter?: string;
+  autoAllocateModeratorFilter?: string;
   closedInTwoHrs?: boolean;
   hiddenQuestions?: boolean;
   duplicateQuestions?: boolean;
@@ -127,6 +131,8 @@ export type AdvanceFilterValues = {
   unallocatedQuestions?: boolean;
   pae_review?: boolean;
   is_non_agri?: boolean;
+  /** When set, filters to questions whose moderatorId matches this ID (dedicated tab). */
+  moderatorId?: string;
 };
 
 
@@ -137,7 +143,6 @@ interface AdvanceFilterDialogProps {
   setAdvanceFilterValues: (values: any) => void;
   handleDialogChange: (key: string, value: any) => void;
   handleApplyFilters: (myPreference?: IMyPreference) => void;
-  normalizedStates: string[];
   crops: string[];
   activeFiltersCount: number;
   onReset: () => void;
@@ -145,12 +150,81 @@ interface AdvanceFilterDialogProps {
   setIsSidebarOpen: (value: boolean) => void;
 }
 
+type SearchableFilterSelectOption = {
+  value: string;
+  searchText: string;
+  children: React.ReactNode;
+};
+
+const SearchableFilterSelect = ({
+  value,
+  onValueChange,
+  options,
+  disabled,
+  triggerClassName = "bg-background w-full",
+}: {
+  value?: string;
+  onValueChange: (value: string) => void;
+  options: SearchableFilterSelectOption[];
+  disabled?: boolean;
+  triggerClassName?: string;
+}) => {
+  const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const visibleOptions = normalizedSearchQuery
+    ? options.filter((option) =>
+        option.searchText.toLowerCase().includes(normalizedSearchQuery),
+      )
+    : options;
+
+  return (
+    <Select
+      value={value}
+      onValueChange={onValueChange}
+      disabled={disabled}
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) {
+          setSearchQuery("");
+        }
+      }}
+    >
+      <SelectTrigger className={triggerClassName}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent
+        headerSlot={
+          <div className="p-1">
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              onKeyDown={(event) => event.stopPropagation()}
+              onPointerDown={(event) => event.stopPropagation()}
+              placeholder="Search"
+              className="h-8"
+              autoFocus
+            />
+          </div>
+        }
+      >
+        {visibleOptions.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.children}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+};
+
 export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
   advanceFilter,
   setAdvanceFilterValues,
   handleDialogChange,
   handleApplyFilters,
-  normalizedStates,
   crops,
   activeFiltersCount,
   onReset,
@@ -161,10 +235,173 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
   const { data: userNameReponse, isLoading } = useGetAllUsers();
   const { data: cropsData } = useGetAllCrops({ type: "crop", limit: 500 });
   const dbCrops = cropsData?.crops || [];
+  const { data: statesResponse = [] } = useGetStates();
+  const stateOptions = statesResponse.map((s) => s.stateNameEnglish);
 
   const users = (userNameReponse?.users || []).sort((a, b) =>
     a.userName.localeCompare(b.userName),
   );
+
+  const statusOptions: SearchableFilterSelectOption[] = [
+    {
+      value: "all",
+      searchText: "All Statuses",
+      children: (
+        <div className="flex items-center gap-2 ">
+          <Eye className="w-4 h-4 text-primary" />
+          <span>All Statuses</span>
+          <TopRightBadge label="new" />
+        </div>
+      ),
+    },
+    {
+      value: "open",
+      searchText: "Open",
+      children: (
+        <div className="flex items-center gap-2">
+          <Circle className="w-4 h-4 text-green-500 fill-green-500/20" />
+          <span>Open</span>
+        </div>
+      ),
+    },
+    {
+      value: "in-review",
+      searchText: "In Review",
+      children: (
+        <div className="flex items-center gap-2">
+          <Clock className="w-4 h-4 text-blue-500" />
+          <span>In Review</span>
+        </div>
+      ),
+    },
+    {
+      value: "delayed",
+      searchText: "Delayed",
+      children: (
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-yellow-500" />
+          <span>Delayed</span>
+        </div>
+      ),
+    },
+    {
+      value: "re-routed",
+      searchText: "Re Routed",
+      children: (
+        <div className="flex items-center gap-2">
+          <Send className="w-4 h-4 text-green-500" />
+          <span>Re Routed</span>
+        </div>
+      ),
+    },
+    {
+      value: "pae_submitted",
+      searchText: "PAE Submitted",
+      children: (
+        <div className="flex items-center gap-2">
+          <Clock className="w-4 h-4 text-amber-600" />
+          <span>PAE Submitted</span>
+        </div>
+      ),
+    },
+    {
+      value: "closed",
+      searchText: "Closed",
+      children: (
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-red-500" />
+          <span>Closed</span>
+        </div>
+      ),
+    },
+    {
+      value: "pass",
+      searchText: "Passed",
+      children: (
+        <div className="flex items-center gap-2">
+          <CircleSlash className="w-4 h-4 text-gray-500" />
+          <span>Passed</span>
+        </div>
+      ),
+    },
+    {
+      value: "duplicate",
+      searchText: "Duplicate",
+      children: (
+        <div className="flex items-center gap-2">
+          <Copy className="w-4 h-4 text-orange-500" />
+          <span>Duplicate</span>
+        </div>
+      ),
+    },
+    {
+      value: "draft",
+      searchText: "Draft",
+      children: (
+        <div className="flex items-center gap-2">
+          <FileText className="w-4 h-4 text-gray-400" />
+          <span>Draft</span>
+        </div>
+      ),
+    },
+    {
+      value: "hold",
+      searchText: "Hold",
+      children: (
+        <div className="flex items-center gap-2">
+          <Hand className="w-4 h-4 text-orange-600" />
+          <span>Hold</span>
+        </div>
+      ),
+    },
+    {
+      value: "non_agri",
+      searchText: "Non Agri",
+      children: (
+        <div className="flex items-center gap-2">
+          <CircleSlash className="w-4 h-4 text-slate-500" />
+          <span>Non Agri</span>
+        </div>
+      ),
+    },
+    {
+      value: "dynamic",
+      searchText: "Dynamic",
+      children: (
+        <div className="flex items-center gap-2">
+          <Zap className="w-4 h-4 text-yellow-500" />
+          <span>Dynamic</span>
+        </div>
+      ),
+    },
+  ];
+
+  const reviewLevelOptions: SearchableFilterSelectOption[] = [
+    { value: "all", searchText: "All Levels", children: "All Levels" },
+    ...Review_Level.map((level) => ({
+      value: level,
+      searchText: level === "Level 0" ? "Author Level 0" : level,
+      children: level === "Level 0" ? "Author" : level,
+    })),
+  ];
+
+  const domainOptions: SearchableFilterSelectOption[] = [
+    { value: "all", searchText: "All Domains", children: "All Domains" },
+    ...DOMAINS.map((domain) => ({
+      value: domain,
+      searchText: domain,
+      children: domain,
+    })),
+  ];
+
+  const userOptions: SearchableFilterSelectOption[] = [
+    { value: "all", searchText: "All Users", children: "All Users" },
+    ...users.map((user) => ({
+      value: user._id,
+      searchText: user.userName,
+      children: user.userName,
+    })),
+  ];
 
   return (
     <Dialog
@@ -235,98 +472,14 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     <FileText className="h-4 w-4 text-primary" />
                     Question Status
                   </Label>
-                  <Select
-                    value={advanceFilter.isOnHold ? "hold" : advanceFilter.status}
+                  <SearchableFilterSelect
+                    value={advanceFilter.status}
                     onValueChange={(v) => {
-                      if (v === "hold") {
-                        handleDialogChange("status", "all");
-                        handleDialogChange("isOnHold", true);
-                      } else {
-                        handleDialogChange("status", v);
-                        handleDialogChange("isOnHold", false);
-                      }
+                      handleDialogChange("status", v);
                     }}
-                  >
-                    <SelectTrigger className="bg-background w-full relative">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">
-                        <div className="flex items-center gap-2 ">
-                          <Eye className="w-4 h-4 text-primary" />
-                          <span>All Statuses</span>
-                          <TopRightBadge label="new" />
-                        </div>
-                      </SelectItem>
-
-                      <SelectItem value="open">
-                        <div className="flex items-center gap-2">
-                          <Circle className="w-4 h-4 text-green-500 fill-green-500/20" />
-                          <span>Open</span>
-                        </div>
-                      </SelectItem>
-
-                      <SelectItem value="in-review">
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-4 h-4 text-blue-500" />
-                          <span>In Review</span>
-                        </div>
-                      </SelectItem>
-
-                      <SelectItem value="delayed">
-                        <div className="flex items-center gap-2">
-                          <AlertTriangle className="w-4 h-4 text-yellow-500" />
-                          <span>Delayed</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="re-routed">
-                        <div className="flex items-center gap-2">
-                          <Send className="w-4 h-4 text-green-500" />
-                          <span>Re Routed</span>
-                        </div>
-                      </SelectItem>
-
-                      <SelectItem value="pae_submitted">
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-4 h-4 text-amber-600" />
-                          <span>PAE Submitted</span>
-                        </div>
-                      </SelectItem>
-
-                      <SelectItem value="closed">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-red-500" />
-                          <span>Closed</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="pass">
-                        <div className="flex items-center gap-2">
-                          <CircleSlash className="w-4 h-4 text-gray-500" />
-                          <span>Passed</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="duplicate">
-                        <div className="flex items-center gap-2">
-                          <Copy className="w-4 h-4 text-orange-500" />
-                          <span>Duplicate</span>
-                        </div>
-                      </SelectItem>
-
-                      <SelectItem value="draft">
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-4 h-4 text-gray-400" />
-                          <span>Draft</span>
-                        </div>
-                      </SelectItem>
-
-                      <SelectItem value="hold">
-                        <div className="flex items-center gap-2">
-                          <Hand className="w-4 h-4 text-orange-600" />
-                          <span>Hold</span>
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
+                    options={statusOptions}
+                    triggerClassName="bg-background w-full relative"
+                  />
                 </div>
               )}
 
@@ -398,9 +551,10 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   )}
                 </Label>
                 <StateMultiSelect
-                  states={normalizedStates}
+                  states={stateOptions}
                   selected={advanceFilter.states || []}
                   onChange={(next) => handleDialogChange("states", next)}
+                  searchable
                 />
               </div>
               <div className="space-y-2 min-w-0">
@@ -408,22 +562,11 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   <Layers className="h-4 w-4 text-primary" />
                   Review Level
                 </Label>
-                <Select
+                <SearchableFilterSelect
                   value={advanceFilter.review_level}
                   onValueChange={(v) => handleDialogChange("review_level", v)}
-                >
-                  <SelectTrigger className="bg-background w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Levels</SelectItem>
-                    {Review_Level.map((d) => (
-                      <SelectItem key={d} value={d}>
-                        {d === "Level 0" ? "Author" : d}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={reviewLevelOptions}
+                />
               </div>
             </div>
 
@@ -441,6 +584,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   crops={crops}
                   selected={advanceFilter.normalisedCrops || []}
                   onChange={(next) => handleDialogChange("normalisedCrops", next)}
+                  searchable
                 />
               </div>
 
@@ -466,35 +610,27 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   </Tooltip>
                 </Label>
 
-                <Select
-                  value={advanceFilter.user}
-                  onValueChange={(v) => handleDialogChange("user", v)}
-                  disabled={isLoading}
-                >
-                  <SelectTrigger className="bg-background w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-
-                  <SelectContent>
-                    {isLoading ? (
+                {isLoading ? (
+                  <Select value={advanceFilter.user} disabled>
+                    <SelectTrigger className="bg-background w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
                       <div className="flex items-center justify-center p-3">
                         <Loader2 className="h-4 w-4 animate-spin text-primary" />
                         <span className="ml-2 text-sm text-muted-foreground">
                           Loading users...
                         </span>
                       </div>
-                    ) : (
-                      <>
-                        <SelectItem value="all">All Users</SelectItem>
-                        {users?.map((u) => (
-                          <SelectItem key={u._id} value={u._id}>
-                            {u.userName}
-                          </SelectItem>
-                        ))}
-                      </>
-                    )}
-                  </SelectContent>
-                </Select>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <SearchableFilterSelect
+                    value={advanceFilter.user}
+                    onValueChange={(v) => handleDialogChange("user", v)}
+                    options={userOptions}
+                  />
+                )}
               </div>
             </div>
 
@@ -507,22 +643,11 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   <Globe className="h-4 w-4 text-primary" />
                   Domain
                 </Label>
-                <Select
+                <SearchableFilterSelect
                   value={advanceFilter.domain}
                   onValueChange={(v) => handleDialogChange("domain", v)}
-                >
-                  <SelectTrigger className="bg-background w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Domains</SelectItem>
-                    {DOMAINS.map((d) => (
-                      <SelectItem key={d} value={d}>
-                        {d}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  options={domainOptions}
+                />
               </div>
 
               <div className="space-y-2 min-w-0">
@@ -578,25 +703,6 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
               </div>
             </div>
 
-            <Separator />
-            <div className="space-y-2 mb-4">
-              <Label className="flex items-center gap-2 text-sm font-semibold">
-                <Clock className="h-4 w-4 text-primary" />
-                Closed within 2 Hours
-              </Label>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  className="w-3.5 h-3.5 border-primary"
-                  checked={advanceFilter.closedInTwoHrs ?? false}
-                  onCheckedChange={(checked) =>
-                    handleDialogChange("closedInTwoHrs", checked === true)
-                  }
-                />
-                <span className="text-sm text-muted-foreground">
-                  Show questions closed within 2 hours
-                </span>
-              </div>
-            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
               <div className="space-y-2 min-w-0">
                 <DateRangeFilter
@@ -719,6 +825,48 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
             </div>
 
             <Separator />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2 min-w-0 ">
+                <Label className="relative flex items-center gap-2 text-sm font-semibold">
+                  <UserRound className="h-4 w-4 text-primary" />
+                  Auto Allocate Moderator
+                </Label>
+                <Select
+                  value={advanceFilter.autoAllocateModeratorFilter}
+                  onValueChange={(v) =>
+                    handleDialogChange("autoAllocateModeratorFilter", v)
+                  }
+                >
+                  <SelectTrigger className="bg-background w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      <div className="flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-green-500 fill-green-500/20" />
+                        <span>All</span>
+                      </div>
+                    </SelectItem>
+
+                    <SelectItem value="on">
+                      <div className="flex items-center gap-2">
+                        <Bot className="w-4 h-4 text-green-500 fill-green-500/20" />
+                        <span>ON</span>
+                      </div>
+                    </SelectItem>
+
+                    <SelectItem value="off">
+                      <div className="flex items-center gap-2">
+                        <Hand className="w-4 h-4 text-red-500 fill-green-500/20" />
+                        <span>OFF</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <Separator />
 
             {/* Number of Answers Slider */}
             <div className="space-y-4">
@@ -751,6 +899,25 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
               <p className="text-xs text-muted-foreground">
                 Filter questions based on the number of answers received
               </p>
+            </div>
+            <Separator />
+            <div className="space-y-2 mb-4">
+              <Label className="flex items-center gap-2 text-sm font-semibold">
+                <Clock className="h-4 w-4 text-primary" />
+                Closed within 2 Hours
+              </Label>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  className="w-3.5 h-3.5 border-primary"
+                  checked={advanceFilter.closedInTwoHrs ?? false}
+                  onCheckedChange={(checked) =>
+                    handleDialogChange("closedInTwoHrs", checked === true)
+                  }
+                />
+                <span className="text-sm text-muted-foreground">
+                  Show questions closed within 2 hours
+                </span>
+              </div>
             </div>
             {/* Hidden and Duplicate Questions */}
             <div className="space-y-4">
@@ -915,6 +1082,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                   closedAtEnd: undefined,
                   consecutiveApprovals: "all",
                   autoAllocateFilter: "all",
+                  autoAllocateModeratorFilter: "all",
                   unallocatedQuestions: false,
                 });
                 onReset();

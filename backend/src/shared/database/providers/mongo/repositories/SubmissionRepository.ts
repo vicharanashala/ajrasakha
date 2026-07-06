@@ -166,9 +166,12 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
             queue: new ObjectId(expertId),
             history: { updatedBy: new ObjectId(expertId) },
           },
+          // Reset all time-bound tracking tied to the removed expert so they're fully
+          // freed from this question (clears the 45-min allocation/open clocks).
           $set: {
             reviewDelayNotificationSent: false,
             currentExpertAllocatedAt: null,
+            currentExpertOpenedAt: null,
           },
         },
         { session },
@@ -176,6 +179,31 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       if (result.matchedCount === 0) {
         throw new InternalServerError(
           `No submission found for questionId: ${questionId}`,
+        );
+      }
+
+      // Removing the first expert changes the question's allocation state:
+      const removedFirstExpert = index === 0;
+      const queueBecameEmpty =
+        removedFirstExpert && (questionSubmission.queue?.length ?? 0) === 1;
+      if (queueBecameEmpty) {
+        // No experts left — the question is no longer allocated to anyone. Clear
+        // firstAllocationAt so it falls back into the never-allocated queue and can
+        // be re-picked for allocation.
+        await this.QuestionCollection.updateOne(
+          { _id: new ObjectId(questionId) },
+          { $unset: { firstAllocationAt: '' } },
+          { session },
+        );
+      } else if (removedFirstExpert) {
+        // Allocation shifts to the next expert (now the head of the queue). Ensure
+        // firstAllocationAt is set if it was missing/null, so the now-allocated
+        // question isn't treated as never-allocated. Only set when absent to
+        // preserve the original first-allocation timestamp when it already exists.
+        await this.QuestionCollection.updateOne(
+          { _id: new ObjectId(questionId) },
+          { $set: { firstAllocationAt: new Date() } },
+          { session },
         );
       }
 
@@ -1201,6 +1229,25 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           action: 1,
           mainDate: 1,
           createdAt: '$mainDate',
+          // Reviewer's position in the queue: 0 = Author, N = Level N.
+          level: { $indexOfArray: ['$queue', userObjId] },
+          // Time the question/review was assigned to this user. Mirrors
+          // buildReviewTat: the author (index 0) is assigned at first allocation
+          // (falling back to question creation), reviewers at their own entry's
+          // createdAt. `completedAt` is the submission/review time (mainDate).
+          assignedAt: {
+            $cond: [
+              { $eq: ['$historyIndex', 0] },
+              {
+                $ifNull: [
+                  '$questionDoc.firstAllocationAt',
+                  '$questionDoc.createdAt',
+                ],
+              },
+              '$history.createdAt',
+            ],
+          },
+          completedAt: '$mainDate',
           updatedAt: '$history.updatedAt',
           reviewType: '$reviewDoc.reviewType',
           reason: {
@@ -1407,6 +1454,10 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           action: 1,
           mainDate: 1,
           createdAt: '$reroutes.reroutedAt',
+          // Reroute is "assigned" when it was rerouted to the user, and
+          // "completed" at its last update (mainDate).
+          assignedAt: '$reroutes.reroutedAt',
+          completedAt: '$mainDate',
           updatedAt: '$reroutes.updatedAt',
           rerouteStatus: '$reroutes.status',
           comment: '$reroutes.comment',
@@ -3305,11 +3356,15 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     );
   }
 
-  async clearCurrentExpertOpenedAt(questionId: string, session?: ClientSession): Promise<void> {
+  /** Clear the current-expert tracking timestamps once the expert has submitted
+   *  their response — both the allocated-at and opened-at clocks are reset so the
+   *  time-bound stuck/idle cron won't flag the question until the next expert is
+   *  allocated (which sets currentExpertAllocatedAt afresh). */
+  async clearCurrentExpertTracking(questionId: string, session?: ClientSession): Promise<void> {
     await this.init();
     await this.QuestionSubmissionCollection.updateOne(
       { questionId: new ObjectId(questionId) },
-      { $set: { currentExpertOpenedAt: null, updatedAt: new Date() } },
+      { $set: { currentExpertAllocatedAt: null, currentExpertOpenedAt: null, updatedAt: new Date() } },
       { session },
     );
   }
@@ -3340,7 +3395,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       {
         $match: {
           'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
-          'question.status': { $nin: ['closed', 'in-review', 'pae_submitted', 'pass', 'duplicate', 'draft', 'non_agri'] },
+          // 're-routed' questions are owned by the reroute flow (moderators handle them),
+          // not the time-bound cron — exclude them so they don't consume STF capacity.
+          'question.status': { $nin: ['closed', 'in-review', 'pae_submitted', 'pass', 'duplicate', 'draft', 'non_agri', 're-routed'] },
           'question.isOnHold': { $ne: true },
           'question.isAutoAllocate': {$eq: true}
         },
@@ -3349,17 +3406,32 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     ]).toArray();
   }
 
-  async findUnallocatedTimeBoundQuestions(): Promise<IQuestionSubmission[]> {
+  /** Time-bound questions the current expert OPENED more than 45 min ago but still
+   *  hasn't produced an answer for — i.e. the latest history entry carries no
+   *  answer / approvedAnswer / modifiedAnswer / rejectedAnswer (an empty history,
+   *  meaning opened-but-no-entry, also qualifies). Distinct from "stuck", which is
+   *  allocated-but-NEVER-opened. */
+  async findOpenedButIdleTimeBoundQuestions(): Promise<IQuestionSubmission[]> {
     await this.init();
+    const fortyFiveMinAgo = new Date(Date.now() - 45 * 60 * 1000);
 
     return this.QuestionSubmissionCollection.aggregate<IQuestionSubmission>([
       {
         $match: {
-          queue: { $size: 0 },
-          $or: [
-            { currentExpertAllocatedAt: { $exists: false } },
-            { currentExpertAllocatedAt: null },
-          ],
+          currentExpertOpenedAt: { $exists: true, $ne: null, $lte: fortyFiveMinAgo },
+        },
+      },
+      {
+        $addFields: {
+          lastHistory: { $arrayElemAt: [{ $ifNull: ['$history', []] }, -1] },
+        },
+      },
+      {
+        $match: {
+          'lastHistory.answer': { $in: [null] },
+          'lastHistory.approvedAnswer': { $in: [null] },
+          'lastHistory.modifiedAnswer': { $in: [null] },
+          'lastHistory.rejectedAnswer': { $in: [null] },
         },
       },
       {
@@ -3374,13 +3446,39 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       {
         $match: {
           'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
-          'question.status': { $nin: ['closed', 'pass', 'duplicate', 'draft', 'non_agri'] },
+          'question.status': { $in: ['open', 'delayed'] },
           'question.isOnHold': { $ne: true },
-          'question.isAutoAllocate': {$eq: true}
+          'question.isAutoAllocate': { $eq: true },
         },
       },
       { $sort: { 'question.createdAt': 1 } },
     ]).toArray();
+  }
+
+  async findUnallocatedTimeBoundQuestions(): Promise<IQuestionSubmission[]> {
+    await this.init();
+
+    // Never-allocated time-bound questions sourced directly from the questions
+    // collection: time-bound + auto-allocate + still open/delayed + never had a
+    // first allocation. Shaped to the submission-like form the callers expect
+    // (.questionId / .question / .queue).
+    const questions = await this.QuestionCollection.find({
+      source: { $in: ['AJRASAKHA', 'WHATSAPP'] },
+      isAutoAllocate: true,
+      status: { $in: ['open', 'delayed'] },
+      firstAllocationAt: null,
+      isOnHold: { $ne: true },
+    })
+      .sort({ createdAt: 1 })
+      .toArray();
+
+    return questions.map(q => ({
+      questionId: q._id,
+      question: q,
+      queue: [],
+      history: [],
+      createdAt: q.createdAt,
+    })) as unknown as IQuestionSubmission[];
   }
 
   /** Find time-bound (AJRASAKHA/WHATSAPP) submissions where the current expert
@@ -3553,7 +3651,7 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
     for (const r of result) {
       if (r._id) map.set(r._id.toString(), r.count);
     }
-    console.log('[getTimeBoundActiveCountPerExpert] result:', JSON.stringify(result), 'map:', JSON.stringify([...map]));
+   // console.log('[getTimeBoundActiveCountPerExpert] result:', JSON.stringify(result), 'map:', JSON.stringify([...map]));
     return map;
   }
 

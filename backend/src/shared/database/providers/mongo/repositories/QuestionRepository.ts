@@ -7,6 +7,7 @@ import {
   IReview,
   IUser,
   QuestionStatus,
+  QuestionSource,
   IReroute,
   ISimilarQuestion,
   ICheckStatusResponse,
@@ -53,6 +54,10 @@ import {
 } from '#root/modules/question/classes/validators/QuestionVaidators.js';
 import {buildReviewTimeline} from '#root/utils/buildReviewTat.js';
 import {getShiftFilter} from '#root/utils/date.utils.js';
+import {
+  QueueQuestionData,
+  RawQueueQuestionRow,
+} from '#root/modules/question/interfaces/IQuestionService.js';
 
 const VECTOR_INDEX_NAME = 'questions_vector_index';
 const EMBEDDING_FIELD = 'embedding';
@@ -220,6 +225,10 @@ export class QuestionRepository implements IQuestionRepository {
     try {
       await this.init();
       if (!question._id) question._id = new ObjectId();
+      // New questions are eligible for moderator auto-allocation by default.
+      if (question.autoAllocateModerator === undefined) {
+        question.autoAllocateModerator = true;
+      }
 
       await this.QuestionCollection.insertOne(question, {session});
 
@@ -332,6 +341,7 @@ export class QuestionRepository implements IQuestionRepository {
         closedAtEnd,
         consecutiveApprovals,
         autoAllocateFilter,
+        autoAllocateModeratorFilter,
         sort,
         closedInTwoHrs,
         hiddenQuestions,
@@ -340,11 +350,12 @@ export class QuestionRepository implements IQuestionRepository {
         unallocatedQuestions,
         pae_review,
         is_non_agri,
+        moderatorId,
       } = query;
       //  const filter: any = {};
       const filter: any = {
         // isHidden: { $ne: true }, // default to exclude hidden questions
-        isOnHold: { $ne: true }, // default to exclude on hold questions
+        // isOnHold: { $ne: true }, // default to exclude on hold questions
         isTesting:{$ne:true},
       };
       if (pae_review) {
@@ -445,6 +456,15 @@ export class QuestionRepository implements IQuestionRepository {
         }
       }
 
+      // --- Auto Allocate Moderator Filter ---
+      if (autoAllocateModeratorFilter && autoAllocateModeratorFilter !== 'all') {
+        if (autoAllocateModeratorFilter === 'on') {
+          filter.autoAllocateModerator = true;
+        } else if (autoAllocateModeratorFilter === 'off') {
+          filter.autoAllocateModerator = false;
+        }
+      }
+
       // --- Filters ---
 
       caseInsensitiveStringFilter('status', status);
@@ -458,8 +478,34 @@ export class QuestionRepository implements IQuestionRepository {
       if (is_non_agri === 'true' || is_non_agri === true) {
         filter.status = 'non_agri';
       } else if (filter.status === undefined) {
-        filter.status = {$nin: ['non_agri', 'dynamic']};
+        filter.status = {$nin: ['non_agri']};
       }
+
+      // --- Dedicated (moderator-assigned) tab filter ---
+      // When filtering by moderatorId, always restrict to active statuses only
+      // (in-review, re-routed, duplicate or pae_submitted), overriding any status filter
+      // the frontend sent. 'duplicate' and 'pae_submitted' are included because the
+      // moderator-queue cron assigns those to moderators alongside in-review ones.
+      if (moderatorId) {
+        const modOid = new ObjectId(moderatorId as string);
+        // Match both a correct ObjectId AND any legacy doc where moderatorId was
+        // persisted as a serialized Buffer ({ buffer: { data: [...12 bytes...] } }),
+        // so those still surface in the moderator's assignments until migrated.
+        if (!filter.$and) filter.$and = [];
+        filter.$and.push({
+          $or: [
+            { moderatorId: modOid },
+            { 'moderatorId.buffer.data': Array.from(modOid.id) },
+          ],
+        });
+        filter.status = { $in: ['in-review', 're-routed', 'duplicate', 'pae_submitted'] };
+        // A moderator's assignments span all question types (including PAE questions),
+        // so drop the pae_review restriction applied above for the normal tabs —
+        // otherwise pae_review:true assignments would be hidden from "My Assignments".
+        delete filter.$or;
+        delete filter.pae_review;
+      }
+
       // --- State filter (from body array) ---
       if (body?.states && body.states.length > 0) {
         filter['details.state'] = {$in: body.states};
@@ -941,6 +987,11 @@ export class QuestionRepository implements IQuestionRepository {
       }
 
       if (search && search.trim() !== '') {
+        // Search spans ALL questions regardless of status/source — drop those filters
+        // so a matching question surfaces no matter which tab/status it's in.
+        delete filter.status;
+        delete filter.source;
+
         // Escape special regex characters so literal strings like "How to control weeds?"
         // are matched as-is rather than being interpreted as regex patterns.
         const escapedSearch = escapeRegex(search.trim());
@@ -949,6 +1000,7 @@ export class QuestionRepository implements IQuestionRepository {
           {'details.crop': {$regex: escapedSearch, $options: 'i'}},
           {'details.state': {$regex: escapedSearch, $options: 'i'}},
           {'details.domain': {$regex: escapedSearch, $options: 'i'}},
+          {threadId: {$regex: escapedSearch, $options: 'i'}},
           {
             $expr: {
               $regexMatch: {
@@ -1041,8 +1093,9 @@ export class QuestionRepository implements IQuestionRepository {
                   {case: {$eq: [{$toLower: '$status'}, 're-routed']}, then: 3},
                   {case: {$eq: [{$toLower: '$status'}, 'in-review']}, then: 4},
                   {case: {$eq: [{$toLower: '$status'}, 'closed']}, then: 5},
+                  {case: {$eq: [{ $toLower: "$status" }, "hold"] }, then: 6},
                 ],
-                default: 6,
+                default: 7,
               },
             },
           },
@@ -1453,17 +1506,91 @@ export class QuestionRepository implements IQuestionRepository {
         }),
       );
 
-      const questionIdsToAttempt = submissions.map(
-        sub => new ObjectId(sub?.questionId),
+      const assignedAtByQuestionId = new Map(
+        submissions.map((sub: any) => {
+          const historyCount = sub?.historyCount ?? 0;
+          const assignedAt = historyCount === 0
+            ? sub?.currentExpertAllocatedAt
+            : (sub?.lastHistory?.assignedAt ?? sub?.lastHistory?.createdAt);
+          return [sub?.questionId?.toString(), assignedAt];
+        }),
+      );
+
+      // Rerouted questions live in the `reroutes` collection, not in the
+      // submission history/queue, so the allocation logic above never surfaces
+      // them. Pull the ones still pending action for this expert and merge them
+      // in — but ONLY when the caller explicitly opts in via includeRerouted
+      // (the Expert Management dashboard). The normal answering queue
+      // (QA interface) must stay reroute-free since reroutes have their own
+      // dedicated flow. Also limit to the unfiltered ('all') or dedicated
+      // 'rerouted' level views.
+      const includeRerouted =
+        query.includeRerouted === 'true' &&
+        (query.review_level === 'all' || query.review_level === 'rerouted');
+
+      const reroutedAssignedAtByQuestionId = new Map();
+      let reroutedQuestionIds: ObjectId[] = [];
+      if (includeRerouted) {
+        const reroutedDocs = await this.ReRouteCollection.find(
+          {
+            reroutes: {
+              $elemMatch: {
+                reroutedTo: userObjectId,
+                status: 'pending',
+              },
+            },
+          },
+          {projection: {questionId: 1, reroutes: 1}, session},
+        ).toArray();
+
+        reroutedDocs.forEach(doc => {
+          if (doc?.questionId) {
+            const pendingReroute = doc.reroutes
+              ?.filter((r: any) => r.reroutedTo?.toString() === userObjectId.toString() && r.status === 'pending')
+              ?.sort((a: any, b: any) => new Date(b.reroutedAt).getTime() - new Date(a.reroutedAt).getTime())[0];
+            if (pendingReroute) {
+              reroutedAssignedAtByQuestionId.set(doc.questionId.toString(), pendingReroute.reroutedAt);
+            }
+          }
+        });
+
+        reroutedQuestionIds = reroutedDocs
+          .filter(doc => doc?.questionId)
+          .map(doc => new ObjectId(doc.questionId));
+      }
+
+      const reroutedQuestionIdSet = new Set(
+        reroutedQuestionIds.map(id => id.toString()),
+      );
+
+      // De-duplicate in case a question is both a normal allocation and a reroute.
+      const questionIdsToAttempt = Array.from(
+        new Map(
+          [
+            ...submissions.map(sub => new ObjectId(sub?.questionId)),
+            ...reroutedQuestionIds,
+          ].map(id => [id.toString(), id]),
+        ).values(),
       );
 
       const escapeRegex = (str: string) =>
         str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
       const filter: any = {
-        status: {$in: ['open', 'delayed', 'duplicate']},
         _id: {$in: questionIdsToAttempt},
       };
+
+      // Normal allocations must be in an open state. Rerouted questions are
+      // typically already in-review/closed, so let them bypass that restriction
+      // while preserving the original status filter for everything else.
+      if (reroutedQuestionIdSet.size > 0) {
+        filter.$or = [
+          {_id: {$in: reroutedQuestionIds}},
+          {status: {$nin: ['closed', 'in-review']}},
+        ];
+      } else {
+        filter.status = {$nin: ['closed', 'in-review']};
+      }
 
       // Apply preferences filters
       if (query.source && query.source !== 'all') {
@@ -1496,12 +1623,51 @@ export class QuestionRepository implements IQuestionRepository {
           priorityOrder: {
             $switch: {
               branches: [
-                {case: {$eq: ['$priority', 'critical']}, then: 1},
-                {case: {$eq: ['$priority', 'high']}, then: 2},
-                {case: {$eq: ['$priority', 'medium']}, then: 3},
-                {case: {$eq: ['$priority', 'low']}, then: 4},
+                // AJRASAKHA / WHATSAPP
+                {
+                  case: {
+                    $and: [
+                      { $eq: ['$priority', 'critical'] },
+                      { $in: ['$source', ['AJRASAKHA', 'WHATSAPP']] },
+                    ],
+                  },
+                  then: 1,
+                },
+                {
+                  case: {
+                    $and: [
+                      { $eq: ['$priority', 'high'] },
+                      { $in: ['$source', ['AJRASAKHA', 'WHATSAPP']] },
+                    ],
+                  },
+                  then: 2,
+                },
+                {
+                  case: {
+                    $and: [
+                      { $eq: ['$priority', 'medium'] },
+                      { $in: ['$source', ['AJRASAKHA', 'WHATSAPP']] },
+                    ],
+                  },
+                  then: 3,
+                },
+                {
+                  case: {
+                    $and: [
+                      { $eq: ['$priority', 'low'] },
+                      { $in: ['$source', ['AJRASAKHA', 'WHATSAPP']] },
+                    ],
+                  },
+                  then: 4,
+                },
+
+                // Other sources
+                { case: { $eq: ['$priority', 'critical'] }, then: 5 },
+                { case: { $eq: ['$priority', 'high'] }, then: 6 },
+                { case: { $eq: ['$priority', 'medium'] }, then: 7 },
+                { case: { $eq: ['$priority', 'low'] }, then: 8 },
               ],
-              default: 5,
+              default: 9,
             },
           },
         },
@@ -1532,10 +1698,19 @@ export class QuestionRepository implements IQuestionRepository {
         pipeline,
         {session},
       ).toArray();
-      return results.map((q: any) => ({
-        ...q,
-        review_level_number: reviewLevelByQuestionId.get(q.id) ?? 'Author',
-      }));
+      return results.map((q: any) => {
+        const isRerouted = reroutedQuestionIdSet.has(q.id);
+        const assignedAt = isRerouted
+          ? reroutedAssignedAtByQuestionId.get(q.id)
+          : assignedAtByQuestionId.get(q.id);
+        return {
+          ...q,
+          assignedAt: assignedAt ?? null,
+          review_level_number: isRerouted
+            ? 'rerouted'
+            : reviewLevelByQuestionId.get(q.id) ?? 'Author',
+        };
+      });
     } catch (error) {
       throw new InternalServerError(
         `Failed to fetch unanswered questions: ${error}`,
@@ -1826,6 +2001,7 @@ export class QuestionRepository implements IQuestionRepository {
         submission?.queue || [],
         question?.createdAt,
         question.status,
+        question?.firstAllocationAt,
       );
 
       // 7 Populate submissions manually
@@ -1932,6 +2108,9 @@ export class QuestionRepository implements IQuestionRepository {
         })),
         authorTimeline: reviewTimeline[0],
         history: combinedHistory,
+        // When the current (first-queue) expert was allocated — used by the UI to
+        // show an "Assigned" time before that expert has any history entry.
+        currentExpertAllocatedAt: submission?.currentExpertAllocatedAt ?? null,
         createdAt: submission?.createdAt,
         updatedAt: submission?.updatedAt,
       };
@@ -2204,6 +2383,21 @@ export class QuestionRepository implements IQuestionRepository {
         updates.closedAt = new Date(updates.closedAt);
       }
 
+      const nextStatus = String((updates as any).status ?? '').toLowerCase();
+      const isPassStatus = nextStatus === 'pass';
+      if (isPassStatus) {
+        const existingQuestion = await this.QuestionCollection.findOne(
+          {_id: new ObjectId(questionId)},
+          {projection: {passedAt: 1}, session},
+        );
+        updates.isClosed = true;
+        if (!existingQuestion?.passedAt) {
+          updates.passedAt = new Date();
+        } else {
+          delete (updates as any).passedAt;
+        }
+      }
+
       if (updates.referenceQuestionId) {
         const rid = updates.referenceQuestionId as any;
         if (rid instanceof ObjectId) {
@@ -2214,6 +2408,20 @@ export class QuestionRepository implements IQuestionRepository {
           );
         } else {
           updates.referenceQuestionId = new ObjectId(String(rid));
+        }
+      }
+
+      // Same normalisation for moderatorId — callers (e.g. the edit-question flow)
+      // can send it back JSON-serialized as a { buffer: { data: [...] } } object;
+      // coerce it to a real ObjectId so it isn't persisted as a Buffer.
+      if ((updates as any).moderatorId) {
+        const mid = (updates as any).moderatorId;
+        if (mid instanceof ObjectId) {
+          // already correct
+        } else if (mid?.buffer?.data) {
+          (updates as any).moderatorId = new ObjectId(Buffer.from(mid.buffer.data));
+        } else {
+          (updates as any).moderatorId = new ObjectId(String(mid));
         }
       }
 
@@ -2245,6 +2453,11 @@ export class QuestionRepository implements IQuestionRepository {
         updateOperation,
         {session},
       );
+
+      // Keep the denormalised status on any moderator holding this question in sync.
+      if (updates.status) {
+        await this.syncModeratorAssignedStatus(questionId, updates.status, session);
+      }
 
       if (updates.status === 'in-review') {
         const submission = await this.QuestionSubmissionCollection.findOne(
@@ -2448,12 +2661,59 @@ export class QuestionRepository implements IQuestionRepository {
   ): Promise<void> {
     await this.init();
     const update: any = {status, updatedAt: new Date()};
+    const nextStatus = String(status).toLowerCase();
+    if (nextStatus === 'pass') {
+      update.isClosed = true;
+      const existingQuestion = await this.QuestionCollection.findOne(
+        {_id: new ObjectId(id)},
+        {projection: {passedAt: 1}, session},
+      );
+      if (!existingQuestion?.passedAt) {
+        update.passedAt = update.updatedAt;
+      }
+    }
     if (errorMessage) update.errorMessage = errorMessage;
     await this.QuestionCollection.updateOne(
       {_id: new ObjectId(id)},
       {$set: update},
       {session},
     );
+
+    // Keep the denormalised status on any moderator holding this question in sync.
+    await this.syncModeratorAssignedStatus(id, status as QuestionStatus, session);
+  }
+
+  /** Updates the denormalised status on whichever moderator currently holds this
+   *  question in their assignedQuestionIds array (a question is held by at most one).
+   *  No-op when no moderator holds it. Called from every question status-write path so
+   *  the cron's free/busy decision stays accurate (e.g. in-review → re-routed frees the
+   *  moderator; re-routed → in-review makes them busy again). */
+  private async syncModeratorAssignedStatus(
+    questionId: string,
+    status: QuestionStatus,
+    session?: ClientSession,
+  ): Promise<void> {
+    // Best-effort: this is a denormalised cache for free/busy. A failure here must not
+    // break the primary question-status update; it self-heals on the next transition.
+    try {
+      await this.init();
+      const qid = new ObjectId(questionId);
+      await this.UsersCollection.updateOne(
+        {'assignedQuestionIds.questionId': qid} as any,
+        {
+          $set: {
+            'assignedQuestionIds.$[entry].status': status,
+            updatedAt: new Date(),
+          },
+        } as any,
+        {arrayFilters: [{'entry.questionId': qid}], session},
+      );
+    } catch (err: any) {
+      console.error(
+        `[assignedQuestionIds] Failed to sync status for question ${questionId}:`,
+        err?.message,
+      );
+    }
   }
 
   async getQuestionsByStatus(
@@ -2501,6 +2761,14 @@ export class QuestionRepository implements IQuestionRepository {
       status: {$ne: 'pass'},
     };
 
+    const closedMatchCondition: any = {
+      status: 'closed',
+      closedAt: {
+        $gte: startDate,
+        $lt: endDate,
+      },
+    };
+
     // Add time filtering if provided
     if (customStartTime && customEndTime) {
       const [startHour, startMinute] = customStartTime.split(':').map(Number);
@@ -2535,6 +2803,63 @@ export class QuestionRepository implements IQuestionRepository {
                     ],
                   },
                   {$minute: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                ],
+              },
+              endHour * 60 + endMinute,
+            ],
+          },
+        ],
+      };
+
+      closedMatchCondition.$expr = {
+        $and: [
+          {
+            $gte: [
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {
+                        $hour: {
+                          date: '$closedAt',
+                          timezone: 'Asia/Kolkata',
+                        },
+                      },
+                      60,
+                    ],
+                  },
+                  {
+                    $minute: {
+                      date: '$closedAt',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
+                ],
+              },
+              startHour * 60 + startMinute,
+            ],
+          },
+          {
+            $lte: [
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {
+                        $hour: {
+                          date: '$closedAt',
+                          timezone: 'Asia/Kolkata',
+                        },
+                      },
+                      60,
+                    ],
+                  },
+                  {
+                    $minute: {
+                      date: '$closedAt',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
                 ],
               },
               endHour * 60 + endMinute,
@@ -2591,15 +2916,24 @@ export class QuestionRepository implements IQuestionRepository {
         };
       },
     );
+
+    const [closedStats] = await this.QuestionCollection.aggregate(
+      [
+        {
+          $match: closedMatchCondition,
+        },
+        {
+          $count: 'totalVerified',
+        },
+      ],
+      { session },
+    ).toArray();
     const totalEntriesByType = formattedData.reduce(
       (sum, m) => sum + m.entries,
       0,
     );
-    const totalVerifiedByType = formattedData.reduce(
-      (sum, m) => sum + m.verified,
-      0,
-    );
 
+    const totalVerifiedByType = closedStats?.totalVerified ?? 0;
     const {moderatorBreakdown} = await this.getTodayApproved(
       session,
       startDate,
@@ -2685,58 +3019,86 @@ export class QuestionRepository implements IQuestionRepository {
     }
 
     // Get moderator breakdown
-    const moderatorBreakdown = (await this.AnswersCollection.aggregate(
-      [
-        {
-          $match: {
-            status: 'approved',
-            isFinalAnswer: true,
-            updatedAt: {
-              $gte: start,
-              $lt: end,
-            },
-            approvedBy: {$exists: true, $ne: null},
-          },
+   const moderatorBreakdown = (await this.AnswersCollection.aggregate(
+  [
+    {
+      $match: {
+        status: 'approved',
+        isFinalAnswer: true,
+        approvedBy: {$exists: true, $ne: null},
+      },
+    },
+
+    // Lookup question
+    {
+      $lookup: {
+        from: 'questions',
+        localField: 'questionId',
+        foreignField: '_id',
+        as: 'question',
+      },
+    },
+
+    {
+      $unwind: {
+        path: '$question',
+        preserveNullAndEmptyArrays: false,
+      },
+    },
+
+    // Filter by question.closedAt
+    {
+      $match: {
+        'question.closedAt': {
+          $gte: start,
+          $lt: end,
         },
-        {
-          $group: {
-            _id: '$approvedBy',
-            count: {$sum: 1},
-          },
+      },
+    },
+
+    {
+      $group: {
+        _id: '$approvedBy',
+        count: {$sum: 1},
+      },
+    },
+
+    {
+      $lookup: {
+        from: 'users',
+        localField: '_id',
+        foreignField: '_id',
+        as: 'moderator',
+      },
+    },
+
+    {
+      $unwind: {
+        path: '$moderator',
+        preserveNullAndEmptyArrays: false,
+      },
+    },
+
+    {
+      $project: {
+        _id: 0,
+        moderatorName: {
+          $concat: [
+            '$moderator.firstName',
+            ' ',
+            {$ifNull: ['$moderator.lastName', '']},
+          ],
         },
-        {
-          $lookup: {
-            from: 'users',
-            localField: '_id',
-            foreignField: '_id',
-            as: 'moderator',
-          },
-        },
-        {
-          $unwind: {
-            path: '$moderator',
-            preserveNullAndEmptyArrays: false,
-          },
-        },
-        {
-          $project: {
-            _id: 0,
-            moderatorName: {
-              $concat: [
-                '$moderator.firstName',
-                ' ',
-                {$ifNull: ['$moderator.lastName', '']},
-              ],
-            },
-            count: 1,
-          },
-        },
-        {
-          $sort: {count: -1},
-        },
-      ],
-      {session},
-    ).toArray()) as {moderatorName: string; count: number}[];
+        count: 1,
+      },
+    },
+
+    {
+      $sort: {count: -1},
+    },
+  ],
+  {session},
+).toArray()) as {moderatorName: string; count: number}[];
 
     // Calculate total from the breakdown
     const totalApproved = moderatorBreakdown.reduce(
@@ -3051,7 +3413,7 @@ export class QuestionRepository implements IQuestionRepository {
 
       return [
         {status: 'open', count: getCount('open')},
-        {status: 'passed', count: getCount('pass')},
+        {status: 'pass', count: getCount('pass')},
         {status: 'delayed', count: getCount('delayed')},
       ];
     };
@@ -3293,6 +3655,14 @@ export class QuestionRepository implements IQuestionRepository {
       status: {$ne: 'pass'},
     };
 
+    const closedMatchCondition: any = {
+      status: 'closed',
+      closedAt: {
+        $gte: startDate,
+        $lt: endDate,
+      },
+    };
+
     // Add time filtering if provided
     if (customStartTime && customEndTime) {
       const [startHour, startMinute] = customStartTime.split(':').map(Number);
@@ -3327,6 +3697,63 @@ export class QuestionRepository implements IQuestionRepository {
                     ],
                   },
                   {$minute: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                ],
+              },
+              endHour * 60 + endMinute,
+            ],
+          },
+        ],
+      };
+
+      closedMatchCondition.$expr = {
+        $and: [
+          {
+            $gte: [
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {
+                        $hour: {
+                          date: '$closedAt',
+                          timezone: 'Asia/Kolkata',
+                        },
+                      },
+                      60,
+                    ],
+                  },
+                  {
+                    $minute: {
+                      date: '$closedAt',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
+                ],
+              },
+              startHour * 60 + startMinute,
+            ],
+          },
+          {
+            $lte: [
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {
+                        $hour: {
+                          date: '$closedAt',
+                          timezone: 'Asia/Kolkata',
+                        },
+                      },
+                      60,
+                    ],
+                  },
+                  {
+                    $minute: {
+                      date: '$closedAt',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
                 ],
               },
               endHour * 60 + endMinute,
@@ -3372,14 +3799,24 @@ export class QuestionRepository implements IQuestionRepository {
         verified: match?.totalVerified ?? 0,
       };
     });
+
+    const [closedStats] = await this.QuestionCollection.aggregate(
+      [
+        {
+          $match: closedMatchCondition,
+        },
+        {
+          $count: 'totalVerified',
+        },
+      ],
+      { session },
+    ).toArray();
+
     const totalEntriesByType = weeksDataRaw.reduce(
       (acc, curr) => acc + (curr.totalEntries || 0),
       0,
     );
-    const totalVerifiedByType = weeksDataRaw.reduce(
-      (acc, curr) => acc + (curr.totalVerified || 0),
-      0,
-    );
+   const totalVerifiedByType = closedStats?.totalVerified ?? 0;
 
     const {moderatorBreakdown} = await this.getTodayApproved(
       session,
@@ -3494,6 +3931,14 @@ export class QuestionRepository implements IQuestionRepository {
       status: {$ne: 'pass'},
     };
 
+    const closedMatchCondition: any = {
+      status: 'closed',
+      closedAt: {
+        $gte: startDate,
+        $lt: endDate,
+      },
+    };
+
     // Add time filtering if provided
     if (customStartTime && customEndTime) {
       const [startHour, startMinute] = customStartTime.split(':').map(Number);
@@ -3528,6 +3973,63 @@ export class QuestionRepository implements IQuestionRepository {
                     ],
                   },
                   {$minute: {date: '$createdAt', timezone: 'Asia/Kolkata'}},
+                ],
+              },
+              endHour * 60 + endMinute,
+            ],
+          },
+        ],
+      };
+
+      closedMatchCondition.$expr = {
+        $and: [
+          {
+            $gte: [
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {
+                        $hour: {
+                          date: '$closedAt',
+                          timezone: 'Asia/Kolkata',
+                        },
+                      },
+                      60,
+                    ],
+                  },
+                  {
+                    $minute: {
+                      date: '$closedAt',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
+                ],
+              },
+              startHour * 60 + startMinute,
+            ],
+          },
+          {
+            $lte: [
+              {
+                $add: [
+                  {
+                    $multiply: [
+                      {
+                        $hour: {
+                          date: '$closedAt',
+                          timezone: 'Asia/Kolkata',
+                        },
+                      },
+                      60,
+                    ],
+                  },
+                  {
+                    $minute: {
+                      date: '$closedAt',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
                 ],
               },
               endHour * 60 + endMinute,
@@ -3574,14 +4076,23 @@ export class QuestionRepository implements IQuestionRepository {
       };
     });
 
+    const [closedStats] = await this.QuestionCollection.aggregate(
+      [
+        {
+          $match: closedMatchCondition,
+        },
+        {
+          $count: 'totalVerified',
+        },
+      ],
+      { session },
+    ).toArray();
+
     const totalEntriesByType = dailyDataRaw.reduce(
       (acc, curr) => acc + curr.totalEntries,
       0,
     );
-    const totalVerifiedByType = dailyDataRaw.reduce(
-      (acc, curr) => acc + curr.totalVerified,
-      0,
-    );
+    const totalVerifiedByType = closedStats?.totalVerified ?? 0;
 
     const {moderatorBreakdown} = await this.getTodayApproved(
       session,
@@ -3711,6 +4222,14 @@ export class QuestionRepository implements IQuestionRepository {
       status: {$ne: 'pass'},
     };
 
+    const closedMatchCondition: any = {
+      status: 'closed',
+      closedAt: {
+        $gte: startDate,
+        $lt: endDate,
+      },
+    };
+
     // Add time filtering if provided
     if (customStartTime && customEndTime) {
       const [startHour, startMinute] = customStartTime.split(':').map(Number);
@@ -3752,7 +4271,65 @@ export class QuestionRepository implements IQuestionRepository {
           },
         ],
       };
+
+      closedMatchCondition.$expr = {
+    $and: [
+      {
+        $gte: [
+          {
+            $add: [
+              {
+                $multiply: [
+                  {
+                    $hour: {
+                      date: '$closedAt',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
+                  60,
+                ],
+              },
+              {
+                $minute: {
+                  date: '$closedAt',
+                  timezone: 'Asia/Kolkata',
+                },
+              },
+            ],
+          },
+          startHour * 60 + startMinute,
+        ],
+      },
+      {
+        $lte: [
+          {
+            $add: [
+              {
+                $multiply: [
+                  {
+                    $hour: {
+                      date: '$closedAt',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
+                  60,
+                ],
+              },
+              {
+                $minute: {
+                  date: '$closedAt',
+                  timezone: 'Asia/Kolkata',
+                },
+              },
+            ],
+          },
+          endHour * 60 + endMinute,
+        ],
+      },
+    ],
+  };
     }
+
 
     const answers = await this.QuestionCollection.aggregate(
       [
@@ -3834,14 +4411,38 @@ export class QuestionRepository implements IQuestionRepository {
       },
     );
 
+    const [closedStats] = await this.QuestionCollection.aggregate(
+  [
+    {
+      $match: closedMatchCondition,
+    },
+    {
+      $addFields: {
+        dayOfWeek: {
+          $dayOfWeek: {
+            date: '$closedAt',
+            timezone: 'Asia/Kolkata',
+          },
+        },
+      },
+    },
+    {
+      $match: {
+        dayOfWeek: selectedDayNum + 1,
+      },
+    },
+    {
+      $count: 'totalVerified',
+    },
+  ],
+  { session },
+).toArray();
+
     const totalEntriesByType = answers.reduce(
       (acc, curr) => acc + curr.totalEntries,
       0,
     );
-    const totalVerifiedByType = answers.reduce(
-      (acc, curr) => acc + curr.totalVerified,
-      0,
-    );
+   const totalVerifiedByType = closedStats?.totalVerified ?? 0;
 
     // Filter moderator breakdown for the specific day
     const dayStartDate = new Date(
@@ -4249,6 +4850,7 @@ export class QuestionRepository implements IQuestionRepository {
     const domainDataRaw = (await this.QuestionCollection.aggregate(
       [
         {$match: matchStage},
+        { $unwind: '$details.domain' },
         {$group: {_id: '$details.domain', count: {$sum: 1}}},
         {$project: {name: '$_id', count: 1, _id: 0}},
       ],
@@ -4464,6 +5066,8 @@ export class QuestionRepository implements IQuestionRepository {
           question: 1,
           status: 1,
           createdAt: 1,
+          updatedAt: 1,
+          moderatorAssignedAt: 1,
           authors_history: 1, // ← Add authors_history to projection
         },
       },
@@ -4908,9 +5512,11 @@ export class QuestionRepository implements IQuestionRepository {
           question: 1,
           status: 1,
           createdAt: 1,
+          updatedAt: 1,
           reviewLevels: 1,
           totalTurnAround: 1,
           authors_history: 1,
+          moderatorAssignedAt: 1,
           submission: {
             _id: '$submission._id',
             questionId: '$submission.questionId',
@@ -4954,8 +5560,10 @@ export class QuestionRepository implements IQuestionRepository {
         question: doc.question,
         status: doc.status,
         createdAt: doc.createdAt,
+        updatedAt: doc.updatedAt ?? null,
         reviewLevels: doc.reviewLevels,
         authors_history: doc.authors_history,
+        moderatorAssignedAt: doc.moderatorAssignedAt ?? null,
         submission: doc.submission,
       })),
     };
@@ -5142,6 +5750,7 @@ export class QuestionRepository implements IQuestionRepository {
     filters: any,
     session?: ClientSession,
     useDuplicateCollection = false,
+    limit?: number,
   ): Promise<IQuestion[]> {
     await this.init();
 
@@ -5151,10 +5760,13 @@ export class QuestionRepository implements IQuestionRepository {
     //   :
     const collection = this.QuestionCollection;
 
-    return await collection
-      .find(filters, {session})
-      .sort({createdAt: -1})
-      .toArray();
+    let query = collection.find(filters, {session}).sort({createdAt: -1});
+    
+    if (limit) {
+      query = query.limit(limit);
+    }
+    
+    return await query.toArray();
   }
   async getAllQuestionEmbeddings(
     session?: ClientSession,
@@ -5465,8 +6077,6 @@ export class QuestionRepository implements IQuestionRepository {
     // Apply isOnHold filter exactly matching findDetailedQuestions logic
     if (query.isOnHold === 'true') {
       filter.isOnHold = {$eq: true};
-    } else {
-      filter.isOnHold = {$ne: true};
     }
 
     // Apply isHidden filter exactly matching findDetailedQuestions logic
@@ -5723,8 +6333,13 @@ export class QuestionRepository implements IQuestionRepository {
     startDate: string,
     // endDate: string,
     shift: 'morning' | 'evening' | 'all',
+    source: 'annam' | 'whatsapp' | 'agri_expert',
+    from: string,
+    to:string,
     session?: ClientSession,
   ): Promise<{
+    openAtMidnight: number;
+    closedBetween12And6: number;
     questionsAdded: number;
     questionsClosed: number;
     averageClosureTimeInMinutes: number;
@@ -5736,16 +6351,66 @@ export class QuestionRepository implements IQuestionRepository {
 
     const end = new Date(`${startDate}T23:59:59.999+05:30`);
 
-    const createdAtShiftFilter = getShiftFilter('createdAt', shift);
+    const midnight = new Date(start);
+    midnight.setDate(midnight.getDate() + 1);
+    midnight.setHours(0, 0, 0, 0);
 
-    const closedAtShiftFilter = getShiftFilter('closedAt', shift);
+    const sixAM = new Date(start);
+    sixAM.setDate(sixAM.getDate() + 1);
+    sixAM.setHours(6, 0, 0, 0);
+
+    const createdAtShiftFilter = getShiftFilter('createdAt', shift, from, to);
+
+    const closedAtShiftFilter = getShiftFilter('closedAt', shift, from, to);
+
+    const sourceFilter =
+      source === 'annam'
+        ? 'AJRASAKHA'
+        : source === 'whatsapp'
+          ? 'WHATSAPP'
+          : 'AGRI_EXPERT';
 
     const [
+      openAtMidnight,
+      closedBetween12And6,
       questionsAdded,
       questionsClosed,
       averageClosureTimeResult,
       totalReroutedQuestions,
     ] = await Promise.all([
+
+      // Questions that were not closed before 12:00 AM
+      this.QuestionCollection.countDocuments(
+        {
+          createdAt: {
+            $gte: start,
+            $lte: end,
+          },
+          source: sourceFilter,
+          $or: [
+            { closedAt: null },
+            { closedAt: { $gte: midnight } },
+          ],
+        },
+        { session },
+      ),
+
+      // Questions that were closed between 12:00 AM and 6:00 AM
+      this.QuestionCollection.countDocuments(
+        {
+          createdAt: {
+            $gte: start,
+            $lte: end,
+          },
+          source: sourceFilter,
+          closedAt: {
+            $gte: midnight,
+            $lt: sixAM,
+          },
+        },
+        { session },
+      ),
+
       /**
        * Questions Added
        */
@@ -5756,6 +6421,8 @@ export class QuestionRepository implements IQuestionRepository {
             $lte: end,
           },
 
+          source: sourceFilter,
+          
           ...createdAtShiftFilter,
         },
         {session},
@@ -5772,6 +6439,8 @@ export class QuestionRepository implements IQuestionRepository {
             $gte: start,
             $lte: end,
           },
+
+          source: sourceFilter,
 
           ...closedAtShiftFilter,
         },
@@ -5798,6 +6467,9 @@ export class QuestionRepository implements IQuestionRepository {
               closedAt: {
                 $exists: true,
               },
+
+              source: sourceFilter,
+
               ...createdAtShiftFilter,
             },
           },
@@ -5843,6 +6515,9 @@ export class QuestionRepository implements IQuestionRepository {
                 $gte: start,
                 $lte: end,
               },
+
+              source: sourceFilter,
+
               ...createdAtShiftFilter,
             },
           },
@@ -5856,6 +6531,8 @@ export class QuestionRepository implements IQuestionRepository {
     ]);
 
     return {
+      openAtMidnight,
+      closedBetween12And6,
       questionsAdded,
       questionsClosed,
       averageClosureTimeInMinutes: Number(
@@ -5872,6 +6549,9 @@ export class QuestionRepository implements IQuestionRepository {
     startDate: string,
     // endDate: string,
     shift: 'morning' | 'evening' | 'all',
+    source: 'annam' | 'whatsapp' | 'agri_expert',
+    from: string,
+    to:string,
     session?: ClientSession,
   ): Promise<
     {
@@ -5885,6 +6565,14 @@ export class QuestionRepository implements IQuestionRepository {
     const start = new Date(`${startDate}T00:00:00+05:30`);
 
     const end = new Date(`${startDate}T23:59:59.999+05:30`);
+
+    const sourceFilter =
+      source === 'annam'
+        ? 'AJRASAKHA'
+        : source === 'whatsapp'
+          ? 'WHATSAPP'
+          : 'AGRI_EXPERT';
+
     /**
      * Added Questions Aggregation
      */
@@ -5896,7 +6584,8 @@ export class QuestionRepository implements IQuestionRepository {
               $gte: start,
               $lte: end,
             },
-            ...getShiftFilter('createdAt', shift),
+             source: sourceFilter,
+            ...getShiftFilter('createdAt', shift, from, to),
           },
         },
 
@@ -5936,7 +6625,8 @@ export class QuestionRepository implements IQuestionRepository {
               $gte: start,
               $lte: end,
             },
-            ...getShiftFilter('closedAt', shift),
+             source: sourceFilter,
+            ...getShiftFilter('closedAt', shift, from, to),
           },
         },
 
@@ -6021,6 +6711,9 @@ export class QuestionRepository implements IQuestionRepository {
     startDate: string,
     // endDate: string,
     shift: 'morning' | 'evening' | 'all',
+    source: 'annam' | 'whatsapp' | 'agri_expert',
+    from: string,
+    to:string,
     session?: ClientSession,
   ): Promise<
     {
@@ -6034,6 +6727,13 @@ export class QuestionRepository implements IQuestionRepository {
 
     const end = new Date(`${startDate}T23:59:59.999+05:30`);
 
+    const sourceFilter =
+      source === 'annam'
+        ? 'AJRASAKHA'
+        : source === 'whatsapp'
+          ? 'WHATSAPP'
+          : 'AGRI_EXPERT';
+
     const result = await this.QuestionCollection.aggregate(
       [
         /**
@@ -6045,7 +6745,8 @@ export class QuestionRepository implements IQuestionRepository {
               $gte: start,
               $lte: end,
             },
-            ...getShiftFilter('createdAt', shift),
+             source: sourceFilter,
+            ...getShiftFilter('createdAt', shift, from, to),
           },
         },
 
@@ -6083,6 +6784,9 @@ export class QuestionRepository implements IQuestionRepository {
     startDate: string,
     // endDate: string,
     shift: 'morning' | 'evening' | 'all',
+    source: 'annam' | 'whatsapp' | 'agri_expert',
+    from: string,
+    to:string,
     session?: ClientSession,
   ): Promise<
     {
@@ -6096,6 +6800,13 @@ export class QuestionRepository implements IQuestionRepository {
 
     const end = new Date(`${startDate}T23:59:59.999+05:30`);
 
+    const sourceFilter =
+      source === 'annam'
+        ? 'AJRASAKHA'
+        : source === 'whatsapp'
+          ? 'WHATSAPP'
+          : 'AGRI_EXPERT';
+
     const result = await this.QuestionSubmissionCollection.aggregate(
       [
         /**
@@ -6107,7 +6818,29 @@ export class QuestionRepository implements IQuestionRepository {
               $gte: start,
               $lte: end,
             },
-            ...getShiftFilter('createdAt', shift),
+            ...getShiftFilter('createdAt', shift, from, to),
+          },
+        },
+
+        /**
+         * Join question and filter by source
+         */
+        {
+          $lookup: {
+            from: 'questions',
+            localField: 'questionId',
+            foreignField: '_id',
+            as: 'question',
+          },
+        },
+
+        {
+          $unwind: '$question',
+        },
+
+        {
+          $match: {
+            'question.source': sourceFilter,
           },
         },
 
@@ -6198,6 +6931,9 @@ export class QuestionRepository implements IQuestionRepository {
     startDate: string,
     // endDate: string,
     shift: 'morning' | 'evening' | 'all',
+    source: 'annam' | 'whatsapp' | 'agri_expert',
+    from: string,
+    to:string,
     session?: ClientSession,
   ): Promise<
     {
@@ -6215,6 +6951,13 @@ export class QuestionRepository implements IQuestionRepository {
 
     const end = new Date(`${startDate}T23:59:59.999+05:30`);
 
+    const sourceFilter =
+      source === 'annam'
+        ? 'AJRASAKHA'
+        : source === 'whatsapp'
+          ? 'WHATSAPP'
+          : 'AGRI_EXPERT';
+
     const result = await this.QuestionSubmissionCollection.aggregate<{
       userId: ObjectId;
       name: string;
@@ -6224,6 +6967,39 @@ export class QuestionRepository implements IQuestionRepository {
       penalty: number;
     }>(
       [
+        /**
+        * Join question and filter by source
+        */
+        {
+          $lookup: {
+            from: 'questions', // replace if needed
+            let: {
+              questionId: '$questionId',
+            },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $eq: ['$_id', '$$questionId'],
+                  },
+                  source: sourceFilter,
+                },
+              },
+            ],
+            as: 'question',
+          },
+        },
+
+        /**
+        * Keep only matching questions
+        */
+        {
+          $match: {
+            question: {
+              $ne: [],
+            },
+          },
+        },
         /**
          * Expand history
          */
@@ -6240,7 +7016,7 @@ export class QuestionRepository implements IQuestionRepository {
               $gte: start,
               $lte: end,
             },
-            ...getShiftFilter('history.createdAt', shift),
+            ...getShiftFilter('history.createdAt', shift, from, to),
             /**
              * Either:
              * - answer exists
@@ -6338,6 +7114,9 @@ export class QuestionRepository implements IQuestionRepository {
     startDate: string,
     // endDate: string,
     shift: 'morning' | 'evening' | 'all',
+    source: 'annam' | 'whatsapp' | 'agri_expert',
+    from: string,
+    to:string,
     session?: ClientSession,
   ): Promise<
     {
@@ -6352,6 +7131,13 @@ export class QuestionRepository implements IQuestionRepository {
 
     const end = new Date(`${startDate}T23:59:59.999+05:30`);
 
+    const sourceFilter =
+      source === 'annam'
+        ? 'AJRASAKHA'
+        : source === 'whatsapp'
+          ? 'WHATSAPP'
+          : 'AGRI_EXPERT';
+
     const result = await this.AnswersCollection.aggregate<{
       userId: ObjectId;
       name: string;
@@ -6365,9 +7151,44 @@ export class QuestionRepository implements IQuestionRepository {
               $gte: start,
               $lte: end,
             },
-            ...getShiftFilter('updatedAt', shift),
+            ...getShiftFilter('updatedAt', shift, from, to),
           },
         },
+
+        /**
+         * Join question
+         */
+        {
+          $lookup: {
+            from: 'questions', // verify collection name
+            let: {
+              questionId: '$questionId',
+            },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $eq: ['$_id', '$$questionId'],
+                  },
+                  source: sourceFilter,
+                },
+              },
+            ],
+            as: 'question',
+          },
+        },
+
+        /**
+         * Keep only answers whose question matches source
+         */
+        {
+          $match: {
+            question: {
+              $ne: [],
+            },
+          },
+        },
+
         {
           $group: {
             _id: '$approvedBy',
@@ -6433,5 +7254,269 @@ export class QuestionRepository implements IQuestionRepository {
       ...item,
       userId: item.userId.toString(),
     }));
+  }
+
+  /** Returns in-review questions with no moderator assigned yet, ordered oldest first. */
+  async findUnassignedInReviewQuestions(
+    sources?: QuestionSource[],
+  ): Promise<IQuestion[]> {
+    await this.init();
+    // Picks up in-review, duplicate and pae_submitted questions so the moderator-queue
+    // cron assigns them all to STF moderators (PAE-submitted questions skip the peer
+    // review cycle but still need a moderator to act on them).
+    // Only questions with moderator auto-allocation explicitly ON are returned — a
+    // missing field or false both exclude the question from the moderator queue.
+    // New questions default the field to true on creation.
+    // When `sources` is provided, restricts to that source group (time-bound / manual).
+    const filter: Record<string, unknown> = {
+      status: { $in: ['in-review', 'duplicate', 'pae_submitted'] },
+      autoAllocateModerator: true,
+      $or: [{ moderatorId: { $exists: false } }, { moderatorId: null }],
+    };
+    if (sources && sources.length > 0) {
+      filter.source = { $in: sources };
+    }
+    return this.QuestionCollection.find(filter)
+      .sort({ createdAt: 1 })
+      .toArray();
+  }
+
+  /** Questions currently assigned to a moderator (moderatorId set). Includes
+   *  in-review, re-routed, duplicate and pae_submitted statuses — mirrors the
+   *  moderator-assigned tab filter, so re-routed questions (which always carry a
+   *  moderatorId) show up here too. Oldest first. */
+  async findModeratorAssignedQuestions(
+    sources?: QuestionSource[],
+  ): Promise<IQuestion[]> {
+    await this.init();
+    const filter: Record<string, unknown> = {
+      status: { $in: ['in-review', 're-routed', 'duplicate', 'pae_submitted'] },
+      moderatorId: { $exists: true, $ne: null },
+    };
+    if (sources && sources.length > 0) {
+      filter.source = { $in: sources };
+    }
+    return this.QuestionCollection.find(filter)
+      .sort({ createdAt: 1 })
+      .toArray();
+  }
+
+  /** Sets or clears moderatorId on a question document. Also stamps moderatorAssignedAt when assigning. */
+  async updateModeratorId(questionId: string, moderatorId: string | null): Promise<void> {
+    await this.init();
+    const now = new Date();
+    await this.QuestionCollection.updateOne(
+      { _id: new ObjectId(questionId) },
+      {
+        $set: {
+          moderatorId: moderatorId ? new ObjectId(moderatorId) : null,
+          moderatorAssignedAt: moderatorId ? now : null,
+          updatedAt: now,
+        },
+      },
+    );
+  }
+  /** One page (skip/limit) + exact total for a Queue-Details question section.
+   *  kind: 'received' | 'allocated' | 'autoOff'. Status scope: open/delayed/duplicate.
+   *  Optional createdAt range (startTime/endTime) scopes every kind by date. */
+  async getQueueQuestionSection(
+    kind: 'received' | 'allocated' | 'autoOff' | 'autoAllocateOpen' | 'autoAllocateDelayed',
+    skip: number,
+    limit: number,
+    startTime?: Date,
+    endTime?: Date,
+  ): Promise<{count: number; items: RawQueueQuestionRow[]}> {
+    await this.init();
+
+    // Optional createdAt date-range filter applied to all kinds.
+    const createdAtFilter: Record<string, unknown> = {};
+    if (startTime) createdAtFilter.$gte = startTime;
+    if (endTime) createdAtFilter.$lte = endTime;
+    const dateScope = startTime || endTime ? {createdAt: createdAtFilter} : {};
+
+    const receivedMatch = {
+      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+     // isAutoAllocate: true,
+    //  status: {$in: ['open', 'delayed', 'duplicate']},
+      ...dateScope,
+    };
+    const allocatedMatch = {
+      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+      isAutoAllocate: {$eq: true},
+     // firstAllocationAt: {$exists: true, $ne: null},
+      status: {$in: ['open', 'delayed']},
+      // ...dateScope,
+    };
+    const autoOffMatch = {
+      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+      isAutoAllocate: {$eq: true},
+      status: {$in: ['open', 'delayed']},
+    //  ...dateScope,
+    };
+    const autoAllocateOpenMatch = {
+      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+      isAutoAllocate: {$eq: true},
+      status: 'open',
+    };
+    const autoAllocateDelayedMatch = {
+      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+      isAutoAllocate: {$eq: true},
+      status: 'delayed',
+    };
+
+    const lookupStages = [
+      {
+        $lookup: {
+          from: 'question_submissions',
+          localField: '_id',
+          foreignField: 'questionId',
+          as: 'sub',
+        },
+      },
+      {$addFields: {sub: {$arrayElemAt: ['$sub', 0]}}},
+    ];
+    const projectStage = {
+      $project: {
+        _id: 1,
+        question: 1,
+        status: 1,
+        source: 1,
+        priority: 1,
+        createdAt: 1,
+        firstAllocationAt: 1,
+        state: '$details.state',
+        district: '$details.district',
+        crop: '$details.crop',
+        queue: '$sub.queue',
+        history: '$sub.history',
+      },
+    };
+
+    if (kind === 'allocated') {
+      // Allocated & pending: the question is open/delayed and assigned
+      // (firstAllocationAt set), the submission has at least one history entry
+      // (history.length >= 1 — excludes freshly-allocated "awaiting reviewer
+      // assignment" docs with no entry yet), and the CURRENT expert hasn't acted yet —
+      // i.e. the latest history entry carries none of answer / approvedAnswer /
+      // modifiedAnswer / rejectedAnswer (typically a fresh 'in-review' entry). Earlier
+      // entries from prior reviewers may well have answers; only the last entry checked.
+      const base: any[] = [
+        {$match: allocatedMatch},
+        ...lookupStages,
+        {$match: {'sub.queue.0': {$exists: true}}},
+        {$addFields: {lastHistory: {$arrayElemAt: [{$ifNull: ['$sub.history', []]}, -1]}}},
+        {
+          $match: {
+            'lastHistory.answer': {$in: [null]},
+            'lastHistory.approvedAnswer': {$in: [null]},
+            'lastHistory.modifiedAnswer': {$in: [null]},
+            'lastHistory.rejectedAnswer': {$in: [null]},
+          },
+        },
+      ];
+      const [items, countRes] = await Promise.all([
+        this.QuestionCollection.aggregate<RawQueueQuestionRow>([
+          ...base,
+          {$sort: {createdAt: -1}},
+          {$skip: skip},
+          {$limit: limit},
+          projectStage,
+        ]).toArray(),
+        this.QuestionCollection.aggregate<{count: number}>([
+          ...base,
+          {$count: 'count'},
+        ]).toArray(),
+      ]);
+      return {count: countRes[0]?.count ?? 0, items};
+    }
+
+    const match =
+      kind === 'received'        ? receivedMatch :
+      kind === 'autoAllocateOpen'    ? autoAllocateOpenMatch :
+      kind === 'autoAllocateDelayed' ? autoAllocateDelayedMatch :
+                                       autoOffMatch;
+    const [count, items] = await Promise.all([
+      this.QuestionCollection.countDocuments(match as any),
+      this.QuestionCollection.aggregate<RawQueueQuestionRow>([
+        {$match: match},
+        {$sort: {createdAt: -1}},
+        {$skip: skip},
+        {$limit: limit},
+        ...lookupStages,
+        projectStage,
+      ]).toArray(),
+    ]);
+   /* console.log(
+      `[getQueueQuestionSection] kind=${kind} count=${count} ` +
+      `startTime=${startTime?.toISOString() ?? 'none'} endTime=${endTime?.toISOString() ?? 'none'} ` +
+      `match=${JSON.stringify(match)}`,
+    );*/
+
+    // Why the "Auto-Allocate ON" count differs from the never-allocated queue:
+    // split the matched set by allocation state. Only (queueEmpty && !hasAllocatedAt)
+    // questions actually qualify for the never-allocated queue; the rest are already
+    // allocated/in-progress or stuck in limbo (allocatedAt set but queue cleared).
+    if (kind === 'autoOff') {
+      const breakdown = await this.QuestionCollection.aggregate([
+        {$match: match},
+        {
+          $lookup: {
+            from: 'question_submissions',
+            localField: '_id',
+            foreignField: 'questionId',
+            as: 'sub',
+          },
+        },
+        {$addFields: {sub: {$arrayElemAt: ['$sub', 0]}}},
+        {
+          $addFields: {
+            queueEmpty: {$eq: [{$size: {$ifNull: ['$sub.queue', []]}}, 0]},
+            hasAllocatedAt: {
+              $cond: [{$ifNull: ['$sub.currentExpertAllocatedAt', false]}, true, false],
+            },
+          },
+        },
+        {
+          $group: {
+            _id: {queueEmpty: '$queueEmpty', hasAllocatedAt: '$hasAllocatedAt'},
+            count: {$sum: 1},
+          },
+        },
+      ]).toArray();
+     /* console.log(
+        '[getQueueQuestionSection][autoOff breakdown] (queueEmpty & !hasAllocatedAt = never-allocated queue):',
+        JSON.stringify(breakdown),
+      );*/
+    }
+
+    return {count, items};
+  }
+
+  /** Per-status counts for the "Questions Received" section.
+   *  Uses the same receivedMatch as getQueueQuestionSection so the totals are
+   *  always in sync. Returns an array sorted by count descending. */
+  async getReceivedStatusCounts(
+    startTime?: Date,
+    endTime?: Date,
+  ): Promise<{status: string; count: number}[]> {
+    await this.init();
+
+    const createdAtFilter: Record<string, unknown> = {};
+    if (startTime) createdAtFilter.$gte = startTime;
+    if (endTime) createdAtFilter.$lte = endTime;
+    const dateScope = startTime || endTime ? {createdAt: createdAtFilter} : {};
+
+    const match = {
+      source: {$in: ['AJRASAKHA', 'WHATSAPP']},
+      ...dateScope,
+    };
+
+    const rows = await this.QuestionCollection.aggregate<{_id: string; count: number}>([
+      {$match: match},
+      {$group: {_id: '$status', count: {$sum: 1}}},
+      {$sort: {count: -1}},
+    ]).toArray();
+
+    return rows.map(r => ({status: r._id ?? 'unknown', count: r.count}));
   }
 }

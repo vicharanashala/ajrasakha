@@ -4,6 +4,7 @@ import { env } from '@/config/env';
 
 export interface DuplicateQuestionEntry {
   questionId: string;
+  userId?: string;
   question: string;
   referenceQuestion: string;
   similarityScore: number;

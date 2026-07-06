@@ -9,11 +9,14 @@ import {
   List,
   Menu,
   MessageSquare,
+  Phone,
+  TrendingUp,
   Upload,
   Users,
 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { isCoordinatorRole } from "@/lib/roles";
 import { Sheet, SheetContent, SheetTrigger } from "./atoms/sheet";
 
 const SidebarButton = ({
@@ -60,13 +63,18 @@ export const MobileSidebar = ({
 }: {
   user: IUser;
   setTab: (value: string) => void;
-  setChatbotSource: (value: "whatsapp" | "annam") => void;
+  setChatbotSource: (value: "whatsapp" | "annam" | "acc") => void;
 }) => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(
-    user?.role !== "expert" ? "performance" : "questions"
+    user?.role === "call_agent"
+      ? "call_interface"
+      : user?.role !== "expert"
+        ? "performance"
+        : "questions",
   );
+  const isCoordinator = isCoordinatorRole(user?.role);
   const handleClick = (value: string) => {
     if (value === "chatbotanalytics") {
       setTab("chatbotanalytics");
@@ -82,7 +90,7 @@ export const MobileSidebar = ({
   };
 
   const menuItems = [
-    ...(user && user.role !== "expert"
+    ...(user && user.role !== "expert" && user.role !== "call_agent"
       ? [{ id: "performance", label: "Dashboard", icon: BarChart3 }]
       : []),
 
@@ -94,28 +102,38 @@ export const MobileSidebar = ({
       ? [{ id: "questions", label: "Questions", icon: MessageSquare }]
       : []),
 
-    { id: "all_questions", label: "All Questions", icon: List },
+    ...(user && user.role !== "call_agent"
+      ? [{ id: "all_questions", label: "All Questions", icon: List }]
+      : []),
 
-    ...(user && user.role !== "expert"
+    ...(user && user.role !== "expert" && user.role !== "call_agent"
       ? [
           {
             id: "user_management",
             label:
-              user.role === "admin"
-                ? "User Management"
-                : "Expert Management",
+              user.role === "admin" ? "User Management" : "Expert Management",
             icon: Users,
           },
         ]
       : []),
 
-    ...(user && user.role !== "expert"
+    ...(user && user.role !== "expert" && user.role !== "call_agent"
       ? [{ id: "request_queue", label: "Flags Reported", icon: AlertTriangle }]
       : []),
 
-    { id: "upload", label: "Agents Interface", icon: Upload },
+    ...(user && user.role !== "call_agent"
+      ? [{ id: "upload", label: "Agents Interface", icon: Upload }]
+      : []),
 
-    ...(user && user.role !== "expert"
+    ...(user && user.role === "call_agent"
+      ? [
+          { id: "call_dashboard", label: "Call Dashboard", icon: TrendingUp },
+          { id: "call_interface", label: "Call Interface", icon: Phone },
+          { id: "call_history", label: "Call History", icon: Clock },
+        ]
+      : []),
+
+    ...(user && user.role !== "expert" && user.role !== "call_agent"
       ? [
           {
             id: "chatbotanalytics",
@@ -129,8 +147,18 @@ export const MobileSidebar = ({
       ? [{ id: "data_processing", label: "Data Processing", icon: Database }]
       : []),
 
-    ...(user ? [{ id: "history", label: "History", icon: History }] : []),
-    ...(user ? [{ id: "whatsapp_history", label: "WhatsApp History", icon: MessageSquare }] : []),
+    ...(user && !isCoordinator && user.role !== "call_agent"
+      ? [{ id: "history", label: "History", icon: History }]
+      : []),
+    ...(user && !isCoordinator && user.role !== "call_agent"
+      ? [
+          {
+            id: "whatsapp_history",
+            label: "WhatsApp History",
+            icon: MessageSquare,
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -174,7 +202,7 @@ export const MobileSidebar = ({
               label={item.label}
               icon={item.icon}
               onClick={() => handleClick(item.id)}
-              isActive={ item.id === activeTab }
+              isActive={item.id === activeTab}
             />
           ))}
         </nav>

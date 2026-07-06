@@ -11,7 +11,7 @@ import { GLOBAL_TYPES } from '#root/types.js';
 export const plivoContainerModule = new ContainerModule(options => {
   options.bind(PlivoController).toSelf().inSingletonScope();
   options.bind(FarmerController).toSelf().inSingletonScope();
-  options.bind(PlivoService).toSelf().inSingletonScope();
+  options.bind(PLIVO_TYPES.PlivoService).to(PlivoService).inSingletonScope();
   options.bind(PLIVO_TYPES.FarmerService).to(FarmerService).inSingletonScope();
   options.bind(PLIVO_TYPES.CallFarmerRepository).to(CallFarmerRepository).inSingletonScope();
   options.bind(PLIVO_TYPES.CallDetailsRepository).to(CallDetailsRepository).inSingletonScope();

@@ -1,13 +1,14 @@
 
 import { GetDetailedQuestionsQuery } from "#root/modules/question/classes/validators/QuestionVaidators.js";
 import { ObjectId } from "mongodb";
+import { buildBaseQuestionMatch } from "./dashboard-filters.js";
 
 export const buildQuestionFilter = async (
   query: GetDetailedQuestionsQuery & { searchEmbedding: number[] | null },
   QuestionSubmissionCollection,AnswersCollection
 ) => {
 
-  const filter: any = {};
+  const filter = buildBaseQuestionMatch(query.source);
 
   const caseInsensitive = (field: string, value?: string) => {
     if (value && value !== "all") {
@@ -32,7 +33,8 @@ export const buildQuestionFilter = async (
     user,
     review_level,
     consecutiveApprovals,
-    autoAllocateFilter
+    autoAllocateFilter,
+    autoAllocateModeratorFilter
   } = query;
   // --- Auto Allocate Filter ---
 if (autoAllocateFilter && autoAllocateFilter !== 'all') {
@@ -40,6 +42,15 @@ if (autoAllocateFilter && autoAllocateFilter !== 'all') {
     filter.isAutoAllocate = true;
   } else if (autoAllocateFilter === 'off') {
     filter.isAutoAllocate = false;
+  }
+}
+
+// --- Auto Allocate Moderator Filter ---
+if (autoAllocateModeratorFilter && autoAllocateModeratorFilter !== 'all') {
+  if (autoAllocateModeratorFilter === 'on') {
+    filter.autoAllocateModerator = true;
+  } else if (autoAllocateModeratorFilter === 'off') {
+    filter.autoAllocateModerator = false;
   }
 }
 

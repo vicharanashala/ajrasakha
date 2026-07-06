@@ -10,4 +10,12 @@ export interface IAuditTrailsService {
   getAuditTrails(page: number, limit: number, startDate?: string, endDate?: string): Promise<{data: ModeratorAuditTrail[], totalDocuments: number}>;
 
   getAuditTrailById(id: string): Promise<ModeratorAuditTrail | null>;
+
+  getAuditTrailsByQuestionId(
+    questionId: string,
+    page?: number,
+    limit?: number,
+    action?: string | null,
+    order?: "asc" | "desc"
+  ): Promise<{ data: ModeratorAuditTrail[]; totalDocuments: number }>;
 }
