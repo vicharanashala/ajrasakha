@@ -674,9 +674,11 @@ async def gdb_search_v2(
     # Execute all searches in parallel
     search_results = await asyncio.gather(*[task for _, task in all_tasks], return_exceptions=True)
     
-    # Collect all pairs and track source
+    # Collect all pairs and track ALL sources for each question
     all_pairs: list[tuple[QuestionAnswerPair, str]] = []
     seen_ids: set[str] = set()
+    # Track all sources per question_id (each question can appear in multiple sources)
+    question_sources: dict[str, list[str]] = {}
     question_semantic_ids: set[str] = set()
     answer_semantic_ids: set[str] = set()
     keyword_ids: set[str] = set()
@@ -687,9 +689,16 @@ async def gdb_search_v2(
             continue
         
         for pair in result:
+            # Track ALL sources this question was found in (not just first)
+            if pair.question_id not in question_sources:
+                question_sources[pair.question_id] = []
+            if source_type not in question_sources[pair.question_id]:
+                question_sources[pair.question_id].append(source_type)
+                log.info("gdb_search_v2: question_id=%s found in %s (total sources: %d)", 
+                         pair.question_id, source_type, len(question_sources[pair.question_id]))
+            
             if pair.question_id in seen_ids:
-                log.info("gdb_search_v2: skipping duplicate question_id=%s from %s", 
-                         pair.question_id, source_type)
+                # Already processed this question_id, but track the source
                 continue
             
             all_pairs.append((pair, source_type))
@@ -797,7 +806,7 @@ async def gdb_search_v2(
             "answer_semantic_results": answer_semantic_count,
             "keyword_results": keyword_count,
             "total_candidates": len(all_pairs),
-            "retrieval_sources": {pair.question_id: src for pair, src in all_pairs},
+            "retrieval_sources": question_sources,  # dict[str, list[str]] - ALL sources per question
         },
     }
     

@@ -229,7 +229,20 @@ class GDBSearchResponseV2Combined(BaseModel):
     exact_match: dict = Field(default_factory=dict)
     selected_match: Optional[dict] = Field(None)
     classification_audit: dict = Field(default_factory=dict)
-    v2_metadata: dict = Field(default_factory=dict, description="V2-specific metadata including search breakdown.")
+    v2_metadata: "V2MetadataCombined" = Field(default_factory=dict, description="V2-specific metadata including search breakdown.")
+
+
+class V2MetadataCombined(BaseModel):
+    """V2 metadata structure showing all sources each question was found in."""
+    keywords_extracted: list[str] = Field(default_factory=list, description="Keywords extracted for BM25 search.")
+    question_semantic_results: int = Field(0, description="Count of unique questions from question semantic search")
+    answer_semantic_results: int = Field(0, description="Count of unique questions from answer semantic search")
+    keyword_results: int = Field(0, description="Count of unique questions from keyword/BM25 search")
+    total_candidates: int = Field(0, description="Total unique questions after deduplication")
+    retrieval_sources: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description="Map of question_id to list of all sources it was found in (question_semantic, answer_semantic, keyword)"
+    )
 
 
 class PendingDuplicateCheckResponseV2(BaseModel):
