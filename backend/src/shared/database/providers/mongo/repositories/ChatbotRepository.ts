@@ -47,6 +47,7 @@ import type {
   CoordinatorDuplicateQuestionHeatMapResponse,
   CoordinatorDuplicateQuestionDetail,
   CoordinatorDuplicateQuestionLocationHierarchy,
+  PaginatedFeedbackMessages,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {
   IQuestion,
@@ -6711,6 +6712,142 @@ export class ChatbotRepository implements IChatbotRepository {
       throw new InternalServerError(`Failed to get feedback data: ${error}`);
     }
   }
+
+  async getFeedbackUsers(
+    source = 'annam',
+    page = 1,
+    limit = 10,
+    search?: string,
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+    userType = 'all',
+    rating?: string,
+    tag?: string,
+    session?: ClientSession,
+  ): Promise<PaginatedFeedbackMessages> {
+    try {
+      await this.init(source);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+
+      const matchStage: any = {
+        feedback: {$exists: true},
+        isCreatedByUser: false,
+        isDeleted: {$ne: true},
+      };
+
+      if (rating === 'thumbsUp' || rating === 'thumbsDown') {
+        matchStage['feedback.rating'] = rating;
+      }
+
+      if (tag) {
+        matchStage['feedback.tag'] = tag;
+      }
+
+      const pipeline: any[] = [
+        {$match: matchStage},
+      ];
+
+      if (userTypeLookupStages.length > 0) {
+        pipeline.push(...userTypeLookupStages);
+      } else {
+        pipeline.push(
+          {
+            $addFields: {
+              _userOid: {
+                $cond: [
+                  {
+                    $and: [{$ne: ['$user', null]}, {$ne: ['$user', '']}],
+                  },
+                  {$toObjectId: '$user'},
+                  null,
+                ],
+              },
+            },
+          },
+          {
+            $lookup: {
+              from: 'users',
+              localField: '_userOid',
+              foreignField: '_id',
+              as: '_userDoc',
+            },
+          }
+        );
+      }
+
+      pipeline.push({
+        $unwind: {
+          path: '$_userDoc',
+          preserveNullAndEmptyArrays: true,
+        },
+      });
+
+      if (search) {
+        const searchRegex = new RegExp(search, 'i');
+        pipeline.push({
+          $match: {
+            $or: [
+              {question: {$regex: searchRegex}},
+              {response: {$regex: searchRegex}},
+              {'feedback.tag': {$regex: searchRegex}},
+              {'feedback.details': {$regex: searchRegex}},
+              {'_userDoc.farmerProfile.farmerName': {$regex: searchRegex}},
+            ],
+          },
+        });
+      }
+
+      const sortStage: any = {};
+      sortStage[sortBy] = sortOrder === 'asc' ? 1 : -1;
+      pipeline.push({$sort: sortStage});
+
+      const skip = (page - 1) * limit;
+
+      const facetStage = {
+        $facet: {
+          metadata: [{$count: 'total'}],
+          data: [
+            {$skip: skip},
+            {$limit: limit},
+            {
+              $project: {
+                _id: 1,
+                conversationId: 1,
+                userId: '$_userDoc._id',
+                farmerName: '$_userDoc.farmerProfile.farmerName',
+                email: '$_userDoc.email',
+                village: '$_userDoc.farmerProfile.villageName',
+                block: '$_userDoc.farmerProfile.blockName',
+                district: '$_userDoc.farmerProfile.district',
+                state: '$_userDoc.farmerProfile.state',
+                question: 1,
+                response: 1,
+                feedback: 1,
+                createdAt: 1,
+              },
+            },
+          ],
+        },
+      };
+
+      pipeline.push(facetStage);
+
+      const result = await this.messagesCollection.aggregate(pipeline, {session}).toArray();
+      const totalFeedbacks = result[0]?.metadata[0]?.total || 0;
+      const messages = result[0]?.data || [];
+
+      return {
+        messages,
+        totalFeedbacks,
+        totalPages: Math.ceil(totalFeedbacks / limit),
+        currentPage: page,
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to get feedback users: ${error}`);
+    }
+  }
+
+
 
   async getTodayQueryCount(
     source = 'annam',

@@ -40,6 +40,7 @@ import {
   UserDetailsQueryDto,
   WeatherConcernAnalyticsQueryDto,
   WeatherConcernQueriesQueryDto,
+  FeedbackUsersQueryDto,
 } from '../classes/validators/ChatbotQueryValidators.js';
 import {
   ChatbotErrorResponse,
@@ -142,6 +143,28 @@ export class ChatbotController {
       query.userType,
       query.startTime,
       query.endTime,
+    );
+  }
+
+  @OpenAPI({
+    summary: 'Get paginated feedback messages',
+    description:
+      'Returns a paginated list of feedback messages filtered by rating or tag.',
+  })
+  @Get('/feedback-users')
+  @HttpCode(200)
+  @Authorized()
+  async getFeedbackUsers(@QueryParams() query: FeedbackUsersQueryDto) {
+    return this.chatbotService.getFeedbackUsers(
+      query.source,
+      query.page,
+      query.limit,
+      query.search,
+      query.sortBy,
+      query.sortOrder,
+      query.userType,
+      query.rating,
+      query.tag,
     );
   }
 

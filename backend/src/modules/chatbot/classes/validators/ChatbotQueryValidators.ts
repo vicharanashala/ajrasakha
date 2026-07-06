@@ -43,6 +43,47 @@ export class SourceQueryDto {
   userType: 'all' | 'external' | 'internal' = 'all';
 }
 
+export class FeedbackUsersQueryDto extends SourceQueryDto {
+  @JSONSchema({ example: 1, description: 'Page number' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page: number = 1;
+
+  @JSONSchema({ example: 10, description: 'Results per page' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  limit: number = 10;
+
+  @JSONSchema({ example: 'seed', description: 'Search term' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @JSONSchema({ example: 'createdAt', description: 'Field to sort by' })
+  @IsOptional()
+  @IsString()
+  sortBy: string = 'createdAt';
+
+  @JSONSchema({ example: 'desc', description: 'Sort order: asc or desc' })
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  sortOrder: 'asc' | 'desc' = 'desc';
+
+  @JSONSchema({ example: 'thumbsUp', description: 'Filter by feedback rating: thumbsUp or thumbsDown' })
+  @IsOptional()
+  @IsIn(['thumbsUp', 'thumbsDown'])
+  rating?: string;
+
+  @JSONSchema({ example: 'accurate_reliable', description: 'Filter by specific feedback tag' })
+  @IsOptional()
+  @IsString()
+  tag?: string;
+}
+
 export class QueryAnalyticsQueryDto extends SourceQueryDto {
   @JSONSchema({ example: 'daily', description: 'Analytics period: daily, weekly, or monthly' })
   @IsIn(['daily', 'weekly', 'monthly'])

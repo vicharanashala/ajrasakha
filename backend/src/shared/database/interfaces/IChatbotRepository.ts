@@ -316,6 +316,33 @@ export interface FeedbackData {
   };
 }
 
+export interface FeedbackMessageEntry {
+  _id: string;
+  conversationId: string;
+  userId?: string;
+  farmerName?: string;
+  email?: string;
+  village?: string;
+  block?: string;
+  district?: string;
+  state?: string;
+  question: string;
+  response: string;
+  feedback: {
+    rating: string;
+    tag?: string;
+    details?: string;
+  };
+  createdAt: Date;
+}
+
+export interface PaginatedFeedbackMessages {
+  messages: FeedbackMessageEntry[];
+  totalFeedbacks: number;
+  totalPages: number;
+  currentPage: number;
+}
+
 export interface FarmerProfile {
   farmerName?: string;
   age?: number;
@@ -769,6 +796,19 @@ export interface IChatbotRepository {
     session?: ClientSession,
     userType?: string,
   ): Promise<FeedbackData>;
+
+  getFeedbackUsers(
+    source?: string,
+    page?: number,
+    limit?: number,
+    search?: string,
+    sortBy?: string,
+    sortOrder?: string,
+    userType?: string,
+    rating?: string,
+    tag?: string,
+    session?: ClientSession,
+  ): Promise<PaginatedFeedbackMessages>;
 
   // get platform wise installs
   getPlatformInstalls(
