@@ -15709,29 +15709,29 @@ export class ChatbotRepository implements IChatbotRepository {
       const isDuplicate =
         question.status === 'duplicate' || !!question.referenceQuestionId;
 
-      if (question.status === 'duplicate') {
-        return [
-          {
-            timestamp: question.createdAt,
-            user: '-',
-            action: 'Duplicate Question',
-            duration: null,
-            remarks: 'Original question lifecycle is not available.',
-            endTime: null,
-            eventType: 'duplicate',
-          },
-          {
-            timestamp: question.closedAt || question.updatedAt,
-            user: 'Buffer Time',
-            action: 'Question Marked As Duplicate',
-            duration:
-              question.updatedAt.getTime() - question.createdAt.getTime(),
-            remarks: 'Closed as duplicate',
-            endTime: question.closedAt || question.updatedAt,
-            eventType: 'closure',
-          },
-        ];
-      }
+      // if (question.status === 'duplicate') {
+      //   return [
+      //     {
+      //       timestamp: question.createdAt,
+      //       user: '-',
+      //       action: 'Duplicate Question',
+      //       duration: null,
+      //       remarks: 'Original question lifecycle is not available.',
+      //       endTime: null,
+      //       eventType: 'duplicate',
+      //     },
+      //     {
+      //       timestamp: question.closedAt || question.updatedAt,
+      //       user: 'Buffer Time',
+      //       action: 'Question Marked As Duplicate',
+      //       duration:
+      //         question.updatedAt.getTime() - question.createdAt.getTime(),
+      //       remarks: 'Closed as duplicate',
+      //       endTime: question.closedAt || question.updatedAt,
+      //       eventType: 'closure',
+      //     },
+      //   ];
+      // }
 
       const questionAskedAt =
         conversation?.createdAt &&
@@ -15742,8 +15742,8 @@ export class ChatbotRepository implements IChatbotRepository {
       if (isDuplicate) {
         timeline.push({
           timestamp: question.createdAt,
-          user: questionAskedBy?.email ? questionAskedBy?.email : '-',
-          action: 'Duplicate Question',
+          user: questionAskedBy?.email ? questionAskedBy?.email : 'User details not available',
+          action: 'Question Asked',
           duration: null,
           remarks: 'Original question lifecycle is not available.',
           endTime: null,
