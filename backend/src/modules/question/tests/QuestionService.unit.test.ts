@@ -8,6 +8,7 @@ import {
   UnauthorizedError,
   ForbiddenError,
 } from 'routing-controllers';
+import {mock} from 'node:test';
 
 // ─── Shared mock factory ────────────────────────────────────────────────────
 function buildMocks() {
@@ -122,6 +123,9 @@ function buildMocks() {
     mockUserService: {
       updatePenaltyAndIncentive: vi.fn(),
     },
+    mockAuditTrailsService: {
+      // auditTrailsService,
+    },
   };
 }
 
@@ -144,6 +148,7 @@ function buildService(mocks: ReturnType<typeof buildMocks>): QuestionService {
     mocks.mockChatbotRepository as any,
     mocks.mockMongoDatabase as any,
     mocks.mockUserService as any,
+    mocks.mockAuditTrailsService as any,
   );
 }
 
