@@ -1452,6 +1452,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     activeTodayByProfile = false,
     missingDemographicField?: string,
     isVerified?: boolean,
+    loginStatus: 'all' | 'loggedIn' | 'loggedOut' = 'all',
   ): Promise<PaginatedUserDetails> {
     try {
       const start = startDate ? new Date(startDate) : undefined;
@@ -1481,6 +1482,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         activeTodayByProfile,
         missingDemographicField,
         isVerified,
+        loginStatus,
       );
       return data;
     } catch (error) {
@@ -1519,6 +1521,39 @@ export class ChatbotService extends BaseService implements IChatbotService {
     } catch (error) {
       throw new InternalServerError(
         `Failed to fetch users by demographic: ${error}`,
+      );
+    }
+  }
+
+  async getUsersByPlatform(
+    platform: string,
+    source = 'annam',
+    page = 1,
+    limit = 10,
+    search = '',
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+    userType = 'all',
+  ): Promise<PaginatedUserDetails> {
+    try {
+      const data = await this.chatbotRepository.getUsersByPlatform(
+        platform,
+        source,
+        page,
+        limit,
+        search,
+        sortBy,
+        sortOrder,
+        userType,
+      );
+
+      return {
+        ...data,
+        currentPage: page,
+      } as PaginatedUserDetails;
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch users by platform: ${error}`,
       );
     }
   }

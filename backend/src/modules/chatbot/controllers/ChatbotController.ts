@@ -33,6 +33,7 @@ import {IAuditTrailsService} from '#root/modules/auditTrails/interfaces/IAuditTr
 import {
   DashboardQueryDto,
   DemographicUsersQueryDto,
+  PlatformUsersQueryDto,
   QueryAnalyticsQueryDto,
   QueryCategoryQuestionsQueryDto,
   SourceQueryDto,
@@ -733,6 +734,39 @@ export class ChatbotController {
     );
   }
 
+  @OpenAPI({
+    summary: 'Get users by platform',
+    description:
+      'Returns paginated users filtered by the selected platform, with optional search and sorting.',
+  })
+  @ResponseSchema(PaginatedUserDetailsResponse, {
+    statusCode: 200,
+    description: 'Paginated users for the selected platform',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to fetch users by platform',
+  })
+  @Get('/users-by-platform')
+  @HttpCode(200)
+  @Authorized()
+  async getUsersByPlatform(@QueryParams() query: PlatformUsersQueryDto) {
+    return this.chatbotService.getUsersByPlatform(
+      query.platform,
+      query.source,
+      query.page,
+      query.limit,
+      query.search,
+      query.sortBy,
+      query.sortOrder,
+      query.userType,
+    );
+  }
+
   @Get('/user-details')
   @HttpCode(200)
   @Authorized()
@@ -768,6 +802,7 @@ export class ChatbotController {
       activeTodayByProfile,
       query.missingDemographicField,
       isVerified,
+      query.loginStatus,
     );
   }
 

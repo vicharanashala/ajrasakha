@@ -351,6 +351,7 @@ export interface UserDetailEntry {
   role?: string;
   userRole?: string;
   totalQuestions: number;
+  activeSessionCount?: number;
   farmerProfile?: FarmerProfile;
   createdAt: Date;
   isVerified?: boolean;
@@ -678,6 +679,7 @@ export interface IChatbotRepository {
     activeTodayByProfile?: boolean,
     missingDemographicField?: string,
     isVerified?: boolean,
+    loginStatus?: 'all' | 'loggedIn' | 'loggedOut',
   ): Promise<PaginatedUserDetails>;
 
   getUserQuestionsData(
@@ -776,6 +778,18 @@ export interface IChatbotRepository {
     session?: ClientSession,
     userType?: string,
   ): Promise<PlatformInstallEntry[]>;
+
+  getUsersByPlatform(
+    platform: string,
+    source?: string,
+    page?: number,
+    limit?: number,
+    search?: string,
+    sortBy?: string,
+    sortOrder?: string,
+    userType?: string,
+    session?: ClientSession,
+  ): Promise<PaginatedUserDetails>;
 
   /** Duplicate questions (questions with a similarityScore) enriched with farmer details. */
   getDuplicateQuestions(

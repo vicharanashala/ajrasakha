@@ -514,6 +514,66 @@ export class ChatbotRepository implements IChatbotRepository {
     this.ReviewUsers = await this.db.getCollection<any>('users');
   }
 
+  private buildActiveSessionFilter(userIds: ObjectId[], now = new Date()) {
+    return {
+      user: {$in: userIds},
+      revoked: {$ne: true},
+      isRevoked: {$ne: true},
+      status: {$nin: ['expired', 'invalid', 'revoked', 'inactive']},
+      $and: [
+        {
+          $or: [{invalidatedAt: {$exists: false}}, {invalidatedAt: null}],
+        },
+        {
+          $or: [
+            {expiresAt: {$exists: false}},
+            {expiresAt: null},
+            {expiresAt: {$gt: now}},
+          ],
+        },
+        {
+          $or: [
+            {expires: {$exists: false}},
+            {expires: null},
+            {expires: {$gt: now}},
+          ],
+        },
+      ],
+    };
+  }
+
+  private async attachActiveSessionCounts(
+    users: UserDetailEntry[],
+    session?: ClientSession,
+  ): Promise<UserDetailEntry[]> {
+    const userIds = users
+      .map(user => user.userId)
+      .filter(ObjectId.isValid)
+      .map(userId => new ObjectId(userId));
+
+    if (userIds.length === 0) {
+      return users.map(user => ({...user, activeSessionCount: 0}));
+    }
+
+    const sessionCounts = await this.sessionCollection
+      .aggregate(
+        [
+          {$match: this.buildActiveSessionFilter(userIds)},
+          {$group: {_id: '$user', count: {$sum: 1}}},
+        ],
+        {session},
+      )
+      .toArray();
+    const sessionCountMap = new Map(
+      sessionCounts.map(entry => [String(entry._id), Number(entry.count)]),
+    );
+
+    return users.map(user => ({
+      ...user,
+      activeSessionCount: sessionCountMap.get(user.userId) ?? 0,
+    }));
+  }
+
   private DISTRICT_ALIASES: Record<string, string> = {
     // Jammu & Kashmir
     baramula: 'baramulla',
@@ -7075,6 +7135,7 @@ export class ChatbotRepository implements IChatbotRepository {
     activeTodayByProfile = false,
     missingDemographicField = '',
     isVerfied?: boolean,
+    loginStatus: 'all' | 'loggedIn' | 'loggedOut' = 'all',
   ): Promise<PaginatedUserDetails> {
     try {
       await this.init(source);
@@ -7357,10 +7418,15 @@ export class ChatbotRepository implements IChatbotRepository {
           : undefined,
       }));
 
+      const withSessionCounts =
+        loginStatus !== 'all'
+          ? await this.attachActiveSessionCounts(merged, session)
+          : merged;
+
       // Filter to inactive users only if requested
       const afterInactive = inactiveOnly
-        ? merged.filter(u => u.totalQuestions === 0)
-        : merged;
+        ? withSessionCounts.filter(u => u.totalQuestions === 0)
+        : withSessionCounts;
 
       // Filter to low-feedback users only if requested (all-time, no date range on feedback)
       let finalList = afterInactive;
@@ -7381,6 +7447,12 @@ export class ChatbotRepository implements IChatbotRepository {
           feedbackDocs.map((d: any) => String(d._id)),
         );
         finalList = afterInactive.filter(u => !usersWithFeedback.has(u.userId));
+      }
+
+      if (loginStatus === 'loggedIn') {
+        finalList = finalList.filter(u => (u.activeSessionCount ?? 0) > 0);
+      } else if (loginStatus === 'loggedOut') {
+        finalList = finalList.filter(u => (u.activeSessionCount ?? 0) === 0);
       }
 
       // Sort based on sortBy and sortOrder parameters
@@ -7433,7 +7505,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
       // Paginate
       const startIdx = (page - 1) * limit;
-      const users = finalList.slice(startIdx, startIdx + limit);
+      const users = await this.attachActiveSessionCounts(
+        finalList.slice(startIdx, startIdx + limit),
+        session,
+      );
 
       return {
         users,
@@ -8926,6 +9001,127 @@ export class ChatbotRepository implements IChatbotRepository {
     } catch (error) {
       throw new InternalServerError(
         `Failed to get users by demographic: ${error}`,
+      );
+    }
+  }
+
+  async getUsersByPlatform(
+    platform: string,
+    source = 'annam',
+    page = 1,
+    limit = 10,
+    search = '',
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+    userType = 'all',
+    session?: ClientSession,
+  ): Promise<PaginatedUserDetails> {
+    try {
+      await this.init(source);
+
+      const userFilter: Record<string, any> = {
+        ...this.buildUserDocFilter(userType),
+      };
+
+      const normalizedPlatform = platform?.trim();
+      const basePlatformFilter = {
+        farmerProfile: {$exists: true, $ne: null},
+      };
+      const platformFilter =
+        normalizedPlatform === 'Unknown'
+          ? {
+              ...basePlatformFilter,
+              $or: [
+                {'farmerProfile.platform': {$exists: false}},
+                {'farmerProfile.platform': null},
+                {'farmerProfile.platform': ''},
+                {
+                  $expr: {
+                    $eq: [
+                      {$trim: {input: {$ifNull: ['$farmerProfile.platform', '']}}},
+                      '',
+                    ],
+                  },
+                },
+              ],
+            }
+          : {
+              ...basePlatformFilter,
+              'farmerProfile.platform': normalizedPlatform,
+            };
+
+      userFilter.$and = [...(userFilter.$and ?? []), platformFilter];
+
+      if (search && search.trim()) {
+        const escaped = search
+          .trim()
+          .replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
+        const regex = {$regex: escaped, $options: 'i'};
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          {
+            $or: [
+              {name: regex},
+              {email: regex},
+              {'farmerProfile.phoneNo': regex},
+            ],
+          },
+        ];
+      }
+
+      const sortOptions: Record<string, 1 | -1> = {};
+      const sortDirection = sortOrder === 'asc' ? 1 : -1;
+
+      switch (sortBy) {
+        case 'name':
+          sortOptions.name = sortDirection;
+          break;
+        case 'email':
+          sortOptions.email = sortDirection;
+          break;
+        case 'createdAt':
+        default:
+          sortOptions.createdAt = sortDirection;
+          break;
+      }
+
+      const skip = (page - 1) * limit;
+
+      const [users, totalUsers] = await Promise.all([
+        this.users
+          .find(userFilter, {session})
+          .sort(sortOptions)
+          .skip(skip)
+          .limit(limit)
+          .toArray(),
+        this.users.countDocuments(userFilter, {session}),
+      ]);
+
+      const formattedUsers: UserDetailEntry[] = users.map(user => ({
+        userId: String(user._id),
+        name: user.name || user.firstName || '',
+        email: user.email || '',
+        role: user.role,
+        userRole: user.userRole,
+        totalQuestions: 0,
+        farmerProfile: user.farmerProfile,
+        createdAt: user.createdAt,
+        isVerified: user.isVerified,
+      }));
+
+      return {
+        users: formattedUsers,
+        totalUsers,
+        totalPages: Math.ceil(totalUsers / limit),
+        page,
+        limit,
+        activeUsers: 0,
+        inactiveUsers: 0,
+        totalQuestions: 0,
+      } as unknown as PaginatedUserDetails;
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get users by platform: ${error}`,
       );
     }
   }
@@ -15282,6 +15478,17 @@ export class ChatbotRepository implements IChatbotRepository {
         }
       }
 
+      const usersWithSessions = await this.attachActiveSessionCounts(
+        [
+          {
+            userId: userIdString,
+            ...users[0],
+          } as any,
+        ],
+        session,
+      );
+      const activeSessionCount = usersWithSessions[0]?.activeSessionCount ?? 0;
+
       return {
         userId: users[0]._id,
         name: users[0].name,
@@ -15292,6 +15499,7 @@ export class ChatbotRepository implements IChatbotRepository {
         createdAt: users[0].createdAt,
         isVerified: users[0].isVerified,
         userRole: users[0].userRole,
+        activeSessionCount,
         totalQuestions: farmerDashboard.questionMetrics.totalQuestionsAsked,
         farmerDashboard,
         unAssigned: unAssigned ?? [],
