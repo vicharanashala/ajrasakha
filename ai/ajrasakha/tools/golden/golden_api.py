@@ -8,11 +8,11 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field, model_validator
 
 try:
-    from .golden_search import gdb_search
+    from .golden_search import gdb_search, gdb_search_v2
     from .golden_pending_duplicate import check_pending_duplicate
     from .query_refinement import refine_query_to_core_farming_question
 except ImportError:
-    from golden_search import gdb_search
+    from golden_search import gdb_search, gdb_search_v2
     from golden_pending_duplicate import check_pending_duplicate
     from query_refinement import refine_query_to_core_farming_question
 
@@ -200,7 +200,6 @@ async def check_pending_duplicate_endpoint(body: PendingDuplicateCheckRequest):
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return result
 
 
 # === V2 ENDPOINTS ===
@@ -217,6 +216,20 @@ class GDBSearchResponseV2(BaseModel):
     exact_match: dict = Field(default_factory=dict)
     selected_match: Optional[dict] = Field(None)
     classification_audit: dict = Field(default_factory=dict)
+
+
+class GDBSearchResponseV2Combined(BaseModel):
+    """V2 Combined search response with full retrieval metadata."""
+    original_query: str = Field(..., description="Original rephrased_query from request.")
+    refined_query: str = Field(..., description="LLM-refined core farming question with crop/state removed.")
+    removed_entities: list[str] = Field(default_factory=list, description="Entities removed by LLM.")
+    keywords_extracted: list[str] = Field(default_factory=list, description="Keywords extracted for BM25 search.")
+    crop: str = Field(..., description="Normalised crop sent to MongoDB.")
+    state: str
+    exact_match: dict = Field(default_factory=dict)
+    selected_match: Optional[dict] = Field(None)
+    classification_audit: dict = Field(default_factory=dict)
+    v2_metadata: dict = Field(default_factory=dict, description="V2-specific metadata including search breakdown.")
 
 
 class PendingDuplicateCheckResponseV2(BaseModel):
@@ -279,6 +292,103 @@ async def search_gdb_v2(body: GDBSearchRequest):
         exact_match=result.get("exact_match", {}),
         selected_match=result.get("selected_match"),
         classification_audit=result.get("classification_audit", {}),
+    )
+
+
+@app.post(
+    "/v2/gdb/search-combined",
+    response_model=GDBSearchResponseV2Combined,
+    summary="Search Golden DB V2 Combined (3.1-3.5 Pipeline)",
+    description=(
+        "**V2 Combined Search Pipeline:**\n"
+        "3.1 **Keyword Extraction**: Extract key terms from refined query for BM25.\n"
+        "3.2 **BM25 Search**: MongoDB Atlas Search with keyword matching.\n"
+        "3.3 **Combine All 8 Pairs**: 3 Q-semantic + 2 A-semantic + 3 BM25 = 8 total.\n"
+        "3.4 **LLM Scoring**: Score all 8 pairs for relevance with numerical scores.\n"
+        "3.5 **Final Selection**: Select highest-scoring pair for answer generation.\n"
+        "\n"
+        "**First Step**: LLM refinement (same as /v2/gdb/search).\n"
+        "**Returns**: Extended response with v2_metadata showing search breakdown."
+    ),
+)
+async def search_gdb_v2_combined(body: GDBSearchRequest):
+    """
+    V2 Combined search: combines semantic + BM25 with scoring and ranking.
+    
+    This endpoint implements the full 3.1-3.5 pipeline:
+    - 0: Strict exact match on original query (before refinement)
+    - 3.1: Extract keywords from refined query
+    - 3.2: Run BM25 search alongside semantic search
+    - 3.3: Combine all 8 pairs (3 Q + 2 A + 3 BM25)
+    - 3.4: LLM relevance scoring with numerical scores
+    - 3.5: Select highest-scoring pair
+    """
+    from golden_search import gdb_search  # Import here for strict_exact
+    
+    # Step 0: Strict exact match on ORIGINAL query (before refinement)
+    # This ensures we catch exact matches even when they include crop/state names
+    strict_result = await gdb_search(
+        rephrased_query=body.rephrased_query,
+        crop=body.crop,
+        state=body.state,
+        season=body.season,
+        domain=body.domain,
+        use_dual_search=False,
+        embedding_field="question_embedding",
+    )
+    
+    # If strict exact match found, return immediately
+    if strict_result.get("exact_match"):
+        return GDBSearchResponseV2Combined(
+            original_query=body.rephrased_query,
+            refined_query=body.rephrased_query,  # No refinement needed
+            removed_entities=[],
+            keywords_extracted=[],
+            crop=strict_result.get("crop", body.crop),
+            state=strict_result.get("state", body.state),
+            exact_match=strict_result.get("exact_match", {}),
+            selected_match=None,
+            classification_audit=strict_result.get("classification_audit", {}),
+            v2_metadata={
+                "strict_exact_match": True,
+                "question_semantic_results": 0,
+                "answer_semantic_results": 0,
+                "keyword_results": 0,
+                "total_candidates": 1,
+            },
+        )
+    
+    # Step 1: LLM refine the query (only if no strict match)
+    refinement = await refine_query_to_core_farming_question(
+        original_query=body.rephrased_query,
+        crop=body.crop,
+        state=body.state,
+    )
+
+    # Step 2: Run combined search (semantic + BM25, 8 pairs, scoring)
+    result = await gdb_search_v2(
+        rephrased_query=refinement.refined_query,
+        crop=body.crop,
+        state=body.state,
+        season=body.season,
+        domain=body.domain,
+        use_dual_search=True,
+        embedding_field="question_embedding",
+        original_query=body.rephrased_query,
+    )
+
+    # Step 3: Wrap in V2 Combined response
+    return GDBSearchResponseV2Combined(
+        original_query=body.rephrased_query,
+        refined_query=refinement.refined_query,
+        removed_entities=refinement.removed_entities,
+        keywords_extracted=result.get("v2_metadata", {}).get("keywords_extracted", []),
+        crop=result.get("crop", body.crop),
+        state=result.get("state", body.state),
+        exact_match=result.get("exact_match", {}),
+        selected_match=result.get("selected_match"),
+        classification_audit=result.get("classification_audit", {}),
+        v2_metadata=result.get("v2_metadata", {}),
     )
 
 
