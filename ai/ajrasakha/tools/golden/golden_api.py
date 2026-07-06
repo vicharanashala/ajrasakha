@@ -264,8 +264,9 @@ async def search_gdb_v2(body: GDBSearchRequest):
         state=body.state,
         season=body.season,
         domain=body.domain,
-        use_dual_search=True,  # Enable dual search (questions + answers) for v2
-        embedding_field="question_embedding",  # V2 uses "question_embedding" field
+        use_dual_search=True,
+        embedding_field="question_embedding",
+        original_query=body.rephrased_query,  # Use original query for LLM scoring
     )
 
     # Step 3: Wrap in V2 response with refinement metadata
