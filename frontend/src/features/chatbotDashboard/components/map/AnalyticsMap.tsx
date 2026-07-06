@@ -3,7 +3,7 @@
    Uses custom hooks for separation of concerns
 ============================================================ */
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { MapContainer, TileLayer, GeoJSON, ZoomControl } from "react-leaflet";
 import * as L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -49,7 +49,7 @@ export default function IndiaAnalyticsMap({
 
     const [status, setStatus] = useState<string | null>(null);
 
-
+    const [allStatesDataAndUser, setAllStatesDataandUser] = useState<any>(null);
 
   
 
@@ -87,10 +87,13 @@ export default function IndiaAnalyticsMap({
     userType: userType as string,
     enabled: true,
   });
+  // setAllStatesDataandUser(allStatesData);
 
-  // console.log("All state data", allStatesData);
+  useEffect(()=>{
+    setAllStatesDataandUser(allStatesData);
+  }, [allStatesData])
 
-  const { data: districtAnalytics } = useStateWiseAnalytics(
+  const { data: districtAnalytics, isLoading: isDistrictLoading,  isFetching: isDistrictFetching } = useStateWiseAnalytics(
     selectedState ?? undefined,
     selectedStateCode,
     source,
@@ -142,9 +145,11 @@ export default function IndiaAnalyticsMap({
   // Selection handlers
   const handleSelectState = useCallback(
     (name: string, feature: GeoFeature) => {
-      const stateData = allStatesData?.find((s) => s.state === name);
+      console.log("All state data is", allStatesDataAndUser);
+      const stateData = allStatesDataAndUser?.find((s) => s.state === name);
+      console.log("Selected state data", stateData);
 
-      navigateToState(name, stateData.stateCode);
+      navigateToState(name, stateData?.stateCode);
       handleFlyTo(feature);
     },
     [navigateToState, handleFlyTo],
@@ -165,14 +170,16 @@ export default function IndiaAnalyticsMap({
     }): L.PathOptions => {
       const analytics = feat.properties._analytics;
 
- const v =
-    level === "state"
-        ? analytics.rank
-        : metric === "users"
-            ? analytics.users
-            : metric === "activeUsers"
-                ? analytics.activeUsers
-                : analytics.questions;
+const actualValue =
+  metric === "questions"
+    ? analytics.questions
+    : metric === "users"
+      ? analytics.users
+      : analytics.activeUsers;
+
+const v = level === "state"
+  ? analytics.rank
+  : actualValue;
       const name = feat.properties._name;
       const isHovered = hovered === name;
       const isSelected =
@@ -180,8 +187,8 @@ export default function IndiaAnalyticsMap({
         (level !== "india" && selectedDistrict === name);
       return {
         fillColor:
-  level === "state" && analytics.rank === -1
-    ? "#9CA3AF"
+   level === "state" && actualValue === 0
+    ? "#dc2626"
     : colorFor(v, minV, maxV, dark),
         fillOpacity: isSelected ? 0.95 : isHovered ? 0.85 : 0.7,
         color: dark ? "#0f172a" : "#ffffff",
@@ -220,7 +227,7 @@ export default function IndiaAnalyticsMap({
         mouseout: () => setHovered((h) => (h === name ? null : h)),
         click: () => {
           if (level === "india") {
-            const stateData = allStatesData?.find((s) => s.state === name);
+            const stateData = allStatesDataAndUser?.find((s) => s.state === name);
             navigateToState(name, stateData?.stateCode);
 
             const bounds = (layer as L.Polygon).getBounds?.();
@@ -369,7 +376,7 @@ export default function IndiaAnalyticsMap({
           >
             <TileLayer url={tileUrl} attribution={tileAttr} />
             <ZoomControl position="bottomright" />
-            {activeGeo && (
+            {/* {activeGeo && (
               <>
                 <GeoJSON
                   key={geoKey}
@@ -380,9 +387,28 @@ export default function IndiaAnalyticsMap({
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   onEachFeature={onEach as any}
                 />
-                <FitBounds data={activeGeo} trigger={geoKey} />
+                {!selectedDistrict && <FitBounds data={activeGeo} trigger={geoKey} />}
               </>
-            )}
+            )} */}
+
+            {isDistrictLoading || isDistrictFetching ? (
+    <div className="absolute inset-0 z-[500] flex items-center justify-center bg-background/60 backdrop-blur-sm">
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading district analytics...
+        </div>
+    </div>
+) : (
+    <>
+        <GeoJSON
+            key={geoKey}
+            data={activeGeo as any}
+            style={styleFn as any}
+            onEachFeature={onEach as any}
+        />
+        {!selectedDistrict && <FitBounds data={activeGeo} trigger={geoKey} />}
+    </>
+)}
             <FlyTo target={flyTarget} />
           </MapContainer>}
 

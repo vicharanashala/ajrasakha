@@ -138,6 +138,20 @@ export function useMapAnalytics({
     });
 
   const map = new Map<string, number>();
+  
+  console.log(`District Ranking (${metric}):`);
+
+  sorted.forEach((district, index) => {
+  const rank = sorted.length - index;
+
+  console.log({
+    district: district.district,
+    rank,
+    questions: district.totalQuestions,
+    users: district.totalUsers,
+    activeUsers: district.activeUsers,
+  });
+});
 
   sorted.forEach((district, index) => {
     map.set(
@@ -145,6 +159,8 @@ export function useMapAnalytics({
       sorted.length - index,
     );
   });
+
+  
 
   return map;
 }, [districtAnalytics, metric]);
