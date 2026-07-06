@@ -39,6 +39,7 @@ const actionLabels: Record<string, string> = {
   DELETE_EXPERT: "Expert Deleted",
   SELECT_MODERATOR: "Moderator Selected",
   DELETE_MODERATOR: "Moderator Removed",
+  TOGGLE_MODERATOR_ALLOCATION: "Moderator Auto-Allocation Toggled",
   EXPERTS_ADD_COMMENT: "Comment Added by Expert",
   BLOCK_EXPERT: "Expert Blocked",
   UNBLOCK_EXPERT: "Expert Unblocked",
