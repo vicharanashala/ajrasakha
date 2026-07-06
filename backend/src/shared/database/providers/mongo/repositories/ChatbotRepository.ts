@@ -7010,6 +7010,7 @@ for (const item of districtUsers) {
     activeTodayByProfile = false,
     missingDemographicField = '',
     isVerfied?: boolean,
+    loginStatus: 'all' | 'loggedIn' | 'loggedOut' = 'all',
   ): Promise<PaginatedUserDetails> {
     try {
       await this.init(source);
@@ -7292,10 +7293,15 @@ for (const item of districtUsers) {
           : undefined,
       }));
 
+      const withSessionCounts =
+        loginStatus !== 'all'
+          ? await this.attachActiveSessionCounts(merged, session)
+          : merged;
+
       // Filter to inactive users only if requested
       const afterInactive = inactiveOnly
-        ? merged.filter(u => u.totalQuestions === 0)
-        : merged;
+        ? withSessionCounts.filter(u => u.totalQuestions === 0)
+        : withSessionCounts;
 
       // Filter to low-feedback users only if requested (all-time, no date range on feedback)
       let finalList = afterInactive;
@@ -7316,6 +7322,12 @@ for (const item of districtUsers) {
           feedbackDocs.map((d: any) => String(d._id)),
         );
         finalList = afterInactive.filter(u => !usersWithFeedback.has(u.userId));
+      }
+
+      if (loginStatus === 'loggedIn') {
+        finalList = finalList.filter(u => (u.activeSessionCount ?? 0) > 0);
+      } else if (loginStatus === 'loggedOut') {
+        finalList = finalList.filter(u => (u.activeSessionCount ?? 0) === 0);
       }
 
       // Sort based on sortBy and sortOrder parameters

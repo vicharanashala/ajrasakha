@@ -768,6 +768,7 @@ export class ChatbotController {
       activeTodayByProfile,
       query.missingDemographicField,
       isVerified,
+      query.loginStatus,
     );
   }
 

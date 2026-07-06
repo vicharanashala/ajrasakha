@@ -679,6 +679,7 @@ export interface IChatbotRepository {
     activeTodayByProfile?: boolean,
     missingDemographicField?: string,
     isVerified?: boolean,
+    loginStatus?: 'all' | 'loggedIn' | 'loggedOut',
   ): Promise<PaginatedUserDetails>;
 
   getUserQuestionsData(

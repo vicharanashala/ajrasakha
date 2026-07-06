@@ -34,6 +34,7 @@ import {
   MessageSquareOff,
   Info,
   UserCheck2,
+  LogIn,
   ChevronDown,
   Check,
 } from "lucide-react";
@@ -64,6 +65,7 @@ export interface UserDetailsFilters {
   lowFeedbackOnly: boolean;
   userType: "all" | "internal" | "external";
   verificationStatus: "all" | "verified" | "unverified";
+  loginStatus: "all" | "loggedIn" | "loggedOut";
 }
 
 interface UserDetailsPreferenceFilterProps {
@@ -71,7 +73,13 @@ interface UserDetailsPreferenceFilterProps {
   onApply: (filters: UserDetailsFilters) => void;
   /** Fields to hide from the filter dialog */
   hideFields?: Array<
-    "crop" | "inactive" | "profile" | "userType" | "roles" | "lowFeedback"
+    | "crop"
+    | "inactive"
+    | "profile"
+    | "userType"
+    | "roles"
+    | "lowFeedback"
+    | "loginStatus"
   >;
 }
 
@@ -208,6 +216,7 @@ export function UserDetailsPreferenceFilter({
       lowFeedbackOnly: false,
       userType: "all",
       verificationStatus: "all",
+      loginStatus: "all",
     });
   };
 
@@ -225,7 +234,8 @@ export function UserDetailsPreferenceFilter({
     (filters.inactiveOnly ? 1 : 0) +
     (filters.lowFeedbackOnly ? 1 : 0) +
     (filters.userType !== "all" ? 1 : 0) +
-    (filters.verificationStatus !== "all" ? 1 : 0);
+    (filters.verificationStatus !== "all" ? 1 : 0) +
+    (filters.loginStatus !== "all" ? 1 : 0);
 
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
@@ -556,7 +566,7 @@ export function UserDetailsPreferenceFilter({
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15 }}
-                className="col-span-2 grid grid-cols-3 gap-3"
+                className="col-span-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3"
               >
                 {!hideFields.includes("inactive") && (
                   <ToggleCard
@@ -612,6 +622,38 @@ export function UserDetailsPreferenceFilter({
                     </Select>
                   </FilterSection>
                 </div>
+                {!hideFields.includes("loginStatus") && (
+                  <div className="rounded-xl bg-white dark:bg-[#161616] border border-gray-200/70 dark:border-gray-800 p-3.5">
+                    <FilterSection
+                      icon={<LogIn className="h-3.5 w-3.5" />}
+                      label="Login Status"
+                    >
+                      <Select
+                        value={draft.loginStatus}
+                        onValueChange={(value) =>
+                          setDraft((d) => ({
+                            ...d,
+                            loginStatus: value as
+                              | "all"
+                              | "loggedIn"
+                              | "loggedOut",
+                          }))
+                        }
+                      >
+                        <SelectTrigger className={selectTriggerClass}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="z-[10002]">
+                          <SelectItem value="all">All</SelectItem>
+                          <SelectItem value="loggedIn">
+                            Currently logged in
+                          </SelectItem>
+                          <SelectItem value="loggedOut">Not logged in</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FilterSection>
+                  </div>
+                )}
                 {!hideFields.includes("lowFeedback") && (
                   <ToggleCard
                     id="low-feedback-only"
