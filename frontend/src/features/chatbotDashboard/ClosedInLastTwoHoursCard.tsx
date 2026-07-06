@@ -262,7 +262,7 @@ export function ClosedInLastTwoHoursCard({
                       width: `${slaBreachedPct}%`,
                     }}
                     transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
-                    className="bg-muted-foreground/30"
+                    className="bg-red-500"
                   />
                 </div>
                 <div className="flex justify-between text-[10px] text-muted-foreground">

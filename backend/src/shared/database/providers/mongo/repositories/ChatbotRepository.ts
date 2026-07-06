@@ -17182,11 +17182,21 @@ export class ChatbotRepository implements IChatbotRepository {
           }
         }
 
-        if (first && last) {
-          const lifecycleTime =
-            new Date(last.timestamp).getTime() -
-            new Date(first.timestamp).getTime();
-          totalLifecycleTime += lifecycleTime;
+        // if (first && last) {
+        //   const lifecycleTime =
+        //     new Date(last.timestamp).getTime() -
+        //     new Date(first.timestamp).getTime();
+        //   totalLifecycleTime += lifecycleTime;
+        // }
+        const completionTime =
+            lifecycleObj.status === "pass"
+                ? lifecycleObj.passedAt
+                : lifecycleObj.closedAt;
+
+        if (completionTime) {
+            totalLifecycleTime +=
+                new Date(completionTime).getTime() -
+                new Date(lifecycleObj.createdAt).getTime();
         }
 
         // =====================
@@ -17204,13 +17214,11 @@ export class ChatbotRepository implements IChatbotRepository {
                 totalInitialAllocationTime += x.duration || 0;
                 break;
               case "Pending Next Assignment":
-              case "Awaiting Moderator Assignment":
                   totalPendingAssignmentTime += x.duration || 0;
+                  break;
 
-                  if (x.action === "Awaiting Moderator Assignment") {
-                      totalAwaitingModeratorTime += x.duration || 0;
-                  }
-
+              case "Awaiting Moderator Assignment":
+                  totalAwaitingModeratorTime += x.duration || 0;
                   break;
               case "Awaiting Closure/Pass":
                 totalAwaitingClosureTime += x.duration || 0;
@@ -17508,20 +17516,23 @@ export class ChatbotRepository implements IChatbotRepository {
           });
         }
 
-        const moderatorCompletedAt =
-          question.closedAt || question.passedAt;
+        const moderatorCompletedAt = question.closedAt || question.passedAt;
+
+        const moderatorCompleted =
+            moderatorCompletedAt
+                ? new Date(moderatorCompletedAt)
+                : null;
 
         timeline.push({
-          timestamp: moderatorAssignedAt,
-          user: "-",
-          action: "Approval Review",
-          duration: moderatorCompletedAt
-            ? moderatorCompletedAt.getTime() -
-              moderatorAssignedAt.getTime()
-            : 0,
-          remarks: "",
-          endTime: moderatorCompletedAt,
-          eventType: "moderator",
+            timestamp: moderatorAssignedAt,
+            user: "-",
+            action: "Approval Review",
+            duration: moderatorCompleted
+                ? moderatorCompleted.getTime() - moderatorAssignedAt.getTime()
+                : 0,
+            remarks: "",
+            endTime: moderatorCompleted,
+            eventType: "moderator",
         });
       }
 
@@ -17585,7 +17596,19 @@ export class ChatbotRepository implements IChatbotRepository {
           new Date(next.timestamp).getTime() -
           new Date(current.endTime).getTime();
 
-        if (gap > 1000 && current.eventType !== 'reroute') {
+        const nextIsExplicitWait =
+          next.eventType === 'system_wait' &&
+          [
+            'Initial Allocation Pending',
+            'Awaiting Moderator Assignment',
+            'Awaiting Closure/Pass',
+          ].includes(next.action);
+
+        if (
+          gap > 1000 &&
+          current.eventType !== 'reroute' &&
+          !nextIsExplicitWait
+        ) {
           finalTimeline.push({
             timestamp: current.endTime,
             user: 'Buffer Time',

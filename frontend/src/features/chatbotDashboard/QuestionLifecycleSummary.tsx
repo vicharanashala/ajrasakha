@@ -58,7 +58,7 @@ export function QuestionLifecycleSummary({
   isPassed,
   tag,
   notificationType,
-  totalClosedAndPassed
+  totalClosedAndPassed,
 }: Props) {
   const {
     data: summary,
@@ -77,12 +77,6 @@ export function QuestionLifecycleSummary({
   // console.log("tag", summary);
   const primaryMetrics = [
     {
-      title: "Authoring (R0)",
-      value: summary?.avgAuthoringTime,
-      tooltip:
-        "Average time spent by authors writing answers.\n\nNumerator: Total authoring time across questions that reached R0.\nDenominator: Questions having an authoring stage (authoringCount).",
-    },
-    {
       title: "R1 Review",
       value: summary?.avgR1Time,
       tooltip:
@@ -100,25 +94,26 @@ export function QuestionLifecycleSummary({
       tooltip:
         "Average waiting time between final reviewer completion and moderator assignment.\n\nNumerator: Total waiting time.\nDenominator: All questions in the selected dataset.",
     },
-  ];
-
-  const secondaryMetrics = [
-    {
-      title: "SLA Breached %",
-      value:
-        summary?.totalQuestions > 0
-          ? (summary?.slaBreachedCount / summary?.totalQuestions) * 100
-          : 0,
-      formatter: (v: number) => `${v.toFixed(1)}%`,
-      tooltip:
-        "Percentage of resolved questions taking more than 2 hours.\n\nFormula:\n(SLA Breached Questions ÷ Total Questions) × 100",
-    },
     {
       title: "Initial Allocation",
       value: summary?.avgInitialAllocationTime,
       tooltip:
         "Average time from question creation until first allocation.\n\nNumerator: Total initial allocation waiting time.\nDenominator: All questions.",
     },
+  ];
+
+  const secondaryMetrics = [
+    // {
+    //   title: "SLA Breached %",
+    //   value:
+    //     summary?.totalQuestions > 0
+    //       ? (summary?.slaBreachedCount / summary?.totalQuestions) * 100
+    //       : 0,
+    //   formatter: (v: number) => `${v.toFixed(1)}%`,
+    //   tooltip:
+    //     "Percentage of resolved questions taking more than 2 hours.\n\nFormula:\n(SLA Breached Questions ÷ Total Questions) × 100",
+    // },
+
     {
       title: "Pending Assignment",
       value: summary?.avgPendingAssignmentTime,
@@ -143,20 +138,20 @@ export function QuestionLifecycleSummary({
       tooltip:
         "Average duration of the third reviewer.\n\nNumerator: Total R3 review duration.\nDenominator: Questions that reached R3 (r3Count).",
     },
-    {
-      title: "Avg Reroutes",
-      value: summary?.avgReroutesPerQuestion,
-      formatter: (v: number) => v?.toFixed(2),
-      tooltip:
-        "Average reroutes per question.\n\nFormula:\nTotal Reroutes ÷ Total Questions.",
-    },
-    {
-      title: "Resolution Rate",
-      value: summary?.resolutionRate,
-      formatter: (v: number) => `${v?.toFixed(1)}%`,
-      tooltip:
-        "Percentage of questions that are closed or passed.\n\nFormula:\nResolved Questions ÷ Total Questions × 100.",
-    },
+    // {
+    //   title: "Avg Reroutes",
+    //   value: summary?.avgReroutesPerQuestion,
+    //   formatter: (v: number) => v?.toFixed(2),
+    //   tooltip:
+    //     "Average reroutes per question.\n\nFormula:\nTotal Reroutes ÷ Total Questions.",
+    // },
+    // {
+    //   title: "Resolution Rate",
+    //   value: summary?.resolutionRate,
+    //   formatter: (v: number) => `${v?.toFixed(1)}%`,
+    //   tooltip:
+    //     "Percentage of questions that are closed or passed.\n\nFormula:\nResolved Questions ÷ Total Questions × 100.",
+    // },
   ];
 
   const topMetrics = [
@@ -176,12 +171,17 @@ export function QuestionLifecycleSummary({
       tooltip:
         "Sum of all average waiting periods:\n• Initial Allocation\n• Pending Assignment\n• Awaiting Moderator\n• Awaiting Closure\n\nRepresents non-working time in the lifecycle.",
     },
-
     {
-      title: "Within SLA",
+      title: "Authoring (R0)",
       tooltip:
-        "Questions resolved within 2 hours.\n\nFormula:\nTotal Questions − SLA Breached Questions.",
+        "Average time spent by authors writing answers.\n\nNumerator: Total authoring time across questions that reached R0.\nDenominator: Questions having an authoring stage (authoringCount).",
     },
+
+    // {
+    //   title: "Within SLA",
+    //   tooltip:
+    //     "Questions resolved within 2 hours.\n\nFormula:\nTotal Questions − SLA Breached Questions.",
+    // },
   ];
 
   // const [showAdvancedMetrics, setShowAdvancedMetrics] = useState(false);
@@ -207,8 +207,8 @@ export function QuestionLifecycleSummary({
     },
     {
       ...topMetrics[3],
-      value: Math.max((totalClosedAndPassed || 0) - summary?.slaBreachedCount, 0),
-      valueClass: "text-green-500",
+      value: formatDuration(summary?.avgAuthoringTime),
+      // valueClass: "text-green-500",
     },
   ];
 
@@ -247,27 +247,27 @@ export function QuestionLifecycleSummary({
     });
   }
 
-  if ((summary?.avgAwaitingModeratorTime || 0) > 20 * 60 * 1000) {
-    insights.push({
-      icon: Clock,
-      color: "text-purple-500",
-      title: "Moderator assignment is the largest bottleneck",
-      description: `Questions wait ${formatDuration(
-        summary?.avgAwaitingModeratorTime,
-      )} on average before moderator approval.`,
-    });
-  }
+  // if ((summary?.avgAwaitingModeratorTime || 0) > 20 * 60 * 1000) {
+  //   insights.push({
+  //     icon: Clock,
+  //     color: "text-purple-500",
+  //     title: "Moderator assignment is the largest bottleneck",
+  //     description: `Questions wait ${formatDuration(
+  //       summary?.avgAwaitingModeratorTime,
+  //     )} on average before moderator approval.`,
+  //   });
+  // }
 
-  if ((summary?.totalReroutes || 0) > 0) {
-    insights.push({
-      icon: RefreshCw,
-      color: "text-orange-500",
-      title: `${summary?.totalReroutes} reroutes occurred`,
-      description: `Average reroute overhead: ${formatDuration(
-        summary?.avgRerouteTime,
-      )}`,
-    });
-  }
+  // if ((summary?.totalReroutes || 0) > 0) {
+  //   insights.push({
+  //     icon: RefreshCw,
+  //     color: "text-orange-500",
+  //     title: `${summary?.totalReroutes} reroutes occurred`,
+  //     description: `Average reroute overhead: ${formatDuration(
+  //       summary?.avgRerouteTime,
+  //     )}`,
+  //   });
+  // }
 
   if ((summary?.avgAuthoringTime || 0) > 20 * 60 * 1000) {
     insights.push({
@@ -309,7 +309,7 @@ export function QuestionLifecycleSummary({
 
       timeoutId = setTimeout(() => {
         setLoadingMessageIndex((prev) => (prev + 1) % loadingMessages.length);
-        updateMessage(); 
+        updateMessage();
       }, randomDelay);
     };
 
@@ -326,17 +326,19 @@ export function QuestionLifecycleSummary({
           <Loader2 className="h-12 w-12 text-primary animate-spin" />
           <div className="absolute inset-0 h-12 w-12 rounded-full border-4 border-primary/30 animate-ping opacity-20"></div>
         </div>
-        
+
         {/* Rotating Loading Message */}
         <div className="text-center space-y-1">
           <p className="text-sm font-medium text-gray-700 dark:text-gray-300 animate-pulse">
             {loadingMessages[loadingMessageIndex]}
           </p>
-          {summary?.totalQuestions !== undefined && summary.totalQuestions > 0 && (
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Analyzing {summary.totalQuestions.toLocaleString()} question{summary.totalQuestions !== 1 ? "s" : ""}
-            </p>
-          )}
+          {summary?.totalQuestions !== undefined &&
+            summary.totalQuestions > 0 && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Analyzing {summary.totalQuestions.toLocaleString()} question
+                {summary.totalQuestions !== 1 ? "s" : ""}
+              </p>
+            )}
         </div>
       </div>
     );
@@ -482,7 +484,10 @@ const MetricTitle = ({
         </button>
       </TooltipTrigger>
 
-      <TooltipContent side="top" className="max-w-sm whitespace-pre-line z-9999">
+      <TooltipContent
+        side="top"
+        className="max-w-sm whitespace-pre-line z-9999"
+      >
         {tooltip}
       </TooltipContent>
     </Tooltip>
