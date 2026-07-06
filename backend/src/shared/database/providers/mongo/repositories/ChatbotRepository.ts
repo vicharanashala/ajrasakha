@@ -8929,6 +8929,127 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
+  async getUsersByPlatform(
+    platform: string,
+    source = 'annam',
+    page = 1,
+    limit = 10,
+    search = '',
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+    userType = 'all',
+    session?: ClientSession,
+  ): Promise<PaginatedUserDetails> {
+    try {
+      await this.init(source);
+
+      const userFilter: Record<string, any> = {
+        ...this.buildUserDocFilter(userType),
+      };
+
+      const normalizedPlatform = platform?.trim();
+      const basePlatformFilter = {
+        farmerProfile: {$exists: true, $ne: null},
+      };
+      const platformFilter =
+        normalizedPlatform === 'Unknown'
+          ? {
+              ...basePlatformFilter,
+              $or: [
+                {'farmerProfile.platform': {$exists: false}},
+                {'farmerProfile.platform': null},
+                {'farmerProfile.platform': ''},
+                {
+                  $expr: {
+                    $eq: [
+                      {$trim: {input: {$ifNull: ['$farmerProfile.platform', '']}}},
+                      '',
+                    ],
+                  },
+                },
+              ],
+            }
+          : {
+              ...basePlatformFilter,
+              'farmerProfile.platform': normalizedPlatform,
+            };
+
+      userFilter.$and = [...(userFilter.$and ?? []), platformFilter];
+
+      if (search && search.trim()) {
+        const escaped = search
+          .trim()
+          .replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
+        const regex = {$regex: escaped, $options: 'i'};
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          {
+            $or: [
+              {name: regex},
+              {email: regex},
+              {'farmerProfile.phoneNo': regex},
+            ],
+          },
+        ];
+      }
+
+      const sortOptions: Record<string, 1 | -1> = {};
+      const sortDirection = sortOrder === 'asc' ? 1 : -1;
+
+      switch (sortBy) {
+        case 'name':
+          sortOptions.name = sortDirection;
+          break;
+        case 'email':
+          sortOptions.email = sortDirection;
+          break;
+        case 'createdAt':
+        default:
+          sortOptions.createdAt = sortDirection;
+          break;
+      }
+
+      const skip = (page - 1) * limit;
+
+      const [users, totalUsers] = await Promise.all([
+        this.users
+          .find(userFilter, {session})
+          .sort(sortOptions)
+          .skip(skip)
+          .limit(limit)
+          .toArray(),
+        this.users.countDocuments(userFilter, {session}),
+      ]);
+
+      const formattedUsers: UserDetailEntry[] = users.map(user => ({
+        userId: String(user._id),
+        name: user.name || user.firstName || '',
+        email: user.email || '',
+        role: user.role,
+        userRole: user.userRole,
+        totalQuestions: 0,
+        farmerProfile: user.farmerProfile,
+        createdAt: user.createdAt,
+        isVerified: user.isVerified,
+      }));
+
+      return {
+        users: formattedUsers,
+        totalUsers,
+        totalPages: Math.ceil(totalUsers / limit),
+        page,
+        limit,
+        activeUsers: 0,
+        inactiveUsers: 0,
+        totalQuestions: 0,
+      } as unknown as PaginatedUserDetails;
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get users by platform: ${error}`,
+      );
+    }
+  }
+
   // async getKccAndAgriAppStats(source = 'annam', session?: ClientSession, userType = 'all'): Promise<KccAndAgriAppStats> {
   //   try {
   //     await this.init(source);

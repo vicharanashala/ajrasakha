@@ -146,6 +146,16 @@ export interface IChatbotService {
     sortBy?: string,
     sortOrder?: string,
   ): Promise<PaginatedUserDetails>;
+  getUsersByPlatform(
+    platform: string,
+    source?: string,
+    page?: number,
+    limit?: number,
+    search?: string,
+    sortBy?: string,
+    sortOrder?: string,
+    userType?: string,
+  ): Promise<PaginatedUserDetails>;
   getAvgSessionDurationV2(source?: string, userType?: string): Promise<number>;
   getWeeklyAvgSessionDurationV2(
     weeks?: number,

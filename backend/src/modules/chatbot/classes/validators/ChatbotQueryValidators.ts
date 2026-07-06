@@ -214,6 +214,52 @@ export class DemographicUsersQueryDto {
   sortOrder: 'asc' | 'desc' = 'desc';
 }
 
+export class PlatformUsersQueryDto {
+  @JSONSchema({ example: 'Android', description: 'Platform name to filter users by' })
+  @IsNotEmpty()
+  @IsString()
+  platform!: string;
+
+  @JSONSchema({ example: 'annam', description: 'Data source to query' })
+  @IsOptional()
+  @IsIn(['annam', 'whatsapp'])
+  source: 'annam' | 'whatsapp' = 'annam';
+
+  @JSONSchema({ example: 'all', description: 'Filter by user type: all, external (username starts with rup), or internal' })
+  @IsOptional()
+  @IsIn(['all', 'external', 'internal'])
+  userType: 'all' | 'external' | 'internal' = 'all';
+
+  @JSONSchema({ example: 1, description: 'Page number' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page: number = 1;
+
+  @JSONSchema({ example: 10, description: 'Results per page' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  limit: number = 10;
+
+  @JSONSchema({ example: 'john', description: 'Search by name, email, or phone number' })
+  @IsOptional()
+  @IsString()
+  search: string = '';
+
+  @JSONSchema({ example: 'name', description: 'Sort by field: name, email, or createdAt' })
+  @IsOptional()
+  @IsIn(['name', 'email', 'createdAt'])
+  sortBy: 'name' | 'email' | 'createdAt' = 'createdAt';
+
+  @JSONSchema({ example: 'asc', description: 'Sort order: asc or desc' })
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  sortOrder: 'asc' | 'desc' = 'desc';
+}
+
 export class UserDetailsQueryDto {
   @JSONSchema({ example: '2025-01-01', description: 'Filter start date (ISO string)' })
   @IsOptional()

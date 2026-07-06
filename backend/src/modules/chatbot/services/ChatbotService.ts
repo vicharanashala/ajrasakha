@@ -1512,6 +1512,39 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
+  async getUsersByPlatform(
+    platform: string,
+    source = 'annam',
+    page = 1,
+    limit = 10,
+    search = '',
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+    userType = 'all',
+  ): Promise<PaginatedUserDetails> {
+    try {
+      const data = await this.chatbotRepository.getUsersByPlatform(
+        platform,
+        source,
+        page,
+        limit,
+        search,
+        sortBy,
+        sortOrder,
+        userType,
+      );
+
+      return {
+        ...data,
+        currentPage: page,
+      } as PaginatedUserDetails;
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch users by platform: ${error}`,
+      );
+    }
+  }
+
   async getUserQuestionsData(
     userEmail: string,
     source = 'annam',
