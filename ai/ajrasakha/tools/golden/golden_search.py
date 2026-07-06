@@ -314,6 +314,8 @@ async def gdb_search(
     *,
     season: Optional[str] = None,
     domain: Optional[str] = None,
+    use_dual_search: bool = False,
+    embedding_field: str = "embedding",
 ) -> dict[str, Any]:
     crop, state = _normalize_crop_state(crop, state)
     original_crop = crop
@@ -368,6 +370,8 @@ async def gdb_search(
         state,
         season=season,
         domain=domain,
+        use_dual_search=use_dual_search,
+        embedding_field=embedding_field,
     )
 
     if not rag_pairs and crop != "all":
@@ -401,6 +405,8 @@ async def gdb_search(
             state,
             season=season,
             domain=domain,
+            use_dual_search=use_dual_search,
+            embedding_field=embedding_field,
         )
         crop = "all"
         response["crop"] = "all"
