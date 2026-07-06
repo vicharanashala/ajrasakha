@@ -15219,6 +15219,17 @@ for (const item of districtUsers) {
         }
       }
 
+      const usersWithSessions = await this.attachActiveSessionCounts(
+        [
+          {
+            userId: userIdString,
+            ...users[0],
+          } as any,
+        ],
+        session,
+      );
+      const activeSessionCount = usersWithSessions[0]?.activeSessionCount ?? 0;
+
       return {
         userId: users[0]._id,
         name: users[0].name,
@@ -15229,6 +15240,7 @@ for (const item of districtUsers) {
         createdAt: users[0].createdAt,
         isVerified: users[0].isVerified,
         userRole: users[0].userRole,
+        activeSessionCount,
         totalQuestions: farmerDashboard.questionMetrics.totalQuestionsAsked,
         farmerDashboard,
         unAssigned: unAssigned ?? [],
