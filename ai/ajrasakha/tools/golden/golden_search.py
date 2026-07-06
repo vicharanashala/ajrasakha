@@ -487,8 +487,10 @@ async def _semantic_question_search(
     domain: Optional[str] = None,
     embedding_field: str = "question_embedding",
 ) -> list[QuestionAnswerPair]:
-    """Run question embedding search only."""
-    return await vector_rag_search(
+    """Run question embedding search only, limited to QUESTIONS_TOP_K results."""
+    from golden_core import QUESTIONS_TOP_K
+    
+    results = await vector_rag_search(
         query,
         crop,
         state,
@@ -496,7 +498,9 @@ async def _semantic_question_search(
         domain=domain,
         use_dual_search=False,  # Only question search
         embedding_field=embedding_field,
+        top_k=QUESTIONS_TOP_K,  # Explicitly limit to 3 results
     )
+    return results[:QUESTIONS_TOP_K]  # Ensure strict limit
 
 
 async def _semantic_answer_search(
@@ -507,13 +511,13 @@ async def _semantic_answer_search(
     season: Optional[str] = None,
     domain: Optional[str] = None,
 ) -> list[QuestionAnswerPair]:
-    """Run answer embedding search only using the dual index."""
-    # Import required functions at function start (before usage)
+    """Run answer embedding search only using the dual index, limited to ANSWERS_TOP_K results."""
     from golden_core import (
         MONGODB_DUAL_EMBEDDING_INDEX,
         questions_collection,
         _embed_text,
         _get_answer_text_sources_and_author_name,
+        ANSWERS_TOP_K,
     )
     
     crop_norm, state_norm = _normalize_crop_state(crop, state)
@@ -531,7 +535,7 @@ async def _semantic_answer_search(
     # Generate query vector
     query_vector = await _embed_text(query)
     
-    k = 2  # ANSWERS_TOP_K
+    k = ANSWERS_TOP_K  # 2 results
     pipeline: list[dict[str, Any]] = [
         {
             "$vectorSearch": {
@@ -579,7 +583,7 @@ async def _semantic_answer_search(
             )
         )
     
-    return result
+    return result[:ANSWERS_TOP_K]  # Ensure strict limit
 
 
 async def gdb_search_v2(
