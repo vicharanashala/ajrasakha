@@ -111,6 +111,7 @@ async def _run_gemma_pipeline(
     *,
     original_crop: str,
     crop_fallback: bool,
+    scoring_query: str,  # Original user query for LLM scoring
 ) -> dict[str, Any]:
     _apply_crop_fallback_metadata(
         response,
@@ -119,7 +120,7 @@ async def _run_gemma_pipeline(
     )
 
     filter_results = await filter_relevance_batch(
-        query, rag_pairs, crop=crop, state=state
+        scoring_query, rag_pairs, crop=crop, state=state
     )
 
     same_winner_idx: int | None = None
@@ -224,7 +225,7 @@ async def _run_gemma_pipeline(
 
     classify_tasks = [
         classify_pair(
-            original_query=query,
+            original_query=scoring_query,  # Use original user query for LLM scoring
             retrieved_question=pair.question_text,
             retrieved_answer=pair.answer_text,
             crop=crop,
@@ -314,6 +315,9 @@ async def gdb_search(
     *,
     season: Optional[str] = None,
     domain: Optional[str] = None,
+    use_dual_search: bool = False,
+    embedding_field: str = "embedding",
+    original_query: Optional[str] = None,  # User's original query for LLM scoring
 ) -> dict[str, Any]:
     crop, state = _normalize_crop_state(crop, state)
     original_crop = crop
@@ -321,6 +325,11 @@ async def gdb_search(
     query = (rephrased_query or "").strip()
     if not query:
         raise ValueError("rephrased_query is required")
+    
+    # Use original query for LLM scoring, fallback to rephrased_query if not provided
+    scoring_query = (original_query or rephrased_query or "").strip()
+    if scoring_query != query:
+        log.info("gdb_search using original_query=%r for LLM scoring", _truncate_text(scoring_query, 80))
 
     log.info(
         "gdb_search start rephrased_query=%r crop=%s state=%s",
@@ -331,6 +340,7 @@ async def gdb_search(
 
     response: dict[str, Any] = {
         "rephrased_query": query,
+        "original_query": scoring_query if scoring_query != query else None,
         "state": state,
         "crop": crop,
         "exact_match": {},
@@ -368,6 +378,8 @@ async def gdb_search(
         state,
         season=season,
         domain=domain,
+        use_dual_search=use_dual_search,
+        embedding_field=embedding_field,
     )
 
     if not rag_pairs and crop != "all":
@@ -401,6 +413,8 @@ async def gdb_search(
             state,
             season=season,
             domain=domain,
+            use_dual_search=use_dual_search,
+            embedding_field=embedding_field,
         )
         crop = "all"
         response["crop"] = "all"
@@ -422,4 +436,5 @@ async def gdb_search(
         response,
         original_crop=original_crop,
         crop_fallback=crop_fallback,
+        scoring_query=scoring_query,
     )
