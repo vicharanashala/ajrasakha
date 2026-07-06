@@ -7128,12 +7128,15 @@ export class QuestionService extends BaseService implements IQuestionService {
       case 'autoAllocateOff':
       case 'autoAllocateOpen':
       case 'autoAllocateDelayed': {
+        // Use baseSection (suffix-stripped) so the ...Manual variants map to the same
+        // kind as their base section — otherwise 'autoAllocateDelayedManual' etc. fall
+        // through to 'autoOff' and wrongly include open questions.
         const kind =
-          section === 'received'
+          baseSection === 'received'
             ? 'received'
-            : section === 'autoAllocateOpen'
+            : baseSection === 'autoAllocateOpen'
               ? 'autoAllocateOpen'
-              : section === 'autoAllocateDelayed'
+              : baseSection === 'autoAllocateDelayed'
                 ? 'autoAllocateDelayed'
                 : 'autoOff';
         const {count, items} = await this.questionRepo.getQueueQuestionSection(
