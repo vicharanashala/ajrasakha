@@ -1075,6 +1075,8 @@ export interface IChatbotRepository {
       isPassed?: string,
       tag?: string,
       notificationType?: string,
+      page?: number,
+      limit?: number,
     ): Promise<any>
 }
 

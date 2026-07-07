@@ -387,6 +387,9 @@ export function ClosedInLastTwoHoursCard({
           endDate={dateRange?.to}
           isPassed={isPassed}
           tag= {slaBreachedQs ? slaBreachedQs : "sla"}
+          closedInLastTwoHours ={(closedInLastTwoHours || 0)}
+          passedInLastTwoHours={passedInLastTwoHours || 0}
+          slaBreached={(slaBreached || 0)}
         />
       )}
     </div>

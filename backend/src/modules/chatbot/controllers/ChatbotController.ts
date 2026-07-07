@@ -2069,6 +2069,8 @@ export class ChatbotController {
     @QueryParam('isPassed') isPassed?: string,
     @QueryParam('tag') tag?: string,
     @QueryParam('notificationType') notificationType?: string,
+    @QueryParam('page') page?: number,
+    @QueryParam('limit') limit?: number,
   ): Promise<any> {
     const start= startDate
         ? new Date(startDate)
@@ -2084,7 +2086,9 @@ export class ChatbotController {
       end,
       isPassed,
       tag,
-      notificationType
+      notificationType,
+      page,
+      limit
     );
   }
 }

@@ -16885,6 +16885,8 @@ export class ChatbotRepository implements IChatbotRepository {
     isPassed?: string,
     tag?: string,
     notificationType?: string,
+    page = 1,
+    limit = 1000,
   ) {
     try {
       await this.initReviewSystem();
@@ -16926,15 +16928,6 @@ export class ChatbotRepository implements IChatbotRepository {
           $in: ['closed'],
         };
 
-        if (isPassed === 'true') {
-          matchQuery.isCustomerNotified = true;
-        } else if (isPassed === 'false') {
-          matchQuery.isCustomerNotified = false;
-        } else if (isPassed === 'untracked') {
-          matchQuery.isCustomerNotified = {
-            $exists: false,
-          };
-        }
       }
 
       const query = await this.buildQuestionUserTypeMatchQuery(
@@ -16982,7 +16975,9 @@ export class ChatbotRepository implements IChatbotRepository {
           projection: {
             _id: 1,
           },
-        })
+        })  
+          .skip((page - 1) * limit)
+          .limit(limit)
           .map(x => x._id.toString())
           .toArray();
       } else if (tag === 'sla') {
@@ -17044,6 +17039,12 @@ export class ChatbotRepository implements IChatbotRepository {
             $project: {
               _id: 1,
             },
+          },
+          {
+            $skip: (page - 1) * limit,
+          },
+          {
+            $limit: limit,
           },
         ]).toArray();
 
@@ -17112,6 +17113,12 @@ export class ChatbotRepository implements IChatbotRepository {
               _id: 1,
             },
           },
+          {
+            $skip: (page - 1) * limit,
+          },
+          {
+            $limit: limit,
+          },
         ]).toArray();
 
         questionIds = breachedQuestions.map(q => q._id.toString());
@@ -17120,7 +17127,8 @@ export class ChatbotRepository implements IChatbotRepository {
           projection: {
             _id: 1,
           },
-        })
+        }).skip((page - 1) * limit)
+          .limit(limit)
           .map(x => x._id.toString())
           .toArray();
       }
@@ -17166,38 +17174,37 @@ export class ChatbotRepository implements IChatbotRepository {
 
         if (
           first &&
-          (lifecycleObj.status === 'closed' || lifecycleObj.status === 'pass')
+          ["closed", "pass", "duplicate"].includes(lifecycleObj.status)
         ) {
-          const resolutionTime =
-            lifecycleObj.status === 'pass'
-              ? lifecycleObj.passedAt
-              : lifecycleObj.closedAt;
+          let resolutionTime: Date | null = null;
+
+          if (lifecycleObj.status === "pass") {
+            resolutionTime = lifecycleObj.passedAt;
+          } else if (lifecycleObj.status === "closed") {
+            resolutionTime = lifecycleObj.closedAt;
+          } else {
+            // duplicate
+            const duplicateEvent = lifecycleObj.timeline.find(
+              (x: any) => x.action === "Question Marked As Duplicate"
+            );
+
+            resolutionTime = duplicateEvent?.endTime || duplicateEvent?.timestamp || null;
+          }
+
           if (!resolutionTime) continue;
+
           const lifecycleTime =
             new Date(resolutionTime).getTime() -
             new Date(first.timestamp).getTime();
+
+          totalLifecycleTime += lifecycleTime;
           resolvedQuestions++;
+
           if (lifecycleTime > 2 * 60 * 60 * 1000) {
             slaBreachedCount++;
           }
         }
 
-        // if (first && last) {
-        //   const lifecycleTime =
-        //     new Date(last.timestamp).getTime() -
-        //     new Date(first.timestamp).getTime();
-        //   totalLifecycleTime += lifecycleTime;
-        // }
-        const completionTime =
-            lifecycleObj.status === "pass"
-                ? lifecycleObj.passedAt
-                : lifecycleObj.closedAt;
-
-        if (completionTime) {
-            totalLifecycleTime +=
-                new Date(completionTime).getTime() -
-                new Date(lifecycleObj.createdAt).getTime();
-        }
 
         // =====================
         // Buffer Times
@@ -17317,6 +17324,8 @@ export class ChatbotRepository implements IChatbotRepository {
         slaBreachedCount,
         resolutionRate:
           totalQuestions > 0 ? (resolvedQuestions / totalQuestions) * 100 : 0,
+        page,
+        limit,
       };
     } catch (err) {
       console.log('error in getlifecyclesummary:', err);
@@ -17471,13 +17480,21 @@ export class ChatbotRepository implements IChatbotRepository {
             historyItem.status.slice(1);
         }
 
+        const isResolved =
+            ["closed", "pass", "duplicate"].includes(question.status);
+
+        const duration =
+            review.isCompleted
+                ? review.timeTakenMs
+                : isResolved
+                    ? 0
+                    : Date.now() - new Date(review.assignedAt).getTime();
+
         timeline.push({
           timestamp: review.assignedAt,
           user: '-',
           action,
-          duration: review.isCompleted
-            ? review.timeTakenMs
-            : Date.now() - new Date(review.assignedAt).getTime(),
+          duration,
           remarks:
             historyItem?.reasonForRejection ||
             historyItem?.reasonForLastModification ||

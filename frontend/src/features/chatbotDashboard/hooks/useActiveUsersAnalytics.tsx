@@ -449,6 +449,8 @@ export const useLifeCycleSummary = (
   isPassed?: boolean,
   tag?: string,
   notificationType?: string,
+  page?: number,
+  limit?: number,
   enabled=true) => {
   return useQuery({
     queryKey: [
@@ -460,7 +462,9 @@ export const useLifeCycleSummary = (
       userType,
       isPassed,
       tag,
-      notificationType
+      notificationType,
+      page,
+      limit,
     ],
     queryFn: () => {
       return chatbotService.getLifeCycleSummary(  
@@ -471,7 +475,9 @@ export const useLifeCycleSummary = (
         userType,
         isPassed,
         tag,
-        notificationType);
+        notificationType,
+        page,
+        limit);
     },
     enabled,
   });
