@@ -5,11 +5,13 @@ export const CropMultiSelect = ({
   crops,
   selected,
   onChange,
+  searchable = false,
 }: {
   dbCrops: { _id?: string; name: string }[];
   crops: string[];
   selected: string[];
   onChange: (next: string[]) => void;
+  searchable?: boolean;
 }) => {
   const cropNames: string[] =
     dbCrops.length > 0 ? dbCrops.map((c) => c.name) : crops;
@@ -24,6 +26,7 @@ export const CropMultiSelect = ({
       items={items}
       selected={selected}
       onChange={onChange}
+      searchable={searchable}
       getDisplayLabel={(sel) =>
         sel.length === 0
           ? "All Crops"

@@ -60,6 +60,19 @@ export interface IUser {
   assignedQuestionIds?: IAssignedQuestion[] | null;
 }
 
+export interface IUserRoleHistory {
+  _id?: string | ObjectId;
+  userId: string | ObjectId;
+  role: UserRole;
+  from: Date;
+  to?: Date | null;
+  isVerified?: boolean;
+  status?: UserStatus;
+  isBlocked?: boolean;
+  special_task_force?: boolean;
+  special_task_force_moderator?: boolean;
+}
+
 export type IQuestionPriority = 'low' | 'medium' | 'high' | 'critical';
 
 export interface IQuestionMetrics {

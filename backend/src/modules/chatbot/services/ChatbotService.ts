@@ -26,6 +26,7 @@ import type {
   CoordinatorDuplicateQuestionHeatMapResponse,
   CoordinatorDuplicateQuestionLocationHierarchy,
   QueryCategoryQuestionType,
+  PaginatedFeedbackMessages,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import ExcelJS from 'exceljs';
 import {GrowthResponse} from '../types/chatbot.type.js';
@@ -775,6 +776,30 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
+  async getFeedbackUsers(
+    source = 'annam',
+    page = 1,
+    limit = 10,
+    search?: string,
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+    userType = 'all',
+    rating?: string,
+    tag?: string,
+  ): Promise<PaginatedFeedbackMessages> {
+    return this.chatbotRepository.getFeedbackUsers(
+      source,
+      page,
+      limit,
+      search,
+      sortBy,
+      sortOrder,
+      userType,
+      rating,
+      tag,
+    );
+  }
+
   async getDashboard(
     days = 30,
     source = 'annam',
@@ -1212,8 +1237,30 @@ export class ChatbotService extends BaseService implements IChatbotService {
     source = 'annam',
     userType = 'all',
     search?: string,
+    knownDistricts?: string[],
   ): Promise<any> {
     try {
+      let districtNames = knownDistricts;
+
+      if (
+        district.trim().toLowerCase() === 'others' &&
+        (!districtNames || districtNames.length === 0)
+      ) {
+        const states = await this.lgdService.getStates();
+        const selectedState = states.find(
+          (s) =>
+            this.normalizeLocationName(s.stateNameEnglish) ===
+            this.normalizeLocationName(state),
+        );
+
+        if (selectedState) {
+          const districts = await this.lgdService.getDistricts(
+            selectedState.stateCode,
+          );
+          districtNames = districts.map((d) => d.districtNameEnglish);
+        }
+      }
+
       return await this.chatbotRepository.getQuestionFromDistrict(
         district,
         state,
@@ -1224,6 +1271,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         undefined,
         userType,
         search,
+        districtNames,
       );
     } catch (error) {
       throw new InternalServerError(
@@ -1418,6 +1466,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     activeTodayByProfile = false,
     missingDemographicField?: string,
     isVerified?: boolean,
+    loginStatus: 'all' | 'loggedIn' | 'loggedOut' = 'all',
   ): Promise<PaginatedUserDetails> {
     try {
       const start = startDate ? new Date(startDate) : undefined;
@@ -1447,10 +1496,79 @@ export class ChatbotService extends BaseService implements IChatbotService {
         activeTodayByProfile,
         missingDemographicField,
         isVerified,
+        loginStatus,
       );
       return data;
     } catch (error) {
       throw new InternalServerError(`Failed to fetch user details: ${error}`);
+    }
+  }
+
+  async getUsersByDemographic(
+    category: string,
+    value: string,
+    source = 'annam',
+    userType = 'all',
+    page = 1,
+    limit = 10,
+    search = '',
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+  ): Promise<PaginatedUserDetails> {
+    try {
+      const data = await this.chatbotRepository.getUsersByDemographic(
+        category,
+        value,
+        source,
+        userType,
+        page,
+        limit,
+        search,
+        sortBy,
+        sortOrder,
+      );
+
+      return {
+        ...data,
+        currentPage: page,
+      } as PaginatedUserDetails;
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch users by demographic: ${error}`,
+      );
+    }
+  }
+
+  async getUsersByPlatform(
+    platform: string,
+    source = 'annam',
+    page = 1,
+    limit = 10,
+    search = '',
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+    userType = 'all',
+  ): Promise<PaginatedUserDetails> {
+    try {
+      const data = await this.chatbotRepository.getUsersByPlatform(
+        platform,
+        source,
+        page,
+        limit,
+        search,
+        sortBy,
+        sortOrder,
+        userType,
+      );
+
+      return {
+        ...data,
+        currentPage: page,
+      } as PaginatedUserDetails;
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch users by platform: ${error}`,
+      );
     }
   }
 
@@ -1488,11 +1606,11 @@ export class ChatbotService extends BaseService implements IChatbotService {
       };
     }
 
-    const threadIds =
-  await this.chatbotRepository.getUserConversationIds(
-    user.userId,
-    source,
-  );
+    const threadIds = []
+  // await this.chatbotRepository.getUserConversationIds(
+  //   user.userId,
+  //   source,
+  // );
 
     // Extract messageIds
     const messageIds = await this.chatbotRepository.getAllUserMessageIds(

@@ -378,7 +378,7 @@ export function QuestionLifecycleSummary({
 
                   <TooltipContent
                     side="top"
-                    className="max-w-sm whitespace-pre-line"
+                    className="max-w-sm whitespace-pre-line z-9999"
                   >
                     {item.tooltip}
                   </TooltipContent>
@@ -482,7 +482,7 @@ const MetricTitle = ({
         </button>
       </TooltipTrigger>
 
-      <TooltipContent side="top" className="max-w-sm whitespace-pre-line">
+      <TooltipContent side="top" className="max-w-sm whitespace-pre-line z-9999">
         {tooltip}
       </TooltipContent>
     </Tooltip>

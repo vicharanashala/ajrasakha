@@ -32,12 +32,15 @@ import {AUDIT_TRAILS_TYPES} from '#root/modules/auditTrails/types.js';
 import {IAuditTrailsService} from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import {
   DashboardQueryDto,
+  DemographicUsersQueryDto,
+  PlatformUsersQueryDto,
   QueryAnalyticsQueryDto,
   QueryCategoryQuestionsQueryDto,
   SourceQueryDto,
   UserDetailsQueryDto,
   WeatherConcernAnalyticsQueryDto,
   WeatherConcernQueriesQueryDto,
+  FeedbackUsersQueryDto,
 } from '../classes/validators/ChatbotQueryValidators.js';
 import {
   ChatbotErrorResponse,
@@ -140,6 +143,28 @@ export class ChatbotController {
       query.userType,
       query.startTime,
       query.endTime,
+    );
+  }
+
+  @OpenAPI({
+    summary: 'Get paginated feedback messages',
+    description:
+      'Returns a paginated list of feedback messages filtered by rating or tag.',
+  })
+  @Get('/feedback-users')
+  @HttpCode(200)
+  @Authorized()
+  async getFeedbackUsers(@QueryParams() query: FeedbackUsersQueryDto) {
+    return this.chatbotService.getFeedbackUsers(
+      query.source,
+      query.page,
+      query.limit,
+      query.search,
+      query.sortBy,
+      query.sortOrder,
+      query.userType,
+      query.rating,
+      query.tag,
     );
   }
 
@@ -710,6 +735,61 @@ export class ChatbotController {
     statusCode: 500,
     description: 'Internal server error - Failed to fetch user details',
   })
+  @OpenAPI({
+    summary: 'Get users by demographic category',
+    description:
+      'Returns paginated users filtered by a demographic category and value such as age, gender, experience, or landholding.',
+  })
+  @Get('/users-by-demographic')
+  @HttpCode(200)
+  @Authorized()
+  async getUsersByDemographic(@QueryParams() query: DemographicUsersQueryDto) {
+    return this.chatbotService.getUsersByDemographic(
+      query.category,
+      query.value,
+      query.source,
+      query.userType,
+      query.page,
+      query.limit,
+      query.search,
+      query.sortBy,
+      query.sortOrder,
+    );
+  }
+
+  @OpenAPI({
+    summary: 'Get users by platform',
+    description:
+      'Returns paginated users filtered by the selected platform, with optional search and sorting.',
+  })
+  @ResponseSchema(PaginatedUserDetailsResponse, {
+    statusCode: 200,
+    description: 'Paginated users for the selected platform',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(ChatbotErrorResponse, {
+    statusCode: 500,
+    description: 'Internal server error - Failed to fetch users by platform',
+  })
+  @Get('/users-by-platform')
+  @HttpCode(200)
+  @Authorized()
+  async getUsersByPlatform(@QueryParams() query: PlatformUsersQueryDto) {
+    return this.chatbotService.getUsersByPlatform(
+      query.platform,
+      query.source,
+      query.page,
+      query.limit,
+      query.search,
+      query.sortBy,
+      query.sortOrder,
+      query.userType,
+    );
+  }
+
   @Get('/user-details')
   @HttpCode(200)
   @Authorized()
@@ -745,6 +825,7 @@ export class ChatbotController {
       activeTodayByProfile,
       query.missingDemographicField,
       isVerified,
+      query.loginStatus,
     );
   }
 

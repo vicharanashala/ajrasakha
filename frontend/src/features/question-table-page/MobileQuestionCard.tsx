@@ -199,6 +199,14 @@ export const MobileQuestionCard: React.FC<QuestionRowProps> = ({
             Dynamic
           </Badge>
         )}
+        {q.tag === "static_dynamic" && (
+          <Badge
+            variant="outline"
+            className="bg-blue-500/10 text-blue-600 border-blue-500/30"
+          >
+            Static Dynamic
+          </Badge>
+        )}
         {isDuplicate && (
           <Badge
             variant="outline"
