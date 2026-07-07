@@ -6,7 +6,6 @@ import { Search, Plus, Trash2, ToggleLeft, ToggleRight, Check, X } from "lucide-
 import { Input } from "./atoms/input";
 import { UserService } from "@/hooks/services/userService";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
-import { env } from "@/config/env";
 
 const userService = new UserService();
 
@@ -20,9 +19,8 @@ export const ManageCallAgents = () => {
   const [addingAgents, setAddingAgents] = useState(false);
 
   const { data: currentUser } = useGetCurrentUser({ enabled: true });
-  const allowedManagerIds = env.callAgentManagerUserIds();
 
-  const canManageCallAgents = currentUser?._id && allowedManagerIds.includes(String(currentUser._id));
+  const canManageCallAgents = currentUser?.role === "admin" && !!currentUser?.Call_centre_manager;
 
   useEffect(() => {
     fetchCallAgents();
