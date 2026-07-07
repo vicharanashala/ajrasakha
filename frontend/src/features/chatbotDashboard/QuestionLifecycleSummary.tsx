@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
-import { AlertCircle, Clock, RefreshCw, Pencil, Loader2 } from "lucide-react";
-
+import { Clock, Pencil, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/atoms/card";
 import { useLifeCycleSummary } from "./hooks/useActiveUsersAnalytics";
-import { Skeleton } from "@/components/atoms/skeleton";
 import { Info } from "lucide-react";
 import {
   Accordion,
@@ -94,13 +92,13 @@ export function QuestionLifecycleSummary({
       title: "R1 Review",
       value: summary?.avgR1Time,
       tooltip:
-        "Average duration of the first reviewer.\n\nNumerator: Sum of all first-review durations.\nDenominator: Questions that reached R1 (r1Count).",
+        "Average duration of the first review stage across all questions in the selected dataset.\n\nNumerator: Total R1 review duration.\nDenominator: All questions in the selected dataset.",
     },
     {
       title: "Moderator",
       value: summary?.avgModeratorTime,
       tooltip:
-        "Average time moderators spend approving questions.\n\nNumerator: Total moderator review duration.\nDenominator: Questions assigned to moderators (moderatorCount).",
+        "Average time spent in moderator review across all questions in the selected dataset.\n\nNumerator: Total moderator review duration.\nDenominator: All questions in the selected dataset.",
     },
     {
       title: "Awaiting Moderator",
@@ -133,13 +131,13 @@ export function QuestionLifecycleSummary({
       title: "R2 Review",
       value: summary?.avgR2Time,
       tooltip:
-        "Average duration of the second reviewer.\n\nNumerator: Total R2 review duration.\nDenominator: Questions that reached R2 (r2Count).",
+        "Average duration of the second review stage across all questions in the selected dataset.\n\nNumerator: Total R2 review duration.\nDenominator: All questions in the selected dataset.",
     },
     {
       title: "R3 Review",
       value: summary?.avgR3Time,
       tooltip:
-        "Average duration of the third reviewer.\n\nNumerator: Total R3 review duration.\nDenominator: Questions that reached R3 (r3Count).",
+        "Average duration of the third review stage across all questions in the selected dataset.\n\nNumerator: Total R3 review duration.\nDenominator: All questions in the selected dataset.",
     },
   ];
 
@@ -163,7 +161,7 @@ export function QuestionLifecycleSummary({
     {
       title: "Authoring (R0)",
       tooltip:
-        "Average time spent by authors writing answers.\n\nNumerator: Total authoring time across questions that reached R0.\nDenominator: Questions having an authoring stage (authoringCount).",
+        "Average time spent in the authoring stage across all questions in the selected dataset.\n\nNumerator: Total authoring duration.\nDenominator: All questions in the selected dataset.",
     },
   ];
 

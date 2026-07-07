@@ -17643,20 +17643,20 @@ export class ChatbotRepository implements IChatbotRepository {
 
       return {
         totalQuestions,
-        avgLifecycleTime:
-          resolvedQuestions > 0 ? totalLifecycleTime / resolvedQuestions : 0,
+        avgLifecycleTime: totalLifecycleTime / totalQuestions,
+          // resolvedQuestions > 0 ? totalLifecycleTime / resolvedQuestions : 0,
         avgPushToReviewTime: totalPushToReviewTime / totalQuestions,
         avgInitialAllocationTime: totalInitialAllocationTime / totalQuestions,
         avgPendingAssignmentTime: totalPendingAssignmentTime / totalQuestions,
         avgAwaitingModeratorTime: totalAwaitingModeratorTime / totalQuestions,
         avgAwaitingClosureTime: totalAwaitingClosureTime / totalQuestions,
-        avgAuthoringTime:
-          authoringCount > 0 ? totalAuthoringTime / authoringCount : 0,
-        avgR1Time: r1Count > 0 ? totalR1Time / r1Count : 0,
-        avgR2Time: r2Count > 0 ? totalR2Time / r2Count : 0,
-        avgR3Time: r3Count > 0 ? totalR3Time / r3Count : 0,
-        avgModeratorTime:
-          moderatorCount > 0 ? totalModeratorTime / moderatorCount : 0,
+        avgAuthoringTime: totalAuthoringTime / totalQuestions,
+          // authoringCount > 0 ? totalAuthoringTime / authoringCount : 0,
+        avgR1Time: r1Count > 0 ? totalR1Time / totalQuestions : 0,
+        avgR2Time: r2Count > 0 ? totalR2Time / totalQuestions : 0,
+        avgR3Time: r3Count > 0 ? totalR3Time / totalQuestions : 0,
+        avgModeratorTime: totalModeratorTime / totalQuestions,
+          // moderatorCount > 0 ? totalModeratorTime / moderatorCount : 0,
         totalReroutes,
         avgReroutesPerQuestion:
           totalQuestions > 0 ? totalReroutes / totalQuestions : 0,

@@ -480,5 +480,6 @@ export const useLifeCycleSummary = (
         limit);
     },
     enabled,
+    refetchOnWindowFocus: false,
   });
 }
