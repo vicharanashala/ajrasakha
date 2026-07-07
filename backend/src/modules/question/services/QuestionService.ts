@@ -6478,7 +6478,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         stuckSubmissions.length +
         unallocatedSubmissions.length +
         answeredNeedingReviewer.length;
-      console.log('the total work coming====', totalWork);
+      //console.log('the total work coming====', totalWork);
       if (!totalWork) {
         return {
           message: `[${label}] No questions need attention`,
@@ -6559,7 +6559,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         queue: (s.queue ?? []).map((q: any) => q?.toString()),
         createdAt: s.question?.createdAt ?? s.createdAt,
       });
-      console.log(
+     /* console.log(
         '[TimeBound][diag] stuck:',
         JSON.stringify(stuckSubmissions.map(summarizeSub)),
       );
@@ -6570,7 +6570,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       console.log(
         '[TimeBound][diag] needsReviewer:',
         JSON.stringify(answeredNeedingReviewer.map(summarizeSub)),
-      );
+      );*/
 
       const expertDiag = allExperts.map((e: any) => {
         const id = e._id.toString();
@@ -6586,11 +6586,11 @@ export class QuestionService extends BaseService implements IQuestionService {
           free: active < MAX_TIME_BOUND,
         };
       });
-      console.log(
+    /*  console.log(
         `[TimeBound][diag] experts=${allExperts.length}, free=${expertDiag.filter(x => x.free).length}, ` +
           `freeSTF=${expertDiag.filter(x => x.free && x.stf).length}, busyMapSize=${timeBoundCounts.size}`,
       );
-      console.log('[TimeBound][diag] experts:', JSON.stringify(expertDiag));
+      console.log('[TimeBound][diag] experts:', JSON.stringify(expertDiag));*/
 
       // ── Merge all lists into one priority queue ordered by question.createdAt ──
       type WorkType = 'stuck' | 'openedIdle' | 'unallocated' | 'needsReviewer';
@@ -6762,27 +6762,48 @@ export class QuestionService extends BaseService implements IQuestionService {
           }
 
           try {
-            await Promise.all([
-              this.questionSubmissionRepo.updateQueue(questionId, [
-                new ObjectId(assignedExpert),
-              ]),
-              this.userRepo.updateReputationScore(assignedExpert, true),
-              this.questionRepo.updateQuestion(questionId, {
-                isAutoAllocate: true,
-                firstAllocationAt: new Date(),
-              }),
-              this.questionSubmissionRepo.setCurrentExpertAllocatedAt(
+            // Atomic allocation: run the DB writes in one transaction so a failure in
+            // any of them rolls back the rest (no half-allocated question). Ops on a
+            // single session must run sequentially (no Promise.all inside).
+            await this._withTransaction(async (session: ClientSession) => {
+              await this.questionSubmissionRepo.updateQueue(
+                questionId,
+                [new ObjectId(assignedExpert)],
+                session,
+              );
+              await this.userRepo.updateReputationScore(
+                assignedExpert,
+                true,
+                session,
+              );
+              await this.questionRepo.updateQuestion(
+                questionId,
+                { isAutoAllocate: true, firstAllocationAt: new Date() },
+                session,
+              );
+              await this.questionSubmissionRepo.setCurrentExpertAllocatedAt(
                 questionId,
                 new Date(),
-              ),
-              this.notificationService.saveTheNotifications(
+                session,
+              );
+            });
+
+            // Notification is best-effort and lives OUTSIDE the transaction so it can
+            // never roll back a committed allocation.
+            await this.notificationService
+              .saveTheNotifications(
                 `A question from ${sourceLabel} has been assigned to you`,
                 'Answer Creation Assigned',
                 questionId,
                 assignedExpert,
                 'answer_creation',
-              ),
-            ]);
+              )
+              .catch((err: any) =>
+                console.error(
+                  `[TimeBound] Failed to notify expert ${assignedExpert} for ${questionId}:`,
+                  err?.message,
+                ),
+              );
             writeSystemAllocationAudit(
               questionId,
               (question as any)?.question,
@@ -6846,21 +6867,37 @@ export class QuestionService extends BaseService implements IQuestionService {
           }
 
           try {
-            await Promise.all([
-              this.questionSubmissionRepo.assignTimeBoundReviewer(
+            // Atomic reviewer assignment (see initial-allocation note above): DB writes
+            // run sequentially in one transaction; the notification is best-effort and
+            // lives outside so it can't roll back a committed assignment.
+            await this._withTransaction(async (session: ClientSession) => {
+              await this.questionSubmissionRepo.assignTimeBoundReviewer(
                 questionId,
                 assignedReviewer,
                 new Date(),
-              ),
-              this.userRepo.updateReputationScore(assignedReviewer, true),
-              this.notificationService.saveTheNotifications(
+                session,
+              );
+              await this.userRepo.updateReputationScore(
+                assignedReviewer,
+                true,
+                session,
+              );
+            });
+
+            await this.notificationService
+              .saveTheNotifications(
                 `A question from ${sourceLabel} needs your review`,
                 'New Review Assigned',
                 questionId,
                 assignedReviewer,
                 'peer_review',
-              ),
-            ]);
+              )
+              .catch((err: any) =>
+                console.error(
+                  `[TimeBound] Failed to notify reviewer ${assignedReviewer} for ${questionId}:`,
+                  err?.message,
+                ),
+              );
             writeSystemAllocationAudit(
               questionId,
               (question as any)?.question,

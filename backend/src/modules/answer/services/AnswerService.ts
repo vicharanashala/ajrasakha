@@ -744,11 +744,24 @@ export class AnswerService extends BaseService implements IAnswerService {
           const isNotLast =
             currentUserIndexInQueue < currentSumbmissionQueue.length - 1;
           const isQueueNotFull = currentSumbmissionQueue.length < 10;
+          // Single-allocation questions (all sources: AJRASAKHA / WHATSAPP /
+          // AGRI_EXPERT / OUTREACH) have their next reviewer assigned by the
+          // reallocate cron one at a time — reviewAnswer must NOT assign reviewers
+          // inline for them (neither the next queue member nor an auto-expand).
+          const isSingleAllocation =
+            question.source === 'AJRASAKHA' ||
+            question.source === 'WHATSAPP' ||
+            question.source === 'AGRI_EXPERT' ||
+            question.source === 'OUTREACH';
           // Case 1: Current user is not the last in the queue and total history (including next) is less than 10
           //currentSubmissionHistory.length <10
 
           // if (isNotLast &&isQueueNotFull  ) {
-          if (isNotLast && currentSubmissionHistory.length < 10) {
+          if (
+            !isSingleAllocation &&
+            isNotLast &&
+            currentSubmissionHistory.length < 10
+          ) {
             const nextExpertId =
               currentSumbmissionQueue[currentUserIndexInQueue + 1];
 
@@ -792,15 +805,7 @@ export class AnswerService extends BaseService implements IAnswerService {
 
           // Case 2: Current user is the last in the queue but the queue isn't full.
           // Single-allocation questions are managed by their own cron — do NOT
-          // auto-expand the queue when an expert submits. This covers both:
-          //   - time-bound (AJRASAKHA / WHATSAPP)
-          //   - manual (AGRI_EXPERT / OUTREACH) single-allocation
-          // The cron assigns the next reviewer one at a time instead.
-          const isSingleAllocation =
-            question.source === 'AJRASAKHA' ||
-            question.source === 'WHATSAPP' ||
-            question.source === 'AGRI_EXPERT' ||
-            question.source === 'OUTREACH';
+          // auto-expand the queue when an expert submits (see isSingleAllocation above).
           if (
             !isSingleAllocation &&
             currentUserIndexInQueue === currentSumbmissionQueue.length - 1 &&
