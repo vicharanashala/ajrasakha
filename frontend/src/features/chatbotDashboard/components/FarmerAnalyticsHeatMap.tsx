@@ -151,10 +151,17 @@ const getDuplicateGroupKey = (question: FarmerHeatMapQuestionDetail) => {
 const normalizeStatus = (status?: string) =>
   String(status || "unknown").trim().toLowerCase().replace(/_/g, "-");
 
+const isQuestionListingMetric = (metric: FarmerHeatMapMetric) =>
+  metric !== "activeFarmers";
+
 const getMetricQuestionDetails = (
   metric: FarmerHeatMapMetric,
   details: FarmerHeatMapQuestionDetail[],
 ) => {
+  if (!isQuestionListingMetric(metric)) {
+    return [];
+  }
+
   if (metric === "duplicateQuestions") {
     return details.filter((item) => normalizeStatus(item.status) === "duplicate");
   }
@@ -306,6 +313,8 @@ export function FarmerAnalyticsHeatMap({
         : [],
     [selectedCell],
   );
+  const selectedCellModalMode =
+    selectedCell?.metric === "duplicateQuestions" ? "duplicateGroups" : "details";
   const selectedDuplicateGroups = useMemo(() => {
     if (!selectedCell || selectedCell.metric !== "duplicateQuestions") return [];
 
@@ -943,7 +952,10 @@ export function FarmerAnalyticsHeatMap({
                             metric,
                             cell.questionDetails ?? [],
                           );
-                          const canOpenDetails = value > 0 && cellDetails.length > 0;
+                          const canOpenDetails =
+                            isQuestionListingMetric(metric) &&
+                            value > 0 &&
+                            cellDetails.length > 0;
                           const title = [
                             `${row.label} - ${cell.label}`,
                             `Active farmers: ${cell.activeFarmers}`,
@@ -1009,9 +1021,10 @@ export function FarmerAnalyticsHeatMap({
             )}`
           : undefined
       }
-      mode={selectedCell?.metric === "duplicateQuestions" ? "duplicateGroups" : "details"}
+      mode={selectedCellModalMode}
       detailItems={selectedCellDetails}
       duplicateGroups={selectedDuplicateGroups}
+      showCloseButton
       emptyMessage="No question details for this selection."
       duplicateEmptyMessage="No duplicate question details for this selection."
     />
