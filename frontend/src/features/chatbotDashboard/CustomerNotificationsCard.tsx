@@ -380,6 +380,9 @@ export function CustomerNotificationsCard({
           endDate={dateRange?.to}
           onClose={() => setNotificationType(null)}
           tag="notify"
+          safeNotified={safeNotified}
+          safeNotNotified={safeNotNotified}
+          safeUntracked={safeUntracked}
         />
       )}
     </div>

@@ -379,6 +379,9 @@ export function ClosedQuestionsCard({
           }}
           tag="closed"
           totalClosedAndPassed ={(closedQuestions || 0) + (passedQuestions || 0)}
+          closedQuestions={closedQuestions || 0}
+          totalQuestions={totalQuestions || 0}
+          passedQuestions={passedQuestions || 0}
         />
       )}
     </div>
