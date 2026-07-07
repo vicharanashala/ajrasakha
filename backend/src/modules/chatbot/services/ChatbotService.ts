@@ -1207,12 +1207,23 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getDistrictAnalyticsByState(
     state: string,
-    selectedStateCode: string,
+    selectedStateCode?: string,
     source = 'annam',
     userType = 'all',
   ) {
     try {
-      const stateCode = Number(selectedStateCode);
+      let stateCode: number;
+       stateCode = Number(selectedStateCode);
+      if(!selectedStateCode){
+        const states = await this.lgdService.getStates();
+        const selectedState = states.find((s)=> this.normalizeLocationName(s.stateNameEnglish) === this.normalizeLocationName(state));
+        if(!selectedState){
+          throw new InternalServerError(`State not found: ${state}`);
+        }
+        console.log("Selected state from LGD service", selectedState)
+        stateCode = selectedState.stateCode;
+      }
+      console.log("derived state code", stateCode);
       const district = await this.lgdService.getDistricts(stateCode);
       return await this.chatbotRepository.getDistrictAnalyticsByState(
         state,

@@ -26,7 +26,7 @@ export function useStateWiseAnalytics(
   source: "vicharanashala" | "annam" | "whatsapp"= "annam",
   userType: "all" | "external" | "internal" = "all",
 ) {
-  const { data, isLoading, error } = useQuery<
+  const { data, isLoading,  isFetching, error } = useQuery<
     DistrictAnalyticsResponse,
     Error
   >({
@@ -76,6 +76,7 @@ export function useStateWiseAnalytics(
   return {
     data,
     isLoading,
+    isFetching,
     error: error ?? null,
   };
 }

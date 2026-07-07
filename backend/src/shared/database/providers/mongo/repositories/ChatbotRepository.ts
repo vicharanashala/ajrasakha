@@ -4944,60 +4944,61 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.init(source);
 
-      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+    const userTypeLookupStages =
+      this.buildUserTypeLookupStages(userType);
 
-      const result = await this.messagesCollection
-        .aggregate(
-          [
-            {
-              $match: {
-                isCreatedByUser: true,
-              },
+    const result = await this.messagesCollection
+      .aggregate(
+        [
+          {
+            $match: {
+              isCreatedByUser: true,
             },
+          },
 
-            ...userTypeLookupStages,
+          ...userTypeLookupStages,
 
-            {
-              $group: {
-                _id: {
-                  $dateToString: {
-                    format: '%Y-%m',
-                    date: '$createdAt',
-                    timezone: '+05:30',
-                  },
-                },
-
-                count: {
-                  $sum: 1,
+          {
+            $group: {
+              _id: {
+                $dateToString: {
+                  format: '%Y-%m',
+                  date: '$createdAt',
+                  timezone: '+05:30',
                 },
               },
-            },
 
-            {
-              $project: {
-                month: '$_id',
-                count: 1,
-                _id: 0,
+              count: {
+                $sum: 1,
               },
             },
+          },
 
-            {
-              $sort: {
-                month: 1,
-              },
+          {
+            $project: {
+              month: '$_id',
+              count: 1,
+              _id: 0,
             },
-          ],
-          {session},
-        )
-        .toArray();
+          },
 
-      return result as MonthlyQueryCountEntry[];
-    } catch (error) {
-      throw new InternalServerError(
-        `Failed to get monthly query counts: ${error}`,
-      );
-    }
+          {
+            $sort: {
+              month: 1,
+            },
+          },
+        ],
+        {session},
+      )
+      .toArray();
+
+    return result as MonthlyQueryCountEntry[];
+  } catch (error) {
+    throw new InternalServerError(
+      `Failed to get monthly query counts: ${error}`,
+    );
   }
+}
 
   async getQuerySummaryByPeriod(
     period: 'daily' | 'weekly' | 'monthly',
