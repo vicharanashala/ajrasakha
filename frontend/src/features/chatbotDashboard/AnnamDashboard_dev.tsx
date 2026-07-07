@@ -852,6 +852,8 @@ export function AnnamDashboard_dev({
 
                     {source !== "whatsapp" && (
                       <FeedbackCard
+                        source={source}
+                        userType={filters.userType}
                         title="Feedback Data"
                         positiveFeedbacksCount={
                           userMetricesData?.feedbackData?.stats
