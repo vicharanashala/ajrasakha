@@ -47,6 +47,7 @@ import type {
   CoordinatorDuplicateQuestionHeatMapResponse,
   CoordinatorDuplicateQuestionDetail,
   CoordinatorDuplicateQuestionLocationHierarchy,
+  PaginatedFeedbackMessages,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {
   IQuestion,
@@ -512,6 +513,66 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.db.getCollection<IQuestionSubmission>('question_submissions');
     this.Reroutes = await this.db.getCollection<any>('reroutes');
     this.ReviewUsers = await this.db.getCollection<any>('users');
+  }
+
+  private buildActiveSessionFilter(userIds: ObjectId[], now = new Date()) {
+    return {
+      user: {$in: userIds},
+      revoked: {$ne: true},
+      isRevoked: {$ne: true},
+      status: {$nin: ['expired', 'invalid', 'revoked', 'inactive']},
+      $and: [
+        {
+          $or: [{invalidatedAt: {$exists: false}}, {invalidatedAt: null}],
+        },
+        {
+          $or: [
+            {expiresAt: {$exists: false}},
+            {expiresAt: null},
+            {expiresAt: {$gt: now}},
+          ],
+        },
+        {
+          $or: [
+            {expires: {$exists: false}},
+            {expires: null},
+            {expires: {$gt: now}},
+          ],
+        },
+      ],
+    };
+  }
+
+  private async attachActiveSessionCounts(
+    users: UserDetailEntry[],
+    session?: ClientSession,
+  ): Promise<UserDetailEntry[]> {
+    const userIds = users
+      .map(user => user.userId)
+      .filter(ObjectId.isValid)
+      .map(userId => new ObjectId(userId));
+
+    if (userIds.length === 0) {
+      return users.map(user => ({...user, activeSessionCount: 0}));
+    }
+
+    const sessionCounts = await this.sessionCollection
+      .aggregate(
+        [
+          {$match: this.buildActiveSessionFilter(userIds)},
+          {$group: {_id: '$user', count: {$sum: 1}}},
+        ],
+        {session},
+      )
+      .toArray();
+    const sessionCountMap = new Map(
+      sessionCounts.map(entry => [String(entry._id), Number(entry.count)]),
+    );
+
+    return users.map(user => ({
+      ...user,
+      activeSessionCount: sessionCountMap.get(user.userId) ?? 0,
+    }));
   }
 
   private DISTRICT_ALIASES: Record<string, string> = {
@@ -6712,6 +6773,142 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
+  async getFeedbackUsers(
+    source = 'annam',
+    page = 1,
+    limit = 10,
+    search?: string,
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+    userType = 'all',
+    rating?: string,
+    tag?: string,
+    session?: ClientSession,
+  ): Promise<PaginatedFeedbackMessages> {
+    try {
+      await this.init(source);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+
+      const matchStage: any = {
+        feedback: {$exists: true},
+        isCreatedByUser: false,
+        isDeleted: {$ne: true},
+      };
+
+      if (rating === 'thumbsUp' || rating === 'thumbsDown') {
+        matchStage['feedback.rating'] = rating;
+      }
+
+      if (tag) {
+        matchStage['feedback.tag'] = tag;
+      }
+
+      const pipeline: any[] = [
+        {$match: matchStage},
+      ];
+
+      if (userTypeLookupStages.length > 0) {
+        pipeline.push(...userTypeLookupStages);
+      } else {
+        pipeline.push(
+          {
+            $addFields: {
+              _userOid: {
+                $cond: [
+                  {
+                    $and: [{$ne: ['$user', null]}, {$ne: ['$user', '']}],
+                  },
+                  {$toObjectId: '$user'},
+                  null,
+                ],
+              },
+            },
+          },
+          {
+            $lookup: {
+              from: 'users',
+              localField: '_userOid',
+              foreignField: '_id',
+              as: '_userDoc',
+            },
+          }
+        );
+      }
+
+      pipeline.push({
+        $unwind: {
+          path: '$_userDoc',
+          preserveNullAndEmptyArrays: true,
+        },
+      });
+
+      if (search) {
+        const searchRegex = new RegExp(search, 'i');
+        pipeline.push({
+          $match: {
+            $or: [
+              {question: {$regex: searchRegex}},
+              {response: {$regex: searchRegex}},
+              {'feedback.tag': {$regex: searchRegex}},
+              {'feedback.details': {$regex: searchRegex}},
+              {'_userDoc.farmerProfile.farmerName': {$regex: searchRegex}},
+            ],
+          },
+        });
+      }
+
+      const sortStage: any = {};
+      sortStage[sortBy] = sortOrder === 'asc' ? 1 : -1;
+      pipeline.push({$sort: sortStage});
+
+      const skip = (page - 1) * limit;
+
+      const facetStage = {
+        $facet: {
+          metadata: [{$count: 'total'}],
+          data: [
+            {$skip: skip},
+            {$limit: limit},
+            {
+              $project: {
+                _id: 1,
+                conversationId: 1,
+                userId: '$_userDoc._id',
+                farmerName: '$_userDoc.farmerProfile.farmerName',
+                email: '$_userDoc.email',
+                village: '$_userDoc.farmerProfile.villageName',
+                block: '$_userDoc.farmerProfile.blockName',
+                district: '$_userDoc.farmerProfile.district',
+                state: '$_userDoc.farmerProfile.state',
+                question: 1,
+                response: 1,
+                feedback: 1,
+                createdAt: 1,
+              },
+            },
+          ],
+        },
+      };
+
+      pipeline.push(facetStage);
+
+      const result = await this.messagesCollection.aggregate(pipeline, {session}).toArray();
+      const totalFeedbacks = result[0]?.metadata[0]?.total || 0;
+      const messages = result[0]?.data || [];
+
+      return {
+        messages,
+        totalFeedbacks,
+        totalPages: Math.ceil(totalFeedbacks / limit),
+        currentPage: page,
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to get feedback users: ${error}`);
+    }
+  }
+
+
+
   async getTodayQueryCount(
     source = 'annam',
     session?: ClientSession,
@@ -7074,6 +7271,7 @@ export class ChatbotRepository implements IChatbotRepository {
     activeTodayByProfile = false,
     missingDemographicField = '',
     isVerfied?: boolean,
+    loginStatus: 'all' | 'loggedIn' | 'loggedOut' = 'all',
   ): Promise<PaginatedUserDetails> {
     try {
       await this.init(source);
@@ -7356,10 +7554,15 @@ export class ChatbotRepository implements IChatbotRepository {
           : undefined,
       }));
 
+      const withSessionCounts =
+        loginStatus !== 'all'
+          ? await this.attachActiveSessionCounts(merged, session)
+          : merged;
+
       // Filter to inactive users only if requested
       const afterInactive = inactiveOnly
-        ? merged.filter(u => u.totalQuestions === 0)
-        : merged;
+        ? withSessionCounts.filter(u => u.totalQuestions === 0)
+        : withSessionCounts;
 
       // Filter to low-feedback users only if requested (all-time, no date range on feedback)
       let finalList = afterInactive;
@@ -7380,6 +7583,12 @@ export class ChatbotRepository implements IChatbotRepository {
           feedbackDocs.map((d: any) => String(d._id)),
         );
         finalList = afterInactive.filter(u => !usersWithFeedback.has(u.userId));
+      }
+
+      if (loginStatus === 'loggedIn') {
+        finalList = finalList.filter(u => (u.activeSessionCount ?? 0) > 0);
+      } else if (loginStatus === 'loggedOut') {
+        finalList = finalList.filter(u => (u.activeSessionCount ?? 0) === 0);
       }
 
       // Sort based on sortBy and sortOrder parameters
@@ -7432,7 +7641,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
       // Paginate
       const startIdx = (page - 1) * limit;
-      const users = finalList.slice(startIdx, startIdx + limit);
+      const users = await this.attachActiveSessionCounts(
+        finalList.slice(startIdx, startIdx + limit),
+        session,
+      );
 
       return {
         users,
@@ -8925,6 +9137,127 @@ export class ChatbotRepository implements IChatbotRepository {
     } catch (error) {
       throw new InternalServerError(
         `Failed to get users by demographic: ${error}`,
+      );
+    }
+  }
+
+  async getUsersByPlatform(
+    platform: string,
+    source = 'annam',
+    page = 1,
+    limit = 10,
+    search = '',
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+    userType = 'all',
+    session?: ClientSession,
+  ): Promise<PaginatedUserDetails> {
+    try {
+      await this.init(source);
+
+      const userFilter: Record<string, any> = {
+        ...this.buildUserDocFilter(userType),
+      };
+
+      const normalizedPlatform = platform?.trim();
+      const basePlatformFilter = {
+        farmerProfile: {$exists: true, $ne: null},
+      };
+      const platformFilter =
+        normalizedPlatform === 'Unknown'
+          ? {
+              ...basePlatformFilter,
+              $or: [
+                {'farmerProfile.platform': {$exists: false}},
+                {'farmerProfile.platform': null},
+                {'farmerProfile.platform': ''},
+                {
+                  $expr: {
+                    $eq: [
+                      {$trim: {input: {$ifNull: ['$farmerProfile.platform', '']}}},
+                      '',
+                    ],
+                  },
+                },
+              ],
+            }
+          : {
+              ...basePlatformFilter,
+              'farmerProfile.platform': normalizedPlatform,
+            };
+
+      userFilter.$and = [...(userFilter.$and ?? []), platformFilter];
+
+      if (search && search.trim()) {
+        const escaped = search
+          .trim()
+          .replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
+        const regex = {$regex: escaped, $options: 'i'};
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          {
+            $or: [
+              {name: regex},
+              {email: regex},
+              {'farmerProfile.phoneNo': regex},
+            ],
+          },
+        ];
+      }
+
+      const sortOptions: Record<string, 1 | -1> = {};
+      const sortDirection = sortOrder === 'asc' ? 1 : -1;
+
+      switch (sortBy) {
+        case 'name':
+          sortOptions.name = sortDirection;
+          break;
+        case 'email':
+          sortOptions.email = sortDirection;
+          break;
+        case 'createdAt':
+        default:
+          sortOptions.createdAt = sortDirection;
+          break;
+      }
+
+      const skip = (page - 1) * limit;
+
+      const [users, totalUsers] = await Promise.all([
+        this.users
+          .find(userFilter, {session})
+          .sort(sortOptions)
+          .skip(skip)
+          .limit(limit)
+          .toArray(),
+        this.users.countDocuments(userFilter, {session}),
+      ]);
+
+      const formattedUsers: UserDetailEntry[] = users.map(user => ({
+        userId: String(user._id),
+        name: user.name || user.firstName || '',
+        email: user.email || '',
+        role: user.role,
+        userRole: user.userRole,
+        totalQuestions: 0,
+        farmerProfile: user.farmerProfile,
+        createdAt: user.createdAt,
+        isVerified: user.isVerified,
+      }));
+
+      return {
+        users: formattedUsers,
+        totalUsers,
+        totalPages: Math.ceil(totalUsers / limit),
+        page,
+        limit,
+        activeUsers: 0,
+        inactiveUsers: 0,
+        totalQuestions: 0,
+      } as unknown as PaginatedUserDetails;
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get users by platform: ${error}`,
       );
     }
   }
@@ -15281,6 +15614,17 @@ export class ChatbotRepository implements IChatbotRepository {
         }
       }
 
+      const usersWithSessions = await this.attachActiveSessionCounts(
+        [
+          {
+            userId: userIdString,
+            ...users[0],
+          } as any,
+        ],
+        session,
+      );
+      const activeSessionCount = usersWithSessions[0]?.activeSessionCount ?? 0;
+
       return {
         userId: users[0]._id,
         name: users[0].name,
@@ -15291,6 +15635,7 @@ export class ChatbotRepository implements IChatbotRepository {
         createdAt: users[0].createdAt,
         isVerified: users[0].isVerified,
         userRole: users[0].userRole,
+        activeSessionCount,
         totalQuestions: farmerDashboard.questionMetrics.totalQuestionsAsked,
         farmerDashboard,
         unAssigned: unAssigned ?? [],

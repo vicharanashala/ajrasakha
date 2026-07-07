@@ -604,4 +604,44 @@ export class ChatbotService {
       `${this._baseUrl}/lifecycle-summary?${params.toString()}`
     );
   }
+
+  async getFeedbackUsers({
+    page,
+    limit,
+    search,
+    sortBy,
+    sortOrder,
+    rating,
+    tag,
+    source,
+    userType,
+  }: {
+    page: number;
+    limit: number;
+    search?: string;
+    sortBy?: string;
+    sortOrder?: string;
+    rating?: string;
+    tag?: string;
+    source?: string;
+    userType?: string;
+  }): Promise<any> {
+    const params = new URLSearchParams();
+    params.append("page", page.toString());
+    params.append("limit", limit.toString());
+    if (search) params.append("search", search);
+    if (sortBy) params.append("sortBy", sortBy);
+    if (sortOrder) params.append("sortOrder", sortOrder);
+    if (rating) {
+      const apiRating = rating === 'positive' ? 'thumbsUp' : rating === 'negative' ? 'thumbsDown' : rating;
+      params.append("rating", apiRating);
+    }
+    if (tag) params.append("tag", tag);
+    if (source) params.append("source", source);
+    if (userType) params.append("userType", userType);
+
+    return apiFetch<any>(
+      `${this._baseUrl}/feedback-users?${params.toString()}`
+    );
+  }
 }

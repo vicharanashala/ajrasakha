@@ -26,6 +26,7 @@ import type {
   CoordinatorDuplicateQuestionHeatMapResponse,
   CoordinatorDuplicateQuestionLocationHierarchy,
   QueryCategoryQuestionType,
+  PaginatedFeedbackMessages,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import ExcelJS from 'exceljs';
 import {GrowthResponse} from '../types/chatbot.type.js';
@@ -775,6 +776,30 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
+  async getFeedbackUsers(
+    source = 'annam',
+    page = 1,
+    limit = 10,
+    search?: string,
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+    userType = 'all',
+    rating?: string,
+    tag?: string,
+  ): Promise<PaginatedFeedbackMessages> {
+    return this.chatbotRepository.getFeedbackUsers(
+      source,
+      page,
+      limit,
+      search,
+      sortBy,
+      sortOrder,
+      userType,
+      rating,
+      tag,
+    );
+  }
+
   async getDashboard(
     days = 30,
     source = 'annam',
@@ -1441,6 +1466,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     activeTodayByProfile = false,
     missingDemographicField?: string,
     isVerified?: boolean,
+    loginStatus: 'all' | 'loggedIn' | 'loggedOut' = 'all',
   ): Promise<PaginatedUserDetails> {
     try {
       const start = startDate ? new Date(startDate) : undefined;
@@ -1470,6 +1496,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         activeTodayByProfile,
         missingDemographicField,
         isVerified,
+        loginStatus,
       );
       return data;
     } catch (error) {
@@ -1508,6 +1535,39 @@ export class ChatbotService extends BaseService implements IChatbotService {
     } catch (error) {
       throw new InternalServerError(
         `Failed to fetch users by demographic: ${error}`,
+      );
+    }
+  }
+
+  async getUsersByPlatform(
+    platform: string,
+    source = 'annam',
+    page = 1,
+    limit = 10,
+    search = '',
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+    userType = 'all',
+  ): Promise<PaginatedUserDetails> {
+    try {
+      const data = await this.chatbotRepository.getUsersByPlatform(
+        platform,
+        source,
+        page,
+        limit,
+        search,
+        sortBy,
+        sortOrder,
+        userType,
+      );
+
+      return {
+        ...data,
+        currentPage: page,
+      } as PaginatedUserDetails;
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch users by platform: ${error}`,
       );
     }
   }
