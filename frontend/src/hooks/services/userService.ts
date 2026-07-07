@@ -169,7 +169,7 @@ export class UserService {
       }
     }
 
-    return apiFetch<any>(`${API_BASE_URL}/user-history?${params.toString()}`);
+    return apiFetch<any>(`${this._baseUrl}/user-history?${params.toString()}`);
   }
 
   async getCallAgents(): Promise<IUser[] | null> {

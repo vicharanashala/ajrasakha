@@ -58,7 +58,7 @@ const buildDateTimeValue = (date?: string, time?: string) => {
 };
 
 const formatDisplayDateTime = (value?: string | null) => {
-  if (!value) return "—";
+  if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat("en-IN", {
@@ -69,7 +69,7 @@ const formatDisplayDateTime = (value?: string | null) => {
 
 const formatValue = (value: unknown) => {
   if (typeof value === "boolean") return value ? "Yes" : "No";
-  if (value === undefined || value === null || value === "") return "—";
+  if (value === undefined || value === null || value === "") return "-";
   return String(value);
 };
 
@@ -106,36 +106,24 @@ function RouteComponent() {
     toValue,
   );
 
-  const userDetails = data?.userDetails ?? {};
-  const history = Array.isArray(data?.history)
-    ? data.history
-    : Array.isArray(data?.data)
-      ? data.data
-      : [];
+  const userDetails = data?.userDetails;
+  const history = data?.roleHistory ?? [];
 
-  const windowFrom = data?.from ?? data?.period?.from ?? data?.timePeriod?.from;
-  const windowTo = data?.to ?? data?.period?.to ?? data?.timePeriod?.to;
+  const windowFrom = fromValue;
+  const windowTo = toValue;
 
   const displayName =
-    userDetails.name || userDetails.fullName || userDetails.userName || "User";
-  const displayEmail = userDetails.email || "—";
-  const displayRole = userDetails.role || userDetails.userRole || "—";
-  const displayStatus = userDetails.status || userDetails.userStatus || "—";
-  const isBlocked =
-    typeof userDetails.blocked === "boolean"
-      ? userDetails.blocked
-      : typeof userDetails.isBlocked === "boolean"
-        ? userDetails.isBlocked
-        : false;
-  const isStf =
-    typeof userDetails.stf === "boolean"
-      ? userDetails.stf
-      : typeof userDetails.isSTF === "boolean"
-        ? userDetails.isSTF
-        : false;
+    userDetails?.name ||
+    [userDetails?.firstName, userDetails?.lastName].filter(Boolean).join(" ") ||
+    "User";
+  const displayEmail = userDetails?.email || "-";
+  const displayRole = userDetails?.role || "-";
+  const displayStatus = userDetails?.status || "-";
+  const isBlocked = userDetails?.isBlocked ?? false;
+  const isStf = userDetails?.special_task_force ?? false;
 
   const selectedRangeLabel = useMemo(() => {
-    if (fromValue && toValue) return `${fromValue} → ${toValue}`;
+    if (fromValue && toValue) return `${fromValue} -> ${toValue}`;
     if (fromValue) return `From ${fromValue}`;
     if (toValue) return `Until ${toValue}`;
     return "All available history";
@@ -375,19 +363,12 @@ function RouteComponent() {
                   <TableBody>
                     {history.map((item: UserHistoryItem, index: number) => (
                       <TableRow
-                        key={item.id ?? `${item.timestamp ?? "entry"}-${index}`}
+                        key={item._id ?? `${item.from ?? "entry"}-${index}`}
                       >
                         <TableCell className="font-medium text-foreground">
-                          {formatDisplayDateTime(
-                            item.timestamp ||
-                              item.createdAt ||
-                              item.date ||
-                              item.time,
-                          )}
+                          {formatDisplayDateTime(item.from)}
                         </TableCell>
-                        <TableCell>
-                          {getDisplayText(item.role || displayRole)}
-                        </TableCell>
+                        <TableCell>{getDisplayText(item.role)}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="capitalize">
                             {getDisplayText(item.status || displayStatus)}
@@ -396,32 +377,30 @@ function RouteComponent() {
                         <TableCell>
                           <Badge
                             variant={
-                              item.blocked === true || isBlocked
+                              item.isBlocked === true || isBlocked
                                 ? "destructive"
                                 : "secondary"
                             }
                           >
-                            {formatValue(item.blocked ?? isBlocked)}
+                            {formatValue(item.isBlocked ?? isBlocked)}
                           </Badge>
                         </TableCell>
                         <TableCell>
                           <Badge
                             variant={
-                              item.stf === true || isStf
+                              item.special_task_force === true || isStf
                                 ? "default"
                                 : "secondary"
                             }
                           >
-                            {formatValue(item.stf ?? isStf)}
+                            {formatValue(item.special_task_force ?? isStf)}
                           </Badge>
                         </TableCell>
                         <TableCell className="max-w-[320px] whitespace-normal text-sm text-muted-foreground">
                           {getDisplayText(
-                            item.description ||
-                              item.details ||
-                              item.title ||
-                              item.action ||
-                              "No details available",
+                            item.to
+                              ? `Active until ${formatDisplayDateTime(item.to)}`
+                              : "Currently active",
                           )}
                         </TableCell>
                       </TableRow>
