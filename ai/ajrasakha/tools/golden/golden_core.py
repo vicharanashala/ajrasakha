@@ -48,8 +48,13 @@ GOLDEN_RAG_TOP_K = int(os.getenv("GOLDEN_RAG_TOP_K", "5"))
 QUESTIONS_TOP_K = int(os.getenv("QUESTIONS_TOP_K", "3"))
 ANSWERS_TOP_K = int(os.getenv("ANSWERS_TOP_K", "2"))
 
+# BM25 search configuration
+BM25_TOP_K = int(os.getenv("BM25_TOP_K", "3"))
+BM25_SEARCH_INDEX = os.getenv("BM25_SEARCH_INDEX", "review_questions_search_index")
+
 RETRIEVAL_SOURCE_RAG = "rag"
 RETRIEVAL_SOURCE_STRICT_EXACT = "strict_exact"
+RETRIEVAL_SOURCE_BM25 = "bm25"
 
 if not MONGODB_URI:
     raise RuntimeError("GOLDEN_MONGODB_URI is not set")
@@ -564,6 +569,127 @@ async def strict_exact_search(
             len(raw_results),
         )
     return result
+
+
+async def bm25_search(
+    keywords: str,
+    crop: str,
+    state: str,
+    *,
+    exclude_question_ids: set[str] | None = None,
+    top_k: int | None = None,
+) -> list[QuestionAnswerPair]:
+    """
+    BM25 keyword search returning QuestionAnswerPairs.
+    
+    This searches using extracted agricultural keywords and returns
+    formatted pairs suitable for the RAG pipeline.
+    
+    Args:
+        keywords: Space-separated keywords from keyword extraction
+        crop: Crop filter
+        state: State filter
+        exclude_question_ids: Question IDs to exclude (from semantic results)
+        top_k: Maximum results to return
+    
+    Returns:
+        List of QuestionAnswerPairs from BM25 search
+    """
+    k = top_k or BM25_TOP_K
+    
+    if not keywords or not keywords.strip():
+        log.info("BM25 search skipped: no keywords provided")
+        return []
+    
+    crop, state = _normalize_crop_state(crop, state)
+    log.info(
+        "bm25 search start keywords=%r crop=%s state=%s top_k=%d",
+        _truncate_text(keywords, 80),
+        crop,
+        state,
+        k,
+    )
+    
+    # Build filter for closed questions
+    filters: dict[str, Any] = {"status": "closed"}
+    if crop != "all":
+        filters["details.normalised_crop"] = crop
+    if state != "all":
+        filters["details.state"] = state
+    
+    try:
+        pipeline = [
+            {
+                "$search": {
+                    "index": BM25_SEARCH_INDEX,
+                    "text": {
+                        "query": keywords,
+                        "path": ["question", "text", "answer"],
+                        "fuzzy": {"maxEdits": 2},  # Allow typo tolerance
+                    },
+                }
+            },
+            {"$match": filters},
+            {
+                "$project": {
+                    "_id": 1,
+                    "question": 1,
+                    "text": 1,
+                    "answer": 1,
+                    "search_score": {"$meta": "searchScore"},
+                }
+            },
+            {"$limit": k},
+        ]
+        
+        cursor = await questions_collection.aggregate(pipeline)
+        raw_results = await cursor.to_list(length=k)
+        log.info("bm25 search returned %d candidates", len(raw_results))
+        
+        if not raw_results:
+            return []
+        
+        result: list[QuestionAnswerPair] = []
+        
+        for doc in raw_results:
+            question_id = str(doc["_id"])
+            
+            # Skip if already in semantic results
+            if exclude_question_ids and question_id in exclude_question_ids:
+                log.info("BM25: skipping duplicate question_id=%s", question_id)
+                continue
+            
+            answer, sources, author_name = await _get_answer_text_sources_and_author_name(question_id)
+            if not answer:
+                continue
+            
+            score = doc.get("search_score")
+            # Normalize score to 0-1 range
+            similarity_score = min(max((score or 0.5) / 10.0, 0.0), 1.0) if score else 0.5
+            
+            result.append(
+                QuestionAnswerPair(
+                    question_id=question_id,
+                    question_text=doc.get("question") or doc.get("text", ""),
+                    answer_text=answer,
+                    author=author_name,
+                    sources=sources if sources else [],
+                    similarity_score=similarity_score,
+                )
+            )
+            log.info(
+                "BM25[%s]: score=%s question=%r",
+                question_id,
+                f"{score:.4f}" if score else "n/a",
+                _truncate_text(doc.get("question") or "", 60),
+            )
+        
+        _log_search_hits("bm25", keywords, crop, state, result)
+        return result
+        
+    except Exception as exc:
+        log.warning("bm25 search failed: %s: %s", type(exc).__name__, exc)
+        return []
 
 
 def _pending_meta_filter(

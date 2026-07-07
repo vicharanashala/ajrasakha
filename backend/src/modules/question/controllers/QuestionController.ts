@@ -1413,6 +1413,56 @@ export class QuestionController {
       }
     }
 
+    // ─── Moderator auto-allocation toggle — audited as TOGGLE_MODERATOR_ALLOCATION ──
+    // The moderator queue toggle sends { autoAllocateModerator } through this generic
+    // update; record it as its own action (on/off) instead of a plain "Question Updated".
+    if (updates.autoAllocateModerator !== undefined) {
+      const toggleAudit: ModeratorAuditTrail = {
+        category: AuditCategory.EXPERTS_CATEGORY,
+        action: AuditAction.TOGGLE_MODERATOR_ALLOCATION,
+        actor: {
+          id: user._id.toString(),
+          name: `${user.firstName} ${user.lastName}`,
+          email: user.email,
+          role: user.role,
+          avatar: user?.avatar || '',
+        },
+        context: { questionId },
+        outcome: { status: OutComeStatus.SUCCESS },
+        createdAt: new Date(),
+      };
+      try {
+        // Use getQuestionDataById (raw IQuestion) — getQuestionById returns a trimmed
+        // object WITHOUT autoAllocateModerator, which would make `before` always false.
+        const prev = await this.questionService.getQuestionDataById(questionId);
+        response = await this.questionService.updateQuestion(questionId, updates);
+        this.auditTrailsService.createAuditTrail({
+          ...toggleAudit,
+          context: { ...toggleAudit.context, question: (prev as any)?.question },
+          changes: {
+            before: { autoAllocateModerator: prev?.autoAllocateModerator ?? false },
+            after: { autoAllocateModerator: updates.autoAllocateModerator },
+          },
+        });
+        return response;
+      } catch (err: any) {
+        this.auditTrailsService.createAuditTrail({
+          ...toggleAudit,
+          outcome: {
+            status: OutComeStatus.FAILED,
+            errorCode: err?.errorCode || 'INTERNAL_ERROR',
+            errorMessage: err?.message || 'Failed to toggle moderator allocation',
+            errorName: err?.name || 'Error',
+            errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+          },
+        });
+        if (err instanceof InternalServerError) {
+          throw new InternalServerError(err.message);
+        }
+        throw new BadRequestError(err?.message || 'Failed to toggle moderator allocation');
+      }
+    }
+
     // ─── Generic update (non-pass) — audited as QUESTION_UPDATE ──────────────
     let auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.QUESTION,
