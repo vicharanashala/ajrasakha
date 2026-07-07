@@ -961,11 +961,11 @@ export interface IChatbotRepository {
     userType?: string,
   ): Promise<{label: string; totalQueries: number}>;
 
-  getClosedVsTotalQuestions(source: string, userType?: string, startDate?: Date, endDate?: Date):Promise<any>;
+  getClosedVsTotalQuestions(source: string, userType?: string, startDate?: Date, endDate?: Date, userId?: string):Promise<any>;
 
-  getNotifiedVsClosed(source?: string, userType?: string, startDate?: Date, endDate?: Date):Promise<any>;
+  getNotifiedVsClosed(source?: string, userType?: string, startDate?: Date, endDate?: Date, userId?: string):Promise<any>;
 
-  getClosedInLastTwoHours(source?: string, userType?: string, startDate?: Date, endDate?: Date): Promise<any>;
+  getClosedInLastTwoHours(source?: string, userType?: string, startDate?: Date, endDate?: Date, userId?: string): Promise<any>;
 
   getMonthlyChurnRate(source: string, userType: string): Promise<any>;
 

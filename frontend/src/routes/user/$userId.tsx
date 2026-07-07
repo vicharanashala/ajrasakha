@@ -553,6 +553,7 @@ function RouteComponent() {
         )}
         <FarmerDashboardAnalytics
           dashboard={userProfile?.farmerDashboard as FarmerDashboardData}
+          userId={String(userProfile?.userId || userId)}
           afterEngagementTrends={
             viewedProfileIsCoordinator ? (
               <CoordinatorDuplicateQuestionHeatMap

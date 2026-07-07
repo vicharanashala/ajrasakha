@@ -315,6 +315,7 @@ export interface IChatbotService {
     userType?: string,
     startDate?: string,
     endDate?: string,
+    userId?: string,
   ): Promise<any>;
   getMonthlyChurnRate(source: string, userType: string): Promise<any>;
   getActiveUsersTrend(

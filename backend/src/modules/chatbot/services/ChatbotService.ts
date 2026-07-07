@@ -3271,6 +3271,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     userType?: string,
     startDateStr?: string,
     endDateStr?: string,
+    userId?: string,
   ): Promise<any> {
     const startDate = startDateStr ? new Date(startDateStr) : undefined;
     const endDate = endDateStr ? new Date(endDateStr) : undefined;
@@ -3286,13 +3287,15 @@ export class ChatbotService extends BaseService implements IChatbotService {
         userType,
         startDate,
         endDate,
+        userId,
       ),
-      this.chatbotRepository.getNotifiedVsClosed(source, userType, startDate, endDate),
+      this.chatbotRepository.getNotifiedVsClosed(source, userType, startDate,endDate, userId,),
       this.chatbotRepository.getClosedInLastTwoHours(
         source,
         userType,
         startDate,
         endDate,
+        userId,
       ),
       this.chatbotRepository.getCarryForwardQuestions(source, userType),
     ]);

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Fragment, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Badge } from "@/components/atoms/badge";
 import { Button } from "@/components/atoms/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
@@ -13,6 +13,12 @@ import {
 } from "@/components/atoms/table";
 import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
 import { BarChart3, MessageSquareText } from "lucide-react";
+import type { DateRange } from "react-day-picker";
+import { ClosedInLastTwoHoursCard } from "../ClosedInLastTwoHoursCard";
+import { ClosedQuestionsCard } from "../ClosedQuestionsCard";
+import { CustomerNotificationsCard } from "../CustomerNotificationsCard";
+import { useClosedAndNotifedData } from "../hooks/useActiveUsersAnalytics";
+import { getISOStringsForDateRange } from "../utils/dateUtils";
 
 type TrendGranularity = "daily" | "weekly" | "monthly";
 
@@ -61,9 +67,11 @@ export type FarmerDashboardData = {
 
 export function FarmerDashboardAnalytics({
   dashboard,
+  userId,
   afterEngagementTrends,
 }: {
   dashboard?: FarmerDashboardData;
+  userId?: string;
   afterEngagementTrends?: ReactNode;
 }) {
   const [trendGranularity, setTrendGranularity] =
@@ -72,7 +80,6 @@ export function FarmerDashboardAnalytics({
     null,
   );
 
-  const questionMetrics = dashboard?.questionMetrics ?? {};
   const messagingMetrics = dashboard?.messagingMetrics ?? {};
   const selectedTrend = dashboard?.engagementTrends?.[trendGranularity];
   const recentQuestions = (dashboard?.recentQuestions ?? []).slice(0, 10);
@@ -86,20 +93,6 @@ export function FarmerDashboardAnalytics({
     })),
   ).slice(0, 10);
 
-  const questionMetricCards: [string, any][] = [
-    ["Total Questions Asked", questionMetrics.totalQuestionsAsked],
-    ["Questions Closed", questionMetrics.questionsClosed],
-    ["Questions in Review", questionMetrics.questionsInReview],
-    ["Questions Pending", questionMetrics.questionsPending],
-    ["Duplicate Questions", questionMetrics.duplicateQuestions],
-    ["Non-Duplicate Questions", questionMetrics.nonDuplicateQuestions],
-    [
-      "Questions Closed Within 2 Hours",
-      questionMetrics.questionsClosedWithin2Hours,
-    ],
-    ["Carry-Forward Questions", questionMetrics.carryForwardQuestions],
-    ["Questions Awaiting Review", questionMetrics.questionsAwaitingReview],
-  ];
   const messagingMetricCards: [string, any][] = [
     ["Total Messages Sent", messagingMetrics.totalMessagesSent],
     ["User Messages", messagingMetrics.userMessages],
@@ -119,14 +112,9 @@ export function FarmerDashboardAnalytics({
 
   return (
     <div className="space-y-8">
-      <div className="grid gap-6 xl:grid-cols-2">
-        <DashboardSection
-          icon={<BarChart3 className="h-5 w-5" />}
-          title="Question Metrics"
-        >
-          <MetricGrid metrics={questionMetricCards} />
-        </DashboardSection>
+      <UserQuestionMetricsCards userId={userId} />
 
+      <div className="grid gap-6">
         <DashboardSection
           icon={<MessageSquareText className="h-5 w-5" />}
           title="Messaging Metrics"
@@ -304,6 +292,132 @@ export function FarmerDashboardAnalytics({
           </div>
         </DashboardSection>
       )}
+    </div>
+  );
+}
+
+function UserQuestionMetricsCards({ userId }: { userId?: string }) {
+  const [questionStatusDateRange, setQuestionStatusDateRange] =
+    useState<DateRange | undefined>(undefined);
+  const [closed2hDateRange, setClosed2hDateRange] =
+    useState<DateRange | undefined>(undefined);
+  const [customerNotificationsDateRange, setCustomerNotificationsDateRange] =
+    useState<DateRange | undefined>(undefined);
+
+  const questionStatusRange = useMemo(
+    () => getISOStringsForDateRange(questionStatusDateRange),
+    [questionStatusDateRange],
+  );
+  const closed2hRange = useMemo(
+    () => getISOStringsForDateRange(closed2hDateRange),
+    [closed2hDateRange],
+  );
+  const customerNotificationsRange = useMemo(
+    () => getISOStringsForDateRange(customerNotificationsDateRange),
+    [customerNotificationsDateRange],
+  );
+
+  const { data: questionStatusData, isFetching: isQuestionStatusFetching } =
+    useClosedAndNotifedData(
+      "annam",
+      "all",
+      questionStatusRange.startTime,
+      questionStatusRange.endTime,
+      Boolean(userId),
+      userId,
+    );
+  const { data: closed2hData, isFetching: isClosed2hFetching } =
+    useClosedAndNotifedData(
+      "annam",
+      "all",
+      closed2hRange.startTime,
+      closed2hRange.endTime,
+      Boolean(userId),
+      userId,
+    );
+  const {
+    data: customerNotificationsData,
+    isFetching: isCustomerNotificationsFetching,
+  } = useClosedAndNotifedData(
+    "annam",
+    "all",
+    customerNotificationsRange.startTime,
+    customerNotificationsRange.endTime,
+    Boolean(userId),
+    userId,
+  );
+
+  return (
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <ClosedQuestionsCard
+        closedQuestions={
+          questionStatusData?.closedVsTotalQuestions?.closed?.count
+        }
+        totalQuestions={
+          questionStatusData?.closedVsTotalQuestions?.totalQuestions
+        }
+        dateRange={questionStatusDateRange}
+        onDateRangeChange={setQuestionStatusDateRange}
+        isLoading={!userId || isQuestionStatusFetching}
+        isFetching={isQuestionStatusFetching}
+        carryForward={questionStatusData?.carryForward}
+        avgCloseTimeMinutes={
+          questionStatusData?.closedVsTotalQuestions?.closed?.avgTimeMinutes
+        }
+        previousMonthAvgCloseTimeMinutes={
+          questionStatusData?.closedVsTotalQuestions
+            ?.previousMonthAvgCloseTimeMinutes
+        }
+        statusBreakup={questionStatusData?.closedVsTotalQuestions}
+        source="annam"
+        userType="all"
+        passedQuestions={
+          questionStatusData?.closedVsTotalQuestions?.statuses?.pass
+        }
+        avgPassTimeMinutes={
+          questionStatusData?.closedVsTotalQuestions?.pass?.avgTimeMinutes
+        }
+        combinedCount={
+          questionStatusData?.closedVsTotalQuestions?.combined?.count
+        }
+        combinedAvgTime={
+          questionStatusData?.closedVsTotalQuestions?.combined?.avgTimeMinutes
+        }
+      />
+
+      <ClosedInLastTwoHoursCard
+        source="annam"
+        userType="all"
+        closedInLastTwoHours={
+          closed2hData?.closedInLastTwoHours?.closedInTwoHoursCount
+        }
+        totalClosed={closed2hData?.closedInLastTwoHours?.totalClosedCount}
+        dateRange={closed2hDateRange}
+        onDateRangeChange={setClosed2hDateRange}
+        isLoading={!userId || isClosed2hFetching}
+        isFetching={isClosed2hFetching}
+        passedInLastTwoHours={
+          closed2hData?.closedInLastTwoHours?.passInTwoHoursCount
+        }
+        totalPassed={closed2hData?.closedInLastTwoHours?.totalPassCount}
+      />
+
+      <CustomerNotificationsCard
+        notified={customerNotificationsData?.notifiedVsClosed?.notified}
+        notNotified={
+          customerNotificationsData?.notifiedVsClosed?.notNotified
+        }
+        untrackedClosedQuestions={
+          customerNotificationsData?.notifiedVsClosed
+            ?.untrackedClosedQuestions
+        }
+        dateRange={customerNotificationsDateRange}
+        onDateRangeChange={setCustomerNotificationsDateRange}
+        isLoading={!userId || isCustomerNotificationsFetching}
+        isFetching={isCustomerNotificationsFetching}
+        source="annam"
+        userType="all"
+      />
     </div>
   );
 }

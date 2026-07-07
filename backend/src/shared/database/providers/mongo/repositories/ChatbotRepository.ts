@@ -11710,11 +11710,57 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
+  private async buildUserQuestionScope(userId?: string): Promise<any | null> {
+    if (!userId) return null;
+
+    const userMatches: any[] = [{userId}];
+    if (ObjectId.isValid(userId)) {
+      const objectId = new ObjectId(userId);
+      userMatches.push({userId: objectId});
+
+      await this.init('annam');
+      const userMessages = await this.messagesCollection
+        .find(
+          {
+            user: objectId.toString(),
+            isDeleted: {$ne: true},
+          },
+          {
+            projection: {
+              messageId: 1,
+              threadId: 1,
+              conversationId: 1,
+            },
+          },
+        )
+        .toArray();
+
+      const messageIds = [
+        ...new Set(
+          userMessages.map((message: any) => message.messageId).filter(Boolean),
+        ),
+      ];
+      const threadIds = [
+        ...new Set(
+          userMessages
+            .map((message: any) => message.threadId || message.conversationId)
+            .filter(Boolean),
+        ),
+      ];
+
+      if (messageIds.length > 0) userMatches.push({messageId: {$in: messageIds}});
+      if (threadIds.length > 0) userMatches.push({threadId: {$in: threadIds}});
+    }
+
+    return {$or: userMatches};
+  }
+
   async getClosedVsTotalQuestions(
     source: string,
     userType?: string,
     startDate?: Date,
     endDate?: Date,
+    userId?: string,
   ): Promise<any> {
     try {
       await this.initReviewSystem();
@@ -11733,6 +11779,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchStage.$and.push(query);
+      }
+      const userScope = await this.buildUserQuestionScope(userId);
+      if (userScope) {
+        matchStage.$and.push(userScope);
       }
       if (source === 'both') {
         matchStage.source = {
@@ -12141,6 +12191,7 @@ export class ChatbotRepository implements IChatbotRepository {
     userType?: string,
     startDate?: Date,
     endDate?: Date,
+    userId?: string,
   ): Promise<any> {
     try {
       await this.initReviewSystem();
@@ -12157,6 +12208,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchStage.$and.push(query);
+      }
+      const userScope = await this.buildUserQuestionScope(userId);
+      if (userScope) {
+        matchStage.$and.push(userScope);
       }
       if (source === 'both') {
         matchStage.source = {
@@ -12240,6 +12295,7 @@ export class ChatbotRepository implements IChatbotRepository {
     userType?: string,
     startDate?: Date,
     endDate?: Date,
+    userId?: string,
   ): Promise<any> {
     try {
       await this.initReviewSystem();
@@ -12257,6 +12313,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchStage.$and.push(query);
+      }
+      const userScope = await this.buildUserQuestionScope(userId);
+      if (userScope) {
+        matchStage.$and.push(userScope);
       }
       if (source === 'both') {
         matchStage.source = {

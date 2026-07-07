@@ -1808,12 +1808,15 @@ export class ChatbotController {
     startDate?: string,
     @QueryParam('endDate')
     endDate?: string,
+    @QueryParam('userId')
+    userId?: string,
   ): Promise<any> {
     return await this.chatbotService.getClosedAndNotifedData(
       source,
       userType,
       startDate,
       endDate,
+      userId,
     );
   }
 

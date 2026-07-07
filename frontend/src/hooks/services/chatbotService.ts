@@ -319,6 +319,7 @@ export class ChatbotService {
     userType: string,
     startDate?: string,
     endDate?: string,
+    userId?: string,
   ): Promise<any> {
     const params = new URLSearchParams();
     params.append("source", source);
@@ -328,6 +329,9 @@ export class ChatbotService {
     }
     if (endDate) {
       params.append("endDate", endDate);
+    }
+    if (userId) {
+      params.append("userId", userId);
     }
     return apiFetch<any>(
       `${this._baseUrl}/closed-notified-data?${params.toString()}`,

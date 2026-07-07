@@ -291,16 +291,17 @@ export const useAllWhatsappUsers = () => {
   });
 };
 
-export const useClosedAndNotifedData = (source: string, userType: string, startDate?: string, endDate?: string, enabled: boolean = true)=>{
+export const useClosedAndNotifedData = (source: string, userType: string, startDate?: string, endDate?: string, enabled: boolean = true, userId?: string)=>{
   return useQuery({
     queryKey: ["closed-notified-data",
       source,
       userType,
       startDate,
       endDate,
+      userId,
     ],
     queryFn: () => {
-      return chatbotService.getClosedAndNotifedData(source, userType, startDate, endDate);
+      return chatbotService.getClosedAndNotifedData(source, userType, startDate, endDate, userId);
     },
     // Removed placeholderData to ensure proper refetch
     staleTime: 1000 * 60 * 2, // 2 minutes
