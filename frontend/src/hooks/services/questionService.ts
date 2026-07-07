@@ -80,6 +80,18 @@ export type QueueDetailsResponse = {
   moderatorAllocatedManual: { count: number; items: QueueQuestionItem[] };
   availableModeratorsTimeBound: { count: number; items: QueueExpertItem[] };
   availableModeratorsManual: { count: number; items: QueueExpertItem[] };
+  // Manual (AGRI_EXPERT/OUTREACH) expert-queue sections — mirror the time-bound ones.
+  receivedManual: { count: number; items: QueueQuestionItem[] };
+  receivedStatusCountsManual: { status: string; count: number }[];
+  autoAllocateOffManual: { count: number; items: QueueQuestionItem[] };
+  autoAllocateOpenManual: { count: number; items: QueueQuestionItem[] };
+  autoAllocateDelayedManual: { count: number; items: QueueQuestionItem[] };
+  allocatedManual: { count: number; items: QueueQuestionItem[] };
+  waitingManual: { count: number; items: QueueQuestionItem[] };
+  freeExpertsManual: { count: number; items: QueueExpertItem[] };
+  stuckManual: { count: number; items: QueueQuestionItem[] };
+  needsReviewerManual: { count: number; items: QueueQuestionItem[] };
+  openedIdleManual: { count: number; items: QueueQuestionItem[] };
 };
 export class QuestionService {
   private _baseUrl = `${API_BASE_URL}/questions`;

@@ -114,6 +114,20 @@ export interface QueueDetailsResponse {
   availableModeratorsTimeBound: {count: number; items: QueueExpertItem[]};
   /** STF moderators free to take a manual question. */
   availableModeratorsManual: {count: number; items: QueueExpertItem[]};
+
+  // ── Manual (AGRI_EXPERT/OUTREACH) expert-queue sections — mirror the time-bound
+  //    expert sections above, scoped to the manual single-allocation queue. ──
+  receivedManual: {count: number; items: QueueQuestionItem[]};
+  receivedStatusCountsManual: {status: string; count: number}[];
+  autoAllocateOffManual: {count: number; items: QueueQuestionItem[]};
+  autoAllocateOpenManual: {count: number; items: QueueQuestionItem[]};
+  autoAllocateDelayedManual: {count: number; items: QueueQuestionItem[]};
+  allocatedManual: {count: number; items: QueueQuestionItem[]};
+  waitingManual: {count: number; items: QueueQuestionItem[]};
+  freeExpertsManual: {count: number; items: QueueExpertItem[]};
+  stuckManual: {count: number; items: QueueQuestionItem[]};
+  needsReviewerManual: {count: number; items: QueueQuestionItem[]};
+  openedIdleManual: {count: number; items: QueueQuestionItem[]};
 }
 
 /** Raw lean row returned by the repository layer for queue-details questions. */
@@ -163,7 +177,19 @@ export type QueueSectionName =
   | 'moderatorAllocatedTimeBound'
   | 'moderatorAllocatedManual'
   | 'availableModeratorsTimeBound'
-  | 'availableModeratorsManual';
+  | 'availableModeratorsManual'
+  // Manual (AGRI_EXPERT/OUTREACH) expert-queue variants — same shape as the
+  // time-bound expert sections above, scoped to the manual single-allocation queue.
+  | 'receivedManual'
+  | 'autoAllocateOffManual'
+  | 'autoAllocateOpenManual'
+  | 'autoAllocateDelayedManual'
+  | 'allocatedManual'
+  | 'waitingManual'
+  | 'freeExpertsManual'
+  | 'stuckManual'
+  | 'needsReviewerManual'
+  | 'openedIdleManual';
 
 /** One page of a section: exact total + the requested page's items. */
 export interface QueueSectionResult {
