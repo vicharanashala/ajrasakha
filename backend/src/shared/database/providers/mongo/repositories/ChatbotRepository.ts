@@ -16237,11 +16237,10 @@ export class ChatbotRepository implements IChatbotRepository {
           user: moderatorName,
           action: 'Approval Review',
           duration: moderatorCompletedAt
-            ? moderatorCompletedAt.getTime() -
-              moderatorAssignedAt.getTime()
-            : 0,
+            ? moderatorCompletedAt.getTime() - moderatorAssignedAt.getTime()
+            : Date.now() - moderatorAssignedAt.getTime(),
           remarks: "",
-          endTime: moderatorCompletedAt,
+          endTime: moderatorCompletedAt ?? new Date(),
           eventType: 'moderator',
         });
       }
@@ -16319,12 +16318,18 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const isClosed = !!question.closedAt || !!question.passedAt;
 
+      const moderatorInProgress =
+        !!question.moderatorAssignedAt &&
+        !question.closedAt &&
+        !question.passedAt;
+
       const currentAssigneeInProgress =
         reviewTimeline.length > 0 &&
         reviewTimeline[reviewTimeline.length - 1].isCompleted === false;
 
       const hasActiveWork =
         currentAssigneeInProgress ||
+        moderatorInProgress ||
         rerouteDoc?.reroutes?.some((r: any) => r.status === 'pending');
 
       if (!isClosed && !hasActiveWork) {
