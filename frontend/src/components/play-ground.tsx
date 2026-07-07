@@ -259,7 +259,7 @@ export const PlaygroundPage = () => {
                   </TabsTrigger>
                 )}
 
-                {user?.role === "call_agent" && user?.isCallAgentActive && (
+                {user?.role === "call_agent" && (
                   <>
                     <TabsTrigger
                       value="call_dashboard"
@@ -550,7 +550,7 @@ export const PlaygroundPage = () => {
                   )}
                 >
                   <div className="w-full max-w-full px-4 md:px-6 py-2">
-                    <CallHistory onRedial={() => {}} />
+                    <CallHistory onRedial={() => { }} />
                   </div>
                 </TabsContent>
               )}

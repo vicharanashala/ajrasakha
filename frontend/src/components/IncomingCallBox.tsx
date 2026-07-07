@@ -148,7 +148,34 @@ export const IncomingCallBox = ({
         password: env.plivo.endpointPassword(),
       };
     }
-    return env.plivo.getAgentCredentials(agentNumber);
+    
+    switch (agentNumber.toLowerCase()) {
+      case "agent_1":
+        return {
+          username: env.plivo.agent1Username(),
+          password: env.plivo.agent1Password(),
+        };
+      case "agent_2":
+        return {
+          username: env.plivo.agent2Username(),
+          password: env.plivo.agent2Password(),
+        };
+      case "agent_3":
+        return {
+          username: env.plivo.agent3Username(),
+          password: env.plivo.agent3Password(),
+        };
+      case "agent_4":
+        return {
+          username: env.plivo.agent4Username(),
+          password: env.plivo.agent4Password(),
+        };
+      default:
+        return {
+          username: "",
+          password: "",
+        };
+    }
   };
 
   useEffect(() => {

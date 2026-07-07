@@ -746,11 +746,13 @@ export class UserService extends BaseService {
     userId: string,
     isCallAgent: boolean,
     isCallAgentActive: boolean,
-    requestingUserRole?: string,
+    requestingUser?: IUser,
   ): Promise<IUser> {
     return await this._withTransaction(async (session: ClientSession) => {
-      if (requestingUserRole !== 'admin') {
-        throw new ForbiddenError('Only admin can manage call agents');
+      if (requestingUser?.role !== 'admin' || !requestingUser?.Call_centre_manager) {
+        throw new ForbiddenError(
+          'Only admin with Call_centre_manager field as true can manage call agents',
+        );
       }
       const user = await this.userRepo.findById(userId, session);
       if (!user) {
@@ -780,11 +782,13 @@ export class UserService extends BaseService {
 
 
 
-  async toggleCallAgentActive(userId: string, requestingUserRole?: string): Promise<IUser> {
+  async toggleCallAgentActive(userId: string, requestingUser?: IUser): Promise<IUser> {
     return await this._withTransaction(async (session: ClientSession) => {
       // Only moderators can manage call agents
-      if (requestingUserRole !== 'admin') {
-        throw new ForbiddenError('Only admin can manage call agents');
+      if (requestingUser?.role !== 'admin' || !requestingUser?.Call_centre_manager) {
+        throw new ForbiddenError(
+          'Only admin with Call_centre_manager field as true can manage call agents',
+        );
       }
       const user = await this.userRepo.findById(userId, session);
       if (!user) {
