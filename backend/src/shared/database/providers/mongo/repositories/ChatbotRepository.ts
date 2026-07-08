@@ -14624,11 +14624,15 @@ export class ChatbotRepository implements IChatbotRepository {
           .project({_id: 1})
           .toArray();
 
-        const searchUserIds = matchingUsers.map(user => user._id);
+        const searchUserIds = matchingUsers.map(user => user._id.toString());
 
-        matchQuery.user = {
-          $in: searchUserIds,
-        };
+        if (matchQuery.user && matchQuery.user.$in) {
+          matchQuery.user.$in = matchQuery.user.$in.filter((id: string) => searchUserIds.includes(id));
+        } else {
+          matchQuery.user = {
+            $in: searchUserIds,
+          };
+        }
       }
 
       const result = await this.messagesCollection
