@@ -981,7 +981,7 @@ export function FarmerAnalyticsHeatMap({
                                   stiffness: 400,
                                   damping: 20,
                                 }}
-                                className="flex h-9 min-w-[70px] items-center justify-center rounded-md px-2 text-[11px] font-semibold tabular-nums shadow-sm disabled:cursor-default"
+                                className="flex h-9 min-w-[70px] cursor-pointer items-center justify-center rounded-md px-2 text-[11px] font-semibold tabular-nums shadow-sm disabled:cursor-default"
                                 style={getCellStyle(value)}
                                 disabled={!canOpenDetails}
                                 onClick={() =>
