@@ -3399,7 +3399,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           // not the time-bound cron — exclude them so they don't consume STF capacity.
           'question.status': { $nin: ['closed', 'in-review', 'pae_submitted', 'pass', 'duplicate', 'draft', 'non_agri', 're-routed'] },
           'question.isOnHold': { $ne: true },
-          'question.isAutoAllocate': {$eq: true}
+          'question.isAutoAllocate': {$eq: true},
+          // Test questions must never be auto-allocated, regardless of isAutoAllocate.
+          'question.isTesting': { $ne: true },
         },
       },
       { $sort: { 'question.createdAt': 1 } },
@@ -3449,6 +3451,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           'question.status': { $in: ['open', 'delayed'] },
           'question.isOnHold': { $ne: true },
           'question.isAutoAllocate': { $eq: true },
+          // Test questions must never be auto-allocated, regardless of isAutoAllocate.
+          'question.isTesting': { $ne: true },
         },
       },
       { $sort: { 'question.createdAt': 1 } },
@@ -3468,6 +3472,8 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
       status: { $in: ['open', 'delayed'] },
       firstAllocationAt: null,
       isOnHold: { $ne: true },
+      // Test questions must never be auto-allocated, regardless of isAutoAllocate.
+      isTesting: { $ne: true },
     })
       .sort({ createdAt: 1 })
       .toArray();
@@ -3538,7 +3544,9 @@ export class QuestionSubmissionRepository implements IQuestionSubmissionReposito
           'question.source': { $in: ['WHATSAPP', 'AJRASAKHA'] },
           'question.status': { $in: ['open', 'delayed'] },
           'question.isOnHold': { $ne: true },
-          'question.isAutoAllocate': {$eq:true}
+          'question.isAutoAllocate': {$eq:true},
+          // Test questions must never be auto-allocated, regardless of isAutoAllocate.
+          'question.isTesting': { $ne: true },
         },
       },
     ]).toArray();
