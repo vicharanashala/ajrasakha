@@ -68,11 +68,28 @@ export const PlaygroundPage = () => {
     if (!user?.email) return null;
     return `playground_active_tab_${user.email}`;
   };
+  const explicitSelectionTab = selectedRequestId
+    ? "request_queue"
+    : selectedHistoryId
+      ? "history"
+      : selectedQuestionId
+        ? user?.role === "expert"
+          ? "questions"
+          : "all_questions"
+        : selectedCommentId
+          ? "all_questions"
+          : null;
+
   // Set default tab based on user role when user data loads
   useEffect(() => {
     if (!user) return;
     const storageKey = getStorageKey(user);
     if (!storageKey) return;
+    if (explicitSelectionTab) {
+      setActiveTab(explicitSelectionTab);
+      localStorage.setItem(storageKey, explicitSelectionTab);
+      return;
+    }
     const savedTab = localStorage.getItem(storageKey);
     if (savedTab) {
       setActiveTab(savedTab);

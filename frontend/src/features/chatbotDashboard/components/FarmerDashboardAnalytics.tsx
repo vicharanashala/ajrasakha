@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
-import { Fragment, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { Badge } from "@/components/atoms/badge";
 import { Button } from "@/components/atoms/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
@@ -17,7 +18,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/atoms/table";
-import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
 import { env } from "@/config/env";
 import { apiFetch } from "@/hooks/api/api-fetch";
 import { BarChart3, Info, MessageSquareText } from "lucide-react";
@@ -117,11 +117,9 @@ export function FarmerDashboardAnalytics({
   userId?: string;
   afterEngagementTrends?: ReactNode;
 }) {
+  const navigate = useNavigate();
   const [trendGranularity, setTrendGranularity] =
     useState<TrendGranularity>("daily");
-  const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(
-    null,
-  );
   const [selectedMessagingMetric, setSelectedMessagingMetric] =
     useState<MessagingMetricCard | null>(null);
   const [activityPage, setActivityPage] = useState(1);
@@ -314,139 +312,20 @@ export function FarmerDashboardAnalytics({
 
       {afterEngagementTrends}
 
-      <DashboardSection
-        icon={<MessageSquareText className="h-5 w-5" />}
-        title="Recent Questions"
-      >
-        <div className="overflow-x-auto">
-          <Table className="min-w-[1180px]">
-            <TableHeader>
-              <TableRow className="border-border/70 hover:bg-transparent">
-                <TableHead className="w-[30%] px-6 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Question
-                </TableHead>
-                <TableHead className="w-[9%] text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Status
-                </TableHead>
-                <TableHead className="w-[9%] text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Crop
-                </TableHead>
-                <TableHead className="w-[12%] text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Category
-                </TableHead>
-                <TableHead className="w-[10%] text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Source
-                </TableHead>
-                <TableHead className="w-[12%] text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Created Date
-                </TableHead>
-                <TableHead className="w-[12%] text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Closed Date
-                </TableHead>
-                <TableHead className="w-[6%] text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Duplicate
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {recentQuestions.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="py-6 text-center text-muted-foreground">
-                    No recent questions found.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                recentQuestions.map((question) => {
-                  const expanded = expandedQuestionId === question.id;
-                  return (
-                    <Fragment key={question.id}>
-                      <TableRow className="border-border/70">
-                        <TableCell className="min-w-[300px] max-w-[420px] px-6 py-4 whitespace-normal">
-                          <button
-                            type="button"
-                            className="line-clamp-2 text-left text-sm font-semibold leading-snug text-foreground hover:text-[#8174e8]"
-                            onClick={() =>
-                              setExpandedQuestionId(expanded ? null : question.id)
-                            }
-                          >
-                            {question.question || "Not provided"}
-                          </button>
-                          <div className="mt-2 max-w-md">
-                            <TranslatableText text={question.question} />
-                          </div>
-                        </TableCell>
-                        <TableCell className="py-4">
-                          <StatusPill status={question.status} />
-                        </TableCell>
-                        <TableCell className="py-4 text-sm font-semibold text-muted-foreground">
-                          {question.crop || "N/A"}
-                        </TableCell>
-                        <TableCell className="py-4 text-sm font-semibold text-muted-foreground">
-                          {question.category || "N/A"}
-                        </TableCell>
-                        <TableCell className="py-4 text-sm font-semibold text-muted-foreground">
-                          {question.source || "N/A"}
-                        </TableCell>
-                        <TableCell className="py-4 text-sm font-semibold text-muted-foreground">
-                          {formatDate(question.createdAt)}
-                        </TableCell>
-                        <TableCell className="py-4 text-sm font-semibold text-muted-foreground">
-                          {formatDate(question.closedAt)}
-                        </TableCell>
-                        <TableCell className="py-4">
-                          <DuplicatePill isDuplicate={question.isDuplicate} />
-                        </TableCell>
-                      </TableRow>
-                      {expanded && (
-                        <TableRow key={`${question.id}-conversation`}>
-                          <TableCell colSpan={8} className="bg-muted/30 px-6">
-                            <ConversationMessages
-                              messages={question.messages ?? []}
-                              emptyText="No conversation messages linked to this question."
-                            />
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </Fragment>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </DashboardSection>
-
-      {recentMessages.length > 0 && (
-        <DashboardSection title="Recent Messages">
-          <div className="space-y-3">
-            {recentMessages.map((message) => (
-              <div
-                key={`${message.conversationKey}-${message.id}`}
-                className="rounded-md border bg-background p-3"
-              >
-                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge
-                      variant={message.isCreatedByUser ? "default" : "secondary"}
-                    >
-                      {message.isCreatedByUser ? "User" : "Bot"}
-                    </Badge>
-                    {message.threadId ? (
-                      <span className="max-w-[220px] truncate text-xs text-muted-foreground">
-                        {message.threadId}
-                      </span>
-                    ) : null}
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    {formatDate(message.createdAt || message.conversationDate)}
-                  </span>
-                </div>
-                <TranslatableText text={message.text} />
-              </div>
-            ))}
-          </div>
-        </DashboardSection>
-      )}
+      <RecentActivitySection
+        questions={recentQuestions}
+        messages={recentMessages}
+        onQuestionClick={(questionId) =>
+          navigate({
+            to: "/home",
+            search: {
+              question: questionId,
+              questionType: undefined,
+            },
+            replace: true,
+          })
+        }
+      />
     </div>
   );
 }
@@ -599,6 +478,144 @@ function DashboardSection({
   );
 }
 
+function RecentActivitySection({
+  questions,
+  messages,
+  onQuestionClick,
+}: {
+  questions: DashboardQuestion[];
+  messages: (DashboardMessageEntry & {
+    conversationKey?: string;
+    conversationDate?: string;
+    threadId?: string;
+  })[];
+  onQuestionClick: (questionId: string) => void;
+}) {
+  return (
+    <DashboardSection
+      icon={<MessageSquareText className="h-5 w-5" />}
+      title="Recent Activity"
+    >
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(340px,0.7fr)]">
+        <div className="min-w-0">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Recent Questions
+            </h3>
+          </div>
+          <div className="h-[520px] overflow-y-auto overflow-x-hidden rounded-md border">
+            <Table className="w-full table-fixed" containerClassName="overflow-visible">
+              <TableHeader>
+                <TableRow className="sticky top-0 z-10 border-border/70 bg-background hover:bg-background">
+                  <TableHead className="w-[34%] bg-background px-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Question
+                  </TableHead>
+                  <TableHead className="w-[12%] bg-background px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Status
+                  </TableHead>
+                  <TableHead className="w-[12%] bg-background px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Source
+                  </TableHead>
+                  <TableHead className="w-[21%] bg-background px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Created At
+                  </TableHead>
+                  <TableHead className="w-[21%] bg-background px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Closed At
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {questions.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={5}
+                      className="py-6 text-center text-sm text-muted-foreground"
+                    >
+                      No recent questions found.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  questions.map((question) => (
+                    <TableRow key={question.id} className="border-border/70">
+                      <TableCell className="overflow-hidden whitespace-normal px-4 py-3 align-top">
+                        <button
+                          type="button"
+                          title={question.question || "Not provided"}
+                          className="block w-full overflow-hidden text-left text-sm font-medium leading-snug text-foreground hover:text-[#8174e8] hover:underline"
+                          style={{
+                            display: "-webkit-box",
+                            WebkitBoxOrient: "vertical",
+                            WebkitLineClamp: 2,
+                            whiteSpace: "normal",
+                            overflowWrap: "anywhere",
+                          }}
+                          onClick={() => onQuestionClick(question.id)}
+                        >
+                          {question.question || "Not provided"}
+                        </button>
+                      </TableCell>
+                      <TableCell className="px-2 py-3 align-top">
+                        <StatusPill status={question.status} />
+                      </TableCell>
+                      <TableCell className="truncate px-2 py-3 align-top text-sm font-medium text-muted-foreground">
+                        {question.source || "N/A"}
+                      </TableCell>
+                      <TableCell className="px-2 py-3 align-top text-xs font-medium text-muted-foreground">
+                        {formatDate(question.createdAt)}
+                      </TableCell>
+                      <TableCell className="px-2 py-3 align-top text-xs font-medium text-muted-foreground">
+                        {formatDate(question.closedAt)}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+
+        <div className="min-w-0">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Recent Messages
+            </h3>
+          </div>
+          <div className="h-[520px] overflow-y-auto overflow-x-hidden rounded-md border">
+            {messages.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                No recent messages found.
+              </p>
+            ) : (
+              <div className="divide-y">
+                {messages.map((message) => (
+                  <div
+                    key={`${message.conversationKey ?? "message"}-${message.id}`}
+                    className="p-3"
+                  >
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <Badge
+                        variant={message.isCreatedByUser ? "default" : "secondary"}
+                      >
+                        {message.isCreatedByUser ? "User" : "Bot"}
+                      </Badge>
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {formatDate(message.createdAt || message.conversationDate)}
+                      </span>
+                    </div>
+                    <p className="line-clamp-3 whitespace-pre-wrap text-sm text-foreground/90">
+                      {getMessageDisplayText(message)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </DashboardSection>
+  );
+}
+
 function MetricGrid({
   metrics,
   onMetricClick,
@@ -718,69 +735,6 @@ function StatusPill({ status }: { status?: string }) {
     >
       {label}
     </span>
-  );
-}
-
-function DuplicatePill({ isDuplicate }: { isDuplicate?: boolean }) {
-  const classes = isDuplicate
-    ? "border-[#ffb8b8] bg-[#ffe8e8] text-[#7d1f1f]"
-    : "border-border bg-background text-muted-foreground";
-
-  return (
-    <span
-      className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${classes}`}
-    >
-      {isDuplicate ? "Yes" : "No"}
-    </span>
-  );
-}
-
-function ConversationMessages({
-  messages,
-  emptyText,
-}: {
-  messages: DashboardMessageEntry[];
-  emptyText: string;
-}) {
-  if (messages.length === 0) {
-    return <p className="py-3 text-sm text-muted-foreground">{emptyText}</p>;
-  }
-
-  return (
-    <div className="space-y-3 py-2">
-      {messages.map((message) => (
-        <div key={message.id} className="rounded-md border bg-background p-3">
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <Badge variant={message.isCreatedByUser ? "default" : "secondary"}>
-              {message.isCreatedByUser ? "User" : "Bot"}
-            </Badge>
-            <span className="text-xs text-muted-foreground">
-              {formatDate(message.createdAt)}
-            </span>
-          </div>
-          <TranslatableText text={getMessageDisplayText(message)} />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function TranslatableText({ text }: { text?: string }) {
-  const [translatedText, setTranslatedText] = useState("");
-  const displayText = translatedText || text || "Not provided";
-
-  return (
-    <div className="space-y-2">
-      <p className="whitespace-pre-wrap text-sm text-foreground/90">
-        {displayText}
-      </p>
-      {text ? (
-        <SarvamTranslateDropdown
-          query={text}
-          onTranslate={(result) => setTranslatedText(result)}
-        />
-      ) : null}
-    </div>
   );
 }
 
