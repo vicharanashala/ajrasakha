@@ -1555,6 +1555,7 @@ export class ChatbotRepository implements IChatbotRepository {
           {
             ...userDocFilter,
             farmerProfile: {$exists: true, $ne: null},
+            isVerified: true,
           },
           {session},
         ),
@@ -8765,6 +8766,7 @@ export class ChatbotRepository implements IChatbotRepository {
         {
           ...userDocFilter,
           farmerProfile: {$exists: true, $ne: null},
+          isVerified:true
         },
         {session},
       );
@@ -9163,6 +9165,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const normalizedPlatform = platform?.trim();
       const basePlatformFilter = {
         farmerProfile: {$exists: true, $ne: null},
+        isVerified:true
       };
       const platformFilter =
         normalizedPlatform === 'Unknown'
@@ -9335,6 +9338,7 @@ export class ChatbotRepository implements IChatbotRepository {
               {
                 $match: {
                   farmerProfile: {$exists: true, $ne: null},
+                  isVerified:true,
                   ...userDocFilter,
                 },
               },
@@ -9362,6 +9366,7 @@ export class ChatbotRepository implements IChatbotRepository {
               {
                 $match: {
                   farmerProfile: {$exists: true, $ne: null},
+                  isVerified:true,
                   ...userDocFilter,
                 },
               },
@@ -9737,6 +9742,7 @@ export class ChatbotRepository implements IChatbotRepository {
           {
             $match: {
               farmerProfile: {$exists: true, $ne: null},
+              isVerified: true,
               ...userDocFilter,
             },
           },
