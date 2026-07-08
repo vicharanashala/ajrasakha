@@ -3349,6 +3349,30 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
+  async getTopQuestionInstances(
+    questionId: string,
+    source = 'annam',
+    userType = 'all',
+    startTime?: string,
+    endTime?: string,
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<any> {
+    try {
+      return await this.chatbotRepository.getTopQuestionInstances(
+        questionId,
+        source,
+        userType,
+        startTime,
+        endTime,
+        page,
+        limit,
+      );
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch top question instances: ${error}`);
+    }
+  }
+
   async getRepeatQueryCount(
     source?: string,
     userType?: string,
@@ -3801,6 +3825,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
       isPassed?: string,
       tag?: string,
       notificationType?: string,
+      page?: number,
+      limit?: number
     ): Promise<any>{
       return this.chatbotRepository.getLifeCycleSummary(
         status,
@@ -3811,6 +3837,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
         isPassed,
         tag,
         notificationType,
+        page,
+        limit
       );
     }
 }

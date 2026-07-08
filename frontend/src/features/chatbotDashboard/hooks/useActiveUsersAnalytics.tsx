@@ -203,10 +203,11 @@ export const useQuestionFilter = ({
   search?: string;
   enabled?: boolean;
   isPassed?: boolean;
-  tag?: string
+  tag?: string;
 }) => {
-  const stringStartDate = startDate?.toISOString()
-  const stringEndDate = endDate?.toISOString()
+  const stringStartDate = startDate?.toISOString();
+  const stringEndDate = endDate?.toISOString();
+  
   return useQuery<QueryCategoryQuestionsResponse>({
   queryKey: [
     "get-question-filter",
@@ -449,6 +450,8 @@ export const useLifeCycleSummary = (
   isPassed?: boolean,
   tag?: string,
   notificationType?: string,
+  page?: number,
+  limit?: number,
   enabled=true) => {
   return useQuery({
     queryKey: [
@@ -460,7 +463,9 @@ export const useLifeCycleSummary = (
       userType,
       isPassed,
       tag,
-      notificationType
+      notificationType,
+      page,
+      limit,
     ],
     queryFn: () => {
       return chatbotService.getLifeCycleSummary(  
@@ -471,8 +476,57 @@ export const useLifeCycleSummary = (
         userType,
         isPassed,
         tag,
-        notificationType);
+        notificationType,
+        page,
+        limit);
     },
     enabled,
+    refetchOnWindowFocus: false,
   });
 }
+
+export const useTopQuestionInstances = ({
+  questionId,
+  source,
+  userType = "all",
+  startDate,
+  endDate,
+  page,
+  limit,
+  enabled = true,
+}: {
+  questionId?: string;
+  source?: string;
+  userType?: string;
+  startDate?: Date;
+  endDate?: Date;
+  page?: number;
+  limit?: number;
+  enabled?: boolean;
+}) => {
+  const stringStartDate = startDate?.toISOString();
+  const stringEndDate = endDate?.toISOString();
+  
+  return useQuery<QueryCategoryQuestionsResponse>({
+    queryKey: [
+      "top-question-instances",
+      questionId,
+      source,
+      userType,
+      stringStartDate,
+      stringEndDate,
+      page,
+      limit,
+    ],
+    queryFn: () =>
+      chatbotService.getTopQuestionInstances(questionId!, {
+        source,
+        userType,
+        startTime: stringStartDate,
+        endTime: stringEndDate,
+        page,
+        limit,
+      }),
+    enabled: enabled && Boolean(questionId),
+  });
+};

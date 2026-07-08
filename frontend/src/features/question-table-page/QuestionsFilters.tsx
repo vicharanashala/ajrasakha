@@ -562,6 +562,7 @@ export const QuestionsFilters = ({
       duplicateQuestions: advanceFilter?.duplicateQuestions,
       isOnHold: advanceFilter?.isOnHold,
       is_non_agri: advanceFilter?.is_non_agri,
+      is_testing: advanceFilter?.is_testing,
       unallocatedQuestions: advanceFilter?.unallocatedQuestions,
     });
   };

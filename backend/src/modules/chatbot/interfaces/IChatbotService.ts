@@ -335,6 +335,15 @@ export interface IChatbotService {
     startTime?: string,
     endTime?: string,
   ): Promise<any>;
+  getTopQuestionInstances(
+    questionId: string,
+    source?: string,
+    userType?: string,
+    startTime?: string,
+    endTime?: string,
+    page?: number,
+    limit?: number,
+  ): Promise<any>;
   getRepeatQueryCount(
     source?: string,
     userType?: string,
@@ -465,5 +474,7 @@ export interface IChatbotService {
       isPassed?: string,
       tag?: string,
       notificationType?: string,
+      page?: number,
+      limit?: number,
     ): Promise<any>
 }
