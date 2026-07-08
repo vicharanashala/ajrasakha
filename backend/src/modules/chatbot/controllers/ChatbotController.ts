@@ -1785,6 +1785,23 @@ export class ChatbotController {
     );
   }
 
+  @Get('/user-message-metric-details')
+  @HttpCode(200)
+  @Authorized()
+  async getUserMessageMetricDetails(
+    @QueryParam('userId') userId: string,
+    @QueryParam('metric') metric: string,
+    @QueryParam('page') page: number = 1,
+    @QueryParam('limit') limit: number = 10,
+  ): Promise<any> {
+    return await this.chatbotService.getUserMessageMetricDetails(
+      userId,
+      metric,
+      Number(page),
+      Number(limit),
+    );
+  }
+
   @Post('/notify-user')
   @HttpCode(200)
   @Authorized()

@@ -721,6 +721,14 @@ export interface IChatbotRepository {
     limit?: number,
   ): Promise<any>;
 
+  getUserMessageMetricDetails(
+    userId: string,
+    metric: string,
+    page?: number,
+    limit?: number,
+    session?: ClientSession,
+  ): Promise<any>;
+
   getUsersMessages(
     email: string,
     source?: string,

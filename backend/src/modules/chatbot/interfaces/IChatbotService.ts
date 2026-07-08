@@ -304,6 +304,12 @@ export interface IChatbotService {
     page?: number,
     limit?: number,
   ): Promise<any>;
+  getUserMessageMetricDetails(
+    userId: string,
+    metric: string,
+    page?: number,
+    limit?: number,
+  ): Promise<any>;
   notifyUser(
     userEmail: string,
     messageId: string,

@@ -1663,6 +1663,20 @@ export class ChatbotService extends BaseService implements IChatbotService {
     };
   }
 
+  async getUserMessageMetricDetails(
+    userId: string,
+    metric: string,
+    page = 1,
+    limit = 10,
+  ) {
+    return this.chatbotRepository.getUserMessageMetricDetails(
+      userId,
+      metric,
+      page,
+      limit,
+    );
+  }
+
   async getAvgSessionDurationV2(source = 'annam', userType = 'all') {
     try {
       return await this.chatbotRepository.getAvgSessionDurationV2(

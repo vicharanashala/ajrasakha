@@ -1,8 +1,14 @@
 import type { ReactNode } from "react";
 import { Fragment, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/atoms/badge";
 import { Button } from "@/components/atoms/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/atoms/tooltip";
 import {
   Table,
   TableBody,
@@ -12,13 +18,20 @@ import {
   TableRow,
 } from "@/components/atoms/table";
 import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
-import { BarChart3, MessageSquareText } from "lucide-react";
+import { env } from "@/config/env";
+import { apiFetch } from "@/hooks/api/api-fetch";
+import { BarChart3, Info, MessageSquareText } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { ClosedInLastTwoHoursCard } from "../ClosedInLastTwoHoursCard";
 import { ClosedQuestionsCard } from "../ClosedQuestionsCard";
 import { CustomerNotificationsCard } from "../CustomerNotificationsCard";
 import { useClosedAndNotifedData } from "../hooks/useActiveUsersAnalytics";
 import { getISOStringsForDateRange } from "../utils/dateUtils";
+import {
+  QuestionActivityModal,
+  type QuestionActivityItem,
+  type QuestionActivityViewType,
+} from "./QuestionActivityModal";
 
 type TrendGranularity = "daily" | "weekly" | "monthly";
 
@@ -54,6 +67,36 @@ type DashboardConversation = {
   messages?: DashboardMessageEntry[];
 };
 
+type MessagingMetricKey =
+  | "userMessages"
+  | "conversations"
+  | "averageMessagesPerConversation"
+  | "longestConversation"
+  | "lastMessageSentAt"
+  | "questionsFromMessages";
+
+type MessagingMetricCard = {
+  key: MessagingMetricKey;
+  label: string;
+  value: any;
+  tooltip: string;
+  unit?: string;
+  viewType: QuestionActivityViewType;
+  summaryLabel?: string;
+  modalSubtitle?: string;
+  emptyMessage?: string;
+};
+
+type MetricDetailsResponse = {
+  total: number;
+  totalPages: number;
+  currentPage: number;
+  limit: number;
+  items: QuestionActivityItem[];
+};
+
+const ACTIVITY_PAGE_SIZE = 10;
+
 export type FarmerDashboardData = {
   questionMetrics?: Record<string, any>;
   messagingMetrics?: Record<string, any>;
@@ -79,36 +122,120 @@ export function FarmerDashboardAnalytics({
   const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(
     null,
   );
+  const [selectedMessagingMetric, setSelectedMessagingMetric] =
+    useState<MessagingMetricCard | null>(null);
+  const [activityPage, setActivityPage] = useState(1);
 
   const messagingMetrics = dashboard?.messagingMetrics ?? {};
+  const totalMessages = Number(messagingMetrics.totalMessagesSent ?? 0);
+  const totalConversations = Number(messagingMetrics.conversationThreads ?? 0);
   const selectedTrend = dashboard?.engagementTrends?.[trendGranularity];
   const recentQuestions = (dashboard?.recentQuestions ?? []).slice(0, 10);
   const recentConversations = dashboard?.recentConversations ?? [];
-  const recentMessages = recentConversations.flatMap((conversation) =>
+  const allRecentMessages = recentConversations.flatMap((conversation) =>
     (conversation.messages ?? []).map((message) => ({
       ...message,
       conversationKey: conversation.conversationKey,
       conversationDate: conversation.conversationDate,
       threadId: conversation.threadId,
     })),
-  ).slice(0, 10);
+  );
+  const recentMessages = allRecentMessages.slice(0, 10);
+  const lastUserMessageAt = messagingMetrics.latestUserMessageDate;
 
-  const messagingMetricCards: [string, any][] = [
-    ["Total Messages Sent", messagingMetrics.totalMessagesSent],
-    ["User Messages", messagingMetrics.userMessages],
-    ["Bot Responses Received", messagingMetrics.botResponsesReceived],
-    ["Conversation Threads", messagingMetrics.conversationThreads],
-    [
-      "Average Messages per Conversation",
-      messagingMetrics.averageMessagesPerConversation,
-    ],
-    ["Longest Conversation", messagingMetrics.longestConversation],
-    ["Latest Conversation Date", formatDate(messagingMetrics.latestConversationDate)],
-    [
-      "Questions Derived from Messages",
-      messagingMetrics.questionsDerivedFromMessages,
-    ],
+  const messagingMetricCards: MessagingMetricCard[] = [
+    {
+      key: "userMessages",
+      label: "User messages",
+      value: messagingMetrics.userMessages,
+      tooltip: "Messages sent by this farmer to the chatbot.",
+      viewType: "messages",
+      summaryLabel: "User messages",
+      modalSubtitle: "Messages sent by this farmer to the chatbot.",
+      emptyMessage: "No user messages found for this farmer.",
+    },
+    {
+      key: "conversations",
+      label: "Conversations",
+      value: messagingMetrics.conversationThreads,
+      tooltip: "Distinct conversation threads found for this farmer.",
+      viewType: "messages",
+      summaryLabel: "Conversations",
+      modalSubtitle: "Conversation threads for this farmer.",
+      emptyMessage: "No conversations found for this farmer.",
+    },
+    {
+      key: "averageMessagesPerConversation",
+      label: "Avg. messages / conversation",
+      value: messagingMetrics.averageMessagesPerConversation,
+      unit: "messages/conversation",
+      tooltip: "Total messages divided by conversation threads.",
+      viewType: "messages",
+      summaryLabel: "Avg. messages / conversation",
+      modalSubtitle: `${formatMetricValue(totalMessages)} messages / ${formatMetricValue(totalConversations)} conversations = ${formatMetricValue(messagingMetrics.averageMessagesPerConversation)} messages per conversation.`,
+      emptyMessage: "No conversations found to calculate the average.",
+    },
+    {
+      key: "longestConversation",
+      label: "Longest conversation",
+      value: messagingMetrics.longestConversation,
+      unit: "messages",
+      tooltip: "Highest message count recorded in a single conversation.",
+      viewType: "messages",
+      summaryLabel: "Longest conversation",
+      modalSubtitle: "Messages from the longest available conversation.",
+      emptyMessage: "No longest conversation data found.",
+    },
+    {
+      key: "lastMessageSentAt",
+      label: "Last message sent time",
+      value: formatDate(
+        lastUserMessageAt || messagingMetrics.latestConversationDate,
+      ),
+      tooltip: "Most recent time this farmer sent a message.",
+      viewType: "messages",
+      summaryLabel: "Last message sent time",
+      modalSubtitle: "Most recent message sent by this farmer.",
+      emptyMessage: "No last user message found.",
+    },
+    {
+      key: "questionsFromMessages",
+      label: "Questions from messages",
+      value: messagingMetrics.questionsDerivedFromMessages,
+      tooltip: "Questions created from this farmer's chat messages.",
+      viewType: "questions",
+      summaryLabel: "Questions from messages",
+      modalSubtitle: "Questions created from this farmer's chat messages.",
+      emptyMessage: "No questions from messages found for this farmer.",
+    },
   ];
+  const metricDetailsQuery = useQuery({
+    queryKey: [
+      "user-message-metric-details",
+      userId,
+      selectedMessagingMetric?.key,
+      activityPage,
+      ACTIVITY_PAGE_SIZE,
+    ],
+    enabled: Boolean(userId && selectedMessagingMetric?.key),
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.set("userId", String(userId));
+      params.set("metric", String(selectedMessagingMetric?.key));
+      params.set("page", String(activityPage));
+      params.set("limit", String(ACTIVITY_PAGE_SIZE));
+
+      return apiFetch<MetricDetailsResponse>(
+        `${env.apiBaseUrl()}/analytics/user-message-metric-details?${params.toString()}`,
+      );
+    },
+  });
+  const metricDetails = metricDetailsQuery.data;
+  const activityItems = metricDetails?.items ?? [];
+  const activityTotalCount = selectedMessagingMetric?.unit
+    ? `${formatMetricValue(selectedMessagingMetric.value)} ${selectedMessagingMetric.unit}`
+    : formatMetricValue(selectedMessagingMetric?.value ?? 0);
+  const activityTotalPages = metricDetails?.totalPages ?? 1;
 
   return (
     <div className="space-y-8">
@@ -119,9 +246,37 @@ export function FarmerDashboardAnalytics({
           icon={<MessageSquareText className="h-5 w-5" />}
           title="Messaging Metrics"
         >
-          <MetricGrid metrics={messagingMetricCards} />
+          <MetricGrid
+            metrics={messagingMetricCards}
+            onMetricClick={(metric) => {
+              setActivityPage(1);
+              setSelectedMessagingMetric(metric);
+            }}
+          />
         </DashboardSection>
       </div>
+
+      <QuestionActivityModal
+        open={Boolean(selectedMessagingMetric)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedMessagingMetric(null);
+            setActivityPage(1);
+          }
+        }}
+        title={selectedMessagingMetric?.label ?? "Messaging activity"}
+        subtitle={selectedMessagingMetric?.modalSubtitle}
+        mode="activity"
+        viewType={selectedMessagingMetric?.viewType ?? "messages"}
+        activityItems={activityItems}
+        isLoading={metricDetailsQuery.isFetching}
+        totalCount={activityTotalCount}
+        totalLabel={selectedMessagingMetric?.summaryLabel}
+        totalPages={activityTotalPages}
+        currentPage={activityPage}
+        onPageChange={activityTotalPages > 1 ? setActivityPage : undefined}
+        emptyMessage={selectedMessagingMetric?.emptyMessage}
+      />
 
       <DashboardSection
         icon={<BarChart3 className="h-5 w-5" />}
@@ -444,48 +599,55 @@ function DashboardSection({
   );
 }
 
-function MetricGrid({ metrics }: { metrics: [string, any][] }) {
-  const primaryMetrics = metrics.slice(0, 4);
-  const secondaryMetrics = metrics.slice(4);
-
+function MetricGrid({
+  metrics,
+  onMetricClick,
+}: {
+  metrics: MessagingMetricCard[];
+  onMetricClick: (metric: MessagingMetricCard) => void;
+}) {
   return (
-    <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2">
-        {primaryMetrics.map(([label, value]) => (
-          <div key={label} className="rounded-md bg-background/80 p-4 shadow-sm">
-            <p className="text-xs font-semibold text-muted-foreground">
-              {shortMetricLabel(label)}
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {metrics.map((metric) => (
+        <button
+          key={metric.key}
+          type="button"
+          className="group rounded-md border bg-background/80 p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:bg-background hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/30"
+          onClick={() => onMetricClick(metric)}
+        >
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex max-w-full items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                <span className="truncate">{metric.label}</span>
+                <Info className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-64">
+              <p>{metric.tooltip}</p>
+            </TooltipContent>
+          </Tooltip>
+          <p
+            className={`mt-3 break-words text-2xl font-semibold tracking-tight ${getMetricValueClass(metric.key)}`}
+          >
+            {formatMetricValue(metric.value)}
+          </p>
+          {metric.unit ? (
+            <p className="mt-1 text-xs font-medium text-muted-foreground">
+              {metric.unit}
             </p>
-            <p
-              className={`mt-3 text-2xl font-semibold tracking-tight ${getMetricValueClass(label)}`}
-            >
-              {formatMetricValue(value)}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      {secondaryMetrics.length > 0 && (
-        <div className="max-h-32 overflow-y-auto border-t pt-3 pr-1">
-          <div className="space-y-2">
-            {secondaryMetrics.map(([label, value]) => (
-              <div
-                key={label}
-                className="flex items-center justify-between gap-4 text-sm"
-              >
-                <span className="min-w-0 truncate font-semibold text-muted-foreground">
-                  {shortMetricLabel(label)}
-                </span>
-                <span className="shrink-0 font-semibold text-foreground">
-                  {formatMetricValue(value)}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+          ) : null}
+        </button>
+      ))}
     </div>
   );
+}
+
+function getMessageDisplayText(message: Pick<DashboardMessageEntry, "text" | "isCreatedByUser">) {
+  const text = message.text?.trim();
+  if (text) return text;
+  return message.isCreatedByUser
+    ? "User message content not available"
+    : "Bot response content not available";
 }
 
 function TrendBars({
@@ -596,7 +758,7 @@ function ConversationMessages({
               {formatDate(message.createdAt)}
             </span>
           </div>
-          <TranslatableText text={message.text} />
+          <TranslatableText text={getMessageDisplayText(message)} />
         </div>
       ))}
     </div>
@@ -625,30 +787,6 @@ function TranslatableText({ text }: { text?: string }) {
 function formatMetricValue(value: any) {
   if (value === undefined || value === null || value === "") return "0";
   return String(value);
-}
-
-function shortMetricLabel(label: string) {
-  const labels: Record<string, string> = {
-    "Total Questions Asked": "Total asked",
-    "Questions Closed": "Closed",
-    "Questions in Review": "In review",
-    "Questions Pending": "Pending",
-    "Duplicate Questions": "Duplicates",
-    "Non-Duplicate Questions": "Non-duplicates",
-    "Questions Closed Within 2 Hours": "Closed within 2h",
-    "Carry-Forward Questions": "Carry-forward",
-    "Questions Awaiting Review": "Awaiting review",
-    "Total Messages Sent": "Total messages",
-    "User Messages": "User messages",
-    "Bot Responses Received": "Bot responses",
-    "Conversation Threads": "Conversations",
-    "Average Messages per Conversation": "Avg. per conversation",
-    "Longest Conversation": "Longest conversation",
-    "Latest Conversation Date": "Latest conversation",
-    "Questions Derived from Messages": "Questions from messages",
-  };
-
-  return labels[label] ?? label;
 }
 
 function getMetricValueClass(label: string) {

@@ -15213,6 +15213,203 @@ export class ChatbotRepository implements IChatbotRepository {
     messageId?: string | undefined;
   }) {}
 
+  async getUserMessageMetricDetails(
+    userId: string,
+    metric: string,
+    page = 1,
+    limit = 10,
+    session?: ClientSession,
+  ): Promise<any> {
+    try {
+      await this.init('annam');
+      await this.initReviewSystem();
+
+      const isValidObjectId =
+        ObjectId.isValid(userId) && String(new ObjectId(userId)) === userId;
+      const users = isValidObjectId
+        ? await this.users.find({_id: new ObjectId(userId)}).toArray()
+        : await this.users
+            .find({$or: [{firebaseUID: userId}, {email: userId}]})
+            .toArray();
+
+      if (!users.length) {
+        return {total: 0, totalPages: 1, currentPage: page, limit, items: []};
+      }
+
+      const userObjectId =
+        users[0]._id instanceof ObjectId
+          ? users[0]._id
+          : new ObjectId(users[0]._id);
+      const userIdString = userObjectId.toString();
+      const skip = (page - 1) * limit;
+      const paginate = (items: any[]) => ({
+        total: items.length,
+        totalPages: Math.max(1, Math.ceil(items.length / limit)),
+        currentPage: page,
+        limit,
+        items: items.slice(skip, skip + limit),
+      });
+      const getConversationKey = (record: any) =>
+        record.threadId ||
+        record.conversationId ||
+        record.messageId ||
+        record._id?.toString?.() ||
+        String(record._id || '');
+      const toMessageItem = (message: any) => ({
+        _id: message.messageId || message._id?.toString?.() || String(message._id),
+        message: message.text || '',
+        createdAt: message.createdAt,
+      });
+
+      const userMessages = await this.messagesCollection
+        .find(
+          {
+            user: userIdString,
+            isDeleted: {$ne: true},
+          },
+          {session},
+        )
+        .project({
+          _id: 1,
+          text: 1,
+          messageId: 1,
+          threadId: 1,
+          conversationId: 1,
+          isCreatedByUser: 1,
+          createdAt: 1,
+        })
+        .sort({createdAt: 1})
+        .toArray();
+
+      const userOnlyMessages = userMessages
+        .filter((message: any) => message.isCreatedByUser === true)
+        .sort(
+          (a: any, b: any) =>
+            new Date(b.createdAt || 0).getTime() -
+            new Date(a.createdAt || 0).getTime(),
+        );
+
+      if (metric === 'userMessages') {
+        return paginate(userOnlyMessages.map(toMessageItem));
+      }
+
+      if (metric === 'lastMessageSentAt') {
+        return paginate(userOnlyMessages.slice(0, 1).map(toMessageItem));
+      }
+
+      const conversationsByKey = new Map<string, any[]>();
+      userMessages.forEach((message: any) => {
+        const key = getConversationKey(message);
+        if (!conversationsByKey.has(key)) conversationsByKey.set(key, []);
+        conversationsByKey.get(key)!.push(message);
+      });
+      const conversations = [...conversationsByKey.entries()]
+        .map(([conversationKey, messages]) => {
+          const sortedMessages = [...messages].sort(
+            (a, b) =>
+              new Date(a.createdAt || 0).getTime() -
+              new Date(b.createdAt || 0).getTime(),
+          );
+          const latestMessage = sortedMessages[sortedMessages.length - 1];
+          const messageCount = sortedMessages.length;
+          const threadId =
+            latestMessage?.threadId ||
+            latestMessage?.conversationId ||
+            conversationKey;
+          return {
+            _id: conversationKey,
+            message: `${messageCount} message${messageCount === 1 ? '' : 's'}\nThread: ${threadId}${
+              latestMessage?.text ? `\nLatest: ${latestMessage.text}` : ''
+            }`,
+            createdAt: latestMessage?.createdAt,
+            messageCount,
+            messages: sortedMessages,
+          };
+        })
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt || 0).getTime() -
+            new Date(a.createdAt || 0).getTime(),
+        );
+
+      if (
+        metric === 'conversations' ||
+        metric === 'averageMessagesPerConversation'
+      ) {
+        return paginate(
+          conversations.map(({messages, ...conversation}) => conversation),
+        );
+      }
+
+      if (metric === 'longestConversation') {
+        const longestConversation = [...conversations].sort(
+          (a, b) => (b.messageCount ?? 0) - (a.messageCount ?? 0),
+        )[0];
+        return paginate((longestConversation?.messages ?? []).map(toMessageItem));
+      }
+
+      if (metric === 'questionsFromMessages') {
+        const userMessageIds = [
+          ...new Set(
+            userMessages.map((message: any) => message.messageId).filter(Boolean),
+          ),
+        ];
+        const userThreadIds = [
+          ...new Set(
+            userMessages
+              .map((message: any) => message.threadId || message.conversationId)
+              .filter(Boolean),
+          ),
+        ];
+        const questionUserMatches: any[] = [
+          {userId: userIdString},
+          {userId: userObjectId},
+        ];
+        if (userMessageIds.length > 0) {
+          questionUserMatches.push({messageId: {$in: userMessageIds}});
+        }
+        if (userThreadIds.length > 0) {
+          questionUserMatches.push({threadId: {$in: userThreadIds}});
+        }
+        const userQuestionFilter: any = buildBaseQuestionMatch('AJRASAKHA');
+        userQuestionFilter.$and.push({$or: questionUserMatches});
+
+        const questions = await this.QuestionCollection.find(
+          {
+            ...userQuestionFilter,
+            $or: [{messageId: {$exists: true, $ne: null}}, {threadId: {$exists: true, $ne: null}}],
+          },
+          {session},
+        )
+          .project({
+            _id: 1,
+            question: 1,
+            status: 1,
+            createdAt: 1,
+            messageId: 1,
+            threadId: 1,
+          })
+          .sort({createdAt: -1})
+          .toArray();
+
+        return paginate(
+          questions.map((question: any) => ({
+            _id: question._id?.toString?.() || String(question._id),
+            question: question.question,
+            status: question.status,
+            createdAt: question.createdAt,
+          })),
+        );
+      }
+
+      return {total: 0, totalPages: 1, currentPage: page, limit, items: []};
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get user message metric details: ${error}`,
+      );
+    }
+  }
+
   async getUserProfile(userId: string, session?: ClientSession): Promise<any> {
     try {
       await this.init('annam');
@@ -15421,7 +15618,7 @@ export class ChatbotRepository implements IChatbotRepository {
         conversationsByKey.get(key)!.push(message);
       });
 
-      const recentConversations = [...conversationsByKey.entries()]
+      const conversations = [...conversationsByKey.entries()]
         .map(([conversationKey, messages]) => {
           const sortedMessages = [...messages].sort(
             (a, b) =>
@@ -15459,48 +15656,66 @@ export class ChatbotRepository implements IChatbotRepository {
           (a, b) =>
             new Date(b.conversationDate || 0).getTime() -
             new Date(a.conversationDate || 0).getTime(),
-        )
-        .slice(0, 10);
+        );
+      const recentConversations = conversations.slice(0, 10);
 
       const conversationLookup = new Map(
-        recentConversations.map(conversation => [
+        conversations.map(conversation => [
           conversation.conversationKey,
           conversation,
         ]),
       );
+      const mapQuestionForDashboard = (question: any) => {
+        const conversationKey = getConversationKey(question);
+        const matchedConversation =
+          conversationLookup.get(conversationKey) ||
+          conversations.find(conversation =>
+            conversation.messages.some(
+              (message: any) => message.messageId === question.messageId,
+            ),
+          );
+        return {
+          id: question._id?.toString?.() || String(question._id),
+          question: question.question,
+          status: question.status,
+          crop:
+            question.details?.normalised_crop ||
+            question.details?.crop?.name ||
+            question.details?.crop ||
+            '',
+          category:
+            question.details?.domain || question.details?.category || '',
+          source: question.source,
+          createdAt: question.createdAt,
+          closedAt: getOperationalCompletionAt(question),
+          isDuplicate: isDuplicateQuestion(question),
+          conversationKey:
+            matchedConversation?.conversationKey || conversationKey,
+          messages: matchedConversation?.messages || [],
+        };
+      };
       const recentQuestions = userQuestions
         .slice(0, 10)
-        .map((question: any) => {
-          const conversationKey = getConversationKey(question);
-          const matchedConversation =
-            conversationLookup.get(conversationKey) ||
-            recentConversations.find(conversation =>
-              conversation.messages.some(
-                (message: any) => message.messageId === question.messageId,
-              ),
-            );
-          return {
-            id: question._id?.toString?.() || String(question._id),
-            question: question.question,
-            status: question.status,
-            crop:
-              question.details?.normalised_crop ||
-              question.details?.crop?.name ||
-              question.details?.crop ||
-              '',
-            category:
-              question.details?.domain || question.details?.category || '',
-            source: question.source,
-            createdAt: question.createdAt,
-            closedAt: getOperationalCompletionAt(question),
-            isDuplicate: isDuplicateQuestion(question),
-            conversationKey:
-              matchedConversation?.conversationKey || conversationKey,
-            messages: matchedConversation?.messages || [],
-          };
-        });
+        .map(mapQuestionForDashboard);
+      const questionsFromMessages = userQuestions
+        .filter((question: any) => question.messageId || question.threadId)
+        .map(mapQuestionForDashboard);
+      const dashboardUserMessages = userMessages
+        .filter((message: any) => message.isCreatedByUser === true)
+        .sort(
+          (a: any, b: any) =>
+            new Date(b.createdAt || 0).getTime() -
+            new Date(a.createdAt || 0).getTime(),
+        )
+        .map((message: any) => ({
+          id: message._id?.toString?.() || String(message._id),
+          text: message.text || '',
+          isCreatedByUser: Boolean(message.isCreatedByUser),
+          createdAt: message.createdAt,
+          messageId: message.messageId,
+        }));
       const totalMessages = userMessages.length;
-      const conversationCounts = recentConversations.map(
+      const conversationCounts = conversations.map(
         conversation => conversation.messageCount,
       );
       const farmerDashboard = {
@@ -15539,10 +15754,9 @@ export class ChatbotRepository implements IChatbotRepository {
           longestConversation:
             conversationCounts.length > 0 ? Math.max(...conversationCounts) : 0,
           latestConversationDate:
-            recentConversations[0]?.conversationDate || null,
-          questionsDerivedFromMessages: userQuestions.filter(
-            (question: any) => question.messageId || question.threadId,
-          ).length,
+            conversations[0]?.conversationDate || null,
+          latestUserMessageDate: dashboardUserMessages[0]?.createdAt || null,
+          questionsDerivedFromMessages: questionsFromMessages.length,
         },
         engagementTrends: {
           daily: {

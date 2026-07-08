@@ -99,6 +99,7 @@ interface QuestionActivityModalProps {
   duplicateGroups?: QuestionDuplicateGroup[];
   isLoading?: boolean;
   totalCount?: number | string;
+  totalLabel?: ReactNode;
   totalPages?: number;
   currentPage?: number;
   onPageChange?: (page: number) => void;
@@ -171,6 +172,11 @@ function ActivityCard({
   onTimelineClick?: (dates: string[]) => void;
 }) {
   const text = viewType === "questions" ? item.question : item.message;
+  const displayText =
+    text?.trim() ||
+    (viewType === "questions"
+      ? "Question text not available"
+      : "Message content not available");
   const repeatCount = (item.repeatedCount ?? 0) - 1;
   const navigate = useNavigate();
 
@@ -193,7 +199,7 @@ function ActivityCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <TranslatableText
-            text={text ?? ""}
+            text={displayText}
             showTooltip
             textClassName={`text-xs line-clamp-2 ${
               viewType === "questions" && item._id
@@ -437,6 +443,7 @@ export function QuestionActivityModal({
   duplicateGroups = [],
   isLoading = false,
   totalCount = 0,
+  totalLabel,
   totalPages = 1,
   currentPage = 1,
   onPageChange,
@@ -527,9 +534,10 @@ export function QuestionActivityModal({
                       { label: "Email", value: user.email, icon: Mail },
                       {
                         label:
-                          viewType === "questions"
+                          totalLabel ??
+                          (viewType === "questions"
                             ? "Total Questions"
-                            : "Total Messages",
+                            : "Total Messages"),
                         value: totalCount,
                         icon:
                           viewType === "questions"
