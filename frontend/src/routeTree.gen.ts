@@ -94,15 +94,15 @@ export interface FileRoutesByFullPath {
   '/whatsapp-history': typeof WhatsappHistoryRoute
   '/coordinator/profile': typeof CoordinatorProfileRoute
   '/user/$userId': typeof UserUserIdRoute
-  '/audit': typeof AuditIndexRoute
-  '/auth': typeof AuthIndexRoute
-  '/coordinator': typeof CoordinatorIndexRoute
-  '/flags-reported': typeof FlagsReportedIndexRoute
-  '/history': typeof HistoryIndexRoute
-  '/home': typeof HomeIndexRoute
-  '/notifications': typeof NotificationsIndexRoute
-  '/pae-expert': typeof PaeExpertIndexRoute
-  '/profile': typeof ProfileIndexRoute
+  '/audit/': typeof AuditIndexRoute
+  '/auth/': typeof AuthIndexRoute
+  '/coordinator/': typeof CoordinatorIndexRoute
+  '/flags-reported/': typeof FlagsReportedIndexRoute
+  '/history/': typeof HistoryIndexRoute
+  '/home/': typeof HomeIndexRoute
+  '/notifications/': typeof NotificationsIndexRoute
+  '/pae-expert/': typeof PaeExpertIndexRoute
+  '/profile/': typeof ProfileIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -142,15 +142,15 @@ export interface FileRouteTypes {
     | '/whatsapp-history'
     | '/coordinator/profile'
     | '/user/$userId'
-    | '/audit'
-    | '/auth'
-    | '/coordinator'
-    | '/flags-reported'
-    | '/history'
-    | '/home'
-    | '/notifications'
-    | '/pae-expert'
-    | '/profile'
+    | '/audit/'
+    | '/auth/'
+    | '/coordinator/'
+    | '/flags-reported/'
+    | '/history/'
+    | '/home/'
+    | '/notifications/'
+    | '/pae-expert/'
+    | '/profile/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -218,63 +218,63 @@ declare module '@tanstack/react-router' {
     '/profile/': {
       id: '/profile/'
       path: '/profile'
-      fullPath: '/profile'
+      fullPath: '/profile/'
       preLoaderRoute: typeof ProfileIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pae-expert/': {
       id: '/pae-expert/'
       path: '/pae-expert'
-      fullPath: '/pae-expert'
+      fullPath: '/pae-expert/'
       preLoaderRoute: typeof PaeExpertIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/notifications/': {
       id: '/notifications/'
       path: '/notifications'
-      fullPath: '/notifications'
+      fullPath: '/notifications/'
       preLoaderRoute: typeof NotificationsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/home/': {
       id: '/home/'
       path: '/home'
-      fullPath: '/home'
+      fullPath: '/home/'
       preLoaderRoute: typeof HomeIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/history/': {
       id: '/history/'
       path: '/history'
-      fullPath: '/history'
+      fullPath: '/history/'
       preLoaderRoute: typeof HistoryIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/flags-reported/': {
       id: '/flags-reported/'
       path: '/flags-reported'
-      fullPath: '/flags-reported'
+      fullPath: '/flags-reported/'
       preLoaderRoute: typeof FlagsReportedIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/coordinator/': {
       id: '/coordinator/'
       path: '/coordinator'
-      fullPath: '/coordinator'
+      fullPath: '/coordinator/'
       preLoaderRoute: typeof CoordinatorIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/': {
       id: '/auth/'
       path: '/auth'
-      fullPath: '/auth'
+      fullPath: '/auth/'
       preLoaderRoute: typeof AuthIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/audit/': {
       id: '/audit/'
       path: '/audit'
-      fullPath: '/audit'
+      fullPath: '/audit/'
       preLoaderRoute: typeof AuditIndexRouteImport
       parentRoute: typeof rootRouteImport
     }

@@ -23,6 +23,7 @@ import type {
   FarmerHeatMapFilters,
   FarmerHeatMapResponse,
   CoordinatorDuplicateQuestionHeatMapResponse,
+  PaginatedFeedbackMessages,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {GrowthResponse} from '../types/chatbot.type.js';
 
@@ -71,6 +72,18 @@ export interface QueryAnalyticsResponse {
 }
 
 export interface IChatbotService {
+  getFeedbackUsers(
+    source?: string,
+    page?: number,
+    limit?: number,
+    search?: string,
+    sortBy?: string,
+    sortOrder?: string,
+    userType?: string,
+    rating?: string,
+    tag?: string,
+  ): Promise<PaginatedFeedbackMessages>;
+
   getDashboard(
     days: number,
     source?: string,
@@ -452,5 +465,7 @@ export interface IChatbotService {
       isPassed?: string,
       tag?: string,
       notificationType?: string,
+      page?: number,
+      limit?: number,
     ): Promise<any>
 }

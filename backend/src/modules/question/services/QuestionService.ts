@@ -2332,6 +2332,9 @@ export class QuestionService extends BaseService implements IQuestionService {
       );
 
       const lastSubmission = questionSubmission.history.at(-1);
+      // No more experts left to allocate — hand the question off to a moderator
+      // (status → in-review, last answer → pending-with-moderator) and stop here:
+      // everything below only applies when there are experts to add.
       if (filteredExperts.length === 0) {
         await this.questionRepo.updateQuestion(
           questionId,
@@ -2342,13 +2345,25 @@ export class QuestionService extends BaseService implements IQuestionService {
           status: 'pending-with-moderator',
         };
 
-        const answer = lastSubmission.answer || lastSubmission.approvedAnswer;
+        // The last submission may be an answer, an approval, or a modification —
+        // a modified review carries `modifiedAnswer` (not `answer`/`approvedAnswer`).
+        // Include it in the fallback so the correct answer is marked pending-with-
+        // moderator, and guard against a missing id so this never throws.
+        const answer =
+          lastSubmission?.answer ||
+          lastSubmission?.approvedAnswer ||
+          lastSubmission?.modifiedAnswer ||
+          lastSubmission?.rejectedAnswer;
 
-        await this.answerRepo.updateAnswerStatus(
-          answer.toString(),
-          payload,
-          session,
-        );
+        if (answer) {
+          await this.answerRepo.updateAnswerStatus(
+            answer.toString(),
+            payload,
+            session,
+          );
+        }
+
+        return { data: [], status: false };
       }
 
       const expertsToAdd = filteredExperts.slice(0, FINAL_BATCH_SIZE);

@@ -26,6 +26,7 @@ import type {
   CoordinatorDuplicateQuestionHeatMapResponse,
   CoordinatorDuplicateQuestionLocationHierarchy,
   QueryCategoryQuestionType,
+  PaginatedFeedbackMessages,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import ExcelJS from 'exceljs';
 import {GrowthResponse} from '../types/chatbot.type.js';
@@ -773,6 +774,30 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
       throw new InternalServerError('Failed to fetch inactive WhatsApp users');
     }
+  }
+
+  async getFeedbackUsers(
+    source = 'annam',
+    page = 1,
+    limit = 10,
+    search?: string,
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+    userType = 'all',
+    rating?: string,
+    tag?: string,
+  ): Promise<PaginatedFeedbackMessages> {
+    return this.chatbotRepository.getFeedbackUsers(
+      source,
+      page,
+      limit,
+      search,
+      sortBy,
+      sortOrder,
+      userType,
+      rating,
+      tag,
+    );
   }
 
   async getDashboard(
@@ -3776,6 +3801,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
       isPassed?: string,
       tag?: string,
       notificationType?: string,
+      page?: number,
+      limit?: number
     ): Promise<any>{
       return this.chatbotRepository.getLifeCycleSummary(
         status,
@@ -3786,6 +3813,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
         isPassed,
         tag,
         notificationType,
+        page,
+        limit
       );
     }
 }

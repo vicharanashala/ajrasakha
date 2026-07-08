@@ -987,40 +987,53 @@ export class QuestionRepository implements IQuestionRepository {
       }
 
       if (search && search.trim() !== '') {
-        // Search spans ALL questions regardless of status/source — drop those filters
-        // so a matching question surfaces no matter which tab/status it's in.
-        delete filter.status;
-        delete filter.source;
+        // Strip punctuation and special characters (e.g. commas, question marks)
+        // so they don't break the regex or prevent matches. Keep only word chars and spaces.
+        const sanitizedSearch = search
+          .trim()
+          .replace(/[^\w\s]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
 
-        // Escape special regex characters so literal strings like "How to control weeds?"
-        // are matched as-is rather than being interpreted as regex patterns.
-        const escapedSearch = escapeRegex(search.trim());
-        const searchConditions = [
-          {question: {$regex: escapedSearch, $options: 'i'}},
-          {'details.crop': {$regex: escapedSearch, $options: 'i'}},
-          {'details.state': {$regex: escapedSearch, $options: 'i'}},
-          {'details.domain': {$regex: escapedSearch, $options: 'i'}},
-          {threadId: {$regex: escapedSearch, $options: 'i'}},
-          {
-            $expr: {
-              $regexMatch: {
-                input: {$toString: '$_id'},
-                regex: escapedSearch,
-                options: 'i',
+        // If the entire input was only punctuation/special chars, skip search entirely
+        if (sanitizedSearch.length > 0) {
+          // Search spans ALL questions regardless of status/source — drop those filters
+          // so a matching question surfaces no matter which tab/status it's in.
+          delete filter.status;
+          delete filter.source;
+          // Also allow isTesting questions to appear in search results
+          delete filter.isTesting;
+
+          // Escape special regex characters so literal strings like "How to control weeds"
+          // are matched as-is rather than being interpreted as regex patterns.
+          const escapedSearch = escapeRegex(sanitizedSearch);
+          const searchConditions = [
+            {question: {$regex: escapedSearch, $options: 'i'}},
+            {'details.crop': {$regex: escapedSearch, $options: 'i'}},
+            {'details.state': {$regex: escapedSearch, $options: 'i'}},
+            {'details.domain': {$regex: escapedSearch, $options: 'i'}},
+            {threadId: {$regex: escapedSearch, $options: 'i'}},
+            {
+              $expr: {
+                $regexMatch: {
+                  input: {$toString: '$_id'},
+                  regex: escapedSearch,
+                  options: 'i',
+                },
               },
             },
-          },
-        ];
+          ];
 
-        // If filter.$or already exists (e.g. from pae_review), combine using $and
-        // to avoid overwriting the existing $or condition
-        if (filter.$or) {
-          if (!filter.$and) filter.$and = [];
-          filter.$and.push({$or: filter.$or});
-          filter.$and.push({$or: searchConditions});
-          delete filter.$or;
-        } else {
-          filter.$or = searchConditions;
+          // If filter.$or already exists (e.g. from pae_review), combine using $and
+          // to avoid overwriting the existing $or condition
+          if (filter.$or) {
+            if (!filter.$and) filter.$and = [];
+            filter.$and.push({$or: filter.$or});
+            filter.$and.push({$or: searchConditions});
+            delete filter.$or;
+          } else {
+            filter.$or = searchConditions;
+          }
         }
       }
 

@@ -64,6 +64,9 @@ class User implements IUser {
   isCallAgentActive?: boolean;
 
   @Expose()
+  Call_centre_manager?: boolean;
+
+  @Expose()
   agent?: string;
 
   @Expose()
@@ -98,6 +101,7 @@ class User implements IUser {
     this.mobile = data?.mobile || '';
     this.university = data?.university || '';
     this.isCallAgentActive = data?.isCallAgentActive;
+    this.Call_centre_manager = data?.Call_centre_manager;
     this.agent = data?.agent || 'not_available';
     this.isBusy = data?.isBusy || false;
     this.currentCallUuid = data?.currentCallUuid || null;

@@ -1035,7 +1035,7 @@ export class UserController {
   ): Promise<IUser> {
     const { userId, isCallAgent, isCallAgentActive } = body;
     try {
-      const res = await this.userService.setCallAgentStatus(userId, isCallAgent, isCallAgentActive, currentUser.role);
+      const res = await this.userService.setCallAgentStatus(userId, isCallAgent, isCallAgentActive, currentUser);
       return res;
     } catch (err) {
       throw err;
@@ -1069,7 +1069,7 @@ export class UserController {
     @Param('id') userId: string,
     @CurrentUser() currentUser: IUser,
   ): Promise<IUser> {
-    return await this.userService.toggleCallAgentActive(userId, currentUser.role);
+    return await this.userService.toggleCallAgentActive(userId, currentUser);
   }
 
   @OpenAPI({
