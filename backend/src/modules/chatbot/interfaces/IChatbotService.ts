@@ -465,5 +465,7 @@ export interface IChatbotService {
       isPassed?: string,
       tag?: string,
       notificationType?: string,
+      page?: number,
+      limit?: number,
     ): Promise<any>
 }
