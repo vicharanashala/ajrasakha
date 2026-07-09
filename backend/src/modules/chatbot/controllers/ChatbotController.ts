@@ -1913,6 +1913,36 @@ export class ChatbotController {
     return {topFaqs, topQuestionsFromCollection, ...repeatQueryCountData};
   }
 
+  @Get('/top-questions/:questionId')
+  @HttpCode(200)
+  @Authorized()
+  async getTopQuestionInstances(
+    @Param('questionId') questionId: string,
+    @QueryParams() query: TopFaqsQuery,
+    @QueryParam('page') page: number = 1,
+    @QueryParam('limit') limit: number = 10,
+  ): Promise<any> {
+    const startTime = query.startTime
+      ? new Date(query.startTime).toString()
+      : undefined;
+
+    const endTime = query.endTime
+      ? new Date(query.endTime).toString()
+      : undefined;
+    const source = query.source;
+    const userType = query.userType;
+
+    return await this.chatbotService.getTopQuestionInstances(
+      questionId,
+      source,
+      userType,
+      startTime,
+      endTime,
+      page,
+      limit
+    );
+  }
+
   @Get('/daily-question-trends')
   @HttpCode(200)
   @Authorized()
@@ -2154,7 +2184,8 @@ export class ChatbotController {
     @QueryParam('isPassed') isPassed?: string,
     @QueryParam('tag') tag?: string,
     @QueryParam('notificationType') notificationType?: string,
-    @QueryParam('userId') userId?: string,
+    @QueryParam('page') page?: number,
+    @QueryParam('limit') limit?: number,
   ): Promise<any> {
     const start= startDate
         ? new Date(startDate)

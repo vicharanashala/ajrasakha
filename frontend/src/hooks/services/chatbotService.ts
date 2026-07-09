@@ -228,6 +228,30 @@ export class ChatbotService {
   //   );
   // }
 
+  async getTopQuestionInstances(
+    questionId: string,
+    filters: {
+      source?: string;
+      userType?: string;
+      startTime?: string;
+      endTime?: string;
+      page?: number;
+      limit?: number;
+    }
+  ): Promise<any> {
+    const params = new URLSearchParams();
+    if (filters.source) params.append("source", filters.source);
+    if (filters.userType) params.append("userType", filters.userType);
+    if (filters.startTime) params.append("startTime", filters.startTime);
+    if (filters.endTime) params.append("endTime", filters.endTime);
+    if (filters.page) params.append("page", filters.page.toString());
+    if (filters.limit) params.append("limit", filters.limit.toString());
+
+    return apiFetch<any>(
+      `${this._baseUrl}/top-questions/${questionId}?${params.toString()}`
+    );
+  }
+
   async getQuestionByFilters({
     category,
     district,

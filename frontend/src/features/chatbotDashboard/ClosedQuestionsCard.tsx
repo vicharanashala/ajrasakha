@@ -307,7 +307,7 @@ export function ClosedQuestionsCard({
                   }}
                 />
                 <StatTile
-                  label="Others"
+                  label="In Queue"
                   count={Math.max(pendingQuestions ?? 0, 0)}
                   accent="muted"
                   tooltip="Questions neither closed nor passed"

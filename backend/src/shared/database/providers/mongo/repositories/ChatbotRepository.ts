@@ -1555,6 +1555,7 @@ export class ChatbotRepository implements IChatbotRepository {
           {
             ...userDocFilter,
             farmerProfile: {$exists: true, $ne: null},
+            isVerified: true,
           },
           {session},
         ),
@@ -8765,6 +8766,7 @@ export class ChatbotRepository implements IChatbotRepository {
         {
           ...userDocFilter,
           farmerProfile: {$exists: true, $ne: null},
+          isVerified:true
         },
         {session},
       );
@@ -9163,6 +9165,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const normalizedPlatform = platform?.trim();
       const basePlatformFilter = {
         farmerProfile: {$exists: true, $ne: null},
+        isVerified:true
       };
       const platformFilter =
         normalizedPlatform === 'Unknown'
@@ -9335,6 +9338,7 @@ export class ChatbotRepository implements IChatbotRepository {
               {
                 $match: {
                   farmerProfile: {$exists: true, $ne: null},
+                  isVerified:true,
                   ...userDocFilter,
                 },
               },
@@ -9362,6 +9366,7 @@ export class ChatbotRepository implements IChatbotRepository {
               {
                 $match: {
                   farmerProfile: {$exists: true, $ne: null},
+                  isVerified:true,
                   ...userDocFilter,
                 },
               },
@@ -9737,6 +9742,7 @@ export class ChatbotRepository implements IChatbotRepository {
           {
             $match: {
               farmerProfile: {$exists: true, $ne: null},
+              isVerified: true,
               ...userDocFilter,
             },
           },
@@ -10214,7 +10220,7 @@ export class ChatbotRepository implements IChatbotRepository {
     userType = 'all',
     startTime?: string,
     endTime?: string,
-  ): Promise<Array<{question: string; count: number}>> {
+  ): Promise<Array<{questionId: string; question: string; count: number}>> {
     try {
       await this.initReviewSystem();
       const matchQuery = buildBaseQuestionMatch('whatsapp');
@@ -10291,12 +10297,114 @@ export class ChatbotRepository implements IChatbotRepository {
       ).toArray();
 
       return result.map(r => ({
+        questionId: String(r._id),
         question: r.question,
         count: r.count,
       }));
     } catch (error) {
       throw new InternalServerError(
         `Failed to get top questions from collection: ${error}`,
+      );
+    }
+  }
+
+  async getTopQuestionInstances(
+    questionId: string,
+    dbSource = 'annam',
+    userType = 'all',
+    startTime?: string,
+    endTime?: string,
+    page: number = 1,
+    limit: number = 10,
+    session?: ClientSession,
+  ): Promise<{ data: any[]; total: number; page: number; limit: number; totalPages: number }> {
+    try {
+      await this.initReviewSystem();
+      const matchQuery = buildBaseQuestionMatch('whatsapp');
+
+      if (startTime || endTime) {
+        matchQuery.createdAt = {};
+        if (startTime) {
+          matchQuery.createdAt.$gte = new Date(startTime);
+        }
+        if (endTime) {
+          matchQuery.createdAt.$lte = new Date(endTime);
+        }
+      }
+
+      const query = await this.buildQuestionUserTypeMatchQuery(
+        dbSource,
+        userType,
+      );
+
+      if (query && Object.keys(query).length > 0) {
+        matchQuery.$and.push(query);
+      }
+
+      let qId;
+      try {
+        qId = new ObjectId(questionId);
+      } catch (e) {
+        // Handle case where questionId is not a valid ObjectId
+        qId = questionId;
+      }
+
+      const skip = (page - 1) * limit;
+
+      const result = await this.QuestionCollection.aggregate(
+        [
+          { $match: matchQuery },
+          {
+            $addFields: {
+              resolvedId: { $ifNull: ['$referenceQuestionId', '$_id'] },
+            },
+          },
+          {
+            $match: {
+              resolvedId: qId,
+            },
+          },
+          { $sort: { createdAt: -1 } },
+          {
+            $facet: {
+              metadata: [{ $count: 'total' }],
+              data: [
+                { $skip: skip },
+                { $limit: limit },
+                {
+                  $project: {
+                    _id: 1,
+                    threadId: 1,
+                    question: 1,
+                    createdAt: 1,
+                    status: 1,
+                    source: 1,
+                    userRole: 1,
+                    farmerId: 1,
+                    coordinatorId: 1,
+                  },
+                },
+              ],
+            },
+          },
+        ],
+        { session },
+      ).toArray();
+
+      const total = result[0]?.metadata[0]?.total || 0;
+      const data = result[0]?.data || [];
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        data,
+        total,
+        page,
+        limit,
+        totalPages,
+      };
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get top question instances: ${error}`,
       );
     }
   }
@@ -14693,11 +14801,15 @@ export class ChatbotRepository implements IChatbotRepository {
           .project({_id: 1})
           .toArray();
 
-        const searchUserIds = matchingUsers.map(user => user._id);
+        const searchUserIds = matchingUsers.map(user => user._id.toString());
 
-        matchQuery.user = {
-          $in: searchUserIds,
-        };
+        if (matchQuery.user && matchQuery.user.$in) {
+          matchQuery.user.$in = matchQuery.user.$in.filter((id: string) => searchUserIds.includes(id));
+        } else {
+          matchQuery.user = {
+            $in: searchUserIds,
+          };
+        }
       }
 
       const result = await this.messagesCollection
@@ -16344,29 +16456,29 @@ export class ChatbotRepository implements IChatbotRepository {
       const isDuplicate =
         question.status === 'duplicate' || !!question.referenceQuestionId;
 
-      if (question.status === 'duplicate') {
-        return [
-          {
-            timestamp: question.createdAt,
-            user: '-',
-            action: 'Duplicate Question',
-            duration: null,
-            remarks: 'Original question lifecycle is not available.',
-            endTime: null,
-            eventType: 'duplicate',
-          },
-          {
-            timestamp: question.closedAt || question.updatedAt,
-            user: 'Buffer Time',
-            action: 'Question Marked As Duplicate',
-            duration:
-              question.updatedAt.getTime() - question.createdAt.getTime(),
-            remarks: 'Closed as duplicate',
-            endTime: question.closedAt || question.updatedAt,
-            eventType: 'closure',
-          },
-        ];
-      }
+      // if (question.status === 'duplicate') {
+      //   return [
+      //     {
+      //       timestamp: question.createdAt,
+      //       user: '-',
+      //       action: 'Duplicate Question',
+      //       duration: null,
+      //       remarks: 'Original question lifecycle is not available.',
+      //       endTime: null,
+      //       eventType: 'duplicate',
+      //     },
+      //     {
+      //       timestamp: question.closedAt || question.updatedAt,
+      //       user: 'Buffer Time',
+      //       action: 'Question Marked As Duplicate',
+      //       duration:
+      //         question.updatedAt.getTime() - question.createdAt.getTime(),
+      //       remarks: 'Closed as duplicate',
+      //       endTime: question.closedAt || question.updatedAt,
+      //       eventType: 'closure',
+      //     },
+      //   ];
+      // }
 
       const questionAskedAt =
         conversation?.createdAt &&
@@ -16377,8 +16489,8 @@ export class ChatbotRepository implements IChatbotRepository {
       if (isDuplicate) {
         timeline.push({
           timestamp: question.createdAt,
-          user: questionAskedBy?.email ? questionAskedBy?.email : '-',
-          action: 'Duplicate Question',
+          user: questionAskedBy?.email ? questionAskedBy?.email : 'User details not available',
+          action: 'Question Asked',
           duration: null,
           remarks: 'Original question lifecycle is not available.',
           endTime: null,
@@ -16521,15 +16633,16 @@ export class ChatbotRepository implements IChatbotRepository {
             eventType: 'system_wait',
           });
         }
-
+        const moderatorCompletedAt = question.closedAt || question.passedAt;
         timeline.push({
           timestamp: moderatorAssignedAt,
           user: moderatorName,
           action: 'Approval Review',
-          duration:
-            question.closedAt?.getTime() - moderatorAssignedAt.getTime(),
-          remarks: '',
-          endTime: question.closedAt,
+          duration: moderatorCompletedAt
+            ? moderatorCompletedAt.getTime() - moderatorAssignedAt.getTime()
+            : Date.now() - moderatorAssignedAt.getTime(),
+          remarks: "",
+          endTime: moderatorCompletedAt ?? new Date(),
           eventType: 'moderator',
         });
       }
@@ -16607,12 +16720,18 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const isClosed = !!question.closedAt || !!question.passedAt;
 
+      const moderatorInProgress =
+        !!question.moderatorAssignedAt &&
+        !question.closedAt &&
+        !question.passedAt;
+
       const currentAssigneeInProgress =
         reviewTimeline.length > 0 &&
         reviewTimeline[reviewTimeline.length - 1].isCompleted === false;
 
       const hasActiveWork =
         currentAssigneeInProgress ||
+        moderatorInProgress ||
         rerouteDoc?.reroutes?.some((r: any) => r.status === 'pending');
 
       if (!isClosed && !hasActiveWork) {
@@ -17560,15 +17679,6 @@ export class ChatbotRepository implements IChatbotRepository {
           $in: ['closed'],
         };
 
-        if (isPassed === 'true') {
-          matchQuery.isCustomerNotified = true;
-        } else if (isPassed === 'false') {
-          matchQuery.isCustomerNotified = false;
-        } else if (isPassed === 'untracked') {
-          matchQuery.isCustomerNotified = {
-            $exists: false,
-          };
-        }
       }
 
       const query = await this.buildQuestionUserTypeMatchQuery(
@@ -17620,7 +17730,9 @@ export class ChatbotRepository implements IChatbotRepository {
           projection: {
             _id: 1,
           },
-        })
+        })  
+          .skip((page - 1) * limit)
+          .limit(limit)
           .map(x => x._id.toString())
           .toArray();
       } else if (tag === 'sla') {
@@ -17682,6 +17794,12 @@ export class ChatbotRepository implements IChatbotRepository {
             $project: {
               _id: 1,
             },
+          },
+          {
+            $skip: (page - 1) * limit,
+          },
+          {
+            $limit: limit,
           },
         ]).toArray();
 
@@ -17750,6 +17868,12 @@ export class ChatbotRepository implements IChatbotRepository {
               _id: 1,
             },
           },
+          {
+            $skip: (page - 1) * limit,
+          },
+          {
+            $limit: limit,
+          },
         ]).toArray();
 
         questionIds = breachedQuestions.map(q => q._id.toString());
@@ -17758,7 +17882,8 @@ export class ChatbotRepository implements IChatbotRepository {
           projection: {
             _id: 1,
           },
-        })
+        }).skip((page - 1) * limit)
+          .limit(limit)
           .map(x => x._id.toString())
           .toArray();
       }
@@ -17804,28 +17929,37 @@ export class ChatbotRepository implements IChatbotRepository {
 
         if (
           first &&
-          (lifecycleObj.status === 'closed' || lifecycleObj.status === 'pass')
+          ["closed", "pass", "duplicate"].includes(lifecycleObj.status)
         ) {
-          const resolutionTime =
-            lifecycleObj.status === 'pass'
-              ? lifecycleObj.passedAt
-              : lifecycleObj.closedAt;
+          let resolutionTime: Date | null = null;
+
+          if (lifecycleObj.status === "pass") {
+            resolutionTime = lifecycleObj.passedAt;
+          } else if (lifecycleObj.status === "closed") {
+            resolutionTime = lifecycleObj.closedAt;
+          } else {
+            // duplicate
+            const duplicateEvent = lifecycleObj.timeline.find(
+              (x: any) => x.action === "Question Marked As Duplicate"
+            );
+
+            resolutionTime = duplicateEvent?.endTime || duplicateEvent?.timestamp || null;
+          }
+
           if (!resolutionTime) continue;
+
           const lifecycleTime =
             new Date(resolutionTime).getTime() -
             new Date(first.timestamp).getTime();
+
+          totalLifecycleTime += lifecycleTime;
           resolvedQuestions++;
+
           if (lifecycleTime > 2 * 60 * 60 * 1000) {
             slaBreachedCount++;
           }
         }
 
-        if (first && last) {
-          const lifecycleTime =
-            new Date(last.timestamp).getTime() -
-            new Date(first.timestamp).getTime();
-          totalLifecycleTime += lifecycleTime;
-        }
 
         // =====================
         // Buffer Times
@@ -17841,13 +17975,14 @@ export class ChatbotRepository implements IChatbotRepository {
               case 'Initial Allocation Pending':
                 totalInitialAllocationTime += x.duration || 0;
                 break;
-              case 'Pending Next Assignment':
-                totalPendingAssignmentTime += x.duration || 0;
-                break;
-              case 'Awaiting Moderator Assignment':
-                totalAwaitingModeratorTime += x.duration || 0;
-                break;
-              case 'Awaiting Closure/Pass':
+              case "Pending Next Assignment":
+                  totalPendingAssignmentTime += x.duration || 0;
+                  break;
+
+              case "Awaiting Moderator Assignment":
+                  totalAwaitingModeratorTime += x.duration || 0;
+                  break;
+              case "Awaiting Closure/Pass":
                 totalAwaitingClosureTime += x.duration || 0;
                 break;
             }
@@ -17918,20 +18053,20 @@ export class ChatbotRepository implements IChatbotRepository {
 
       return {
         totalQuestions,
-        avgLifecycleTime:
-          resolvedQuestions > 0 ? totalLifecycleTime / resolvedQuestions : 0,
+        avgLifecycleTime: totalLifecycleTime / totalQuestions,
+          // resolvedQuestions > 0 ? totalLifecycleTime / resolvedQuestions : 0,
         avgPushToReviewTime: totalPushToReviewTime / totalQuestions,
         avgInitialAllocationTime: totalInitialAllocationTime / totalQuestions,
         avgPendingAssignmentTime: totalPendingAssignmentTime / totalQuestions,
         avgAwaitingModeratorTime: totalAwaitingModeratorTime / totalQuestions,
         avgAwaitingClosureTime: totalAwaitingClosureTime / totalQuestions,
-        avgAuthoringTime:
-          authoringCount > 0 ? totalAuthoringTime / authoringCount : 0,
-        avgR1Time: r1Count > 0 ? totalR1Time / r1Count : 0,
-        avgR2Time: r2Count > 0 ? totalR2Time / r2Count : 0,
-        avgR3Time: r3Count > 0 ? totalR3Time / r3Count : 0,
-        avgModeratorTime:
-          moderatorCount > 0 ? totalModeratorTime / moderatorCount : 0,
+        avgAuthoringTime: totalAuthoringTime / totalQuestions,
+          // authoringCount > 0 ? totalAuthoringTime / authoringCount : 0,
+        avgR1Time: r1Count > 0 ? totalR1Time / totalQuestions : 0,
+        avgR2Time: r2Count > 0 ? totalR2Time / totalQuestions : 0,
+        avgR3Time: r3Count > 0 ? totalR3Time / totalQuestions : 0,
+        avgModeratorTime: totalModeratorTime / totalQuestions,
+          // moderatorCount > 0 ? totalModeratorTime / moderatorCount : 0,
         totalReroutes,
         avgReroutesPerQuestion:
           totalQuestions > 0 ? totalReroutes / totalQuestions : 0,
@@ -17944,6 +18079,8 @@ export class ChatbotRepository implements IChatbotRepository {
         slaBreachedCount,
         resolutionRate:
           totalQuestions > 0 ? (resolvedQuestions / totalQuestions) * 100 : 0,
+        page,
+        limit,
       };
     } catch (err) {
       console.log('error in getlifecyclesummary:', err);
@@ -18098,13 +18235,21 @@ export class ChatbotRepository implements IChatbotRepository {
             historyItem.status.slice(1);
         }
 
+        const isResolved =
+            ["closed", "pass", "duplicate"].includes(question.status);
+
+        const duration =
+            review.isCompleted
+                ? review.timeTakenMs
+                : isResolved
+                    ? 0
+                    : Date.now() - new Date(review.assignedAt).getTime();
+
         timeline.push({
           timestamp: review.assignedAt,
           user: '-',
           action,
-          duration: review.isCompleted
-            ? review.timeTakenMs
-            : Date.now() - new Date(review.assignedAt).getTime(),
+          duration,
           remarks:
             historyItem?.reasonForRejection ||
             historyItem?.reasonForLastModification ||
@@ -18143,15 +18288,23 @@ export class ChatbotRepository implements IChatbotRepository {
           });
         }
 
+        const moderatorCompletedAt = question.closedAt || question.passedAt;
+
+        const moderatorCompleted =
+            moderatorCompletedAt
+                ? new Date(moderatorCompletedAt)
+                : null;
+
         timeline.push({
-          timestamp: moderatorAssignedAt,
-          user: '-',
-          action: 'Approval Review',
-          duration:
-            question.closedAt?.getTime() - moderatorAssignedAt.getTime(),
-          remarks: '',
-          endTime: question.closedAt,
-          eventType: 'moderator',
+            timestamp: moderatorAssignedAt,
+            user: "-",
+            action: "Approval Review",
+            duration: moderatorCompleted
+                ? moderatorCompleted.getTime() - moderatorAssignedAt.getTime()
+                : 0,
+            remarks: "",
+            endTime: moderatorCompleted,
+            eventType: "moderator",
         });
       }
 
@@ -18215,7 +18368,19 @@ export class ChatbotRepository implements IChatbotRepository {
           new Date(next.timestamp).getTime() -
           new Date(current.endTime).getTime();
 
-        if (gap > 1000 && current.eventType !== 'reroute') {
+        const nextIsExplicitWait =
+          next.eventType === 'system_wait' &&
+          [
+            'Initial Allocation Pending',
+            'Awaiting Moderator Assignment',
+            'Awaiting Closure/Pass',
+          ].includes(next.action);
+
+        if (
+          gap > 1000 &&
+          current.eventType !== 'reroute' &&
+          !nextIsExplicitWait
+        ) {
           finalTimeline.push({
             timestamp: current.endTime,
             user: 'Buffer Time',
