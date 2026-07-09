@@ -26,11 +26,6 @@ const userService = new UserService();
 
 export const loginWithEmail = async (email: string, password: string) => {
   try {
-    const user = await userService.getCurrentUser();
-    const isCallAgent = user?.role === "call_agent";
-    if (user && !isCallAgent) {
-       throw new Error("Only call agents can access this system.");
-    }
     const result = await signInWithEmailAndPassword(auth, email, password);
 
     if (!result.user.emailVerified && !isDevelopment) {
@@ -47,19 +42,17 @@ export const loginWithEmail = async (email: string, password: string) => {
     const idToken = await result.user.getIdToken();
     const syncResponse = await authService.accountSync(idToken);
 
+    // Fetch user profile from /me (with auth headers) to check role access
+    const user = await userService.getCurrentUser();
+    const allowedRoles = ["call_agent", "admin", "moderator"];
+    if (user && !allowedRoles.includes(user.role)) {
+      await signOut(auth);
+      throw new Error("Only call agents and administrators can access this system.");
+    }
+
     return Object.assign(result, { appUser: syncResponse?.user });
-  } catch (error: unknown) {
-    if (error instanceof Error && (error.message.includes("Only call agents") || error.message.includes("Please verify your email"))) {
-      throw error;
-    }
-    try {
-      const result = await signInWithEmailAndPassword(auth, email, password);
-      const idToken = await result.user.getIdToken();
-      const syncResponse = await authService.accountSync(idToken);
-      return Object.assign(result, { appUser: syncResponse?.user });
-    } catch (authError) {
-      throw authError;
-    }
+  } catch (error) {
+    throw error;
   }
 };
 

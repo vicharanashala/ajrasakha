@@ -37,6 +37,19 @@ export class UserRepository implements IUserRepository {
     } as IUser;
   }
 
+  async findByEmail(
+    email: string,
+    session?: ClientSession,
+  ): Promise<IUser | null> {
+    await this.init();
+    const user = await this.usersCollection.findOne({ email }, { session });
+    if (!user) return null;
+    return {
+      ...user,
+      _id: user._id.toString(),
+    } as IUser;
+  }
+
   async findByFirebaseUID(
     firebaseUID: string,
     session?: ClientSession,

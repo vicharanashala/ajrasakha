@@ -29,6 +29,18 @@ export class UserController {
     @inject(GLOBAL_TYPES.UserService) private readonly userService: UserService,
   ) {}
 
+  @Get('/me')
+  @HttpCode(200)
+  @Authorized()
+  async getMe(@CurrentUser() currentUser: IUser): Promise<IUser> {
+    const userId = currentUser._id.toString();
+    const user = await this.userService.getUserById(userId);
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+    return user;
+  }
+
   @Get('/call-agents')
   @HttpCode(200)
   @Authorized(['admin'])
@@ -79,7 +91,7 @@ export class UserController {
     @CurrentUser() currentUser: IUser,
   ): Promise<IUser> {
     const userId = currentUser._id.toString();
-    const user = await this.userService.userRepo.findById(userId);
+    const user = await this.userService.getUserById(userId);
     if (!user) {
       throw new NotFoundError('User not found');
     }

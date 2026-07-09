@@ -52,8 +52,14 @@ export const appConfig = {
     authToken: env('PLIVO_AUTH_TOKEN') || 'dummy-plivo-auth-token',
     plivo_number: env('PLIVO_NUMBER') || '+15551234567',
     getAgentCredentials: (agentNumber: string) => {
-      const username = env(`PLIVO_ENDPOINT_USERNAME_${agentNumber.toUpperCase()}`);
-      return { username};
+      // Convert agent_1 to AGENT_1 to match frontend naming convention
+      const formattedAgentNumber = agentNumber.toUpperCase().replace('AGENT_', 'AGENT_');
+      const username = env(`PLIVO_${formattedAgentNumber}_USERNAME`);
+      const password = env(`PLIVO_${formattedAgentNumber}_PASSWORD`);
+      // console.log(`🔍 [APPCONFIG] Getting credentials for ${agentNumber} -> PLIVO_${formattedAgentNumber}_USERNAME`);
+      // console.log(`🔍 [APPCONFIG] Username found:`, username ? 'YES' : 'NO - MISSING ENV VAR');
+      // console.log(`🔍 [APPCONFIG] Password found:`, password ? 'YES' : 'NO - MISSING ENV VAR');
+      return { username, password };
     },
   },
   fast2sms: {

@@ -57,7 +57,15 @@ export class PlivoController {
 
 
       // Atomically find and mark an available agent as busy (prevents race conditions)
+      // console.log(`🔍 [PLIVO-CONTROLLER] Looking for available agent for call: ${callUuid}`);
       const availableAgent = await this.userService.findAndMarkAvailableAgent(callUuid);
+      // console.log(`🔍 [PLIVO-CONTROLLER] Available agent found:`, availableAgent ? {
+      //   _id: availableAgent._id,
+      //   name: `${availableAgent.firstName} ${availableAgent.lastName}`,
+      //   agent: availableAgent.agent,
+      //   isCallAgentActive: availableAgent.isCallAgentActive,
+      //   isBusy: availableAgent.isBusy
+      // } : 'NULL - No available agent');
 
 
       let endpointUser: string;
@@ -66,8 +74,11 @@ export class PlivoController {
       if (availableAgent && availableAgent.agent) {
         // Get the Plivo endpoint credentials for this agent
         const agentNumber = availableAgent.agent; // e.g., "agent_1"
+        // console.log(`🔍 [PLIVO-CONTROLLER] Agent number: ${agentNumber}`);
         const credentials = appConfig.plivo.getAgentCredentials(agentNumber);
+        // console.log(`🔍 [PLIVO-CONTROLLER] Credentials retrieved:`, credentials);
         endpointUser = credentials.username;
+        // console.log(`🔍 [PLIVO-CONTROLLER] Endpoint user: ${endpointUser}`);
 
 
         // Store the agent userid for this call in PlivoService

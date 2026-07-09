@@ -48,7 +48,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./atoms/select";
-import type { GeneratedQuestion } from "./voice-recorder-card";
+import type { GeneratedQuestion } from "@/hooks/services/questionService";
 import Plivo from "plivo-browser-sdk";
 import type { ExtractDataResponse } from "@/hooks/services/accAgentService";
 import { UserService } from "@/hooks/services/userService";

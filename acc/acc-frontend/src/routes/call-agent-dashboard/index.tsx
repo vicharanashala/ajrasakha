@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuthStore } from "@/stores/auth-store";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
-import { Tabs, TabsContent } from "@/components/atoms/tabs";
-import { ThemeToggle } from "@/components/atoms/ThemeToggle";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/atoms/tabs";
+import { ThemeToggleCompact } from "@/components/atoms/ThemeToggle";
+import { UserProfileActions } from "@/components/atoms/user-profile-actions";
 import { CallAgentDashboard } from "@/components/CallAgentDashboard";
 import { CallInterface } from "@/components/CallInterface";
 import { CallHistory } from "@/components/CallHistory";
@@ -15,9 +16,7 @@ import {
   Clock,
   TrendingUp,
   BarChart3,
-  Users,
-  LogOut,
-  UserCheck
+  Users
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -27,7 +26,7 @@ export const Route = createFileRoute("/call-agent-dashboard/")({
 
 function DashboardComponent() {
   const navigate = useNavigate();
-  const { user: authUser, logout } = useAuthStore();
+  const { user: authUser } = useAuthStore();
   const { data: user, isLoading } = useGetCurrentUser({ enabled: !!authUser });
   const [activeTab, setActiveTab] = useState("call_interface");
 
@@ -46,16 +45,6 @@ function DashboardComponent() {
   }
 
   if (!user) return null;
-
-  const handleLogout = async () => {
-    try {
-      await logout();
-      toast.success("Successfully logged out.");
-      navigate({ to: "/auth" });
-    } catch (e: any) {
-      toast.error("Logout failed.");
-    }
-  };
 
   const isCallAgent = user.role === "call_agent";
   const isAdmin = user.role === "admin" || user.role === "moderator";
@@ -81,69 +70,54 @@ function DashboardComponent() {
   const currentTab = hasActiveTab ? activeTab : menuItems[0]?.id || "";
 
   return (
-    <div className="flex h-screen bg-slate-950 text-white overflow-hidden font-sans">
-      {/* Sidebar */}
-      <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between p-4">
-        <div className="space-y-6">
-          <div className="flex items-center gap-3 px-2 py-3 border-b border-slate-800">
-            <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain" />
-            <div>
-              <h1 className="font-bold text-sm bg-gradient-to-r from-green-300 to-emerald-400 bg-clip-text text-transparent">
+    <div className="flex flex-col h-screen bg-slate-950 text-white overflow-hidden font-sans">
+      <Tabs value={currentTab} onValueChange={setActiveTab} className="h-full flex flex-col w-full">
+        {/* Top Navbar */}
+        <header className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-900/80 backdrop-blur supports-[backdrop-filter]:bg-slate-900/60 shrink-0">
+          <div className="mx-auto flex items-center justify-between gap-4 px-6 py-3">
+            {/* Logo */}
+            <div className="flex items-center gap-3 shrink-0">
+              <img
+                src="/annam-logo.png"
+                alt="Annam Logo"
+                className="h-10 w-auto md:h-12 object-contain"
+              />
+              <span className="font-bold text-sm bg-gradient-to-r from-green-300 to-emerald-400 bg-clip-text text-transparent hidden sm:inline">
                 ACC Call Center
-              </h1>
-              <p className="text-[10px] text-slate-400 capitalize">{user.role}</p>
+              </span>
+            </div>
+
+            {/* Navigation Tabs */}
+            <div className="flex-1 flex justify-center min-w-0">
+              <TabsList className="flex gap-2 overflow-x-auto whitespace-nowrap bg-transparent p-0 no-scrollbar border-none">
+                {menuItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <TabsTrigger
+                      key={item.id}
+                      value={item.id}
+                      className="px-4 py-2 rounded-lg font-medium text-sm transition-all duration-150 flex items-center gap-2 cursor-pointer border-none data-[state=active]:bg-emerald-500 data-[state=active]:text-white text-slate-400 hover:text-white"
+                    >
+                      <Icon className="w-4 h-4" />
+                      <span>{item.label}</span>
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+            </div>
+
+            {/* Right Side Controls */}
+            <div className="flex items-center gap-4 shrink-0">
+              <ThemeToggleCompact />
+              
+              {/* User Dropdown Profile Actions */}
+              <UserProfileActions />
             </div>
           </div>
+        </header>
 
-          <nav className="space-y-1">
-            {menuItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = currentTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all cursor-pointer ${
-                    isActive
-                      ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/10"
-                      : "text-slate-400 hover:bg-slate-800 hover:text-white"
-                  }`}
-                >
-                  <Icon className="w-5 h-5 flex-shrink-0" />
-                  {item.label}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 p-2 bg-slate-800/50 rounded-lg border border-slate-800">
-            <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center font-bold text-emerald-400">
-              {user.firstName[0]}
-            </div>
-            <div className="truncate">
-              <p className="text-xs font-semibold truncate">{user.firstName} {user.lastName || ""}</p>
-              <p className="text-[9px] text-slate-400 truncate">{user.email}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between border-t border-slate-850 pt-3">
-            <ThemeToggle />
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-red-400 hover:text-red-300 hover:bg-red-950/20 rounded-md transition-all cursor-pointer border-none bg-transparent"
-            >
-              <LogOut className="w-4 h-4" />
-              Sign Out
-            </button>
-          </div>
-        </div>
-      </aside>
-
-      {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto bg-slate-950/50">
-        <Tabs value={currentTab} className="h-full flex flex-col">
+        {/* Main Content Area */}
+        <main className="flex-1 overflow-y-auto bg-slate-950/50">
           <div className="flex-1">
             {isCallAgent && (
               <>
@@ -171,8 +145,8 @@ function DashboardComponent() {
               </>
             )}
           </div>
-        </Tabs>
-      </main>
+        </main>
+      </Tabs>
     </div>
   );
 }

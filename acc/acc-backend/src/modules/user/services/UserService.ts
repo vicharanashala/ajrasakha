@@ -188,4 +188,16 @@ export class UserService extends BaseService {
   async findAndMarkAvailableAgent(callUuid: string): Promise<IUser | null> {
     return await this.userRepo.findAndMarkAvailableAgent(callUuid);
   }
+
+  async getUserById(userId: string): Promise<IUser | null> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      return await this.userRepo.findById(userId, session);
+    });
+  }
+
+  async getUserByEmail(email: string): Promise<IUser | null> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      return await this.userRepo.findByEmail(email, session);
+    });
+  }
 }
