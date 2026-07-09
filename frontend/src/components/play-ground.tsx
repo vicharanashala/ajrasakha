@@ -242,8 +242,9 @@ export const PlaygroundPage = () => {
                 )}
 
                 {user &&
-                  user.role !== "expert" &&
-                  user.role !== "call_agent" && (
+                  (user.role === "admin" ||
+                    user.role === "moderator" ||
+                    user.role === "tester") && (
                     <TabsTrigger
                       value="user_management"
                       className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
@@ -492,7 +493,10 @@ export const PlaygroundPage = () => {
                 </TabsContent>
               )}
 
-              {user && user.role !== "expert" && user.role !== "call_agent" && (
+              {user &&
+                (user.role === "admin" ||
+                  user.role === "moderator" ||
+                  user.role === "tester") && (
                 <TabsContent
                   value="user_management"
                   className={cn(

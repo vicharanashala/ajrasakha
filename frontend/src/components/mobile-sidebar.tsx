@@ -106,7 +106,10 @@ export const MobileSidebar = ({
       ? [{ id: "all_questions", label: "All Questions", icon: List }]
       : []),
 
-    ...(user && user.role !== "expert" && user.role !== "call_agent"
+    ...(user &&
+    (user.role === "admin" ||
+      user.role === "moderator" ||
+      user.role === "tester")
       ? [
           {
             id: "user_management",
