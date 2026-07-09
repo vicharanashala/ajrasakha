@@ -202,16 +202,53 @@ export const QuestionsFilters = ({
     useReAllocateExpertsSelectedQuestions();
 
   const [isReAllocateOpen, setIsReAllocateOpen] = useState(false);
-  const [isReAllocateSelectedQuestionsOpen, setIsReAllocateSelectedQuestionsOpen] = useState(false);
-  const [isReAllocateDisabled, setIsReAllocateDisabled] = useState(false);
+  const [
+    isReAllocateSelectedQuestionsOpen,
+    setIsReAllocateSelectedQuestionsOpen,
+  ] = useState(false);
+  const [reallocateCooldownUntil, setReallocateCooldownUntil] = useState<
+    number | null
+  >(null);
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const [isChemicalModalOpen, setIsChemicalModalOpen] = useState(false);
   const [isDownloadingCrops, setIsDownloadingCrops] = useState(false);
   const [isDownloadingChemicals, setIsDownloadingChemicals] = useState(false);
   const [isPaeAllocateModalOpen, setIsPaeAllocateModalOpen] = useState(false);
   const [isManualReallocateOpen, setIsManualReallocateOpen] = useState(false);
-  const [manualReallocateType, setManualReallocateType] = useState<"inactive" | "escalation">("inactive");
-  const [pendingReallocateType, setPendingReallocateType] = useState<"inactive" | "escalation" | null>(null);
+  const [manualReallocateType, setManualReallocateType] = useState<
+    "inactive" | "escalation"
+  >("inactive");
+  const [pendingReallocateType, setPendingReallocateType] = useState<
+    "inactive" | "escalation" | null
+  >(null);
+  const reallocateCooldownTimerRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+
+  const isReAllocateDisabled =
+    reallocateCooldownUntil !== null && Date.now() < reallocateCooldownUntil;
+
+  const startReallocateCooldown = (durationMs = 50000) => {
+    const nextExpiry = Date.now() + durationMs;
+    setReallocateCooldownUntil(nextExpiry);
+
+    if (reallocateCooldownTimerRef.current) {
+      clearTimeout(reallocateCooldownTimerRef.current);
+    }
+
+    reallocateCooldownTimerRef.current = setTimeout(() => {
+      setReallocateCooldownUntil(null);
+      reallocateCooldownTimerRef.current = null;
+    }, durationMs);
+  };
+
+  const clearReallocateCooldown = () => {
+    if (reallocateCooldownTimerRef.current) {
+      clearTimeout(reallocateCooldownTimerRef.current);
+      reallocateCooldownTimerRef.current = null;
+    }
+    setReallocateCooldownUntil(null);
+  };
 
   useEffect(() => {
     if (!isReAllocateOpen && pendingReallocateType) {
@@ -221,14 +258,21 @@ export const QuestionsFilters = ({
     }
   }, [isReAllocateOpen, pendingReallocateType]);
 
+  useEffect(() => {
+    return () => {
+      if (reallocateCooldownTimerRef.current) {
+        clearTimeout(reallocateCooldownTimerRef.current);
+      }
+    };
+  }, []);
+
   const handleReAllocateLessWorkload = async (type?: string) => {
     try {
-      setIsReAllocateDisabled(true);
       const res = await reAllocateLessWorkload(type);
 
       if (!res) {
         toast.error("No response from server");
-        setIsReAllocateDisabled(false);
+        clearReallocateCooldown();
         return;
       }
       if (res.message === "Workload balancing started in background" || res.message === "Inactive-to-Active reallocation started in background") {
@@ -244,13 +288,10 @@ export const QuestionsFilters = ({
           );
         }
 
-        // Re-enable button after 50 seconds
-        setTimeout(() => {
-          setIsReAllocateDisabled(false);
-        }, 50000);
-        // Any other message from backend
+        startReallocateCooldown();
         toast.success(res.message);
-        setIsReAllocateDisabled(false);
+      } else {
+        clearReallocateCooldown();
       }
       refetch();
     } catch (error) {
@@ -261,53 +302,48 @@ export const QuestionsFilters = ({
         "Error reAllocating question who has less workload question:",
         error,
       );
-      setIsReAllocateDisabled(false);
+      clearReallocateCooldown();
     }
   };
 
   //reAllocate selected questions to experts with less workload
   const handleReAllocateSelectedQuestions = async () => {
     try {
-      setIsReAllocateDisabled(true);
       const res = await reAllocateExpertsSelectedQuestions(selectedQuestionIds);
 
       if (!res) {
         toast.error("No response from server");
+        clearReallocateCooldown();
         return;
       }
-      if (res.message === "Workload balancing started in background") {
+      if (res.message === "No Expert Present To Reallocate Questions") {
+        toast.error(res.message ?? "No Expert Present To Reallocate Question");
+        clearReallocateCooldown();
+      } else if (res?.message.includes("Too many questions selected.")) {
+        toast.error(res.message ?? "Too many questions selected.");
+      } else if (res.message === "Workload balancing started in background") {
+        const filteredText = res.questionsFiltered
+          ? ` ${res.questionsFiltered} questions were filtered due to invalid status.`
+          : "";
+        const unallocatedText =
+          res.unallocatedQuestions != null
+            ? ` ${res.unallocatedQuestions} questions could not be reallocated because no eligible new experts were available.`
+            : "";
+
         toast.success(
           res.submissionsProcessed === 0
-            ? `No questions were reallocated.${res.questionsFiltered
-              ? ` ${res.questionsFiltered} questions were filtered due to invalid status.`
-              : ""
-            }`
-            : `${res.submissionsProcessed} questions were successfully reallocated out of ${selectedQuestionIds.length} selected questions.${res.questionsFiltered
-              ? ` ${res.questionsFiltered} questions were filtered due to invalid status.`
-              : ""
-            }${res.unallocatedQuestions
-              ? ` ${res.unallocatedQuestions} questions could not be reallocated because no eligible new experts were available.`
-              : ""
-            } Please wait 50 seconds before reallocating again.`
+            ? `No questions were reallocated.${filteredText}${unallocatedText}`
+            : `${res.submissionsProcessed} questions were successfully reallocated out of ${selectedQuestionIds.length} selected questions.${filteredText}${unallocatedText} Please wait 50 seconds before reallocating again.`,
         );
-        // Re-enable button after 30 seconds
-        setTimeout(() => {
-          setIsReAllocateDisabled(false);
-        }, 50000);
-        // Any other message from backend
-        toast.success(res.message);
-        setIsReAllocateDisabled(false);
+        startReallocateCooldown();
+      } else {
+        clearReallocateCooldown();
       }
       refetch();
     } catch (error) {
-      toast.error(
-        "Failed to reAllocate selected question",
-      );
-      console.error(
-        "Error reallocating selected question:",
-        error,
-      );
-      setIsReAllocateDisabled(false);
+      toast.error("Failed to reAllocate selected question");
+      console.error("Error reallocating selected question:", error);
+      clearReallocateCooldown();
     } finally {
       setIsSelectionModeOn(false);
       setSelectedQuestionIds([]);
@@ -832,10 +868,11 @@ export const QuestionsFilters = ({
                   onClick={() => {
                     setIsReAllocateSelectedQuestionsOpen(true);
                   }}
-                  className={`flex items-center gap-2 transition-all border-primary text-primary hover:bg-primary/10 ${reAllocating || isReAllocateDisabled
-                    ? "cursor-not-allowed text-green-600"
-                    : ""
-                    }`}
+                  className={`flex items-center gap-2 transition-all border-primary text-primary hover:bg-primary/10 ${
+                    reAllocating || isReAllocateDisabled
+                      ? "cursor-not-allowed text-green-600"
+                      : ""
+                  }`}
                 >
                   <UserCheck className="h-4 w-4" />
                   {reAllocating

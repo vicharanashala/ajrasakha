@@ -6086,7 +6086,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     if (!lessWorkloadExperts.length) {
       return {
-        message: 'No Expert Present To Reallocate Questions .No action needed.',
+        message: 'No Expert Present To Reallocate Questions',
         expertsInvolved: 0,
         submissionsProcessed: 0,
       };
