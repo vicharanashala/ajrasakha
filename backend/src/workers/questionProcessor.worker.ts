@@ -230,7 +230,54 @@ const {checkDuplicateQuestionHelper} =
         updatedAt: new Date(),
       };
 
-      // 4. Duplicate Detection for Outreach Questions
+      // 4a. Domain sync: if this question already exists in the DB (exact text match,
+      //     case-insensitive), update domain on ALL matching documents with the CSV value
+      //     when they differ, then skip insertion entirely — no new question is created.
+      try {
+        const questionsCollection = await database.getCollection<any>('questions');
+        const csvDomain: string[] = Array.isArray(details.domain)
+          ? details.domain
+          : details.domain
+            ? [details.domain.toString()]
+            : [];
+
+        const escapedText = questionText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const textFilter = { question: { $regex: `^${escapedText}$`, $options: 'i' } };
+
+        // Check if ANY matching question exists
+        const matchCount = await questionsCollection.countDocuments(textFilter);
+
+        if (matchCount > 0) {
+          if (csvDomain.length > 0) {
+            // Update ALL matching documents — covers duplicates with the same question text
+            const updateResult = await questionsCollection.updateMany(
+              textFilter,
+              { $set: { 'details.domain': csvDomain, updatedAt: new Date() } },
+            );
+            console.log(
+              `🔄 [Domain Sync] Updated domain on ${updateResult.modifiedCount}/${matchCount} matching question(s) for "${questionText.substring(0, 60)}..." → [${csvDomain.join(', ')}]`,
+            );
+          } else {
+            console.log(
+              `✅ [Domain Sync] ${matchCount} matching question(s) found but CSV domain is empty — skipping domain update for "${questionText.substring(0, 60)}..."`,
+            );
+          }
+
+          processed++;
+          duplicateCount++;
+          parentPort?.postMessage({ processed: 1, duplicateCount: 1 });
+          continue; // Skip insertion — question already exists
+        } else {
+          console.log(`➕ [Domain Sync] No existing match found — will insert as new question: "${questionText.substring(0, 60)}..."`);
+        }
+      } catch (domainSyncError: any) {
+        console.error(
+          `⚠️ Domain sync check failed, proceeding with normal insert:`,
+          domainSyncError?.message,
+        );
+      }
+
+      // 4b. Duplicate Detection for Outreach Questions
 
       if (isOutreachQuestion && ENABLE_AI_SERVER) {
         const logData: any = {
