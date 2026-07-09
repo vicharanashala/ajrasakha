@@ -18,6 +18,51 @@ _MARKET_DEDUPE_KEYS = (
     "two_day_ago_price",
 )
 
+# IMD Warning Level Codes (Official from IMD Website)
+_WARNING_CODE_MAP = {
+    "1": "No Warning",
+    "2": "Heavy Rain",
+    "3": "Heavy Snow",
+    "4": "Thunderstorms & Lightning, Squall",
+    "5": "Hailstorm",
+    "6": "Dust Storm",
+    "7": "Dust Raising Winds",
+    "8": "Strong Surface Winds",
+    "9": "Heat Wave",
+    "10": "Hot Day",
+    "11": "Warm Night",
+    "12": "Cold Wave",
+    "13": "Cold Day",
+    "14": "Ground Frost",
+    "15": "Fog",
+    "16": "Very Heavy Rain",
+    "17": "Extremely Heavy Rain",
+}
+
+# IMD Color Codes (Standard India Meteorological Department)
+_COLOR_CODE_MAP = {
+    "1": "Green",
+    "2": "Yellow",
+    "3": "Orange",
+    "4": "Red",
+}
+
+
+def _map_warning_code(value: Any) -> str:
+    """Convert warning code to human-readable text."""
+    if value is None:
+        return ""
+    key = str(value).strip()
+    return _WARNING_CODE_MAP.get(key, str(value))
+
+
+def _map_color_code(value: Any) -> str:
+    """Convert color code to human-readable color name."""
+    if value is None:
+        return ""
+    key = str(value).strip()
+    return _COLOR_CODE_MAP.get(key, str(value))
+
 
 def format_tool_output(tool_name: str, raw_text: str) -> str:
     """Format tool output for farmer-facing assembly; JSON tools get readable prose."""
@@ -434,26 +479,33 @@ def _filter_subdivisions(rows: list[Any], state_hint: Optional[str]) -> list[Any
 
 
 def _extract_day_warning_lines(record: dict[str, Any]) -> list[str]:
+    """Extract day warning lines, mapping numeric codes to human-readable text."""
     lines: list[str] = []
+    
+    # Handle both snake_case and Title_Case keys from API
     for key, value in sorted(record.items()):
         if _is_empty_val(value):
             continue
-        m = re.match(r"day(\d+)_(warning|color)", key, re.IGNORECASE)
-        if m and m.group(2).lower() == "warning":
+        
+        # Match Day_1, Day_2, day_1, day1_warning patterns
+        m = re.match(r"(?:Day_?|day)(\d+)[_]?((?:warning|color)?)", key, re.IGNORECASE)
+        if m:
             day_num = m.group(1)
-            color_key = f"day{day_num}_color"
-            color = record.get(color_key) or record.get(color_key.lower())
-            if color and not _is_empty_val(color):
-                lines.append(f"- Day {day_num}: {value} ({color})")
-            else:
-                lines.append(f"- Day {day_num}: {value}")
+            key_type = m.group(2).lower() if m.group(2) else ""
+            
+            # Only process warning keys, skip color keys
+            if "warning" in key_type or (not key_type and key.lower() not in ("day1_color", "day1_color".lower())):
+                # Map code to human-readable text
+                warning_text = _map_warning_code(value)
+                lines.append(f"- Day {day_num}: {warning_text}")
+    
     return lines
 
 
 def _generic_record_lines(record: dict[str, Any]) -> list[str]:
     skip_keys = {k.lower() for k in record if re.match(r"day\d+_color", k, re.I)}
     # Skip internal database IDs and metadata fields
-    skip_keys.update({"obj_id", "id", "_id", "sno", "serial_no", "created_at", "updated_at"})
+    skip_keys.update({"obj_id", "id", "_id", "sno", "serial_no", "created_at", "updated_at", "district", "date"})
     lines: list[str] = []
     for key, value in record.items():
         if key.lower() in skip_keys:
