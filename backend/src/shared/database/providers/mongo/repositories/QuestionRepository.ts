@@ -7398,6 +7398,63 @@ export class QuestionRepository implements IQuestionRepository {
       .toArray();
   }
 
+  /** Dashboard data for a gate keeper / auditor: the total questions ever assigned to
+   *  them (assigneeField == userId), how many they've submitted (finishedAt set), and a
+   *  paginated list of those questions (newest assignment first, optional text search). */
+  async getRoleAssigneeDashboard(
+    userId: string,
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    finishedField: 'gateKeeperFinishedAt' | 'auditorFinishedAt',
+    assignedAtField: 'gateKeeperAssignedAt' | 'auditorAssignedAt',
+    page: number,
+    limit: number,
+    search?: string,
+  ): Promise<{
+    assignedCount: number;
+    submittedCount: number;
+    questions: any[];
+    totalPages: number;
+    totalCount: number;
+  }> {
+    await this.init();
+    if (!isValidObjectId(userId)) {
+      return { assignedCount: 0, submittedCount: 0, questions: [], totalPages: 0, totalCount: 0 };
+    }
+    const oid = new ObjectId(userId);
+    const baseMatch: Record<string, unknown> = { [assigneeField]: oid };
+    if (search && search.trim()) {
+      baseMatch.question = { $regex: search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
+    }
+    const safePage = Math.max(1, Math.floor(page) || 1);
+    const safeLimit = Math.min(Math.max(1, Math.floor(limit) || 11), 100);
+
+    const [assignedCount, submittedCount, totalCount, questions] = await Promise.all([
+      this.QuestionCollection.countDocuments({ [assigneeField]: oid } as any),
+      this.QuestionCollection.countDocuments({ [assigneeField]: oid, [finishedField]: { $ne: null } } as any),
+      this.QuestionCollection.countDocuments(baseMatch as any),
+      this.QuestionCollection.find(baseMatch as any, {
+        projection: {
+          _id: 1, question: 1, status: 1, source: 1, priority: 1, createdAt: 1,
+          [assignedAtField]: 1, [finishedField]: 1,
+          'details.state': 1, 'details.crop': 1,
+        },
+      })
+        .sort({ [assignedAtField]: -1, createdAt: -1 } as any)
+        .skip((safePage - 1) * safeLimit)
+        .limit(safeLimit)
+        .toArray(),
+    ]);
+
+    return {
+      assignedCount,
+      submittedCount,
+      // Stringify _id so the client gets a plain id (avoids "[object Object]" in URLs).
+      questions: questions.map(q => ({ ...q, _id: q._id?.toString() })),
+      totalCount,
+      totalPages: Math.max(1, Math.ceil(totalCount / safeLimit)),
+    };
+  }
+
   /** Sets or clears a role assignee (gateKeeperId / auditorId) and its assignedAt
    *  timestamp on a question. Resets the matching finishedAt (a new/removed assignment
    *  starts a fresh turn). */

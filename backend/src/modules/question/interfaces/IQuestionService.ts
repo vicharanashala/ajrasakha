@@ -378,6 +378,19 @@ export interface IQuestionService {
   removeQuestionModerator(questionId: string): Promise<void>;
 
   /** Manually (re)assign the gate keeper / auditor for a question. */
+  getRoleAssigneeDashboard(
+    userId: string,
+    role: 'gate_keeper' | 'auditor',
+    page: number,
+    limit: number,
+    search?: string,
+  ): Promise<{
+    assignedCount: number;
+    submittedCount: number;
+    questions: any[];
+    totalPages: number;
+    totalCount: number;
+  }>;
   changeQuestionRoleAssignee(
     questionId: string,
     role: 'gate_keeper' | 'auditor',

@@ -577,6 +577,21 @@ export interface IQuestionRepository {
     assigneeField: 'gateKeeperId' | 'auditorId',
     statuses: QuestionStatus[],
   ): Promise<IQuestion[]>;
+  getRoleAssigneeDashboard(
+    userId: string,
+    assigneeField: 'gateKeeperId' | 'auditorId',
+    finishedField: 'gateKeeperFinishedAt' | 'auditorFinishedAt',
+    assignedAtField: 'gateKeeperAssignedAt' | 'auditorAssignedAt',
+    page: number,
+    limit: number,
+    search?: string,
+  ): Promise<{
+    assignedCount: number;
+    submittedCount: number;
+    questions: any[];
+    totalPages: number;
+    totalCount: number;
+  }>;
   setRoleAssignee(
     questionId: string,
     assigneeField: 'gateKeeperId' | 'auditorId',

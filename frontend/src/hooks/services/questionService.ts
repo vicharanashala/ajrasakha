@@ -89,6 +89,27 @@ export type QueueDetailsResponse = {
   auditorAllocated: { count: number; items: QueueQuestionItem[] };
   availableAuditors: { count: number; items: QueueExpertItem[] };
 };
+
+export interface RoleDashboardQuestion {
+  _id: string;
+  question: string;
+  status: string;
+  source: string;
+  priority?: string;
+  createdAt?: string;
+  gateKeeperAssignedAt?: string | null;
+  gateKeeperFinishedAt?: string | null;
+  auditorAssignedAt?: string | null;
+  auditorFinishedAt?: string | null;
+  details?: { state?: string; crop?: string };
+}
+export interface RoleDashboardResponse {
+  assignedCount: number;
+  submittedCount: number;
+  questions: RoleDashboardQuestion[];
+  totalPages: number;
+  totalCount: number;
+}
 export class QuestionService {
   private _baseUrl = `${API_BASE_URL}/questions`;
   private _reRouteUrl = `${API_BASE_URL}/reroute`;
@@ -825,6 +846,27 @@ export class QuestionService {
 
   async manualCheckDuplicate(questionId: string): Promise<{ message: string; isDuplicate: boolean; referenceQuestionId?: string } | null> {
     return apiFetch(`${this._baseUrl}/${questionId}/check-duplicate`, { method: "POST" });
+  }
+
+  /** Gate keeper / auditor dashboard — assigned + submitted counts and their questions.
+   *  Managers can pass a target userId + role to view a specific user's dashboard. */
+  async getRoleDashboard(
+    page: number,
+    limit: number,
+    search: string,
+    userId?: string,
+    role?: "gate_keeper" | "auditor",
+  ): Promise<RoleDashboardResponse | null> {
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+    });
+    if (search) params.append("search", search);
+    if (userId) params.append("userId", userId);
+    if (role) params.append("role", role);
+    return apiFetch<RoleDashboardResponse>(
+      `${this._baseUrl}/role-dashboard?${params.toString()}`,
+    );
   }
 
   async changeModerator(

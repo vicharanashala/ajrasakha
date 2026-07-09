@@ -908,6 +908,57 @@ export class QuestionController {
     }
   }
 
+  // NOTE: must be declared BEFORE the '/:questionId' routes below, otherwise
+  // routing-controllers matches '/role-dashboard' against '/:questionId' first and its
+  // ObjectId validator rejects it ("Invalid params").
+  @Get('/role-dashboard')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({
+    summary:
+      'Dashboard for the logged-in gate keeper / auditor: assigned + submitted counts and their paginated questions.',
+  })
+  async getRoleDashboard(
+    @CurrentUser() user: IUser,
+    @QueryParams()
+    query: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      userId?: string;
+      role?: 'gate_keeper' | 'auditor';
+    },
+  ) {
+    // Managers (admin / moderator) may view a specific gate keeper's / auditor's
+    // dashboard by passing that user's id + role. Everyone else sees their own.
+    const isManager = user.role === 'admin' || user.role === 'moderator';
+    const viewingOther =
+      isManager &&
+      !!query.userId &&
+      (query.role === 'gate_keeper' || query.role === 'auditor');
+
+    const targetUserId = viewingOther ? query.userId! : user._id.toString();
+    const role = viewingOther
+      ? query.role!
+      : user.role === 'gate_keeper' || user.role === 'auditor'
+        ? user.role
+        : null;
+    if (!role) {
+      throw new BadRequestError(
+        'This dashboard is only available for gate keepers and auditors.',
+      );
+    }
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 11;
+    return this.questionService.getRoleAssigneeDashboard(
+      targetUserId,
+      role,
+      page,
+      limit,
+      query.search,
+    );
+  }
+
   @Get('/:questionId/submission-exists')
   @HttpCode(200)
   @Authorized()

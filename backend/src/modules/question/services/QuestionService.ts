@@ -4155,6 +4155,29 @@ export class QuestionService extends BaseService implements IQuestionService {
       : {assigneeField: 'auditorId', assignedAtField: 'auditorAssignedAt'};
   }
 
+  /** Dashboard for the logged-in gate keeper / auditor: assigned + submitted counts
+   *  plus their paginated question list. "Submitted" = they finished it (finishedAt set). */
+  async getRoleAssigneeDashboard(
+    userId: string,
+    role: 'gate_keeper' | 'auditor',
+    page: number,
+    limit: number,
+    search?: string,
+  ) {
+    const {assigneeField, assignedAtField} = this.roleAssigneeFields(role);
+    const finishedField =
+      role === 'gate_keeper' ? 'gateKeeperFinishedAt' : 'auditorFinishedAt';
+    return this.questionRepo.getRoleAssigneeDashboard(
+      userId,
+      assigneeField,
+      finishedField,
+      assignedAtField,
+      page,
+      limit,
+      search,
+    );
+  }
+
   /** Manually (re)assign the gate keeper / auditor for a question — mirrors
    *  changeQuestionModerator: pulls the question from the previous assignee's
    *  assignedQuestionIds and appends it to the new assignee's. */
