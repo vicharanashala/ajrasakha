@@ -49,11 +49,20 @@ _COLOR_CODE_MAP = {
 
 
 def _map_warning_code(value: Any) -> str:
-    """Convert warning code to human-readable text."""
+    """Convert warning code to human-readable text. Handles comma-separated multiple codes."""
     if value is None:
         return ""
     key = str(value).strip()
     return _WARNING_CODE_MAP.get(key, str(value))
+
+
+def _map_warning_codes(value: Any) -> str:
+    """Convert one or more comma-separated warning codes to human-readable text."""
+    if value is None:
+        return ""
+    codes = str(value).strip().split(",")
+    mapped = [_map_warning_code(code.strip()) for code in codes if code.strip()]
+    return "; ".join(mapped)
 
 
 def _map_color_code(value: Any) -> str:
@@ -495,8 +504,8 @@ def _extract_day_warning_lines(record: dict[str, Any]) -> list[str]:
             
             # Only process warning keys, skip color keys
             if "warning" in key_type or (not key_type and key.lower() not in ("day1_color", "day1_color".lower())):
-                # Map code to human-readable text
-                warning_text = _map_warning_code(value)
+                # Map codes to human-readable text (handles comma-separated values like "4,8")
+                warning_text = _map_warning_codes(value)
                 lines.append(f"- Day {day_num}: {warning_text}")
     
     return lines
