@@ -15761,15 +15761,15 @@ export class ChatbotRepository implements IChatbotRepository {
         engagementTrends: {
           daily: {
             questions: buildTrend(userQuestions, 'daily'),
-            messages: buildTrend(userMessages, 'daily'),
+            messages: buildTrend(dashboardUserMessages, 'daily'),
           },
           weekly: {
             questions: buildTrend(userQuestions, 'weekly'),
-            messages: buildTrend(userMessages, 'weekly'),
+            messages: buildTrend(dashboardUserMessages, 'weekly'),
           },
           monthly: {
             questions: buildTrend(userQuestions, 'monthly'),
-            messages: buildTrend(userMessages, 'monthly'),
+            messages: buildTrend(dashboardUserMessages, 'monthly'),
           },
         },
         recentQuestions,

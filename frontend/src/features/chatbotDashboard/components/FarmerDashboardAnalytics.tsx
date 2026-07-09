@@ -20,8 +20,25 @@ import {
 } from "@/components/atoms/table";
 import { env } from "@/config/env";
 import { apiFetch } from "@/hooks/api/api-fetch";
-import { BarChart3, Info, MessageSquareText } from "lucide-react";
+import {
+  AreaChart as AreaChartIcon,
+  BarChart2,
+  BarChart3,
+  Info,
+  MessageSquareText,
+} from "lucide-react";
 import type { DateRange } from "react-day-picker";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { ClosedInLastTwoHoursCard } from "../ClosedInLastTwoHoursCard";
 import { ClosedQuestionsCard } from "../ClosedQuestionsCard";
 import { CustomerNotificationsCard } from "../CustomerNotificationsCard";
@@ -34,6 +51,8 @@ import {
 } from "./QuestionActivityModal";
 
 type TrendGranularity = "daily" | "weekly" | "monthly";
+type EngagementTrendType = "questions" | "messages";
+type EngagementChartType = "area" | "bar";
 
 type DashboardMessageEntry = {
   id: string;
@@ -120,6 +139,10 @@ export function FarmerDashboardAnalytics({
   const navigate = useNavigate();
   const [trendGranularity, setTrendGranularity] =
     useState<TrendGranularity>("daily");
+  const [engagementTrendType, setEngagementTrendType] =
+    useState<EngagementTrendType>("questions");
+  const [engagementChartType, setEngagementChartType] =
+    useState<EngagementChartType>("area");
   const [selectedMessagingMetric, setSelectedMessagingMetric] =
     useState<MessagingMetricCard | null>(null);
   const [activityPage, setActivityPage] = useState(1);
@@ -280,34 +303,70 @@ export function FarmerDashboardAnalytics({
         icon={<BarChart3 className="h-5 w-5" />}
         title="Engagement Trends"
       >
-        <div className="mb-6 flex flex-wrap gap-2 sm:justify-end">
-          {(["daily", "weekly", "monthly"] as TrendGranularity[]).map(
-            (granularity) => (
+        <div className="mb-5 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap gap-2">
+            {(["questions", "messages"] as EngagementTrendType[]).map(
+              (trendType) => (
+                <Button
+                  key={trendType}
+                  className="h-9 rounded-md px-4"
+                  variant={
+                    engagementTrendType === trendType ? "default" : "outline"
+                  }
+                  onClick={() => setEngagementTrendType(trendType)}
+                >
+                  {trendType === "questions"
+                    ? "Question activity"
+                    : "Message trending"}
+                </Button>
+              ),
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2 xl:justify-end">
+            {(["daily", "weekly", "monthly"] as TrendGranularity[]).map(
+              (granularity) => (
+                <Button
+                  key={granularity}
+                  className="h-9 rounded-md px-4"
+                  variant={
+                    trendGranularity === granularity ? "default" : "outline"
+                  }
+                  onClick={() => setTrendGranularity(granularity)}
+                >
+                  {toTitleCase(granularity)}
+                </Button>
+              ),
+            )}
+            <div className="flex rounded-md border border-border/60 bg-muted/60 p-1">
               <Button
-                key={granularity}
-                className="h-10 rounded-md px-5"
-                variant={
-                  trendGranularity === granularity ? "default" : "outline"
-                }
-                onClick={() => setTrendGranularity(granularity)}
+                className="h-7 gap-1.5 px-3 text-xs"
+                variant={engagementChartType === "area" ? "default" : "ghost"}
+                onClick={() => setEngagementChartType("area")}
               >
-                {toTitleCase(granularity)}
+                <AreaChartIcon className="h-3.5 w-3.5" />
+                Area
               </Button>
-            ),
-          )}
+              <Button
+                className="h-7 gap-1.5 px-3 text-xs"
+                variant={engagementChartType === "bar" ? "default" : "ghost"}
+                onClick={() => setEngagementChartType("bar")}
+              >
+                <BarChart2 className="h-3.5 w-3.5" />
+                Bar
+              </Button>
+            </div>
+          </div>
         </div>
-        <div className="grid gap-8 lg:grid-cols-2">
-          <TrendBars
-            title="Question activity"
-            data={selectedTrend?.questions ?? []}
-            tone="primary"
-          />
-          <TrendBars
-            title="Messaging trend"
-            data={selectedTrend?.messages ?? []}
-            tone="success"
-          />
-        </div>
+        <EngagementTrendChart
+          chartType={engagementChartType}
+          granularity={trendGranularity}
+          trendType={engagementTrendType}
+          data={
+            engagementTrendType === "questions"
+              ? selectedTrend?.questions ?? []
+              : selectedTrend?.messages ?? []
+          }
+        />
       </DashboardSection>
 
       {afterEngagementTrends}
@@ -667,48 +726,148 @@ function getMessageDisplayText(message: Pick<DashboardMessageEntry, "text" | "is
     : "Bot response content not available";
 }
 
-function TrendBars({
-  title,
+function EngagementTrendChart({
+  chartType,
   data,
-  tone = "primary",
+  granularity,
+  trendType,
 }: {
-  title: string;
+  chartType: EngagementChartType;
   data: { date: string; count: number }[];
-  tone?: "primary" | "success";
+  granularity: TrendGranularity;
+  trendType: EngagementTrendType;
 }) {
-  const max = Math.max(...data.map((item) => item.count), 0);
-  const barClass = tone === "success" ? "bg-[#20a986]" : "bg-[#8174e8]";
+  const trendLabel =
+    trendType === "questions" ? "Question activity" : "Message trending";
+  const color = trendType === "questions" ? "#10b981" : "#8174e8";
+  const gradientId =
+    trendType === "questions"
+      ? "engagementQuestionGradient"
+      : "engagementMessageGradient";
+  const chartData = data.map((item) => ({
+    ...item,
+    label: formatTrendDateLabel(item.date, granularity),
+  }));
+
+  const formatYAxis = (value: number) => {
+    if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
+    return String(value);
+  };
+
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (!active || !payload?.length) return null;
+    const item = payload[0];
+
+    return (
+      <div className="space-y-1.5 rounded-md border border-border/70 bg-background/95 p-3 text-xs shadow-lg backdrop-blur">
+        <p className="font-semibold text-foreground">
+          {formatTrendDateLabel(item.payload.date, granularity, true)}
+        </p>
+        <div className="flex items-center justify-between gap-5">
+          <span className="flex items-center gap-1.5 font-medium text-muted-foreground">
+            <span
+              className="h-2 w-2 rounded-full"
+              style={{ backgroundColor: color }}
+            />
+            {trendLabel}
+          </span>
+          <span className="font-semibold text-foreground">
+            {Number(item.value ?? 0).toLocaleString()}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
+  if (chartData.length === 0) {
+    return (
+      <div className="flex h-[320px] items-center justify-center rounded-md border border-dashed border-border/70 bg-muted/20">
+        <p className="text-sm text-muted-foreground">
+          No engagement trend data available.
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <p className="mb-5 text-base font-semibold text-muted-foreground">{title}</p>
-      <div className="space-y-4">
-        {data.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">
-            No activity in this view.
-          </p>
+    <div className="h-[360px] rounded-md border border-border/60 bg-background/70 px-3 pb-4 pt-6 shadow-sm">
+      <ResponsiveContainer width="100%" height="100%">
+        {chartType === "area" ? (
+          <AreaChart
+            data={chartData}
+            margin={{ top: 8, right: 14, left: -12, bottom: 8 }}
+          >
+            <defs>
+              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={color} stopOpacity={0.28} />
+                <stop offset="95%" stopColor={color} stopOpacity={0.02} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid
+              stroke="hsl(var(--border))"
+              strokeDasharray="3 3"
+              vertical={false}
+              opacity={0.45}
+            />
+            <XAxis
+              dataKey="label"
+              tickLine={false}
+              axisLine={false}
+              minTickGap={18}
+              tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+            />
+            <YAxis
+              tickFormatter={formatYAxis}
+              tickLine={false}
+              axisLine={false}
+              tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+              width={44}
+            />
+            <RechartsTooltip content={<CustomTooltip />} />
+            <Area
+              type="monotone"
+              dataKey="count"
+              stroke={color}
+              strokeWidth={2.5}
+              fill={`url(#${gradientId})`}
+              activeDot={{ r: 4 }}
+            />
+          </AreaChart>
         ) : (
-          data.slice(-12).map((item) => (
-            <div
-              key={item.date}
-              className="grid grid-cols-[110px_1fr_42px] items-center gap-3 text-sm"
-            >
-              <span className="truncate text-sm font-medium text-muted-foreground">
-                {item.date}
-              </span>
-              <div className="h-3 rounded-full bg-background">
-                <div
-                  className={`h-3 rounded-full ${barClass}`}
-                  style={{
-                    width: `${max > 0 ? Math.max((item.count / max) * 100, 4) : 0}%`,
-                  }}
-                />
-              </div>
-              <span className="text-right text-sm font-semibold">{item.count}</span>
-            </div>
-          ))
+          <BarChart
+            data={chartData}
+            margin={{ top: 8, right: 14, left: -12, bottom: 8 }}
+          >
+            <CartesianGrid
+              stroke="hsl(var(--border))"
+              strokeDasharray="3 3"
+              vertical={false}
+              opacity={0.45}
+            />
+            <XAxis
+              dataKey="label"
+              tickLine={false}
+              axisLine={false}
+              minTickGap={18}
+              tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+            />
+            <YAxis
+              tickFormatter={formatYAxis}
+              tickLine={false}
+              axisLine={false}
+              tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+              width={44}
+            />
+            <RechartsTooltip content={<CustomTooltip />} />
+            <Bar
+              dataKey="count"
+              fill={color}
+              maxBarSize={28}
+              radius={[4, 4, 0, 0]}
+            />
+          </BarChart>
         )}
-      </div>
+      </ResponsiveContainer>
     </div>
   );
 }
@@ -758,6 +917,30 @@ function formatDate(value?: string | null) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "N/A";
   return date.toLocaleString();
+}
+
+function formatTrendDateLabel(
+  value: string,
+  granularity: TrendGranularity,
+  includeYear = false,
+) {
+  if (!value) return "N/A";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  if (granularity === "monthly") {
+    return date.toLocaleDateString("en-IN", {
+      month: "short",
+      year: includeYear ? "numeric" : "2-digit",
+    });
+  }
+
+  return date.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    ...(includeYear ? { year: "numeric" as const } : {}),
+  });
 }
 
 function toTitleCase(value: string) {
