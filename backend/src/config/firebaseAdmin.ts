@@ -18,9 +18,33 @@ export function ensureFirebaseAdminInitialized(): void {
     return;
   }
 
-  admin.initializeApp({
-    credential: admin.credential.cert(getServiceAccount()),
-  });
+  const hasEnvVars = appConfig.firebase.projectId && appConfig.firebase.clientEmail && appConfig.firebase.privateKey;
+  const hasGcpCreds = appConfig.GOOGLE_APPLICATION_CREDENTIALS;
+
+  if (hasGcpCreds) {
+    try {
+      admin.initializeApp({
+        credential: admin.credential.applicationDefault(),
+      });
+      return;
+    } catch {
+      // Fall through to cert-based initialization
+    }
+  }
+
+  if (hasEnvVars) {
+    try {
+      admin.initializeApp({
+        credential: admin.credential.cert(getServiceAccount()),
+      });
+      return;
+    } catch {
+      // Fall through to no-credential initialization
+    }
+  }
+
+  // Initialize without credentials (auth will not work but app won't crash)
+  admin.initializeApp({});
 }
 
 export function getFirebaseAuth(): admin.auth.Auth {

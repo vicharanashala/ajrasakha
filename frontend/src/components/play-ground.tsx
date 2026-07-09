@@ -1,4 +1,4 @@
-import {
+﻿import {
   Tabs,
   TabsContent,
   TabsList,
@@ -29,7 +29,7 @@ import { CallHistory } from "./CallHistory";
 import { ManageCallAgents } from "./ManageCallAgents";
 import { env } from "@/config/env";
 import { DataProcessingDashboard } from "../features/faq-pop/DataProcessingDashboard";
-import { CallAgentDashboard } from "./CallAgentDashboard";
+import { FertilizerCalculator } from "../features/fertilizer-calculator/FertilizerCalculator";
 
 export const PlaygroundPage = () => {
   const { data: user } = useGetCurrentUser({});
@@ -49,17 +49,16 @@ export const PlaygroundPage = () => {
   // Initialize from localStorage or default
 
   const [activeTab, setActiveTab] = useState<string>("all_questions");
-  const [chatbotSource, setChatbotSource] = useState<
-    "annam" | "whatsapp" | "acc"
-  >("annam");
+  const [chatbotSource, setChatbotSource] = useState<"annam" | "whatsapp">(
+    "annam",
+  );
   useEffect(() => {
     const saved = localStorage.getItem("application-filter");
 
     if (
       saved === "annam" ||
       // saved === "vicharanashala" ||
-      saved === "whatsapp" ||
-      saved === "acc"
+      saved === "whatsapp"
     ) {
       setChatbotSource(saved);
     }
@@ -77,12 +76,7 @@ export const PlaygroundPage = () => {
     if (savedTab) {
       setActiveTab(savedTab);
     } else {
-      const defaultTab =
-        user.role === "expert"
-          ? "questions"
-          : user.role === "call_agent"
-            ? "call_interface"
-            : "performance";
+      const defaultTab = user.role === "expert" ? "questions" : user.role === "call_agent" ? "call_interface" : "performance";
 
       setActiveTab(defaultTab);
       localStorage.setItem(storageKey, defaultTab);
@@ -179,28 +173,26 @@ export const PlaygroundPage = () => {
               <img
                 src="/annam-logo.png"
                 alt="Annam Logo"
-                className="h-10 w-auto md:h-14"
+                className="h-8 w-auto md:h-10"
               />
             </div>
 
-            <div className="flex-1 md:flex justify-center min-w-0 hidden ">
-              <TabsList className="flex gap-2 overflow-x-auto whitespace-nowrap bg-transparent p-0 no-scrollbar">
-                {user &&
-                  user.role !== "expert" &&
-                  user.role !== "call_agent" && (
-                    <TabsTrigger
-                      value="performance"
-                      className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                    >
-                      <HoverCard openDelay={150}>
-                        <span>Dashboard</span>
-                      </HoverCard>
-                    </TabsTrigger>
-                  )}
+            <div className="flex-1 flex justify-center min-w-0 overflow-x-auto">
+              <TabsList className="flex flex-wrap gap-1 bg-transparent p-0 justify-center">
+                {user && user.role !== "expert" && user.role !== "call_agent" && (
+                  <TabsTrigger
+                    value="performance"
+                    className="px-1.5 md:px-2 py-1 rounded-md font-medium text-xs md:text-sm transition-all duration-150"
+                  >
+                    <HoverCard openDelay={150}>
+                      <span>Dashboard</span>
+                    </HoverCard> 
+                  </TabsTrigger>
+                )}
                 {user && user.role === "expert" && (
                   <TabsTrigger
                     value="expertPerformance"
-                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                    className="px-1.5 md:px-2 py-1 rounded-md font-medium text-xs md:text-sm transition-all duration-150"
                   >
                     <HoverCard openDelay={150}>
                       <span>Dashboard</span>
@@ -211,7 +203,7 @@ export const PlaygroundPage = () => {
                 {user && user.role == "expert" && (
                   <TabsTrigger
                     value="questions"
-                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                    className="px-1.5 md:px-2 py-1 rounded-md font-medium text-xs md:text-sm transition-all duration-150"
                   >
                     <span>My Queue</span>
                   </TabsTrigger>
@@ -219,31 +211,29 @@ export const PlaygroundPage = () => {
                 {user && user.role !== "call_agent" && (
                   <TabsTrigger
                     value="all_questions"
-                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                    className="px-1.5 md:px-2 py-1 rounded-md font-medium text-xs md:text-sm transition-all duration-150"
                   >
                     <span>All Questions</span>
                   </TabsTrigger>
                 )}
 
-                {user &&
-                  user.role !== "expert" &&
-                  user.role !== "call_agent" && (
-                    <TabsTrigger
-                      value="user_management"
-                      className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                    >
-                      <HoverCard openDelay={150}>
-                        <span>
-                          {user.role === "admin" ? "User" : "Expert"} Management
-                        </span>
-                      </HoverCard>
-                    </TabsTrigger>
-                  )}
+                {user && user.role !== "expert" && user.role !== "call_agent" && (
+                  <TabsTrigger
+                    value="user_management"
+                    className="px-1.5 md:px-2 py-1 rounded-md font-medium text-xs md:text-sm transition-all duration-150"
+                  >
+                    <HoverCard openDelay={150}>
+                      <span>
+                        {user.role === "admin" ? "User" : "Expert"} Management
+                      </span>
+                    </HoverCard>
+                  </TabsTrigger>
+                )}
 
                 {/* {user && user.role !== "expert" && (
                   <TabsTrigger
                     value="request_queue"
-                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                    className="px-1.5 md:px-2 py-1 rounded-md font-medium text-xs md:text-sm transition-all duration-150"
                   >
                     <span>Request Queue</span>
                   </TabsTrigger>
@@ -251,7 +241,7 @@ export const PlaygroundPage = () => {
                 {user && user.role !== "call_agent" && (
                   <TabsTrigger
                     value="upload"
-                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                    className="px-1.5 md:px-2 py-1 rounded-md font-medium text-xs md:text-sm transition-all duration-150"
                   >
                     <HoverCard openDelay={150}>
                       <span>Agents Interface</span>
@@ -262,16 +252,8 @@ export const PlaygroundPage = () => {
                 {user?.role === "call_agent" && (
                   <>
                     <TabsTrigger
-                      value="call_dashboard"
-                      className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                    >
-                      <HoverCard openDelay={150}>
-                        <span>Dashboard</span>
-                      </HoverCard>
-                    </TabsTrigger>
-                    <TabsTrigger
                       value="call_interface"
-                      className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                      className="px-1.5 md:px-2 py-1 rounded-md font-medium text-xs md:text-sm transition-all duration-150"
                     >
                       <HoverCard openDelay={150}>
                         <span>Call Interface</span>
@@ -279,7 +261,7 @@ export const PlaygroundPage = () => {
                     </TabsTrigger>
                     <TabsTrigger
                       value="call_history"
-                      className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                      className="px-1.5 md:px-2 py-1 rounded-md font-medium text-xs md:text-sm transition-all duration-150"
                     >
                       <HoverCard openDelay={150}>
                         <span>Call History</span>
@@ -302,29 +284,35 @@ export const PlaygroundPage = () => {
                   </TabsTrigger>
                 )}
 
-                {user &&
-                  user.role !== "expert" &&
-                  user.role !== "call_agent" && (
-                    <TabsTrigger
-                      value="chatbotanalytics"
-                      className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
-                    >
-                      <span>ChatBot Analytics</span>
-                    </TabsTrigger>
-                  )}
+                {user && user.role !== "expert" && user.role !== "call_agent" && (
+                  <TabsTrigger
+                    value="chatbotanalytics"
+                    className="px-1.5 md:px-2 py-1 rounded-md font-medium text-xs md:text-sm transition-all duration-150"
+                  >
+                    <span>ChatBot Analytics</span>
+                  </TabsTrigger>
+                )}
                 {user && user.role === "admin" && (
                   <TabsTrigger
                     value="data_processing"
-                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                    className="px-1.5 md:px-2 py-1 rounded-md font-medium text-xs md:text-sm transition-all duration-150"
                   >
                     <span>Data Processing</span>
+                  </TabsTrigger>
+                )}
+                {(user && user.role === "admin" || user.role === "expert") && (
+                  <TabsTrigger
+                    value="fertilizer_calculator"
+                    className="px-1.5 md:px-2 py-1 rounded-md font-medium text-xs md:text-sm transition-all duration-150"
+                  >
+                    <span>Fertilizer Calculator</span>
                   </TabsTrigger>
                 )}
                 {/*
                 {user && (
                   <TabsTrigger
                     value="history"
-                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                    className="px-1.5 md:px-2 py-1 rounded-md font-medium text-xs md:text-sm transition-all duration-150"
                   >
                     <HoverCard openDelay={150}>
                       <span>History</span>
@@ -507,53 +495,38 @@ export const PlaygroundPage = () => {
               )}
 
               {user?.role === "call_agent" && (
-                <TabsContent
-                  value="call_dashboard"
-                  className={cn(
-                    "mt-0 border-0 md:px-8 outline-none",
-                    "data-[state=active]:animate-in",
-                    "data-[state=active]:fade-in-0",
-                    "data-[state=active]:zoom-in-[0.98]",
-                    "data-[state=active]:slide-in-from-bottom-3",
-                    "duration-500 ease-out",
-                  )}
-                >
-                  <CallAgentDashboard />
-                </TabsContent>
-              )}
+                  <TabsContent
+                    value="call_interface"
+                    className={cn(
+                      "mt-0 border-0 md:px-8 outline-none",
+                      "data-[state=active]:animate-in",
+                      "data-[state=active]:fade-in-0",
+                      "data-[state=active]:zoom-in-[0.98]",
+                      "data-[state=active]:slide-in-from-bottom-3",
+                      "duration-500 ease-out",
+                    )}
+                  >
+                    <CallInterface />
+                  </TabsContent>
+                )}
 
-              {user?.role === "call_agent" && (
-                <TabsContent
-                  value="call_interface"
-                  className={cn(
-                    "mt-0 border-0 md:px-8 outline-none",
-                    "data-[state=active]:animate-in",
-                    "data-[state=active]:fade-in-0",
-                    "data-[state=active]:zoom-in-[0.98]",
-                    "data-[state=active]:slide-in-from-bottom-3",
-                    "duration-500 ease-out",
-                  )}
-                >
-                  <CallInterface />
-                </TabsContent>
-              )}
-              {user?.role === "call_agent" && (
-                <TabsContent
-                  value="call_history"
-                  className={cn(
-                    "mt-0 border-0 md:px-8 outline-none",
-                    "data-[state=active]:animate-in",
-                    "data-[state=active]:fade-in-0",
-                    "data-[state=active]:zoom-in-[0.98]",
-                    "data-[state=active]:slide-in-from-bottom-3",
-                    "duration-500 ease-out",
-                  )}
-                >
-                  <div className="w-full max-w-full px-4 md:px-6 py-2">
-                    <CallHistory onRedial={() => { }} />
-                  </div>
-                </TabsContent>
-              )}
+              {user?.role === "call_agent" && user?.isCallAgentActive && (
+                  <TabsContent
+                    value="call_history"
+                    className={cn(
+                      "mt-0 border-0 md:px-8 outline-none",
+                      "data-[state=active]:animate-in",
+                      "data-[state=active]:fade-in-0",
+                      "data-[state=active]:zoom-in-[0.98]",
+                      "data-[state=active]:slide-in-from-bottom-3",
+                      "duration-500 ease-out",
+                    )}
+                  >
+                    <div className="w-full max-w-full px-4 md:px-6 py-2">
+                      <CallHistory onRedial={() => {}} />
+                    </div>
+                  </TabsContent>
+                )}
 
               {user && user.role === "admin" && (
                 <TabsContent
@@ -568,6 +541,22 @@ export const PlaygroundPage = () => {
                   )}
                 >
                   <DataProcessingDashboard />
+                </TabsContent>
+              )}
+
+              {(user && user.role === "admin" || user.role === "expert") && (
+                <TabsContent
+                  value="fertilizer_calculator"
+                  className={cn(
+                    "mt-0 border-0 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <FertilizerCalculator />
                 </TabsContent>
               )}
 
@@ -610,3 +599,4 @@ export const PlaygroundPage = () => {
     </>
   );
 };
+

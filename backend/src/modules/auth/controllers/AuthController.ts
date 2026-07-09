@@ -264,27 +264,12 @@ export class AuthController {
       const lookupData: any = await lookup.json();
       const userInfo = lookupData.users?.[0];
 
-      if (!userInfo?.emailVerified && !appConfig.isDevelopment) {
-        await this.authService.sendVerificationEmail(userInfo.email);
-        throw new HttpError(
-          401,
-          'Please verify your email before logging in. A new verification link has been sent to your email.'
-        );
-      }
-
       // Ensure the user exists in database
       const user = await this.authService.syncUserWithDb(
         userInfo.localId,
         userInfo.email,
         userInfo.displayName || ''
       );
-
-      if (user.isVerified === false) {
-        throw new HttpError(
-          401,
-          'Your account is pending admin verification. Please contact an administrator.'
-        );
-      }
 
       return result;
     } catch (error) {
@@ -331,13 +316,6 @@ export class AuthController {
         decodedEmail.email || '',
         decodedEmail.name || ''
       );
-
-      if (user.isVerified === false) {
-        throw new HttpError(
-          401,
-          'Your account is pending admin verification. Please contact an administrator.'
-        );
-      }
 
       return { success: true, user };
     } catch (error) {

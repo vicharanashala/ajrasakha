@@ -96,29 +96,27 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
 
   async signup(body: SignUpBody): Promise<{ user: { uid: string; email: string; displayName: string; photoURL: string } } | null> {
     let userRecord: any;
+    let createdFirebaseUser = false;
     try {
       if (!body.firstName.trim()) {
         throw new Error("Name cannot be blank or empty spaces");
       }
       userRecord = await this.auth.createUser({
         email: body.email,
-        emailVerified: false,
+        emailVerified: true,
         password: body.password,
         displayName: `${body.firstName} ${body.lastName || ''}`,
         disabled: false,
       });
+      createdFirebaseUser = true;
     } catch (error: any) {
       if (error.code === 'auth/email-already-exists') {
         const existingUser = await this.auth.getUserByEmail(body.email);
-        if (!existingUser.emailVerified) {
-          // If unverified, update details and allow re-signup
-          userRecord = await this.auth.updateUser(existingUser.uid, {
-            password: body.password,
-            displayName: `${body.firstName} ${body.lastName || ''}`,
-          });
-        } else {
-          throw new BadRequestError('An account with this email already exists, Please try login!');
-        }
+        userRecord = await this.auth.updateUser(existingUser.uid, {
+          password: body.password,
+          emailVerified: true,
+          displayName: `${body.firstName} ${body.lastName || ''}`,
+        });
       } else {
         let message = error.message || 'Failed to create user';
         if (error.code === 'auth/invalid-password') {
@@ -130,17 +128,39 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
       }
     }
 
-    // Prepare user object for storage in our database
     const user: Partial<IUser> = {
       firebaseUID: userRecord.uid,
       email: body.email,
       firstName: body.firstName,
       lastName: body.lastName || '',
       role: 'pae_expert',
+      isVerified: true,
     };
 
-    // create the user in the database will happen on the first successful login after email verification.
-    await this.sendVerificationEmail(body.email);
+    let createdUserId: string;
+
+    await this._withTransaction(async session => {
+      const newUser = new User(user);
+      createdUserId = await this.userRepository.create(newUser, session);
+      if (!createdUserId) {
+        throw new InternalServerError('Failed to create the user');
+      }
+
+      const admins = await this.userRepository.findAdmins(session);
+      const notificationMessage = `A new user ${body.firstName} ${body.lastName || ''} (${body.email}) created and needs to be verified`;
+      const notificationTitle = 'New User Created';
+
+      for (const admin of admins) {
+        await this.notificationService.saveTheNotifications(
+          notificationMessage,
+          notificationTitle,
+          createdUserId,
+          admin._id.toString(),
+          'user_verification',
+          session
+        );
+      }
+    });
 
     return {
       user: {
@@ -364,31 +384,20 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
         firstName: names[0] || email.split('@')[0],
         lastName: names.slice(1).join(' ') || '',
         role: 'pae_expert',
-        isVerified: false,
+        isVerified: true,
       };
 
       await this._withTransaction(async (session) => {
         const userObj = new User(newUser as IUser); // Assuming User class takes Partial<IUser>
         const createdId = await this.userRepository.create(userObj, session);
         if (!createdId) throw new InternalServerError('Failed to create user in database');
-
-        // Notify admins
-        const admins = await this.userRepository.findAdmins(session);
-        const notificationMessage = `A new user ${newUser.firstName} ${newUser.lastName || ''} (${newUser.email}) created and needs to be verified`;
-        const notificationTitle = 'New User Created';
-
-        for (const adminUser of admins) {
-          await this.notificationService.saveTheNotifications(
-            notificationMessage,
-            notificationTitle,
-            createdId,
-            adminUser._id.toString(),
-            'user_verification',
-            session
-          );
-        }
       });
 
+      user = await this.userRepository.findByFirebaseUID(firebaseUID);
+    }
+
+    if (user && user.isVerified === false) {
+      await this.userRepository.edit(user._id.toString(), { isVerified: true } as any);
       user = await this.userRepository.findByFirebaseUID(firebaseUID);
     }
 

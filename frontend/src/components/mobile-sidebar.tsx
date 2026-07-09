@@ -10,7 +10,6 @@ import {
   Menu,
   MessageSquare,
   Phone,
-  TrendingUp,
   Upload,
   Users,
 } from "lucide-react";
@@ -63,16 +62,12 @@ export const MobileSidebar = ({
 }: {
   user: IUser;
   setTab: (value: string) => void;
-  setChatbotSource: (value: "whatsapp" | "annam" | "acc") => void;
+  setChatbotSource: (value: "whatsapp" | "annam") => void;
 }) => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(
-    user?.role === "call_agent"
-      ? "call_interface"
-      : user?.role !== "expert"
-        ? "performance"
-        : "questions",
+    user?.role === "call_agent" ? "call_interface" : user?.role !== "expert" ? "performance" : "questions"
   );
   const isCoordinator = isCoordinatorRole(user?.role);
   const handleClick = (value: string) => {
@@ -111,7 +106,9 @@ export const MobileSidebar = ({
           {
             id: "user_management",
             label:
-              user.role === "admin" ? "User Management" : "Expert Management",
+              user.role === "admin"
+                ? "User Management"
+                : "Expert Management",
             icon: Users,
           },
         ]
@@ -125,9 +122,8 @@ export const MobileSidebar = ({
       ? [{ id: "upload", label: "Agents Interface", icon: Upload }]
       : []),
 
-    ...(user && user.role === "call_agent"
+    ...(user && user.role === "call_agent" && user.isCallAgentActive
       ? [
-          { id: "call_dashboard", label: "Call Dashboard", icon: TrendingUp },
           { id: "call_interface", label: "Call Interface", icon: Phone },
           { id: "call_history", label: "Call History", icon: Clock },
         ]
@@ -147,18 +143,12 @@ export const MobileSidebar = ({
       ? [{ id: "data_processing", label: "Data Processing", icon: Database }]
       : []),
 
-    ...(user && !isCoordinator && user.role !== "call_agent"
-      ? [{ id: "history", label: "History", icon: History }]
+    ...(user && (user.role === "admin" || user.role === "expert")
+      ? [{ id: "fertilizer_calculator", label: "Fertilizer Calculator", icon: BarChart3 }]
       : []),
-    ...(user && !isCoordinator && user.role !== "call_agent"
-      ? [
-          {
-            id: "whatsapp_history",
-            label: "WhatsApp History",
-            icon: MessageSquare,
-          },
-        ]
-      : []),
+
+    ...(user && !isCoordinator && user.role !== "call_agent" ? [{ id: "history", label: "History", icon: History }] : []),
+    ...(user && !isCoordinator && user.role !== "call_agent" ? [{ id: "whatsapp_history", label: "WhatsApp History", icon: MessageSquare }] : []),
   ];
 
   return (
@@ -202,7 +192,7 @@ export const MobileSidebar = ({
               label={item.label}
               icon={item.icon}
               onClick={() => handleClick(item.id)}
-              isActive={item.id === activeTab}
+              isActive={ item.id === activeTab }
             />
           ))}
         </nav>
