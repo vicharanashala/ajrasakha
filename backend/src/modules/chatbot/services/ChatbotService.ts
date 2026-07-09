@@ -3648,6 +3648,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     search?: string,
     startDate?: Date,
     endDate?: Date,
+    userId?: string,
   ): Promise<any> {
     try {
       return this.chatbotRepository.getQuestionsByStatus(
@@ -3660,13 +3661,14 @@ export class ChatbotService extends BaseService implements IChatbotService {
         search,
         startDate,
         endDate,
+        userId,
       );
     } catch (error) {
       throw new InternalServerError(`Internal server error ${error}`);
     }
   }
 
-  async getQuestionsClosedWithinTwoHours(page?: number, limit?: number, source?: string, userType?: string, search?: string, startDate?: Date, endDate?: Date, isPassed?: string, tag?: string): Promise<any> {
+  async getQuestionsClosedWithinTwoHours(page?: number, limit?: number, source?: string, userType?: string, search?: string, startDate?: Date, endDate?: Date, isPassed?: string, tag?: string, userId?: string): Promise<any> {
     try {
       return this.chatbotRepository.getQuestionsClosedWithinTwoHours(
         page,
@@ -3678,13 +3680,14 @@ export class ChatbotService extends BaseService implements IChatbotService {
         startDate,
         endDate,
         isPassed,
-        tag
+        tag,
+        userId,
       )
     }catch(error){
       throw new InternalServerError(`Internal server error ${error}`)
     }
   }
-  async getQuestionsByNotificationStatus(notificationType: string, page: number, limit: number, source: string, userType?: string, search?: string, startDate?: Date, endDate?: Date): Promise<any> {
+  async getQuestionsByNotificationStatus(notificationType: string, page: number, limit: number, source: string, userType?: string, search?: string, startDate?: Date, endDate?: Date, userId?: string): Promise<any> {
       try {
       return this.chatbotRepository.getQuestionsByNotificationStatus(
         notificationType,
@@ -3695,7 +3698,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
         userType,
         search,
         startDate,
-        endDate
+        endDate,
+        userId,
       )
     }catch(error){
       throw new InternalServerError(`Internal server error ${error}`)
@@ -3818,6 +3822,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       isPassed?: string,
       tag?: string,
       notificationType?: string,
+      userId?: string,
     ): Promise<any>{
       return this.chatbotRepository.getLifeCycleSummary(
         status,
@@ -3828,6 +3833,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         isPassed,
         tag,
         notificationType,
+        userId,
       );
     }
 }

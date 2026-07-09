@@ -72,6 +72,7 @@ interface QueryCategoryQuestionsModalProps {
   isPassed?: boolean;
   tag?: string;
   totalClosedAndPassed?: number;
+  userId?: string;
 }
 
 const PAGE_SIZE = 10;
@@ -94,7 +95,8 @@ export function QueryCategoryQuestionsModal({
   onClose,
   isPassed,
   tag,
-  totalClosedAndPassed
+  totalClosedAndPassed,
+  userId,
 }: QueryCategoryQuestionsModalProps) {
   const {
     setSelectedQuestionId,
@@ -146,7 +148,8 @@ export function QueryCategoryQuestionsModal({
     search: debouncedSearch,
     enabled: true,
     isPassed,
-    tag
+    tag,
+    userId,
   });
 // console.log("dta----", data)
   // const columns = useMemo<QuestionListColumn<QueryCategoryQuestionEntry>[]>(
@@ -510,6 +513,7 @@ export function QueryCategoryQuestionsModal({
           tag={tag}
           notificationType={notificationType}
           totalClosedAndPassed={totalClosedAndPassed}
+          userId={userId}
         />
 
         <div className="flex shrink-0 items-center justify-between border-t border-gray-100 px-6 py-3 text-xs text-gray-400 dark:border-[#2a2a2a] dark:text-gray-500">

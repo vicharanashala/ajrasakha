@@ -41,6 +41,7 @@ type ClosedQuestionsCardProps = {
   combinedCount?: number;
   combinedAvgTime?: number;
   onSourceChange?: (source: "both" | "annam" | "whatsapp") => void;
+  userId?: string;
 };
 
 export function ClosedQuestionsCard({
@@ -58,6 +59,7 @@ export function ClosedQuestionsCard({
   userType,
   onRefresh,
   onSourceChange,
+  userId,
 }: ClosedQuestionsCardProps) {
   const pendingQuestions =
     (totalQuestions || 0) - (closedQuestions || 0) - (passedQuestions || 0);
@@ -379,6 +381,7 @@ export function ClosedQuestionsCard({
           }}
           tag="closed"
           totalClosedAndPassed ={(closedQuestions || 0) + (passedQuestions || 0)}
+          userId={userId}
         />
       )}
     </div>

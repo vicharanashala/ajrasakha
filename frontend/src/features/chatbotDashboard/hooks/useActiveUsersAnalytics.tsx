@@ -182,7 +182,8 @@ export const useQuestionFilter = ({
   search = "",
   enabled = true,
   isPassed = false,
-  tag
+  tag,
+  userId,
 }: {
   category?: string;
   district?: string;
@@ -204,6 +205,7 @@ export const useQuestionFilter = ({
   enabled?: boolean;
   isPassed?: boolean;
   tag?: string
+  userId?: string;
 }) => {
   const stringStartDate = startDate?.toISOString()
   const stringEndDate = endDate?.toISOString()
@@ -228,7 +230,8 @@ export const useQuestionFilter = ({
     stringEndDate,
     search,
     isPassed,
-    tag
+    tag,
+    userId,
   ],
     queryFn: () =>
       chatbotService.getQuestionByFilters({
@@ -250,7 +253,8 @@ export const useQuestionFilter = ({
         stringEndDate,
         search,
         isPassed,
-        tag
+        tag,
+        userId,
       }),
     enabled: enabled && Boolean(category || district || crop || status || true),
   });
@@ -450,6 +454,7 @@ export const useLifeCycleSummary = (
   isPassed?: boolean,
   tag?: string,
   notificationType?: string,
+  userId?: string,
   enabled=true) => {
   return useQuery({
     queryKey: [
@@ -461,7 +466,8 @@ export const useLifeCycleSummary = (
       userType,
       isPassed,
       tag,
-      notificationType
+      notificationType,
+      userId,
     ],
     queryFn: () => {
       return chatbotService.getLifeCycleSummary(  
@@ -472,7 +478,8 @@ export const useLifeCycleSummary = (
         userType,
         isPassed,
         tag,
-        notificationType);
+        notificationType,
+        userId);
     },
     enabled,
   });

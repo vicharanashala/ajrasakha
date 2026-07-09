@@ -476,6 +476,7 @@ function UserQuestionMetricsCards({ userId }: { userId?: string }) {
         combinedAvgTime={
           questionStatusData?.closedVsTotalQuestions?.combined?.avgTimeMinutes
         }
+        userId={userId}
       />
 
       <ClosedInLastTwoHoursCard
@@ -493,6 +494,7 @@ function UserQuestionMetricsCards({ userId }: { userId?: string }) {
           closed2hData?.closedInLastTwoHours?.passInTwoHoursCount
         }
         totalPassed={closed2hData?.closedInLastTwoHours?.totalPassCount}
+        userId={userId}
       />
 
       <CustomerNotificationsCard
@@ -510,6 +512,7 @@ function UserQuestionMetricsCards({ userId }: { userId?: string }) {
         isFetching={isCustomerNotificationsFetching}
         source="annam"
         userType="all"
+        userId={userId}
       />
     </div>
   );

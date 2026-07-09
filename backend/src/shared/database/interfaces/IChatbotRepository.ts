@@ -581,7 +581,8 @@ export interface IChatbotRepository {
     userType?: string,
     search?: string,
     startDate?: Date,
-    endDate?: Date
+    endDate?: Date,
+    userId?: string
   ): Promise<any>;
 
   // getQuestionsByCrop(
@@ -1032,6 +1033,7 @@ export interface IChatbotRepository {
     endDate?: Date,
     isPassed?: string,
     tag?: string,
+    userId?: string,
   ): Promise<any>
 
   getQuestionsByNotificationStatus(
@@ -1044,6 +1046,7 @@ export interface IChatbotRepository {
   search?: string,
   startDate?: Date,
   endDate?: Date,
+  userId?: string,
   ): Promise<any>
 
   getQueriesByPeriod (
@@ -1137,6 +1140,7 @@ export interface IChatbotRepository {
       isPassed?: string,
       tag?: string,
       notificationType?: string,
+      userId?: string,
     ): Promise<any>
 }
 

@@ -13881,6 +13881,7 @@ export class ChatbotRepository implements IChatbotRepository {
     search?: string,
     startDate?: Date,
     endDate?: Date,
+    userId?: string,
   ): Promise<any> {
     try {
       await this.initReviewSystem();
@@ -13945,6 +13946,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
+      }
+      const userScope = await this.buildUserQuestionScope(userId);
+      if (userScope) {
+        matchQuery.$and.push(userScope);
       }
       // Search by name/email
       if (search?.trim()) {
@@ -14100,6 +14105,7 @@ export class ChatbotRepository implements IChatbotRepository {
     endDate?: Date,
     isPassed?: string,
     tag?: string,
+    userId?: string,
   ): Promise<any> {
     await this.initReviewSystem();
     await this.init('annam');
@@ -14150,6 +14156,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
     if (query && Object.keys(query).length > 0) {
       matchQuery.$and.push(query);
+    }
+    const userScope = await this.buildUserQuestionScope(userId);
+    if (userScope) {
+      matchQuery.$and.push(userScope);
     }
 
     // search logic same as other methods
@@ -14334,6 +14344,7 @@ export class ChatbotRepository implements IChatbotRepository {
     search?: string,
     startDate?: Date,
     endDate?: Date,
+    userId?: string,
   ): Promise<any> {
     try {
       // console.log("startdate enddate-------", startDate, endDate);
@@ -14385,6 +14396,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
+      }
+      const userScope = await this.buildUserQuestionScope(userId);
+      if (userScope) {
+        matchQuery.$and.push(userScope);
       }
       // console.log("getQuestionsByNotificationStatus", notificationType, JSON.stringify(matchQuery, null, 2))
       // Notification filter
@@ -17503,6 +17518,7 @@ export class ChatbotRepository implements IChatbotRepository {
     isPassed?: string,
     tag?: string,
     notificationType?: string,
+    userId?: string,
   ) {
     try {
       await this.initReviewSystem();
@@ -17562,6 +17578,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
+      }
+      const userScope = await this.buildUserQuestionScope(userId);
+      if (userScope) {
+        matchQuery.$and.push(userScope);
       }
 
       if (startDate || endDate) {

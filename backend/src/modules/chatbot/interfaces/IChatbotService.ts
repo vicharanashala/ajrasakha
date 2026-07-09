@@ -374,7 +374,8 @@ export interface IChatbotService {
     userType?: string,
     search?: string,
     startDate?: Date,
-    endDate?: Date): Promise<any>
+    endDate?: Date,
+    userId?: string): Promise<any>
 
   getQuestionsClosedWithinTwoHours(
     page?: number,
@@ -386,6 +387,7 @@ export interface IChatbotService {
     endDate?: Date,
     isPassed?: string,
     tag?: string,
+    userId?: string,
   ) : Promise<any>
 
   getQuestionsByNotificationStatus(
@@ -397,6 +399,7 @@ export interface IChatbotService {
     search?: string,
     startDate?: Date,
     endDate?: Date,
+    userId?: string,
   ): Promise<any>
 
     getQueriesByPeriod (
@@ -472,5 +475,6 @@ export interface IChatbotService {
       isPassed?: string,
       tag?: string,
       notificationType?: string,
+      userId?: string,
     ): Promise<any>
 }

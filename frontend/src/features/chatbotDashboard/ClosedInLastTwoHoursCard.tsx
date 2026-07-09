@@ -45,6 +45,7 @@ type ClosedInLastTwoHoursCardProps = {
   onRefresh?: () => void;
   passedInLastTwoHours: number;
   totalPassed: number;
+  userId?: string;
 };
 
 export function ClosedInLastTwoHoursCard({
@@ -60,6 +61,7 @@ export function ClosedInLastTwoHoursCard({
   onRefresh,
   passedInLastTwoHours,
   totalPassed = 0,
+  userId,
 }: ClosedInLastTwoHoursCardProps) {
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
@@ -387,6 +389,7 @@ export function ClosedInLastTwoHoursCard({
           endDate={dateRange?.to}
           isPassed={isPassed}
           tag= {slaBreachedQs ? slaBreachedQs : "sla"}
+          userId={userId}
         />
       )}
     </div>

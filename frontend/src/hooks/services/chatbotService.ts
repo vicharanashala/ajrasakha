@@ -247,7 +247,8 @@ export class ChatbotService {
     stringEndDate,
     search,
     isPassed,
-    tag
+    tag,
+    userId,
   }: {
     category?: string;
     district?: string;
@@ -268,6 +269,7 @@ export class ChatbotService {
     search?: string;
     isPassed?: boolean;
     tag?: string;
+    userId?: string;
   }) {
     const params = new URLSearchParams();
     if (category) params.append("category", category);
@@ -294,6 +296,9 @@ export class ChatbotService {
     }
     if(tag){
       params.append("tag", tag)
+    }
+    if (userId) {
+      params.append("userId", userId);
     }
     return apiFetch<any>(
       `${this._baseUrl}/filtered-questions?${params.toString()}`,
@@ -569,6 +574,7 @@ export class ChatbotService {
     isPassed?: boolean,
     tag?: string,
     notificationType?: string,
+    userId?: string,
   ): Promise<any> {
     const params = new URLSearchParams();
     if (startDate) {
@@ -594,6 +600,9 @@ export class ChatbotService {
     }
     if (notificationType) {
       params.append("notificationType", String(notificationType));
+    }
+    if (userId) {
+      params.append("userId", userId);
     }
 
     return apiFetch<any>(

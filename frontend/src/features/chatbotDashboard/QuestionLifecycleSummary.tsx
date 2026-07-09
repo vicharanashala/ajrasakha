@@ -27,6 +27,7 @@ interface Props {
   tag?: string;
   notificationType?: string;
   totalClosedAndPassed?: number;
+  userId?: string;
 }
 
 const formatDuration = (ms?: number) => {
@@ -58,7 +59,8 @@ export function QuestionLifecycleSummary({
   isPassed,
   tag,
   notificationType,
-  totalClosedAndPassed
+  totalClosedAndPassed,
+  userId,
 }: Props) {
   const {
     data: summary,
@@ -73,6 +75,7 @@ export function QuestionLifecycleSummary({
     isPassed,
     tag,
     notificationType,
+    userId,
   );
   // console.log("tag", summary);
   const primaryMetrics = [

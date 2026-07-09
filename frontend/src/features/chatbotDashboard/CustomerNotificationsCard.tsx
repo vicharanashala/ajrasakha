@@ -43,6 +43,7 @@ type CustomerNotificationsCardProps = {
   /** Callback to notify parent to refresh all related cards in the row */
   onRefresh?: () => void;
   onSourceChange?: (source: "both" | "annam" | "whatsapp") => void;
+  userId?: string;
 };
 
 export function CustomerNotificationsCard({
@@ -57,6 +58,7 @@ export function CustomerNotificationsCard({
   userType,
   onRefresh,
   onSourceChange,
+  userId,
 }: CustomerNotificationsCardProps) {
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
@@ -380,6 +382,7 @@ export function CustomerNotificationsCard({
           endDate={dateRange?.to}
           onClose={() => setNotificationType(null)}
           tag="notify"
+          userId={userId}
         />
       )}
     </div>

@@ -456,8 +456,12 @@ export class ChatbotController {
       endDate?: Date;
       isPassed?: string;
       tag?: string;
+      userId?: string;
     },
+    @QueryParam('userId') userId?: string,
   ) {
+    const scopedUserId = userId || query.userId;
+
     if (query.category) {
       return this.chatbotService.getQueryCategoryQuestions(
         query.category,
@@ -513,6 +517,7 @@ export class ChatbotController {
         query.search,
         startDate,
         endDate,
+        scopedUserId,
       );
     } else if (query.closedWithInTwohours) {
       const startDate = new Date(query.startDate);
@@ -527,6 +532,7 @@ export class ChatbotController {
         endDate,
         query.isPassed,
         query.tag,
+        scopedUserId,
       );
     } else {
       if(query.period){
@@ -551,6 +557,7 @@ export class ChatbotController {
         query.search,
         startDate,
         endDate,
+        scopedUserId,
       );
     }
   }
@@ -2147,6 +2154,7 @@ export class ChatbotController {
     @QueryParam('isPassed') isPassed?: string,
     @QueryParam('tag') tag?: string,
     @QueryParam('notificationType') notificationType?: string,
+    @QueryParam('userId') userId?: string,
   ): Promise<any> {
     const start= startDate
         ? new Date(startDate)
@@ -2162,7 +2170,8 @@ export class ChatbotController {
       end,
       isPassed,
       tag,
-      notificationType
+      notificationType,
+      userId
     );
   }
 }
