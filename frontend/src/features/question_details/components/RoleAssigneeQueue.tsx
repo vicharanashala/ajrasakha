@@ -103,6 +103,8 @@ export const RoleAssigneeQueue = ({
     const term = searchTerm.toLowerCase();
     return (usersData?.users ?? [])
       .filter((u) => u.role === role)
+      // Only surface active, non-blocked users as assignable candidates.
+      .filter((u) => u.isBlocked === false && (u.status ?? "active") === "active")
       .filter(
         (u) =>
           !term ||

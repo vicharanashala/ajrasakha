@@ -920,6 +920,9 @@ export class UserRepository implements IUserRepository {
       .find({
         role,
         isBlocked: { $ne: true },
+        // Only active users. status defaults to 'active' on creation, so treat a
+        // missing/null status as active and exclude only explicitly in-active users.
+        status: { $ne: 'in-active' },
         // Empty / missing assigned-questions array = free.
         $or: [
           { assignedQuestionIds: { $exists: false } },

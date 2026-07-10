@@ -287,6 +287,7 @@ export class UserService extends BaseService {
             penaltyPercentage: u.penalty ?? 0,
             createdAt: u.createdAt ?? null,
             isBlocked: u.isBlocked,
+            status: u.status ?? 'active',
             special_task_force: u.special_task_force,
             special_task_force_moderator: u.special_task_force_moderator,
             mobile: u.mobile ?? '',
