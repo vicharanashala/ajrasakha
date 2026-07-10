@@ -456,6 +456,8 @@ export const useLifeCycleSummary = (
   tag?: string,
   notificationType?: string,
   userId?: string,
+  page?: number,
+  limit?: number,
   enabled=true) => {
   return useQuery({
     queryKey: [
@@ -469,6 +471,8 @@ export const useLifeCycleSummary = (
       tag,
       notificationType,
       userId,
+      page,
+      limit,
     ],
     queryFn: () => {
       return chatbotService.getLifeCycleSummary(  
@@ -480,7 +484,9 @@ export const useLifeCycleSummary = (
         isPassed,
         tag,
         notificationType,
-        userId);
+        userId,
+        page,
+        limit);
     },
     enabled,
     refetchOnWindowFocus: false,

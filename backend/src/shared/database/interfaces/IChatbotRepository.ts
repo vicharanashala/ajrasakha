@@ -1153,6 +1153,8 @@ export interface IChatbotRepository {
       tag?: string,
       notificationType?: string,
       userId?: string,
+      page?: number,
+      limit?: number,
     ): Promise<any>
 }
 

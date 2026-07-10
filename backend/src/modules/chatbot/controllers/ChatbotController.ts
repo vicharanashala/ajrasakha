@@ -2184,6 +2184,7 @@ export class ChatbotController {
     @QueryParam('isPassed') isPassed?: string,
     @QueryParam('tag') tag?: string,
     @QueryParam('notificationType') notificationType?: string,
+    @QueryParam('userId') userId?: string,
     @QueryParam('page') page?: number,
     @QueryParam('limit') limit?: number,
   ): Promise<any> {
@@ -2202,7 +2203,9 @@ export class ChatbotController {
       isPassed,
       tag,
       notificationType,
-      userId
+      userId,
+      page,
+      limit
     );
   }
 }

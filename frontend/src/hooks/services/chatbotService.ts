@@ -599,6 +599,8 @@ export class ChatbotService {
     tag?: string,
     notificationType?: string,
     userId?: string,
+    page?: number,
+    limit?: number,
   ): Promise<any> {
     const params = new URLSearchParams();
     if (startDate) {
@@ -627,6 +629,12 @@ export class ChatbotService {
     }
     if (userId) {
       params.append("userId", userId);
+    }
+    if (page) {
+      params.append("page", String(page));
+    }
+    if (limit) {
+      params.append("limit", String(limit));
     }
 
     return apiFetch<any>(

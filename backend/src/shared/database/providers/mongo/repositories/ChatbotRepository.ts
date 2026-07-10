@@ -17638,6 +17638,8 @@ export class ChatbotRepository implements IChatbotRepository {
     tag?: string,
     notificationType?: string,
     userId?: string,
+    page = 1,
+    limit = 1000,
   ) {
     try {
       await this.initReviewSystem();

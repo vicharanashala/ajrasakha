@@ -3847,6 +3847,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
       tag?: string,
       notificationType?: string,
       userId?: string,
+      page?: number,
+      limit?: number,
     ): Promise<any>{
       return this.chatbotRepository.getLifeCycleSummary(
         status,
@@ -3858,6 +3860,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
         tag,
         notificationType,
         userId,
+        page,
+        limit,
       );
     }
 }

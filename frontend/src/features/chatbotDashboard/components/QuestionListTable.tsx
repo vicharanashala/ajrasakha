@@ -69,6 +69,15 @@ type QuestionListTableProps<T> = {
   notificationType?: string,
   totalClosedAndPassed?: number,
   userId?: string,
+  closedQuestions?: number,
+  totalQuestions?: number,
+  passedQuestions?: number,
+  closedInLastTwoHours?: number,
+  passedInLastTwoHours?: number,
+  slaBreached?: number,
+  safeNotified?: number,
+  safeNotNotified?: number,
+  safeUntracked?: number,
 };
 
 const alignClasses = {
@@ -136,6 +145,15 @@ export function QuestionListTable<T>({
   notificationType,
   totalClosedAndPassed,
   userId,
+  closedQuestions,
+  totalQuestions,
+  passedQuestions,
+  closedInLastTwoHours,
+  passedInLastTwoHours,
+  slaBreached,
+  safeNotified,
+  safeNotNotified,
+  safeUntracked,
 }: QuestionListTableProps<T>) {
   // console.log("notificationType----", notificationType, tag, status);
   const [sortKey, setSortKey] = useState(initialSortKey);
@@ -395,6 +413,15 @@ export function QuestionListTable<T>({
         notificationType={notificationType}
         totalClosedAndPassed={totalClosedAndPassed}
         userId={userId}
+        page={summaryPage}
+        limit={summaryLimit}
+        totalPages={lifecycleTotalPages}
+        totalCount={lifecycleTotal}
+        onPageChange={setSummaryPage}
+        onLimitChange={(limit) => {
+            setSummaryLimit(limit);
+            setSummaryPage(1);
+        }}
       />)}
       {(viewMode === "table") && (shouldPaginate && totalPages > 1) && (
         <div className="shrink-0 border-t border-gray-100 px-4 py-3 dark:border-[#2a2a2a]">

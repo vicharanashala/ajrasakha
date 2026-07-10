@@ -24,6 +24,12 @@ interface Props {
   isPassed?: boolean;
   tag?: string;
   notificationType?: string;
+  page?: number;
+  limit?: number;
+  totalPages?: number;
+  totalCount?: number;
+  onPageChange?: (page: number) => void;
+  onLimitChange?: (limit: number) => void;
   totalClosedAndPassed?: number;
   userId?: string;
 }
@@ -57,11 +63,17 @@ export function QuestionLifecycleSummary({
   isPassed,
   tag,
   notificationType,
+  page = 1,
+  limit = 1000,
+  totalPages = 1,
+  totalCount = 0,
+  onPageChange,
+  onLimitChange,
   totalClosedAndPassed,
   userId,
 }: Props) {
   useEffect(() => {
-    onPageChange(1);
+    onPageChange?.(1);
   }, [startDate, endDate, source, status, userType, isPassed, tag]);
   const {
     data: summary,
@@ -77,6 +89,8 @@ export function QuestionLifecycleSummary({
     tag,
     notificationType,
     userId,
+    page,
+    limit,
   );
   const primaryMetrics = [
     {
