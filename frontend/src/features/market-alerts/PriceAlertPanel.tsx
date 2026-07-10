@@ -43,8 +43,8 @@ export const PriceAlertPanel = () => {
     );
   }
 
-  const handleToggle = (crop: string) => {
-    toggleAlert(crop as any);
+  const handleToggle = (crop: Parameters<typeof toggleAlert>[0]) => {
+    toggleAlert(crop);
   };
 
   const handleSave = async () => {
