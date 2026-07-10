@@ -50,13 +50,18 @@
 }
 .ace-dash section { padding: 56px 0; }
 
+/* ---------- UTILITY BAR (above the banner, light, right-aligned) ---------- */
+.ace-dash .util-bar { background: var(--paper-raised); border-bottom: 1px solid var(--line); }
+.ace-dash .util-inner {
+  max-width: var(--max); margin: 0 auto; padding: 12px 28px;
+  display: flex; align-items: center; justify-content: flex-end; gap: 18px; flex-wrap: wrap;
+}
+
 /* ---------- HEADER (ACE content on green banner) ---------- */
 .ace-dash header.top {
   background: linear-gradient(90deg, #8ad9ab 0%, #2ea666 28%, #0f7a3f 50%, #2ea666 72%, #8ad9ab 100%);
   color: #fff;
-  position: sticky;
-  top: 0;
-  z-index: 50;
+  position: relative;
 }
 .ace-dash .top-bar {
   display: flex;
@@ -84,11 +89,11 @@
 .ace-dash .nav-links a:hover { background: rgba(255, 255, 255, 0.16); color: #fff; }
 .ace-dash .nav-links a.active { background: rgba(255, 255, 255, 0.9); color: var(--green-deep); }
 .ace-dash .top-right { display: flex; align-items: center; gap: 16px; }
-.ace-dash .ticker { display: flex; gap: 20px; font-size: 12px; color: rgba(255, 255, 255, 0.9); flex-wrap: wrap; }
-.ace-dash .ticker b { color: #fff; font-weight: 700; }
+.ace-dash .ticker { display: flex; gap: 20px; font-size: 12px; color: var(--ink-soft); flex-wrap: wrap; }
+.ace-dash .ticker b { color: var(--navy-deep); font-weight: 700; }
 .ace-dash .status-dot {
   display: inline-block; width: 6px; height: 6px; border-radius: 50%;
-  background: #fff; margin-right: 6px; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
+  background: var(--green); margin-right: 6px; box-shadow: 0 0 0 3px var(--green-soft);
 }
 .ace-dash .demo-badge {
   font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
@@ -96,11 +101,11 @@
   padding: 3px 9px; border-radius: 999px; text-transform: uppercase;
 }
 .ace-dash .login-btn {
-  font-size: 13px; font-weight: 700; color: var(--green-deep); background: #fff;
+  font-size: 13px; font-weight: 700; color: #fff; background: var(--green-deep);
   border: none; padding: 9px 20px; border-radius: 8px; cursor: pointer;
-  transition: opacity 0.15s ease;
+  transition: background 0.15s ease;
 }
-.ace-dash .login-btn:hover { opacity: 0.9; }
+.ace-dash .login-btn:hover { background: var(--navy-deep); }
 
 /* ---------- HERO CAROUSEL ---------- */
 .ace-dash .carousel { position: relative; height: clamp(360px, 46vw, 500px); overflow: hidden; background: var(--navy-deep); }

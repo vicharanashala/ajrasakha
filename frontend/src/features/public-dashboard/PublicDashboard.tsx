@@ -80,23 +80,29 @@ export const PublicDashboard = () => {
 
 /* ------------------------------------------------------------------ Header */
 const Header = ({ activeNav, onLogin }: { activeNav: string; onLogin: () => void }) => (
-  <header className="top">
-    <div className="top-bar">
-      <div className="brand">
-        <div className="brand-mark">A</div>
-        <div className="brand-text">
-          <div className="name">annam.ai</div>
-          <div className="tag">ACE — National Public Dashboard</div>
+  <>
+    <header className="top">
+      <div className="top-bar">
+        <div className="brand">
+          <div className="brand-mark">A</div>
+          <div className="brand-text">
+            <div className="name">annam.ai</div>
+            <div className="tag">ACE — National Public Dashboard</div>
+          </div>
         </div>
+        <nav className="nav-links">
+          {NAV.map((n) => (
+            <a key={n.id} href={`#${n.id}`} className={activeNav === n.id ? "active" : ""}>
+              {n.label}
+            </a>
+          ))}
+        </nav>
       </div>
-      <nav className="nav-links">
-        {NAV.map((n) => (
-          <a key={n.id} href={`#${n.id}`} className={activeNav === n.id ? "active" : ""}>
-            {n.label}
-          </a>
-        ))}
-      </nav>
-      <div className="top-right">
+    </header>
+
+    {/* Light utility bar — ticker / demo badge / login, right-aligned below the banner */}
+    <div className="util-bar">
+      <div className="util-inner">
         <div className="ticker">
           <span>
             <span className="status-dot" />
@@ -112,7 +118,7 @@ const Header = ({ activeNav, onLogin }: { activeNav: string; onLogin: () => void
         </button>
       </div>
     </div>
-  </header>
+  </>
 );
 
 /* ------------------------------------------------------------ Section head */

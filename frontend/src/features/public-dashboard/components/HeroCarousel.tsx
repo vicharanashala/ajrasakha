@@ -11,10 +11,15 @@ interface Slide {
   stats: { value: number; suffix?: string; label: string }[];
 }
 
+// Temporary: all three slides share one image. Swap per-slide later.
+// Resolves from /public → save the file at frontend/public/carousel-paddy.jpg
+const HERO_IMAGE = "https://www.global-agriculture.com/wp-content/uploads/2026/04/Untitled-1-copy-35-390x205.jpg";
+
 const slides: Slide[] = [
   {
     title: "India's Agricultural Intelligence Infrastructure",
     tag: "Validated, expert-backed advisories for every farmer, in every language.",
+    image: HERO_IMAGE,
     bg: "linear-gradient(135deg, #14532d 0%, #166534 45%, #3f8f4e 100%)",
     stats: [
       { value: 18600000, label: "Questions processed" },
@@ -25,6 +30,7 @@ const slides: Slide[] = [
   {
     title: "A Nationwide Expert Network",
     tag: "Post-graduate agronomists, KVKs and universities validating every answer.",
+    image: HERO_IMAGE,
     bg: "linear-gradient(135deg, #1b4332 0%, #2d6a4f 45%, #40916c 100%)",
     stats: [
       { value: 3174, label: "Experts engaged" },
@@ -35,6 +41,7 @@ const slides: Slide[] = [
   {
     title: "Reaching Every Field",
     tag: "Advisory coverage extending to the last village and the smallest holding.",
+    image: HERO_IMAGE,
     bg: "linear-gradient(135deg, #166534 0%, #15803d 45%, #52b788 100%)",
     stats: [
       { value: 29, label: "States & UTs" },
