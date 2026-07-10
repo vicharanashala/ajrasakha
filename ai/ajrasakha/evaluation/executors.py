@@ -1,10 +1,15 @@
+from __future__ import annotations
+
 import json
 import os
 import re
 import time
 
-import httpx
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except ModuleNotFoundError:
+    def load_dotenv():
+        return None
 
 load_dotenv()
 
@@ -116,7 +121,7 @@ def run_mock_case(case: dict) -> dict:
     "errors": [],
 }
 
-    response_text = f"Mock response for {case['name']}"
+    response_text = case.get("mock_response_text") or f"Mock response for {case['name']}"
 
     return {
         "name": case.get("name"),
@@ -127,6 +132,7 @@ def run_mock_case(case: dict) -> dict:
         "graph_status": "success",
         "latency_seconds": round(time.time() - start_time, 2),
         "response_text": response_text,
+        "observed_gdb_entry_id": case.get("mock_retrieved_gdb_entry_id", ""),
         "error": "",
         "trace": trace,
     }
@@ -160,6 +166,8 @@ def parse_sse_line(line: str) -> tuple[str | None, str | None]:
 
 
 def run_live_case(case: dict) -> dict:
+    import httpx
+
     start_time = time.time()
 
     graph_status = "unknown"
