@@ -351,6 +351,7 @@ export class QuestionRepository implements IQuestionRepository {
         pae_review,
         is_non_agri,
         is_testing,
+        isTrainingQuestion,
         moderatorId,
       } = query;
       //  const filter: any = {};
@@ -358,6 +359,7 @@ export class QuestionRepository implements IQuestionRepository {
         // isHidden: { $ne: true }, // default to exclude hidden questions
         // isOnHold: { $ne: true }, // default to exclude on hold questions
         isTesting:{$ne:true},
+        isTrainingQuestion:{$ne:true},
       };
       if (pae_review) {
         filter.pae_review = {$eq: true};
@@ -487,6 +489,13 @@ export class QuestionRepository implements IQuestionRepository {
       // filter. The Testing tab opts back IN: override it to show ONLY test questions.
       if (is_testing === 'true' || is_testing === true) {
         filter.isTesting = true;
+      }
+
+      // --- Training tab filter ---
+      // Training questions are excluded from every tab by the base `isTrainingQuestion: {$ne:true}`
+      // filter. The Training tab opts back IN: override it to show ONLY training questions.
+      if (isTrainingQuestion === 'true' || isTrainingQuestion === true) {
+        filter.isTrainingQuestion = true;
       }
 
       // --- Dedicated (moderator-assigned) tab filter ---
