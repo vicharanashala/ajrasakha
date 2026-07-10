@@ -152,6 +152,26 @@ export class UserService {
     });
   }
 
+  async getUserHistory(userId: string, from?: string, to?: string): Promise<any> {
+    const params = new URLSearchParams({ userId });
+
+    if (from) {
+      const startDate = new Date(from);
+      if (!Number.isNaN(startDate.getTime())) {
+        params.append("startDateTime", startDate.toISOString());
+      }
+    }
+
+    if (to) {
+      const endDate = new Date(to);
+      if (!Number.isNaN(endDate.getTime())) {
+        params.append("endDateTime", endDate.toISOString());
+      }
+    }
+
+    return apiFetch<any>(`${this._baseUrl}/user-history?${params.toString()}`);
+  }
+
   async getCallAgents(): Promise<IUser[] | null> {
     return apiFetch<IUser[]>(`${this._baseUrl}/call-agents`);
   }
