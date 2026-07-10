@@ -1555,6 +1555,7 @@ export class ChatbotRepository implements IChatbotRepository {
           {
             ...userDocFilter,
             farmerProfile: {$exists: true, $ne: null},
+            isVerified: true,
           },
           {session},
         ),
@@ -8850,6 +8851,7 @@ export class ChatbotRepository implements IChatbotRepository {
         {
           ...userDocFilter,
           farmerProfile: {$exists: true, $ne: null},
+          isVerified:true
         },
         {session},
       );
@@ -9248,6 +9250,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const normalizedPlatform = platform?.trim();
       const basePlatformFilter = {
         farmerProfile: {$exists: true, $ne: null},
+        isVerified:true
       };
       const platformFilter =
         normalizedPlatform === 'Unknown'
@@ -9424,6 +9427,7 @@ export class ChatbotRepository implements IChatbotRepository {
               {
                 $match: {
                   farmerProfile: {$exists: true, $ne: null},
+                  isVerified:true,
                   ...userDocFilter,
                 },
               },
@@ -9451,6 +9455,7 @@ export class ChatbotRepository implements IChatbotRepository {
               {
                 $match: {
                   farmerProfile: {$exists: true, $ne: null},
+                  isVerified:true,
                   ...userDocFilter,
                 },
               },
@@ -9826,6 +9831,7 @@ export class ChatbotRepository implements IChatbotRepository {
           {
             $match: {
               farmerProfile: {$exists: true, $ne: null},
+              isVerified: true,
               ...userDocFilter,
             },
           },
@@ -10303,7 +10309,7 @@ export class ChatbotRepository implements IChatbotRepository {
     userType = 'all',
     startTime?: string,
     endTime?: string,
-  ): Promise<Array<{question: string; count: number}>> {
+  ): Promise<Array<{questionId: string; question: string; count: number}>> {
     try {
       await this.initReviewSystem();
       const matchQuery = buildBaseQuestionMatch('whatsapp');
@@ -10380,12 +10386,114 @@ export class ChatbotRepository implements IChatbotRepository {
       ).toArray();
 
       return result.map(r => ({
+        questionId: String(r._id),
         question: r.question,
         count: r.count,
       }));
     } catch (error) {
       throw new InternalServerError(
         `Failed to get top questions from collection: ${error}`,
+      );
+    }
+  }
+
+  async getTopQuestionInstances(
+    questionId: string,
+    dbSource = 'annam',
+    userType = 'all',
+    startTime?: string,
+    endTime?: string,
+    page: number = 1,
+    limit: number = 10,
+    session?: ClientSession,
+  ): Promise<{ data: any[]; total: number; page: number; limit: number; totalPages: number }> {
+    try {
+      await this.initReviewSystem();
+      const matchQuery = buildBaseQuestionMatch('whatsapp');
+
+      if (startTime || endTime) {
+        matchQuery.createdAt = {};
+        if (startTime) {
+          matchQuery.createdAt.$gte = new Date(startTime);
+        }
+        if (endTime) {
+          matchQuery.createdAt.$lte = new Date(endTime);
+        }
+      }
+
+      const query = await this.buildQuestionUserTypeMatchQuery(
+        dbSource,
+        userType,
+      );
+
+      if (query && Object.keys(query).length > 0) {
+        matchQuery.$and.push(query);
+      }
+
+      let qId;
+      try {
+        qId = new ObjectId(questionId);
+      } catch (e) {
+        // Handle case where questionId is not a valid ObjectId
+        qId = questionId;
+      }
+
+      const skip = (page - 1) * limit;
+
+      const result = await this.QuestionCollection.aggregate(
+        [
+          { $match: matchQuery },
+          {
+            $addFields: {
+              resolvedId: { $ifNull: ['$referenceQuestionId', '$_id'] },
+            },
+          },
+          {
+            $match: {
+              resolvedId: qId,
+            },
+          },
+          { $sort: { createdAt: -1 } },
+          {
+            $facet: {
+              metadata: [{ $count: 'total' }],
+              data: [
+                { $skip: skip },
+                { $limit: limit },
+                {
+                  $project: {
+                    _id: 1,
+                    threadId: 1,
+                    question: 1,
+                    createdAt: 1,
+                    status: 1,
+                    source: 1,
+                    userRole: 1,
+                    farmerId: 1,
+                    coordinatorId: 1,
+                  },
+                },
+              ],
+            },
+          },
+        ],
+        { session },
+      ).toArray();
+
+      const total = result[0]?.metadata[0]?.total || 0;
+      const data = result[0]?.data || [];
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        data,
+        total,
+        page,
+        limit,
+        totalPages,
+      };
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get top question instances: ${error}`,
       );
     }
   }
@@ -14694,11 +14802,15 @@ export class ChatbotRepository implements IChatbotRepository {
           .project({_id: 1})
           .toArray();
 
-        const searchUserIds = matchingUsers.map(user => user._id);
+        const searchUserIds = matchingUsers.map(user => user._id.toString());
 
-        matchQuery.user = {
-          $in: searchUserIds,
-        };
+        if (matchQuery.user && matchQuery.user.$in) {
+          matchQuery.user.$in = matchQuery.user.$in.filter((id: string) => searchUserIds.includes(id));
+        } else {
+          matchQuery.user = {
+            $in: searchUserIds,
+          };
+        }
       }
 
       const result = await this.messagesCollection

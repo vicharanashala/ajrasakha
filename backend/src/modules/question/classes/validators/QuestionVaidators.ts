@@ -865,6 +865,14 @@ class GetDetailedQuestionsQuery {
   is_non_agri?: string | boolean;
 
   @JSONSchema({
+    description: 'filter questions with isTesting=true (Testing tab)',
+    example: 'true',
+    type: 'string',
+  })
+  @IsOptional()
+  is_testing?: string | boolean;
+
+  @JSONSchema({
     description: 'filter questions with status=dynamic',
     example: 'true',
     type: 'string',

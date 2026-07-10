@@ -5,6 +5,7 @@ import {
   INotificationType,
   NotificationRetentionType,
   UserRole,
+  IUserHistory,
 } from '#root/shared/interfaces/models.js';
 import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
 import {
@@ -952,5 +953,26 @@ export class UserService extends BaseService {
    */
   async findAndMarkAvailableAgent(callUuid: string): Promise<IUser | null> {
     return await this.userRepo.findAndMarkAvailableAgent(callUuid);
+  }
+
+  //get user history by id
+  async getUserHistoryById(query: { userId: string; startDateTime?: string; endDateTime?: string }): Promise<IUserHistory> {
+    try {
+      const { userId } = query;
+      if (!userId) throw new NotFoundError('User ID is required');
+
+      return this._withTransaction(async (session: ClientSession) => {
+        let user = await this.userRepo.findById(userId, session);
+        if (!user) throw new NotFoundError(`User with ID ${userId} not found`);
+        return await this.userRepo.getUserHistory(query, session);
+      });
+    } catch (error) {
+      if (error instanceof NotFoundError || error instanceof BadRequestError) {
+        throw error;
+      }
+      throw new InternalServerError(
+        `Failed to fetch user history`,
+      );
+    }
   }
 }
