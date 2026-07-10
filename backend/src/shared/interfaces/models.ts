@@ -1,7 +1,7 @@
 import { ObjectId } from 'mongodb';
 
-export type UserRole = 'admin' | 'moderator' | 'expert' | 'pae_expert' | 'tester' | 'district_coordinator' | 'block_coordinator' | 'village_volunteer' | 'call_agent';
-export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold' | 'pae_submitted' | 'draft' | 'pass' | 'duplicate' | 'non_agri' | 'pending' | 'dynamic_closed' | 'dynamic';
+export type UserRole = 'admin' | 'moderator' | 'expert' | 'pae_expert' | 'tester'| 'district_coordinator' | 'block_coordinator' | 'village_volunteer' | 'call_agent' | 'gate_keeper' | 'auditor';
+export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold' | 'pae_submitted' | 'draft' | 'pass' | 'duplicate' | 'non_agri' | 'pending' | 'dynamic' | 'queue_progress' | 'auditor_review' | 'dynamic_closed'|'queue_duplicate' | 'duplicate_confirmed' | 'duplicate_closed'
 export type Tags = 'dynamic' | 'static_dynamic'
 export interface IPreference {
   state: string;
@@ -134,10 +134,17 @@ export interface IQuestion {
   metrics: IQuestionMetrics | null;
   text?: string;
   closedAt?: Date;
+  /** Who closed the question. Set to 'System' when a question is auto-closed because
+   *  its reference (parent) question was closed (queue-duplicate propagation). */
+  closedBy?: string;
   passedAt?: Date | null;
   createdAt?: Date;
   updatedAt?: Date;
   isClosed?: boolean;
+  /** When a Gate Keeper pushes a question to the Auditor (status → 'auditor_review'),
+   *  this records what it was before — 'dynamic' or 'duplicate' — so the Auditor shows
+   *  the right action (Notify User for dynamic, Push to GDB for duplicate). */
+  auditorReviewType?: 'dynamic' | 'duplicate';
   isHidden?: false;
   passingRemark?: string;
   isOnHold?: boolean;
@@ -168,6 +175,29 @@ export interface IQuestion {
   moderatorId?: ObjectId | string | null;
   /** Timestamp when a moderator was assigned. Used to calculate moderator handling time (closedAt - moderatorAssignedAt). */
   moderatorAssignedAt?: Date | null;
+  /** Whether this question is eligible to be auto-allocated to a gate keeper by the
+   *  gate-keeper/auditor queue cron. New questions default to true. Gate keepers
+   *  handle dynamic / duplicate / queue_duplicate questions, one at a time. */
+  autoAllocateGateKeeper?: boolean;
+  /** Gate keeper assigned to this question (set by the cron). Kept for history after
+   *  they act (pass / allocate experts / push to auditor) — gateKeeperFinishedAt is
+   *  stamped then and the gate keeper is freed via their assignedQuestionIds. */
+  gateKeeperId?: ObjectId | string | null;
+  /** Timestamp when a gate keeper was assigned. */
+  gateKeeperAssignedAt?: Date | null;
+  /** Timestamp when the gate keeper finished (acted on) the question. */
+  gateKeeperFinishedAt?: Date | null;
+  /** Whether this question is eligible to be auto-allocated to an auditor by the
+   *  gate-keeper/auditor queue cron. New questions default to true. Auditors handle
+   *  auditor_review questions, one at a time. */
+  autoAllocateAuditor?: boolean;
+  /** Auditor assigned to this question (set by the cron). Kept for history after they
+   *  act (push to GDB / notify user) — auditorFinishedAt is stamped then. */
+  auditorId?: ObjectId | string | null;
+  /** Timestamp when an auditor was assigned. */
+  auditorAssignedAt?: Date | null;
+  /** Timestamp when the auditor finished (acted on) the question. */
+  auditorFinishedAt?: Date | null;
   referenceQuestionDetails?: Array<{
     _id: ObjectId | string;
     duplicate: boolean;
@@ -177,6 +207,9 @@ export interface IQuestion {
   isDuplicateChecked?: boolean;
   toolsUsed?: string[];
   passedBy?: ObjectId | string | null;
+  /** Set when a moderator cancels a duplicate flag and reopens the question. The
+   *  cancel reason and timestamp are recorded in the audit trail, not on the question. */
+  isDuplicateCancelled?: boolean;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';

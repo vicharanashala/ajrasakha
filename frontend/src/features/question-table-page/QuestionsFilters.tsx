@@ -73,7 +73,7 @@ import {
 import ViewDropdown from "../questions/components/ViewDropdown";
 import DownloadLevelWiseReportButton from "./DownloadLevelWiseReportButton";
 import { CropManagementModal } from "./CropManagementModal";
-import { QueueDetailsModal } from "./QueueDetailsModal";
+import { QueueDetailsModal, GateKeeperAuditorQueueModal } from "./QueueDetailsModal";
 import { ChemicalManagementModal } from "./ChemicalManagementModal";
 import { CropService } from "@/hooks/services/cropService";
 import { AnswerModeSwitcher } from "./AnswerModeSwitcher";
@@ -649,7 +649,11 @@ export const QuestionsFilters = ({
     "re-routed": { bg: "bg-violet-500/10", text: "text-violet-600 dark:text-violet-400", dot: "bg-violet-500" },
     pae_submitted: { bg: "bg-cyan-500/10", text: "text-cyan-600 dark:text-cyan-400", dot: "bg-cyan-500" },
     draft: { bg: "bg-slate-500/10", text: "text-slate-600 dark:text-slate-400", dot: "bg-slate-500" },
-    dynamic: { bg: "bg-slate-500/10", text: "text-slate-600 dark:text-slate-400", dot: "bg-slate-6  00" },
+    dynamic: { bg: "bg-slate-500/10", text: "text-slate-600 dark:text-slate-400", dot: "bg-slate-600" },
+    queue_progress: { bg: "bg-indigo-500/10", text: "text-indigo-600 dark:text-indigo-400", dot: "bg-indigo-500" },
+    auditor_review: { bg: "bg-fuchsia-500/10", text: "text-fuchsia-600 dark:text-fuchsia-400", dot: "bg-fuchsia-500" },
+    dynamic_closed: { bg: "bg-gray-500/10", text: "text-gray-600 dark:text-gray-400", dot: "bg-gray-500" },
+    duplicate_closed: { bg: "bg-gray-500/10", text: "text-gray-600 dark:text-gray-400", dot: "bg-gray-500" },
   };
   const defaultColor = { bg: "bg-purple-500/10", text: "text-purple-600 dark:text-purple-400", dot: "bg-purple-500" };
 
@@ -720,7 +724,11 @@ export const QuestionsFilters = ({
         hasSearch={!!search}
         sourceCounts={statusSummary?.sourceCounts}
         totalSearchCount={search ? statusSummary?.totalQuestions : undefined}
-        showDedicated={userRole === "moderator"}
+        showDedicated={
+          userRole === "moderator" ||
+          userRole === "gate_keeper" ||
+          userRole === "auditor"
+        }
         isDedicatedView={viewMode === "dedicated"}
         onDedicatedClick={() => setViewMode(viewMode === "dedicated" ? "all" : "dedicated")}
       />
@@ -1186,6 +1194,11 @@ export const QuestionsFilters = ({
               {/* queue details — moderators & admins only */}
               {(userRole === "admin" || userRole === "moderator") && (
                 <QueueDetailsModal setIsSidebarOpen={setIsSidebarOpen} />
+              )}
+
+              {/* gate keeper / auditor queue — moderators & admins only */}
+              {(userRole === "admin" || userRole === "moderator") && (
+                <GateKeeperAuditorQueueModal setIsSidebarOpen={setIsSidebarOpen} />
               )}
             </div>
           </section>

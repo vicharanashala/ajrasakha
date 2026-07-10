@@ -21,6 +21,7 @@ import { HoverCard } from "./atoms/hover-card";
 import { UserManagement } from "./user-management";
 import { Dashboard } from "./dashboard";
 import { ExpertDashboard } from "./ExpertDashboard";
+import { GateKeeperAuditorDashboard } from "./GateKeeperAuditorDashboard";
 import { NotificationModal } from "./NotificationModal";
 import { AnnamDashboard_dev as AnnamDashboard } from "../features/chatbotDashboard/AnnamDashboard_dev";
 import { cn } from "@/lib/utils";
@@ -82,7 +83,9 @@ export const PlaygroundPage = () => {
           ? "questions"
           : user.role === "call_agent"
             ? "call_interface"
-            : "performance";
+            : user.role === "gate_keeper" || user.role === "auditor"
+              ? "roleDashboard"
+              : "performance";
 
       setActiveTab(defaultTab);
       localStorage.setItem(storageKey, defaultTab);
@@ -187,7 +190,9 @@ export const PlaygroundPage = () => {
               <TabsList className="flex gap-2 overflow-x-auto whitespace-nowrap bg-transparent p-0 no-scrollbar">
                 {user &&
                   user.role !== "expert" &&
-                  user.role !== "call_agent" && (
+                  user.role !== "call_agent" &&
+                  user.role !== "gate_keeper" &&
+                  user.role !== "auditor" && (
                     <TabsTrigger
                       value="performance"
                       className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
@@ -200,6 +205,17 @@ export const PlaygroundPage = () => {
                 {user && user.role === "expert" && (
                   <TabsTrigger
                     value="expertPerformance"
+                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  >
+                    <HoverCard openDelay={150}>
+                      <span>Dashboard</span>
+                    </HoverCard>
+                  </TabsTrigger>
+                )}
+
+                {user && (user.role === "gate_keeper" || user.role === "auditor") && (
+                  <TabsTrigger
+                    value="roleDashboard"
                     className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
                   >
                     <HoverCard openDelay={150}>
@@ -226,8 +242,9 @@ export const PlaygroundPage = () => {
                 )}
 
                 {user &&
-                  user.role !== "expert" &&
-                  user.role !== "call_agent" && (
+                  (user.role === "admin" ||
+                    user.role === "moderator" ||
+                    user.role === "tester") && (
                     <TabsTrigger
                       value="user_management"
                       className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
@@ -368,7 +385,11 @@ export const PlaygroundPage = () => {
         <div className=" h-full py-6 min-w-0">
           <div className="grid h-full items-stretch gap-6 min-w-0">
             <div className="md:order-1 w-full min-w-0">
-              {user && user.role !== "expert" && (
+              {user &&
+                user.role !== "expert" &&
+                user.role !== "call_agent" &&
+                user.role !== "gate_keeper" &&
+                user.role !== "auditor" && (
                 <TabsContent
                   value="performance"
                   className={cn(
@@ -398,6 +419,21 @@ export const PlaygroundPage = () => {
                 >
                   {/* <PerformanceMatrics /> */}
                   <ExpertDashboard />
+                </TabsContent>
+              )}
+              {user && (user.role === "gate_keeper" || user.role === "auditor") && (
+                <TabsContent
+                  value="roleDashboard"
+                  className={cn(
+                    "mt-0 border-0 md:px-8 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <GateKeeperAuditorDashboard />
                 </TabsContent>
               )}
               {user && user.role == "expert" && (
@@ -457,7 +493,10 @@ export const PlaygroundPage = () => {
                 </TabsContent>
               )}
 
-              {user && user.role !== "expert" && user.role !== "call_agent" && (
+              {user &&
+                (user.role === "admin" ||
+                  user.role === "moderator" ||
+                  user.role === "tester") && (
                 <TabsContent
                   value="user_management"
                   className={cn(

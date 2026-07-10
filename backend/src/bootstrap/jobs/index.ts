@@ -6,6 +6,7 @@ import './dailyReport.js'
 import './reAllocateCron.js'
 import './timeBoundReAllocateCron.js'
 import './moderatorQueueCron.js'
+import './gateKeeperAuditorQueueCron.js'
 //import './embeddingBackfill.js'
 export const initJobs = () => {
   console.log('[CRON] Jobs initialized.');
