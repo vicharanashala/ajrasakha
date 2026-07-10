@@ -326,9 +326,12 @@ export const QuestionsFilters = ({
       if (mode !== "add") return;
       if (formData) {
         const isOutreach = formData.get("isOutreachQuestion") === "true";
+        const isTrainingQuestion = formData.get("isTrainingQuestion") === "true";
         await addQuestion(formData as any);
         // toast.success('File Uploaded succesfully')
-        handleAnswerModeChange(isOutreach ? "outreach" : "manual");
+        handleAnswerModeChange(
+          isTrainingQuestion ? "training" : isOutreach ? "outreach" : "manual",
+        );
         setAddQuestionErrors({});
         setAddOpen(false);
         return;
@@ -715,6 +718,7 @@ export const QuestionsFilters = ({
         mode="add"
         validationErrors={addQuestionErrors}
         onFieldValidatedChange={clearAddQuestionError}
+        defaultIsTrainingQuestion={answerMode === "training"}
       />
 
       {/* ── ROW 1: Tabs (full width, scrollable on small screens) ── */}

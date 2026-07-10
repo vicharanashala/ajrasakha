@@ -86,6 +86,7 @@ interface AddOrEditQuestionDialogProps {
   mode: "add" | "edit";
   validationErrors?: AddQuestionValidationErrors;
   onFieldValidatedChange?: (field: AddQuestionField) => void;
+  defaultIsTrainingQuestion?: boolean;
 }
 
 export type AddQuestionField =
@@ -183,6 +184,7 @@ export const AddOrEditQuestionDialog = ({
   mode,
   validationErrors,
   onFieldValidatedChange,
+  defaultIsTrainingQuestion = false,
 }: AddOrEditQuestionDialogProps) => {
   const [flagReason, setFlagReason] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -221,7 +223,7 @@ export const AddOrEditQuestionDialog = ({
           season: "",
           domain: [] as string[],
         },
-        isTrainingQuestion: false,
+        isTrainingQuestion: defaultIsTrainingQuestion,
       } as IDetailedQuestion);
       // Reset upload mode and file when dialog opens in add mode
       setUploadMode("single");
@@ -1272,6 +1274,10 @@ export const AddOrEditQuestionDialog = ({
             formData.append("file", file);
             formData.append("isRequiredAiInitialAnswer", String(isRequiredAiInitialAnswer));
             formData.append("isOutreachQuestion", String(isOutreachQuestion));
+            formData.append(
+              "isTrainingQuestion",
+              String(defaultIsTrainingQuestion || updatedData?.isTrainingQuestion === true),
+            );
             formData.append("allocationMode", mode);
             if (paeExpertId) formData.append("paeExpertId", paeExpertId);
             onSave?.("add", undefined, undefined, undefined, formData);
