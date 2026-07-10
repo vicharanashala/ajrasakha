@@ -471,6 +471,10 @@ class AddQuestionBodyDto {
   @IsArray()
   @IsString({ each: true })
   tools_used?: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  isTrainingQuestion?: boolean;
 }
 
 class GenerateQuestionsBody {
@@ -886,6 +890,14 @@ class GetDetailedQuestionsQuery {
   })
   @IsOptional()
   moderatorId?: string;
+
+  @JSONSchema({
+    description: 'filter questions with isTrainingQuestion=true (Training tab)',
+    example: 'true',
+    type: 'string',
+  })
+  @IsOptional()
+  isTrainingQuestion?: string | boolean;
 }
 
 export interface IQuestionWithAnswerTexts {

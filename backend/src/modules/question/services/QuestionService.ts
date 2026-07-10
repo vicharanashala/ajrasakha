@@ -1405,8 +1405,9 @@ export class QuestionService extends BaseService implements IQuestionService {
       const referenceQuestionDetailsFromBody = body.referenceQuestionDetails;
       const popContextFromBody = body.popContext;
       const toolsUsed = body.tools_used || [];
-      body = normalizeKeysToLower(body);
+      const isTrainingQuestion = body.isTrainingQuestion || false;
 
+      body = normalizeKeysToLower(body);
       let {
         question,
         priority,
@@ -1557,6 +1558,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           toolsUsed,
           createdAt: new Date(),
           updatedAt: new Date(),
+          isTrainingQuestion,
           ...(source !== 'AGRI_EXPERT' && { originalQuestion: originalquestion }),
           ...(messageId && { messageId }),
           ...(threadId && { threadId }),
