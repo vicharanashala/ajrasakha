@@ -1,0 +1,240 @@
+/*
+ * Scoped styles for the public ACE dashboard. Every selector is nested under
+ * `.ace-dash` so nothing leaks into the authenticated app. Ported from the
+ * reference design (ANNAM.AI — National Public Dashboard).
+ */
+.ace-dash {
+  --paper: #f4f6f5;
+  --paper-raised: #ffffff;
+  --ink: #1b2420;
+  --ink-soft: #6b7570;
+  --line: #e7ebe8;
+  --navy: #16382c;
+  --navy-deep: #12241d;
+  --saffron: #e08a2c;
+  --saffron-soft: #fbebd6;
+  --green: #22a55a;
+  --green-deep: #178a48;
+  --green-soft: #e4f6ea;
+  --red-flag: #e5484d;
+  --radius: 18px;
+  --radius-sm: 12px;
+  --shadow: 0 1px 2px rgba(18, 36, 29, 0.04), 0 8px 24px -12px rgba(18, 36, 29, 0.1);
+  --max: 1220px;
+
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+.ace-dash * { box-sizing: border-box; }
+.ace-dash h1,
+.ace-dash h2,
+.ace-dash h3,
+.ace-dash h4 {
+  font-weight: 700;
+  margin: 0;
+  color: var(--navy-deep);
+  letter-spacing: -0.02em;
+}
+.ace-dash .mono { font-variant-numeric: tabular-nums; }
+.ace-dash a { color: inherit; text-decoration: none; }
+.ace-dash .wrap { max-width: var(--max); margin: 0 auto; padding: 0 28px; }
+.ace-dash .eyebrow {
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--green-deep);
+  font-weight: 700;
+}
+.ace-dash section { padding: 56px 0; }
+
+/* ---------- HEADER (ACE content on green banner) ---------- */
+.ace-dash header.top {
+  background: linear-gradient(90deg, #8ad9ab 0%, #2ea666 28%, #0f7a3f 50%, #2ea666 72%, #8ad9ab 100%);
+  color: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.ace-dash .top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 28px;
+  max-width: var(--max);
+  margin: 0 auto;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.ace-dash .brand { display: flex; align-items: center; gap: 10px; }
+.ace-dash .brand-mark {
+  width: 32px; height: 32px; border-radius: 9px; background: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 15px; color: var(--green-deep); flex-shrink: 0;
+}
+.ace-dash .brand-text .name { font-size: 17px; font-weight: 800; color: #fff; line-height: 1.1; }
+.ace-dash .brand-text .tag { font-size: 11px; color: rgba(255, 255, 255, 0.88); letter-spacing: 0.02em; }
+.ace-dash .nav-links { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.ace-dash .nav-links a {
+  font-size: 13.5px; font-weight: 600; color: rgba(255, 255, 255, 0.9);
+  padding: 9px 16px; border-radius: 999px; cursor: pointer;
+}
+.ace-dash .nav-links a:hover { background: rgba(255, 255, 255, 0.16); color: #fff; }
+.ace-dash .nav-links a.active { background: rgba(255, 255, 255, 0.9); color: var(--green-deep); }
+.ace-dash .top-right { display: flex; align-items: center; gap: 16px; }
+.ace-dash .ticker { display: flex; gap: 20px; font-size: 12px; color: rgba(255, 255, 255, 0.9); flex-wrap: wrap; }
+.ace-dash .ticker b { color: #fff; font-weight: 700; }
+.ace-dash .status-dot {
+  display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  background: #fff; margin-right: 6px; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
+}
+.ace-dash .demo-badge {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+  background: var(--saffron-soft); color: var(--saffron);
+  padding: 3px 9px; border-radius: 999px; text-transform: uppercase;
+}
+.ace-dash .login-btn {
+  font-size: 13px; font-weight: 700; color: var(--green-deep); background: #fff;
+  border: none; padding: 9px 20px; border-radius: 8px; cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+.ace-dash .login-btn:hover { opacity: 0.9; }
+
+/* ---------- HERO CAROUSEL ---------- */
+.ace-dash .carousel { position: relative; height: clamp(360px, 46vw, 500px); overflow: hidden; background: var(--navy-deep); }
+.ace-dash .carousel-slide {
+  position: absolute; inset: 0; opacity: 0; transition: opacity 0.8s ease;
+  background-size: cover; background-position: center;
+  display: flex; align-items: center; justify-content: center; pointer-events: none;
+}
+.ace-dash .carousel-slide.active { opacity: 1; pointer-events: auto; }
+.ace-dash .carousel-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(15, 40, 25, 0.5) 0%, rgba(15, 40, 25, 0.72) 100%); }
+.ace-dash .carousel-content { position: relative; z-index: 2; text-align: center; color: #fff; max-width: 940px; padding: 0 28px; }
+.ace-dash .carousel-content h2 { color: #fff; font-size: clamp(24px, 3.6vw, 40px); line-height: 1.12; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); }
+.ace-dash .carousel-content p.tag { color: rgba(255, 255, 255, 0.92); font-size: clamp(13px, 1.5vw, 16px); margin-top: 14px; line-height: 1.5; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); }
+.ace-dash .carousel-stats { display: flex; justify-content: center; gap: clamp(22px, 6vw, 72px); margin-top: 30px; flex-wrap: wrap; }
+.ace-dash .cstat .n { font-size: clamp(26px, 3.4vw, 42px); font-weight: 800; color: #fff; text-shadow: 0 2px 5px rgba(0, 0, 0, 0.3); }
+.ace-dash .cstat .l { font-size: 12.5px; color: rgba(255, 255, 255, 0.85); margin-top: 4px; letter-spacing: 0.02em; }
+.ace-dash .carousel-arrow {
+  position: absolute; top: 50%; transform: translateY(-50%); z-index: 3;
+  width: 42px; height: 42px; border-radius: 50%; border: none; cursor: pointer;
+  background: rgba(255, 255, 255, 0.18); color: #fff; font-size: 24px; line-height: 1;
+  display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px);
+  transition: background 0.15s ease;
+}
+.ace-dash .carousel-arrow:hover { background: rgba(255, 255, 255, 0.34); }
+.ace-dash .carousel-arrow.prev { left: 18px; }
+.ace-dash .carousel-arrow.next { right: 18px; }
+.ace-dash .carousel-dots { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; z-index: 3; }
+.ace-dash .carousel-dots .dot { width: 9px; height: 9px; border-radius: 50%; border: none; background: rgba(255, 255, 255, 0.5); cursor: pointer; padding: 0; transition: all 0.2s ease; }
+.ace-dash .carousel-dots .dot.active { background: #fff; width: 24px; border-radius: 6px; }
+@media (max-width: 520px) {
+  .ace-dash .carousel-arrow { display: none; }
+}
+
+/* ---------- HERO ---------- */
+.ace-dash .hero { padding: 44px 0 48px; }
+.ace-dash .hero-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 40px; flex-wrap: wrap; margin-bottom: 32px; }
+.ace-dash .hero h1 { font-size: clamp(30px, 4.2vw, 44px); line-height: 1.08; max-width: 680px; }
+.ace-dash .hero p.lede { font-size: 15.5px; color: var(--ink-soft); max-width: 520px; margin-top: 12px; line-height: 1.6; }
+.ace-dash .coverage-score {
+  text-align: right; min-width: 220px; background: var(--paper-raised);
+  border-radius: var(--radius); padding: 20px 24px; box-shadow: var(--shadow);
+}
+.ace-dash .coverage-score .num { font-size: 38px; font-weight: 800; color: var(--green-deep); }
+.ace-dash .coverage-score .label { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+.ace-dash .bar-track { height: 6px; background: var(--line); width: 100%; margin-top: 12px; border-radius: 6px; overflow: hidden; }
+.ace-dash .bar-fill { height: 6px; background: var(--green); width: 0%; transition: width 1.4s ease; border-radius: 6px; }
+
+.ace-dash .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
+.ace-dash .stat-cell { background: var(--paper-raised); padding: 20px 20px 18px; border-radius: var(--radius-sm); box-shadow: var(--shadow); }
+.ace-dash .stat-cell .val { font-size: 25px; font-weight: 800; color: var(--navy-deep); }
+.ace-dash .stat-cell .lab { font-size: 12.5px; color: var(--ink-soft); margin-top: 4px; line-height: 1.3; }
+
+/* ---------- SECTION HEADERS ---------- */
+.ace-dash .sec-head { display: flex; align-items: baseline; gap: 16px; margin-bottom: 8px; flex-wrap: wrap; }
+.ace-dash .sec-num { font-size: 11.5px; color: var(--green-deep); font-weight: 700; letter-spacing: 0.08em; background: var(--green-soft); padding: 4px 10px; border-radius: 999px; }
+.ace-dash .sec-head h2 { font-size: 24px; }
+.ace-dash .sec-desc { color: var(--ink-soft); font-size: 14.5px; max-width: 640px; margin-top: 10px; margin-bottom: 28px; line-height: 1.5; }
+
+/* ---------- GEO / STATES ---------- */
+.ace-dash .geo-layout { display: grid; grid-template-columns: 280px 1fr; gap: 16px; }
+.ace-dash .state-list { max-height: 560px; overflow-y: auto; background: var(--paper-raised); border-radius: var(--radius); box-shadow: var(--shadow); padding: 8px; }
+.ace-dash .state-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; font-size: 13.5px; cursor: pointer; border-radius: 10px; margin-bottom: 2px; }
+.ace-dash .state-item:hover { background: var(--paper); }
+.ace-dash .state-item.active { background: var(--green); color: #fff; }
+.ace-dash .state-item .idx { font-size: 11px; color: var(--green-deep); margin-right: 8px; font-weight: 700; }
+.ace-dash .state-item.active .idx { color: rgba(255, 255, 255, 0.75); }
+.ace-dash .state-detail { padding: 28px 30px; background: var(--paper-raised); border-radius: var(--radius); box-shadow: var(--shadow); }
+.ace-dash .state-detail h3 { font-size: 21px; margin-bottom: 4px; }
+.ace-dash .state-detail .zone { font-size: 12.5px; color: var(--ink-soft); margin-bottom: 22px; }
+.ace-dash .metric-mini-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 26px; }
+.ace-dash .mm-cell { background: var(--paper); border-radius: var(--radius-sm); padding: 14px; }
+.ace-dash .mm-cell .v { font-size: 18px; font-weight: 800; color: var(--navy-deep); }
+.ace-dash .mm-cell .l { font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
+.ace-dash .index-row { display: flex; flex-direction: column; gap: 12px; }
+.ace-dash .index-item { display: grid; grid-template-columns: 150px 1fr 42px; align-items: center; gap: 12px; font-size: 12.5px; }
+.ace-dash .idx-track { height: 7px; background: var(--line); position: relative; border-radius: 6px; overflow: hidden; }
+.ace-dash .idx-fill { height: 7px; position: absolute; left: 0; top: 0; border-radius: 6px; }
+
+/* ---------- CARD GRIDS ---------- */
+.ace-dash .card-grid { display: grid; gap: 14px; }
+.ace-dash .grid-3 { grid-template-columns: repeat(3, 1fr); }
+.ace-dash .grid-4 { grid-template-columns: repeat(4, 1fr); }
+.ace-dash .card { background: var(--paper-raised); padding: 20px; border-radius: var(--radius-sm); box-shadow: var(--shadow); }
+.ace-dash .card h4 { font-size: 15px; margin-bottom: 6px; }
+.ace-dash .card .meta { font-size: 12px; color: var(--ink-soft); }
+.ace-dash .pill { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.03em; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; margin-top: 10px; }
+.ace-dash .pill.live { background: var(--green-soft); color: var(--green-deep); }
+.ace-dash .pill.soon { background: var(--saffron-soft); color: var(--saffron); }
+.ace-dash .crop-bar-track { height: 6px; background: var(--line); margin-top: 12px; border-radius: 6px; overflow: hidden; }
+.ace-dash .crop-bar-fill { height: 6px; background: var(--green); border-radius: 6px; }
+
+/* ---------- WORKFLOW ---------- */
+.ace-dash .workflow { display: flex; overflow-x: auto; gap: 12px; padding-bottom: 4px; }
+.ace-dash .wf-step { flex: 1 1 150px; min-width: 150px; padding: 20px 18px; background: var(--paper-raised); position: relative; border-radius: var(--radius-sm); box-shadow: var(--shadow); }
+.ace-dash .wf-step:last-child { background: var(--green); color: #fff; }
+.ace-dash .wf-step .n { font-size: 11px; color: var(--green-deep); font-weight: 800; }
+.ace-dash .wf-step:last-child .n { color: rgba(255, 255, 255, 0.8); }
+.ace-dash .wf-step .t { font-size: 14px; margin-top: 8px; font-weight: 700; }
+.ace-dash .wf-arrow { position: absolute; right: -21px; top: 50%; transform: translateY(-50%); z-index: 2; color: var(--ink-soft); font-size: 14px; }
+
+/* ---------- MATRIX ---------- */
+.ace-dash table.matrix { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 12px; }
+.ace-dash table.matrix th, .ace-dash table.matrix td { padding: 9px 10px; text-align: center; }
+.ace-dash table.matrix th { background: var(--navy-deep); color: #fff; font-weight: 600; font-size: 11px; }
+.ace-dash table.matrix th:first-child { border-radius: 12px 0 0 0; }
+.ace-dash table.matrix th:last-child { border-radius: 0 12px 0 0; }
+.ace-dash table.matrix td:first-child, .ace-dash table.matrix th:first-child { text-align: left; font-weight: 700; background: var(--paper-raised); position: sticky; left: 0; }
+.ace-dash .matrix-scroll { overflow-x: auto; border-radius: var(--radius-sm); box-shadow: var(--shadow); }
+
+/* ---------- CHARTS ---------- */
+.ace-dash .chart-box { background: var(--paper-raised); padding: 24px; border-radius: var(--radius); box-shadow: var(--shadow); }
+.ace-dash .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.ace-dash .kcc-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 24px; margin-bottom: 28px; }
+
+/* ---------- FOOTER ---------- */
+.ace-dash footer { background: #fff; color: var(--ink-soft); padding: 44px 0 30px; margin-top: 20px; border-top: 1px solid var(--line); }
+.ace-dash footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 20px; }
+.ace-dash footer .col h5 { color: var(--navy-deep); font-size: 12px; letter-spacing: 0.04em; margin-bottom: 10px; text-transform: uppercase; font-weight: 800; }
+.ace-dash footer .col p, .ace-dash footer .col a { font-size: 13px; line-height: 1.8; display: block; color: var(--ink-soft); }
+.ace-dash .flag-bar { height: 4px; display: flex; border-radius: 4px; overflow: hidden; }
+.ace-dash .flag-bar div { flex: 1; }
+
+@media (max-width: 860px) {
+  .ace-dash .geo-layout { grid-template-columns: 1fr; }
+  .ace-dash .state-list { max-height: 220px; }
+  .ace-dash .grid-3, .ace-dash .grid-4 { grid-template-columns: 1fr 1fr; }
+  .ace-dash .two-col, .ace-dash .kcc-grid { grid-template-columns: 1fr; }
+  .ace-dash .hero-top { flex-direction: column; align-items: flex-start; }
+  .ace-dash .coverage-score { text-align: left; }
+}
+@media (max-width: 520px) {
+  .ace-dash .grid-3, .ace-dash .grid-4 { grid-template-columns: 1fr; }
+  .ace-dash .ticker { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ace-dash * { transition: none !important; animation: none !important; }
+}
