@@ -302,11 +302,11 @@ export const VoiceRecorderCard = ({}: VoiceRecorderCardProps) => {
   };
 
   const handleUsePrompt = (prompt: string) => {
-    if (isRecording) {
+    if (isRecordingRef.current) {
       toast.error("Stop recording before using a quick prompt.");
       return;
     }
-
+    lastTranscriptRef.current = "";
     setTranscript(prompt);
     setQuestions([]);
     toast.success("Prompt added to transcript.");
