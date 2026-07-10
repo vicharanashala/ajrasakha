@@ -155,6 +155,7 @@ export class ChatbotController {
   @HttpCode(200)
   @Authorized()
   async getFeedbackUsers(@QueryParams() query: FeedbackUsersQueryDto) {
+ 
     return this.chatbotService.getFeedbackUsers(
       query.source,
       query.page,
@@ -2149,4 +2150,25 @@ export class ChatbotController {
       limit
     );
   }
+
+  @Get('/feedback-by-location')
+  @HttpCode(200)
+  @Authorized()
+  async getFeedbackByLocation(@QueryParams() query: any) {
+    const numberPage = Number(query.page)
+    const numberLimit = Number(query.limit)
+    return this.chatbotService.getFeedbackByLocation(
+      query.source,
+      numberPage,
+      numberLimit,
+      query.sortBy,
+      query.sortOrder,
+      query.userType,
+      query.rating,
+      query.state,
+      query.district,
+      query.search,
+    );
+  }
+
 }

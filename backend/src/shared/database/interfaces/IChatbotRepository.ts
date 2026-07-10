@@ -89,7 +89,7 @@ export interface PaginatedQueryCategoryQuestions {
 export interface DistrictAnalyticsEntry {
   district: string;
   totalQuestions: number;
-  closedQuestions: number;
+  // closedQuestions: number;
   uniqueQuestions: number;
   duplicateQuestions: number;
   totalUsers: number
@@ -1132,6 +1132,21 @@ export interface IChatbotRepository {
       page?: number,
       limit?: number,
     ): Promise<any>
+  
+  getFeedbackByLocation(
+    source: string,
+    page: number,
+    limit: number,
+    sortBy: string,
+    sortOrder: string,
+    userType: string,
+    rating?: string,
+    state?: string,
+    district?: string,
+    search?: string,
+    session?: ClientSession,
+  ): Promise<PaginatedFeedbackMessages>
+    
 }
 
 export interface ChatbotConversationData {

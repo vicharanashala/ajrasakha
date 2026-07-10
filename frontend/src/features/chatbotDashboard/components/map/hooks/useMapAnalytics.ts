@@ -99,11 +99,11 @@ export function useMapAnalytics({
             _name: stateName,
             _analytics: {
               questions: analytics?.totalQuestions ?? 0,
-              answers: analytics?.closedQuestions ?? 0,
+              // answers: analytics?.closedQuestions ?? 0,
+               feedback: analytics?.totalFeedbacks ?? 0,
               users: analytics?.totalUsers ?? 0,
               activeUsers: analytics?.activeUsers ?? 0,
               coordinators: analytics?.coordinators ?? 0,
-              closureHrs: analytics?.avgCloseTimeHours ?? 0,
             },
           },
         };
@@ -205,11 +205,12 @@ export function useMapAnalytics({
             _parent: f.properties.NAME_1 as string,
           _analytics: {
     questions: analytics?.totalQuestions ?? 0,
-    answers: analytics?.closedQuestions ?? 0,
+    // answers: analytics?.closedQuestions ?? 0,
+      feedback: analytics?.totalFeedbacks ?? 0,
     users: analytics?.totalUsers ?? 0,
     activeUsers: analytics?.activeUsers ?? 0,
     coordinators: analytics?.coordinators ?? 0,
-    closureHrs: analytics?.avgClosingMsTime ?? 0,
+    // closureHrs: analytics?.avgClosingMsTime ?? 0,
 
     rank:
       districtName === "Others"
@@ -231,11 +232,12 @@ export function useMapAnalytics({
           _parent: selectedState,
          _analytics: {
     questions: othersAnalytics.totalQuestions ?? 0,
-    answers: othersAnalytics.closedQuestions ?? 0,
+    // answers: othersAnalytics.closedQuestions ?? 0,
+      feedback: othersAnalytics.totalFeedbacks ?? 0,
     users: othersAnalytics.totalUsers ?? 0,
     activeUsers: othersAnalytics.activeUsers ?? 0,
     coordinators: othersAnalytics.coordinators ?? 0,
-    closureHrs: 0,
+    // closureHrs: 0,
 
     rank: -1,
 },
@@ -336,16 +338,17 @@ export function useMapAnalytics({
         const x = f.properties._analytics;
         return {
           questions: acc.questions + x.questions,
-          answers: acc.answers + x.answers,
+          // answers: acc.answers + x.answers,
+            feedback: acc.feedback + x.feedback,
           users: acc.users + x.users,
           activeUsers: acc.activeUsers + x.activeUsers,
           coordinators: acc.coordinators + x.coordinators,
-          closureHrs: acc.closureHrs + x.closureHrs,
+          // closureHrs: acc.closureHrs + x.closureHrs,
         };
       },
       {
         questions: 0,
-        answers: 0,
+        feedback: 0,
         users: 0,
         activeUsers: 0,
         coordinators: 0,

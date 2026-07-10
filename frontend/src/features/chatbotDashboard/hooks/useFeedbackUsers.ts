@@ -55,3 +55,61 @@ export const useFeedbackUsers = ({
     enabled,
   });
 };
+
+export const useFeedbackLocation =({
+  source,
+  page,
+  limit,
+  sortBy,
+  sortOrder,
+  userType,
+  rating,
+  state,
+  district,
+  search,
+  enabled = true,
+}: {
+  source?: string;
+  page: number;
+  limit: number;
+  sortBy?: string;
+  sortOrder?: string;
+  userType?: string;
+  rating?: string;
+  state?: string;
+  district?: string; 
+  search?: string;
+  enabled?: boolean;
+}) =>{
+  return useQuery({
+    queryKey: [
+      "feedback-location",
+      source,
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+      userType,
+      rating,
+      state,
+      district,
+      search,
+
+    ],
+    queryFn: () => {
+      return chatbotService.getFeedbackByLocation({
+        source,
+        page,
+        limit,
+        sortBy,
+        sortOrder,
+        userType,
+        rating,
+        state,
+        district,
+        search,
+      });
+    },
+    enabled,
+  });
+}

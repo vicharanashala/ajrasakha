@@ -31,6 +31,8 @@ import { InfoIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { QueryCategoryQuestionsModal } from "../../QueryCategoryQuestionsModal";
 import { ActiveUserDetailsModal } from "@/features/chatbotDashboard/ActiveUserDetailsTable";
+import { useUserMertices } from "@/features/chatbotDashboard/hooks/useDashboardData";
+import { FeedbackUsersModal } from "@/features/chatbotDashboard/FeedbackUsersModal";
 interface MapFeatureBase {
   type: string;
   properties: Record<string, unknown>;
@@ -58,13 +60,13 @@ interface DetailSidebarProps {
   districtAnalytic?: any;
   metric: "questions" | "users" | "activeUsers";
   status: string | null;
-  handleClick: (value?: string)=>void;
-  setStatus: (value: string | null)=> void
-  isIndiaView: boolean
-  clickedState: string | null,
-  setClickedState:(value: string | null)=>void
-  clickedDistrict: string | null,
-  setClickedDistrict: (value: string | null)=> void
+  handleClick: (value?: string) => void;
+  setStatus: (value: string | null) => void;
+  isIndiaView: boolean;
+  clickedState: string | null;
+  setClickedState: (value: string | null) => void;
+  clickedDistrict: string | null;
+  setClickedDistrict: (value: string | null) => void;
 }
 
 export function DetailSidebar({
@@ -96,7 +98,14 @@ export function DetailSidebar({
   const [showActiveUsersModal, setShowActiveUsersModal] = useState(false);
   const [showModeratorsModal, setShowModeratorsModal] = useState(false);
   const [showUsersModal, setShowUsersModal] = useState(false);
+  const [showFeedBackModal, setShowFeedBackModal] = useState(false);
+  const [rating, setRating] = useState<"all" | "positive" | "negative">("all");
 
+  const { data: userMetricesData } = useUserMertices(
+    source as any,
+    userType as any,
+    true,
+  );
   // Calculate aggregated analytics
 
   const stateAnalytics =
@@ -145,7 +154,8 @@ export function DetailSidebar({
           const x = f.properties._analytics as Analytics;
           return {
             questions: acc.questions + x.questions,
-            answers: acc.answers + x.answers,
+            // answers: acc.answers + x.answers,
+            feedback: acc.feedback + x.feedback,
             users: acc.users + x.users,
             activeUsers: acc.activeUsers + x.activeUsers,
             coordinators: acc.coordinators + x.coordinators,
@@ -154,7 +164,8 @@ export function DetailSidebar({
         },
         {
           questions: 0,
-          answers: 0,
+          // answers: 0,
+          feedback: 0,
           users: 0,
           activeUsers: 0,
           coordinators: 0,
@@ -166,6 +177,7 @@ export function DetailSidebar({
   const activeAnalytics =
     districtAnalytics ?? stateAnalytics ?? countryAnalytics;
   // const isIndiaView = !selectedState && !selectedDistrict;
+
   const { data: allUsers } = useUserDetails(
     undefined,
     undefined,
@@ -232,8 +244,8 @@ export function DetailSidebar({
         {/* Stats Grid */}
         {activeAnalytics && (
           <div className="grid grid-cols-2 gap-2">
-             <StatCard
-             onClick={()=> handleClick("all")}
+            <StatCard
+              onClick={() => handleClick("all")}
               // label="Questions"
 
               label={
@@ -268,95 +280,105 @@ export function DetailSidebar({
                 </div>
               }
               value={renderCardValue(
-                fmt(
-                  isIndiaView
-                    ? questionStatusData?.closedVsTotalQuestions.totalQuestions
-                    : activeAnalytics.questions,
-                ),
+                isIndiaView
+                  ? questionStatusData?.closedVsTotalQuestions.totalQuestions
+                  : activeAnalytics.questions,
               )}
               icon={<Activity className="h-3.5 w-3.5" />}
             />
 
-            {status ? <QueryCategoryQuestionsModal  
-            status={status}
-          source={source}
-          userType={userType}
-          isPassed={isPassed}
-          onClose={() => {
-            setStatus(null);
-            setIsPassed(false);
-          }}
-        />: clickedState ? <QueryCategoryQuestionsModal
-              state= {selectedState}
-              source={source}
-              userType={userType}
-              isQueryCategory = {false}
-              onClose={()=>setClickedState(null)}
-        />: clickedDistrict ? <QueryCategoryQuestionsModal
-              district={selectedDistrict}
-              state= {selectedState}
-              source={source}
-              userType={userType}
-              isQueryCategory = {false}
-              onClose={() => setClickedDistrict(null)}
-        />: null}
-        {showActiveUsersModal && (
-  <ActiveUserDetailsModal
-    source={source}
-    userType={userType}
-    state={selectedState ?? undefined}
-    district={selectedDistrict ?? undefined}
-    onClose={() => setShowActiveUsersModal(false)}
-    type="activeUsers"
-  />
-)}
+            {status ? (
+              <QueryCategoryQuestionsModal
+                status={status}
+                source={source}
+                userType={userType}
+                isPassed={isPassed}
+                onClose={() => {
+                  setStatus(null);
+                  setIsPassed(false);
+                }}
+              />
+            ) : clickedState ? (
+              <QueryCategoryQuestionsModal
+                state={selectedState}
+                source={source}
+                userType={userType}
+                isQueryCategory={false}
+                onClose={() => setClickedState(null)}
+              />
+            ) : clickedDistrict ? (
+              <QueryCategoryQuestionsModal
+                district={selectedDistrict}
+                state={selectedState}
+                source={source}
+                userType={userType}
+                isQueryCategory={false}
+                onClose={() => setClickedDistrict(null)}
+              />
+            ) : null}
+            {showActiveUsersModal && (
+              <ActiveUserDetailsModal
+                source={source}
+                userType={userType}
+                state={selectedState ?? undefined}
+                district={selectedDistrict ?? undefined}
+                onClose={() => setShowActiveUsersModal(false)}
+                type="activeUsers"
+              />
+            )}
             <StatCard
-            
-              label="Answers"
+              onClick={() => setShowFeedBackModal(true)}
+              label="Feedback"
               value={renderCardValue(
-                fmt(
-                  isIndiaView
-                    ? questionStatusData?.closedVsTotalQuestions.closed.count
-                    : activeAnalytics.answers,
-                ),
+                isIndiaView
+                  ? (userMetricesData?.feedbackData?.stats?.positiveCount ??
+                      0) +
+                      (userMetricesData?.feedbackData?.stats?.negativeCount ??
+                        0)
+                  : activeAnalytics.feedback,
               )}
               icon={<Activity className="h-3.5 w-3.5" />}
             />
-
-                    {showUsersModal && (
-  <ActiveUserDetailsModal
-    source={source}
-    userType={userType}
-    state={selectedState ?? undefined}
-    district={selectedDistrict ?? undefined}
-    onClose={() => setShowUsersModal(false)}
-    type="users"
-  />
-)}
+            {showFeedBackModal && (
+              <FeedbackUsersModal
+                source={source}
+                userType={userType}
+                onClose={() => setShowFeedBackModal(false)}
+                setRating={setRating}
+                rating={rating}
+                isMapComponent={true}
+                state={selectedState ?? undefined}
+                district={selectedDistrict ?? undefined}
+              />
+            )}
+            {showUsersModal && (
+              <ActiveUserDetailsModal
+                source={source}
+                userType={userType}
+                state={selectedState ?? undefined}
+                district={selectedDistrict ?? undefined}
+                onClose={() => setShowUsersModal(false)}
+                type="users"
+              />
+            )}
             <StatCard
-              onClick={()=> setShowUsersModal(true)}
+              onClick={() => setShowUsersModal(true)}
               label="Users"
               value={renderCardValue(
-                fmt(isIndiaView ? allUsers.totalUsers : activeAnalytics.users),
+                isIndiaView ? allUsers.totalUsers : activeAnalytics.users,
               )}
               icon={<Users className="h-3.5 w-3.5" />}
             />
-         <StatCard
-         onClick={()=> setShowActiveUsersModal(true)}
-  label={
-    <span>
-      Active
-    </span>
-  }
-  value={renderCardValue(
-    fmt(
-      isIndiaView
-        ? todayActiveFarmersData?.totalUsers
-        : activeAnalytics.activeUsers,
-    ),
-  )}
-  icon={<Users className="h-3.5 w-3.5" />}
-/>
+            <StatCard
+              onClick={() => setShowActiveUsersModal(true)}
+              label={<span>Active</span>}
+              value={renderCardValue(
+                isIndiaView
+                  ? todayActiveFarmersData?.totalUsers
+                  : activeAnalytics.activeUsers,
+              )}
+              icon={<Users className="h-3.5 w-3.5" />}
+            />
             {/* <StatCard
   label="Coordinators"
   value={fmt(
@@ -366,21 +388,21 @@ export function DetailSidebar({
   )}
   icon={<Building2 className="h-3.5 w-3.5" />}
 /> */}
-         {showModeratorsModal && (
-  <ActiveUserDetailsModal
-    source={source}
-    userType={userType}
-    state={selectedState ?? undefined}
-    district={selectedDistrict ?? undefined}
-    onClose={() => setShowModeratorsModal(false)}
-    type="moderators"
-  />
-)}
+            {showModeratorsModal && (
+              <ActiveUserDetailsModal
+                source={source}
+                userType={userType}
+                state={selectedState ?? undefined}
+                district={selectedDistrict ?? undefined}
+                onClose={() => setShowModeratorsModal(false)}
+                type="moderators"
+              />
+            )}
             <StatCard
-            onClick={() => setShowModeratorsModal(true)}
+              onClick={() => setShowModeratorsModal(true)}
               label={
                 <div className="flex items-center gap-1">
-                  <span >Coordinators</span>
+                  <span>Coordinators</span>
 
                   <TooltipProvider>
                     <Tooltip>

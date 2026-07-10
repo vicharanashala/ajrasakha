@@ -468,4 +468,17 @@ export interface IChatbotService {
       page?: number,
       limit?: number,
     ): Promise<any>
+
+  getFeedbackByLocation(
+    source: string,
+    page: number,
+    limit: number,
+    sortBy: string,
+    sortOrder: string,
+    userType: string,
+    rating?: string,
+    state?: string,
+    district?: string,
+    search?: string,
+  ) : Promise<any>
 }

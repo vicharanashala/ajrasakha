@@ -3803,7 +3803,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
       notificationType?: string,
       page?: number,
       limit?: number
-    ): Promise<any>{
+  ):Promise<any>{
       return this.chatbotRepository.getLifeCycleSummary(
         status,
         source,
@@ -3816,5 +3816,13 @@ export class ChatbotService extends BaseService implements IChatbotService {
         page,
         limit
       );
+  }
+  async getFeedbackByLocation(source: string, page: number, limit: number, sortBy: string, sortOrder: string, userType: string, rating?: string, state?: string, district?: string, search?: string): Promise<any> {
+    try {
+      return this.chatbotRepository.getFeedbackByLocation(source, page, limit, sortBy, sortOrder, userType, rating, state, district, search, undefined)
+    }catch(error){
+      throw new InternalServerError(`Something went wrong ${error}`)
     }
+  }
+
 }
