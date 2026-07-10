@@ -185,6 +185,7 @@ export const QuestionsTable = ({
             "aiInitialAnswer",
             "priority",
             "status",
+            "isTrainingQuestion",
           ];
           for (const key of editableKeys) {
             if (updatedData[key] !== original[key]) {

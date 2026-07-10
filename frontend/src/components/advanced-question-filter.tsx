@@ -134,6 +134,7 @@ export type AdvanceFilterValues = {
   is_testing?: boolean;
   /** When set, filters to questions whose moderatorId matches this ID (dedicated tab). */
   moderatorId?: string;
+  isTrainingQuestion?: boolean; // New property for training questions
 };
 
 

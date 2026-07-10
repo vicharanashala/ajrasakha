@@ -625,6 +625,7 @@ export interface IDetailedQuestion {
   autoAllocateModerator?: boolean;
   /** Moderator currently assigned to review this question (set by the moderator-queue cron). */
   moderatorId?: string | null;
+  isTrainingQuestion?: boolean;
 }
 
 export interface IDetailedQuestionResponse {

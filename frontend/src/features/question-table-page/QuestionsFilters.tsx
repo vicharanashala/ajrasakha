@@ -115,7 +115,7 @@ type QuestionsFiltersProps = {
   onAnswerModeChange?: (mode: string) => void;
 };
 
-type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae" | "non_agri" | "dynamic" | "search";
+type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "draft" | "pae" | "non_agri" | "dynamic" | "search" | "training";
 
 const filterToAnswerMode = (filter: AdvanceFilterValues): AnswerMode => {
   if (filter.is_non_agri === true) return "non_agri";
@@ -125,6 +125,7 @@ const filterToAnswerMode = (filter: AdvanceFilterValues): AnswerMode => {
   if (filter.source === "AGRI_EXPERT") return "manual";
   if (filter.source === "WHATSAPP") return "whatsapp";
   if (filter.source === "OUTREACH") return "outreach";
+  if (filter.isTrainingQuestion === true) return "training";
   return "ajraskha";
 };
 
@@ -347,6 +348,7 @@ export const QuestionsFilters = ({
         details: updatedData.details,
         context: updatedData.context || "",
         aiInitialAnswer: updatedData.aiInitialAnswer || "",
+        isTrainingQuestion: updatedData.isTrainingQuestion ?? false,
       };
 
       const validationErrors: AddQuestionValidationErrors = {};
@@ -461,7 +463,7 @@ export const QuestionsFilters = ({
 
     if (nextAnswerMode === "search") {
       // Search Results tab → fetch all sources, reset client-side mode
-      nextFilters = { ...advanceFilter, source: "all", pae_review: undefined, is_non_agri: undefined };
+      nextFilters = { ...advanceFilter, source: "all", pae_review: undefined, is_non_agri: undefined, isTrainingQuestion: undefined };
       prevAnswerModeRef.current = "search";
       setAnswerMode("search");
       setAdvanceFilterValues(nextFilters);
@@ -480,18 +482,22 @@ export const QuestionsFilters = ({
     }
 
     if (nextAnswerMode === "non_agri") {
-      nextFilters = { ...advanceFilter, source: "all", is_non_agri: true, pae_review: undefined };
+      nextFilters = { ...advanceFilter, source: "all", is_non_agri: true, pae_review: undefined, isTrainingQuestion: undefined };
       if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
     } else if (nextAnswerMode === "draft") {
-      nextFilters = { ...advanceFilter, source: "all", status: "draft", pae_review: undefined, is_non_agri: undefined };
+      nextFilters = { ...advanceFilter, source: "all", status: "draft", pae_review: undefined, is_non_agri: undefined, isTrainingQuestion: undefined };
     } else if (nextAnswerMode === "dynamic") {
-      nextFilters = { ...advanceFilter, source: "all", status: "dynamic", pae_review: undefined, is_non_agri: undefined };
+      nextFilters = { ...advanceFilter, source: "all", status: "dynamic", pae_review: undefined, is_non_agri: undefined, isTrainingQuestion: undefined };
     } else if (nextAnswerMode === "pae") {
-      nextFilters = { ...advanceFilter, source: "all", pae_review: true, is_non_agri: undefined };
+      nextFilters = { ...advanceFilter, source: "all", pae_review: true, is_non_agri: undefined, isTrainingQuestion: undefined };
+      if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
+    } else if (nextAnswerMode === "training") {
+      nextFilters = { ...advanceFilter, source: "all", isTrainingQuestion: true, pae_review: undefined, is_non_agri: undefined, status: "all" };
+      if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
       if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
     } else {
       const source = answerModeToSource(nextAnswerMode);
-      nextFilters = { ...advanceFilter, source, pae_review: undefined, is_non_agri: undefined };
+      nextFilters = { ...advanceFilter, source, pae_review: undefined, is_non_agri: undefined, isTrainingQuestion: undefined };
       if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
     }
 
@@ -563,6 +569,7 @@ export const QuestionsFilters = ({
       isOnHold: advanceFilter?.isOnHold,
       is_non_agri: advanceFilter?.is_non_agri,
       is_testing: advanceFilter?.is_testing,
+      isTrainingQuestion: advanceFilter?.isTrainingQuestion,
       unallocatedQuestions: advanceFilter?.unallocatedQuestions,
     });
   };

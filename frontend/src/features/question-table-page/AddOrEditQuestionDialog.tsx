@@ -53,6 +53,7 @@ import { CROPS, DOMAINS, SEASONS} from "../../components/MetaData";
 import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import { Label } from "@/components/atoms/label";
 import { Switch } from "@/components/atoms/switch";
+import { Checkbox } from "@/components/atoms/checkbox";
 import { TopLeftBadge, TopRightBadge } from "@/components/NewBadge";
 import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
 import { toast } from "@/shared/components/toast";
@@ -220,6 +221,7 @@ export const AddOrEditQuestionDialog = ({
           season: "",
           domain: [] as string[],
         },
+        isTrainingQuestion: false,
       } as IDetailedQuestion);
       // Reset upload mode and file when dialog opens in add mode
       setUploadMode("single");
@@ -1160,6 +1162,24 @@ export const AddOrEditQuestionDialog = ({
                           </div>
                         );
                       })}
+
+                  <div className="flex items-center gap-2 mt-1">
+                    <Checkbox
+                      className="border-primary"
+                      checked={Boolean(updatedData?.isTrainingQuestion)}
+                      onCheckedChange={(checked) =>
+                        setUpdatedData((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                isTrainingQuestion: checked === true,
+                              }
+                            : prev
+                        )
+                      }
+                    />
+                    <Label className="text-sm font-medium">Training Question</Label>
+                  </div>
                 </div>
 
                 {userRole === "expert" && mode === "edit" && (
