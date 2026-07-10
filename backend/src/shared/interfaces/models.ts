@@ -177,6 +177,7 @@ export interface IQuestion {
   isDuplicateChecked?: boolean;
   toolsUsed?: string[];
   passedBy?: ObjectId | string | null;
+  isTrainingQuestion?: boolean;
 }
 
 export type SourceType = 'hyper_local' | 'state' | 'central' | 'other';
