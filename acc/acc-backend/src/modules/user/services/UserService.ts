@@ -1,11 +1,12 @@
 import { injectable, inject } from 'inversify';
 import { ClientSession } from 'mongodb';
-import { BadRequestError, ForbiddenError, InternalServerError, NotFoundError } from 'routing-controllers';
+import { BadRequestError, ForbiddenError, InternalServerError, NotFoundError, getFromContainer } from 'routing-controllers';
 import { GLOBAL_TYPES } from '#root/types.js';
 import type { IUserRepository } from '#shared/database/interfaces/IUserRepository.js';
 import { MongoDatabase } from '#shared/database/providers/mongo/MongoDatabase.js';
 import { BaseService } from '#shared/classes/BaseService.js';
 import type { IUser } from '#shared/interfaces/models.js';
+import { FirebaseAuthService } from '#root/modules/auth/services/FirebaseAuthService.js';
 
 @injectable()
 export class UserService extends BaseService {
@@ -38,12 +39,12 @@ export class UserService extends BaseService {
       if (!user) {
         throw new NotFoundError(`User with ID ${userId} not found`);
       }
-      
-      const newRole = isCallAgent ? 'call_agent' : 'expert';
+
       const updatedUser = await this.userRepo.edit(userId, {
-        role: newRole,
+        isCallAgent,
         isCallAgentActive,
       }, session);
+
       return updatedUser;
     });
   }
@@ -51,21 +52,18 @@ export class UserService extends BaseService {
   async toggleCallAgentActive(userId: string, requestingUserRole?: string): Promise<IUser> {
     return await this._withTransaction(async (session: ClientSession) => {
       if (requestingUserRole !== 'admin') {
-        throw new ForbiddenError('Only admin can manage call agents');
+        throw new ForbiddenError('Only admin can toggle call agent active status');
       }
       const user = await this.userRepo.findById(userId, session);
       if (!user) {
         throw new NotFoundError(`User with ID ${userId} not found`);
       }
 
-      if (user.role !== 'call_agent') {
-        throw new BadRequestError('User is not a call agent');
-      }
-
-      const newStatus = !user.isCallAgentActive;
-      return await this.userRepo.edit(userId, {
-        isCallAgentActive: newStatus
+      const updatedUser = await this.userRepo.edit(userId, {
+        isCallAgentActive: !user.isCallAgentActive,
       }, session);
+
+      return updatedUser;
     });
   }
 
@@ -76,30 +74,9 @@ export class UserService extends BaseService {
         throw new NotFoundError(`User with ID ${userId} not found`);
       }
 
-      if (user.role !== 'call_agent') {
-        throw new BadRequestError('User is not a call agent');
-      }
-
-      const allCallAgents = await this.userRepo.findCallAgents(session);
-      const assignedNumbers = new Set<string>();
-      for (const agent of allCallAgents) {
-        if (agent.agent && agent.agent !== 'not_available' && agent.isCallAgentActive) {
-          assignedNumbers.add(agent.agent);
-        }
-      }
-
-      let agentNumber = 1;
-      while (assignedNumbers.has(`agent_${agentNumber}`)) {
-        agentNumber++;
-      }
-
-      const assignedAgent = `agent_${agentNumber}`;
-
       const updatedUser = await this.userRepo.edit(userId, {
-        agent: assignedAgent,
         isCallAgentActive: true,
         isBusy: false,
-        currentCallUuid: null
       }, session);
 
       return updatedUser;
@@ -113,22 +90,16 @@ export class UserService extends BaseService {
         throw new NotFoundError(`User with ID ${userId} not found`);
       }
 
-      if (user.role !== 'call_agent') {
-        throw new BadRequestError('User is not a call agent');
-      }
-
       const updatedUser = await this.userRepo.edit(userId, {
-        agent: 'not_available',
         isCallAgentActive: false,
-        isBusy: false,
-        currentCallUuid: null
+        isBusy: true,
       }, session);
 
       return updatedUser;
     });
   }
 
-  async markAgentAsBusy(userId: string, callUuid: string): Promise<IUser> {
+  async setAgentBusy(userId: string, callUuid: string): Promise<IUser> {
     return await this._withTransaction(async (session: ClientSession) => {
       const user = await this.userRepo.findById(userId, session);
       if (!user) {
@@ -199,5 +170,56 @@ export class UserService extends BaseService {
     return await this._withTransaction(async (session: ClientSession) => {
       return await this.userRepo.findByEmail(email, session);
     });
+  }
+
+  async updateUser(userId: string, data: Partial<IUser>): Promise<IUser> {
+    try {
+      if (!userId) throw new NotFoundError('User ID is required');
+
+      const editableFields = [
+        'firstName',
+        'lastName',
+        'mobile',
+        'university',
+        'preference',
+        'avatar',
+      ] as const;
+      const sanitizedData: Partial<IUser> = {};
+
+      for (const field of editableFields) {
+        if (Object.prototype.hasOwnProperty.call(data, field)) {
+          (sanitizedData as any)[field] = (data as any)[field];
+        }
+      }
+
+      if (
+        Object.keys(sanitizedData).length === 0 &&
+        Object.keys(data).length > 0
+      ) {
+        throw new BadRequestError('No editable profile fields provided');
+      }
+
+      if (sanitizedData.firstName !== undefined && !sanitizedData.firstName.trim())
+        throw new BadRequestError('Firstname cannot be empty or blank space');
+
+      const authService = getFromContainer(FirebaseAuthService);
+
+      return this._withTransaction(async (session: ClientSession) => {
+        const updatedUser = await this.userRepo.edit(userId, sanitizedData, session);
+        if (!updatedUser)
+          throw new NotFoundError(`User with ID ${userId} not found`);
+        if (sanitizedData.firstName || sanitizedData.lastName) {
+          await authService.updateFirebaseUser(updatedUser.firebaseUID, {
+            firstName: sanitizedData.firstName ?? updatedUser.firstName,
+            lastName: sanitizedData.lastName ?? updatedUser.lastName,
+          });
+        }
+        return updatedUser;
+      });
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to update user with ID ${userId}: ${error}`,
+      );
+    }
   }
 }

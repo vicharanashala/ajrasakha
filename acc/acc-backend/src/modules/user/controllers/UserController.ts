@@ -3,6 +3,7 @@ import {
   JsonController,
   Get,
   Post,
+  Put,
   Body,
   HttpCode,
   Param,
@@ -99,5 +100,20 @@ export class UserController {
       return await this.userService.markAgentAsAvailable(userId);
     }
     return user;
+  }
+
+  @Put('/')
+  @HttpCode(200)
+  @Authorized()
+  async updateUser(
+    @Body() body: any,
+    @CurrentUser() currentUser: IUser,
+  ): Promise<IUser> {
+    const userId = currentUser._id.toString();
+    const updatedUser = await this.userService.updateUser(userId, body);
+    if (!updatedUser) {
+      throw new NotFoundError('User not found');
+    }
+    return updatedUser;
   }
 }

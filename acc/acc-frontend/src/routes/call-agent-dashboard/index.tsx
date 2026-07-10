@@ -28,7 +28,7 @@ function DashboardComponent() {
   const navigate = useNavigate();
   const { user: authUser } = useAuthStore();
   const { data: user, isLoading } = useGetCurrentUser({ enabled: !!authUser });
-  const [activeTab, setActiveTab] = useState("call_interface");
+  const [activeTab, setActiveTab] = useState("call_dashboard");
 
   useEffect(() => {
     if (!authUser) {
@@ -38,7 +38,7 @@ function DashboardComponent() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Spinner size="lg" />
       </div>
     );
@@ -52,8 +52,8 @@ function DashboardComponent() {
   const menuItems = [
     ...(isCallAgent
       ? [
+          { id: "call_dashboard", label: "Dashboard", icon: TrendingUp },
           { id: "call_interface", label: "Call Interface", icon: Phone },
-          { id: "call_dashboard", label: "Call Dashboard", icon: TrendingUp },
           { id: "call_history", label: "Call History", icon: Clock },
         ]
       : []),
@@ -70,17 +70,17 @@ function DashboardComponent() {
   const currentTab = hasActiveTab ? activeTab : menuItems[0]?.id || "";
 
   return (
-    <div className="flex flex-col h-screen bg-slate-950 text-white overflow-hidden font-sans">
+    <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden font-sans">
       <Tabs value={currentTab} onValueChange={setActiveTab} className="h-full flex flex-col w-full">
         {/* Top Navbar */}
-        <header className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-900/80 backdrop-blur supports-[backdrop-filter]:bg-slate-900/60 shrink-0">
-          <div className="mx-auto flex items-center justify-between gap-4 px-6 py-3">
+        <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60 shrink-0">
+          <div className="mx-auto flex items-center justify-between gap-4 px-4 py-3">
             {/* Logo */}
             <div className="flex items-center gap-3 shrink-0">
               <img
                 src="/annam-logo.png"
                 alt="Annam Logo"
-                className="h-10 w-auto md:h-12 object-contain"
+                className="h-10 w-auto md:h-14"
               />
               <span className="font-bold text-sm bg-gradient-to-r from-green-300 to-emerald-400 bg-clip-text text-transparent hidden sm:inline">
                 ACC Call Center
@@ -89,14 +89,14 @@ function DashboardComponent() {
 
             {/* Navigation Tabs */}
             <div className="flex-1 flex justify-center min-w-0">
-              <TabsList className="flex gap-2 overflow-x-auto whitespace-nowrap bg-transparent p-0 no-scrollbar border-none">
+              <TabsList className="flex gap-2 overflow-x-auto whitespace-nowrap bg-transparent p-0 no-scrollbar">
                 {menuItems.map((item) => {
                   const Icon = item.icon;
                   return (
                     <TabsTrigger
                       key={item.id}
                       value={item.id}
-                      className="px-4 py-2 rounded-lg font-medium text-sm transition-all duration-150 flex items-center gap-2 cursor-pointer border-none data-[state=active]:bg-emerald-500 data-[state=active]:text-white text-slate-400 hover:text-white"
+                      className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0 flex items-center gap-2 cursor-pointer"
                     >
                       <Icon className="w-4 h-4" />
                       <span>{item.label}</span>
@@ -107,7 +107,7 @@ function DashboardComponent() {
             </div>
 
             {/* Right Side Controls */}
-            <div className="flex items-center gap-4 shrink-0">
+            <div className="flex items-center gap-3 shrink-0">
               <ThemeToggleCompact />
               
               {/* User Dropdown Profile Actions */}
@@ -117,7 +117,7 @@ function DashboardComponent() {
         </header>
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto bg-slate-950/50">
+        <main className="flex-1 overflow-y-auto bg-background">
           <div className="flex-1">
             {isCallAgent && (
               <>

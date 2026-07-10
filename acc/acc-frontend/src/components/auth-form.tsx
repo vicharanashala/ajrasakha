@@ -12,6 +12,24 @@ import { toast } from "sonner";
 
 interface AuthFormProps extends React.ComponentProps<"div"> {}
 
+export const calculatePasswordStrength = (password: string) => {
+  if (!password) return { value: 0, label: "Weak", color: "bg-red-500" };
+
+  let strength = 0;
+  if (password.length >= 8) strength += 25;
+  if (/[A-Z]/.test(password)) strength += 25;
+  if (/\d/.test(password)) strength += 25;
+  if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) strength += 25;
+
+  if (strength <= 25)
+    return { value: strength, label: "Weak", color: "bg-red-500" };
+  if (strength <= 50)
+    return { value: strength, label: "Fair", color: "bg-yellow-500" };
+  if (strength <= 75)
+    return { value: strength, label: "Good", color: "bg-blue-500" };
+  return { value: strength, label: "Strong", color: "bg-green-500" };
+};
+
 export const AuthForm = ({
   className,
   ...props
@@ -80,7 +98,7 @@ export const AuthForm = ({
   return (
     <div
       className={cn(
-        "flex flex-col min-h-screen items-center justify-center p-4 relative overflow-hidden bg-slate-950",
+        "flex flex-col min-h-screen items-center justify-center p-4 relative overflow-hidden",
         className
       )}
       {...props}
@@ -88,22 +106,28 @@ export const AuthForm = ({
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-green-200/20 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-emerald-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-teal-200/10 rounded-full blur-3xl animate-pulse delay-500"></div>
       </div>
 
-      <Card className="w-full max-w-md relative z-10 shadow-2xl border border-slate-800 bg-slate-900/50 backdrop-blur-sm">
-        <CardHeader className="p-6 text-center flex flex-col items-center justify-center gap-2">
+      <Card className="w-full max-w-md relative z-10 shadow-2xl border-0 backdrop-blur-sm animate-in fade-in-0 slide-in-from-bottom-4 duration-700">
+        <CardHeader className="p-0 text-center flex flex-col items-center justify-center gap-2">
+          <img
+            src="/logo.png"
+            alt="Annam Logo"
+            className="w-12 h-12 object-contain mx-auto"
+          />
           <CardTitle className="text-2xl font-bold bg-gradient-to-r from-green-300 to-emerald-400 bg-clip-text text-transparent whitespace-nowrap">
-            ACC Call Center login
+            ACC Call Center Login
           </CardTitle>
         </CardHeader>
 
-        <CardContent className="px-8 pb-8">
+        <CardContent className="px-8 pb-8 pt-4">
           <form onSubmit={handleEmailAuth}>
             <div className="grid gap-6">
               <div className="grid gap-2">
                 <Label
                   htmlFor="email"
-                  className="text-sm font-semibold text-slate-300"
+                  className="text-sm font-semibold text-gray-700 dark:text-gray-300"
                 >
                   Email Address
                 </Label>
@@ -113,7 +137,7 @@ export const AuthForm = ({
                   placeholder="user@example.com"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className="h-11 border-slate-700 bg-slate-800 text-white focus:border-green-400"
+                  className="h-11 border-2 focus:border-green-400 transition-colors duration-300"
                 />
                 {errors.email && (
                   <p className="text-sm text-red-500">{errors.email}</p>
@@ -123,7 +147,7 @@ export const AuthForm = ({
               <div className="grid gap-2">
                 <Label
                   htmlFor="password"
-                  className="text-sm font-semibold text-slate-300"
+                  className="text-sm font-semibold text-gray-700 dark:text-gray-300"
                 >
                   Password
                 </Label>
@@ -135,12 +159,12 @@ export const AuthForm = ({
                     placeholder="Enter your password"
                     value={formData.password}
                     onChange={handleInputChange}
-                    className="h-11 border-slate-700 bg-slate-800 text-white focus:border-green-400 pr-10"
+                    className="h-11 border-2 focus:border-green-400 transition-colors duration-300 pr-10"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((prev) => !prev)}
-                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-white bg-transparent border-none cursor-pointer"
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 hover:text-gray-700 bg-transparent border-none cursor-pointer"
                   >
                     {showPassword ? (
                       <EyeOff className="w-5 h-5" />
@@ -155,11 +179,24 @@ export const AuthForm = ({
               </div>
 
               <Button
-                className="w-full h-12 rounded-md font-semibold bg-emerald-500 text-white hover:bg-emerald-600 cursor-pointer border-none shadow-lg mt-3"
+                className="w-full h-12 rounded-md font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center cursor-pointer bg-primary mt-3"
+                style={{
+                  color: "#FFFFFF",
+                  border: "none",
+                  opacity: isLoading ? 0.7 : 1,
+                  pointerEvents: isLoading ? "none" : "auto",
+                }}
                 type="submit"
                 disabled={isLoading}
               >
-                {isLoading ? "Please wait..." : "Sign In"}
+                <span
+                  style={{
+                    fontWeight: "600",
+                    fontSize: "14px",
+                  }}
+                >
+                  {isLoading ? "Please wait..." : "Sign In"}
+                </span>
               </Button>
             </div>
           </form>

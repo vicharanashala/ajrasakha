@@ -40,4 +40,11 @@ export class UserService {
       method: "POST",
     });
   }
+
+  async edit(user: Partial<IUser>): Promise<void | null> {
+    return apiFetch<void>(`${this._baseUrl}/`, {
+      method: "PUT",
+      body: JSON.stringify({ ...user }),
+    });
+  }
 }
