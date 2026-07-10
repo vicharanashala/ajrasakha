@@ -31,6 +31,7 @@ import { env } from "@/config/env";
 import { DataProcessingDashboard } from "../features/faq-pop/DataProcessingDashboard";
 import { CallAgentDashboard } from "./CallAgentDashboard";
 import { PriceAlertPanel } from "../features/market-alerts/PriceAlertPanel";
+import { WeatherAdvisorySnapshot } from "../features/weather-advisory/WeatherAdvisorySnapshot";
 
 export const PlaygroundPage = () => {
   const { data: user } = useGetCurrentUser({});
@@ -501,6 +502,8 @@ export const PlaygroundPage = () => {
                 >
                   <div className=" overflow-hidden bg-background p-4 ps-0">
                     <div className=" mx-auto py-8 pt-0 space-y-6">
+                      {/* Weather advisory snapshot for farmers */}
+                      {user.role === "farmer" && <WeatherAdvisorySnapshot />}
                       {/* Market Price Alerts Panel - Farmers Only */}
                       {user.role === "farmer" && (
                         <div>
