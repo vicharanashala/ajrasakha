@@ -1,6 +1,7 @@
 from collections import Counter
 
 from ajrasakha.evaluation.multilingual_cases import (
+    CORE_SCENARIOS,
     LANGUAGES,
     MULTILINGUAL_TEST_CASES,
 )
@@ -22,14 +23,21 @@ def test_each_scenario_has_one_case_per_language():
     assert set(counts.values()) == {6}
 
 
-def test_fixture_scenarios_are_labeled_for_replacement():
-    fixtures = [case for case in MULTILINGUAL_TEST_CASES if case["is_fixture"]]
-    draft_cases = [case for case in MULTILINGUAL_TEST_CASES if not case["is_fixture"]]
+def test_core_scenarios_are_balanced_across_requested_domains():
+    counts = Counter(scenario["domain"] for scenario in CORE_SCENARIOS)
 
-    assert fixtures
-    assert draft_cases
+    assert counts == {
+        "weather": 6,
+        "pest": 6,
+        "soil": 6,
+        "market": 6,
+        "scheme": 6,
+    }
+
+
+def test_multilingual_cases_do_not_use_placeholder_fixtures():
+    assert all(case["is_fixture"] is False for case in MULTILINGUAL_TEST_CASES)
     assert all(
-        case["translation_status"] == "fixture_replace_with_agri_validated_scenario"
-        for case in fixtures
+        case["translation_status"] == "draft_needs_agri_validation"
+        for case in MULTILINGUAL_TEST_CASES
     )
-    assert all(case["source_scenario_id"] for case in fixtures)

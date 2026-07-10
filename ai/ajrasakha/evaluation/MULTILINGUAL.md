@@ -17,18 +17,21 @@ and produces a Language Quality Matrix by language and domain.
 The case generator currently produces the requested shape:
 
 ```text
-30 scenario slots x 6 languages = 180 multilingual cases
+30 realistic agriculture scenarios x 6 languages = 180 multilingual cases
 ```
 
-The first scenario seeds are draft translations. Remaining scenario slots are
-explicitly marked as fixtures with:
+The 30 scenarios are balanced across the requested domains:
 
 ```text
-translation_status=fixture_replace_with_agri_validated_scenario
+Weather: 6
+Pest & Disease: 6
+Soil & Fertilizer: 6
+Market: 6
+Government Schemes: 6
 ```
 
-Replace those fixture scenarios once the agriculture/language team provides the
-final validated 30-scenario set.
+Translations are draft evaluation data and should still be reviewed by the
+agriculture/language team before a live quality baseline is treated as final.
 
 ## Run Without Credentials
 
