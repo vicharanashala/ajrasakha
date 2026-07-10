@@ -7,10 +7,7 @@ import {isToday} from '#root/utils/date.utils.js';
 import {QuestionService} from '../services/QuestionService.js';
 import {startBalanceWorkloadWorkers} from '#root/workers/balanceWorkload.manager.js';
 import {sendEmailWithAttachment} from '#root/utils/mailer.js';
-
-vi.mock('#root/utils/mail.utils.js', () => ({
-  sendEmailWithAttachment: vi.fn(),
-}));
+import * as balanceWorker from '#root/workers/balanceWorkload.manager.js';
 
 // ==========================================================
 // Module mocks
@@ -19,6 +16,12 @@ vi.mock('#root/utils/mail.utils.js', () => ({
 // real (mocked) values at runtime because emitDecoratorMetadata captures
 // design:paramtypes for the @injectable() constructor. Interfaces are erased
 // by TypeScript and need no mock.
+vi.mock('#root/workers/balanceWorkload.manager.js', () => ({
+  startBalanceWorkloadWorkers: vi.fn(),
+}));
+vi.mock('#root/utils/mail.utils.js', () => ({
+  sendEmailWithAttachment: vi.fn(),
+}));
 vi.mock('#root/modules/notification/services/NotificationService.js', () => ({
   NotificationService: class {},
 }));
@@ -85,7 +88,11 @@ vi.mock('../logger/chatbot-similarity.logger.js', () => ({
 // grab the mocked helper/config so individual tests can override behaviour
 import {checkConceptDuplicate} from '#root/modules/question/aiservice/checkConceptDuplicate.js';
 import {appConfig} from '#root/config/app.js';
-import {IQuestion} from '#root/shared/index.js';
+import {
+  IQuestion,
+  MANUAL_SOURCES,
+  TIME_BOUND_SOURCES,
+} from '#root/shared/index.js';
 import axios from 'axios';
 import {
   AllocatedQuestionsBodyDto,
@@ -5287,6 +5294,4345 @@ describe('QuestionService', () => {
       );
 
       expect(mockQuestionRepo.getById).toHaveBeenCalledTimes(1);
+    });
+  });
+  describe('getMatchedQuestion', () => {
+    it('updates the userId when the matched message belongs to a different user', async () => {
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: new ObjectId(questionId),
+        source: 'AGRI_EXPERT',
+        question: 'My question',
+        details: validDetails,
+        createdAt: new Date(),
+        userId: new ObjectId(userId),
+        messageId: undefined,
+      });
+
+      mockChatbotRepository.findFromSecondDb.mockResolvedValue([
+        {
+          messageId: 'msg-1',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          userDetails: {
+            _id: expertId,
+            username: 'Expert',
+            email: 'expert@test.com',
+            emailVerified: true,
+            avatar: null,
+          },
+          content: [{type: 'text', text: 'hello'}],
+        },
+      ]);
+
+      const result = await service.getMatchedQuestion(questionId);
+
+      expect(mockQuestionRepo.updateQuestion).toHaveBeenCalledWith(questionId, {
+        userId: new ObjectId(expertId),
+      });
+
+      expect(result).toEqual({
+        messageId: 'msg-1',
+        createdAt: expect.any(String),
+        updatedAt: expect.any(String),
+        user: {
+          username: 'Expert',
+          email: 'expert@test.com',
+          emailVerified: true,
+          avatar: null,
+        },
+        content: [{type: 'text', text: 'hello'}],
+      });
+    });
+
+    it('does not update the userId when it already matches', async () => {
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: new ObjectId(questionId),
+        source: 'AGRI_EXPERT',
+        question: 'My question',
+        details: validDetails,
+        createdAt: new Date(),
+        userId: new ObjectId(expertId),
+        messageId: undefined,
+      });
+
+      mockChatbotRepository.findFromSecondDb.mockResolvedValue([
+        {
+          messageId: 'msg-1',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          userDetails: {
+            _id: expertId,
+            username: 'Expert',
+            email: 'expert@test.com',
+            emailVerified: true,
+            avatar: null,
+          },
+          content: [],
+        },
+      ]);
+
+      await service.getMatchedQuestion(questionId);
+
+      expect(mockQuestionRepo.updateQuestion).not.toHaveBeenCalled();
+    });
+
+    it('does not update the userId when the question already has a messageId', async () => {
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: new ObjectId(questionId),
+        source: 'AGRI_EXPERT',
+        question: 'My question',
+        details: validDetails,
+        createdAt: new Date(),
+        userId: new ObjectId(userId),
+        messageId: 'existing-message-id',
+      });
+
+      mockChatbotRepository.findFromSecondDb.mockResolvedValue([
+        {
+          messageId: 'msg-1',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          userDetails: {
+            _id: expertId,
+            username: 'Expert',
+            email: 'expert@test.com',
+            emailVerified: true,
+            avatar: null,
+          },
+          content: [],
+        },
+      ]);
+
+      await service.getMatchedQuestion(questionId);
+
+      expect(mockQuestionRepo.updateQuestion).not.toHaveBeenCalled();
+    });
+
+    it('continues even when updating the userId fails', async () => {
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: new ObjectId(questionId),
+        source: 'AGRI_EXPERT',
+        question: 'My question',
+        details: validDetails,
+        createdAt: new Date(),
+        userId: new ObjectId(userId),
+        messageId: undefined,
+      });
+
+      mockChatbotRepository.findFromSecondDb.mockResolvedValue([
+        {
+          messageId: 'msg-1',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          userDetails: {
+            _id: expertId,
+            username: 'Expert',
+            email: 'expert@test.com',
+            emailVerified: true,
+            avatar: null,
+          },
+          content: [{type: 'text'}],
+        },
+      ]);
+
+      mockQuestionRepo.updateQuestion.mockRejectedValue(
+        new Error('Database failure'),
+      );
+
+      const result = await service.getMatchedQuestion(questionId);
+
+      expect(mockQuestionRepo.updateQuestion).toHaveBeenCalled();
+
+      expect(result).toEqual({
+        messageId: 'msg-1',
+        createdAt: expect.any(String),
+        updatedAt: expect.any(String),
+        user: {
+          username: 'Expert',
+          email: 'expert@test.com',
+          emailVerified: true,
+          avatar: null,
+        },
+        content: [{type: 'text'}],
+      });
+    });
+
+    it('fetches thread messages for an AJRASAKHA question', async () => {
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: new ObjectId(questionId),
+        source: 'AJRASAKHA',
+        threadId: 'thread-123',
+      });
+
+      mockAiService.fetchWhatsAppMessage.mockResolvedValue({
+        messageId: 'msg-1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        userDetails: {
+          username: 'Farmer',
+          email: 'farmer@test.com',
+          emailVerified: false,
+          avatar: null,
+        },
+        content: [{type: 'text'}],
+      });
+
+      const result = await service.getMatchedQuestion(questionId);
+
+      expect(mockAiService.fetchWhatsAppMessage).toHaveBeenCalledWith(
+        'thread-123',
+        questionId,
+      );
+
+      expect(result).toEqual({
+        messageId: 'msg-1',
+        createdAt: expect.any(String),
+        updatedAt: expect.any(String),
+        user: {
+          username: 'Farmer',
+          email: 'farmer@test.com',
+          emailVerified: false,
+          avatar: null,
+        },
+        content: [{type: 'text'}],
+      });
+    });
+
+    it('throws when no thread message is found for a time-bound question', async () => {
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: new ObjectId(questionId),
+        source: 'AJRASAKHA',
+        threadId: 'thread-123',
+      });
+
+      mockAiService.fetchWhatsAppMessage.mockResolvedValue(null);
+
+      await expect(service.getMatchedQuestion(questionId)).rejects.toThrow(
+        'No matching WhatsApp message found',
+      );
+    });
+  });
+  describe('checkStatus', () => {
+    it('returns the answer details for the supplied question ids', async () => {
+      const response = [
+        {
+          questionId,
+          status: 'answered',
+          hasAnswer: true,
+        },
+        {
+          questionId: referenceQuestionId,
+          status: 'pending',
+          hasAnswer: false,
+        },
+      ];
+
+      mockQuestionRepo.getQuestionsWithAnswerDetails.mockResolvedValue(
+        response,
+      );
+
+      const result = await service.checkStatus([
+        questionId,
+        referenceQuestionId,
+      ]);
+
+      expect(
+        mockQuestionRepo.getQuestionsWithAnswerDetails,
+      ).toHaveBeenCalledWith([questionId, referenceQuestionId]);
+
+      expect(result).toEqual(response);
+    });
+    it('propagates repository errors', async () => {
+      const error = new Error('DB error');
+
+      mockQuestionRepo.getQuestionsWithAnswerDetails.mockRejectedValue(error);
+
+      await expect(service.checkStatus([questionId])).rejects.toThrow(
+        'DB error',
+      );
+    });
+  });
+
+  describe('holdQuestion', () => {
+    beforeEach(() => {
+      vi.spyOn(service as any, '_withTransaction').mockImplementation(
+        async (cb: any) => cb({}),
+      );
+    });
+
+    it('throws ForbiddenError when an expert tries to hold a question', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: new ObjectId(expertId),
+        role: 'expert',
+      });
+
+      await expect(
+        service.holdQuestion(questionId, expertId, 'hold'),
+      ).rejects.toThrow('Only moderators can hold questions');
+    });
+
+    it('throws NotFoundError when the question does not exist (hold)', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: new ObjectId(moderatorId),
+        role: 'moderator',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue(null);
+
+      await expect(
+        service.holdQuestion(questionId, moderatorId, 'hold'),
+      ).rejects.toThrow('Question not found');
+    });
+
+    it('throws BadRequestError when holding an already closed question', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: new ObjectId(moderatorId),
+        role: 'moderator',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: new ObjectId(questionId),
+        status: 'closed',
+      });
+
+      await expect(
+        service.holdQuestion(questionId, moderatorId, 'hold'),
+      ).rejects.toThrow('Question is already closed');
+    });
+
+    it('throws NotFoundError when the submission does not exist', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: new ObjectId(moderatorId),
+        role: 'moderator',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: new ObjectId(questionId),
+        status: 'open',
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue(null);
+
+      await expect(
+        service.holdQuestion(questionId, moderatorId, 'hold'),
+      ).rejects.toThrow('Question submission not found');
+    });
+
+    it('holds a question successfully', async () => {
+      mockUserRepo.findById.mockResolvedValue({
+        _id: new ObjectId(moderatorId),
+        role: 'moderator',
+      });
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: new ObjectId(questionId),
+        status: 'open',
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        _id: new ObjectId(),
+        queue: [],
+        history: [],
+      });
+
+      vi.spyOn(service as any, '_handleSubmissionOnHold').mockResolvedValue(
+        undefined,
+      );
+
+      mockQuestionRepo.updateQuestion.mockResolvedValue({});
+
+      const result = await service.holdQuestion(
+        questionId,
+        moderatorId,
+        'hold',
+      );
+
+      expect((service as any)._handleSubmissionOnHold).toHaveBeenCalled();
+
+      expect(mockQuestionRepo.updateQuestion).toHaveBeenCalledWith(
+        questionId,
+        expect.objectContaining({
+          isOnHold: true,
+          isAutoAllocate: false,
+          status: 'hold',
+          holdAt: expect.any(Date),
+        }),
+        expect.anything(),
+      );
+
+      expect(result).toEqual({id: questionId});
+    });
+
+    it('throws NotFoundError when the question does not exist during unhold', async () => {
+      mockQuestionRepo.getById.mockResolvedValue(null);
+
+      await expect(
+        service.holdQuestion(questionId, moderatorId, 'unhold'),
+      ).rejects.toThrow('Question not found');
+    });
+
+    it('throws ForbiddenError when a non-moderator tries to unhold', async () => {
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: new ObjectId(questionId),
+        isOnHold: true,
+      });
+
+      mockUserRepo.findById.mockResolvedValue({
+        _id: new ObjectId(expertId),
+        role: 'expert',
+      });
+
+      await expect(
+        service.holdQuestion(questionId, expertId, 'unhold'),
+      ).rejects.toThrow('Only moderators or Admins can unhold questions');
+    });
+
+    it('throws BadRequestError when unholding a question that is not on hold', async () => {
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: new ObjectId(questionId),
+        isOnHold: false,
+      });
+
+      mockUserRepo.findById.mockResolvedValue({
+        _id: new ObjectId(moderatorId),
+        role: 'moderator',
+      });
+
+      await expect(
+        service.holdQuestion(questionId, moderatorId, 'unhold'),
+      ).rejects.toThrow('Question is not on hold');
+    });
+
+    it('unholds a question successfully', async () => {
+      const holdAt = new Date(Date.now() - 60000);
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: new ObjectId(questionId),
+        isOnHold: true,
+        holdAt,
+        accumulatedHoldMs: 1000,
+      });
+
+      mockUserRepo.findById.mockResolvedValue({
+        _id: new ObjectId(moderatorId),
+        role: 'moderator',
+      });
+
+      mockQuestionRepo.updateQuestion.mockResolvedValue({});
+
+      const result = await service.holdQuestion(
+        questionId,
+        moderatorId,
+        'unhold',
+      );
+
+      expect(mockQuestionRepo.updateQuestion).toHaveBeenCalledWith(
+        questionId,
+        expect.objectContaining({
+          isOnHold: false,
+          status: 'open',
+          holdAt: null,
+        }),
+        expect.anything(),
+      );
+
+      expect(result).toEqual({id: questionId});
+    });
+  });
+  describe('checkSubmissionExists', () => {
+    it('returns true when a submission exists', async () => {
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        _id: new ObjectId(),
+        questionId: new ObjectId(questionId),
+      });
+
+      const result = await service.checkSubmissionExists(questionId);
+
+      expect(mockQuestionSubmissionRepo.getByQuestionId).toHaveBeenCalledWith(
+        questionId,
+      );
+      expect(result).toBe(true);
+    });
+
+    it('returns false when no submission exists', async () => {
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue(null);
+
+      const result = await service.checkSubmissionExists(questionId);
+
+      expect(mockQuestionSubmissionRepo.getByQuestionId).toHaveBeenCalledWith(
+        questionId,
+      );
+      expect(result).toBe(false);
+    });
+  });
+  describe('getQuestionStatusSummary', () => {
+    it('returns the status summary', async () => {
+      const query = {} as any;
+      const body = {} as any;
+
+      mockQuestionRepo.getQuestionStatusSummary.mockResolvedValue({
+        totalQuestions: 10,
+        statuses: [
+          {status: 'open', count: 6},
+          {status: 'closed', count: 4},
+        ],
+        sourceCounts: [
+          {source: 'AJRASAKHA', count: 7},
+          {source: 'WHATSAPP', count: 3},
+        ],
+      });
+
+      const result = await service.getQuestionStatusSummary(query, body);
+
+      expect(mockQuestionRepo.getQuestionStatusSummary).toHaveBeenCalledWith(
+        query,
+        body,
+      );
+
+      expect(result).toEqual({
+        totalQuestions: 10,
+        statuses: [
+          {status: 'open', count: 6},
+          {status: 'closed', count: 4},
+        ],
+        sourceCounts: [
+          {source: 'AJRASAKHA', count: 7},
+          {source: 'WHATSAPP', count: 3},
+        ],
+      });
+    });
+
+    it('defaults sourceCounts to an empty array when not returned', async () => {
+      const query = {} as any;
+      const body = {} as any;
+
+      mockQuestionRepo.getQuestionStatusSummary.mockResolvedValue({
+        totalQuestions: 5,
+        statuses: [{status: 'open', count: 5}],
+      });
+
+      const result = await service.getQuestionStatusSummary(query, body);
+
+      expect(result).toEqual({
+        totalQuestions: 5,
+        statuses: [{status: 'open', count: 5}],
+        sourceCounts: [],
+      });
+    });
+  });
+  describe('getExprtIdByIndex', () => {
+    it('returns the expert id at the given index', async () => {
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        queue: [new ObjectId(expertId), new ObjectId(expertId2)],
+      });
+
+      const result = await service.getExprtIdByIndex(questionId, 1);
+
+      expect(mockQuestionSubmissionRepo.getByQuestionId).toHaveBeenCalledWith(
+        questionId,
+      );
+      expect(result).toBe(expertId2);
+    });
+
+    it('returns null when the index is out of bounds', async () => {
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        queue: [new ObjectId(expertId)],
+      });
+
+      const result = await service.getExprtIdByIndex(questionId, 5);
+
+      expect(result).toBeNull();
+    });
+
+    it('returns null when there is no submission', async () => {
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue(null);
+
+      const result = await service.getExprtIdByIndex(questionId, 0);
+
+      expect(result).toBeNull();
+    });
+  });
+  describe('generateAiInitialAnswer', () => {
+    beforeEach(() => {
+      vi.spyOn(service as any, '_withTransaction').mockImplementation(
+        async (cb: any) => cb({}),
+      );
+    });
+
+    it('throws NotFoundError when the question does not exist', async () => {
+      mockQuestionRepo.getById.mockResolvedValue(null);
+
+      await expect(service.generateAiInitialAnswer(questionId)).rejects.toThrow(
+        'Question not found',
+      );
+    });
+
+    it('throws ForbiddenError when the question already has submitted answers', async () => {
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: new ObjectId(questionId),
+        question: 'Why are my wheat leaves turning yellow?',
+        details: validDetails,
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        history: [
+          {
+            updatedBy: new ObjectId(expertId),
+            status: 'submitted',
+          },
+        ],
+      });
+
+      await expect(service.generateAiInitialAnswer(questionId)).rejects.toThrow(
+        'Cannot generate AI initial answer. Question already has submitted answers.',
+      );
+    });
+
+    it('returns the AI generated answer', async () => {
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: new ObjectId(questionId),
+        question: 'Why are my wheat leaves turning yellow?',
+        details: validDetails,
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        history: [],
+      });
+
+      mockAiService.getAnswerByQuestionDetails.mockResolvedValue({
+        answer: 'Apply nitrogen fertilizer and inspect for fungal infection.',
+      });
+
+      const result = await service.generateAiInitialAnswer(questionId);
+
+      expect(mockAiService.getAnswerByQuestionDetails).toHaveBeenCalledWith(
+        expect.objectContaining({
+          _id: new ObjectId(questionId),
+        }),
+      );
+
+      expect(result).toEqual({
+        aiInitialAnswer:
+          'Apply nitrogen fertilizer and inspect for fungal infection.',
+      });
+    });
+
+    it('throws InternalServerError when the AI fails to generate an answer', async () => {
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: new ObjectId(questionId),
+        question: 'Why are my wheat leaves turning yellow?',
+        details: validDetails,
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        history: [],
+      });
+
+      mockAiService.getAnswerByQuestionDetails.mockResolvedValue({
+        answer: '',
+      });
+
+      await expect(service.generateAiInitialAnswer(questionId)).rejects.toThrow(
+        'AI failed to generate answer',
+      );
+    });
+  });
+  describe('approveAiInitialAnswer', () => {
+    beforeEach(() => {
+      vi.spyOn(service as any, '_withTransaction').mockImplementation(
+        async (cb: any) => cb({}),
+      );
+    });
+
+    it('throws NotFoundError when the question does not exist', async () => {
+      mockQuestionRepo.getById.mockResolvedValue(null);
+
+      await expect(
+        service.approveAiInitialAnswer(questionId, 'AI answer'),
+      ).rejects.toThrow('Question not found');
+    });
+
+    it('throws BadRequestError when the answer is empty', async () => {
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: new ObjectId(questionId),
+        question: 'Question',
+        details: validDetails,
+      });
+
+      await expect(
+        service.approveAiInitialAnswer(questionId, '   '),
+      ).rejects.toThrow('Answer is required');
+    });
+
+    it('throws ForbiddenError when the question already has submitted answers', async () => {
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: new ObjectId(questionId),
+        question: 'Question',
+        details: validDetails,
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        history: [
+          {
+            updatedBy: new ObjectId(expertId),
+            status: 'submitted',
+          },
+        ],
+      });
+
+      await expect(
+        service.approveAiInitialAnswer(questionId, 'Generated AI answer'),
+      ).rejects.toThrow(
+        'Cannot generate AI initial answer. Question already has submitted answers.',
+      );
+    });
+
+    it('saves the approved answer successfully', async () => {
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: new ObjectId(questionId),
+        question: 'Question',
+        details: validDetails,
+      });
+
+      mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({
+        history: [],
+      });
+
+      mockQuestionRepo.updateQuestion.mockResolvedValue({});
+
+      const result = await service.approveAiInitialAnswer(
+        questionId,
+        'Generated AI answer',
+      );
+
+      expect(mockQuestionRepo.updateQuestion).toHaveBeenCalledWith(
+        questionId,
+        {
+          aiInitialAnswer: 'Generated AI answer',
+        },
+        expect.anything(),
+      );
+
+      expect(result).toEqual({
+        success: true,
+      });
+    });
+  });
+  describe('balanceWorkloadSelectedQuestions', () => {
+    beforeEach(() => {
+      vi.spyOn(service as any, '_withTransaction').mockImplementation(
+        async (cb: any) => cb({}),
+      );
+    });
+
+    afterEach(() => {
+      vi.clearAllMocks();
+    });
+    it('returns early when no experts are available', async () => {
+      mockUserRepo.findActiveLowReputationExpertsToday.mockResolvedValue([]);
+
+      const result = await service.balanceWorkloadSelectedQuestions([
+        questionId,
+      ]);
+
+      expect(result).toEqual({
+        message: 'No Expert Present To Reallocate Questions .No action needed.',
+        expertsInvolved: 0,
+        submissionsProcessed: 0,
+      });
+    });
+    it('returns when selected questions exceed expert capacity', async () => {
+      mockUserRepo.findActiveLowReputationExpertsToday.mockResolvedValue([
+        {_id: new ObjectId(expertId)},
+      ]);
+
+      const ids = Array.from({length: 6}, (_, i) => `${questionId}-${i}`);
+
+      const result = await service.balanceWorkloadSelectedQuestions(ids);
+
+      expect(result.expertsInvolved).toBe(1);
+      expect(result.submissionsProcessed).toBe(0);
+      expect(result.message).toContain('Too many questions selected');
+    });
+    it('returns when no valid submissions are found', async () => {
+      mockUserRepo.findActiveLowReputationExpertsToday.mockResolvedValue([
+        {_id: new ObjectId(expertId)},
+      ]);
+
+      mockQuestionSubmissionRepo.findReallocationQuestionsByIds.mockResolvedValue(
+        [],
+      );
+
+      const result = await service.balanceWorkloadSelectedQuestions([
+        questionId,
+      ]);
+
+      expect(result).toEqual({
+        message:
+          'No valid questions found. Selected questions are either closed, in review, passed, draft, or already submitted.',
+        expertsInvolved: 1,
+        submissionsProcessed: 0,
+      });
+    });
+    it('removes hold from selected questions before reallocating', async () => {
+      mockUserRepo.findActiveLowReputationExpertsToday.mockResolvedValue([
+        {_id: new ObjectId(expertId)},
+      ]);
+
+      mockQuestionSubmissionRepo.findReallocationQuestionsByIds.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            queue: [],
+            history: [],
+            question: {
+              _id: new ObjectId(questionId),
+              isOnHold: true,
+              holdAt: new Date(Date.now() - 1000),
+              accumulatedHoldMs: 100,
+            },
+          },
+        ],
+      );
+
+      mockQuestionRepo.updateQuestion.mockResolvedValue({});
+
+      await service.balanceWorkloadSelectedQuestions([questionId]);
+
+      expect(mockQuestionRepo.updateQuestion).toHaveBeenCalledWith(
+        questionId,
+        expect.objectContaining({
+          isOnHold: false,
+          status: 'open',
+          holdAt: null,
+        }),
+        expect.anything(),
+      );
+    });
+    it('creates workload assignments successfully', async () => {
+      mockUserRepo.findActiveLowReputationExpertsToday.mockResolvedValue([
+        {_id: new ObjectId(expertId)},
+        {_id: new ObjectId(expertId2)},
+      ]);
+
+      mockQuestionSubmissionRepo.findReallocationQuestionsByIds.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(referenceQuestionId),
+            queue: [],
+            history: [],
+            question: {
+              _id: new ObjectId(questionId),
+              isOnHold: false,
+            },
+          },
+        ],
+      );
+
+      const result = await service.balanceWorkloadSelectedQuestions([
+        questionId,
+      ]);
+
+      expect(startBalanceWorkloadWorkers).toHaveBeenCalledWith([
+        {
+          submissionId: referenceQuestionId,
+          expertId,
+        },
+      ]);
+
+      expect(result).toEqual({
+        message: 'Workload balancing started in background',
+        expertsInvolved: 2,
+        submissionsProcessed: 1,
+        questionsFiltered: 0,
+        unallocatedQuestions: 0,
+      });
+    });
+    it('returns the number of filtered questions', async () => {
+      mockUserRepo.findActiveLowReputationExpertsToday.mockResolvedValue([
+        {_id: new ObjectId(expertId)},
+      ]);
+
+      mockQuestionSubmissionRepo.findReallocationQuestionsByIds.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(referenceQuestionId),
+            queue: [],
+            history: [],
+            question: {
+              _id: new ObjectId(questionId),
+            },
+          },
+        ],
+      );
+
+      const result = await service.balanceWorkloadSelectedQuestions([
+        questionId,
+        referenceQuestionId,
+      ]);
+
+      expect(result.questionsFiltered).toBe(1);
+    });
+    it('counts questions that cannot be allocated', async () => {
+      mockUserRepo.findActiveLowReputationExpertsToday.mockResolvedValue([
+        {_id: new ObjectId(expertId)},
+      ]);
+
+      mockQuestionSubmissionRepo.findReallocationQuestionsByIds.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(referenceQuestionId),
+            queue: [new ObjectId(expertId)],
+            history: [],
+            question: {
+              _id: new ObjectId(questionId),
+            },
+          },
+        ],
+      );
+
+      const result = await service.balanceWorkloadSelectedQuestions([
+        questionId,
+      ]);
+
+      expect(startBalanceWorkloadWorkers).toHaveBeenCalledWith([]);
+
+      expect(result.unallocatedQuestions).toBe(1);
+      expect(result.submissionsProcessed).toBe(0);
+    });
+  });
+  describe('sendDelayedNotifications', () => {
+    beforeEach(() => {
+      vi.spyOn(service as any, '_withTransaction').mockImplementation(
+        async (cb: any) => cb({}),
+      );
+    });
+
+    afterEach(() => {
+      vi.clearAllMocks();
+    });
+
+    it('does nothing when there are no delayed reviews', async () => {
+      mockQuestionSubmissionRepo.getDelayedReviews.mockResolvedValue([]);
+
+      await service.sendDelayedNotifications();
+
+      expect(mockNotificationRepository.addNotification).not.toHaveBeenCalled();
+
+      expect(
+        mockQuestionSubmissionRepo.markDelayedNotificationsSent,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('notifies all moderators and marks the submissions as notified', async () => {
+      const submissionId = new ObjectId();
+
+      mockQuestionSubmissionRepo.getDelayedReviews.mockResolvedValue([
+        {
+          _id: submissionId,
+          questionId: new ObjectId(questionId),
+        },
+      ]);
+
+      mockUserRepo.findModerators.mockResolvedValue([
+        {_id: new ObjectId(moderatorId)},
+        {_id: new ObjectId(adminId)},
+      ]);
+
+      mockNotificationRepository.addNotification.mockResolvedValue({});
+      mockQuestionSubmissionRepo.markDelayedNotificationsSent.mockResolvedValue(
+        {},
+      );
+
+      await service.sendDelayedNotifications();
+
+      expect(mockNotificationRepository.addNotification).toHaveBeenCalledTimes(
+        2,
+      );
+
+      expect(mockNotificationRepository.addNotification).toHaveBeenCalledWith(
+        moderatorId,
+        questionId,
+        'question_delayed',
+        'A question has been delayed for 45 minutes',
+        'Question Delayed',
+      );
+
+      expect(mockNotificationRepository.addNotification).toHaveBeenCalledWith(
+        adminId,
+        questionId,
+        'question_delayed',
+        'A question has been delayed for 45 minutes',
+        'Question Delayed',
+      );
+
+      expect(
+        mockQuestionSubmissionRepo.markDelayedNotificationsSent,
+      ).toHaveBeenCalledWith([submissionId], expect.anything());
+    });
+
+    it('continues processing even if notification sending fails', async () => {
+      const submissionId = new ObjectId();
+
+      mockQuestionSubmissionRepo.getDelayedReviews.mockResolvedValue([
+        {
+          _id: submissionId,
+          questionId: new ObjectId(questionId),
+        },
+      ]);
+
+      mockUserRepo.findModerators.mockResolvedValue([
+        {_id: new ObjectId(moderatorId)},
+      ]);
+
+      mockNotificationRepository.addNotification.mockRejectedValue(
+        new Error('Notification failed'),
+      );
+
+      mockQuestionSubmissionRepo.markDelayedNotificationsSent.mockResolvedValue(
+        {},
+      );
+
+      await service.sendDelayedNotifications();
+
+      expect(
+        mockQuestionSubmissionRepo.markDelayedNotificationsSent,
+      ).toHaveBeenCalledWith([submissionId], expect.anything());
+    });
+  });
+  describe('backfillEmptyEmbeddings', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('skips entirely when the AI server is disabled', async () => {
+      const original = appConfig.ENABLE_AI_SERVER;
+      appConfig.ENABLE_AI_SERVER = false;
+
+      await service.backfillEmptyEmbeddings();
+
+      expect(
+        mockQuestionRepo.getQuestionsWithEmptyEmbeddings,
+      ).not.toHaveBeenCalled();
+
+      appConfig.ENABLE_AI_SERVER = original;
+    });
+
+    it('does nothing when there are no questions to backfill', async () => {
+      const original = appConfig.ENABLE_AI_SERVER;
+      appConfig.ENABLE_AI_SERVER = true;
+
+      mockQuestionRepo.getQuestionsWithEmptyEmbeddings.mockResolvedValue([]);
+
+      await service.backfillEmptyEmbeddings();
+
+      expect(
+        mockQuestionRepo.getQuestionsWithEmptyEmbeddings,
+      ).toHaveBeenCalledWith(50);
+
+      expect(mockAiService.getEmbedding).not.toHaveBeenCalled();
+
+      appConfig.ENABLE_AI_SERVER = original;
+    });
+
+    it('skips questions with no usable text', async () => {
+      const original = appConfig.ENABLE_AI_SERVER;
+      appConfig.ENABLE_AI_SERVER = true;
+
+      mockQuestionRepo.getQuestionsWithEmptyEmbeddings.mockResolvedValue([
+        {
+          _id: new ObjectId(questionId),
+          question: '',
+          text: '',
+        },
+      ]);
+
+      await service.backfillEmptyEmbeddings();
+
+      expect(mockAiService.getEmbedding).not.toHaveBeenCalled();
+      expect(mockQuestionRepo.updateQuestionEmbedding).not.toHaveBeenCalled();
+
+      appConfig.ENABLE_AI_SERVER = original;
+    });
+
+    it('updates the embedding for questions with text', async () => {
+      const original = appConfig.ENABLE_AI_SERVER;
+      appConfig.ENABLE_AI_SERVER = true;
+
+      mockQuestionRepo.getQuestionsWithEmptyEmbeddings.mockResolvedValue([
+        {
+          _id: new ObjectId(questionId),
+          question: 'Why are my wheat leaves yellow?',
+        },
+      ]);
+
+      mockAiService.getEmbedding.mockResolvedValue({
+        embedding: [0.1, 0.2, 0.3],
+      });
+
+      mockQuestionRepo.updateQuestionEmbedding.mockResolvedValue({});
+
+      await service.backfillEmptyEmbeddings();
+
+      expect(mockAiService.getEmbedding).toHaveBeenCalledWith(
+        'Why are my wheat leaves yellow?',
+      );
+
+      expect(mockQuestionRepo.updateQuestionEmbedding).toHaveBeenCalledWith(
+        questionId,
+        [0.1, 0.2, 0.3],
+      );
+
+      appConfig.ENABLE_AI_SERVER = original;
+    });
+
+    it('continues processing when embedding generation fails', async () => {
+      const original = appConfig.ENABLE_AI_SERVER;
+      appConfig.ENABLE_AI_SERVER = true;
+
+      mockQuestionRepo.getQuestionsWithEmptyEmbeddings.mockResolvedValue([
+        {
+          _id: new ObjectId(questionId),
+          question: 'Question 1',
+        },
+        {
+          _id: new ObjectId(referenceQuestionId),
+          question: 'Question 2',
+        },
+      ]);
+
+      mockAiService.getEmbedding
+        .mockRejectedValueOnce(new Error('Embedding failed'))
+        .mockResolvedValueOnce({
+          embedding: [1, 2, 3],
+        });
+
+      mockQuestionRepo.updateQuestionEmbedding.mockResolvedValue({});
+
+      await service.backfillEmptyEmbeddings();
+
+      expect(mockAiService.getEmbedding).toHaveBeenCalledTimes(2);
+
+      expect(mockQuestionRepo.updateQuestionEmbedding).toHaveBeenCalledTimes(1);
+
+      expect(mockQuestionRepo.updateQuestionEmbedding).toHaveBeenCalledWith(
+        referenceQuestionId,
+        [1, 2, 3],
+      );
+
+      appConfig.ENABLE_AI_SERVER = original;
+    });
+
+    it('uses the provided batch limit', async () => {
+      const original = appConfig.ENABLE_AI_SERVER;
+      appConfig.ENABLE_AI_SERVER = true;
+
+      mockQuestionRepo.getQuestionsWithEmptyEmbeddings.mockResolvedValue([]);
+
+      await service.backfillEmptyEmbeddings(10);
+
+      expect(
+        mockQuestionRepo.getQuestionsWithEmptyEmbeddings,
+      ).toHaveBeenCalledWith(10);
+
+      appConfig.ENABLE_AI_SERVER = original;
+    });
+  });
+  describe('markQuestionOpened', () => {
+    it('marks a WhatsApp question as opened', async () => {
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: new ObjectId(questionId),
+        source: 'WHATSAPP',
+      });
+
+      mockQuestionSubmissionRepo.markQuestionOpenedByExpert.mockResolvedValue(
+        undefined,
+      );
+
+      await service.markQuestionOpened(questionId, expertId);
+
+      expect(mockQuestionRepo.getById).toHaveBeenCalledWith(questionId);
+
+      expect(
+        mockQuestionSubmissionRepo.markQuestionOpenedByExpert,
+      ).toHaveBeenCalledWith(questionId, expertId, true);
+    });
+
+    it('marks an Ajrasakha question as opened', async () => {
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: new ObjectId(questionId),
+        source: 'AJRASAKHA',
+      });
+
+      mockQuestionSubmissionRepo.markQuestionOpenedByExpert.mockResolvedValue(
+        undefined,
+      );
+
+      await service.markQuestionOpened(questionId, expertId);
+
+      expect(
+        mockQuestionSubmissionRepo.markQuestionOpenedByExpert,
+      ).toHaveBeenCalledWith(questionId, expertId, true);
+    });
+
+    it('marks a normal question as opened with isTimeBound=false', async () => {
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: new ObjectId(questionId),
+        source: 'AGRI_EXPERT',
+      });
+
+      mockQuestionSubmissionRepo.markQuestionOpenedByExpert.mockResolvedValue(
+        undefined,
+      );
+
+      await service.markQuestionOpened(questionId, expertId);
+
+      expect(
+        mockQuestionSubmissionRepo.markQuestionOpenedByExpert,
+      ).toHaveBeenCalledWith(questionId, expertId, false);
+    });
+
+    it('returns without updating when the question does not exist', async () => {
+      mockQuestionRepo.getById.mockResolvedValue(null);
+
+      await service.markQuestionOpened(questionId, expertId);
+
+      expect(
+        mockQuestionSubmissionRepo.markQuestionOpenedByExpert,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('swallows repository errors', async () => {
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      mockQuestionRepo.getById.mockRejectedValue(new Error('DB error'));
+
+      await expect(
+        service.markQuestionOpened(questionId, expertId),
+      ).resolves.toBeUndefined();
+
+      expect(consoleSpy).toHaveBeenCalled();
+
+      expect(
+        mockQuestionSubmissionRepo.markQuestionOpenedByExpert,
+      ).not.toHaveBeenCalled();
+
+      consoleSpy.mockRestore();
+    });
+
+    it('swallows errors from markQuestionOpenedByExpert', async () => {
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      mockQuestionRepo.getById.mockResolvedValue({
+        _id: new ObjectId(questionId),
+        source: 'WHATSAPP',
+      });
+
+      mockQuestionSubmissionRepo.markQuestionOpenedByExpert.mockRejectedValue(
+        new Error('Update failed'),
+      );
+
+      await expect(
+        service.markQuestionOpened(questionId, expertId),
+      ).resolves.toBeUndefined();
+
+      expect(consoleSpy).toHaveBeenCalled();
+
+      consoleSpy.mockRestore();
+    });
+  });
+  describe('runModeratorQueueCron', () => {
+    beforeEach(() => {
+      vi.spyOn(service as any, '_withTransaction').mockImplementation(
+        async (cb: any) => cb({}),
+      );
+
+      mockNotificationService.saveTheNotifications.mockResolvedValue({});
+      mockAuditTrailsService.createAuditTrail.mockResolvedValue({});
+      mockQuestionRepo.updateModeratorId.mockResolvedValue({});
+      mockUserRepo.addAssignedQuestion.mockResolvedValue({});
+    });
+
+    it('assigns one time-bound and one manual question successfully', async () => {
+      const timeModerator = {
+        _id: new ObjectId(moderatorId),
+        firstName: 'Time',
+        lastName: 'Moderator',
+      };
+
+      const manualModerator = {
+        _id: new ObjectId(adminId),
+        firstName: 'Manual',
+        lastName: 'Moderator',
+      };
+
+      const timeQuestion = {
+        _id: new ObjectId(questionId),
+        question: 'Time question',
+        source: 'WHATSAPP',
+        status: 'in-review',
+      };
+
+      const manualQuestion = {
+        _id: new ObjectId(referenceQuestionId),
+        question: 'Manual question',
+        source: 'AGRI_EXPERT',
+        status: 'duplicate',
+      };
+
+      mockUserRepo.findAvailableStfModeratorsForSources
+        .mockResolvedValueOnce([timeModerator])
+        .mockResolvedValueOnce([manualModerator]);
+
+      mockQuestionRepo.findUnassignedInReviewQuestions
+        .mockResolvedValueOnce([timeQuestion])
+        .mockResolvedValueOnce([manualQuestion]);
+
+      const result = await service.runModeratorQueueCron();
+
+      expect(result).toEqual({
+        assigned: 2,
+        availableWaiting: 0,
+        failedAssignments: 0,
+      });
+
+      expect(mockQuestionRepo.updateModeratorId).toHaveBeenCalledTimes(2);
+      expect(mockUserRepo.addAssignedQuestion).toHaveBeenCalledTimes(2);
+      expect(
+        mockNotificationService.saveTheNotifications,
+      ).toHaveBeenCalledTimes(2);
+      expect(mockAuditTrailsService.createAuditTrail).toHaveBeenCalledTimes(2);
+    });
+
+    it('counts moderators waiting when there are no questions', async () => {
+      mockUserRepo.findAvailableStfModeratorsForSources
+        .mockResolvedValueOnce([{_id: new ObjectId(moderatorId)}])
+        .mockResolvedValueOnce([{_id: new ObjectId(adminId)}]);
+
+      mockQuestionRepo.findUnassignedInReviewQuestions
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      const result = await service.runModeratorQueueCron();
+
+      expect(result).toEqual({
+        assigned: 0,
+        availableWaiting: 2,
+        failedAssignments: 0,
+      });
+
+      expect(mockQuestionRepo.updateModeratorId).not.toHaveBeenCalled();
+    });
+
+    it('returns zero counts when there are no available moderators', async () => {
+      mockUserRepo.findAvailableStfModeratorsForSources
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      mockQuestionRepo.findUnassignedInReviewQuestions
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      const result = await service.runModeratorQueueCron();
+
+      expect(result).toEqual({
+        assigned: 0,
+        availableWaiting: 0,
+        failedAssignments: 0,
+      });
+    });
+
+    it('counts failed assignments and continues processing', async () => {
+      const moderator = {
+        _id: new ObjectId(moderatorId),
+        firstName: 'John',
+        lastName: 'Doe',
+      };
+
+      const question = {
+        _id: new ObjectId(questionId),
+        question: 'Question',
+        source: 'WHATSAPP',
+        status: 'in-review',
+      };
+
+      mockUserRepo.findAvailableStfModeratorsForSources
+        .mockResolvedValueOnce([moderator])
+        .mockResolvedValueOnce([]);
+
+      mockQuestionRepo.findUnassignedInReviewQuestions
+        .mockResolvedValueOnce([question])
+        .mockResolvedValueOnce([]);
+
+      mockQuestionRepo.updateModeratorId.mockRejectedValue(
+        new Error('Update failed'),
+      );
+
+      const result = await service.runModeratorQueueCron();
+
+      expect(result).toEqual({
+        assigned: 0,
+        availableWaiting: 0,
+        failedAssignments: 1,
+      });
+    });
+
+    it('does not assign the same question twice', async () => {
+      const moderator1 = {_id: new ObjectId(moderatorId)};
+      const moderator2 = {_id: new ObjectId(adminId)};
+
+      const question = {
+        _id: new ObjectId(questionId),
+        question: 'Duplicate candidate',
+        source: 'WHATSAPP',
+        status: 'in-review',
+      };
+
+      mockUserRepo.findAvailableStfModeratorsForSources
+        .mockResolvedValueOnce([moderator1, moderator2])
+        .mockResolvedValueOnce([]);
+
+      mockQuestionRepo.findUnassignedInReviewQuestions
+        .mockResolvedValueOnce([question])
+        .mockResolvedValueOnce([]);
+
+      const result = await service.runModeratorQueueCron();
+
+      expect(result).toEqual({
+        assigned: 1,
+        availableWaiting: 1,
+        failedAssignments: 0,
+      });
+
+      expect(mockQuestionRepo.updateModeratorId).toHaveBeenCalledTimes(1);
+    });
+
+    it('continues even if audit trail creation fails', async () => {
+      const moderator = {
+        _id: new ObjectId(moderatorId),
+        firstName: 'John',
+        lastName: 'Doe',
+      };
+
+      const question = {
+        _id: new ObjectId(questionId),
+        question: 'Question',
+        source: 'WHATSAPP',
+        status: 'in-review',
+      };
+
+      mockUserRepo.findAvailableStfModeratorsForSources
+        .mockResolvedValueOnce([moderator])
+        .mockResolvedValueOnce([]);
+
+      mockQuestionRepo.findUnassignedInReviewQuestions
+        .mockResolvedValueOnce([question])
+        .mockResolvedValueOnce([]);
+
+      mockAuditTrailsService.createAuditTrail.mockRejectedValue(
+        new Error('Audit failed'),
+      );
+
+      const result = await service.runModeratorQueueCron();
+
+      expect(result).toEqual({
+        assigned: 1,
+        availableWaiting: 0,
+        failedAssignments: 0,
+      });
+
+      expect(mockQuestionRepo.updateModeratorId).toHaveBeenCalled();
+    });
+
+    it('throws InternalServerError when initial lookup fails', async () => {
+      mockUserRepo.findAvailableStfModeratorsForSources.mockRejectedValue(
+        new Error('Database error'),
+      );
+
+      await expect(service.runModeratorQueueCron()).rejects.toThrow(
+        'Moderator queue cron failed: Database error',
+      );
+    });
+  });
+
+  describe('reallocateTimeBoundQuestions', () => {
+    beforeEach(() => {
+      vi.mocked(balanceWorker.startBalanceWorkloadWorkers).mockResolvedValue({
+        processed: 1,
+        failedWorkers: 0,
+      });
+      vi.spyOn(service as any, '_withTransaction').mockImplementation(
+        async (cb: any) => cb({}),
+      );
+
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [],
+      );
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [],
+      );
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([]);
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map(),
+      );
+
+      mockNotificationService.saveTheNotifications.mockResolvedValue({});
+      mockAuditTrailsService.createAuditTrail.mockResolvedValue({});
+    });
+
+    it('returns when there is no work to perform', async () => {
+      const result = await service.reallocateTimeBoundQuestions();
+
+      expect(result).toEqual({
+        message: 'No time-bound questions need attention',
+        reallocated: 0,
+        skipped: 0,
+      });
+
+      expect(mockUserRepo.findExpertsByReputationScore).not.toHaveBeenCalled();
+    });
+
+    it('returns when there are no experts available', async () => {
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: new ObjectId(questionId),
+            queue: [],
+            history: [],
+            question: {
+              _id: new ObjectId(questionId),
+              createdAt: new Date(),
+              source: 'WHATSAPP',
+            },
+          },
+        ],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([]);
+
+      const result = await service.reallocateTimeBoundQuestions();
+
+      expect(result).toEqual({
+        message: 'No experts available',
+        reallocated: 0,
+        skipped: 1,
+      });
+    });
+
+    it('throws InternalServerError when fetching work fails', async () => {
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockRejectedValue(
+        new Error('Database failed'),
+      );
+
+      await expect(service.reallocateTimeBoundQuestions()).rejects.toThrow(
+        'Failed to reallocate time-bound questions: Database failed',
+      );
+    });
+    it('reallocates a stuck question', async () => {
+      const expert = {
+        _id: new ObjectId(expertId),
+        special_task_force: true,
+        firstName: 'John',
+        lastName: 'Doe',
+      };
+
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: new ObjectId(questionId),
+            queue: [new ObjectId(expertId2)],
+            history: [],
+            question: {
+              _id: new ObjectId(questionId),
+              question: 'Test Question',
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [],
+      );
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([expert]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map(),
+      );
+
+      const result = await service.reallocateTimeBoundQuestions();
+
+      expect(balanceWorker.startBalanceWorkloadWorkers).toHaveBeenCalledTimes(
+        1,
+      );
+
+      expect(result.reallocated).toBe(1);
+      expect(result.skipped).toBe(0);
+    });
+    it('skips a stuck question when no eligible expert exists', async () => {
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: new ObjectId(questionId),
+            queue: [new ObjectId(expertId)],
+            history: [],
+            question: {
+              _id: new ObjectId(questionId),
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [],
+      );
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId), // same expert already assigned
+          special_task_force: true,
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map([[expertId, 1]]),
+      );
+
+      const result = await service.reallocateTimeBoundQuestions();
+
+      expect(balanceWorker.startBalanceWorkloadWorkers).not.toHaveBeenCalled();
+
+      expect(result).toMatchObject({
+        reallocated: 0,
+        skipped: 1,
+      });
+    });
+    it('passes the correct assignment to the worker', async () => {
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: new ObjectId(questionId),
+            queue: [new ObjectId(expertId2)],
+            history: [],
+            question: {
+              _id: new ObjectId(questionId),
+              question: 'Question',
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [],
+      );
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: true,
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map(),
+      );
+
+      await service.reallocateTimeBoundQuestions();
+
+      expect(balanceWorker.startBalanceWorkloadWorkers).toHaveBeenCalledWith([
+        {
+          submissionId: expect.any(String),
+          expertId,
+          appendExpert: false,
+          skipPenalty: false,
+        },
+      ]);
+    });
+    it('continues when audit trail creation fails', async () => {
+      mockAuditTrailsService.createAuditTrail.mockRejectedValue(
+        new Error('Audit failed'),
+      );
+
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: new ObjectId(questionId),
+            queue: [new ObjectId(expertId2)],
+            history: [],
+            question: {
+              _id: new ObjectId(questionId),
+              question: 'Question',
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [],
+      );
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: true,
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map(),
+      );
+
+      const result = await service.reallocateTimeBoundQuestions();
+
+      expect(result.reallocated).toBe(1);
+    });
+    it('initially allocates an unallocated question', async () => {
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [],
+      );
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [],
+      );
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: new ObjectId(questionId),
+            queue: [],
+            history: [],
+            question: {
+              _id: new ObjectId(questionId),
+              question: 'Question',
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: true,
+          firstName: 'John',
+          lastName: 'Doe',
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map(),
+      );
+
+      mockQuestionSubmissionRepo.updateQueue.mockResolvedValue({});
+      mockUserRepo.updateReputationScore.mockResolvedValue({});
+      mockQuestionRepo.updateQuestion.mockResolvedValue({});
+      mockQuestionSubmissionRepo.setCurrentExpertAllocatedAt.mockResolvedValue(
+        {},
+      );
+
+      const result = await service.reallocateTimeBoundQuestions();
+
+      expect(mockQuestionSubmissionRepo.updateQueue).toHaveBeenCalledWith(
+        questionId,
+        [new ObjectId(expertId)],
+      );
+
+      expect(mockQuestionRepo.updateQuestion).toHaveBeenCalled();
+
+      expect(result.reallocated).toBe(1);
+    });
+    it('skips an unallocated question when no STF expert is available', async () => {
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [],
+      );
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [],
+      );
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: new ObjectId(questionId),
+            queue: [],
+            history: [],
+            question: {
+              _id: new ObjectId(questionId),
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: false,
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map(),
+      );
+
+      const result = await service.reallocateTimeBoundQuestions();
+
+      expect(mockQuestionSubmissionRepo.updateQueue).not.toHaveBeenCalled();
+
+      expect(result).toMatchObject({
+        reallocated: 0,
+        skipped: 1,
+      });
+    });
+    it('assigns a reviewer for an answered question', async () => {
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [],
+      );
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [],
+      );
+
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: new ObjectId(questionId),
+            queue: [new ObjectId(expertId2)],
+            history: [
+              {
+                updatedBy: new ObjectId(expertId2),
+              },
+            ],
+            question: {
+              _id: new ObjectId(questionId),
+              question: 'Question',
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: false,
+          firstName: 'John',
+          lastName: 'Doe',
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map(),
+      );
+
+      mockQuestionSubmissionRepo.assignTimeBoundReviewer.mockResolvedValue({});
+      mockUserRepo.updateReputationScore.mockResolvedValue({});
+
+      const result = await service.reallocateTimeBoundQuestions();
+
+      expect(
+        mockQuestionSubmissionRepo.assignTimeBoundReviewer,
+      ).toHaveBeenCalledWith(questionId, expertId, expect.any(Date));
+
+      expect(result.reallocated).toBe(1);
+    });
+    it('skips reviewer assignment when no eligible reviewer exists', async () => {
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [],
+      );
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [],
+      );
+
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: new ObjectId(questionId),
+            queue: [new ObjectId(expertId)],
+            history: [
+              {
+                updatedBy: new ObjectId(expertId),
+              },
+            ],
+            question: {
+              _id: new ObjectId(questionId),
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: false,
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map([[expertId, 1]]),
+      );
+
+      const result = await service.reallocateTimeBoundQuestions();
+
+      expect(
+        mockQuestionSubmissionRepo.assignTimeBoundReviewer,
+      ).not.toHaveBeenCalled();
+
+      expect(result).toMatchObject({
+        reallocated: 0,
+        skipped: 1,
+      });
+    });
+    it('does not assign an STF expert as reviewer when unallocated questions exist', async () => {
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [],
+      );
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: new ObjectId(questionId),
+            queue: [],
+            history: [],
+            question: {
+              _id: new ObjectId(questionId),
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: new ObjectId(referenceQuestionId),
+            queue: [new ObjectId(expertId2)],
+            history: [
+              {
+                updatedBy: new ObjectId(expertId2),
+              },
+            ],
+            question: {
+              _id: new ObjectId(referenceQuestionId),
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: true,
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map(),
+      );
+
+      const result = await service.reallocateTimeBoundQuestions();
+
+      expect(
+        mockQuestionSubmissionRepo.assignTimeBoundReviewer,
+      ).not.toHaveBeenCalled();
+
+      expect(result.skipped).toBe(1);
+    });
+    it('assigns a non-STF reviewer when unallocated questions exist', async () => {
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [],
+      );
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: new ObjectId(questionId),
+            queue: [],
+            history: [],
+            question: {
+              _id: new ObjectId(questionId),
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: new ObjectId(referenceQuestionId),
+            queue: [new ObjectId(expertId2)],
+            history: [
+              {
+                updatedBy: new ObjectId(expertId2),
+              },
+            ],
+            question: {
+              _id: new ObjectId(referenceQuestionId),
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(adminId),
+          special_task_force: true,
+        },
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: false,
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map(),
+      );
+
+      mockQuestionSubmissionRepo.updateQueue.mockResolvedValue({});
+      mockQuestionRepo.updateQuestion.mockResolvedValue({});
+      mockQuestionSubmissionRepo.setCurrentExpertAllocatedAt.mockResolvedValue(
+        {},
+      );
+      mockUserRepo.updateReputationScore.mockResolvedValue({});
+      mockQuestionSubmissionRepo.assignTimeBoundReviewer.mockResolvedValue({});
+
+      await service.reallocateTimeBoundQuestions();
+
+      expect(
+        mockQuestionSubmissionRepo.assignTimeBoundReviewer,
+      ).toHaveBeenCalledWith(referenceQuestionId, expertId, expect.any(Date));
+    });
+    it('skips experts already at maximum time-bound capacity', async () => {
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: new ObjectId(questionId),
+            queue: [new ObjectId(expertId2)],
+            history: [],
+            question: {
+              _id: new ObjectId(questionId),
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [],
+      );
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: true,
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map([[expertId, 1]]),
+      );
+
+      const result = await service.reallocateTimeBoundQuestions();
+
+      expect(balanceWorker.startBalanceWorkloadWorkers).not.toHaveBeenCalled();
+
+      expect(result.skipped).toBe(1);
+    });
+    it('assigns the next available expert when the first expert is busy', async () => {
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: new ObjectId(questionId),
+            queue: [new ObjectId(expertId2)],
+            history: [],
+            question: {
+              _id: new ObjectId(questionId),
+              question: 'Question',
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [],
+      );
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(adminId),
+          special_task_force: true,
+        },
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: true,
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map([[adminId, 1]]),
+      );
+
+      await service.reallocateTimeBoundQuestions();
+
+      expect(balanceWorker.startBalanceWorkloadWorkers).toHaveBeenCalledWith([
+        {
+          submissionId: expect.any(String),
+          expertId,
+          appendExpert: false,
+          skipPenalty: false,
+        },
+      ]);
+    });
+    it('continues when initial allocation fails', async () => {
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [],
+      );
+
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [],
+      );
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: new ObjectId(questionId),
+            queue: [],
+            history: [],
+            question: {
+              _id: new ObjectId(questionId),
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: true,
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map(),
+      );
+
+      mockQuestionSubmissionRepo.updateQueue.mockRejectedValue(
+        new Error('DB failed'),
+      );
+
+      const result = await service.reallocateTimeBoundQuestions();
+
+      expect(result.reallocated).toBe(0);
+      expect(result.skipped).toBe(1);
+    });
+    it('continues when reviewer assignment fails', async () => {
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [],
+      );
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [],
+      );
+
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: new ObjectId(questionId),
+            queue: [new ObjectId(expertId2)],
+            history: [
+              {
+                updatedBy: new ObjectId(expertId2),
+              },
+            ],
+            question: {
+              _id: new ObjectId(questionId),
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: false,
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map(),
+      );
+
+      mockQuestionSubmissionRepo.assignTimeBoundReviewer.mockRejectedValue(
+        new Error('Assignment failed'),
+      );
+
+      const result = await service.reallocateTimeBoundQuestions();
+
+      expect(result.reallocated).toBe(0);
+      expect(result.skipped).toBe(1);
+    });
+    it('continues even when worker reports failed workers', async () => {
+      vi.mocked(balanceWorker.startBalanceWorkloadWorkers).mockResolvedValue({
+        processed: 0,
+        failedWorkers: 2,
+      });
+
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: new ObjectId(questionId),
+            queue: [new ObjectId(expertId2)],
+            history: [],
+            question: {
+              _id: new ObjectId(questionId),
+              question: 'Question',
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [],
+      );
+
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: true,
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map(),
+      );
+
+      const result = await service.reallocateTimeBoundQuestions();
+
+      expect(result.reallocated).toBe(1);
+    });
+    it('throws InternalServerError when expert lookup fails', async () => {
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: new ObjectId(questionId),
+            queue: [],
+            history: [],
+            question: {
+              _id: new ObjectId(questionId),
+              createdAt: new Date(),
+              source: 'WHATSAPP',
+            },
+          },
+        ],
+      );
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [],
+      );
+
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockRejectedValue(
+        new Error('Database unavailable'),
+      );
+
+      await expect(service.reallocateTimeBoundQuestions()).rejects.toThrow(
+        'Failed to reallocate time-bound questions: Database unavailable',
+      );
+    });
+    it('does not reallocate to an expert already present in the queue', async () => {
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: new ObjectId(questionId),
+            queue: [new ObjectId(expertId)],
+            history: [],
+            question: {
+              _id: new ObjectId(questionId),
+              question: 'Question',
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [],
+      );
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: true,
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map(),
+      );
+
+      const result = await service.reallocateTimeBoundQuestions();
+
+      expect(balanceWorker.startBalanceWorkloadWorkers).not.toHaveBeenCalled();
+      expect(result.skipped).toBe(1);
+    });
+    it('does not reallocate to an expert who already reviewed the question', async () => {
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: new ObjectId(questionId),
+            queue: [],
+            history: [
+              {
+                updatedBy: new ObjectId(expertId),
+              },
+            ],
+            question: {
+              _id: new ObjectId(questionId),
+              question: 'Question',
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [],
+      );
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: false,
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map(),
+      );
+
+      const result = await service.reallocateTimeBoundQuestions();
+
+      expect(balanceWorker.startBalanceWorkloadWorkers).not.toHaveBeenCalled();
+      expect(result.skipped).toBe(1);
+    });
+    it('uses the second eligible expert when the first one is already in history', async () => {
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: new ObjectId(questionId),
+            queue: [],
+            history: [
+              {
+                updatedBy: new ObjectId(adminId),
+              },
+            ],
+            question: {
+              _id: new ObjectId(questionId),
+              question: 'Question',
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [],
+      );
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(adminId),
+          special_task_force: false,
+        },
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: false,
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map(),
+      );
+
+      await service.reallocateTimeBoundQuestions();
+
+      expect(balanceWorker.startBalanceWorkloadWorkers).toHaveBeenCalledWith([
+        {
+          submissionId: expect.any(String),
+          expertId,
+          appendExpert: false,
+          skipPenalty: false,
+        },
+      ]);
+    });
+    it('processes stuck and unallocated questions in the same run', async () => {
+      const questionId2 = '507f1f77bcf86cd799439099';
+
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: new ObjectId(questionId),
+            queue: [new ObjectId(expertId2)],
+            history: [],
+            question: {
+              _id: new ObjectId(questionId),
+              question: 'Stuck Question',
+              source: 'WHATSAPP',
+              createdAt: new Date('2024-01-01'),
+            },
+          },
+        ],
+      );
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: new ObjectId(questionId2),
+            queue: [],
+            history: [],
+            question: {
+              _id: new ObjectId(questionId2),
+              question: 'Unallocated Question',
+              source: 'WHATSAPP',
+              createdAt: new Date('2024-01-02'),
+            },
+          },
+        ],
+      );
+
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [],
+      );
+
+      // TWO STF experts
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: true,
+          firstName: 'John',
+          lastName: 'Doe',
+        },
+        {
+          _id: new ObjectId(expertId2),
+          special_task_force: true,
+          firstName: 'Jane',
+          lastName: 'Smith',
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map(),
+      );
+
+      mockQuestionSubmissionRepo.updateQueue.mockResolvedValue({});
+      mockQuestionRepo.updateQuestion.mockResolvedValue({});
+      mockQuestionSubmissionRepo.setCurrentExpertAllocatedAt.mockResolvedValue(
+        {},
+      );
+      mockUserRepo.updateReputationScore.mockResolvedValue({});
+      mockNotificationService.saveTheNotifications.mockResolvedValue({});
+
+      const result = await service.reallocateTimeBoundQuestions();
+
+      expect(balanceWorker.startBalanceWorkloadWorkers).toHaveBeenCalledTimes(
+        1,
+      );
+
+      expect(mockQuestionSubmissionRepo.updateQueue).toHaveBeenCalledTimes(1);
+
+      expect(result).toEqual({
+        message:
+          'Time-bound: reallocated=1, initially-allocated=1, reviewers-assigned=0',
+        reallocated: 2,
+        skipped: 0,
+      });
+    });
+    it('does not assign a reviewer already present in the queue', async () => {
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [],
+      );
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [],
+      );
+
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: new ObjectId(questionId),
+            queue: [new ObjectId(expertId2), new ObjectId(expertId)],
+            history: [
+              {
+                updatedBy: new ObjectId(expertId2),
+              },
+            ],
+            question: {
+              _id: new ObjectId(questionId),
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: false,
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map(),
+      );
+
+      const result = await service.reallocateTimeBoundQuestions();
+
+      expect(
+        mockQuestionSubmissionRepo.assignTimeBoundReviewer,
+      ).not.toHaveBeenCalled();
+
+      expect(result.skipped).toBe(1);
+    });
+    it('assigns the second eligible reviewer when the first is already in queue', async () => {
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [],
+      );
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [],
+      );
+
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: new ObjectId(questionId),
+            queue: [new ObjectId(expertId2), new ObjectId(adminId)],
+            history: [
+              {
+                updatedBy: new ObjectId(expertId2),
+              },
+            ],
+            question: {
+              _id: new ObjectId(questionId),
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(adminId),
+          special_task_force: false,
+        },
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: false,
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map(),
+      );
+
+      mockQuestionSubmissionRepo.assignTimeBoundReviewer.mockResolvedValue({});
+      mockUserRepo.updateReputationScore.mockResolvedValue({});
+
+      await service.reallocateTimeBoundQuestions();
+
+      expect(
+        mockQuestionSubmissionRepo.assignTimeBoundReviewer,
+      ).toHaveBeenCalledWith(questionId, expertId, expect.any(Date));
+    });
+    it('skips reviewers already at maximum workload', async () => {
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [],
+      );
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [],
+      );
+
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: new ObjectId(questionId),
+            queue: [new ObjectId(expertId2)],
+            history: [
+              {
+                updatedBy: new ObjectId(expertId2),
+              },
+            ],
+            question: {
+              _id: new ObjectId(questionId),
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: false,
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map([[expertId, 1]]),
+      );
+
+      const result = await service.reallocateTimeBoundQuestions();
+
+      expect(
+        mockQuestionSubmissionRepo.assignTimeBoundReviewer,
+      ).not.toHaveBeenCalled();
+
+      expect(result.skipped).toBe(1);
+    });
+    it('skips an unallocated question when no STF expert is available', async () => {
+      const secondQuestionId = new ObjectId();
+
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [],
+      );
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: secondQuestionId,
+            queue: [],
+            history: [],
+            question: {
+              _id: secondQuestionId,
+              question: 'Question',
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: false,
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map(),
+      );
+
+      const result = await service.reallocateTimeBoundQuestions();
+
+      expect(mockQuestionSubmissionRepo.updateQueue).not.toHaveBeenCalled();
+      expect(result).toMatchObject({
+        reallocated: 0,
+        skipped: 1,
+      });
+    });
+    it('skips an STF expert already at maximum workload for unallocated questions', async () => {
+      const secondQuestionId = new ObjectId();
+
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [],
+      );
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: secondQuestionId,
+            queue: [],
+            history: [],
+            question: {
+              _id: secondQuestionId,
+              question: 'Question',
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: true,
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map([[expertId, 1]]),
+      );
+
+      const result = await service.reallocateTimeBoundQuestions();
+
+      expect(mockQuestionSubmissionRepo.updateQueue).not.toHaveBeenCalled();
+      expect(result.skipped).toBe(1);
+    });
+    it('initially allocates an unallocated question', async () => {
+      const secondQuestionId = new ObjectId();
+
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [],
+      );
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: secondQuestionId,
+            queue: [],
+            history: [],
+            question: {
+              _id: secondQuestionId,
+              question: 'Question',
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: true,
+          firstName: 'John',
+          lastName: 'Doe',
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map(),
+      );
+
+      mockQuestionSubmissionRepo.updateQueue.mockResolvedValue({});
+      mockQuestionRepo.updateQuestion.mockResolvedValue({});
+      mockQuestionSubmissionRepo.setCurrentExpertAllocatedAt.mockResolvedValue(
+        {},
+      );
+      mockUserRepo.updateReputationScore.mockResolvedValue({});
+      mockNotificationService.saveTheNotifications.mockResolvedValue({});
+
+      const result = await service.reallocateTimeBoundQuestions();
+
+      expect(mockQuestionSubmissionRepo.updateQueue).toHaveBeenCalledWith(
+        secondQuestionId.toString(),
+        [new ObjectId(expertId)],
+      );
+
+      expect(mockQuestionRepo.updateQuestion).toHaveBeenCalled();
+
+      expect(
+        mockQuestionSubmissionRepo.setCurrentExpertAllocatedAt,
+      ).toHaveBeenCalled();
+
+      expect(result).toMatchObject({
+        reallocated: 1,
+        skipped: 0,
+      });
+    });
+    it('assigns a reviewer for a question needing review', async () => {
+      const secondQuestionId = new ObjectId();
+
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [],
+      );
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [],
+      );
+
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: secondQuestionId,
+            queue: [new ObjectId(expertId)],
+            history: [
+              {
+                updatedBy: new ObjectId(expertId),
+              },
+            ],
+            question: {
+              _id: secondQuestionId,
+              question: 'Needs Review',
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId2),
+          special_task_force: false,
+          firstName: 'Jane',
+          lastName: 'Doe',
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map(),
+      );
+
+      mockQuestionSubmissionRepo.assignTimeBoundReviewer.mockResolvedValue({});
+      mockUserRepo.updateReputationScore.mockResolvedValue({});
+      mockNotificationService.saveTheNotifications.mockResolvedValue({});
+
+      const result = await service.reallocateTimeBoundQuestions();
+
+      expect(
+        mockQuestionSubmissionRepo.assignTimeBoundReviewer,
+      ).toHaveBeenCalledWith(
+        secondQuestionId.toString(),
+        expertId2,
+        expect.any(Date),
+      );
+
+      expect(result.reallocated).toBe(1);
+    });
+    it('skips reviewer assignment when every expert already reviewed the question', async () => {
+      const secondQuestionId = new ObjectId();
+
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [],
+      );
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [],
+      );
+
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: secondQuestionId,
+            queue: [],
+            history: [
+              {
+                updatedBy: new ObjectId(expertId),
+              },
+            ],
+            question: {
+              _id: secondQuestionId,
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: false,
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map(),
+      );
+
+      const result = await service.reallocateTimeBoundQuestions();
+
+      expect(
+        mockQuestionSubmissionRepo.assignTimeBoundReviewer,
+      ).not.toHaveBeenCalled();
+
+      expect(result).toMatchObject({
+        reallocated: 0,
+        skipped: 1,
+      });
+    });
+    it('continues when assigning a reviewer fails', async () => {
+      const secondQuestionId = new ObjectId();
+
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [],
+      );
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [],
+      );
+
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: secondQuestionId,
+            queue: [],
+            history: [],
+            question: {
+              _id: secondQuestionId,
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: false,
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map(),
+      );
+
+      mockQuestionSubmissionRepo.assignTimeBoundReviewer.mockRejectedValue(
+        new Error('DB failed'),
+      );
+
+      const result = await service.reallocateTimeBoundQuestions();
+
+      expect(result).toMatchObject({
+        reallocated: 0,
+        skipped: 1,
+      });
+    });
+    it('does not use STF experts for reviewer assignment when unallocated questions exist', async () => {
+      const reviewerQuestionId = new ObjectId();
+
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [],
+      );
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: new ObjectId(),
+            queue: [],
+            history: [],
+            question: {
+              _id: new ObjectId(),
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: reviewerQuestionId,
+            queue: [],
+            history: [],
+            question: {
+              _id: reviewerQuestionId,
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: true,
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map(),
+      );
+
+      const result = await service.reallocateTimeBoundQuestions();
+
+      expect(
+        mockQuestionSubmissionRepo.assignTimeBoundReviewer,
+      ).not.toHaveBeenCalled();
+
+      expect(result.skipped).toBeGreaterThan(0);
+    });
+    it('allows STF experts to review when there are no unallocated questions', async () => {
+      const reviewerQuestionId = new ObjectId();
+
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [],
+      );
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [],
+      );
+
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: reviewerQuestionId,
+            queue: [],
+            history: [],
+            question: {
+              _id: reviewerQuestionId,
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: true,
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map(),
+      );
+
+      mockQuestionSubmissionRepo.assignTimeBoundReviewer.mockResolvedValue({});
+      mockUserRepo.updateReputationScore.mockResolvedValue({});
+      mockNotificationService.saveTheNotifications.mockResolvedValue({});
+
+      await service.reallocateTimeBoundQuestions();
+
+      expect(
+        mockQuestionSubmissionRepo.assignTimeBoundReviewer,
+      ).toHaveBeenCalled();
+    });
+    it('writes an audit trail after initial allocation', async () => {
+      const secondQuestionId = new ObjectId();
+
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [],
+      );
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: secondQuestionId,
+            queue: [],
+            history: [],
+            question: {
+              _id: secondQuestionId,
+              question: 'Question',
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: true,
+          firstName: 'John',
+          lastName: 'Doe',
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map(),
+      );
+
+      mockQuestionSubmissionRepo.updateQueue.mockResolvedValue({});
+      mockQuestionRepo.updateQuestion.mockResolvedValue({});
+      mockQuestionSubmissionRepo.setCurrentExpertAllocatedAt.mockResolvedValue(
+        {},
+      );
+      mockUserRepo.updateReputationScore.mockResolvedValue({});
+      mockNotificationService.saveTheNotifications.mockResolvedValue({});
+
+      await service.reallocateTimeBoundQuestions();
+
+      expect(mockAuditTrailsService.createAuditTrail).toHaveBeenCalled();
+    });
+    it('writes an audit trail after reviewer assignment', async () => {
+      const reviewerQuestionId = new ObjectId();
+
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [],
+      );
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [],
+      );
+
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [
+          {
+            _id: new ObjectId(),
+            questionId: reviewerQuestionId,
+            queue: [],
+            history: [],
+            question: {
+              _id: reviewerQuestionId,
+              question: 'Question',
+              source: 'WHATSAPP',
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          special_task_force: false,
+          firstName: 'John',
+          lastName: 'Doe',
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map(),
+      );
+
+      mockQuestionSubmissionRepo.assignTimeBoundReviewer.mockResolvedValue({});
+      mockUserRepo.updateReputationScore.mockResolvedValue({});
+      mockNotificationService.saveTheNotifications.mockResolvedValue({});
+
+      await service.reallocateTimeBoundQuestions();
+
+      expect(mockAuditTrailsService.createAuditTrail).toHaveBeenCalled();
+    });
+  });
+  describe('getQueueSection', () => {
+    it('returns received queue section', async () => {
+      const raw = {
+        _id: new ObjectId(questionId),
+        question: 'Question',
+        queue: [],
+        history: [],
+      };
+
+      mockQuestionRepo.getQueueQuestionSection.mockResolvedValue({
+        count: 1,
+        items: [raw],
+      });
+
+      vi.spyOn(service as any, 'rawToQueueItem').mockReturnValue({
+        _id: questionId,
+      });
+
+      const result = await service.getQueueSection('received');
+
+      expect(mockQuestionRepo.getQueueQuestionSection).toHaveBeenCalledWith(
+        'received',
+        0,
+        50,
+        undefined,
+        undefined,
+      );
+
+      expect(result).toEqual({
+        count: 1,
+        items: [{_id: questionId}],
+      });
+    });
+    it('returns autoAllocateOpen queue section', async () => {
+      mockQuestionRepo.getQueueQuestionSection.mockResolvedValue({
+        count: 0,
+        items: [],
+      });
+
+      const result = await service.getQueueSection('autoAllocateOpen');
+
+      expect(mockQuestionRepo.getQueueQuestionSection).toHaveBeenCalledWith(
+        'autoAllocateOpen',
+        0,
+        50,
+        undefined,
+        undefined,
+      );
+
+      expect(result).toEqual({
+        count: 0,
+        items: [],
+      });
+    });
+    it('returns autoAllocateDelayed queue section', async () => {
+      mockQuestionRepo.getQueueQuestionSection.mockResolvedValue({
+        count: 2,
+        items: [],
+      });
+
+      const result = await service.getQueueSection('autoAllocateDelayed');
+
+      expect(mockQuestionRepo.getQueueQuestionSection).toHaveBeenCalledWith(
+        'autoAllocateDelayed',
+        0,
+        50,
+        undefined,
+        undefined,
+      );
+
+      expect(result.count).toBe(2);
+    });
+    it('returns autoAllocateOff queue section', async () => {
+      mockQuestionRepo.getQueueQuestionSection.mockResolvedValue({
+        count: 3,
+        items: [],
+      });
+
+      const result = await service.getQueueSection('autoAllocateOff');
+
+      expect(mockQuestionRepo.getQueueQuestionSection).toHaveBeenCalledWith(
+        'autoOff',
+        0,
+        50,
+        undefined,
+        undefined,
+      );
+
+      expect(result.count).toBe(3);
+    });
+    it('uses the supplied page and limit', async () => {
+      mockQuestionRepo.getQueueQuestionSection.mockResolvedValue({
+        count: 0,
+        items: [],
+      });
+
+      await service.getQueueSection('received', 3, 20);
+
+      expect(mockQuestionRepo.getQueueQuestionSection).toHaveBeenCalledWith(
+        'received',
+        40,
+        20,
+        undefined,
+        undefined,
+      );
+    });
+    it('returns allocated questions with expert names', async () => {
+      const raw = {
+        _id: new ObjectId(questionId),
+        queue: [new ObjectId(expertId)],
+        history: [],
+      };
+
+      mockQuestionRepo.getQueueQuestionSection.mockResolvedValue({
+        count: 1,
+        items: [raw],
+      });
+
+      vi.spyOn(service as any, 'derivePendingAssigneeId').mockReturnValue(
+        expertId,
+      );
+
+      vi.spyOn(service as any, 'resolveExpertNames').mockResolvedValue(
+        new Map([[expertId, 'John Doe']]),
+      );
+
+      vi.spyOn(service as any, 'rawToQueueItem').mockReturnValue({
+        _id: questionId,
+        question: 'Question',
+      });
+
+      const result = await service.getQueueSection('allocated');
+
+      expect(result).toEqual({
+        count: 1,
+        items: [
+          {
+            _id: questionId,
+            question: 'Question',
+            expertName: 'John Doe',
+            queueExpertNames: ['John Doe'],
+            lastPersonStatus: 'waiting',
+          },
+        ],
+      });
+    });
+    it('marks allocated question as completed when no pending expert exists', async () => {
+      const raw = {
+        _id: new ObjectId(questionId),
+        queue: [],
+        history: [],
+      };
+
+      mockQuestionRepo.getQueueQuestionSection.mockResolvedValue({
+        count: 1,
+        items: [raw],
+      });
+
+      vi.spyOn(service as any, 'derivePendingAssigneeId').mockReturnValue(null);
+
+      vi.spyOn(service as any, 'resolveExpertNames').mockResolvedValue(
+        new Map(),
+      );
+
+      vi.spyOn(service as any, 'rawToQueueItem').mockReturnValue({
+        _id: questionId,
+      });
+
+      const result = await service.getQueueSection('allocated');
+
+      expect(result.items[0]).toMatchObject({
+        lastPersonStatus: 'completed',
+        expertName: undefined,
+      });
+    });
+    it('uses Unknown when expert name cannot be resolved', async () => {
+      const raw = {
+        _id: new ObjectId(questionId),
+        queue: [new ObjectId(expertId)],
+        history: [],
+      };
+
+      mockQuestionRepo.getQueueQuestionSection.mockResolvedValue({
+        count: 1,
+        items: [raw],
+      });
+
+      vi.spyOn(service as any, 'derivePendingAssigneeId').mockReturnValue(
+        expertId,
+      );
+
+      vi.spyOn(service as any, 'resolveExpertNames').mockResolvedValue(
+        new Map(),
+      );
+
+      vi.spyOn(service as any, 'rawToQueueItem').mockReturnValue({
+        _id: questionId,
+      });
+
+      const result = await service.getQueueSection('allocated');
+      const item = result.items[0] as any;
+
+      expect(item.expertName).toBe('Unknown');
+      expect(item.queueExpertNames).toEqual(['Unknown']);
+    });
+
+    it('returns names for every expert in the queue', async () => {
+      const raw = {
+        _id: new ObjectId(questionId),
+        queue: [new ObjectId(expertId), new ObjectId(expertId2)],
+        history: [],
+      };
+
+      mockQuestionRepo.getQueueQuestionSection.mockResolvedValue({
+        count: 1,
+        items: [raw],
+      });
+
+      vi.spyOn(service as any, 'derivePendingAssigneeId').mockReturnValue(
+        expertId,
+      );
+
+      vi.spyOn(service as any, 'resolveExpertNames').mockResolvedValue(
+        new Map([
+          [expertId, 'John'],
+          [expertId2, 'Jane'],
+        ]),
+      );
+
+      vi.spyOn(service as any, 'rawToQueueItem').mockReturnValue({
+        _id: questionId,
+      });
+
+      const result = await service.getQueueSection('allocated');
+      const item = result.items[0] as any;
+
+      expect(item.queueExpertNames).toEqual(['John', 'Jane']);
+    });
+    it('returns waiting questions', async () => {
+      const submission = {
+        questionId: new ObjectId(questionId),
+      };
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [submission],
+      );
+
+      vi.spyOn(service as any, 'submissionToQueueItem').mockReturnValue({
+        _id: questionId,
+      });
+
+      const result = await service.getQueueSection('waiting');
+
+      expect(
+        mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions,
+      ).toHaveBeenCalled();
+
+      expect(result).toEqual({
+        count: 1,
+        items: [{_id: questionId}],
+      });
+    });
+    it('paginates waiting questions', async () => {
+      const submissions = Array.from({length: 60}, (_, i) => ({
+        questionId: new ObjectId(),
+        id: i,
+      }));
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        submissions,
+      );
+
+      vi.spyOn(service as any, 'submissionToQueueItem').mockImplementation(
+        (s: any) => ({id: s.id}),
+      );
+
+      const result = await service.getQueueSection('waiting', 2, 10);
+
+      expect(result.count).toBe(60);
+      expect(result.items).toHaveLength(10);
+      expect((result.items[0] as any).id).toBe(10);
+    });
+    it('returns only free experts', async () => {
+      mockUserRepo.findExpertsByReputationScore.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          firstName: 'John',
+          lastName: 'Doe',
+          role: 'expert',
+          reputation_score: 12,
+          special_task_force: true,
+        },
+        {
+          _id: new ObjectId(expertId2),
+          firstName: 'Jane',
+          lastName: 'Doe',
+          role: 'expert',
+          reputation_score: 8,
+          special_task_force: false,
+        },
+      ]);
+
+      mockQuestionSubmissionRepo.getTimeBoundActiveCountPerExpert.mockResolvedValue(
+        new Map([[expertId2, 1]]),
+      );
+
+      const result = await service.getQueueSection('freeExperts');
+
+      expect(result.count).toBe(1);
+
+      expect(result.items).toEqual([
+        {
+          _id: expertId,
+          name: 'John Doe',
+          email: undefined,
+          reputationScore: 12,
+          role: 'expert',
+          isSpecialTaskForce: true,
+        },
+      ]);
+    });
+    it('returns stuck questions with allocation duration', async () => {
+      const allocatedAt = new Date(Date.now() - 5 * 60 * 1000);
+
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [
+          {
+            questionId: new ObjectId(questionId),
+            queue: [new ObjectId(expertId)],
+            history: [],
+            currentExpertAllocatedAt: allocatedAt,
+            question: {
+              _id: new ObjectId(questionId),
+            },
+          },
+        ],
+      );
+
+      vi.spyOn(service as any, 'deriveCurrentExpertId').mockReturnValue(
+        expertId,
+      );
+
+      vi.spyOn(service as any, 'resolveExpertNames').mockResolvedValue(
+        new Map([[expertId, 'John Doe']]),
+      );
+
+      vi.spyOn(service as any, 'submissionToQueueItem').mockReturnValue({
+        _id: questionId,
+      });
+
+      vi.spyOn(service as any, 'buildQueueExpertNames').mockReturnValue([
+        'John Doe',
+      ]);
+
+      const result = await service.getQueueSection('stuck');
+
+      const item = result.items[0] as any;
+
+      expect(item.expertName).toBe('John Doe');
+      expect(item.queueExpertNames).toEqual(['John Doe']);
+      expect(item.allocatedAt).toEqual(allocatedAt);
+      expect(item.minutesSinceAllocated).toBeGreaterThanOrEqual(5);
+    });
+    it('returns undefined minutes when allocation time is missing', async () => {
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [
+          {
+            questionId: new ObjectId(questionId),
+            queue: [],
+            history: [],
+            question: {
+              _id: new ObjectId(questionId),
+            },
+          },
+        ],
+      );
+
+      vi.spyOn(service as any, 'deriveCurrentExpertId').mockReturnValue(null);
+
+      vi.spyOn(service as any, 'resolveExpertNames').mockResolvedValue(
+        new Map(),
+      );
+
+      vi.spyOn(service as any, 'submissionToQueueItem').mockReturnValue({
+        _id: questionId,
+      });
+
+      vi.spyOn(service as any, 'buildQueueExpertNames').mockReturnValue([]);
+
+      const result = await service.getQueueSection('stuck');
+
+      const item = result.items[0] as any;
+
+      expect(item.allocatedAt).toBeNull();
+      expect(item.minutesSinceAllocated).toBeUndefined();
+    });
+    it('returns undefined minutes when opened time is missing', async () => {
+      mockQuestionSubmissionRepo.findOpenedButIdleTimeBoundQuestions.mockResolvedValue(
+        [
+          {
+            questionId: new ObjectId(questionId),
+            queue: [],
+            history: [],
+            question: {
+              _id: new ObjectId(questionId),
+            },
+          },
+        ],
+      );
+
+      vi.spyOn(service as any, 'deriveCurrentExpertId').mockReturnValue(null);
+
+      vi.spyOn(service as any, 'resolveExpertNames').mockResolvedValue(
+        new Map(),
+      );
+
+      vi.spyOn(service as any, 'submissionToQueueItem').mockReturnValue({
+        _id: questionId,
+      });
+
+      vi.spyOn(service as any, 'buildQueueExpertNames').mockReturnValue([]);
+
+      const result = await service.getQueueSection('openedIdle');
+
+      const item = result.items[0] as any;
+
+      expect(item.openedAt).toBeNull();
+      expect(item.minutesSinceOpened).toBeUndefined();
+    });
+    it('returns completed reviewer names', async () => {
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [
+          {
+            questionId: new ObjectId(questionId),
+            queue: [],
+            history: [
+              {updatedBy: new ObjectId(expertId)},
+              {updatedBy: new ObjectId(expertId2)},
+            ],
+            question: {
+              _id: new ObjectId(questionId),
+            },
+          },
+        ],
+      );
+
+      vi.spyOn(service as any, 'resolveExpertNames').mockResolvedValue(
+        new Map([
+          [expertId, 'John'],
+          [expertId2, 'Jane'],
+        ]),
+      );
+
+      vi.spyOn(service as any, 'submissionToQueueItem').mockReturnValue({
+        _id: questionId,
+      });
+
+      vi.spyOn(service as any, 'buildQueueExpertNames').mockReturnValue([]);
+
+      const result = await service.getQueueSection('needsReviewer');
+
+      const item = result.items[0] as any;
+
+      expect(item.completedExpertNames).toEqual(['John', 'Jane']);
+      expect(item.expertName).toBe('Jane');
+    });
+    it('uses Unknown when reviewer names cannot be resolved', async () => {
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [
+          {
+            questionId: new ObjectId(questionId),
+            queue: [],
+            history: [{updatedBy: new ObjectId(expertId)}],
+            question: {
+              _id: new ObjectId(questionId),
+            },
+          },
+        ],
+      );
+
+      vi.spyOn(service as any, 'resolveExpertNames').mockResolvedValue(
+        new Map(),
+      );
+
+      vi.spyOn(service as any, 'submissionToQueueItem').mockReturnValue({
+        _id: questionId,
+      });
+
+      vi.spyOn(service as any, 'buildQueueExpertNames').mockReturnValue([]);
+
+      const result = await service.getQueueSection('needsReviewer');
+
+      const item = result.items[0] as any;
+
+      expect(item.completedExpertNames).toEqual(['Unknown']);
+      expect(item.expertName).toBe('Unknown');
+    });
+    it('includes queue expert names for reviewer section', async () => {
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [
+          {
+            questionId: new ObjectId(questionId),
+            queue: [new ObjectId(expertId)],
+            history: [],
+            question: {
+              _id: new ObjectId(questionId),
+            },
+          },
+        ],
+      );
+
+      vi.spyOn(service as any, 'resolveExpertNames').mockResolvedValue(
+        new Map([[expertId, 'John']]),
+      );
+
+      vi.spyOn(service as any, 'submissionToQueueItem').mockReturnValue({
+        _id: questionId,
+      });
+
+      vi.spyOn(service as any, 'buildQueueExpertNames').mockReturnValue([
+        'John',
+      ]);
+
+      const result = await service.getQueueSection('needsReviewer');
+
+      const item = result.items[0] as any;
+
+      expect(item.queueExpertNames).toEqual(['John']);
+    });
+    it('returns merged total work', async () => {
+      const q1 = new ObjectId();
+      const q2 = new ObjectId();
+      const q3 = new ObjectId();
+
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [
+          {
+            questionId: q1,
+            question: {
+              _id: q1,
+              createdAt: new Date('2024-01-01'),
+            },
+          },
+        ],
+      );
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [
+          {
+            questionId: q2,
+            question: {
+              _id: q2,
+              createdAt: new Date('2024-01-02'),
+            },
+          },
+        ],
+      );
+
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [
+          {
+            questionId: q3,
+            question: {
+              _id: q3,
+              createdAt: new Date('2024-01-03'),
+            },
+          },
+        ],
+      );
+
+      vi.spyOn(service as any, 'submissionToQueueItem').mockImplementation(
+        (sub: any) => ({
+          _id: sub.questionId.toString(),
+        }),
+      );
+
+      const result = await service.getQueueSection('totalWork');
+
+      expect(result.count).toBe(3);
+
+      expect((result.items[0] as any).workType).toBe('needsReviewer');
+      expect((result.items[1] as any).workType).toBe('unallocated');
+      expect((result.items[2] as any).workType).toBe('stuck');
+    });
+    it('deduplicates repeated question ids', async () => {
+      const id = new ObjectId(questionId);
+
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [
+          {
+            questionId: id,
+            question: {_id: id, createdAt: new Date()},
+          },
+        ],
+      );
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [
+          {
+            questionId: id,
+            question: {_id: id, createdAt: new Date()},
+          },
+        ],
+      );
+
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [],
+      );
+
+      vi.spyOn(service as any, 'submissionToQueueItem').mockReturnValue({
+        _id: questionId,
+      });
+
+      const result = await service.getQueueSection('totalWork');
+
+      expect(result.count).toBe(1);
+    });
+    it('paginates total work', async () => {
+      const submissions = Array.from({length: 5}, (_, i) => ({
+        questionId: new ObjectId(),
+        question: {
+          _id: new ObjectId(),
+          createdAt: new Date(2024, 0, i + 1),
+        },
+      }));
+
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        submissions,
+      );
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [],
+      );
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [],
+      );
+
+      vi.spyOn(service as any, 'submissionToQueueItem').mockImplementation(
+        (sub: any) => ({
+          _id: sub.questionId.toString(),
+        }),
+      );
+
+      const result = await service.getQueueSection('totalWork', 2, 2);
+
+      expect(result.count).toBe(5);
+      expect(result.items).toHaveLength(2);
+    });
+    it('returns empty total work when nothing exists', async () => {
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [],
+      );
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [],
+      );
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [],
+      );
+
+      const result = await service.getQueueSection('totalWork');
+
+      expect(result).toEqual({
+        count: 0,
+        items: [],
+      });
+    });
+    it('adds workType to every returned item', async () => {
+      mockQuestionSubmissionRepo.findTimeBoundQuestionsForReallocation.mockResolvedValue(
+        [
+          {
+            questionId: new ObjectId(questionId),
+            question: {
+              _id: new ObjectId(questionId),
+              createdAt: new Date(),
+            },
+          },
+        ],
+      );
+
+      mockQuestionSubmissionRepo.findUnallocatedTimeBoundQuestions.mockResolvedValue(
+        [],
+      );
+      mockQuestionSubmissionRepo.findAnsweredQuestionsNeedingReviewer.mockResolvedValue(
+        [],
+      );
+
+      vi.spyOn(service as any, 'submissionToQueueItem').mockReturnValue({
+        _id: questionId,
+      });
+
+      const result = await service.getQueueSection('totalWork');
+
+      expect((result.items[0] as any).workType).toBe('stuck');
+    });
+    it('returns moderator waiting questions', async () => {
+      mockQuestionRepo.findUnassignedInReviewQuestions.mockResolvedValue([
+        {
+          _id: new ObjectId(questionId),
+          question: 'Question',
+        },
+      ]);
+
+      vi.spyOn(service as any, 'submissionToQueueItem').mockReturnValue({
+        _id: questionId,
+      });
+
+      const result = await service.getQueueSection('moderatorWaiting');
+
+      expect(
+        mockQuestionRepo.findUnassignedInReviewQuestions,
+      ).toHaveBeenCalled();
+      expect(result.count).toBe(1);
+      expect(result.items).toHaveLength(1);
+    });
+    it('paginates moderator waiting questions', async () => {
+      mockQuestionRepo.findUnassignedInReviewQuestions.mockResolvedValue(
+        Array.from({length: 5}, (_, i) => ({
+          _id: new ObjectId(),
+          question: `Q${i}`,
+        })),
+      );
+
+      vi.spyOn(service as any, 'submissionToQueueItem').mockImplementation(
+        ({question}: any) => ({
+          _id: question._id.toString(),
+        }),
+      );
+
+      const result = await service.getQueueSection('moderatorWaiting', 2, 2);
+
+      expect(result.count).toBe(5);
+      expect(result.items).toHaveLength(2);
+    });
+    it('returns moderator allocated questions', async () => {
+      mockQuestionRepo.findModeratorAssignedQuestions.mockResolvedValue([
+        {
+          _id: new ObjectId(questionId),
+          moderatorId: new ObjectId(expertId),
+        },
+      ]);
+
+      vi.spyOn(service as any, 'resolveExpertNames').mockResolvedValue(
+        new Map([[expertId, 'John Moderator']]),
+      );
+
+      vi.spyOn(service as any, 'submissionToQueueItem').mockReturnValue({
+        _id: questionId,
+      });
+
+      const result = await service.getQueueSection('moderatorAllocated');
+
+      expect((result.items[0] as any).moderatorName).toBe('John Moderator');
+    });
+    it('uses Unknown when moderator name cannot be resolved', async () => {
+      mockQuestionRepo.findModeratorAssignedQuestions.mockResolvedValue([
+        {
+          _id: new ObjectId(questionId),
+          moderatorId: new ObjectId(expertId),
+        },
+      ]);
+
+      vi.spyOn(service as any, 'resolveExpertNames').mockResolvedValue(
+        new Map(),
+      );
+
+      vi.spyOn(service as any, 'submissionToQueueItem').mockReturnValue({
+        _id: questionId,
+      });
+
+      const result = await service.getQueueSection('moderatorAllocated');
+
+      expect((result.items[0] as any).moderatorName).toBe('Unknown');
+    });
+    it('returns undefined moderator name when moderatorId is missing', async () => {
+      mockQuestionRepo.findModeratorAssignedQuestions.mockResolvedValue([
+        {
+          _id: new ObjectId(questionId),
+        },
+      ]);
+
+      vi.spyOn(service as any, 'resolveExpertNames').mockResolvedValue(
+        new Map(),
+      );
+
+      vi.spyOn(service as any, 'submissionToQueueItem').mockReturnValue({
+        _id: questionId,
+      });
+
+      const result = await service.getQueueSection('moderatorAllocated');
+
+      expect((result.items[0] as any).moderatorName).toBeUndefined();
+    });
+    it('returns available moderators', async () => {
+      mockUserRepo.findAvailableStfModerators.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john@test.com',
+          reputation_score: 10,
+          role: 'moderator',
+          special_task_force: true,
+        },
+      ]);
+
+      const result = await service.getQueueSection('availableModerators');
+
+      expect(result.count).toBe(1);
+
+      expect(result.items[0]).toEqual({
+        _id: expertId,
+        name: 'John Doe',
+        email: 'john@test.com',
+        reputationScore: 10,
+        role: 'moderator',
+        isSpecialTaskForce: true,
+      });
+    });
+    it('paginates available moderators', async () => {
+      mockUserRepo.findAvailableStfModerators.mockResolvedValue(
+        Array.from({length: 5}, () => ({
+          _id: new ObjectId(),
+          firstName: 'John',
+          email: 'john@test.com',
+          role: 'moderator',
+          special_task_force: true,
+        })),
+      );
+
+      const result = await service.getQueueSection('availableModerators', 2, 2);
+
+      expect(result.count).toBe(5);
+      expect(result.items).toHaveLength(2);
+    });
+    it('returns time-bound moderator waiting questions', async () => {
+      mockQuestionRepo.findUnassignedInReviewQuestions.mockResolvedValue([
+        {
+          _id: new ObjectId(questionId),
+          question: 'Question',
+        },
+      ]);
+
+      vi.spyOn(service as any, 'submissionToQueueItem').mockReturnValue({
+        _id: questionId,
+      });
+
+      const result = await service.getQueueSection('moderatorWaitingTimeBound');
+
+      expect(
+        mockQuestionRepo.findUnassignedInReviewQuestions,
+      ).toHaveBeenCalledWith(TIME_BOUND_SOURCES);
+
+      expect(result.count).toBe(1);
+    });
+    it('returns manual moderator waiting questions', async () => {
+      mockQuestionRepo.findUnassignedInReviewQuestions.mockResolvedValue([
+        {
+          _id: new ObjectId(questionId),
+          question: 'Question',
+        },
+      ]);
+
+      vi.spyOn(service as any, 'submissionToQueueItem').mockReturnValue({
+        _id: questionId,
+      });
+
+      await service.getQueueSection('moderatorWaitingManual');
+
+      expect(
+        mockQuestionRepo.findUnassignedInReviewQuestions,
+      ).toHaveBeenCalledWith(MANUAL_SOURCES);
+    });
+    it('returns time-bound moderator allocations', async () => {
+      mockQuestionRepo.findModeratorAssignedQuestions.mockResolvedValue([
+        {
+          _id: new ObjectId(questionId),
+          moderatorId: new ObjectId(expertId),
+        },
+      ]);
+
+      vi.spyOn(service as any, 'resolveExpertNames').mockResolvedValue(
+        new Map([[expertId, 'John']]),
+      );
+
+      vi.spyOn(service as any, 'submissionToQueueItem').mockReturnValue({
+        _id: questionId,
+      });
+
+      const result = await service.getQueueSection(
+        'moderatorAllocatedTimeBound',
+      );
+
+      expect(
+        mockQuestionRepo.findModeratorAssignedQuestions,
+      ).toHaveBeenCalledWith(TIME_BOUND_SOURCES);
+
+      expect((result.items[0] as any).moderatorName).toBe('John');
+    });
+    it('returns manual moderator allocations', async () => {
+      mockQuestionRepo.findModeratorAssignedQuestions.mockResolvedValue([
+        {
+          _id: new ObjectId(questionId),
+          moderatorId: new ObjectId(expertId),
+        },
+      ]);
+
+      vi.spyOn(service as any, 'resolveExpertNames').mockResolvedValue(
+        new Map([[expertId, 'John']]),
+      );
+
+      vi.spyOn(service as any, 'submissionToQueueItem').mockReturnValue({
+        _id: questionId,
+      });
+
+      await service.getQueueSection('moderatorAllocatedManual');
+
+      expect(
+        mockQuestionRepo.findModeratorAssignedQuestions,
+      ).toHaveBeenCalledWith(MANUAL_SOURCES);
+    });
+    it('returns available time-bound moderators', async () => {
+      mockUserRepo.findAvailableStfModeratorsForSources.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john@test.com',
+          reputation_score: 5,
+          role: 'moderator',
+          special_task_force: true,
+        },
+      ]);
+
+      const result = await service.getQueueSection(
+        'availableModeratorsTimeBound',
+      );
+
+      expect(
+        mockUserRepo.findAvailableStfModeratorsForSources,
+      ).toHaveBeenCalledWith(TIME_BOUND_SOURCES);
+
+      expect(result.count).toBe(1);
+    });
+    it('returns available manual moderators', async () => {
+      mockUserRepo.findAvailableStfModeratorsForSources.mockResolvedValue([
+        {
+          _id: new ObjectId(expertId),
+          firstName: 'John',
+          email: 'john@test.com',
+          reputation_score: 5,
+          role: 'moderator',
+          special_task_force: true,
+        },
+      ]);
+
+      await service.getQueueSection('availableModeratorsManual');
+
+      expect(
+        mockUserRepo.findAvailableStfModeratorsForSources,
+      ).toHaveBeenCalledWith(MANUAL_SOURCES);
+    });
+    it('returns empty result for unknown section', async () => {
+      const result = await service.getQueueSection('invalid-section' as any);
+
+      expect(result).toEqual({
+        count: 0,
+        items: [],
+      });
+    });
+  });
+  describe('getQueueSection', () => {
+    it('returns all queue detail sections', async () => {
+      const section = {
+        count: 1,
+        items: [{id: '1'}],
+      };
+
+      vi.spyOn(service, 'getQueueSection').mockResolvedValue(section as any);
+
+      mockQuestionRepo.getReceivedStatusCounts.mockResolvedValue([
+        {status: 'open', count: 10},
+      ]);
+
+      const result = await service.getQueueDetails();
+
+      expect(service.getQueueSection).toHaveBeenCalledTimes(20);
+
+      expect(result.received).toEqual(section);
+      expect(result.autoAllocateOff).toEqual(section);
+      expect(result.autoAllocateOpen).toEqual(section);
+      expect(result.autoAllocateDelayed).toEqual(section);
+      expect(result.allocated).toEqual(section);
+      expect(result.waiting).toEqual(section);
+      expect(result.freeExperts).toEqual(section);
+      expect(result.stuck).toEqual(section);
+      expect(result.needsReviewer).toEqual(section);
+      expect(result.totalWork).toEqual(section);
+      expect(result.openedIdle).toEqual(section);
+      expect(result.moderatorWaiting).toEqual(section);
+      expect(result.moderatorAllocated).toEqual(section);
+      expect(result.availableModerators).toEqual(section);
+      expect(result.moderatorWaitingTimeBound).toEqual(section);
+      expect(result.moderatorWaitingManual).toEqual(section);
+      expect(result.moderatorAllocatedTimeBound).toEqual(section);
+      expect(result.moderatorAllocatedManual).toEqual(section);
+      expect(result.availableModeratorsTimeBound).toEqual(section);
+      expect(result.availableModeratorsManual).toEqual(section);
+
+      expect(result.receivedStatusCounts).toEqual([
+        {status: 'open', count: 10},
+      ]);
+    });
+    it('returns an empty section when getQueueSection throws', async () => {
+      vi.spyOn(service, 'getQueueSection').mockImplementation(
+        async (section: any) => {
+          if (section === 'waiting') {
+            throw new Error('boom');
+          }
+
+          return {
+            count: 1,
+            items: [],
+          } as any;
+        },
+      );
+
+      mockQuestionRepo.getReceivedStatusCounts.mockResolvedValue([]);
+
+      const result = await service.getQueueDetails();
+
+      expect(result.waiting).toEqual({
+        count: 0,
+        items: [],
+      });
+
+      expect(result.received.count).toBe(1);
+      expect(result.stuck.count).toBe(1);
+    });
+    it('returns empty receivedStatusCounts when repository throws', async () => {
+      vi.spyOn(service, 'getQueueSection').mockResolvedValue({
+        count: 0,
+        items: [],
+      } as any);
+
+      mockQuestionRepo.getReceivedStatusCounts.mockRejectedValue(
+        new Error('failed'),
+      );
+
+      const result = await service.getQueueDetails();
+
+      expect(result.receivedStatusCounts).toEqual([]);
+    });
+    it('passes dates to every queue section', async () => {
+      const start = new Date('2024-01-01');
+      const end = new Date('2024-01-31');
+
+      const spy = vi.spyOn(service, 'getQueueSection').mockResolvedValue({
+        count: 0,
+        items: [],
+      } as any);
+
+      mockQuestionRepo.getReceivedStatusCounts.mockResolvedValue([]);
+
+      await service.getQueueDetails(start, end);
+
+      expect(spy).toHaveBeenCalledWith('received', 1, 50, start, end);
+
+      expect(spy).toHaveBeenCalledWith(
+        'availableModeratorsManual',
+        1,
+        50,
+        start,
+        end,
+      );
+
+      expect(mockQuestionRepo.getReceivedStatusCounts).toHaveBeenCalledWith(
+        start,
+        end,
+      );
+    });
+    it('continues when multiple queue sections fail', async () => {
+      vi.spyOn(service, 'getQueueSection').mockImplementation(
+        async (section: any) => {
+          if (
+            section === 'waiting' ||
+            section === 'stuck' ||
+            section === 'allocated'
+          ) {
+            throw new Error('failed');
+          }
+
+          return {
+            count: 1,
+            items: [],
+          } as any;
+        },
+      );
+
+      mockQuestionRepo.getReceivedStatusCounts.mockResolvedValue([]);
+
+      const result = await service.getQueueDetails();
+
+      expect(result.waiting).toEqual({
+        count: 0,
+        items: [],
+      });
+
+      expect(result.stuck).toEqual({
+        count: 0,
+        items: [],
+      });
+
+      expect(result.allocated).toEqual({
+        count: 0,
+        items: [],
+      });
+
+      expect(result.received.count).toBe(1);
+      expect(result.freeExperts.count).toBe(1);
     });
   });
 });
