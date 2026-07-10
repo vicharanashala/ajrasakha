@@ -17,6 +17,7 @@ from ajrasakha.evaluation.validators.source_check import evaluate_source_attribu
 from ajrasakha.evaluation.validators.disclaimer_language import evaluate_disclaimer_language
 from ajrasakha.evaluation.langsmith_trace import build_langsmith_trace_url
 from ajrasakha.evaluation.language_matrix import write_language_quality_matrix
+from ajrasakha.evaluation.language_recommendations import write_language_quality_recommendations
 from ajrasakha.evaluation.language_summary import write_language_quality_summary_reports
 from ajrasakha.evaluation.multilingual_cases import MULTILINGUAL_TEST_CASES
 from ajrasakha.evaluation.validators.language_quality import evaluate_language_quality
@@ -134,6 +135,7 @@ def main():
             output_file=f"language_quality_matrix_{args.mode}.csv",
         )
         write_language_quality_summary_reports(results, mode=args.mode)
+        write_language_quality_recommendations(results)
     summary = build_summary(results)
     print("Summary:", summary)
 
