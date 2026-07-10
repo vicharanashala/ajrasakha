@@ -15537,7 +15537,12 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
-  async getUserProfile(userId: string, session?: ClientSession): Promise<any> {
+  async getUserProfile(
+    userId: string,
+    session?: ClientSession,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<any> {
     try {
       await this.init('annam');
       await this.initReviewSystem();
@@ -15680,6 +15685,17 @@ export class ChatbotRepository implements IChatbotRepository {
         record._id?.toString?.() ||
         String(record._id || '');
       const formatBucketDate = (date: Date) => date.toISOString().slice(0, 10);
+      const trendStartDate = startDate ? new Date(startDate) : null;
+      const trendEndDate = endDate ? new Date(endDate) : null;
+      const hasValidTrendStart = isValidDate(trendStartDate);
+      const hasValidTrendEnd = isValidDate(trendEndDate);
+      const isInsideTrendRange = (record: any) => {
+        const createdAt = toDate(record.createdAt);
+        if (!isValidDate(createdAt)) return false;
+        if (hasValidTrendStart && createdAt! < trendStartDate!) return false;
+        if (hasValidTrendEnd && createdAt! > trendEndDate!) return false;
+        return true;
+      };
       const startOfWeek = (date: Date) => {
         const copy = new Date(date);
         copy.setHours(0, 0, 0, 0);
@@ -15841,6 +15857,8 @@ export class ChatbotRepository implements IChatbotRepository {
           createdAt: message.createdAt,
           messageId: message.messageId,
         }));
+      const trendQuestions = userQuestions.filter(isInsideTrendRange);
+      const trendUserMessages = dashboardUserMessages.filter(isInsideTrendRange);
       const totalMessages = userMessages.length;
       const conversationCounts = conversations.map(
         conversation => conversation.messageCount,
@@ -15887,16 +15905,16 @@ export class ChatbotRepository implements IChatbotRepository {
         },
         engagementTrends: {
           daily: {
-            questions: buildTrend(userQuestions, 'daily'),
-            messages: buildTrend(dashboardUserMessages, 'daily'),
+            questions: buildTrend(trendQuestions, 'daily'),
+            messages: buildTrend(trendUserMessages, 'daily'),
           },
           weekly: {
-            questions: buildTrend(userQuestions, 'weekly'),
-            messages: buildTrend(dashboardUserMessages, 'weekly'),
+            questions: buildTrend(trendQuestions, 'weekly'),
+            messages: buildTrend(trendUserMessages, 'weekly'),
           },
           monthly: {
-            questions: buildTrend(userQuestions, 'monthly'),
-            messages: buildTrend(dashboardUserMessages, 'monthly'),
+            questions: buildTrend(trendQuestions, 'monthly'),
+            messages: buildTrend(trendUserMessages, 'monthly'),
           },
         },
         recentQuestions,

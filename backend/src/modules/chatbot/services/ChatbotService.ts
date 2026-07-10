@@ -3754,9 +3754,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
   
-  async getUserProfile(userId: string){
+  async getUserProfile(userId: string, startDate?: string, endDate?: string){
     try{
-      return this.chatbotRepository.getUserProfile(userId)
+      return this.chatbotRepository.getUserProfile(userId, undefined, startDate, endDate)
     }catch(error){
       throw new InternalServerError(`Internal Server Error ${error}`)
     }

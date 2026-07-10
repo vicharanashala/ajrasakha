@@ -2,9 +2,14 @@ import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { Badge } from "@/components/atoms/badge";
 import { Button } from "@/components/atoms/button";
+import { Calendar } from "@/components/atoms/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/atoms/popover";
 import {
   Tooltip,
   TooltipContent,
@@ -24,10 +29,13 @@ import {
   AreaChart as AreaChartIcon,
   BarChart2,
   BarChart3,
+  CalendarIcon,
   Info,
   MessageSquareText,
+  RefreshCcw,
 } from "lucide-react";
 import type { DateRange } from "react-day-picker";
+import { format } from "date-fns";
 import {
   Area,
   AreaChart,
@@ -104,6 +112,7 @@ type MessagingMetricCard = {
   summaryLabel?: string;
   modalSubtitle?: string;
   emptyMessage?: string;
+  disabled?: boolean; 
 };
 
 type MetricDetailsResponse = {
@@ -130,15 +139,17 @@ export type FarmerDashboardData = {
 export function FarmerDashboardAnalytics({
   dashboard,
   userId,
+  engagementDateRange,
+  onEngagementDateRangeChange,
   afterEngagementTrends,
 }: {
   dashboard?: FarmerDashboardData;
   userId?: string;
+  engagementDateRange?: DateRange;
+  onEngagementDateRangeChange?: (range: DateRange | undefined) => void;
   afterEngagementTrends?: ReactNode;
 }) {
   const navigate = useNavigate();
-  const [trendGranularity, setTrendGranularity] =
-    useState<TrendGranularity>("daily");
   const [engagementTrendType, setEngagementTrendType] =
     useState<EngagementTrendType>("questions");
   const [engagementChartType, setEngagementChartType] =
@@ -150,7 +161,7 @@ export function FarmerDashboardAnalytics({
   const messagingMetrics = dashboard?.messagingMetrics ?? {};
   const totalMessages = Number(messagingMetrics.totalMessagesSent ?? 0);
   const totalConversations = Number(messagingMetrics.conversationThreads ?? 0);
-  const selectedTrend = dashboard?.engagementTrends?.[trendGranularity];
+  const selectedTrend = dashboard?.engagementTrends?.daily;
   const recentQuestions = (dashboard?.recentQuestions ?? []).slice(0, 10);
   const recentConversations = dashboard?.recentConversations ?? [];
   const allRecentMessages = recentConversations.flatMap((conversation) =>
@@ -161,7 +172,14 @@ export function FarmerDashboardAnalytics({
       threadId: conversation.threadId,
     })),
   );
-  const recentMessages = allRecentMessages.slice(0, 10);
+  const recentMessages = allRecentMessages
+    .filter((message) => message.isCreatedByUser)
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt || b.conversationDate || 0).getTime() -
+        new Date(a.createdAt || a.conversationDate || 0).getTime(),
+    )
+    .slice(0, 10);
   const lastUserMessageAt = messagingMetrics.latestUserMessageDate;
 
   const messagingMetricCards: MessagingMetricCard[] = [
@@ -188,12 +206,12 @@ export function FarmerDashboardAnalytics({
     {
       key: "averageMessagesPerConversation",
       label: "Avg. messages / conversation",
-      value: messagingMetrics.averageMessagesPerConversation,
+      value: Math.round(Number(messagingMetrics.averageMessagesPerConversation || 0)), // ← ROUNDED
       unit: "messages/conversation",
       tooltip: "Total messages divided by conversation threads.",
       viewType: "messages",
       summaryLabel: "Avg. messages / conversation",
-      modalSubtitle: `${formatMetricValue(totalMessages)} messages / ${formatMetricValue(totalConversations)} conversations = ${formatMetricValue(messagingMetrics.averageMessagesPerConversation)} messages per conversation.`,
+      modalSubtitle: `${formatMetricValue(totalMessages)} messages / ${formatMetricValue(totalConversations)} conversations = ${formatMetricValue(Math.round(Number(messagingMetrics.averageMessagesPerConversation || 0)))} messages per conversation.`,
       emptyMessage: "No conversations found to calculate the average.",
     },
     {
@@ -206,6 +224,7 @@ export function FarmerDashboardAnalytics({
       summaryLabel: "Longest conversation",
       modalSubtitle: "Messages from the longest available conversation.",
       emptyMessage: "No longest conversation data found.",
+      disabled: true, 
     },
     {
       key: "lastMessageSentAt",
@@ -323,20 +342,10 @@ export function FarmerDashboardAnalytics({
             )}
           </div>
           <div className="flex flex-wrap gap-2 xl:justify-end">
-            {(["daily", "weekly", "monthly"] as TrendGranularity[]).map(
-              (granularity) => (
-                <Button
-                  key={granularity}
-                  className="h-9 rounded-md px-4"
-                  variant={
-                    trendGranularity === granularity ? "default" : "outline"
-                  }
-                  onClick={() => setTrendGranularity(granularity)}
-                >
-                  {toTitleCase(granularity)}
-                </Button>
-              ),
-            )}
+            <EngagementDateRangePicker
+              dateRange={engagementDateRange}
+              onDateRangeChange={onEngagementDateRangeChange}
+            />
             <div className="flex rounded-md border border-border/60 bg-muted/60 p-1">
               <Button
                 className="h-7 gap-1.5 px-3 text-xs"
@@ -359,8 +368,9 @@ export function FarmerDashboardAnalytics({
         </div>
         <EngagementTrendChart
           chartType={engagementChartType}
-          granularity={trendGranularity}
+          granularity="daily"
           trendType={engagementTrendType}
+          dateRange={engagementDateRange}
           data={
             engagementTrendType === "questions"
               ? selectedTrend?.questions ?? []
@@ -654,12 +664,7 @@ function RecentActivitySection({
                     key={`${message.conversationKey ?? "message"}-${message.id}`}
                     className="p-3"
                   >
-                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                      <Badge
-                        variant={message.isCreatedByUser ? "default" : "secondary"}
-                      >
-                        {message.isCreatedByUser ? "User" : "Bot"}
-                      </Badge>
+                    <div className="mb-2 flex justify-end">
                       <span className="text-xs font-medium text-muted-foreground">
                         {formatDate(message.createdAt || message.conversationDate)}
                       </span>
@@ -687,12 +692,19 @@ function MetricGrid({
 }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      {metrics.map((metric) => (
-        <button
-          key={metric.key}
-          type="button"
-          className="group rounded-md border bg-background/80 p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:bg-background hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/30"
-          onClick={() => onMetricClick(metric)}
+      {metrics.map((metric) => {
+        const isDisabled = metric.disabled;
+        const Wrapper = isDisabled ? "div" : "button";
+        return (
+          <Wrapper
+            key={metric.key}
+            type={isDisabled ? undefined : "button"}
+            className={`group rounded-md border bg-background/80 p-4 text-left shadow-sm transition ${
+              isDisabled
+                ? "cursor-default opacity-80"
+                : "hover:-translate-y-0.5 hover:border-primary/40 hover:bg-background hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/30"
+            }`}
+            onClick={isDisabled ? undefined : () => onMetricClick(metric)}
         >
           <Tooltip>
             <TooltipTrigger asChild>
@@ -715,8 +727,63 @@ function MetricGrid({
               {metric.unit}
             </p>
           ) : null}
-        </button>
-      ))}
+        </Wrapper>
+        );
+      })}
+    </div>
+  );
+}
+
+function EngagementDateRangePicker({
+  dateRange,
+  onDateRangeChange,
+}: {
+  dateRange?: DateRange;
+  onDateRangeChange?: (range: DateRange | undefined) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className="h-9 min-w-[220px] justify-start gap-2 rounded-md px-3 text-left font-normal"
+          >
+            <CalendarIcon className="h-4 w-4 shrink-0" />
+            <span className="truncate">
+              {dateRange?.from
+                ? dateRange.to
+                  ? `${format(dateRange.from, "MMM dd, yyyy")} - ${format(
+                      dateRange.to,
+                      "MMM dd, yyyy",
+                    )}`
+                  : format(dateRange.from, "MMM dd, yyyy")
+                : "Select date range"}
+            </span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="end">
+          <Calendar
+            initialFocus
+            mode="range"
+            defaultMonth={dateRange?.from ?? new Date()}
+            selected={dateRange}
+            onSelect={onDateRangeChange}
+            numberOfMonths={1}
+          />
+        </PopoverContent>
+      </Popover>
+      {dateRange ? (
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-9 w-9 rounded-md"
+          onClick={() => onDateRangeChange?.(undefined)}
+          title="Reset date range"
+        >
+          <RefreshCcw className="h-4 w-4" />
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -732,11 +799,13 @@ function getMessageDisplayText(message: Pick<DashboardMessageEntry, "text" | "is
 function EngagementTrendChart({
   chartType,
   data,
+  dateRange,
   granularity,
   trendType,
 }: {
   chartType: EngagementChartType;
   data: { date: string; count: number }[];
+  dateRange?: DateRange;
   granularity: TrendGranularity;
   trendType: EngagementTrendType;
 }) {
@@ -747,10 +816,12 @@ function EngagementTrendChart({
     trendType === "questions"
       ? "engagementQuestionGradient"
       : "engagementMessageGradient";
-  const chartData = data.map((item) => ({
-    ...item,
-    label: formatTrendDateLabel(item.date, granularity),
-  }));
+  const chartData = fillTrendDateRange(data, dateRange, granularity).map(
+    (item) => ({
+      ...item,
+      label: formatTrendDateLabel(item.date, granularity),
+    }),
+  );
 
   const formatYAxis = (value: number) => {
     if (value >= 1000) return `${(value / 1000).toFixed(1)}k`;
@@ -814,6 +885,7 @@ function EngagementTrendChart({
             />
             <XAxis
               dataKey="label"
+              interval="preserveStartEnd"
               tickLine={false}
               axisLine={false}
               minTickGap={18}
@@ -849,6 +921,7 @@ function EngagementTrendChart({
             />
             <XAxis
               dataKey="label"
+              interval="preserveStartEnd"
               tickLine={false}
               axisLine={false}
               minTickGap={18}
@@ -922,6 +995,57 @@ function formatDate(value?: string | null) {
   return date.toLocaleString();
 }
 
+function fillTrendDateRange(
+  data: { date: string; count: number }[],
+  dateRange: DateRange | undefined,
+  granularity: TrendGranularity,
+) {
+  if (granularity !== "daily" || !dateRange?.from) {
+    return data;
+  }
+
+  const start = startOfLocalDay(dateRange.from);
+  const end = startOfLocalDay(dateRange.to ?? dateRange.from);
+
+  if (start > end) return data;
+
+  const countsByDate = new Map(
+    data.map((item) => [normalizeTrendDateKey(item.date), item.count]),
+  );
+  const filled: { date: string; count: number }[] = [];
+  const cursor = new Date(start);
+
+  while (cursor <= end) {
+    const date = formatLocalDateKey(cursor);
+    filled.push({
+      date,
+      count: countsByDate.get(date) ?? 0,
+    });
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return filled;
+}
+
+function startOfLocalDay(date: Date) {
+  const copy = new Date(date);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+}
+
+function formatLocalDateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+    2,
+    "0",
+  )}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function normalizeTrendDateKey(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return formatLocalDateKey(date);
+}
+
 function formatTrendDateLabel(
   value: string,
   granularity: TrendGranularity,
@@ -946,6 +1070,3 @@ function formatTrendDateLabel(
   });
 }
 
-function toTitleCase(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}

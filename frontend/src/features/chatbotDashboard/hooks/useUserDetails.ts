@@ -139,9 +139,14 @@ export function useUserDetails(
   };
 }
 
-export function useUserProfile(userId: string, enabled?: boolean) {
+export function useUserProfile(
+  userId: string,
+  enabled?: boolean,
+  engagementStartDate?: string,
+  engagementEndDate?: string,
+) {
   return useQuery<any, Error>({
-    queryKey: ['user-profile', userId],
+    queryKey: ['user-profile', userId, engagementStartDate, engagementEndDate],
     staleTime: 30 * 1000,
     enabled,
     queryFn: async () => {
@@ -149,6 +154,8 @@ export function useUserProfile(userId: string, enabled?: boolean) {
 
       const params = new URLSearchParams();
       params.set('userId', userId);
+      if (engagementStartDate) params.set('startDate', engagementStartDate);
+      if (engagementEndDate) params.set('endDate', engagementEndDate);
 
       const result = await apiFetch<any>(
         `${API_BASE_URL}/analytics/user-profile?${params.toString()}`

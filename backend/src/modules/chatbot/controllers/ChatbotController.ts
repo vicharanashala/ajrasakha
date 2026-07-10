@@ -2030,6 +2030,8 @@ export class ChatbotController {
   ) {
     return await this.chatbotService.getUserProfile(
       query.userId,
+      query.startDate,
+      query.endDate,
     );
   }
 

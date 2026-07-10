@@ -1093,7 +1093,12 @@ export interface IChatbotRepository {
     source: string,
   ): Promise<any>
 
-  getUserProfile(userId: string) : Promise<any>
+  getUserProfile(
+    userId: string,
+    session?: ClientSession,
+    startDate?: string,
+    endDate?: string,
+  ) : Promise<any>
   assignUsers(userId: string, targetIds: string[]): Promise<any>
   unAssignUsers(userId: string, targetIds: string[]): Promise<any>
 
