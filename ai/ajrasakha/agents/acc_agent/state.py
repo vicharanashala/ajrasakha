@@ -25,6 +25,7 @@ class AccAgentState(TypedDict):
     gdb_response: Optional[str]
     weather_response: Optional[str]
     market_response: Optional[str]
+    schemes_response: Optional[str]
     
     # Final output
     final_answer: Optional[str]
