@@ -50,11 +50,26 @@ cd ai
 python3 -m ajrasakha.evaluation.run --mode mock --multilingual --limit 6
 ```
 
-Generated reports:
+## Generated Reports
+
+Mock mode generates:
 
 ```text
 multilingual_evaluation_report_mock.csv
 language_quality_matrix_mock.csv
+language_quality_summary.md
+language_quality_summary.json
+language_quality_recommendations.md
+language_quality_metrics.md
+language_quality_metrics.json
+```
+
+Live mode uses the same report names, with the detailed CSV files using the
+`live` suffix:
+
+```text
+multilingual_evaluation_report_live.csv
+language_quality_matrix_live.csv
 ```
 
 ## Run Against Live AjraSakha
