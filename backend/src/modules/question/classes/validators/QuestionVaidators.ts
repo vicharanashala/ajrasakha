@@ -473,6 +473,11 @@ class AddQuestionBodyDto {
   tools_used?: string[];
 
   @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  })
   @IsBoolean()
   isTrainingQuestion?: boolean;
 }

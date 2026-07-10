@@ -359,6 +359,8 @@ export class QuestionController {
 
       // Read directly from req.body (multer-parsed) to avoid class-transformer dropping fields
       const rawBody = req.body || {};
+      const isTrainingQuestion =
+        rawBody.isTrainingQuestion === 'true' || body.isTrainingQuestion === true;
       const allocationMode = rawBody.allocationMode || body.allocationMode || 'expert';
       const paeExpertId: string | undefined = rawBody.paeExpertId || body.paeExpertId;
       console.log('[BulkUpload] rawBody:', rawBody);
@@ -411,6 +413,7 @@ export class QuestionController {
           this.auditTrailsService,
           isRequiredAiInitialAnswer,
           isOutreachQuestion,
+          isTrainingQuestion,
           payload,
           allocationMode,
           paeExpertId

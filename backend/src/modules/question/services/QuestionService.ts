@@ -1405,7 +1405,8 @@ export class QuestionService extends BaseService implements IQuestionService {
       const referenceQuestionDetailsFromBody = body.referenceQuestionDetails;
       const popContextFromBody = body.popContext;
       const toolsUsed = body.tools_used || [];
-      const isTrainingQuestion = body.isTrainingQuestion || false;
+      const isTrainingQuestion =
+        body.isTrainingQuestion === true || body.isTrainingQuestion === 'true';
 
       body = normalizeKeysToLower(body);
       let {
