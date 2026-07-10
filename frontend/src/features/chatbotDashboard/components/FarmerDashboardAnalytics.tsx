@@ -889,13 +889,13 @@ function EngagementTrendChart({
               tickLine={false}
               axisLine={false}
               minTickGap={18}
-              tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+              tick={{ fill: "#d4d4d8", fontSize: 11 }}
             />
             <YAxis
               tickFormatter={formatYAxis}
               tickLine={false}
               axisLine={false}
-              tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+              tick={{ fill: "#d4d4d8", fontSize: 11 }}
               width={44}
             />
             <RechartsTooltip content={<CustomTooltip />} />
@@ -925,13 +925,13 @@ function EngagementTrendChart({
               tickLine={false}
               axisLine={false}
               minTickGap={18}
-              tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+              tick={{ fill: "#d4d4d8", fontSize: 11 }}
             />
             <YAxis
               tickFormatter={formatYAxis}
               tickLine={false}
               axisLine={false}
-              tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+              tick={{ fill: "#d4d4d8", fontSize: 11 }}
               width={44}
             />
             <RechartsTooltip content={<CustomTooltip />} />
