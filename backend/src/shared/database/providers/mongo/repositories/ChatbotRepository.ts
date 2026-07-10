@@ -12509,6 +12509,27 @@ export class ChatbotRepository implements IChatbotRepository {
                   '$closedAt',
                 ],
               },
+              _effectiveCreatedAt: {
+                $let: {
+                  vars: {
+                    istHour: { $hour: { date: "$createdAt", timezone: "Asia/Kolkata" } },
+                    istDateTrunc: { $dateTrunc: { date: "$createdAt", unit: "day", timezone: "Asia/Kolkata" } }
+                  },
+                  in: {
+                    $cond: {
+                      if: { $gte: ["$$istHour", 22] },
+                      then: { $dateAdd: { startDate: "$$istDateTrunc", unit: "hour", amount: 30 } },
+                      else: {
+                        $cond: {
+                          if: { $lt: ["$$istHour", 6] },
+                          then: { $dateAdd: { startDate: "$$istDateTrunc", unit: "hour", amount: 6 } },
+                          else: "$createdAt"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
             },
           },
           {
@@ -12520,7 +12541,12 @@ export class ChatbotRepository implements IChatbotRepository {
                   {$gte: ['$_operationalCompletionAt', '$createdAt']},
                   {
                     $lte: [
-                      {$subtract: ['$_operationalCompletionAt', '$createdAt']},
+                      {
+                        $max: [
+                          0,
+                          {$subtract: ['$_operationalCompletionAt', '$_effectiveCreatedAt']}
+                        ]
+                      },
                       2 * 60 * 60 * 1000,
                     ],
                   },
@@ -14323,7 +14349,10 @@ export class ChatbotRepository implements IChatbotRepository {
         ? {
             $gt: [
               {
-                $subtract: ['$_operationalCompletionAt', '$createdAt'],
+                $max: [
+                  0,
+                  {$subtract: ['$_operationalCompletionAt', '$_effectiveCreatedAt']}
+                ]
               },
               2 * 60 * 60 * 1000,
             ],
@@ -14331,7 +14360,10 @@ export class ChatbotRepository implements IChatbotRepository {
         : {
             $lte: [
               {
-                $subtract: ['$_operationalCompletionAt', '$createdAt'],
+                $max: [
+                  0,
+                  {$subtract: ['$_operationalCompletionAt', '$_effectiveCreatedAt']}
+                ]
               },
               2 * 60 * 60 * 1000,
             ],
@@ -14351,6 +14383,27 @@ export class ChatbotRepository implements IChatbotRepository {
               '$closedAt',
             ],
           },
+          _effectiveCreatedAt: {
+            $let: {
+              vars: {
+                istHour: { $hour: { date: "$createdAt", timezone: "Asia/Kolkata" } },
+                istDateTrunc: { $dateTrunc: { date: "$createdAt", unit: "day", timezone: "Asia/Kolkata" } }
+              },
+              in: {
+                $cond: {
+                  if: { $gte: ["$$istHour", 22] },
+                  then: { $dateAdd: { startDate: "$$istDateTrunc", unit: "hour", amount: 30 } },
+                  else: {
+                    $cond: {
+                      if: { $lt: ["$$istHour", 6] },
+                      then: { $dateAdd: { startDate: "$$istDateTrunc", unit: "hour", amount: 6 } },
+                      else: "$createdAt"
+                    }
+                  }
+                }
+              }
+            }
+          }
         },
       },
       {

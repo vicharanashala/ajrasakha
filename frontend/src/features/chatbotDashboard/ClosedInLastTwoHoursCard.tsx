@@ -318,7 +318,7 @@ export function ClosedInLastTwoHoursCard({
                   suffix=""
                   decimals={0}
                   accent="red"
-                  tooltip="Question resolution took more than 2 hours"
+                  tooltip="Questions exceeding 2 hours based on expert working hours. Questions received between 10:00 PM and 6:00 AM start counting from 6:00 AM"
                   onClick={() => {
                     setIsPassed(true);
                     setClosedWithInTowhours(true);
