@@ -72,6 +72,34 @@ export function useMapAnalytics({
     );
   }, [allStatesData]);
 
+  const stateRankMap = useMemo(() => {
+  if (!allStatesData) return new Map<string, number>();
+
+  const sorted = [...allStatesData].sort((a, b) => {
+    switch (metric) {
+      case "users":
+        return b.totalUsers - a.totalUsers;
+
+      case "activeUsers":
+        return b.activeUsers - a.activeUsers;
+
+      default:
+        return b.totalQuestions - a.totalQuestions;
+    }
+  });
+
+  const map = new Map<string, number>();
+
+  sorted.forEach((state, index) => {
+    map.set(
+      state.state.toLowerCase(),
+      sorted.length - index,
+    );
+  });
+
+  return map;
+}, [allStatesData, metric]);
+
   const statesWithData = useMemo(() => {
     if (!statesGeo) return null;
 
@@ -104,12 +132,15 @@ export function useMapAnalytics({
               users: analytics?.totalUsers ?? 0,
               activeUsers: analytics?.activeUsers ?? 0,
               coordinators: analytics?.coordinators ?? 0,
+                rank: stateRankMap.get(
+    stateName.toLowerCase(),
+  ) ?? 0,
             },
           },
         };
       }),
     };
-  }, [statesGeo, analyticsMap]);
+  }, [statesGeo, analyticsMap, stateRankMap]);
 
   const districtMap = useMemo(() => {
     if (!districtAnalytics) return new Map();
@@ -139,19 +170,6 @@ export function useMapAnalytics({
 
   const map = new Map<string, number>();
   
-  console.log(`District Ranking (${metric}):`);
-
-  sorted.forEach((district, index) => {
-  const rank = sorted.length - index;
-
-  console.log({
-    district: district.district,
-    rank,
-    questions: district.totalQuestions,
-    users: district.totalUsers,
-    activeUsers: district.activeUsers,
-  });
-});
 
   sorted.forEach((district, index) => {
     map.set(
@@ -195,6 +213,11 @@ export function useMapAnalytics({
         const districtName = String(f.properties.NAME_2);
 
         const analytics = districtMap.get(districtName.toLowerCase());
+
+        console.log({
+  district: districtName,
+  analytics,
+});
 
         return {
           type: f.type ?? "Feature",
@@ -283,28 +306,20 @@ export function useMapAnalytics({
 
   let arr: number[];
 
-  if (level === "state") {
-    // District map -> use ranks
-    arr = geo.features
-      .map((f) => f.properties._analytics.rank ?? -1)
-      .filter((v) => v >= 0);
-  } else {
-    // India map -> use actual values
-    arr = geo.features.map((f) => {
-      const analytics = f.properties._analytics;
+arr = geo.features.map((f) => {
+  const analytics = f.properties._analytics;
 
-      switch (metric) {
-        case "users":
-          return analytics.users;
+  switch (metric) {
+    case "users":
+      return analytics.users;
 
-        case "activeUsers":
-          return analytics.activeUsers;
+    case "activeUsers":
+      return analytics.activeUsers;
 
-        default:
-          return analytics.questions;
-      }
-    });
+    default:
+      return analytics.questions;
   }
+});
 
   return [
     Math.min(...arr),
