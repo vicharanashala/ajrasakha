@@ -1,7 +1,7 @@
 import { ObjectId } from 'mongodb';
 
 export type UserRole = 'admin' | 'moderator' | 'expert' | 'pae_expert' | 'tester'| 'district_coordinator' | 'block_coordinator' | 'village_volunteer' | 'call_agent' | 'gate_keeper' | 'auditor';
-export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold' | 'pae_submitted' | 'draft' | 'pass' | 'duplicate' | 'non_agri' | 'pending' | 'dynamic' | 'queue_progress' | 'auditor_review' | 'dynamic_closed'|'queue_duplicate' | 'duplicate_confirmed'
+export type QuestionStatus = 'open' | 'in-review' | 'closed' | 'delayed' | 're-routed' | 'hold' | 'pae_submitted' | 'draft' | 'pass' | 'duplicate' | 'non_agri' | 'pending' | 'dynamic' | 'queue_progress' | 'auditor_review' | 'dynamic_closed'|'queue_duplicate' | 'duplicate_confirmed' | 'duplicate_closed'
 export type Tags = 'dynamic' | 'static_dynamic'
 export interface IPreference {
   state: string;

@@ -1918,9 +1918,18 @@ answer: ${updates.answer}`;
         question.tag === 'static_dynamic' ||
         (question.status === 'auditor_review' &&
           question.auditorReviewType === 'dynamic');
-      const closeStatus: QuestionStatus = isDynamicClose
-        ? 'dynamic_closed'
-        : 'closed';
+      // Duplicate questions finalised via the Auditor "Notify User" flow close as
+      // `duplicate_closed` (same handling as dynamic's `dynamic_closed`). The customer
+      // webhook carries this status too (via notifyCustomerOnClose(..., closeStatus)).
+      const isDuplicateClose =
+        question.status === 'duplicate' ||
+        (question.status === 'auditor_review' &&
+          question.auditorReviewType === 'duplicate');
+      const closeStatus: QuestionStatus = isDuplicateClose
+        ? 'duplicate_closed'
+        : isDynamicClose
+          ? 'dynamic_closed'
+          : 'closed';
 
       // DUPLICATE / DYNAMIC QUESTION FLOW
       // Create final approved answer directly from LLM answer
@@ -2192,7 +2201,8 @@ answer: ${updates.answer}`;
 
         const referenceClosed =
           reference.status === 'closed' ||
-          reference.status === 'dynamic_closed';
+          reference.status === 'dynamic_closed' ||
+          reference.status === 'duplicate_closed';
 
         // CASE A — reference already closed: replicate its final answer onto this
         // question, system-close it and notify the customer.

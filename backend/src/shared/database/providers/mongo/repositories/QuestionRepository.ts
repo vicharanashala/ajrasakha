@@ -2155,11 +2155,13 @@ export class QuestionRepository implements IQuestionRepository {
 
       // 7.2 If question is closed with no submission queue, fetch the final answer directly.
       // `dynamic_closed` (dynamic questions finalised via the Auditor "Notify User" flow)
-      // is treated the same as `closed` so its final answer shows in the timeline too.
+      // and `duplicate_closed` (duplicate questions finalised the same way) are treated the
+      // same as `closed` so their final answer shows in the timeline too.
       let closedFinalAnswer: any = null;
       if (
         (question.status === 'closed' ||
-          question.status === 'dynamic_closed') &&
+          question.status === 'dynamic_closed' ||
+          question.status === 'duplicate_closed') &&
         (submission?.queue?.length ?? 0) === 0
       ) {
         const fa = await this.AnswersCollection.findOne({

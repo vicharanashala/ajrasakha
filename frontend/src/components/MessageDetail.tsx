@@ -724,7 +724,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
             toast.success(
                 isAcceptFlow
                     ? "LLM answer submitted successfully for author review"
-                    : isDynamicQuestion
+                    : (isDynamicQuestion || isDuplicateQuestion)
                         ? "Answer will be sent to the user"
                         : "Answer pushed to GDB successfully"
             );
@@ -991,13 +991,19 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                         <p className="text-xs text-muted-foreground leading-relaxed md:max-w-[60%]">
                             {isDynamicQuestion
                                 ? "As Auditor you can notify the user and close this dynamic question."
-                                : "As Auditor you can push this duplicate question to the GDB."}
+                                : "As Auditor you can push this duplicate question to the GDB, or notify the user."}
                         </p>
                         <div className="flex flex-wrap items-center justify-end gap-2 md:shrink-0">
                             {isDuplicateQuestion && (
                                 <Button type="button" variant="destructive" size="sm" disabled={isUpdating || !editedAnswerBody.trim()} onClick={handlePushToGDB} className="gap-2 rounded-xl px-4">
                                     {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
                                     {isUpdating ? "Pushing to GDB..." : "Push to GDB"}
+                                </Button>
+                            )}
+                            {isDuplicateQuestion && (
+                                <Button type="button" size="sm" disabled={isUpdating || !editedAnswerBody.trim()} onClick={handlePushToGDB} className="gap-2 rounded-xl px-4 bg-primary text-primary-foreground hover:opacity-90">
+                                    {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                                    {isUpdating ? "Notifying..." : "Notify User"}
                                 </Button>
                             )}
                             {isDynamicQuestion && (

@@ -356,6 +356,7 @@ class QuestionResponse {
     'queue_progress',
     'auditor_review',
     'dynamic_closed',
+    'duplicate_closed',
   ])
   status?: QuestionStatus;
 

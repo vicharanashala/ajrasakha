@@ -33,6 +33,7 @@ const statusBadgeClass = (status: string) => {
   switch (status) {
     case "closed":
     case "dynamic_closed":
+    case "duplicate_closed":
       return "bg-gray-500/10 text-gray-600 border-gray-500/30";
     case "duplicate":
     case "queue_duplicate":
