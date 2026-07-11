@@ -195,6 +195,7 @@ export class UserController {
     },
 
   ) {
+    console.log("Backend Test")
     const pageNum = Number(query.page) || 1;
     const limitNum = Number(query.limit) || 10;
     const search = query.search || '';
