@@ -490,4 +490,11 @@ export interface IChatbotService {
     district?: string,
     search?: string,
   ) : Promise<any>
+
+    getClosedInLastTwoHoursByLocation(
+    source?: string,
+    userType?: string,
+    state?: string,
+    district?: string,
+  ): Promise<any>
 }

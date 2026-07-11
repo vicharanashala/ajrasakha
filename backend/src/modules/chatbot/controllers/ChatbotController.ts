@@ -2201,4 +2201,17 @@ export class ChatbotController {
     );
   }
 
+
+  @Get('/closed-question-by-location')
+  @HttpCode(200)
+  @Authorized()
+  async getClosedInLastTwoHoursByLocation(@QueryParams() query: any) {
+    return this.chatbotService.getClosedInLastTwoHoursByLocation(
+      query.source,
+      query.userType,
+      query.state,
+      query.district,
+    );
+  }
+
 }

@@ -711,4 +711,14 @@ export class ChatbotService {
       `${this._baseUrl}/feedback-by-location?${params.toString()}`
     );
   }
+
+  async getClosedInLastTwoHoursByLocation({source, userType, state, district}:{source?: string, userType?: string, state?: string, district?: string}){
+    const params = new URLSearchParams();
+    if(source) params.append("source", source);
+    if(userType) params.append("userType", userType);
+    if(state) params.append("state", state);
+    if(district) params.append("district", district);
+
+    return apiFetch<any>(`${this._baseUrl}/closed-question-by-location?${params.toString()}`)
+  }
 }

@@ -113,3 +113,24 @@ export const useFeedbackLocation =({
     enabled,
   });
 }
+
+export const useClosedQuestionLocation = ({source, userType, state, district, enabled=true}:{source?: string, userType?: string, state?: string, district?: string, enabled?: boolean})=>{
+  return useQuery({
+    queryKey: [
+      "closed-question-location",
+      source,
+      userType,
+      state,
+      district,
+    ],
+    queryFn: () => {
+      return chatbotService.getClosedInLastTwoHoursByLocation({
+        source,
+        userType,
+        state,
+        district,
+      });
+    },
+    enabled,
+  });
+}

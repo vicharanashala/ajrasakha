@@ -1158,6 +1158,13 @@ export interface IChatbotRepository {
     search?: string,
     session?: ClientSession,
   ): Promise<PaginatedFeedbackMessages>
+
+  getClosedInLastTwoHoursByLocation(
+    source?: string,
+    userType?: string,
+    state?: string,
+    district?: string,
+  ): Promise<any>
     
 }
 

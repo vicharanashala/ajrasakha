@@ -33,6 +33,8 @@ import { QueryCategoryQuestionsModal } from "../../QueryCategoryQuestionsModal";
 import { ActiveUserDetailsModal } from "@/features/chatbotDashboard/ActiveUserDetailsTable";
 import { useUserMertices } from "@/features/chatbotDashboard/hooks/useDashboardData";
 import { FeedbackUsersModal } from "@/features/chatbotDashboard/FeedbackUsersModal";
+import { useClosedQuestionLocation } from "@/features/chatbotDashboard/hooks/useFeedbackUsers";
+import { ClosedInLastTwoHoursCard } from "@/features/chatbotDashboard/ClosedInLastTwoHoursCard";
 interface MapFeatureBase {
   type: string;
   properties: Record<string, unknown>;
@@ -100,12 +102,25 @@ export function DetailSidebar({
   const [showUsersModal, setShowUsersModal] = useState(false);
   const [showFeedBackModal, setShowFeedBackModal] = useState(false);
   const [rating, setRating] = useState<"all" | "positive" | "negative">("all");
+  const [showResolutionModal, setShowResolutionModal] = useState(false);
 
   const { data: userMetricesData } = useUserMertices(
     source as any,
     userType as any,
     true,
   );
+
+  const {
+  data: closedQuestionLocationData,
+  isLoading: isClosedQuestionLoading,
+} = useClosedQuestionLocation({
+  source,
+  userType,
+  state: selectedState ?? undefined,
+  district: selectedDistrict ?? undefined,
+  enabled: !isIndiaView,
+});
+
   // Calculate aggregated analytics
 
   const stateAnalytics =
@@ -177,6 +192,25 @@ export function DetailSidebar({
   const activeAnalytics =
     districtAnalytics ?? stateAnalytics ?? countryAnalytics;
   // const isIndiaView = !selectedState && !selectedDistrict;
+
+const closedData = isIndiaView
+  ? questionStatusData?.closedInLastTwoHours
+  : closedQuestionLocationData;
+
+const safeCount =
+  closedData?.closedInTwoHoursCount ?? 0;
+
+const safeTotalClosed =
+  closedData?.totalClosedCount ?? 0;
+
+const totalPassed =
+  closedData?.totalPassCount ?? 0;
+
+const passedInLastTwoHours =
+  closedData?.passInTwoHoursCount ?? 0;
+
+  const combinedPct = ((safeCount + passedInLastTwoHours) / (safeTotalClosed + totalPassed)) *
+      100 || 0;
 
   const { data: allUsers } = useUserDetails(
     undefined,
@@ -457,17 +491,36 @@ export function DetailSidebar({
               icon={<Building2 className="h-3.5 w-3.5" />}
             />
             <StatCard
-              label="Avg closure"
-              value={`${
-                districtAnalytics || stateAnalytics
-                  ? (activeAnalytics.closureHrs / 60).toFixed(2)
-                  : (
-                      questionStatusData?.closedVsTotalQuestions.closed
-                        .avgTimeMinutes / 60
-                    ).toFixed(2)
-              }h`}
+             onClick={() => setShowResolutionModal(true)}
+              label="Resolution Rate"
+              value={
+                 isLoading || isClosedQuestionLoading
+    ? <Skeleton className="h-6 w-16" />
+    : `${combinedPct.toFixed(1)}%`
+              }
               icon={<Activity className="h-3.5 w-3.5" />}
             />
+            {showResolutionModal && (
+  <div
+    className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+    onClick={() => setShowResolutionModal(false)}
+  >
+    <div
+      className="w-[900px] max-w-[95vw]"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <ClosedInLastTwoHoursCard
+        source={source}
+        userType={userType}
+        closedInLastTwoHours={safeCount}
+        totalClosed={safeTotalClosed}
+        passedInLastTwoHours={passedInLastTwoHours}
+        totalPassed={totalPassed}
+        isMapComponent={true}
+      />
+    </div>
+  </div>
+)}
           </div>
         )}
 

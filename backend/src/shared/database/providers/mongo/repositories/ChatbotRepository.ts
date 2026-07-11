@@ -8851,7 +8851,7 @@ export class ChatbotRepository implements IChatbotRepository {
         {
           ...userDocFilter,
           farmerProfile: {$exists: true, $ne: null},
-          isVerified:true
+          isVerified: true,
         },
         {session},
       );
@@ -9250,7 +9250,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const normalizedPlatform = platform?.trim();
       const basePlatformFilter = {
         farmerProfile: {$exists: true, $ne: null},
-        isVerified:true
+        isVerified: true,
       };
       const platformFilter =
         normalizedPlatform === 'Unknown'
@@ -9427,7 +9427,7 @@ export class ChatbotRepository implements IChatbotRepository {
               {
                 $match: {
                   farmerProfile: {$exists: true, $ne: null},
-                  isVerified:true,
+                  isVerified: true,
                   ...userDocFilter,
                 },
               },
@@ -9455,7 +9455,7 @@ export class ChatbotRepository implements IChatbotRepository {
               {
                 $match: {
                   farmerProfile: {$exists: true, $ne: null},
-                  isVerified:true,
+                  isVerified: true,
                   ...userDocFilter,
                 },
               },
@@ -10406,7 +10406,13 @@ export class ChatbotRepository implements IChatbotRepository {
     page: number = 1,
     limit: number = 10,
     session?: ClientSession,
-  ): Promise<{ data: any[]; total: number; page: number; limit: number; totalPages: number }> {
+  ): Promise<{
+    data: any[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
     try {
       await this.initReviewSystem();
       const matchQuery = buildBaseQuestionMatch('whatsapp');
@@ -10442,10 +10448,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const result = await this.QuestionCollection.aggregate(
         [
-          { $match: matchQuery },
+          {$match: matchQuery},
           {
             $addFields: {
-              resolvedId: { $ifNull: ['$referenceQuestionId', '$_id'] },
+              resolvedId: {$ifNull: ['$referenceQuestionId', '$_id']},
             },
           },
           {
@@ -10453,13 +10459,13 @@ export class ChatbotRepository implements IChatbotRepository {
               resolvedId: qId,
             },
           },
-          { $sort: { createdAt: -1 } },
+          {$sort: {createdAt: -1}},
           {
             $facet: {
-              metadata: [{ $count: 'total' }],
+              metadata: [{$count: 'total'}],
               data: [
-                { $skip: skip },
-                { $limit: limit },
+                {$skip: skip},
+                {$limit: limit},
                 {
                   $project: {
                     _id: 1,
@@ -10477,7 +10483,7 @@ export class ChatbotRepository implements IChatbotRepository {
             },
           },
         ],
-        { session },
+        {session},
       ).toArray();
 
       const total = result[0]?.metadata[0]?.total || 0;
@@ -12512,24 +12518,44 @@ export class ChatbotRepository implements IChatbotRepository {
               _effectiveCreatedAt: {
                 $let: {
                   vars: {
-                    istHour: { $hour: { date: "$createdAt", timezone: "Asia/Kolkata" } },
-                    istDateTrunc: { $dateTrunc: { date: "$createdAt", unit: "day", timezone: "Asia/Kolkata" } }
+                    istHour: {
+                      $hour: {date: '$createdAt', timezone: 'Asia/Kolkata'},
+                    },
+                    istDateTrunc: {
+                      $dateTrunc: {
+                        date: '$createdAt',
+                        unit: 'day',
+                        timezone: 'Asia/Kolkata',
+                      },
+                    },
                   },
                   in: {
                     $cond: {
-                      if: { $gte: ["$$istHour", 22] },
-                      then: { $dateAdd: { startDate: "$$istDateTrunc", unit: "hour", amount: 30 } },
+                      if: {$gte: ['$$istHour', 22]},
+                      then: {
+                        $dateAdd: {
+                          startDate: '$$istDateTrunc',
+                          unit: 'hour',
+                          amount: 30,
+                        },
+                      },
                       else: {
                         $cond: {
-                          if: { $lt: ["$$istHour", 6] },
-                          then: { $dateAdd: { startDate: "$$istDateTrunc", unit: "hour", amount: 6 } },
-                          else: "$createdAt"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
+                          if: {$lt: ['$$istHour', 6]},
+                          then: {
+                            $dateAdd: {
+                              startDate: '$$istDateTrunc',
+                              unit: 'hour',
+                              amount: 6,
+                            },
+                          },
+                          else: '$createdAt',
+                        },
+                      },
+                    },
+                  },
+                },
+              },
             },
           },
           {
@@ -12544,8 +12570,13 @@ export class ChatbotRepository implements IChatbotRepository {
                       {
                         $max: [
                           0,
-                          {$subtract: ['$_operationalCompletionAt', '$_effectiveCreatedAt']}
-                        ]
+                          {
+                            $subtract: [
+                              '$_operationalCompletionAt',
+                              '$_effectiveCreatedAt',
+                            ],
+                          },
+                        ],
                       },
                       2 * 60 * 60 * 1000,
                     ],
@@ -14351,8 +14382,13 @@ export class ChatbotRepository implements IChatbotRepository {
               {
                 $max: [
                   0,
-                  {$subtract: ['$_operationalCompletionAt', '$_effectiveCreatedAt']}
-                ]
+                  {
+                    $subtract: [
+                      '$_operationalCompletionAt',
+                      '$_effectiveCreatedAt',
+                    ],
+                  },
+                ],
               },
               2 * 60 * 60 * 1000,
             ],
@@ -14362,8 +14398,13 @@ export class ChatbotRepository implements IChatbotRepository {
               {
                 $max: [
                   0,
-                  {$subtract: ['$_operationalCompletionAt', '$_effectiveCreatedAt']}
-                ]
+                  {
+                    $subtract: [
+                      '$_operationalCompletionAt',
+                      '$_effectiveCreatedAt',
+                    ],
+                  },
+                ],
               },
               2 * 60 * 60 * 1000,
             ],
@@ -14386,24 +14427,44 @@ export class ChatbotRepository implements IChatbotRepository {
           _effectiveCreatedAt: {
             $let: {
               vars: {
-                istHour: { $hour: { date: "$createdAt", timezone: "Asia/Kolkata" } },
-                istDateTrunc: { $dateTrunc: { date: "$createdAt", unit: "day", timezone: "Asia/Kolkata" } }
+                istHour: {
+                  $hour: {date: '$createdAt', timezone: 'Asia/Kolkata'},
+                },
+                istDateTrunc: {
+                  $dateTrunc: {
+                    date: '$createdAt',
+                    unit: 'day',
+                    timezone: 'Asia/Kolkata',
+                  },
+                },
               },
               in: {
                 $cond: {
-                  if: { $gte: ["$$istHour", 22] },
-                  then: { $dateAdd: { startDate: "$$istDateTrunc", unit: "hour", amount: 30 } },
+                  if: {$gte: ['$$istHour', 22]},
+                  then: {
+                    $dateAdd: {
+                      startDate: '$$istDateTrunc',
+                      unit: 'hour',
+                      amount: 30,
+                    },
+                  },
                   else: {
                     $cond: {
-                      if: { $lt: ["$$istHour", 6] },
-                      then: { $dateAdd: { startDate: "$$istDateTrunc", unit: "hour", amount: 6 } },
-                      else: "$createdAt"
-                    }
-                  }
-                }
-              }
-            }
-          }
+                      if: {$lt: ['$$istHour', 6]},
+                      then: {
+                        $dateAdd: {
+                          startDate: '$$istDateTrunc',
+                          unit: 'hour',
+                          amount: 6,
+                        },
+                      },
+                      else: '$createdAt',
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
       },
       {
@@ -14858,7 +14919,9 @@ export class ChatbotRepository implements IChatbotRepository {
         const searchUserIds = matchingUsers.map(user => user._id.toString());
 
         if (matchQuery.user && matchQuery.user.$in) {
-          matchQuery.user.$in = matchQuery.user.$in.filter((id: string) => searchUserIds.includes(id));
+          matchQuery.user.$in = matchQuery.user.$in.filter((id: string) =>
+            searchUserIds.includes(id),
+          );
         } else {
           matchQuery.user = {
             $in: searchUserIds,
@@ -18480,143 +18543,404 @@ export class ChatbotRepository implements IChatbotRepository {
       });
       const locationMatch: any = {};
 
-    if (state) {
-  locationMatch['_userDoc.farmerProfile.state'] = {
-    $regex: `^${state}$`,
-    $options: 'i',
-  };
-}
+      if (state) {
+        locationMatch['_userDoc.farmerProfile.state'] = {
+          $regex: `^${state}$`,
+          $options: 'i',
+        };
+      }
 
-if (district) {
-  let normalizedDistrict = this.normalizeDistrictName(district)
- if(normalizedDistrict === "ananthapuramu"){
-  normalizedDistrict = "anantapur"
- }
-  locationMatch['_userDoc.farmerProfile.district'] = {
-    $regex: `^${normalizedDistrict}$`,
-    $options: 'i',
-  };
-}
-
-if (Object.keys(locationMatch).length) {
-  pipeline.push({
-    $match: locationMatch,
-  });
-}
-        if (search) {
-          const regex = new RegExp(search, 'i');
-
-          pipeline.push({
-            $match: {
-              $or: [
-                {
-                  question: {
-                    $regex: regex,
-                  },
-                },
-                {
-                  response: {
-                    $regex: regex,
-                  },
-                },
-                {
-                  'feedback.tag': {
-                    $regex: regex,
-                  },
-                },
-                {
-                  'feedback.details': {
-                    $regex: regex,
-                  },
-                },
-                {
-                  '_userDoc.farmerProfile.farmerName': {
-                    $regex: regex,
-                  },
-                },
-              ],
-            },
-          });
+      if (district) {
+        let normalizedDistrict = this.normalizeDistrictName(district);
+        if (normalizedDistrict === 'ananthapuramu') {
+          normalizedDistrict = 'anantapur';
         }
-        const sortStage: any = {};
+        locationMatch['_userDoc.farmerProfile.district'] = {
+          $regex: `^${normalizedDistrict}$`,
+          $options: 'i',
+        };
+      }
 
-        sortStage[sortBy] = sortOrder === 'asc' ? 1 : -1;
-
+      if (Object.keys(locationMatch).length) {
         pipeline.push({
-          $sort: sortStage,
+          $match: locationMatch,
         });
-
-        const skip = (page - 1) * limit;
+      }
+      if (search) {
+        const regex = new RegExp(search, 'i');
 
         pipeline.push({
-          $facet: {
-            metadata: [
+          $match: {
+            $or: [
               {
-                $count: 'total',
-              },
-            ],
-
-            data: [
-              {
-                $skip: skip,
+                question: {
+                  $regex: regex,
+                },
               },
               {
-                $limit: limit,
+                response: {
+                  $regex: regex,
+                },
               },
               {
-                $project: {
-                  _id: 1,
-
-                  conversationId: 1,
-
-                  userId: '$_userDoc._id',
-
-                  farmerName: '$_userDoc.farmerProfile.farmerName',
-
-                  email: '$_userDoc.email',
-
-                  village: '$_userDoc.farmerProfile.villageName',
-
-                  block: '$_userDoc.farmerProfile.blockName',
-
-                  district: '$_userDoc.farmerProfile.district',
-
-                  state: '$_userDoc.farmerProfile.state',
-
-                  question: 1,
-
-                  response: 1,
-
-                  feedback: 1,
-
-                  createdAt: 1,
+                'feedback.tag': {
+                  $regex: regex,
+                },
+              },
+              {
+                'feedback.details': {
+                  $regex: regex,
+                },
+              },
+              {
+                '_userDoc.farmerProfile.farmerName': {
+                  $regex: regex,
                 },
               },
             ],
           },
         });
-        const result = await this.messagesCollection
-          .aggregate(pipeline, {
-            session,
-          })
-          .toArray();
-        const totalFeedbacks = result[0]?.metadata[0]?.total ?? 0;
+      }
+      const sortStage: any = {};
 
-        const messages = result[0]?.data ?? [];
+      sortStage[sortBy] = sortOrder === 'asc' ? 1 : -1;
 
-        return {
-          messages,
+      pipeline.push({
+        $sort: sortStage,
+      });
 
-          totalFeedbacks,
+      const skip = (page - 1) * limit;
 
-          totalPages: Math.ceil(totalFeedbacks / limit),
+      pipeline.push({
+        $facet: {
+          metadata: [
+            {
+              $count: 'total',
+            },
+          ],
 
-          currentPage: page,
-        };
+          data: [
+            {
+              $skip: skip,
+            },
+            {
+              $limit: limit,
+            },
+            {
+              $project: {
+                _id: 1,
+
+                conversationId: 1,
+
+                userId: '$_userDoc._id',
+
+                farmerName: '$_userDoc.farmerProfile.farmerName',
+
+                email: '$_userDoc.email',
+
+                village: '$_userDoc.farmerProfile.villageName',
+
+                block: '$_userDoc.farmerProfile.blockName',
+
+                district: '$_userDoc.farmerProfile.district',
+
+                state: '$_userDoc.farmerProfile.state',
+
+                question: 1,
+
+                response: 1,
+
+                feedback: 1,
+
+                createdAt: 1,
+              },
+            },
+          ],
+        },
+      });
+      const result = await this.messagesCollection
+        .aggregate(pipeline, {
+          session,
+        })
+        .toArray();
+      const totalFeedbacks = result[0]?.metadata[0]?.total ?? 0;
+
+      const messages = result[0]?.data ?? [];
+
+      return {
+        messages,
+
+        totalFeedbacks,
+
+        totalPages: Math.ceil(totalFeedbacks / limit),
+
+        currentPage: page,
+      };
     } catch (error) {
       throw new InternalServerError(
         `Failed to get feedback by location: ${error}`,
       );
     }
   }
+async getClosedInLastTwoHoursByLocation(
+  source?: string,
+  userType?: string,
+  state?: string,
+  district?: string,
+): Promise<any> {
+  try {
+    await this.initReviewSystem();
+
+    const matchStage = buildBaseQuestionMatch(source);
+
+    const query = await this.buildQuestionUserTypeMatchQuery(
+      source,
+      userType,
+    );
+
+    if (query && Object.keys(query).length > 0) {
+      matchStage.$and.push(query);
+    }
+
+    if (source === 'both') {
+      matchStage.source = {
+        $in: ['WHATSAPP', 'AJRASAKHA'],
+      };
+    }
+
+    matchStage.status = {
+      $in: ['closed', 'pass'],
+    };
+
+    if (state) {
+      matchStage['details.state'] = {
+        $regex: `^${state}$`,
+        $options: 'i',
+      };
+    }
+
+    if (district) {
+      matchStage['details.district'] = {
+        $regex: `^${district}$`,
+        $options: 'i',
+      };
+    }
+
+    const [totalCountResult, lastTwoHoursResult] = await Promise.all([
+      this.QuestionCollection.aggregate([
+        {
+          $match: matchStage,
+        },
+        {
+          $addFields: {
+            _statusLower: {
+              $toLower: {
+                $ifNull: ['$status', ''],
+              },
+            },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+
+            closedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $eq: ['$_statusLower', 'closed'],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+
+            passCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $eq: ['$_statusLower', 'pass'],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+      ]).toArray(),
+
+      this.QuestionCollection.aggregate([
+        {
+          $match: matchStage,
+        },
+        {
+          $addFields: {
+            _statusLower: {
+              $toLower: {
+                $ifNull: ['$status', ''],
+              },
+            },
+
+            _operationalCompletionAt: {
+              $cond: [
+                {
+                  $eq: [
+                    {
+                      $toLower: {
+                        $ifNull: ['$status', ''],
+                      },
+                    },
+                    'pass',
+                  ],
+                },
+                '$passedAt',
+                '$closedAt',
+              ],
+            },
+
+            _effectiveCreatedAt: {
+              $let: {
+                vars: {
+                  istHour: {
+                    $hour: {
+                      date: '$createdAt',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
+
+                  istDateTrunc: {
+                    $dateTrunc: {
+                      date: '$createdAt',
+                      unit: 'day',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
+                },
+
+                in: {
+                  $cond: {
+                    if: {
+                      $gte: ['$$istHour', 22],
+                    },
+
+                    then: {
+                      $dateAdd: {
+                        startDate: '$$istDateTrunc',
+                        unit: 'hour',
+                        amount: 30,
+                      },
+                    },
+
+                    else: {
+                      $cond: {
+                        if: {
+                          $lt: ['$$istHour', 6],
+                        },
+
+                        then: {
+                          $dateAdd: {
+                            startDate: '$$istDateTrunc',
+                            unit: 'hour',
+                            amount: 6,
+                          },
+                        },
+
+                        else: '$createdAt',
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        {
+          $match: {
+            _statusLower: {
+              $in: ['closed', 'pass'],
+            },
+
+            _operationalCompletionAt: {
+              $ne: null,
+            },
+
+            $expr: {
+              $and: [
+                {
+                  $gte: [
+                    '$_operationalCompletionAt',
+                    '$createdAt',
+                  ],
+                },
+                {
+                  $lte: [
+                    {
+                      $max: [
+                        0,
+                        {
+                          $subtract: [
+                            '$_operationalCompletionAt',
+                            '$_effectiveCreatedAt',
+                          ],
+                        },
+                      ],
+                    },
+                    2 * 60 * 60 * 1000,
+                  ],
+                },
+              ],
+            },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+
+            closedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $eq: ['$_statusLower', 'closed'],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+
+            passCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $eq: ['$_statusLower', 'pass'],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+      ]).toArray(),
+    ]);
+
+    return {
+      totalClosedCount: totalCountResult[0]?.closedCount ?? 0,
+      totalPassCount: totalCountResult[0]?.passCount ?? 0,
+
+      closedInTwoHoursCount:
+        lastTwoHoursResult[0]?.closedCount ?? 0,
+
+      passInTwoHoursCount:
+        lastTwoHoursResult[0]?.passCount ?? 0,
+    };
+  } catch (error) {
+    throw new InternalServerError(
+      `Failed to get closed questions by location: ${error}`,
+    );
+  }
+}
+
 }
