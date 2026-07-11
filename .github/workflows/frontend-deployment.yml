@@ -125,4 +125,4 @@ jobs:
           # channelId: live
           channelId: workflow-test
           projectId: ${{ secrets.FIREBASE_PROJECT_ID }}
-          entryPoint: ./frontend
+          entryPoint: .
