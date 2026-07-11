@@ -78,5 +78,9 @@ jobs:
             LGD_SUBDISTRICTS_API_URL=${{ secrets.LGD_SUBDISTRICTS_API_URL }}
             LGD_VILLAGES_API_URL=${{ secrets.LGD_VILLAGES_API_URL }}
             LGD_API_KEY=${{ secrets.LGD_API_KEY }}
+            ANNAM_URL_ANALYTICS=${{ secrets.ANNAM_URL_ANALYTICS }}
+            ANNAM_DB_ANALYTICS=${{ secrets.ANNAM_DB_ANALYTICS }}
+            DB_URL_ANALYTICS=${{ secrets.DB_URL_ANALYTICS }}
+            DB_NAME_ANALYTICS=${{ secrets.DB_NAME_ANALYTICS }}
 
           flags: --allow-unauthenticated
