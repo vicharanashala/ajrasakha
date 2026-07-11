@@ -1,0 +1,111 @@
+name: Deploy Backend to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-deploy.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  SERVICE_NAME: ajrasakha-backend
+  REGION: asia-south1
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+      - name: Determine environment
+        id: env
+        run: |
+          if [ "${{ github.event.inputs.environment }}" != "" ]; then
+            echo "DEPLOY_ENV=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          else
+            echo "DEPLOY_ENV=staging" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Get short commit SHA
+        id: vars
+        run: echo "SHA=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile.app
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/ajrasakha-docker/${{ env.SERVICE_NAME }}:${{ steps.vars.outputs.SHA }}
+            ${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/ajrasakha-docker/${{ env.SERVICE_NAME }}:latest
+
+      - name: Deploy to Cloud Run
+        run: |
+          # Get environment-specific variables
+          if [ "${{ steps.env.outputs.DEPLOY_ENV }}" = "production" ]; then
+            MIN_INSTANCES=${{ secrets.CLOUD_RUN_MIN_INSTANCES_PROD }}
+            MAX_INSTANCES=${{ secrets.CLOUD_RUN_MAX_INSTANCES_PROD }}
+            MEMORY=${{ secrets.CLOUD_RUN_MEMORY_PROD }}
+          else
+            MIN_INSTANCES=${{ secrets.CLOUD_RUN_MIN_INSTANCES_STAGING }}
+            MAX_INSTANCES=${{ secrets.CLOUD_RUN_MAX_INSTANCES_STAGING }}
+            MEMORY=${{ secrets.CLOUD_RUN_MEMORY_STAGING }}
+          fi
+
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image ${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/ajrasakha-docker/${{ env.SERVICE_NAME }}:${{ steps.vars.outputs.SHA }} \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --port 4000 \
+            --min-instances ${MIN_INSTANCES:-0} \
+            --max-instances ${MAX_INSTANCES:-10} \
+            --memory ${MEMORY:-512Mi} \
+            --set-env-vars NODE_ENV=production \
+            --set-secrets APP_SECRET=${{ secrets.APP_SECRET }},DATABASE_URL=${{ secrets.DATABASE_URL }}
+
+      - name: Show Cloud Run URL
+        run: |
+          echo "Backend deployed successfully!"
+          echo "URL: $(gcloud run services describe ${{ env.SERVICE_NAME }} --region ${{ env.REGION }} --format 'value(status.url)')"
