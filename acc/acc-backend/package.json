@@ -24,6 +24,7 @@
     "@types/express": "^5.0.0",
     "@types/node": "^22.7.5",
     "@types/ws": "^8.18.1",
+    "@types/nodemailer": "^6.4.17",
     "concurrently": "^9.1.2",
     "nodemon": "^3.1.10",
     "typescript": "^5.8.3"
@@ -43,11 +44,14 @@
     "inversify": "^7.5.2",
     "mongodb": "^6.17.0",
     "multer": "^2.0.2",
+    "nodemailer": "^7.0.3",
     "openai": "^6.27.0",
     "plivo": "^4.77.0",
     "reflect-metadata": "^0.2.2",
     "routing-controllers": "^0.11.2",
     "routing-controllers-openapi": "github:adityabmv/routing-controllers-openapi",
+    "@scalar/express-api-reference": "^0.8.4",
+    "winston": "^3.17.0",
     "ws": "^8.20.0"
   }
 }
