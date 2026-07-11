@@ -343,12 +343,12 @@ export function ClosedInLastTwoHoursCard({
                 </div>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="cursor-help text-xs font-semibold tabular-nums text-foreground underline-offset-2 hover:underline">
+                    <span className="cursor-help text-xs font-semibold tabular-nums text-foreground underline-offset-2 hover:underline ">
                       {combinedPct.toFixed(1)}%
                     </span>
                   </TooltipTrigger>
-                  <TooltipContent className="w-56 p-3">
-                    <div className="space-y-2 text-xs">
+                  <TooltipContent className="w-56 p-3 z-[9999]">
+                    <div className="space-y-2 text-xs ">
                       <div className="font-semibold">
                         Resolution Rate Breakdown
                       </div>

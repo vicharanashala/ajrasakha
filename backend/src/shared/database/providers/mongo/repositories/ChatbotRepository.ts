@@ -3059,8 +3059,7 @@ export class ChatbotRepository implements IChatbotRepository {
         ])
         .toArray();
 
-      console.log('District Feedback');
-      console.log(JSON.stringify(feedbackRaw, null, 2));
+  
 
       const districtUsers = await this.users
         .aggregate([
@@ -3140,13 +3139,12 @@ export class ChatbotRepository implements IChatbotRepository {
         ])
         .toArray();
 
-      // console.log("District user", districtUsers);
-
-      // const userMap = new Map();
-
-      // for (const item of districtUsers) {
-      //   userMap.set(this.normalizeDistrictName(item._id), item);
-      // }
+        const debugUsers = await this.users.find({
+  "farmerProfile.state": {
+    $regex: `^${state}$`,
+    $options: "i",
+  },
+}).toArray();
 
       const feedbackMap = new Map();
 
@@ -7521,16 +7519,32 @@ export class ChatbotRepository implements IChatbotRepository {
           {'farmerProfile.state': stateRegex},
         ];
       }
+      // if (district && district.trim()) {
+      //   const districtRegex = {
+      //     $regex: `^${district.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+      //     $options: 'i',
+      //   };
+      //   userFilter.$and = [
+      //     ...(userFilter.$and ?? []),
+      //     {'farmerProfile.district': districtRegex},
+      //   ];
+      // }
+
       if (district && district.trim()) {
-        const districtRegex = {
-          $regex: `^${district.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
-          $options: 'i',
-        };
-        userFilter.$and = [
-          ...(userFilter.$and ?? []),
-          {'farmerProfile.district': districtRegex},
-        ];
-      }
+  const escapedDistrict = district
+    .trim()
+    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  userFilter.$and = [
+    ...(userFilter.$and ?? []),
+    {
+      'farmerProfile.district': {
+        $regex: `^${escapedDistrict}(\\s*\\(.*\\))?$`,
+        $options: 'i',
+      },
+    },
+  ];
+}
       if (block && block.trim()) {
         const blockRegex = {
           $regex: `^${block.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
@@ -15262,8 +15276,6 @@ export class ChatbotRepository implements IChatbotRepository {
         ])
         .toArray();
 
-      console.log('State Feedback');
-      console.log(JSON.stringify(feedbackByState, null, 2));
 
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
