@@ -1103,6 +1103,21 @@ export class UserController {
     }
   }
 
+  @OpenAPI({
+    summary: 'Update call agent heartbeat',
+    description: 'Updates the last active timestamp of a call agent to prevent them from being marked offline.',
+  })
+  @Post('/call-agents/heartbeat')
+  @HttpCode(200)
+  @Authorized(['call_agent'])
+  async updateHeartbeat(
+    @CurrentUser() currentUser: IUser,
+  ): Promise<{ success: boolean }> {
+    const userId = currentUser._id.toString();
+    await this.userService.updateAgentHeartbeat(userId);
+    return { success: true };
+  }
+
 
   @OpenAPI({
     summary: 'Mark call agent as available',
