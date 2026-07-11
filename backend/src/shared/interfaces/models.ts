@@ -11,6 +11,28 @@ export interface IPreference {
 export type NotificationRetentionType = '3d' | '1w' | '2w' | '1m' | 'never';
 export type UserStatus = 'active' | 'in-active';
 
+/** One editable content block on the public dashboard (freeform CMS). */
+export interface IDashboardBlock {
+  /** Stable client-generated id (used for reorder/remove). */
+  id: string;
+  heading: string;
+  /** Plain-text body (paragraphs preserved on newlines). */
+  body: string;
+  /** Optional highlighted figures shown with the block, e.g. { label: 'Questions', value: '18.6M' }. */
+  figures: { label: string; value: string }[];
+  order: number;
+}
+
+/** Singleton document holding the public dashboard's admin-editable content. */
+export interface IDashboardContent {
+  _id?: string | ObjectId;
+  /** Fixed singleton key — always 'public_dashboard'. */
+  key: string;
+  blocks: IDashboardBlock[];
+  updatedAt?: Date;
+  updatedBy?: string | null;
+}
+
 /** One question currently held by a moderator. The status is denormalised from the
  *  question document so the cron can decide free/busy without a join. It is kept in
  *  sync whenever the question's status changes (see QuestionRepository) and the whole

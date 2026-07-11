@@ -1,14 +1,18 @@
-import {Container, ContainerModule} from 'inversify';
-import {InversifyAdapter} from '#root/inversify-adapter.js';
-import {useContainer} from 'class-validator';
-// Note: Dashboard doesn't seem to have a dedicated controller/service yet, only validators
-// Let's assume PerformanceController is going to stay in performance module for now
+import { Container, ContainerModule } from 'inversify';
+import { InversifyAdapter } from '#root/inversify-adapter.js';
+import { useContainer } from 'class-validator';
+import { sharedContainerModule } from '#root/container.js';
+import { dashboardContainerModule } from './container.js';
+import { DashboardContentController } from './controllers/DashboardContentController.js';
+import { DASHBOARD_CONTENT_VALIDATORS } from './validators/DashboardContentValidators.js';
 
-export const dashboardContainerModule = new ContainerModule(options => {});
-
-export const dashboardModuleControllers: Function[] = [];
-export const dashboardModuleValidators: Function[] = []; // Not exported as an array like others originally
-export const dashboardContainerModules: ContainerModule[] = [dashboardContainerModule];
+// Names loadAppModules expects (see bootstrap/loadModules.ts).
+export const dashboardModuleControllers: Function[] = [DashboardContentController];
+export const dashboardModuleValidators: Function[] = [...DASHBOARD_CONTENT_VALIDATORS];
+export const dashboardContainerModules: ContainerModule[] = [
+  dashboardContainerModule,
+  sharedContainerModule,
+];
 
 export async function setupDashboardContainer(): Promise<void> {
   const container = new Container();

@@ -220,6 +220,16 @@
 .ace-dash .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .ace-dash .kcc-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 24px; margin-bottom: 28px; }
 
+/* ---------- NARRATIVE (editable CMS blocks) ---------- */
+.ace-dash .narrative-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.ace-dash .narrative-block { background: var(--paper-raised); border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px 26px; }
+.ace-dash .narrative-block h3 { font-size: 18px; margin-bottom: 8px; }
+.ace-dash .narrative-block p { font-size: 14px; color: var(--ink-soft); line-height: 1.65; white-space: pre-wrap; }
+.ace-dash .narrative-figs { display: flex; flex-wrap: wrap; gap: 22px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.ace-dash .narrative-figs .nf .v { font-size: 22px; font-weight: 800; color: var(--green-deep); }
+.ace-dash .narrative-figs .nf .l { font-size: 11.5px; color: var(--ink-soft); margin-top: 2px; }
+@media (max-width: 860px) { .ace-dash .narrative-grid { grid-template-columns: 1fr; } }
+
 /* ---------- FOOTER ---------- */
 .ace-dash footer { background: #fff; color: var(--ink-soft); padding: 44px 0 30px; margin-top: 20px; border-top: 1px solid var(--line); }
 .ace-dash footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 20px; }

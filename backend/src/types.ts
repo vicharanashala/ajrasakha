@@ -40,6 +40,8 @@ const TYPES = {
   MongoDatabase: Symbol.for('MongoDatabase'),
   CropService: Symbol.for('CropService'),
   ChemicalService: Symbol.for('ChemicalService'),
+  DashboardContentRepository: Symbol.for('DashboardContentRepository'),
+  DashboardContentService: Symbol.for('DashboardContentService'),
 
   // Constants
   uri: Symbol.for('dbURI'),

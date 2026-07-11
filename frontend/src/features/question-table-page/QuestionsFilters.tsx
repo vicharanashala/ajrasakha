@@ -36,6 +36,7 @@ import {
   MessageCircle,
   AlertTriangle,
   Download,
+  LayoutDashboard,
 } from "lucide-react";
 import { useGetQuestionStatusSummary } from "@/hooks/api/question/useGetQuestionStatusSummary";
 import {
@@ -1186,6 +1187,33 @@ export const QuestionsFilters = ({
               {/* queue details — moderators & admins only */}
               {(userRole === "admin" || userRole === "moderator") && (
                 <QueueDetailsModal setIsSidebarOpen={setIsSidebarOpen} />
+              )}
+
+              {/* edit public ACE dashboard content — moderators & admins only */}
+              {(userRole === "admin" || userRole === "moderator") && (
+                <button
+                  className="w-full flex items-center justify-between p-4 bg-white dark:bg-[#1a1a1a] hover:bg-emerald-50 dark:hover:bg-emerald-500/5 border border-gray-200 dark:border-gray-800 hover:border-emerald-500/50 rounded-xl group transition-all shadow-sm dark:shadow-none"
+                  onClick={() => {
+                    setIsSidebarOpen(false);
+                    navigate({ to: "/dashboard-editor" });
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-500">
+                      <LayoutDashboard size={20} />
+                    </div>
+                    <div className="text-left">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-bold text-gray-900 dark:text-white">
+                          Edit ACE Dashboard
+                        </p>
+                      </div>
+                      <p className="text-[11px] text-gray-500">
+                        Update public dashboard content
+                      </p>
+                    </div>
+                  </div>
+                </button>
               )}
             </div>
           </section>
