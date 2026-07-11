@@ -67,17 +67,12 @@ jobs:
             APP_PORT=${{ secrets.APP_PORT }}
             DB_URL=${{ secrets.DB_URL }}
             DB_NAME=${{ secrets.DB_NAME }}
-
             VAPID_EMAIL=${{ secrets.VAPID_EMAIL }}
             VAPID_PUBLIC_KEY=${{ secrets.VAPID_PUBLIC_KEY }}
             VAPID_PRIVATE_KEY=${{ secrets.VAPID_PRIVATE_KEY }}
-
             INTERNAL_API_KEY=${{ secrets.INTERNAL_API_KEY }}
-            SKIP_DB_CONNECTION=${{ secrets.SKIP_DB_CONNECTION }}
-
             PLIVO_AUTH_ID=${{ secrets.PLIVO_AUTH_ID }}
             PLIVO_AUTH_TOKEN=${{ secrets.PLIVO_AUTH_TOKEN }}
-
             LGD_STATES_API_URL=${{ secrets.LGD_STATES_API_URL }}
             LGD_DISTRICTS_API_URL=${{ secrets.LGD_DISTRICTS_API_URL }}
             LGD_SUBDISTRICTS_API_URL=${{ secrets.LGD_SUBDISTRICTS_API_URL }}
