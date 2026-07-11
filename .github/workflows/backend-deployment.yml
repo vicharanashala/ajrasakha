@@ -11,7 +11,7 @@ permissions:
 env:
   DOCKER_IMAGE: reviewer-api
   GCP_REGION: asia-south1
-  GCP_SERVICE: reviewer-api-production
+  GCP_SERVICE: reviewer-api-workflow-test
 
 jobs:
   build:
@@ -59,7 +59,7 @@ jobs:
         with:
           service: ${{ env.GCP_SERVICE }}
           region: ${{ env.GCP_REGION }}
-          image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:latest
+          image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:${{ github.sha }}
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
           env_vars: |
