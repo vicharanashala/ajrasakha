@@ -1,0 +1,88 @@
+name: AjraSakha Backend Production Deployment
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+env:
+  DOCKER_IMAGE: reviewer-api
+  GCP_REGION: asia-south1
+  GCP_SERVICE: reviewer-api-production
+
+jobs:
+  build:
+    name: Build and Push Backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile.app
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:${{ github.sha }}
+
+  deploy_production:
+    name: Deploy to Cloud Run (Production)
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v1
+        with:
+          service: ${{ env.GCP_SERVICE }}
+          region: ${{ env.GCP_REGION }}
+          image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:latest
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+          env_vars: |
+            NODE_ENV=production
+            APP_PORT=${{ secrets.APP_PORT }}
+            APP_URL=${{ secrets.APP_URL }}
+            APP_ORIGINS=${{ secrets.APP_ORIGINS }}
+            APP_MODULE=${{ secrets.APP_MODULE }}
+            APP_ROUTE_PREFIX=${{ secrets.APP_ROUTE_PREFIX }}
+            FRONTEND_URL=${{ secrets.FRONTEND_URL }}
+            ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}
+            DB_URL=${{ secrets.DB_URL }}
+            DB_NAME=${{ secrets.DB_NAME }}
+            SENTRY_DSN=${{ secrets.SENTRY_DSN }}
+            TAILSCALE_AUTHKEY=${{ secrets.TAILSCALE_AUTHKEY }}
+            RECAPTCHA_SECRET_KEY=${{ secrets.RECAPTCHA_SECRET_KEY }}
+            IS_RECAPTCHA_ENABLED=${{ secrets.IS_RECAPTCHA_ENABLED }}
+            ENABLE_DB_BACKUP=${{ secrets.ENABLE_DB_BACKUP }}
+            GCP_BACKUP_BUCKET=${{ secrets.GCP_BACKUP_BUCKET }}
+            ENABLE_HP_JOB=${{ secrets.ENABLE_HP_JOB }}
+            GCP_BACKUP_ACTIVITY_BUCKET=${{ secrets.GCP_BACKUP_ACTIVITY_BUCKET }}
+            AI_SERVER_IP=${{ secrets.AI_SERVER_IP }}
+            AI_SERVER_PORT=${{ secrets.AI_SERVER_PORT }}
+            AI_PROXY_ADDRESS=socks5h://localhost:1055
+
+          flags: --allow-unauthenticated
