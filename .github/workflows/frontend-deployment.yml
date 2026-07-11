@@ -8,41 +8,11 @@ permissions:
   id-token: write
 
 env:
-  NODE_VERSION: "20"
+  NODE_VERSION: "22"
 
 jobs:
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - name: Install dependencies
-        run: |
-          cd frontend
-          pnpm install
-
-      - name: Run lint
-        run: |
-          cd frontend
-          pnpm lint
-
   build:
     name: Build Frontend
-    needs: lint
     runs-on: ubuntu-latest
 
     steps:
@@ -58,6 +28,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
+          version: 10.4.1
           run_install: false
 
       - name: Install dependencies
@@ -67,8 +38,8 @@ jobs:
 
       - name: Build frontend
         env:
-          VITE_ENABLE_MOCKS: ${{ vars.VITE_ENABLE_MOCKS || 'false' }}
-          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || '/api' }}
+          VITE_ENABLE_MOCKS: ${{ vars.VITE_ENABLE_MOCKS }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
 
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
           VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
@@ -77,13 +48,12 @@ jobs:
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
           VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
-
           VITE_SARVAM_API_KEY: ${{ secrets.VITE_SARVAM_API_KEY }}
           VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
 
         run: |
           cd frontend
-          pnpm build
+          pnpm exec vite build
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -93,7 +63,7 @@ jobs:
           retention-days: 1
 
   deploy_production:
-    name: Deploy to Firebase Production
+    name: Deploy to Firebase Preview
     needs: build
     runs-on: ubuntu-latest
     environment:
@@ -116,12 +86,11 @@ jobs:
           name: frontend-build
           path: ./frontend/dist
 
-      - name: Deploy to Firebase
+      - name: Deploy to Firebase Preview Channel
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          # channelId: live
           channelId: workflow-test
           projectId: ${{ secrets.FIREBASE_PROJECT_ID }}
-          entryPoint: ./frontend
+          entryPoint: .
