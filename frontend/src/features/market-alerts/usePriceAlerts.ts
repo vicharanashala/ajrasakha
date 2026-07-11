@@ -21,19 +21,37 @@ export const usePriceAlerts = () => {
   // Initialize from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        setAlerts(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to parse saved alerts", e);
-        // Fall back to default
-        setAlerts(DEFAULT_CROPS.map((crop) => ({ crop, enabled: false })));
-      }
-    } else {
-      // Initialize with default crops, all disabled
-      setAlerts(DEFAULT_CROPS.map((crop) => ({ crop, enabled: false })));
+    const fallback: PriceAlert[] = DEFAULT_CROPS.map((crop) => ({ crop, enabled: false }));
+
+    if (!saved) {
+      setAlerts(fallback);
+      setIsLoaded(true);
+      return;
     }
-    setIsLoaded(true);
+
+    try {
+      const parsed: unknown = JSON.parse(saved);
+
+      if (
+        Array.isArray(parsed) &&
+        parsed.every(
+          (item) =>
+            item &&
+            typeof item === "object" &&
+            DEFAULT_CROPS.includes((item as any).crop) &&
+            typeof (item as any).enabled === "boolean",
+        )
+      ) {
+        setAlerts(parsed as PriceAlert[]);
+      } else {
+        setAlerts(fallback);
+      }
+    } catch (e) {
+      console.error("Failed to parse saved alerts", e);
+      setAlerts(fallback);
+    } finally {
+      setIsLoaded(true);
+    }
   }, []);
 
   // Persist to localStorage whenever alerts change
