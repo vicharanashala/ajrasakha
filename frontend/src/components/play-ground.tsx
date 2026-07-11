@@ -221,7 +221,7 @@ export const PlaygroundPage = () => {
                     value="all_questions"
                     className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
                   >
-                    <span>All Questions</span>
+                    <span>All Question</span>
                   </TabsTrigger>
                 )}
 
@@ -254,7 +254,7 @@ export const PlaygroundPage = () => {
                     className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
                   >
                     <HoverCard openDelay={150}>
-                      <span>Agents Interface</span>
+                      <span>Agent's Interface</span>
                     </HoverCard>
                   </TabsTrigger>
                 )}
