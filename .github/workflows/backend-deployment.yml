@@ -65,7 +65,6 @@ jobs:
           env_vars: |
             NODE_ENV=production
             APP_PORT=${{ secrets.APP_PORT }}
-            APP_PORT=${{ secrets.APP_PORT }}
             APP_URL=${{ secrets.APP_URL }}
             APP_ORIGINS=${{ secrets.APP_ORIGINS }}
             APP_MODULE=${{ secrets.APP_MODULE }}
