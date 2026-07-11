@@ -10,6 +10,8 @@ import { currentUserChecker } from './shared/functions/currentUserChecker.js';
 import http from 'http';
 import { initWebSocket } from './bootstrap/websocket.js';
 import type { CorsOptions } from 'cors';
+import { apiReference } from '@scalar/express-api-reference';
+import { generateOpenAPISpec } from './shared/functions/index.js';
 
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const app = express();
@@ -76,6 +78,16 @@ const moduleOptions: RoutingControllersOptions = {
 };
 
 useExpressServer(app, moduleOptions);
+
+// Setup Scalar API Documentation
+const openApiSpec = generateOpenAPISpec(moduleOptions, validators);
+app.use(
+  `${appConfig.routePrefix}/reference`,
+  apiReference({
+    content: openApiSpec,
+    theme: 'elysiajs',
+  }),
+);
 
 const server = http.createServer(app);
 

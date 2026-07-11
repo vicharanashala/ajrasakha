@@ -149,4 +149,13 @@ export class FirebaseAuthService extends BaseService {
       throw new BadRequestError(`Failed to send password reset email: ${err.message || 'Unknown error'}`);
     }
   }
+
+  async updateFirebaseUser(
+    firebaseUID: string,
+    body: Partial<IUser>,
+  ): Promise<void> {
+    await this.auth.updateUser(firebaseUID, {
+      displayName: `${body.firstName} ${body.lastName || ''}`,
+    });
+  }
 }

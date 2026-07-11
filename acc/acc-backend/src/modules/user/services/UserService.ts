@@ -40,8 +40,9 @@ export class UserService extends BaseService {
         throw new NotFoundError(`User with ID ${userId} not found`);
       }
 
+      const newRole = isCallAgent ? 'call_agent' : 'expert';
       const updatedUser = await this.userRepo.edit(userId, {
-        isCallAgent,
+        role: newRole,
         isCallAgentActive,
       }, session);
 
