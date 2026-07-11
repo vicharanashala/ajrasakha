@@ -155,6 +155,7 @@ export class ChatbotController {
   @HttpCode(200)
   @Authorized()
   async getFeedbackUsers(@QueryParams() query: FeedbackUsersQueryDto) {
+ 
     return this.chatbotService.getFeedbackUsers(
       query.source,
       query.page,
@@ -1886,6 +1887,36 @@ export class ChatbotController {
     return {topFaqs, topQuestionsFromCollection, ...repeatQueryCountData};
   }
 
+  @Get('/top-questions/:questionId')
+  @HttpCode(200)
+  @Authorized()
+  async getTopQuestionInstances(
+    @Param('questionId') questionId: string,
+    @QueryParams() query: TopFaqsQuery,
+    @QueryParam('page') page: number = 1,
+    @QueryParam('limit') limit: number = 10,
+  ): Promise<any> {
+    const startTime = query.startTime
+      ? new Date(query.startTime).toString()
+      : undefined;
+
+    const endTime = query.endTime
+      ? new Date(query.endTime).toString()
+      : undefined;
+    const source = query.source;
+    const userType = query.userType;
+
+    return await this.chatbotService.getTopQuestionInstances(
+      questionId,
+      source,
+      userType,
+      startTime,
+      endTime,
+      page,
+      limit
+    );
+  }
+
   @Get('/daily-question-trends')
   @HttpCode(200)
   @Authorized()
@@ -2127,6 +2158,8 @@ export class ChatbotController {
     @QueryParam('isPassed') isPassed?: string,
     @QueryParam('tag') tag?: string,
     @QueryParam('notificationType') notificationType?: string,
+    @QueryParam('page') page?: number,
+    @QueryParam('limit') limit?: number,
   ): Promise<any> {
     const start= startDate
         ? new Date(startDate)
@@ -2142,7 +2175,43 @@ export class ChatbotController {
       end,
       isPassed,
       tag,
-      notificationType
+      notificationType,
+      page,
+      limit
     );
   }
+
+  @Get('/feedback-by-location')
+  @HttpCode(200)
+  @Authorized()
+  async getFeedbackByLocation(@QueryParams() query: any) {
+    const numberPage = Number(query.page)
+    const numberLimit = Number(query.limit)
+    return this.chatbotService.getFeedbackByLocation(
+      query.source,
+      numberPage,
+      numberLimit,
+      query.sortBy,
+      query.sortOrder,
+      query.userType,
+      query.rating,
+      query.state,
+      query.district,
+      query.search,
+    );
+  }
+
+
+  @Get('/closed-question-by-location')
+  @HttpCode(200)
+  @Authorized()
+  async getClosedInLastTwoHoursByLocation(@QueryParams() query: any) {
+    return this.chatbotService.getClosedInLastTwoHoursByLocation(
+      query.source,
+      query.userType,
+      query.state,
+      query.district,
+    );
+  }
+
 }

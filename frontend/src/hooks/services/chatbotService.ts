@@ -228,6 +228,30 @@ export class ChatbotService {
   //   );
   // }
 
+  async getTopQuestionInstances(
+    questionId: string,
+    filters: {
+      source?: string;
+      userType?: string;
+      startTime?: string;
+      endTime?: string;
+      page?: number;
+      limit?: number;
+    }
+  ): Promise<any> {
+    const params = new URLSearchParams();
+    if (filters.source) params.append("source", filters.source);
+    if (filters.userType) params.append("userType", filters.userType);
+    if (filters.startTime) params.append("startTime", filters.startTime);
+    if (filters.endTime) params.append("endTime", filters.endTime);
+    if (filters.page) params.append("page", filters.page.toString());
+    if (filters.limit) params.append("limit", filters.limit.toString());
+
+    return apiFetch<any>(
+      `${this._baseUrl}/top-questions/${questionId}?${params.toString()}`
+    );
+  }
+
   async getQuestionByFilters({
     category,
     district,
@@ -565,6 +589,8 @@ export class ChatbotService {
     isPassed?: boolean,
     tag?: string,
     notificationType?: string,
+    page = 1,
+    limit = 1000,
   ): Promise<any> {
     const params = new URLSearchParams();
     if (startDate) {
@@ -590,6 +616,12 @@ export class ChatbotService {
     }
     if (notificationType) {
       params.append("notificationType", String(notificationType));
+    }
+    if(page) {
+      params.append("page", String(page));
+    }
+    if(limit) {
+      params.append("limit", String(limit));
     }
 
     return apiFetch<any>(
@@ -635,5 +667,58 @@ export class ChatbotService {
     return apiFetch<any>(
       `${this._baseUrl}/feedback-users?${params.toString()}`
     );
+  }
+
+    async getFeedbackByLocation({
+    source,
+    page,
+    limit,
+    sortBy,
+    sortOrder,
+    userType,
+    rating,
+    state,
+    district,
+    search,
+  }: {
+    source?: string;
+    page: number;
+    limit: number;
+    sortBy?: string;
+    sortOrder?: string;
+    userType?: string;
+    rating?: string;
+    state?: string,
+    district?: string,
+    search?: string;
+  }): Promise<any> {
+    const params = new URLSearchParams();
+    if (source) params.append("source", source);
+    params.append("page", page.toString());
+    params.append("limit", limit.toString());
+    if (sortBy) params.append("sortBy", sortBy);
+    if (sortOrder) params.append("sortOrder", sortOrder);
+    if (userType) params.append("userType", userType);
+    if (rating) {
+      const apiRating = rating === 'positive' ? 'thumbsUp' : rating === 'negative' ? 'thumbsDown' : rating;
+      params.append("rating", apiRating);
+    }
+    if(state) params.append('state', state);
+    if(district) params.append('district', district);
+    if (search) params.append("search", search);
+
+    return apiFetch<any>(
+      `${this._baseUrl}/feedback-by-location?${params.toString()}`
+    );
+  }
+
+  async getClosedInLastTwoHoursByLocation({source, userType, state, district}:{source?: string, userType?: string, state?: string, district?: string}){
+    const params = new URLSearchParams();
+    if(source) params.append("source", source);
+    if(userType) params.append("userType", userType);
+    if(state) params.append("state", state);
+    if(district) params.append("district", district);
+
+    return apiFetch<any>(`${this._baseUrl}/closed-question-by-location?${params.toString()}`)
   }
 }

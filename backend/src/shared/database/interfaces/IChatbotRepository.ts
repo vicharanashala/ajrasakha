@@ -89,7 +89,7 @@ export interface PaginatedQueryCategoryQuestions {
 export interface DistrictAnalyticsEntry {
   district: string;
   totalQuestions: number;
-  closedQuestions: number;
+  // closedQuestions: number;
   uniqueQuestions: number;
   duplicateQuestions: number;
   totalUsers: number
@@ -869,7 +869,19 @@ export interface IChatbotRepository {
     userType?: string,
     startTime?: string,
     endTime?: string,
-  ): Promise<Array<{question: string; count: number}>>;
+  ): Promise<Array<{questionId: string; question: string; count: number}>>;
+
+  /** Get documents for a specific top question drill-down. */
+  getTopQuestionInstances(
+    questionId: string,
+    dbSource?: string,
+    userType?: string,
+    startTime?: string,
+    endTime?: string,
+    page?: number,
+    limit?: number,
+    session?: ClientSession,
+  ): Promise<{ data: any[]; total: number; page: number; limit: number; totalPages: number }>;
   getResponseAdherenceTable(
     session?: ClientSession,
     userType?: string,
@@ -1129,7 +1141,31 @@ export interface IChatbotRepository {
       isPassed?: string,
       tag?: string,
       notificationType?: string,
+      page?: number,
+      limit?: number,
     ): Promise<any>
+  
+  getFeedbackByLocation(
+    source: string,
+    page: number,
+    limit: number,
+    sortBy: string,
+    sortOrder: string,
+    userType: string,
+    rating?: string,
+    state?: string,
+    district?: string,
+    search?: string,
+    session?: ClientSession,
+  ): Promise<PaginatedFeedbackMessages>
+
+  getClosedInLastTwoHoursByLocation(
+    source?: string,
+    userType?: string,
+    state?: string,
+    district?: string,
+  ): Promise<any>
+    
 }
 
 export interface ChatbotConversationData {

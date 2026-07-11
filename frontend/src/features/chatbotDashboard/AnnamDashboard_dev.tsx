@@ -944,6 +944,8 @@ export function AnnamDashboard_dev({
                           dateRange={faqsDateRange}
                           onDateRangeChange={setFaqsDateRange}
                           isLoading={faqsLoading}
+                          source={source}
+                          userType={filters.userType}
                         />
                       </>
                     ) : (

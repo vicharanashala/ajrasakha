@@ -554,7 +554,7 @@ export const useUserMertices = (
       source,
       userType,
     ],
-    placeholderData: (prev) => prev,
+    // placeholderData: (prev) => prev,
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
       const result = await apiFetch(
@@ -562,7 +562,7 @@ export const useUserMertices = (
       );
       return result as UsermetricsResponse;
     }, 
-    enabled: shouldLoadUserDemographics,
+    enabled: true,
   });
 }
 

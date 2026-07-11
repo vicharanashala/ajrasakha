@@ -45,6 +45,7 @@ type ClosedInLastTwoHoursCardProps = {
   onRefresh?: () => void;
   passedInLastTwoHours: number;
   totalPassed: number;
+  isMapComponent?: boolean;
 };
 
 export function ClosedInLastTwoHoursCard({
@@ -60,6 +61,7 @@ export function ClosedInLastTwoHoursCard({
   onRefresh,
   passedInLastTwoHours,
   totalPassed = 0,
+  isMapComponent = false,
 }: ClosedInLastTwoHoursCardProps) {
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
@@ -161,7 +163,7 @@ export function ClosedInLastTwoHoursCard({
                 </div>
 
                 {/* Filters */}
-                <div
+                {!isMapComponent && <div
                   className="flex items-center gap-1.5 shrink-0"
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -238,7 +240,7 @@ export function ClosedInLastTwoHoursCard({
                       <X className="h-3 w-3" />
                     </Button>
                   )}
-                </div>
+                </div>}
               </div>
 
               {/* Segmented progress bar */}
@@ -262,13 +264,13 @@ export function ClosedInLastTwoHoursCard({
                       width: `${slaBreachedPct}%`,
                     }}
                     transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
-                    className="bg-muted-foreground/30"
+                    className="bg-red-500"
                   />
                 </div>
                 <div className="flex justify-between text-[10px] text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                    {combinedPct.toFixed(1)}% Resolved within SLA
+                    {combinedPct.toFixed(1)}% Resolved within SLA (inc. passed)
                   </span>
                   <span className="flex items-center gap-1">
                     <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
@@ -290,6 +292,7 @@ export function ClosedInLastTwoHoursCard({
                     setClosedWithInTowhours(true);
                     setSlaBreachedQs("")
                   }}
+                  isMapComponent={isMapComponent}
                 />
                 <StatTile
                   label="Passed"
@@ -302,6 +305,7 @@ export function ClosedInLastTwoHoursCard({
                     setClosedWithInTowhours(true);
                     setSlaBreachedQs("")
                   }}
+                  isMapComponent={isMapComponent}
                 />
                 <StatTile
                   label="Rate"
@@ -310,6 +314,7 @@ export function ClosedInLastTwoHoursCard({
                   decimals={1}
                   accent="emerald"
                   tooltip="Completion rate within 2 hours"
+                  isMapComponent={isMapComponent}
                 />
                 <StatTile
                   label="sla breached"
@@ -318,12 +323,13 @@ export function ClosedInLastTwoHoursCard({
                   suffix=""
                   decimals={0}
                   accent="red"
-                  tooltip="Question resolution took more than 2 hours"
+                  tooltip="Questions exceeding 2 hours based on expert working hours. Questions received between 10:00 PM and 6:00 AM start counting from 6:00 AM"
                   onClick={() => {
                     setIsPassed(true);
                     setClosedWithInTowhours(true);
                     setSlaBreachedQs("slabreached")
                   }}
+                  isMapComponent={isMapComponent}
                 />
               </div>
 
@@ -387,6 +393,9 @@ export function ClosedInLastTwoHoursCard({
           endDate={dateRange?.to}
           isPassed={isPassed}
           tag= {slaBreachedQs ? slaBreachedQs : "sla"}
+          closedInLastTwoHours ={(closedInLastTwoHours || 0)}
+          passedInLastTwoHours={passedInLastTwoHours || 0}
+          slaBreached={(slaBreached || 0)}
         />
       )}
     </div>
@@ -430,6 +439,7 @@ function StatTile({
   accent,
   tooltip,
   onClick,
+  isMapComponent
 }: {
   label: string;
   count: number;
@@ -439,6 +449,7 @@ function StatTile({
   accent: keyof typeof ACCENT;
   tooltip: string;
   onClick?: () => void;
+  isMapComponent?: boolean;
 }) {
   const a = ACCENT[accent];
   return (
@@ -446,7 +457,7 @@ function StatTile({
       <TooltipTrigger asChild>
         <motion.button
           type="button"
-          onClick={onClick}
+          onClick={isMapComponent ? undefined : onClick}
           whileHover={{ y: -2 }}
           whileTap={{ scale: 0.98 }}
           transition={{ duration: 0.15 }}

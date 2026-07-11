@@ -3349,6 +3349,30 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
+  async getTopQuestionInstances(
+    questionId: string,
+    source = 'annam',
+    userType = 'all',
+    startTime?: string,
+    endTime?: string,
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<any> {
+    try {
+      return await this.chatbotRepository.getTopQuestionInstances(
+        questionId,
+        source,
+        userType,
+        startTime,
+        endTime,
+        page,
+        limit,
+      );
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch top question instances: ${error}`);
+    }
+  }
+
   async getRepeatQueryCount(
     source?: string,
     userType?: string,
@@ -3801,7 +3825,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
       isPassed?: string,
       tag?: string,
       notificationType?: string,
-    ): Promise<any>{
+      page?: number,
+      limit?: number
+  ):Promise<any>{
       return this.chatbotRepository.getLifeCycleSummary(
         status,
         source,
@@ -3811,6 +3837,24 @@ export class ChatbotService extends BaseService implements IChatbotService {
         isPassed,
         tag,
         notificationType,
+        page,
+        limit
       );
+  }
+  async getFeedbackByLocation(source: string, page: number, limit: number, sortBy: string, sortOrder: string, userType: string, rating?: string, state?: string, district?: string, search?: string): Promise<any> {
+    try {
+      return this.chatbotRepository.getFeedbackByLocation(source, page, limit, sortBy, sortOrder, userType, rating, state, district, search, undefined)
+    }catch(error){
+      throw new InternalServerError(`Something went wrong ${error}`)
     }
+  }
+
+  async getClosedInLastTwoHoursByLocation(source?: string, userType?: string, state?: string, district?: string): Promise<any> {
+    try{
+      return this.chatbotRepository.getClosedInLastTwoHoursByLocation(source, userType, state, district);
+    }catch(error){
+      throw new InternalServerError(`Something went wrong ${error}`)
+    }
+  }
+
 }

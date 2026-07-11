@@ -5,6 +5,7 @@ import {
   INotificationType,
   NotificationRetentionType,
   UserRole,
+  IUserHistory,
 } from '#root/shared/interfaces/models.js';
 import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
 import {
@@ -746,11 +747,13 @@ export class UserService extends BaseService {
     userId: string,
     isCallAgent: boolean,
     isCallAgentActive: boolean,
-    requestingUserRole?: string,
+    requestingUser?: IUser,
   ): Promise<IUser> {
     return await this._withTransaction(async (session: ClientSession) => {
-      if (requestingUserRole !== 'admin') {
-        throw new ForbiddenError('Only admin can manage call agents');
+      if (requestingUser?.role !== 'admin' || !requestingUser?.Call_centre_manager) {
+        throw new ForbiddenError(
+          'Only admin with Call_centre_manager field as true can manage call agents',
+        );
       }
       const user = await this.userRepo.findById(userId, session);
       if (!user) {
@@ -780,11 +783,13 @@ export class UserService extends BaseService {
 
 
 
-  async toggleCallAgentActive(userId: string, requestingUserRole?: string): Promise<IUser> {
+  async toggleCallAgentActive(userId: string, requestingUser?: IUser): Promise<IUser> {
     return await this._withTransaction(async (session: ClientSession) => {
       // Only moderators can manage call agents
-      if (requestingUserRole !== 'admin') {
-        throw new ForbiddenError('Only admin can manage call agents');
+      if (requestingUser?.role !== 'admin' || !requestingUser?.Call_centre_manager) {
+        throw new ForbiddenError(
+          'Only admin with Call_centre_manager field as true can manage call agents',
+        );
       }
       const user = await this.userRepo.findById(userId, session);
       if (!user) {
@@ -948,5 +953,26 @@ export class UserService extends BaseService {
    */
   async findAndMarkAvailableAgent(callUuid: string): Promise<IUser | null> {
     return await this.userRepo.findAndMarkAvailableAgent(callUuid);
+  }
+
+  //get user history by id
+  async getUserHistoryById(query: { userId: string; startDateTime?: string; endDateTime?: string }): Promise<IUserHistory> {
+    try {
+      const { userId } = query;
+      if (!userId) throw new NotFoundError('User ID is required');
+
+      return this._withTransaction(async (session: ClientSession) => {
+        let user = await this.userRepo.findById(userId, session);
+        if (!user) throw new NotFoundError(`User with ID ${userId} not found`);
+        return await this.userRepo.getUserHistory(query, session);
+      });
+    } catch (error) {
+      if (error instanceof NotFoundError || error instanceof BadRequestError) {
+        throw error;
+      }
+      throw new InternalServerError(
+        `Failed to fetch user history`,
+      );
+    }
   }
 }

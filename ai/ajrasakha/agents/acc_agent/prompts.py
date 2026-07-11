@@ -51,6 +51,7 @@ You have access to specific sub-agent tools that can fetch agricultural data.
 Your job is to look at the user's verified query and decide WHICH tool(s) to use.
 If the query is about weather, include "weather" in your output.
 If the query is about market prices or mandi rates, include "market" in your output.
+If the query is about government schemes, subsidies, yojanas, or farmer benefits, include "schemes" in your output.
 If the query is about farming practices, diseases, pests, fertilizers, or general agricultural advice, include "gdb" in your output.
 
 IMPORTANT: A query may require multiple tools. If so, include ALL relevant tools.

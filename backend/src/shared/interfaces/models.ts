@@ -46,6 +46,7 @@ export interface IUser {
   university?: string;
   isVerified?: boolean;
   isCallAgentActive?: boolean;
+  Call_centre_manager?: boolean;
   agent?: string; // "not_available" or "agent_1", "agent_2", etc.
   isBusy?: boolean; // true if agent is currently in a call
   currentCallUuid?: string | null; // UUID of the current call being handled
@@ -70,6 +71,20 @@ export interface IUserRoleHistory {
   isBlocked?: boolean;
   special_task_force?: boolean;
   special_task_force_moderator?: boolean;
+}
+
+export interface IUserHistory {
+  roleHistory: IUserRoleHistory[];
+  userDetails?: {
+    name?: string;
+    email: string;
+    firstName: string;
+    lastName?: string;
+    role?: UserRole;
+    status?: UserStatus;
+    isBlocked?: boolean;
+    special_task_force?: boolean;
+  };
 }
 
 export type IQuestionPriority = 'low' | 'medium' | 'high' | 'critical';

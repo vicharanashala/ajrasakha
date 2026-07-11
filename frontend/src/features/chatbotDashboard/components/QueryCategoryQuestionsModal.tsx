@@ -72,6 +72,15 @@ interface QueryCategoryQuestionsModalProps {
   isPassed?: boolean;
   tag?: string;
   totalClosedAndPassed?: number;
+  closedQuestions?: number;
+  totalQuestions?: number;
+  passedQuestions?: number;
+  closedInLastTwoHours?: number;
+  passedInLastTwoHours?: number;
+  slaBreached?: number;
+  safeNotified?: number;
+  safeNotNotified?: number;
+  safeUntracked?: number;
 }
 
 const PAGE_SIZE = 10;
@@ -94,7 +103,16 @@ export function QueryCategoryQuestionsModal({
   onClose,
   isPassed,
   tag,
-  totalClosedAndPassed
+  totalClosedAndPassed,
+  closedQuestions,
+  totalQuestions,
+  passedQuestions,
+  closedInLastTwoHours,
+  passedInLastTwoHours,
+  slaBreached,
+  safeNotified,
+  safeNotNotified,
+  safeUntracked
 }: QueryCategoryQuestionsModalProps) {
   const {
     setSelectedQuestionId,
@@ -510,6 +528,15 @@ export function QueryCategoryQuestionsModal({
           tag={tag}
           notificationType={notificationType}
           totalClosedAndPassed={totalClosedAndPassed}
+          closedQuestions={closedQuestions}
+          totalQuestions={totalQuestions}
+          passedQuestions={passedQuestions}
+          closedInLastTwoHours ={closedInLastTwoHours}
+          passedInLastTwoHours={passedInLastTwoHours}
+          slaBreached={slaBreached}
+          safeNotified={safeNotified}
+          safeNotNotified={safeNotNotified}
+          safeUntracked={safeUntracked}
         />
 
         <div className="flex shrink-0 items-center justify-between border-t border-gray-100 px-6 py-3 text-xs text-gray-400 dark:border-[#2a2a2a] dark:text-gray-500">

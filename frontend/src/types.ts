@@ -53,6 +53,7 @@ export interface IUser {
   university?: string;
   isVerified?: boolean;
   isCallAgentActive?: boolean;
+  Call_centre_manager?: boolean;
   agent?: string; // "not_available" or "agent_1", "agent_2", etc.
   isBusy?: boolean; // true if agent is currently in a call
   currentCallUuid?: string | null; // UUID of the current call being handled
@@ -277,7 +278,7 @@ export type SupportedLanguage =
   | "sat-IN"
   | "sd-IN";
 
-export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold" | "pae_submitted" | "draft" | "duplicate" | "pass" | "non_agri" | "dynamic";
+export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold" | "pae_submitted" | "draft" | "duplicate" | "pass" | "non_agri" | "pending" | "dynamic";
 export type ReRouteStatus = "pending" | "expert_rejected" | "expert_completed" | "moderator_rejected" | "moderator_approved" | "approved" | "rejected" | "modified" | "in-review";
 export interface ResponseDto {
   id: string;
@@ -479,6 +480,7 @@ export interface IQuestionFullData {
   passingRemark?: string;
   isHidden?: boolean;
   isOnHold?: boolean;
+  isTesting?: boolean;
   holdAt?: string;
   accumulatedHoldMs?: number;
   aiInitialAnswer?: string;
@@ -614,6 +616,7 @@ export interface IDetailedQuestion {
   };
   pae_review?: boolean;
   is_non_agri?: boolean;
+  isTesting?: boolean;
   similarityScore?: number;        // percentage (0–100)
   referenceQuestionId?: string;
   referenceQuestion?: string

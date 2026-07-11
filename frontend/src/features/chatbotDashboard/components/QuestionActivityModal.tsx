@@ -14,6 +14,7 @@ import {
   MessageSquare,
   MessageSquareText,
   User,
+  X,
 } from "lucide-react";
 
 import {
@@ -91,12 +92,16 @@ interface QuestionActivityModalProps {
   subtitle?: ReactNode;
   user?: QuestionActivityUser | null;
   headerActions?: ReactNode;
-  mode?: "activity" | "details" | "duplicateGroups";
+  headerEndActions?: ReactNode;
+  mode?: "activity" | "details" | "duplicateGroups" | "table";
   viewType?: QuestionActivityViewType;
   onViewTypeChange?: (viewType: QuestionActivityViewType) => void;
   activityItems?: QuestionActivityItem[];
   detailItems?: QuestionDetailItem[];
   duplicateGroups?: QuestionDuplicateGroup[];
+  tableContent?: ReactNode;
+  footerContent?: ReactNode;
+  showCloseButton?: boolean;
   isLoading?: boolean;
   totalCount?: number | string;
   totalPages?: number;
@@ -429,12 +434,16 @@ export function QuestionActivityModal({
   subtitle,
   user,
   headerActions,
+  headerEndActions,
   mode = "activity",
   viewType = "questions",
   onViewTypeChange,
   activityItems = [],
   detailItems = [],
   duplicateGroups = [],
+  tableContent,
+  footerContent,
+  showCloseButton = false,
   isLoading = false,
   totalCount = 0,
   totalPages = 1,
@@ -465,6 +474,8 @@ export function QuestionActivityModal({
             {headerActions}
           </div>
 
+          {(showToggle || headerEndActions || showCloseButton) && (
+            <div className="flex shrink-0 items-center gap-3">
           {showToggle && (
             <div className="flex items-center gap-2.5 rounded-full border bg-muted/40 px-3.5 py-1.5">
               <MessageSquare
@@ -506,6 +517,19 @@ export function QuestionActivityModal({
                     : "text-muted-foreground"
                 }`}
               />
+                </div>
+              )}
+              {headerEndActions}
+              {showCloseButton && (
+                <button
+                  type="button"
+                  onClick={() => onOpenChange(false)}
+                  className="rounded-md p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
+                  aria-label="Close question details"
+                >
+                  <X className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -563,6 +587,9 @@ export function QuestionActivityModal({
           </div>
         )}
 
+        {mode === "table" ? (
+          <div className="min-h-0 flex-1 overflow-hidden">{tableContent}</div>
+        ) : (
         <ScrollArea className="min-h-0 flex-1 overflow-y-auto">
           <div className="space-y-2.5 px-6 py-4">
             {isLoading ? (
@@ -600,6 +627,9 @@ export function QuestionActivityModal({
             )}
           </div>
         </ScrollArea>
+        )}
+
+        {footerContent}
 
         {mode === "activity" && totalPages > 1 && onPageChange && (
           <div className="flex shrink-0 items-center justify-between border-t bg-muted/10 px-6 py-3.5">
