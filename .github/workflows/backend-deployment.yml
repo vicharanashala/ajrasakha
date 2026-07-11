@@ -65,24 +65,23 @@ jobs:
           env_vars: |
             NODE_ENV=production
             APP_PORT=${{ secrets.APP_PORT }}
-            APP_URL=${{ secrets.APP_URL }}
-            APP_ORIGINS=${{ secrets.APP_ORIGINS }}
-            APP_MODULE=${{ secrets.APP_MODULE }}
-            APP_ROUTE_PREFIX=${{ secrets.APP_ROUTE_PREFIX }}
-            FRONTEND_URL=${{ secrets.FRONTEND_URL }}
-            ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}
             DB_URL=${{ secrets.DB_URL }}
             DB_NAME=${{ secrets.DB_NAME }}
-            SENTRY_DSN=${{ secrets.SENTRY_DSN }}
-            TAILSCALE_AUTHKEY=${{ secrets.TAILSCALE_AUTHKEY }}
-            RECAPTCHA_SECRET_KEY=${{ secrets.RECAPTCHA_SECRET_KEY }}
-            IS_RECAPTCHA_ENABLED=${{ secrets.IS_RECAPTCHA_ENABLED }}
-            ENABLE_DB_BACKUP=${{ secrets.ENABLE_DB_BACKUP }}
-            GCP_BACKUP_BUCKET=${{ secrets.GCP_BACKUP_BUCKET }}
-            ENABLE_HP_JOB=${{ secrets.ENABLE_HP_JOB }}
-            GCP_BACKUP_ACTIVITY_BUCKET=${{ secrets.GCP_BACKUP_ACTIVITY_BUCKET }}
-            AI_SERVER_IP=${{ secrets.AI_SERVER_IP }}
-            AI_SERVER_PORT=${{ secrets.AI_SERVER_PORT }}
-            AI_PROXY_ADDRESS=socks5h://localhost:1055
+
+            VAPID_EMAIL=${{ secrets.VAPID_EMAIL }}
+            VAPID_PUBLIC_KEY=${{ secrets.VAPID_PUBLIC_KEY }}
+            VAPID_PRIVATE_KEY=${{ secrets.VAPID_PRIVATE_KEY }}
+
+            INTERNAL_API_KEY=${{ secrets.INTERNAL_API_KEY }}
+            SKIP_DB_CONNECTION=${{ secrets.SKIP_DB_CONNECTION }}
+
+            PLIVO_AUTH_ID=${{ secrets.PLIVO_AUTH_ID }}
+            PLIVO_AUTH_TOKEN=${{ secrets.PLIVO_AUTH_TOKEN }}
+
+            LGD_STATES_API_URL=${{ secrets.LGD_STATES_API_URL }}
+            LGD_DISTRICTS_API_URL=${{ secrets.LGD_DISTRICTS_API_URL }}
+            LGD_SUBDISTRICTS_API_URL=${{ secrets.LGD_SUBDISTRICTS_API_URL }}
+            LGD_VILLAGES_API_URL=${{ secrets.LGD_VILLAGES_API_URL }}
+            LGD_API_KEY=${{ secrets.LGD_API_KEY }}
 
           flags: --allow-unauthenticated
