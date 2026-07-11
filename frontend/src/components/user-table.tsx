@@ -11,6 +11,7 @@ import {
 
 import {
   Eye,
+  History,
   Loader2,
   Lock,
   MoreVertical,
@@ -36,6 +37,7 @@ import {
 import { ConfirmationModal } from "./confirmation-modal";
 import { formatDate } from "@/utils/formatDate";
 import { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { useBlockUser } from "@/hooks/api/user/useBlockUser";
 import { useToggleRole } from "@/hooks/api/user/useToggleRole";
 import { useUpdateActivity } from "@/hooks/api/user/useUpdateActivity";
@@ -262,6 +264,7 @@ const UserRow: React.FC<UserRowProps> = ({
   showSensitive = false,
 }) => {
   const isBlocked = u.isBlocked || false;
+  const navigate = useNavigate();
   const { mutate: updateActivity } = useUpdateActivity();
   const { mutate: verifyUser } = useVerifyUser();
   const { mutate: toggleSTF } = useToggleSTF();
@@ -577,6 +580,23 @@ const UserRow: React.FC<UserRowProps> = ({
                   </div>
                 </DropdownMenuItem>
               )}
+
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  e.preventDefault();
+                  setIsOpen(false);
+                  if (!u._id) return;
+                  navigate({
+                    to: "/user-history/$userId",
+                    params: { userId: u._id },
+                  });
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <History className="w-4 h-4 mr-2 text-blue-500" />
+                  View User History
+                </div>
+              </DropdownMenuItem>
 
               <DropdownMenuItem
                 disabled={u.status === 'in-active' && isBlocked}

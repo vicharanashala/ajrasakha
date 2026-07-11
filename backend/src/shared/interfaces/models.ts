@@ -74,6 +74,20 @@ export interface IUserRoleHistory {
   special_task_force_moderator?: boolean;
 }
 
+export interface IUserHistory {
+  roleHistory: IUserRoleHistory[];
+  userDetails?: {
+    name?: string;
+    email: string;
+    firstName: string;
+    lastName?: string;
+    role?: UserRole;
+    status?: UserStatus;
+    isBlocked?: boolean;
+    special_task_force?: boolean;
+  };
+}
+
 export type IQuestionPriority = 'low' | 'medium' | 'high' | 'critical';
 
 export interface IQuestionMetrics {

@@ -22,6 +22,7 @@ import { inject, injectable } from 'inversify';
 import { GLOBAL_TYPES } from '#root/types.js';
 import {
   IUser,
+  IUserHistory,
   NotificationRetentionType,
   UserRole,
 } from '#root/shared/interfaces/models.js';
@@ -49,6 +50,7 @@ import {
   PaginatedUsersResponse,
   ToggleUserRoleResponse,
   UserEntryResponse,
+  UserHistoryResponse,
 } from '../../core/classes/validators/UserResponseValidators.js';
 
 @OpenAPI({
@@ -1161,5 +1163,30 @@ export class UserController {
     const { identifier } = body;
     await this.userService.requestVerification(identifier);
     return { message: 'Verification request sent to administrators.' };
+  }
+
+  //get user history
+   @OpenAPI({
+    summary: 'Get user history by userId',
+    description: 'Retrieves the user history for the specified user ID.',
+  })
+  @ResponseSchema(UserHistoryResponse, {
+    statusCode: 200,
+    description: 'User history retrieved successfully',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 401,
+    description: 'Unauthorized - Authentication required',
+  })
+  @ResponseSchema(UserErrorResponse, {
+    statusCode: 404,
+    description: 'Not found - User not found',
+  })
+  @Get('/user-history')
+  @HttpCode(200)
+  @Authorized()
+  async getUserHistoryById(@QueryParams() query: { userId: string; startDateTime?: string; endDateTime?: string;}): Promise<IUserHistory> {
+    
+    return await this.userService.getUserHistoryById(query);
   }
 }
