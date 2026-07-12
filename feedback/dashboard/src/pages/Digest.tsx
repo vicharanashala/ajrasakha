@@ -135,11 +135,6 @@ export default function Digest() {
                   <span className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">
                     {entry.state}
                   </span>
-                  {entry.language && (
-                    <span className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">
-                      {entry.language}
-                    </span>
-                  )}
                   <span className="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded">
                     {entry.total_responses} responses
                   </span>

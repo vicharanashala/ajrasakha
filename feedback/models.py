@@ -15,7 +15,6 @@ class FeedbackCreate(BaseModel):
     farmer_phone: str
     question_id: str
     answer_id: str
-    language: Optional[str] = None
     response: FeedbackResponse
 
 class Feedback(BaseModel):

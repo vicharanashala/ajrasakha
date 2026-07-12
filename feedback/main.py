@@ -282,7 +282,6 @@ async def get_digest(top_n: int = 20, min_responses: int = 3):
         {"$group": {
             "_id": "$answer_id",
             "domain": {"$first": "$domain"},
-            "language": {"$first": "$language"},
             "state": {"$first": "$state"},
             "total": {"$sum": 1},
             "helpful": {"$sum": {"$cond": [{"$eq": ["$response", "1"]}, 1, 0]}}
@@ -298,7 +297,6 @@ async def get_digest(top_n: int = 20, min_responses: int = 3):
         all_entries.append({
             "answer_id": doc["_id"],
             "domain": doc["domain"] or "unknown",
-            "language": doc.get("language"),
             "state": doc["state"] or "unknown",
             "total_responses": t,
             "helpfulness_rate": rate
