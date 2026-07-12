@@ -8,6 +8,18 @@
     "build": "vite build && tsc",
     "serve": "vite preview",
     "test": "vitest run",
+    "test:e2e": "playwright test --config tests/e2e/playwright.config.ts",
+    "test:e2e:list": "playwright test --config tests/e2e/playwright.config.ts --list",
+    "test:e2e:ui": "playwright test --config tests/e2e/playwright.config.ts --ui",
+    "test:e2e:headed": "playwright test --config tests/e2e/playwright.config.ts --headed",
+    "test:e2e:debug": "playwright test --config tests/e2e/playwright.config.ts --debug",
+    "test:public": "playwright test --config tests/e2e/playwright.config.ts --grep @public",
+    "test:contract": "playwright test --config tests/e2e/playwright.config.ts --grep @contract",
+    "test:network": "playwright test --config tests/e2e/playwright.config.ts --grep @network",
+    "test:a11y": "playwright test --config tests/e2e/playwright.config.ts --grep @a11y",
+    "test:e2e:report": "playwright show-report tests/e2e/playwright-report",
+    "test:e2e:verify": "bash tests/e2e/scripts/verify-setup.sh",
+    "test:e2e:smoke": "bash tests/e2e/scripts/run-smoke.sh",
     "openapi-ts": "openapi-ts"
   },
   "dependencies": {
@@ -88,6 +100,7 @@
   "devDependencies": {
     "@faker-js/faker": "^9.8.0",
     "@hey-api/openapi-ts": "^0.78.3",
+    "@playwright/test": "^1.61.0",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/react": "^16.2.0",
     "@types/leaflet": "^1.9.21",
