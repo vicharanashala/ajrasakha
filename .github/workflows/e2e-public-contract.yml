@@ -1,0 +1,86 @@
+name: e2e-public-contract
+
+on:
+  push:
+    branches: [main, develop, QA/e2e-testcases]
+  pull_request:
+    branches: [main, develop, QA/e2e-testcases]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: Playwright E2E (zero-creds frontend contract)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # REQUIRED: front-end and API base URLs as GitHub secrets.
+      # Example values for staging:
+      #   E2E_BASE_URL: https://desk-staging.example.com
+      #   E2E_API_URL:  https://desk-staging.example.com/api
+      E2E_BASE_URL:     ${{ secrets.E2E_BASE_URL }}
+      E2E_API_URL:      ${{ secrets.E2E_API_URL }}
+      E2E_SKIP_IF_DOWN: 'false'
+      E2E_LOG_LEVEL:    info
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Verify setup
+        working-directory: frontend
+        run: bash tests/e2e/scripts/verify-setup.sh
+
+      - name: Run E2E suite
+        working-directory: frontend
+        run: pnpm test:e2e
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/tests/e2e/playwright-report
+          retention-days: 14
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: frontend/tests/e2e/test-results
+          retention-days: 7
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## E2E Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f frontend/tests/e2e/playwright-report/index.html ]; then
+            echo "✅ Report uploaded as artifact 'playwright-report'" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -d frontend/tests/e2e/test-results ]; then
+            echo "📊 Test results uploaded as artifact 'test-results'" >> $GITHUB_STEP_SUMMARY
+          fi
