@@ -44,4 +44,8 @@ ai/backend_routes.txt
 backend_routes.txt
 endpoints.txt
 
+# DeepEval cache — run history, metrics DB, local model state
+.deepeval/
+ai/.deepeval/
+
 

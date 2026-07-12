@@ -1,0 +1,59 @@
+[
+  {
+    "case_id": "gdb_tomato_blight_01",
+    "domain": "gdb",
+    "synthetic": true,
+    "input": "What is the best treatment for tomato blight in Karnataka?",
+    "actual_output": "Tomato blight (Phytophthora infestans) is a serious fungal disease that spreads rapidly in humid conditions. For Karnataka's monsoon climate, I recommend: 1) Spray Bavistin (Carbendazim) @ 2g per litre of water at 15-day intervals. 2) Remove and destroy infected plant parts immediately. 3) Ensure proper spacing for air circulation. 4) Avoid overhead irrigation — use drip irrigation instead. 5) Apply Trichoderma viride as a preventive biocontrol agent. Start spraying before the monsoon season begins. For severe cases, use a combination of Metalaxyl-based fungicides followed by protective copper-based sprays.",
+    "expected_output": null,
+    "retrieval_context": [
+      "Source: KAU Package of Practices — Tomato. Late blight (Phytophthora infestans) management: Spray Metalaxyl+Mancozeb @ 2.5g/lit at 10-day intervals. Remove infected leaves. Ensure field drainage.",
+      "Source: IIHR Technical Bulletin — Solanaceous crops. For blight in humid conditions: Dithane M-45 (Mancozeb) @ 2.5g/lit as preventive; Ridomil Gold (Metalaxyl) @ 2g/lit as curative. Apply at 7-10 day intervals during monsoon.",
+      "Source: GDB Expert Answer #4451 — Tomato disease, Karnataka. A experienced farmer from Kolar reports success with: 2 sprays of Bavistin 50WP @ 2g/lit at 15-day intervals combined with proper pruning of lower leaves."
+    ],
+    "metadata": {
+      "crop": "tomato",
+      "state": "karnataka",
+      "domain": "gdb",
+      "stable": true
+    }
+  },
+  {
+    "case_id": "weather_pune_week_01",
+    "domain": "weather",
+    "synthetic": true,
+    "input": "What is the weather forecast for Pune this week?",
+    "actual_output": "According to IMD data, Pune will experience partly cloudy skies for the next 3 days with a chance of light rain (2-4mm) on Day 3. Day 4 onwards, weather will clear with sunny conditions. Maximum temperature will range between 33-36°C and minimum between 24-26°C. Relative humidity will be high (70-85%) throughout the week. Wind speed will be 10-15 km/h from the southwest direction. There are no active weather warnings for Pune district. Monsoon has been slightly below normal in Maharashtra this season.",
+    "expected_output": null,
+    "retrieval_context": [
+      "Source: IMD City Forecast API /city/api/pune. Day 1-3: Partly cloudy, max 35°C, min 25°C, chance of light rain 30%. Day 4-7: Clear to partly cloudy, max 36°C, min 26°C, no rain expected.",
+      "Source: IMD Mausam API /mausam/api/pune. Current conditions: Temperature 34.2°C, humidity 72%, winds 12 km/h SW, cloud cover 40%. No active warnings for Pune district.",
+      "Source: Maharashtra Regional Climate Summary — June 2026. Southwest monsoon onset over Maharashtra occurred on June 14 (normal: June 10). Cumulative rainfall 18% below normal for Pune district as of today."
+    ],
+    "metadata": {
+      "location": "pune",
+      "state": "maharashtra",
+      "domain": "weather",
+      "stable": true
+    }
+  },
+  {
+    "case_id": "soil_rice_npk_01",
+    "domain": "soil",
+    "synthetic": true,
+    "input": "My soil test shows low nitrogen. What fertilizer should I use for rice in West Bengal?",
+    "actual_output": "Based on your soil test indicating low nitrogen for rice in West Bengal, I recommend the following fertilizer schedule for kharif season: 1) Apply 50% of Nitrogen as basal dose at transplanting — use Urea @ 65 kg/acre or Ammonium Sulphate @ 100 kg/acre. 2) Top-dress remaining 50% Nitrogen in 2 splits: 25% at 21 days after transplanting (active tillering) and 25% at panicle initiation stage. 3) For Phosphorus: Single Super Phosphate (SSP) @ 100 kg/acre as basal. 4) For Potassium: Muriate of Potash (MOP) @ 40 kg/acre in 2 splits (50% basal + 50% at panicle initiation). 5) Also apply Zinc Sulphate @ 25 kg/acre as basal — common deficiency in West Bengal rice soils. Use neem-coated urea for better nitrogen use efficiency. Apply all fertilizers in moist but not flooded field conditions.",
+    "expected_output": null,
+    "retrieval_context": [
+      "Source: Soil Health Card — West Bengal rice recommendation. For low N soil (N < 250 kg/ha): Apply Urea @ 98 kg/ha in 3 splits (50% basal + 25% at IT + 25% at PI). For P < 15 kg/ha: SSP @ 200 kg/ha basal. For K < 120 kg/ha: MOP @ 50 kg/ha split 50-50.",
+      "Source: ICAR-NRRI Package of Practices (Rice). Zinc deficiency is widespread in West Bengal alluvial soils. Apply ZnSO4 @ 25 kg/ha as basal. Neem-coated urea recommended for N use efficiency in irrigated rice. Split N application reduces loss via denitrification.",
+      "Source: KAU Package of Practices — Rice. For hybrid varieties: increase N to 120 kg/ha. Apply K in 2 splits to prevent luxury consumption. Maintain FYM @ 5 t/ha as basal for organic matter."
+    ],
+    "metadata": {
+      "crop": "rice",
+      "state": "west_bengal",
+      "domain": "soil",
+      "stable": false
+    }
+  }
+]

@@ -1,0 +1,90 @@
+[
+  {
+    "question_id": "synthetic_weather_pune_week_01",
+    "input": "What will the weather be like in Pune over the next 7 days? Should I irrigate my wheat field?",
+    "expected_output": "Pune 7-day forecast: Days 1–2 partly cloudy, max 28–30°C, min 14–16°C, no rain. Day 3 light showers expected (3–5mm), max 26°C. Days 4–5 clear, max 29°C, min 15°C. Days 6–7 partly cloudy with a chance of thundershowers (8–12mm), max 27°C. Wind: 8–14 km/h from NW, gusts to 22 km/h on Day 7. Humidity 45–65%. Irrigation recommendation: With light showers on Day 3 (~4mm) and thundershowers on Days 6–7 (~10mm combined), skip your scheduled wheat irrigation this week — total expected rainfall (~14mm) covers the weekly crop water demand of ~25mm for wheat at tillering stage. Resume irrigation only if the thundershowers on Day 7 do not materialise. Check soil moisture at 15cm depth on Day 4 before deciding.",
+    "synthetic": true,
+    "metadata": {
+      "domain": "weather",
+      "crop": "wheat",
+      "state": "maharashtra",
+      "expected_crop": "wheat",
+      "expected_region": "Pune",
+      "note": "Synthetic stand-in — replace with real GDB/IMD export before production use"
+    }
+  },
+  {
+    "question_id": "synthetic_weather_karnataka_monsoon_01",
+    "input": "When will the monsoon arrive in coastal Karnataka this year and how should I prepare my paddy fields?",
+    "expected_output": "IMD long-range forecast indicates monsoon onset over coastal Karnataka (Dakshina Kannada, Udupi, Uttara Kannada) around June 5–8, with a model error margin of ±4 days. Expected seasonal rainfall: 95–105% of LPA (Long Period Average) for the coastal belt. Pre-monsoon preparedness for paddy: (1) Complete nursery sowing 18–22 days before expected onset so seedlings are 25–30 days old at transplanting. (2) Repair bunds and level fields to retain 5–7cm of standing water. (3) Apply basal FYM @ 8–10 tonnes per hectare 7 days before transplanting. (4) Pre-monsoon ploughing exposes soil-borne pests and aids weed control. (5) Ensure drainage channels are clear to handle heavy spells (>65mm/day) that coastal Karnataka typically receives in July. Keep a 7-day buffer for onset delay — do not transplant before June 10 even if early rain arrives.",
+    "synthetic": true,
+    "metadata": {
+      "domain": "weather",
+      "crop": "paddy",
+      "state": "karnataka",
+      "expected_crop": "paddy",
+      "expected_region": "Karnataka",
+      "expected_treatment": "FYM",
+      "note": "Synthetic stand-in — replace with real GDB/IMD export before production use"
+    }
+  },
+  {
+    "question_id": "synthetic_market_tomato_price_01",
+    "input": "What are the current tomato prices in Kolar mandi and is it a good time to sell my harvest?",
+    "expected_output": "Kolar APMC mandi tomato prices (last 3 days): Day 1 — ₹1,450 per quintal (modal), arrivals 2,800 quintals. Day 2 — ₹1,620 per quintal, arrivals 3,100 quintals. Day 3 — ₹1,780 per quintal, arrivals 2,400 quintals. 7-day average: ₹1,540 per quintal. Bangalore Kolar district supply is moderate; demand from Tamil Nadu and Kerala is firm. Selling recommendation: Prices are trending up (₹1,450 → ₹1,780, +22% over 3 days) and arrivals are not surging, suggesting tight supply. If your harvest is ready and field holding cost is low, sell within the next 2–3 days. If you can hold for 4–5 days, watch the daily modal price — if it crosses ₹1,900/quintal, sell immediately; if it drops below ₹1,600, sell to avoid further decline. Avoid holding beyond 7 days as prices typically correct once arrivals from new clusters begin.",
+    "synthetic": true,
+    "metadata": {
+      "domain": "market",
+      "crop": "tomato",
+      "state": "karnataka",
+      "mandi": "Kolar APMC",
+      "expected_crop": "tomato",
+      "expected_region": "Kolar",
+      "note": "Synthetic stand-in — replace with real GDB/Agmarknet export before production use"
+    }
+  },
+  {
+    "question_id": "synthetic_market_wheat_msp_01",
+    "input": "What is the current MSP for wheat and should I sell to government procurement or private traders in Punjab?",
+    "expected_output": "Current wheat MSP (Rabi marketing season 2026–27): ₹2,425 per quintal — an increase of ₹150 over the previous season. Government procurement at MSP via FCI and state agencies (PUNSUP, MARKFED in Punjab) is active at all mandis from April 1 to May 31. Private trader prices in Punjab mandis are currently ₹2,280–2,360 per quintal — below MSP. Selling recommendation: Sell to government procurement at MSP (₹2,425/quintal). The MSP is ₹65–145 per quintal above private trade, so the choice is clear unless your holding cost is high or your produce has high moisture (>14%) which may be rejected at procurement. Required quality: moisture ≤14%, foreign matter ≤2%, shriveled/broken grains ≤6%. Clean and dry your produce before taking it to the procurement centre. Bring Aadhaar-linked bank account for direct benefit transfer within 48 hours.",
+    "synthetic": true,
+    "metadata": {
+      "domain": "market",
+      "crop": "wheat",
+      "state": "punjab",
+      "expected_crop": "wheat",
+      "expected_region": "Punjab",
+      "note": "Synthetic stand-in — replace with real GDB/CACP export before production use"
+    }
+  },
+  {
+    "question_id": "synthetic_soil_nutrient_deficiency_01",
+    "input": "My cotton plants in Gujarat are showing yellowing between the veins on upper leaves. What soil nutrient am I likely deficient in?",
+    "expected_output": "Interveinal chlorosis (yellowing between veins) on upper/younger leaves of cotton in Gujarat is a classic symptom of micronutrient deficiency. Differential diagnosis: (1) Iron (Fe) deficiency — most likely on calcareous/black cotton soils of Gujarat where pH is >7.8. Fe is unavailable at high pH. Confirm with DTPA-extractable Fe test (<4.5 ppm = deficient). (2) Manganese (Mn) deficiency — similar pattern but veins stay greener; common in light-textured soils. (3) Zinc (Zn) deficiency — usually appears as 'little leaf' with interveinal chlorosis; common in black cotton soils. Action: Get a soil test done at the nearest Krishi Vigyan Kendra or district soil testing lab. Quick corrective spray: 0.5% FeSO4 spray for iron deficiency, or 0.5% ZnSO4 spray for zinc deficiency. For long-term correction, apply ZnSO4 @ 25 kg/ha as basal. Do NOT apply lime or wood ash — these raise pH further and worsen the deficiency.",
+    "synthetic": true,
+    "metadata": {
+      "domain": "soil",
+      "crop": "cotton",
+      "state": "gujarat",
+      "expected_crop": "cotton",
+      "expected_region": "Gujarat",
+      "expected_treatment": "ZnSO4",
+      "note": "Synthetic stand-in — replace with real GDB/Soil Health Card export before production use"
+    }
+  },
+  {
+    "question_id": "synthetic_soil_salinity_01",
+    "input": "How do I test and manage soil salinity in my paddy field in Haryana?",
+    "expected_output": "Soil salinity in Haryana paddy fields is increasingly common in Karnal, Kaithal, and Kurukshetra districts due to rising water table and poor-quality irrigation water. Diagnosis: (1) Collect a composite soil sample (10–15 sub-samples from 0–15cm depth) and test for Electrical Conductivity (EC) and pH. EC > 4 dS/m = saline soil; pH > 8.5 = sodic soil; both may co-occur. (2) Test irrigation water EC — if > 2 dS/m, it is contributing to salinity buildup. Management: (1) Leach salts by flooding the field with 10–15cm of good-quality water and allowing it to drain — repeat 2–3 times before transplanting. (2) Apply gypsum @ 5–10 tonnes per hectare if soil is sodic (pH > 8.5) — calcium replaces sodium. (3) Grow salt-tolerant varieties: CSR 30, CSR 36, CSR 43 (basmati) for sodic soils. (4) Improve drainage by installing subsurface drains at 30m spacing if water table is within 1.5m of surface. (5) Add organic matter (FYM @ 10 t/ha) to improve soil structure and reduce salt effect on roots. (6) Avoid rice-rice continuous cropping — rotate with dhaincha (Sesbania) green manure crop for one season to break the salinity cycle.",
+    "synthetic": true,
+    "metadata": {
+      "domain": "soil",
+      "crop": "paddy",
+      "state": "haryana",
+      "expected_crop": "paddy",
+      "expected_region": "Haryana",
+      "expected_treatment": "gypsum",
+      "note": "Synthetic stand-in — replace with real GDB/Soil Health Card export before production use"
+    }
+  }
+]

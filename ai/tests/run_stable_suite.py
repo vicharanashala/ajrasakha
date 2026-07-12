@@ -33,6 +33,17 @@ COMMANDS = [
         "command": [sys.executable, "-m", "ajrasakha.evaluation.run", "--mode", "live", "--stable-only"],
         "report": ROOT / "evaluation_report_live.csv",
     },
+    {
+        "layer": "Layer 4 - Answer Quality",
+        "name": "answer_quality",
+        "command": [
+            sys.executable,
+            "-m", "ajrasakha.evaluation.run_ground_truth",
+            "tests/fixtures/gdb_ground_truth_sample_6domains.json",
+            "--csv-out", str(REPORT_DIR / "answer_quality.csv"),
+        ],
+        "report": REPORT_DIR / "answer_quality.csv",
+    },
 
    
 ]
@@ -74,13 +85,30 @@ def read_report_rows(layer, report_path):
         reader = csv.DictReader(f)
 
         for row in reader:
-            passed_value = (
-                row.get("passed")
-                or row.get("technical_pass")
-                or row.get("status_pass")
-                or row.get("overall_pass")
-                or ""
-            )
+            # Layer-aware pass criterion:
+            #   - Layers 1-3 (api_contracts, mcp_connectivity, stable_langgraph):
+            #     look for the legacy "passed" / "technical_pass" / etc. columns.
+            #     These CSVs are produced by the long-standing reports that
+            #     always had a single boolean-per-case pass flag.
+            #   - Layer 4 (answer_quality): our CSV is richer — every row
+            #     has many *_metric_passed columns. The right PS3 brief
+            #     criterion is "did AnswerRelevancy pass" — that's the
+            #     only signal that runs for every case (the other two are
+            #     context-gated and skip in smoke runs).
+            if layer.startswith("Layer 4"):
+                passed_value = (
+                    row.get("answerrelevancymetric_passed")
+                    or row.get("passed")
+                    or ""
+                )
+            else:
+                passed_value = (
+                    row.get("passed")
+                    or row.get("technical_pass")
+                    or row.get("status_pass")
+                    or row.get("overall_pass")
+                    or ""
+                )
 
             passed = normalize_bool(passed_value)
 
