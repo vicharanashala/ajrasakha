@@ -88,7 +88,7 @@ class User implements IUser {
     this.status = data?.status ?? 'active';
     this.isBlocked = data?.isBlocked ?? false;
     this.lastCheckInAt = data?.lastCheckInAt;
-    this.isVerified = data?.isVerified ?? false;
+    this.isVerified = data?.isVerified ?? true;
     this.preference = {
       crop: data?.preference?.crop || 'all',
       state: data?.preference?.state || 'all',
