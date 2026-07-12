@@ -7,13 +7,29 @@ interface StatsChartProps {
   data: any[]
   labelKey: string
   title: string
+  error?: string
 }
 
-export default function StatsChart({ data, labelKey, title }: StatsChartProps) {
+export default function StatsChart({ data, labelKey, title, error }: StatsChartProps) {
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+        <p className="text-red-700 font-medium">⚠️ Could not load data</p>
+        <p className="text-red-500 text-sm mt-1">
+          Make sure the backend is running on port 8000
+        </p>
+      </div>
+    )
+  }
+
   if (!data || data.length === 0) {
     return (
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
-        <p className="text-yellow-700">No data yet — submit feedback via the Test Panel first</p>
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-8 text-center">
+        <p className="text-yellow-700 font-medium">No data yet</p>
+        <p className="text-yellow-600 text-sm mt-1">
+          Submit feedback via the <span className="font-bold">Test Panel</span> or
+          run <span className="font-mono bg-yellow-100 px-1 rounded">python3 seed.py</span>
+        </p>
       </div>
     )
   }
@@ -39,8 +55,6 @@ export default function StatsChart({ data, labelKey, title }: StatsChartProps) {
           />
           <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} />
           <Tooltip
-            formatter={(value: any, name: string) => [`${value}%`, 'Helpfulness Rate']}
-            labelFormatter={(label) => `${label}`}
             content={({ active, payload, label }) => {
               if (active && payload && payload.length) {
                 const d = payload[0].payload
@@ -57,7 +71,12 @@ export default function StatsChart({ data, labelKey, title }: StatsChartProps) {
               return null
             }}
           />
-          <ReferenceLine y={60} stroke="#f59e0b" strokeDasharray="4 4" label={{ value: '60% threshold', position: 'right', fontSize: 11 }} />
+          <ReferenceLine
+            y={60}
+            stroke="#f59e0b"
+            strokeDasharray="4 4"
+            label={{ value: '60% threshold', position: 'right', fontSize: 11 }}
+          />
           <Bar dataKey="rate" radius={[4, 4, 0, 0]}>
             {chartData.map((entry, index) => (
               <Cell
@@ -69,7 +88,6 @@ export default function StatsChart({ data, labelKey, title }: StatsChartProps) {
         </BarChart>
       </ResponsiveContainer>
 
-      {/* Table below chart */}
       <table className="w-full mt-4 text-sm">
         <thead>
           <tr className="border-b text-gray-500">
