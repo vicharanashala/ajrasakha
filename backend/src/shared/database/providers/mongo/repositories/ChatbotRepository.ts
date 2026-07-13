@@ -11362,22 +11362,67 @@ export class ChatbotRepository implements IChatbotRepository {
             count: {
               $sum: 1,
             },
-            avgCloseTime: {
-              $avg: {
+            closedTimedCount: {
+              $sum: {
                 $cond: [
                   {
                     $and: [
                       {$eq: ['$status', 'closed']},
+                      {$ne: ['$createdAt', null]},
                       {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
                     ],
                   },
+                  1,
+                  0,
+                ],
+              },
+            },
+            closedTimeSum: {
+              $sum: {
+                $cond: [
                   {
-                    $divide: [
-                      {$subtract: ['$closedAt', '$createdAt']},
-                      1000 * 60,
+                    $and: [
+                      {$eq: ['$status', 'closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
                     ],
                   },
-                  null,
+                  {$subtract: ['$closedAt', '$createdAt']},
+                  0,
+                ],
+              },
+            },
+            passedTimedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'pass']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$passedAt', null]},
+                      {$gte: ['$passedAt', '$createdAt']},
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            passedTimeSum: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'pass']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$passedAt', null]},
+                      {$gte: ['$passedAt', '$createdAt']},
+                    ],
+                  },
+                  {$subtract: ['$passedAt', '$createdAt']},
+                  0,
                 ],
               },
             },
@@ -11396,8 +11441,17 @@ export class ChatbotRepository implements IChatbotRepository {
                 v: '$count',
               },
             },
-            averageCloseTimeMinutes: {
-              $max: '$avgCloseTime',
+            closedTimedCount: {
+              $sum: '$closedTimedCount',
+            },
+            closedTimeSum: {
+              $sum: '$closedTimeSum',
+            },
+            passedTimedCount: {
+              $sum: '$passedTimedCount',
+            },
+            passedTimeSum: {
+              $sum: '$passedTimeSum',
             },
           },
         },
@@ -11410,9 +11464,62 @@ export class ChatbotRepository implements IChatbotRepository {
               $arrayToObject: '$statuses',
             },
             averageCloseTimeMinutes: {
-              $ifNull: [
+              $cond: [
+                {$gt: ['$closedTimedCount', 0]},
                 {
-                  $round: ['$averageCloseTimeMinutes', 2],
+                  $round: [
+                    {
+                      $divide: [
+                        '$closedTimeSum',
+                        {$multiply: ['$closedTimedCount', 60000]},
+                      ],
+                    },
+                    2,
+                  ],
+                },
+                0,
+              ],
+            },
+            averagePassTimeMinutes: {
+              $cond: [
+                {$gt: ['$passedTimedCount', 0]},
+                {
+                  $round: [
+                    {
+                      $divide: [
+                        '$passedTimeSum',
+                        {$multiply: ['$passedTimedCount', 60000]},
+                      ],
+                    },
+                    2,
+                  ],
+                },
+                0,
+              ],
+            },
+            combinedAverageTimeMinutes: {
+              $cond: [
+                {
+                  $gt: [
+                    {$add: ['$closedTimedCount', '$passedTimedCount']},
+                    0,
+                  ],
+                },
+                {
+                  $round: [
+                    {
+                      $divide: [
+                        {$add: ['$closedTimeSum', '$passedTimeSum']},
+                        {
+                          $multiply: [
+                            {$add: ['$closedTimedCount', '$passedTimedCount']},
+                            60000,
+                          ],
+                        },
+                      ],
+                    },
+                    2,
+                  ],
                 },
                 0,
               ],
@@ -11510,71 +11617,167 @@ export class ChatbotRepository implements IChatbotRepository {
               },
               status: '$status',
             },
-
             count: {
               $sum: 1,
             },
-
-            avgCloseTime: {
-              $avg: {
+            closedTimedCount: {
+              $sum: {
                 $cond: [
                   {
                     $and: [
                       {$eq: ['$status', 'closed']},
+                      {$ne: ['$createdAt', null]},
                       {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
                     ],
                   },
+                  1,
+                  0,
+                ],
+              },
+            },
+            closedTimeSum: {
+              $sum: {
+                $cond: [
                   {
-                    $divide: [
-                      {$subtract: ['$closedAt', '$createdAt']},
-                      1000 * 60,
+                    $and: [
+                      {$eq: ['$status', 'closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
                     ],
                   },
-                  null,
+                  {$subtract: ['$closedAt', '$createdAt']},
+                  0,
+                ],
+              },
+            },
+            passedTimedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'pass']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$passedAt', null]},
+                      {$gte: ['$passedAt', '$createdAt']},
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            passedTimeSum: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'pass']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$passedAt', null]},
+                      {$gte: ['$passedAt', '$createdAt']},
+                    ],
+                  },
+                  {$subtract: ['$passedAt', '$createdAt']},
+                  0,
                 ],
               },
             },
           },
         },
-
         // Group by week
         {
           $group: {
             _id: '$_id.period',
-
             totalQuestions: {
               $sum: '$count',
             },
-
             statuses: {
               $push: {
                 k: '$_id.status',
                 v: '$count',
               },
             },
-
-            averageCloseTimeMinutes: {
-              $max: '$avgCloseTime',
+            closedTimedCount: {
+              $sum: '$closedTimedCount',
+            },
+            closedTimeSum: {
+              $sum: '$closedTimeSum',
+            },
+            passedTimedCount: {
+              $sum: '$passedTimedCount',
+            },
+            passedTimeSum: {
+              $sum: '$passedTimeSum',
             },
           },
         },
-
         {
           $project: {
             _id: 0,
-
             period: '$_id',
-
             totalQuestions: 1,
-
             statuses: {
               $arrayToObject: '$statuses',
             },
-
             averageCloseTimeMinutes: {
-              $ifNull: [
+              $cond: [
+                {$gt: ['$closedTimedCount', 0]},
                 {
-                  $round: ['$averageCloseTimeMinutes', 2],
+                  $round: [
+                    {
+                      $divide: [
+                        '$closedTimeSum',
+                        {$multiply: ['$closedTimedCount', 60000]},
+                      ],
+                    },
+                    2,
+                  ],
+                },
+                0,
+              ],
+            },
+            averagePassTimeMinutes: {
+              $cond: [
+                {$gt: ['$passedTimedCount', 0]},
+                {
+                  $round: [
+                    {
+                      $divide: [
+                        '$passedTimeSum',
+                        {$multiply: ['$passedTimedCount', 60000]},
+                      ],
+                    },
+                    2,
+                  ],
+                },
+                0,
+              ],
+            },
+            combinedAverageTimeMinutes: {
+              $cond: [
+                {
+                  $gt: [
+                    {$add: ['$closedTimedCount', '$passedTimedCount']},
+                    0,
+                  ],
+                },
+                {
+                  $round: [
+                    {
+                      $divide: [
+                        {$add: ['$closedTimeSum', '$passedTimeSum']},
+                        {
+                          $multiply: [
+                            {$add: ['$closedTimedCount', '$passedTimedCount']},
+                            60000,
+                          ],
+                        },
+                      ],
+                    },
+                    2,
+                  ],
                 },
                 0,
               ],
@@ -11650,71 +11853,167 @@ export class ChatbotRepository implements IChatbotRepository {
               },
               status: '$status',
             },
-
             count: {
               $sum: 1,
             },
-
-            avgCloseTime: {
-              $avg: {
+            closedTimedCount: {
+              $sum: {
                 $cond: [
                   {
                     $and: [
                       {$eq: ['$status', 'closed']},
+                      {$ne: ['$createdAt', null]},
                       {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
                     ],
                   },
+                  1,
+                  0,
+                ],
+              },
+            },
+            closedTimeSum: {
+              $sum: {
+                $cond: [
                   {
-                    $divide: [
-                      {$subtract: ['$closedAt', '$createdAt']},
-                      1000 * 60,
+                    $and: [
+                      {$eq: ['$status', 'closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
                     ],
                   },
-                  null,
+                  {$subtract: ['$closedAt', '$createdAt']},
+                  0,
+                ],
+              },
+            },
+            passedTimedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'pass']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$passedAt', null]},
+                      {$gte: ['$passedAt', '$createdAt']},
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            passedTimeSum: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'pass']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$passedAt', null]},
+                      {$gte: ['$passedAt', '$createdAt']},
+                    ],
+                  },
+                  {$subtract: ['$passedAt', '$createdAt']},
+                  0,
                 ],
               },
             },
           },
         },
-
         // Group by month
         {
           $group: {
             _id: '$_id.period',
-
             totalQuestions: {
               $sum: '$count',
             },
-
             statuses: {
               $push: {
                 k: '$_id.status',
                 v: '$count',
               },
             },
-
-            averageCloseTimeMinutes: {
-              $max: '$avgCloseTime',
+            closedTimedCount: {
+              $sum: '$closedTimedCount',
+            },
+            closedTimeSum: {
+              $sum: '$closedTimeSum',
+            },
+            passedTimedCount: {
+              $sum: '$passedTimedCount',
+            },
+            passedTimeSum: {
+              $sum: '$passedTimeSum',
             },
           },
         },
-
         {
           $project: {
             _id: 0,
-
             period: '$_id',
-
             totalQuestions: 1,
-
             statuses: {
               $arrayToObject: '$statuses',
             },
-
             averageCloseTimeMinutes: {
-              $ifNull: [
+              $cond: [
+                {$gt: ['$closedTimedCount', 0]},
                 {
-                  $round: ['$averageCloseTimeMinutes', 2],
+                  $round: [
+                    {
+                      $divide: [
+                        '$closedTimeSum',
+                        {$multiply: ['$closedTimedCount', 60000]},
+                      ],
+                    },
+                    2,
+                  ],
+                },
+                0,
+              ],
+            },
+            averagePassTimeMinutes: {
+              $cond: [
+                {$gt: ['$passedTimedCount', 0]},
+                {
+                  $round: [
+                    {
+                      $divide: [
+                        '$passedTimeSum',
+                        {$multiply: ['$passedTimedCount', 60000]},
+                      ],
+                    },
+                    2,
+                  ],
+                },
+                0,
+              ],
+            },
+            combinedAverageTimeMinutes: {
+              $cond: [
+                {
+                  $gt: [
+                    {$add: ['$closedTimedCount', '$passedTimedCount']},
+                    0,
+                  ],
+                },
+                {
+                  $round: [
+                    {
+                      $divide: [
+                        {$add: ['$closedTimeSum', '$passedTimeSum']},
+                        {
+                          $multiply: [
+                            {$add: ['$closedTimedCount', '$passedTimedCount']},
+                            60000,
+                          ],
+                        },
+                      ],
+                    },
+                    2,
+                  ],
                 },
                 0,
               ],
