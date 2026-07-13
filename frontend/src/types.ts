@@ -573,6 +573,12 @@ export interface QuestionFeedbackResponse {
       tag?: string;
       text?: string;
     } | null;
+    user?: {
+      username: string;
+      email: string;
+      avatar: string | null;
+    };
+    createdAt?: string;
   };
 }
 

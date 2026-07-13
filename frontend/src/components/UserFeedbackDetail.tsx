@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, ThumbsUp, ThumbsDown } from "lucide-react";
+import { ChevronDown, ChevronRight, ThumbsUp, ThumbsDown, User, Mail, Clock, MessageSquare } from "lucide-react";
 import { Badge } from "./atoms/badge";
 import { Skeleton } from "./atoms/skeleton";
+import { Avatar, AvatarFallback, AvatarImage } from "./atoms/avatar";
 import { useGetQuestionFeedback } from "@/hooks/api/question/useGetQuestionFeedback";
+import { formatDistanceToNow } from "date-fns";
 
 interface UserFeedbackDetailProps {
     questionId: string | null;
@@ -37,6 +39,10 @@ const UserFeedbackDetail = ({ questionId }: UserFeedbackDetailProps) => {
                 ) : (
                     <ChevronRight className="h-5 w-5 text-primary shrink-0 transition-transform" />
                 )}
+
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-500/10 text-orange-500 shadow-sm shrink-0">
+                    <MessageSquare className="h-4 w-4" />
+                </div>
 
                 <div className="flex flex-col items-start gap-0.5 flex-1 min-w-0">
                     <span className="text-sm font-semibold text-foreground">User Feedback</span>
@@ -77,8 +83,41 @@ const UserFeedbackDetail = ({ questionId }: UserFeedbackDetailProps) => {
                     )}
 
                     {!isLoading && !isError && feedback && (
-                        <div className="p-5">
-                            <div className="flex flex-col gap-3">
+                        <div className="p-5 flex flex-col gap-4 divide-y divide-border">
+                            {/* User details header */}
+                            {feedbackResponse?.data?.user && (
+                                <div className="flex items-start gap-4 pb-4">
+                                    <Avatar className="h-10 w-10 border border-border">
+                                        <AvatarImage src={feedbackResponse.data.user.avatar || undefined} alt={feedbackResponse.data.user.username} />
+                                        <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                                            {feedbackResponse.data.user.username ? feedbackResponse.data.user.username[0].toUpperCase() : 'U'}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex-1 min-w-0 space-y-1.5">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="font-semibold text-foreground text-sm flex items-center gap-1.5">
+                                                <User className="h-3.5 w-3.5 text-muted-foreground" /> {feedbackResponse.data.user.username}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-x-4 gap-y-2 flex-wrap text-xs text-muted-foreground">
+                                            {feedbackResponse.data.user.email && (
+                                                <span className="flex items-center gap-1.5">
+                                                    <Mail className="h-3.5 w-3.5" />
+                                                    {feedbackResponse.data.user.email}
+                                                </span>
+                                            )}
+                                            {feedbackResponse.data.createdAt && (
+                                                <span className="flex items-center gap-1.5">
+                                                    <Clock className="h-3.5 w-3.5" />
+                                                    {formatDistanceToNow(new Date(feedbackResponse.data.createdAt), { addSuffix: true })}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            <div className="flex flex-col gap-3 pt-4">
                                 <div className="flex items-center gap-2">
                                     {feedback.rating === "thumbsUp" ? (
                                         <Badge

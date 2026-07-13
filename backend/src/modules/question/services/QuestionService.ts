@@ -5825,6 +5825,12 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     return {
       feedback: message?.feedback || null,
+      user: {
+        username: message?.userDetails?.username || 'N/A',
+        email: message?.userDetails?.email || '',
+        avatar: message?.userDetails?.avatar || null,
+      },
+      createdAt: message?.createdAt ? new Date(message.createdAt).toISOString() : '',
     };
   }
   async checkStatus(questionIds: string[]): Promise<ICheckStatusResponse[]> {
