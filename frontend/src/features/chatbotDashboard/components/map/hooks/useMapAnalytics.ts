@@ -508,7 +508,6 @@ export const useVillageUserCounts = ({
   // search?: string;
   enabled: boolean;
 }) => {
-  console.log("State of hook", state, "district of hook", district)
   return useQuery<any>({
     queryKey: [
       "get-user-and-map-data",

@@ -40,6 +40,9 @@ export default function IndiaAnalyticsMap({
   source,
   userType,
   todayActiveFarmersData,
+  analyticsData,
+  weeklyAnalyticsData,
+  monthlyAnalyticsData
 }: any) {
   // Hooks
 
@@ -226,11 +229,14 @@ const styleFn = useCallback(
       (level === "india" && selectedState === name) ||
       (level !== "india" && selectedDistrict === name);
 
+      const useFixedQuestionScale =
+  isIndiaView && metric === "questions";
+
     return {
       fillColor:
         analytics.rank === -1
           ? "#dc2626"
-          : colorFor(v, minV, maxV, useLogScale),
+          : colorFor(v, minV, maxV, useLogScale, useFixedQuestionScale),
 
       fillOpacity: isSelected ? 0.95 : isHovered ? 0.85 : 0.7,
 
@@ -494,6 +500,9 @@ const styleFn = useCallback(
         setClickedState={setClickedState}
         clickedDistrict={clickedDistrict}
         setClickedDistrict={setClickedDistrict}
+        analyticsData= {analyticsData}
+        weeklyAnalyticsData= {weeklyAnalyticsData}
+        monthlyAnalyticsData={monthlyAnalyticsData}
       />
     </div>
   );
