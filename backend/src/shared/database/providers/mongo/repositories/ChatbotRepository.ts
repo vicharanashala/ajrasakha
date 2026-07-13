@@ -11549,11 +11549,40 @@ export class ChatbotRepository implements IChatbotRepository {
       closedInSelectedTime.map(item => [item._id, item.closedInPeriod]),
     );
 
-    const result = analytics.map(item => ({
-      ...item,
-      closedInPeriod: closedMap.get(item.period) || 0,
-      carryForward: 0,
-    }));
+    const analyticsMap = new Map(
+      analytics.map(item => [item.period, item]),
+    );
+
+    const dateStrings: string[] = [];
+    const tempDate = new Date(start);
+    tempDate.setHours(12, 0, 0, 0);
+    const tempEnd = new Date(end);
+    tempEnd.setHours(12, 0, 0, 0);
+
+    while (tempDate <= tempEnd) {
+      const year = tempDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata', year: 'numeric' });
+      const month = tempDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata', month: '2-digit' });
+      const day = tempDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata', day: '2-digit' });
+      const dateStr = `${year}-${month}-${day}`;
+      if (!dateStrings.includes(dateStr)) {
+        dateStrings.push(dateStr);
+      }
+      tempDate.setDate(tempDate.getDate() + 1);
+    }
+
+    const result = dateStrings.map(dateStr => {
+      const existing = analyticsMap.get(dateStr);
+      return {
+        period: dateStr,
+        totalQuestions: existing?.totalQuestions || 0,
+        statuses: existing?.statuses || {},
+        averageCloseTimeMinutes: existing?.averageCloseTimeMinutes || 0,
+        averagePassTimeMinutes: existing?.averagePassTimeMinutes || 0,
+        combinedAverageTimeMinutes: existing?.combinedAverageTimeMinutes || 0,
+        closedInPeriod: closedMap.get(dateStr) || 0,
+        carryForward: 0,
+      };
+    });
 
     if (result.length) {
       result[result.length - 1].carryForward = carryForward;
