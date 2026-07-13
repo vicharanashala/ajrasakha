@@ -63,6 +63,7 @@ export class PlivoController {
 
       let endpointUser: string;
       let fallbackMessage: string;
+      let welcomeMessage: string = "Thank you for calling ACC, we will connect you with a specialist shortly. Please stay on the line.";
 
       if (availableAgent && availableAgent.agent) {
         // Get the Plivo endpoint credentials for this agent
@@ -90,6 +91,7 @@ export class PlivoController {
                               <Stream contentType="audio/x-l16;rate=16000"
           noiseCancellation="true" audioTrack="both" noise_cancellation_level="85"
           >${streamUrl}</Stream>
+          <Speak voice="MAN" language="en-US">${welcomeMessage}</Speak>
                               <Dial timeout="40" callerId="${myPlivoNumber}">
                                         <User>${endpointUser}</User>
                               </Dial>
