@@ -10,8 +10,8 @@ permissions:
 
 env:
   DOCKER_IMAGE: reviewer-api
-  GCP_REGION: asia-south1
-  GCP_SERVICE: reviewer-api-workflow-test
+  GCP_REGION: asia-south2
+  GCP_SERVICE: reviewer-backend
 
 jobs:
   build:
