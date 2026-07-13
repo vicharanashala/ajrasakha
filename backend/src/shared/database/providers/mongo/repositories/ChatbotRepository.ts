@@ -2869,6 +2869,8 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const source = _source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
 
+      console.log("District data", district)
+
       const districts = district.map(d => {
         if (d.districtNameEnglish === 'S.A.S Nagar') {
           return 'Sahibzada Ajit Singh Nagar';
@@ -3285,6 +3287,7 @@ export class ChatbotRepository implements IChatbotRepository {
         const districtMeta = districtCodeMap.get(normalizedDistrict);
 
         const feedbackData = feedbackMap.get(normalizedDistrict);
+
 
         return {
           district,
