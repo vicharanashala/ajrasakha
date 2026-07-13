@@ -8,3 +8,4 @@ count.txt
 .nitro
 .tanstack
 .env.production
+.env.staging
