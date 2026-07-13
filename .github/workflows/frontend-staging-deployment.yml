@@ -7,7 +7,8 @@
 # Override `ref` only if you need to ship a different branch/tag/SHA to staging.
 #
 #   site   : ajrasakha-staging   ← separate Firebase Hosting site from prod's ajrasakha-prod
-#   config : deploy/staging/firebase.json  (the repo-root firebase.json is NOT used here)
+#   config : GENERATED at deploy time into deploy/staging/firebase.json — nothing to commit.
+#            The repo-root firebase.json (production, site: ajrasakha-prod) is never used.
 #
 # IMPORTANT: the BUILD job runs in the `staging` GitHub Environment, because Vite BAKES
 # the VITE_* values into the bundle at build time. Staging must be built with the staging
@@ -94,7 +95,6 @@ jobs:
       name: staging
 
     steps:
-      # Same ref, so deploy/staging/firebase.json comes from the staging branch too.
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref }}
@@ -104,7 +104,29 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      # Land the build where deploy/staging/firebase.json expects it ("public": "dist").
+      # The staging Firebase config is GENERATED here rather than committed, so there is
+      # nothing extra to remember to push to the staging branch — and the repo-root
+      # firebase.json (production, site: ajrasakha-prod) is never touched or read.
+      - name: Generate staging Firebase config
+        run: |
+          mkdir -p deploy/staging
+          cat > deploy/staging/firebase.json <<'JSON'
+          {
+            "hosting": {
+              "site": "ajrasakha-staging",
+              "public": "dist",
+              "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+              "rewrites": [{ "source": "**", "destination": "/index.html" }]
+            }
+          }
+          JSON
+          cat > deploy/staging/.firebaserc <<'JSON'
+          { "projects": { "default": "${{ secrets.FIREBASE_PROJECT_ID }}" } }
+          JSON
+          echo "--- deploy/staging/firebase.json ---"
+          cat deploy/staging/firebase.json
+
+      # Land the build where firebase.json expects it ("public": "dist").
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
