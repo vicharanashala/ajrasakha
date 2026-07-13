@@ -230,6 +230,15 @@
 .ace-dash .narrative-figs .nf .l { font-size: 11.5px; color: var(--ink-soft); margin-top: 2px; }
 @media (max-width: 860px) { .ace-dash .narrative-grid { grid-template-columns: 1fr; } }
 
+/* ---------- OUTREACH MEDIA GALLERY ---------- */
+.ace-dash .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.ace-dash .media-card { margin: 0; background: var(--paper-raised); border-radius: var(--radius-sm); box-shadow: var(--shadow); overflow: hidden; }
+.ace-dash .media-card img,
+.ace-dash .media-card video { display: block; width: 100%; height: 170px; object-fit: cover; background: #000; }
+.ace-dash .media-card figcaption { padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.ace-dash .media-card figcaption strong { font-size: 13px; color: var(--navy-deep); font-weight: 700; }
+.ace-dash .media-card figcaption span { font-size: 11.5px; color: var(--ink-soft); }
+
 /* ---------- FOOTER ---------- */
 .ace-dash footer { background: #fff; color: var(--ink-soft); padding: 44px 0 30px; margin-top: 20px; border-top: 1px solid var(--line); }
 .ace-dash footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 20px; }

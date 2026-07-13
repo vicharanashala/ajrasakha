@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useAuthStore } from "@/stores/auth-store";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
-import { DashboardContentEditor } from "@/features/public-dashboard/admin/DashboardContentEditor";
+import { DashboardAdmin } from "@/features/public-dashboard/admin/DashboardAdmin";
 
 export const Route = createFileRoute("/dashboard-editor/")({
   component: RouteComponent,
@@ -30,7 +30,7 @@ function RouteComponent() {
 
   return (
     <div className="min-h-screen bg-background">
-      <DashboardContentEditor />
+      <DashboardAdmin />
     </div>
   );
 }

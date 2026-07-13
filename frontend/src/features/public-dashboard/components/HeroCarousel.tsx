@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Counter } from "./Counter";
+import { useGetMedia } from "@/hooks/api/media/useMedia";
 
 interface Slide {
   title: string;
@@ -62,6 +63,15 @@ export const HeroCarousel = () => {
   const [index, setIndex] = useState(0);
   const paused = useRef(false);
 
+  // Admin-uploaded carousel images (Dashboard Media) override the built-in backdrops.
+  // They're applied cyclically across the slides; falls back to the defaults when empty.
+  const { data: uploaded } = useGetMedia("carousel");
+  const images = uploaded ?? [];
+  const effectiveSlides = slides.map((s, i) => ({
+    ...s,
+    image: images.length ? images[i % images.length].url : s.image,
+  }));
+
   const go = useCallback((next: number) => setIndex((next + slides.length) % slides.length), []);
 
   useEffect(() => {
@@ -78,7 +88,7 @@ export const HeroCarousel = () => {
       onMouseLeave={() => (paused.current = false)}
       aria-roledescription="carousel"
     >
-      {slides.map((s, i) => (
+      {effectiveSlides.map((s, i) => (
         <div
           key={i}
           className={`carousel-slide${i === index ? " active" : ""}`}

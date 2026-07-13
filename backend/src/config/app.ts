@@ -38,6 +38,8 @@ export const appConfig = {
   },
   GOOGLE_APPLICATION_CREDENTIALS: env('GOOGLE_APPLICATION_CREDENTIALS') || null,
   GCP_BACKUP_BUCKET: env('GCP_BACKUP_BUCKET') || null,
+  /** Bucket holding admin-uploaded public media (carousel images, outreach images/videos). */
+  GCP_MEDIA_BUCKET: env('GCP_MEDIA_BUCKET') || null,
   ENABLE_DB_BACKUP: env('ENABLE_DB_BACKUP') == 'true' || false,
   ENABLE_AI_SERVER: env('ENABLE_AI_SERVER') == 'true' || false,
   WA_WEBHOOK_API_KEY: env('WA_WEBHOOK_API_KEY') || "",

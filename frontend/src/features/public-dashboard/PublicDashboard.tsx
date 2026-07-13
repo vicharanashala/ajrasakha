@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import "./public-dashboard.css";
 import { Counter } from "./components/Counter";
 import { HeroCarousel } from "./components/HeroCarousel";
+import { OutreachGallery } from "./components/OutreachGallery";
 import { DomainDoughnut, GrowthLine } from "./components/charts";
 import { useGetDashboardContent } from "@/hooks/api/dashboard/useDashboardContent";
 import { defaultBlocks } from "./data/contentDefaults";
@@ -68,6 +69,7 @@ export const PublicDashboard = () => {
         <HumanNetwork />
         <Integrations />
         <ImpactOutreach />
+        <OutreachGallery />
         <TechShowcase />
         <Roadmap />
         <Multilingual />

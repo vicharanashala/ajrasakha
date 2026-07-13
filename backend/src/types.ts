@@ -42,6 +42,8 @@ const TYPES = {
   ChemicalService: Symbol.for('ChemicalService'),
   DashboardContentRepository: Symbol.for('DashboardContentRepository'),
   DashboardContentService: Symbol.for('DashboardContentService'),
+  MediaRepository: Symbol.for('MediaRepository'),
+  MediaService: Symbol.for('MediaService'),
 
   // Constants
   uri: Symbol.for('dbURI'),

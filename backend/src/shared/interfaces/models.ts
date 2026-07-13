@@ -33,6 +33,27 @@ export interface IDashboardContent {
   updatedBy?: string | null;
 }
 
+/** The three admin-uploadable media categories on the public dashboard. */
+export type MediaKind = 'carousel' | 'outreach_image' | 'outreach_video';
+
+/** A file uploaded by an admin to the media bucket (GCS). One document per file;
+ *  `storagePath` is kept so the object can be deleted from the bucket later. */
+export interface IMedia {
+  _id?: string | ObjectId;
+  kind: MediaKind;
+  /** Public URL of the object in the media bucket. */
+  url: string;
+  /** Object path inside the bucket — required to delete/replace the file. */
+  storagePath: string;
+  mimeType: string;
+  size: number;
+  title?: string;
+  caption?: string;
+  order: number;
+  uploadedBy?: string | ObjectId | null;
+  createdAt?: Date;
+}
+
 /** One question currently held by a moderator. The status is denormalised from the
  *  question document so the cron can decide free/busy without a join. It is kept in
  *  sync whenever the question's status changes (see QuestionRepository) and the whole
