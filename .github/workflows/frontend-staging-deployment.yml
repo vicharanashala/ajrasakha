@@ -1,7 +1,10 @@
 # STAGING ONLY. Production lives in `frontend-deployment.yml` and is untouched.
 #
-# Run this FROM the `staging_branch/main_copy` branch
-# (Actions → Run workflow → "Use workflow from": staging_branch/main_copy).
+# The staging branch is `staging_branch/main_copy` and it is the DEFAULT here: the workflow
+# checks that branch out explicitly, so it deploys staging code no matter which branch you
+# happened to dispatch from. (GitHub's "Use workflow from" dropdown always defaults to the
+# repo's default branch and can't be changed per-workflow — hence the `ref` input below.)
+# Override `ref` only if you need to ship a different branch/tag/SHA to staging.
 #
 #   site   : ajrasakha-staging   ← separate Firebase Hosting site from prod's ajrasakha-prod
 #   config : deploy/staging/firebase.json  (the repo-root firebase.json is NOT used here)
@@ -14,6 +17,12 @@ name: AjraSakha Frontend Staging Deployment
 
 on:
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch / tag / SHA to deploy to staging"
+        required: true
+        default: "staging_branch/main_copy"
+        type: string
 
 permissions:
   contents: write
@@ -31,8 +40,10 @@ jobs:
       name: staging
 
     steps:
+      # Always build the staging branch, not whatever the run was dispatched from.
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.ref }}
           fetch-depth: 0
 
       - name: Setup Node.js
@@ -83,7 +94,10 @@ jobs:
       name: staging
 
     steps:
+      # Same ref, so deploy/staging/firebase.json comes from the staging branch too.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
