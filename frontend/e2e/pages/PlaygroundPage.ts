@@ -47,7 +47,11 @@ export class PlaygroundPage {
 
   async clickDashboard(): Promise<void> {
     await this.dashboardTab.waitFor({ state: "visible" });
-    await this.dashboardTab.click();
+    // Dashboard tab is the default active tab on /home — skip clicking if already active
+    const isActive = await this.dashboardTab.getAttribute("aria-selected");
+    if (isActive !== "true") {
+      await this.dashboardTab.click();
+    }
   }
 
   async clickAllQuestions(): Promise<void> {
