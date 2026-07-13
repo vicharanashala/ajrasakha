@@ -225,10 +225,11 @@ export class PlivoController {
         });
       }
 
+      const isUnicode = /[^\u0000-\u007F]/.test(body.text);
       const requestBody = {
         route: 'q',
         message: body.text,
-        language: 'english',
+        language: isUnicode ? 'unicode' : 'english',
         flash: 0,
         numbers: body.destination,
         sms_details: 1
