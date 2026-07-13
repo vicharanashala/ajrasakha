@@ -141,7 +141,7 @@ const {
         sortable: false,
         accessor: (row: any) => row.questionId ?? "-",
         render: (row: any) => {
-          if (!row.questionId) return "-";
+          if (!row.questionId) return "Not Available";
           return (
             <button
               onClick={() => goToQuestion(row.questionId, "")}
