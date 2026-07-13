@@ -17,9 +17,14 @@ const UserFeedbackDetail = ({ questionId }: UserFeedbackDetailProps) => {
         data: feedbackResponse,
         isLoading,
         error: isError
-    } = useGetQuestionFeedback(expanded ? questionId : null);
+    } = useGetQuestionFeedback(questionId);
 
     const feedback = feedbackResponse?.data?.feedback;
+
+    // Hide component completely if there is no feedback (and we're not loading/errored)
+    if (!isLoading && !isError && !feedback) {
+        return null;
+    }
 
     return (
         <div className="relative w-full rounded-xl p-[1px] overflow-hidden">
@@ -69,17 +74,6 @@ const UserFeedbackDetail = ({ questionId }: UserFeedbackDetailProps) => {
 
                     {isError && (
                         <div className="p-5 text-sm text-destructive">Failed to fetch feedback details.</div>
-                    )}
-
-                    {!isLoading && !isError && !feedback && (
-                        <div className="p-6 text-center">
-                            <p className="text-sm font-medium text-foreground">
-                                No feedback available
-                            </p>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                                The user did not leave any feedback for this question.
-                            </p>
-                        </div>
                     )}
 
                     {!isLoading && !isError && feedback && (
