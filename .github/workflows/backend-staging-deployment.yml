@@ -1,0 +1,150 @@
+# STAGING ONLY. Production lives in `backend-deployment.yml` and is untouched.
+#
+# The staging branch is `staging_branch/main_copy` and it is the DEFAULT here: the workflow
+# checks that branch out explicitly, so it deploys staging code no matter which branch you
+# happened to dispatch from. (GitHub's "Use workflow from" dropdown always defaults to the
+# repo's default branch and can't be changed per-workflow — hence the `ref` input below.)
+# Override `ref` only if you need to ship a different branch/tag/SHA to staging.
+#
+#   image   : reviewer-api:staging  (+ :staging-<sha>)   ← different tag from production's :latest
+#   service : reviewer-backend-staging                    ← different Cloud Run service
+#
+# The only GitHub secrets this workflow needs are the GCP + Docker Hub ones:
+#   GCP_GH_SA_KEY, GCP_PROJECT_ID, DOCKERHUB_USERNAME, DOCKERHUB_TOKEN
+#
+# The app env vars (DB_URL, APP_PORT, VAPID_*, LGD_*, …) are configured ON the Cloud Run
+# service itself and are left commented out below. Omitting `env_vars` means the deploy
+# PRESERVES the service's existing variables and only swaps the container image — which
+# also sidesteps the "failed to parse KEY=VALUE pair" error that a blank secret causes.
+
+name: AjraSakha Backend Staging Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch / tag / SHA to deploy to staging"
+        required: true
+        default: "staging_branch/main_copy"
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+env:
+  DOCKER_IMAGE: reviewer-api
+  GCP_REGION: asia-south2
+  GCP_SERVICE: reviewer-backend-staging
+
+jobs:
+  build:
+    name: Build and Push Backend (staging)
+    runs-on: ubuntu-latest
+    outputs:
+      # Only the SHA is exported — NOT the full image ref. GitHub REDACTS any job output
+      # whose value contains a secret, so an output built from DOCKERHUB_USERNAME would
+      # arrive empty in the deploy job (that's what caused "Missing required argument
+      # [--image]"). The deploy job re-assembles the image ref from the secret itself.
+      sha: ${{ steps.meta.outputs.sha }}
+
+    steps:
+      # Always build the staging branch, not whatever the run was dispatched from.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+
+      # github.sha is the DISPATCH ref's commit, which may differ from the branch we just
+      # checked out — so tag with the real HEAD of `inputs.ref`.
+      - name: Resolve commit + image tags
+        id: meta
+        run: |
+          SHA="$(git rev-parse HEAD)"
+          REPO="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}"
+          {
+            echo "tags<<EOF"
+            echo "$REPO:staging"
+            echo "$REPO:staging-$SHA"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Deploying ref '${{ inputs.ref }}' @ $SHA"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # :staging tags only — this can never overwrite the :latest image production runs.
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile.app
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            NODE_ENV=staging
+
+  deploy_staging:
+    name: Deploy to Cloud Run (Staging)
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_GH_SA_KEY }}
+
+      - name: Deploy to Cloud Run (Staging)
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.GCP_SERVICE }}
+          region: ${{ env.GCP_REGION }}
+          # Immutable tag for the exact commit of `inputs.ref` — reproducible redeploys.
+          # Assembled HERE (not passed as a job output) because outputs containing a secret
+          # are redacted to an empty string by GitHub.
+          image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:staging-${{ needs.build.outputs.sha }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+          # ── App env vars are NOT set from here ────────────────────────────────
+          # They already live on the Cloud Run service (Console → Edit & Deploy New
+          # Revision → Variables & Secrets). Because `env_vars` is omitted, the deploy
+          # PRESERVES the service's existing variables — it only swaps the image.
+          #
+          # ⚠️ If you ever uncomment this block, it becomes the FULL set: gcloud replaces
+          # the service's variables with exactly what's listed, so anything left commented
+          # out would be DELETED from the service. Uncomment all-or-nothing.
+          #
+          # env_vars: |
+          #   NODE_ENV=staging
+          #   APP_PORT=${{ secrets.APP_PORT }}
+          #   DB_URL=${{ secrets.DB_URL }}
+          #   DB_NAME=${{ secrets.DB_NAME }}
+          #   VAPID_EMAIL=${{ secrets.VAPID_EMAIL }}
+          #   VAPID_PUBLIC_KEY=${{ secrets.VAPID_PUBLIC_KEY }}
+          #   VAPID_PRIVATE_KEY=${{ secrets.VAPID_PRIVATE_KEY }}
+          #   INTERNAL_API_KEY=${{ secrets.INTERNAL_API_KEY }}
+          #   PLIVO_AUTH_ID=${{ secrets.PLIVO_AUTH_ID }}
+          #   PLIVO_AUTH_TOKEN=${{ secrets.PLIVO_AUTH_TOKEN }}
+          #   LGD_STATES_API_URL=${{ secrets.LGD_STATES_API_URL }}
+          #   LGD_DISTRICTS_API_URL=${{ secrets.LGD_DISTRICTS_API_URL }}
+          #   LGD_SUBDISTRICTS_API_URL=${{ secrets.LGD_SUBDISTRICTS_API_URL }}
+          #   LGD_VILLAGES_API_URL=${{ secrets.LGD_VILLAGES_API_URL }}
+          #   LGD_API_KEY=${{ secrets.LGD_API_KEY }}
+          #   ANNAM_URL_ANALYTICS=${{ secrets.ANNAM_URL_ANALYTICS }}
+          #   ANNAM_DB_ANALYTICS=${{ secrets.ANNAM_DB_ANALYTICS }}
+          #   DB_URL_ANALYTICS=${{ secrets.DB_URL_ANALYTICS }}
+          #   DB_NAME_ANALYTICS=${{ secrets.DB_NAME_ANALYTICS }}
+
+          flags: --allow-unauthenticated
