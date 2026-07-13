@@ -6,7 +6,8 @@
 # repo's default branch and can't be changed per-workflow — hence the `ref` input below.)
 # Override `ref` only if you need to ship a different branch/tag/SHA to staging.
 #
-#   site   : ajrasakha-staging   ← separate Firebase Hosting site from prod's ajrasakha-prod
+#   site   : ajrasakha-staging-594  → https://ajrasakha-staging-594.firebaseapp.com
+#            (separate Firebase Hosting site from prod's ajrasakha-prod)
 #   config : GENERATED at deploy time into deploy/staging/firebase.json — nothing to commit.
 #            The repo-root firebase.json (production, site: ajrasakha-prod) is never used.
 #
@@ -113,7 +114,7 @@ jobs:
           cat > deploy/staging/firebase.json <<'JSON'
           {
             "hosting": {
-              "site": "ajrasakha-staging",
+              "site": "ajrasakha-staging-594",
               "public": "dist",
               "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
               "rewrites": [{ "source": "**", "destination": "/index.html" }]
