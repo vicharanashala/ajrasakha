@@ -64,10 +64,38 @@ jobs:
           cd frontend
           pnpm install
 
+      # Vite BAKES the API URL into the bundle, so a wrong value ships silently and the
+      # staging site ends up calling the PRODUCTION API (and its database). Fail loudly here.
+      - name: Guard — staging must not point at the production API
+        env:
+          VITE_API_BASE_URL_STAGING: ${{ secrets.VITE_API_BASE_URL_STAGING }}
+        run: |
+          if [ -z "$VITE_API_BASE_URL_STAGING" ]; then
+            echo "::error::VITE_API_BASE_URL_STAGING is empty."
+            echo "::error::Add it to Settings → Environments → staging — the staging backend URL, ending in /api."
+            exit 1
+          fi
+          case "$VITE_API_BASE_URL_STAGING" in
+            *staging*)
+              echo "✅ Staging API base URL: $VITE_API_BASE_URL_STAGING"
+              ;;
+            *)
+              echo "::error::VITE_API_BASE_URL_STAGING does not look like a staging URL: $VITE_API_BASE_URL_STAGING"
+              echo "::error::This would point the staging site at PRODUCTION."
+              exit 1
+              ;;
+          esac
+          case "$VITE_API_BASE_URL_STAGING" in
+            */api) : ;;
+            *) echo "::warning::VITE_API_BASE_URL_STAGING does not end with /api — requests will 404 (backend route prefix is /api)." ;;
+          esac
+
       - name: Build frontend
         env:
           VITE_ENABLE_MOCKS: ${{ secrets.VITE_ENABLE_MOCKS }}
-          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          # `--mode staging` makes env.ts read VITE_API_BASE_URL_STAGING instead of
+          # VITE_API_BASE_URL, so the staging bundle can never inherit the production URL.
+          VITE_API_BASE_URL_STAGING: ${{ secrets.VITE_API_BASE_URL_STAGING }}
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
           VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
           VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
@@ -79,7 +107,7 @@ jobs:
           VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
         run: |
           cd frontend
-          pnpm exec vite build
+          pnpm exec vite build --mode staging
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
