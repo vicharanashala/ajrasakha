@@ -446,6 +446,7 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
         "en-IN",
       );
       setTranslatedText(translated);
+      setSendTranslated(true);
       toast.success("Text translated successfully!");
     } catch (err: any) {
       console.error("Translation error:", err);
@@ -912,8 +913,8 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                                   .transcript &&
                                                   call.callDetails.caller
                                                     .transcript !==
-                                                    call.callDetails.caller
-                                                      .translation && (
+                                                  call.callDetails.caller
+                                                    .translation && (
                                                     <div className="mt-2.5 pt-2.5 border-t border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400">
                                                       <div className="flex items-center gap-1.5 mb-1 text-[9px] uppercase tracking-wider font-bold text-zinc-400">
                                                         <Globe className="h-3 w-3" />
@@ -956,8 +957,8 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                                   .transcript &&
                                                   call.callDetails.agent
                                                     .transcript !==
-                                                    call.callDetails.agent
-                                                      .translation && (
+                                                  call.callDetails.agent
+                                                    .translation && (
                                                     <div className="mt-2.5 pt-2.5 border-t border-white/20 text-xs text-white/80">
                                                       <div className="flex items-center gap-1.5 mb-1 text-[9px] uppercase tracking-wider font-bold text-white/75">
                                                         <Globe className="h-3 w-3" />
@@ -989,11 +990,11 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                           call.callDetails.agent?.transcript ||
                                           call.callDetails.agent?.translation
                                         ) && (
-                                          <div className="text-sm text-muted-foreground text-center py-6">
-                                            No transcript data available for
-                                            this call
-                                          </div>
-                                        )}
+                                            <div className="text-sm text-muted-foreground text-center py-6">
+                                              No transcript data available for
+                                              this call
+                                            </div>
+                                          )}
                                       </div>
                                     ) : (
                                       <div className="text-sm text-muted-foreground text-center py-8 bg-white dark:bg-zinc-900 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800">
@@ -1149,6 +1150,8 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                       onChange={(e) => {
                                         setSelectedLanguage(e.target.value);
                                         languageManuallyChangedRef.current = true;
+                                        setTranslatedText(null);
+                                        setSendTranslated(false);
                                       }}
                                       className="w-full px-2 py-1.5 text-sm border rounded-md bg-background"
                                     >
