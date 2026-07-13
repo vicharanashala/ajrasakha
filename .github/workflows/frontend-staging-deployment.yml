@@ -11,9 +11,12 @@
 #   config : GENERATED at deploy time into deploy/staging/firebase.json — nothing to commit.
 #            The repo-root firebase.json (production, site: ajrasakha-prod) is never used.
 #
-# IMPORTANT: the BUILD job runs in the `staging` GitHub Environment, because Vite BAKES
-# the VITE_* values into the bundle at build time. Staging must be built with the staging
-# VITE_API_BASE_URL — a production-built bundle would silently call the production API.
+# IMPORTANT: the BUILD job runs in the `staging` GitHub Environment, because Vite BAKES the
+# VITE_* values into the bundle at build time.
+#
+# The app only ever reads VITE_API_BASE_URL. This workflow feeds that variable from the
+# VITE_API_BASE_URL_STAGING secret, so the production VITE_API_BASE_URL secret is never
+# touched and a staging bundle can't inherit the production API URL.
 
 name: AjraSakha Frontend Staging Deployment
 
@@ -93,9 +96,9 @@ jobs:
       - name: Build frontend
         env:
           VITE_ENABLE_MOCKS: ${{ secrets.VITE_ENABLE_MOCKS }}
-          # `--mode staging` makes env.ts read VITE_API_BASE_URL_STAGING instead of
-          # VITE_API_BASE_URL, so the staging bundle can never inherit the production URL.
-          VITE_API_BASE_URL_STAGING: ${{ secrets.VITE_API_BASE_URL_STAGING }}
+          # The app only ever reads VITE_API_BASE_URL. Staging just feeds it from a
+          # DIFFERENT secret, so the production secret is never touched.
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL_STAGING }}
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
           VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
           VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
@@ -107,7 +110,7 @@ jobs:
           VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
         run: |
           cd frontend
-          pnpm exec vite build --mode staging
+          pnpm exec vite build
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
