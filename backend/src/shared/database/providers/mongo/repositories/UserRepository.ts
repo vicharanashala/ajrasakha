@@ -2017,6 +2017,29 @@ export class UserRepository implements IUserRepository {
     }
   }
 
+  async findActiveCallAgents(session?: ClientSession): Promise<IUser[]> {
+    try {
+      await this.init();
+
+      const agents = await this.usersCollection
+        .find(
+          {
+            role: 'call_agent' as any,
+            isCallAgentActive: true,
+          },
+          { session },
+        )
+        .toArray();
+
+      return agents.map((agent) => ({
+        ...agent,
+        _id: agent._id.toString(),
+      })) as IUser[];
+    } catch (error) {
+      throw new InternalServerError('Failed to find active call agents');
+    }
+  }
+
   async setCallAgentStatus(
     userId: string,
     isCallAgent: boolean,
