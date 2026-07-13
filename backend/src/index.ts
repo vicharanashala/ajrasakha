@@ -33,7 +33,7 @@ const app = express();
 
 app.get(`${appConfig.routePrefix}/health`, (_req, res) => {
   res.status(200).json({
-    status: 'healthy',
+    status: 'healthy-test',
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
     environment: NODE_ENV,
