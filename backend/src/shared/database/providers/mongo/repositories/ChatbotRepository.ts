@@ -2869,6 +2869,8 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const source = _source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
 
+      console.log("District data", district)
+
       const districts = district.map(d => {
         if (d.districtNameEnglish === 'S.A.S Nagar') {
           return 'Sahibzada Ajit Singh Nagar';
@@ -3285,6 +3287,7 @@ export class ChatbotRepository implements IChatbotRepository {
         const districtMeta = districtCodeMap.get(normalizedDistrict);
 
         const feedbackData = feedbackMap.get(normalizedDistrict);
+
 
         return {
           district,
@@ -6959,6 +6962,7 @@ export class ChatbotRepository implements IChatbotRepository {
               $project: {
                 _id: 1,
                 conversationId: 1,
+                messageId: 1,
                 userId: '$_userDoc._id',
                 farmerName: '$_userDoc.farmerProfile.farmerName',
                 email: '$_userDoc.email',
@@ -6983,6 +6987,29 @@ export class ChatbotRepository implements IChatbotRepository {
         .toArray();
       const totalFeedbacks = result[0]?.metadata[0]?.total || 0;
       const messages = result[0]?.data || [];
+
+      // Look up questionId from the questions collection (review system db)
+      // by matching each message's messageId to the question's messageId field
+      if (messages.length > 0) {
+        await this.initReviewSystem();
+        const messageIds = messages
+          .map((m: any) => m.messageId)
+          .filter((id: any) => id != null && id !== '');
+        if (messageIds.length > 0) {
+          const questions = await this.QuestionCollection.find(
+            {messageId: {$in: messageIds}},
+            {projection: {_id: 1, messageId: 1}},
+          ).toArray();
+          const messageIdToQuestionId = new Map<string, string>(
+            questions.map((q: any) => [String(q.messageId), String(q._id)]),
+          );
+          for (const msg of messages) {
+            msg.questionId = msg.messageId
+              ? messageIdToQuestionId.get(String(msg.messageId)) ?? null
+              : null;
+          }
+        }
+      }
 
       return {
         messages,

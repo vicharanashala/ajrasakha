@@ -69,6 +69,10 @@ interface DetailSidebarProps {
   setClickedState: (value: string | null) => void;
   clickedDistrict: string | null;
   setClickedDistrict: (value: string | null) => void;
+  analyticsData?: any;
+  weeklyAnalyticsData?: any;
+  monthlyAnalyticsData?: any;
+
 }
 
 export function DetailSidebar({
@@ -95,6 +99,9 @@ export function DetailSidebar({
   setClickedState,
   clickedDistrict,
   setClickedDistrict,
+  analyticsData,
+  weeklyAnalyticsData,
+  monthlyAnalyticsData
 }: DetailSidebarProps) {
   const [isPassed, setIsPassed] = useState(false);
   const [showActiveUsersModal, setShowActiveUsersModal] = useState(false);
@@ -281,7 +288,6 @@ const passedInLastTwoHours =
             <StatCard
               onClick={() => handleClick("all")}
               // label="Questions"
-
               label={
                 <div className="flex items-center gap-1">
                   <span>Questions</span>
@@ -360,7 +366,7 @@ const passedInLastTwoHours =
                 type="activeUsers"
               />
             )}
-            <StatCard
+            {source !== "whatsapp" ? <StatCard
               onClick={() => setShowFeedBackModal(true)}
               label="Feedback"
               value={renderCardValue(
@@ -372,7 +378,7 @@ const passedInLastTwoHours =
                   : activeAnalytics.feedback,
               )}
               icon={<Activity className="h-3.5 w-3.5" />}
-            />
+            /> : (<StatCard label="Todays Questions" value={isIndiaView ? analyticsData[analyticsData?.length -1].totalQuestions : 0}/> )}
             {showFeedBackModal && (
               <FeedbackUsersModal
                 source={source}
@@ -395,15 +401,15 @@ const passedInLastTwoHours =
                 type="users"
               />
             )}
-            <StatCard
+            {source !== "whatsapp" ? <StatCard
               onClick={() => setShowUsersModal(true)}
               label="Users"
               value={renderCardValue(
                 isIndiaView ? allUsers.totalUsers : activeAnalytics.users,
               )}
               icon={<Users className="h-3.5 w-3.5" />}
-            />
-            <StatCard
+            />: (<StatCard label="Weekly Questions" value={isIndiaView ? weeklyAnalyticsData[weeklyAnalyticsData?.length -1].totalQuestions : 0}/> )}
+            {source !== "whatsapp" && <StatCard
               onClick={() => setShowActiveUsersModal(true)}
               label={<span>Active</span>}
               value={renderCardValue(
@@ -412,7 +418,7 @@ const passedInLastTwoHours =
                   : activeAnalytics.activeUsers,
               )}
               icon={<Users className="h-3.5 w-3.5" />}
-            />
+            />}
             {/* <StatCard
   label="Coordinators"
   value={fmt(
@@ -432,7 +438,7 @@ const passedInLastTwoHours =
                 type="moderators"
               />
             )}
-            <StatCard
+            {source !== "whatsapp" ? <StatCard
               onClick={() => setShowModeratorsModal(true)}
               label={
                 <div className="flex items-center gap-1">
@@ -489,7 +495,7 @@ const passedInLastTwoHours =
                 ),
               )}
               icon={<Building2 className="h-3.5 w-3.5" />}
-            />
+            />: (<StatCard label="Monthly Questions" value={isIndiaView ? monthlyAnalyticsData[monthlyAnalyticsData?.length -1].totalQuestions : 0}/> )}
             <StatCard
              onClick={() => setShowResolutionModal(true)}
               label="Resolution Rate"
@@ -556,6 +562,7 @@ const passedInLastTwoHours =
             state={selectedState}
             source={source}
             userType={userType}
+            districtAnalytic={districtAnalytic}
           />
         )}
       </div>
