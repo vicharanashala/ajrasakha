@@ -28,31 +28,102 @@
 // }
 
 
+// export function colorFor(
+//   value: number,
+//   min: number,
+//   max: number,
+//   dark: boolean,
+// ): string {
+//   if (max === min) {
+//     return "#22c55e";
+//   }
+
+//   const t = (value - min) / (max - min);
+
+//   // Red → Orange → Green
+
+//   if (t < 0.2)
+//     return "#dc2626"; // Dark Red
+
+//   if (t < 0.4)
+//     return "#ef4444"; // Red
+
+//   if (t < 0.6)
+//     return "#f97316"; // Orange
+
+//   if (t < 0.8)
+//     return "#84cc16"; // Light Green
+
+//   return "#16a34a"; // Dark Green
+// }
+
+// export function colorFor(
+//   value: number,
+//   min: number,
+//   max: number,
+// ): string {
+//   if (max <= min) {
+//     return "#16a34a";
+//   }
+
+//   const t = (value - min) / (max - min);
+
+//   if (t < 1 / 3) {
+//     return "#dc2626"; // Red
+//   }
+
+//   if (t < 2 / 3) {
+//     return "#f97316"; // Orange
+//   }
+
+//   return "#16a34a"; // Green
+// }
+
+// export function colorFor(
+//   value: number,
+//   min: number,
+//   max: number,
+// ): string {
+//   if (max <= min) {
+//     return "#16a34a";
+//   }
+
+//   const logMin = Math.log1p(min);
+//   const logMax = Math.log1p(max);
+//   const logValue = Math.log1p(value);
+
+//   const t = (logValue - logMin) / (logMax - logMin);
+
+//   if (t < 1 / 3) return "#dc2626";
+//   if (t < 2 / 3) return "#f97316";
+
+//   return "#16a34a";
+// }
+
 export function colorFor(
   value: number,
   min: number,
   max: number,
-  dark: boolean,
+  useLogScale = false,
 ): string {
-  if (max === min) {
-    return "#22c55e";
+  if (max <= min) {
+    return "#16a34a";
   }
 
-  const t = (value - min) / (max - min);
+  let t: number;
 
-  // Red → Orange → Green
+  if (useLogScale) {
+    const logMin = Math.log1p(min);
+    const logMax = Math.log1p(max);
+    const logValue = Math.log1p(value);
 
-  if (t < 0.2)
-    return "#dc2626"; // Dark Red
+    t = (logValue - logMin) / (logMax - logMin);
+  } else {
+    t = (value - min) / (max - min);
+  }
 
-  if (t < 0.4)
-    return "#ef4444"; // Red
+  if (t < 1 / 3) return "#dc2626";
+  if (t < 2 / 3) return "#f97316";
 
-  if (t < 0.6)
-    return "#f97316"; // Orange
-
-  if (t < 0.8)
-    return "#84cc16"; // Light Green
-
-  return "#16a34a"; // Dark Green
+  return "#16a34a";
 }

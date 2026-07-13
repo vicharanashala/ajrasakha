@@ -16,6 +16,8 @@ type AnalyticsItem = {
   closedQuestions: number;
   period: string;
   averageCloseTimeMinutes?: number;
+  averagePassTimeMinutes?: number;
+  combinedAverageTimeMinutes?: number;
   closedInPeriod?: number;
   delayed?: number;
   draft?: number;
@@ -298,16 +300,38 @@ export function WhatsAppAnalyticsCard({
                                 </div>
                               ))}
 
-                            <div className="flex justify-between gap-6">
-                              <span className="text-muted-foreground">
-                                Avg Closure Time
-                              </span>
-
-                              <span className="font-medium">
-                                {formatCloseTime(
-                                  item.averageCloseTimeMinutes ?? 0,
-                                )}
-                              </span>
+                            <div className="border-t border-border/40 pt-2 space-y-1.5">
+                              <div className="text-[11px] font-semibold text-foreground">
+                                Resolution Time Breakdown
+                              </div>
+                              <div className="flex justify-between gap-6">
+                                <span className="text-muted-foreground text-xs">
+                                  Closed
+                                </span>
+                                <span className="font-medium text-xs">
+                                  {formatCloseTime(
+                                    item.averageCloseTimeMinutes ?? 0,
+                                  )}
+                                </span>
+                              </div>
+                              <div className="flex justify-between gap-6">
+                                <span className="text-muted-foreground text-xs">
+                                  Passed
+                                </span>
+                                <span className="font-medium text-xs">
+                                  {formatCloseTime(
+                                    item.averagePassTimeMinutes ?? 0,
+                                  )}
+                                </span>
+                              </div>
+                              <div className="flex justify-between gap-6 border-t border-border/20 pt-1.5 font-medium">
+                                <span className="text-xs">Combined</span>
+                                <span className="font-medium text-xs">
+                                  {formatCloseTime(
+                                    item.combinedAverageTimeMinutes ?? 0,
+                                  )}
+                                </span>
+                              </div>
                             </div>
 
                             <div className="flex justify-between gap-6">
