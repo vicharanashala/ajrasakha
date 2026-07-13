@@ -8,6 +8,7 @@ import {
 import { useFeedbackUsers } from "./hooks/useFeedbackUsers";
 import { useQueryClient } from "@tanstack/react-query";
 import { useFeedbackLocation } from "./hooks/useFeedbackUsers";
+import { useNavigateToQuestion } from "@/hooks/api/question/useNavigateToQuestion";
 
 interface FeedbackUserEntry {
   id?: string;
@@ -50,6 +51,7 @@ export function FeedbackUsersModal({
 
   const queryClient = useQueryClient();
   const [dataRefreshing, setDataRefreshing] = useState(false);
+  const { goToQuestion } = useNavigateToQuestion();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -120,18 +122,36 @@ const {
 
   const columns = useMemo<QuestionListColumn<FeedbackUserEntry>[]>(
     () => [
-      {
-        key: "name",
-        label: "Username",
-        sortable: true,
-        sortAccessor: (row: any) => row.farmerName ?? row.name ?? "",
-        accessor: (row: any) => row.farmerName ?? row.name ?? "-",
-      },
+      // {
+      //   key: "name",
+      //   label: "Username",
+      //   sortable: true,
+      //   sortAccessor: (row: any) => row.farmerName ?? row.name ?? "",
+      //   accessor: (row: any) => row.farmerName ?? row.name ?? "-",
+      // },
       {
         key: "email",
         label: "Email",
         sortable: false,
         accessor: (row) => row.email ?? "-",
+      },
+      {
+        key: "questionId",
+        label: "Question ID",
+        sortable: false,
+        accessor: (row: any) => row.questionId ?? "-",
+        render: (row: any) => {
+          if (!row.questionId) return "-";
+          return (
+            <button
+              onClick={() => goToQuestion(row.questionId, "")}
+              className="text-primary hover:underline font-medium text-left truncate max-w-[150px]"
+              title={row.questionId}
+            >
+              {row.questionId}
+            </button>
+          );
+        }
       },
       {
         key: "rating",
