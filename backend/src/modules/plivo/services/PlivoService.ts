@@ -78,8 +78,8 @@ export class PlivoService {
     const key = `${callId}_${track}`;
     console.log(`🔌 [PLIVO-SERVICE] Initializing Sarvam WebSocket streams for call ${callId} (${track})`);
 
-    const transcribeUrl = `wss://api.sarvam.ai/speech-to-text/ws?model=mayura:v3&mode=transcribe&language-code=unknown&sample_rate=16000&input_audio_codec=pcm_l16&high_vad_sensitivity=true`;
-    const translateUrl = `wss://api.sarvam.ai/speech-to-text/ws?model=mayura:v3&mode=translate&language-code=unknown&sample_rate=16000&input_audio_codec=pcm_l16&high_vad_sensitivity=true`;
+    const transcribeUrl = `wss://api.sarvam.ai/speech-to-text/ws?model=saaras:v3&mode=transcribe&language-code=unknown&sample_rate=16000&input_audio_codec=pcm_l16&high_vad_sensitivity=true`;
+    const translateUrl = `wss://api.sarvam.ai/speech-to-text/ws?model=saaras:v3&mode=translate&language-code=unknown&sample_rate=16000&input_audio_codec=pcm_l16&high_vad_sensitivity=true`;
 
     const headers = {
       'Api-Subscription-Key': this.sarvamApiKey,
