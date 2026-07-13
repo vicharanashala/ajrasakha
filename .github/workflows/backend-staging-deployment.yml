@@ -107,6 +107,23 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_GH_SA_KEY }}
 
+      # Written as a YAML file rather than the `env_vars` input because APP_ORIGINS contains
+      # a COMMA — and the action treats commas as separators BETWEEN key=value pairs, so
+      # `APP_ORIGINS=a,b` would be misparsed and fail with "failed to parse KEY=VALUE pair".
+      # A file has no such ambiguity.
+      - name: Write Cloud Run env vars
+        run: |
+          cat > cloudrun.env.yaml <<'YAML'
+          # NODE_ENV must be exactly "staging" or the app crashes on boot: loadAppModules()
+          # reads ./build/modules only when NODE_ENV is production|staging, otherwise it looks
+          # for ./src/modules — absent from the image → ENOENT: scandir '/app/src/modules'
+          NODE_ENV: "staging"
+          # CORS allow-list — the backend does a plain split(',') + exact match on Origin,
+          # so no spaces. TODO(testing): move to a secret/service var once staging settles.
+          APP_ORIGINS: "http://34.131.48.163:4002,https://ajrasakha-staging-594.firebaseapp.com"
+          YAML
+          cat cloudrun.env.yaml
+
       - name: Deploy to Cloud Run (Staging)
         uses: google-github-actions/deploy-cloudrun@v2
         with:
@@ -118,16 +135,10 @@ jobs:
           image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:staging-${{ needs.build.outputs.sha }}
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
-          # NODE_ENV must be exactly "staging" or the app crashes on boot:
-          # loadAppModules() reads ./build/modules only when NODE_ENV is production|staging,
-          # otherwise it looks for ./src/modules — which isn't in the image:
-          #   Error: ENOENT: no such file or directory, scandir '/app/src/modules'
-          #
-          # `merge` adds/overrides ONLY these keys and leaves every other variable already
-          # configured on the service untouched. (The default `overwrite` would replace the
-          # service's entire env with just what's listed here — do not use it.)
-          env_vars: |
-            NODE_ENV=staging
+          # `merge` adds/overrides ONLY the keys in the file and leaves every other variable
+          # already configured on the service untouched. (The `overwrite` strategy would
+          # replace the service's entire env with just these — do not use it.)
+          env_vars_file: cloudrun.env.yaml
           env_vars_update_strategy: merge
 
           # ── The remaining app env vars are NOT set from here ───────────────────
