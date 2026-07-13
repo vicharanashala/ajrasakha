@@ -509,6 +509,9 @@ export function AnnamDashboard_dev({
                     totalQuestions={
                       questionStatusData?.closedVsTotalQuestions?.totalQuestions
                     }
+                    dynamicClosedQuestions={
+                      questionStatusData?.closedVsTotalQuestions?.dynamicClosed?.count
+                    }
                     dateRange={questionStatusDateRange}
                     onDateRangeChange={setQuestionStatusDateRange}
                     isLoading={false}
@@ -516,6 +519,10 @@ export function AnnamDashboard_dev({
                     carryForward={questionStatusData?.carryForward}
                     avgCloseTimeMinutes={
                       questionStatusData?.closedVsTotalQuestions?.closed
+                        ?.avgTimeMinutes
+                    }
+                    avgDynamicCloseTimeMinutes={
+                      questionStatusData?.closedVsTotalQuestions?.dynamicClosed
                         ?.avgTimeMinutes
                     }
                     previousMonthAvgCloseTimeMinutes={

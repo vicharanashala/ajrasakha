@@ -26,6 +26,7 @@ type ClosedQuestionsCardProps = {
   closedQuestions: number;
   totalQuestions: number;
   passedQuestions?: number;
+  dynamicClosedQuestions?: number;
   dateRange?: DateRange;
   onDateRangeChange?: (range: DateRange | undefined) => void;
   isLoading?: boolean;
@@ -33,6 +34,7 @@ type ClosedQuestionsCardProps = {
   carryForward?: number;
   statusBreakup: any;
   avgCloseTimeMinutes?: number;
+  avgDynamicCloseTimeMinutes?: number;
   previousMonthAvgCloseTimeMinutes?: number;
   source?: "both" | "annam" | "whatsapp";
   userType?: string;
@@ -47,12 +49,14 @@ export function ClosedQuestionsCard({
   closedQuestions,
   totalQuestions,
   passedQuestions,
+  dynamicClosedQuestions,
   dateRange,
   onDateRangeChange,
   isLoading,
   statusBreakup,
   avgCloseTimeMinutes = 0,
   avgPassTimeMinutes = 0,
+  avgDynamicCloseTimeMinutes = 0,
   combinedAvgTime = 0,
   source = "both",
   userType,
@@ -60,7 +64,10 @@ export function ClosedQuestionsCard({
   onSourceChange,
 }: ClosedQuestionsCardProps) {
   const pendingQuestions =
-    (totalQuestions || 0) - (closedQuestions || 0) - (passedQuestions || 0);
+    (totalQuestions || 0) -
+    (closedQuestions || 0) -
+    (passedQuestions || 0) -
+    (dynamicClosedQuestions || 0);
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
@@ -217,14 +224,18 @@ export function ClosedQuestionsCard({
                 </div>
               </div>
 
-              {/* Segmented progress — closed vs passed vs open */}
+              {/* Segmented progress — closed vs passed vs dynamic closed vs open */}
               {(() => {
                 const total = Math.max(totalQuestions ?? 0, 1);
                 const closedPct = ((closedQuestions ?? 0) / total) * 100;
                 const passedPct =
                   (Math.max(passedQuestions ?? 0, 0) / total) * 100;
-                const openPct = Math.max(100 - closedPct - passedPct, 0);
-                // const pendingPct = Math.max(100 - pens)
+                const dynamicClosedPct =
+                  ((dynamicClosedQuestions ?? 0) / total) * 100;
+                const openPct = Math.max(
+                  100 - closedPct - passedPct - dynamicClosedPct,
+                  0,
+                );
                 return (
                   <div className="space-y-1.5">
                     <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted/40">
@@ -236,11 +247,21 @@ export function ClosedQuestionsCard({
                       />
                       <motion.div
                         initial={{ width: 0 }}
-                        animate={{ width: `${passedPct}%` }}
+                        animate={{ width: `${dynamicClosedPct}%` }}
                         transition={{
                           duration: 0.8,
                           ease: "easeOut",
                           delay: 0.1,
+                        }}
+                        className="bg-indigo-500"
+                      />
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${passedPct}%` }}
+                        transition={{
+                          duration: 0.8,
+                          ease: "easeOut",
+                          delay: 0.15,
                         }}
                         className="bg-emerald-500"
                       />
@@ -255,10 +276,14 @@ export function ClosedQuestionsCard({
                         className="bg-muted-foreground/30"
                       />
                     </div>
-                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                    <div className="flex flex-wrap justify-between gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
                         {closedPct.toFixed(1)}% closed
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                        {dynamicClosedPct.toFixed(1)}% dynamic closed
                       </span>
                       <span className="flex items-center gap-1">
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -274,7 +299,7 @@ export function ClosedQuestionsCard({
               })()}
 
               {/* Stats Grid */}
-              <div className="grid grid-cols-4 gap-2.5">
+              <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
                 <StatTile
                   label="Total"
                   count={totalQuestions ?? 0}
@@ -292,6 +317,16 @@ export function ClosedQuestionsCard({
                   onClick={() => {
                     setIsPassed(false);
                     handleClick("closed");
+                  }}
+                />
+                <StatTile
+                  label="Dynamic Closed"
+                  count={dynamicClosedQuestions ?? 0}
+                  accent="indigo"
+                  tooltip="Dynamic Closed questions"
+                  onClick={() => {
+                    setIsPassed(false);
+                    handleClick("dynamic_closed");
                   }}
                 />
                 <StatTile
@@ -346,6 +381,12 @@ export function ClosedQuestionsCard({
                         </span>
                       </div>
                       <div className="flex justify-between">
+                        <span className="text-muted-foreground">Dynamic Closed</span>
+                        <span className="tabular-nums">
+                          {formatDurationFromMinutes(avgDynamicCloseTimeMinutes)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
                         <span className="text-muted-foreground">Passed</span>
                         <span className="tabular-nums">
                           {formatDurationFromMinutes(avgPassTimeMinutes)}
@@ -378,7 +419,7 @@ export function ClosedQuestionsCard({
             setIsPassed(false);
           }}
           tag="closed"
-          totalClosedAndPassed ={(closedQuestions || 0) + (passedQuestions || 0)}
+          totalClosedAndPassed ={(closedQuestions || 0) + (passedQuestions || 0) + (dynamicClosedQuestions || 0)}
           closedQuestions={closedQuestions || 0}
           totalQuestions={totalQuestions || 0}
           passedQuestions={passedQuestions || 0}
@@ -398,6 +439,11 @@ const ACCENT = {
     dot: "bg-sky-500",
     ring: "group-hover/tile:ring-sky-500/30",
     glow: "group-hover/tile:shadow-sky-500/10",
+  },
+  indigo: {
+    dot: "bg-indigo-500",
+    ring: "group-hover/tile:ring-indigo-500/30",
+    glow: "group-hover/tile:shadow-indigo-500/10",
   },
   emerald: {
     dot: "bg-emerald-500",
@@ -474,7 +520,7 @@ function StatTile({
           <div className="space-y-1.5 text-xs">
             {Object.entries(statusBreakup?.statuses ?? {})
               .filter(([key, value]) => {
-                return key !== "pass" && key !== "closed"
+                return key !== "pass" && key !== "closed" && key !== "dynamic_closed"
               })
               .map(([key, value]) => (
                 <div

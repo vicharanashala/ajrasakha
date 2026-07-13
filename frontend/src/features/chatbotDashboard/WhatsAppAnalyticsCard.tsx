@@ -17,6 +17,7 @@ type AnalyticsItem = {
   period: string;
   averageCloseTimeMinutes?: number;
   averagePassTimeMinutes?: number;
+  averageDynamicCloseTimeMinutes?: number;
   combinedAverageTimeMinutes?: number;
   closedInPeriod?: number;
   delayed?: number;
@@ -311,6 +312,16 @@ export function WhatsAppAnalyticsCard({
                                 <span className="font-medium text-xs">
                                   {formatCloseTime(
                                     item.averageCloseTimeMinutes ?? 0,
+                                  )}
+                                </span>
+                              </div>
+                              <div className="flex justify-between gap-6">
+                                <span className="text-muted-foreground text-xs">
+                                  Dynamic Closed
+                                </span>
+                                <span className="font-medium text-xs">
+                                  {formatCloseTime(
+                                    item.averageDynamicCloseTimeMinutes ?? 0,
                                   )}
                                 </span>
                               </div>

@@ -11441,6 +11441,38 @@ export class ChatbotRepository implements IChatbotRepository {
                 ],
               },
             },
+            dynamicClosedTimedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'dynamic_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            dynamicClosedTimeSum: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'dynamic_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  {$subtract: ['$closedAt', '$createdAt']},
+                  0,
+                ],
+              },
+            },
           },
         },
         // Group by period
@@ -11467,6 +11499,12 @@ export class ChatbotRepository implements IChatbotRepository {
             },
             passedTimeSum: {
               $sum: '$passedTimeSum',
+            },
+            dynamicClosedTimedCount: {
+              $sum: '$dynamicClosedTimedCount',
+            },
+            dynamicClosedTimeSum: {
+              $sum: '$dynamicClosedTimeSum',
             },
           },
         },
@@ -11512,11 +11550,34 @@ export class ChatbotRepository implements IChatbotRepository {
                 0,
               ],
             },
+            averageDynamicCloseTimeMinutes: {
+              $cond: [
+                {$gt: ['$dynamicClosedTimedCount', 0]},
+                {
+                  $round: [
+                    {
+                      $divide: [
+                        '$dynamicClosedTimeSum',
+                        {$multiply: ['$dynamicClosedTimedCount', 60000]},
+                      ],
+                    },
+                    2,
+                  ],
+                },
+                0,
+              ],
+            },
             combinedAverageTimeMinutes: {
               $cond: [
                 {
                   $gt: [
-                    {$add: ['$closedTimedCount', '$passedTimedCount']},
+                    {
+                      $add: [
+                        '$closedTimedCount',
+                        '$passedTimedCount',
+                        '$dynamicClosedTimedCount',
+                      ],
+                    },
                     0,
                   ],
                 },
@@ -11524,10 +11585,22 @@ export class ChatbotRepository implements IChatbotRepository {
                   $round: [
                     {
                       $divide: [
-                        {$add: ['$closedTimeSum', '$passedTimeSum']},
+                        {
+                          $add: [
+                            '$closedTimeSum',
+                            '$passedTimeSum',
+                            '$dynamicClosedTimeSum',
+                          ],
+                        },
                         {
                           $multiply: [
-                            {$add: ['$closedTimedCount', '$passedTimedCount']},
+                            {
+                              $add: [
+                                '$closedTimedCount',
+                                '$passedTimedCount',
+                                '$dynamicClosedTimedCount',
+                              ],
+                            },
                             60000,
                           ],
                         },
@@ -11728,6 +11801,38 @@ export class ChatbotRepository implements IChatbotRepository {
                 ],
               },
             },
+            dynamicClosedTimedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'dynamic_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            dynamicClosedTimeSum: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'dynamic_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  {$subtract: ['$closedAt', '$createdAt']},
+                  0,
+                ],
+              },
+            },
           },
         },
         // Group by week
@@ -11754,6 +11859,12 @@ export class ChatbotRepository implements IChatbotRepository {
             },
             passedTimeSum: {
               $sum: '$passedTimeSum',
+            },
+            dynamicClosedTimedCount: {
+              $sum: '$dynamicClosedTimedCount',
+            },
+            dynamicClosedTimeSum: {
+              $sum: '$dynamicClosedTimeSum',
             },
           },
         },
@@ -11799,11 +11910,34 @@ export class ChatbotRepository implements IChatbotRepository {
                 0,
               ],
             },
+            averageDynamicCloseTimeMinutes: {
+              $cond: [
+                {$gt: ['$dynamicClosedTimedCount', 0]},
+                {
+                  $round: [
+                    {
+                      $divide: [
+                        '$dynamicClosedTimeSum',
+                        {$multiply: ['$dynamicClosedTimedCount', 60000]},
+                      ],
+                    },
+                    2,
+                  ],
+                },
+                0,
+              ],
+            },
             combinedAverageTimeMinutes: {
               $cond: [
                 {
                   $gt: [
-                    {$add: ['$closedTimedCount', '$passedTimedCount']},
+                    {
+                      $add: [
+                        '$closedTimedCount',
+                        '$passedTimedCount',
+                        '$dynamicClosedTimedCount',
+                      ],
+                    },
                     0,
                   ],
                 },
@@ -11811,10 +11945,22 @@ export class ChatbotRepository implements IChatbotRepository {
                   $round: [
                     {
                       $divide: [
-                        {$add: ['$closedTimeSum', '$passedTimeSum']},
+                        {
+                          $add: [
+                            '$closedTimeSum',
+                            '$passedTimeSum',
+                            '$dynamicClosedTimeSum',
+                          ],
+                        },
                         {
                           $multiply: [
-                            {$add: ['$closedTimedCount', '$passedTimedCount']},
+                            {
+                              $add: [
+                                '$closedTimedCount',
+                                '$passedTimedCount',
+                                '$dynamicClosedTimedCount',
+                              ],
+                            },
                             60000,
                           ],
                         },
@@ -11964,6 +12110,38 @@ export class ChatbotRepository implements IChatbotRepository {
                 ],
               },
             },
+            dynamicClosedTimedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'dynamic_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            dynamicClosedTimeSum: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'dynamic_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  {$subtract: ['$closedAt', '$createdAt']},
+                  0,
+                ],
+              },
+            },
           },
         },
         // Group by month
@@ -11990,6 +12168,12 @@ export class ChatbotRepository implements IChatbotRepository {
             },
             passedTimeSum: {
               $sum: '$passedTimeSum',
+            },
+            dynamicClosedTimedCount: {
+              $sum: '$dynamicClosedTimedCount',
+            },
+            dynamicClosedTimeSum: {
+              $sum: '$dynamicClosedTimeSum',
             },
           },
         },
@@ -12035,11 +12219,34 @@ export class ChatbotRepository implements IChatbotRepository {
                 0,
               ],
             },
+            averageDynamicCloseTimeMinutes: {
+              $cond: [
+                {$gt: ['$dynamicClosedTimedCount', 0]},
+                {
+                  $round: [
+                    {
+                      $divide: [
+                        '$dynamicClosedTimeSum',
+                        {$multiply: ['$dynamicClosedTimedCount', 60000]},
+                      ],
+                    },
+                    2,
+                  ],
+                },
+                0,
+              ],
+            },
             combinedAverageTimeMinutes: {
               $cond: [
                 {
                   $gt: [
-                    {$add: ['$closedTimedCount', '$passedTimedCount']},
+                    {
+                      $add: [
+                        '$closedTimedCount',
+                        '$passedTimedCount',
+                        '$dynamicClosedTimedCount',
+                      ],
+                    },
                     0,
                   ],
                 },
@@ -12047,10 +12254,22 @@ export class ChatbotRepository implements IChatbotRepository {
                   $round: [
                     {
                       $divide: [
-                        {$add: ['$closedTimeSum', '$passedTimeSum']},
+                        {
+                          $add: [
+                            '$closedTimeSum',
+                            '$passedTimeSum',
+                            '$dynamicClosedTimeSum',
+                          ],
+                        },
                         {
                           $multiply: [
-                            {$add: ['$closedTimedCount', '$passedTimedCount']},
+                            {
+                              $add: [
+                                '$closedTimedCount',
+                                '$passedTimedCount',
+                                '$dynamicClosedTimedCount',
+                              ],
+                            },
                             60000,
                           ],
                         },
@@ -12422,6 +12641,11 @@ export class ChatbotRepository implements IChatbotRepository {
                         $cond: [{$eq: ['$_statusLower', 'pass']}, 1, 0],
                       },
                     },
+                    dynamicClosedQuestions: {
+                      $sum: {
+                        $cond: [{$eq: ['$_statusLower', 'dynamic_closed']}, 1, 0],
+                      },
+                    },
                     // Closed metrics
                     closedTimedQuestions: {
                       $sum: {
@@ -12487,6 +12711,41 @@ export class ChatbotRepository implements IChatbotRepository {
                           },
                           {
                             $subtract: ['$passedAt', '$createdAt'],
+                          },
+                          0,
+                        ],
+                      },
+                    },
+                    // Dynamic Closed metrics
+                    dynamicClosedTimedQuestions: {
+                      $sum: {
+                        $cond: [
+                          {
+                            $and: [
+                              {$eq: ['$_statusLower', 'dynamic_closed']},
+                              {$ne: ['$createdAt', null]},
+                              {$ne: ['$closedAt', null]},
+                              {$gte: ['$closedAt', '$createdAt']},
+                            ],
+                          },
+                          1,
+                          0,
+                        ],
+                      },
+                    },
+                    dynamicClosedTimeSumMs: {
+                      $sum: {
+                        $cond: [
+                          {
+                            $and: [
+                              {$eq: ['$_statusLower', 'dynamic_closed']},
+                              {$ne: ['$createdAt', null]},
+                              {$ne: ['$closedAt', null]},
+                              {$gte: ['$closedAt', '$createdAt']},
+                            ],
+                          },
+                          {
+                            $subtract: ['$closedAt', '$createdAt'],
                           },
                           0,
                         ],
@@ -12599,12 +12858,40 @@ export class ChatbotRepository implements IChatbotRepository {
                   ],
                 },
               },
+              dynamicClosed: {
+                count: '$metrics.dynamicClosedQuestions',
+                avgTimeMinutes: {
+                  $cond: [
+                    {
+                      $gt: ['$metrics.dynamicClosedTimedQuestions', 0],
+                    },
+                    {
+                      $round: [
+                        {
+                          $divide: [
+                            '$metrics.dynamicClosedTimeSumMs',
+                            {
+                              $multiply: [
+                                '$metrics.dynamicClosedTimedQuestions',
+                                60000,
+                              ],
+                            },
+                          ],
+                        },
+                        2,
+                      ],
+                    },
+                    0,
+                  ],
+                },
+              },
               statuses: 1,
               combined: {
                 count: {
                   $add: [
                     '$metrics.closedQuestions',
                     '$metrics.passedQuestions',
+                    '$metrics.dynamicClosedQuestions',
                   ],
                 },
                 avgTimeMinutes: {
@@ -12615,6 +12902,7 @@ export class ChatbotRepository implements IChatbotRepository {
                           $add: [
                             '$metrics.closedTimedQuestions',
                             '$metrics.passedTimedQuestions',
+                            '$metrics.dynamicClosedTimedQuestions',
                           ],
                         },
                         0,
@@ -12628,6 +12916,7 @@ export class ChatbotRepository implements IChatbotRepository {
                               $add: [
                                 '$metrics.closedTimeSumMs',
                                 '$metrics.passedTimeSumMs',
+                                '$metrics.dynamicClosedTimeSumMs',
                               ],
                             },
                             {
@@ -12636,6 +12925,7 @@ export class ChatbotRepository implements IChatbotRepository {
                                   $add: [
                                     '$metrics.closedTimedQuestions',
                                     '$metrics.passedTimedQuestions',
+                                    '$metrics.dynamicClosedTimedQuestions',
                                   ],
                                 },
                                 60000,
@@ -12724,7 +13014,7 @@ export class ChatbotRepository implements IChatbotRepository {
                 $cond: [
                   {
                     $and: [
-                      {$in: ['$status', ['closed']]},
+                      {$in: ['$status', ['closed', 'dynamic_closed']]},
                       {$eq: ['$isCustomerNotified', false]},
                     ],
                   },
@@ -12738,7 +13028,7 @@ export class ChatbotRepository implements IChatbotRepository {
                 $cond: [
                   {
                     $and: [
-                      {$in: ['$status', ['closed']]},
+                      {$in: ['$status', ['closed', 'dynamic_closed']]},
                       {$eq: ['$isCustomerNotified', true]},
                     ],
                   },
@@ -12762,7 +13052,7 @@ export class ChatbotRepository implements IChatbotRepository {
         await this.QuestionCollection.countDocuments({
           ...matchStage,
           status: {
-            $in: ['closed'],
+            $in: ['closed', 'dynamic_closed'],
           },
           isCustomerNotified: {$exists: false},
         });
@@ -12810,7 +13100,7 @@ export class ChatbotRepository implements IChatbotRepository {
         };
       }
       matchStage.status = {
-        $in: ['closed', 'pass'],
+        $in: ['closed', 'pass', 'dynamic_closed'],
       };
 
       const [totalCountResult, lastTwoHoursResult] = await Promise.all([
@@ -14434,7 +14724,7 @@ export class ChatbotRepository implements IChatbotRepository {
       }
       if (status === 'pending') {
         matchQuery.status = {
-          $nin: ['closed', 'pass'],
+          $nin: ['closed', 'pass', 'dynamic_closed'],
         };
       }
 
