@@ -147,18 +147,12 @@ export const MobileSidebar = ({
       ? [{ id: "data_processing", label: "Data Processing", icon: Database }]
       : []),
 
-    ...(user && !isCoordinator && user.role !== "call_agent"
-      ? [{ id: "history", label: "History", icon: History }]
+    ...(user && (user.role === "admin" || user.role === "expert")
+      ? [{ id: "fertilizer_calculator", label: "Fertilizer Calculator", icon: BarChart3 }]
       : []),
-    ...(user && !isCoordinator && user.role !== "call_agent"
-      ? [
-          {
-            id: "whatsapp_history",
-            label: "WhatsApp History",
-            icon: MessageSquare,
-          },
-        ]
-      : []),
+
+    ...(user && !isCoordinator && user.role !== "call_agent" ? [{ id: "history", label: "History", icon: History }] : []),
+    ...(user && !isCoordinator && user.role !== "call_agent" ? [{ id: "whatsapp_history", label: "WhatsApp History", icon: MessageSquare }] : []),
   ];
 
   return (

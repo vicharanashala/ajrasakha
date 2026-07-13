@@ -13,12 +13,15 @@ services:
       - "${BACKEND_HOST_PORT:-${APP_PORT:-4000}}:${APP_PORT:-4000}"
     env_file:
       - .env
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     environment:
       GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/gcp-service-account.json
     volumes:
       - ${GCP_CREDENTIALS_HOST_PATH:-/opt/reviewer/secrets/gcp-service-account.json}:/run/secrets/gcp-service-account.json:ro
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:$$APP_PORT/health || exit 1"]
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:$$APP_PORT$$APP_ROUTE_PREFIX/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -68,3 +71,5 @@ services:
 networks:
   reviewer-net:
     driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: 1200

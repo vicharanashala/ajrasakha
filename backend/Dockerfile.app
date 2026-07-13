@@ -1,4 +1,4 @@
-FROM node:22-alpine AS builder
+FROM node:20-alpine AS builder
 
 RUN apk add --no-cache git bash \
   && corepack enable \
@@ -13,8 +13,10 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 # Fresh compile in image (host tsbuildinfo/build are dockerignored; stale incremental can skip emit)
 RUN rm -rf build tsconfig.tsbuildinfo && pnpm exec tsc
+# Copy static data files to build directory
+RUN cp src/modules/soilHealth/soilData.json build/modules/soilHealth/soilData.json 2>/dev/null || true
 
-FROM node:22-alpine
+FROM node:20-alpine
 
 RUN apk add --no-cache git bash mongodb-tools wget \
   && corepack enable \
