@@ -7,6 +7,7 @@ import { DashboardContentController } from './controllers/DashboardContentContro
 import { DASHBOARD_CONTENT_VALIDATORS } from './validators/DashboardContentValidators.js';
 
 // Names loadAppModules expects (see bootstrap/loadModules.ts).
+// One controller serves every dashboard route — public reads and admin writes alike.
 export const dashboardModuleControllers: Function[] = [DashboardContentController];
 export const dashboardModuleValidators: Function[] = [...DASHBOARD_CONTENT_VALIDATORS];
 export const dashboardContainerModules: ContainerModule[] = [

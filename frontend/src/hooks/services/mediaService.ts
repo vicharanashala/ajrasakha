@@ -49,9 +49,10 @@ const putWithProgress = (
   });
 
 export class MediaService {
-  private _baseUrl = `${API_BASE_URL}/media`;
+  /** All dashboard routes (public reads + admin writes) live on the one controller. */
+  private _baseUrl = `${API_BASE_URL}/dashboard/media`;
 
-  /** Public list — no auth required. */
+  /** Public list — no auth. */
   async list(kind?: MediaKind): Promise<MediaItem[] | null> {
     const qs = kind ? `?kind=${kind}` : "";
     return apiFetch<MediaItem[]>(`${this._baseUrl}${qs}`);

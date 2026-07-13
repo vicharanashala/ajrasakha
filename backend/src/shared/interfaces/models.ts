@@ -23,12 +23,24 @@ export interface IDashboardBlock {
   order: number;
 }
 
+/** One headline figure in the dashboard's snapshot grid (e.g. "Total Agricultural
+ *  Questions Processed"). `value` is free text so an admin can enter either a plain
+ *  number (18600000 — animated as a count-up) or a formatted string ("18.6M"). */
+export interface IDashboardStat {
+  id: string;
+  label: string;
+  value: string;
+  order: number;
+}
+
 /** Singleton document holding the public dashboard's admin-editable content. */
 export interface IDashboardContent {
   _id?: string | ObjectId;
   /** Fixed singleton key — always 'public_dashboard'. */
   key: string;
   blocks: IDashboardBlock[];
+  /** Headline snapshot figures. Empty ⇒ the dashboard falls back to its built-in defaults. */
+  stats?: IDashboardStat[];
   updatedAt?: Date;
   updatedBy?: string | null;
 }

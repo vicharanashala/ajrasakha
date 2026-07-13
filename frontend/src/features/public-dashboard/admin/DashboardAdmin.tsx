@@ -1,3 +1,6 @@
+import { ArrowLeft } from "lucide-react";
+import { useNavigate, useRouter } from "@tanstack/react-router";
+import { Button } from "@/components/atoms/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/atoms/tabs";
 import { DashboardContentEditor } from "./DashboardContentEditor";
 import { MediaManager } from "./MediaManager";
@@ -8,8 +11,31 @@ import { MediaManager } from "./MediaManager";
  * under one "Edit ACE Dashboard" entry point.
  */
 export const DashboardAdmin = () => {
+  const router = useRouter();
+  const navigate = useNavigate();
+
+  // Go back to wherever the admin came from; fall back to the app home when this page
+  // was opened directly (no history to pop).
+  const goBack = () => {
+    if (router.history.canGoBack()) {
+      router.history.back();
+    } else {
+      navigate({ to: "/home" });
+    }
+  };
+
   return (
     <div className="mx-auto w-full max-w-4xl p-4 md:p-6">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={goBack}
+        className="mb-4 -ml-2 gap-2 text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back
+      </Button>
+
       <div className="mb-6">
         <h1 className="text-xl font-semibold">Edit ACE Dashboard</h1>
         <p className="text-sm text-muted-foreground">

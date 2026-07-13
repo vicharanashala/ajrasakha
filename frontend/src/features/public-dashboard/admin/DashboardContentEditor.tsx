@@ -6,8 +6,11 @@ import {
   useGetDashboardContent,
   useUpdateDashboardContent,
 } from "@/hooks/api/dashboard/useDashboardContent";
-import type { DashboardBlock } from "@/hooks/services/dashboardContentService";
-import { defaultBlocks } from "../data/contentDefaults";
+import type {
+  DashboardBlock,
+  DashboardStat,
+} from "@/hooks/services/dashboardContentService";
+import { defaultBlocks, defaultStats } from "../data/contentDefaults";
 
 const newId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -31,11 +34,28 @@ export const DashboardContentEditor = () => {
   const { data, isLoading } = useGetDashboardContent();
   const { mutateAsync: save, isPending: saving } = useUpdateDashboardContent();
   const [blocks, setBlocks] = useState<DashboardBlock[]>([]);
+  const [stats, setStats] = useState<DashboardStat[]>([]);
 
   useEffect(() => {
     if (!data) return;
     setBlocks(data.blocks?.length ? data.blocks : []);
+    setStats(data.stats?.length ? data.stats : []);
   }, [data]);
+
+  // ── Headline stats (the snapshot grid) ────────────────────────────────────
+  const patchStat = (i: number, p: Partial<DashboardStat>) =>
+    setStats((s) => s.map((st, idx) => (idx === i ? { ...st, ...p } : st)));
+  const moveStat = (i: number, dir: -1 | 1) =>
+    setStats((s) => {
+      const j = i + dir;
+      if (j < 0 || j >= s.length) return s;
+      const copy = [...s];
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+      return copy;
+    });
+  const removeStat = (i: number) => setStats((s) => s.filter((_, idx) => idx !== i));
+  const addStat = () =>
+    setStats((s) => [...s, { id: newId(), label: "", value: "", order: s.length }]);
 
   const patch = (i: number, p: Partial<DashboardBlock>) =>
     setBlocks((b) => b.map((blk, idx) => (idx === i ? { ...blk, ...p } : blk)));
@@ -51,7 +71,10 @@ export const DashboardContentEditor = () => {
 
   const remove = (i: number) => setBlocks((b) => b.filter((_, idx) => idx !== i));
   const add = () => setBlocks((b) => [...b, emptyBlock(b.length)]);
-  const loadDefaults = () => setBlocks(defaultBlocks.map((b) => ({ ...b, id: newId() })));
+  const loadDefaults = () => {
+    setBlocks(defaultBlocks.map((b) => ({ ...b, id: newId() })));
+    setStats(defaultStats.map((s) => ({ ...s, id: newId() })));
+  };
 
   const setFigure = (bi: number, fi: number, p: Partial<{ label: string; value: string }>) =>
     patch(bi, {
@@ -62,7 +85,11 @@ export const DashboardContentEditor = () => {
   const removeFigure = (bi: number, fi: number) =>
     patch(bi, { figures: blocks[bi].figures.filter((_, idx) => idx !== fi) });
 
-  const onSave = () => save(blocks.map((b, i) => ({ ...b, order: i })));
+  const onSave = () =>
+    save({
+      blocks: blocks.map((b, i) => ({ ...b, order: i })),
+      stats: stats.map((s, i) => ({ ...s, order: i })),
+    });
 
   if (isLoading) {
     return (
@@ -91,6 +118,57 @@ export const DashboardContentEditor = () => {
           </Button>
         </div>
       </div>
+
+      {/* ── Headline figures shown in the dashboard's snapshot grid ── */}
+      <section className="mb-8 rounded-lg border bg-card p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-semibold">Headline Stats</h2>
+            <p className="text-xs text-muted-foreground">
+              The figures in the snapshot grid (e.g. Total Agricultural Questions Processed,
+              Total Languages Supported, Total Outreach Events Conducted). A plain number
+              counts up; text like “18.6M” is shown as-is.
+            </p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={addStat} className="h-8 gap-1 text-xs">
+            <Plus className="h-3.5 w-3.5" /> Add stat
+          </Button>
+        </div>
+
+        {stats.length === 0 ? (
+          <p className="rounded-md border border-dashed p-4 text-center text-xs text-muted-foreground">
+            No stats yet — “Load defaults” seeds the full set, or add one.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {stats.map((s, i) => (
+              <div key={s.id} className="flex items-center gap-2">
+                <Input
+                  value={s.value}
+                  onChange={(e) => patchStat(i, { value: e.target.value })}
+                  placeholder="Value (e.g. 18600000)"
+                  className="w-44"
+                />
+                <Input
+                  value={s.label}
+                  onChange={(e) => patchStat(i, { label: e.target.value })}
+                  placeholder="Label (e.g. Total Agricultural Questions Processed)"
+                  className="flex-1"
+                />
+                <Button variant="ghost" size="icon" onClick={() => moveStat(i, -1)} disabled={i === 0} aria-label="Move up">
+                  <ArrowUp className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => moveStat(i, 1)} disabled={i === stats.length - 1} aria-label="Move down">
+                  <ArrowDown className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => removeStat(i)} aria-label="Remove stat" className="text-destructive">
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       {blocks.length === 0 && (
         <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">

@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import {
   DashboardContentService,
   type DashboardBlock,
+  type DashboardStat,
 } from "@/hooks/services/dashboardContentService";
 
 const service = new DashboardContentService();
@@ -19,7 +20,13 @@ export const useUpdateDashboardContent = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationKey: ["update-dashboard-content"],
-    mutationFn: (blocks: DashboardBlock[]) => service.update(blocks),
+    mutationFn: ({
+      blocks,
+      stats,
+    }: {
+      blocks: DashboardBlock[];
+      stats: DashboardStat[];
+    }) => service.update(blocks, stats),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["dashboard-content"] });
       toast.success("Dashboard content saved");

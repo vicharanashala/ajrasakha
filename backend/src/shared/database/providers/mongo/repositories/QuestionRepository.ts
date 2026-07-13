@@ -64,6 +64,9 @@ const EMBEDDING_FIELD = 'embedding';
 const VECTOR_NUM_CANDIDATES = 200;
 const VECTOR_COUNT_LIMIT = 20000;
 
+/** Statuses that count as a validated Question–Answer pair (i.e. the question is closed). */
+const VALIDATED_QA_STATUSES = ['closed', 'dynamic_closed', 'duplicate_closed'];
+
 export class QuestionRepository implements IQuestionRepository {
   private QuestionCollection: Collection<IQuestion>;
   private DuplicateQuestionCollection: Collection<ISimilarQuestion>;
@@ -4763,6 +4766,19 @@ export class QuestionRepository implements IQuestionRepository {
     });
 
     return overview;
+  }
+
+  /**
+   * Total validated Question–Answer pairs = every question that reached a closed state:
+   * `closed` (normal), `dynamic_closed` (dynamic questions finalised via Notify User) and
+   * `duplicate_closed` (duplicates finalised the same way).
+   */
+  async countValidatedQAPairs(session?: ClientSession): Promise<number> {
+    await this.init();
+    return this.QuestionCollection.countDocuments(
+      {status: {$in: VALIDATED_QA_STATUSES}} as any,
+      {session},
+    );
   }
 
   async getQuestionAnalytics(

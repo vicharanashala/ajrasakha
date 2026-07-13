@@ -394,6 +394,12 @@ export interface IQuestionRepository {
   ): Promise<{analytics: Analytics}>;
 
   /**
+   * Total validated Question–Answer pairs — questions in a closed state
+   * (`closed`, `dynamic_closed`, `duplicate_closed`).
+   */
+  countValidatedQAPairs(session?: ClientSession): Promise<number>;
+
+  /**
    * @param currentUserId - requested userId
    * @param session
    */

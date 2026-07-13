@@ -1,4 +1,21 @@
-import type { DashboardBlock } from "@/hooks/services/dashboardContentService";
+import type {
+  DashboardBlock,
+  DashboardStat,
+} from "@/hooks/services/dashboardContentService";
+import { heroStats } from "./dashboardData";
+
+/**
+ * Seed for the admin-editable headline figures (the snapshot grid). Derived from the
+ * built-in stats so "Load defaults" gives admins a full, editable starting set —
+ * including Total Agricultural Questions Processed, Total Languages Supported and
+ * Total Outreach Events Conducted.
+ */
+export const defaultStats: DashboardStat[] = heroStats.map((s, i) => ({
+  id: `stat-${i}`,
+  label: s.label,
+  value: String(s.count),
+  order: i,
+}));
 
 /**
  * Seed content for the editable narrative. Shown on the public dashboard when an admin

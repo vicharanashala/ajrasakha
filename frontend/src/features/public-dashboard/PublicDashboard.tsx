@@ -6,6 +6,7 @@ import { HeroCarousel } from "./components/HeroCarousel";
 import { OutreachGallery } from "./components/OutreachGallery";
 import { DomainDoughnut, GrowthLine } from "./components/charts";
 import { useGetDashboardContent } from "@/hooks/api/dashboard/useDashboardContent";
+import { useGetPublicStats } from "@/hooks/api/dashboard/usePublicStats";
 import { defaultBlocks } from "./data/contentDefaults";
 import { useCountUp } from "./utils";
 import {
@@ -169,17 +170,66 @@ const HeroSnapshot = () => {
           </div>
         </div>
       </div>
-      <div className="stat-grid">
-        {heroStats.map((s) => (
+      <StatGrid />
+    </section>
+  );
+};
+
+/**
+ * Headline figures = LIVE numbers from the database first, then the admin-edited stats
+ * (or the built-in defaults when an admin hasn't saved any).
+ *
+ * The live block is computed server-side from the questions collection, so it is always
+ * true: validated Q&A pairs (closed / dynamic_closed / duplicate_closed) plus the states,
+ * crops and domains actually covered. Admin-edited stats that duplicate a live label are
+ * dropped, so a stale hand-typed number can never shadow the real one.
+ */
+const StatGrid = () => {
+  const { data: content } = useGetDashboardContent();
+  const { data: live } = useGetPublicStats();
+
+  const liveStats = live
+    ? [
+        { label: "Total Validated Question-Answer Pairs", value: live.validatedQAPairs },
+        { label: "States Covered", value: live.statesCovered },
+        { label: "Crops Covered", value: live.cropsCovered },
+        { label: "Domains Covered", value: live.domainsCovered },
+      ]
+    : [];
+
+  const liveLabels = new Set(liveStats.map((s) => s.label.toLowerCase()));
+
+  // Admin-edited stats, else the built-in defaults.
+  const editorial = content?.stats?.length
+    ? content.stats.map((s) => ({ label: s.label, value: s.value }))
+    : heroStats.map((s) => ({ label: s.label, value: String(s.count) }));
+
+  const rest = editorial.filter((s) => !liveLabels.has(s.label.trim().toLowerCase()));
+
+  return (
+    <div className="stat-grid">
+      {liveStats.map((s) => (
+        <div className="stat-cell" key={s.label}>
+          <div className="val">
+            <Counter value={s.value} />
+          </div>
+          <div className="lab">{s.label}</div>
+        </div>
+      ))}
+
+      {rest.map((s) => {
+        const n = Number(String(s.value).replace(/,/g, ""));
+        const isNumeric = String(s.value) !== "" && Number.isFinite(n);
+        return (
           <div className="stat-cell" key={s.label}>
             <div className="val">
-              <Counter value={s.count} suffix={s.suffix} />
+              {isNumeric ? <Counter value={n} /> : <span className="mono">{s.value}</span>}
             </div>
             <div className="lab">{s.label}</div>
           </div>
-        ))}
-      </div>
-    </section>
+        );
+      })}
+    </div>
   );
 };
 

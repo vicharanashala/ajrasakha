@@ -37,15 +37,40 @@ class DashboardBlockDto {
   order?: number;
 }
 
+/** A headline figure in the snapshot grid, e.g. "Total Languages Supported" = "22". */
+class DashboardStatDto {
+  @IsOptional()
+  @IsString()
+  id?: string;
+
+  @IsString()
+  label: string;
+
+  /** Free text: a raw number ("18600000") or a formatted string ("18.6M"). */
+  @IsString()
+  value: string;
+
+  @IsOptional()
+  @IsNumber()
+  order?: number;
+}
+
 export class UpdateDashboardContentDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => DashboardBlockDto)
   blocks: DashboardBlockDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => DashboardStatDto)
+  stats?: DashboardStatDto[];
 }
 
 export const DASHBOARD_CONTENT_VALIDATORS = [
   DashboardFigureDto,
   DashboardBlockDto,
+  DashboardStatDto,
   UpdateDashboardContentDto,
 ];

@@ -12,14 +12,36 @@ import {
   YAxis,
 } from "recharts";
 import { domainColors, domains, growth, growthColors } from "../data/dashboardData";
+import { useGetPublicStats } from "@/hooks/api/dashboard/usePublicStats";
 
-/** Domain distribution of collected questions — a doughnut (identity, fixed colours). */
-export const DomainDoughnut = () => (
+/**
+ * Domain distribution of collected questions — a doughnut (identity, fixed colours).
+ * Uses the LIVE domain breakdown from the database when available (top 10 by volume),
+ * falling back to the demo figures only if the API hasn't answered yet.
+ */
+export const DomainDoughnut = () => {
+  const { data: live } = useGetPublicStats();
+
+  const data = live?.domainData?.length
+    ? [...live.domainData]
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10)
+        .map((d) => ({ label: d.name, value: d.count }))
+    : domains;
+
+  return <DomainDoughnutView data={data} />;
+};
+
+const DomainDoughnutView = ({
+  data,
+}: {
+  data: { label: string; value: number }[];
+}) => (
   <div style={{ height: 320 }} role="img" aria-label="Distribution of questions across agronomy domains">
     <ResponsiveContainer width="100%" height="100%">
       <PieChart>
         <Pie
-          data={domains}
+          data={data}
           dataKey="value"
           nameKey="label"
           innerRadius="55%"
@@ -28,11 +50,12 @@ export const DomainDoughnut = () => (
           stroke="#ffffff"
           strokeWidth={2}
         >
-          {domains.map((_, i) => (
+          {data.map((_, i) => (
             <Cell key={i} fill={domainColors[i % domainColors.length]} />
           ))}
         </Pie>
-        <Tooltip formatter={(v: any, n: any) => [`${v}%`, n]} />
+        {/* Live data is a raw question count, not a percentage — show the number. */}
+        <Tooltip formatter={(v: any, n: any) => [v, n]} />
         <Legend
           layout="horizontal"
           align="center"
