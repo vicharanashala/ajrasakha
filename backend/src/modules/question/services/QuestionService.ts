@@ -2336,6 +2336,33 @@ export class QuestionService extends BaseService implements IQuestionService {
       // (status → in-review, last answer → pending-with-moderator) and stop here:
       // everything below only applies when there are experts to add.
       if (filteredExperts.length === 0) {
+        // Guard: only escalate to moderator if the answer has already reached
+        // 3 consecutive approvals. If sufficient reviewers are available in the
+        // system but haven't been used yet (e.g. they were all already in
+        // answeredExperts from prior rounds), we should NOT short-circuit to the
+        // moderator queue before the approval threshold is met.
+        const answerId =
+          lastSubmission?.answer ||
+          lastSubmission?.approvedAnswer ||
+          lastSubmission?.modifiedAnswer ||
+          lastSubmission?.rejectedAnswer;
+
+        if (answerId) {
+          const answerDoc = await this.answerRepo.getById(answerId.toString(), session);
+          const currentApprovalCount = answerDoc?.approvalCount ?? 0;
+
+          if (currentApprovalCount < 3) {
+            // Threshold not met yet — do not escalate. The question stays in its
+            // current status and will be picked up again when a reviewer acts or
+            // the cron runs.
+            console.log(
+              `[autoAllocateExperts] Skipping moderator escalation for question ${questionId}: ` +
+              `approvalCount=${currentApprovalCount} < 3 (no new experts to add, but threshold not met).`,
+            );
+            return { data: [], status: false };
+          }
+        }
+
         await this.questionRepo.updateQuestion(
           questionId,
           { status: 'in-review' },
@@ -2349,15 +2376,9 @@ export class QuestionService extends BaseService implements IQuestionService {
         // a modified review carries `modifiedAnswer` (not `answer`/`approvedAnswer`).
         // Include it in the fallback so the correct answer is marked pending-with-
         // moderator, and guard against a missing id so this never throws.
-        const answer =
-          lastSubmission?.answer ||
-          lastSubmission?.approvedAnswer ||
-          lastSubmission?.modifiedAnswer ||
-          lastSubmission?.rejectedAnswer;
-
-        if (answer) {
+        if (answerId) {
           await this.answerRepo.updateAnswerStatus(
-            answer.toString(),
+            answerId.toString(),
             payload,
             session,
           );
