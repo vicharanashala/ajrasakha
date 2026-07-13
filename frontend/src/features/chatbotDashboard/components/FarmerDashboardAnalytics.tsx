@@ -61,8 +61,10 @@ export type FarmerDashboardData = {
 
 export function FarmerDashboardAnalytics({
   dashboard,
+  afterEngagementTrends,
 }: {
   dashboard?: FarmerDashboardData;
+  afterEngagementTrends?: ReactNode;
 }) {
   const [trendGranularity, setTrendGranularity] =
     useState<TrendGranularity>("daily");
@@ -166,6 +168,8 @@ export function FarmerDashboardAnalytics({
           />
         </div>
       </DashboardSection>
+
+      {afterEngagementTrends}
 
       <DashboardSection
         icon={<MessageSquareText className="h-5 w-5" />}

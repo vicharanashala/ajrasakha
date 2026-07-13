@@ -52,7 +52,7 @@ Set `ENABLE_CHEMICAL_CHECKER = True` in `plan_executor.py` to re-enable.
 ## Feature flag
 
 - `USE_PLANNER_GRAPH=true` (default): planner → ensure_location → **`execute_plan`** (ag queries) → **assemble_answer_body** / **empty_gdb_reply** / **translate_answer** → END. Non-agriculture queries use the dedicated terminal path described below. No synthesizer LLM. Golden retrieval uses FastAPI + Gemma classification (no retrieval_sanitizer). (`sanitize_answer` is commented out.)
-- **Non-agriculture** (`is_agriculture_related=false`): planner → `ensure_location` → `upload_reviewer_only` (reviewer MCP only) → `non_agriculture_reply` → END. The terminal node returns the exact localized **Non-Agriculture Query** sheet cell followed by the localized **Testing disclaimer**; it never invokes the translation LLM. Specialist tools are skipped and reviewer `answer_text` remains ignored.
+- **Non-agriculture** (`is_agriculture_related=false`): planner → `ensure_location` → `upload_reviewer_only` (reviewer MCP only) → `non_agriculture_reply` → END. The terminal node returns the exact localized **Non-Agriculture Query** catalog text followed by the localized **Testing disclaimer**; it never invokes the translation LLM. Specialist tools are skipped and reviewer `answer_text` remains ignored.
 
 ## Language (vocal + script)
 
@@ -61,10 +61,10 @@ Set `ENABLE_CHEMICAL_CHECKER = True` in `plan_executor.py` to re-enable.
 - **Native script:** `script_language` uses the detected script label and `vocal_language` uses the spoken language (e.g. `Devanagari` + `Hindi`).
 - **Fixed strings** (exact cells, no LLM paraphrase): non-agriculture reply, testing disclaimer, 2-hour expert-queue text, state/crop follow-ups — keyed by `(script_language, vocal_language)`.
 - **assemble_answer_body** uses GDB expert text or formatted specialist tool output as-is (no LLM); **translate_answer** translates + appends sources/testing.
-- **Mixed GDB + specialist** in one turn → **empty_gdb_reply** (2-hour + testing sheet only).
+- **Mixed GDB + specialist** in one turn → **empty_gdb_reply** (2-hour + testing catalog text only).
 - **translate_answer** paths (see `plan.translate_path`):
-  - **`empty_gdb_reply`** → sheet **2-hour + testing** only (no translate LLM).
-  - **`assemble_answer_body` / reviewer direct** → translate body when needed → GDB **sources + author** (when applicable) → sheet **testing disclaimer** only (no 2-hour on this path).
+  - **`empty_gdb_reply`** → catalog **2-hour + testing** only (no translate LLM).
+  - **`assemble_answer_body` / reviewer direct** → translate body when needed → GDB **sources + author** (when applicable) → catalog **testing disclaimer** only (no 2-hour on this path).
 - Expert-queue turns (no GDB and no specialist content) route to `empty_gdb_reply`.
 - `USE_PLANNER_GRAPH=false`: legacy single-LLM `ajrasakha` + `tools` loop.
 

@@ -9,6 +9,45 @@ const stateNameByCode = new Map<number, string>();
 const districtNameByCode = new Map<number, string>();
 const blockDistrictByCode = new Map<number, string>();
 
+const LGD_STATE_CODES: Record<string, number> = {
+  "Andaman and Nicobar Islands": 35,
+  "Andhra Pradesh": 28,
+  "Arunachal Pradesh": 12,
+  Assam: 18,
+  Bihar: 10,
+  Chandigarh: 4,
+  Chhattisgarh: 22,
+  "Dadra and Nagar Haveli and Daman and Diu": 26,
+  "Delhi (National Capital Territory)": 7,
+  Goa: 30,
+  Gujarat: 24,
+  Haryana: 6,
+  "Himachal Pradesh": 2,
+  "Jammu and Kashmir": 1,
+  Jharkhand: 20,
+  Karnataka: 29,
+  Kerala: 32,
+  Ladakh: 37,
+  Lakshadweep: 31,
+  "Madhya Pradesh": 23,
+  Maharashtra: 27,
+  Manipur: 14,
+  Meghalaya: 17,
+  Mizoram: 15,
+  Nagaland: 13,
+  Odisha: 21,
+  Puducherry: 34,
+  Punjab: 3,
+  Rajasthan: 8,
+  Sikkim: 11,
+  "Tamil Nadu": 33,
+  Telangana: 36,
+  Tripura: 16,
+  "Uttar Pradesh": 9,
+  Uttarakhand: 5,
+  "West Bengal": 19,
+};
+
 export interface ILocationState {
   stateCode: number;
   stateNameEnglish: string;
@@ -78,7 +117,7 @@ async function fallbackStates(): Promise<ILocationState[]> {
   const { STATES } = await getMetadata();
 
   return STATES.map((stateNameEnglish, index) => {
-    const stateCode = index + 1;
+    const stateCode = LGD_STATE_CODES[stateNameEnglish] ?? index + 1;
     stateNameByCode.set(stateCode, stateNameEnglish);
 
     return {

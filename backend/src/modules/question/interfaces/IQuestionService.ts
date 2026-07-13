@@ -15,6 +15,7 @@ import {
 } from '../classes/validators/QuestionVaidators.js';
 import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
 import { ClientSession, ObjectId } from 'mongodb';
+import type { QAMetadata } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
 
 /** Lean question shape used in the moderator/admin "Queue Details" modal. */
 export interface QueueQuestionItem {
@@ -31,6 +32,8 @@ export interface QueueQuestionItem {
   expertName?: string;
   /** Assigned moderator's name — present for moderator-allocated items. */
   moderatorName?: string;
+  /** Assigned gate keeper / auditor name — present for role-allocated items. */
+  assigneeName?: string;
   /** All experts who have completed a step on this question, in turn order —
    *  present for needs-reviewer items. */
   completedExpertNames?: string[];
@@ -113,6 +116,20 @@ export interface QueueDetailsResponse {
   availableModeratorsTimeBound: {count: number; items: QueueExpertItem[]};
   /** STF moderators free to take a manual question. */
   availableModeratorsManual: {count: number; items: QueueExpertItem[]};
+
+  // ── Gate keeper / auditor role queues ──
+  /** dynamic/duplicate/queue_duplicate questions with no gate keeper yet. */
+  gateKeeperWaiting: {count: number; items: QueueQuestionItem[]};
+  /** Questions currently assigned to a gate keeper. */
+  gateKeeperAllocated: {count: number; items: QueueQuestionItem[]};
+  /** Gate keepers free to take a question. */
+  availableGateKeepers: {count: number; items: QueueExpertItem[]};
+  /** auditor_review questions with no auditor yet. */
+  auditorWaiting: {count: number; items: QueueQuestionItem[]};
+  /** Questions currently assigned to an auditor. */
+  auditorAllocated: {count: number; items: QueueQuestionItem[]};
+  /** Auditors free to take a question. */
+  availableAuditors: {count: number; items: QueueExpertItem[]};
 }
 
 /** Raw lean row returned by the repository layer for queue-details questions. */
@@ -162,7 +179,14 @@ export type QueueSectionName =
   | 'moderatorAllocatedTimeBound'
   | 'moderatorAllocatedManual'
   | 'availableModeratorsTimeBound'
-  | 'availableModeratorsManual';
+  | 'availableModeratorsManual'
+  // Gate keeper / auditor role queues (mirror the moderator queue sections)
+  | 'gateKeeperWaiting'
+  | 'gateKeeperAllocated'
+  | 'availableGateKeepers'
+  | 'auditorWaiting'
+  | 'auditorAllocated'
+  | 'availableAuditors';
 
 /** One page of a section: exact total + the requested page's items. */
 export interface QueueSectionResult {
@@ -233,6 +257,7 @@ export interface IQuestionService {
     extracted_crop: string;
     extracted_state: string;
     extracted_district: string;
+    extracted_domain?: string | string[];
   }>;
 
   /** HIL Flow: Update state with human corrections */
@@ -243,11 +268,15 @@ export interface IQuestionService {
       crop: string;
       state: string;
       district: string;
+      domain: string | string[];
+      season: string;
     }
   ): Promise<void>;
 
   /** HIL Flow: Resume and get final answer */
-  resumeAccAgentAndGetAnswer(threadId: string): Promise<{ final_answer: string }>;
+  resumeAccAgentAndGetAnswer(threadId: string, callUuid?: string, metadata?: QAMetadata): Promise<{ final_answer: string }>;
+  /** HIL Flow: Get ACC Agent thread state */
+  getAccAgentState(threadId: string, callUuid?: string, metadata?: QAMetadata): Promise<any>;
   /** Manually trigger duplicate check for a question without a reference */
   manualCheckDuplicate(
     questionId: string,
@@ -335,7 +364,11 @@ export interface IQuestionService {
     question: IQuestion | null;
     approved_moderator: {name: string; email: string};
     assigned_moderator: {name: string; email: string} | null;
+    assigned_gate_keeper: {name: string; email: string} | null;
+    assigned_auditor: {name: string; email: string} | null;
     isAssignedModerator: boolean;
+    isAssignedGateKeeper: boolean;
+    isAssignedAuditor: boolean;
   }>;
 
   /** Manually (re)assign the moderator for a question. */
@@ -343,6 +376,21 @@ export interface IQuestionService {
 
   /** Remove the moderator currently assigned to a question (frees the moderator and nulls the question's moderator fields). */
   removeQuestionModerator(questionId: string): Promise<void>;
+
+  /** Manually (re)assign the gate keeper / auditor for a question. */
+  changeQuestionRoleAssignee(
+    questionId: string,
+    role: 'gate_keeper' | 'auditor',
+    userId: string,
+    actorName?: string,
+  ): Promise<void>;
+
+  /** Remove the gate keeper / auditor currently assigned to a question. */
+  removeQuestionRoleAssignee(
+    questionId: string,
+    role: 'gate_keeper' | 'auditor',
+    actorName?: string,
+  ): Promise<void>;
 
   /** Get expert’s allocated question page */
   getAllocatedQuestionPage(userId: string, questionId: string): Promise<any>;

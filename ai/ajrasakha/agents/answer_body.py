@@ -97,7 +97,7 @@ def defer_empty_gdb_to_translate(
     *,
     plan: dict | None = None,
 ) -> dict:
-    """Empty body + translate_path so translate_answer adds sheet footers."""
+    """Empty body + translate_path so translate_answer adds catalog footers."""
     merged_plan = {
         **(state.get("plan") or {}),
         **(plan or {}),

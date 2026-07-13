@@ -22,6 +22,7 @@ import type {
   UnverifiedUserEntry,
   FarmerHeatMapFilters,
   FarmerHeatMapResponse,
+  CoordinatorDuplicateQuestionHeatMapResponse,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {GrowthResponse} from '../types/chatbot.type.js';
 
@@ -99,7 +100,17 @@ export interface IChatbotService {
     userType?: string,
     search?: string,
   ): Promise<PaginatedQueryCategoryQuestions>;
-  getQuestionFromDistrict(district: string, state?:string, questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, userType?: string, search?: string): Promise<any>;
+  getQuestionFromDistrict(
+    district: string,
+    state?: string,
+    questionType?: QueryCategoryQuestionType,
+    page?: number,
+    limit?: number,
+    source?: string,
+    userType?: string,
+    search?: string,
+    knownDistricts?: string[],
+  ): Promise<any>;
   getTopCrops(source?: string, userType?: string): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
   getQuestionsByCrop(crop: string, crops?:string[], questionType?: QueryCategoryQuestionType, page?: number, limit?: number, source?: string, userType?: string, search?: string): Promise<any>
   getWeeklyAvgSessionDuration(weeks?: number, source?: string): Promise<WeeklySessionDurationEntry[]>;
@@ -124,6 +135,17 @@ export interface IChatbotService {
   ): Promise<QueryAnalyticsResponse>;
   getDailyUserTrend(days?: number, source?: string, userType?: string): Promise<DailyActiveUsersEntry[]>;
   getUserDetails(startDate?: string, endDate?: string, page?: number, limit?: number, search?: string, source?: string, crop?: string, primaryCrops?: string, secondaryCrops?: string, village?: string, state?: string, district?: string, block?: string, profileCompleted?: string, inactiveOnly?: boolean, lowFeedbackOnly?: boolean, userType?: string, roles?: string, sortBy?:string, sortOrder?:string, activeTodayByProfile?: boolean, missingDemographicField?: string, isVerified?: boolean): Promise<PaginatedUserDetails>;
+  getUsersByDemographic(
+    category: string,
+    value: string,
+    source?: string,
+    userType?: string,
+    page?: number,
+    limit?: number,
+    search?: string,
+    sortBy?: string,
+    sortOrder?: string,
+  ): Promise<PaginatedUserDetails>;
   getAvgSessionDurationV2(source?: string, userType?: string): Promise<number>;
   getWeeklyAvgSessionDurationV2(
     weeks?: number,
@@ -190,6 +212,10 @@ export interface IChatbotService {
   getFarmerHeatMapAnalytics(
     filters?: FarmerHeatMapFilters,
   ): Promise<FarmerHeatMapResponse>;
+
+  getCoordinatorDuplicateQuestionHeatMap(
+    coordinatorId: string,
+  ): Promise<CoordinatorDuplicateQuestionHeatMapResponse>;
   getUserById(userId: string, source: string): Promise<any>;
   deleteUser(userId: string, source: string): Promise<boolean>;
   updateUser(
@@ -329,6 +355,7 @@ export interface IChatbotService {
     startDate?: Date,
     endDate?: Date,
     isPassed?: string,
+    tag?: string,
   ) : Promise<any>
 
   getQuestionsByNotificationStatus(
@@ -373,4 +400,47 @@ export interface IChatbotService {
   ): Promise<any>
   
   getQuestionLifecycle(questionId: string): Promise<any>
+
+
+
+      getQuestionFromState(
+      state?: string,
+      questionType?: QueryCategoryQuestionType,
+      page?: number,
+      limit?: number,
+      source?: string,
+      userType?: string,
+      search?: string,
+    ): Promise<any>;
+
+    getActiveUsersDetails(
+      page:number,
+      limit:number,
+      source: string,
+      userType: string,
+      state?: string,
+      district?: string,
+      search?: string,
+    ): Promise<any>
+
+      getCoordinatorsDetails(
+      page:number,
+      limit:number,
+      source: string,
+      userType: string,
+      state?: string,
+      district?: string,
+      search?: string,
+): Promise<any>
+
+  getLifeCycleSummary(
+      status?: string,
+      source?: string,
+      userType?: string,
+      startDate?: Date,
+      endDate?: Date,
+      isPassed?: string,
+      tag?: string,
+      notificationType?: string,
+    ): Promise<any>
 }
