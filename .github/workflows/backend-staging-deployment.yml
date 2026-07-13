@@ -13,9 +13,10 @@
 #   GCP_GH_SA_KEY, GCP_PROJECT_ID, DOCKERHUB_USERNAME, DOCKERHUB_TOKEN
 #
 # The app env vars (DB_URL, APP_PORT, VAPID_*, LGD_*, …) are configured ON the Cloud Run
-# service itself and are left commented out below. Omitting `env_vars` means the deploy
-# PRESERVES the service's existing variables and only swaps the container image — which
-# also sidesteps the "failed to parse KEY=VALUE pair" error that a blank secret causes.
+# service itself, so they're left commented out below. The deploy sets ONLY `NODE_ENV=staging`
+# and uses `env_vars_update_strategy: merge`, which preserves every other variable already
+# on the service. NODE_ENV must be exactly "staging" — anything else makes the app look for
+# ./src/modules (absent from the image) and crash with ENOENT on boot.
 
 name: AjraSakha Backend Staging Deployment
 
@@ -117,17 +118,25 @@ jobs:
           image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:staging-${{ needs.build.outputs.sha }}
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
-          # ── App env vars are NOT set from here ────────────────────────────────
+          # NODE_ENV must be exactly "staging" or the app crashes on boot:
+          # loadAppModules() reads ./build/modules only when NODE_ENV is production|staging,
+          # otherwise it looks for ./src/modules — which isn't in the image:
+          #   Error: ENOENT: no such file or directory, scandir '/app/src/modules'
+          #
+          # `merge` adds/overrides ONLY these keys and leaves every other variable already
+          # configured on the service untouched. (The default `overwrite` would replace the
+          # service's entire env with just what's listed here — do not use it.)
+          env_vars: |
+            NODE_ENV=staging
+          env_vars_update_strategy: merge
+
+          # ── The remaining app env vars are NOT set from here ───────────────────
           # They already live on the Cloud Run service (Console → Edit & Deploy New
-          # Revision → Variables & Secrets). Because `env_vars` is omitted, the deploy
-          # PRESERVES the service's existing variables — it only swaps the image.
+          # Revision → Variables & Secrets), and `merge` above preserves them.
           #
-          # ⚠️ If you ever uncomment this block, it becomes the FULL set: gcloud replaces
-          # the service's variables with exactly what's listed, so anything left commented
-          # out would be DELETED from the service. Uncomment all-or-nothing.
+          # ⚠️ If you uncomment the block below, keep `env_vars_update_strategy: merge`,
+          # or the service's other variables will be wiped.
           #
-          # env_vars: |
-          #   NODE_ENV=staging
           #   APP_PORT=${{ secrets.APP_PORT }}
           #   DB_URL=${{ secrets.DB_URL }}
           #   DB_NAME=${{ secrets.DB_NAME }}
