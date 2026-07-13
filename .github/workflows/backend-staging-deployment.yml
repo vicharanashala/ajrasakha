@@ -43,7 +43,11 @@ jobs:
     name: Build and Push Backend (staging)
     runs-on: ubuntu-latest
     outputs:
-      image: ${{ steps.meta.outputs.image }}
+      # Only the SHA is exported — NOT the full image ref. GitHub REDACTS any job output
+      # whose value contains a secret, so an output built from DOCKERHUB_USERNAME would
+      # arrive empty in the deploy job (that's what caused "Missing required argument
+      # [--image]"). The deploy job re-assembles the image ref from the secret itself.
+      sha: ${{ steps.meta.outputs.sha }}
 
     steps:
       # Always build the staging branch, not whatever the run was dispatched from.
@@ -65,7 +69,7 @@ jobs:
             echo "$REPO:staging-$SHA"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
-          echo "image=$REPO:staging-$SHA" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
           echo "Deploying ref '${{ inputs.ref }}' @ $SHA"
 
       - name: Set up Docker Buildx
@@ -108,7 +112,9 @@ jobs:
           service: ${{ env.GCP_SERVICE }}
           region: ${{ env.GCP_REGION }}
           # Immutable tag for the exact commit of `inputs.ref` — reproducible redeploys.
-          image: ${{ needs.build.outputs.image }}
+          # Assembled HERE (not passed as a job output) because outputs containing a secret
+          # are redacted to an empty string by GitHub.
+          image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:staging-${{ needs.build.outputs.sha }}
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
           # ── App env vars are NOT set from here ────────────────────────────────
