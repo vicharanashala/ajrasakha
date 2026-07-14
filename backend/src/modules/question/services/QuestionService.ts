@@ -2125,6 +2125,19 @@ export class QuestionService extends BaseService implements IQuestionService {
           throw new BadRequestError(`Question with ID ${questionId} not found`);
         }
 
+        // Block changing status to 'open' or 'delayed' when the question has an active re-route
+        if (updates.status === 'open' || updates.status === 'delayed') {
+          const rerouteDoc = await this.reRouteRepository.findByQuestionId(questionId, session);
+          const hasActiveReroute = rerouteDoc?.reroutes?.some(r =>
+            r.status === 'pending' || r.status === 'expert_completed' || r.status === 'in-review',
+          );
+          if (hasActiveReroute) {
+            throw new BadRequestError(
+              `Cannot change status to "${updates.status}": this question has an active re-route. Resolve the re-route first.`,
+            );
+          }
+        }
+
         // if (existingQuestion.status == 'closed')
         //   throw new BadRequestError(
         //     'You cannot modify a question that has already been closed.',
