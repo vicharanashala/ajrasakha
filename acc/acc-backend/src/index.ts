@@ -12,6 +12,8 @@ import { initWebSocket } from './bootstrap/websocket.js';
 import type { CorsOptions } from 'cors';
 import { apiReference } from '@scalar/express-api-reference';
 import { generateOpenAPISpec } from './shared/functions/index.js';
+import './bootstrap/jobs/agentStatusCleanupJob.js';
+
 
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const app = express();

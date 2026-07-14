@@ -102,6 +102,18 @@ export class UserController {
     return user;
   }
 
+  @Post('/call-agents/heartbeat')
+  @HttpCode(200)
+  @Authorized(['call_agent'])
+  @OpenAPI({ summary: 'Update call agent heartbeat status' })
+  async updateHeartbeat(
+    @CurrentUser() currentUser: IUser,
+  ): Promise<{ success: boolean }> {
+    const userId = currentUser._id.toString();
+    await this.userService.updateAgentHeartbeat(userId);
+    return { success: true };
+  }
+
   @Put('/')
   @HttpCode(200)
   @Authorized()

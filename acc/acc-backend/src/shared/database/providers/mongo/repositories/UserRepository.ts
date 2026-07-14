@@ -109,6 +109,24 @@ export class UserRepository implements IUserRepository {
     })) as IUser[];
   }
 
+  async findActiveCallAgents(session?: ClientSession): Promise<IUser[]> {
+    await this.init();
+    const agents = await this.usersCollection
+      .find(
+        {
+          role: 'call_agent',
+          isCallAgentActive: true,
+        },
+        { session },
+      )
+      .toArray();
+
+    return agents.map((agent) => ({
+      ...agent,
+      _id: agent._id.toString(),
+    })) as IUser[];
+  }
+
   async findAndMarkAvailableAgent(
     callUuid: string,
     session?: ClientSession,

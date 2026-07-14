@@ -7,5 +7,6 @@ export interface IUserRepository {
   findByFirebaseUID(firebaseUID: string, session?: ClientSession): Promise<IUser | null>;
   edit(userId: string, userData: Partial<IUser>, session?: ClientSession): Promise<IUser>;
   findCallAgents(session?: ClientSession): Promise<IUser[]>;
+  findActiveCallAgents(session?: ClientSession): Promise<IUser[]>;
   findAndMarkAvailableAgent(callUuid: string, session?: ClientSession): Promise<IUser | null>;
 }

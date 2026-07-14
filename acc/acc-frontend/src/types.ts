@@ -25,4 +25,5 @@ export interface IUser {
   agent?: string;
   isBusy?: boolean;
   currentCallUuid?: string | null;
+  lastAgentActiveAt?: string | Date;
 }

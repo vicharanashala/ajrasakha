@@ -11,6 +11,8 @@ import { CallHistory } from "@/components/CallHistory";
 import { ACCAnalyticsDashboard } from "@/components/ACCAnalyticsDashboard";
 import { ManageCallAgents } from "@/components/ManageCallAgents";
 import { Spinner } from "@/components/atoms/spinner";
+import { UserService } from "@/hooks/services/userService";
+
 import {
   Phone,
   Clock,
@@ -35,6 +37,26 @@ function DashboardComponent() {
       navigate({ to: "/auth" });
     }
   }, [authUser, navigate]);
+
+  // Heartbeat for Call Agents
+  useEffect(() => {
+    if (!user || user.role !== "call_agent" || !user.isCallAgentActive) return;
+
+    const userService = new UserService();
+    const sendHeartbeat = async () => {
+      try {
+        await userService.sendHeartbeat();
+      } catch (err) {
+        console.error("Failed to send heartbeat:", err);
+      }
+    };
+
+    sendHeartbeat();
+
+    const interval = setInterval(sendHeartbeat, 30000);
+
+    return () => clearInterval(interval);
+  }, [user?.role, user?.isCallAgentActive]);
 
   if (isLoading) {
     return (

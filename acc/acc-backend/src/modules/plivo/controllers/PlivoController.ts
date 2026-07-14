@@ -47,12 +47,13 @@ export class PlivoController {
   @UseBefore(urlencoded({ extended: true }))
   @OpenAPI({ summary: 'Handle inbound call answer from Plivo' })
   async answer(@Req() req: Request, @Res() res: Response): Promise<void> {
+    let availableAgent: IUser | null = null;
     try {
       const streamUrl = appConfig.plivo.streamUrl;
       const myPlivoNumber = appConfig.plivo.plivo_number;
       const callUuid = req.body?.CallUUID || req.query?.CallUUID;
 
-      const availableAgent = await this.agentAssignmentService.findAndMarkAvailableAgent(callUuid);
+      availableAgent = await this.agentAssignmentService.findAndMarkAvailableAgent(callUuid);
 
       let endpointUser: string;
       let fallbackMessage: string;
@@ -94,6 +95,14 @@ export class PlivoController {
       res.send(xml);
     } catch (error: any) {
       console.error('❌ [PLIVO-CONTROLLER] Error in answer endpoint:', error);
+      if (availableAgent) {
+        try {
+          console.log(`♻️ [PLIVO-CONTROLLER] Releasing agent ${availableAgent._id} due to answer endpoint error`);
+          await this.agentAssignmentService.markAgentAsAvailable(availableAgent._id.toString());
+        } catch (releaseError) {
+          console.error(`❌ [PLIVO-CONTROLLER] Failed to release agent ${availableAgent._id} after error:`, releaseError);
+        }
+      }
       res.status(500).send('Internal Server Error');
     }
   }

@@ -75,9 +75,32 @@ export class UserService extends BaseService {
         throw new NotFoundError(`User with ID ${userId} not found`);
       }
 
+      if (user.role !== 'call_agent') {
+        throw new BadRequestError('User is not a call agent');
+      }
+
+      // Find the smallest available agent number
+      const allCallAgents = await this.userRepo.findCallAgents(session);
+      const assignedNumbers = new Set<string>();
+      for (const agent of allCallAgents) {
+        if (agent.agent && agent.agent !== 'not_available' && agent.isCallAgentActive) {
+          assignedNumbers.add(agent.agent);
+        }
+      }
+
+      let agentNumber = 1;
+      while (assignedNumbers.has(`agent_${agentNumber}`)) {
+        agentNumber++;
+      }
+
+      const assignedAgent = `agent_${agentNumber}`;
+
       const updatedUser = await this.userRepo.edit(userId, {
+        agent: assignedAgent,
         isCallAgentActive: true,
         isBusy: false,
+        currentCallUuid: null,
+        lastAgentActiveAt: new Date()
       }, session);
 
       return updatedUser;
@@ -91,13 +114,61 @@ export class UserService extends BaseService {
         throw new NotFoundError(`User with ID ${userId} not found`);
       }
 
+      if (user.role !== 'call_agent') {
+        throw new BadRequestError('User is not a call agent');
+      }
+
       const updatedUser = await this.userRepo.edit(userId, {
+        agent: 'not_available',
         isCallAgentActive: false,
-        isBusy: true,
+        isBusy: false,
+        currentCallUuid: null
       }, session);
 
       return updatedUser;
     });
+  }
+
+  async updateAgentHeartbeat(userId: string): Promise<void> {
+    await this._withTransaction(async (session: ClientSession) => {
+      const user = await this.userRepo.findById(userId, session);
+      if (!user) {
+        throw new NotFoundError(`User with ID ${userId} not found`);
+      }
+
+      if (user.role !== 'call_agent') {
+        throw new BadRequestError('User is not a call agent');
+      }
+
+      await this.userRepo.edit(userId, {
+        lastAgentActiveAt: new Date()
+      }, session);
+    });
+  }
+
+  async cleanupInactiveAgents(): Promise<void> {
+    const activeAgents = await this.userRepo.findActiveCallAgents();
+    if (activeAgents.length === 0) {
+      return;
+    }
+
+    const oneMinuteAgo = new Date(Date.now() - 75 * 1000); // 75 seconds ago
+    const inactiveAgents = activeAgents.filter(
+      agent =>
+        !agent.lastAgentActiveAt || new Date(agent.lastAgentActiveAt) < oneMinuteAgo
+    );
+
+    if (inactiveAgents.length > 0) {
+      for (const agent of inactiveAgents) {
+        try {
+          const userId = agent._id.toString();
+          console.log(`♻️ [AGENT-CLEANUP] Marking inactive agent ${agent.agent} (ID: ${userId}) offline due to missing heartbeat`);
+          await this.setAgentOffline(userId);
+        } catch (error) {
+          console.error(`[AGENT-CLEANUP] Failed to mark agent ${agent._id} offline:`, error);
+        }
+      }
+    }
   }
 
   async setAgentBusy(userId: string, callUuid: string): Promise<IUser> {

@@ -3,14 +3,17 @@ import { IncomingMessage, Server } from 'http';
 import { PLIVO_TYPES } from '../modules/plivo/types.js';
 import type { PlivoService } from '../modules/plivo/services/PlivoService.js';
 import { getContainer } from './loadModules.js';
+import { GLOBAL_TYPES } from '#root/types.js';
+import type { UserService } from '#root/modules/user/services/UserService.js';
 
 export const initWebSocket = (server: Server) => {
   const wss = new WebSocketServer({
     server,
     path: '/plivo-stream',
   });
-  
+
   const plivoService = getContainer().get<PlivoService>(PLIVO_TYPES.PlivoService);
+  const userService = getContainer().get<UserService>(GLOBAL_TYPES.UserService);
 
   wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
     console.log('🔌 Plivo stream connected');
@@ -84,8 +87,30 @@ export const initWebSocket = (server: Server) => {
         console.error('Final transcript failed:', finalError);
       }
 
-      await plivoService.saveCallDetails(callId.toString());
-      plivoService.clearTranscript(callId.toString());
+      const agentUserId = plivoService.getCallAgent(callId.toString());
+
+      try {
+        await plivoService.saveCallDetails(callId.toString());
+      } catch (saveError) {
+        console.error('❌ [WEBSOCKET] Failed to save call details:', saveError);
+      }
+
+      try {
+        plivoService.clearTranscript(callId.toString());
+      } catch (clearError) {
+        console.error('❌ [WEBSOCKET] Failed to clear transcript:', clearError);
+      }
+
+      if (agentUserId) {
+        try {
+          console.log(`♻️ [WEBSOCKET] Marking agent ${agentUserId} as available (call ended)`);
+          await userService.markAgentAsAvailable(agentUserId);
+        } catch (error) {
+          console.error(`❌ [WEBSOCKET] Failed to mark agent ${agentUserId} as available:`, error);
+        }
+      } else {
+        console.log(`⚠️ [WEBSOCKET] No agent mapped to call ${callId.toString()}`);
+      }
     };
 
     ws.on('message', async (data: Buffer) => {
