@@ -28,10 +28,15 @@ start_tailscale() {
 
   # --state=mem: — Cloud Run instances are ephemeral, so an on-disk state dir only ever
   # holds a stale identity from a previous container.
+  #
+  # Userspace networking means there is NO interface for 100.x, so the app can only reach
+  # the tailnet through these proxies (see src/bootstrap/tailnetProxy.ts). Both listen on
+  # the same port: SOCKS5 for node's http agents (axios), HTTP CONNECT for undici (fetch).
   /app/tailscaled \
     --tun=userspace-networking \
     --state=mem: \
-    --socks5-server=localhost:1055 &
+    --socks5-server=localhost:1055 \
+    --outbound-http-proxy-listen=localhost:1055 &
 
   # Wait for the daemon to answer, rather than sleeping a fixed interval.
   i=0

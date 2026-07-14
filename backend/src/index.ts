@@ -25,8 +25,12 @@ import http from 'http';
 import { initWebSocket } from './bootstrap/websocket.js';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { faqPopConfig } from './config/faqPop.js';
+import { aiConfig } from './config/ai.js';
+import { installTailnetProxy } from './bootstrap/tailnetProxy.js';
 
-
+// Must run before any service issues a request: the AI / agent / GDB / WhatsApp servers
+// sit on the tailnet (100.x), which is only reachable through Tailscale's local proxy.
+if (aiConfig.useTailnetProxy) installTailnetProxy();
 
 const app = express();
 
