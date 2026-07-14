@@ -134,6 +134,9 @@ export function NotificationModal({ trigger, copy = "notifications" }: Notificat
 
     const handleNotificationClick = async (notification: Notification) => {
         const { type, enitity_id, _id } = notification;
+        setNotifications((prev) =>
+            prev.map((n) => (n._id === _id ? { ...n, is_read: true } : n))
+        );
         await markAsRead(_id);
         setOpen(false);
 

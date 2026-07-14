@@ -34,3 +34,5 @@ envsubst \
   ${VITE_PLIVO_AGENT_4_PASSWORD}' \
   < /etc/reviewer/runtime-config.js.template \
   > /usr/share/nginx/html/runtime-config.js
+
+sed -i '1s/^\xEF\xBB\xBF//' /usr/share/nginx/html/runtime-config.js

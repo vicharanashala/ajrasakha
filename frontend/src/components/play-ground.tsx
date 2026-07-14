@@ -1,4 +1,4 @@
-import {
+﻿import {
   Tabs,
   TabsContent,
   TabsList,
@@ -31,6 +31,7 @@ import { env } from "@/config/env";
 import { DataProcessingDashboard } from "../features/faq-pop/DataProcessingDashboard";
 import { CallAgentDashboard } from "./CallAgentDashboard";
 import { UserService } from "@/hooks/services/userService";
+import { FertilizerCalculator } from "../features/fertilizer-calculator/FertilizerCalculator";
 
 export const PlaygroundPage = () => {
   const { data: user } = useGetCurrentUser({});
@@ -203,7 +204,7 @@ export const PlaygroundPage = () => {
               <img
                 src="/annam-logo.png"
                 alt="Annam Logo"
-                className="h-10 w-auto md:h-14"
+                className="h-8 w-auto md:h-10"
               />
             </div>
 
@@ -224,7 +225,7 @@ export const PlaygroundPage = () => {
                 {user && user.role === "expert" && (
                   <TabsTrigger
                     value="expertPerformance"
-                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                    className="px-1.5 md:px-2 py-1 rounded-md font-medium text-xs md:text-sm transition-all duration-150"
                   >
                     <HoverCard openDelay={150}>
                       <span>Dashboard</span>
@@ -235,7 +236,7 @@ export const PlaygroundPage = () => {
                 {user && user.role == "expert" && (
                   <TabsTrigger
                     value="questions"
-                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                    className="px-1.5 md:px-2 py-1 rounded-md font-medium text-xs md:text-sm transition-all duration-150"
                   >
                     <span>My Queue</span>
                   </TabsTrigger>
@@ -243,7 +244,7 @@ export const PlaygroundPage = () => {
                 {user && user.role !== "call_agent" && (
                   <TabsTrigger
                     value="all_questions"
-                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                    className="px-1.5 md:px-2 py-1 rounded-md font-medium text-xs md:text-sm transition-all duration-150"
                   >
                     <span>All Questions</span>
                   </TabsTrigger>
@@ -267,7 +268,7 @@ export const PlaygroundPage = () => {
                 {/* {user && user.role !== "expert" && (
                   <TabsTrigger
                     value="request_queue"
-                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                    className="px-1.5 md:px-2 py-1 rounded-md font-medium text-xs md:text-sm transition-all duration-150"
                   >
                     <span>Request Queue</span>
                   </TabsTrigger>
@@ -275,7 +276,7 @@ export const PlaygroundPage = () => {
                 {user && user.role !== "call_agent" && (
                   <TabsTrigger
                     value="upload"
-                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                    className="px-1.5 md:px-2 py-1 rounded-md font-medium text-xs md:text-sm transition-all duration-150"
                   >
                     <HoverCard openDelay={150}>
                       <span>Agents Interface</span>
@@ -295,7 +296,7 @@ export const PlaygroundPage = () => {
                     </TabsTrigger>
                     <TabsTrigger
                       value="call_interface"
-                      className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                      className="px-1.5 md:px-2 py-1 rounded-md font-medium text-xs md:text-sm transition-all duration-150"
                     >
                       <HoverCard openDelay={150}>
                         <span>Call Interface</span>
@@ -303,7 +304,7 @@ export const PlaygroundPage = () => {
                     </TabsTrigger>
                     <TabsTrigger
                       value="call_history"
-                      className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                      className="px-1.5 md:px-2 py-1 rounded-md font-medium text-xs md:text-sm transition-all duration-150"
                     >
                       <HoverCard openDelay={150}>
                         <span>Call History</span>
@@ -339,16 +340,24 @@ export const PlaygroundPage = () => {
                 {user && user.role === "admin" && (
                   <TabsTrigger
                     value="data_processing"
-                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                    className="px-1.5 md:px-2 py-1 rounded-md font-medium text-xs md:text-sm transition-all duration-150"
                   >
                     <span>Data Processing</span>
+                  </TabsTrigger>
+                )}
+                {(user && user.role === "admin" || user.role === "expert") && (
+                  <TabsTrigger
+                    value="fertilizer_calculator"
+                    className="px-1.5 md:px-2 py-1 rounded-md font-medium text-xs md:text-sm transition-all duration-150"
+                  >
+                    <span>Fertilizer Calculator</span>
                   </TabsTrigger>
                 )}
                 {/*
                 {user && (
                   <TabsTrigger
                     value="history"
-                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                    className="px-1.5 md:px-2 py-1 rounded-md font-medium text-xs md:text-sm transition-all duration-150"
                   >
                     <HoverCard openDelay={150}>
                       <span>History</span>
@@ -592,6 +601,22 @@ export const PlaygroundPage = () => {
                   )}
                 >
                   <DataProcessingDashboard />
+                </TabsContent>
+              )}
+
+              {(user && user.role === "admin" || user.role === "expert") && (
+                <TabsContent
+                  value="fertilizer_calculator"
+                  className={cn(
+                    "mt-0 border-0 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <FertilizerCalculator />
                 </TabsContent>
               )}
 
