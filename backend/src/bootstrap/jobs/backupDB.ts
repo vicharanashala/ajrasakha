@@ -8,6 +8,8 @@ import { getContainer } from '../loadModules.js';
 // import { CORE_TYPES } from '#root/modules/core/types.js';
 
 // cron.schedule('* * * * *', async () => {
+const start = true
+if(start){
 cron.schedule(
   '0 8,19 * * *',
   async () => {
@@ -36,3 +38,4 @@ cron.schedule(
     timezone: 'Asia/Kolkata',
   },
 );
+}
