@@ -5,6 +5,34 @@ export const formatIndian = (n: number): string =>
   new Intl.NumberFormat("en-IN").format(Math.round(n));
 
 /**
+ * Highlights the nav link for whichever section currently dominates the viewport.
+ * Returns the id of that section.
+ */
+export function useScrollSpy(ids: string[], initial = ids[0] ?? "") {
+  const [active, setActive] = useState(initial);
+
+  useEffect(() => {
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+        if (visible[0]) setActive(visible[0].target.id);
+      },
+      { rootMargin: "-40% 0px -55% 0px", threshold: [0, 0.25, 0.5] },
+    );
+    ids.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) obs.observe(el);
+    });
+    return () => obs.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ids.join(",")]);
+
+  return active;
+}
+
+/**
  * Subtle one-shot count-up. Runs once when the element scrolls into view, eases out
  * over ~900ms, and respects prefers-reduced-motion (jumps straight to the value).
  * Intentionally restrained — no looping or bouncing.

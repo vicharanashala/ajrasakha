@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Counter } from "./Counter";
-import { useGetMedia } from "@/hooks/api/media/useMedia";
+import type { MediaItem } from "@/hooks/services/mediaService";
 
 interface Slide {
   title: string;
@@ -52,21 +52,21 @@ const slides: Slide[] = [
   },
 ];
 
-const INTERVAL = 5500;
+const INTERVAL = 5000;
 
 /**
  * Full-bleed hero carousel shown below the header. Each slide carries a headline and a
- * row of live statistics overlaid on a field backdrop (gradient placeholder — swap in a
- * photo via `image`). Auto-advances, pauses on hover, with arrows and dots.
+ * row of statistics overlaid on a field backdrop. Auto-advances, pauses on hover, with
+ * arrows and dots.
+ *
+ * `images` are the admin-uploaded carousel photos, supplied by the parent. They override
+ * the built-in backdrops and are applied cyclically across the slides; when empty, the
+ * defaults are used.
  */
-export const HeroCarousel = () => {
+export const HeroCarousel = ({ images = [] }: { images?: MediaItem[] }) => {
   const [index, setIndex] = useState(0);
   const paused = useRef(false);
 
-  // Admin-uploaded carousel images (Dashboard Media) override the built-in backdrops.
-  // They're applied cyclically across the slides; falls back to the defaults when empty.
-  const { data: uploaded } = useGetMedia("carousel");
-  const images = uploaded ?? [];
   const effectiveSlides = slides.map((s, i) => ({
     ...s,
     image: images.length ? images[i % images.length].url : s.image,

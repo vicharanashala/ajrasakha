@@ -1,17 +1,17 @@
-import { useGetMedia } from "@/hooks/api/media/useMedia";
+import type { MediaItem } from "@/hooks/services/mediaService";
 
 /**
  * Public outreach gallery — field photographs and videos uploaded by an admin via
- * Dashboard Media. Renders nothing at all when nothing has been uploaded, so the
- * dashboard stays clean until content exists.
+ * Dashboard Media, supplied by the parent. Renders nothing at all when nothing has been
+ * uploaded, so the dashboard stays clean until content exists.
  */
-export const OutreachGallery = () => {
-  const { data: photos } = useGetMedia("outreach_image");
-  const { data: videos } = useGetMedia("outreach_video");
-
-  const images = photos ?? [];
-  const clips = videos ?? [];
-
+export const OutreachGallery = ({
+  images = [],
+  videos: clips = [],
+}: {
+  images?: MediaItem[];
+  videos?: MediaItem[];
+}) => {
   if (!images.length && !clips.length) return null;
 
   return (

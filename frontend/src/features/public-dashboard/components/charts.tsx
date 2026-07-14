@@ -11,28 +11,14 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { domainColors, domains, growth, growthColors } from "../data/dashboardData";
-import { useGetPublicStats } from "@/hooks/api/dashboard/usePublicStats";
+import { domainColors, growth, growthColors } from "../data/dashboardData";
 
 /**
  * Domain distribution of collected questions — a doughnut (identity, fixed colours).
- * Uses the LIVE domain breakdown from the database when available (top 10 by volume),
- * falling back to the demo figures only if the API hasn't answered yet.
+ * Presentational: the caller supplies the slices (the live breakdown from the database,
+ * or the demo figures while the API hasn't answered).
  */
-export const DomainDoughnut = () => {
-  const { data: live } = useGetPublicStats();
-
-  const data = live?.domainData?.length
-    ? [...live.domainData]
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 10)
-        .map((d) => ({ label: d.name, value: d.count }))
-    : domains;
-
-  return <DomainDoughnutView data={data} />;
-};
-
-const DomainDoughnutView = ({
+export const DomainDoughnut = ({
   data,
 }: {
   data: { label: string; value: number }[];
