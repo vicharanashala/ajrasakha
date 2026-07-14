@@ -102,7 +102,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
       }
       userRecord = await this.auth.createUser({
         email: body.email,
-        emailVerified: false,
+        emailVerified: appConfig.isDevelopment,
         password: body.password,
         displayName: `${body.firstName} ${body.lastName || ''}`,
         disabled: false,
@@ -115,6 +115,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
           userRecord = await this.auth.updateUser(existingUser.uid, {
             password: body.password,
             displayName: `${body.firstName} ${body.lastName || ''}`,
+            emailVerified: appConfig.isDevelopment,
           });
         } else {
           throw new BadRequestError('An account with this email already exists, Please try login!');

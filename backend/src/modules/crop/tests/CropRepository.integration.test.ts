@@ -10,7 +10,8 @@ const DB_NAME = process.env.DB_NAME!;
 
 const TS = Date.now();
 const TEST_CROP_NAME = `Test_Crop_${TS}`;
-const TEST_CROP_NAME_LOWER = TEST_CROP_NAME.toLowerCase();
+// The application title-cases names (single word → first char upper, rest lower)
+const CROP_EXPECTED_NAME = TEST_CROP_NAME.charAt(0).toUpperCase() + TEST_CROP_NAME.slice(1).toLowerCase();
 const TEST_ALIAS_1 = `testalias1_${TS}`;
 const TEST_ALIAS_2 = `testalias2_${TS}`;
 const CREATED_BY = '664f00000000000000000001';
@@ -50,7 +51,7 @@ describe('CropRepository integration (prod_copy_db)', () => {
     );
 
     expect(crop._id).toBeDefined();
-    expect(crop.name).toBe(TEST_CROP_NAME_LOWER);
+    expect(crop.name).toBe(CROP_EXPECTED_NAME);
     expect(crop.aliases.some(a => typeof a !== 'string' && a.english_representation === TEST_ALIAS_1.toLowerCase())).toBe(true);
 
     createdDocId = crop._id!.toString();
@@ -63,17 +64,17 @@ describe('CropRepository integration (prod_copy_db)', () => {
   }, 30000);
 
   it('getAllCrops — returns list including the created crop', async () => {
-    const {crops, totalCount} = await repo.getAllCrops({search: TEST_CROP_NAME_LOWER});
+    const {crops, totalCount} = await repo.getAllCrops({search: TEST_CROP_NAME});
 
     expect(totalCount).toBeGreaterThanOrEqual(1);
-    expect(crops.some(c => c.name === TEST_CROP_NAME_LOWER)).toBe(true);
+    expect(crops.some(c => c.name === CROP_EXPECTED_NAME)).toBe(true);
   }, 30000);
 
   it('getCropById — returns the correct crop', async () => {
     const crop = await repo.getCropById(createdDocId);
 
     expect(crop).not.toBeNull();
-    expect(crop!.name).toBe(TEST_CROP_NAME_LOWER);
+    expect(crop!.name).toBe(CROP_EXPECTED_NAME);
   }, 30000);
 
   it('getCropById — returns null for unknown id', async () => {

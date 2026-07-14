@@ -1,20 +1,38 @@
 import 'reflect-metadata';
 import request from 'supertest';
 import Express from 'express';
-import {useExpressServer} from 'routing-controllers';
+import {useExpressServer, useContainer} from 'routing-controllers';
+import {Container} from 'inversify';
+import {InversifyAdapter} from '#root/inversify-adapter.js';
 import {faker} from '@faker-js/faker';
 import {SignUpBody} from '#auth/classes/validators/AuthValidators.js';
-import {setupAuthContainer} from '#auth/index.js';
-import {describe, it, expect, beforeAll, beforeEach} from 'vitest';
+import {authContainerModules} from '#auth/index.js';
+import {GLOBAL_TYPES} from '#root/types.js';
+import {describe, it, expect, beforeAll, vi} from 'vitest';
 import {HttpErrorHandler} from '#shared/index.js';
 import {AuthController} from '../controllers/AuthController.js';
+
+// Vitest sets NODE_ENV=test by default, which prevents dotenv from loading
+// .env's NODE_ENV=development. Set it here (before any app/* imports that
+// evaluate appConfig at module level) so isDevelopment=true, skipping the
+// email-verification flow that requires SMTP credentials.
+vi.hoisted(() => { process.env.NODE_ENV = 'development'; });
 
 describe('Auth Controller Integration Tests', () => {
   const appInstance = Express();
   let app;
 
   beforeAll(async () => {
-    await setupAuthContainer();
+    const container = new Container();
+    await container.load(...authContainerModules);
+
+    const mockNotificationService = {
+      saveTheNotifications: vi.fn().mockResolvedValue('notif-id'),
+    };
+    container.bind(GLOBAL_TYPES.NotificationService).toConstantValue(mockNotificationService);
+
+    useContainer(new InversifyAdapter(container));
+
     app = useExpressServer(appInstance, {
       controllers: [AuthController],
       validation: true,
