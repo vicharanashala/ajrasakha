@@ -1,5 +1,6 @@
 """Tests for daily_price agent intent extraction and empty-result handling."""
 
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -182,7 +183,9 @@ async def test_daily_price_returns_empty_when_tool_empty():
             "crop": "wheat",
             "state": "Punjab",
         })
-    assert out == ""
+    data = json.loads(out)
+    assert data["answer"] == ""
+    assert data["tool_data"]["price_records"] == []
 
 
 @pytest.mark.asyncio
@@ -225,5 +228,7 @@ async def test_daily_price_returns_gemma_answer():
             "crop": "wheat",
             "state": "Punjab",
         })
-    assert "2500" in out
-    assert "Ludhiana" in out
+    data = json.loads(out)
+    assert "2500" in data["answer"]
+    assert "Ludhiana" in data["answer"]
+    assert data["tool_data"] == tool_payload

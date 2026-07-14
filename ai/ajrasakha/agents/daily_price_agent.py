@@ -24,8 +24,8 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-DAILY_PRICE_GEMMA_BASE_URL = os.getenv("WEATHER_GEMMA_BASE_URL", "http://100.100.108.44:8014/v1")
-DAILY_PRICE_GEMMA_MODEL = "google/gemma-4-E4B-it"
+DAILY_PRICE_GEMMA_BASE_URL = os.getenv("GEMMA_BASE_URL", "http://100.100.108.44:8013/v1")
+DAILY_PRICE_GEMMA_MODEL = os.getenv("GEMMA_MODEL", "google/gemma-4-26B-A4B-it")
 
 _FARMER_ACTIONS = frozenset({
     "get_today_price",
@@ -249,7 +249,7 @@ async def _gemma_chat(
     headers = {"Content-Type": "application/json"}
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, headers=headers, timeout=20.0)
+            response = await client.post(url, json=payload, headers=headers, timeout=30.0)
             if response.status_code != 200:
                 trace_llm_error(trace_name, error=f"HTTP {response.status_code}")
                 return None
@@ -479,11 +479,25 @@ async def daily_price(
                 return ""
 
         tool_result = await call_mandi_price_tool(tool_args)
+        tool_payload = _unwrap_tool_payload(tool_result)
+        # Keep raw tool payload on the return envelope for logs only (not used in farmer answer).
+        logger.info(
+            "daily_price_agent tool_data: %s",
+            json.dumps(tool_payload, ensure_ascii=False, default=str)[:8000],
+        )
         if _tool_result_is_empty(tool_result):
-            return ""
+            return json.dumps(
+                {"answer": "", "tool_data": tool_payload},
+                ensure_ascii=False,
+                default=str,
+            )
 
         answer = await synthesize_daily_price_answer(query, tool_result)
-        return answer or ""
+        return json.dumps(
+            {"answer": answer or "", "tool_data": tool_payload},
+            ensure_ascii=False,
+            default=str,
+        )
     except Exception as exc:
         logger.error("daily_price agent failed: %s", exc, exc_info=True)
-        return ""
+        return json.dumps({"answer": "", "tool_data": {"error": str(exc)}}, default=str)
