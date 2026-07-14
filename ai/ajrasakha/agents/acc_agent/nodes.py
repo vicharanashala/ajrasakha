@@ -9,8 +9,9 @@ from ajrasakha.agents.acc_agent.prompts import ACC_EXTRACT_PROMPT, ACC_PLANNER_P
 
 from ajrasakha.agents.gdb_agent import gdb
 from ajrasakha.agents.weather_agent import weather
-from ajrasakha.agents.market_agent import market
+from ajrasakha.agents.daily_price_agent import daily_price
 from ajrasakha.agents.schemes_agent import schemes
+from ajrasakha.agents.location_context import forward_geocode
 
 async def extract_node(state: AccAgentState):
     """Extract query, state, district, crop, and standardized_domains from transcript."""
@@ -146,8 +147,21 @@ async def tool_execution_node(state: AccAgentState):
     
     async def call_market() -> str:
         try:
-            return await market.ainvoke({
-                "query": query, "state": loc_state, "district": district, "crop": crop, "date": None
+            lat = None
+            lon = None
+            geocode_district = None if str(district).strip().lower() in {"all", "not specified", ""} else district
+            geocode_state = None if str(loc_state).strip().lower() in {"all", "not specified", ""} else loc_state
+            if geocode_state or geocode_district:
+                geo = await forward_geocode(state=geocode_state, district=geocode_district)
+                if geo:
+                    lat = geo.get("latitude")
+                    lon = geo.get("longitude")
+            return await daily_price.ainvoke({
+                "query": query,
+                "latitude": lat,
+                "longitude": lon,
+                "crop": crop,
+                "state": loc_state if str(loc_state).strip().lower() not in {"all", "not specified"} else None,
             })
         except Exception as e:
             return f"Error: {str(e)}"
