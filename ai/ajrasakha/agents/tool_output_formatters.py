@@ -97,6 +97,10 @@ def format_tool_output(tool_name: str, raw_text: str) -> str:
             return format_market_envelope(data)
         return text
 
+    if tool_name == "daily_price":
+        # Gemma already wrote farmer-facing prose; pass through.
+        return text
+
     return text
 
 

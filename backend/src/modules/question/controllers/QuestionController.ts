@@ -2236,6 +2236,22 @@ export class QuestionController {
       throw error;
     }
   }
+  @Get('/:questionId/feedback')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Get user feedback for a selected question by ID' })
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  async getQuestionFeedback(
+    @Params() params: QuestionIdParam,
+  ) {
+    const { questionId } = params;
+    const data = await this.questionService.getQuestionFeedback(questionId);
+
+    return {
+      success: true,
+      data,
+    };
+  }
 
   @Get('/:questionId/chatbot')
   @HttpCode(200)

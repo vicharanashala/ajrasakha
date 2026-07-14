@@ -309,6 +309,8 @@ export interface IUserRepository {
    */
   findCallAgents(session?: ClientSession): Promise<IUser[]>;
 
+  findActiveCallAgents(session?: ClientSession): Promise<IUser[]>;
+
   /**
    * Sets a user as a call agent
    * @param userId - The ID of the user to set as call agent

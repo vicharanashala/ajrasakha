@@ -640,6 +640,8 @@ export const CallInterface = () => {
       return;
     }
 
+    setQuestions([]);
+
     const allTranscriptText = transcriptsList
       .map((t) => {
         const speaker = t.track === "inbound" ? "Farmer" : "Expert";
@@ -766,7 +768,6 @@ export const CallInterface = () => {
         callUuid: targetCallUuid,
         metadata,
       });
-      setIsHumanVerificationMode(false);
 
       // Reset lastCallUuid after successful Q/A storage to prevent re-association
       if (targetCallUuid) {
@@ -877,8 +878,8 @@ export const CallInterface = () => {
       )}
       {/* Incoming Call Box - Top Section */}
       <IncomingCallBox
-        onTranscriptChange={() => {}} // Not using direct strings anymore
-        onOriginalTranscriptChange={() => {}}
+        onTranscriptChange={() => { }} // Not using direct strings anymore
+        onOriginalTranscriptChange={() => { }}
         onTranscriptsListChange={(list) => setTranscriptsList(list)}
         onCallStateChange={(isActive) => setIsCallActive(isActive)}
         onCallUuidChange={(uuid) => {
@@ -955,11 +956,10 @@ export const CallInterface = () => {
             </CardTitle>
           </CardHeader>
           <div
-            className={`transition-all duration-500 ease-in-out overflow-hidden ${
-              isCallActive || transcriptsList.length > 0
-                ? "max-h-[850px] opacity-100"
-                : "max-h-0 opacity-0"
-            }`}
+            className={`transition-all duration-500 ease-in-out overflow-hidden ${isCallActive || transcriptsList.length > 0
+              ? "max-h-[850px] opacity-100"
+              : "max-h-0 opacity-0"
+              }`}
           >
             <CardContent className="p-6 bg-zinc-50/20 dark:bg-zinc-950/20 space-y-4">
               <div
@@ -984,25 +984,24 @@ export const CallInterface = () => {
                           <span>
                             {msg.timestamp
                               ? new Date(msg.timestamp).toLocaleTimeString([], {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                  second: "2-digit",
-                                })
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                second: "2-digit",
+                              })
                               : new Date().toLocaleTimeString([], {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                  second: "2-digit",
-                                })}
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                second: "2-digit",
+                              })}
                           </span>
                         </div>
 
                         {/* Chat Bubble Card */}
                         <div
-                          className={`max-w-[80%] px-5 py-3.5 rounded-2xl shadow-sm border transition-all duration-300 hover:shadow-md ${
-                            isCaller
-                              ? "bg-white dark:bg-zinc-900 border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-tl-none"
-                              : "bg-gradient-to-tr from-indigo-600 via-indigo-500 to-blue-500 border-indigo-500 text-white rounded-tr-none shadow-indigo-500/10 dark:shadow-indigo-500/5"
-                          }`}
+                          className={`max-w-[80%] px-5 py-3.5 rounded-2xl shadow-sm border transition-all duration-300 hover:shadow-md ${isCaller
+                            ? "bg-white dark:bg-zinc-900 border-zinc-200/80 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-tl-none"
+                            : "bg-gradient-to-tr from-indigo-600 via-indigo-500 to-blue-500 border-indigo-500 text-white rounded-tr-none shadow-indigo-500/10 dark:shadow-indigo-500/5"
+                            }`}
                         >
                           {/* English Translation (Primary) */}
                           <p className="text-[14px] leading-relaxed whitespace-pre-wrap font-medium">
@@ -1012,11 +1011,10 @@ export const CallInterface = () => {
                           {/* Original text & language metadata (Secondary) */}
                           {msg.originalText && (
                             <div
-                              className={`mt-2.5 pt-2 border-t text-[12px] flex flex-col gap-1 ${
-                                isCaller
-                                  ? "border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400"
-                                  : "border-white/20 text-white/80"
-                              }`}
+                              className={`mt-2.5 pt-2 border-t text-[12px] flex flex-col gap-1 ${isCaller
+                                ? "border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400"
+                                : "border-white/20 text-white/80"
+                                }`}
                             >
                               <div className="flex items-center gap-1.5 font-bold tracking-wider uppercase text-[10px]">
                                 <Globe className="h-3 w-3 animate-spin-slow" />
@@ -1270,11 +1268,10 @@ export const CallInterface = () => {
                       value={editableSummaryText}
                       onChange={(e) => setEditableSummaryText(e.target.value)}
                       readOnly={hasGeneratedQuestions}
-                      className={`w-full p-3 text-sm leading-relaxed rounded-xl border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 transition-all duration-300 dark:text-zinc-100 shadow-inner ${
-                        hasGeneratedQuestions
-                          ? "min-h-[60px] max-h-[100px] resize-none overflow-y-auto bg-zinc-50/50 dark:bg-zinc-900/50 opacity-90 text-zinc-600 dark:text-zinc-400 text-xs"
-                          : "min-h-[150px] resize-y overflow-y-auto focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none"
-                      }`}
+                      className={`w-full p-3 text-sm leading-relaxed rounded-xl border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 transition-all duration-300 dark:text-zinc-100 shadow-inner ${hasGeneratedQuestions
+                        ? "min-h-[60px] max-h-[100px] resize-none overflow-y-auto bg-zinc-50/50 dark:bg-zinc-900/50 opacity-90 text-zinc-600 dark:text-zinc-400 text-xs"
+                        : "min-h-[150px] resize-y overflow-y-auto focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:outline-none"
+                        }`}
                       placeholder="Conversation summary will appear here..."
                     />
                   )}

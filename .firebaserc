@@ -1,0 +1,17 @@
+{
+  "projects": {
+    "default": "vibe-5b35a"
+  },
+  "targets": {
+    "vibe-5b35a": {
+      "hosting": {
+        "production": [
+          "ajrasakha-prod"
+        ],
+        "staging": [
+          "ajrasakha-staging-594"
+        ]
+      }
+    }
+  }
+}
