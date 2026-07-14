@@ -61,6 +61,42 @@ export class DashboardPage {
     return this.panel.getByRole("tab", { name: "By Domain" });
   }
 
+  // --- question sources ---
+
+  get questionSourcesCard(): Locator {
+    return this.panel.locator('[data-slot="card-title"]').filter({ hasText: "Question Sources" });
+  }
+
+  // --- pae metrics ---
+
+  get paeMetricsCard(): Locator {
+    return this.panel.locator('[data-slot="card-title"]').filter({ hasText: "PAE" });
+  }
+
+  // --- contribution analysis ---
+
+  get contributionAnalysisCard(): Locator {
+    return this.panel.locator('[data-slot="card-title"]').filter({ hasText: "Question Contribution Analysis" });
+  }
+
+  // --- heat map ---
+
+  get heatMapCard(): Locator {
+    return this.panel.locator('[data-slot="card-title"]').filter({ hasText: "Heat Map Of Experts" });
+  }
+
+  // --- review stage distribution ---
+
+  get reviewStageCard(): Locator {
+    return this.panel.locator('[data-slot="card-title"]').filter({ hasText: "Review Stage Distribution" });
+  }
+
+  // --- send report ---
+
+  get sendReportButton(): Locator {
+    return this.panel.getByRole("button", { name: "Send Report" });
+  }
+
   // --- golden dataset view type toggles ---
 
   get goldenYearView(): Locator {

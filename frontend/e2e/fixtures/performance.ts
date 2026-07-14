@@ -68,6 +68,11 @@ export const mockGoldenDataset = {
   },
   moderatorBreakdown: [],
   todayApproved: 42,
+  questionSourceBreakdown: { whatsapp: 60, ajrasakha: 40 },
+  questionsAnsweredWithin120Min: { whatsapp: 35, ajrasakha: 25 },
+  questionsAnsweredAfter120Min: { whatsapp: 25, ajrasakha: 15 },
+  averageResponseTime: { whatsapp: 1.5, ajrasakha: 2.0 },
+  paeMetrics: { assigned: 8, submitted: 5, closed: 3 },
 };
 
 export const mockQuestionsAnalytics = {
@@ -128,12 +133,14 @@ export async function mockDashboardApi(page: Page) {
     });
   });
 
-  // Optional: contribution-trend, heatMap — return empty
   await page.route("**/api/performance/contribution-trend*", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([]),
+      body: JSON.stringify([
+        { date: "2026-07-01", Ajrasakha: 12, Moderator: 8 },
+        { date: "2026-07-08", Ajrasakha: 15, Moderator: 10 },
+      ]),
     });
   });
 
@@ -141,7 +148,16 @@ export async function mockDashboardApi(page: Page) {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ data: [], total: 0 }),
+      body: JSON.stringify({
+        data: [
+          {
+            reviewerName: "Reviewer A",
+            reviewerId: "r001",
+            counts: { "Level 1": 5, "Level 2": 3 },
+          },
+        ],
+        total: 1,
+      }),
     });
   });
 
@@ -199,12 +215,15 @@ export async function mockDashboardApi(page: Page) {
     });
   });
 
-  // Users review-level
   await page.route("**/api/users/review-level*", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([]),
+      body: JSON.stringify([
+        { Review_level: "Level 1", count: 10 },
+        { Review_level: "Level 2", count: 7 },
+        { Review_level: "Level 3", count: 3 },
+      ]),
     });
   });
 }

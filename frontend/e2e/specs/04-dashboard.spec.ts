@@ -78,4 +78,52 @@ test.describe("Dashboard", () => {
     const dashboard = new DashboardPage(page);
     await expect(dashboard.expertsPerformanceCard).toBeVisible({ timeout: FIREBASE_TIMEOUT });
   });
+
+  test("Question Sources section is visible", async ({ page }) => {
+    await setupAuth(page, mockUsers.admin);
+    await mockDashboardApi(page);
+
+    const playground = new PlaygroundPage(page);
+    await playground.goto();
+    await playground.clickDashboard();
+
+    const dashboard = new DashboardPage(page);
+    await expect(dashboard.questionSourcesCard).toBeVisible({ timeout: FIREBASE_TIMEOUT });
+  });
+
+  test("PAE Metrics section is visible", async ({ page }) => {
+    await setupAuth(page, mockUsers.admin);
+    await mockDashboardApi(page);
+
+    const playground = new PlaygroundPage(page);
+    await playground.goto();
+    await playground.clickDashboard();
+
+    const dashboard = new DashboardPage(page);
+    await expect(dashboard.paeMetricsCard).toBeVisible({ timeout: FIREBASE_TIMEOUT });
+  });
+
+  test("Question Contribution Analysis chart is visible", async ({ page }) => {
+    await setupAuth(page, mockUsers.admin);
+    await mockDashboardApi(page);
+
+    const playground = new PlaygroundPage(page);
+    await playground.goto();
+    await playground.clickDashboard();
+
+    const dashboard = new DashboardPage(page);
+    await expect(dashboard.contributionAnalysisCard).toBeVisible({ timeout: FIREBASE_TIMEOUT });
+  });
+
+  test("Review Stage Distribution section is visible", async ({ page }) => {
+    await setupAuth(page, mockUsers.admin);
+    await mockDashboardApi(page);
+
+    const playground = new PlaygroundPage(page);
+    await playground.goto();
+    await playground.clickDashboard();
+
+    const dashboard = new DashboardPage(page);
+    await expect(dashboard.reviewStageCard).toBeVisible({ timeout: FIREBASE_TIMEOUT });
+  });
 });
