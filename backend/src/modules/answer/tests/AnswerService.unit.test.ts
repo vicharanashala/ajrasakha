@@ -31,6 +31,8 @@ describe('AnswerService', () => {
     approveLLMAnswer: vi.fn(),
     resetApprovalCount: vi.fn(),
     addAnswerModification: vi.fn(),
+    findFinalAnswersByQuestionIds: vi.fn(),
+    getFinalAnswersByQuestionIds: vi.fn(),
   };
 
   const mockReviewRepo = {
@@ -58,7 +60,9 @@ describe('AnswerService', () => {
     findAdmins: vi.fn(),
     updatePenaltyAndIncentive: vi.fn(),
     removeAssignedQuestion: vi.fn(),
-    removeAssignedQuestionFromAllModerators: vi.fn(),
+    removeAssignedQuestionFromAllModerators: vi
+      .fn()
+      .mockResolvedValue(undefined),
     updateReputationScore: vi.fn(),
   };
 
@@ -66,6 +70,7 @@ describe('AnswerService', () => {
     addDummyQuestions: vi.fn(),
     ensureNormalisedCrop: vi.fn(),
     autoAllocateExperts: vi.fn(),
+    freeRoleAssigneeOnStatusChange: vi.fn().mockResolvedValue(undefined),
   };
 
   const mockNotificationService = {
@@ -126,6 +131,9 @@ describe('AnswerService', () => {
     });
 
     mockQuestionService.ensureNormalisedCrop.mockResolvedValue('Paddy');
+    mockQuestionService.freeRoleAssigneeOnStatusChange.mockResolvedValue(
+      undefined,
+    );
 
     mockQuestionSubmissionRepo.getByQuestionId.mockResolvedValue({});
 
@@ -388,7 +396,9 @@ describe('AnswerService', () => {
       mockAnswerRepo.addAnswer.mockResolvedValue({
         insertedId: 'answer-1',
       });
-
+      mockQuestionService.freeRoleAssigneeOnStatusChange.mockResolvedValue(
+        undefined,
+      );
       mockQuestionRepo.updateQuestion.mockResolvedValue(undefined);
 
       const result = await service.addAnswer(
@@ -501,6 +511,9 @@ describe('AnswerService', () => {
       mockAnswerRepo.addAnswer.mockResolvedValue({
         insertedId: 'answer-1',
       });
+      mockQuestionService.freeRoleAssigneeOnStatusChange.mockResolvedValue(
+        undefined,
+      );
 
       mockQuestionRepo.updateQuestion.mockResolvedValue(undefined);
 
@@ -585,7 +598,9 @@ describe('AnswerService', () => {
       mockAnswerRepo.addAnswer.mockResolvedValue({
         insertedId: 'answer-1',
       });
-
+      mockQuestionService.freeRoleAssigneeOnStatusChange.mockResolvedValue(
+        undefined,
+      );
       mockQuestionRepo.updateQuestion.mockRejectedValue(
         new Error('Failed to update question'),
       );
@@ -614,7 +629,9 @@ describe('AnswerService', () => {
       mockAnswerRepo.addAnswer.mockResolvedValue({
         insertedId: 'answer-1',
       });
-
+      mockQuestionService.freeRoleAssigneeOnStatusChange.mockResolvedValue(
+        undefined,
+      );
       mockQuestionRepo.updateQuestion.mockResolvedValue(undefined);
 
       const transactionSpy = vi.spyOn(service as any, '_withTransaction');
@@ -1495,7 +1512,9 @@ describe('AnswerService', () => {
       mockAnswerRepo.addAnswer.mockResolvedValue({
         insertedId: answerId,
       });
-
+      mockQuestionService.freeRoleAssigneeOnStatusChange.mockResolvedValue(
+        undefined,
+      );
       mockAnswerRepo.getById.mockResolvedValue({
         _id: answerId,
         authorId: expertId,
@@ -2211,7 +2230,9 @@ describe('AnswerService', () => {
       mockAnswerRepo.addAnswer.mockResolvedValue({
         insertedId: '507f1f77bcf86cd799439099',
       });
-
+      mockQuestionService.freeRoleAssigneeOnStatusChange.mockResolvedValue(
+        undefined,
+      );
       mockQuestionRepo.updateQuestion.mockRejectedValue(
         new Error('Update failed'),
       );
