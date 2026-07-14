@@ -66,8 +66,8 @@ export const PublicDashboard = () => {
       <Header
         activeNav={activeNav}
         onLogin={() => navigate({ to: "/auth" })}
-        today={9840}
-        thisMonth={238600}
+        today={live?.questionsToday ?? 0}
+        thisMonth={live?.questionsThisMonth ?? 0}
       />
       <HeroCarousel images={carouselImages ?? []} />
       <main>

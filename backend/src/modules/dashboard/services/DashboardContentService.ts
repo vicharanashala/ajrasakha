@@ -39,22 +39,36 @@ export class DashboardContentService implements IDashboardContentService {
    * cropData, domainData — is exactly "states / crops / domains covered".
    */
   async getPublicDashboardStats(): Promise<PublicDashboardStats> {
-    const [validatedQAPairs, { analytics }] = await Promise.all([
-      this.questionRepo.countValidatedQAPairs(),
-      this.questionRepo.getQuestionAnalytics(),
-    ]);
+    const { dayStart, monthStart } = istBoundaries(new Date());
+
+    const [validatedQAPairs, questionsToday, questionsThisMonth, { analytics }] =
+      await Promise.all([
+        this.questionRepo.countValidatedQAPairs(),
+        this.questionRepo.countQuestionsCreatedSince(dayStart),
+        this.questionRepo.countQuestionsCreatedSince(monthStart),
+        this.questionRepo.getQuestionAnalytics(),
+      ]);
 
     const { cropData = [], stateData = [], domainData = [] } =
       analytics ?? ({} as Analytics);
 
+    // A bulk update on 2026-06-05 wrote the literal string '$details.domain' into
+    // details.domain on ~5.9k questions (a plain $set does not dereference a field path).
+    // Those rows carry no real domain, so they are excluded here rather than published on
+    // a public page. The internal analytics endpoint still reports them, so the corruption
+    // stays visible to the team until the data is restored.
+    const realDomains = domainData.filter(d => !d.name?.startsWith('$'));
+
     return {
       validatedQAPairs,
+      questionsToday,
+      questionsThisMonth,
       statesCovered: stateData.length,
       cropsCovered: cropData.length,
-      domainsCovered: domainData.length,
+      domainsCovered: realDomains.length,
       stateData,
       cropData,
-      domainData,
+      domainData: realDomains,
     };
   }
 
@@ -90,4 +104,28 @@ export class DashboardContentService implements IDashboardContentService {
 
     return this.repo.save(cleanedBlocks, cleanedStats, userId ?? null);
   }
+}
+
+/** IST is UTC+05:30 — the day a farmer's question belongs to is the Indian day, not the UTC one. */
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
+/**
+ * Start of "today" and start of "this month" in IST, expressed as UTC instants (which is
+ * what Mongo stores). Shifting into IST, truncating there, then shifting back keeps the
+ * boundaries correct regardless of the server's own timezone.
+ */
+function istBoundaries(now: Date): { dayStart: Date; monthStart: Date } {
+  const ist = new Date(now.getTime() + IST_OFFSET_MS);
+
+  const dayStartIst = Date.UTC(
+    ist.getUTCFullYear(),
+    ist.getUTCMonth(),
+    ist.getUTCDate(),
+  );
+  const monthStartIst = Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), 1);
+
+  return {
+    dayStart: new Date(dayStartIst - IST_OFFSET_MS),
+    monthStart: new Date(monthStartIst - IST_OFFSET_MS),
+  };
 }

@@ -5,7 +5,7 @@ interface HeaderProps {
   /** Section currently in view — highlights the matching nav link. */
   activeNav: string;
   onLogin: () => void;
-  /** Utility-bar ticker figures (demo placeholders until a live feed exists). */
+  /** Ticker: questions that entered the database today / this month (IST). */
   today: number;
   thisMonth: number;
 }

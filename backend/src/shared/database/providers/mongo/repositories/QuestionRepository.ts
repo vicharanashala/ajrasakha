@@ -4781,6 +4781,21 @@ export class QuestionRepository implements IQuestionRepository {
     );
   }
 
+  /**
+   * Questions that entered the database on/after `since` — every question regardless of
+   * status, i.e. raw intake volume. Feeds the public dashboard's "Today / This month" ticker.
+   */
+  async countQuestionsCreatedSince(
+    since: Date,
+    session?: ClientSession,
+  ): Promise<number> {
+    await this.init();
+    return this.QuestionCollection.countDocuments(
+      {createdAt: {$gte: since}} as any,
+      {session},
+    );
+  }
+
   async getQuestionAnalytics(
     startTime?: string,
     endTime?: string,

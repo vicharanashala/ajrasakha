@@ -399,6 +399,12 @@ export interface IQuestionRepository {
    */
   countValidatedQAPairs(session?: ClientSession): Promise<number>;
 
+  /** Questions created on/after `since`, any status — raw intake volume. */
+  countQuestionsCreatedSince(
+    since: Date,
+    session?: ClientSession,
+  ): Promise<number>;
+
   /**
    * @param currentUserId - requested userId
    * @param session

@@ -17,10 +17,12 @@ import { Route as NotificationsIndexRouteImport } from './routes/notifications/i
 import { Route as HomeIndexRouteImport } from './routes/home/index'
 import { Route as HistoryIndexRouteImport } from './routes/history/index'
 import { Route as FlagsReportedIndexRouteImport } from './routes/flags-reported/index'
+import { Route as DashboardEditorIndexRouteImport } from './routes/dashboard-editor/index'
 import { Route as CoordinatorIndexRouteImport } from './routes/coordinator/index'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as AuditIndexRouteImport } from './routes/audit/index'
 import { Route as UserUserIdRouteImport } from './routes/user/$userId'
+import { Route as UserHistoryUserIdRouteImport } from './routes/user-history/$userId'
 import { Route as CoordinatorProfileRouteImport } from './routes/coordinator/profile'
 
 const WhatsappHistoryRoute = WhatsappHistoryRouteImport.update({
@@ -63,6 +65,11 @@ const FlagsReportedIndexRoute = FlagsReportedIndexRouteImport.update({
   path: '/flags-reported/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardEditorIndexRoute = DashboardEditorIndexRouteImport.update({
+  id: '/dashboard-editor/',
+  path: '/dashboard-editor/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CoordinatorIndexRoute = CoordinatorIndexRouteImport.update({
   id: '/coordinator/',
   path: '/coordinator/',
@@ -83,6 +90,11 @@ const UserUserIdRoute = UserUserIdRouteImport.update({
   path: '/user/$userId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const UserHistoryUserIdRoute = UserHistoryUserIdRouteImport.update({
+  id: '/user-history/$userId',
+  path: '/user-history/$userId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CoordinatorProfileRoute = CoordinatorProfileRouteImport.update({
   id: '/coordinator/profile',
   path: '/coordinator/profile',
@@ -93,10 +105,12 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/whatsapp-history': typeof WhatsappHistoryRoute
   '/coordinator/profile': typeof CoordinatorProfileRoute
+  '/user-history/$userId': typeof UserHistoryUserIdRoute
   '/user/$userId': typeof UserUserIdRoute
   '/audit': typeof AuditIndexRoute
   '/auth': typeof AuthIndexRoute
   '/coordinator': typeof CoordinatorIndexRoute
+  '/dashboard-editor': typeof DashboardEditorIndexRoute
   '/flags-reported': typeof FlagsReportedIndexRoute
   '/history': typeof HistoryIndexRoute
   '/home': typeof HomeIndexRoute
@@ -108,10 +122,12 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/whatsapp-history': typeof WhatsappHistoryRoute
   '/coordinator/profile': typeof CoordinatorProfileRoute
+  '/user-history/$userId': typeof UserHistoryUserIdRoute
   '/user/$userId': typeof UserUserIdRoute
   '/audit': typeof AuditIndexRoute
   '/auth': typeof AuthIndexRoute
   '/coordinator': typeof CoordinatorIndexRoute
+  '/dashboard-editor': typeof DashboardEditorIndexRoute
   '/flags-reported': typeof FlagsReportedIndexRoute
   '/history': typeof HistoryIndexRoute
   '/home': typeof HomeIndexRoute
@@ -124,10 +140,12 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/whatsapp-history': typeof WhatsappHistoryRoute
   '/coordinator/profile': typeof CoordinatorProfileRoute
+  '/user-history/$userId': typeof UserHistoryUserIdRoute
   '/user/$userId': typeof UserUserIdRoute
   '/audit/': typeof AuditIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/coordinator/': typeof CoordinatorIndexRoute
+  '/dashboard-editor/': typeof DashboardEditorIndexRoute
   '/flags-reported/': typeof FlagsReportedIndexRoute
   '/history/': typeof HistoryIndexRoute
   '/home/': typeof HomeIndexRoute
@@ -141,10 +159,12 @@ export interface FileRouteTypes {
     | '/'
     | '/whatsapp-history'
     | '/coordinator/profile'
+    | '/user-history/$userId'
     | '/user/$userId'
     | '/audit'
     | '/auth'
     | '/coordinator'
+    | '/dashboard-editor'
     | '/flags-reported'
     | '/history'
     | '/home'
@@ -156,10 +176,12 @@ export interface FileRouteTypes {
     | '/'
     | '/whatsapp-history'
     | '/coordinator/profile'
+    | '/user-history/$userId'
     | '/user/$userId'
     | '/audit'
     | '/auth'
     | '/coordinator'
+    | '/dashboard-editor'
     | '/flags-reported'
     | '/history'
     | '/home'
@@ -171,10 +193,12 @@ export interface FileRouteTypes {
     | '/'
     | '/whatsapp-history'
     | '/coordinator/profile'
+    | '/user-history/$userId'
     | '/user/$userId'
     | '/audit/'
     | '/auth/'
     | '/coordinator/'
+    | '/dashboard-editor/'
     | '/flags-reported/'
     | '/history/'
     | '/home/'
@@ -187,10 +211,12 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   WhatsappHistoryRoute: typeof WhatsappHistoryRoute
   CoordinatorProfileRoute: typeof CoordinatorProfileRoute
+  UserHistoryUserIdRoute: typeof UserHistoryUserIdRoute
   UserUserIdRoute: typeof UserUserIdRoute
   AuditIndexRoute: typeof AuditIndexRoute
   AuthIndexRoute: typeof AuthIndexRoute
   CoordinatorIndexRoute: typeof CoordinatorIndexRoute
+  DashboardEditorIndexRoute: typeof DashboardEditorIndexRoute
   FlagsReportedIndexRoute: typeof FlagsReportedIndexRoute
   HistoryIndexRoute: typeof HistoryIndexRoute
   HomeIndexRoute: typeof HomeIndexRoute
@@ -257,6 +283,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FlagsReportedIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard-editor/': {
+      id: '/dashboard-editor/'
+      path: '/dashboard-editor'
+      fullPath: '/dashboard-editor'
+      preLoaderRoute: typeof DashboardEditorIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/coordinator/': {
       id: '/coordinator/'
       path: '/coordinator'
@@ -285,6 +318,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UserUserIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/user-history/$userId': {
+      id: '/user-history/$userId'
+      path: '/user-history/$userId'
+      fullPath: '/user-history/$userId'
+      preLoaderRoute: typeof UserHistoryUserIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/coordinator/profile': {
       id: '/coordinator/profile'
       path: '/coordinator/profile'
@@ -299,10 +339,12 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   WhatsappHistoryRoute: WhatsappHistoryRoute,
   CoordinatorProfileRoute: CoordinatorProfileRoute,
+  UserHistoryUserIdRoute: UserHistoryUserIdRoute,
   UserUserIdRoute: UserUserIdRoute,
   AuditIndexRoute: AuditIndexRoute,
   AuthIndexRoute: AuthIndexRoute,
   CoordinatorIndexRoute: CoordinatorIndexRoute,
+  DashboardEditorIndexRoute: DashboardEditorIndexRoute,
   FlagsReportedIndexRoute: FlagsReportedIndexRoute,
   HistoryIndexRoute: HistoryIndexRoute,
   HomeIndexRoute: HomeIndexRoute,

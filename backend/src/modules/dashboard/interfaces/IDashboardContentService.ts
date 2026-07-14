@@ -12,6 +12,10 @@ import { Analytics } from '../validators/DashboardValidators.js';
 export interface PublicDashboardStats {
   /** Questions in a closed state: closed + dynamic_closed + duplicate_closed. */
   validatedQAPairs: number;
+  /** Questions that entered the DB since midnight IST (any status). */
+  questionsToday: number;
+  /** Questions that entered the DB since the 1st of the month, IST (any status). */
+  questionsThisMonth: number;
   statesCovered: number;
   cropsCovered: number;
   domainsCovered: number;

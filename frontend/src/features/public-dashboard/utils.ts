@@ -33,9 +33,13 @@ export function useScrollSpy(ids: string[], initial = ids[0] ?? "") {
 }
 
 /**
- * Subtle one-shot count-up. Runs once when the element scrolls into view, eases out
- * over ~900ms, and respects prefers-reduced-motion (jumps straight to the value).
+ * Subtle one-shot count-up. Runs when the element scrolls into view, eases out over
+ * ~900ms, and respects prefers-reduced-motion (jumps straight to the value).
  * Intentionally restrained — no looping or bouncing.
+ *
+ * A new `target` re-arms the animation. This matters for live figures: a cell mounts with
+ * 0 (the query is still in flight) and only later receives the real number — without the
+ * re-arm it would animate 0 → 0 and stay stuck there.
  */
 export function useCountUp(target: number, durationMs = 900) {
   const [value, setValue] = useState(0);
@@ -46,24 +50,29 @@ export function useCountUp(target: number, durationMs = 900) {
     const el = ref.current;
     if (!el) return;
 
+    started.current = false;
+
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced) {
       setValue(target);
       return;
     }
 
+    let frame = 0;
+
     const run = () => {
       if (started.current) return;
       started.current = true;
+      const from = value;
       const start = performance.now();
       const tick = (now: number) => {
         const t = Math.min(1, (now - start) / durationMs);
         const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
-        setValue(target * eased);
-        if (t < 1) requestAnimationFrame(tick);
+        setValue(from + (target - from) * eased);
+        if (t < 1) frame = requestAnimationFrame(tick);
         else setValue(target);
       };
-      requestAnimationFrame(tick);
+      frame = requestAnimationFrame(tick);
     };
 
     const io = new IntersectionObserver(
@@ -71,7 +80,13 @@ export function useCountUp(target: number, durationMs = 900) {
       { threshold: 0.4 },
     );
     io.observe(el);
-    return () => io.disconnect();
+    return () => {
+      io.disconnect();
+      cancelAnimationFrame(frame);
+    };
+    // `value` is the animation's starting point, read once when the target changes —
+    // depending on it would restart the count-up on every frame.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target, durationMs]);
 
   return { value, ref };
