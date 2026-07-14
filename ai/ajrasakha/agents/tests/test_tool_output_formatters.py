@@ -279,6 +279,11 @@ def test_format_market_passthrough_non_json():
     assert format_tool_output("market", prose) == prose
 
 
+def test_format_daily_price_passthrough():
+    prose = "Wheat modal price near Ludhiana is Rs 2500 per quintal today."
+    assert format_tool_output("daily_price", prose) == prose
+
+
 def test_format_market_agmarknet_cotton_sirsa():
     out = format_tool_output("market", json.dumps(MARKET_COTTON_SIRSA_ENVELOPE))
     assert "{" not in out
