@@ -47,6 +47,7 @@ import type {
   CoordinatorDuplicateQuestionHeatMapResponse,
   CoordinatorDuplicateQuestionDetail,
   CoordinatorDuplicateQuestionLocationHierarchy,
+  PaginatedFeedbackMessages,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import {
   IQuestion,
@@ -514,107 +515,191 @@ export class ChatbotRepository implements IChatbotRepository {
     this.ReviewUsers = await this.db.getCollection<any>('users');
   }
 
+  private buildActiveSessionFilter(userIds: ObjectId[], now = new Date()) {
+    return {
+      user: {$in: userIds},
+      revoked: {$ne: true},
+      isRevoked: {$ne: true},
+      status: {$nin: ['expired', 'invalid', 'revoked', 'inactive']},
+      $and: [
+        {
+          $or: [{invalidatedAt: {$exists: false}}, {invalidatedAt: null}],
+        },
+        {
+          $or: [
+            {expiresAt: {$exists: false}},
+            {expiresAt: null},
+            {expiresAt: {$gt: now}},
+          ],
+        },
+        {
+          $or: [
+            {expires: {$exists: false}},
+            {expires: null},
+            {expires: {$gt: now}},
+          ],
+        },
+      ],
+    };
+  }
+
+  private async attachActiveSessionCounts(
+    users: UserDetailEntry[],
+    session?: ClientSession,
+  ): Promise<UserDetailEntry[]> {
+    const userIds = users
+      .map(user => user.userId)
+      .filter(ObjectId.isValid)
+      .map(userId => new ObjectId(userId));
+
+    if (userIds.length === 0) {
+      return users.map(user => ({...user, activeSessionCount: 0}));
+    }
+
+    const sessionCounts = await this.sessionCollection
+      .aggregate(
+        [
+          {$match: this.buildActiveSessionFilter(userIds)},
+          {$group: {_id: '$user', count: {$sum: 1}}},
+        ],
+        {session},
+      )
+      .toArray();
+    const sessionCountMap = new Map(
+      sessionCounts.map(entry => [String(entry._id), Number(entry.count)]),
+    );
+
+    return users.map(user => ({
+      ...user,
+      activeSessionCount: sessionCountMap.get(user.userId) ?? 0,
+    }));
+  }
+
   private DISTRICT_ALIASES: Record<string, string> = {
-  // Jammu & Kashmir
-  "baramula": "baramulla",
-  "ladakh (leh)": "leh",
+    // Jammu & Kashmir
+    baramula: 'baramulla',
+    'ladakh (leh)': 'leh',
 
-  // Uttarakhand
-  "naini tal": "nainital",
-  "dehra dun": "dehradun",
+    // Uttarakhand
+    'naini tal': 'nainital',
+    'dehra dun': 'dehradun',
 
-  // Karnataka
-  "belgaum": "belagavi",
-  "mysore": "mysuru",
-  "tumkur": "tumakuru",
-  "bagalkot": "bagalkote",
-  "chikmagalur": "chikkamagaluru",
-  "chamrajnagar": "chamarajanagara",
-  "chamarajanagar": "chamarajanagara",
-  "chamarajanagara": "chamarajanagara",
+    // Karnataka
+    belgaum: 'belagavi',
+    mysore: 'mysuru',
+    tumkur: 'tumakuru',
+    bagalkot: 'bagalkote',
+    chikmagalur: 'chikkamagaluru',
+    chamrajnagar: 'chamarajanagara',
+    chamarajanagar: 'chamarajanagara',
+    chamarajanagara: 'chamarajanagara',
 
-  // Andhra Pradesh
-  "vishakhapatnam": "visakhapatnam",
-  "anantapur": "ananthapuramu",
+    // Andhra Pradesh
+    vishakhapatnam: 'visakhapatnam',
+    anantapur: 'ananthapuramu',
 
-  // Tealangana
-  "komaram bheem asifabad": "kumuram bheem asifabad",
+    // Tealangana
+    'komaram bheem asifabad': 'kumuram bheem asifabad',
 
-  // Tamil Nadu
-  "tiruchchirappalli": "tiruchirappalli",
-  "villupuram": "viluppuram",
+    // Tamil Nadu
+    tiruchchirappalli: 'tiruchirappalli',
+    villupuram: 'viluppuram',
 
-  // Maharashtra
-  "aurangabad": "chhatrapati sambhajinagar",
-  "gondiya": "gondia",
+    // Maharashtra
+    aurangabad: 'chhatrapati sambhajinagar',
+    gondiya: 'gondia',
 
-  // Odisha
-  "keonjhar": "kendujhar",
+    // Odisha
+    keonjhar: 'kendujhar',
 
-  // Rajasthan
-  "chittaurgarh": "chittorgarh",
+    // Rajasthan
+    chittaurgarh: 'chittorgarh',
 
-  // Uttar Pradesh
-  "kanpur": "kanpur nagar",
-};
-  
-private normalizeDistrictName(district?: string): string {
-  if (!district) return "";
+    // Uttar Pradesh
+    kanpur: 'kanpur nagar',
 
-  let normalized = district
-    .toLowerCase()
-    .replace(/\([^)]*\)/g, "")
-    .replace(/\bdistrict\b/g, "")
-    .replace(/[-_]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+    // Punjab
+    'sahibzada ajit singh nagar': 's.a.s nagar',
+    'sahibzada ajit singh nagar (mohali)': 's.a.s nagar',
 
-  normalized = this.DISTRICT_ALIASES[normalized]?.toLowerCase() ?? normalized;
+    mohali: 's.a.s nagar',
 
-  return normalized;
-}
-
-private getEquivalentLocationNames(value: string): string[] {
-  const normalized = this.normalizeDistrictName(value);
-  const equivalents: Record<string, string[]> = {
-    ananthapuramu: ['Ananthapuramu', 'Anantapur'],
-    chamarajanagar: ['Chamarajanagar', 'Chamarajanagara'],
-    baramulla: ['Baramulla', 'Baramula'],
+    's.a.s nagar': 's.a.s nagar',
+    'sas nagar': 's.a.s nagar',
+    's a s nagar': 's.a.s nagar',
   };
 
-  return [...new Set([value, ...(equivalents[normalized] || [])])];
-}
+  private normalizeDistrictName(district?: string): string {
+    if (!district) return '';
 
-private matchesEquivalentLocation(
-  actual: string | undefined,
-  expectedValues: string[],
-) {
-  const normalizedActual = this.normalizeDistrictName(String(actual || ''));
+    let normalized = district
+      .toLowerCase()
+      .replace(/\([^)]*\)/g, '')
+      .replace(/\bdistrict\b/g, '')
+      .replace(/[-_]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
 
-  return expectedValues.some(
-    expected =>
-      normalizedActual === this.normalizeDistrictName(String(expected || '')),
-  );
-}
+    normalized = this.DISTRICT_ALIASES[normalized]?.toLowerCase() ?? normalized;
 
-private isInvalidHeatMapLocation(value?: string | null) {
-  const normalized = this.normalizeDistrictName(String(value || ''));
-  const invalidValues = new Set([
-    '',
-    '-',
-    'na',
-    'n/a',
-    'nil',
-    'null',
-    'test',
-    'testing',
-    'undefined',
-    'unknown',
-    'not specified',
-  ]);
+    return normalized;
+  }
 
-  return invalidValues.has(normalized);
-}
+  private getDistrictVariants(district: string): string[] {
+    const normalized = this.normalizeDistrictName(district);
+
+    return Object.entries(this.DISTRICT_ALIASES)
+      .filter(
+        ([oldName, canonical]) =>
+          this.normalizeDistrictName(oldName) === normalized ||
+          this.normalizeDistrictName(canonical) === normalized,
+      )
+      .flatMap(([oldName, canonical]) => [oldName, canonical])
+      .concat(district)
+      .filter((v, i, arr) => arr.indexOf(v) === i);
+  }
+
+  private getEquivalentLocationNames(value: string): string[] {
+    const normalized = this.normalizeDistrictName(value);
+    const equivalents: Record<string, string[]> = {
+      ananthapuramu: ['Ananthapuramu', 'Anantapur'],
+      chamarajanagar: ['Chamarajanagar', 'Chamarajanagara'],
+      baramulla: ['Baramulla', 'Baramula'],
+    };
+
+    return [...new Set([value, ...(equivalents[normalized] || [])])];
+  }
+
+  private matchesEquivalentLocation(
+    actual: string | undefined,
+    expectedValues: string[],
+  ) {
+    const normalizedActual = this.normalizeDistrictName(String(actual || ''));
+
+    return expectedValues.some(
+      expected =>
+        normalizedActual === this.normalizeDistrictName(String(expected || '')),
+    );
+  }
+
+  private isInvalidHeatMapLocation(value?: string | null) {
+    const normalized = this.normalizeDistrictName(String(value || ''));
+    const invalidValues = new Set([
+      '',
+      '-',
+      'na',
+      'n/a',
+      'nil',
+      'null',
+      'test',
+      'testing',
+      'undefined',
+      'unknown',
+      'not specified',
+    ]);
+
+    return invalidValues.has(normalized);
+  }
   private readonly coordinatorsRoles = COORDINATOR_ROLES;
 
   private async getSourceAdherenceStats(
@@ -1470,6 +1555,7 @@ private isInvalidHeatMapLocation(value?: string | null) {
           {
             ...userDocFilter,
             farmerProfile: {$exists: true, $ne: null},
+            isVerified: true,
           },
           {session},
         ),
@@ -2783,13 +2869,17 @@ private isInvalidHeatMapLocation(value?: string | null) {
 
       const source = _source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
 
-      const districts = district.map((d)=>{
+      console.log("District data", district)
+
+      const districts = district.map(d => {
+        if (d.districtNameEnglish === 'S.A.S Nagar') {
+          return 'Sahibzada Ajit Singh Nagar';
+        }
+        if (d.districtNameEnglish === 'Shahid Bhagat Singh Nagar') {
+          return 'Nawanshahr';
+        }
         return d.districtNameEnglish;
       });
-
-      if (!districts.length) {
-        return [];
-      }
 
       if (!districts.length) {
         return [];
@@ -2839,24 +2929,24 @@ private isInvalidHeatMapLocation(value?: string | null) {
                 $cond: [{$eq: ['$status', 'duplicate']}, 1, 0],
               },
 
-              isClosed: {
-                $cond: [{$eq: ['$status', 'closed']}, 1, 0],
-              },
+              // isClosed: {
+              //   $cond: [{$eq: ['$status', 'closed']}, 1, 0],
+              // },
 
-              closeTimeMs: {
-                $cond: [
-                  {
-                    $and: [
-                      {$eq: ['$status', 'closed']},
-                      {$ne: ['$closedAt', null]},
-                    ],
-                  },
-                  {
-                    $subtract: ['$closedAt', '$createdAt'],
-                  },
-                  0,
-                ],
-              },
+              // closeTimeMs: {
+              //   $cond: [
+              //     {
+              //       $and: [
+              //         {$eq: ['$status', 'closed']},
+              //         {$ne: ['$closedAt', null]},
+              //       ],
+              //     },
+              //     {
+              //       $subtract: ['$closedAt', '$createdAt'],
+              //     },
+              //     0,
+              //   ],
+              // },
             },
           },
           {
@@ -2867,13 +2957,13 @@ private isInvalidHeatMapLocation(value?: string | null) {
                 $sum: 1,
               },
 
-              closedQuestions: {
-                $sum: '$isClosed',
-              },
+              // closedQuestions: {
+              //   $sum: '$isClosed',
+              // },
 
-              duplicateQuestions: {
-                $sum: '$isDuplicate',
-              },
+              // duplicateQuestions: {
+              //   $sum: '$isDuplicate',
+              // },
 
               uniqueQuestions: {
                 $sum: {
@@ -2886,9 +2976,9 @@ private isInvalidHeatMapLocation(value?: string | null) {
                   ],
                 },
               },
-              totalCloseTimeMs: {
-                $sum: '$closeTimeMs',
-              },
+              // totalCloseTimeMs: {
+              //   $sum: '$closeTimeMs',
+              // },
             },
           },
         ],
@@ -2904,11 +2994,79 @@ private isInvalidHeatMapLocation(value?: string | null) {
       const todayEnd = new Date();
       todayEnd.setHours(23, 59, 59, 999);
 
+      const feedbackRaw = await this.messagesCollection
+        .aggregate([
+          {
+            $match: {
+              feedback: {$ne: null},
+              'feedback.rating': {$exists: true},
+              isCreatedByUser: false,
+              isDeleted: {$ne: true},
+            },
+          },
+          {
+            $addFields: {
+              userObjectId: {
+                $cond: [
+                  {
+                    $and: [{$ne: ['$user', null]}, {$ne: ['$user', '']}],
+                  },
+                  {$toObjectId: '$user'},
+                  null,
+                ],
+              },
+            },
+          },
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'userObjectId',
+              foreignField: '_id',
+              as: 'userDoc',
+            },
+          },
+          {
+            $unwind: '$userDoc',
+          },
+          {
+            $match: {
+              'userDoc.farmerProfile.state': {
+                $regex: `^${state}$`,
+                $options: 'i',
+              },
+              ...userDocFilter,
+            },
+          },
+          {
+            $group: {
+              _id: '$userDoc.farmerProfile.district',
+
+              totalFeedbacks: {
+                $sum: 1,
+              },
+
+              positiveFeedbacks: {
+                $sum: {
+                  $cond: [{$eq: ['$feedback.rating', 'thumbsUp']}, 1, 0],
+                },
+              },
+
+              negativeFeedbacks: {
+                $sum: {
+                  $cond: [{$eq: ['$feedback.rating', 'thumbsDown']}, 1, 0],
+                },
+              },
+            },
+          },
+        ])
+        .toArray();
+
+  
+
       const districtUsers = await this.users
         .aggregate([
           {
             $match: {
-
               'farmerProfile.state': {
                 $regex: `^${state}$`,
                 $options: 'i',
@@ -2983,49 +3141,66 @@ private isInvalidHeatMapLocation(value?: string | null) {
         ])
         .toArray();
 
-      // console.log("District user", districtUsers);
+        const debugUsers = await this.users.find({
+  "farmerProfile.state": {
+    $regex: `^${state}$`,
+    $options: "i",
+  },
+}).toArray();
 
-      // const userMap = new Map();
 
-      // for (const item of districtUsers) {
-      //   userMap.set(this.normalizeDistrictName(item._id), item);
-      // }
+      const feedbackMap = new Map();
+
+      for (const item of feedbackRaw) {
+        const key = this.normalizeDistrictName(item._id);
+
+        const existing = feedbackMap.get(key);
+
+        if (existing) {
+          existing.totalFeedbacks += item.totalFeedbacks;
+          existing.positiveFeedbacks += item.positiveFeedbacks;
+          existing.negativeFeedbacks += item.negativeFeedbacks;
+        } else {
+          feedbackMap.set(key, {...item});
+        }
+      }
 
       const userMap = new Map();
 
-for (const item of districtUsers) {
-  const key = this.normalizeDistrictName(item._id);
+      for (const item of districtUsers) {
+        const key = this.normalizeDistrictName(item._id);
 
-  const existing = userMap.get(key);
+        const existing = userMap.get(key);
 
-  if (existing) {
-    existing.totalUsers += item.totalUsers;
-    existing.activeUsers += item.activeUsers;
-    existing.coordinators += item.coordinators;
-    existing.villageVolunteer += item.villageVolunteer;
-    existing.districtCoordinator += item.districtCoordinator;
-    existing.blockCoordinator += item.blockCoordinator;
-  } else {
-    userMap.set(key, { ...item });
-  }
-}
+        if (existing) {
+          existing.totalUsers += item.totalUsers;
+          existing.activeUsers += item.activeUsers;
+          existing.coordinators += item.coordinators;
+          existing.villageVolunteer += item.villageVolunteer;
+          existing.districtCoordinator += item.districtCoordinator;
+          existing.blockCoordinator += item.blockCoordinator;
+        } else {
+          userMap.set(key, {...item});
+        }
+      }
 
       const districtMap = new Map<
         string,
         {
           district: string;
           totalQuestions: number;
-          closedQuestions: number;
+          // closedQuestions: number;
+
           uniqueQuestions: number;
           duplicateQuestions: number;
-          avgCloseTimeHours: number;
+          // avgCloseTimeHours: number;
         }
       >();
 
       const skippedDistricts: Array<{
         district: string;
         totalQuestions: number;
-        closedQuestions: number;
+        // closedQuestions: number;
         uniqueQuestions: number;
         duplicateQuestions: number;
       }> = [];
@@ -3047,7 +3222,7 @@ for (const item of districtUsers) {
           skippedDistricts.push({
             district: item._id,
             totalQuestions: item.totalQuestions,
-            closedQuestions: item.closedQuestions,
+            // closedQuestions: item.closedQuestions,
             uniqueQuestions: item.uniqueQuestions,
             duplicateQuestions: item.duplicateQuestions,
           });
@@ -3062,24 +3237,24 @@ for (const item of districtUsers) {
         if (existing) {
           existing.totalQuestions += item.totalQuestions;
 
-          existing.closedQuestions += item.closedQuestions;
+          // existing.closedQuestions += item.closedQuestions;
 
           existing.uniqueQuestions += item.uniqueQuestions;
 
           existing.duplicateQuestions += item.duplicateQuestions;
 
-          existing.avgCloseTimeHours += item.totalCloseTimeMs;
+          // existing.avgCloseTimeHours += item.totalCloseTimeMs;
         } else {
           districtMap.set(normalizedDistrict, {
             district: item._id,
             totalQuestions: item.totalQuestions,
-            closedQuestions: item.closedQuestions,
+            // closedQuestions: item.closedQuestions,
             uniqueQuestions: item.uniqueQuestions,
             duplicateQuestions: item.duplicateQuestions,
-            avgCloseTimeHours:
-              item.closedQuestions > 0
-                ? item.totalCloseTimeMs / item.closedQuestions / 1000 / 60 / 60
-                : 0,
+            // avgCloseTimeHours:
+            //   item.closedQuestions > 0
+            //     ? item.totalCloseTimeMs / item.closedQuestions / 1000 / 60 / 60
+            //     : 0,
           });
         }
       }
@@ -3088,7 +3263,7 @@ for (const item of districtUsers) {
         (acc, item) => ({
           totalQuestions: acc.totalQuestions + item.totalQuestions,
 
-          closedQuestions: acc.closedQuestions + item.closedQuestions,
+          // closedQuestions: acc.closedQuestions + item.closedQuestions,
 
           uniqueQuestions: acc.uniqueQuestions + item.uniqueQuestions,
 
@@ -3096,26 +3271,11 @@ for (const item of districtUsers) {
         }),
         {
           totalQuestions: 0,
-          closedQuestions: 0,
+          // closedQuestions: 0,
           uniqueQuestions: 0,
           duplicateQuestions: 0,
         },
       );
-
-      const otherQuestions = await this.QuestionCollection.find(
-        {
-          source,
-          'details.state': state,
-          status: {$ne: 'non_agri'},
-        },
-        {
-          projection: {
-            question: 1,
-            'details.district': 1,
-            'details.state': 1,
-          },
-        },
-      ).toArray();
 
       const result: DistrictAnalyticsEntry[] = districts.map(district => {
         const normalizedDistrict = this.normalizeDistrictName(district);
@@ -3126,6 +3286,9 @@ for (const item of districtUsers) {
 
         const districtMeta = districtCodeMap.get(normalizedDistrict);
 
+        const feedbackData = feedbackMap.get(normalizedDistrict);
+
+
         return {
           district,
 
@@ -3133,7 +3296,7 @@ for (const item of districtUsers) {
 
           totalQuestions: existing?.totalQuestions ?? 0,
 
-          closedQuestions: existing?.closedQuestions ?? 0,
+          // closedQuestions: existing?.closedQuestions ?? 0,
 
           uniqueQuestions: existing?.uniqueQuestions ?? 0,
 
@@ -3144,13 +3307,19 @@ for (const item of districtUsers) {
           activeUsers: userData?.activeUsers ?? 0,
 
           coordinators: userData?.coordinators ?? 0,
-          avgClosingMsTime: existing?.avgCloseTimeHours ?? 0,
+          // avgClosingMsTime: existing?.avgCloseTimeHours ?? 0,
 
           villageVolunteer: userData?.villageVolunteer ?? 0,
 
           districtCoordinator: userData?.districtCoordinator ?? 0,
 
           blockCoordinator: userData?.blockCoordinator ?? 0,
+
+          totalFeedbacks: feedbackData?.totalFeedbacks ?? 0,
+
+          positiveFeedbacks: feedbackData?.positiveFeedbacks ?? 0,
+
+          negativeFeedbacks: feedbackData?.negativeFeedbacks ?? 0,
         };
       });
 
@@ -3160,7 +3329,7 @@ for (const item of districtUsers) {
 
           totalQuestions: others.totalQuestions,
 
-          closedQuestions: others.closedQuestions,
+          // closedQuestions: others.closedQuestions,
 
           uniqueQuestions: others.uniqueQuestions,
 
@@ -3194,6 +3363,7 @@ for (const item of districtUsers) {
     session?: ClientSession,
     userType = 'all',
     search?: string,
+    knownDistricts?: string[],
   ): Promise<any> {
     try {
       await this.initReviewSystem();
@@ -3220,10 +3390,26 @@ for (const item of districtUsers) {
       if (!districtLabel) {
         throw new BadRequestError('district is required');
       }
-      const districtMatch = {
-        'details.state': state,
-        'details.district': districtLabel,
-      };
+      const isOthers = districtLabel.toLowerCase() === 'others';
+
+      let districtMatch = {};
+
+      if (!isOthers) {
+        const variants = this.getDistrictVariants(districtLabel);
+
+        districtMatch = {
+          'details.state': {
+            $regex: `^${state}$`,
+            $options: 'i',
+          },
+          $or: variants.map(name => ({
+            'details.district': {
+              $regex: `^${name}$`,
+              $options: 'i',
+            },
+          })),
+        };
+      }
       const typeMatch =
         questionType === 'duplicate'
           ? {status: 'duplicate'}
@@ -3275,63 +3461,127 @@ for (const item of districtUsers) {
         };
       }
 
-      const result = await this.QuestionCollection.aggregate(
-        [
-          {
-            $match: {
-              ...baseMatch,
-              ...districtMatch,
-              ...typeMatch,
-              ...searchMatch,
-            },
-          },
-          {
-            $sort: {
-              createdAt: -1,
-            },
-          },
-          {
-            $facet: {
-              data: [
-                {$skip: skip},
-                {$limit: safeLimit},
-                {
-                  $project: {
-                    _id: 0,
-                    questionId: {$toString: '$_id'},
-                    userId: 1,
-                    threadId: 1,
-                    messageId: 1,
-                    question: 1,
-                    status: 1,
-                    questionType: {
-                      $cond: [
-                        {$eq: ['$status', 'duplicate']},
-                        'duplicate',
-                        'unique',
-                      ],
-                    },
-                    createdAt: 1,
-                    district: '$details.district',
-                    crop: '$details.crop',
-                    village: '$details.village',
-                    block: '$details.block',
-                  },
-                },
-              ],
-              metadata: [
-                {
-                  $count: 'total',
-                },
-              ],
-            },
-          },
-        ],
-        {session},
-      ).toArray();
+      let total = 0;
+      let questions: any[] = [];
 
-      const total = result[0]?.metadata?.[0]?.total ?? 0;
-      const questions = result[0]?.data ?? [];
+      if (!isOthers) {
+        const result = await this.QuestionCollection.aggregate(
+          [
+            {
+              $match: {
+                ...baseMatch,
+                ...districtMatch,
+                ...typeMatch,
+                ...searchMatch,
+              },
+            },
+            {
+              $sort: {
+                createdAt: -1,
+              },
+            },
+            {
+              $facet: {
+                data: [
+                  {$skip: skip},
+                  {$limit: safeLimit},
+                  {
+                    $project: {
+                      _id: 0,
+                      questionId: {$toString: '$_id'},
+                      userId: 1,
+                      threadId: 1,
+                      messageId: 1,
+                      question: 1,
+                      status: 1,
+                      questionType: {
+                        $cond: [
+                          {$eq: ['$status', 'duplicate']},
+                          'duplicate',
+                          'unique',
+                        ],
+                      },
+                      createdAt: 1,
+                      district: '$details.district',
+                      crop: '$details.crop',
+                      village: '$details.village',
+                      block: '$details.block',
+                    },
+                  },
+                ],
+                metadata: [
+                  {
+                    $count: 'total',
+                  },
+                ],
+              },
+            },
+          ],
+          {session},
+        ).toArray();
+
+        total = result[0]?.metadata?.[0]?.total ?? 0;
+        questions = result[0]?.data ?? [];
+      } else {
+        const allQuestions = await this.QuestionCollection.aggregate(
+          [
+            {
+              $match: {
+                ...baseMatch,
+                'details.state': {
+                  $regex: `^${state}$`,
+                  $options: 'i',
+                },
+                ...typeMatch,
+                ...searchMatch,
+              },
+            },
+            {
+              $sort: {
+                createdAt: -1,
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                questionId: {$toString: '$_id'},
+                userId: 1,
+                threadId: 1,
+                messageId: 1,
+                question: 1,
+                status: 1,
+                questionType: {
+                  $cond: [
+                    {$eq: ['$status', 'duplicate']},
+                    'duplicate',
+                    'unique',
+                  ],
+                },
+                createdAt: 1,
+                district: '$details.district',
+                crop: '$details.crop',
+                village: '$details.village',
+                block: '$details.block',
+              },
+            },
+          ],
+          {session},
+        ).toArray();
+
+        const validDistricts = new Set(
+          (knownDistricts ?? []).map(d => this.normalizeDistrictName(d)),
+        );
+
+        const filteredQuestions = allQuestions.filter(question => {
+          const normalized = this.normalizeDistrictName(question.district);
+
+          return !validDistricts.has(normalized);
+        });
+
+        total = filteredQuestions.length;
+
+        questions = filteredQuestions.slice(skip, skip + safeLimit);
+      }
 
       const {userMap, questionUserMap} =
         await this.resolveQuestionUsers(questions);
@@ -3743,15 +3993,18 @@ for (const item of districtUsers) {
             .filter(id => id !== undefined && id !== null && id !== ''),
         ),
       ];
-      const questionThreadIds = [
-        ...new Set(
-          questionDocs
-            .map(row => row.threadId)
-            .filter(id => id !== undefined && id !== null && id !== ''),
-        ),
-      ];
+      // const questionThreadIds = [
+      //   ...new Set(
+      //     questionDocs
+      //       .map(row => row.threadId)
+      //       .filter(id => id !== undefined && id !== null && id !== ''),
+      //   ),
+      // ];
 
-      const [questionMessages, questionConversations] = await Promise.all([
+      const [
+        questionMessages,
+        // questionConversations
+      ] = await Promise.all([
         questionMessageIds.length
           ? this.messagesCollection
               .find(
@@ -3760,14 +4013,14 @@ for (const item of districtUsers) {
               )
               .toArray()
           : Promise.resolve([]),
-        questionThreadIds.length
-          ? this.conversations
-              .find(
-                {conversationId: {$in: questionThreadIds}},
-                {projection: {conversationId: 1, user: 1}, session},
-              )
-              .toArray()
-          : Promise.resolve([]),
+        // questionThreadIds.length
+        //   ? this.conversations
+        //       .find(
+        //         {conversationId: {$in: questionThreadIds}},
+        //         {projection: {conversationId: 1, user: 1}, session},
+        //       )
+        //       .toArray()
+        //   : Promise.resolve([]),
       ]);
 
       const questionMessageUserMap = new Map(
@@ -3776,12 +4029,12 @@ for (const item of districtUsers) {
           message.user?.toString(),
         ]),
       );
-      const questionConversationUserMap = new Map(
-        questionConversations.map(conversation => [
-          String(conversation.conversationId),
-          conversation.user?.toString(),
-        ]),
-      );
+      // const questionConversationUserMap = new Map(
+      //   questionConversations.map(conversation => [
+      //     String(conversation.conversationId),
+      //     conversation.user?.toString(),
+      //   ]),
+      // );
 
       const resolvedUserIdByQuestionId = new Map<string, string>();
       for (const row of questionDocs) {
@@ -3790,12 +4043,12 @@ for (const item of districtUsers) {
           row.messageId !== undefined && row.messageId !== null
             ? questionMessageUserMap.get(String(row.messageId))
             : undefined;
-        const conversationUserId =
-          row.threadId !== undefined && row.threadId !== null
-            ? questionConversationUserMap.get(String(row.threadId))
-            : undefined;
-        const resolvedUserId =
-          directUserId || messageUserId || conversationUserId;
+        // const conversationUserId =
+        //   row.threadId !== undefined && row.threadId !== null
+        //     ? questionConversationUserMap.get(String(row.threadId))
+        //     : undefined;
+        const resolvedUserId = directUserId || messageUserId;
+        // || conversationUserId;
         if (resolvedUserId) {
           resolvedUserIdByQuestionId.set(row._id.toString(), resolvedUserId);
         }
@@ -3833,7 +4086,10 @@ for (const item of districtUsers) {
 
         for (const [key, values] of Object.entries(selectedLocationFilters)) {
           if (
-            !this.matchesEquivalentLocation(userDoc.farmerProfile?.[key], values)
+            !this.matchesEquivalentLocation(
+              userDoc.farmerProfile?.[key],
+              values,
+            )
           ) {
             return [];
           }
@@ -3842,7 +4098,8 @@ for (const item of districtUsers) {
         const location = userDoc.farmerProfile?.[locationField];
         if (!location) return [];
 
-        const name = `${userDoc.firstName || ''} ${userDoc.lastName || ''}`.trim();
+        const name =
+          `${userDoc.firstName || ''} ${userDoc.lastName || ''}`.trim();
 
         return [
           {
@@ -4137,7 +4394,10 @@ for (const item of districtUsers) {
         {session},
       );
 
-      if (!coordinator || !COORDINATOR_ROLES.includes(coordinator.userRole as any)) {
+      if (
+        !coordinator ||
+        !COORDINATOR_ROLES.includes(coordinator.userRole as any)
+      ) {
         throw new BadRequestError('Coordinator not found');
       }
 
@@ -4157,7 +4417,8 @@ for (const item of districtUsers) {
         farmerFilter['farmerProfile.district'] = this.exactRegex(district);
       }
       if (role === 'block_coordinator' || role === 'village_volunteer') {
-        if (block) farmerFilter['farmerProfile.blockName'] = this.exactRegex(block);
+        if (block)
+          farmerFilter['farmerProfile.blockName'] = this.exactRegex(block);
       }
       if (role === 'village_volunteer' && village) {
         farmerFilter['farmerProfile.villageName'] = this.exactRegex(village);
@@ -4216,28 +4477,33 @@ for (const item of districtUsers) {
         )
         .toArray();
       const messageIds = [
-        ...new Set(userMessages.map((message: any) => message.messageId).filter(Boolean)),
-      ];
-      const threadIds = [
         ...new Set(
-          userMessages
-            .map((message: any) => message.threadId || message.conversationId)
-            .filter(Boolean),
+          userMessages.map((message: any) => message.messageId).filter(Boolean),
         ),
       ];
+      // const threadIds = [
+      //   ...new Set(
+      //     userMessages
+      //       .map((message: any) => message.threadId || message.conversationId)
+      //       .filter(Boolean),
+      //   ),
+      // ];
       const messageUserMap = new Map(
         userMessages
           .filter((message: any) => message.messageId)
-          .map((message: any) => [String(message.messageId), String(message.user)]),
-      );
-      const threadUserMap = new Map(
-        userMessages
-          .filter((message: any) => message.threadId || message.conversationId)
           .map((message: any) => [
-            String(message.threadId || message.conversationId),
+            String(message.messageId),
             String(message.user),
           ]),
       );
+      // const threadUserMap = new Map(
+      //   userMessages
+      //     .filter((message: any) => message.threadId || message.conversationId)
+      //     .map((message: any) => [
+      //       String(message.threadId || message.conversationId),
+      //       String(message.user),
+      //     ]),
+      // );
 
       const questionFilter: any = buildBaseQuestionMatch('AJRASAKHA');
       const questionUserMatches: any[] = [
@@ -4247,9 +4513,9 @@ for (const item of districtUsers) {
       if (messageIds.length > 0) {
         questionUserMatches.push({messageId: {$in: messageIds}});
       }
-      if (threadIds.length > 0) {
-        questionUserMatches.push({threadId: {$in: threadIds}});
-      }
+      // if (threadIds.length > 0) {
+      //   questionUserMatches.push({threadId: {$in: threadIds}});
+      // }
       questionFilter.$and.push({$or: questionUserMatches});
 
       const questions = await this.QuestionCollection.find(questionFilter, {
@@ -4282,14 +4548,23 @@ for (const item of districtUsers) {
       >();
 
       for (const question of questions) {
-        const directUserId = question.userId?.toString?.() || String(question.userId || '');
+        const directUserId =
+          question.userId?.toString?.() || String(question.userId || '');
         const resolvedUserId =
-          (directUserId && userMap.has(directUserId) ? directUserId : undefined) ||
-          (question.messageId ? messageUserMap.get(String(question.messageId)) : undefined) ||
-          (question.threadId ? threadUserMap.get(String(question.threadId)) : undefined);
+          (directUserId && userMap.has(directUserId)
+            ? directUserId
+            : undefined) ||
+          (question.messageId
+            ? messageUserMap.get(String(question.messageId))
+            : undefined);
+        // || (question.threadId ? threadUserMap.get(String(question.threadId)) : undefined);
         const normalizedQuestion = normalizeQuestionText(question.question);
 
-        if (!resolvedUserId || !userMap.has(resolvedUserId) || !normalizedQuestion) {
+        if (
+          !resolvedUserId ||
+          !userMap.has(resolvedUserId) ||
+          !normalizedQuestion
+        ) {
           continue;
         }
 
@@ -4312,19 +4587,28 @@ for (const item of districtUsers) {
           .trim()
           .toLowerCase()
           .replace(/\s+/g, ' ');
-      const detailsByBlockVillage = new Map<string, CoordinatorDuplicateQuestionDetail[]>();
+      const detailsByBlockVillage = new Map<
+        string,
+        CoordinatorDuplicateQuestionDetail[]
+      >();
       for (const group of groups.values()) {
         if (group.questions.length < 2) continue;
 
         const user = userMap.get(group.userId);
         const blockName = String(user?.farmerProfile?.blockName || '').trim();
-        const villageName = String(user?.farmerProfile?.villageName || '').trim();
+        const villageName = String(
+          user?.farmerProfile?.villageName || '',
+        ).trim();
         if (!blockName || !villageName) continue;
 
         const key = `${normalizeLocationKey(blockName)}__${normalizeLocationKey(villageName)}`;
         const dates = group.questions
-          .map((question: any) => question.createdAt ? new Date(question.createdAt) : null)
-          .filter((date: Date | null) => date && !Number.isNaN(date.getTime())) as Date[];
+          .map((question: any) =>
+            question.createdAt ? new Date(question.createdAt) : null,
+          )
+          .filter(
+            (date: Date | null) => date && !Number.isNaN(date.getTime()),
+          ) as Date[];
         const sortedDates = dates.sort((a, b) => a.getTime() - b.getTime());
         const detail: CoordinatorDuplicateQuestionDetail = {
           question: group.question,
@@ -4336,8 +4620,9 @@ for (const item of districtUsers) {
           village: villageName,
           firstAskedAt: sortedDates[0],
           lastAskedAt: sortedDates[sortedDates.length - 1],
-          questionIds: group.questions.map((question: any) =>
-            question._id?.toString?.() || String(question._id),
+          questionIds: group.questions.map(
+            (question: any) =>
+              question._id?.toString?.() || String(question._id),
           ),
         };
 
@@ -4393,7 +4678,9 @@ for (const item of districtUsers) {
 
       for (const user of scopedUsers as any[]) {
         const blockName = String(user.farmerProfile?.blockName || '').trim();
-        const villageName = String(user.farmerProfile?.villageName || '').trim();
+        const villageName = String(
+          user.farmerProfile?.villageName || '',
+        ).trim();
         if (!blockName || !villageName) continue;
 
         addBlockVillage(blockName, villageName);
@@ -4412,7 +4699,9 @@ for (const item of districtUsers) {
             .map(([, villageEntry]) => ({
               village: villageEntry.villageName,
               count: villageEntry.details.length,
-              details: villageEntry.details.sort((a, b) => b.repeatCount - a.repeatCount),
+              details: villageEntry.details.sort(
+                (a, b) => b.repeatCount - a.repeatCount,
+              ),
             }));
 
           return {
@@ -5715,7 +6004,7 @@ for (const item of districtUsers) {
       };
 
       const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
-      
+
       if (source === 'whatsapp') {
         return await this.getWeeklyAnalyticsForWhatsApp(qStart, qEnd);
       }
@@ -6571,6 +6860,168 @@ for (const item of districtUsers) {
     }
   }
 
+  async getFeedbackUsers(
+    source = 'annam',
+    page = 1,
+    limit = 10,
+    search?: string,
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+    userType = 'all',
+    rating?: string,
+    tag?: string,
+    session?: ClientSession,
+  ): Promise<PaginatedFeedbackMessages> {
+    try {
+      await this.init(source);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+
+      const matchStage: any = {
+        feedback: {$exists: true, $ne: null},
+        isCreatedByUser: false,
+        isDeleted: {$ne: true},
+      };
+
+      // if (rating === 'thumbsUp' || rating === 'thumbsDown') {
+      //   matchStage['feedback.rating'] = rating;
+      // }
+
+      if (rating && rating !== 'all') {
+        matchStage['feedback.rating'] = rating;
+      }
+
+      if (tag) {
+        matchStage['feedback.tag'] = tag;
+      }
+
+      const pipeline: any[] = [{$match: matchStage}];
+
+      if (userTypeLookupStages.length > 0) {
+        pipeline.push(...userTypeLookupStages);
+      } else {
+        pipeline.push(
+          {
+            $addFields: {
+              _userOid: {
+                $cond: [
+                  {
+                    $and: [{$ne: ['$user', null]}, {$ne: ['$user', '']}],
+                  },
+                  {$toObjectId: '$user'},
+                  null,
+                ],
+              },
+            },
+          },
+          {
+            $lookup: {
+              from: 'users',
+              localField: '_userOid',
+              foreignField: '_id',
+              as: '_userDoc',
+            },
+          },
+        );
+      }
+
+      pipeline.push({
+        $unwind: {
+          path: '$_userDoc',
+          preserveNullAndEmptyArrays: true,
+        },
+      });
+
+      if (search) {
+        const searchRegex = new RegExp(search, 'i');
+        pipeline.push({
+          $match: {
+            $or: [
+              {question: {$regex: searchRegex}},
+              {response: {$regex: searchRegex}},
+              {'feedback.tag': {$regex: searchRegex}},
+              {'feedback.details': {$regex: searchRegex}},
+              {'_userDoc.farmerProfile.farmerName': {$regex: searchRegex}},
+            ],
+          },
+        });
+      }
+
+      const sortStage: any = {};
+      sortStage[sortBy] = sortOrder === 'asc' ? 1 : -1;
+      pipeline.push({$sort: sortStage});
+
+      const skip = (page - 1) * limit;
+
+      const facetStage = {
+        $facet: {
+          metadata: [{$count: 'total'}],
+          data: [
+            {$skip: skip},
+            {$limit: limit},
+            {
+              $project: {
+                _id: 1,
+                conversationId: 1,
+                messageId: 1,
+                userId: '$_userDoc._id',
+                farmerName: '$_userDoc.farmerProfile.farmerName',
+                email: '$_userDoc.email',
+                village: '$_userDoc.farmerProfile.villageName',
+                block: '$_userDoc.farmerProfile.blockName',
+                district: '$_userDoc.farmerProfile.district',
+                state: '$_userDoc.farmerProfile.state',
+                question: 1,
+                response: 1,
+                feedback: 1,
+                createdAt: 1,
+              },
+            },
+          ],
+        },
+      };
+
+      pipeline.push(facetStage);
+
+      const result = await this.messagesCollection
+        .aggregate(pipeline, {session})
+        .toArray();
+      const totalFeedbacks = result[0]?.metadata[0]?.total || 0;
+      const messages = result[0]?.data || [];
+
+      // Look up questionId from the questions collection (review system db)
+      // by matching each message's messageId to the question's messageId field
+      if (messages.length > 0) {
+        await this.initReviewSystem();
+        const messageIds = messages
+          .map((m: any) => m.messageId)
+          .filter((id: any) => id != null && id !== '');
+        if (messageIds.length > 0) {
+          const questions = await this.QuestionCollection.find(
+            {messageId: {$in: messageIds}},
+            {projection: {_id: 1, messageId: 1}},
+          ).toArray();
+          const messageIdToQuestionId = new Map<string, string>(
+            questions.map((q: any) => [String(q.messageId), String(q._id)]),
+          );
+          for (const msg of messages) {
+            msg.questionId = msg.messageId
+              ? messageIdToQuestionId.get(String(msg.messageId)) ?? null
+              : null;
+          }
+        }
+      }
+
+      return {
+        messages,
+        totalFeedbacks,
+        totalPages: Math.ceil(totalFeedbacks / limit),
+        currentPage: page,
+      };
+    } catch (error) {
+      throw new InternalServerError(`Failed to get feedback users: ${error}`);
+    }
+  }
+
   async getTodayQueryCount(
     source = 'annam',
     session?: ClientSession,
@@ -6933,6 +7384,7 @@ for (const item of districtUsers) {
     activeTodayByProfile = false,
     missingDemographicField = '',
     isVerfied?: boolean,
+    loginStatus: 'all' | 'loggedIn' | 'loggedOut' = 'all',
   ): Promise<PaginatedUserDetails> {
     try {
       await this.init(source);
@@ -7095,16 +7547,32 @@ for (const item of districtUsers) {
           {'farmerProfile.state': stateRegex},
         ];
       }
+      // if (district && district.trim()) {
+      //   const districtRegex = {
+      //     $regex: `^${district.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+      //     $options: 'i',
+      //   };
+      //   userFilter.$and = [
+      //     ...(userFilter.$and ?? []),
+      //     {'farmerProfile.district': districtRegex},
+      //   ];
+      // }
+
       if (district && district.trim()) {
-        const districtRegex = {
-          $regex: `^${district.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
-          $options: 'i',
-        };
-        userFilter.$and = [
-          ...(userFilter.$and ?? []),
-          {'farmerProfile.district': districtRegex},
-        ];
-      }
+  const escapedDistrict = district
+    .trim()
+    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  userFilter.$and = [
+    ...(userFilter.$and ?? []),
+    {
+      'farmerProfile.district': {
+        $regex: `^${escapedDistrict}(\\s*\\(.*\\))?$`,
+        $options: 'i',
+      },
+    },
+  ];
+}
       if (block && block.trim()) {
         const blockRegex = {
           $regex: `^${block.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
@@ -7215,10 +7683,15 @@ for (const item of districtUsers) {
           : undefined,
       }));
 
+      const withSessionCounts =
+        loginStatus !== 'all'
+          ? await this.attachActiveSessionCounts(merged, session)
+          : merged;
+
       // Filter to inactive users only if requested
       const afterInactive = inactiveOnly
-        ? merged.filter(u => u.totalQuestions === 0)
-        : merged;
+        ? withSessionCounts.filter(u => u.totalQuestions === 0)
+        : withSessionCounts;
 
       // Filter to low-feedback users only if requested (all-time, no date range on feedback)
       let finalList = afterInactive;
@@ -7239,6 +7712,12 @@ for (const item of districtUsers) {
           feedbackDocs.map((d: any) => String(d._id)),
         );
         finalList = afterInactive.filter(u => !usersWithFeedback.has(u.userId));
+      }
+
+      if (loginStatus === 'loggedIn') {
+        finalList = finalList.filter(u => (u.activeSessionCount ?? 0) > 0);
+      } else if (loginStatus === 'loggedOut') {
+        finalList = finalList.filter(u => (u.activeSessionCount ?? 0) === 0);
       }
 
       // Sort based on sortBy and sortOrder parameters
@@ -7291,7 +7770,10 @@ for (const item of districtUsers) {
 
       // Paginate
       const startIdx = (page - 1) * limit;
-      const users = finalList.slice(startIdx, startIdx + limit);
+      const users = await this.attachActiveSessionCounts(
+        finalList.slice(startIdx, startIdx + limit),
+        session,
+      );
 
       return {
         users,
@@ -8411,6 +8893,7 @@ for (const item of districtUsers) {
         {
           ...userDocFilter,
           farmerProfile: {$exists: true, $ne: null},
+          isVerified: true,
         },
         {session},
       );
@@ -8630,6 +9113,290 @@ for (const item of districtUsers) {
     }
   }
 
+  private buildDemographicFilter(
+    category: string,
+    value: string,
+  ): Record<string, any> {
+    const isNotProvided = value.toLowerCase() === 'not provided';
+
+    const getNotProvidedFilter = (field: string) => ({
+      $or: [{[field]: {$exists: false}}, {[field]: null}, {[field]: ''}],
+    });
+
+    switch (category) {
+      case 'age':
+        if (isNotProvided) return getNotProvidedFilter('farmerProfile.age');
+        if (value === 'Less than 16')
+          return {'farmerProfile.age': {$gte: 0, $lt: 16}};
+        if (value === '16-30')
+          return {'farmerProfile.age': {$gte: 16, $lt: 30}};
+        if (value === '30-45')
+          return {'farmerProfile.age': {$gte: 30, $lt: 45}};
+        if (value === '45-60')
+          return {'farmerProfile.age': {$gte: 45, $lt: 60}};
+        if (value === '60+') return {'farmerProfile.age': {$gte: 60}};
+        break;
+
+      case 'gender':
+        if (isNotProvided) return getNotProvidedFilter('farmerProfile.gender');
+        return {
+          'farmerProfile.gender': {
+            $regex: `^${value.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}$`,
+            $options: 'i',
+          },
+        };
+
+      case 'experience':
+        if (isNotProvided)
+          return getNotProvidedFilter('farmerProfile.yearsOfExperience');
+        if (value === 'Less than 2 yrs')
+          return {'farmerProfile.yearsOfExperience': {$gte: 0, $lt: 2}};
+        if (value === '2 - 5 yrs')
+          return {'farmerProfile.yearsOfExperience': {$gte: 2, $lt: 5}};
+        if (value === '5 - 10 yrs')
+          return {'farmerProfile.yearsOfExperience': {$gte: 5, $lt: 10}};
+        if (value === '10 - 20 yrs')
+          return {'farmerProfile.yearsOfExperience': {$gte: 10, $lt: 20}};
+        if (value === '20+ yrs')
+          return {'farmerProfile.yearsOfExperience': {$gte: 20}};
+        break;
+
+      case 'landholding':
+        if (isNotProvided)
+          return getNotProvidedFilter('farmerProfile.landhold');
+        if (value.startsWith('Small'))
+          return {'farmerProfile.landhold': {$gte: 0, $lt: 2}};
+        if (value.startsWith('Medium'))
+          return {'farmerProfile.landhold': {$gte: 2, $lt: 10}};
+        if (value.startsWith('Large'))
+          return {'farmerProfile.landhold': {$gte: 10}};
+        break;
+    }
+
+    return {};
+  }
+
+  async getUsersByDemographic(
+    category: string,
+    value: string,
+    source = 'annam',
+    userType = 'all',
+    page = 1,
+    limit = 10,
+    search = '',
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+    session?: ClientSession,
+  ): Promise<PaginatedUserDetails> {
+    try {
+      await this.init(source);
+
+      const userFilter: Record<string, any> = {
+        ...this.buildUserDocFilter(userType),
+      };
+
+      if (search && search.trim()) {
+        const escaped = search
+          .trim()
+          .replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
+        const regex = {$regex: escaped, $options: 'i'};
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          {$or: [{name: regex}, {username: regex}, {email: regex}]},
+        ];
+      }
+
+      const demographicFilter = this.buildDemographicFilter(category, value);
+      if (Object.keys(demographicFilter).length > 0) {
+        userFilter.$and = [...(userFilter.$and ?? []), demographicFilter];
+      }
+
+      const sortOptions: Record<string, 1 | -1> = {};
+      const sortDirection = sortOrder === 'asc' ? 1 : -1;
+
+      switch (sortBy) {
+        case 'name':
+          sortOptions.name = sortDirection;
+          break;
+        case 'farmerName':
+          sortOptions['farmerProfile.farmerName'] = sortDirection;
+          break;
+        case 'email':
+          sortOptions.email = sortDirection;
+          break;
+        case 'createdAt':
+        default:
+          sortOptions.createdAt = sortDirection;
+          break;
+      }
+
+      const skip = (page - 1) * limit;
+
+      const [users, totalUsers] = await Promise.all([
+        this.users
+          .find(userFilter, {session})
+          .sort(sortOptions)
+          .skip(skip)
+          .limit(limit)
+          .toArray(),
+        this.users.countDocuments(userFilter, {session}),
+      ]);
+
+      const formattedUsers: UserDetailEntry[] = users.map(user => ({
+        userId: String(user._id),
+        name: user.name || user.firstName || '',
+        email: user.email || '',
+        role: user.role,
+        userRole: user.userRole,
+        totalQuestions: 0,
+        farmerProfile: user.farmerProfile,
+        createdAt: user.createdAt,
+        isVerified: user.isVerified,
+      }));
+
+      return {
+        users: formattedUsers,
+        totalUsers,
+        totalPages: Math.ceil(totalUsers / limit),
+        page,
+        limit,
+        activeUsers: 0,
+        inactiveUsers: 0,
+        totalQuestions: 0,
+      } as unknown as PaginatedUserDetails;
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get users by demographic: ${error}`,
+      );
+    }
+  }
+
+  async getUsersByPlatform(
+    platform: string,
+    source = 'annam',
+    page = 1,
+    limit = 10,
+    search = '',
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+    userType = 'all',
+    session?: ClientSession,
+  ): Promise<PaginatedUserDetails> {
+    try {
+      await this.init(source);
+
+      const userFilter: Record<string, any> = {
+        ...this.buildUserDocFilter(userType),
+      };
+
+      const normalizedPlatform = platform?.trim();
+      const basePlatformFilter = {
+        farmerProfile: {$exists: true, $ne: null},
+        isVerified: true,
+      };
+      const platformFilter =
+        normalizedPlatform === 'Unknown'
+          ? {
+              ...basePlatformFilter,
+              $or: [
+                {'farmerProfile.platform': {$exists: false}},
+                {'farmerProfile.platform': null},
+                {'farmerProfile.platform': ''},
+                {
+                  $expr: {
+                    $eq: [
+                      {
+                        $trim: {
+                          input: {$ifNull: ['$farmerProfile.platform', '']},
+                        },
+                      },
+                      '',
+                    ],
+                  },
+                },
+              ],
+            }
+          : {
+              ...basePlatformFilter,
+              'farmerProfile.platform': normalizedPlatform,
+            };
+
+      userFilter.$and = [...(userFilter.$and ?? []), platformFilter];
+
+      if (search && search.trim()) {
+        const escaped = search
+          .trim()
+          .replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
+        const regex = {$regex: escaped, $options: 'i'};
+        userFilter.$and = [
+          ...(userFilter.$and ?? []),
+          {
+            $or: [
+              {name: regex},
+              {email: regex},
+              {'farmerProfile.phoneNo': regex},
+            ],
+          },
+        ];
+      }
+
+      const sortOptions: Record<string, 1 | -1> = {};
+      const sortDirection = sortOrder === 'asc' ? 1 : -1;
+
+      switch (sortBy) {
+        case 'name':
+          sortOptions.name = sortDirection;
+          break;
+        case 'email':
+          sortOptions.email = sortDirection;
+          break;
+        case 'createdAt':
+        default:
+          sortOptions.createdAt = sortDirection;
+          break;
+      }
+
+      const skip = (page - 1) * limit;
+
+      const [users, totalUsers] = await Promise.all([
+        this.users
+          .find(userFilter, {session})
+          .sort(sortOptions)
+          .skip(skip)
+          .limit(limit)
+          .toArray(),
+        this.users.countDocuments(userFilter, {session}),
+      ]);
+
+      const formattedUsers: UserDetailEntry[] = users.map(user => ({
+        userId: String(user._id),
+        name: user.name || user.firstName || '',
+        email: user.email || '',
+        role: user.role,
+        userRole: user.userRole,
+        totalQuestions: 0,
+        farmerProfile: user.farmerProfile,
+        createdAt: user.createdAt,
+        isVerified: user.isVerified,
+      }));
+
+      return {
+        users: formattedUsers,
+        totalUsers,
+        totalPages: Math.ceil(totalUsers / limit),
+        page,
+        limit,
+        activeUsers: 0,
+        inactiveUsers: 0,
+        totalQuestions: 0,
+      } as unknown as PaginatedUserDetails;
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get users by platform: ${error}`,
+      );
+    }
+  }
+
   // async getKccAndAgriAppStats(source = 'annam', session?: ClientSession, userType = 'all'): Promise<KccAndAgriAppStats> {
   //   try {
   //     await this.init(source);
@@ -8702,6 +9469,7 @@ for (const item of districtUsers) {
               {
                 $match: {
                   farmerProfile: {$exists: true, $ne: null},
+                  isVerified: true,
                   ...userDocFilter,
                 },
               },
@@ -8729,6 +9497,7 @@ for (const item of districtUsers) {
               {
                 $match: {
                   farmerProfile: {$exists: true, $ne: null},
+                  isVerified: true,
                   ...userDocFilter,
                 },
               },
@@ -9104,6 +9873,7 @@ for (const item of districtUsers) {
           {
             $match: {
               farmerProfile: {$exists: true, $ne: null},
+              isVerified: true,
               ...userDocFilter,
             },
           },
@@ -9581,7 +10351,7 @@ for (const item of districtUsers) {
     userType = 'all',
     startTime?: string,
     endTime?: string,
-  ): Promise<Array<{question: string; count: number}>> {
+  ): Promise<Array<{questionId: string; question: string; count: number}>> {
     try {
       await this.initReviewSystem();
       const matchQuery = buildBaseQuestionMatch('whatsapp');
@@ -9658,12 +10428,120 @@ for (const item of districtUsers) {
       ).toArray();
 
       return result.map(r => ({
+        questionId: String(r._id),
         question: r.question,
         count: r.count,
       }));
     } catch (error) {
       throw new InternalServerError(
         `Failed to get top questions from collection: ${error}`,
+      );
+    }
+  }
+
+  async getTopQuestionInstances(
+    questionId: string,
+    dbSource = 'annam',
+    userType = 'all',
+    startTime?: string,
+    endTime?: string,
+    page: number = 1,
+    limit: number = 10,
+    session?: ClientSession,
+  ): Promise<{
+    data: any[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    try {
+      await this.initReviewSystem();
+      const matchQuery = buildBaseQuestionMatch('whatsapp');
+
+      if (startTime || endTime) {
+        matchQuery.createdAt = {};
+        if (startTime) {
+          matchQuery.createdAt.$gte = new Date(startTime);
+        }
+        if (endTime) {
+          matchQuery.createdAt.$lte = new Date(endTime);
+        }
+      }
+
+      const query = await this.buildQuestionUserTypeMatchQuery(
+        dbSource,
+        userType,
+      );
+
+      if (query && Object.keys(query).length > 0) {
+        matchQuery.$and.push(query);
+      }
+
+      let qId;
+      try {
+        qId = new ObjectId(questionId);
+      } catch (e) {
+        // Handle case where questionId is not a valid ObjectId
+        qId = questionId;
+      }
+
+      const skip = (page - 1) * limit;
+
+      const result = await this.QuestionCollection.aggregate(
+        [
+          {$match: matchQuery},
+          {
+            $addFields: {
+              resolvedId: {$ifNull: ['$referenceQuestionId', '$_id']},
+            },
+          },
+          {
+            $match: {
+              resolvedId: qId,
+            },
+          },
+          {$sort: {createdAt: -1}},
+          {
+            $facet: {
+              metadata: [{$count: 'total'}],
+              data: [
+                {$skip: skip},
+                {$limit: limit},
+                {
+                  $project: {
+                    _id: 1,
+                    threadId: 1,
+                    question: 1,
+                    createdAt: 1,
+                    status: 1,
+                    source: 1,
+                    userRole: 1,
+                    farmerId: 1,
+                    coordinatorId: 1,
+                  },
+                },
+              ],
+            },
+          },
+        ],
+        {session},
+      ).toArray();
+
+      const total = result[0]?.metadata[0]?.total || 0;
+      const data = result[0]?.data || [];
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        data,
+        total,
+        page,
+        limit,
+        totalPages,
+      };
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get top question instances: ${error}`,
       );
     }
   }
@@ -10526,22 +11404,67 @@ for (const item of districtUsers) {
             count: {
               $sum: 1,
             },
-            avgCloseTime: {
-              $avg: {
+            closedTimedCount: {
+              $sum: {
                 $cond: [
                   {
                     $and: [
                       {$eq: ['$status', 'closed']},
+                      {$ne: ['$createdAt', null]},
                       {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
                     ],
                   },
+                  1,
+                  0,
+                ],
+              },
+            },
+            closedTimeSum: {
+              $sum: {
+                $cond: [
                   {
-                    $divide: [
-                      {$subtract: ['$closedAt', '$createdAt']},
-                      1000 * 60,
+                    $and: [
+                      {$eq: ['$status', 'closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
                     ],
                   },
-                  null,
+                  {$subtract: ['$closedAt', '$createdAt']},
+                  0,
+                ],
+              },
+            },
+            passedTimedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'pass']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$passedAt', null]},
+                      {$gte: ['$passedAt', '$createdAt']},
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            passedTimeSum: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'pass']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$passedAt', null]},
+                      {$gte: ['$passedAt', '$createdAt']},
+                    ],
+                  },
+                  {$subtract: ['$passedAt', '$createdAt']},
+                  0,
                 ],
               },
             },
@@ -10560,8 +11483,17 @@ for (const item of districtUsers) {
                 v: '$count',
               },
             },
-            averageCloseTimeMinutes: {
-              $max: '$avgCloseTime',
+            closedTimedCount: {
+              $sum: '$closedTimedCount',
+            },
+            closedTimeSum: {
+              $sum: '$closedTimeSum',
+            },
+            passedTimedCount: {
+              $sum: '$passedTimedCount',
+            },
+            passedTimeSum: {
+              $sum: '$passedTimeSum',
             },
           },
         },
@@ -10574,9 +11506,62 @@ for (const item of districtUsers) {
               $arrayToObject: '$statuses',
             },
             averageCloseTimeMinutes: {
-              $ifNull: [
+              $cond: [
+                {$gt: ['$closedTimedCount', 0]},
                 {
-                  $round: ['$averageCloseTimeMinutes', 2],
+                  $round: [
+                    {
+                      $divide: [
+                        '$closedTimeSum',
+                        {$multiply: ['$closedTimedCount', 60000]},
+                      ],
+                    },
+                    2,
+                  ],
+                },
+                0,
+              ],
+            },
+            averagePassTimeMinutes: {
+              $cond: [
+                {$gt: ['$passedTimedCount', 0]},
+                {
+                  $round: [
+                    {
+                      $divide: [
+                        '$passedTimeSum',
+                        {$multiply: ['$passedTimedCount', 60000]},
+                      ],
+                    },
+                    2,
+                  ],
+                },
+                0,
+              ],
+            },
+            combinedAverageTimeMinutes: {
+              $cond: [
+                {
+                  $gt: [
+                    {$add: ['$closedTimedCount', '$passedTimedCount']},
+                    0,
+                  ],
+                },
+                {
+                  $round: [
+                    {
+                      $divide: [
+                        {$add: ['$closedTimeSum', '$passedTimeSum']},
+                        {
+                          $multiply: [
+                            {$add: ['$closedTimedCount', '$passedTimedCount']},
+                            60000,
+                          ],
+                        },
+                      ],
+                    },
+                    2,
+                  ],
                 },
                 0,
               ],
@@ -10606,11 +11591,40 @@ for (const item of districtUsers) {
       closedInSelectedTime.map(item => [item._id, item.closedInPeriod]),
     );
 
-    const result = analytics.map(item => ({
-      ...item,
-      closedInPeriod: closedMap.get(item.period) || 0,
-      carryForward: 0,
-    }));
+    const analyticsMap = new Map(
+      analytics.map(item => [item.period, item]),
+    );
+
+    const dateStrings: string[] = [];
+    const tempDate = new Date(start);
+    tempDate.setHours(12, 0, 0, 0);
+    const tempEnd = new Date(end);
+    tempEnd.setHours(12, 0, 0, 0);
+
+    while (tempDate <= tempEnd) {
+      const year = tempDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata', year: 'numeric' });
+      const month = tempDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata', month: '2-digit' });
+      const day = tempDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata', day: '2-digit' });
+      const dateStr = `${year}-${month}-${day}`;
+      if (!dateStrings.includes(dateStr)) {
+        dateStrings.push(dateStr);
+      }
+      tempDate.setDate(tempDate.getDate() + 1);
+    }
+
+    const result = dateStrings.map(dateStr => {
+      const existing = analyticsMap.get(dateStr);
+      return {
+        period: dateStr,
+        totalQuestions: existing?.totalQuestions || 0,
+        statuses: existing?.statuses || {},
+        averageCloseTimeMinutes: existing?.averageCloseTimeMinutes || 0,
+        averagePassTimeMinutes: existing?.averagePassTimeMinutes || 0,
+        combinedAverageTimeMinutes: existing?.combinedAverageTimeMinutes || 0,
+        closedInPeriod: closedMap.get(dateStr) || 0,
+        carryForward: 0,
+      };
+    });
 
     if (result.length) {
       result[result.length - 1].carryForward = carryForward;
@@ -10674,71 +11688,167 @@ for (const item of districtUsers) {
               },
               status: '$status',
             },
-
             count: {
               $sum: 1,
             },
-
-            avgCloseTime: {
-              $avg: {
+            closedTimedCount: {
+              $sum: {
                 $cond: [
                   {
                     $and: [
                       {$eq: ['$status', 'closed']},
+                      {$ne: ['$createdAt', null]},
                       {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
                     ],
                   },
+                  1,
+                  0,
+                ],
+              },
+            },
+            closedTimeSum: {
+              $sum: {
+                $cond: [
                   {
-                    $divide: [
-                      {$subtract: ['$closedAt', '$createdAt']},
-                      1000 * 60,
+                    $and: [
+                      {$eq: ['$status', 'closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
                     ],
                   },
-                  null,
+                  {$subtract: ['$closedAt', '$createdAt']},
+                  0,
+                ],
+              },
+            },
+            passedTimedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'pass']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$passedAt', null]},
+                      {$gte: ['$passedAt', '$createdAt']},
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            passedTimeSum: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'pass']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$passedAt', null]},
+                      {$gte: ['$passedAt', '$createdAt']},
+                    ],
+                  },
+                  {$subtract: ['$passedAt', '$createdAt']},
+                  0,
                 ],
               },
             },
           },
         },
-
         // Group by week
         {
           $group: {
             _id: '$_id.period',
-
             totalQuestions: {
               $sum: '$count',
             },
-
             statuses: {
               $push: {
                 k: '$_id.status',
                 v: '$count',
               },
             },
-
-            averageCloseTimeMinutes: {
-              $max: '$avgCloseTime',
+            closedTimedCount: {
+              $sum: '$closedTimedCount',
+            },
+            closedTimeSum: {
+              $sum: '$closedTimeSum',
+            },
+            passedTimedCount: {
+              $sum: '$passedTimedCount',
+            },
+            passedTimeSum: {
+              $sum: '$passedTimeSum',
             },
           },
         },
-
         {
           $project: {
             _id: 0,
-
             period: '$_id',
-
             totalQuestions: 1,
-
             statuses: {
               $arrayToObject: '$statuses',
             },
-
             averageCloseTimeMinutes: {
-              $ifNull: [
+              $cond: [
+                {$gt: ['$closedTimedCount', 0]},
                 {
-                  $round: ['$averageCloseTimeMinutes', 2],
+                  $round: [
+                    {
+                      $divide: [
+                        '$closedTimeSum',
+                        {$multiply: ['$closedTimedCount', 60000]},
+                      ],
+                    },
+                    2,
+                  ],
+                },
+                0,
+              ],
+            },
+            averagePassTimeMinutes: {
+              $cond: [
+                {$gt: ['$passedTimedCount', 0]},
+                {
+                  $round: [
+                    {
+                      $divide: [
+                        '$passedTimeSum',
+                        {$multiply: ['$passedTimedCount', 60000]},
+                      ],
+                    },
+                    2,
+                  ],
+                },
+                0,
+              ],
+            },
+            combinedAverageTimeMinutes: {
+              $cond: [
+                {
+                  $gt: [
+                    {$add: ['$closedTimedCount', '$passedTimedCount']},
+                    0,
+                  ],
+                },
+                {
+                  $round: [
+                    {
+                      $divide: [
+                        {$add: ['$closedTimeSum', '$passedTimeSum']},
+                        {
+                          $multiply: [
+                            {$add: ['$closedTimedCount', '$passedTimedCount']},
+                            60000,
+                          ],
+                        },
+                      ],
+                    },
+                    2,
+                  ],
                 },
                 0,
               ],
@@ -10814,71 +11924,167 @@ for (const item of districtUsers) {
               },
               status: '$status',
             },
-
             count: {
               $sum: 1,
             },
-
-            avgCloseTime: {
-              $avg: {
+            closedTimedCount: {
+              $sum: {
                 $cond: [
                   {
                     $and: [
                       {$eq: ['$status', 'closed']},
+                      {$ne: ['$createdAt', null]},
                       {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
                     ],
                   },
+                  1,
+                  0,
+                ],
+              },
+            },
+            closedTimeSum: {
+              $sum: {
+                $cond: [
                   {
-                    $divide: [
-                      {$subtract: ['$closedAt', '$createdAt']},
-                      1000 * 60,
+                    $and: [
+                      {$eq: ['$status', 'closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
                     ],
                   },
-                  null,
+                  {$subtract: ['$closedAt', '$createdAt']},
+                  0,
+                ],
+              },
+            },
+            passedTimedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'pass']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$passedAt', null]},
+                      {$gte: ['$passedAt', '$createdAt']},
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            passedTimeSum: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'pass']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$passedAt', null]},
+                      {$gte: ['$passedAt', '$createdAt']},
+                    ],
+                  },
+                  {$subtract: ['$passedAt', '$createdAt']},
+                  0,
                 ],
               },
             },
           },
         },
-
         // Group by month
         {
           $group: {
             _id: '$_id.period',
-
             totalQuestions: {
               $sum: '$count',
             },
-
             statuses: {
               $push: {
                 k: '$_id.status',
                 v: '$count',
               },
             },
-
-            averageCloseTimeMinutes: {
-              $max: '$avgCloseTime',
+            closedTimedCount: {
+              $sum: '$closedTimedCount',
+            },
+            closedTimeSum: {
+              $sum: '$closedTimeSum',
+            },
+            passedTimedCount: {
+              $sum: '$passedTimedCount',
+            },
+            passedTimeSum: {
+              $sum: '$passedTimeSum',
             },
           },
         },
-
         {
           $project: {
             _id: 0,
-
             period: '$_id',
-
             totalQuestions: 1,
-
             statuses: {
               $arrayToObject: '$statuses',
             },
-
             averageCloseTimeMinutes: {
-              $ifNull: [
+              $cond: [
+                {$gt: ['$closedTimedCount', 0]},
                 {
-                  $round: ['$averageCloseTimeMinutes', 2],
+                  $round: [
+                    {
+                      $divide: [
+                        '$closedTimeSum',
+                        {$multiply: ['$closedTimedCount', 60000]},
+                      ],
+                    },
+                    2,
+                  ],
+                },
+                0,
+              ],
+            },
+            averagePassTimeMinutes: {
+              $cond: [
+                {$gt: ['$passedTimedCount', 0]},
+                {
+                  $round: [
+                    {
+                      $divide: [
+                        '$passedTimeSum',
+                        {$multiply: ['$passedTimedCount', 60000]},
+                      ],
+                    },
+                    2,
+                  ],
+                },
+                0,
+              ],
+            },
+            combinedAverageTimeMinutes: {
+              $cond: [
+                {
+                  $gt: [
+                    {$add: ['$closedTimedCount', '$passedTimedCount']},
+                    0,
+                  ],
+                },
+                {
+                  $round: [
+                    {
+                      $divide: [
+                        {$add: ['$closedTimeSum', '$passedTimeSum']},
+                        {
+                          $multiply: [
+                            {$add: ['$closedTimedCount', '$passedTimedCount']},
+                            60000,
+                          ],
+                        },
+                      ],
+                    },
+                    2,
+                  ],
                 },
                 0,
               ],
@@ -11679,6 +12885,47 @@ for (const item of districtUsers) {
                   '$closedAt',
                 ],
               },
+              _effectiveCreatedAt: {
+                $let: {
+                  vars: {
+                    istHour: {
+                      $hour: {date: '$createdAt', timezone: 'Asia/Kolkata'},
+                    },
+                    istDateTrunc: {
+                      $dateTrunc: {
+                        date: '$createdAt',
+                        unit: 'day',
+                        timezone: 'Asia/Kolkata',
+                      },
+                    },
+                  },
+                  in: {
+                    $cond: {
+                      if: {$gte: ['$$istHour', 22]},
+                      then: {
+                        $dateAdd: {
+                          startDate: '$$istDateTrunc',
+                          unit: 'hour',
+                          amount: 30,
+                        },
+                      },
+                      else: {
+                        $cond: {
+                          if: {$lt: ['$$istHour', 6]},
+                          then: {
+                            $dateAdd: {
+                              startDate: '$$istDateTrunc',
+                              unit: 'hour',
+                              amount: 6,
+                            },
+                          },
+                          else: '$createdAt',
+                        },
+                      },
+                    },
+                  },
+                },
+              },
             },
           },
           {
@@ -11690,7 +12937,17 @@ for (const item of districtUsers) {
                   {$gte: ['$_operationalCompletionAt', '$createdAt']},
                   {
                     $lte: [
-                      {$subtract: ['$_operationalCompletionAt', '$createdAt']},
+                      {
+                        $max: [
+                          0,
+                          {
+                            $subtract: [
+                              '$_operationalCompletionAt',
+                              '$_effectiveCreatedAt',
+                            ],
+                          },
+                        ],
+                      },
                       2 * 60 * 60 * 1000,
                     ],
                   },
@@ -12168,7 +13425,7 @@ for (const item of districtUsers) {
                           },
                         },
                         user: {
-                          $ifNull: ['$userId', '$threadId'],
+                          $ifNull: ['$userId', '$messageId'],
                         },
                       },
                       userDailyCount: {
@@ -12546,7 +13803,7 @@ for (const item of districtUsers) {
     const externalUserSet = new Set(externalUserStrings);
 
     // Questions with null userId
-    const questionWithNullUsers = await this.QuestionCollection.find(
+    const questionsWithNullUsers = await this.QuestionCollection.find(
       {
         ...buildBaseQuestionMatch(source),
         userId: null,
@@ -12554,36 +13811,14 @@ for (const item of districtUsers) {
       {
         projection: {
           _id: 1,
-          threadId: 1,
           messageId: 1,
         },
       },
     ).toArray();
-    const threadIds = questionWithNullUsers
-      .filter(q => q.threadId)
-      .map(q => q.threadId);
 
-    const messageIds = questionWithNullUsers
-      .filter(q => !q.threadId && q.messageId)
+    const messageIds = questionsWithNullUsers
+      .filter(q => q.messageId)
       .map(q => q.messageId);
-    // Resolve threadId -> user
-    const conversations = await this.conversations
-      .find(
-        {
-          conversationId: {$in: threadIds},
-        },
-        {
-          projection: {
-            conversationId: 1,
-            user: 1,
-          },
-        },
-      )
-      .toArray();
-
-    const conversationUserMap = new Map(
-      conversations.map(c => [c.conversationId, c.user?.toString()]),
-    );
 
     // Resolve messageId -> user
     const messages = await this.messagesCollection
@@ -12605,15 +13840,9 @@ for (const item of districtUsers) {
     );
 
     // Questions whose null userId resolves to an EXTERNAL user
-    const externalResolvedQuestionIds = questionWithNullUsers
+    const externalResolvedQuestionIds = questionsWithNullUsers
       .filter(q => {
-        let resolvedUserId: string | undefined;
-
-        if (q.threadId) {
-          resolvedUserId = conversationUserMap.get(q.threadId);
-        } else if (q.messageId) {
-          resolvedUserId = messageUserMap.get(q.messageId);
-        }
+        const resolvedUserId = messageUserMap.get(q.messageId);
 
         return resolvedUserId && externalUserSet.has(resolvedUserId);
       })
@@ -12658,46 +13887,15 @@ for (const item of districtUsers) {
     questionUserMap: Map<string, string>;
   }> {
     const directUserIds = new Set<string>();
-
-    const threadIds: string[] = [];
-
     const messageIds: string[] = [];
 
     for (const question of questions) {
       if (question.userId) {
         directUserIds.add(question.userId.toString());
-      } else if (question.threadId) {
-        threadIds.push(question.threadId);
       } else if (question.messageId) {
         messageIds.push(question.messageId);
       }
     }
-
-    // Resolve threadId -> user
-    const conversations = threadIds.length
-      ? await this.conversations
-          .find(
-            {
-              conversationId: {
-                $in: threadIds,
-              },
-            },
-            {
-              projection: {
-                conversationId: 1,
-                user: 1,
-              },
-            },
-          )
-          .toArray()
-      : [];
-
-    const conversationUserMap = new Map(
-      conversations.map(conversation => [
-        conversation.conversationId,
-        conversation.user?.toString(),
-      ]),
-    );
 
     // Resolve messageId -> user
     const messages = messageIds.length
@@ -12722,7 +13920,7 @@ for (const item of districtUsers) {
       messages.map(message => [message.messageId, message.user?.toString()]),
     );
 
-    const resolvedUserIds = new Set<string>();
+    const resolvedUserIds = new Set<string>(directUserIds);
 
     const questionUserMap = new Map<string, string>();
 
@@ -12733,8 +13931,6 @@ for (const item of districtUsers) {
 
       if (question.userId) {
         resolvedUserId = question.userId.toString();
-      } else if (question.threadId) {
-        resolvedUserId = conversationUserMap.get(question.threadId);
       } else if (question.messageId) {
         resolvedUserId = messageUserMap.get(question.messageId);
       }
@@ -13263,9 +14459,9 @@ for (const item of districtUsers) {
           $in: ['closed'],
         };
       }
-      if(status === "pending"){
+      if (status === 'pending') {
         matchQuery.status = {
-          $nin: ["closed", "pass"],
+          $nin: ['closed', 'pass'],
         };
       }
 
@@ -13470,13 +14666,13 @@ for (const item of districtUsers) {
         $in: ['AJRASAKHA', 'WHATSAPP'],
       };
     }
-    if(tag !== "slabreached"){
-      matchQuery.status = { 
-        $in: ["closed"],
+    if (tag !== 'slabreached') {
+      matchQuery.status = {
+        $in: ['closed'],
       };
-      if(isPassed === "true"){
-        matchQuery.status = { 
-          $in: ["pass"],
+      if (isPassed === 'true') {
+        matchQuery.status = {
+          $in: ['pass'],
         };
       }
     }
@@ -13550,13 +14746,18 @@ for (const item of districtUsers) {
     }
 
     const slaCondition =
-      tag === "slabreached"
+      tag === 'slabreached'
         ? {
             $gt: [
               {
-                $subtract: [
-                  "$_operationalCompletionAt",
-                  "$createdAt",
+                $max: [
+                  0,
+                  {
+                    $subtract: [
+                      '$_operationalCompletionAt',
+                      '$_effectiveCreatedAt',
+                    ],
+                  },
                 ],
               },
               2 * 60 * 60 * 1000,
@@ -13565,9 +14766,14 @@ for (const item of districtUsers) {
         : {
             $lte: [
               {
-                $subtract: [
-                  "$_operationalCompletionAt",
-                  "$createdAt",
+                $max: [
+                  0,
+                  {
+                    $subtract: [
+                      '$_operationalCompletionAt',
+                      '$_effectiveCreatedAt',
+                    ],
+                  },
                 ],
               },
               2 * 60 * 60 * 1000,
@@ -13587,6 +14793,47 @@ for (const item of districtUsers) {
               '$passedAt',
               '$closedAt',
             ],
+          },
+          _effectiveCreatedAt: {
+            $let: {
+              vars: {
+                istHour: {
+                  $hour: {date: '$createdAt', timezone: 'Asia/Kolkata'},
+                },
+                istDateTrunc: {
+                  $dateTrunc: {
+                    date: '$createdAt',
+                    unit: 'day',
+                    timezone: 'Asia/Kolkata',
+                  },
+                },
+              },
+              in: {
+                $cond: {
+                  if: {$gte: ['$$istHour', 22]},
+                  then: {
+                    $dateAdd: {
+                      startDate: '$$istDateTrunc',
+                      unit: 'hour',
+                      amount: 30,
+                    },
+                  },
+                  else: {
+                    $cond: {
+                      if: {$lt: ['$$istHour', 6]},
+                      then: {
+                        $dateAdd: {
+                          startDate: '$$istDateTrunc',
+                          unit: 'hour',
+                          amount: 6,
+                        },
+                      },
+                      else: '$createdAt',
+                    },
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -14039,11 +15286,17 @@ for (const item of districtUsers) {
           .project({_id: 1})
           .toArray();
 
-        const searchUserIds = matchingUsers.map(user => user._id);
+        const searchUserIds = matchingUsers.map(user => user._id.toString());
 
-        matchQuery.user = {
-          $in: searchUserIds,
-        };
+        if (matchQuery.user && matchQuery.user.$in) {
+          matchQuery.user.$in = matchQuery.user.$in.filter((id: string) =>
+            searchUserIds.includes(id),
+          );
+        } else {
+          matchQuery.user = {
+            $in: searchUserIds,
+          };
+        }
       }
 
       const result = await this.messagesCollection
@@ -14266,78 +15519,125 @@ for (const item of districtUsers) {
               $sum: 1,
             },
 
-            closedQuestions: {
-              $sum: {
-                $cond: [{$eq: ['$status', 'closed']}, 1, 0],
-              },
-            },
+            // closedQuestions: {
+            //   $sum: {
+            //     $cond: [{$eq: ['$status', 'closed']}, 1, 0],
+            //   },
+            // },
 
-            totalCloseTimeMs: {
-              $sum: {
-                $cond: [
-                  {
-                    $and: [
-                      {$eq: ['$status', 'closed']},
-                      {$ne: ['$closedAt', null]},
-                    ],
-                  },
-                  {
-                    $subtract: ['$closedAt', '$createdAt'],
-                  },
-                  0,
-                ],
-              },
-            },
+            // totalCloseTimeMs: {
+            //   $sum: {
+            //     $cond: [
+            //       {
+            //         $and: [
+            //           {$eq: ['$status', 'closed']},
+            //           {$ne: ['$closedAt', null]},
+            //         ],
+            //       },
+            //       {
+            //         $subtract: ['$closedAt', '$createdAt'],
+            //       },
+            //       0,
+            //     ],
+            //   },
+            // },
           },
         },
         {
           $project: {
             totalQuestions: 1,
-            closedQuestions: 1,
+            // closedQuestions: 1,
 
-            avgCloseTimeHours: {
-              $cond: [
-                {$gt: ['$closedQuestions', 0]},
-                {
-                  $divide: [
-                    {
-                      $divide: ['$totalCloseTimeMs', '$closedQuestions'],
-                    },
-                    1000 * 60 * 60,
-                  ],
-                },
-                0,
-              ],
-            },
+            // avgCloseTimeHours: {
+            //   $cond: [
+            //     {$gt: ['$closedQuestions', 0]},
+            //     {
+            //       $divide: [
+            //         {
+            //           $divide: ['$totalCloseTimeMs', '$closedQuestions'],
+            //         },
+            //         1000 * 60 * 60,
+            //       ],
+            //     },
+            //     0,
+            //   ],
+            // },
           },
         },
       ]).toArray();
+
+      const feedbackByState = await this.messagesCollection
+        .aggregate([
+          {
+            $match: {
+              feedback: {$ne: null},
+              'feedback.rating': {$exists: true},
+              isCreatedByUser: false,
+              isDeleted: {$ne: true},
+            },
+          },
+          {
+            $addFields: {
+              userObjectId: {
+                $cond: [
+                  {
+                    $and: [{$ne: ['$user', null]}, {$ne: ['$user', '']}],
+                  },
+                  {$toObjectId: '$user'},
+                  null,
+                ],
+              },
+            },
+          },
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'userObjectId',
+              foreignField: '_id',
+              as: 'userDoc',
+            },
+          },
+          {
+            $unwind: '$userDoc',
+          },
+          {
+            $match: {
+              'userDoc.farmerProfile.state': {
+                $nin: [null, '', 'all', 'All', '<unknown>', 'Not Specified'],
+              },
+              ...userDocFilter,
+            },
+          },
+          {
+            $group: {
+              _id: '$userDoc.farmerProfile.state',
+
+              totalFeedbacks: {
+                $sum: 1,
+              },
+
+              positiveFeedbacks: {
+                $sum: {
+                  $cond: [{$eq: ['$feedback.rating', 'thumbsUp']}, 1, 0],
+                },
+              },
+
+              negativeFeedbacks: {
+                $sum: {
+                  $cond: [{$eq: ['$feedback.rating', 'thumbsDown']}, 1, 0],
+                },
+              },
+            },
+          },
+        ])
+        .toArray();
+
 
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
 
       const todayEnd = new Date();
       todayEnd.setHours(23, 59, 59, 999);
-
-      const debugRoles = await this.users
-        .aggregate([
-          {
-            $match: {
-              isVerified: true,
-              'farmerProfile.state': {$exists: true},
-              ...userDocFilter,
-            },
-          },
-          {
-            $group: {
-              _id: '$userRole',
-              count: {
-                $sum: 1,
-              },
-            },
-          },
-        ])
-        .toArray();
 
       const usersByState = await this.users
         .aggregate([
@@ -14415,10 +15715,10 @@ for (const item of districtUsers) {
       //   JSON.stringify(usersByState, null, 2),
       // );
 
-      const totalActiveFromStates = usersByState.reduce(
-        (sum, s) => sum + s.activeUsers,
-        0,
-      );
+      // const totalActiveFromStates = usersByState.reduce(
+      //   (sum, s) => sum + s.activeUsers,
+      //   0,
+      // );
 
       const stateMap = new Map();
 
@@ -14437,10 +15737,14 @@ for (const item of districtUsers) {
           state: q._id,
           stateCode: stateCodeMap.get(key) ?? null,
           totalQuestions: q.totalQuestions,
-          closedQuestions: q.closedQuestions,
-          avgCloseTimeHours: q.avgCloseTimeHours,
+          // closedQuestions: q.closedQuestions,
+          // avgCloseTimeHours: q.avgCloseTimeHours,
           totalUsers: 0,
           activeUsers: 0,
+
+          totalFeedbacks: 0,
+          positiveFeedbacks: 0,
+          negativeFeedbacks: 0,
 
           districtCoordinators: 0,
           blockCoordinators: 0,
@@ -14448,6 +15752,38 @@ for (const item of districtUsers) {
 
           coordinators: 0,
         });
+      }
+
+      for (const f of feedbackByState) {
+        const key = String(f._id).toLowerCase();
+
+        const existing = stateMap.get(key);
+
+        if (existing) {
+          existing.totalFeedbacks += f.totalFeedbacks;
+          existing.positiveFeedbacks += f.positiveFeedbacks;
+          existing.negativeFeedbacks += f.negativeFeedbacks;
+        } else {
+          stateMap.set(key, {
+            state: f._id,
+            stateCode: stateCodeMap.get(key) ?? null,
+
+            totalQuestions: 0,
+
+            totalFeedbacks: f.totalFeedbacks,
+            positiveFeedbacks: f.positiveFeedbacks,
+            negativeFeedbacks: f.negativeFeedbacks,
+
+            totalUsers: 0,
+            activeUsers: 0,
+
+            districtCoordinators: 0,
+            blockCoordinators: 0,
+            villageVolunteers: 0,
+
+            coordinators: 0,
+          });
+        }
       }
 
       // Merge user counts
@@ -14475,10 +15811,14 @@ for (const item of districtUsers) {
             state: u._id,
             stateCode: stateCodeMap.get(key) ?? null,
             totalQuestions: 0,
-            closedQuestions: 0,
-            avgCloseTimeHours: 0,
+            // closedQuestions: 0,
+            // avgCloseTimeHours: 0,
             totalUsers: u.totalUsers,
             activeUsers: u.activeUsers,
+
+            totalFeedbacks: 0,
+            positiveFeedbacks: 0,
+            negativeFeedbacks: 0,
 
             districtCoordinators: u.districtCoordinators ?? 0,
 
@@ -15036,6 +16376,17 @@ for (const item of districtUsers) {
         }
       }
 
+      const usersWithSessions = await this.attachActiveSessionCounts(
+        [
+          {
+            userId: userIdString,
+            ...users[0],
+          } as any,
+        ],
+        session,
+      );
+      const activeSessionCount = usersWithSessions[0]?.activeSessionCount ?? 0;
+
       return {
         userId: users[0]._id,
         name: users[0].name,
@@ -15046,6 +16397,7 @@ for (const item of districtUsers) {
         createdAt: users[0].createdAt,
         isVerified: users[0].isVerified,
         userRole: users[0].userRole,
+        activeSessionCount,
         totalQuestions: farmerDashboard.questionMetrics.totalQuestionsAsked,
         farmerDashboard,
         unAssigned: unAssigned ?? [],
@@ -15311,10 +16663,10 @@ for (const item of districtUsers) {
         throw new Error('Question not found');
       }
 
-      const conversation = question.threadId
-        ? await this.conversations.findOne(
+      const conversation = question.messageId
+        ? await this.messagesCollection.findOne(
             {
-              conversationId: question.threadId,
+              messageId: question.messageId,
             },
             {
               projection: {
@@ -15388,14 +16740,17 @@ for (const item of districtUsers) {
       }
 
       let questionPassedBy;
-      if(question.passedAt && question.passedBy){       
-        questionPassedBy = await this.ReviewUsers.findOne({
-          _id: new ObjectId(question.passedBy.toString()),
-        },{
-          projection:{
-            email: 1,
-          }
-        })
+      if (question.passedAt && question.passedBy) {
+        questionPassedBy = await this.ReviewUsers.findOne(
+          {
+            _id: new ObjectId(question.passedBy.toString()),
+          },
+          {
+            projection: {
+              email: 1,
+            },
+          },
+        );
       }
 
       const users = await this.ReviewUsers.find(
@@ -15461,35 +16816,42 @@ for (const item of districtUsers) {
       const isDuplicate =
         question.status === 'duplicate' || !!question.referenceQuestionId;
 
-      if (question.status === 'duplicate') {
-        return [
-          {
-            timestamp: question.createdAt,
-            user: '-',
-            action: 'Duplicate Question',
-            duration: null,
-            remarks: 'Original question lifecycle is not available.',
-            endTime: null,
-            eventType: 'duplicate',
-          },
-          {
-            timestamp: question.closedAt || question.updatedAt,
-            user: 'Buffer Time',
-            action: 'Question Marked As Duplicate',
-            duration:
-              question.updatedAt.getTime() - question.createdAt.getTime(),
-            remarks: 'Closed as duplicate',
-            endTime: question.closedAt || question.updatedAt,
-            eventType: 'closure',
-          },
-        ];
-      }
+      // if (question.status === 'duplicate') {
+      //   return [
+      //     {
+      //       timestamp: question.createdAt,
+      //       user: '-',
+      //       action: 'Duplicate Question',
+      //       duration: null,
+      //       remarks: 'Original question lifecycle is not available.',
+      //       endTime: null,
+      //       eventType: 'duplicate',
+      //     },
+      //     {
+      //       timestamp: question.closedAt || question.updatedAt,
+      //       user: 'Buffer Time',
+      //       action: 'Question Marked As Duplicate',
+      //       duration:
+      //         question.updatedAt.getTime() - question.createdAt.getTime(),
+      //       remarks: 'Closed as duplicate',
+      //       endTime: question.closedAt || question.updatedAt,
+      //       eventType: 'closure',
+      //     },
+      //   ];
+      // }
+
+      const questionAskedAt =
+        conversation?.createdAt && conversation.createdAt < question.createdAt
+          ? conversation.createdAt
+          : new Date(question.createdAt.getTime() - 5000);
 
       if (isDuplicate) {
         timeline.push({
           timestamp: question.createdAt,
-          user: questionAskedBy?.email ? questionAskedBy?.email : '-',
-          action: 'Duplicate Question',
+          user: questionAskedBy?.email
+            ? questionAskedBy?.email
+            : 'User details not available',
+          action: 'Question Asked',
           duration: null,
           remarks: 'Original question lifecycle is not available.',
           endTime: null,
@@ -15497,17 +16859,17 @@ for (const item of districtUsers) {
         });
       } else if (conversation?.createdAt) {
         timeline.push({
-          timestamp: conversation.createdAt,
+          timestamp: questionAskedAt,
           user: questionAskedBy?.email,
           action: 'Question Asked On Web Application',
           duration: null,
           remarks: '',
-          endTime: conversation.createdAt,
+          endTime: questionAskedAt,
           eventType: 'inception',
         });
 
         timeline.push({
-          timestamp: conversation.createdAt,
+          timestamp: questionAskedAt,
           user: 'Buffer Time',
           action: 'Pushed To Review System',
           duration:
@@ -15534,7 +16896,7 @@ for (const item of districtUsers) {
           duration: null,
           remarks: 'Conversation mapping not found',
           endTime: null,
-          eventType: "inception",
+          eventType: 'inception',
           // questionId: question._id,
         });
       }
@@ -15610,7 +16972,7 @@ for (const item of districtUsers) {
           userMap.get(question.moderatorId.toString()) || 'Unknown User';
 
         const moderatorAssignedAt =
-          typeof question.moderatorAssignedAt === "string"
+          typeof question.moderatorAssignedAt === 'string'
             ? new Date(question.moderatorAssignedAt)
             : question.moderatorAssignedAt;
 
@@ -15627,21 +16989,21 @@ for (const item of districtUsers) {
             duration:
               moderatorAssignedAt.getTime() -
               new Date(finalReviewerCompletedAt).getTime(),
-            remarks: "",
+            remarks: '',
             endTime: moderatorAssignedAt,
-            eventType: "system_wait",
+            eventType: 'system_wait',
           });
         }
-
+        const moderatorCompletedAt = question.closedAt || question.passedAt;
         timeline.push({
           timestamp: moderatorAssignedAt,
           user: moderatorName,
           action: 'Approval Review',
-          duration:
-            question.closedAt?.getTime() -
-            moderatorAssignedAt.getTime(),
-          remarks: "",
-          endTime: question.closedAt,
+          duration: moderatorCompletedAt
+            ? moderatorCompletedAt.getTime() - moderatorAssignedAt.getTime()
+            : Date.now() - moderatorAssignedAt.getTime(),
+          remarks: '',
+          endTime: moderatorCompletedAt ?? new Date(),
           eventType: 'moderator',
         });
       }
@@ -15719,12 +17081,18 @@ for (const item of districtUsers) {
 
       const isClosed = !!question.closedAt || !!question.passedAt;
 
+      const moderatorInProgress =
+        !!question.moderatorAssignedAt &&
+        !question.closedAt &&
+        !question.passedAt;
+
       const currentAssigneeInProgress =
         reviewTimeline.length > 0 &&
         reviewTimeline[reviewTimeline.length - 1].isCompleted === false;
 
       const hasActiveWork =
         currentAssigneeInProgress ||
+        moderatorInProgress ||
         rerouteDoc?.reroutes?.some((r: any) => r.status === 'pending');
 
       if (!isClosed && !hasActiveWork) {
@@ -15754,40 +17122,36 @@ for (const item of districtUsers) {
       let completionTime = question.closedAt || question.passedAt;
 
       if (completionTime) {
-          const last = finalTimeline[finalTimeline.length - 1];
+        const last = finalTimeline[finalTimeline.length - 1];
 
-          if (last) {
-              const lastTimestamp =
-                  last.endTime ??
-                  last.timestamp;
+        if (last) {
+          const lastTimestamp = last.endTime ?? last.timestamp;
 
-              if (lastTimestamp) {
-                  const lastEnd = new Date(lastTimestamp);
+          if (lastTimestamp) {
+            const lastEnd = new Date(lastTimestamp);
 
-                  if (!isNaN(lastEnd.getTime())) {
-
-                      if (typeof completionTime === "string") {
-                          completionTime = new Date(completionTime);
-                      }
-
-                      const waitForClosure =
-                          completionTime.getTime() -
-                          lastEnd.getTime();
-
-                      if (waitForClosure > 1000) {
-                          finalTimeline.push({
-                              timestamp: lastEnd,
-                              user: "Buffer Time",
-                              action: "Awaiting Closure/Pass",
-                              duration: waitForClosure,
-                              remarks: "",
-                              endTime: completionTime,
-                              eventType: "system_wait",
-                          });
-                      }
-                  }
+            if (!isNaN(lastEnd.getTime())) {
+              if (typeof completionTime === 'string') {
+                completionTime = new Date(completionTime);
               }
+
+              const waitForClosure =
+                completionTime.getTime() - lastEnd.getTime();
+
+              if (waitForClosure > 1000) {
+                finalTimeline.push({
+                  timestamp: lastEnd,
+                  user: 'Buffer Time',
+                  action: 'Awaiting Closure/Pass',
+                  duration: waitForClosure,
+                  remarks: '',
+                  endTime: completionTime,
+                  eventType: 'system_wait',
+                });
+              }
+            }
           }
+        }
       }
 
       // ---------------------------------------------------
@@ -15813,9 +17177,7 @@ for (const item of districtUsers) {
           timestamp: question.passedAt,
           user: questionPassedBy?.email || '-',
           action: `Question Passed ${
-            question.passingRemark
-              ? ` (Remark: ${question.passingRemark})`
-              : ''
+            question.passingRemark ? ` (Remark: ${question.passingRemark})` : ''
           }`,
           duration: null,
           remarks: '',
@@ -16627,76 +17989,63 @@ for (const item of districtUsers) {
     }
   }
 
-  async getLifeCycleSummary(    
-      status = "all",
-      source = "annam",
-      userType = "all",
-      startDate?: Date,
-      endDate?: Date,
-      isPassed?: string,
-      tag?: string,
-      notificationType?: string,
-    ) {
-    try{
+  async getLifeCycleSummary(
+    status = 'all',
+    source = 'annam',
+    userType = 'all',
+    startDate?: Date,
+    endDate?: Date,
+    isPassed?: string,
+    tag?: string,
+    notificationType?: string,
+    page = 1,
+    limit = 1000,
+  ) {
+    try {
       await this.initReviewSystem();
       await this.init('annam');
-      const sourceType =
-        source === "whatsapp"
-        ? "WHATSAPP"
-        : "AJRASAKHA";
+      const sourceType = source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
 
-      const matchQuery =
-        buildBaseQuestionMatch(sourceType);
+      const matchQuery = buildBaseQuestionMatch(sourceType);
 
-      if (source === "both") {
+      if (source === 'both') {
         matchQuery.source = {
-          $in: ["AJRASAKHA", "WHATSAPP"],
+          $in: ['AJRASAKHA', 'WHATSAPP'],
         };
       }
-      if(tag === "closed"){
-        if (status === "closed") {
+      if (tag === 'closed') {
+        if (status === 'closed') {
           matchQuery.status = {
-            $in: ["closed"],
+            $in: ['closed'],
           };
-        } else if (status === "pending") {
+        } else if (status === 'pending') {
           matchQuery.status = {
-            $nin: ["closed", "pass"],
+            $nin: ['closed', 'pass'],
           };
-        } else if (status !== "all") {
+        } else if (status !== 'all') {
           matchQuery.status = status;
         }
-      } else if(tag === "sla"){
-        if (isPassed === "true") {
+      } else if (tag === 'sla') {
+        if (isPassed === 'true') {
           matchQuery.status = {
-            $in: ["pass"],
+            $in: ['pass'],
           };
         }
-        if(isPassed === "false"){
+        if (isPassed === 'false') {
           matchQuery.status = {
-            $in: ["closed"],
+            $in: ['closed'],
           };
         }
-      }  else if (tag === "notify") {
+      } else if (tag === 'notify') {
         matchQuery.status = {
-          $in: ["closed"],
+          $in: ['closed'],
         };
-
-        if (isPassed === "true") {
-          matchQuery.isCustomerNotified = true;
-        } else if (isPassed === "false") {
-          matchQuery.isCustomerNotified = false;
-        } else if (isPassed === "untracked") {
-          matchQuery.isCustomerNotified = {
-            $exists: false,
-          };
-        }
       }
 
-      const query =
-        await this.buildQuestionUserTypeMatchQuery(
-          source,
-          userType,
-        );
+      const query = await this.buildQuestionUserTypeMatchQuery(
+        source,
+        userType,
+      );
 
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
@@ -16711,215 +18060,192 @@ for (const item of districtUsers) {
 
         if (endDate) {
           const endOfDay = new Date(endDate);
-          endOfDay.setHours(
-            23,
-            59,
-            59,
-            999,
-          );
-          matchQuery.createdAt.$lte =
-            endOfDay;
+          endOfDay.setHours(23, 59, 59, 999);
+          matchQuery.createdAt.$lte = endOfDay;
         }
       }
 
-      if (tag === "notify") {
+      if (tag === 'notify') {
         switch (notificationType) {
-          case "notified":
+          case 'notified':
             matchQuery.isCustomerNotified = true;
             break;
-          case "not-notified":
+          case 'not-notified':
             matchQuery.isCustomerNotified = false;
             break;
-          case "untracked":
+          case 'untracked':
             matchQuery.isCustomerNotified = {
               $exists: false,
             };
             break;
         }
       }
-      
-      let questionIds;
-      if(tag === "closed"){
-       questionIds =
-        await this.QuestionCollection
-          .find(
-            matchQuery,
-            {
-              projection: {
-                _id: 1,
-              },
-            },
-          )
-          .map(
-            (x) => x._id.toString(),
-          )
-          .toArray();
-      } else if (tag === "sla") {
-        const result = await this.QuestionCollection
-          .aggregate([
-            {
-              $match: matchQuery,
-            },
-            {
-              $addFields: {
-                _statusLower: {
-                  $toLower: {
-                    $ifNull: ["$status", ""],
-                  },
-                },
-                _operationalCompletionAt: {
-                  $cond: [
-                    {
-                      $eq: [
-                        {
-                          $toLower: {
-                            $ifNull: ["$status", ""],
-                          },
-                        },
-                        "pass",
-                      ],
-                    },
-                    "$passedAt",
-                    "$closedAt",
-                  ],
-                },
-              },
-            },
-            {
-              $match: {
-                _statusLower: {
-                  $in: ["closed", "pass"],
-                },
-                _operationalCompletionAt: {
-                  $ne: null,
-                },
-                $expr: {
-                  $and: [
-                    {
-                      $gte: [
-                        "$_operationalCompletionAt",
-                        "$createdAt",
-                      ],
-                    },
-                    {
-                      $lte: [
-                        {
-                          $subtract: [
-                            "$_operationalCompletionAt",
-                            "$createdAt",
-                          ],
-                        },
-                        2 * 60 * 60 * 1000,
-                      ],
-                    },
-                  ],
-                },
-              },
-            },
-            {
-              $project: {
-                _id: 1,
-              },
-            },
-          ])
-          .toArray();
 
-        questionIds = result.map((x) =>
-          x._id.toString(),
-        );
-      } else if (tag === "slabreached") {
+      let questionIds;
+      if (tag === 'closed') {
+        questionIds = await this.QuestionCollection.find(matchQuery, {
+          projection: {
+            _id: 1,
+          },
+        })
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .map(x => x._id.toString())
+          .toArray();
+      } else if (tag === 'sla') {
+        const result = await this.QuestionCollection.aggregate([
+          {
+            $match: matchQuery,
+          },
+          {
+            $addFields: {
+              _statusLower: {
+                $toLower: {
+                  $ifNull: ['$status', ''],
+                },
+              },
+              _operationalCompletionAt: {
+                $cond: [
+                  {
+                    $eq: [
+                      {
+                        $toLower: {
+                          $ifNull: ['$status', ''],
+                        },
+                      },
+                      'pass',
+                    ],
+                  },
+                  '$passedAt',
+                  '$closedAt',
+                ],
+              },
+            },
+          },
+          {
+            $match: {
+              _statusLower: {
+                $in: ['closed', 'pass'],
+              },
+              _operationalCompletionAt: {
+                $ne: null,
+              },
+              $expr: {
+                $and: [
+                  {
+                    $gte: ['$_operationalCompletionAt', '$createdAt'],
+                  },
+                  {
+                    $lte: [
+                      {
+                        $subtract: ['$_operationalCompletionAt', '$createdAt'],
+                      },
+                      2 * 60 * 60 * 1000,
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+          {
+            $project: {
+              _id: 1,
+            },
+          },
+          {
+            $skip: (page - 1) * limit,
+          },
+          {
+            $limit: limit,
+          },
+        ]).toArray();
+
+        questionIds = result.map(x => x._id.toString());
+      } else if (tag === 'slabreached') {
         matchQuery.status = {
-          $in: ["closed", "pass"],
+          $in: ['closed', 'pass'],
         };
 
-        const breachedQuestions =
-          await this.QuestionCollection.aggregate([
-            {
-              $match: matchQuery,
-            },
-            {
-              $addFields: {
-                _statusLower: {
-                  $toLower: {
-                    $ifNull: ["$status", ""],
+        const breachedQuestions = await this.QuestionCollection.aggregate([
+          {
+            $match: matchQuery,
+          },
+          {
+            $addFields: {
+              _statusLower: {
+                $toLower: {
+                  $ifNull: ['$status', ''],
+                },
+              },
+              _operationalCompletionAt: {
+                $cond: [
+                  {
+                    $eq: [
+                      {
+                        $toLower: {
+                          $ifNull: ['$status', ''],
+                        },
+                      },
+                      'pass',
+                    ],
                   },
-                },
-                _operationalCompletionAt: {
-                  $cond: [
-                    {
-                      $eq: [
-                        {
-                          $toLower: {
-                            $ifNull: ["$status", ""],
-                          },
-                        },
-                        "pass",
-                      ],
-                    },
-                    "$passedAt",
-                    "$closedAt",
-                  ],
-                },
+                  '$passedAt',
+                  '$closedAt',
+                ],
               },
             },
-            {
-              $match: {
-                _statusLower: {
-                  $in: ["closed", "pass"],
-                },
-                _operationalCompletionAt: {
-                  $ne: null,
-                },
-                $expr: {
-                  $and: [
-                    {
-                      $gte: [
-                        "$_operationalCompletionAt",
-                        "$createdAt",
-                      ],
-                    },
-                    {
-                      $gt: [
-                        {
-                          $subtract: [
-                            "$_operationalCompletionAt",
-                            "$createdAt",
-                          ],
-                        },
-                        2 * 60 * 60 * 1000,
-                      ],
-                    },
-                  ],
-                },
+          },
+          {
+            $match: {
+              _statusLower: {
+                $in: ['closed', 'pass'],
+              },
+              _operationalCompletionAt: {
+                $ne: null,
+              },
+              $expr: {
+                $and: [
+                  {
+                    $gte: ['$_operationalCompletionAt', '$createdAt'],
+                  },
+                  {
+                    $gt: [
+                      {
+                        $subtract: ['$_operationalCompletionAt', '$createdAt'],
+                      },
+                      2 * 60 * 60 * 1000,
+                    ],
+                  },
+                ],
               },
             },
-            {
-              $project: {
-                _id: 1,
-              },
+          },
+          {
+            $project: {
+              _id: 1,
             },
-          ]).toArray();
+          },
+          {
+            $skip: (page - 1) * limit,
+          },
+          {
+            $limit: limit,
+          },
+        ]).toArray();
 
-        questionIds = breachedQuestions.map(
-          (q) => q._id.toString(),
-        );
-      } else if (tag === "notify") {
-        questionIds = await this.QuestionCollection
-          .find(
-            matchQuery,
-            {
-              projection: {
-                _id: 1,
-              },
-            },
-          )
-          .map((x) => x._id.toString())
+        questionIds = breachedQuestions.map(q => q._id.toString());
+      } else if (tag === 'notify') {
+        questionIds = await this.QuestionCollection.find(matchQuery, {
+          projection: {
+            _id: 1,
+          },
+        })
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .map(x => x._id.toString())
           .toArray();
       }
-      const lifecycles =
-        await this.getQuestionLifecycleForSummary(
-          questionIds,
-        );
+      const lifecycles = await this.getQuestionLifecycleForSummary(questionIds);
 
       const totalQuestions = questionIds.length;
 
@@ -16950,9 +18276,7 @@ for (const item of districtUsers) {
       for (const lifecycleObj of lifecycles) {
         const lifecycle = lifecycleObj.timeline;
         const validEvents = lifecycle.filter(
-          (x) =>
-            x.timestamp &&
-            new Date(x.timestamp).getTime() > 0,
+          x => x.timestamp && new Date(x.timestamp).getTime() > 0,
         );
         const first = validEvents[0];
         const last = validEvents.at(-1);
@@ -16962,29 +18286,37 @@ for (const item of districtUsers) {
         // =====================
 
         if (
-            first &&
-            (lifecycleObj.status === "closed" || lifecycleObj.status === "pass")
+          first &&
+          ['closed', 'pass', 'duplicate'].includes(lifecycleObj.status)
         ) {
-            const resolutionTime =
-            lifecycleObj.status === "pass"
-                ? lifecycleObj.passedAt
-                : lifecycleObj.closedAt;
-            if (!resolutionTime) continue;
-            const lifecycleTime =
-                new Date(resolutionTime).getTime() -
-                new Date(first.timestamp).getTime();
-            resolvedQuestions++;
-            if (lifecycleTime > 2 * 60 * 60 * 1000) {
-                slaBreachedCount++;
-            }
-        }
+          let resolutionTime: Date | null = null;
 
-        if (first && last) {
-            const lifecycleTime =
-                new Date(last.timestamp).getTime()
-                -
-                new Date(first.timestamp).getTime();
-            totalLifecycleTime += lifecycleTime;
+          if (lifecycleObj.status === 'pass') {
+            resolutionTime = lifecycleObj.passedAt;
+          } else if (lifecycleObj.status === 'closed') {
+            resolutionTime = lifecycleObj.closedAt;
+          } else {
+            // duplicate
+            const duplicateEvent = lifecycleObj.timeline.find(
+              (x: any) => x.action === 'Question Marked As Duplicate',
+            );
+
+            resolutionTime =
+              duplicateEvent?.endTime || duplicateEvent?.timestamp || null;
+          }
+
+          if (!resolutionTime) continue;
+
+          const lifecycleTime =
+            new Date(resolutionTime).getTime() -
+            new Date(first.timestamp).getTime();
+
+          totalLifecycleTime += lifecycleTime;
+          resolvedQuestions++;
+
+          if (lifecycleTime > 2 * 60 * 60 * 1000) {
+            slaBreachedCount++;
+          }
         }
 
         // =====================
@@ -16992,22 +18324,23 @@ for (const item of districtUsers) {
         // =====================
 
         lifecycle
-          .filter((x) => x.eventType === "system_wait")
-          .forEach((x) => {
+          .filter(x => x.eventType === 'system_wait')
+          .forEach(x => {
             switch (x.action) {
-              case "Pushed To Review System":
+              case 'Pushed To Review System':
                 totalPushToReviewTime += x.duration || 0;
                 break;
-              case "Initial Allocation Pending":
+              case 'Initial Allocation Pending':
                 totalInitialAllocationTime += x.duration || 0;
                 break;
-              case "Pending Next Assignment":
+              case 'Pending Next Assignment':
                 totalPendingAssignmentTime += x.duration || 0;
                 break;
-              case "Awaiting Moderator Assignment":
+
+              case 'Awaiting Moderator Assignment':
                 totalAwaitingModeratorTime += x.duration || 0;
                 break;
-              case "Awaiting Closure/Pass":
+              case 'Awaiting Closure/Pass':
                 totalAwaitingClosureTime += x.duration || 0;
                 break;
             }
@@ -17017,9 +18350,7 @@ for (const item of districtUsers) {
         // Authoring (R0)
         // =====================
 
-        const authors = lifecycle.filter(
-          (x) => x.eventType === "author",
-        );
+        const authors = lifecycle.filter(x => x.eventType === 'author');
 
         if (authors.length) {
           authoringCount++;
@@ -17033,15 +18364,11 @@ for (const item of districtUsers) {
         // Reviewers (R1/R2/R3)
         // =====================
 
-        const reviewers = lifecycle.filter(
-          (x) => x.eventType === "reviewer",
-        );
+        const reviewers = lifecycle.filter(x => x.eventType === 'reviewer');
 
         if (reviewers.length) {
           questionsWithReviewers++;
-          totalReviewers += new Set(
-            reviewers.map((x) => x.user),
-          ).size;
+          totalReviewers += new Set(reviewers.map(x => x.user)).size;
         }
         if (reviewers[0]) {
           totalR1Time += reviewers[0].duration || 0;
@@ -17060,9 +18387,7 @@ for (const item of districtUsers) {
         // Moderator
         // =====================
 
-        const moderators = lifecycle.filter(
-          (x) => x.eventType === "moderator",
-        );
+        const moderators = lifecycle.filter(x => x.eventType === 'moderator');
         if (moderators.length) {
           moderatorCount++;
           totalModeratorTime += moderators.reduce(
@@ -17075,9 +18400,7 @@ for (const item of districtUsers) {
         // Reroutes
         // =====================
 
-        const reroutes = lifecycle.filter(
-          (x) => x.eventType === "reroute",
-        );
+        const reroutes = lifecycle.filter(x => x.eventType === 'reroute');
         totalReroutes += reroutes.length;
         totalRerouteTime += reroutes.reduce(
           (sum, x) => sum + (x.duration || 0),
@@ -17088,135 +18411,91 @@ for (const item of districtUsers) {
 
       return {
         totalQuestions,
-        avgLifecycleTime:
-          resolvedQuestions > 0
-            ? totalLifecycleTime / resolvedQuestions
-            : 0,
-        avgPushToReviewTime:
-          totalPushToReviewTime / totalQuestions,
-        avgInitialAllocationTime:
-          totalInitialAllocationTime / totalQuestions,
-        avgPendingAssignmentTime:
-          totalPendingAssignmentTime / totalQuestions,
-        avgAwaitingModeratorTime:
-          totalAwaitingModeratorTime / totalQuestions,
-        avgAwaitingClosureTime:
-          totalAwaitingClosureTime / totalQuestions,
-        avgAuthoringTime:
-          authoringCount > 0
-            ? totalAuthoringTime / authoringCount
-            : 0,
-        avgR1Time:
-          r1Count > 0
-            ? totalR1Time / r1Count
-            : 0,
-        avgR2Time:
-          r2Count > 0
-            ? totalR2Time / r2Count
-            : 0,
-        avgR3Time:
-          r3Count > 0
-            ? totalR3Time / r3Count
-            : 0,
-        avgModeratorTime:
-          moderatorCount > 0
-            ? totalModeratorTime / moderatorCount
-            : 0,
+        avgLifecycleTime: totalLifecycleTime / totalQuestions,
+        // resolvedQuestions > 0 ? totalLifecycleTime / resolvedQuestions : 0,
+        avgPushToReviewTime: totalPushToReviewTime / totalQuestions,
+        avgInitialAllocationTime: totalInitialAllocationTime / totalQuestions,
+        avgPendingAssignmentTime: totalPendingAssignmentTime / totalQuestions,
+        avgAwaitingModeratorTime: totalAwaitingModeratorTime / totalQuestions,
+        avgAwaitingClosureTime: totalAwaitingClosureTime / totalQuestions,
+        avgAuthoringTime: totalAuthoringTime / totalQuestions,
+        // authoringCount > 0 ? totalAuthoringTime / authoringCount : 0,
+        avgR1Time: r1Count > 0 ? totalR1Time / totalQuestions : 0,
+        avgR2Time: r2Count > 0 ? totalR2Time / totalQuestions : 0,
+        avgR3Time: r3Count > 0 ? totalR3Time / totalQuestions : 0,
+        avgModeratorTime: totalModeratorTime / totalQuestions,
+        // moderatorCount > 0 ? totalModeratorTime / moderatorCount : 0,
         totalReroutes,
         avgReroutesPerQuestion:
-          totalQuestions > 0
-            ? totalReroutes / totalQuestions
-            : 0,
+          totalQuestions > 0 ? totalReroutes / totalQuestions : 0,
         avgRerouteTime:
-          totalReroutes > 0
-            ? totalRerouteTime / totalReroutes
-            : 0,
+          totalReroutes > 0 ? totalRerouteTime / totalReroutes : 0,
         avgReviewersPerQuestion:
           questionsWithReviewers > 0
             ? totalReviewers / questionsWithReviewers
             : 0,
         slaBreachedCount,
         resolutionRate:
-        totalQuestions > 0
-          ? (resolvedQuestions / totalQuestions) * 100
-          : 0,
+          totalQuestions > 0 ? (resolvedQuestions / totalQuestions) * 100 : 0,
+        page,
+        limit,
       };
-    } catch(err){
-      console.log("error in getlifecyclesummary:", err);
+    } catch (err) {
+      console.log('error in getlifecyclesummary:', err);
       throw Error(err);
     }
   }
 
-  async getQuestionLifecycleForSummary(
-    questionIds: string[],
-  ): Promise<any[]> {
+  async getQuestionLifecycleForSummary(questionIds: string[]): Promise<any[]> {
     await this.initReviewSystem();
-    await this.init("annam");
+    await this.init('annam');
 
-    const objectIds = questionIds.map(
-      (id) => new ObjectId(id),
-    );
+    const objectIds = questionIds.map(id => new ObjectId(id));
 
     // -------------------------
     // Bulk fetch
     // -------------------------
 
-    const [questions, submissions, reroutes] =
-      await Promise.all([
-        this.QuestionCollection.find({
-          _id: { $in: objectIds },
-        }).toArray(),
+    const [questions, submissions, reroutes] = await Promise.all([
+      this.QuestionCollection.find({
+        _id: {$in: objectIds},
+      }).toArray(),
 
-        this.QuestionSubmissionsCollection.find({
-          questionId: { $in: objectIds },
-        }).toArray(),
+      this.QuestionSubmissionsCollection.find({
+        questionId: {$in: objectIds},
+      }).toArray(),
 
-        this.Reroutes.find({
-          questionId: { $in: objectIds },
-        }).toArray(),
-      ]);
+      this.Reroutes.find({
+        questionId: {$in: objectIds},
+      }).toArray(),
+    ]);
 
     // -------------------------
     // Maps
     // -------------------------
 
     const submissionMap = new Map(
-      submissions.map((s) => [
-        s.questionId.toString(),
-        s,
-      ]),
+      submissions.map(s => [s.questionId.toString(), s]),
     );
 
-    const rerouteMap = new Map(
-      reroutes.map((r) => [
-        r.questionId.toString(),
-        r,
-      ]),
-    );
+    const rerouteMap = new Map(reroutes.map(r => [r.questionId.toString(), r]));
 
     // -------------------------
     // Build lifecycles
     // -------------------------
 
-    return questions.map((question) => {
-      const submission =
-        submissionMap.get(
-          question._id.toString(),
-        );
+    return questions.map(question => {
+      const submission = submissionMap.get(question._id.toString());
 
-      const rerouteDoc =
-        rerouteMap.get(
-          question._id.toString(),
-        );
+      const rerouteDoc = rerouteMap.get(question._id.toString());
 
-      const reviewTimeline =
-        buildReviewTimeline(
-          submission?.history || [],
-          submission?.queue || [],
-          question.createdAt,
-          question.status,
-          question.firstAllocationAt,
-        );
+      const reviewTimeline = buildReviewTimeline(
+        submission?.history || [],
+        submission?.queue || [],
+        question.createdAt,
+        question.status,
+        question.firstAllocationAt,
+      );
 
       const timeline: any[] = [];
 
@@ -17224,42 +18503,35 @@ for (const item of districtUsers) {
       // Duplicate questions
       // -------------------------
 
-      if (question.status === "duplicate") {
-          return {
-              questionId: question._id,
-              createdAt: question.createdAt,
-              closedAt: question.closedAt,
-              passedAt: question.passedAt,
-              status: question.status,
-              timeline: [
-                  {
-                      timestamp: question.createdAt,
-                      user: "-",
-                      action: "Duplicate Question",
-                      duration: null,
-                      remarks:
-                          "Original question lifecycle is not available.",
-                      endTime: null,
-                      eventType: "duplicate",
-                  },
-                  {
-                      timestamp:
-                          question.closedAt ||
-                          question.updatedAt,
-                      user: "Buffer Time",
-                      action:
-                          "Question Marked As Duplicate",
-                      duration:
-                          question.updatedAt.getTime() -
-                          question.createdAt.getTime(),
-                      remarks: "Closed as duplicate",
-                      endTime:
-                          question.closedAt ||
-                          question.updatedAt,
-                      eventType: "closure",
-                  },
-              ],
-          };
+      if (question.status === 'duplicate') {
+        return {
+          questionId: question._id,
+          createdAt: question.createdAt,
+          closedAt: question.closedAt,
+          passedAt: question.passedAt,
+          status: question.status,
+          timeline: [
+            {
+              timestamp: question.createdAt,
+              user: '-',
+              action: 'Duplicate Question',
+              duration: null,
+              remarks: 'Original question lifecycle is not available.',
+              endTime: null,
+              eventType: 'duplicate',
+            },
+            {
+              timestamp: question.closedAt || question.updatedAt,
+              user: 'Buffer Time',
+              action: 'Question Marked As Duplicate',
+              duration:
+                question.updatedAt.getTime() - question.createdAt.getTime(),
+              remarks: 'Closed as duplicate',
+              endTime: question.closedAt || question.updatedAt,
+              eventType: 'closure',
+            },
+          ],
+        };
       }
 
       // -------------------------
@@ -17268,15 +18540,15 @@ for (const item of districtUsers) {
 
       timeline.push({
         timestamp: question.createdAt,
-        user: "-",
+        user: '-',
         action:
-          question.source === "AGRI_EXPERT"
-            ? "Question Created Internally"
-            : "Question Asked",
+          question.source === 'AGRI_EXPERT'
+            ? 'Question Created Internally'
+            : 'Question Asked',
         duration: null,
-        remarks: "",
+        remarks: '',
         endTime: question.createdAt,
-        eventType: "inception",
+        eventType: 'inception',
       });
 
       // -------------------------
@@ -17285,26 +18557,20 @@ for (const item of districtUsers) {
 
       if (
         question.firstAllocationAt &&
-        new Date(
-          question.firstAllocationAt,
-        ).getTime() -
+        new Date(question.firstAllocationAt).getTime() -
           question.createdAt.getTime() >
           1000
       ) {
         timeline.push({
           timestamp: question.createdAt,
-          user: "Buffer Time",
-          action:
-            "Initial Allocation Pending",
+          user: 'Buffer Time',
+          action: 'Initial Allocation Pending',
           duration:
-            new Date(
-              question.firstAllocationAt,
-            ).getTime() -
+            new Date(question.firstAllocationAt).getTime() -
             question.createdAt.getTime(),
-          remarks: "",
-          endTime:
-            question.firstAllocationAt,
-          eventType: "system_wait",
+          remarks: '',
+          endTime: question.firstAllocationAt,
+          eventType: 'system_wait',
         });
       }
 
@@ -17312,118 +18578,90 @@ for (const item of districtUsers) {
       // Reviews
       // -------------------------
 
-      reviewTimeline.forEach(
-        (review, index) => {
-          const historyItem =
-            submission?.history?.[index];
+      reviewTimeline.forEach((review, index) => {
+        const historyItem = submission?.history?.[index];
 
-          let action = "Review";
+        let action = 'Review';
 
-          if (index === 0) {
-            action = review.isCompleted
-              ? "Authored Answer"
-              : "Authoring Answer";
-          } else if (
-            historyItem?.modifiedAnswer
-          ) {
-            action = "Modified";
-          } else if (
-            historyItem?.status
-          ) {
-            action =
-              historyItem.status
-                .charAt(0)
-                .toUpperCase() +
-              historyItem.status.slice(1);
-          }
+        if (index === 0) {
+          action = review.isCompleted ? 'Authored Answer' : 'Authoring Answer';
+        } else if (historyItem?.modifiedAnswer) {
+          action = 'Modified';
+        } else if (historyItem?.status) {
+          action =
+            historyItem.status.charAt(0).toUpperCase() +
+            historyItem.status.slice(1);
+        }
 
-          timeline.push({
-            timestamp:
-              review.assignedAt,
-            user: "-",
-            action,
-            duration:
-              review.isCompleted
-                ? review.timeTakenMs
-                : Date.now() -
-                  new Date(
-                    review.assignedAt,
-                  ).getTime(),
-            remarks:
-              historyItem?.reasonForRejection ||
-              historyItem?.reasonForLastModification ||
-              "",
-            endTime:
-              review.completedAt ||
-              review.assignedAt,
-            eventType:
-              index === 0
-                ? "author"
-                : "reviewer",
-          });
-        },
-      );
+        const isResolved = ['closed', 'pass', 'duplicate'].includes(
+          question.status,
+        );
+
+        const duration = review.isCompleted
+          ? review.timeTakenMs
+          : isResolved
+            ? 0
+            : Date.now() - new Date(review.assignedAt).getTime();
+
+        timeline.push({
+          timestamp: review.assignedAt,
+          user: '-',
+          action,
+          duration,
+          remarks:
+            historyItem?.reasonForRejection ||
+            historyItem?.reasonForLastModification ||
+            '',
+          endTime: review.completedAt || review.assignedAt,
+          eventType: index === 0 ? 'author' : 'reviewer',
+        });
+      });
 
       // -------------------------
       // Moderator
       // -------------------------
 
-      const lastReview =
-        reviewTimeline[
-          reviewTimeline.length - 1
-        ];
+      const lastReview = reviewTimeline[reviewTimeline.length - 1];
 
       const finalReviewerCompletedAt =
-        lastReview?.completedAt ||
-        lastReview?.assignedAt ||
-        question.createdAt;
+        lastReview?.completedAt || lastReview?.assignedAt || question.createdAt;
 
-      if (
-        question.moderatorAssignedAt &&
-        question.moderatorId
-      ) {
-        const moderatorAssignedAt =
-          new Date(
-            question.moderatorAssignedAt,
-          );
+      if (question.moderatorAssignedAt && question.moderatorId) {
+        const moderatorAssignedAt = new Date(question.moderatorAssignedAt);
 
         if (
           moderatorAssignedAt.getTime() >
-          new Date(
-            finalReviewerCompletedAt,
-          ).getTime()
+          new Date(finalReviewerCompletedAt).getTime()
         ) {
           timeline.push({
-            timestamp:
-              finalReviewerCompletedAt,
-            user: "Buffer Time",
-            action:
-              "Awaiting Moderator Assignment",
+            timestamp: finalReviewerCompletedAt,
+            user: 'Buffer Time',
+            action: 'Awaiting Moderator Assignment',
             duration:
               moderatorAssignedAt.getTime() -
-              new Date(
-                finalReviewerCompletedAt,
-              ).getTime(),
-            remarks: "",
-            endTime:
-              moderatorAssignedAt,
-            eventType: "system_wait",
+              new Date(finalReviewerCompletedAt).getTime(),
+            remarks: '',
+            endTime: moderatorAssignedAt,
+            eventType: 'system_wait',
           });
         }
 
+        const moderatorCompletedAt = question.closedAt || question.passedAt;
+
+        const moderatorCompleted = moderatorCompletedAt
+          ? new Date(moderatorCompletedAt)
+          : null;
+
         timeline.push({
-          timestamp:
-            moderatorAssignedAt,
-          user: "-",
-          action:
-            "Approval Review",
-          duration:
-            question.closedAt?.getTime() -
-            moderatorAssignedAt.getTime(),
-          remarks: "",
-          endTime:
-            question.closedAt,
-          eventType: "moderator",
+          timestamp: moderatorAssignedAt,
+          user: '-',
+          action: 'Approval Review',
+          duration: moderatorCompleted
+            ? moderatorCompleted.getTime() - moderatorAssignedAt.getTime()
+            : 0,
+          remarks: '',
+          endTime: moderatorCompleted,
+          eventType: 'moderator',
         });
       }
 
@@ -17431,43 +18669,31 @@ for (const item of districtUsers) {
       // Reroutes
       // -------------------------
 
-      rerouteDoc?.reroutes?.forEach(
-        (r: any) => {
-          const isPending =
-            r.status === "pending";
+      rerouteDoc?.reroutes?.forEach((r: any) => {
+        const isPending = r.status === 'pending';
 
-          let action =
-            "Approval Review";
+        let action = 'Approval Review';
 
-          if (r.status === "modified") {
-            action = "Modified";
-          }
+        if (r.status === 'modified') {
+          action = 'Modified';
+        }
 
-          if (r.status === "rejected") {
-            action = "Rejected";
-          }
+        if (r.status === 'rejected') {
+          action = 'Rejected';
+        }
 
-          timeline.push({
-            timestamp:
-              r.reroutedAt,
-            user: "-",
-            action,
-            duration: isPending
-              ? Date.now() -
-                new Date(
-                  r.reroutedAt,
-                ).getTime()
-              : r.updatedAt.getTime() -
-                r.reroutedAt.getTime(),
-            remarks:
-              r.comment || "",
-            endTime: isPending
-              ? new Date()
-              : r.updatedAt,
-            eventType: "reroute",
-          });
-        },
-      );
+        timeline.push({
+          timestamp: r.reroutedAt,
+          user: '-',
+          action,
+          duration: isPending
+            ? Date.now() - new Date(r.reroutedAt).getTime()
+            : r.updatedAt.getTime() - r.reroutedAt.getTime(),
+          remarks: r.comment || '',
+          endTime: isPending ? new Date() : r.updatedAt,
+          eventType: 'reroute',
+        });
+      });
 
       // -------------------------
       // Sort
@@ -17475,68 +18701,51 @@ for (const item of districtUsers) {
 
       timeline.sort(
         (a, b) =>
-          new Date(
-            a.timestamp,
-          ).getTime() -
-          new Date(
-            b.timestamp,
-          ).getTime(),
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
       );
 
       // -------------------------
       // Insert gaps
       // -------------------------
 
-      const finalTimeline: any[] =
-        [];
+      const finalTimeline: any[] = [];
 
-      for (
-        let i = 0;
-        i < timeline.length;
-        i++
-      ) {
-        finalTimeline.push(
-          timeline[i],
-        );
+      for (let i = 0; i < timeline.length; i++) {
+        finalTimeline.push(timeline[i]);
 
-        const current =
-          timeline[i];
+        const current = timeline[i];
 
-        const next =
-          timeline[i + 1];
+        const next = timeline[i + 1];
 
-        if (
-          !next ||
-          !current.endTime
-        ) {
+        if (!next || !current.endTime) {
           continue;
         }
 
         const gap =
-          new Date(
-            next.timestamp,
-          ).getTime() -
-          new Date(
-            current.endTime,
-          ).getTime();
+          new Date(next.timestamp).getTime() -
+          new Date(current.endTime).getTime();
+
+        const nextIsExplicitWait =
+          next.eventType === 'system_wait' &&
+          [
+            'Initial Allocation Pending',
+            'Awaiting Moderator Assignment',
+            'Awaiting Closure/Pass',
+          ].includes(next.action);
 
         if (
           gap > 1000 &&
-          current.eventType !==
-            "reroute"
+          current.eventType !== 'reroute' &&
+          !nextIsExplicitWait
         ) {
           finalTimeline.push({
-            timestamp:
-              current.endTime,
-            user: "Buffer Time",
-            action:
-              "Pending Next Assignment",
+            timestamp: current.endTime,
+            user: 'Buffer Time',
+            action: 'Pending Next Assignment',
             duration: gap,
-            remarks: "",
-            endTime:
-              next.timestamp,
-            eventType:
-              "system_wait",
+            remarks: '',
+            endTime: next.timestamp,
+            eventType: 'system_wait',
           });
         }
       }
@@ -17545,8 +18754,7 @@ for (const item of districtUsers) {
       // Awaiting closure
       // -------------------------
 
-      let completionTime =
-        question.closedAt || question.passedAt;
+      let completionTime = question.closedAt || question.passedAt;
 
       if (completionTime && finalTimeline.length) {
         if (!(completionTime instanceof Date)) {
@@ -17556,24 +18764,20 @@ for (const item of districtUsers) {
         if (!isNaN(completionTime.getTime())) {
           const last = finalTimeline.at(-1);
 
-          const lastEnd = new Date(
-            last.endTime || last.timestamp,
-          );
+          const lastEnd = new Date(last.endTime || last.timestamp);
 
           if (!isNaN(lastEnd.getTime())) {
-            const wait =
-              completionTime.getTime() -
-              lastEnd.getTime();
+            const wait = completionTime.getTime() - lastEnd.getTime();
 
             if (wait > 1000) {
               finalTimeline.push({
                 timestamp: lastEnd,
-                user: "Buffer Time",
-                action: "Awaiting Closure/Pass",
+                user: 'Buffer Time',
+                action: 'Awaiting Closure/Pass',
                 duration: wait,
-                remarks: "",
+                remarks: '',
                 endTime: completionTime,
-                eventType: "system_wait",
+                eventType: 'system_wait',
               });
             }
           }
@@ -17586,42 +18790,525 @@ for (const item of districtUsers) {
 
       if (question.closedAt) {
         finalTimeline.push({
-          timestamp:
-            question.closedAt,
-          user: "-",
-          action:
-            "Question Closed",
+          timestamp: question.closedAt,
+          user: '-',
+          action: 'Question Closed',
           duration: null,
-          remarks: "",
-          endTime:
-            question.closedAt,
-          eventType: "closure",
+          remarks: '',
+          endTime: question.closedAt,
+          eventType: 'closure',
         });
-      } else if (
-        question.passedAt
-      ) {
+      } else if (question.passedAt) {
         finalTimeline.push({
-          timestamp:
-            question.passedAt,
-          user: "-",
-          action:
-            "Question Passed",
+          timestamp: question.passedAt,
+          user: '-',
+          action: 'Question Passed',
           duration: null,
-          remarks: "",
-          endTime:
-            question.passedAt,
-          eventType: "closure",
+          remarks: '',
+          endTime: question.passedAt,
+          eventType: 'closure',
         });
       }
 
       return {
-          questionId: question._id,
-          createdAt: question.createdAt,
-          closedAt: question.closedAt,
-          passedAt: question.passedAt,
-          status: question.status,
-          timeline: finalTimeline,
+        questionId: question._id,
+        createdAt: question.createdAt,
+        closedAt: question.closedAt,
+        passedAt: question.passedAt,
+        status: question.status,
+        timeline: finalTimeline,
       };
     });
   }
+
+  async getFeedbackByLocation(
+    source = 'annam',
+    page = 1,
+    limit = 10,
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+    userType = 'all',
+    rating?: string,
+    state?: string,
+    district?: string,
+    search?: string,
+    session?: ClientSession,
+  ): Promise<PaginatedFeedbackMessages> {
+    try {
+      await this.init(source);
+
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+
+      const matchStage: any = {
+        feedback: {
+          $exists: true,
+          $ne: null,
+        },
+        'feedback.rating': {
+          $exists: true,
+        },
+        isCreatedByUser: false,
+        isDeleted: {
+          $ne: true,
+        },
+      };
+
+      if (
+        rating &&
+        rating !== 'all' &&
+        (rating === 'thumbsUp' || rating === 'thumbsDown')
+      ) {
+        matchStage['feedback.rating'] = rating;
+      }
+
+      const pipeline: any[] = [
+        {
+          $match: matchStage,
+        },
+      ];
+      if (userTypeLookupStages.length > 0) {
+        pipeline.push(...userTypeLookupStages);
+      } else {
+        pipeline.push(
+          {
+            $addFields: {
+              _userOid: {
+                $cond: [
+                  {
+                    $and: [
+                      {
+                        $ne: ['$user', null],
+                      },
+                      {
+                        $ne: ['$user', ''],
+                      },
+                    ],
+                  },
+                  {
+                    $toObjectId: '$user',
+                  },
+                  null,
+                ],
+              },
+            },
+          },
+          {
+            $lookup: {
+              from: 'users',
+              localField: '_userOid',
+              foreignField: '_id',
+              as: '_userDoc',
+            },
+          },
+        );
+      }
+
+      pipeline.push({
+        $unwind: {
+          path: '$_userDoc',
+          preserveNullAndEmptyArrays: true,
+        },
+      });
+      const locationMatch: any = {};
+
+      if (state) {
+        locationMatch['_userDoc.farmerProfile.state'] = {
+          $regex: `^${state}$`,
+          $options: 'i',
+        };
+      }
+
+      if (district) {
+        let normalizedDistrict = this.normalizeDistrictName(district);
+        if (normalizedDistrict === 'ananthapuramu') {
+          normalizedDistrict = 'anantapur';
+        }
+        locationMatch['_userDoc.farmerProfile.district'] = {
+          $regex: `^${normalizedDistrict}$`,
+          $options: 'i',
+        };
+      }
+
+      if (Object.keys(locationMatch).length) {
+        pipeline.push({
+          $match: locationMatch,
+        });
+      }
+      if (search) {
+        const regex = new RegExp(search, 'i');
+
+        pipeline.push({
+          $match: {
+            $or: [
+              {
+                question: {
+                  $regex: regex,
+                },
+              },
+              {
+                response: {
+                  $regex: regex,
+                },
+              },
+              {
+                'feedback.tag': {
+                  $regex: regex,
+                },
+              },
+              {
+                'feedback.details': {
+                  $regex: regex,
+                },
+              },
+              {
+                '_userDoc.farmerProfile.farmerName': {
+                  $regex: regex,
+                },
+              },
+            ],
+          },
+        });
+      }
+      const sortStage: any = {};
+
+      sortStage[sortBy] = sortOrder === 'asc' ? 1 : -1;
+
+      pipeline.push({
+        $sort: sortStage,
+      });
+
+      const skip = (page - 1) * limit;
+
+      pipeline.push({
+        $facet: {
+          metadata: [
+            {
+              $count: 'total',
+            },
+          ],
+
+          data: [
+            {
+              $skip: skip,
+            },
+            {
+              $limit: limit,
+            },
+            {
+              $project: {
+                _id: 1,
+
+                conversationId: 1,
+
+                userId: '$_userDoc._id',
+
+                farmerName: '$_userDoc.farmerProfile.farmerName',
+
+                email: '$_userDoc.email',
+
+                village: '$_userDoc.farmerProfile.villageName',
+
+                block: '$_userDoc.farmerProfile.blockName',
+
+                district: '$_userDoc.farmerProfile.district',
+
+                state: '$_userDoc.farmerProfile.state',
+
+                question: 1,
+
+                response: 1,
+
+                feedback: 1,
+
+                createdAt: 1,
+              },
+            },
+          ],
+        },
+      });
+      const result = await this.messagesCollection
+        .aggregate(pipeline, {
+          session,
+        })
+        .toArray();
+      const totalFeedbacks = result[0]?.metadata[0]?.total ?? 0;
+
+      const messages = result[0]?.data ?? [];
+
+      return {
+        messages,
+
+        totalFeedbacks,
+
+        totalPages: Math.ceil(totalFeedbacks / limit),
+
+        currentPage: page,
+      };
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get feedback by location: ${error}`,
+      );
+    }
+  }
+async getClosedInLastTwoHoursByLocation(
+  source?: string,
+  userType?: string,
+  state?: string,
+  district?: string,
+): Promise<any> {
+  try {
+    await this.initReviewSystem();
+
+    const matchStage = buildBaseQuestionMatch(source);
+
+    const query = await this.buildQuestionUserTypeMatchQuery(
+      source,
+      userType,
+    );
+
+    if (query && Object.keys(query).length > 0) {
+      matchStage.$and.push(query);
+    }
+
+    if (source === 'both') {
+      matchStage.source = {
+        $in: ['WHATSAPP', 'AJRASAKHA'],
+      };
+    }
+
+    matchStage.status = {
+      $in: ['closed', 'pass'],
+    };
+
+    if (state) {
+      matchStage['details.state'] = {
+        $regex: `^${state}$`,
+        $options: 'i',
+      };
+    }
+
+    if (district) {
+      matchStage['details.district'] = {
+        $regex: `^${district}$`,
+        $options: 'i',
+      };
+    }
+
+    const [totalCountResult, lastTwoHoursResult] = await Promise.all([
+      this.QuestionCollection.aggregate([
+        {
+          $match: matchStage,
+        },
+        {
+          $addFields: {
+            _statusLower: {
+              $toLower: {
+                $ifNull: ['$status', ''],
+              },
+            },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+
+            closedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $eq: ['$_statusLower', 'closed'],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+
+            passCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $eq: ['$_statusLower', 'pass'],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+      ]).toArray(),
+
+      this.QuestionCollection.aggregate([
+        {
+          $match: matchStage,
+        },
+        {
+          $addFields: {
+            _statusLower: {
+              $toLower: {
+                $ifNull: ['$status', ''],
+              },
+            },
+
+            _operationalCompletionAt: {
+              $cond: [
+                {
+                  $eq: [
+                    {
+                      $toLower: {
+                        $ifNull: ['$status', ''],
+                      },
+                    },
+                    'pass',
+                  ],
+                },
+                '$passedAt',
+                '$closedAt',
+              ],
+            },
+
+            _effectiveCreatedAt: {
+              $let: {
+                vars: {
+                  istHour: {
+                    $hour: {
+                      date: '$createdAt',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
+
+                  istDateTrunc: {
+                    $dateTrunc: {
+                      date: '$createdAt',
+                      unit: 'day',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
+                },
+
+                in: {
+                  $cond: {
+                    if: {
+                      $gte: ['$$istHour', 22],
+                    },
+
+                    then: {
+                      $dateAdd: {
+                        startDate: '$$istDateTrunc',
+                        unit: 'hour',
+                        amount: 30,
+                      },
+                    },
+
+                    else: {
+                      $cond: {
+                        if: {
+                          $lt: ['$$istHour', 6],
+                        },
+
+                        then: {
+                          $dateAdd: {
+                            startDate: '$$istDateTrunc',
+                            unit: 'hour',
+                            amount: 6,
+                          },
+                        },
+
+                        else: '$createdAt',
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        {
+          $match: {
+            _statusLower: {
+              $in: ['closed', 'pass'],
+            },
+
+            _operationalCompletionAt: {
+              $ne: null,
+            },
+
+            $expr: {
+              $and: [
+                {
+                  $gte: [
+                    '$_operationalCompletionAt',
+                    '$createdAt',
+                  ],
+                },
+                {
+                  $lte: [
+                    {
+                      $max: [
+                        0,
+                        {
+                          $subtract: [
+                            '$_operationalCompletionAt',
+                            '$_effectiveCreatedAt',
+                          ],
+                        },
+                      ],
+                    },
+                    2 * 60 * 60 * 1000,
+                  ],
+                },
+              ],
+            },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+
+            closedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $eq: ['$_statusLower', 'closed'],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+
+            passCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $eq: ['$_statusLower', 'pass'],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+      ]).toArray(),
+    ]);
+
+    return {
+      totalClosedCount: totalCountResult[0]?.closedCount ?? 0,
+      totalPassCount: totalCountResult[0]?.passCount ?? 0,
+
+      closedInTwoHoursCount:
+        lastTwoHoursResult[0]?.closedCount ?? 0,
+
+      passInTwoHoursCount:
+        lastTwoHoursResult[0]?.passCount ?? 0,
+    };
+  } catch (error) {
+    throw new InternalServerError(
+      `Failed to get closed questions by location: ${error}`,
+    );
+  }
+}
+
 }

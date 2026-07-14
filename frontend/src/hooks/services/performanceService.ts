@@ -4,6 +4,11 @@ import type {
   DashboardAnalyticsResponse,
   DashboardFilters,
 } from "../api/performance/useGetDashboard";
+import type { OverviewResponse } from "@/components/dashboard/overview";
+import type { ModeratorApprovalRate } from "@/components/dashboard/approval-rate";
+import type { GoldenDataset } from "@/components/dashboard/golden-dataset";
+import type { StatusOverview } from "@/components/dashboard/question-status";
+import type { ExpertPerformance } from "@/components/dashboard/experts-performance";
 import { formatDateLocal } from "@/utils/formatDate";
 import type { DateRange, QuestionsAnalytics } from "@/components/dashboard/questions-analytics";
 import { env } from "@/config/env";
@@ -75,14 +80,22 @@ export class PerformaneService {
     );
   }
 
-  async getOverview(): Promise<{
-    userRoleOverview: UserRoleOverview[];
+  async getOverview(query: {
+    selectedDate: string;
+    startTime?: string;
+    endTime?: string;
+  }): Promise<(OverviewResponse & {
     moderatorApprovalRate: ModeratorApprovalRate;
-  } | null> {
-    return apiFetch<{
-      userRoleOverview: UserRoleOverview[];
+  }) | null> {
+    const startDate = new Date(`${query.selectedDate}T${query.startTime}:00`);
+    const endDate = new Date(`${query.selectedDate}T${query.endTime}:59.999`);
+    const params = new URLSearchParams();
+    params.append("startDateTime", startDate.toISOString());
+    params.append("endDateTime", endDate.toISOString());
+
+    return apiFetch<OverviewResponse & {
       moderatorApprovalRate: ModeratorApprovalRate;
-    }>(`${this._baseUrl}/overview`);
+    }>(`${this._baseUrl}/overview?${params.toString()}`);
   }
 
   async getGoldenDataset(query: {

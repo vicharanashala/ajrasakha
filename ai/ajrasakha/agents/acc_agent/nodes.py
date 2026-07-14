@@ -9,7 +9,9 @@ from ajrasakha.agents.acc_agent.prompts import ACC_EXTRACT_PROMPT, ACC_PLANNER_P
 
 from ajrasakha.agents.gdb_agent import gdb
 from ajrasakha.agents.weather_agent import weather
-from ajrasakha.agents.market_agent import market
+from ajrasakha.agents.daily_price_agent import daily_price
+from ajrasakha.agents.schemes_agent import schemes
+from ajrasakha.agents.location_context import forward_geocode
 
 async def extract_node(state: AccAgentState):
     """Extract query, state, district, crop, and standardized_domains from transcript."""
@@ -81,7 +83,7 @@ async def planner_node(state: AccAgentState):
                 normalized = []
                 for tool in parsed:
                     tool_lower = str(tool).lower().strip()
-                    if tool_lower in ["gdb", "weather", "market"]:
+                    if tool_lower in ["gdb", "weather", "market", "schemes"]:
                         normalized.append(tool_lower)
                 if normalized:
                     selected_tools = normalized
@@ -145,8 +147,39 @@ async def tool_execution_node(state: AccAgentState):
     
     async def call_market() -> str:
         try:
-            return await market.ainvoke({
-                "query": query, "state": loc_state, "district": district, "crop": crop, "date": None
+            lat = None
+            lon = None
+            geocode_district = None if str(district).strip().lower() in {"all", "not specified", ""} else district
+            geocode_state = None if str(loc_state).strip().lower() in {"all", "not specified", ""} else loc_state
+            if geocode_state or geocode_district:
+                geo = await forward_geocode(state=geocode_state, district=geocode_district)
+                if geo:
+                    lat = geo.get("latitude")
+                    lon = geo.get("longitude")
+            return await daily_price.ainvoke({
+                "query": query,
+                "latitude": lat,
+                "longitude": lon,
+                "crop": crop,
+                "state": loc_state if str(loc_state).strip().lower() not in {"all", "not specified"} else None,
+            })
+        except Exception as e:
+            return f"Error: {str(e)}"
+
+    async def call_schemes() -> str:
+        try:
+            return await schemes.ainvoke({
+                "query": query,
+                "state": loc_state,
+                "gender": None,
+                "age": None,
+                "caste": None,
+                "residence": None,
+                "occupation": "Farmer",
+                "benefit_type": None,
+                "is_bpl": False,
+                "is_minority": False,
+                "is_differently_abled": False,
             })
         except Exception as e:
             return f"Error: {str(e)}"
@@ -159,6 +192,8 @@ async def tool_execution_node(state: AccAgentState):
         tasks["weather"] = call_weather()
     if "market" in selected_tools:
         tasks["market"] = call_market()
+    if "schemes" in selected_tools:
+        tasks["schemes"] = call_schemes()
     
     # Execute all selected tools in parallel
     if tasks:
@@ -171,18 +206,25 @@ async def tool_execution_node(state: AccAgentState):
         
         return responses
     
-    return {"gdb_response": "No tools selected", "weather_response": None, "market_response": None}
+    return {
+        "gdb_response": "No tools selected",
+        "weather_response": None,
+        "market_response": None,
+        "schemes_response": None,
+    }
 
 async def assembler_node(state: AccAgentState):
-    """Build JSON output with 4 sections: gdb, weather, market, final_answer."""
+    """Build JSON output with tool data and the synthesized final answer."""
     # Parse each response into JSON (or keep as string if parsing fails)
     gdb_data = None
     weather_data = None
     market_data = None
+    schemes_data = None
     
     gdb_response = state.get("gdb_response")
     weather_response = state.get("weather_response")
     market_response = state.get("market_response")
+    schemes_response = state.get("schemes_response")
     
     # Try to parse GDB response
     if gdb_response:
@@ -204,6 +246,13 @@ async def assembler_node(state: AccAgentState):
             market_data = json.loads(market_response)
         except (json.JSONDecodeError, TypeError):
             market_data = market_response
+
+    # Try to parse Schemes response
+    if schemes_response:
+        try:
+            schemes_data = json.loads(schemes_response)
+        except (json.JSONDecodeError, TypeError):
+            schemes_data = schemes_response
     
     # Generate final_answer using LLM
     llm = ChatAnthropic(model=CLAUDE_MODEL)
@@ -211,7 +260,8 @@ async def assembler_node(state: AccAgentState):
         f"Original Query: {state.get('extracted_query')}\n\n"
         f"GDB Data:\n{json.dumps(gdb_data, indent=2, ensure_ascii=False) if gdb_data else 'Not requested'}\n\n"
         f"Weather Data:\n{json.dumps(weather_data, indent=2, ensure_ascii=False) if weather_data else 'Not requested'}\n\n"
-        f"Market Data:\n{json.dumps(market_data, indent=2, ensure_ascii=False) if market_data else 'Not requested'}"
+        f"Market Data:\n{json.dumps(market_data, indent=2, ensure_ascii=False) if market_data else 'Not requested'}\n\n"
+        f"Schemes Data:\n{json.dumps(schemes_data, indent=2, ensure_ascii=False) if schemes_data else 'Not requested'}"
     )
     
     messages = [
@@ -226,6 +276,7 @@ async def assembler_node(state: AccAgentState):
         "gdb": gdb_data,
         "weather": weather_data,
         "market": market_data,
+        "schemes": schemes_data,
         "final_answer": final_answer_text
     }
     

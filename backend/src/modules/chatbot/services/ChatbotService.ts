@@ -26,6 +26,7 @@ import type {
   CoordinatorDuplicateQuestionHeatMapResponse,
   CoordinatorDuplicateQuestionLocationHierarchy,
   QueryCategoryQuestionType,
+  PaginatedFeedbackMessages,
 } from '#root/shared/database/interfaces/IChatbotRepository.js';
 import ExcelJS from 'exceljs';
 import {GrowthResponse} from '../types/chatbot.type.js';
@@ -775,6 +776,30 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
+  async getFeedbackUsers(
+    source = 'annam',
+    page = 1,
+    limit = 10,
+    search?: string,
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+    userType = 'all',
+    rating?: string,
+    tag?: string,
+  ): Promise<PaginatedFeedbackMessages> {
+    return this.chatbotRepository.getFeedbackUsers(
+      source,
+      page,
+      limit,
+      search,
+      sortBy,
+      sortOrder,
+      userType,
+      rating,
+      tag,
+    );
+  }
+
   async getDashboard(
     days = 30,
     source = 'annam',
@@ -1182,12 +1207,23 @@ export class ChatbotService extends BaseService implements IChatbotService {
 
   async getDistrictAnalyticsByState(
     state: string,
-    selectedStateCode: string,
+    selectedStateCode?: string,
     source = 'annam',
     userType = 'all',
   ) {
     try {
-      const stateCode = Number(selectedStateCode);
+      let stateCode: number;
+       stateCode = Number(selectedStateCode);
+      if(!selectedStateCode){
+        const states = await this.lgdService.getStates();
+        const selectedState = states.find((s)=> this.normalizeLocationName(s.stateNameEnglish) === this.normalizeLocationName(state));
+        if(!selectedState){
+          throw new InternalServerError(`State not found: ${state}`);
+        }
+        console.log("Selected state from LGD service", selectedState)
+        stateCode = selectedState.stateCode;
+      }
+      console.log("derived state code", stateCode);
       const district = await this.lgdService.getDistricts(stateCode);
       return await this.chatbotRepository.getDistrictAnalyticsByState(
         state,
@@ -1212,8 +1248,30 @@ export class ChatbotService extends BaseService implements IChatbotService {
     source = 'annam',
     userType = 'all',
     search?: string,
+    knownDistricts?: string[],
   ): Promise<any> {
     try {
+      let districtNames = knownDistricts;
+
+      if (
+        district.trim().toLowerCase() === 'others' &&
+        (!districtNames || districtNames.length === 0)
+      ) {
+        const states = await this.lgdService.getStates();
+        const selectedState = states.find(
+          (s) =>
+            this.normalizeLocationName(s.stateNameEnglish) ===
+            this.normalizeLocationName(state),
+        );
+
+        if (selectedState) {
+          const districts = await this.lgdService.getDistricts(
+            selectedState.stateCode,
+          );
+          districtNames = districts.map((d) => d.districtNameEnglish);
+        }
+      }
+
       return await this.chatbotRepository.getQuestionFromDistrict(
         district,
         state,
@@ -1224,6 +1282,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
         undefined,
         userType,
         search,
+        districtNames,
       );
     } catch (error) {
       throw new InternalServerError(
@@ -1418,6 +1477,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     activeTodayByProfile = false,
     missingDemographicField?: string,
     isVerified?: boolean,
+    loginStatus: 'all' | 'loggedIn' | 'loggedOut' = 'all',
   ): Promise<PaginatedUserDetails> {
     try {
       const start = startDate ? new Date(startDate) : undefined;
@@ -1447,10 +1507,79 @@ export class ChatbotService extends BaseService implements IChatbotService {
         activeTodayByProfile,
         missingDemographicField,
         isVerified,
+        loginStatus,
       );
       return data;
     } catch (error) {
       throw new InternalServerError(`Failed to fetch user details: ${error}`);
+    }
+  }
+
+  async getUsersByDemographic(
+    category: string,
+    value: string,
+    source = 'annam',
+    userType = 'all',
+    page = 1,
+    limit = 10,
+    search = '',
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+  ): Promise<PaginatedUserDetails> {
+    try {
+      const data = await this.chatbotRepository.getUsersByDemographic(
+        category,
+        value,
+        source,
+        userType,
+        page,
+        limit,
+        search,
+        sortBy,
+        sortOrder,
+      );
+
+      return {
+        ...data,
+        currentPage: page,
+      } as PaginatedUserDetails;
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch users by demographic: ${error}`,
+      );
+    }
+  }
+
+  async getUsersByPlatform(
+    platform: string,
+    source = 'annam',
+    page = 1,
+    limit = 10,
+    search = '',
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+    userType = 'all',
+  ): Promise<PaginatedUserDetails> {
+    try {
+      const data = await this.chatbotRepository.getUsersByPlatform(
+        platform,
+        source,
+        page,
+        limit,
+        search,
+        sortBy,
+        sortOrder,
+        userType,
+      );
+
+      return {
+        ...data,
+        currentPage: page,
+      } as PaginatedUserDetails;
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to fetch users by platform: ${error}`,
+      );
     }
   }
 
@@ -1488,11 +1617,11 @@ export class ChatbotService extends BaseService implements IChatbotService {
       };
     }
 
-    const threadIds =
-  await this.chatbotRepository.getUserConversationIds(
-    user.userId,
-    source,
-  );
+    const threadIds = []
+  // await this.chatbotRepository.getUserConversationIds(
+  //   user.userId,
+  //   source,
+  // );
 
     // Extract messageIds
     const messageIds = await this.chatbotRepository.getAllUserMessageIds(
@@ -3220,6 +3349,30 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
+  async getTopQuestionInstances(
+    questionId: string,
+    source = 'annam',
+    userType = 'all',
+    startTime?: string,
+    endTime?: string,
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<any> {
+    try {
+      return await this.chatbotRepository.getTopQuestionInstances(
+        questionId,
+        source,
+        userType,
+        startTime,
+        endTime,
+        page,
+        limit,
+      );
+    } catch (error) {
+      throw new InternalServerError(`Failed to fetch top question instances: ${error}`);
+    }
+  }
+
   async getRepeatQueryCount(
     source?: string,
     userType?: string,
@@ -3672,7 +3825,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
       isPassed?: string,
       tag?: string,
       notificationType?: string,
-    ): Promise<any>{
+      page?: number,
+      limit?: number
+  ):Promise<any>{
       return this.chatbotRepository.getLifeCycleSummary(
         status,
         source,
@@ -3682,6 +3837,24 @@ export class ChatbotService extends BaseService implements IChatbotService {
         isPassed,
         tag,
         notificationType,
+        page,
+        limit
       );
+  }
+  async getFeedbackByLocation(source: string, page: number, limit: number, sortBy: string, sortOrder: string, userType: string, rating?: string, state?: string, district?: string, search?: string): Promise<any> {
+    try {
+      return this.chatbotRepository.getFeedbackByLocation(source, page, limit, sortBy, sortOrder, userType, rating, state, district, search, undefined)
+    }catch(error){
+      throw new InternalServerError(`Something went wrong ${error}`)
     }
+  }
+
+  async getClosedInLastTwoHoursByLocation(source?: string, userType?: string, state?: string, district?: string): Promise<any> {
+    try{
+      return this.chatbotRepository.getClosedInLastTwoHoursByLocation(source, userType, state, district);
+    }catch(error){
+      throw new InternalServerError(`Something went wrong ${error}`)
+    }
+  }
+
 }

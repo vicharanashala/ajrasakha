@@ -68,6 +68,15 @@ type QuestionListTableProps<T> = {
   tag?: string,
   notificationType?: string,
   totalClosedAndPassed?: number,
+  closedQuestions?: number,
+  totalQuestions?: number,
+  passedQuestions?: number,
+  closedInLastTwoHours?: number,
+  passedInLastTwoHours?: number,
+  slaBreached?: number,
+  safeNotified?: number,
+  safeNotNotified?: number,
+  safeUntracked?: number,
 };
 
 const alignClasses = {
@@ -133,9 +142,18 @@ export function QuestionListTable<T>({
   isPassed,
   tag,
   notificationType,
-  totalClosedAndPassed
+  totalClosedAndPassed,
+  closedQuestions,
+  totalQuestions,
+  passedQuestions,
+  closedInLastTwoHours,
+  passedInLastTwoHours,
+  slaBreached,
+  safeNotified,
+  safeNotNotified,
+  safeUntracked,
 }: QuestionListTableProps<T>) {
-  // console.log("QuestionListTable----", isPassed);
+  // console.log("notificationType----", notificationType, tag, status);
   const [sortKey, setSortKey] = useState(initialSortKey);
   const [sortDirection, setSortDirection] =
     useState<QuestionListSortDirection>(initialSortDirection);
@@ -209,6 +227,40 @@ export function QuestionListTable<T>({
     setSortDirection(nextDirection);
     onSortChange?.(column.key, nextDirection);
   };
+
+  const [summaryPage, setSummaryPage] = useState(1);
+  const [summaryLimit, setSummaryLimit] = useState(1000);
+
+  const lifecycleTotal =
+    tag === "closed"
+      ? status === "closed"
+        ? (closedQuestions ?? 0)
+        : status === "pass"
+          ? (passedQuestions ?? 0)
+        : status === "pending"
+          ? ((totalQuestions ?? 0) - (closedQuestions ?? 0) - (passedQuestions ?? 0))
+          : (totalQuestions ?? 0)
+      : tag === "sla"
+        ? isPassed == false
+          ? (closedInLastTwoHours ?? 0)
+          : (passedInLastTwoHours ?? 0)
+      : tag === "slabreached"
+        ? (slaBreached ?? 0)
+      : tag === "notify"
+        ? notificationType === "notified"
+          ? (safeNotified ?? 0)
+          : notificationType === "notNotified"
+            ? (safeNotNotified ?? 0)
+            : notificationType === "untracked"
+              ? (safeUntracked ?? 0)
+              : (closedQuestions ?? 0)
+      : (totalQuestions ?? 0);
+
+
+  const lifecycleTotalPages = Math.max(
+      1,
+      Math.ceil(lifecycleTotal / summaryLimit)
+  );
 
   if (loading) {
     return (
@@ -357,7 +409,15 @@ export function QuestionListTable<T>({
         isPassed={isPassed}
         tag={tag}
         notificationType={notificationType}
-        totalClosedAndPassed={totalClosedAndPassed}
+        page={summaryPage}
+        limit={summaryLimit}
+        totalPages={lifecycleTotalPages}
+        totalCount={lifecycleTotal}
+        onPageChange={setSummaryPage}
+        onLimitChange={(limit) => {
+            setSummaryLimit(limit);
+            setSummaryPage(1);
+        }}
       />)}
       {(viewMode === "table") && (shouldPaginate && totalPages > 1) && (
         <div className="shrink-0 border-t border-gray-100 px-4 py-3 dark:border-[#2a2a2a]">
@@ -372,6 +432,15 @@ export function QuestionListTable<T>({
             }}
           />
         </div>
+      )}
+      {viewMode === "lifecycle" && (
+          <div className="shrink-0 border-t border-gray-100 dark:border-[#2a2a2a] px-4 py-1">
+              <Pagination
+                  currentPage={summaryPage}
+                  totalPages={lifecycleTotalPages}
+                  onPageChange={setSummaryPage}
+              />
+          </div>
       )}
     </div>
   );

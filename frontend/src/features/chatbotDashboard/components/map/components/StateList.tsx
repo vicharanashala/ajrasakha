@@ -2,7 +2,7 @@
    STATE LIST - Clickable list of states
 ============================================================ */
 
-import { MapPin } from "lucide-react";
+import { MapPin, Users, FileQuestionIcon } from "lucide-react";
 import type { Analytics, GeoFeature } from "../lib/types";
 import { fmt } from "../lib/formatters";
 import { Skeleton } from "@/components/atoms/skeleton";
@@ -70,14 +70,14 @@ export function StateList({ statesWithData, onSelectState, isLoading, renderCard
     ? "Top States By Active Users"
     : "Top States By Questions"}
 </h3>
-      {isLoading ? <Skeleton className="w-full h-[540px]"/> : <ul className="space-y-1">
-        {sortedStates.slice(0, 8).map((f) => (
+      {isLoading ? <Skeleton className="w-full h-[240px]"/> : <ul className="space-y-1 h-[240px] overflow-scroll overflow-x-hidden">
+        {sortedStates.map((f) => (
           <li key={f.properties._name as string}>
-            <button
+            {/* <button
               onClick={() => onSelectState(f.properties._name as string, f as unknown as GeoFeature)}
               className="flex w-full items-center justify-between rounded-lg border border-border bg-background px-3 py-2 text-sm hover:bg-accent"
-            >
-              <span className="flex items-center gap-2 text-foreground">
+            > */}
+              {/* <span className="flex items-center gap-2 text-foreground">
                 <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
                 {renderCardValue(f.properties._name as string)}
               </span>
@@ -89,8 +89,39 @@ export function StateList({ statesWithData, onSelectState, isLoading, renderCard
       ),
     ),
   )}
-</span>
-            </button>
+</span> */}
+
+            {/* </button> */}
+
+            <button
+  onClick={() =>
+    onSelectState(
+      f.properties._name as string,
+      f as unknown as GeoFeature,
+    )
+  }
+  className="flex w-full items-center justify-between rounded-lg border border-border bg-background px-3 py-2 text-sm hover:bg-accent"
+>
+  <span className="flex items-center gap-2 text-foreground">
+    <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+    {renderCardValue(f.properties._name as string)}
+  </span>
+<div className="grid grid-cols-[56px_48px] gap-3 text-xs text-muted-foreground">
+  <div className="flex items-center justify-end gap-1">
+    <FileQuestionIcon className="h-3.5 w-3.5 shrink-0" />
+    <span className="tabular-nums">
+      {fmt((f.properties._analytics as Analytics).questions)}
+    </span>
+  </div>
+
+  <div className="flex items-center justify-end gap-1">
+    <Users className="h-3.5 w-3.5 shrink-0" />
+    <span className="tabular-nums">
+      {fmt((f.properties._analytics as Analytics).users)}
+    </span>
+  </div>
+</div>
+</button>
           </li>
         ))}
       </ul>}

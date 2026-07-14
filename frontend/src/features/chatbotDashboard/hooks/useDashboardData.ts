@@ -159,7 +159,7 @@ function weeklyRange(entries: Array<{ week: string }>): string {
 
 function transformApiResponse(
   result: DashboardApiResponse,
-  source: "vicharanashala" | "annam" | "whatsapp" = "vicharanashala",
+  source: "vicharanashala" | "annam" | "whatsapp" | "acc" = "vicharanashala",
   userType: "all" | "external" | "internal" = "all",
 ): DashboardDataType & {
   inactiveUsersLast3Days: number;
@@ -415,7 +415,7 @@ function transformApiResponse(
 // Custom hook to fetch and transform dashboard data based on filters
 export function useDashboardData(
   filters?: DashboardFilterValues,
-  source: "vicharanashala" | "annam" | "whatsapp"= "vicharanashala",
+  source: "vicharanashala" | "annam" | "whatsapp" | "acc" = "vicharanashala",
   enabled?: boolean
 ) {
   const startISO = filters?.startTime?.toISOString();
@@ -554,7 +554,7 @@ export const useUserMertices = (
       source,
       userType,
     ],
-    placeholderData: (prev) => prev,
+    // placeholderData: (prev) => prev,
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
       const result = await apiFetch(
@@ -562,7 +562,7 @@ export const useUserMertices = (
       );
       return result as UsermetricsResponse;
     }, 
-    enabled: shouldLoadUserDemographics,
+    enabled: true,
   });
 }
 

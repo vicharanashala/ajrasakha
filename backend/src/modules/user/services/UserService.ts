@@ -5,6 +5,7 @@ import {
   INotificationType,
   NotificationRetentionType,
   UserRole,
+  IUserHistory,
 } from '#root/shared/interfaces/models.js';
 import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
 import {
@@ -746,11 +747,13 @@ export class UserService extends BaseService {
     userId: string,
     isCallAgent: boolean,
     isCallAgentActive: boolean,
-    requestingUserRole?: string,
+    requestingUser?: IUser,
   ): Promise<IUser> {
     return await this._withTransaction(async (session: ClientSession) => {
-      if (requestingUserRole !== 'admin') {
-        throw new ForbiddenError('Only admin can manage call agents');
+      if (requestingUser?.role !== 'admin' || !requestingUser?.Call_centre_manager) {
+        throw new ForbiddenError(
+          'Only admin with Call_centre_manager field as true can manage call agents',
+        );
       }
       const user = await this.userRepo.findById(userId, session);
       if (!user) {
@@ -780,11 +783,13 @@ export class UserService extends BaseService {
 
 
 
-  async toggleCallAgentActive(userId: string, requestingUserRole?: string): Promise<IUser> {
+  async toggleCallAgentActive(userId: string, requestingUser?: IUser): Promise<IUser> {
     return await this._withTransaction(async (session: ClientSession) => {
       // Only moderators can manage call agents
-      if (requestingUserRole !== 'admin') {
-        throw new ForbiddenError('Only admin can manage call agents');
+      if (requestingUser?.role !== 'admin' || !requestingUser?.Call_centre_manager) {
+        throw new ForbiddenError(
+          'Only admin with Call_centre_manager field as true can manage call agents',
+        );
       }
       const user = await this.userRepo.findById(userId, session);
       if (!user) {
@@ -796,5 +801,226 @@ export class UserService extends BaseService {
       }
       return await this.userRepo.toggleCallAgentActive(userId, session);
     });
+  }
+
+  /**
+   * Sets a call agent as online and assigns them an agent number
+   * This should be called by the agent themselves when they go online
+   */
+  async setAgentOnline(userId: string): Promise<IUser> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      const user = await this.userRepo.findById(userId, session);
+      if (!user) {
+        throw new NotFoundError(`User with ID ${userId} not found`);
+      }
+
+      if (user.role !== ('call_agent' as any)) {
+        throw new BadRequestError('User is not a call agent');
+      }
+
+      // Find the smallest available agent number
+      const allCallAgents = await this.userRepo.findCallAgents(session);
+      const assignedNumbers = new Set<string>();
+      for (const agent of allCallAgents) {
+        if (agent.agent && agent.agent !== 'not_available' && agent.isCallAgentActive) {
+          assignedNumbers.add(agent.agent);
+        }
+      }
+
+      let agentNumber = 1;
+      while (assignedNumbers.has(`agent_${agentNumber}`)) {
+        agentNumber++;
+      }
+
+      const assignedAgent = `agent_${agentNumber}`;
+
+      // Update the user with the assigned agent number and set them as active
+      const updatedUser = await this.userRepo.edit(userId, {
+        agent: assignedAgent,
+        isCallAgentActive: true,
+        isBusy: false,
+        currentCallUuid: null,
+        lastAgentActiveAt: new Date()
+      }, session);
+
+      return updatedUser;
+    });
+  }
+
+  /**
+   * Sets a call agent as offline and releases their agent number
+   * This should be called by the agent themselves when they go offline
+   */
+  async setAgentOffline(userId: string): Promise<IUser> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      const user = await this.userRepo.findById(userId, session);
+      if (!user) {
+        throw new NotFoundError(`User with ID ${userId} not found`);
+      }
+
+      if (user.role !== ('call_agent' as any)) {
+        throw new BadRequestError('User is not a call agent');
+      }
+
+      // Update the user to release their agent number and set them as inactive
+      const updatedUser = await this.userRepo.edit(userId, {
+        agent: 'not_available',
+        isCallAgentActive: false,
+        isBusy: false,
+        currentCallUuid: null
+      }, session);
+
+      return updatedUser;
+    });
+  }
+
+  /**
+   * Updates the heartbeat timestamp for an active agent
+   */
+  async updateAgentHeartbeat(userId: string): Promise<void> {
+    await this._withTransaction(async (session: ClientSession) => {
+      const user = await this.userRepo.findById(userId, session);
+      if (!user) {
+        throw new NotFoundError(`User with ID ${userId} not found`);
+      }
+
+      if (user.role !== ('call_agent' as any)) {
+        throw new BadRequestError('User is not a call agent');
+      }
+
+      await this.userRepo.edit(userId, {
+        lastAgentActiveAt: new Date()
+      }, session);
+    });
+  }
+
+  /**
+   * Cleanup inactive agents who haven't sent a heartbeat for over 75 seconds
+   */
+  async cleanupInactiveAgents(): Promise<void> {
+    const activeAgents = await this.userRepo.findActiveCallAgents();
+    if (activeAgents.length === 0) {
+      return; // Run only if there are active agents
+    }
+
+    const oneMinuteAgo = new Date(Date.now() - 75 * 1000); // 75 seconds ago
+    const inactiveAgents = activeAgents.filter(
+      agent =>
+        !agent.lastAgentActiveAt || new Date(agent.lastAgentActiveAt) < oneMinuteAgo
+    );
+
+    if (inactiveAgents.length > 0) {
+      for (const agent of inactiveAgents) {
+        try {
+          const userId = agent._id.toString();
+          await this.setAgentOffline(userId);
+        } catch (error) {
+          console.error(`[AGENT-CLEANUP] Failed to mark agent ${agent._id} offline:`, error);
+        }
+      }
+    }
+  }
+
+  /**
+   * Marks an agent as busy when they answer a call
+   * This should be called via Plivo webhook when a call is answered
+   */
+  async markAgentAsBusy(userId: string, callUuid: string): Promise<IUser> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      const user = await this.userRepo.findById(userId, session);
+      if (!user) {
+        console.error(`❌ [USER-SERVICE] User not found: ${userId}`);
+        throw new NotFoundError(`User with ID ${userId} not found`);
+      }
+
+      const updatedUser = await this.userRepo.edit(userId, {
+        isBusy: true,
+        currentCallUuid: callUuid
+      }, session);
+
+      return updatedUser;
+    });
+  }
+
+  /**
+   * Marks an agent as available when their call ends
+   * This should be called via Plivo webhook when a call ends
+   */
+  async markAgentAsAvailable(userId: string): Promise<IUser> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      const user = await this.userRepo.findById(userId, session);
+      if (!user) {
+        throw new NotFoundError(`User with ID ${userId} not found`);
+      }
+
+      const updatedUser = await this.userRepo.edit(userId, {
+        isBusy: false,
+        currentCallUuid: null
+      }, session);
+
+      return updatedUser;
+    });
+  }
+
+  /**
+   * Finds the next available agent (active + not busy)
+   * This should be called when routing an incoming call
+   */
+  async findAvailableAgent(): Promise<IUser | null> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      const activeAgents = await this.userRepo.findCallAgents(session);
+      // Filter agents that are active, not busy, and have an assigned agent number
+      const availableAgents = activeAgents.filter(
+        agent => 
+          agent.isCallAgentActive === true && 
+          agent.isBusy === false && 
+          agent.agent && 
+          agent.agent !== 'not_available'
+      );
+
+      if (availableAgents.length === 0) {
+        console.log(`⚠️ [USER-SERVICE] No available agents found`);
+        return null;
+      }
+
+      // Sort by agent number to get the smallest available number
+      availableAgents.sort((a, b) => {
+        const numA = parseInt(a.agent?.replace('agent_', '') || '999');
+        const numB = parseInt(b.agent?.replace('agent_', '') || '999');
+        return numA - numB;
+      });
+
+      const selectedAgent = availableAgents[0];
+      return selectedAgent;
+    });
+  }
+
+  /**
+   * Atomically find and mark an available agent as busy
+   * This prevents race conditions when multiple calls come in simultaneously
+   */
+  async findAndMarkAvailableAgent(callUuid: string): Promise<IUser | null> {
+    return await this.userRepo.findAndMarkAvailableAgent(callUuid);
+  }
+
+  //get user history by id
+  async getUserHistoryById(query: { userId: string; startDateTime?: string; endDateTime?: string }): Promise<IUserHistory> {
+    try {
+      const { userId } = query;
+      if (!userId) throw new NotFoundError('User ID is required');
+
+      return this._withTransaction(async (session: ClientSession) => {
+        let user = await this.userRepo.findById(userId, session);
+        if (!user) throw new NotFoundError(`User with ID ${userId} not found`);
+        return await this.userRepo.getUserHistory(query, session);
+      });
+    } catch (error) {
+      if (error instanceof NotFoundError || error instanceof BadRequestError) {
+        throw error;
+      }
+      throw new InternalServerError(
+        `Failed to fetch user history`,
+      );
+    }
   }
 }

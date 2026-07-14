@@ -1,11 +1,13 @@
 import { IUserRepository } from '#shared/database/interfaces/IUserRepository.js';
 import {
   IUser,
+  IUserRoleHistory,
   NotificationRetentionType,
   IAnswer,
   ICropRef,
   QuestionStatus,
   QuestionSource,
+  IUserHistory,
 } from '#shared/interfaces/models.js';
 import { instanceToPlain } from 'class-transformer';
 import { injectable, inject } from 'inversify';
@@ -25,6 +27,7 @@ import { IAnswerRepository } from '#root/shared/database/interfaces/IAnswerRepos
 @injectable()
 export class UserRepository implements IUserRepository {
   private usersCollection!: Collection<IUser>;
+  private userRoleHistoryCollection!: Collection<IUserRoleHistory>;
   private AnswerCollection: Collection<IAnswer>;
 
   constructor(
@@ -39,6 +42,10 @@ export class UserRepository implements IUserRepository {
     if (!this.usersCollection) {
       this.usersCollection = await this.db.getCollection<IUser>('users');
     }
+    if (!this.userRoleHistoryCollection) {
+      this.userRoleHistoryCollection =
+        await this.db.getCollection<IUserRoleHistory>('user_role_history');
+    }
     this.AnswerCollection = await this.db.getCollection<IAnswer>('answers');
   }
   private async ensureIndexes() {
@@ -50,6 +57,11 @@ export class UserRepository implements IUserRepository {
         'preference.state': 1,
       });
       await this.AnswerCollection.createIndex({ authorId: 1 });
+      await this.userRoleHistoryCollection.createIndex({ userId: 1, from: -1 });
+      await this.userRoleHistoryCollection.createIndex(
+        { userId: 1, to: 1 },
+        { partialFilterExpression: { to: null } },
+      );
     } catch (error) {
       console.error('Failed to create index:', error);
     }
@@ -69,6 +81,7 @@ export class UserRepository implements IUserRepository {
    */
   async create(user: IUser, session?: ClientSession): Promise<string> {
     await this.init();
+    await this.ensureIndexes();
     const existingUser = await this.usersCollection.findOne(
       { firebaseUID: user.firebaseUID },
       { session },
@@ -81,6 +94,21 @@ export class UserRepository implements IUserRepository {
     if (!result.acknowledged) {
       throw new InternalServerError('Failed to create user');
     }
+    
+    const now = user.createdAt ?? new Date();
+    await this.userRoleHistoryCollection.insertOne(
+      {
+        userId: result.insertedId,
+        role: user.role,
+        from: now,
+        to: null,
+        isVerified: user.isVerified ?? false,
+        status: user.status ?? 'active',
+        isBlocked: user.isBlocked ?? false,
+        special_task_force: user.special_task_force ?? false,
+      },
+      { session },
+    );
     return result.insertedId.toString();
   }
 
@@ -182,18 +210,58 @@ export class UserRepository implements IUserRepository {
     session?: ClientSession,
   ): Promise<IUser> {
     await this.init();
+    await this.ensureIndexes();
+    const existingUser = await this.usersCollection.findOne(
+      { _id: new ObjectId(userId) },
+      { session },
+    );
+    if (!existingUser) return null;
+
+    const roleChanged =
+      userData.role !== undefined && userData.role !== existingUser.role;
+    const updatedAt = new Date();
     const { _id, ...sanitizedData } = userData;
     const result = await this.usersCollection.updateOne(
       { _id: new ObjectId(userId) },
       {
         $set: {
           ...sanitizedData,
-          updatedAt: new Date(),
+          updatedAt,
         },
       },
       { session },
     );
     if (result.matchedCount === 0) return null;
+
+    if (roleChanged) {
+      await Promise.all([
+        this.userRoleHistoryCollection.updateOne(
+          {
+            userId: new ObjectId(userId),
+            to: null,
+          },
+          {
+            $set: {
+              to: updatedAt,
+              updatedAt,
+            },
+          },
+          { session },
+        ),
+        this.userRoleHistoryCollection.insertOne(
+          {
+            userId: new ObjectId(userId),
+            role: userData.role,
+            from: updatedAt,
+            to: null,
+            isVerified: existingUser.isVerified ?? false,
+            status: existingUser.status,
+            isBlocked: existingUser.isBlocked,
+            special_task_force: existingUser.special_task_force,
+          },
+          { session },
+        )])
+    }
 
     const updatedUser = await this.usersCollection.findOne(
       { _id: new ObjectId(userId) },
@@ -794,12 +862,12 @@ export class UserRepository implements IUserRepository {
     // Funnel diagnostic: total unblocked expert docs → eligible after email dedup.
     // Shows how many real experts are dropped (and their ids) so we can tell whether
     // a "missing" available expert is being collapsed away by the dedup.
-   /* console.log(
-      `[findExpertsByReputationScore] unblockedExpertDocs=${allUsersRaw.length}, ` +
-      `eligibleAfterDedup=${allUsers.length}, droppedByEmailDedup=${droppedByDedup.length}, ` +
-      `noEmail=${noEmail.length}`,
-      JSON.stringify({ droppedByDedup, noEmail }),
-    );*/
+    /* console.log(
+       `[findExpertsByReputationScore] unblockedExpertDocs=${allUsersRaw.length}, ` +
+       `eligibleAfterDedup=${allUsers.length}, droppedByEmailDedup=${droppedByDedup.length}, ` +
+       `noEmail=${noEmail.length}`,
+       JSON.stringify({ droppedByDedup, noEmail }),
+     );*/
 
     return allUsers;
   }
@@ -1465,12 +1533,40 @@ export class UserRepository implements IUserRepository {
   ): Promise<void> {
     await this.init();
     try {
+      const updatedAt = new Date();
       const isBlocked = action === 'block';
-      await this.usersCollection.updateOne(
+      const result = await this.usersCollection.findOneAndUpdate(
         { _id: new ObjectId(userId) },
         { $set: { isBlocked } },
-        { upsert: true, session },
+        { upsert: true, returnDocument: 'after', session },
       );
+       await Promise.all([
+        this.userRoleHistoryCollection.updateOne(
+          {
+            userId: new ObjectId(userId),
+            to: null,
+          },
+          {
+            $set: {
+              to: updatedAt,
+              updatedAt,
+            },
+          },
+          { session },
+        ),
+        this.userRoleHistoryCollection.insertOne(
+          {
+            userId: new ObjectId(userId),
+            role: result.role,
+            from: updatedAt,
+            to: null,
+            isVerified: result.isVerified ?? false,
+            status: result.status,
+            isBlocked: result.isBlocked,
+            special_task_force: result.special_task_force,
+          },
+          { session },
+        )])
     } catch (error) {
       throw new InternalServerError(`Failed to update IsBlock`);
     }
@@ -1484,16 +1580,46 @@ export class UserRepository implements IUserRepository {
     await this.init();
     try {
       const special_task_force = action === 'assign';
-      await this.usersCollection.updateOne(
+      const updatedAt = new Date();
+      const updatedUser =await this.usersCollection.findOneAndUpdate(
         { _id: new ObjectId(userId) },
         {
           $set: {
             special_task_force,
-            updatedAt: new Date(),
+            updatedAt,
           },
         },
-        { upsert: true, session },
+        { upsert: true, returnDocument: 'after', session },
       );
+
+      
+      await Promise.all([
+        this.userRoleHistoryCollection.updateOne(
+          {
+            userId: new ObjectId(userId),
+            to: null,
+          },
+          {
+            $set: {
+              to: updatedAt,
+              updatedAt,
+            },
+          },
+          { session },
+        ),
+        this.userRoleHistoryCollection.insertOne(
+          {
+            userId: new ObjectId(userId),
+            role: updatedUser.role,
+            from: updatedAt,
+            to: null,
+            isVerified: updatedUser.isVerified ?? false,
+            status: updatedUser.status,
+            isBlocked: updatedUser.isBlocked,
+            special_task_force: updatedUser.special_task_force,
+          },
+          { session },
+        )])
     } catch (error) {
       throw new InternalServerError(`Failed to update STF status`);
     }
@@ -1506,58 +1632,256 @@ export class UserRepository implements IUserRepository {
   ): Promise<void> {
     await this.init();
     try {
-      await this.usersCollection.updateOne(
+      const updatedAt = new Date();
+      const result =await this.usersCollection.findOneAndUpdate(
         { _id: new ObjectId(userId) },
-        { $set: { status, updatedAt: new Date() } },
-        { session },
+        { $set: { status, updatedAt: new Date(), isBlocked: status === 'active'?false:true } },
+        { returnDocument: 'after', session },
       );
+
+      await Promise.all([
+        this.userRoleHistoryCollection.updateOne(
+          {
+            userId: new ObjectId(userId),
+            to: null,
+          },
+          {
+            $set: {
+              to: updatedAt,
+              updatedAt,
+            },
+          },
+          { session },
+        ),
+        this.userRoleHistoryCollection.insertOne(
+          {
+            userId: new ObjectId(userId),
+            role: result.role,
+            from: updatedAt,
+            to: null,
+            isVerified: result.isVerified ?? false,
+            status: result.status,
+            isBlocked: result.isBlocked,
+            special_task_force: result.special_task_force,
+          },
+          { session },
+        )])
     } catch (error) {
       throw new InternalServerError(`Failed to update activity status`);
     }
   }
 
 
-  async getUserRoleCount(session?: ClientSession): Promise<UserRoleOverview[]> {
+  async getUserRoleCount(
+    startDateTime?:string,
+    endDateTime?:string,
+    session?: ClientSession,
+  ): Promise<{
+    userRoleOverview: UserRoleOverview[];
+    stfExpertCount: number;
+    stfModeratorCount: number;
+  }> {
     try {
       await this.init();
 
-      const result = await this.usersCollection
-        .aggregate(
-          [
-            { $match: { isBlocked: false } },
-            {
-              $group: {
-                _id: '$role',
-                count: { $sum: 1 },
-              },
-            },
-            {
-              $project: {
-                _id: 0,
-                role: {
-                  $switch: {
-                    branches: [
-                      { case: { $eq: ['$_id', 'expert'] }, then: 'Experts' },
-                      { case: { $eq: ['$_id', 'moderator'] }, then: 'Moderators' },
-                      { case: { $eq: ['$_id', 'admin'] }, then: 'Admins' },
-                      { case: { $eq: ['$_id', 'pae_expert'] }, then: 'PAE Experts' },
-                      { case: { $eq: ['$_id', 'district_coordinator'] }, then: 'District Coordinators' },
-                      { case: { $eq: ['$_id', 'block_coordinator'] }, then: 'Block Coordinators' },
-                      { case: { $eq: ['$_id', 'village_volunteer'] }, then: 'Village Volunteers' },
-                      { case: { $eq: ['$_id', 'tester'] }, then: 'Testers' },
-                    ],
-                    default: 'Others',
-                  },
-                },
-                count: 1,
-              },
-            },
-          ],
-          { session },
-        )
-        .toArray();
+      // Default to today's full UTC day if values are not provided
+      const start =
+        startDateTime != null
+          ? new Date(startDateTime)
+          : new Date(new Date().setUTCHours(0, 0, 0, 0));
 
-      return result as UserRoleOverview[];
+      const end =
+        endDateTime != null
+          ? new Date(endDateTime)
+          : new Date(new Date().setUTCHours(23, 59, 59, 999));
+
+      const result = await this.userRoleHistoryCollection.aggregate(
+        [
+          // -------------------------------------------------------------------------
+          // Step 1:
+          // Get all history records that were active during the selected period.
+          //
+          // Example:
+          // Expert     : 10:00 -> 11:00
+          // Moderator  : 11:00 -> null
+          //
+          // Filter:
+          // 10:00 -> 14:00
+          //
+          // Both records are returned.
+          // -------------------------------------------------------------------------
+          {
+            $match: {
+              $and: [
+                {
+                  from: { $lte: end },
+                },
+                {
+                  $or: [
+                    { to: null },
+                    { to: { $gt: start } },
+                  ],
+                },
+              ],
+            },
+          },
+
+          // -------------------------------------------------------------------------
+          // Step 2:
+          // Sort latest history first for each user.
+          // -------------------------------------------------------------------------
+          {
+            $sort: {
+              userId: 1,
+              from: -1,
+            },
+          },
+
+          // -------------------------------------------------------------------------
+          // Step 3:
+          // Keep ONLY the latest history record for each user within the
+          // selected period.
+          //
+          // Example:
+          //
+          // Expert     10:00
+          // Moderator  11:00
+          //
+          // => Keeps Moderator
+          // -------------------------------------------------------------------------
+          {
+            $group: {
+              _id: '$userId',
+              latest: {
+                $first: '$$ROOT',
+              },
+            },
+          },
+
+          {
+            $replaceRoot: {
+              newRoot: '$latest',
+            },
+          },
+
+          // -------------------------------------------------------------------------
+          // Filter based on the latest snapshot only.
+          // This ensures we evaluate the user's latest status/block state
+          // within the selected period.
+          // -------------------------------------------------------------------------
+          {
+            $match: {
+              isBlocked: false,
+              $or: [
+                { status: 'active' },
+                { status: null },
+                { status: { $exists: false } },
+              ],
+            },
+          },
+
+          // -------------------------------------------------------------------------
+          // Step 4:
+          // Count users by role.
+          // -------------------------------------------------------------------------
+          {
+            $group: {
+              _id: '$role',
+
+              count: {
+                $sum: 1,
+              },
+
+              stfCount: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        {
+                          $in: ['$role', ['expert', 'moderator']],
+                        },
+                        {
+                          $eq: ['$special_task_force', true],
+                        },
+                      ],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+
+          // -------------------------------------------------------------------------
+          // Step 5:
+          // Convert role values into display names.
+          // -------------------------------------------------------------------------
+          {
+            $project: {
+              _id: 0,
+
+              role: {
+                $switch: {
+                  branches: [
+                    { case: { $eq: ['$_id', 'expert'] }, then: 'Experts' },
+                    { case: { $eq: ['$_id', 'moderator'] }, then: 'Moderators' },
+                    { case: { $eq: ['$_id', 'admin'] }, then: 'Admins' },
+                    { case: { $eq: ['$_id', 'pae_expert'] }, then: 'PAE Experts' },
+                    {
+                      case: {
+                        $eq: ['$_id', 'district_coordinator'],
+                      },
+                      then: 'District Coordinators',
+                    },
+                    {
+                      case: {
+                        $eq: ['$_id', 'block_coordinator'],
+                      },
+                      then: 'Block Coordinators',
+                    },
+                    {
+                      case: {
+                        $eq: ['$_id', 'village_volunteer'],
+                      },
+                      then: 'Village Volunteers',
+                    },
+                    { case: { $eq: ['$_id', 'tester'] }, then: 'Testers' },
+                    { case: { $eq: ['$_id', 'call_agent'] }, then: 'Call Agents' },
+                  ],
+                  default: 'Others',
+                },
+              },
+
+              count: 1,
+              stfCount: 1,
+            },
+          },
+
+          // -------------------------------------------------------------------------
+          // Step 6:
+          // Sort alphabetically.
+          // -------------------------------------------------------------------------
+          {
+            $sort: {
+              role: 1,
+            },
+          },
+        ],
+        { session },
+      ).toArray();
+
+      const userRoleOverview = result.map(({ role, count }) => ({
+        role,
+        count,
+      })) as UserRoleOverview[];
+      return {
+        userRoleOverview,
+        stfExpertCount:
+          result.find((item) => item.role === 'Experts')?.stfCount ?? 0,
+        stfModeratorCount:
+          result.find((item) => item.role === 'Moderators')?.stfCount ?? 0,
+      };
     } catch (error) {
       console.error('Error fetching user role count:', error);
       throw new InternalServerError('Failed to fetch user role count');
@@ -1693,6 +2017,29 @@ export class UserRepository implements IUserRepository {
     }
   }
 
+  async findActiveCallAgents(session?: ClientSession): Promise<IUser[]> {
+    try {
+      await this.init();
+
+      const agents = await this.usersCollection
+        .find(
+          {
+            role: 'call_agent' as any,
+            isCallAgentActive: true,
+          },
+          { session },
+        )
+        .toArray();
+
+      return agents.map((agent) => ({
+        ...agent,
+        _id: agent._id.toString(),
+      })) as IUser[];
+    } catch (error) {
+      throw new InternalServerError('Failed to find active call agents');
+    }
+  }
+
   async setCallAgentStatus(
     userId: string,
     isCallAgent: boolean,
@@ -1701,11 +2048,11 @@ export class UserRepository implements IUserRepository {
   ): Promise<IUser> {
     try {
       await this.init();
-      
+
       // When setting as call agent, change role from expert to call_agent
       // When removing call agent, change role from call_agent back to expert
       const newRole = isCallAgent ? ('call_agent' as any) : 'expert';
-      
+
       const result = await this.usersCollection.findOneAndUpdate(
         { _id: new ObjectId(userId) },
         {
@@ -1769,6 +2116,176 @@ export class UserRepository implements IUserRepository {
       } as IUser;
     } catch (error) {
       throw new InternalServerError('Failed to toggle call agent active status');
+    }
+  }
+
+  async findAndMarkAvailableAgent(
+    callUuid: string,
+    session?: ClientSession,
+  ): Promise<IUser | null> {
+    try {
+      await this.init();
+      // Atomically find and update an available agent
+      // Query: active, not busy, has agent number assigned
+      // Sort by agent number (smallest first)
+      // Update: mark as busy and set currentCallUuid
+      const result = await this.usersCollection.findOneAndUpdate(
+        {
+          role: 'call_agent' as any,
+          isCallAgentActive: true,
+          isBusy: false,
+          agent: { $exists: true, $ne: 'not_available' },
+        },
+        {
+          $set: {
+            isBusy: true,
+            currentCallUuid: callUuid,
+            updatedAt: new Date(),
+          },
+        },
+        {
+          returnDocument: 'after',
+          session,
+          sort: { agent: 1 }, // Sort by agent number to get smallest first
+        },
+      );
+
+      if (!result) {
+        return null;
+      }
+
+      const plainResult = JSON.parse(JSON.stringify(result));
+      return {
+        ...plainResult,
+        _id: result._id.toString(),
+      } as IUser;
+    } catch (error) {
+      console.error('findAndMarkAvailableAgent - error:', error);
+      throw new InternalServerError('Failed to find and mark available agent');
+    }
+  }
+
+  //get user history by userId
+  async getUserHistory(
+    query: { userId: string; startDateTime?: string; endDateTime?: string },
+    session?: ClientSession,
+  ): Promise<IUserHistory> {
+    try {
+      const { userId, startDateTime, endDateTime } = query;
+      await this.init();
+
+      // Default to today's full UTC day if values are not provided
+      const start =
+        startDateTime != null
+          ? new Date(startDateTime)
+          : new Date(new Date().setUTCHours(0, 0, 0, 0));
+
+      const end =
+        endDateTime != null
+          ? new Date(endDateTime)
+          : new Date(new Date().setUTCHours(23, 59, 59, 999));
+
+      const result = await this.usersCollection
+        .aggregate<IUserHistory>(
+          [
+            // -------------------------------------------------------------------------
+            // Step 1:
+            // Find the requested user.
+            // -------------------------------------------------------------------------
+            {
+              $match: {
+                _id: new ObjectId(userId),
+              },
+            },
+
+            // -------------------------------------------------------------------------
+            // Step 2:
+            // Lookup all role history records that overlap the selected period.
+            // -------------------------------------------------------------------------
+            {
+              $lookup: {
+                from: "user_role_history",
+                let: {
+                  userId: "$_id",
+                },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: {
+                        $eq: ["$userId", "$$userId"],
+                      },
+                      from: {
+                        $lte: end,
+                      },
+                      $or: [
+                        {
+                          to: null,
+                        },
+                        {
+                          to: {
+                            $gt: start,
+                          },
+                        },
+                      ],
+                    },
+                  },
+                  {
+                    $sort: {
+                      from: 1,
+                    },
+                  },
+                ],
+                as: "roleHistory",
+              },
+            },
+
+            // -------------------------------------------------------------------------
+            // Step 3:
+            // Shape the response.
+            // roleHistory will always be an array ([] if no history exists).
+            // -------------------------------------------------------------------------
+            {
+              $project: {
+                _id: 0,
+
+                roleHistory: 1,
+
+                userDetails: {
+                  name: {
+                    $trim: {
+                      input: {
+                        $concat: [
+                          { $ifNull: ["$firstName", ""] },
+                          " ",
+                          { $ifNull: ["$lastName", ""] },
+                        ],
+                      },
+                    },
+                  },
+                  email: "$email",
+                  firstName: "$firstName",
+                  lastName: "$lastName",
+                  role: "$role",
+                  status: "$status",
+                  isBlocked: "$isBlocked",
+                  special_task_force: "$special_task_force",
+                },
+              },
+            },
+          ],
+          { session },
+        )
+        .toArray();
+
+      const userHistory = result[0];
+
+      return {
+        roleHistory: userHistory?.roleHistory ?? [],
+        userDetails: userHistory?.userDetails ?? null,
+      };
+    } catch (error) {
+      console.error('Error fetching user history:', error);
+      throw new InternalServerError('Failed to fetch user history');
     }
   }
 }

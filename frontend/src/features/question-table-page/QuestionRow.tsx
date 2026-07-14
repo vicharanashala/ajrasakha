@@ -363,6 +363,9 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
                         {q.tag === "dynamic" && (
                           <span className='text-xs text-green-600 mr-1'>(DYNAMIC)</span>
                         )}
+                        {q.tag === "static_dynamic" && (
+                          <span className='text-xs text-blue-600 mr-1'>(STATIC_DYNAMIC)</span>
+                        )}
                         {
                         q?.similarityScore&&
                         q?.referenceQuestionId&&

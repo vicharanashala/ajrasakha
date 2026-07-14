@@ -6,6 +6,7 @@ import pytest
 
 from ajrasakha.agents.plan_executor import (
     build_reviewer_upload_calls,
+    build_tool_calls_from_plan,
     extract_chemicals_from_text,
     reviewer_direct_answer,
 )
@@ -366,8 +367,12 @@ async def test_csv_onion_price_plan_builds_mandi_only():
         question_source="WHATSAPP",
     )
     names = [c["name"] for c in calls]
-    assert "market" in names
+    assert "daily_price" in names
     assert "gdb" not in names
+    daily = next(c for c in calls if c["name"] == "daily_price")
+    assert daily["args"]["crop"] == "onion"
+    assert "latitude" in daily["args"]
+    assert "longitude" in daily["args"]
     reviewer = next(c for c in calls if c["name"] == "upload_question_to_reviewer_system")
     assert reviewer["args"]["source"] == "WHATSAPP"
 
