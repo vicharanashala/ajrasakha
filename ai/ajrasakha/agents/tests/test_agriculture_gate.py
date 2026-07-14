@@ -9,7 +9,7 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from ajrasakha.agents.ajrasakha import graph, use_planner_graph
-from ajrasakha.agents.plan_executor import build_reviewer_upload_calls
+from ajrasakha.agents.plan_executor import build_reviewer_upload_calls, build_tool_calls_from_plan
 from ajrasakha.agents.planner import route_after_ensure_location
 from ajrasakha.agents.planner_rules import (
     apply_non_agriculture_gate,
