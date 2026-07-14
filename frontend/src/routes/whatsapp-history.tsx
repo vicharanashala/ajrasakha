@@ -5,6 +5,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { z } from "zod";
 import { useCoordinatorRedirect } from "@/hooks/useCoordinatorRedirect";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 
 export const Route = createFileRoute("/whatsapp-history")({
   validateSearch: z.object({
@@ -27,6 +28,7 @@ function RouteComponent() {
 
   return (
     <div className="flex-1 p-4 bg-muted/30">
+      <Breadcrumbs />
       <WhatsAppHistoryPage />
     </div>
   );

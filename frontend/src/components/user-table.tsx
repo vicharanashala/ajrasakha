@@ -42,6 +42,8 @@ import { useUpdateActivity } from "@/hooks/api/user/useUpdateActivity";
 import { useVerifyUser } from "@/hooks/api/user/useVerifyUser";
 import { useToggleSTF } from "@/hooks/api/user/useToggleSTF";
 import AvatarComponent from "./avatar-component";
+import { EmptyState } from "./EmptyState";
+import { Users } from "lucide-react";
 
 const truncate = (s: string, n = 80) => {
   if (!s) return "";
@@ -190,12 +192,13 @@ export const UsersTable = ({
               </TableRow>
             ) : items?.length === 0 ? (
               <TableRow>
-                <TableCell
-                  colSpan={13}
-                  rowSpan={10}
-                  className="text-center py-10 text-muted-foreground"
-                >
-                  No users found
+                <TableCell colSpan={13} rowSpan={10}>
+                  <EmptyState
+                    title="No users found"
+                    description="No users match your current filters."
+                    icon={Users}
+                    compact
+                  />
                 </TableCell>
               </TableRow>
             ) : (

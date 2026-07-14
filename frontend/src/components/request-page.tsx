@@ -15,6 +15,8 @@ import { RequestCard } from "./RequestCard";
 import ViewDropdown from "@/features/questions/components/ViewDropdown";
 import { RequestListItem } from "./RequestListItem";
 import { TopRightBadge } from "./NewBadge";
+import { EmptyState } from "./EmptyState";
+import { Flag } from "lucide-react";
 
 type SortOrder = "newest" | "oldest";
 
@@ -189,8 +191,13 @@ export const RequestsPage = ({
             <span className="text-muted-foreground">Loading requests...</span>
           </div>
         ) : !requestData?.requests || requestData.requests.length === 0 ? (
-          <div className="col-span-full flex justify-center py-10">
-            <span className="text-muted-foreground">No requests found.</span>
+          <div className="col-span-full">
+            <EmptyState
+              title="No requests found"
+              description="There are no flagged questions or requests matching your criteria."
+              icon={Flag}
+              compact
+            />
           </div>
         ) : (
           requestData.requests.map((req) =>

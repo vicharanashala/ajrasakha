@@ -3,6 +3,7 @@ import { useSelectedQuestion } from "@/hooks/api/question/useSelectedQuestion";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useCoordinatorRedirect } from "@/hooks/useCoordinatorRedirect";
 import { createFileRoute, useSearch } from "@tanstack/react-router";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 
 export const Route = createFileRoute("/history/")({
   component: RouteComponent,
@@ -18,10 +19,13 @@ function RouteComponent() {
   if (isCheckingCoordinator || isCoordinator) return null;
 
   return (
-    <FullSubmissionHistory
-      currentUser={user!}
-      selectedHistoryId={selectedHistoryId}
-      expertId={expertId ?? null}
-    />
+    <div>
+      <Breadcrumbs />
+      <FullSubmissionHistory
+        currentUser={user!}
+        selectedHistoryId={selectedHistoryId}
+        expertId={expertId ?? null}
+      />
+    </div>
   );
 }

@@ -1,4 +1,5 @@
 import { RequestsPage } from '@/components/request-page'
+import { Breadcrumbs } from '@/components/Breadcrumbs'
 import { useSelectedQuestion } from '@/hooks/api/question/useSelectedQuestion';
 import { useCoordinatorRedirect } from '@/hooks/useCoordinatorRedirect';
 import { createFileRoute } from '@tanstack/react-router'
@@ -13,6 +14,9 @@ function RouteComponent() {
   if (isCheckingCoordinator || isCoordinator) return null;
 
   return (
-    <RequestsPage autoSelectId={selectedRequestId} />
+    <div>
+      <Breadcrumbs />
+      <RequestsPage autoSelectId={selectedRequestId} />
+    </div>
   )
 }
