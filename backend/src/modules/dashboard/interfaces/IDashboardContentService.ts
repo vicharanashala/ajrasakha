@@ -10,6 +10,8 @@ import { Analytics } from '../validators/DashboardValidators.js';
  * (states / crops / domains) — i.e. the questions-analytics payload without `tableData`.
  */
 export interface PublicDashboardStats {
+  /** Every question in the collection, any status — total questions processed. */
+  totalQuestions: number;
   /** Questions in a closed state: closed + dynamic_closed + duplicate_closed. */
   validatedQAPairs: number;
   /** Questions that entered the DB since midnight IST (any status). */

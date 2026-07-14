@@ -4781,6 +4781,12 @@ export class QuestionRepository implements IQuestionRepository {
     );
   }
 
+  /** Every question in the collection, any status — total intake since inception. */
+  async countAllQuestions(session?: ClientSession): Promise<number> {
+    await this.init();
+    return this.QuestionCollection.countDocuments({}, {session});
+  }
+
   /**
    * Questions that entered the database on/after `since` — every question regardless of
    * status, i.e. raw intake volume. Feeds the public dashboard's "Today / This month" ticker.

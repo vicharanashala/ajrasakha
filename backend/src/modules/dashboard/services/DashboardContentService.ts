@@ -41,13 +41,19 @@ export class DashboardContentService implements IDashboardContentService {
   async getPublicDashboardStats(): Promise<PublicDashboardStats> {
     const { dayStart, monthStart } = istBoundaries(new Date());
 
-    const [validatedQAPairs, questionsToday, questionsThisMonth, { analytics }] =
-      await Promise.all([
-        this.questionRepo.countValidatedQAPairs(),
-        this.questionRepo.countQuestionsCreatedSince(dayStart),
-        this.questionRepo.countQuestionsCreatedSince(monthStart),
-        this.questionRepo.getQuestionAnalytics(),
-      ]);
+    const [
+      totalQuestions,
+      validatedQAPairs,
+      questionsToday,
+      questionsThisMonth,
+      { analytics },
+    ] = await Promise.all([
+      this.questionRepo.countAllQuestions(),
+      this.questionRepo.countValidatedQAPairs(),
+      this.questionRepo.countQuestionsCreatedSince(dayStart),
+      this.questionRepo.countQuestionsCreatedSince(monthStart),
+      this.questionRepo.getQuestionAnalytics(),
+    ]);
 
     const { cropData = [], stateData = [], domainData = [] } =
       analytics ?? ({} as Analytics);
@@ -60,6 +66,7 @@ export class DashboardContentService implements IDashboardContentService {
     const realDomains = domainData.filter(d => !d.name?.startsWith('$'));
 
     return {
+      totalQuestions,
       validatedQAPairs,
       questionsToday,
       questionsThisMonth,

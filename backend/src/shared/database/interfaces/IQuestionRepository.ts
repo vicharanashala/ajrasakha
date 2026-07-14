@@ -399,6 +399,9 @@ export interface IQuestionRepository {
    */
   countValidatedQAPairs(session?: ClientSession): Promise<number>;
 
+  /** Every question in the collection, any status — total intake since inception. */
+  countAllQuestions(session?: ClientSession): Promise<number>;
+
   /** Questions created on/after `since`, any status — raw intake volume. */
   countQuestionsCreatedSince(
     since: Date,

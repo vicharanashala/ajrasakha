@@ -61,6 +61,18 @@ export const PublicDashboard = () => {
   const stats = useMemo(() => buildStatCells(live, content?.stats), [live, content?.stats]);
   const domainData = useMemo(() => buildDomainSlices(live), [live]);
 
+  // Carousel figures that aren't derivable from the questions collection — an admin
+  // maintains them as headline stats in Edit Dashboard.
+  const editorial = useMemo(
+    () => ({
+      languagesSupported: findStat(content?.stats, "language"),
+      expertsEngaged: findStat(content?.stats, "expert"),
+      kvksMapped: findStat(content?.stats, "kvk"),
+      sausCollaborating: findStat(content?.stats, "sau"),
+    }),
+    [content?.stats],
+  );
+
   return (
     <div className="ace-dash">
       <Header
@@ -69,7 +81,14 @@ export const PublicDashboard = () => {
         today={live?.questionsToday ?? 0}
         thisMonth={live?.questionsThisMonth ?? 0}
       />
-      <HeroCarousel images={carouselImages ?? []} />
+      <HeroCarousel
+        stats={{
+          totalQuestions: live?.totalQuestions ?? 0,
+          validatedQAPairs: live?.validatedQAPairs ?? 0,
+          ...editorial,
+        }}
+        images={carouselImages ?? []}
+      />
       <main>
         <NarrativeSection blocks={blocks} />
         <HeroSnapshot stats={stats} />
@@ -122,6 +141,21 @@ function buildStatCells(
     : heroStats.map((s) => ({ label: s.label, value: String(s.count) }));
 
   return [...liveStats, ...editorial.filter((s) => !liveLabels.has(s.label.trim().toLowerCase()))];
+}
+
+/**
+ * Look up an admin-edited headline figure by a fragment of its label ("language" matches
+ * both "Languages supported" and "Total Languages Supported", so an admin can rename the
+ * stat without breaking the carousel). Falls back to the seed defaults, then to "".
+ */
+function findStat(adminStats: DashboardStat[] | undefined, labelFragment: string): string {
+  const needle = labelFragment.toLowerCase();
+
+  const saved = adminStats?.find((s) => s.label.toLowerCase().includes(needle));
+  if (saved?.value?.trim()) return saved.value.trim();
+
+  const seed = heroStats.find((s) => s.label.toLowerCase().includes(needle));
+  return seed ? String(seed.count) : "";
 }
 
 /** Top 10 domains by question volume; the demo figures until the API answers. */
