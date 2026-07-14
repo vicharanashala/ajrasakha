@@ -24,6 +24,7 @@ RUN apk add --no-cache \
     bash \
     dumb-init \
     wget \
+    curl \
     mongodb-tools \
   && corepack enable \
   && corepack prepare pnpm@10.4.1 --activate
