@@ -38,7 +38,10 @@ type EnvKey =
   | `VITE_PLIVO_${string}_PASSWORD`
   // FAQ / POP processing servers
   | "VITE_FAQ_API_URL"
-  | "VITE_POP_API_URL";
+  | "VITE_POP_API_URL"
+
+  // GDB Coverage Gap Detector (acc_api)
+  | "VITE_GDB_GAP_API_URL";
 
 /**
  * Internal getter (single source of truth)
@@ -95,4 +98,5 @@ export const env = {
   internalApiKey: () => getEnv("VITE_INTERNAL_API_KEY", true, "dummy-internal-api-key"),
   faqApiUrl: () => getEnv("VITE_FAQ_API_URL", false, "/api/faq"),
   popApiUrl: () => getEnv("VITE_POP_API_URL", false, "/api/pop"),
+  gdbGapApiUrl: () => getEnv("VITE_GDB_GAP_API_URL", false, "http://localhost:8001"),
 };

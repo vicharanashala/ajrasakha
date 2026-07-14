@@ -51,6 +51,10 @@ reviewer_collection = reviewer_client[DB_NAME][COLLECTION_NAME]
 answers_collection = reviewer_client[DB_NAME]["answers"]
 users_collection = reviewer_client[DB_NAME]["users"]
 
+# --- GDB Coverage Gap Detector (read-only report over `reviewer_collection`) ---
+GAP_REPORTS_COLLECTION = os.getenv("GAP_REPORTS_COLLECTION", "gdb_gap_reports")
+gap_reports_collection = reviewer_client[DB_NAME][GAP_REPORTS_COLLECTION]
+
 golden_client = MongoClient(GOLDEN_MONGO_URI)
 golden_qa_collection = golden_client[GOLDEN_DB_NAME][GOLDEN_QA_COLLECTION]
 golden_pop_collection = golden_client[GOLDEN_DB_NAME][GOLDEN_POP_COLLECTION]
@@ -836,6 +840,21 @@ def get_filters():
         "states": _VALID_STATES_CACHE,
         "crops": _VALID_CROPS_CACHE
     }
+
+
+@app.get("/gdb/gap-report")
+def get_gap_report():
+    """Latest pre-computed GDB Coverage Gap report (read-only).
+
+    Generated out-of-band by gap_pipeline.py — this endpoint only reads the
+    most recent document from `gap_reports_collection`, sorted by
+    `generated_at`. Returns 404 until the pipeline has run at least once.
+    """
+    doc = gap_reports_collection.find_one(sort=[("generated_at", -1)])
+    if not doc:
+        raise HTTPException(status_code=404, detail="No gap report available yet. Run gap_pipeline.py first.")
+    doc["_id"] = str(doc["_id"])
+    return doc
 
 
 @app.get("/health")
