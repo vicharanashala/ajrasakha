@@ -96,7 +96,7 @@ jobs:
                 {
                   "source": "/api/**",
                   "run": {
-                    "serviceId": "your-backend-service",
+                    "serviceId": "reviewer-backend-staging",
                     "region": "asia-south1"
                   }
                 },
