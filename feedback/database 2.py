@@ -6,11 +6,11 @@ load_dotenv()
 
 # Original cluster - READ ONLY
 ORIGINAL_DB_URL = os.getenv("ORIGINAL_DB_URL")
-ORIGINAL_DB_NAME = os.getenv("ORIGINAL_DB_NAME", "agriai")
+ORIGINAL_DB_NAME = os.getenv("ORIGINAL_DB_NAME", "agriai")  
 
 # Your own cluster - READ + WRITE
 OWN_DB_URL = os.getenv("OWN_DB_URL")
-OWN_DB_NAME = os.getenv("OWN_DB_NAME", "feedback")
+OWN_DB_NAME = os.getenv("OWN_DB_NAME", "feedback")  
 
 # Clients
 original_client = AsyncIOMotorClient(ORIGINAL_DB_URL)
@@ -24,8 +24,6 @@ own_db = own_client[OWN_DB_NAME]
 questions_collection = original_db["questions"]
 answers_collection = original_db["answers"]
 users_collection = original_db["users"]
-user_details_collection = original_db["user_details"]
 
 # Collections we WRITE to our own cluster
 feedback_collection = own_db["feedback"]
-pending_feedback_collection = own_db["pending_feedback"]

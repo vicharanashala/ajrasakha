@@ -5,21 +5,18 @@ from models import (
     DomainStats, LanguageStats, StateStats,
     FlaggedEntry, FlaggedResponse,
     DigestEntry, DigestResponse,
-    QuestionSample,
-    PendingFeedbackCreate, PendingFeedback,
-    FeedbackCompleteRequest
+    QuestionSample
 )
 from database import (
     feedback_collection,
     questions_collection,
-    answers_collection,
-    pending_feedback_collection
+    answers_collection
 )
 from datetime import datetime
 from bson import ObjectId
 import uuid
 
-app = FastAPI(title="Farmer Feedback API", version="1.1")
+app = FastAPI(title="Farmer Feedback API", version="0.4")
 
 app.add_middleware(
     CORSMiddleware,
@@ -29,55 +26,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# English-only feedback prompt
-FEEDBACK_PROMPT_EN = "Was this helpful? Reply 1 for Yes, 2 for No"
-
-# --- Shared lookup helper ---
-
-async def _lookup_and_enrich(question_id: str, answer_id: str):
-    """
-    Looks up question and answer in the original DB.
-    Returns (domain, state) derived from the question.
-    Raises HTTPException if either ID is invalid or not found.
-    Used by POST /feedback, POST /pending-feedback, POST /feedback/complete.
-    """
-    try:
-        question = await questions_collection.find_one(
-            {"_id": ObjectId(question_id)}
-        )
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid question_id format")
-    if not question:
-        raise HTTPException(status_code=404, detail=f"Question {question_id} not found")
-
-    try:
-        answer = await answers_collection.find_one(
-            {"_id": ObjectId(answer_id)}
-        )
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid answer_id format")
-    if not answer:
-        raise HTTPException(status_code=404, detail=f"Answer {answer_id} not found")
-
-    details = question.get("details", {})
-    state = details.get("state", "unknown")
-    domain_raw = details.get("domain", "unknown")
-    domain = domain_raw[0] if isinstance(domain_raw, list) else domain_raw
-
-    return domain, state
-
 # --- Health Check ---
 
 @app.get("/")
 async def root():
-    return {"status": "Farmer Feedback API is running", "version": "1.1"}
+    return {"status": "Farmer Feedback API is running", "version": "0.4"}
 
 # --- Sample Questions (for Test Panel dropdown) ---
 
 @app.get("/questions/sample")
 async def get_sample_questions():
+    """
+    Returns a handful of real question/answer pairs from the original DB.
+    Used by the Test Panel to let testers pick real IDs instead of typing them.
+    Only returns questions that have at least one approved final answer.
+    """
     samples = []
 
+    # Get approved final answers
     cursor = answers_collection.find(
         {"isFinalAnswer": True, "status": "approved"},
         {"_id": 1, "questionId": 1}
@@ -90,9 +56,11 @@ async def get_sample_questions():
         )
         if not question:
             continue
+
         details = question.get("details", {})
         domain_raw = details.get("domain", "unknown")
         domain = domain_raw[0] if isinstance(domain_raw, list) else domain_raw
+
         samples.append(QuestionSample(
             question_id=str(question["_id"]),
             answer_id=str(answer["_id"]),
@@ -101,6 +69,7 @@ async def get_sample_questions():
             state=details.get("state", "unknown")
         ))
 
+    # If no approved final answers found, fall back to any answers
     if not samples:
         cursor = answers_collection.find({}, {"_id": 1, "questionId": 1}).limit(5)
         async for answer in cursor:
@@ -110,9 +79,11 @@ async def get_sample_questions():
             )
             if not question:
                 continue
+
             details = question.get("details", {})
             domain_raw = details.get("domain", "unknown")
             domain = domain_raw[0] if isinstance(domain_raw, list) else domain_raw
+
             samples.append(QuestionSample(
                 question_id=str(question["_id"]),
                 answer_id=str(answer["_id"]),
@@ -123,105 +94,41 @@ async def get_sample_questions():
 
     return {"samples": samples}
 
-# --- Pending Feedback ---
-
-@app.post("/pending-feedback")
-async def create_pending_feedback(data: PendingFeedbackCreate):
-    """
-    Called by whichever service just delivered an answer to a farmer via WhatsApp
-    (either the AI/GDB-match path or the expert-answered path).
-
-    Registers that we are now waiting on this farmer's 1/2 reply.
-    Returns the exact follow-up message text that service should send next.
-
-    Upserts by phone number — a new answer supersedes any old unanswered
-    pending request for the same farmer, avoiding stale/ambiguous state.
-    """
-    await _lookup_and_enrich(data.question_id, data.answer_id)
-
-    pending = {
-        "_id": str(uuid.uuid4()),
-        "farmer_phone": data.farmer_phone,
-        "question_id": data.question_id,
-        "answer_id": data.answer_id,
-        "message_text": FEEDBACK_PROMPT_EN,
-        "created_at": datetime.now()
-    }
-
-    # Upsert: delete any existing pending for this farmer then insert fresh
-    await pending_feedback_collection.delete_many(
-        {"farmer_phone": data.farmer_phone}
-    )
-    await pending_feedback_collection.insert_one(pending)
-
-    return {
-        "pending_id": pending["_id"],
-        "message_text": pending["message_text"]
-    }
-
-@app.get("/pending-feedback/all")
-async def get_all_pending():
-    """Returns all currently pending feedback requests. Useful for debugging."""
-    pending = []
-    async for doc in pending_feedback_collection.find():
-        doc["id"] = doc.pop("_id")
-        pending.append(doc)
-    return {"count": len(pending), "pending": pending}
-
-# --- Complete Feedback (farmer replies 1 or 2) ---
-
-@app.post("/feedback/complete")
-async def complete_feedback(data: FeedbackCompleteRequest):
-    """
-    Called when an inbound WhatsApp message from a farmer is just '1' or '2'
-    and a pending feedback request exists for their phone number.
-
-    Looks up the pending entry, enriches it with domain/state from the
-    original DB, stores a real feedback record, then clears the pending entry.
-    """
-    pending = await pending_feedback_collection.find_one(
-        {"farmer_phone": data.farmer_phone}
-    )
-    if not pending:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No pending feedback found for {data.farmer_phone}. "
-                   f"The farmer must receive an answer first before rating it."
-        )
-
-    domain, state = await _lookup_and_enrich(
-        pending["question_id"],
-        pending["answer_id"]
-    )
-
-    feedback_doc = {
-        "_id": str(uuid.uuid4()),
-        "farmer_phone": data.farmer_phone,
-        "question_id": pending["question_id"],
-        "answer_id": pending["answer_id"],
-        "domain": domain,
-        "state": state,
-        "language": "english",
-        "response": data.response.value,
-        "created_at": datetime.now()
-    }
-
-    await feedback_collection.insert_one(feedback_doc)
-    await pending_feedback_collection.delete_one({"_id": pending["_id"]})
-
-    return {
-        "message": "Feedback recorded",
-        "id": feedback_doc["_id"],
-        "domain": domain,
-        "state": state
-    }
-
-# --- Submit Feedback (direct, for Test Panel one-shot mode) ---
+# --- Submit Feedback ---
 
 @app.post("/feedback")
 async def submit_feedback(data: FeedbackCreate):
-    domain, state = await _lookup_and_enrich(data.question_id, data.answer_id)
+    # Step 1: verify question exists in original DB
+    try:
+        question = await questions_collection.find_one(
+            {"_id": ObjectId(data.question_id)}
+        )
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid question_id format")
 
+    if not question:
+        raise HTTPException(status_code=404, detail=f"Question {data.question_id} not found")
+
+    # Step 2: verify answer exists in original DB
+    try:
+        answer = await answers_collection.find_one(
+            {"_id": ObjectId(data.answer_id)}
+        )
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid answer_id format")
+
+    if not answer:
+        raise HTTPException(status_code=404, detail=f"Answer {data.answer_id} not found")
+
+    # Step 3: pull state from question details
+    details = question.get("details", {})
+    state = details.get("state", "unknown")
+
+    # Step 4: pull and normalise domain
+    domain_raw = details.get("domain", "unknown")
+    domain = domain_raw[0] if isinstance(domain_raw, list) else domain_raw
+
+    # Step 5: build and store feedback document
     feedback_doc = {
         "_id": str(uuid.uuid4()),
         "farmer_phone": data.farmer_phone,
@@ -280,6 +187,16 @@ async def get_dashboard():
     helpful = await feedback_collection.count_documents({"response": "1"})
     not_helpful = total - helpful
     overall_rate = round(helpful / total * 100, 1)
+
+    def make_stats(group_field, model_class, label_field):
+        return feedback_collection.aggregate([
+            {"$group": {
+                "_id": f"${group_field}",
+                "total": {"$sum": 1},
+                "helpful": {"$sum": {"$cond": [{"$eq": ["$response", "1"]}, 1, 0]}}
+            }},
+            {"$sort": {"total": -1}}
+        ])
 
     async def build_stats(group_field):
         results = []

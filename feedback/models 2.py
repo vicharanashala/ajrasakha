@@ -15,7 +15,6 @@ class FeedbackCreate(BaseModel):
     farmer_phone: str
     question_id: str
     answer_id: str
-    language: Optional[str] = None
     response: FeedbackResponse
 
 class Feedback(BaseModel):
@@ -28,25 +27,6 @@ class Feedback(BaseModel):
     language: Optional[str] = None
     response: FeedbackResponse
     created_at: datetime
-
-# --- Pending Feedback Models ---
-
-class PendingFeedbackCreate(BaseModel):
-    farmer_phone: str
-    question_id: str
-    answer_id: str
-
-class PendingFeedback(BaseModel):
-    id: str
-    farmer_phone: str
-    question_id: str
-    answer_id: str
-    message_text: str
-    created_at: datetime
-
-class FeedbackCompleteRequest(BaseModel):
-    farmer_phone: str
-    response: FeedbackResponse
 
 # --- Stats Models ---
 
@@ -101,6 +81,7 @@ class DigestEntry(BaseModel):
     rank: int
     answer_id: str
     domain: str
+    language: Optional[str] = None
     state: str
     total_responses: int
     helpfulness_rate: float
@@ -112,7 +93,7 @@ class DigestResponse(BaseModel):
     top_n: int
     entries: List[DigestEntry]
 
-# --- Sample Questions Model ---
+# --- Sample Questions Model (for Test Panel dropdown) ---
 
 class QuestionSample(BaseModel):
     question_id: str
