@@ -98,7 +98,13 @@ def format_tool_output(tool_name: str, raw_text: str) -> str:
         return text
 
     if tool_name == "daily_price":
-        # Gemma already wrote farmer-facing prose; pass through.
+        # Envelope: {"answer": "...", "tool_data": {...}} — tool_data is for logs only.
+        try:
+            data = json.loads(text)
+        except (json.JSONDecodeError, TypeError):
+            return text
+        if isinstance(data, dict) and "answer" in data:
+            return str(data.get("answer") or "")
         return text
 
     return text
