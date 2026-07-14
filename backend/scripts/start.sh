@@ -45,6 +45,12 @@ echo "========== Tailscale IP =========="
 echo "========== Ping Target =========="
 /app/tailscale ping 100.100.108.44 || true
 echo ""
+echo "========== CURL TEST =========="
+
+curl -v http://100.100.108.44:2026/threads/5f0ba437-c68d-4a54-97c9-138752acf4d6
+/state || true
+
+echo "==============================="
 echo "Starting Node application..."
 
 exec dumb-init node build/index.js
