@@ -12547,7 +12547,7 @@ export class ChatbotRepository implements IChatbotRepository {
             totalQuestions: {$sum: 1},
             completedQuestions: {
               $sum: {
-                $cond: [{$in: ['$_statusLower', ['closed', 'pass']]}, 1, 0],
+                $cond: [{$in: ['$_statusLower', ['closed', 'pass', 'dynamic_closed']]}, 1, 0],
               },
             },
             timedCompletedQuestions: {
@@ -12555,7 +12555,7 @@ export class ChatbotRepository implements IChatbotRepository {
                 $cond: [
                   {
                     $and: [
-                      {$in: ['$_statusLower', ['closed', 'pass']]},
+                      {$in: ['$_statusLower', ['closed', 'pass', 'dynamic_closed']]},
                       {$ne: ['$createdAt', null]},
                       {$ne: ['$_operationalCompletionAt', null]},
                       {$gte: ['$_operationalCompletionAt', '$createdAt']},
@@ -12571,7 +12571,7 @@ export class ChatbotRepository implements IChatbotRepository {
                 $cond: [
                   {
                     $and: [
-                      {$in: ['$_statusLower', ['closed', 'pass']]},
+                      {$in: ['$_statusLower', ['closed', 'pass', 'dynamic_closed']]},
                       {$ne: ['$createdAt', null]},
                       {$ne: ['$_operationalCompletionAt', null]},
                       {$gte: ['$_operationalCompletionAt', '$createdAt']},
@@ -13177,7 +13177,12 @@ export class ChatbotRepository implements IChatbotRepository {
               },
               passCount: {
                 $sum: {
-                  $cond: [{$in: ['$_statusLower', ['pass', 'dynamic_closed']]}, 1, 0],
+                  $cond: [{$eq: ['$_statusLower', 'pass']}, 1, 0],
+                },
+              },
+              dynamicClosedCount: {
+                $sum: {
+                  $cond: [{$eq: ['$_statusLower', 'dynamic_closed']}, 1, 0],
                 },
               },
             },
@@ -13278,7 +13283,12 @@ export class ChatbotRepository implements IChatbotRepository {
               },
               passCount: {
                 $sum: {
-                  $cond: [{$in: ['$_statusLower', ['pass', 'dynamic_closed']]}, 1, 0],
+                  $cond: [{$eq: ['$_statusLower', 'pass']}, 1, 0],
+                },
+              },
+              dynamicClosedCount: {
+                $sum: {
+                  $cond: [{$eq: ['$_statusLower', 'dynamic_closed']}, 1, 0],
                 },
               },
             },
@@ -13289,8 +13299,10 @@ export class ChatbotRepository implements IChatbotRepository {
       return {
         totalClosedCount: totalCountResult[0]?.closedCount ?? 0,
         totalPassCount: totalCountResult[0]?.passCount ?? 0,
+        totalDynamicClosedCount: totalCountResult[0]?.dynamicClosedCount ?? 0,
         closedInTwoHoursCount: lastTwoHoursResult[0]?.closedCount ?? 0,
         passInTwoHoursCount: lastTwoHoursResult[0]?.passCount ?? 0,
+        dynamicClosedInTwoHoursCount: lastTwoHoursResult[0]?.dynamicClosedCount ?? 0,
       };
     } catch (error) {
       throw new InternalServerError(
@@ -14989,9 +15001,19 @@ export class ChatbotRepository implements IChatbotRepository {
         $in: ['closed'],
       };
       if (isPassed === 'true') {
-        matchQuery.status = {
-          $in: ['pass', 'dynamic_closed'],
-        };
+        if (tag === 'pass') {
+          matchQuery.status = {
+            $in: ['pass'],
+          };
+        } else if (tag === 'dynamic_closed') {
+          matchQuery.status = {
+            $in: ['dynamic_closed'],
+          };
+        } else {
+          matchQuery.status = {
+            $in: ['pass', 'dynamic_closed'],
+          };
+        }
       }
     }
     const validStartDate =

@@ -307,6 +307,11 @@ export function ClosedQuestionsCard({
                     setIsPassed(true);
                     handleClick("non_gdb");
                   }}
+                  showInfo={true}
+                  statusBreakup={statusBreakup}
+                  setIsPassed={setIsPassed}
+                  handleClick={handleClick}
+                  infoType="non_gdb"
                 />
                 <StatTile
                   label="In Queue"
@@ -321,6 +326,7 @@ export function ClosedQuestionsCard({
                   statusBreakup={statusBreakup}
                   setIsPassed={setIsPassed}
                   handleClick={handleClick}
+                  infoType="in_queue"
                 />
               </div>
 
@@ -435,6 +441,7 @@ function StatTile({
   statusBreakup,
   setIsPassed,
   handleClick,
+  infoType,
 }: {
   label: string;
   count: number;
@@ -445,6 +452,7 @@ function StatTile({
   statusBreakup?: any;
   setIsPassed?: (value: boolean) => void;
   handleClick?: (status: string) => void;
+  infoType?: "non_gdb" | "in_queue";
 }) {
   const a = ACCENT[accent];
   return (
@@ -483,7 +491,10 @@ function StatTile({
           <div className="space-y-1.5 text-xs">
             {Object.entries(statusBreakup?.statuses ?? {})
               .filter(([key, value]) => {
-                return key !== "pass" && key !== "closed" && key !== "dynamic_closed"
+                if (infoType === "non_gdb") {
+                  return key === "pass" || key === "dynamic_closed";
+                }
+                return key !== "pass" && key !== "closed" && key !== "dynamic_closed";
               })
               .map(([key, value]) => (
                 <div

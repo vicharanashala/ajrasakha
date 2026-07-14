@@ -565,6 +565,12 @@ export function AnnamDashboard_dev({
                     totalPassed={
                       closed2hData?.closedInLastTwoHours?.totalPassCount
                     }
+                    dynamicClosedInLastTwoHours={
+                      closed2hData?.closedInLastTwoHours?.dynamicClosedInTwoHoursCount
+                    }
+                    totalDynamicClosed={
+                      closed2hData?.closedInLastTwoHours?.totalDynamicClosedCount
+                    }
                   />
 
                   <CustomerNotificationsCard
