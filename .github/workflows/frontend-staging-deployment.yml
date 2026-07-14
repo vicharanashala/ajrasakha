@@ -92,8 +92,19 @@ jobs:
             "hosting": {
               "site": "ajrasakha-staging-594",
               "public": "dist",
-              "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-              "rewrites": [{ "source": "**", "destination": "/index.html" }]
+              "rewrites": [
+                {
+                  "source": "/api/**",
+                  "run": {
+                    "serviceId": "your-backend-service",
+                    "region": "asia-south1"
+                  }
+                },
+                {
+                  "source": "**",
+                  "destination": "/index.html"
+                }
+              ]
             }
           }
           JSON
