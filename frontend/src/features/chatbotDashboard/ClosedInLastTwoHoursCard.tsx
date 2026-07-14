@@ -270,7 +270,7 @@ export function ClosedInLastTwoHoursCard({
                 <div className="flex justify-between text-[10px] text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                    {combinedPct.toFixed(1)}% Resolved within SLA (inc. passed)
+                    {combinedPct.toFixed(1)}% Resolved within SLA (inc. Non-GDB)
                   </span>
                   <span className="flex items-center gap-1">
                     <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
@@ -282,11 +282,11 @@ export function ClosedInLastTwoHoursCard({
               {/* Stats Grid */}
               <div className="grid grid-cols-4 gap-2.5">
                 <StatTile
-                  label="Closed"
+                  label="GDB"
                   count={safeCount}
                   of={safeTotalClosed}
                   accent="emerald"
-                  tooltip="Cases closed within 2 hours"
+                  tooltip="Cases closed within 2 hours (GDB)"
                   onClick={() => {
                     setIsPassed(false);
                     setClosedWithInTowhours(true);
@@ -295,11 +295,11 @@ export function ClosedInLastTwoHoursCard({
                   isMapComponent={isMapComponent}
                 />
                 <StatTile
-                  label="Passed"
+                  label="Non-GDB"
                   count={passedInLastTwoHours}
                   of={totalPassed}
                   accent="sky"
-                  tooltip="Cases passed within 2 hours"
+                  tooltip="Cases completed within 2 hours (Non-GDB)"
                   onClick={() => {
                     setIsPassed(true);
                     setClosedWithInTowhours(true);
@@ -354,7 +354,7 @@ export function ClosedInLastTwoHoursCard({
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">
-                          Closed in 2h
+                          GDB in 2h
                         </span>
                         <span className="tabular-nums">
                           {closedWithinTwoHoursPct.toFixed(1)}%
@@ -362,7 +362,7 @@ export function ClosedInLastTwoHoursCard({
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">
-                          Passed in 2h
+                          Non-GDB in 2h
                         </span>
                         <span className="tabular-nums">
                           {passedPct.toFixed(1)}%

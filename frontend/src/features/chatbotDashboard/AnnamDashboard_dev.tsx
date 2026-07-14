@@ -509,9 +509,6 @@ export function AnnamDashboard_dev({
                     totalQuestions={
                       questionStatusData?.closedVsTotalQuestions?.totalQuestions
                     }
-                    dynamicClosedQuestions={
-                      questionStatusData?.closedVsTotalQuestions?.dynamicClosed?.count
-                    }
                     dateRange={questionStatusDateRange}
                     onDateRangeChange={setQuestionStatusDateRange}
                     isLoading={false}
@@ -519,10 +516,6 @@ export function AnnamDashboard_dev({
                     carryForward={questionStatusData?.carryForward}
                     avgCloseTimeMinutes={
                       questionStatusData?.closedVsTotalQuestions?.closed
-                        ?.avgTimeMinutes
-                    }
-                    avgDynamicCloseTimeMinutes={
-                      questionStatusData?.closedVsTotalQuestions?.dynamicClosed
                         ?.avgTimeMinutes
                     }
                     previousMonthAvgCloseTimeMinutes={
@@ -534,10 +527,10 @@ export function AnnamDashboard_dev({
                     userType={filters.userType}
                     onRefresh={handleRefreshStatsCards}
                     passedQuestions={
-                      questionStatusData?.closedVsTotalQuestions?.statuses?.pass
+                      questionStatusData?.closedVsTotalQuestions?.nonGdb?.count
                     }
                     avgPassTimeMinutes={
-                      questionStatusData?.closedVsTotalQuestions?.pass
+                      questionStatusData?.closedVsTotalQuestions?.nonGdb
                         ?.avgTimeMinutes
                     }
                     combinedCount={

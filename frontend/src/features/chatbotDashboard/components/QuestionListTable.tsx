@@ -235,7 +235,7 @@ export function QuestionListTable<T>({
     tag === "closed"
       ? status === "closed"
         ? (closedQuestions ?? 0)
-        : status === "pass"
+        : status === "non_gdb"
           ? (passedQuestions ?? 0)
         : status === "pending"
           ? ((totalQuestions ?? 0) - (closedQuestions ?? 0) - (passedQuestions ?? 0))
