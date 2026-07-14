@@ -20,7 +20,7 @@ import { aiConfig } from '#root/config/ai.js';
  */
 
 /** Tailscale's CGNAT range is 100.64.0.0/10 → the second octet runs 64–127. */
-const isTailnetHost = (hostname: string): boolean => {
+export const isTailnetHost = (hostname: string): boolean => {
   if (hostname.endsWith('.ts.net')) return true;
 
   const m = /^100\.(\d+)\./.exec(hostname);
@@ -37,6 +37,19 @@ const hostnameOf = (url: string): string => {
     return '';
   }
 };
+
+/**
+ * A SOCKS agent for `targetUrl` when it lives on the tailnet, else undefined.
+ *
+ * For clients that use node's raw http module and therefore can't be patched globally —
+ * notably http-proxy-middleware, which fronts the FAQ/POP servers (both 100.x). Without
+ * an agent it dials an unroutable address and hangs indefinitely; the request just spins.
+ */
+export function tailnetAgentFor(targetUrl: string): SocksProxyAgent | undefined {
+  if (!aiConfig.useTailnetProxy) return undefined;
+  if (!isTailnetHost(hostnameOf(targetUrl))) return undefined;
+  return new SocksProxyAgent(aiConfig.proxyAddress);
+}
 
 export function installTailnetProxy(): void {
   // socks5h:// — resolve DNS at the proxy, so MagicDNS names work too.
