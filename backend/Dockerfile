@@ -14,7 +14,7 @@ RUN pnpm tsc
 
 FROM node:22-alpine
 
-RUN apk add --no-cache dumb-init wget curl
+RUN apk add --no-cache dumb-init wget
 
 WORKDIR /app
 
