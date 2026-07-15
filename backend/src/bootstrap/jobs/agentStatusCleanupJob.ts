@@ -4,8 +4,6 @@ import { GLOBAL_TYPES } from '#root/types.js';
 import type { UserService } from '#root/modules/user/services/UserService.js';
 
 // Schedule every 1 minute
-const start =false
-if(start){
 cron.schedule('*/1 * * * *', async () => {
   try {
     const container = getContainer();
@@ -15,4 +13,3 @@ cron.schedule('*/1 * * * *', async () => {
     console.error('<<CRON>> Error cleaning up inactive agents:', error);
   }
 });
-}
