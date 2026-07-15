@@ -45,6 +45,7 @@ import { DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT } from '#root/shared/constants/gene
 import { th } from '@faker-js/faker';
 import { triggerWebhook } from '../utils/triggerWebhook.js';
 import { threadId } from 'worker_threads';
+import type { AssignmentEngineService } from '#root/modules/question/services/AssignmentEngineService.js';
 
 @injectable()
 export class AnswerService extends BaseService implements IAnswerService {
@@ -81,6 +82,9 @@ export class AnswerService extends BaseService implements IAnswerService {
 
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
+
+    @inject(CORE_TYPES.AssignmentEngineService)
+    private readonly assignmentEngine: AssignmentEngineService,
   ) {
     super(mongoDatabase);
   }
@@ -2013,6 +2017,16 @@ answer: ${updates.answer}`;
         await this.userRepo.removeAssignedQuestionFromAllModerators(questionId, session);
       } catch (err: any) {
         console.error('[ModeratorQueue] Failed to clear question from moderators:', err?.message);
+      }
+
+      // Free the expert's assignment slot now that the question is closed
+      try {
+        const assignedExpertId = answer.authorId?.toString();
+        if (assignedExpertId) {
+          await this.assignmentEngine.handleCompletion(questionId, assignedExpertId);
+        }
+      } catch (err: any) {
+        console.error('[AnswerService] Failed to free assignment slot:', err?.message);
       }
 
       // UPDATE ANSWER

@@ -25,9 +25,14 @@ import { RequestService } from '../request/services/RequestService.js';
 import { UserRepository } from '#root/shared/database/providers/mongo/repositories/UserRepository.js';
 import { DuplicateQuestionRepository } from '#root/shared/database/providers/mongo/repositories/DuplicateQuestionRepository.js';
 import { AccAgentService } from '../acc-agent/services/AccAgentService.js';
+import { AssignmentController } from '../question/controllers/AssignmentController.js';
+import { AssignmentEngineService } from '../question/services/AssignmentEngineService.js';
+import { WaitingQueueService } from '../question/services/WaitingQueueService.js';
+import { WaitingQueueRepository } from '#root/shared/database/providers/mongo/repositories/WaitingQueueRepository.js';
 export const coreContainerModule = new ContainerModule(options => {
   // Controllers
   options.bind(QuestionController).toSelf().inSingletonScope();
+  options.bind(AssignmentController).toSelf().inSingletonScope();
   options.bind(AnswerController).toSelf().inSingletonScope();
   options.bind(ContextController).toSelf().inSingletonScope();
   options.bind(CommentController).toSelf().inSingletonScope();
@@ -45,6 +50,8 @@ export const coreContainerModule = new ContainerModule(options => {
   options.bind(CORE_TYPES.RequestService).to(RequestService).inSingletonScope();
 
   options.bind(CORE_TYPES.PerformanceService).to(PerformanceService).inSingletonScope();
+  options.bind(CORE_TYPES.AssignmentEngineService).to(AssignmentEngineService).inSingletonScope();
+  options.bind(CORE_TYPES.WaitingQueueService).to(WaitingQueueService).inSingletonScope();
   options.bind(GLOBAL_TYPES.AccAgentService).to(AccAgentService).inSingletonScope();
   // Repositories
   options
@@ -76,4 +83,5 @@ export const coreContainerModule = new ContainerModule(options => {
   options.bind(CORE_TYPES.ReviewRepository).to(ReviewRepository).inSingletonScope()
   options.bind(CORE_TYPES.UserRepository).to(UserRepository).inSingletonScope()
   options.bind(CORE_TYPES.DuplicateQuestionRepository).to(DuplicateQuestionRepository).inSingletonScope()
+  options.bind(CORE_TYPES.WaitingQueueRepository).to(WaitingQueueRepository).inSingletonScope()
 });
