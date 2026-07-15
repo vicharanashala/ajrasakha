@@ -10197,7 +10197,7 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.initReviewSystem();
 
-      const matchQuery = buildBaseQuestionMatch('whatsapp');
+      const matchQuery = buildBaseQuestionMatch(dbSource);
 
       if (startTime || endTime) {
         matchQuery.createdAt = {};
@@ -10349,7 +10349,7 @@ export class ChatbotRepository implements IChatbotRepository {
   ): Promise<Array<{questionId: string; question: string; count: number}>> {
     try {
       await this.initReviewSystem();
-      const matchQuery = buildBaseQuestionMatch('whatsapp');
+      const matchQuery = buildBaseQuestionMatch(dbSource);
 
       if (startTime || endTime) {
         matchQuery.createdAt = {};
@@ -10453,7 +10453,7 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.init(dbSource);
       await this.initReviewSystem();
-      const matchQuery = buildBaseQuestionMatch('whatsapp');
+      const matchQuery = buildBaseQuestionMatch(dbSource);
 
       if (startTime || endTime) {
         matchQuery.createdAt = {};
