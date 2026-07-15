@@ -122,45 +122,7 @@ export interface QueryCategoryQuestionsResponse {
   lifeCycleSummary: any;
 }
 
-// export const useQueryCategoryQuestions = ({
-//   category,
-//   questionType,
-//   page,
-//   limit,
-//   source,
-//   userType = "all",
-//   enabled = true,
-// }: {
-//   category?: string;
-//   questionType: QueryCategoryQuestionType;
-//   page: number;
-//   limit: number;
-//   source: string;
-//   userType?: string;
-//   enabled?: boolean;
-// }) => {
-//   return useQuery<QueryCategoryQuestionsResponse>({
-//     queryKey: [
-//       "query-category-questions",
-//       category,
-//       questionType,
-//       page,
-//       limit,
-//       source,
-//       userType,
-//     ],
-//     queryFn: () =>
-//       chatbotService.getQueryCategoryQuestions({
-//         category: category ?? "",
-//         questionType,
-//         page,
-//         limit,
-//         source,
-//         userType,
-//       }),
-//     enabled: enabled && Boolean(category),
-//   });
-// };
+
 
 export const useQuestionFilter = ({
   category,

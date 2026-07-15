@@ -72,7 +72,6 @@ interface DetailSidebarProps {
   analyticsData?: any;
   weeklyAnalyticsData?: any;
   monthlyAnalyticsData?: any;
-
 }
 
 export function DetailSidebar({
@@ -101,7 +100,7 @@ export function DetailSidebar({
   setClickedDistrict,
   analyticsData,
   weeklyAnalyticsData,
-  monthlyAnalyticsData
+  monthlyAnalyticsData,
 }: DetailSidebarProps) {
   const [isPassed, setIsPassed] = useState(false);
   const [showActiveUsersModal, setShowActiveUsersModal] = useState(false);
@@ -118,15 +117,15 @@ export function DetailSidebar({
   );
 
   const {
-  data: closedQuestionLocationData,
-  isLoading: isClosedQuestionLoading,
-} = useClosedQuestionLocation({
-  source,
-  userType,
-  state: selectedState ?? undefined,
-  district: selectedDistrict ?? undefined,
-  enabled: !isIndiaView,
-});
+    data: closedQuestionLocationData,
+    isLoading: isClosedQuestionLoading,
+  } = useClosedQuestionLocation({
+    source,
+    userType,
+    state: selectedState ?? undefined,
+    district: selectedDistrict ?? undefined,
+    enabled: !isIndiaView,
+  });
 
   // Calculate aggregated analytics
 
@@ -200,23 +199,20 @@ export function DetailSidebar({
     districtAnalytics ?? stateAnalytics ?? countryAnalytics;
   // const isIndiaView = !selectedState && !selectedDistrict;
 
-const closedData = isIndiaView
-  ? questionStatusData?.closedInLastTwoHours
-  : closedQuestionLocationData;
+  const closedData = isIndiaView
+    ? questionStatusData?.closedInLastTwoHours
+    : closedQuestionLocationData;
 
-const safeCount =
-  closedData?.closedInTwoHoursCount ?? 0;
+  const safeCount = closedData?.closedInTwoHoursCount ?? 0;
 
-const safeTotalClosed =
-  closedData?.totalClosedCount ?? 0;
+  const safeTotalClosed = closedData?.totalClosedCount ?? 0;
 
-const totalPassed =
-  closedData?.totalPassCount ?? 0;
+  const totalPassed = closedData?.totalPassCount ?? 0;
 
-const passedInLastTwoHours =
-  closedData?.passInTwoHoursCount ?? 0;
+  const passedInLastTwoHours = closedData?.passInTwoHoursCount ?? 0;
 
-  const combinedPct = ((safeCount + passedInLastTwoHours) / (safeTotalClosed + totalPassed)) *
+  const combinedPct =
+    ((safeCount + passedInLastTwoHours) / (safeTotalClosed + totalPassed)) *
       100 || 0;
 
   const { data: allUsers } = useUserDetails(
@@ -325,6 +321,11 @@ const passedInLastTwoHours =
                   : activeAnalytics.questions,
               )}
               icon={<Activity className="h-3.5 w-3.5" />}
+              tooltip={
+                <div className="space-y-1 text-xs">
+                  <div>Total questions asked by users.</div>
+                </div>
+              }
             />
 
             {status ? (
@@ -337,6 +338,7 @@ const passedInLastTwoHours =
                   setStatus(null);
                   setIsPassed(false);
                 }}
+                isIndiaView={isIndiaView}
               />
             ) : clickedState ? (
               <QueryCategoryQuestionsModal
@@ -345,6 +347,7 @@ const passedInLastTwoHours =
                 userType={userType}
                 isQueryCategory={false}
                 onClose={() => setClickedState(null)}
+               
               />
             ) : clickedDistrict ? (
               <QueryCategoryQuestionsModal
@@ -366,19 +369,40 @@ const passedInLastTwoHours =
                 type="activeUsers"
               />
             )}
-            {source !== "whatsapp" ? <StatCard
-              onClick={() => setShowFeedBackModal(true)}
-              label="Feedback"
-              value={renderCardValue(
-                isIndiaView
-                  ? (userMetricesData?.feedbackData?.stats?.positiveCount ??
-                      0) +
-                      (userMetricesData?.feedbackData?.stats?.negativeCount ??
-                        0)
-                  : activeAnalytics.feedback,
-              )}
-              icon={<Activity className="h-3.5 w-3.5" />}
-            /> : (<StatCard label="Todays Questions" value={isIndiaView ? analyticsData[analyticsData?.length -1].totalQuestions : 0}/> )}
+            {source !== "whatsapp" ? (
+              <StatCard
+                onClick={() => setShowFeedBackModal(true)}
+                label="Feedback"
+                value={renderCardValue(
+                  isIndiaView
+                    ? (userMetricesData?.feedbackData?.stats?.positiveCount ??
+                        0) +
+                        (userMetricesData?.feedbackData?.stats?.negativeCount ??
+                          0)
+                    : activeAnalytics.feedback,
+                )}
+                icon={<Activity className="h-3.5 w-3.5" />}
+                tooltip={
+                  <div className="space-y-1 text-xs">
+                    <div>Total feedback given by users.</div>
+                  </div>
+                }
+              />
+            ) : (
+              <StatCard
+                label="Todays Questions"
+                value={
+                  isIndiaView
+                    ? analyticsData[analyticsData?.length - 1].totalQuestions
+                    : 0
+                }
+                tooltip={
+                  <div className="space-y-1 text-xs">
+                    <div>Total Question asked today</div>
+                  </div>
+                }
+              />
+            )}
             {showFeedBackModal && (
               <FeedbackUsersModal
                 source={source}
@@ -401,24 +425,53 @@ const passedInLastTwoHours =
                 type="users"
               />
             )}
-            {source !== "whatsapp" ? <StatCard
-              onClick={() => setShowUsersModal(true)}
-              label="Users"
-              value={renderCardValue(
-                isIndiaView ? allUsers.totalUsers : activeAnalytics.users,
-              )}
-              icon={<Users className="h-3.5 w-3.5" />}
-            />: (<StatCard label="Weekly Questions" value={isIndiaView ? weeklyAnalyticsData[weeklyAnalyticsData?.length -1].totalQuestions : 0}/> )}
-            {source !== "whatsapp" && <StatCard
-              onClick={() => setShowActiveUsersModal(true)}
-              label={<span>Active</span>}
-              value={renderCardValue(
-                isIndiaView
-                  ? todayActiveFarmersData?.totalUsers
-                  : activeAnalytics.activeUsers,
-              )}
-              icon={<Users className="h-3.5 w-3.5" />}
-            />}
+            {source !== "whatsapp" ? (
+              <StatCard
+                onClick={() => setShowUsersModal(true)}
+                label="Users"
+                value={renderCardValue(
+                  isIndiaView ? allUsers.totalUsers : activeAnalytics.users,
+                )}
+                icon={<Users className="h-3.5 w-3.5" />}
+                tooltip={
+                  <div className="space-y-1 text-xs">
+                    <div>Total Users.</div>
+                  </div>
+                }
+              />
+            ) : (
+              <StatCard
+                label="Weekly Questions"
+                value={
+                  isIndiaView
+                    ? weeklyAnalyticsData[weeklyAnalyticsData?.length - 1]
+                        .totalQuestions
+                    : 0
+                }
+                tooltip={
+                  <div className="space-y-1 text-xs">
+                    <div>Weekly Question Count</div>
+                  </div>
+                }
+              />
+            )}
+            {source !== "whatsapp" && (
+              <StatCard
+                onClick={() => setShowActiveUsersModal(true)}
+                label={<span>Active</span>}
+                value={renderCardValue(
+                  isIndiaView
+                    ? todayActiveFarmersData?.totalUsers
+                    : activeAnalytics.activeUsers,
+                )}
+                icon={<Users className="h-3.5 w-3.5" />}
+                tooltip={
+                  <div className="space-y-1 text-xs">
+                    <div>Total active users count right now.</div>
+                  </div>
+                }
+              />
+            )}
             {/* <StatCard
   label="Coordinators"
   value={fmt(
@@ -438,95 +491,126 @@ const passedInLastTwoHours =
                 type="moderators"
               />
             )}
-            {source !== "whatsapp" ? <StatCard
-              onClick={() => setShowModeratorsModal(true)}
-              label={
-                <div className="flex items-center gap-1">
-                  <span>Coordinators</span>
+            {source !== "whatsapp" ? (
+              <StatCard
+                onClick={() => setShowModeratorsModal(true)}
+                label={
+                  <div className="flex items-center gap-1">
+                    <span>Coordinators</span>
 
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <InfoIcon className="h-3 w-3 cursor-pointer text-muted-foreground" />
-                      </TooltipTrigger>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <InfoIcon className="h-3 w-3 cursor-pointer text-muted-foreground" />
+                        </TooltipTrigger>
 
-                      <TooltipContent side="top">
-                        <div className="space-y-1 text-xs">
-                          <div>
-                            District Coordinators:{" "}
-                            {isIndiaView
-                              ? (allUsers?.userRoleCounts
-                                  ?.districtCoordinator ?? 0)
-                              : selectedState
-                                ? totalDistrictCoordinator
-                                : districtData?.districtCoordinator}
+                        <TooltipContent side="top">
+                          <div className="space-y-1 text-xs">
+                            <div>
+                              District Coordinators:{" "}
+                              {isIndiaView
+                                ? (allUsers?.userRoleCounts
+                                    ?.districtCoordinator ?? 0)
+                                : selectedState
+                                  ? totalDistrictCoordinator
+                                  : districtData?.districtCoordinator}
+                            </div>
+
+                            <div>
+                              Block Coordinators:{" "}
+                              {isIndiaView
+                                ? (allUsers?.userRoleCounts?.blockCoordinator ??
+                                  0)
+                                : selectedState
+                                  ? totalBlockCoordinator
+                                  : districtData?.blockCoordinator}
+                            </div>
+
+                            <div>
+                              Village Volunteers:{" "}
+                              {isIndiaView
+                                ? (allUsers?.userRoleCounts?.villageVolunteer ??
+                                  0)
+                                : selectedDistrict
+                                  ? totalVillageVolunteer
+                                  : districtData?.villageVolunteer}
+                            </div>
                           </div>
-
-                          <div>
-                            Block Coordinators:{" "}
-                            {isIndiaView
-                              ? (allUsers?.userRoleCounts?.blockCoordinator ??
-                                0)
-                              : selectedState
-                                ? totalBlockCoordinator
-                                : districtData?.blockCoordinator}
-                          </div>
-
-                          <div>
-                            Village Volunteers:{" "}
-                            {isIndiaView
-                              ? (allUsers?.userRoleCounts?.villageVolunteer ??
-                                0)
-                              : selectedDistrict
-                                ? totalVillageVolunteer
-                                : districtData?.villageVolunteer}
-                          </div>
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              }
-              value={renderCardValue(
-                fmt(
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                }
+                value={renderCardValue(
+                  fmt(
+                    isIndiaView
+                      ? allUsers?.userRoleCounts?.coordinator
+                      : activeAnalytics.coordinators,
+                  ),
+                )}
+                icon={<Building2 className="h-3.5 w-3.5" />}
+                tooltip={
+                  <div className="space-y-1 text-xs">
+                    <div>Coordinators Count.</div>
+                  </div>
+                }
+              />
+            ) : (
+              <StatCard
+                label="Monthly Questions"
+                value={
                   isIndiaView
-                    ? allUsers?.userRoleCounts?.coordinator
-                    : activeAnalytics.coordinators,
-                ),
-              )}
-              icon={<Building2 className="h-3.5 w-3.5" />}
-            />: (<StatCard label="Monthly Questions" value={isIndiaView ? monthlyAnalyticsData[monthlyAnalyticsData?.length -1].totalQuestions : 0}/> )}
+                    ? monthlyAnalyticsData[monthlyAnalyticsData?.length - 1]
+                        .totalQuestions
+                    : 0
+                }
+                tooltip={
+                  <div className="space-y-1 text-xs">
+                    <div>Monthly Questions Asked</div>
+                  </div>
+                }
+              />
+            )}
             <StatCard
-             onClick={() => setShowResolutionModal(true)}
+              onClick={() => setShowResolutionModal(true)}
               label="Resolution Rate"
               value={
-                 isLoading || isClosedQuestionLoading
-    ? <Skeleton className="h-6 w-16" />
-    : `${combinedPct.toFixed(1)}%`
+                isLoading || isClosedQuestionLoading ? (
+                  <Skeleton className="h-6 w-16" />
+                ) : (
+                  `${combinedPct.toFixed(1)}%`
+                )
               }
               icon={<Activity className="h-3.5 w-3.5" />}
+                          tooltip={
+    <div className="space-y-1 text-xs">
+      <div>
+        Resolution Rate of Questions
+      </div>
+    </div>
+  }
             />
             {showResolutionModal && (
-  <div
-    className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-    onClick={() => setShowResolutionModal(false)}
-  >
-    <div
-      className="w-[900px] max-w-[95vw]"
-      onClick={(e) => e.stopPropagation()}
-    >
-      <ClosedInLastTwoHoursCard
-        source={source}
-        userType={userType}
-        closedInLastTwoHours={safeCount}
-        totalClosed={safeTotalClosed}
-        passedInLastTwoHours={passedInLastTwoHours}
-        totalPassed={totalPassed}
-        isMapComponent={true}
-      />
-    </div>
-  </div>
-)}
+              <div
+                className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+                onClick={() => setShowResolutionModal(false)}
+              >
+                <div
+                  className="w-[900px] max-w-[95vw]"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <ClosedInLastTwoHoursCard
+                    source={source}
+                    userType={userType}
+                    closedInLastTwoHours={safeCount}
+                    totalClosed={safeTotalClosed}
+                    passedInLastTwoHours={passedInLastTwoHours}
+                    totalPassed={totalPassed}
+                    isMapComponent={true}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         )}
 

@@ -391,14 +391,14 @@ const styleFn = useCallback(
               Questions
             </button>
 
-            <button
+            {source !== "whatsapp" && <button
               className={`px-3 py-1 text-sm ${
                 metric === "users" ? "bg-primary text-white" : "bg-background"
               }`}
               onClick={() => setMetric("users")}
             >
               Users
-            </button>
+            </button>}
           </div>
 
           <SearchBar
