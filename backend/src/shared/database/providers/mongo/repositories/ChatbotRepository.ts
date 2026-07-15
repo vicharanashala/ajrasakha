@@ -9144,6 +9144,24 @@ export class ChatbotRepository implements IChatbotRepository {
         if (value.startsWith('Large'))
           return {'farmerProfile.landhold': {$gte: 10}};
         break;
+
+      case 'kccAwareness':
+      case 'awarenessOfKCC':
+        if (value.toLowerCase() === 'yes') {
+          return { 'farmerProfile.awarenessOfKCC': true };
+        } else if (value.toLowerCase() === 'no') {
+          return { 'farmerProfile.awarenessOfKCC': { $ne: true } };
+        }
+        break;
+
+      case 'agriAppUsage':
+      case 'usesAgriApps':
+        if (value.toLowerCase() === 'yes') {
+          return { 'farmerProfile.usesAgriApps': true };
+        } else if (value.toLowerCase() === 'no') {
+          return { 'farmerProfile.usesAgriApps': { $ne: true } };
+        }
+        break;
     }
 
     return {};
@@ -9166,6 +9184,8 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const userFilter: Record<string, any> = {
         ...this.buildUserDocFilter(userType),
+        isVerified: true,
+        farmerProfile: { $exists: true, $ne: null },
       };
 
       if (search && search.trim()) {
@@ -9260,6 +9280,8 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const userFilter: Record<string, any> = {
         ...this.buildUserDocFilter(userType),
+        isVerified: true,
+        farmerProfile: { $exists: true, $ne: null },
       };
 
       const normalizedPlatform = platform?.trim();
@@ -10429,6 +10451,7 @@ export class ChatbotRepository implements IChatbotRepository {
     totalPages: number;
   }> {
     try {
+      await this.init(dbSource);
       await this.initReviewSystem();
       const matchQuery = buildBaseQuestionMatch('whatsapp');
 
@@ -10490,8 +10513,8 @@ export class ChatbotRepository implements IChatbotRepository {
                     status: 1,
                     source: 1,
                     userRole: 1,
-                    farmerId: 1,
-                    coordinatorId: 1,
+                    userId: 1,
+                    messageId: 1,
                   },
                 },
               ],
@@ -10502,11 +10525,25 @@ export class ChatbotRepository implements IChatbotRepository {
       ).toArray();
 
       const total = result[0]?.metadata[0]?.total || 0;
-      const data = result[0]?.data || [];
+      const rawData = result[0]?.data || [];
       const totalPages = Math.ceil(total / limit);
 
+      const resolved = await this.resolveQuestionUsers(rawData);
+      const userMap = resolved.userMap;
+      const questionUserMap = resolved.questionUserMap;
+
+      const enrichedData = rawData.map((question: any) => {
+        const questionId = question.questionId ?? question._id?.toString();
+        const resolvedUserId = questionUserMap.get(questionId);
+        const user = resolvedUserId ? userMap.get(resolvedUserId) : undefined;
+        return {
+          ...question,
+          email: user?.email || null,
+        };
+      });
+
       return {
-        data,
+        data: enrichedData,
         total,
         page,
         limit,
@@ -14213,12 +14250,26 @@ export class ChatbotRepository implements IChatbotRepository {
   }> {
     const directUserIds = new Set<string>();
     const messageIds: string[] = [];
+    const threadPhones = new Set<string>();
 
     for (const question of questions) {
       if (question.userId) {
         directUserIds.add(question.userId.toString());
-      } else if (question.messageId) {
+      }
+      if (question.messageId) {
         messageIds.push(question.messageId);
+      }
+      if (question.threadId) {
+        const match = question.threadId.match(/^(\d+)/);
+        if (match) {
+          const phone = match[1];
+          threadPhones.add(phone);
+          if (phone.length === 12 && phone.startsWith('91')) {
+            threadPhones.add(phone.slice(2));
+          } else if (phone.length === 10) {
+            threadPhones.add('91' + phone);
+          }
+        }
       }
     }
 
@@ -14245,24 +14296,78 @@ export class ChatbotRepository implements IChatbotRepository {
       messages.map(message => [message.messageId, message.user?.toString()]),
     );
 
-    const resolvedUserIds = new Set<string>(directUserIds);
+    // Resolve threadId (phone) -> user
+    const phoneUsers = threadPhones.size > 0
+      ? await this.users
+          .find({
+            $or: [
+              { phoneNo: { $in: Array.from(threadPhones) } },
+              { phone: { $in: Array.from(threadPhones) } },
+              { username: { $in: Array.from(threadPhones) } },
+              { 'farmerProfile.phoneNo': { $in: Array.from(threadPhones) } },
+              { 'farmerProfile.phone': { $in: Array.from(threadPhones) } }
+            ]
+          })
+          .toArray()
+      : [];
 
+    const userMapByPhone = new Map<string, any>();
+    for (const u of phoneUsers) {
+      const uAny = u as any;
+      const addPhone = (p: any) => {
+        if (!p) return;
+        const cleaned = String(p).replace(/\D/g, '');
+        if (cleaned) {
+          userMapByPhone.set(cleaned, u);
+          if (cleaned.length === 12 && cleaned.startsWith('91')) {
+            userMapByPhone.set(cleaned.slice(2), u);
+          } else if (cleaned.length === 10) {
+            userMapByPhone.set('91' + cleaned, u);
+          }
+        }
+      };
+      addPhone(uAny.phoneNo);
+      addPhone(uAny.phone);
+      addPhone(uAny.username);
+      addPhone(uAny.farmerProfile?.phoneNo);
+      addPhone(uAny.farmerProfile?.phone);
+    }
+
+    const resolvedUserIds = new Set<string>(directUserIds);
     const questionUserMap = new Map<string, string>();
+    const userMap = new Map<string, any>();
+
+    // Put phoneUsers in userMap directly by ID
+    for (const u of phoneUsers) {
+      userMap.set(u._id.toString(), u);
+    }
 
     for (const question of questions) {
       const questionId = question.questionId ?? question._id?.toString();
-
       let resolvedUserId: string | undefined;
 
-      if (question.userId) {
-        resolvedUserId = question.userId.toString();
-      } else if (question.messageId) {
-        resolvedUserId = messageUserMap.get(question.messageId);
+      if (question.threadId) {
+        const match = question.threadId.match(/^(\d+)/);
+        if (match) {
+          const phone = match[1];
+          const matchedUser = userMapByPhone.get(phone);
+          if (matchedUser) {
+            resolvedUserId = matchedUser._id.toString();
+            userMap.set(resolvedUserId, matchedUser);
+          }
+        }
+      }
+
+      if (!resolvedUserId) {
+        if (question.userId) {
+          resolvedUserId = question.userId.toString();
+        } else if (question.messageId) {
+          resolvedUserId = messageUserMap.get(question.messageId);
+        }
       }
 
       if (resolvedUserId) {
         resolvedUserIds.add(resolvedUserId);
-
         if (questionId) {
           questionUserMap.set(questionId, resolvedUserId);
         }
@@ -14280,7 +14385,9 @@ export class ChatbotRepository implements IChatbotRepository {
             .toArray()
         : [];
 
-    const userMap = new Map(users.map(user => [user._id.toString(), user]));
+    for (const user of users) {
+      userMap.set(user._id.toString(), user);
+    }
 
     return {
       userMap,
