@@ -238,7 +238,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                 Show Reference
               </Button>
             )}
-            {!isDuplicate && !question.referenceQuestionId && currentUser.role !== "expert" && currentUser.role !== "tester" && question.status !== "closed" && (question.status === "open" || question.status === "delayed") && question.submission?.queue?.length === 0 && (
+            {!isDuplicate && !question.referenceQuestionId && currentUser.role !== "expert" && currentUser.role !== "tester" && question.status !== "closed" && (
               question.isDuplicateChecked ? (
                 <Badge className="bg-green-500/10 text-green-700 border-green-500/30 gap-1">
                   <CircleCheck className="h-3 w-3" />
