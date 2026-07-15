@@ -8,8 +8,8 @@ export interface CoverageItem {
   count: number;
 }
 
-/** Live figures for the public dashboard (no auth). */
-export interface PublicDashboardStats {
+/** The four headline counts — cheap, polled for near-real-time updates. */
+export interface PublicDashboardCounts {
   /** Every question in the collection, any status — total questions processed. */
   totalQuestions: number;
   /** Questions in a closed state: closed + dynamic_closed + duplicate_closed. */
@@ -18,6 +18,10 @@ export interface PublicDashboardStats {
   questionsToday: number;
   /** Questions that entered the DB since the 1st of the month, IST (any status). */
   questionsThisMonth: number;
+}
+
+/** Live figures for the public dashboard (no auth). */
+export interface PublicDashboardStats extends PublicDashboardCounts {
   statesCovered: number;
   cropsCovered: number;
   domainsCovered: number;
@@ -27,8 +31,13 @@ export interface PublicDashboardStats {
 }
 
 export class PublicStatsService {
-  /** Public — served by DashboardContentController. */
+  /** Public — served by DashboardContentController. The heavy call (includes coverage). */
   async get(): Promise<PublicDashboardStats | null> {
     return apiFetch<PublicDashboardStats>(`${API_BASE_URL}/dashboard/stats`);
+  }
+
+  /** Public — the cheap counts only, meant to be polled. */
+  async getCounts(): Promise<PublicDashboardCounts | null> {
+    return apiFetch<PublicDashboardCounts>(`${API_BASE_URL}/dashboard/counts`);
   }
 }

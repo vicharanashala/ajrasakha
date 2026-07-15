@@ -33,37 +33,41 @@ export function useScrollSpy(ids: string[], initial = ids[0] ?? "") {
 }
 
 /**
- * Subtle one-shot count-up. Runs when the element scrolls into view, eases out over
- * ~900ms, and respects prefers-reduced-motion (jumps straight to the value).
- * Intentionally restrained — no looping or bouncing.
+ * Subtle one-shot count-up. Eases out over ~900ms and respects prefers-reduced-motion
+ * (jumps straight to the value). Intentionally restrained — no looping or bouncing.
  *
- * A new `target` re-arms the animation. This matters for live figures: a cell mounts with
- * 0 (the query is still in flight) and only later receives the real number — without the
- * re-arm it would animate 0 → 0 and stay stuck there.
+ * Two triggers, deliberately different:
+ *   • First reveal — waits until the element scrolls into view (a nice entrance).
+ *   • Every later `target` change — animates IMMEDIATELY, without waiting to be in view.
+ *
+ * The second is what makes live figures work. Gating every update on the Intersection
+ * observer meant a value pushed while the element was off-screen or on an inactive carousel
+ * slide stayed stale until the slide was next shown — the number only "caught up" when you
+ * moved the carousel. Once revealed, updates now land the moment they arrive.
  */
 export function useCountUp(target: number, durationMs = 900) {
   const [value, setValue] = useState(0);
   const ref = useRef<HTMLSpanElement | null>(null);
-  const started = useRef(false);
+  const revealed = useRef(false); // has this cell animated in at least once?
+  const valueRef = useRef(0); // latest displayed value, for animating from on a live update
+  valueRef.current = value;
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
 
-    started.current = false;
-
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced) {
+      revealed.current = true;
       setValue(target);
       return;
     }
 
     let frame = 0;
 
-    const run = () => {
-      if (started.current) return;
-      started.current = true;
-      const from = value;
+    const animateTo = () => {
+      revealed.current = true;
+      const from = valueRef.current;
       const start = performance.now();
       const tick = (now: number) => {
         const t = Math.min(1, (now - start) / durationMs);
@@ -75,8 +79,15 @@ export function useCountUp(target: number, durationMs = 900) {
       frame = requestAnimationFrame(tick);
     };
 
+    // Already revealed once → a new target is a live update: animate now, no observer.
+    if (revealed.current) {
+      animateTo();
+      return () => cancelAnimationFrame(frame);
+    }
+
+    // First time → reveal on scroll-into-view.
     const io = new IntersectionObserver(
-      (entries) => entries.forEach((e) => e.isIntersecting && run()),
+      (entries) => entries.forEach((e) => e.isIntersecting && animateTo()),
       { threshold: 0.4 },
     );
     io.observe(el);
@@ -84,8 +95,7 @@ export function useCountUp(target: number, durationMs = 900) {
       io.disconnect();
       cancelAnimationFrame(frame);
     };
-    // `value` is the animation's starting point, read once when the target changes —
-    // depending on it would restart the count-up on every frame.
+    // `value` is read via valueRef so it isn't a dependency (it would restart every frame).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target, durationMs]);
 

@@ -6,10 +6,11 @@ import {
 import { Analytics } from '../validators/DashboardValidators.js';
 
 /**
- * Public dashboard figures: the total validated Q&A pairs plus the coverage breakdowns
- * (states / crops / domains) — i.e. the questions-analytics payload without `tableData`.
+ * The cheap, poll-friendly counts — four countDocuments, no aggregation. The public
+ * dashboard polls this every few seconds so the headline figures track the questions
+ * collection in near-real-time, without re-running the heavy analytics pipeline.
  */
-export interface PublicDashboardStats {
+export interface PublicDashboardCounts {
   /** Every question in the collection, any status — total questions processed. */
   totalQuestions: number;
   /** Questions in a closed state: closed + dynamic_closed + duplicate_closed. */
@@ -18,6 +19,15 @@ export interface PublicDashboardStats {
   questionsToday: number;
   /** Questions that entered the DB since the 1st of the month, IST (any status). */
   questionsThisMonth: number;
+}
+
+/**
+ * Public dashboard figures: the counts plus the coverage breakdowns (states / crops /
+ * domains) — i.e. the questions-analytics payload without `tableData`. This is the heavy
+ * call; the coverage breakdowns are refreshed lazily, while the counts above are polled
+ * separately via getPublicDashboardCounts().
+ */
+export interface PublicDashboardStats extends PublicDashboardCounts {
   statesCovered: number;
   cropsCovered: number;
   domainsCovered: number;
@@ -39,4 +49,7 @@ export interface IDashboardContentService {
 
   /** Public read — live figures computed from the questions collection. */
   getPublicDashboardStats(): Promise<PublicDashboardStats>;
+
+  /** Public read — just the four headline counts (cheap; polled for near-real-time). */
+  getPublicDashboardCounts(): Promise<PublicDashboardCounts>;
 }

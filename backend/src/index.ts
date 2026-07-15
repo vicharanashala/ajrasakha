@@ -23,6 +23,7 @@ import { apiReference } from '@scalar/express-api-reference';
 import { generateOpenAPISpec } from './shared/functions/generateOpenApiSpec.js';
 import http from 'http';
 import { initWebSocket } from './bootstrap/websocket.js';
+import { initDashboardRealtime } from './bootstrap/dashboardRealtime.js';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { faqPopConfig } from './config/faqPop.js';
 
@@ -151,6 +152,7 @@ app.use(
 const server = http.createServer(app);
 
 initWebSocket(server);
+initDashboardRealtime(server);
 
 server.listen(appConfig.port, () => {
   initJobs();

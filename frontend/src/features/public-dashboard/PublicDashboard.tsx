@@ -28,7 +28,8 @@ import { domains, heroStats } from "./data/dashboardData";
 import { NAV } from "./data/nav";
 import { useScrollSpy } from "./utils";
 import { useGetDashboardContent } from "@/hooks/api/dashboard/useDashboardContent";
-import { useGetPublicStats } from "@/hooks/api/dashboard/usePublicStats";
+import { useGetPublicCounts, useGetPublicStats } from "@/hooks/api/dashboard/usePublicStats";
+import { usePublicCountsSocket } from "@/hooks/api/dashboard/usePublicCountsSocket";
 import { useGetMedia } from "@/hooks/api/media/useMedia";
 import type { PublicDashboardStats } from "@/hooks/services/publicStatsService";
 import type { DashboardStat } from "@/hooks/services/dashboardContentService";
@@ -51,6 +52,8 @@ export const PublicDashboard = () => {
   // ---- live data -----------------------------------------------------------
   const { data: content } = useGetDashboardContent();
   const { data: live } = useGetPublicStats();
+  const { data: counts } = useGetPublicCounts(); // seeded by fetch, kept live by the socket
+  usePublicCountsSocket(); // pushes count updates into the query above (change-stream driven)
   const { data: carouselImages } = useGetMedia("carousel");
   const { data: outreachImages } = useGetMedia("outreach_image");
   const { data: outreachVideos } = useGetMedia("outreach_video");
@@ -58,7 +61,21 @@ export const PublicDashboard = () => {
   // Admin-authored narrative, falling back to the seed blocks until something is saved.
   const blocks = content?.blocks?.length ? content.blocks : defaultBlocks;
 
-  const stats = useMemo(() => buildStatCells(live, content?.stats), [live, content?.stats]);
+  // The polled counts are the fresh source for the headline figures; the heavy /stats call
+  // supplies the coverage breakdowns and seeds the counts until the first poll lands.
+  const headline = counts ?? live;
+
+  // Coverage from /stats, but the counts overridden by the polled values so the stat grid's
+  // "Total Validated Question-Answer Pairs" tracks new questions too.
+  const liveForStats = useMemo(
+    () => (live ? { ...live, ...(counts ?? {}) } : live),
+    [live, counts],
+  );
+
+  const stats = useMemo(
+    () => buildStatCells(liveForStats, content?.stats),
+    [liveForStats, content?.stats],
+  );
   const domainData = useMemo(() => buildDomainSlices(live), [live]);
 
   // Carousel figures that aren't derivable from the questions collection — an admin
@@ -78,13 +95,13 @@ export const PublicDashboard = () => {
       <Header
         activeNav={activeNav}
         onLogin={() => navigate({ to: "/auth" })}
-        today={live?.questionsToday ?? 0}
-        thisMonth={live?.questionsThisMonth ?? 0}
+        today={headline?.questionsToday ?? 0}
+        thisMonth={headline?.questionsThisMonth ?? 0}
       />
       <HeroCarousel
         stats={{
-          totalQuestions: live?.totalQuestions ?? 0,
-          validatedQAPairs: live?.validatedQAPairs ?? 0,
+          totalQuestions: headline?.totalQuestions ?? 0,
+          validatedQAPairs: headline?.validatedQAPairs ?? 0,
           ...editorial,
         }}
         images={carouselImages ?? []}

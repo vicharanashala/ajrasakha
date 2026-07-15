@@ -34,6 +34,7 @@ import {
 } from '#root/modules/media/classes/validators/MediaValidators.js';
 import {
   IDashboardContentService,
+  PublicDashboardCounts,
   PublicDashboardStats,
 } from '../interfaces/IDashboardContentService.js';
 import { UpdateDashboardContentDto } from '../validators/DashboardContentValidators.js';
@@ -70,6 +71,16 @@ export class DashboardContentController {
   @Get('/stats')
   async stats(): Promise<PublicDashboardStats> {
     return this.contentService.getPublicDashboardStats();
+  }
+
+  /**
+   * Just the four headline counts — cheap (no aggregation), so the public dashboard polls
+   * this every few seconds to track new questions in near-real-time.
+   */
+  @OpenAPI({ summary: 'Public — headline counts only (poll-friendly, real-time)' })
+  @Get('/counts')
+  async counts(): Promise<PublicDashboardCounts> {
+    return this.contentService.getPublicDashboardCounts();
   }
 
   /** Admin-edited narrative blocks + headline stats. */

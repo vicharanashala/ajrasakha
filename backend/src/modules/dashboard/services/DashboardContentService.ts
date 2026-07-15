@@ -11,6 +11,7 @@ import {
 import { Analytics } from '../validators/DashboardValidators.js';
 import {
   IDashboardContentService,
+  PublicDashboardCounts,
   PublicDashboardStats,
 } from '../interfaces/IDashboardContentService.js';
 
@@ -38,20 +39,29 @@ export class DashboardContentService implements IDashboardContentService {
    * state×crop×source pivot the public page doesn't need). What's left — stateData,
    * cropData, domainData — is exactly "states / crops / domains covered".
    */
-  async getPublicDashboardStats(): Promise<PublicDashboardStats> {
+  /**
+   * The four headline counts — four countDocuments, no aggregation. Cheap enough for the
+   * public dashboard to poll every few seconds so the figures track new questions in
+   * near-real-time. Each poll hits the DB directly, so it is correct even when Cloud Run
+   * has scaled to several instances (no shared in-process state to keep in sync).
+   */
+  async getPublicDashboardCounts(): Promise<PublicDashboardCounts> {
     const { dayStart, monthStart } = istBoundaries(new Date());
 
-    const [
-      totalQuestions,
-      validatedQAPairs,
-      questionsToday,
-      questionsThisMonth,
-      { analytics },
-    ] = await Promise.all([
-      this.questionRepo.countAllQuestions(),
-      this.questionRepo.countValidatedQAPairs(),
-      this.questionRepo.countQuestionsCreatedSince(dayStart),
-      this.questionRepo.countQuestionsCreatedSince(monthStart),
+    const [totalQuestions, validatedQAPairs, questionsToday, questionsThisMonth] =
+      await Promise.all([
+        this.questionRepo.countAllQuestions(),
+        this.questionRepo.countValidatedQAPairs(),
+        this.questionRepo.countQuestionsCreatedSince(dayStart),
+        this.questionRepo.countQuestionsCreatedSince(monthStart),
+      ]);
+
+    return { totalQuestions, validatedQAPairs, questionsToday, questionsThisMonth };
+  }
+
+  async getPublicDashboardStats(): Promise<PublicDashboardStats> {
+    const [counts, { analytics }] = await Promise.all([
+      this.getPublicDashboardCounts(),
       this.questionRepo.getQuestionAnalytics(),
     ]);
 
@@ -66,10 +76,7 @@ export class DashboardContentService implements IDashboardContentService {
     const realDomains = domainData.filter(d => !d.name?.startsWith('$'));
 
     return {
-      totalQuestions,
-      validatedQAPairs,
-      questionsToday,
-      questionsThisMonth,
+      ...counts,
       statesCovered: stateData.length,
       cropsCovered: cropData.length,
       domainsCovered: realDomains.length,
