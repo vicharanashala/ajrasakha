@@ -888,7 +888,9 @@ Category: district
 
 DAILY_PRICE_INTENT_PROMPT = """You extract mandi price tool parameters for Indian farmers.
 Return ONLY a valid JSON object (no markdown, no explanation) with these keys:
-- action: one of "get_prices", "search_markets", "lookup_commodity"
+- action: one of
+  "get_today_price", "get_price_history", "get_price_summary", "get_highest_price",
+  "get_today_arrival", "get_arrival_history", "get_extreme_arrival", "search_markets"
 - nearest_market: boolean (true = several nearby markets; false = single nearest)
 - radius_km: number or null
 - lookback_days: integer or null (past N days; preferred over from_date/to_date)
@@ -896,26 +898,33 @@ Return ONLY a valid JSON object (no markdown, no explanation) with these keys:
 - to_date: string or null
 - market_name: string or null
 - state: string or null (only if the farmer named a state)
+- sort_order: "highest" or "lowest" or null (only for get_extreme_arrival)
 
 Rules:
-- Default for price / rate / mandi questions: action="get_prices", nearest_market=true, lookback_days=7
-- "today" / "latest" / "current" → lookback_days=3
-- "this week" → lookback_days=7
-- "this month" → lookback_days=30
-- Asking which markets are nearby / find mandi → action="search_markets"
-- Asking crop alias / official commodity name only → action="lookup_commodity"
-- Never use action "get_unresolved_markets"
+- Default price / rate / mandi questions: action="get_today_price", nearest_market=true
+- "today" / "latest" / "current" / "now" (price) → get_today_price
+- History / last N days / week / month / date range (price) → get_price_history with lookback_days or from_date/to_date
+- Average / summary / min-max-modal stats → get_price_summary
+- Highest / maximum / best selling price → get_highest_price
+- Today's arrival / stock arrived today → get_today_arrival
+- Arrival over days / arrival history → get_arrival_history
+- Highest or lowest arrival → get_extreme_arrival + sort_order
+- Which markets / mandi near me / find APMC → search_markets
 - Omit unused filters as null
+- Never invent actions outside the list above
 
 Examples:
 Query: What is wheat price near me today?
-{"action":"get_prices","nearest_market":true,"radius_km":null,"lookback_days":3,"from_date":null,"to_date":null,"market_name":null,"state":null}
+{"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
 
 Query: Onion prices in Maharashtra last 15 days
-{"action":"get_prices","nearest_market":true,"radius_km":null,"lookback_days":15,"from_date":null,"to_date":null,"market_name":null,"state":"Maharashtra"}
+{"action":"get_price_history","nearest_market":true,"radius_km":null,"lookback_days":15,"from_date":null,"to_date":null,"market_name":null,"state":"Maharashtra","sort_order":null}
+
+Query: What is the average tomato price this week?
+{"action":"get_price_summary","nearest_market":true,"radius_km":null,"lookback_days":7,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
 
 Query: Which mandis are near me?
-{"action":"search_markets","nearest_market":true,"radius_km":50,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":null}
+{"action":"search_markets","nearest_market":true,"radius_km":50,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
 """
 
 DAILY_PRICE_ANSWER_PROMPT = """You are AjraSakha helping an Indian farmer with mandi/commodity prices.
@@ -923,10 +932,14 @@ You receive the farmer's question and JSON from a mandi price tool.
 Write a clear, practical answer in English WhatsApp-friendly plain text.
 
 Rules:
-- Use ONLY facts from the tool JSON (prices, markets, dates, varieties, grades).
+- Use ONLY facts from the tool JSON (prices, arrivals, markets, dates, varieties, grades, stats).
 - Mention modal/min/max prices with units when present (usually Rs/quintal).
+- Mention arrival quantities when the data includes them.
 - Name the market and date when available.
 - If records are limited, say so briefly.
+- If the tool JSON has an "error" field, empty price/arrival lists, or otherwise no usable data,
+  clearly tell the farmer that mandi price data is not available for that crop/location/date.
+  Do not invent prices. You may briefly restate crop and place from the error/query.
 - No markdown (** ##), no emojis, no source footnotes, no disclaimers.
 - Return ONLY the answer body.
 """
