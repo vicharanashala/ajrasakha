@@ -8,6 +8,7 @@ export class AccAgentService {
   private readonly BASE_URL = aiConfig.accAgentBaseUrl;
   private readonly ASSISTANT_ID = aiConfig.accAgentAssistantId;
   private readonly TIMEOUT = aiConfig.accAgentTimeout;
+  private readonly checkpointCache = new Map<string, string>();
 
   /**
    * Step 1: Create a new thread/session
@@ -114,9 +115,10 @@ export class AccAgentService {
           ? [correctedData.domain]
           : [];
 
-      const result = await axios.post(
+      const response = await axios.post(
         `${this.BASE_URL}/threads/${threadId}/state`,
         {
+          as_node: 'extract',
           values: {
             extracted_query: correctedData.query,
             extracted_crop: correctedData.crop,
@@ -132,6 +134,12 @@ export class AccAgentService {
         }
       );
 
+      const checkpointId = response.data?.checkpoint?.checkpoint_id || response.data?.checkpoint_id;
+      if (checkpointId) {
+        this.checkpointCache.set(threadId, checkpointId);
+        console.log(`💾 [AccAgentService] Cached checkpoint ${checkpointId} for thread ${threadId}`);
+      }
+
       console.log(`✅ [AccAgentService] State updated for thread ${threadId} (${Date.now() - startTime}ms)`);
     } catch (error) {
       console.error(`❌ [AccAgentService] updateState failed for thread ${threadId} after ${Date.now() - startTime}ms:`, error);
@@ -141,6 +149,13 @@ export class AccAgentService {
 
 
   async checkpointId(threadId: string): Promise<string | undefined> {
+    if (this.checkpointCache.has(threadId)) {
+      const cached = this.checkpointCache.get(threadId);
+      this.checkpointCache.delete(threadId);
+      console.log(`💾 [AccAgentService] Using cached checkpoint ${cached} for thread ${threadId}`);
+      return cached;
+    }
+
     try {
       // Try GET request first (standard LangGraph API for getting state)
       const response = await axios.get(
