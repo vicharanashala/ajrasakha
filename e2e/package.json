@@ -1,0 +1,23 @@
+{
+  "name": "ajrasakha-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Playwright E2E test suite for the Ajrasakha reviewer platform",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "test:mobile": "playwright test --project=mobile-chrome",
+    "test:auth": "playwright test tests/auth/",
+    "test:query": "playwright test tests/query-submission/",
+    "test:voice": "playwright test tests/voice/",
+    "test:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "@types/node": "^20.0.0",
+    "dotenv": "^16.4.5",
+    "typescript": "^5.7.2"
+  }
+}
