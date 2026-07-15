@@ -7,12 +7,8 @@ export const aiConfig = {
   // (axios), HTTP CONNECT for undici (fetch) — tailscaled serves both on the same port.
   proxyAddress: env('AI_PROXY_ADDRESS') || 'socks5h://localhost:1055',
   httpProxyAddress: env('AI_HTTP_PROXY_ADDRESS') || 'http://localhost:1055',
-  /**
-   * Force the tailnet proxy on/off. Leave UNSET (the normal case) and the app probes for a
-   * proxy at boot: present on Cloud Run (userspace networking, no route to 100.x without
-   * it), absent on the VM (real TUN interface, direct route already works).
-   */
-  tailnetProxyMode: env('USE_TAILNET_PROXY')?.trim(),
+  /** Turn the tailnet proxy off (e.g. local dev with a direct route). */
+  useTailnetProxy: env('USE_TAILNET_PROXY') !== 'false',
   agentServerIP: env('AGENT_SERVER_IP'),
   agerntServerPort: Number(env('AGENT_SERVER_PORT')?.trim()) || 9017,
   openAIServerIP: env('OPENAI_SERVER_IP'),
