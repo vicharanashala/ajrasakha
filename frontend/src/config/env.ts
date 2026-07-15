@@ -93,6 +93,17 @@ export const env = {
   },
 
   internalApiKey: () => getEnv("VITE_INTERNAL_API_KEY", true, "dummy-internal-api-key"),
-  faqApiUrl: () => getEnv("VITE_FAQ_API_URL", false, "/api/faq"),
-  popApiUrl: () => getEnv("VITE_POP_API_URL", false, "/api/pop"),
+
+  // FAQ and POP are served by the backend's proxy (/api/faq, /api/pop), so they hang off
+  // the API base URL like every other call. They must NOT default to a relative path: the
+  // built app is served by Firebase Hosting, whose SPA rewrite answers any unknown path
+  // with index.html and a 200 — so a relative /api/pop/... silently returns the HTML page
+  // instead of JSON. Only an explicit VITE_FAQ_API_URL / VITE_POP_API_URL overrides this.
+  faqApiUrl: () => getEnv("VITE_FAQ_API_URL", false, "") || `${apiBase()}/faq`,
+  popApiUrl: () => getEnv("VITE_POP_API_URL", false, "") || `${apiBase()}/pop`,
 };
+
+/** API base URL without a trailing slash, e.g. "https://…run.app/api". */
+function apiBase(): string {
+  return env.apiBaseUrl().replace(/\/$/, "");
+}
