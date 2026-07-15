@@ -319,22 +319,11 @@ export class AiService {
 
       const fullUrl = `${this._whatsAppServerUrl}/threads/${threadId}/state`;
       console.log("Full url ", fullUrl);
-
-      let response: Response;
-      try {
-        response = await fetch(fullUrl);
-      } catch (err) {
-        // The WhatsApp server lives on the tailnet (100.x), reachable only through the
-        // Tailscale proxy. Swallowing this used to leave `response` undefined, so the next
-        // line threw a TypeError, the outer catch returned null, and the caller reported
-        // "No matching WhatsApp message found" — a connectivity failure disguised as a
-        // missing message. Surface the real cause instead.
-        const reason = err instanceof Error ? err.message : String(err);
-        console.error(`Failed to reach the WhatsApp server at ${fullUrl}:`, err);
-        throw new InternalServerError(
-          `WhatsApp server unreachable at ${fullUrl} (${reason}). ` +
-          `This host is on the tailnet — check that Tailscale connected on boot.`,
-        );
+      let response;
+      try{
+      response = await fetch(fullUrl);
+      }catch(err){
+        console.error("Error fetching WhatsApp message:", err);
       }
 
       if (!response.ok) {
@@ -523,11 +512,6 @@ export class AiService {
       };
     } catch (error) {
       console.error("Error fetching WhatsApp message:", error);
-      // A null return means "the server answered, but there is no matching message". A
-      // connectivity failure is NOT that, and must not be reported as one — it would also
-      // make validateTimeBoundQuestionThread() treat an unreachable server as proof the
-      // question is a test and flag it isTesting.
-      if (error instanceof InternalServerError) throw error;
       return null;
     }
   }
