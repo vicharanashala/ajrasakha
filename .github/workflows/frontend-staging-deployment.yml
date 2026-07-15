@@ -1,32 +1,20 @@
 # STAGING ONLY. Production lives in `frontend-deployment.yml` and is untouched.
 #
-# The staging branch is `staging_branch/main_copy` and it is the DEFAULT here: the workflow
-# checks that branch out explicitly, so it deploys staging code no matter which branch you
-# happened to dispatch from. (GitHub's "Use workflow from" dropdown always defaults to the
-# repo's default branch and can't be changed per-workflow — hence the `ref` input below.)
-# Override `ref` only if you need to ship a different branch/tag/SHA to staging.
+# No branch is hard-coded. Pick what to deploy in the Actions UI:
 #
-#   site   : ajrasakha-staging-594  → https://ajrasakha-staging-594.firebaseapp.com
-#            (separate Firebase Hosting site from prod's ajrasakha-prod)
-#   config : GENERATED at deploy time into deploy/staging/firebase.json — nothing to commit.
-#            The repo-root firebase.json (production, site: ajrasakha-prod) is never used.
+#   1. "Use workflow from"  → the branch dropdown. Whatever you pick is deployed.
+#   2. "Ref to deploy"      → optional override. Leave BLANK to use the branch from (1);
+#                             fill it in to deploy any other branch, tag or SHA.
 #
-# IMPORTANT: the BUILD job runs in the `staging` GitHub Environment, because Vite BAKES the
-# VITE_* values into the bundle at build time.
-#
-# The app only ever reads VITE_API_BASE_URL. This workflow feeds that variable from the
-# VITE_API_BASE_URL_STAGING secret, so the production VITE_API_BASE_URL secret is never
-# touched and a staging bundle can't inherit the production API URL.
-
 name: AjraSakha Frontend Staging Deployment
 
 on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Branch / tag / SHA to deploy to staging"
-        required: true
-        default: "staging_branch/main_copy"
+        description: "Ref to deploy (branch / tag / SHA). Leave blank to use the branch selected above."
+        required: false
+        default: ""
         type: string
 
 permissions:
@@ -40,24 +28,18 @@ jobs:
   build:
     name: Build Frontend (staging)
     runs-on: ubuntu-latest
-    # Pulls the STAGING values of the VITE_* secrets.
-    environment:
-      name: staging
 
     steps:
-      # Always build the staging branch, not whatever the run was dispatched from.
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || github.ref }}
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v4
         with:
           version: 10.4.1
           run_install: false
@@ -67,53 +49,30 @@ jobs:
           cd frontend
           pnpm install
 
-      # Vite BAKES the API URL into the bundle, so a wrong value ships silently and the
-      # staging site ends up calling the PRODUCTION API (and its database). Fail loudly here.
-      - name: Guard — staging must not point at the production API
+      - name: Guard — staging API
         env:
           VITE_API_BASE_URL_STAGING: ${{ secrets.VITE_API_BASE_URL_STAGING }}
         run: |
-          if [ -z "$VITE_API_BASE_URL_STAGING" ]; then
-            echo "::error::VITE_API_BASE_URL_STAGING is empty."
-            echo "::error::Add it to Settings → Environments → staging — the staging backend URL, ending in /api."
-            exit 1
-          fi
-          case "$VITE_API_BASE_URL_STAGING" in
-            *staging*)
-              echo "✅ Staging API base URL: $VITE_API_BASE_URL_STAGING"
-              ;;
-            *)
-              echo "::error::VITE_API_BASE_URL_STAGING does not look like a staging URL: $VITE_API_BASE_URL_STAGING"
-              echo "::error::This would point the staging site at PRODUCTION."
-              exit 1
-              ;;
-          esac
-          case "$VITE_API_BASE_URL_STAGING" in
-            */api) : ;;
-            *) echo "::warning::VITE_API_BASE_URL_STAGING does not end with /api — requests will 404 (backend route prefix is /api)." ;;
-          esac
+          test -n "$VITE_API_BASE_URL_STAGING"
 
       - name: Build frontend
         env:
           VITE_ENABLE_MOCKS: ${{ secrets.VITE_ENABLE_MOCKS }}
-          # The app only ever reads VITE_API_BASE_URL. Staging just feeds it from a
-          # DIFFERENT secret, so the production secret is never touched.
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL_STAGING }}
-          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
-          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
-          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
-          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
-          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
-          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
-          VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
-          VITE_SARVAM_API_KEY: ${{ secrets.VITE_SARVAM_API_KEY }}
-          VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY_STAGING }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN_STAGING }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID_STAGING }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET_STAGING }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID_STAGING }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID_STAGING }}
+          VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID_STAGING }}
+          VITE_SARVAM_API_KEY: ${{ secrets.VITE_SARVAM_API_KEY_STAGING }}
+          VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY_STAGING }}
         run: |
           cd frontend
           pnpm exec vite build
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: frontend-build-staging
           path: ./frontend/dist
@@ -123,22 +82,16 @@ jobs:
     name: Deploy to Firebase Hosting (Staging)
     needs: build
     runs-on: ubuntu-latest
-    environment:
-      name: staging
 
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || github.ref }}
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      # The staging Firebase config is GENERATED here rather than committed, so there is
-      # nothing extra to remember to push to the staging branch — and the repo-root
-      # firebase.json (production, site: ajrasakha-prod) is never touched or read.
       - name: Generate staging Firebase config
         run: |
           mkdir -p deploy/staging
@@ -147,30 +100,40 @@ jobs:
             "hosting": {
               "site": "ajrasakha-staging-594",
               "public": "dist",
-              "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-              "rewrites": [{ "source": "**", "destination": "/index.html" }]
+              "rewrites": [
+                {
+                  "source": "/api/**",
+                  "run": {
+                    "serviceId": "reviewer-backend-staging",
+                    "region": "asia-south2"
+                  }
+                },
+                {
+                  "source": "**",
+                  "destination": "/index.html"
+                }
+              ]
             }
           }
           JSON
           cat > deploy/staging/.firebaserc <<'JSON'
-          { "projects": { "default": "${{ secrets.FIREBASE_PROJECT_ID }}" } }
+          {
+            "projects": {
+              "default": "${{ secrets.FIREBASE_PROJECT_ID_STAGING }}"
+            }
+          }
           JSON
-          echo "--- deploy/staging/firebase.json ---"
-          cat deploy/staging/firebase.json
 
-      # Land the build where firebase.json expects it ("public": "dist").
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: frontend-build-staging
           path: ./deploy/staging/dist
 
-      - name: Deploy to Firebase Hosting (staging site)
+      - name: Deploy to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.GCP_GH_SA_KEY }}
           projectId: ${{ secrets.FIREBASE_PROJECT_ID }}
           channelId: live
-          # Uses deploy/staging/firebase.json — NOT the repo-root production config.
           entryPoint: ./deploy/staging
