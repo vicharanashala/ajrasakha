@@ -377,6 +377,49 @@ async def test_csv_onion_price_plan_builds_mandi_only():
     assert reviewer["args"]["source"] == "WHATSAPP"
 
 
+@pytest.mark.asyncio
+async def test_daily_price_uses_rephrased_query_not_location_followup():
+    """After a location follow-up, mandi must get the full price question, not the district reply."""
+    rephrased = (
+        "What was yesterday's price of wheat compared to today's price "
+        "in Khammam district, Telangana?"
+    )
+    plan = {
+        "weather": False,
+        "mandi": True,
+        "soil": False,
+        "schemes": False,
+        "chemical_checker": False,
+        "knowledge_base": True,
+        "is_complete": True,
+        "rephrased_query": rephrased,
+        "original_query_en": (
+            "What was yesterday's price of wheat compared to today's price? "
+            "Telangana state Khammam district."
+        ),
+        "entities": {"crop": "Wheat", "state": "Telangana", "district": "Khammam"},
+    }
+    calls = await build_tool_calls_from_plan(
+        plan,
+        "Telangana state khammam district.",
+        {
+            "state": "Telangana",
+            "city": "Khammam",
+            "latitude": 17.1729189,
+            "longitude": 80.4057537,
+        },
+        location_tool_name="location_information_tool",
+        reviewer_tool_name="upload_question_to_reviewer_system",
+        question_source="AJRASAKHA",
+    )
+    daily = next(c for c in calls if c["name"] == "daily_price")
+    gdb = next(c for c in calls if c["name"] == "gdb")
+    assert daily["args"]["query"] == rephrased
+    assert gdb["args"]["rephrased_query"] == rephrased
+    assert daily["args"]["crop"] == "Wheat"
+    assert daily["args"]["state"] == "Telangana"
+
+
 def test_format_tool_results_collects_after_tool_call_ai_message():
     """Regression: reverse scan used to skip ToolMessages before finding the AIMessage."""
     weather_text = "## Weather Summary\nTemperature: 39.3°C\nRainfall: NIL"
