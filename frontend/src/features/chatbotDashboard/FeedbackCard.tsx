@@ -165,7 +165,7 @@ function FeedbackCard({
   const negativeSummary = summarizeTags(negativeFeedbacks, "negative");
   const queryClient = useQueryClient();
   const [dataRefreshing, setDataRefreshing] = useState(false);
-  const [selectedRating, setSelectedRating] = useState<"positive" | "negative" | null>(null);
+  const [selectedRating, setSelectedRating] = useState<"all" | "positive" | "negative" | null>(null);
   
   const handleRefresh = async ()=>{
     setDataRefreshing(true);

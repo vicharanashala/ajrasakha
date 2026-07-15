@@ -17,7 +17,7 @@ import { Clock3, X, InfoIcon, ListChecks, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/atoms/skeleton";
-import { useCallback, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { QueryCategoryQuestionsModal } from "./components/QueryCategoryQuestionsModal";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
@@ -433,7 +433,7 @@ function StatTile({
   label: string;
   count: number;
   accent: keyof typeof ACCENT;
-  tooltip: string;
+  tooltip: React.ReactNode;
   onClick?: () => void;
   showInfo?: boolean;
   statusBreakup?: any;
@@ -462,45 +462,6 @@ function StatTile({
             <span className={cn("h-1.5 w-1.5 rounded-full", a.dot)} />
             <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground flex items-center justify-center gap-1">
               {label}
-
-              {showInfo && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <InfoIcon className="h-3 w-3 cursor-help text-muted-foreground/60" />
-                  </TooltipTrigger>
-
-                  <TooltipContent
-                    side="top"
-                    className="min-w-[200px] rounded-lg p-3"
-                  >
-                    <div className="space-y-1.5 text-xs">
-                      {Object.entries(statusBreakup?.statuses ?? {})
-                        .filter(([key, value]) => {
-                          return key !== "pass" && key !== "closed"
-                        })
-                        .map(([key, value]) => (
-                          <div
-                            key={key}
-                            className="flex justify-between gap-4 cursor-pointer hover:bg-muted/80 p-1 -mx-1 px-1 rounded transition-colors"
-                            onClick={(e) => {
-                              setIsPassed?.(key === "pass");
-                              handleClick?.(key);
-                              e.stopPropagation();
-                            }}
-                          >
-                            <span className="text-muted-foreground">
-                              {key
-                                .replace(/[_-]/g, " ")
-                                .replace(/\b\w/g, (c) => c.toUpperCase())}
-                            </span>
-
-                            <span className="font-medium">{String(value)}</span>
-                          </div>
-                        ))}
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-              )}
             </span>
           </div>
           <span className="text-2xl font-bold leading-none tracking-tight tabular-nums text-foreground">
@@ -508,8 +469,39 @@ function StatTile({
           </span>
         </motion.button>
       </TooltipTrigger>
-      <TooltipContent side="top">
-        <p className="text-xs">{tooltip}</p>
+      <TooltipContent
+        side="top"
+        className={cn(showInfo ? "min-w-[200px] rounded-lg p-3" : "")}
+      >
+        {showInfo ? (
+          <div className="space-y-1.5 text-xs">
+            {Object.entries(statusBreakup?.statuses ?? {})
+              .filter(([key, value]) => {
+                return key !== "pass" && key !== "closed"
+              })
+              .map(([key, value]) => (
+                <div
+                  key={key}
+                  className="flex justify-between gap-4 cursor-pointer hover:bg-muted/80 p-1 -mx-1 px-1 rounded transition-colors"
+                  onClick={(e) => {
+                    setIsPassed?.(key === "pass");
+                    handleClick?.(key);
+                    e.stopPropagation();
+                  }}
+                >
+                  <span className="text-muted-foreground">
+                    {key
+                      .replace(/[_-]/g, " ")
+                      .replace(/\b\w/g, (c) => c.toUpperCase())}
+                  </span>
+
+                  <span className="font-medium">{String(value)}</span>
+                </div>
+              ))}
+          </div>
+        ) : (
+          <p className="text-xs">{tooltip}</p>
+        )}
       </TooltipContent>
     </Tooltip>
   );
