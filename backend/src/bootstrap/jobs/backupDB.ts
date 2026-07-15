@@ -8,7 +8,7 @@ import { getContainer } from '../loadModules.js';
 // import { CORE_TYPES } from '#root/modules/core/types.js';
 
 // cron.schedule('* * * * *', async () => {
-const start =true
+const start =false
 if(start){
 cron.schedule(
   '0 8,19 * * *',

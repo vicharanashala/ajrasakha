@@ -4,7 +4,7 @@ import { GLOBAL_TYPES } from '#root/types.js';
 import type { UserService } from '#root/modules/user/services/UserService.js';
 
 // Schedule every 1 minute
-const start =true
+const start =false
 if(start){
 cron.schedule('*/1 * * * *', async () => {
   try {

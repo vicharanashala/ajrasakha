@@ -4,7 +4,7 @@ import { appConfig } from '#root/config/app.js';
 import { CORE_TYPES } from '#root/modules/core/types.js';
 import { QuestionService } from '#root/modules/core/index.js';
 
-const start=true
+const start=false
 //if (!appConfig.isDevelopment)
  if (start) {
    cron.schedule(
