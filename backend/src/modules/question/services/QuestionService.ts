@@ -1264,11 +1264,16 @@ export class QuestionService extends BaseService implements IQuestionService {
           : result.referenceQuestionId
             ? new ObjectId(String(result.referenceQuestionId))
             : null;
+      
+      // Get submission to check queue length
+      const questionSubmission = await this.questionSubmissionRepo.getByQuestionId(questionId);
+      const queueLength = questionSubmission?.queue?.length || 0;
+      
       // Only flip the status to 'duplicate' when the question is still open/delayed.
       // For any other status (in-review, closed, etc.) the workflow is already past
       // that point, so the status must not change — we just record the reference.
       const canMarkDuplicate =
-        question.status === 'open' || question.status === 'delayed';
+        (question.status === 'open' || question.status === 'delayed') && queueLength === 0;
       await this.questionRepo.updateQuestion(questionId, {
         ...(canMarkDuplicate ? { status: 'duplicate' } : {}),
         similarityScore: result.similarityScore,
@@ -5804,6 +5809,36 @@ export class QuestionService extends BaseService implements IQuestionService {
         avatar: message?.userDetails?.avatar || null,
       },
       content: message.content || [],
+    };
+  }
+
+  async getQuestionFeedback(questionId: string) {
+    const questionData = await this.questionRepo.getById(questionId);
+
+    if (!questionData) {
+      throw new Error('Question not found');
+    }
+
+    const { question, details, createdAt, messageId } = questionData;
+
+    const annamMessages = await this.chatbotRepository.findFromSecondDb({
+      question,
+      details,
+      createdAt,
+      questionId: questionId.toString(),
+      messageId: messageId ? messageId.toString() : undefined,
+    });
+
+    const message = annamMessages?.[0];
+
+    return {
+      feedback: message?.feedback || null,
+      user: {
+        username: message?.userDetails?.username || 'N/A',
+        email: message?.userDetails?.email || '',
+        avatar: message?.userDetails?.avatar || null,
+      },
+      createdAt: message?.createdAt ? new Date(message.createdAt).toISOString() : '',
     };
   }
   async checkStatus(questionIds: string[]): Promise<ICheckStatusResponse[]> {

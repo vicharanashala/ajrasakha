@@ -2869,6 +2869,8 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const source = _source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
 
+      console.log("District data", district)
+
       const districts = district.map(d => {
         if (d.districtNameEnglish === 'S.A.S Nagar') {
           return 'Sahibzada Ajit Singh Nagar';
@@ -3285,6 +3287,7 @@ export class ChatbotRepository implements IChatbotRepository {
         const districtMeta = districtCodeMap.get(normalizedDistrict);
 
         const feedbackData = feedbackMap.get(normalizedDistrict);
+
 
         return {
           district,
@@ -6959,6 +6962,7 @@ export class ChatbotRepository implements IChatbotRepository {
               $project: {
                 _id: 1,
                 conversationId: 1,
+                messageId: 1,
                 userId: '$_userDoc._id',
                 farmerName: '$_userDoc.farmerProfile.farmerName',
                 email: '$_userDoc.email',
@@ -6983,6 +6987,29 @@ export class ChatbotRepository implements IChatbotRepository {
         .toArray();
       const totalFeedbacks = result[0]?.metadata[0]?.total || 0;
       const messages = result[0]?.data || [];
+
+      // Look up questionId from the questions collection (review system db)
+      // by matching each message's messageId to the question's messageId field
+      if (messages.length > 0) {
+        await this.initReviewSystem();
+        const messageIds = messages
+          .map((m: any) => m.messageId)
+          .filter((id: any) => id != null && id !== '');
+        if (messageIds.length > 0) {
+          const questions = await this.QuestionCollection.find(
+            {messageId: {$in: messageIds}},
+            {projection: {_id: 1, messageId: 1}},
+          ).toArray();
+          const messageIdToQuestionId = new Map<string, string>(
+            questions.map((q: any) => [String(q.messageId), String(q._id)]),
+          );
+          for (const msg of messages) {
+            msg.questionId = msg.messageId
+              ? messageIdToQuestionId.get(String(msg.messageId)) ?? null
+              : null;
+          }
+        }
+      }
 
       return {
         messages,
@@ -11564,11 +11591,40 @@ export class ChatbotRepository implements IChatbotRepository {
       closedInSelectedTime.map(item => [item._id, item.closedInPeriod]),
     );
 
-    const result = analytics.map(item => ({
-      ...item,
-      closedInPeriod: closedMap.get(item.period) || 0,
-      carryForward: 0,
-    }));
+    const analyticsMap = new Map(
+      analytics.map(item => [item.period, item]),
+    );
+
+    const dateStrings: string[] = [];
+    const tempDate = new Date(start);
+    tempDate.setHours(12, 0, 0, 0);
+    const tempEnd = new Date(end);
+    tempEnd.setHours(12, 0, 0, 0);
+
+    while (tempDate <= tempEnd) {
+      const year = tempDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata', year: 'numeric' });
+      const month = tempDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata', month: '2-digit' });
+      const day = tempDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata', day: '2-digit' });
+      const dateStr = `${year}-${month}-${day}`;
+      if (!dateStrings.includes(dateStr)) {
+        dateStrings.push(dateStr);
+      }
+      tempDate.setDate(tempDate.getDate() + 1);
+    }
+
+    const result = dateStrings.map(dateStr => {
+      const existing = analyticsMap.get(dateStr);
+      return {
+        period: dateStr,
+        totalQuestions: existing?.totalQuestions || 0,
+        statuses: existing?.statuses || {},
+        averageCloseTimeMinutes: existing?.averageCloseTimeMinutes || 0,
+        averagePassTimeMinutes: existing?.averagePassTimeMinutes || 0,
+        combinedAverageTimeMinutes: existing?.combinedAverageTimeMinutes || 0,
+        closedInPeriod: closedMap.get(dateStr) || 0,
+        carryForward: 0,
+      };
+    });
 
     if (result.length) {
       result[result.length - 1].carryForward = carryForward;

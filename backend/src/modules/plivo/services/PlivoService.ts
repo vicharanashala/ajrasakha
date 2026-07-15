@@ -62,7 +62,7 @@ export class PlivoService {
     callId: string,
     onTranscript: (result: { track: 'inbound' | 'outbound'; originalText: string; translatedText: string; detectedLanguage: string }) => void
   ): void {
-    // console.log(`🔌 [PLIVO-SERVICE] Initializing Sarvam WebSocket streams for call ${callId}`);
+    console.log(`🔌 [PLIVO-SERVICE] Initializing Sarvam WebSocket streams for call ${callId}`);
     this.initializeTrackStream(callId, 'inbound', onTranscript);
     this.initializeTrackStream(callId, 'outbound', onTranscript);
   }
@@ -78,8 +78,8 @@ export class PlivoService {
     const key = `${callId}_${track}`;
     console.log(`🔌 [PLIVO-SERVICE] Initializing Sarvam WebSocket streams for call ${callId} (${track})`);
 
-    const transcribeUrl = `wss://api.sarvam.ai/speech-to-text/ws?model=mayura:v3&mode=transcribe&language-code=unknown&sample_rate=16000&input_audio_codec=pcm_l16&high_vad_sensitivity=true`;
-    const translateUrl = `wss://api.sarvam.ai/speech-to-text/ws?model=mayura:v3&mode=translate&language-code=unknown&sample_rate=16000&input_audio_codec=pcm_l16&high_vad_sensitivity=true`;
+    const transcribeUrl = `wss://api.sarvam.ai/speech-to-text/ws?model=saaras:v3&mode=transcribe&language-code=unknown&sample_rate=16000&input_audio_codec=pcm_l16&high_vad_sensitivity=true`;
+    const translateUrl = `wss://api.sarvam.ai/speech-to-text/ws?model=saaras:v3&mode=translate&language-code=unknown&sample_rate=16000&input_audio_codec=pcm_l16&high_vad_sensitivity=true`;
 
     const headers = {
       'Api-Subscription-Key': this.sarvamApiKey,
@@ -116,7 +116,7 @@ export class PlivoService {
 
     // Set up transcribeWs listeners
     transcribeWs.on('open', () => {
-      // console.log(`📡 [PLIVO-SERVICE] Transcribe WS opened for call ${callId} (${track})`);
+      console.log(`📡 [PLIVO-SERVICE] Transcribe WS opened for call ${callId} (${track})`);
       transcribeWsSession.isOpen = true;
       this.flushQueue(transcribeWsSession);
     });
@@ -162,7 +162,7 @@ export class PlivoService {
 
     // Set up translateWs listeners
     translateWs.on('open', () => {
-      // console.log(`📡 [PLIVO-SERVICE] Translate WS opened for call ${callId} (${track})`);
+      console.log(`📡 [PLIVO-SERVICE] Translate WS opened for call ${callId} (${track})`);
       translateWsSession.isOpen = true;
       this.flushQueue(translateWsSession);
     });
@@ -282,7 +282,7 @@ export class PlivoService {
    */
   async finalizeTrackStream(callId: string, track: 'inbound' | 'outbound'): Promise<{ originalText: string; translatedText: string }> {
     const key = `${callId}_${track}`;
-    // console.log(`🔌 [PLIVO-SERVICE] Finalizing stream for call ${callId} (${track})`);
+    console.log(`🔌 [PLIVO-SERVICE] Finalizing stream for call ${callId} (${track})`);
     const session = this.activeStreams.get(key);
     if (!session) return { originalText: '', translatedText: '' };
 
@@ -439,7 +439,7 @@ export class PlivoService {
    * Save complete call details into the database
    */
   async saveCallDetails(callUuid: string): Promise<void> {
-    // console.log('saved call details', callUuid);
+    console.log(`📝 [PLIVO-SERVICE] Saving call details for ${callUuid}`);
     try {
       // 1. Fetch from Plivo API
       let plivoCall: any = null;

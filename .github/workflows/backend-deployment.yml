@@ -10,8 +10,8 @@ permissions:
 
 env:
   DOCKER_IMAGE: reviewer-api
-  GCP_REGION: asia-south1
-  GCP_SERVICE: reviewer-api-production
+  GCP_REGION: asia-south2
+  GCP_SERVICE: reviewer-backend
 
 jobs:
   build:
@@ -58,7 +58,7 @@ jobs:
         uses: google-github-actions/deploy-cloudrun@v1
         with:
           service: ${{ env.GCP_SERVICE }}
-          region: asia-south1
+          region: ${{ env.GCP_REGION }}
           image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:${{ github.sha }}
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
@@ -82,5 +82,5 @@ jobs:
             ANNAM_DB_ANALYTICS=${{ secrets.ANNAM_DB_ANALYTICS }}
             DB_URL_ANALYTICS=${{ secrets.DB_URL_ANALYTICS }}
             DB_NAME_ANALYTICS=${{ secrets.DB_NAME_ANALYTICS }}
-
+            TAILSCALE_AUTHKEY=${{ secrets.TAILSCALE_AUTHKEY }}
           flags: --allow-unauthenticated

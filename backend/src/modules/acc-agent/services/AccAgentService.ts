@@ -13,7 +13,9 @@ export class AccAgentService {
    * Step 1: Create a new thread/session
    */
   async createThread(): Promise<{ thread_id: string }> {
+    const startTime = Date.now();
     try {
+      console.log(`🔄 [AccAgentService] Creating new thread...`);
       const response = await axios.post(
         `${this.BASE_URL}/threads`,
         {},
@@ -27,9 +29,10 @@ export class AccAgentService {
         throw new InternalServerError('Invalid response from ACC Agent API: missing thread_id');
       }
 
+      console.log(`✅ [AccAgentService] Thread created: ${response.data.thread_id} (${Date.now() - startTime}ms)`);
       return response.data;
     } catch (error) {
-      console.error('[AccAgentService] createThread: Error calling LangGraph API', error);
+      console.error(`❌ [AccAgentService] createThread failed after ${Date.now() - startTime}ms:`, error);
       throw new InternalServerError('Failed to create ACC Agent thread');
     }
   }
@@ -47,7 +50,9 @@ export class AccAgentService {
     extracted_district: string;
     extracted_domain?: string | string[];
   }> {
+    const startTime = Date.now();
     try {
+      console.log(`🔄 [AccAgentService] Extracting data from transcript for thread ${threadId} (transcript length: ${transcript.length})`);
       const response = await axios.post(
         `${this.BASE_URL}/threads/${threadId}/runs/wait`,
         {
@@ -71,15 +76,17 @@ export class AccAgentService {
       // Check standardized_domains array from server, fall back to extracted_domain
       const domainVal = data.standardized_domains || data.extracted_domain || '';
 
-      return {
+      const result = {
         extracted_query: data.extracted_query || '',
         extracted_crop: data.extracted_crop || '',
         extracted_state: data.extracted_state || '',
         extracted_district: data.extracted_district || '',
         extracted_domain: domainVal,
       };
+      console.log(`✅ [AccAgentService] Data extracted for thread ${threadId} (${Date.now() - startTime}ms): query="${result.extracted_query}", crop="${result.extracted_crop}", domain="${JSON.stringify(result.extracted_domain)}"`);
+      return result;
     } catch (error) {
-      console.error('[AccAgentService] extractData: Error calling LangGraph API', error);
+      console.error(`❌ [AccAgentService] extractData failed for thread ${threadId} after ${Date.now() - startTime}ms:`, error);
       throw new InternalServerError('Failed to extract data from transcript using ACC Agent');
     }
   }
@@ -98,7 +105,9 @@ export class AccAgentService {
       season: string;
     }
   ): Promise<void> {
+    const startTime = Date.now();
     try {
+      console.log(`🔄 [AccAgentService] Updating state for thread ${threadId}: query="${correctedData.query}", crop="${correctedData.crop}", domain="${JSON.stringify(correctedData.domain)}"`);
       const domainsArray = Array.isArray(correctedData.domain)
         ? correctedData.domain
         : typeof correctedData.domain === 'string' && correctedData.domain
@@ -123,8 +132,9 @@ export class AccAgentService {
         }
       );
 
+      console.log(`✅ [AccAgentService] State updated for thread ${threadId} (${Date.now() - startTime}ms)`);
     } catch (error) {
-      console.error('[AccAgentService] updateState: Error calling LangGraph API', error);
+      console.error(`❌ [AccAgentService] updateState failed for thread ${threadId} after ${Date.now() - startTime}ms:`, error);
       throw new InternalServerError('Failed to update ACC Agent thread state');
     }
   }
@@ -167,8 +177,10 @@ export class AccAgentService {
    * Step 4: Resume execution and get final answer
    */
   async resumeAndGetAnswer(threadId: string): Promise<{ final_answer: string }> {
+    const startTime = Date.now();
     const checkpointId = await this.checkpointId(threadId);
     try {
+      console.log(`🔄 [AccAgentService] Resuming thread ${threadId} (checkpoint: ${checkpointId})`);
       const response = await axios.post(
         `${this.BASE_URL}/threads/${threadId}/runs/wait`,
         {
@@ -197,11 +209,12 @@ export class AccAgentService {
       } catch (e) {
       }
 
+      console.log(`✅ [AccAgentService] Got final answer for thread ${threadId} (${Date.now() - startTime}ms, answer length: ${finalAnswer?.length || 0})`);
       return {
         final_answer: finalAnswer || '',
       };
     } catch (error) {
-      console.error('[AccAgentService] resumeAndGetAnswer: Error calling LangGraph API', error);
+      console.error(`❌ [AccAgentService] resumeAndGetAnswer failed for thread ${threadId} after ${Date.now() - startTime}ms:`, error);
       throw new InternalServerError('Failed to get final answer from ACC Agent');
     }
   }
@@ -210,7 +223,9 @@ export class AccAgentService {
    * Step 5: Get thread state (returns full state, with parsed final_answer if available)
    */
   async getThreadState(threadId: string): Promise<any> {
+    const startTime = Date.now();
     try {
+      console.log(`🔄 [AccAgentService] Getting thread state for ${threadId}`);
       const response = await axios.get(
         `${this.BASE_URL}/threads/${threadId}/state`,
         {
@@ -236,9 +251,10 @@ export class AccAgentService {
             : values.final_answer.final_answer || '';
         }
       }
+      console.log(`✅ [AccAgentService] Got thread state for ${threadId} (${Date.now() - startTime}ms)`);
       return data;
     } catch (error) {
-      console.error('[AccAgentService] getThreadState: Error calling LangGraph API', error);
+      console.error(`❌ [AccAgentService] getThreadState failed for thread ${threadId} after ${Date.now() - startTime}ms:`, error);
       throw new InternalServerError('Failed to fetch ACC Agent thread state');
     }
   }

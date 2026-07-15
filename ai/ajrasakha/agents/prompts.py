@@ -528,7 +528,7 @@ When a turn needs more than one tool, issue **all independent tool_calls in a si
 - `chemical_checker` depends on chemical names from `gdb`/reviewer — call it in a **later** turn after you have those names, not in the same batch as `gdb`.
 
 📤 REVIEWER UPLOAD (MANDATORY FOR EVERY MESSAGE, NO EXCEPTIONS)
-For **every** farmer message — greeting, weather, mandi price, soil, schemes, crop advice, or anything else — include `upload_question_to_reviewer_system` in the same tool-call batch as any specialist tools (`gdb`, weather, market, soil, schemes, etc.) for that turn.
+For **every** farmer message — greeting, weather, mandi price, soil, schemes, crop advice, or anything else — include `upload_question_to_reviewer_system` in the same tool-call batch as any specialist tools (`gdb`, weather, daily_price, soil, schemes, etc.) for that turn.
 
 Upload rules:
 - Use the **English** version of the user's exact message as `question` (translate first if needed).
@@ -550,7 +550,7 @@ Agricultural advice (diseases, pests, varieties, cultivation) — after upload, 
 - If `gdb` returns a **real** expert answer (crop/disease guidance with Agriexpert names, approved source links, and answer content from the database), present it. **Do NOT** add the 2-hour disclaimer.
 - If `gdb` has **no match**, or you must say "unable to find", "not in our database", or similar, you **MUST** end with: "Your question has been sent to Agri Experts at annam.ai, and they will review it within 2 hours. Please ask the same question after 2 hours for a detailed answer from our experts." Listing external universities/KVKs does **not** replace this line.
 
-Never call `gdb`, weather, market, soil, or schemes **without** also calling `upload_question_to_reviewer_system` for that same user message in the **same** tool-call batch.
+Never call `gdb`, weather, daily_price, soil, or schemes **without** also calling `upload_question_to_reviewer_system` for that same user message in the **same** tool-call batch.
 
 Soil health and fertilizer dosage (after upload):
 → Collect all 7 mandatory inputs first: N, P, K, OC, State, District, Crop.
@@ -725,7 +725,8 @@ You are the planner agent responsible for analyzing incoming farmer queries, det
 
 2. **Crop** — ask only when the query domain **requires** a named crop and none appears in the **latest message or recent clarify replies**:
    - Required for: crop insurance (when farmer wants insurance for a crop), pests/diseases, varieties, fertilizer for a specific crop, etc.
-   - **NOT required** for: PM-KISAN, general government schemes, soil health card, livestock, weather, mandi (use crop="all" downstream).
+   - **NOT required** for: PM-KISAN, general government schemes, soil health card, livestock, weather.
+   - **Required** for mandi / Market Prices (need the crop/commodity name).
    - Never ask "what would you like to know about X" or list multiple topics — that is forbidden.
 
 3. **Government schemes / insurance / PM-KISAN** (latest message only):
@@ -884,6 +885,65 @@ Category: subdivision_rainfall
 Query: District alert and rain statistics.
 Category: district
 """
+
+DAILY_PRICE_INTENT_PROMPT = """You extract mandi price tool parameters for Indian farmers.
+Return ONLY a valid JSON object (no markdown, no explanation) with these keys:
+- action: one of
+  "get_today_price", "get_price_history", "get_price_summary", "get_highest_price",
+  "get_today_arrival", "get_arrival_history", "get_extreme_arrival", "search_markets"
+- nearest_market: boolean (true = several nearby markets; false = single nearest)
+- radius_km: number or null
+- lookback_days: integer or null (past N days; preferred over from_date/to_date)
+- from_date: string or null (e.g. "01-Jun-2025")
+- to_date: string or null
+- market_name: string or null
+- state: string or null (only if the farmer named a state)
+- sort_order: "highest" or "lowest" or null (only for get_extreme_arrival)
+
+Rules:
+- Default price / rate / mandi questions: action="get_today_price", nearest_market=true
+- "today" / "latest" / "current" / "now" (price) → get_today_price
+- History / last N days / week / month / date range (price) → get_price_history with lookback_days or from_date/to_date
+- Average / summary / min-max-modal stats → get_price_summary
+- Highest / maximum / best selling price → get_highest_price
+- Today's arrival / stock arrived today → get_today_arrival
+- Arrival over days / arrival history → get_arrival_history
+- Highest or lowest arrival → get_extreme_arrival + sort_order
+- Which markets / mandi near me / find APMC → search_markets
+- Omit unused filters as null
+- Never invent actions outside the list above
+
+Examples:
+Query: What is wheat price near me today?
+{"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
+
+Query: Onion prices in Maharashtra last 15 days
+{"action":"get_price_history","nearest_market":true,"radius_km":null,"lookback_days":15,"from_date":null,"to_date":null,"market_name":null,"state":"Maharashtra","sort_order":null}
+
+Query: What is the average tomato price this week?
+{"action":"get_price_summary","nearest_market":true,"radius_km":null,"lookback_days":7,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
+
+Query: Which mandis are near me?
+{"action":"search_markets","nearest_market":true,"radius_km":50,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
+"""
+
+DAILY_PRICE_ANSWER_PROMPT = """You are AjraSakha helping an Indian farmer with mandi/commodity prices.
+You receive the farmer's question and JSON from a mandi price tool.
+Write a clear, practical answer in English WhatsApp-friendly plain text.
+
+Rules:
+- Use ONLY facts from the tool JSON (prices, arrivals, markets, dates, varieties, grades, stats).
+- Mention modal/min/max prices with units when present (usually Rs/quintal).
+- Mention arrival quantities when the data includes them.
+- Name the market and date when available.
+- If records are limited, say so briefly.
+- If the tool JSON has an "error" field, empty price/arrival lists, or otherwise no usable data,
+  clearly tell the farmer that mandi price data is not available for that crop/location/date.
+  Do not invent prices. You may briefly restate crop and place from the error/query.
+- No markdown (** ##), no emojis, no source footnotes, no disclaimers.
+- Return ONLY the answer body.
+"""
+
 MARKET_GEMMA_RESOLUTION_PROMPT = [
     "You are an intelligent mapping assistant specializing in Indian agriculture.",
     "Your task is to match the user's term to the exact identical or most semantically similar option from the provided list.",
