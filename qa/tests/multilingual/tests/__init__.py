@@ -1,0 +1,1 @@
+"""Tests package marker for the multilingual suite."""

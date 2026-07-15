@@ -1,0 +1,215 @@
+name: E2E Tests (Reviewer + Web App)
+
+# -----------------------------------------------------------------------------
+# Triggers:
+#   • Every push to main, develop, staging
+#   • Every PR against main, develop, staging
+#   • Manual trigger via workflow_dispatch
+#   • repository_dispatch when 'deployment_success' fires (CD hook)
+# -----------------------------------------------------------------------------
+on:
+  push:
+    branches: [main, develop, staging]
+  pull_request:
+    branches: [main, develop, staging]
+  workflow_dispatch:
+  repository_dispatch:
+    types: [deployment_success, staging_deployed]
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  # =========================================================================
+  # 1. Smoke — npm install + typecheck + lint
+  # =========================================================================
+  smoke:
+    name: Smoke (install + typecheck + lint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: qa/package-lock.json
+
+      - name: Install QA dependencies
+        working-directory: qa
+        run: npm ci
+
+      - name: TypeScript typecheck
+        working-directory: qa
+        run: npx tsc --noEmit
+
+      - name: Verify test counts (CI gate)
+        working-directory: qa
+        run: npm run verify
+
+      - name: Lint (best-effort)
+        working-directory: qa
+        continue-on-error: true
+        run: |
+          if [ -f package.json ] && grep -q '"lint"' package.json; then
+            npm run lint
+          else
+            echo "No lint script — skipping"
+          fi
+
+  # =========================================================================
+  # 2. Reviewer System
+  # =========================================================================
+  reviewer-system:
+    name: Reviewer System (@reviewer)
+    needs: smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: qa/package-lock.json
+
+      - name: Install dependencies
+        working-directory: qa
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: qa
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Reviewer System tests
+        working-directory: qa
+        env:
+          REVIEWER_BASE_URL: ${{ secrets.REVIEWER_BASE_URL }}
+          REVIEWER_MODERATOR_EMAIL: ${{ secrets.REVIEWER_MODERATOR_EMAIL }}
+          REVIEWER_MODERATOR_PASSWORD: ${{ secrets.REVIEWER_MODERATOR_PASSWORD }}
+          REVIEWER_EXPERT_EMAIL: ${{ secrets.REVIEWER_EXPERT_EMAIL }}
+          REVIEWER_EXPERT_PASSWORD: ${{ secrets.REVIEWER_EXPERT_PASSWORD }}
+          REVIEWER_EXPERT_2_EMAIL: ${{ secrets.REVIEWER_EXPERT_2_EMAIL }}
+          REVIEWER_EXPERT_2_PASSWORD: ${{ secrets.REVIEWER_EXPERT_2_PASSWORD }}
+          REVIEWER_REVIEWER_EMAIL: ${{ secrets.REVIEWER_REVIEWER_EMAIL }}
+          REVIEWER_REVIEWER_PASSWORD: ${{ secrets.REVIEWER_REVIEWER_PASSWORD }}
+          REVIEWER_COORDINATOR_EMAIL: ${{ secrets.REVIEWER_COORDINATOR_EMAIL }}
+          REVIEWER_COORDINATOR_PASSWORD: ${{ secrets.REVIEWER_COORDINATOR_PASSWORD }}
+        run: npm run test:reviewer
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reviewer-system-report
+          path: qa/playwright-report
+          retention-days: 14
+
+      - name: Upload JUnit XML
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reviewer-system-results
+          path: qa/test-results
+          retention-days: 14
+
+  # =========================================================================
+  # 3. Web App
+  # =========================================================================
+  web-app:
+    name: Web App (@webapp)
+    needs: smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: qa/package-lock.json
+
+      - name: Install dependencies
+        working-directory: qa
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: qa
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Web App tests
+        working-directory: qa
+        env:
+          WEBAPP_BASE_URL: ${{ secrets.WEBAPP_BASE_URL }}
+          WEBAPP_FARMER_PHONE: ${{ secrets.WEBAPP_FARMER_PHONE }}
+          WEBAPP_OTP: ${{ secrets.WEBAPP_OTP }}
+        run: npm run test:webapp
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-app-report
+          path: qa/playwright-report
+          retention-days: 14
+
+      - name: Upload JUnit XML
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-app-results
+          path: qa/test-results
+          retention-days: 14
+
+  # =========================================================================
+  # 4. PR comment — once everything is done
+  # =========================================================================
+  pr-comment:
+    name: PR summary comment
+    needs: [reviewer-system, web-app]
+    if: github.event_name == 'pull_request' && always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Post PR summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const reviewer = "${{ needs.reviewer-system.result }}";
+            const webapp = "${{ needs.web-app.result }}";
+            const verdict =
+              reviewer === "success" && webapp === "success" ? "✅ All green" :
+              reviewer === "failure" || webapp === "failure" ? "❌ One or more suites failed" :
+              "⚠️ Skipped or cancelled";
+
+            const body = [
+              "## 🧪 E2E Test Summary",
+              "",
+              `- **Reviewer System**: ${reviewer === "success" ? "✅ passed" : reviewer === "failure" ? "❌ failed" : reviewer}`,
+              `- **Web App**: ${webapp === "success" ? "✅ passed" : webapp === "failure" ? "❌ failed" : webapp}`,
+              "",
+              `**Overall:** ${verdict}`,
+              "",
+              "Download HTML reports from the **Checks** tab → **Artifacts**.",
+            ].join("\n");
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });

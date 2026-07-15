@@ -1,0 +1,12 @@
+# Runtime dependencies for the multilingual testing suite.
+#
+# Most evaluators are pure-Python and require only the standard library.
+# These are the *optional* integrations:
+
+# DeepEval — used by deep_eval.scorer.to_deepeval_test_cases() and the
+# official DeepEval dashboards.  Optional: the suite runs without it.
+deepeval>=0.21.0
+
+# Pytest — used by the unit / e2e test files.
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
