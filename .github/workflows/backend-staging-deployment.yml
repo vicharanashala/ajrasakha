@@ -9,14 +9,15 @@
 #   image   : reviewer-api:staging  (+ :staging-<sha>)   ← different tag from production's :latest
 #   service : reviewer-backend-staging                    ← different Cloud Run service
 #
-# The only GitHub secrets this workflow needs are the GCP + Docker Hub ones:
-#   GCP_GH_SA_KEY, GCP_PROJECT_ID, DOCKERHUB_USERNAME, DOCKERHUB_TOKEN
+# The GitHub secrets this workflow needs are the GCP + Docker Hub ones, plus TAILSCALE_AUTHKEY:
+#   GCP_GH_SA_KEY, GCP_PROJECT_ID, DOCKERHUB_USERNAME, DOCKERHUB_TOKEN, TAILSCALE_AUTHKEY
 #
-# The app env vars (DB_URL, APP_PORT, VAPID_*, LGD_*, …) are configured ON the Cloud Run
-# service itself, so they're left commented out below. The deploy sets ONLY `NODE_ENV=staging`
-# and uses `env_vars_update_strategy: merge`, which preserves every other variable already
-# on the service. NODE_ENV must be exactly "staging" — anything else makes the app look for
-# ./src/modules (absent from the image) and crash with ENOENT on boot.
+# Most app env vars (DB_URL, APP_PORT, VAPID_*, LGD_*, …) are configured ON the Cloud Run
+# service itself, so they're left commented out below. The deploy sets NODE_ENV=staging and
+# TAILSCALE_AUTHKEY (see the deploy step) and uses `env_vars_update_strategy: merge`, which
+# preserves every other variable already on the service. NODE_ENV must be exactly "staging" —
+# anything else makes the app look for ./src/modules (absent from the image) and crash with
+# ENOENT on boot.
 
 name: AjraSakha Backend Staging Deployment
 
@@ -126,8 +127,16 @@ jobs:
           # `merge` adds/overrides ONLY these keys and leaves every other variable already
           # configured on the service untouched. (The default `overwrite` would replace the
           # service's entire env with just what's listed here — do not use it.)
+          #
+          # TAILSCALE_AUTHKEY is pushed here the same way production does it
+          # (backend-deployment.yml) — the container needs it at boot to join the tailnet and
+          # reach the AI / WhatsApp / FAQ / POP servers on 100.x. The key MUST be reusable +
+          # ephemeral: every Cloud Run cold start is a new machine, so a single-use key
+          # authenticates one instance and fails on the rest.
           env_vars: |
             NODE_ENV=staging
+            TAILSCALE_AUTHKEY=${{ secrets.TAILSCALE_AUTHKEY }}
+            TAILSCALE_HOSTNAME=gcp-staging
           env_vars_update_strategy: merge
 
           # ── The remaining app env vars are NOT set from here ───────────────────
