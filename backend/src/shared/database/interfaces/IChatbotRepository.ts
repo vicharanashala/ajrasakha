@@ -326,6 +326,7 @@ export interface FeedbackMessageEntry {
   block?: string;
   district?: string;
   state?: string;
+  questionId?: string;
   question: string;
   response: string;
   feedback: {
