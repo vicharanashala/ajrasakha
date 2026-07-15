@@ -106,7 +106,7 @@ export function TopQuestionInstancesModal({
         sortAccessor: (row) => row.email ?? "",
         className: "w-[16%]",
         cellClassName: "text-xs text-gray-500 truncate",
-        render: (row) => row.email || "—",
+        render: (row) => row.email || "Not Available",
       },
       {
         key: "question",
