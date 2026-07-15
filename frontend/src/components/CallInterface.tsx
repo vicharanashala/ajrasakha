@@ -52,6 +52,7 @@ import type { GeneratedQuestion } from "./voice-recorder-card";
 import Plivo from "plivo-browser-sdk";
 import type { ExtractDataResponse } from "@/hooks/services/accAgentService";
 import { UserService } from "@/hooks/services/userService";
+import SarvamTranslatePairDropdown from "@/components/SarvamTranslatePairDropdown";
 
 const userService = new UserService();
 
@@ -485,6 +486,8 @@ export const CallInterface = () => {
     sourceLink?: string;
   }
   const [questions, setQuestions] = useState<ExtGeneratedQuestion[]>([]);
+  const [translatedQuestions, setTranslatedQuestions] = useState<Record<string, string>>({});
+  const [translatedAnswers, setTranslatedAnswers] = useState<Record<string, string>>({});
   const lastTranscriptRef = useRef("");
   const { mutateAsync: generateQuestions, isPending: isGeneratingQuestions } =
     useGenerateCallQuestion();
@@ -1345,32 +1348,54 @@ export const CallInterface = () => {
                     </div>
                   ) : (
                     <div className="space-y-4 pb-10">
-                      {questions?.map((qn, index) => (
-                        <div
-                          key={`${qn.question}-${qn.id + index}`}
-                          className="rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:shadow-md transition-all duration-300 overflow-hidden"
-                        >
-                          <div className="p-4">
-                            <div className="flex items-start gap-3 mb-3">
-                              <div className="text-indigo-600 dark:text-indigo-400 mt-1">
-                                <HelpCircle className="h-4 w-4" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                                  <p className="text-sm font-medium text-foreground leading-relaxed">
-                                    {qn.question}
-                                  </p>
-                                  {qn.agri_specialist &&
-                                    qn.agri_specialist !== "Unknown" &&
-                                    qn.agri_specialist !== "AGRI_EXPERT" && (
-                                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider whitespace-nowrap self-start sm:self-auto">
-                                        <User className="w-3 h-3" />
-                                        {qn.agri_specialist}
-                                      </div>
-                                    )}
+                      {questions?.map((qn, index) => {
+                        const qnKey = qn.id || `${qn.question}-${index}`;
+                        return (
+                          <div
+                            key={`${qn.question}-${qn.id + index}`}
+                            className="rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:shadow-md transition-all duration-300 overflow-hidden"
+                          >
+                            <div className="p-4">
+                              <div className="flex items-start gap-3 mb-3">
+                                <div className="text-indigo-600 dark:text-indigo-400 mt-1">
+                                  <HelpCircle className="h-4 w-4" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                                    <div className="flex-1">
+                                      <p className="text-sm font-medium text-foreground leading-relaxed">
+                                        {translatedQuestions[qnKey] || qn.question}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
+                                      {(qn.question?.trim() || qn.answer?.trim()) && (
+                                        <SarvamTranslatePairDropdown
+                                          query1={qn.question || ""}
+                                          query2={qn.answer || ""}
+                                          onTranslate={(translatedQn, translatedAns) => {
+                                            setTranslatedQuestions((prev) => ({
+                                              ...prev,
+                                              [qnKey]: translatedQn,
+                                            }));
+                                            setTranslatedAnswers((prev) => ({
+                                              ...prev,
+                                              [qnKey]: translatedAns,
+                                            }));
+                                          }}
+                                        />
+                                      )}
+                                      {qn.agri_specialist &&
+                                        qn.agri_specialist !== "Unknown" &&
+                                        qn.agri_specialist !== "AGRI_EXPERT" && (
+                                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider whitespace-nowrap">
+                                            <User className="w-3 h-3" />
+                                            {qn.agri_specialist}
+                                          </div>
+                                        )}
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
 
                             <Accordion
                               type="single"
@@ -1502,10 +1527,10 @@ export const CallInterface = () => {
                                     <p className="text-[13px] text-indigo-800 dark:text-indigo-300 leading-relaxed px-1">
                                       {qn.agri_specialist === "ACC_AGENT" ? (
                                         <div className="space-y-1">
-                                          {renderMarkdown(qn.answer)}
+                                          {renderMarkdown(translatedAnswers[qnKey] || qn.answer)}
                                         </div>
                                       ) : (
-                                        qn.answer || "Nil"
+                                        translatedAnswers[qnKey] || qn.answer || "Nil"
                                       )}
                                     </p>
                                   </div>
@@ -1514,7 +1539,7 @@ export const CallInterface = () => {
                             </Accordion>
                           </div>
                         </div>
-                      ))}
+                      );})}
                     </div>
                   )}
                   <ScrollBar orientation="vertical" />

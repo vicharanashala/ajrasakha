@@ -153,7 +153,7 @@ async def test_extract_daily_price_intent_heuristic_on_gemma_failure():
 
 
 @pytest.mark.asyncio
-async def test_daily_price_returns_empty_when_tool_empty():
+async def test_daily_price_asks_gemma_when_tool_empty():
     with (
         patch(
             "ajrasakha.agents.daily_price_agent.extract_daily_price_intent",
@@ -175,6 +175,11 @@ async def test_daily_price_returns_empty_when_tool_empty():
             new_callable=AsyncMock,
             return_value={"price_records": [], "stats": {}},
         ),
+        patch(
+            "ajrasakha.agents.daily_price_agent.synthesize_daily_price_answer",
+            new_callable=AsyncMock,
+            return_value="Mandi price data is not available for wheat in Punjab right now.",
+        ) as synthesize,
     ):
         out = await daily_price.ainvoke({
             "query": "wheat price",
@@ -184,8 +189,54 @@ async def test_daily_price_returns_empty_when_tool_empty():
             "state": "Punjab",
         })
     data = json.loads(out)
-    assert data["answer"] == ""
+    synthesize.assert_awaited_once()
+    assert "not available" in data["answer"].lower()
     assert data["tool_data"]["price_records"] == []
+
+
+@pytest.mark.asyncio
+async def test_daily_price_asks_gemma_when_tool_error():
+    tool_payload = {
+        "error": "No markets_commodities entries matched crop=['Wheat'] in state=Andhra Pradesh."
+    }
+    with (
+        patch(
+            "ajrasakha.agents.daily_price_agent.extract_daily_price_intent",
+            new_callable=AsyncMock,
+            return_value={
+                "action": "get_today_price",
+                "nearest_market": True,
+                "radius_km": None,
+                "lookback_days": None,
+                "from_date": None,
+                "to_date": None,
+                "market_name": None,
+                "state": None,
+                "sort_order": None,
+            },
+        ),
+        patch(
+            "ajrasakha.agents.daily_price_agent.call_mandi_price_tool",
+            new_callable=AsyncMock,
+            return_value=tool_payload,
+        ),
+        patch(
+            "ajrasakha.agents.daily_price_agent.synthesize_daily_price_answer",
+            new_callable=AsyncMock,
+            return_value="Wheat mandi price data is not available in Andhra Pradesh right now.",
+        ) as synthesize,
+    ):
+        out = await daily_price.ainvoke({
+            "query": "wheat price in Andhra Pradesh",
+            "latitude": 15.9,
+            "longitude": 80.0,
+            "crop": "Wheat",
+            "state": "Andhra Pradesh",
+        })
+    data = json.loads(out)
+    synthesize.assert_awaited_once()
+    assert "not available" in data["answer"].lower()
+    assert data["tool_data"] == tool_payload
 
 
 @pytest.mark.asyncio

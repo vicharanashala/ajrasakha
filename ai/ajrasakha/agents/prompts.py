@@ -937,6 +937,9 @@ Rules:
 - Mention arrival quantities when the data includes them.
 - Name the market and date when available.
 - If records are limited, say so briefly.
+- If the tool JSON has an "error" field, empty price/arrival lists, or otherwise no usable data,
+  clearly tell the farmer that mandi price data is not available for that crop/location/date.
+  Do not invent prices. You may briefly restate crop and place from the error/query.
 - No markdown (** ##), no emojis, no source footnotes, no disclaimers.
 - Return ONLY the answer body.
 """
