@@ -3,6 +3,11 @@ import { useAuthStore } from "@/stores/auth-store";
 import { getIdToken, type User } from "firebase/auth";
 
 export const getCurrentUser = (): Promise<User | null> => {
+  // Check auth.currentUser synchronously to avoid the race where
+  // onAuthStateChanged fires with null before the auth state is ready.
+  if (auth.currentUser) {
+    return Promise.resolve(auth.currentUser);
+  }
   return new Promise((resolve) => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       unsubscribe();

@@ -7,6 +7,7 @@ import {InversifyAdapter} from '#root/inversify-adapter.js';
 import {describe, it, expect, beforeAll, vi} from 'vitest';
 import {HttpErrorHandler} from '#shared/index.js';
 import {GLOBAL_TYPES} from '#root/types.js';
+import {AUDIT_TRAILS_TYPES} from '#root/modules/auditTrails/types.js';
 import {ICrop} from '#root/shared/interfaces/models.js';
 import {CropController} from '../controllers/CropController.js';
 
@@ -33,13 +34,20 @@ const mockCrop: ICrop = {
   updatedAt: new Date('2024-01-01'),
 };
 
-// ── Mock service ──────────────────────────────────────────────────────────────
+// ── Mock services ─────────────────────────────────────────────────────────────
 
 const mockCropService = {
   getAllCrops: vi.fn().mockResolvedValue({crops: [mockCrop], totalCount: 1, totalPages: 1}),
   getCropById: vi.fn().mockResolvedValue(mockCrop),
   createCrop: vi.fn().mockResolvedValue(mockCrop),
   updateCrop: vi.fn().mockResolvedValue(mockCrop),
+};
+
+const mockAuditTrailsService = {
+  createAuditTrail: vi.fn().mockResolvedValue('audit-id'),
+  getAuditTrails: vi.fn().mockResolvedValue({data: [], totalDocuments: 0}),
+  getAuditTrailById: vi.fn().mockResolvedValue(null),
+  getAuditTrailsByQuestionId: vi.fn().mockResolvedValue({data: [], totalDocuments: 0}),
 };
 
 // ── App setup ─────────────────────────────────────────────────────────────────
@@ -51,6 +59,7 @@ describe('CropController', () => {
     const container = new Container();
     container.bind(CropController).toSelf().inSingletonScope();
     container.bind(GLOBAL_TYPES.CropService).toConstantValue(mockCropService);
+    container.bind(AUDIT_TRAILS_TYPES.AuditTrailsService).toConstantValue(mockAuditTrailsService);
     container.bind(HttpErrorHandler).toSelf().inSingletonScope();
 
     useContainer(new InversifyAdapter(container));

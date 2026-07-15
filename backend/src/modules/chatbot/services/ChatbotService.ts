@@ -3208,20 +3208,20 @@ export class ChatbotService extends BaseService implements IChatbotService {
     for (const label of labels) {
       // IDs Created
       const createdCount = whatsAppUsers.data.filter(user =>
-        user.firstMessageAt.startsWith(label),
+        user.firstMessageAt?.startsWith(label),
       ).length;
       idsCreated.push(createdCount);
 
       // Installs
       // assuming install = first interaction
       const installsCount = whatsAppUsers.data.filter(user =>
-        user.firstMessageAt.startsWith(label),
+        user.firstMessageAt?.startsWith(label),
       ).length;
       installs.push(installsCount);
 
       // Active users
       const activeCount = whatsAppUsers.data.filter(user =>
-        user.lastMessageAt.startsWith(label),
+        user.lastMessageAt?.startsWith(label),
       ).length;
       activeUsers.push(activeCount);
     }

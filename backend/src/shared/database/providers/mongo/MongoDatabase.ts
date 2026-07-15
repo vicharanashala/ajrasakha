@@ -31,20 +31,21 @@ export class MongoDatabase implements IDatabase<Db> {
     private readonly dbName: string,
     protected readonly dbIdentifier: string = 'vicharanshala',
   ) {
-    if (process.env.SKIP_DB_CONNECTION === 'true') {
+    if (process.env.SKIP_DB_CONNECTION === 'true' || !uri) {
       this.client = null;
       this.database = null;
       console.log(
-        `[${this.dbIdentifier}] Database connection skipped due to SKIP_DB_CONNECTION environment variable`,
+        `[${this.dbIdentifier}] Database connection skipped${!uri ? ' (no URI provided)' : ' due to SKIP_DB_CONNECTION environment variable'}`,
       );
       return;
     }
 
     console.log(`[${this.dbIdentifier}] Initializing database connection...`);
 
+    const useTls = !uri.includes('localhost') && !uri.includes('127.0.0.1');
     this.client = new MongoClient(uri, {
-      ssl: true,
-      tls: true,
+      ssl: useTls,
+      tls: useTls,
       tlsAllowInvalidCertificates: false,
       tlsAllowInvalidHostnames: false,
       retryWrites: true,

@@ -1,9 +1,4 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
 import {
-  getAuth,
-  GoogleAuthProvider,
   signInWithEmailAndPassword,
   signOut,
   createUserWithEmailAndPassword,
@@ -12,18 +7,12 @@ import {
   reauthenticateWithCredential,
   updatePassword,
 } from "firebase/auth";
-import { firebaseConfig } from "@/config/firebase";
+import { auth } from "@/config/firebase";
 import { useAuthStore } from "@/stores/auth-store";
 import { UserService } from "@/hooks/services/userService";
 import { AuthService } from "@/hooks/services/authService";
 import { isDevelopment } from "@/shared/app";
 const authService = new AuthService();
-
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const provider = new GoogleAuthProvider();
 const userService = new UserService()
 export const loginWithEmail = async (email: string, password: string) => {
   try {
@@ -35,44 +24,27 @@ export const loginWithEmail = async (email: string, password: string) => {
     if (deniedLogin) {
       throw new Error("User marked as Inactive Please Contact Moderator")
     }
-    if (!deniedLogin || user === null) {
-      const result = await signInWithEmailAndPassword(auth, email, password);
 
-      // Enforce email verification
-      if (!result.user.emailVerified && !isDevelopment) {
-        try {
-          await authService.resendVerification(email);
-        } catch (resendError) {
-          console.error("Failed to trigger verification resend:", resendError);
-        }
+    const result = await signInWithEmailAndPassword(auth, email, password);
 
-        await signOut(auth);
-        throw new Error("Please verify your email before logging in. A new verification link has been sent to your email.");
-      }
-
-      // Sync user with backend database
-      const idToken = await result.user.getIdToken();
-      const syncResponse = await authService.accountSync(idToken);
-
-      return Object.assign(result, { appUser: syncResponse?.user });
-    }
-  } catch (error: unknown) {
-    // If it's a "User Is Blocked" error, re-throw it
-    if (error instanceof Error && (error.message === "User marked as Inactive Please Contact Moderator" || error.message === "Please verify your email before logging in.")) {
-      throw error;
-    }
-    // Otherwise, if it's a network/fetch error from userService.Getuser, 
-    // allow Firebase auth to proceed and return the error from there
-    if (error instanceof Error && (error.message.includes("Request failed") || error.message.includes("Failed to"))) {
+    // Enforce email verification (skipped in development)
+    if (!result.user.emailVerified && !isDevelopment) {
       try {
-        const result = await signInWithEmailAndPassword(auth, email, password);
-        const idToken = await result.user.getIdToken();
-        const syncResponse = await authService.accountSync(idToken);
-        return Object.assign(result, { appUser: syncResponse?.user });
-      } catch (authError) {
-        throw authError;
+        await authService.resendVerification(email);
+      } catch (resendError) {
+        console.error("Failed to trigger verification resend:", resendError);
       }
+
+      await signOut(auth);
+      throw new Error("Please verify your email before logging in. A new verification link has been sent to your email.");
     }
+
+    // Sync user with backend database
+    const idToken = await result.user.getIdToken();
+    const syncResponse = await authService.accountSync(idToken);
+
+    return Object.assign(result, { appUser: syncResponse?.user });
+  } catch (error: unknown) {
     throw error;
   }
 };
@@ -131,4 +103,4 @@ export const updateUserPassword = async (newPassword: string) => {
   }
 };
 
-export const analytics = getAnalytics(app);
+

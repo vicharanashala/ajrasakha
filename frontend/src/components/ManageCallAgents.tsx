@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import type { IUser } from "@/types";
 import { Button } from "./atoms/button";
 import { toast } from "sonner";
-import { Search, Plus, Trash2, ToggleLeft, ToggleRight, Check, X } from "lucide-react";
+import { Search, Plus, Trash2, ToggleLeft, ToggleRight, Check, X, PhoneOff } from "lucide-react";
 import { Input } from "./atoms/input";
 import { UserService } from "@/hooks/services/userService";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
+import { EmptyState } from "./EmptyState";
 
 const userService = new UserService();
 
@@ -134,9 +135,12 @@ export const ManageCallAgents = () => {
       <div className="space-y-4">
         <h2 className="text-lg font-semibold">Active Call Agents</h2>
         {callAgents.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            No call agents found. Add users to manage incoming calls.
-          </div>
+          <EmptyState
+            title="No call agents found"
+            description="Add users to manage incoming calls."
+            icon={PhoneOff}
+            compact
+          />
         ) : (
           <div className="grid gap-4">
             {callAgents.map((agent) => (

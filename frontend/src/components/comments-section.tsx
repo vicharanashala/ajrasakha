@@ -3,12 +3,13 @@ import { useGetComments } from "@/hooks/api/comment/useGetComments";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./atoms/accordion";
-import { Loader2, MessageSquare } from "lucide-react";
+import { Loader2, MessageSquare, MessageCircleOff } from "lucide-react";
 import { Badge } from "./atoms/badge";
 import { ScrollArea } from "./atoms/scroll-area";
 import { formatDate } from "@/utils/formatDate";
 import { Textarea } from "./atoms/textarea";
 import { Button } from "./atoms/button";
+import { EmptyState } from "./EmptyState";
 
 interface CommentsSectionProps {
   questionId: string;
@@ -98,11 +99,16 @@ export const CommentsSection = forwardRef(
                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                   </div>
                 ) : comments.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    {isMine
-                      ? "You haven't received any comments yet."
-                      : "No comments yet. Be the first to add one!"}
-                  </p>
+                  <EmptyState
+                    title="No comments yet"
+                    description={
+                      isMine
+                        ? "You haven't received any comments yet."
+                        : "No comments yet. Be the first to add one!"
+                    }
+                    icon={MessageCircleOff}
+                    compact
+                  />
                 ) : (
                   <ScrollArea className="h-[40vh] pe-2">
                     <div className="space-y-3 p-2">

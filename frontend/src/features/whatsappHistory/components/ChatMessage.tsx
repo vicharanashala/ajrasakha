@@ -146,10 +146,10 @@ export function ChatMessage({ message }: ChatMessageProps) {
             {isAssistant && message.status === 'error' && (
               <AlertCircle size={10} className="text-destructive" />
             )}
-            {isAssistant && !message.status && message.id.startsWith('temp-') && (
+            {isAssistant && !message.status && message.id?.startsWith('temp-') && (
               <Check size={10} />
             )}
-            {isAssistant && !message.id.startsWith('temp-') && message.role === 'assistant' && (
+            {isAssistant && !message.id?.startsWith('temp-') && message.role === 'assistant' && (
               <CheckCheck size={12} className="text-green-500" />
             )}
           </div>
