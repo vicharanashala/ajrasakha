@@ -1,12 +1,20 @@
+# STAGING ONLY. Production lives in `frontend-deployment.yml` and is untouched.
+#
+# No branch is hard-coded. Pick what to deploy in the Actions UI:
+#
+#   1. "Use workflow from"  → the branch dropdown. Whatever you pick is deployed.
+#   2. "Ref to deploy"      → optional override. Leave BLANK to use the branch from (1);
+#                             fill it in to deploy any other branch, tag or SHA.
+#
 name: AjraSakha Frontend Staging Deployment
 
 on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Branch / tag / SHA to deploy to staging"
-        required: true
-        default: "staging_branch/main_copy"
+        description: "Ref to deploy (branch / tag / SHA). Leave blank to use the branch selected above."
+        required: false
+        default: ""
         type: string
 
 permissions:
@@ -24,7 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || github.ref }}
           fetch-depth: 0
 
       - uses: actions/setup-node@v4
@@ -78,7 +86,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ inputs.ref || github.ref }}
 
       - uses: actions/setup-node@v4
         with:
