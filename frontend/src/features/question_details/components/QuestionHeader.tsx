@@ -343,7 +343,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
             {isDuplicateCancelled && (
               <div className="flex items-center gap-1.5">
                 <Badge className="bg-amber-500/10 text-amber-700 border-amber-500/30">
-                  Duplicate Cancelled
+                  DUPLICATE_CANCELED
                 </Badge>
                 <span className="text-[11px] italic text-muted-foreground">
                   To view the cancel reason, check the audit trail.
