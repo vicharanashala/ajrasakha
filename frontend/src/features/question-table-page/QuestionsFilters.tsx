@@ -80,6 +80,7 @@ import { AnswerModeSwitcher } from "./AnswerModeSwitcher";
 import { BulkUploadAllocationModal } from "./BulkUploadAllocationModal";
 import { UserCheck } from "lucide-react";
 import { ReallocationManualModal } from "../../components/ReallocationManualModal";
+import { useSLAAutoEscalation } from "@/hooks/api/question/useSLAAutoEscalation";
 
 import { TopRightBadge } from "@/components/NewBadge";
 import DownloadShiftWiseReportButton from "./DownloadShiftWiseReportButton";
@@ -212,6 +213,8 @@ export const QuestionsFilters = ({
   const [isManualReallocateOpen, setIsManualReallocateOpen] = useState(false);
   const [manualReallocateType, setManualReallocateType] = useState<"inactive" | "escalation">("inactive");
   const [pendingReallocateType, setPendingReallocateType] = useState<"inactive" | "escalation" | null>(null);
+
+  const { isEnabled: autoEscalationEnabled, delayedCount } = useSLAAutoEscalation();
 
   useEffect(() => {
     if (!isReAllocateOpen && pendingReallocateType) {
@@ -1152,16 +1155,24 @@ export const QuestionsFilters = ({
                       </div>
 
                       <p className="text-[11px] text-gray-500">
-                        Assign to different experts
+                        {autoEscalationEnabled && delayedCount > 0
+                          ? `${delayedCount} question(s) exceeded 2h SLA`
+                          : "Assign to different experts"}
                       </p>
                     </div>
                   </div>
 
                   <Badge
                     variant="default"
-                    className="absolute -top-2 -right-2 h-4 text-[9px] px-1.5 py-0 bg-red-500 text-white hover:bg-red-600 border-0 font-medium shadow-sm"
+                    className={`absolute -top-2 -right-2 h-4 text-[9px] px-1.5 py-0 border-0 font-medium shadow-sm ${
+                      autoEscalationEnabled && delayedCount > 0
+                        ? "bg-orange-500 text-white hover:bg-orange-600 animate-pulse"
+                        : "bg-red-500 text-white hover:bg-red-600"
+                    }`}
                   >
-                    New
+                    {autoEscalationEnabled && delayedCount > 0
+                      ? `${delayedCount} delayed`
+                      : "New"}
                   </Badge>
                 </button>
               )}
