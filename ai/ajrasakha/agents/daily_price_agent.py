@@ -392,7 +392,28 @@ def _build_tool_args(
     return args
 
 
-async def synthesize_daily_price_answer(query: str, tool_result: Any) -> str:
+def _fallback_unavailable_answer(payload: Any, *, crop: str | None = None, state: str | None = None) -> str:
+    """Deterministic English reply when Gemma cannot phrase an unavailable result."""
+    parts = ["Mandi price data is not available"]
+    crop_clean = (crop or "").strip()
+    state_clean = (state or "").strip()
+    if crop_clean and crop_clean.lower() not in {"all", "any", "general"}:
+        parts.append(f"for {crop_clean}")
+    if state_clean and state_clean.lower() not in {"all", "not specified", "unknown"}:
+        parts.append(f"in {state_clean}")
+    parts.append("right now.")
+    if isinstance(payload, dict) and payload.get("error"):
+        return " ".join(parts)
+    return " ".join(parts)
+
+
+async def synthesize_daily_price_answer(
+    query: str,
+    tool_result: Any,
+    *,
+    crop: str | None = None,
+    state: str | None = None,
+) -> str:
     """Ask Gemma to turn tool JSON into a farmer-facing English answer."""
     payload = _unwrap_tool_payload(tool_result)
     if isinstance(payload, (dict, list)):
@@ -412,9 +433,11 @@ async def synthesize_daily_price_answer(query: str, tool_result: Any) -> str:
         temperature=0.2,
         query=query,
     )
-    if not answer:
-        return ""
-    return answer.strip()
+    if answer and answer.strip():
+        return answer.strip()
+    if _tool_result_is_empty(payload):
+        return _fallback_unavailable_answer(payload, crop=crop, state=state)
+    return ""
 
 
 class DailyPriceInput(BaseModel):
@@ -485,14 +508,14 @@ async def daily_price(
             "daily_price_agent tool_data: %s",
             json.dumps(tool_payload, ensure_ascii=False, default=str)[:8000],
         )
-        if _tool_result_is_empty(tool_result):
-            return json.dumps(
-                {"answer": "", "tool_data": tool_payload},
-                ensure_ascii=False,
-                default=str,
-            )
 
-        answer = await synthesize_daily_price_answer(query, tool_result)
+        # Always ask Gemma — including error/empty payloads — so farmers get a clear "not available".
+        answer = await synthesize_daily_price_answer(
+            query,
+            tool_result,
+            crop=crop,
+            state=tool_args.get("state") or state,
+        )
         return json.dumps(
             {"answer": answer or "", "tool_data": tool_payload},
             ensure_ascii=False,
@@ -500,4 +523,10 @@ async def daily_price(
         )
     except Exception as exc:
         logger.error("daily_price agent failed: %s", exc, exc_info=True)
-        return json.dumps({"answer": "", "tool_data": {"error": str(exc)}}, default=str)
+        return json.dumps(
+            {
+                "answer": _fallback_unavailable_answer({"error": str(exc)}, crop=crop, state=state),
+                "tool_data": {"error": str(exc)},
+            },
+            default=str,
+        )
