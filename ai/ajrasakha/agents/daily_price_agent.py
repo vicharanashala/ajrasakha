@@ -74,6 +74,8 @@ _LEGACY_ACTION_MAP = {
     "get_unresolved_markets": "search_markets",
 }
 
+MAX_INTENT_ACTIONS = 3
+
 _daily_price_mcp: MultiServerMCPClient | None = None
 _mandi_price_tool = None
 
@@ -119,10 +121,37 @@ def _empty_intent_fields() -> dict[str, Any]:
     }
 
 
+_MARKET_DISCOVERY_PHRASES = (
+    "nearby market",
+    "near market",
+    "nearby mandi",
+    "near mandi",
+    "nearest market",
+    "which market",
+    "which mandi",
+    "find market",
+    "find mandi",
+    "list market",
+    "list mandi",
+    "mandi near",
+    "market near",
+    "apmc near",
+    "find apmc",
+)
+
+
+def _is_market_discovery_query(query: str) -> bool:
+    q = (query or "").lower()
+    return any(phrase in q for phrase in _MARKET_DISCOVERY_PHRASES)
+
+
 def _heuristic_intent(query: str) -> dict[str, Any]:
     """Fallback intent when Gemma is unavailable."""
     q = (query or "").lower()
     base = _empty_intent_fields()
+
+    if _is_market_discovery_query(query):
+        return {**base, "action": "search_markets", "nearest_market": True, "radius_km": 50}
 
     if "which market" in q or "nearest market" in q or "mandi near" in q or "find market" in q or "find mandi" in q:
         return {**base, "action": "search_markets", "nearest_market": True, "radius_km": 50}
@@ -186,20 +215,52 @@ def _map_action(action: str) -> str:
     return key
 
 
+def _normalize_action_list(raw_action: Any, fallback: str) -> list[str]:
+    """Map Gemma/heuristic action(s) to a deduped list (max MAX_INTENT_ACTIONS)."""
+    candidates: list[Any] = []
+    if isinstance(raw_action, list):
+        candidates = raw_action
+    elif raw_action is not None and str(raw_action).strip():
+        candidates = [raw_action]
+    else:
+        candidates = [fallback]
+
+    seen: set[str] = set()
+    out: list[str] = []
+    for item in candidates:
+        mapped = _map_action(str(item))
+        if mapped in seen:
+            continue
+        seen.add(mapped)
+        out.append(mapped)
+        if len(out) >= MAX_INTENT_ACTIONS:
+            break
+    return out or [_map_action(fallback)]
+
+
 def _normalize_intent(raw: dict[str, Any] | None, query: str) -> dict[str, Any]:
     base = _heuristic_intent(query)
     if not raw:
-        return base
-    action = _map_action(str(raw.get("action") or base["action"]))
+        actions = _normalize_action_list(None, base["action"])
+        return {**base, "action": actions[0], "actions": actions}
+    raw_actions = raw.get("actions")
+    raw_action = raw.get("action")
+    actions = _normalize_action_list(
+        raw_actions if raw_actions is not None else raw_action,
+        base["action"],
+    )
+    action = actions[0]
     # Legacy get_prices with an explicit lookback/range should become history.
-    raw_action = str(raw.get("action") or "").strip().lower()
-    if raw_action in {"get_prices", "lookup_commodity"} and (
+    raw_action_str = str(raw_action or "").strip().lower() if not isinstance(raw_action, list) else ""
+    if raw_action_str in {"get_prices", "lookup_commodity"} and (
         raw.get("lookback_days") or raw.get("from_date") or raw.get("to_date")
     ):
         action = "get_price_history"
+        actions = ["get_price_history"] + [a for a in actions if a != "get_price_history"]
 
     out = {
         "action": action,
+        "actions": actions,
         "nearest_market": bool(raw.get("nearest_market", base.get("nearest_market", True))),
         "radius_km": raw.get("radius_km", base.get("radius_km")),
         "lookback_days": raw.get("lookback_days", base.get("lookback_days")),
@@ -226,6 +287,13 @@ def _normalize_intent(raw: dict[str, Any] | None, query: str) -> dict[str, Any]:
             out[key] = str(val).strip().lower() if key == "sort_order" else str(val).strip()
     if out["action"] == "get_extreme_arrival" and out["sort_order"] not in {"highest", "lowest"}:
         out["sort_order"] = "highest"
+    if _is_market_discovery_query(query):
+        out["action"] = "search_markets"
+        out["actions"] = ["search_markets"]
+        out["market_name"] = None
+        out["nearest_market"] = True
+        if out.get("radius_km") is None:
+            out["radius_km"] = 50
     return out
 
 
@@ -316,6 +384,15 @@ def _tool_result_is_empty(result: Any) -> bool:
         return not result.strip()
     if not isinstance(result, dict):
         return False
+    if result.get("error") and "results" not in result:
+        return True
+
+    if isinstance(result.get("results"), dict):
+        per_action = result["results"]
+        if not per_action:
+            return True
+        return all(_tool_result_is_empty(v) for v in per_action.values())
+
     if result.get("error"):
         return True
 
@@ -361,18 +438,19 @@ def _build_tool_args(
     crop: str,
     state: str | None,
 ) -> dict[str, Any]:
-    action = intent["action"]
-    args: dict[str, Any] = {"action": action}
+    actions = intent.get("actions") or [intent["action"]]
+    tool_action: str | list[str] = actions[0] if len(actions) == 1 else actions
+    args: dict[str, Any] = {"action": tool_action}
     tool_state = intent.get("state") or state
     if tool_state and str(tool_state).strip().lower() not in {"all", "not specified", "unknown"}:
         args["state"] = str(tool_state).strip()
 
-    if action in _COMMODITY_ACTIONS:
+    if any(a in _COMMODITY_ACTIONS for a in actions):
         crop_clean = (crop or "").strip()
         if crop_clean and crop_clean.lower() not in {"all", "any", "general"}:
             args["commodity_name"] = [crop_clean]
 
-    if action in _GEO_ACTIONS:
+    if any(a in _GEO_ACTIONS for a in actions):
         if lat is not None and lon is not None:
             args["lat"] = float(lat)
             args["long"] = float(lon)
@@ -382,7 +460,13 @@ def _build_tool_args(
         if intent.get("market_name"):
             args["market_name"] = intent["market_name"]
 
-    if action in _HISTORY_ACTIONS:
+    # Gemma sometimes puts the crop name in market_name (e.g. rice) — never treat crop as mandi name.
+    mn = (args.get("market_name") or "").strip().lower()
+    cr = (crop or "").strip().lower()
+    if mn and cr and (mn == cr or mn in {"rice", "paddy"} and cr in {"rice", "paddy"}):
+        args.pop("market_name", None)
+
+    if any(a in _HISTORY_ACTIONS for a in actions):
         if intent.get("lookback_days") is not None:
             args["lookback_days"] = intent["lookback_days"]
         else:
@@ -391,7 +475,7 @@ def _build_tool_args(
             if intent.get("to_date"):
                 args["to_date"] = intent["to_date"]
 
-    if action == "get_extreme_arrival" and intent.get("sort_order"):
+    if "get_extreme_arrival" in actions and intent.get("sort_order"):
         args["sort_order"] = intent["sort_order"]
 
     return args
@@ -494,12 +578,13 @@ async def daily_price(
             crop=crop,
             state=state,
         )
+        actions = intent.get("actions") or [intent["action"]]
 
-        if intent["action"] in _COMMODITY_ACTIONS and not tool_args.get("commodity_name"):
-            logger.warning("daily_price_agent: missing commodity_name for action=%s", intent["action"])
+        if any(a in _COMMODITY_ACTIONS for a in actions) and not tool_args.get("commodity_name"):
+            logger.warning("daily_price_agent: missing commodity_name for actions=%s", actions)
             return ""
 
-        if intent["action"] in _GEO_ACTIONS and (
+        if any(a in _GEO_ACTIONS for a in actions) and (
             tool_args.get("lat") is None or tool_args.get("long") is None
         ):
             if not tool_args.get("state") and not tool_args.get("market_name"):
