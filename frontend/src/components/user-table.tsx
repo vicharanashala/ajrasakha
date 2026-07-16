@@ -594,7 +594,11 @@ const UserRow: React.FC<UserRowProps> = ({
               >
                 <div className="flex items-center gap-2">
                   <History className="w-4 h-4 mr-2 text-blue-500" />
-                  View User History
+                  History
+                  <Badge
+                    variant="default"
+                    className="h-4 text-[9px] px-1.5 py-0 ml-auto bg-red-500 text-white hover:bg-red-600 border-0 font-medium"
+                  >New</Badge>
                 </div>
               </DropdownMenuItem>
 
