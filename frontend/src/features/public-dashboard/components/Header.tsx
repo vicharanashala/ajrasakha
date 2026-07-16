@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { Menu, X } from "lucide-react";
 import { Counter } from "./Counter";
 import { NAV } from "../data/nav";
 
@@ -19,32 +21,53 @@ function scrollToSection(id: string, e: React.MouseEvent<HTMLAnchorElement>) {
 /**
  * GoI-style banner (brand + section nav) and, below it, a light utility bar carrying
  * the ticker and the right-aligned Login button. Sticky — stays at the top on scroll.
+ *
+ * On narrow screens the section nav collapses behind a hamburger button; tapping a link
+ * closes it again.
  */
-export const Header = ({ activeNav, onLogin, today, thisMonth }: HeaderProps) => (
-  <>
-    <header className="top">
-      <div className="top-bar">
-        <div className="brand">
-          <div className="brand-mark">A</div>
-          <div className="brand-text">
-            <div className="name">annam.ai</div>
-            <div className="tag">ACE — National Public Dashboard</div>
+export const Header = ({ activeNav, onLogin, today, thisMonth }: HeaderProps) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const onNavClick = (id: string, e: React.MouseEvent<HTMLAnchorElement>) => {
+    scrollToSection(id, e);
+    setMenuOpen(false); // collapse the mobile menu after choosing a section
+  };
+
+  return (
+    <>
+      <header className="top">
+        <div className="top-bar">
+          <div className="brand">
+            <div className="brand-mark">A</div>
+            <div className="brand-text">
+              <div className="name">annam.ai</div>
+              <div className="tag">ACE — National Public Dashboard</div>
+            </div>
           </div>
+
+          <button
+            className="nav-toggle"
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((v) => !v)}
+          >
+            {menuOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
+
+          <nav className={`nav-links${menuOpen ? " open" : ""}`}>
+            {NAV.map((n) => (
+              <a
+                key={n.id}
+                href={`#${n.id}`}
+                className={activeNav === n.id ? "active" : ""}
+                onClick={(e) => onNavClick(n.id, e)}
+              >
+                {n.label}
+              </a>
+            ))}
+          </nav>
         </div>
-        <nav className="nav-links">
-          {NAV.map((n) => (
-            <a
-              key={n.id}
-              href={`#${n.id}`}
-              className={activeNav === n.id ? "active" : ""}
-              onClick={(e) => scrollToSection(n.id, e)}
-            >
-              {n.label}
-            </a>
-          ))}
-        </nav>
-      </div>
-    </header>
+      </header>
 
     <div className="util-bar">
       <div className="util-inner">
@@ -79,5 +102,6 @@ export const Header = ({ activeNav, onLogin, today, thisMonth }: HeaderProps) =>
         </button>
       </div>
     </div>
-  </>
-);
+    </>
+  );
+};

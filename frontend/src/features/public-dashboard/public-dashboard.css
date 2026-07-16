@@ -93,6 +93,35 @@
 .ace-dash .nav-links a:hover { background: rgba(255, 255, 255, 0.16); color: #fff; }
 .ace-dash .nav-links a.active { background: rgba(255, 255, 255, 0.9); color: var(--green-deep); }
 .ace-dash .top-right { display: flex; align-items: center; gap: 16px; }
+
+/* Hamburger toggle — hidden on desktop, shown on mobile via the media query below. */
+.ace-dash .nav-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px; height: 40px;
+  border: none; border-radius: 9px; cursor: pointer;
+  background: rgba(255, 255, 255, 0.16); color: #fff;
+  flex-shrink: 0;
+}
+.ace-dash .nav-toggle:hover { background: rgba(255, 255, 255, 0.28); }
+
+/* On narrow screens the section nav collapses behind the hamburger. */
+@media (max-width: 768px) {
+  .ace-dash .top-bar { flex-wrap: wrap; }
+  .ace-dash .nav-toggle { display: inline-flex; }
+
+  .ace-dash .nav-links {
+    display: none;            /* hidden until the hamburger is tapped */
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;             /* forces its own row below brand + toggle */
+    gap: 4px;
+    margin-top: 6px;
+  }
+  .ace-dash .nav-links.open { display: flex; }
+  .ace-dash .nav-links a { padding: 12px 16px; }
+}
 .ace-dash .ticker { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
 /* LIVE badge */
@@ -366,7 +395,10 @@
 }
 
 @media (max-width: 520px) {
-  .ace-dash .carousel-arrow { display: none; }
+  /* Keep the arrows on mobile — slightly smaller and tucked closer to the edges. */
+  .ace-dash .carousel-arrow { width: 38px; height: 38px; font-size: 18px; }
+  .ace-dash .carousel-arrow.prev { left: 8px; }
+  .ace-dash .carousel-arrow.next { right: 8px; }
   .ace-dash .cstat { padding: 10px 14px; min-width: 90px; }
 }
 
@@ -488,7 +520,18 @@
 }
 @media (max-width: 520px) {
   .ace-dash .grid-3, .ace-dash .grid-4 { grid-template-columns: 1fr; }
-  .ace-dash .ticker { display: none; }
+  /* Keep the ticker visible on mobile: ticker on the LEFT, Login on the RIGHT, on one row.
+     nowrap keeps Login from dropping below; the ticker's own stats wrap internally and
+     min-width:0 lets it shrink so Login stays pinned to the right edge. */
+  .ace-dash .util-inner {
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    gap: 10px;
+    padding: 10px 16px;
+  }
+  .ace-dash .ticker { gap: 8px; min-width: 0; }
+  .ace-dash .ticker-stat-label { font-size: 10.5px; }
+  .ace-dash .login-btn { flex-shrink: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   .ace-dash * { transition: none !important; animation: none !important; }
