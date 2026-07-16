@@ -246,6 +246,12 @@ export interface IUserRepository {
     session?: ClientSession,
   ): Promise<void>;
 
+  updateTrainingUserStatus(
+    userId: string,
+    action: string,
+    session?: ClientSession,
+  ): Promise<void>;
+
   /**
   * Updates user activity status
   * @param userId - userid of expert to update

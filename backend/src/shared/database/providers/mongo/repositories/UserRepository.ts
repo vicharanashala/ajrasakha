@@ -2288,4 +2288,58 @@ export class UserRepository implements IUserRepository {
       throw new InternalServerError('Failed to fetch user history');
     }
   }
+
+  async updateTrainingUserStatus(
+    userId: string,
+    action: string,
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    try {
+      const isTrainingUser = action === 'assign';
+      const updatedAt = new Date();
+      const updatedUser =await this.usersCollection.findOneAndUpdate(
+        { _id: new ObjectId(userId) },
+        {
+          $set: {
+            isTrainingUser,
+            updatedAt,
+          },
+        },
+        { upsert: true, returnDocument: 'after', session },
+      );
+
+      
+      await Promise.all([
+        this.userRoleHistoryCollection.updateOne(
+          {
+            userId: new ObjectId(userId),
+            to: null,
+          },
+          {
+            $set: {
+              to: updatedAt,
+              updatedAt,
+            },
+          },
+          { session },
+        ),
+        this.userRoleHistoryCollection.insertOne(
+          {
+            userId: new ObjectId(userId),
+            role: updatedUser.role,
+            from: updatedAt,
+            to: null,
+            isVerified: updatedUser.isVerified ?? false,
+            status: updatedUser.status,
+            isBlocked: updatedUser.isBlocked,
+            special_task_force: updatedUser.special_task_force,
+            isTrainingUser: updatedUser.isTrainingUser,
+          },
+          { session },
+        )])
+    } catch (error) {
+      throw new InternalServerError(`Failed to update training user status`);
+    }
+  }
 }

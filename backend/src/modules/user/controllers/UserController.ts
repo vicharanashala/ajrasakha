@@ -1189,4 +1189,85 @@ export class UserController {
     
     return await this.userService.getUserHistoryById(query);
   }
+
+  //make user a training user
+   @OpenAPI({
+    summary: 'Assign or remove TMU (Training Model User) status for a user',
+    description: 'Assigns or removes Training Model User status for a user. Admin access required.',
+  })
+  @ResponseSchema(UserSuccessMessageResponse, {
+    statusCode: 200,
+    description: 'TMU status updated successfully',
+  })
+  @Patch('/training-users')
+  @HttpCode(200)
+  @Authorized(['admin'])
+  async toggleTrainingUserStatus(
+    @Body() body: BlockUnblockBody,
+    @CurrentUser() user: IUser,
+  ): Promise<{ message: string }> {
+    const { action, userId } = body;
+    const userDetails = await this.userService.getUserById(userId);
+    if (!userDetails) {
+      throw new NotFoundError('User not found');
+    }
+
+    let auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.EXPERTS_MANAGEMENT,
+      action: action === 'assign' ? AuditAction.ASSIGN_TRAINING_USER : AuditAction.REMOVE_TRAINING_USER,
+      actor: {
+        id: user._id.toString(),
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        role: user.role,
+        avatar: user?.avatar || '',
+      },
+      context: {
+        userId: userId,
+        name: `${userDetails.firstName} ${userDetails.lastName}`,
+        email: userDetails.email,
+        role: userDetails.role,
+      },
+      changes: {
+        before: {
+          isTrainingUser: action === 'assign' ? false : true,
+        },
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    };
+
+    try {
+      await this.userService.updateTrainingUserStatus(userId, action);
+    } catch (err: any) {
+      auditPayload = {
+        ...auditPayload,
+        outcome: {
+          status: OutComeStatus.FAILED,
+          errorCode: err?.errorCode || 'INTERNAL_ERROR',
+          errorMessage: err?.message || 'Failed to update training user status',
+          errorName: err?.name || 'Error',
+          errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+        },
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+      if (err instanceof InternalServerError) {
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(err?.message || 'Failed to update training user status');
+    }
+
+    auditPayload = {
+      ...auditPayload,
+      changes: {
+        ...auditPayload.changes,
+        after: {
+          isTrainingUser: action === 'assign' ? true : false,
+        },
+      },
+    };
+    this.auditTrailsService.createAuditTrail(auditPayload);
+    return { message: `Training user status ${action === 'assign' ? 'assigned' : 'removed'} successfully` };
+  }
 }

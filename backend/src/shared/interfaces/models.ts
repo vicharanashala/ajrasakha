@@ -59,6 +59,7 @@ export interface IUser {
    *  at least one entry in a blocking status (in-review / duplicate); entries that are
    *  re-routed (handed to an expert) stay for history but do not block new work. */
   assignedQuestionIds?: IAssignedQuestion[] | null;
+  isTrainingUser?: boolean;
 }
 
 export interface IUserRoleHistory {
@@ -72,6 +73,7 @@ export interface IUserRoleHistory {
   isBlocked?: boolean;
   special_task_force?: boolean;
   special_task_force_moderator?: boolean;
+  isTrainingUser?: boolean;
 }
 
 export interface IUserHistory {

@@ -1023,4 +1023,10 @@ export class UserService extends BaseService {
       );
     }
   }
+
+   async updateTrainingUserStatus(userId: string, action: string): Promise<void> {
+    return await this._withTransaction(async (session: ClientSession) => {
+      await this.userRepo.updateTrainingUserStatus(userId, action, session);
+    });
+  }
 }
