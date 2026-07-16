@@ -158,8 +158,35 @@ function buildStatCells(
     ? adminStats.map((s) => ({ label: s.label, value: s.value }))
     : heroStats.map((s) => ({ label: s.label, value: String(s.count) }));
 
-  return [...liveStats, ...editorial.filter((s) => !liveLabels.has(s.label.trim().toLowerCase()))];
+  // Drop anything already shown in the hero carousel (the 9 figures below) or already in the
+  // live block above, so the snapshot grid only shows what ISN'T covered elsewhere — e.g.
+  // Markets connected, Dynamic tools integrated, Outreach events conducted.
+  return [
+    ...liveStats,
+    ...editorial.filter(
+      (s) =>
+        !liveLabels.has(s.label.trim().toLowerCase()) && !isCarouselStat(s.label),
+    ),
+  ];
 }
+
+/** Label fragments for the figures the hero carousel already displays. */
+const CAROUSEL_STAT_FRAGMENTS = [
+  "question", // Agricultural questions processed
+  "q&a", // Validated Q&A pairs
+  "language",
+  "expert",
+  "kvk",
+  "sau",
+  "state",
+  "district",
+  "village",
+];
+
+const isCarouselStat = (label: string): boolean => {
+  const l = label.toLowerCase();
+  return CAROUSEL_STAT_FRAGMENTS.some((f) => l.includes(f));
+};
 
 /**
  * Look up an admin-edited headline figure by a fragment of its label ("language" matches
