@@ -122,6 +122,7 @@ export const IncomingCallBox = ({
   const wsRef = useRef<PlivoWebSocketService | null>(null);
   const plivoClientRef = useRef<any>(null);
   const callTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastCallUuidRef = useRef<string | null>(null);
 
   const handleMarkAgentAsAvailable = async () => {
     try {
@@ -500,8 +501,12 @@ export const IncomingCallBox = ({
       return;
     }
 
-    // Clear transcripts from previous call
-    setTranscripts([]);
+    // Clear transcripts from previous call only if call UUID changed
+    const currentCallUuid = incomingCall?.uuid || null;
+    if (currentCallUuid && currentCallUuid !== lastCallUuidRef.current) {
+      setTranscripts([]);
+      lastCallUuidRef.current = currentCallUuid;
+    }
 
     // console.log('🔌 Initializing WebSocket connection...');
     const ws = new PlivoWebSocketService();

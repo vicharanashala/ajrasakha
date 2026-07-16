@@ -12,6 +12,8 @@ type Props = {
   query2: string;
   onTranslate: (translatedText1: string, translatedText2: string) => void;
   sourceLang?: string;
+  onTranslateStart?: () => void;
+  onTranslateEnd?: () => void;
 };
 
 const LANGUAGES: Language[] = [
@@ -46,6 +48,8 @@ export default function SarvamTranslatePairDropdown({
   query2,
   onTranslate,
   sourceLang,
+  onTranslateStart,
+  onTranslateEnd,
 }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedLang, setSelectedLang] = useState<Language | null>(null);
@@ -84,6 +88,9 @@ export default function SarvamTranslatePairDropdown({
     }
 
     try {
+      if (onTranslateStart) onTranslateStart();
+      // Add artificial delay for testing visual loaders (2 seconds)
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       // Translate both queries in parallel
       const [res1, res2] = await Promise.all([
         query1.trim() ? translate(query1, lang.code, sourceLang) : Promise.resolve(null),
@@ -92,6 +99,8 @@ export default function SarvamTranslatePairDropdown({
       onTranslate(res1 || query1, res2 || query2);
     } catch (err) {
       console.error("Failed to translate pair", err);
+    } finally {
+      if (onTranslateEnd) onTranslateEnd();
     }
   };
 
