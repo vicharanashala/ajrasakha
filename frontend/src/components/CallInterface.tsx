@@ -20,6 +20,8 @@ import {
   Edit3,
   Power,
   PowerOff,
+  Copy,
+  Check,
 } from "lucide-react";
 import { useSubmitTranscript } from "@/hooks/api/context/useSubmitTranscript";
 import { useGenerateCallQuestion } from "@/hooks/api/question/useGenerateCallQuestion";
@@ -52,6 +54,7 @@ import type { GeneratedQuestion } from "./voice-recorder-card";
 import Plivo from "plivo-browser-sdk";
 import type { ExtractDataResponse } from "@/hooks/services/accAgentService";
 import { UserService } from "@/hooks/services/userService";
+import SarvamTranslatePairDropdown from "@/components/SarvamTranslatePairDropdown";
 
 const userService = new UserService();
 
@@ -485,6 +488,25 @@ export const CallInterface = () => {
     sourceLink?: string;
   }
   const [questions, setQuestions] = useState<ExtGeneratedQuestion[]>([]);
+  const [translatedQuestions, setTranslatedQuestions] = useState<Record<string, string>>({});
+  const [translatedAnswers, setTranslatedAnswers] = useState<Record<string, string>>({});
+  const [translatingQuestions, setTranslatingQuestions] = useState<Record<string, boolean>>({});
+  const [copiedStates, setCopiedStates] = useState<Record<string, boolean>>({});
+
+  const handleCopyAnswer = async (qnKey: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedStates((prev) => ({ ...prev, [qnKey]: true }));
+      toast.success("Answer copied to clipboard!");
+      setTimeout(() => {
+        setCopiedStates((prev) => ({ ...prev, [qnKey]: false }));
+      }, 2000);
+    } catch (err) {
+      console.error("Failed to copy text: ", err);
+      toast.error("Failed to copy answer.");
+    }
+  };
+
   const lastTranscriptRef = useRef("");
   const { mutateAsync: generateQuestions, isPending: isGeneratingQuestions } =
     useGenerateCallQuestion();
@@ -552,6 +574,10 @@ export const CallInterface = () => {
       setEditableTranslatedTranscript("");
       setTranscriptsList([]); // Clear the conversation view
       setQuestions([]);
+      setTranslatedQuestions({});
+      setTranslatedAnswers({});
+      setTranslatingQuestions({});
+      setCopiedStates({});
       lastTranscriptRef.current = "";
       setIsSummaryOpen(false);
       setEditableSummaryText("");
@@ -569,6 +595,10 @@ export const CallInterface = () => {
     setEditableTranslatedTranscript("");
     setTranscriptsList([]);
     setQuestions([]);
+    setTranslatedQuestions({});
+    setTranslatedAnswers({});
+    setTranslatingQuestions({});
+    setCopiedStates({});
     lastTranscriptRef.current = "";
     setIsSummaryOpen(false);
     setEditableSummaryText("");
@@ -589,6 +619,11 @@ export const CallInterface = () => {
 
   const handleResetConversation = () => {
     setTranscriptsList([]);
+    setQuestions([]);
+    setTranslatedQuestions({});
+    setTranslatedAnswers({});
+    setTranslatingQuestions({});
+    setCopiedStates({});
     lastTranscriptRef.current = "";
     setIsSummaryOpen(false);
     setEditableSummaryText("");
@@ -883,6 +918,9 @@ export const CallInterface = () => {
         onTranscriptsListChange={(list) => setTranscriptsList(list)}
         onCallStateChange={(isActive) => setIsCallActive(isActive)}
         onCallUuidChange={(uuid) => {
+          if (uuid === callUuid) {
+            return;
+          }
           setCallUuid(uuid);
           // Preserve the last call's UUID when call ends for question generation
           if (uuid === null && callUuid !== null) {
@@ -891,6 +929,30 @@ export const CallInterface = () => {
           // Reset lastCallUuid when a new call comes in
           if (uuid !== null) {
             setLastCallUuid(null);
+            // Clear transcripts, questions, summary and translation states for new calls
+            setTranscriptsList([]);
+            setQuestions([]);
+            setTranslatedQuestions({});
+            setTranslatedAnswers({});
+            setTranslatingQuestions({});
+            setCopiedStates({});
+            setEditableTranslatedTranscript("");
+            lastTranscriptRef.current = "";
+            setIsSummaryOpen(false);
+            setEditableSummaryText("");
+            setExtractedState("");
+            setExtractedCrop("");
+            setHasGeneratedQuestions(false);
+            // Reset HITL state
+            setThreadId(null);
+            setExtractedData(null);
+            setIsHumanVerificationMode(false);
+            setEditableQuery("");
+            setEditableCrop("");
+            setEditableState("");
+            setEditableDistrict("");
+            setEditableDomain([]);
+            setEditableSeason("");
           }
         }}
       />
@@ -1345,176 +1407,245 @@ export const CallInterface = () => {
                     </div>
                   ) : (
                     <div className="space-y-4 pb-10">
-                      {questions?.map((qn, index) => (
-                        <div
-                          key={`${qn.question}-${qn.id + index}`}
-                          className="rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:shadow-md transition-all duration-300 overflow-hidden"
-                        >
-                          <div className="p-4">
-                            <div className="flex items-start gap-3 mb-3">
-                              <div className="text-indigo-600 dark:text-indigo-400 mt-1">
-                                <HelpCircle className="h-4 w-4" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                                  <p className="text-sm font-medium text-foreground leading-relaxed">
-                                    {qn.question}
-                                  </p>
-                                  {qn.agri_specialist &&
-                                    qn.agri_specialist !== "Unknown" &&
-                                    qn.agri_specialist !== "AGRI_EXPERT" && (
-                                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider whitespace-nowrap self-start sm:self-auto">
-                                        <User className="w-3 h-3" />
-                                        {qn.agri_specialist}
-                                      </div>
-                                    )}
+                      {questions?.map((qn, index) => {
+                        const qnKey = qn.id || `${qn.question}-${index}`;
+                        return (
+                          <div
+                            key={`${qn.question}-${qn.id + index}`}
+                            className="rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:shadow-md transition-all duration-300 overflow-hidden"
+                          >
+                            <div className="p-4">
+                              <div className="flex items-start gap-3 mb-3">
+                                <div className="text-indigo-600 dark:text-indigo-400 mt-1">
+                                  <HelpCircle className="h-4 w-4" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                                    <div className="flex-1">
+                                      {translatingQuestions[qnKey] ? (
+                                        <div className="space-y-2 py-1 animate-pulse">
+                                          <div className="h-4 bg-zinc-200 dark:bg-zinc-800 rounded w-3/4"></div>
+                                        </div>
+                                      ) : (
+                                        <p className="text-sm font-medium text-foreground leading-relaxed">
+                                          {translatedQuestions[qnKey] || qn.question}
+                                        </p>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
+                                      {(qn.question?.trim() || qn.answer?.trim()) && (
+                                        <SarvamTranslatePairDropdown
+                                          query1={qn.question || ""}
+                                          query2={qn.answer || ""}
+                                          onTranslateStart={() => {
+                                            setTranslatingQuestions((prev) => ({
+                                              ...prev,
+                                              [qnKey]: true,
+                                            }));
+                                          }}
+                                          onTranslateEnd={() => {
+                                            setTranslatingQuestions((prev) => ({
+                                              ...prev,
+                                              [qnKey]: false,
+                                            }));
+                                          }}
+                                          onTranslate={(translatedQn, translatedAns) => {
+                                            setTranslatedQuestions((prev) => ({
+                                              ...prev,
+                                              [qnKey]: translatedQn,
+                                            }));
+                                            setTranslatedAnswers((prev) => ({
+                                              ...prev,
+                                              [qnKey]: translatedAns,
+                                            }));
+                                          }}
+                                        />
+                                      )}
+                                      {qn.agri_specialist &&
+                                        qn.agri_specialist !== "Unknown" &&
+                                        qn.agri_specialist !== "AGRI_EXPERT" && (
+                                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-[10px] font-semibold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider whitespace-nowrap">
+                                            <User className="w-3 h-3" />
+                                            {qn.agri_specialist}
+                                          </div>
+                                        )}
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
 
-                            <Accordion
-                              type="single"
-                              collapsible
-                              className="w-full"
-                            >
-                              <AccordionItem
-                                value="answer"
-                                className="border-none"
+                              <Accordion
+                                type="single"
+                                collapsible
+                                className="w-full"
                               >
-                                <AccordionTrigger className="py-2 px-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-xs font-semibold tracking-wide uppercase hover:no-underline">
-                                  <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
-                                    <svg
-                                      className="w-3.5 h-3.5"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      viewBox="0 0 24 24"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                      />
-                                    </svg>
-                                    View Details
-                                  </div>
-                                </AccordionTrigger>
+                                <AccordionItem
+                                  value="answer"
+                                  className="border-none"
+                                >
+                                  <AccordionTrigger className="py-2 px-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-xs font-semibold tracking-wide uppercase hover:no-underline">
+                                    <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
+                                      <svg
+                                        className="w-3.5 h-3.5"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                        />
+                                      </svg>
+                                      View Details
+                                    </div>
+                                  </AccordionTrigger>
 
-                                {qn.weather && (
-                                  <AccordionContent className="pt-0 pb-1">
-                                    <div className="bg-sky-50 dark:bg-sky-950/20 border border-sky-200/50 dark:border-sky-900/50 rounded-lg p-3 space-y-2 mb-3">
-                                      <div className="flex justify-between items-center w-full px-1">
-                                        <div className="flex items-center gap-1.5 text-sky-700 dark:text-sky-400 font-semibold text-xs tracking-wider uppercase">
-                                          <svg
-                                            className="w-3.5 h-3.5 animate-pulse"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                          >
-                                            <path
-                                              strokeLinecap="round"
-                                              strokeLinejoin="round"
-                                              strokeWidth={2}
-                                              d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"
-                                            />
-                                          </svg>
-                                          <span>Weather Insights</span>
+                                  {qn.weather && (
+                                    <AccordionContent className="pt-0 pb-1">
+                                      <div className="bg-sky-50 dark:bg-sky-950/20 border border-sky-200/50 dark:border-sky-900/50 rounded-lg p-3 space-y-2 mb-3">
+                                        <div className="flex justify-between items-center w-full px-1">
+                                          <div className="flex items-center gap-1.5 text-sky-700 dark:text-sky-400 font-semibold text-xs tracking-wider uppercase">
+                                            <svg
+                                              className="w-3.5 h-3.5 animate-pulse"
+                                              fill="none"
+                                              stroke="currentColor"
+                                              viewBox="0 0 24 24"
+                                            >
+                                              <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth={2}
+                                                d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"
+                                              />
+                                            </svg>
+                                            <span>Weather Insights</span>
+                                          </div>
+                                        </div>
+                                        <div className="text-[13px] text-sky-850 dark:text-sky-300 leading-relaxed px-1">
+                                          {renderWeatherInsights(qn.weather)}
                                         </div>
                                       </div>
-                                      <div className="text-[13px] text-sky-850 dark:text-sky-300 leading-relaxed px-1">
-                                        {renderWeatherInsights(qn.weather)}
-                                      </div>
-                                    </div>
-                                  </AccordionContent>
-                                )}
+                                    </AccordionContent>
+                                  )}
 
-                                {(qn.authorName || qn.sourceName) && (
+                                  {(qn.authorName || qn.sourceName) && (
+                                    <AccordionContent className="pt-0 pb-1">
+                                      <div className="bg-zinc-100/60 dark:bg-zinc-900/40 border border-zinc-200/50 dark:border-zinc-800/50 rounded-lg p-3 space-y-2 mb-3">
+                                        <div className="flex justify-between items-center w-full px-1">
+                                          <div className="flex items-center gap-1.5 text-zinc-700 dark:text-zinc-400 font-semibold text-xs tracking-wider uppercase">
+                                            <User className="w-3.5 h-3.5" />
+                                            <span>
+                                              Author & Reference Document
+                                            </span>
+                                          </div>
+                                        </div>
+                                        <div className="text-[13px] text-zinc-805 dark:text-zinc-305 leading-relaxed px-1 space-y-1">
+                                          {qn.authorName && (
+                                            <p>
+                                              <span className="font-semibold text-zinc-900 dark:text-zinc-400">
+                                                Author Name:
+                                              </span>{" "}
+                                              {qn.authorName}
+                                            </p>
+                                          )}
+                                          {qn.sourceName && (
+                                            <p>
+                                              <span className="font-semibold text-zinc-900 dark:text-zinc-400">
+                                                Source:
+                                              </span>{" "}
+                                              {qn.sourceLink ? (
+                                                <a
+                                                  href={qn.sourceLink}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="text-indigo-600 dark:text-indigo-400 hover:underline font-semibold inline-flex items-center gap-1"
+                                                >
+                                                  {qn.sourceName}
+                                                  <svg
+                                                    className="w-3.5 h-3.5"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    viewBox="0 0 24 24"
+                                                  >
+                                                    <path
+                                                      strokeLinecap="round"
+                                                      strokeLinejoin="round"
+                                                      strokeWidth={2}
+                                                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                                                    />
+                                                  </svg>
+                                                </a>
+                                              ) : (
+                                                qn.sourceName
+                                              )}
+                                            </p>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </AccordionContent>
+                                  )}
+
                                   <AccordionContent className="pt-0 pb-1">
-                                    <div className="bg-zinc-100/60 dark:bg-zinc-900/40 border border-zinc-200/50 dark:border-zinc-800/50 rounded-lg p-3 space-y-2 mb-3">
+                                    <div className="bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200/50 dark:border-indigo-900/50 rounded-lg p-3 space-y-2">
                                       <div className="flex justify-between items-center w-full px-1">
-                                        <div className="flex items-center gap-1.5 text-zinc-700 dark:text-zinc-400 font-semibold text-xs tracking-wider uppercase">
+                                        <div className="flex items-center gap-2">
+                                          <div className="flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400 font-semibold text-xs tracking-wider uppercase">
+                                            <MessageSquare className="w-3.5 h-3.5" />
+                                            <span>Specialist Answer</span>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleCopyAnswer(qnKey, translatedAnswers[qnKey] || qn.answer || "");
+                                              }}
+                                              className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 transition-all text-[10px] font-semibold uppercase tracking-wider border border-indigo-100/50 dark:border-indigo-900/30 ml-2 active:scale-95"
+                                              title="Copy Answer"
+                                            >
+                                              {copiedStates[qnKey] ? (
+                                                <>
+                                                  <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                                  <span className="text-emerald-600 dark:text-emerald-400">Copied</span>
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <Copy className="w-3 h-3" />
+                                                  <span>Copy</span>
+                                                </>
+                                              )}
+                                            </button>
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
                                           <User className="w-3.5 h-3.5" />
                                           <span>
-                                            Author & Reference Document
+                                            {qn.agri_specialist || "Unknown"}
                                           </span>
                                         </div>
                                       </div>
-                                      <div className="text-[13px] text-zinc-805 dark:text-zinc-305 leading-relaxed px-1 space-y-1">
-                                        {qn.authorName && (
-                                          <p>
-                                            <span className="font-semibold text-zinc-900 dark:text-zinc-400">
-                                              Author Name:
-                                            </span>{" "}
-                                            {qn.authorName}
-                                          </p>
-                                        )}
-                                        {qn.sourceName && (
-                                          <p>
-                                            <span className="font-semibold text-zinc-900 dark:text-zinc-400">
-                                              Source:
-                                            </span>{" "}
-                                            {qn.sourceLink ? (
-                                              <a
-                                                href={qn.sourceLink}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="text-indigo-600 dark:text-indigo-400 hover:underline font-semibold inline-flex items-center gap-1"
-                                              >
-                                                {qn.sourceName}
-                                                <svg
-                                                  className="w-3.5 h-3.5"
-                                                  fill="none"
-                                                  stroke="currentColor"
-                                                  viewBox="0 0 24 24"
-                                                >
-                                                  <path
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                    strokeWidth={2}
-                                                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                                                  />
-                                                </svg>
-                                              </a>
-                                            ) : (
-                                              qn.sourceName
-                                            )}
-                                          </p>
+                                      <div className="text-[13px] text-indigo-800 dark:text-indigo-300 leading-relaxed px-1">
+                                        {translatingQuestions[qnKey] ? (
+                                          <div className="space-y-2 py-1 animate-pulse">
+                                            <div className="h-3 bg-indigo-200 dark:bg-indigo-900/50 rounded w-5/6"></div>
+                                            <div className="h-3 bg-indigo-200 dark:bg-indigo-900/50 rounded w-full"></div>
+                                            <div className="h-3 bg-indigo-200 dark:bg-indigo-900/50 rounded w-2/3"></div>
+                                          </div>
+                                        ) : qn.agri_specialist === "ACC_AGENT" ? (
+                                          <div className="space-y-1">
+                                            {renderMarkdown(translatedAnswers[qnKey] || qn.answer)}
+                                          </div>
+                                        ) : (
+                                          translatedAnswers[qnKey] || qn.answer || "Nil"
                                         )}
                                       </div>
                                     </div>
                                   </AccordionContent>
-                                )}
-
-                                <AccordionContent className="pt-0 pb-1">
-                                  <div className="bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200/50 dark:border-indigo-900/50 rounded-lg p-3 space-y-2">
-                                    <div className="flex justify-between items-center w-full px-1">
-                                      <div className="flex items-center gap-1.5 text-indigo-700 dark:text-indigo-400 font-semibold text-xs tracking-wider uppercase">
-                                        <MessageSquare className="w-3.5 h-3.5" />
-                                        <span>Specialist Answer</span>
-                                      </div>
-                                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
-                                        <User className="w-3 h-3" />
-                                        <span>
-                                          {qn.agri_specialist || "Unknown"}
-                                        </span>
-                                      </div>
-                                    </div>
-                                    <p className="text-[13px] text-indigo-800 dark:text-indigo-300 leading-relaxed px-1">
-                                      {qn.agri_specialist === "ACC_AGENT" ? (
-                                        <div className="space-y-1">
-                                          {renderMarkdown(qn.answer)}
-                                        </div>
-                                      ) : (
-                                        qn.answer || "Nil"
-                                      )}
-                                    </p>
-                                  </div>
-                                </AccordionContent>
-                              </AccordionItem>
-                            </Accordion>
+                                </AccordionItem>
+                              </Accordion>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                   <ScrollBar orientation="vertical" />
