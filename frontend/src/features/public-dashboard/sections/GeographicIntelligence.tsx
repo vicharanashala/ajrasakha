@@ -1,18 +1,24 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MiniMetric } from "../components/MiniMetric";
 import { SectionHead } from "../components/SectionHead";
 import { states } from "../data/dashboardData";
+import { useInView } from "../utils";
 
 const IDX_LABELS = ["Knowledge Density", "Expert Density", "Outreach Density", "Data Availability"];
 const IDX_COLORS = ["var(--navy)", "var(--saffron)", "var(--green)", "var(--red-flag)"];
 
-/**
- * Layer 02 — state-by-state coverage. The selected state is local UI state; the figures
- * are demo data from `data/dashboardData` until a per-state API exists.
- */
 export const GeographicIntelligence = () => {
   const [active, setActive] = useState(0);
+  const [changing, setChanging] = useState(false);
+  const { ref: barsRef, inView: barsInView } = useInView(0.15);
   const s = states[active];
+
+  // Brief fade-out/in when switching states
+  const handleSelect = (i: number) => {
+    if (i === active) return;
+    setChanging(true);
+    setTimeout(() => { setActive(i); setChanging(false); }, 180);
+  };
 
   return (
     <section className="wrap" id="layer2">
@@ -28,7 +34,7 @@ export const GeographicIntelligence = () => {
             <div
               key={st.name}
               className={`state-item${i === active ? " active" : ""}`}
-              onClick={() => setActive(i)}
+              onClick={() => handleSelect(i)}
             >
               <span>
                 <span className="idx">{String(i + 1).padStart(2, "0")}</span>
@@ -40,7 +46,8 @@ export const GeographicIntelligence = () => {
             </div>
           ))}
         </div>
-        <div className="state-detail">
+        {/* state-detail fades when changing */}
+        <div className={`state-detail${changing ? " changing" : ""}`}>
           <h3>{s.name}</h3>
           <div className="zone">
             {s.zone} · Dominant crops: {s.dominant} · Languages: {s.langs}
@@ -60,12 +67,16 @@ export const GeographicIntelligence = () => {
           <div className="eyebrow" style={{ marginBottom: 12 }}>
             DENSITY INDICES
           </div>
-          <div className="index-row">
+          {/* bars-hidden keeps widths at 0 until in-view, then CSS transition takes over */}
+          <div ref={barsRef} className={`index-row${barsInView ? "" : " bars-hidden"}`}>
             {s.idx.map((v, ix) => (
               <div className="index-item" key={ix}>
                 <span>{IDX_LABELS[ix]}</span>
                 <span className="idx-track">
-                  <span className="idx-fill" style={{ width: `${v}%`, background: IDX_COLORS[ix] }} />
+                  <span
+                    className="idx-fill"
+                    style={{ width: barsInView ? `${v}%` : "0%", background: IDX_COLORS[ix] }}
+                  />
                 </span>
                 <span className="mono">{v}</span>
               </div>

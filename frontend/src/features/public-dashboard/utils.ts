@@ -5,6 +5,37 @@ export const formatIndian = (n: number): string =>
   new Intl.NumberFormat("en-IN").format(Math.round(n));
 
 /**
+ * Returns `true` once the attached `ref` element scrolls into view (one-shot).
+ * Used to gate chart rendering and bar animations until visible.
+ */
+export function useInView(threshold = 0.2) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setInView(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setInView(true);
+          io.disconnect();
+        }
+      },
+      { threshold },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [threshold]);
+
+  return { ref, inView };
+}
+
+/**
  * Highlights the nav link for whichever section currently dominates the viewport.
  * Returns the id of that section.
  */
