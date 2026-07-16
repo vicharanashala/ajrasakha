@@ -35,6 +35,7 @@ DEFAULT_TOP_N_NEAREST = int(os.getenv("MARKET_DEFAULT_TOP_N_NEAREST", 5))
 PRICE_RECORD_LIMIT = 100
 # Cap how many markets we load after state+crop narrowing before distance ranking
 MAX_CANDIDATE_MARKETS = int(os.getenv("MARKET_MAX_CANDIDATE_MARKETS", 500))
+MAX_ACTIONS = int(os.getenv("MARKET_MAX_ACTIONS", "3"))
 # Safety timeout for Mongo reads (ms) — prevent MCP session hangs
 MONGO_MAX_TIME_MS = int(os.getenv("MARKET_MONGO_MAX_TIME_MS", 10000))
 
@@ -95,7 +96,7 @@ mcp = FastMCP(
 
 @mcp.tool()
 def mandi_price_tool(
-    action: str,
+    action: Union[str, list[str]],
     # --- commodity ---
     commodity_name: Optional[Union[str, list[str]]] = None,
     # --- geo / market search ---
@@ -159,7 +160,9 @@ def mandi_price_tool(
                              trade that commodity).
 
     Args:
-        action        : One of the 8 action strings listed above (required).
+        action        : One action string, or a list of up to 3 action strings from the list above.
+                        Single string → legacy single-action response shape.
+                        List → {"actions": [...], "results": {<action>: {...}, ...}}.
         commodity_name: Raw commodity name (string) or list of names.
         lat           : Latitude (WGS-84) for nearest-market ranking after state filter.
         long          : Longitude (WGS-84) for nearest-market ranking after state filter.
@@ -322,7 +325,8 @@ def mandi_price_tool(
             "variety":          mc.get("variety"),
             "grade":            mc.get("grade"),
             "commodity_group":  mc.get("commodity_group"),
-            "source_system":    mc.get("source_system"),
+            "source_url":    mc.get("source_url"),
+            "source_system": mc.get("source_system"),
             "modal_price":      _round2(pr.get("modal_price")),
             "min_price":        _round2(pr.get("min_price")),
             "max_price":        _round2(pr.get("max_price")),
@@ -906,13 +910,19 @@ def mandi_price_tool(
         if not commodity_name:
             return {"error": "commodity_name is required for action='get_highest_price'."}
         c_list = [commodity_name] if isinstance(commodity_name, str) else commodity_name
+        # When no explicit date range is provided, scope to today's data only
+        # (with latest-price fallback so the farmer always sees something).
+        # This prevents returning a stale historical high as the "best price".
+        effective_lookback = lookback_days
+        if effective_lookback is None and from_date is None and to_date is None:
+            effective_lookback = 1
         result = _fetch_price_data(
             commodity_list=c_list,
             market_name=market_name, state=state,
             lat=lat, long=long,
             nearest_market=nearest_market, radius_km=radius_km,
             from_date=from_date, to_date=to_date,
-            lookback_days=lookback_days,
+            lookback_days=effective_lookback,
             latest_price_fallback=True,
         )
         if result.get("error"):
@@ -1061,8 +1071,6 @@ def mandi_price_tool(
     # ======================================================================
     # ACTION DISPATCHER
     # ======================================================================
-    key = (action or "").strip().lower()
-
     dispatch = {
         "get_today_price":    _get_today_price,
         "get_price_history":  _get_price_history,
@@ -1074,16 +1082,59 @@ def mandi_price_tool(
         "search_markets":     _action_search_markets,
     }
 
-    handler = dispatch.get(key)
-    if handler:
-        return handler()
+    def _normalize_action_list(raw: Union[str, list[str], None]) -> list[str]:
+        if raw is None:
+            return []
+        items = [raw] if isinstance(raw, str) else list(raw)
+        seen: set[str] = set()
+        out: list[str] = []
+        for item in items:
+            key = (str(item) if item is not None else "").strip().lower()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            out.append(key)
+            if len(out) >= MAX_ACTIONS:
+                break
+        return out
 
-    return {
-        "error": (
-            f"Unknown action '{action}'. Choose one of: "
-            + ", ".join(sorted(dispatch.keys()))
-        )
-    }
+    actions = _normalize_action_list(action)
+    multi_mode = isinstance(action, list)
+
+    if not actions:
+        return {"error": "action is required"}
+
+    if not multi_mode and len(actions) == 1:
+        key = actions[0]
+        handler = dispatch.get(key)
+        if handler:
+            return handler()
+        return {
+            "error": (
+                f"Unknown action '{key}'. Choose one of: "
+                + ", ".join(sorted(dispatch.keys()))
+            )
+        }
+
+    results: dict[str, dict] = {}
+    for key in actions:
+        handler = dispatch.get(key)
+        if handler:
+            try:
+                results[key] = handler()
+            except Exception as exc:
+                logger.exception("mandi_price_tool action=%s failed", key)
+                results[key] = {"error": str(exc), "action": key}
+        else:
+            results[key] = {
+                "error": (
+                    f"Unknown action '{key}'. Choose one of: "
+                    + ", ".join(sorted(dispatch.keys()))
+                ),
+                "action": key,
+            }
+
+    return {"actions": actions, "results": results}
 
 
 # --------------------------------------------------------------------------

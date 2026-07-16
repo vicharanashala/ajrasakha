@@ -420,6 +420,33 @@ async def test_daily_price_uses_rephrased_query_not_location_followup():
     assert daily["args"]["state"] == "Telangana"
 
 
+@pytest.mark.asyncio
+async def test_daily_price_uses_rephrased_query_not_crop_followup():
+    rephrased = "nearby market for rice in Guwahati"
+    plan = {
+        "weather": False,
+        "mandi": True,
+        "soil": False,
+        "schemes": False,
+        "chemical_checker": False,
+        "knowledge_base": False,
+        "is_complete": True,
+        "rephrased_query": rephrased,
+        "entities": {"crop": "Paddy", "state": "Assam", "district": "Guwahati"},
+    }
+    calls = await build_tool_calls_from_plan(
+        plan,
+        "rice",
+        {"state": "Assam", "city": "Guwahati", "latitude": 26.15, "longitude": 91.69},
+        location_tool_name="location_information_tool",
+        reviewer_tool_name="upload_question_to_reviewer_system",
+        question_source="AJRASAKHA",
+    )
+    daily = next(c for c in calls if c["name"] == "daily_price")
+    assert daily["args"]["query"] == rephrased
+    assert daily["args"]["crop"] == "Paddy"
+
+
 def test_format_tool_results_collects_after_tool_call_ai_message():
     """Regression: reverse scan used to skip ToolMessages before finding the AIMessage."""
     weather_text = "## Weather Summary\nTemperature: 39.3°C\nRainfall: NIL"
