@@ -6,23 +6,39 @@ import logging
 from dataclasses import dataclass
 from typing import Protocol
 
-from extraction import (
-    ExtractionSelectionError,
-    ExtractiveRangeNotFeasibleError,
-    MandatorySpanMappingError,
-    fit_ranked_segments,
-    map_mandatory_spans_to_segment_ids,
-    parse_ranked_segment_ids,
-    split_source_into_segments,
-)
-from prompts import SEGMENT_RANKING_SYSTEM_PROMPT, build_segment_ranking_prompt
-from validation import ProtectedContent
+try:  # Package import for local Uvicorn and tests.
+    from .extraction import (
+        assemble_selected_segments,
+        ExtractionSelectionError,
+        ExtractiveRangeNotFeasibleError,
+        MandatorySpanMappingError,
+        fit_ranked_segments,
+        map_mandatory_spans_to_segment_ids,
+        parse_ranked_segment_ids,
+        split_source_into_segments,
+    )
+    from .prompts import SEGMENT_RANKING_SYSTEM_PROMPT, build_segment_ranking_prompt
+    from .validation import ProtectedContent
+except ImportError:  # Docker runs this directory directly as ``api:app``.
+    from extraction import (
+        assemble_selected_segments,
+        ExtractionSelectionError,
+        ExtractiveRangeNotFeasibleError,
+        MandatorySpanMappingError,
+        fit_ranked_segments,
+        map_mandatory_spans_to_segment_ids,
+        parse_ranked_segment_ids,
+        split_source_into_segments,
+    )
+    from prompts import SEGMENT_RANKING_SYSTEM_PROMPT, build_segment_ranking_prompt
+    from validation import ProtectedContent
 
 
 logger = logging.getLogger(__name__)
 
-_EXTRACTION_SEPARATOR = "\n\n"
+_EXTRACTION_SEPARATOR = " "
 _MAX_INVALID_RESPONSE_FEEDBACK_CHARACTERS = 12_000
+_REVIEWER_FOOTER_MARKER = "👤 Answered by:"
 
 
 class ClaudeGateway(Protocol):
@@ -47,6 +63,10 @@ class ProtectedContentTooLargeError(ShorteningError):
     pass
 
 
+class AnswerBodyMissingError(ShorteningError):
+    pass
+
+
 class ModelSelectionError(ShorteningError):
     """Raised when Claude never returns a safe full segment-ID ranking."""
 
@@ -58,7 +78,8 @@ class ModelSelectionError(ShorteningError):
 
 @dataclass(frozen=True)
 class ShorteningOutcome:
-    shortened_answer: str
+    short_answer: str
+    full_answer: str
     status: str
     original_character_count: int
     expected_character_count: int
@@ -67,9 +88,40 @@ class ShorteningOutcome:
     actual_character_count: int
     tolerance: int
     within_tolerance: bool
+    footer_character_count: int
     changed: bool
     rewrite_attempts: int
     model: str
+
+
+@dataclass(frozen=True)
+class AnswerParts:
+    """The source body to shorten and untouched reviewer metadata to retain."""
+
+    body: str
+    footer: str
+
+    @property
+    def full_answer(self) -> str:
+        return self.body + self.footer
+
+
+def split_reviewer_footer(answer: str) -> AnswerParts:
+    """Split at the first exact reviewer footer marker without rewriting it.
+
+    The footer retains whitespace immediately before the marker. Reattaching it
+    after the selected body therefore preserves the reviewer metadata verbatim.
+    """
+
+    marker_start = answer.find(_REVIEWER_FOOTER_MARKER)
+    if marker_start < 0:
+        return AnswerParts(body=answer, footer="")
+
+    body_end = marker_start
+    while body_end > 0 and answer[body_end - 1].isspace():
+        body_end -= 1
+
+    return AnswerParts(body=answer[:body_end], footer=answer[body_end:])
 
 
 class AnswerShorteningService:
@@ -95,9 +147,16 @@ class AnswerShorteningService:
         answer: str,
         expected_character_count: int,
     ) -> ShorteningOutcome:
+        parts = split_reviewer_footer(answer)
+        answer_body = parts.body
+        if not answer_body:
+            raise AnswerBodyMissingError(
+                "The answer has reviewer footer text but no answer body before '👤 Answered by:'"
+            )
+
         lower_bound = max(1, expected_character_count - self._tolerance)
         upper_bound = expected_character_count + self._tolerance
-        original_count = len(answer)
+        original_count = len(answer_body)
 
         if original_count < lower_bound:
             raise TargetRequiresExpansionError(
@@ -106,7 +165,8 @@ class AnswerShorteningService:
 
         if original_count <= upper_bound:
             return self._outcome(
-                text=answer,
+                text=answer_body,
+                parts=parts,
                 status="unchanged_within_tolerance",
                 original_count=original_count,
                 target=expected_character_count,
@@ -115,14 +175,14 @@ class AnswerShorteningService:
                 attempts=0,
             )
 
-        protected = ProtectedContent.from_text(answer)
-        segments = split_source_into_segments(answer)
+        protected = ProtectedContent.from_text(answer_body)
+        segments = split_source_into_segments(answer_body)
         if not segments:
             raise TargetRequiresExpansionError("The source answer has no extractable text")
 
         try:
             mandatory_segment_ids = map_mandatory_spans_to_segment_ids(
-                answer,
+                answer_body,
                 segments,
                 protected.safety_spans,
             )
@@ -230,9 +290,9 @@ class AnswerShorteningService:
 
             # Defense in depth: the final body is reconstructed exclusively from
             # offset-backed source slices. The model response itself is never returned.
-            expected_text = _EXTRACTION_SEPARATOR.join(
-                answer[segment.start : segment.end]
-                for segment in selection.segments
+            expected_text = assemble_selected_segments(
+                selection.segments,
+                separator=_EXTRACTION_SEPARATOR,
             )
             if selection.text != expected_text:
                 raise AssertionError("extractive source provenance invariant failed")
@@ -256,6 +316,7 @@ class AnswerShorteningService:
             )
             return self._outcome(
                 text=selection.text,
+                parts=parts,
                 status="shortened",
                 original_count=original_count,
                 target=expected_character_count,
@@ -283,6 +344,7 @@ class AnswerShorteningService:
         self,
         *,
         text: str,
+        parts: AnswerParts,
         status: str,
         original_count: int,
         target: int,
@@ -291,8 +353,10 @@ class AnswerShorteningService:
         attempts: int,
     ) -> ShorteningOutcome:
         actual = len(text)
+        short_answer = text + parts.footer
         return ShorteningOutcome(
-            shortened_answer=text,
+            short_answer=short_answer,
+            full_answer=parts.full_answer,
             status=status,
             original_character_count=original_count,
             expected_character_count=target,
@@ -301,6 +365,7 @@ class AnswerShorteningService:
             actual_character_count=actual,
             tolerance=self._tolerance,
             within_tolerance=lower_bound <= actual <= upper_bound,
+            footer_character_count=len(parts.footer),
             changed=attempts > 0,
             rewrite_attempts=attempts,
             model=self._model,

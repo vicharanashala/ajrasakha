@@ -3,9 +3,14 @@
 Standalone FastAPI service that uses Claude Sonnet only to rank immutable
 segments from an existing AjraSakha answer. Python selects and copies the
 highest-ranked source segments that fit the requested character range. A
-successful response is always within 50 characters above or below the target
-and contains no model-authored prose. Source and testing footers are outside
-this service and can be appended later.
+successful answer body is always within 50 characters above or below the
+target and contains no model-authored prose.
+
+When an input answer contains the exact marker `👤 Answered by:`, Python keeps
+that marker and everything after it as an untouched reviewer footer. Only the
+text before that marker is sent to Claude, measured, and shortened. The footer
+is appended verbatim to both returned answer fields and does not count toward
+the requested character range.
 
 ## Request
 
@@ -14,12 +19,12 @@ this service and can be appended later.
 ```json
 {
   "original_query": "How much urea should I apply to wheat?",
-  "answer": "The existing AjraSakha answer body...",
+  "answer": "The existing AjraSakha answer body...\n\n👤 Answered by: Expert name\n📚 Sources: KVK advisory\n⚠️ Warning text",
   "expected_character_count": 500
 }
 ```
 
-The inclusive accepted range is:
+The inclusive accepted range is applied only to the answer body:
 
 ```text
 max(1, expected_character_count - 50) ... expected_character_count + 50
@@ -29,6 +34,13 @@ max(1, expected_character_count - 50) ... expected_character_count + 50
 outer whitespace is trimmed and CRLF/CR newlines are normalized to LF. This is
 not JavaScript's UTF-16 `string.length` and is not a user-perceived grapheme
 count for combined emoji or combining marks.
+
+The response provides:
+
+- `short_answer`: selected body segments plus the preserved footer;
+- `full_answer`: the complete normalized input answer;
+- `original_character_count` and `actual_character_count`: body-only counts;
+- `footer_character_count`: the separately preserved footer count.
 
 The server returns an already-compliant answer without calling Claude. If an
 answer is too short to reach the requested range without adding content, the
@@ -42,14 +54,18 @@ request is rejected because this API only shortens text.
    JSON ranking of segment IDs. It never writes the response body.
 3. Python chooses the highest-priority whole-segment combination that fits the
    inclusive target range and restores selected segments to source order.
-4. Python constructs the final response by copying exact source slices and
-   joining non-adjacent slices with a server-owned blank line.
+4. Python constructs the final response by copying exact source slices. It
+   retains one line break only where the original source separated the selected
+   segment with a line break; otherwise it joins selected sentences with one
+   space.
 
-Every successful content block is therefore a verbatim substring of the
-normalized request `answer`; case, punctuation, numbers, units, URLs, and
-internal whitespace are unchanged. Mandatory detected safety segments are
-always included. Query relevance is Sonnet's ranking judgment, while source
-provenance and character length are enforced deterministically by Python.
+Every successful answer-body content block is therefore a verbatim substring
+of the normalized request body; case, punctuation, numbers, units, URLs, and
+internal whitespace are unchanged. The reviewer footer is copied directly from
+the normalized request and is never supplied to Claude. Mandatory detected
+safety segments in the body are always included. Query relevance is Sonnet's
+ranking judgment, while source provenance and character length are enforced
+deterministically by Python.
 
 If no combination of whole source segments can fit the ±50 range, the API
 returns HTTP 422 with code `EXTRACTIVE_RANGE_NOT_FEASIBLE` and reports the

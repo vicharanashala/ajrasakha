@@ -33,8 +33,9 @@ class ShortenAnswerRequest(BaseModel):
         min_length=1,
         max_length=MAX_ANSWER_CHARACTERS,
         description=(
-            "Existing AjraSakha answer body whose exact source segments may be "
-            "selected. Footers are added later."
+            "Existing complete AjraSakha answer. When it contains the exact "
+            "'👤 Answered by:' footer marker, only the preceding answer body is "
+            "shortened; the marker and everything after it are preserved verbatim."
         ),
     )
     expected_character_count: int = Field(
@@ -43,8 +44,9 @@ class ShortenAnswerRequest(BaseModel):
         gt=0,
         le=MAX_TARGET_CHARACTERS,
         description=(
-            "Desired output length in Unicode code points after input normalization; "
-            "50 characters above or below are accepted."
+            "Desired answer-body length in Unicode code points after input "
+            "normalization; 50 characters above or below are accepted. Preserved "
+            "footer text is excluded from this limit."
         ),
         examples=[500],
     )
@@ -58,10 +60,15 @@ class ShortenAnswerRequest(BaseModel):
 class ShortenAnswerResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    shortened_answer: str = Field(
+    short_answer: str = Field(
         description=(
-            "Exact selected source segments joined by server-owned blank lines; "
-            "contains no model-authored prose."
+            "Exact selected answer-body source segments plus any preserved footer. "
+            "Contains no model-authored prose."
+        )
+    )
+    full_answer: str = Field(
+        description=(
+            "The complete normalized input answer, including any preserved footer."
         )
     )
     status: Literal["shortened", "unchanged_within_tolerance"]
@@ -72,6 +79,13 @@ class ShortenAnswerResponse(BaseModel):
     actual_character_count: int
     tolerance: int
     within_tolerance: bool
+    footer_character_count: int = Field(
+        description=(
+            "Unicode code point count of the preserved footer beginning with the "
+            "exact '👤 Answered by:' marker. This is excluded from all answer-body "
+            "length fields and tolerance checks."
+        )
+    )
     changed: bool
     rewrite_attempts: int
     model: str
