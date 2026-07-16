@@ -10,10 +10,15 @@ interface HeaderProps {
   thisMonth: number;
 }
 
+/** Scroll to a section by id without putting the hash in the URL. */
+function scrollToSection(id: string, e: React.MouseEvent<HTMLAnchorElement>) {
+  e.preventDefault();
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+}
+
 /**
  * GoI-style banner (brand + section nav) and, below it, a light utility bar carrying
- * the ticker and the right-aligned Login button. Not sticky — it scrolls away with
- * the page.
+ * the ticker and the right-aligned Login button. Sticky — stays at the top on scroll.
  */
 export const Header = ({ activeNav, onLogin, today, thisMonth }: HeaderProps) => (
   <>
@@ -28,7 +33,12 @@ export const Header = ({ activeNav, onLogin, today, thisMonth }: HeaderProps) =>
         </div>
         <nav className="nav-links">
           {NAV.map((n) => (
-            <a key={n.id} href={`#${n.id}`} className={activeNav === n.id ? "active" : ""}>
+            <a
+              key={n.id}
+              href={`#${n.id}`}
+              className={activeNav === n.id ? "active" : ""}
+              onClick={(e) => scrollToSection(n.id, e)}
+            >
               {n.label}
             </a>
           ))}
