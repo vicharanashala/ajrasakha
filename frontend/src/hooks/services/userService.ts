@@ -196,6 +196,12 @@ export class UserService {
     });
   }
 
+  async sendHeartbeat(): Promise<{ success: boolean } | null> {
+    return apiFetch<{ success: boolean }>(`${this._baseUrl}/call-agents/heartbeat`, {
+      method: "POST",
+    });
+  }
+
   async markAgentAsAvailable(): Promise<IUser | null> {
     return apiFetch<IUser>(`${this._baseUrl}/call-agents/available`, {
       method: "POST",

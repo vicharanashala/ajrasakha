@@ -64,7 +64,7 @@ export function SourceTabsHeader({
         >
           WhatsApp
         </motion.button>
-        <motion.button
+        {!mapView && <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => onSourceChange("acc")}
@@ -76,7 +76,7 @@ export function SourceTabsHeader({
           )}
         >
           ACC
-        </motion.button>
+        </motion.button>}
       </div>
 
       <div className="flex items-center ml-auto gap-4">
