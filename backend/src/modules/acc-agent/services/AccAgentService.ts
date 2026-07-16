@@ -50,6 +50,13 @@ export class AccAgentService {
     extracted_state: string;
     extracted_district: string;
     extracted_domain?: string | string[];
+    extracted_name?: string;
+    extracted_phone?: string;
+    extracted_age?: number;
+    extracted_gender?: string;
+    extracted_village?: string;
+    extracted_block?: string;
+    extracted_primary_crop?: string;
   }> {
     const startTime = Date.now();
     try {
@@ -83,6 +90,13 @@ export class AccAgentService {
         extracted_state: data.extracted_state || '',
         extracted_district: data.extracted_district || '',
         extracted_domain: domainVal,
+        extracted_name: data.extracted_name || '',
+        extracted_phone: data.extracted_phone || '',
+        extracted_age: data.extracted_age !== undefined && data.extracted_age !== null ? Number(data.extracted_age) : undefined,
+        extracted_gender: data.extracted_gender || '',
+        extracted_village: data.extracted_village || '',
+        extracted_block: data.extracted_block || '',
+        extracted_primary_crop: data.extracted_primary_crop || '',
       };
       console.log(`✅ [AccAgentService] Data extracted for thread ${threadId} (${Date.now() - startTime}ms): query="${result.extracted_query}", crop="${result.extracted_crop}", domain="${JSON.stringify(result.extracted_domain)}"`);
       return result;
@@ -104,6 +118,13 @@ export class AccAgentService {
       district: string;
       domain: string | string[];
       season: string;
+      farmerName?: string;
+      farmerPhone?: string;
+      farmerAge?: number;
+      farmerGender?: string;
+      farmerVillage?: string;
+      farmerBlock?: string;
+      farmerPrimaryCrop?: string;
     }
   ): Promise<void> {
     const startTime = Date.now();
@@ -126,6 +147,13 @@ export class AccAgentService {
             extracted_district: correctedData.district,
             standardized_domains: domainsArray,
             extracted_season: correctedData.season,
+            extracted_name: correctedData.farmerName,
+            extracted_phone: correctedData.farmerPhone,
+            extracted_age: correctedData.farmerAge,
+            extracted_gender: correctedData.farmerGender,
+            extracted_village: correctedData.farmerVillage,
+            extracted_block: correctedData.farmerBlock,
+            extracted_primary_crop: correctedData.farmerPrimaryCrop,
           },
         },
         {
