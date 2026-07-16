@@ -322,7 +322,8 @@ def mandi_price_tool(
             "variety":          mc.get("variety"),
             "grade":            mc.get("grade"),
             "commodity_group":  mc.get("commodity_group"),
-            "source_system":    mc.get("source_system"),
+            "source_url":    mc.get("source_url"),
+            "source_system": mc.get("source_system"),
             "modal_price":      _round2(pr.get("modal_price")),
             "min_price":        _round2(pr.get("min_price")),
             "max_price":        _round2(pr.get("max_price")),
@@ -906,13 +907,19 @@ def mandi_price_tool(
         if not commodity_name:
             return {"error": "commodity_name is required for action='get_highest_price'."}
         c_list = [commodity_name] if isinstance(commodity_name, str) else commodity_name
+        # When no explicit date range is provided, scope to today's data only
+        # (with latest-price fallback so the farmer always sees something).
+        # This prevents returning a stale historical high as the "best price".
+        effective_lookback = lookback_days
+        if effective_lookback is None and from_date is None and to_date is None:
+            effective_lookback = 1
         result = _fetch_price_data(
             commodity_list=c_list,
             market_name=market_name, state=state,
             lat=lat, long=long,
             nearest_market=nearest_market, radius_km=radius_km,
             from_date=from_date, to_date=to_date,
-            lookback_days=lookback_days,
+            lookback_days=effective_lookback,
             latest_price_fallback=True,
         )
         if result.get("error"):

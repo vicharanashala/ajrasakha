@@ -141,7 +141,12 @@ def _heuristic_intent(query: str) -> dict[str, Any]:
         lookback = 30 if "month" in q else 7
         return {**base, "action": "get_price_summary", "lookback_days": lookback}
 
-    if any(k in q for k in ("highest price", "maximum price", "max price", "best price", "highest rate")):
+    # get_highest_price only when the query clearly refers to a historical period,
+    # e.g. "highest price last week", "maximum price last month".
+    # A bare "best price" / "where to sell" without a past-period keyword means today's price.
+    _historical_keywords = ("last ", "past ", "week", "month", "days", "history")
+    _highest_price_keywords = ("highest price", "maximum price", "max price", "highest rate")
+    if any(k in q for k in _highest_price_keywords) and any(hk in q for hk in _historical_keywords):
         lookback = 30 if "month" in q else 7
         return {**base, "action": "get_highest_price", "lookback_days": lookback}
 
