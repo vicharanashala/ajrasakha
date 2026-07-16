@@ -108,8 +108,13 @@ export class MediaService implements IMediaService {
    * files that exceed the API's request limit (Cloud Run caps inbound requests at 32 MiB,
    * and outreach videos are routinely larger).
    *
-   * The client must PUT the bytes with the SAME `Content-Type` header it declared here,
-   * or the signature won't match.
+   * `content-type` is deliberately NOT signed. Signing it forces the browser's PUT to send
+   * a byte-identical Content-Type, and any discrepancy — a file with an empty MIME type, or
+   * a CORS/redirect hop that drops the header — makes GCS reject the upload with
+   * "MalformedSecurityHeader: content-type was included in signedheaders, but not in the
+   * request." We still validate the declared type here (assertTypeMatchesKind), and finalise
+   * re-reads the actual content type from the stored object, so nothing is lost by leaving
+   * it out of the signature.
    */
   async createUploadUrl({
     kind,
@@ -131,7 +136,6 @@ export class MediaService implements IMediaService {
         version: 'v4',
         action: 'write',
         expires: Date.now() + 15 * 60 * 1000, // 15 minutes
-        contentType,
       });
       return {
         uploadUrl,
