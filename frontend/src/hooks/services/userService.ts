@@ -261,4 +261,11 @@ export class UserService {
       }
     );
   }
+
+  async toggleTrainingUserStatus(userId: string, action: string): Promise<void | null> {
+    return apiFetch<void>(`${this._baseUrl}/training-users`, {
+      body: JSON.stringify({ userId, action }),
+      method: "PATCH",
+    });
+  }
 }
