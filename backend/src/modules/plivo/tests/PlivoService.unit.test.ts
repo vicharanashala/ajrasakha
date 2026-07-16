@@ -25,6 +25,8 @@ describe('PlivoService', () => {
 
   const mockCallDetailsRepository = {
     create: vi.fn(),
+    getByCallUuid: vi.fn(),
+    updateCallDetails: vi.fn(),
   };
 
   const mockPlivoClient = {
@@ -520,7 +522,7 @@ describe('PlivoService', () => {
         .mockReturnValueOnce('en-IN');
 
       mockCallDetailsRepository.create.mockResolvedValue(undefined);
-
+      mockCallDetailsRepository.getByCallUuid.mockResolvedValue(null);
       await service.saveCallDetails('call-123');
 
       expect(mockPlivoClient.calls.get).toHaveBeenCalledWith('call-123');
@@ -553,8 +555,8 @@ describe('PlivoService', () => {
       vi.spyOn(service, 'getTranslation').mockReturnValue('');
       vi.spyOn(service, 'getDetectedLanguage').mockReturnValue('unknown');
 
+      mockCallDetailsRepository.getByCallUuid.mockResolvedValue(null);
       mockCallDetailsRepository.create.mockResolvedValue(undefined);
-
       await service.saveCallDetails('call-123');
 
       expect(mockCallDetailsRepository.create).toHaveBeenCalledWith({
@@ -1513,8 +1515,8 @@ describe('PlivoService', () => {
         .mockReturnValueOnce('hi-IN')
         .mockReturnValueOnce('en-IN');
 
+      mockCallDetailsRepository.getByCallUuid.mockResolvedValue(null);
       mockCallDetailsRepository.create.mockResolvedValue(undefined);
-
       await service.saveCallDetails('call-123');
 
       expect((service as any).plivoClient.calls.get).toHaveBeenCalledWith(
@@ -1552,8 +1554,8 @@ describe('PlivoService', () => {
       vi.spyOn(service, 'getTranslation').mockReturnValue('');
       vi.spyOn(service, 'getDetectedLanguage').mockReturnValue('unknown');
 
+      mockCallDetailsRepository.getByCallUuid.mockResolvedValue(null);
       mockCallDetailsRepository.create.mockResolvedValue(undefined);
-
       await service.saveCallDetails('call-123');
 
       expect(mockCallDetailsRepository.create).toHaveBeenCalledWith({
@@ -1589,7 +1591,7 @@ describe('PlivoService', () => {
       mockCallDetailsRepository.create.mockRejectedValue(
         new Error('Database failure'),
       );
-
+      mockCallDetailsRepository.getByCallUuid.mockResolvedValue(null);
       await service.saveCallDetails('call-123');
 
       expect(console.error).toHaveBeenCalled();
@@ -1598,7 +1600,7 @@ describe('PlivoService', () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
 
       (service as any).plivoClient = null;
-
+      mockCallDetailsRepository.getByCallUuid.mockResolvedValue(null);
       await service.saveCallDetails('call-123');
 
       expect(console.error).toHaveBeenCalled();
