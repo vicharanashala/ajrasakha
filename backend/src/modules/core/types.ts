@@ -16,6 +16,8 @@ export const CORE_TYPES = {
   SarvamService: Symbol.for('SarvamService'),
   NotificationService:Symbol.for('NotificationService'),
   PerformanceService:Symbol.for('PerformanceService'),
+  AssignmentEngineService: Symbol.for('AssignmentEngineService'),
+  WaitingQueueService: Symbol.for('WaitingQueueService'),
 
   // Repositories
   UserRepository: Symbol.for('UserRepository'),
@@ -28,5 +30,5 @@ export const CORE_TYPES = {
   NotificationRepository:Symbol.for('NotificationRepository'),
   ReviewRepository:Symbol.for('ReviewRepository'),
   DuplicateQuestionRepository:Symbol.for("DuplicateQuestionRepository"),
-
+  WaitingQueueRepository: Symbol.for('WaitingQueueRepository'),
 };

@@ -8,6 +8,7 @@ import './timeBoundReAllocateCron.js'
 import './moderatorQueueCron.js'
 import './agentStatusCleanupJob.js';
 //import './embeddingBackfill.js'
+import './waitingQueueCron.js';
 export const initJobs = () => {
   console.log('[CRON] Jobs initialized.');
 };

@@ -59,6 +59,13 @@ export interface IUser {
    *  at least one entry in a blocking status (in-review / duplicate); entries that are
    *  re-routed (handed to an expert) stay for history but do not block new work. */
   assignedQuestionIds?: IAssignedQuestion[] | null;
+  /** Priority-aware workload slots. Each slot can hold at most one question of that priority.
+   *  Used by the AssignmentEngineService for priority-based expert allocation. */
+  activeWorkload?: {
+    high: string | null;
+    medium: string | null;
+    low: string | null;
+  };
 }
 
 export interface IUserRoleHistory {
@@ -301,6 +308,14 @@ export interface IQuestionSubmission {
   currentExpertAllocatedAt?: Date | null;
   createdAt?: Date;
   updatedAt?: Date;
+  /** Priority level for assignment engine (low/medium/high). Mirrors the question's priority. */
+  priorityLevel?: 'low' | 'medium' | 'high';
+  /** Whether this submission is frozen due to a higher-priority assignment on the same expert. */
+  isFrozen?: boolean;
+  /** Timestamp when the submission was frozen. */
+  frozenAt?: Date | null;
+  /** Status before the freeze was applied, restored on unfreeze. */
+  previousStatus?: string;
 }
 
 export interface IComment {
@@ -575,4 +590,14 @@ export interface WhatsappUsersResponse {
   skip: number;
   limit: number;
   isPaginated: boolean;
+}
+
+export type WaitingQueueStatus = 'waiting' | 'assigned';
+
+export interface IWaitingQueueEntry {
+  _id?: string | ObjectId;
+  questionId: string | ObjectId;
+  priority: 'low' | 'medium' | 'high';
+  enqueuedAt: Date;
+  status: WaitingQueueStatus;
 }
