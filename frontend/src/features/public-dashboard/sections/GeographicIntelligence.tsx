@@ -22,7 +22,7 @@ export const GeographicIntelligence = () => {
 
   return (
     <section className="wrap" id="layer2">
-      <SectionHead num="LAYER 02" title="Geographic Intelligence" />
+      <SectionHead title="Geographic Intelligence" />
       <p className="sec-desc">
         Select a state to inspect its agro-climatic coverage — validated Q&amp;A volume,
         expert density, outreach reach and market integration. Density indices summarise

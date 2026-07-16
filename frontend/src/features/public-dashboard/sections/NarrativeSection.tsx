@@ -8,7 +8,7 @@ import { SectionHead } from "../components/SectionHead";
  */
 export const NarrativeSection = ({ blocks }: { blocks: DashboardBlock[] }) => (
   <section className="wrap" id="about">
-    <SectionHead num="OVERVIEW" title="Understand ACE in 60 seconds" />
+    <SectionHead title="Understand ACE in 60 seconds" />
     <p className="sec-desc">
       What ACE is, why it matters, how large the mission is, and the impact so far.
     </p>

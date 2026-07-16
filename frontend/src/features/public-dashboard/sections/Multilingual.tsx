@@ -5,7 +5,7 @@ import { langCoverage } from "../data/dashboardData";
 /** Language and dialect coverage across text and audio, mapped by state. */
 export const Multilingual = () => (
   <section className="wrap" id="lang">
-    <SectionHead num="REACH" title="Multilingual Capability" />
+    <SectionHead title="Multilingual Capability" />
     <p className="sec-desc">Coverage across text, audio and regional dialect, mapped by state.</p>
     <div className="stat-grid" style={{ marginBottom: 24 }}>
       <div className="stat-cell">

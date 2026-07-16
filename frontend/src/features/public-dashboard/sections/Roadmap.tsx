@@ -4,7 +4,7 @@ import { roadmap } from "../data/dashboardData";
 /** Modules in development, scheduled for phased rollout. */
 export const Roadmap = () => (
   <section className="wrap" id="roadmap">
-    <SectionHead num="ROADMAP" title="Coming Soon" />
+    <SectionHead title="Coming Soon" />
     <p className="sec-desc">
       Modules currently in development, scheduled for phased public rollout.
     </p>

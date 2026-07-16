@@ -4,7 +4,7 @@ import { channels } from "../data/dashboardData";
 /** Where farmers reach ANNAM.AI, and how much each channel carries. */
 export const Channels = () => (
   <section className="wrap" id="channels">
-    <SectionHead num="ACCESS" title="Communication Channels" />
+    <SectionHead title="Communication Channels" />
     <p className="sec-desc">Where farmers reach ANNAM.AI, and how much each channel carries.</p>
     <div className="card-grid grid-4">
       {channels.map((c) => (

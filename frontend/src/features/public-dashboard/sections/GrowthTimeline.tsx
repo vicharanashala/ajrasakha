@@ -8,7 +8,7 @@ export const GrowthTimeline = () => {
 
   return (
     <section className="wrap" id="timeline">
-      <SectionHead num="TRAJECTORY" title="Knowledge Growth Timeline" />
+      <SectionHead title="Knowledge Growth Timeline" />
       <p className="sec-desc">
         Cumulative growth of questions, experts, states and integrations since programme
         inception.

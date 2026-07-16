@@ -4,7 +4,7 @@ import { workflowSteps } from "../data/dashboardData";
 /** The validation chain every question passes through before entering the golden DB. */
 export const ReviewWorkflow = () => (
   <section className="wrap" id="workflow">
-    <SectionHead num="PROCESS" title="Review Workflow" />
+    <SectionHead title="Review Workflow" />
     <p className="sec-desc">
       Every question submitted to ANNAM.AI passes through this validation chain before it
       enters the golden database.
