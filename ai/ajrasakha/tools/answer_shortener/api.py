@@ -9,22 +9,42 @@ from functools import lru_cache
 from fastapi import Depends, FastAPI, HTTPException, Security, status
 from fastapi.security import APIKeyHeader
 
-from claude_client import (
-    AnthropicClaudeGateway,
-    ClaudeConfigurationError,
-    ClaudeProviderError,
-    ClaudeTimeoutError,
-    ClaudeUnavailableError,
-)
-from config import Settings, SettingsError, get_settings
-from models import ShortenAnswerRequest, ShortenAnswerResponse
-from service import (
-    AnswerShorteningService,
-    ExtractiveRangeNotFeasibleError,
-    ModelSelectionError,
-    ProtectedContentTooLargeError,
-    TargetRequiresExpansionError,
-)
+try:  # Package import for local Uvicorn and tests.
+    from .claude_client import (
+        AnthropicClaudeGateway,
+        ClaudeConfigurationError,
+        ClaudeProviderError,
+        ClaudeTimeoutError,
+        ClaudeUnavailableError,
+    )
+    from .config import Settings, SettingsError, get_settings
+    from .models import ShortenAnswerRequest, ShortenAnswerResponse
+    from .service import (
+        AnswerBodyMissingError,
+        AnswerShorteningService,
+        ExtractiveRangeNotFeasibleError,
+        ModelSelectionError,
+        ProtectedContentTooLargeError,
+        TargetRequiresExpansionError,
+    )
+except ImportError:  # Docker runs this directory directly as ``api:app``.
+    from claude_client import (
+        AnthropicClaudeGateway,
+        ClaudeConfigurationError,
+        ClaudeProviderError,
+        ClaudeTimeoutError,
+        ClaudeUnavailableError,
+    )
+    from config import Settings, SettingsError, get_settings
+    from models import ShortenAnswerRequest, ShortenAnswerResponse
+    from service import (
+        AnswerBodyMissingError,
+        AnswerShorteningService,
+        ExtractiveRangeNotFeasibleError,
+        ModelSelectionError,
+        ProtectedContentTooLargeError,
+        TargetRequiresExpansionError,
+    )
 
 
 app = FastAPI(
@@ -171,6 +191,11 @@ async def shorten_answer(
         raise HTTPException(
             status_code=422,
             detail={"code": "TARGET_REQUIRES_EXPANSION", "message": str(exc)},
+        ) from exc
+    except AnswerBodyMissingError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "ANSWER_BODY_MISSING", "message": str(exc)},
         ) from exc
     except ProtectedContentTooLargeError as exc:
         raise HTTPException(

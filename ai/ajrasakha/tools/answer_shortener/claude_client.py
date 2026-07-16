@@ -11,7 +11,10 @@ from anthropic import (
     RateLimitError,
 )
 
-from config import Settings
+try:  # Package import for local Uvicorn and tests.
+    from .config import Settings
+except ImportError:  # Docker runs this directory directly as ``api:app``.
+    from config import Settings
 
 
 class ClaudeClientError(RuntimeError):

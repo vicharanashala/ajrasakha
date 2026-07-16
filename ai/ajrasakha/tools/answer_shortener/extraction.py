@@ -71,6 +71,7 @@ class ExtractionSegment:
     start: int
     end: int
     text: str
+    leading_separator: str | None = None
 
     @property
     def id(self) -> str:
@@ -135,15 +136,26 @@ def split_source_into_segments(source: str) -> tuple[ExtractionSegment, ...]:
         line_start = newline.end()
     add_line(line_start, len(source))
 
-    return tuple(
-        ExtractionSegment(
-            segment_id=f"s{index:04d}",
-            start=start,
-            end=end,
-            text=source[start:end],
+    segments: list[ExtractionSegment] = []
+    previous_end = 0
+    for index, (start, end) in enumerate(offsets, start=1):
+        # Every selected segment after the first needs exactly one joiner. Keep
+        # the source structure without adding blank lines: use a newline only
+        # where the original gap contained a newline, otherwise use one space.
+        gap = source[previous_end:start]
+        leading_separator = "\n" if _NEWLINE_RE.search(gap) else " "
+        segments.append(
+            ExtractionSegment(
+                segment_id=f"s{index:04d}",
+                start=start,
+                end=end,
+                text=source[start:end],
+                leading_separator=leading_separator,
+            )
         )
-        for index, (start, end) in enumerate(offsets, start=1)
-    )
+        previous_end = end
+
+    return tuple(segments)
 
 
 class _DuplicateJSONKey(ValueError):
@@ -457,6 +469,46 @@ def _validate_fit_inputs(
     return by_id
 
 
+def _separator_before_segment(
+    segment: ExtractionSegment,
+    *,
+    separator: str,
+    preserve_source_structure: bool,
+) -> str:
+    if preserve_source_structure and segment.leading_separator is not None:
+        return segment.leading_separator
+    return separator
+
+
+def assemble_selected_segments(
+    segments: Sequence[ExtractionSegment],
+    *,
+    separator: str = " ",
+    preserve_source_structure: bool = True,
+) -> str:
+    """Join source segments without inventing paragraph breaks.
+
+    A source newline remains one newline. Otherwise segments are separated by
+    one space. The first selected segment never receives a leading separator.
+    """
+
+    selected = tuple(sorted(segments, key=lambda item: (item.start, item.end)))
+    if not selected:
+        return ""
+
+    chunks = [selected[0].text]
+    for segment in selected[1:]:
+        chunks.append(
+            _separator_before_segment(
+                segment,
+                separator=separator,
+                preserve_source_structure=preserve_source_structure,
+            )
+        )
+        chunks.append(segment.text)
+    return "".join(chunks)
+
+
 def fit_ranked_segments(
     segments: Sequence[ExtractionSegment],
     ranked_segment_ids: Sequence[str],
@@ -465,7 +517,8 @@ def fit_ranked_segments(
     target: int,
     upper_bound: int,
     mandatory_segment_ids: Sequence[str] = (),
-    separator: str = "\n\n",
+    separator: str = " ",
+    preserve_source_structure: bool = True,
 ) -> ExtractiveSelection:
     """Fit a lexicographically relevance-maximal source-only selection.
 
@@ -488,7 +541,21 @@ def fit_ranked_segments(
         separator,
     )
 
-    separator_length = len(separator)
+    separator_lengths = {
+        len(
+            _separator_before_segment(
+                segment,
+                separator=separator,
+                preserve_source_structure=preserve_source_structure,
+            )
+        )
+        for segment in segment_tuple
+    }
+    if len(separator_lengths) != 1:
+        raise ValueError(
+            "all selected-segment separators must have the same character length"
+        )
+    separator_length = separator_lengths.pop()
     weights = {
         segment_id: len(segment.text) + separator_length
         for segment_id, segment in by_id.items()
@@ -568,7 +635,11 @@ def fit_ranked_segments(
         for segment in sorted(segment_tuple, key=lambda item: (item.start, item.end))
         if segment.segment_id in selected_ids
     )
-    output = separator.join(segment.text for segment in selected_segments)
+    output = assemble_selected_segments(
+        selected_segments,
+        separator=separator,
+        preserve_source_structure=preserve_source_structure,
+    )
     if not lower_bound <= len(output) <= upper_bound:
         raise AssertionError("internal extractive fitter length invariant failed")
     return ExtractiveSelection(segments=selected_segments, text=output)

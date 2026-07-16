@@ -35,6 +35,12 @@ def test_segments_are_exact_unicode_source_slices_with_stable_offsets():
     assert [segment.start for segment in segments] == sorted(
         segment.start for segment in segments
     )
+    assert [segment.leading_separator for segment in segments] == [
+        " ",
+        " ",
+        "\n",
+        "\n",
+    ]
 
 
 def test_sentence_split_preserves_internal_whitespace_and_skips_blank_pieces():
@@ -98,9 +104,9 @@ def test_fitter_prefers_high_rank_feasible_packing_then_assembles_in_source_orde
         upper_bound=12,
     )
 
-    # s0003 is highest ranked and can fit with s0001.  s0002 cannot then fit.
-    assert result.segment_ids == ("s0001", "s0003")
-    assert result.text == "AAAA\n\nCCCCCC"
+    # s0003 is highest ranked and s0002 is the highest-ranked valid completion.
+    assert result.segment_ids == ("s0002", "s0003")
+    assert result.text == "BBBBB\nCCCCCC"
     assert result.character_count == 12
 
 
@@ -115,10 +121,43 @@ def test_fitter_includes_each_higher_ranked_id_when_a_completion_exists():
         target=10,
         upper_bound=10,
         separator="",
+        preserve_source_structure=False,
     )
 
     assert result.segment_ids == ("s0003", "s0004")
     assert result.text == "ccccddddd"
+
+
+def test_fitter_preserves_source_newline_only_when_the_selected_segment_has_one():
+    source = "First sentence. Second sentence.\nThird sentence."
+    segments = split_source_into_segments(source)
+
+    result = fit_ranked_segments(
+        segments,
+        ("s0001", "s0003", "s0002"),
+        lower_bound=len("First sentence.\nThird sentence."),
+        target=len("First sentence.\nThird sentence."),
+        upper_bound=len("First sentence.\nThird sentence."),
+    )
+
+    assert result.segment_ids == ("s0001", "s0003")
+    assert result.text == "First sentence.\nThird sentence."
+
+
+def test_fitter_uses_a_space_when_skipped_source_text_was_in_the_same_paragraph():
+    source = "First sentence. Second sentence. Third sentence."
+    segments = split_source_into_segments(source)
+
+    result = fit_ranked_segments(
+        segments,
+        ("s0001", "s0003", "s0002"),
+        lower_bound=len("First sentence. Third sentence."),
+        target=len("First sentence. Third sentence."),
+        upper_bound=len("First sentence. Third sentence."),
+    )
+
+    assert result.segment_ids == ("s0001", "s0003")
+    assert result.text == "First sentence. Third sentence."
 
 
 def test_mandatory_safety_span_is_mapped_and_forced_into_selection():

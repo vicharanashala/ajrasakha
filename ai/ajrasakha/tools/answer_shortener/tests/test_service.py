@@ -9,6 +9,7 @@ from ajrasakha.tools.answer_shortener.extraction import (
     split_source_into_segments,
 )
 from ajrasakha.tools.answer_shortener.service import (
+    AnswerBodyMissingError,
     AnswerShorteningService,
     ModelSelectionError,
     ProtectedContentTooLargeError,
@@ -70,11 +71,76 @@ async def test_returns_unchanged_answer_already_within_tolerance():
         expected_character_count=100,
     )
 
-    assert result.shortened_answer == answer
+    assert result.short_answer == answer
+    assert result.full_answer == answer
+    assert result.footer_character_count == 0
     assert result.status == "unchanged_within_tolerance"
     assert result.changed is False
     assert result.rewrite_attempts == 0
     assert result.within_tolerance is True
+    assert gateway.calls == []
+
+
+@pytest.mark.asyncio
+async def test_reviewer_footer_is_excluded_from_selection_and_body_counts():
+    source, texts = source_with_four_segments()
+    selected_body = texts[0] + "\n" + texts[1]
+    footer = (
+        "\n\n👤 Answered by: Dr. Mehta\n"
+        "📚 Sources: KVK advisory\n"
+        "⚠️ Please consult a local expert."
+    )
+    complete_answer = source + footer
+    gateway = FakeGateway([ranking_response(source, (1, 0, 2, 3))])
+
+    result = await make_service(gateway).shorten(
+        original_query="How should I manage wheat irrigation?",
+        answer=complete_answer,
+        expected_character_count=len(selected_body),
+    )
+
+    assert result.short_answer == selected_body + footer
+    assert result.full_answer == complete_answer
+    assert result.original_character_count == len(source)
+    assert result.actual_character_count == len(selected_body)
+    assert result.footer_character_count == len(footer)
+    assert result.within_tolerance is True
+    assert footer not in gateway.calls[0]["user_prompt"]
+    assert "👤 Answered by:" not in gateway.calls[0]["user_prompt"]
+
+
+@pytest.mark.asyncio
+async def test_reviewer_footer_does_not_make_a_short_body_longer_for_tolerance():
+    body = "a" * 120
+    footer = "\n\n👤 Answered by: Dr. Mehta\n📚 Sources: " + ("s" * 500)
+    gateway = FakeGateway([])
+
+    result = await make_service(gateway).shorten(
+        original_query="query",
+        answer=body + footer,
+        expected_character_count=100,
+    )
+
+    assert result.status == "unchanged_within_tolerance"
+    assert result.short_answer == body + footer
+    assert result.full_answer == body + footer
+    assert result.original_character_count == len(body)
+    assert result.actual_character_count == len(body)
+    assert result.footer_character_count == len(footer)
+    assert gateway.calls == []
+
+
+@pytest.mark.asyncio
+async def test_reviewer_footer_without_body_is_rejected():
+    gateway = FakeGateway([])
+
+    with pytest.raises(AnswerBodyMissingError):
+        await make_service(gateway).shorten(
+            original_query="query",
+            answer="👤 Answered by: Dr. Mehta\n📚 Sources: KVK",
+            expected_character_count=100,
+        )
+
     assert gateway.calls == []
 
 
@@ -93,7 +159,7 @@ async def test_rejects_target_that_requires_expanding_source():
 @pytest.mark.asyncio
 async def test_model_ranks_ids_and_python_returns_only_exact_source_slices():
     source, texts = source_with_four_segments()
-    expected = texts[0] + "\n\n" + texts[1]
+    expected = texts[0] + "\n" + texts[1]
     gateway = FakeGateway([ranking_response(source, (1, 0, 2, 3))])
 
     result = await make_service(gateway).shorten(
@@ -102,7 +168,7 @@ async def test_model_ranks_ids_and_python_returns_only_exact_source_slices():
         expected_character_count=len(expected),
     )
 
-    assert result.shortened_answer == expected
+    assert result.short_answer == expected
     assert result.actual_character_count == len(expected)
     assert result.within_tolerance is True
     assert result.status == "shortened"
@@ -110,14 +176,14 @@ async def test_model_ranks_ids_and_python_returns_only_exact_source_slices():
     assert "How should I manage wheat irrigation?" in gateway.calls[0]["user_prompt"]
     assert "ranked_segment_ids" in gateway.calls[0]["user_prompt"]
     assert "source-segment relevance ranker" in gateway.calls[0]["system_prompt"]
-    for block in result.shortened_answer.split("\n\n"):
+    for block in result.short_answer.split("\n"):
         assert block in source
 
 
 @pytest.mark.asyncio
 async def test_invalid_model_prose_is_never_returned_and_ranking_is_retried():
     source, texts = source_with_four_segments()
-    expected = texts[0] + "\n\n" + texts[1]
+    expected = texts[0] + "\n" + texts[1]
     invented = "Claude-authored prose that does not occur in the source."
     gateway = FakeGateway(
         [invented, ranking_response(source, (0, 1, 2, 3))]
@@ -129,8 +195,8 @@ async def test_invalid_model_prose_is_never_returned_and_ranking_is_retried():
         expected_character_count=len(expected),
     )
 
-    assert result.shortened_answer == expected
-    assert invented not in result.shortened_answer
+    assert result.short_answer == expected
+    assert invented not in result.short_answer
     assert result.rewrite_attempts == 2
     retry_prompt = gateway.calls[1]["user_prompt"]
     assert "INVALID_SELECTION_JSON" not in retry_prompt
@@ -147,7 +213,7 @@ async def test_all_invalid_model_rankings_fail_without_returning_model_text():
         await make_service(gateway).shorten(
             original_query="What is relevant?",
             answer=source,
-            expected_character_count=len(texts[0] + "\n\n" + texts[1]),
+            expected_character_count=len(texts[0] + "\n" + texts[1]),
         )
 
     assert len(gateway.calls) == 3
@@ -176,7 +242,7 @@ async def test_no_feasible_whole_segment_combination_returns_error_before_model_
 @pytest.mark.asyncio
 async def test_mandatory_safety_source_segment_is_forced_even_when_ranked_last():
     source, texts = source_with_four_segments(safety_third=True)
-    expected = texts[0] + "\n\n" + texts[2]
+    expected = texts[0] + "\n" + texts[2]
     gateway = FakeGateway([ranking_response(source, (0, 1, 3, 2))])
 
     result = await make_service(gateway).shorten(
@@ -185,9 +251,9 @@ async def test_mandatory_safety_source_segment_is_forced_even_when_ranked_last()
         expected_character_count=len(expected),
     )
 
-    assert result.shortened_answer == expected
-    assert texts[2] in result.shortened_answer
-    assert texts[2] == result.shortened_answer.split("\n\n")[1]
+    assert result.short_answer == expected
+    assert texts[2] in result.short_answer
+    assert texts[2] == result.short_answer.split("\n")[1]
 
 
 @pytest.mark.asyncio
@@ -215,7 +281,7 @@ async def test_unicode_source_segments_are_returned_verbatim():
         "चौथी पृष्ठभूमि जानकारी।",
     ]
     source = "\n".join(texts)
-    expected = texts[0] + "\n\n" + texts[1]
+    expected = texts[0] + "\n" + texts[1]
     gateway = FakeGateway([ranking_response(source, (0, 1, 2, 3))])
 
     result = await AnswerShorteningService(
@@ -229,6 +295,6 @@ async def test_unicode_source_segments_are_returned_verbatim():
         expected_character_count=len(expected),
     )
 
-    assert result.shortened_answer == expected
+    assert result.short_answer == expected
     assert result.actual_character_count == len(expected)
-    assert all(block in source for block in result.shortened_answer.split("\n\n"))
+    assert all(block in source for block in result.short_answer.split("\n"))
