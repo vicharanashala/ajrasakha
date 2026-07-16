@@ -798,6 +798,8 @@ export interface IChatbotRepository {
     source?: string,
     session?: ClientSession,
     userType?: string,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<FeedbackData>;
 
   getFeedbackUsers(

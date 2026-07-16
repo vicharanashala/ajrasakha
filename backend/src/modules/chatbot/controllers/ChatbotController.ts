@@ -1955,8 +1955,16 @@ export class ChatbotController {
   }> {
     const source = query.source;
     const userType = query.userType;
+    let startDate = undefined;
+    let endDate = undefined;
+    if(query.startDate){
+      startDate = new Date(query.startDate);
+    }
+    if(query.endDate){
+      endDate = new Date (query.endDate);
+    }
 
-    return await this.chatbotService.getUsersMetrics(source, userType);
+    return await this.chatbotService.getUsersMetrics(source, userType, startDate, endDate);
   }
 
   @Get('/response-adherence-table-data')

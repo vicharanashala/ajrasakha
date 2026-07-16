@@ -72,6 +72,7 @@ interface DetailSidebarProps {
   analyticsData?: any;
   weeklyAnalyticsData?: any;
   monthlyAnalyticsData?: any;
+  questionStatusRange?: any
 }
 
 export function DetailSidebar({
@@ -101,6 +102,7 @@ export function DetailSidebar({
   analyticsData,
   weeklyAnalyticsData,
   monthlyAnalyticsData,
+  questionStatusRange,
 }: DetailSidebarProps) {
   const [isPassed, setIsPassed] = useState(false);
   const [showActiveUsersModal, setShowActiveUsersModal] = useState(false);
@@ -109,10 +111,14 @@ export function DetailSidebar({
   const [showFeedBackModal, setShowFeedBackModal] = useState(false);
   const [rating, setRating] = useState<"all" | "positive" | "negative">("all");
   const [showResolutionModal, setShowResolutionModal] = useState(false);
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined)
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined)
 
   const { data: userMetricesData } = useUserMertices(
     source as any,
     userType as any,
+    questionStatusRange.startTime,
+    questionStatusRange.endTime,
     true,
   );
 
@@ -214,10 +220,24 @@ export function DetailSidebar({
   const combinedPct =
     ((safeCount + passedInLastTwoHours) / (safeTotalClosed + totalPassed)) *
       100 || 0;
+      console.log("Start and end is", questionStatusRange.startTime,
+    questionStatusRange.endTime)
 
+    useEffect(()=>{
+      if(questionStatusRange.startTime !== undefined || questionStatusRange.endTime !== undefined){
+        setStartDate(new Date(questionStatusRange.startTime));
+        setEndDate(new Date(questionStatusRange.endTime));
+        return
+      }else {
+        setStartDate(undefined);
+        setEndDate(undefined);
+        return
+      }
+    },[questionStatusRange.startTime, questionStatusRange.endTime])
+    
   const { data: allUsers } = useUserDetails(
-    undefined,
-    undefined,
+    startDate,
+    endDate,
     1,
     10,
     "",
@@ -229,7 +249,7 @@ export function DetailSidebar({
     "",
     "",
     "",
-    "all",
+    "yes",
     false,
     false,
     userType as any,
@@ -242,6 +262,7 @@ export function DetailSidebar({
     true,
   );
 
+  console.log ("All users data for date range", startDate, endDate, " is", allUsers);
   const getTitle = () => {
     if (level === "india") return "Country overview";
     if (level === "state" && !selectedDistrict) return "State details";
@@ -425,43 +446,41 @@ export function DetailSidebar({
                 type="users"
               />
             )}
-            {source !== "whatsapp" ? (
-              <StatCard
-                onClick={() => setShowUsersModal(true)}
-                label="Users"
-                value={renderCardValue(
-                  isIndiaView ? allUsers.totalUsers : activeAnalytics.users,
-                )}
-                icon={<Users className="h-3.5 w-3.5" />}
-                tooltip={
-                  <div className="space-y-1 text-xs">
-                    <div>Total Users.</div>
-                  </div>
-                }
-              />
-            ) : (
-              <StatCard
-                label="Weekly Questions"
-                value={
-                  isIndiaView
-                    ? weeklyAnalyticsData[weeklyAnalyticsData?.length - 1]
-                        .totalQuestions
-                    : 0
-                }
-                tooltip={
-                  <div className="space-y-1 text-xs">
-                    <div>Weekly Question Count</div>
-                  </div>
-                }
-              />
-            )}
+          {source !== "whatsapp" &&
+ !startDate &&
+ !endDate && (
+  <StatCard
+    onClick={() => setShowUsersModal(true)}
+    label="Users"
+    value={renderCardValue(
+      isIndiaView ? allUsers.totalUsers : activeAnalytics.users,
+    )}
+    icon={<Users className="h-3.5 w-3.5" />}
+    tooltip={
+      <div className="space-y-1 text-xs">
+        <div>Total registered users.</div>
+      </div>
+    }
+  />
+)}
+
+{source === "whatsapp" && (
+  <StatCard
+    label="Weekly Questions"
+    value={
+      isIndiaView
+        ? weeklyAnalyticsData?.[weeklyAnalyticsData.length - 1]?.totalQuestions ?? 0
+        : 0
+    }
+  />
+)}
             {source !== "whatsapp" && (
               <StatCard
                 onClick={() => setShowActiveUsersModal(true)}
                 label={<span>Active</span>}
                 value={renderCardValue(
                   isIndiaView
-                    ? todayActiveFarmersData?.totalUsers
+                    ? !startDate ? todayActiveFarmersData?.totalUsers : allUsers.totalUsers
                     : activeAnalytics.activeUsers,
                 )}
                 icon={<Users className="h-3.5 w-3.5" />}
@@ -472,15 +491,6 @@ export function DetailSidebar({
                 }
               />
             )}
-            {/* <StatCard
-  label="Coordinators"
-  value={fmt(
-    isIndiaView
-      ? todayActiveFarmersData?.userRoleCounts?.coordinator
-      : activeAnalytics.coordinators
-  )}
-  icon={<Building2 className="h-3.5 w-3.5" />}
-/> */}
             {showModeratorsModal && (
               <ActiveUserDetailsModal
                 source={source}
@@ -491,86 +501,86 @@ export function DetailSidebar({
                 type="moderators"
               />
             )}
-            {source !== "whatsapp" ? (
-              <StatCard
-                onClick={() => setShowModeratorsModal(true)}
-                label={
-                  <div className="flex items-center gap-1">
-                    <span>Coordinators</span>
+            {source !== "whatsapp" &&
+ !startDate &&
+ !endDate ? (
+  <StatCard
+    onClick={() => setShowModeratorsModal(true)}
+    label={
+      <div className="flex items-center gap-1">
+        <span>Coordinators</span>
 
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <InfoIcon className="h-3 w-3 cursor-pointer text-muted-foreground" />
-                        </TooltipTrigger>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <InfoIcon className="h-3 w-3 cursor-pointer text-muted-foreground" />
+            </TooltipTrigger>
 
-                        <TooltipContent side="top">
-                          <div className="space-y-1 text-xs">
-                            <div>
-                              District Coordinators:{" "}
-                              {isIndiaView
-                                ? (allUsers?.userRoleCounts
-                                    ?.districtCoordinator ?? 0)
-                                : selectedState
-                                  ? totalDistrictCoordinator
-                                  : districtData?.districtCoordinator}
-                            </div>
+            <TooltipContent side="top">
+              <div className="space-y-1 text-xs">
+                <div>
+                  District Coordinators:{" "}
+                  {isIndiaView
+                    ? (allUsers?.userRoleCounts?.districtCoordinator ?? 0)
+                    : selectedState
+                      ? totalDistrictCoordinator
+                      : districtData?.districtCoordinator}
+                </div>
 
-                            <div>
-                              Block Coordinators:{" "}
-                              {isIndiaView
-                                ? (allUsers?.userRoleCounts?.blockCoordinator ??
-                                  0)
-                                : selectedState
-                                  ? totalBlockCoordinator
-                                  : districtData?.blockCoordinator}
-                            </div>
+                <div>
+                  Block Coordinators:{" "}
+                  {isIndiaView
+                    ? (allUsers?.userRoleCounts?.blockCoordinator ?? 0)
+                    : selectedState
+                      ? totalBlockCoordinator
+                      : districtData?.blockCoordinator}
+                </div>
 
-                            <div>
-                              Village Volunteers:{" "}
-                              {isIndiaView
-                                ? (allUsers?.userRoleCounts?.villageVolunteer ??
-                                  0)
-                                : selectedDistrict
-                                  ? totalVillageVolunteer
-                                  : districtData?.villageVolunteer}
-                            </div>
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                }
-                value={renderCardValue(
-                  fmt(
-                    isIndiaView
-                      ? allUsers?.userRoleCounts?.coordinator
-                      : activeAnalytics.coordinators,
-                  ),
-                )}
-                icon={<Building2 className="h-3.5 w-3.5" />}
-                tooltip={
-                  <div className="space-y-1 text-xs">
-                    <div>Coordinators Count.</div>
-                  </div>
-                }
-              />
-            ) : (
-              <StatCard
-                label="Monthly Questions"
-                value={
-                  isIndiaView
-                    ? monthlyAnalyticsData[monthlyAnalyticsData?.length - 1]
-                        .totalQuestions
-                    : 0
-                }
-                tooltip={
-                  <div className="space-y-1 text-xs">
-                    <div>Monthly Questions Asked</div>
-                  </div>
-                }
-              />
-            )}
+                <div>
+                  Village Volunteers:{" "}
+                  {isIndiaView
+                    ? (allUsers?.userRoleCounts?.villageVolunteer ?? 0)
+                    : selectedDistrict
+                      ? totalVillageVolunteer
+                      : districtData?.villageVolunteer}
+                </div>
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+    }
+    value={renderCardValue(
+      fmt(
+        isIndiaView
+          ? allUsers?.userRoleCounts?.coordinator
+          : activeAnalytics.coordinators,
+      ),
+    )}
+    icon={<Building2 className="h-3.5 w-3.5" />}
+    tooltip={
+      <div className="space-y-1 text-xs">
+        <div>Coordinators Count.</div>
+      </div>
+    }
+  />
+) : source === "whatsapp" ? (
+  <StatCard
+    label="Monthly Questions"
+    value={
+      isIndiaView
+        ? monthlyAnalyticsData?.[monthlyAnalyticsData.length - 1]
+            ?.totalQuestions ?? 0
+        : 0
+    }
+    tooltip={
+      <div className="space-y-1 text-xs">
+        <div>Monthly Questions Asked</div>
+      </div>
+    }
+  />
+) : null}
+
             <StatCard
               onClick={() => setShowResolutionModal(true)}
               label="Resolution Rate"

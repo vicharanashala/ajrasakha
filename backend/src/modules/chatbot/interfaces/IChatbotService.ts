@@ -205,7 +205,7 @@ export interface IChatbotService {
     startTime?: string,
     endTime?: string,
   ): Promise<Array<{day: string; uniqueCount: number; duplicateCount: number}>>;
-  getUsersMetrics(source?: string, userType?: string): Promise<any>;
+  getUsersMetrics(source?: string, userType?: string, startDate?: Date, endDate?:Date): Promise<any>;
   getTopFaqs(
     source?: string,
     userType?: string,

@@ -42,7 +42,9 @@ export default function IndiaAnalyticsMap({
   todayActiveFarmersData,
   analyticsData,
   weeklyAnalyticsData,
-  monthlyAnalyticsData
+  monthlyAnalyticsData,
+  questionStatusRange,
+  questionStatusDateRange
 }: any) {
   // Hooks
 
@@ -61,8 +63,8 @@ export default function IndiaAnalyticsMap({
   const { data: questionStatusData } = useClosedAndNotifedData(
     source,
     userType,
-    undefined,
-    undefined,
+    questionStatusRange.startTime,
+    questionStatusRange.endTime,
   );
   const {
     level,
@@ -503,6 +505,7 @@ const styleFn = useCallback(
         analyticsData= {analyticsData}
         weeklyAnalyticsData= {weeklyAnalyticsData}
         monthlyAnalyticsData={monthlyAnalyticsData}
+        questionStatusRange={questionStatusRange}
       />
     </div>
   );

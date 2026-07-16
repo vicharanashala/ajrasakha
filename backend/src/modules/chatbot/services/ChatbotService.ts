@@ -3396,6 +3396,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
   async getUsersMetrics(
     source?: string,
     userType?: string,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<{
     userDemographics: UserDemographics;
     platformInstalls: PlatformInstallEntry[];
@@ -3416,7 +3418,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
           undefined,
           userType,
         ),
-        this.chatbotRepository.getFeedbackData(source, undefined, userType),
+        this.chatbotRepository.getFeedbackData(source, undefined, userType, startDate, endDate),
       ]);
       return {
         userDemographics,
