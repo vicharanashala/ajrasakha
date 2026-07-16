@@ -62,7 +62,10 @@
 .ace-dash header.top {
   background: linear-gradient(90deg, #8ad9ab 0%, #2ea666 28%, #0f7a3f 50%, #2ea666 72%, #8ad9ab 100%);
   color: #fff;
-  position: relative;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 12px rgba(12, 40, 24, 0.18);
 }
 .ace-dash .top-bar {
   display: flex;
