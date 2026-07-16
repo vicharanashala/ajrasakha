@@ -9,40 +9,22 @@ from functools import lru_cache
 from fastapi import Depends, FastAPI, HTTPException, Security, status
 from fastapi.security import APIKeyHeader
 
-try:
-    from .claude_client import (
-        AnthropicClaudeGateway,
-        ClaudeConfigurationError,
-        ClaudeProviderError,
-        ClaudeTimeoutError,
-        ClaudeUnavailableError,
-    )
-    from .config import Settings, SettingsError, get_settings
-    from .models import ShortenAnswerRequest, ShortenAnswerResponse
-    from .service import (
-        AnswerShorteningService,
-        ExtractiveRangeNotFeasibleError,
-        ModelSelectionError,
-        ProtectedContentTooLargeError,
-        TargetRequiresExpansionError,
-    )
-except ImportError:
-    from claude_client import (
-        AnthropicClaudeGateway,
-        ClaudeConfigurationError,
-        ClaudeProviderError,
-        ClaudeTimeoutError,
-        ClaudeUnavailableError,
-    )
-    from config import Settings, SettingsError, get_settings
-    from models import ShortenAnswerRequest, ShortenAnswerResponse
-    from service import (
-        AnswerShorteningService,
-        ExtractiveRangeNotFeasibleError,
-        ModelSelectionError,
-        ProtectedContentTooLargeError,
-        TargetRequiresExpansionError,
-    )
+from claude_client import (
+    AnthropicClaudeGateway,
+    ClaudeConfigurationError,
+    ClaudeProviderError,
+    ClaudeTimeoutError,
+    ClaudeUnavailableError,
+)
+from config import Settings, SettingsError, get_settings
+from models import ShortenAnswerRequest, ShortenAnswerResponse
+from service import (
+    AnswerShorteningService,
+    ExtractiveRangeNotFeasibleError,
+    ModelSelectionError,
+    ProtectedContentTooLargeError,
+    TargetRequiresExpansionError,
+)
 
 
 app = FastAPI(

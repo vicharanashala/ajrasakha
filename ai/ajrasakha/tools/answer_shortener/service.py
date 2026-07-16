@@ -6,7 +6,7 @@ import logging
 from dataclasses import dataclass
 from typing import Protocol
 
-from .extraction import (
+from extraction import (
     ExtractionSelectionError,
     ExtractiveRangeNotFeasibleError,
     MandatorySpanMappingError,
@@ -15,8 +15,8 @@ from .extraction import (
     parse_ranked_segment_ids,
     split_source_into_segments,
 )
-from .prompts import SEGMENT_RANKING_SYSTEM_PROMPT, build_segment_ranking_prompt
-from .validation import ProtectedContent
+from prompts import SEGMENT_RANKING_SYSTEM_PROMPT, build_segment_ranking_prompt
+from validation import ProtectedContent
 
 
 logger = logging.getLogger(__name__)

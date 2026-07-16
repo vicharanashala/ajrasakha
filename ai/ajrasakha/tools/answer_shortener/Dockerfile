@@ -10,10 +10,10 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
-COPY ajrasakha/tools/answer_shortener/requirements.txt .
+COPY ai/ajrasakha/tools/answer_shortener/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY ajrasakha/tools/answer_shortener .
+COPY ai/ajrasakha/tools/answer_shortener .
 
 EXPOSE 8007
 

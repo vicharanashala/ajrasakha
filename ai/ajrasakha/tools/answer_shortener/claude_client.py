@@ -11,7 +11,7 @@ from anthropic import (
     RateLimitError,
 )
 
-from .config import Settings
+from config import Settings
 
 
 class ClaudeClientError(RuntimeError):
