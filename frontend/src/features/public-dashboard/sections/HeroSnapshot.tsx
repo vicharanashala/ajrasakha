@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Counter } from "../components/Counter";
 import { SectionHead } from "../components/SectionHead";
-import { useCountUp } from "../utils";
+import { useCountUp, useInView } from "../utils";
 
 /** A headline figure. `value` is free text — numeric strings animate, others render as-is. */
 export interface StatCell {
@@ -17,6 +17,7 @@ export interface StatCell {
 export const HeroSnapshot = ({ stats }: { stats: StatCell[] }) => {
   const { value: cov, ref } = useCountUp(72.4);
   const [barW, setBarW] = useState(0);
+  const { ref: gridRef, inView: gridInView } = useInView(0.15);
 
   useEffect(() => {
     const t = setTimeout(() => setBarW(72.4), 100);
@@ -49,7 +50,10 @@ export const HeroSnapshot = ({ stats }: { stats: StatCell[] }) => {
           </div>
         </div>
       </div>
-      <StatGrid stats={stats} />
+      {/* anim-ready triggers staggered scaleIn on each stat-cell */}
+      <div ref={gridRef} className={gridInView ? "anim-ready" : ""}>
+        <StatGrid stats={stats} />
+      </div>
     </section>
   );
 };

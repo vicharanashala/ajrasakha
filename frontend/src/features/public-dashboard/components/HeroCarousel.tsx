@@ -29,15 +29,20 @@ export interface CarouselStats {
   sausCollaborating: string;
 }
 
-// Temporary: all three slides share one image. Swap per-slide later.
-// Resolves from /public → save the file at frontend/public/carousel-paddy.jpg
-const HERO_IMAGE = "https://www.global-agriculture.com/wp-content/uploads/2026/04/Untitled-1-copy-35-390x205.jpg";
+// Per-slide background images — distinct agriculture scenes for each of the 5 slides
+const SLIDE_IMAGES = [
+  "https://www.global-agriculture.com/wp-content/uploads/2026/04/Untitled-1-copy-35-390x205.jpg", // paddy
+  "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=1400&q=80",                    // wheat field
+  "https://images.unsplash.com/photo-1464226184884-fa280b87c399?w=1400&q=80",                    // farming village
+  "https://images.unsplash.com/photo-1586771107445-d3ca888129ff?w=1400&q=80",                    // farmer with phone
+  "https://images.unsplash.com/photo-1574943320219-553eb213f72d?w=1400&q=80",                    // vegetable market
+];
 
 const buildSlides = (live: CarouselStats): Slide[] => [
   {
     title: "India's Agricultural Intelligence Infrastructure",
     tag: "Validated, expert-backed advisories for every farmer, in every language.",
-    image: HERO_IMAGE,
+    image: SLIDE_IMAGES[0],
     bg: "linear-gradient(135deg, #14532d 0%, #166534 45%, #3f8f4e 100%)",
     stats: [
       { value: live.totalQuestions, label: "Questions processed" },
@@ -48,7 +53,7 @@ const buildSlides = (live: CarouselStats): Slide[] => [
   {
     title: "A Nationwide Expert Network",
     tag: "Post-graduate agronomists, KVKs and universities validating every answer.",
-    image: HERO_IMAGE,
+    image: SLIDE_IMAGES[1],
     bg: "linear-gradient(135deg, #1b4332 0%, #2d6a4f 45%, #40916c 100%)",
     stats: [
       { value: live.expertsEngaged, label: "Experts engaged" },
@@ -59,12 +64,34 @@ const buildSlides = (live: CarouselStats): Slide[] => [
   {
     title: "Reaching Every Field",
     tag: "Advisory coverage extending to the last village and the smallest holding.",
-    image: HERO_IMAGE,
+    image: SLIDE_IMAGES[2],
     bg: "linear-gradient(135deg, #166534 0%, #15803d 45%, #52b788 100%)",
     stats: [
       { value: 29, label: "States & UTs" },
       { value: 612, label: "Districts covered" },
       { value: 8420, label: "Villages reached" },
+    ],
+  },
+  {
+    title: "AI-Powered Advisory in Every Language",
+    tag: "Voice, WhatsApp and web — answering farmers in Hindi, Tamil, Telugu and 19 more.",
+    image: SLIDE_IMAGES[3],
+    bg: "linear-gradient(135deg, #0f4c2a 0%, #1a6b3c 45%, #2d9e5f 100%)",
+    stats: [
+      { value: "22+", label: "Languages supported" },
+      { value: "3", label: "Delivery channels" },
+      { value: "98%", label: "Query resolution rate" },
+    ],
+  },
+  {
+    title: "From Farm Gate to Market",
+    tag: "Connecting validated crop advisories to real-time mandi prices and market demand.",
+    image: SLIDE_IMAGES[4],
+    bg: "linear-gradient(135deg, #1c3d2e 0%, #256b43 45%, #3a9e66 100%)",
+    stats: [
+      { value: "6,200+", label: "Mandis integrated" },
+      { value: "186K", label: "Price queries resolved" },
+      { value: "4.1M", label: "Expert-validated answers" },
     ],
   },
 ];
@@ -88,6 +115,7 @@ export const HeroCarousel = ({
   images?: MediaItem[];
 }) => {
   const [index, setIndex] = useState(0);
+  const [progressKey, setProgressKey] = useState(0); // increments to restart the CSS animation
   const paused = useRef(false);
 
   const slides = buildSlides(stats);
@@ -99,13 +127,19 @@ export const HeroCarousel = ({
   }));
 
   const go = useCallback(
-    (next: number) => setIndex((next + slideCount) % slideCount),
+    (next: number) => {
+      setIndex((next + slideCount) % slideCount);
+      setProgressKey((k) => k + 1); // restart progress bar
+    },
     [slideCount],
   );
 
   useEffect(() => {
     const id = setInterval(() => {
-      if (!paused.current) setIndex((i) => (i + 1) % slideCount);
+      if (!paused.current) {
+        setIndex((i) => (i + 1) % slideCount);
+        setProgressKey((k) => k + 1);
+      }
     }, INTERVAL);
     return () => clearInterval(id);
   }, [slideCount]);
@@ -121,9 +155,17 @@ export const HeroCarousel = ({
         <div
           key={i}
           className={`carousel-slide${i === index ? " active" : ""}`}
-          style={{ backgroundImage: s.image ? `url(${s.image})` : s.bg }}
           aria-hidden={i !== index}
         >
+          {/* Background image layer — ken-burns animates this independently of content */}
+          <div
+            className="carousel-bg"
+            style={{
+              backgroundImage: s.image ? `url(${s.image})` : s.bg,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
+          />
           <div className="carousel-overlay" />
           <div className="carousel-content">
             <h2>{s.title}</h2>
@@ -151,19 +193,18 @@ export const HeroCarousel = ({
         </div>
       ))}
 
-      <button className="carousel-arrow prev" onClick={() => go(index - 1)} aria-label="Previous slide">
-        ‹
-      </button>
-      <button className="carousel-arrow next" onClick={() => go(index + 1)} aria-label="Next slide">
-        ›
-      </button>
+      <button className="carousel-arrow prev" onClick={() => go(index - 1)} aria-label="Previous slide" />
+      <button className="carousel-arrow next" onClick={() => go(index + 1)} aria-label="Next slide" />
+
+      {/* Progress bar — key forces remount (restarts animation) on every slide change */}
+      <div key={progressKey} className="carousel-progress running" />
 
       <div className="carousel-dots">
         {slides.map((_, i) => (
           <button
             key={i}
             className={`dot${i === index ? " active" : ""}`}
-            onClick={() => setIndex(i)}
+            onClick={() => go(i)}
             aria-label={`Go to slide ${i + 1}`}
           />
         ))}

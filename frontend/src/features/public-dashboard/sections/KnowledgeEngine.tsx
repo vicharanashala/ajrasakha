@@ -3,15 +3,20 @@ import { Counter } from "../components/Counter";
 import { MiniCounter } from "../components/MiniMetric";
 import { SectionHead } from "../components/SectionHead";
 import { crops, states } from "../data/dashboardData";
+import { useInView } from "../utils";
 
 /** Layer 03 — KCC dataset progress, state maturity and crop saturation. */
 export const KnowledgeEngine = () => {
   const [kccW, setKccW] = useState(0);
+  const { ref: kccRef, inView: kccInView } = useInView(0.2);
+  const { ref: maturityRef, inView: maturityInView } = useInView(0.2);
+  const { ref: cropsRef, inView: cropsInView } = useInView(0.1);
 
   useEffect(() => {
+    if (!kccInView) return;
     const t = setTimeout(() => setKccW((41.2 / 45) * 100), 120);
     return () => clearTimeout(t);
-  }, []);
+  }, [kccInView]);
 
   const maturity = [...states].sort((a, b) => b.crops - a.crops).slice(0, 5);
 
@@ -23,22 +28,13 @@ export const KnowledgeEngine = () => {
         Kisan Call Centre (KCC) transcripts and expert-validated Q&amp;A pairs.
       </p>
       <div className="kcc-grid">
-        <div className="chart-box">
+        {/* KCC progress bar animates in when scrolled into view */}
+        <div ref={kccRef} className={`chart-box chart-box-anim${kccInView ? " in-view" : ""}`}>
           <div className="eyebrow" style={{ marginBottom: 10 }}>
             KCC DATASET ANALYSIS
           </div>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "baseline",
-              marginBottom: 6,
-            }}
-          >
-            <span
-              className="mono"
-              style={{ fontSize: 28, fontWeight: 700, color: "var(--navy-deep)" }}
-            >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+            <span className="mono" style={{ fontSize: 28, fontWeight: 700, color: "var(--navy-deep)" }}>
               <Counter value={41.2} suffix="M" />
             </span>
             <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>of 45M record target</span>
@@ -53,7 +49,9 @@ export const KnowledgeEngine = () => {
             <MiniCounter value={4.1} suffix="M" label="Expert-validated answers" />
           </div>
         </div>
-        <div className="chart-box">
+
+        {/* State maturity bars grow when scrolled into view */}
+        <div ref={maturityRef} className={`chart-box chart-box-anim${maturityInView ? " in-view" : ""}`}>
           <div className="eyebrow" style={{ marginBottom: 14 }}>
             STATE MATURITY (TOP 5)
           </div>
@@ -62,18 +60,14 @@ export const KnowledgeEngine = () => {
             return (
               <div
                 key={st.name}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "110px 1fr 34px",
-                  alignItems: "center",
-                  gap: 10,
-                  marginBottom: 12,
-                  fontSize: 12.5,
-                }}
+                style={{ display: "grid", gridTemplateColumns: "110px 1fr 34px", alignItems: "center", gap: 10, marginBottom: 12, fontSize: 12.5 }}
               >
                 <span>{st.name}</span>
                 <span className="idx-track">
-                  <span className="idx-fill" style={{ width: `${pct}%`, background: "var(--green)" }} />
+                  <span
+                    className="idx-fill"
+                    style={{ width: maturityInView ? `${pct}%` : "0%", background: "var(--green)" }}
+                  />
                 </span>
                 <span className="mono">{pct}%</span>
               </div>
@@ -81,10 +75,12 @@ export const KnowledgeEngine = () => {
           })}
         </div>
       </div>
+
       <div className="eyebrow" style={{ marginBottom: 14 }}>
         SATURATED CROPS
       </div>
-      <div className="card-grid grid-4">
+      {/* Crop cards stagger in when scrolled into view */}
+      <div ref={cropsRef} className={`card-grid grid-4 card-grid-anim${cropsInView ? " in-view" : ""}`}>
         {crops.map((c) => (
           <div className="card" key={c.name}>
             <h4>{c.name}</h4>
@@ -92,7 +88,10 @@ export const KnowledgeEngine = () => {
               {c.qa.toLocaleString("en-IN")} validated QAs · {c.maturity} maturity
             </div>
             <div className="crop-bar-track">
-              <div className="crop-bar-fill" style={{ width: `${c.pct}%` }} />
+              <div
+                className="crop-bar-fill"
+                style={{ width: cropsInView ? `${c.pct}%` : "0%" }}
+              />
             </div>
             <div className="meta mono" style={{ marginTop: 6 }}>
               {c.pct}% saturated
