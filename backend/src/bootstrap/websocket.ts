@@ -4,8 +4,6 @@ import { IncomingMessage, Server } from 'http';
 import { PLIVO_TYPES } from '../modules/plivo/types.js';
 import type { PlivoService } from '../modules/plivo/services/PlivoService.js';
 import { getContainer } from './loadModules.js';
-import { GLOBAL_TYPES } from '../types.js';
-import type { UserService } from '../modules/user/services/UserService.js';
 // import path from 'path';
 // import fs from 'fs';
 
@@ -15,7 +13,6 @@ export const initWebSocket = (server: Server) => {
     path: '/plivo-stream',
   });
   const plivoService = getContainer().get<PlivoService>(PLIVO_TYPES.PlivoService);
-  const userService = getContainer().get<UserService>(GLOBAL_TYPES.UserService);
 
   // const logsDir = path.join(process.cwd(), 'call_logs');
   // if (!fs.existsSync(logsDir)) {
@@ -105,30 +102,8 @@ export const initWebSocket = (server: Server) => {
         console.error('Final transcript failed:', finalError);
       }
 
-      const agentUserId = plivoService.getCallAgent(callId.toString());
-
-      try {
-        await plivoService.saveCallDetails(callId.toString());
-      } catch (saveError) {
-        console.error('[WEBSOCKET] Failed to save call details:', saveError);
-      }
-
-      try {
-        plivoService.clearTranscript(callId.toString());
-      } catch (clearError) {
-        console.error('[WEBSOCKET] Failed to clear transcript:', clearError);
-      }
-
-      if (agentUserId) {
-        try {
-          // console.log(`[WEBSOCKET] Marking agent ${agentUserId} as available (call ended)`);
-          await userService.markAgentAsAvailable(agentUserId);
-        } catch (error) {
-          console.error(`[WEBSOCKET] Failed to mark agent ${agentUserId} as available:`, error);
-        }
-      } else {
-        console.log(`[WEBSOCKET] No agent mapped to call ${callId.toString()}`);
-      }
+      await plivoService.saveCallDetails(callId.toString());
+      plivoService.clearTranscript(callId.toString());
     };
 
     ws.on('message', async (data: Buffer) => {

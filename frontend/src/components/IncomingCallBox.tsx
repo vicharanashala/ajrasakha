@@ -83,7 +83,6 @@ export const IncomingCallBox = ({
   const [messageText, setMessageText] = useState("");
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [lastCallNumber, setLastCallNumber] = useState<string | null>(null);
-  const MAX_MESSAGE_LENGTH = 150;
 
   // Translation
   const [farmerDetectedLanguage, setFarmerDetectedLanguage] = useState<string | null>(null);
@@ -749,7 +748,6 @@ export const IncomingCallBox = ({
     try {
       const translated = await translateService(messageText, targetLanguage, "en-IN");
       setTranslatedText(translated);
-      setSendTranslated(true);
       toast.success("Text translated successfully!");
     } catch (err: any) {
       console.error("Translation error:", err);
@@ -878,36 +876,30 @@ export const IncomingCallBox = ({
                       </div>
                     )}
                   </div>
-                  <textarea
-                    value={sendTranslated && translatedText ? translatedText : messageText}
-                    onChange={(e) => {
-                      if (e.target.value.length <= MAX_MESSAGE_LENGTH) {
-                        setMessageText(e.target.value);
-                      }
-                    }}
-                    placeholder="Type your SMS..."
-                    className="w-full p-2 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    disabled={isSendingMessage || !!(sendTranslated && translatedText)}
-                    readOnly={!!(sendTranslated && translatedText)}
-                    rows={3}
-                    maxLength={MAX_MESSAGE_LENGTH}
-                  />
-                  <div className="flex justify-between items-center mt-1">
-                    <span
-                      className={cn(
-                        "text-xs",
-                        (sendTranslated && translatedText
-                          ? translatedText.length
-                          : messageText.length) >= MAX_MESSAGE_LENGTH
-                          ? "text-red-500 font-semibold"
-                          : "text-muted-foreground",
-                      )}
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={sendTranslated && translatedText ? translatedText : messageText}
+                      onChange={(e) => setMessageText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
+                      }}
+                      placeholder="Type your SMS..."
+                      className="flex-1 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      disabled={isSendingMessage || !!(sendTranslated && translatedText)}
+                      readOnly={!!(sendTranslated && translatedText)}
+                    />
+                    <Button
+                      onClick={handleSendMessage}
+                      disabled={!(sendTranslated && translatedText ? translatedText : messageText).trim() || isSendingMessage}
+                      size="sm"
+                      className="px-3 h-9 bg-primary hover:bg-primary/90 text-white"
                     >
-                      {sendTranslated && translatedText
-                        ? translatedText.length
-                        : messageText.length}
-                      /{MAX_MESSAGE_LENGTH} characters
-                    </span>
+                      <Send className="h-4 w-4" />
+                    </Button>
                   </div>
                   <div className="mt-2">
                     <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 block">
@@ -918,8 +910,6 @@ export const IncomingCallBox = ({
                       onChange={(e) => {
                         setSelectedLanguage(e.target.value);
                         languageManuallyChangedRef.current = true;
-                        setTranslatedText(null);
-                        setSendTranslated(false);
                       }}
                       className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/50"
                     >
@@ -943,22 +933,6 @@ export const IncomingCallBox = ({
                       )}
                       <Languages className="h-3 w-3" />
                       Translate
-                    </Button>
-                    <Button
-                      onClick={handleSendMessage}
-                      disabled={
-                        !(sendTranslated && translatedText ? translatedText : messageText).trim() ||
-                        isSendingMessage ||
-                        (sendTranslated && translatedText ? translatedText : messageText).length > MAX_MESSAGE_LENGTH
-                      }
-                      size="sm"
-                      className="gap-2 bg-primary hover:bg-primary/90 text-white"
-                    >
-                      {isSendingMessage && (
-                        <RefreshCw className="h-3 w-3 animate-spin" />
-                      )}
-                      <Send className="h-3.5 w-3.5" />
-                      Send SMS
                     </Button>
                   </div>
                 </div>
@@ -1169,36 +1143,30 @@ export const IncomingCallBox = ({
                         </div>
                       )}
                     </div>
-                    <textarea
-                      value={sendTranslated && translatedText ? translatedText : messageText}
-                      onChange={(e) => {
-                        if (e.target.value.length <= MAX_MESSAGE_LENGTH) {
-                          setMessageText(e.target.value);
-                        }
-                      }}
-                      placeholder="Type your SMS..."
-                      className="w-full p-2 border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                      disabled={isSendingMessage || !!(sendTranslated && translatedText)}
-                      readOnly={!!(sendTranslated && translatedText)}
-                      rows={3}
-                      maxLength={MAX_MESSAGE_LENGTH}
-                    />
-                    <div className="flex justify-between items-center mt-1">
-                      <span
-                        className={cn(
-                          "text-xs",
-                          (sendTranslated && translatedText
-                            ? translatedText.length
-                            : messageText.length) >= MAX_MESSAGE_LENGTH
-                            ? "text-red-500 font-semibold"
-                            : "text-muted-foreground",
-                        )}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={sendTranslated && translatedText ? translatedText : messageText}
+                        onChange={(e) => setMessageText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendMessage();
+                          }
+                        }}
+                        placeholder="Type your SMS..."
+                        className="flex-1 px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        disabled={isSendingMessage || !!(sendTranslated && translatedText)}
+                        readOnly={!!(sendTranslated && translatedText)}
+                      />
+                      <Button
+                        onClick={handleSendMessage}
+                        disabled={!(sendTranslated && translatedText ? translatedText : messageText).trim() || isSendingMessage}
+                        size="sm"
+                        className="px-3 h-9 bg-primary hover:bg-primary/90 text-white"
                       >
-                        {sendTranslated && translatedText
-                          ? translatedText.length
-                          : messageText.length}
-                        /{MAX_MESSAGE_LENGTH} characters
-                      </span>
+                        <Send className="h-4 w-4" />
+                      </Button>
                     </div>
                     <div className="mt-2">
                       <label className="text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1 block">
@@ -1209,8 +1177,6 @@ export const IncomingCallBox = ({
                         onChange={(e) => {
                           setSelectedLanguage(e.target.value);
                           languageManuallyChangedRef.current = true;
-                          setTranslatedText(null);
-                          setSendTranslated(false);
                         }}
                         className="w-full px-2 py-1.5 text-sm border border-zinc-300 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-primary/50"
                       >
@@ -1234,22 +1200,6 @@ export const IncomingCallBox = ({
                         )}
                         <Languages className="h-3 w-3" />
                         Translate
-                      </Button>
-                      <Button
-                        onClick={handleSendMessage}
-                        disabled={
-                          !(sendTranslated && translatedText ? translatedText : messageText).trim() ||
-                          isSendingMessage ||
-                          (sendTranslated && translatedText ? translatedText : messageText).length > MAX_MESSAGE_LENGTH
-                        }
-                        size="sm"
-                        className="gap-2 bg-primary hover:bg-primary/90 text-white"
-                      >
-                        {isSendingMessage && (
-                          <RefreshCw className="h-3 w-3 animate-spin" />
-                        )}
-                        <Send className="h-3.5 w-3.5" />
-                        Send SMS
                       </Button>
                     </div>
                   </div>

@@ -511,7 +511,7 @@ const handleRefresh = async () => {
                             />
                           </span>
 
-                          <div className="min-w-0 hover:underline">
+                          <div className="min-w-0">
                             <div className="flex items-center gap-1">
                               <p className="truncate text-sm font-semibold text-foreground">
                                 {item.concern}

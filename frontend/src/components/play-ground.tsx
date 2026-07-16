@@ -30,7 +30,6 @@ import { ManageCallAgents } from "./ManageCallAgents";
 import { env } from "@/config/env";
 import { DataProcessingDashboard } from "../features/faq-pop/DataProcessingDashboard";
 import { CallAgentDashboard } from "./CallAgentDashboard";
-import { UserService } from "@/hooks/services/userService";
 
 export const PlaygroundPage = () => {
   const { data: user } = useGetCurrentUser({});
@@ -89,29 +88,6 @@ export const PlaygroundPage = () => {
       localStorage.setItem(storageKey, defaultTab);
     }
   }, [user]);
-
-  // Heartbeat for Call Agents
-  useEffect(() => {
-    if (!user || user.role !== "call_agent" || !user.isCallAgentActive) return;
-
-    const userService = new UserService();
-    const sendHeartbeat = async () => {
-      try {
-        await userService.sendHeartbeat();
-      } catch (err) {
-        console.error("Failed to send heartbeat:", err);
-      }
-    };
-
-    // Send immediately on mount or status change
-    sendHeartbeat();
-
-    // Send every 30 seconds
-    const interval = setInterval(sendHeartbeat, 30000);
-
-    return () => clearInterval(interval);
-  }, [user?.role, user?.isCallAgentActive]);
-
   // Only update tab when there's a specific selection that requires navigation
   useEffect(() => {
     if (!user) return;

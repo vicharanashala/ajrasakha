@@ -318,13 +318,8 @@ export class AiService {
       }
 
       const fullUrl = `${this._whatsAppServerUrl}/threads/${threadId}/state`;
-      console.log("Full url ", fullUrl);
-      let response;
-      try{
-      response = await fetch(fullUrl);
-      }catch(err){
-        console.error("Error fetching WhatsApp message:", err);
-      }
+
+      const response = await fetch(fullUrl);
 
       if (!response.ok) {
         console.error("Failed to fetch WhatsApp message:", response.statusText);

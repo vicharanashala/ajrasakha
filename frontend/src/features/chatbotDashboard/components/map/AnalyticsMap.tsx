@@ -40,9 +40,6 @@ export default function IndiaAnalyticsMap({
   source,
   userType,
   todayActiveFarmersData,
-  analyticsData,
-  weeklyAnalyticsData,
-  monthlyAnalyticsData
 }: any) {
   // Hooks
 
@@ -167,94 +164,39 @@ export default function IndiaAnalyticsMap({
   );
 
   // Style + events
-//   const styleFn = useCallback(
-//     (feat: {
-//       properties: { _analytics: Analytics & {rank?: number;}; _name: string};
-//     }): L.PathOptions => {
-//       const analytics = feat.properties._analytics;
+  const styleFn = useCallback(
+    (feat: {
+      properties: { _analytics: Analytics; _name: string };
+    }): L.PathOptions => {
+      const analytics = feat.properties._analytics;
 
-// // const actualValue =
-// //   metric === "questions"
-// //     ? analytics.questions
-// //     : metric === "users"
-// //       ? analytics.users
-// //       : analytics.activeUsers;
-
-// // const v = level === "state"
-// //   ? analytics.rank
-// //   : actualValue;
-// const v = analytics.rank ?? 0;
-//       const name = feat.properties._name;
-//       const isHovered = hovered === name;
-//       const isSelected =
-//         (level === "india" && selectedState === name) ||
-//         (level !== "india" && selectedDistrict === name);
-//       return {
-//         fillColor:
-//    analytics.rank === -1
-//     ? "#dc2626"
-//     : colorFor(v, minV, maxV, dark),
-//         fillOpacity: isSelected ? 0.95 : isHovered ? 0.85 : 0.7,
-//         color: dark ? "#0f172a" : "#ffffff",
-//         weight: isSelected ? 2.5 : isHovered ? 2 : 1,
-//       };
-//     },
-//     [hovered, minV, maxV, dark, level, selectedState, selectedDistrict, metric],
-//   );
-
-const styleFn = useCallback(
-  (feat: {
-    properties: {
-      _analytics: Analytics & { rank?: number };
-      _name: string;
-    };
-  }): L.PathOptions => {
-    const analytics = feat.properties._analytics;
-    const v =
+const actualValue =
   metric === "questions"
     ? analytics.questions
-      : metric === "users"
-        ? analytics.users
-        : analytics.activeUsers;
+    : metric === "users"
+      ? analytics.users
+      : analytics.activeUsers;
 
-    const name = feat.properties._name;
-
-    const isHovered = hovered === name;
-
-    const useLogScale =
-  metric === "users" ||
-  metric === "activeUsers"
-
-    const isSelected =
-      (level === "india" && selectedState === name) ||
-      (level !== "india" && selectedDistrict === name);
-
-      const useFixedQuestionScale =
-  isIndiaView && metric === "questions";
-
-    return {
-      fillColor:
-        analytics.rank === -1
-          ? "#dc2626"
-          : colorFor(v, minV, maxV, useLogScale, useFixedQuestionScale),
-
-      fillOpacity: isSelected ? 0.95 : isHovered ? 0.85 : 0.7,
-
-      color: dark ? "#0f172a" : "#ffffff",
-
-      weight: isSelected ? 2.5 : isHovered ? 2 : 1,
-    };
-  },
-  [
-    hovered,
-    minV,
-    maxV,
-    dark,
-    level,
-    selectedState,
-    selectedDistrict,
-  ],
-);
+const v = level === "state"
+  ? analytics.rank
+  : actualValue;
+      const name = feat.properties._name;
+      const isHovered = hovered === name;
+      const isSelected =
+        (level === "india" && selectedState === name) ||
+        (level !== "india" && selectedDistrict === name);
+      return {
+        fillColor:
+   level === "state" && actualValue === 0
+    ? "#dc2626"
+    : colorFor(v, minV, maxV, dark),
+        fillOpacity: isSelected ? 0.95 : isHovered ? 0.85 : 0.7,
+        color: dark ? "#0f172a" : "#ffffff",
+        weight: isSelected ? 2.5 : isHovered ? 2 : 1,
+      };
+    },
+    [hovered, minV, maxV, dark, level, selectedState, selectedDistrict, metric],
+  );
 
   const onEach = useCallback(
     (
@@ -471,7 +413,7 @@ const styleFn = useCallback(
           </MapContainer>}
 
           {/* Legend */}
-          <MapLegend minV={minV} maxV={maxV} dark={dark} isIndiaView={isIndiaView} metric={metric} allStatesDataAndUser={allStatesData}/>
+          <MapLegend minV={minV} maxV={maxV} dark={dark} isIndiaView={isIndiaView} metric={metric}/>
         </div>
       </div>
 
@@ -500,9 +442,6 @@ const styleFn = useCallback(
         setClickedState={setClickedState}
         clickedDistrict={clickedDistrict}
         setClickedDistrict={setClickedDistrict}
-        analyticsData= {analyticsData}
-        weeklyAnalyticsData= {weeklyAnalyticsData}
-        monthlyAnalyticsData={monthlyAnalyticsData}
       />
     </div>
   );

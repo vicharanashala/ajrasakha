@@ -75,7 +75,7 @@ export class FeedbackUsersQueryDto extends SourceQueryDto {
 
   @JSONSchema({ example: 'thumbsUp', description: 'Filter by feedback rating: thumbsUp or thumbsDown' })
   @IsOptional()
-  @IsIn(['all', 'thumbsUp', 'thumbsDown'])
+  @IsIn(['thumbsUp', 'thumbsDown'])
   rating?: string;
 
   @JSONSchema({ example: 'accurate_reliable', description: 'Filter by specific feedback tag' })

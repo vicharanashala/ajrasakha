@@ -839,8 +839,7 @@ export class UserService extends BaseService {
         agent: assignedAgent,
         isCallAgentActive: true,
         isBusy: false,
-        currentCallUuid: null,
-        lastAgentActiveAt: new Date()
+        currentCallUuid: null
       }, session);
 
       return updatedUser;
@@ -872,53 +871,6 @@ export class UserService extends BaseService {
 
       return updatedUser;
     });
-  }
-
-  /**
-   * Updates the heartbeat timestamp for an active agent
-   */
-  async updateAgentHeartbeat(userId: string): Promise<void> {
-    await this._withTransaction(async (session: ClientSession) => {
-      const user = await this.userRepo.findById(userId, session);
-      if (!user) {
-        throw new NotFoundError(`User with ID ${userId} not found`);
-      }
-
-      if (user.role !== ('call_agent' as any)) {
-        throw new BadRequestError('User is not a call agent');
-      }
-
-      await this.userRepo.edit(userId, {
-        lastAgentActiveAt: new Date()
-      }, session);
-    });
-  }
-
-  /**
-   * Cleanup inactive agents who haven't sent a heartbeat for over 75 seconds
-   */
-  async cleanupInactiveAgents(): Promise<void> {
-    const activeAgents = await this.userRepo.findActiveCallAgents();
-    if (activeAgents.length === 0) {
-      return; // Run only if there are active agents
-    }
-
-    const oneMinuteAgo = new Date(Date.now() - 75 * 1000); // 75 seconds ago
-    const inactiveAgents = activeAgents.filter(
-      agent =>
-        !agent.lastAgentActiveAt || new Date(agent.lastAgentActiveAt) < oneMinuteAgo
-    );
-
-    if (inactiveAgents.length > 0) {
-      for (const agent of inactiveAgents) {
-        try {
-          const userId = agent._id.toString();
-          await this.setAgentOffline(userId);
-        } catch (error) {
-          console.error(`[AGENT-CLEANUP] Failed to mark agent ${agent._id} offline:`, error);
-        }
-      }
-    }
   }
 
   /**

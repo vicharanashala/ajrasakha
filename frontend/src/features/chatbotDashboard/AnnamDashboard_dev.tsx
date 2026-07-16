@@ -178,8 +178,6 @@ export function AnnamDashboard_dev({
 
   const [mapView, setMapView] = useState<boolean>(false);
 
-  const [analyticData, setAnalyticData] = useState<any>(null);
-
   // User details initial filters
   const [userDetailsInitialFilters, setUserDetailsInitialFilters] = useState<
     Partial<UserDetailsFilters> | undefined
@@ -195,11 +193,6 @@ export function AnnamDashboard_dev({
     source,
     isAppAnalyticsSource,
   );
-  console.log('Data', data);
-  useEffect(()=>{
-    setAnalyticData(data)
-  }, [data]);
-
   const { data: inactiveWhatsappUsers } = useInactiveWhatsappUsers(
     inactiveUsersPage,
     source === "whatsapp",
@@ -622,9 +615,6 @@ export function AnnamDashboard_dev({
                   source={source}
                   userType={filters.userType}
                   todayActiveFarmersData={todayActiveFarmersData}
-                  analyticsData = {dailyAnalytics}
-                  weeklyAnalyticsData = {weeklyAnalytics}
-                  monthlyAnalyticsData = {monthlyAnalytics}
                 />
               ) : (
                 <>

@@ -50,7 +50,6 @@ export class PlivoController {
   @UseBefore(urlencoded({ extended: true }))
   @OpenAPI({ summary: 'Handle inbound call answer from Plivo' })
   async answer(@Req() req: Request, @Res() res: Response): Promise<void> {
-    let availableAgent: IUser | null = null;
     try {
       const streamUrl = appConfig.plivo.streamUrl;
       const myPlivoNumber = appConfig.plivo.plivo_number;
@@ -58,12 +57,11 @@ export class PlivoController {
 
 
       // Atomically find and mark an available agent as busy (prevents race conditions)
-      availableAgent = await this.userService.findAndMarkAvailableAgent(callUuid);
+      const availableAgent = await this.userService.findAndMarkAvailableAgent(callUuid);
 
 
       let endpointUser: string;
       let fallbackMessage: string;
-      let welcomeMessage: string = "Thank you for calling ACC, we will connect you with a specialist shortly. Please stay on the line.";
 
       if (availableAgent && availableAgent.agent) {
         // Get the Plivo endpoint credentials for this agent
@@ -91,7 +89,6 @@ export class PlivoController {
                               <Stream contentType="audio/x-l16;rate=16000"
           noiseCancellation="true" audioTrack="both" noise_cancellation_level="85"
           >${streamUrl}</Stream>
-          <Speak voice="MAN" language="en-US">${welcomeMessage}</Speak>
                               <Dial timeout="40" callerId="${myPlivoNumber}">
                                         <User>${endpointUser}</User>
                               </Dial>
@@ -112,16 +109,6 @@ export class PlivoController {
     } catch (error: any) {
       console.error('❌ [PLIVO-CONTROLLER] Error in answer endpoint:', error);
       console.error('❌ [PLIVO-CONTROLLER] Error stack:', error?.stack);
-
-      if (availableAgent) {
-        try {
-          // console.log(`[PLIVO-CONTROLLER] Releasing agent ${availableAgent._id} due to answer endpoint error`);
-          await this.userService.markAgentAsAvailable(availableAgent._id.toString());
-        } catch (releaseError) {
-          console.error(`[PLIVO-CONTROLLER] Failed to release agent ${availableAgent._id} after error:`, releaseError);
-        }
-      }
-
       res.status(500).send('Internal Server Error');
     }
   }
@@ -227,11 +214,10 @@ export class PlivoController {
         });
       }
 
-      const isUnicode = /[^\u0000-\u007F]/.test(body.text);
       const requestBody = {
         route: 'q',
         message: body.text,
-        language: isUnicode ? 'unicode' : 'english',
+        language: 'english',
         flash: 0,
         numbers: body.destination,
         sms_details: 1

@@ -412,7 +412,6 @@ export interface IQuestionService {
     endDate?: Date,
   ): Promise<ArrayBuffer | null>;
   getMatchedQuestion(questionId, userId);
-  getQuestionFeedback(questionId: string): Promise<any>;
 
   checkStatus(questionIds);
 
