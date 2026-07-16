@@ -13,20 +13,30 @@ interface Slide {
   stats: { value: number | string; suffix?: string; label: string }[];
 }
 
+/** An admin-edited headline figure — BOTH the label and the value come from the content. */
+export interface CarouselStatItem {
+  label: string;
+  value: string;
+}
+
 /**
  * The figures overlaid on the slides. The two question counts are live (from
- * /dashboard/stats); the rest are admin-edited headline figures (from /dashboard/content)
- * and are therefore free text, which may not be numeric.
+ * /dashboard/stats); the rest are admin-edited headline figures (from /dashboard/content),
+ * where the admin controls the label as well as the value — so a stat renamed in Edit
+ * Dashboard shows the new wording here too.
  */
 export interface CarouselStats {
   /** Every question in the collection, any status. */
   totalQuestions: number;
   /** Questions in a closed state (closed / dynamic_closed / duplicate_closed). */
   validatedQAPairs: number;
-  languagesSupported: string;
-  expertsEngaged: string;
-  kvksMapped: string;
-  sausCollaborating: string;
+  languages: CarouselStatItem;
+  experts: CarouselStatItem;
+  kvks: CarouselStatItem;
+  saus: CarouselStatItem;
+  states: CarouselStatItem;
+  districts: CarouselStatItem;
+  villages: CarouselStatItem;
 }
 
 // Per-slide background images — distinct agriculture scenes for each of the 5 slides
@@ -47,7 +57,7 @@ const buildSlides = (live: CarouselStats): Slide[] => [
     stats: [
       { value: live.totalQuestions, label: "Questions processed" },
       { value: live.validatedQAPairs, label: "Validated Q&A pairs" },
-      { value: live.languagesSupported, label: "Languages supported" },
+      { value: live.languages.value, label: live.languages.label },
     ],
   },
   {
@@ -56,9 +66,9 @@ const buildSlides = (live: CarouselStats): Slide[] => [
     image: SLIDE_IMAGES[1],
     bg: "linear-gradient(135deg, #1b4332 0%, #2d6a4f 45%, #40916c 100%)",
     stats: [
-      { value: live.expertsEngaged, label: "Experts engaged" },
-      { value: live.kvksMapped, label: "KVKs mapped" },
-      { value: live.sausCollaborating, label: "SAUs collaborating" },
+      { value: live.experts.value, label: live.experts.label },
+      { value: live.kvks.value, label: live.kvks.label },
+      { value: live.saus.value, label: live.saus.label },
     ],
   },
   {
@@ -67,12 +77,12 @@ const buildSlides = (live: CarouselStats): Slide[] => [
     image: SLIDE_IMAGES[2],
     bg: "linear-gradient(135deg, #166534 0%, #15803d 45%, #52b788 100%)",
     stats: [
-      { value: 29, label: "States & UTs" },
-      { value: 612, label: "Districts covered" },
-      { value: 8420, label: "Villages reached" },
+      { value: live.states.value, label: live.states.label },
+      { value: live.districts.value, label: live.districts.label },
+      { value: live.villages.value, label: live.villages.label },
     ],
   },
-  {
+ /* {
     title: "AI-Powered Advisory in Every Language",
     tag: "Voice, WhatsApp and web — answering farmers in Hindi, Tamil, Telugu and 19 more.",
     image: SLIDE_IMAGES[3],
@@ -93,7 +103,7 @@ const buildSlides = (live: CarouselStats): Slide[] => [
       { value: "186K", label: "Price queries resolved" },
       { value: "4.1M", label: "Expert-validated answers" },
     ],
-  },
+  },*/
 ];
 
 const INTERVAL = 5000;

@@ -3,7 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import "./public-dashboard.css";
 import { Footer } from "./components/Footer";
 import { Header } from "./components/Header";
-import { HeroCarousel } from "./components/HeroCarousel";
+import { HeroCarousel, type CarouselStatItem } from "./components/HeroCarousel";
 import { OutreachGallery } from "./components/OutreachGallery";
 import {
   Channels,
@@ -79,13 +79,16 @@ export const PublicDashboard = () => {
   const domainData = useMemo(() => buildDomainSlices(live), [live]);
 
   // Carousel figures that aren't derivable from the questions collection — an admin
-  // maintains them as headline stats in Edit Dashboard.
+  // maintains them (label AND value) as headline stats in Edit Dashboard.
   const editorial = useMemo(
     () => ({
-      languagesSupported: findStat(content?.stats, "language"),
-      expertsEngaged: findStat(content?.stats, "expert"),
-      kvksMapped: findStat(content?.stats, "kvk"),
-      sausCollaborating: findStat(content?.stats, "sau"),
+      languages: findStatItem(content?.stats, "language", "Languages supported"),
+      experts: findStatItem(content?.stats, "expert", "Experts engaged"),
+      kvks: findStatItem(content?.stats, "kvk", "KVKs mapped"),
+      saus: findStatItem(content?.stats, "sau", "SAUs collaborating"),
+      states: findStatItem(content?.stats, "state", "States covered"),
+      districts: findStatItem(content?.stats, "district", "Districts covered"),
+      villages: findStatItem(content?.stats, "village", "Villages covered"),
     }),
     [content?.stats],
   );
@@ -144,8 +147,6 @@ function buildStatCells(
 ): StatCell[] {
   const liveStats: StatCell[] = live
     ? [
-        { label: "Total Validated Question-Answer Pairs", value: String(live.validatedQAPairs) },
-        { label: "States Covered", value: String(live.statesCovered) },
         { label: "Crops Covered", value: String(live.cropsCovered) },
         { label: "Domains Covered", value: String(live.domainsCovered) },
       ]
@@ -163,16 +164,24 @@ function buildStatCells(
 /**
  * Look up an admin-edited headline figure by a fragment of its label ("language" matches
  * both "Languages supported" and "Total Languages Supported", so an admin can rename the
- * stat without breaking the carousel). Falls back to the seed defaults, then to "".
+ * stat without breaking the carousel). Returns BOTH the label and the value: when the admin
+ * has saved a matching stat, the carousel shows the admin's wording and number; otherwise it
+ * falls back to `fallbackLabel` and the seed default value.
  */
-function findStat(adminStats: DashboardStat[] | undefined, labelFragment: string): string {
+function findStatItem(
+  adminStats: DashboardStat[] | undefined,
+  labelFragment: string,
+  fallbackLabel: string,
+): CarouselStatItem {
   const needle = labelFragment.toLowerCase();
 
   const saved = adminStats?.find((s) => s.label.toLowerCase().includes(needle));
-  if (saved?.value?.trim()) return saved.value.trim();
+  if (saved?.value?.trim()) {
+    return { label: saved.label.trim() || fallbackLabel, value: saved.value.trim() };
+  }
 
   const seed = heroStats.find((s) => s.label.toLowerCase().includes(needle));
-  return seed ? String(seed.count) : "";
+  return { label: fallbackLabel, value: seed ? String(seed.count) : "" };
 }
 
 /** Top 10 domains by question volume; the demo figures until the API answers. */
