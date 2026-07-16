@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -39,6 +40,7 @@ logger = logging.getLogger(__name__)
 _EXTRACTION_SEPARATOR = " "
 _MAX_INVALID_RESPONSE_FEEDBACK_CHARACTERS = 12_000
 _REVIEWER_FOOTER_MARKER = "👤 Answered by:"
+_FOOTER_DIVIDER_LINE = re.compile(r"(?m)^[\t ]*_{3,}[\t ]*$")
 
 
 class ClaudeGateway(Protocol):
@@ -107,17 +109,24 @@ class AnswerParts:
 
 
 def split_reviewer_footer(answer: str) -> AnswerParts:
-    """Split at the first exact reviewer footer marker without rewriting it.
+    """Split at the first recognized footer boundary without rewriting it.
 
-    The footer retains whitespace immediately before the marker. Reattaching it
-    after the selected body therefore preserves the reviewer metadata verbatim.
+    The exact ``👤 Answered by:`` marker and any standalone underscore divider
+    line of three or more underscores are recognized. The footer retains
+    whitespace immediately before its boundary. Reattaching it after the
+    selected body therefore preserves all reviewer metadata and testing notices
+    verbatim.
     """
 
-    marker_start = answer.find(_REVIEWER_FOOTER_MARKER)
-    if marker_start < 0:
+    divider_match = _FOOTER_DIVIDER_LINE.search(answer)
+    boundary_starts = (answer.find(_REVIEWER_FOOTER_MARKER),)
+    if divider_match is not None:
+        boundary_starts += (divider_match.start(),)
+    recognized_starts = [start for start in boundary_starts if start >= 0]
+    if not recognized_starts:
         return AnswerParts(body=answer, footer="")
 
-    body_end = marker_start
+    body_end = min(recognized_starts)
     while body_end > 0 and answer[body_end - 1].isspace():
         body_end -= 1
 
@@ -151,7 +160,7 @@ class AnswerShorteningService:
         answer_body = parts.body
         if not answer_body:
             raise AnswerBodyMissingError(
-                "The answer has reviewer footer text but no answer body before '👤 Answered by:'"
+                "The answer has footer text but no answer body before its recognized footer boundary"
             )
 
         lower_bound = max(1, expected_character_count - self._tolerance)
