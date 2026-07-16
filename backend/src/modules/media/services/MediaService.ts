@@ -18,6 +18,11 @@ import { IMediaService } from '../interfaces/IMediaService.js';
  */
 @injectable()
 export class MediaService implements IMediaService {
+  // How long a served read URL stays valid. 7 days is the v4 maximum — long-lived so a
+  // dashboard tab left open, or a browser-cached list, doesn't end up with dead image links
+  // before the next fetch re-signs them.
+  private static readonly READ_URL_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
   constructor(
     @inject(GLOBAL_TYPES.MediaRepository)
     private repo: IMediaRepository,
@@ -41,7 +46,30 @@ export class MediaService implements IMediaService {
   }
 
   async list(kind?: MediaKind): Promise<IMedia[]> {
-    return this.repo.list(kind);
+    const items = await this.repo.list(kind);
+
+    // The public dashboard is unauthenticated, so it can only load an image if the object is
+    // reachable without a login. Rather than depend on the bucket being world-readable
+    // (which Public Access Prevention / Uniform Bucket-Level Access can forbid), each object's
+    // `url` is swapped for a short-lived v4 signed READ url that anyone can fetch. The stored
+    // `url` in Mongo is left as-is; this only affects what we hand out.
+    return Promise.all(
+      items.map(async item => ({
+        ...item,
+        url: await this.signReadUrl(item.storagePath).catch(() => item.url),
+      })),
+    );
+  }
+
+  /** A v4 signed URL that grants anonymous read of one object for READ_URL_TTL_MS. */
+  private async signReadUrl(storagePath: string): Promise<string> {
+    const { bucket } = this.getBucket();
+    const [url] = await bucket.file(storagePath).getSignedUrl({
+      version: 'v4',
+      action: 'read',
+      expires: Date.now() + MediaService.READ_URL_TTL_MS,
+    });
+    return url;
   }
 
   async upload({
