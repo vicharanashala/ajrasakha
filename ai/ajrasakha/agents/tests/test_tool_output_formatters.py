@@ -279,6 +279,22 @@ def test_format_market_passthrough_non_json():
     assert format_tool_output("market", prose) == prose
 
 
+def test_format_daily_price_passthrough():
+    prose = "Wheat modal price near Ludhiana is Rs 2500 per quintal today."
+    assert format_tool_output("daily_price", prose) == prose
+
+
+def test_format_daily_price_envelope_uses_answer_only():
+    envelope = json.dumps({
+        "answer": "Wheat modal price near Ludhiana is Rs 2500 per quintal today.",
+        "tool_data": {"price_records": [{"modal_price": 2500}], "raw": "ignore for farmer"},
+    })
+    out = format_tool_output("daily_price", envelope)
+    assert out == "Wheat modal price near Ludhiana is Rs 2500 per quintal today."
+    assert "tool_data" not in out
+    assert "raw" not in out
+
+
 def test_format_market_agmarknet_cotton_sirsa():
     out = format_tool_output("market", json.dumps(MARKET_COTTON_SIRSA_ENVELOPE))
     assert "{" not in out

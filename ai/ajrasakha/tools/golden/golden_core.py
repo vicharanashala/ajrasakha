@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import re
@@ -37,16 +38,30 @@ EMBEDDING_TIMEOUT_S = float(os.getenv("GOLDEN_EMBEDDING_TIMEOUT_S", "15"))
 MONGODB_URI = os.getenv("GOLDEN_MONGODB_URI")
 MONGODB_DATABASE = os.getenv("GOLDEN_MONGODB_DATABASE", "agriai")
 MONGODB_VECTOR_INDEX = os.getenv("GOLDEN_MONGODB_INDEX")
+MONGODB_QUESTION_EMBEDDING_INDEX = os.getenv("GOLDEN_MONGODB_QUESTION_EMBEDDING_INDEX")
+MONGODB_DUAL_EMBEDDING_INDEX = os.getenv("GOLDEN_MONGODB_DUAL_EMBEDDING_INDEX")
+MONGODB_ANSWERS_VECTOR_INDEX = os.getenv("GOLDEN_MONGODB_ANSWERS_INDEX", "review_answers_vector_index")
 MONGODB_SEARCH_INDEX = os.getenv("GOLDEN_MONGODB_SEARCH_INDEX", "review_questions_search_index")
 GOLDEN_RAG_TOP_K = int(os.getenv("GOLDEN_RAG_TOP_K", "5"))
 
+# Dual search configuration: top-K from each collection
+QUESTIONS_TOP_K = int(os.getenv("QUESTIONS_TOP_K", "3"))
+ANSWERS_TOP_K = int(os.getenv("ANSWERS_TOP_K", "2"))
+
+# BM25 search configuration
+BM25_TOP_K = int(os.getenv("BM25_TOP_K", "3"))
+BM25_SEARCH_INDEX = os.getenv("BM25_SEARCH_INDEX", "review_questions_search_index")
+
 RETRIEVAL_SOURCE_RAG = "rag"
 RETRIEVAL_SOURCE_STRICT_EXACT = "strict_exact"
+RETRIEVAL_SOURCE_BM25 = "bm25"
 
 if not MONGODB_URI:
     raise RuntimeError("GOLDEN_MONGODB_URI is not set")
 if not MONGODB_VECTOR_INDEX:
     raise RuntimeError("GOLDEN_MONGODB_INDEX is not set")
+if not MONGODB_ANSWERS_VECTOR_INDEX:
+    raise RuntimeError("GOLDEN_MONGODB_ANSWERS_INDEX is not set")
 if not MONGODB_SEARCH_INDEX:
     raise RuntimeError("GOLDEN_MONGODB_SEARCH_INDEX is not set")
 
@@ -75,7 +90,7 @@ class PendingQuestionCandidate(BaseModel):
 
 
 PENDING_DUPLICATE_SOURCES = ("AJRASAKHA", "WHATSAPP")
-PENDING_DUPLICATE_STATUSES = ("open", "delayed")
+PENDING_DUPLICATE_STATUSES = ("open", "delayed", "in-review")
 PENDING_VECTOR_TOP_K = 3
 
 
@@ -167,12 +182,19 @@ async def _vector_search_questions(
     query_vector: list[float],
     k: int,
     meta_filter: dict[str, Any],
+    embedding_field: str = "embedding",  # "embedding" for v1, "question_embedding" for v2
 ) -> list[dict[str, Any]]:
+    # Use the correct index based on embedding field
+    if embedding_field == "question_embedding":
+        index_name = MONGODB_DUAL_EMBEDDING_INDEX or MONGODB_QUESTION_EMBEDDING_INDEX
+    else:
+        index_name = MONGODB_VECTOR_INDEX
+    
     pipeline: list[dict[str, Any]] = [
         {
             "$vectorSearch": {
-                "index": MONGODB_VECTOR_INDEX,
-                "path": "embedding",
+                "index": index_name,
+                "path": embedding_field,
                 "queryVector": query_vector,
                 "numCandidates": max(50, k * 10),
                 "limit": k,
@@ -184,6 +206,8 @@ async def _vector_search_questions(
                 "_id": 1,
                 "question": 1,
                 "text": 1,
+                "answer": 1,
+                "answer_embedding": 1,
                 "details": 1,
                 "referenceQuestionId": 1,
                 "createdAt": 1,
@@ -193,6 +217,68 @@ async def _vector_search_questions(
     ]
     cursor = await questions_collection.aggregate(pipeline)
     return await cursor.to_list(length=k)
+
+
+async def _vector_search_answers(
+    *,
+    query_vector: list[float],
+    k: int,
+    meta_filter: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Search answer_embedding in questions collection using dual index."""
+    if MONGODB_DUAL_EMBEDDING_INDEX:
+        # Use dual index on questions collection (answer_embedding is now in questions)
+        pipeline: list[dict[str, Any]] = [
+            {
+                "$vectorSearch": {
+                    "index": MONGODB_DUAL_EMBEDDING_INDEX,
+                    "path": "answer_embedding",
+                    "queryVector": query_vector,
+                    "numCandidates": max(50, k * 10),
+                    "limit": k,
+                    "filter": meta_filter,
+                }
+            },
+            {
+                "$project": {
+                    "_id": 1,
+                    "question": 1,
+                    "text": 1,
+                    "answer": 1,
+                    "answer_embedding": 1,
+                    "details": 1,
+                    "vector_score": {"$meta": "vectorSearchScore"},
+                }
+            },
+        ]
+        cursor = await questions_collection.aggregate(pipeline)
+        return await cursor.to_list(length=k)
+    else:
+        # Fallback to old answers collection
+        pipeline = [
+            {
+                "$vectorSearch": {
+                    "index": MONGODB_ANSWERS_VECTOR_INDEX,
+                    "path": "answer_embedding",
+                    "queryVector": query_vector,
+                    "numCandidates": max(50, k * 10),
+                    "limit": k,
+                    "filter": meta_filter,
+                }
+            },
+            {
+                "$project": {
+                    "_id": 1,
+                    "questionId": 1,
+                    "answer": 1,
+                    "sources": 1,
+                    "authorId": 1,
+                    "vector_score": {"$meta": "vectorSearchScore"},
+                }
+            },
+        ]
+        cursor = await answers_collection.aggregate(pipeline)
+        return await cursor.to_list(length=k)
 
 
 async def _get_answer_text_sources_and_author_name(question_id: str):
@@ -232,9 +318,14 @@ async def vector_rag_search(
     season: str | None = None,
     domain: str | None = None,
     top_k: int | None = None,
+    use_dual_search: bool = False,
+    embedding_field: str = "embedding",  # "embedding" for v1, "question_embedding" for v2
 ) -> list[QuestionAnswerPair]:
     crop, state = _normalize_crop_state(crop, state)
     k = top_k or GOLDEN_RAG_TOP_K
+    q_k = QUESTIONS_TOP_K
+    a_k = ANSWERS_TOP_K
+    
     filters: dict[str, Any] = {"status": "closed"}
     if crop != "all":
         filters["details.normalised_crop"] = crop
@@ -244,26 +335,60 @@ async def vector_rag_search(
         filters["details.season"] = season
     if domain:
         filters["details.domain"] = domain
+    
+    # Answer filter - when using dual index, use same filters as questions
+    # When using old answers collection, this will be overridden
+    answer_filter: dict[str, Any] = filters.copy()
 
-    log.info(
-        "vector search start query=%r crop=%s state=%s top_k=%d",
-        _truncate_text(query, 80),
-        crop,
-        state,
-        k,
-    )
+    if use_dual_search:
+        log.info(
+            "vector search start query=%r crop=%s state=%s questions_k=%d answers_k=%d dual_search=True field=%s",
+            _truncate_text(query, 80),
+            crop,
+            state,
+            q_k,
+            a_k,
+            embedding_field,
+        )
+    else:
+        log.info(
+            "vector search start query=%r crop=%s state=%s top_k=%d dual_search=False field=%s",
+            _truncate_text(query, 80),
+            crop,
+            state,
+            k,
+            embedding_field,
+        )
     try:
         query_vector = await _embed_text(query)
-        docs = await _vector_search_questions(
-            query_vector=query_vector, k=k, meta_filter=filters
-        )
+        
+        if use_dual_search:
+            # Dual search: questions + answers in parallel
+            questions_task = _vector_search_questions(
+                query_vector=query_vector, k=q_k, meta_filter=filters, embedding_field=embedding_field
+            )
+            answers_task = _vector_search_answers(
+                query_vector=query_vector, k=a_k, meta_filter=answer_filter
+            )
+            question_docs, answer_docs = await asyncio.gather(questions_task, answers_task)
+            log.info("dual search results: questions=%d (k=%d), answers=%d (k=%d) → combined=%d",
+                     len(question_docs), q_k, len(answer_docs), a_k, len(question_docs) + len(answer_docs))
+        else:
+            # Original: only questions
+            question_docs = await _vector_search_questions(
+                query_vector=query_vector, k=k, meta_filter=filters, embedding_field=embedding_field
+            )
+            answer_docs = []
+            log.info("vector search: questions=%d", len(question_docs))
     except Exception as exc:
         log.warning("vector search failed: %s: %s", type(exc).__name__, exc)
         return []
 
-    log.info("vector search mongo returned %d doc(s)", len(docs))
     result: list[QuestionAnswerPair] = []
-    for doc in docs:
+    seen_question_ids: set[str] = set()
+    
+    # Process question results
+    for doc in question_docs:
         score = doc.get("vector_score")
         question_id = str(doc["_id"])
         answer, sources, author_name = await _get_answer_text_sources_and_author_name(
@@ -281,6 +406,75 @@ async def vector_rag_search(
                 similarity_score=score,
             )
         )
+        seen_question_ids.add(question_id)
+    
+    # Process answer results (only if dual search)
+    if use_dual_search:
+        for doc in answer_docs:
+            score = doc.get("vector_score")
+            # When using dual index, answer comes from questions collection (has _id)
+            # When using old answers collection, answer has questionId
+            question_id = str(doc.get("_id") or doc.get("questionId"))
+            
+            if question_id in seen_question_ids:
+                continue
+            
+            # Get question text - either from doc itself (dual index) or lookup (old)
+            question_text = doc.get("question") or doc.get("text", "")
+            if not question_text:
+                question_doc = await questions_collection.find_one(
+                    {"_id": ObjectId(question_id)},
+                    {"question": 1, "text": 1}
+                )
+                if question_doc:
+                    question_text = question_doc.get("question") or question_doc.get("text", "")
+            
+            if not question_text:
+                continue
+            
+            # Get answer text, sources, author - from doc if using dual index, or lookup from answers collection
+            answer_text = doc.get("answer", "")
+            sources = []
+            author_id = None
+            
+            if not answer_text:
+                answer_doc = await answers_collection.find_one(
+                    {"questionId": ObjectId(question_id), "isFinalAnswer": True},
+                    {"answer": 1, "sources": 1, "authorId": 1}
+                )
+                if answer_doc:
+                    answer_text = answer_doc.get("answer", "")
+                    sources = answer_doc.get("sources", [])
+                    author_id = answer_doc.get("authorId")
+            
+            if not answer_text:
+                continue
+            
+            # Get author name if we don't have it yet
+            author_name = None
+            if author_id:
+                user_doc = await users_collection.find_one(
+                    {"_id": ObjectId(author_id)},
+                    {"firstName": 1, "lastName": 1, "name": 1},
+                )
+                author_name = _author_display_name(user_doc)
+            
+            result.append(
+                QuestionAnswerPair(
+                    question_id=question_id,
+                    question_text=question_text,
+                    answer_text=answer_text,
+                    author=author_name,
+                    sources=sources if isinstance(sources, list) else [],
+                    similarity_score=score,
+                )
+            )
+            seen_question_ids.add(question_id)
+        
+        # Sort by score and limit
+        result.sort(key=lambda x: x.similarity_score or 0, reverse=True)
+        result = result[:k]
+    
     _log_search_hits("vector", query, crop, state, result)
     return result
 
@@ -377,6 +571,127 @@ async def strict_exact_search(
     return result
 
 
+async def bm25_search(
+    keywords: str,
+    crop: str,
+    state: str,
+    *,
+    exclude_question_ids: set[str] | None = None,
+    top_k: int | None = None,
+) -> list[QuestionAnswerPair]:
+    """
+    BM25 keyword search returning QuestionAnswerPairs.
+    
+    This searches using extracted agricultural keywords and returns
+    formatted pairs suitable for the RAG pipeline.
+    
+    Args:
+        keywords: Space-separated keywords from keyword extraction
+        crop: Crop filter
+        state: State filter
+        exclude_question_ids: Question IDs to exclude (from semantic results)
+        top_k: Maximum results to return
+    
+    Returns:
+        List of QuestionAnswerPairs from BM25 search
+    """
+    k = top_k or BM25_TOP_K
+    
+    if not keywords or not keywords.strip():
+        log.info("BM25 search skipped: no keywords provided")
+        return []
+    
+    crop, state = _normalize_crop_state(crop, state)
+    log.info(
+        "bm25 search start keywords=%r crop=%s state=%s top_k=%d",
+        _truncate_text(keywords, 80),
+        crop,
+        state,
+        k,
+    )
+    
+    # Build filter for closed questions
+    filters: dict[str, Any] = {"status": "closed"}
+    if crop != "all":
+        filters["details.normalised_crop"] = crop
+    if state != "all":
+        filters["details.state"] = state
+    
+    try:
+        pipeline = [
+            {
+                "$search": {
+                    "index": BM25_SEARCH_INDEX,
+                    "text": {
+                        "query": keywords,
+                        "path": ["question", "text", "answer"],
+                        "fuzzy": {"maxEdits": 2},  # Allow typo tolerance
+                    },
+                }
+            },
+            {"$match": filters},
+            {
+                "$project": {
+                    "_id": 1,
+                    "question": 1,
+                    "text": 1,
+                    "answer": 1,
+                    "search_score": {"$meta": "searchScore"},
+                }
+            },
+            {"$limit": k},
+        ]
+        
+        cursor = await questions_collection.aggregate(pipeline)
+        raw_results = await cursor.to_list(length=k)
+        log.info("bm25 search returned %d candidates", len(raw_results))
+        
+        if not raw_results:
+            return []
+        
+        result: list[QuestionAnswerPair] = []
+        
+        for doc in raw_results:
+            question_id = str(doc["_id"])
+            
+            # Skip if already in semantic results
+            if exclude_question_ids and question_id in exclude_question_ids:
+                log.info("BM25: skipping duplicate question_id=%s", question_id)
+                continue
+            
+            answer, sources, author_name = await _get_answer_text_sources_and_author_name(question_id)
+            if not answer:
+                continue
+            
+            score = doc.get("search_score")
+            # Normalize score to 0-1 range
+            similarity_score = min(max((score or 0.5) / 10.0, 0.0), 1.0) if score else 0.5
+            
+            result.append(
+                QuestionAnswerPair(
+                    question_id=question_id,
+                    question_text=doc.get("question") or doc.get("text", ""),
+                    answer_text=answer,
+                    author=author_name,
+                    sources=sources if sources else [],
+                    similarity_score=similarity_score,
+                )
+            )
+            log.info(
+                "BM25[%s]: score=%s question=%r",
+                question_id,
+                f"{score:.4f}" if score else "n/a",
+                _truncate_text(doc.get("question") or "", 60),
+            )
+        
+        _log_search_hits("bm25", keywords, crop, state, result)
+        return result
+        
+    except Exception as exc:
+        log.warning("bm25 search failed: %s: %s", type(exc).__name__, exc)
+        return []
+
+
 def _pending_meta_filter(
     crop: str,
     state: str,
@@ -453,7 +768,7 @@ async def _pending_vector_search_questions(
         {
             "$vectorSearch": {
                 "index": MONGODB_VECTOR_INDEX,
-                "path": "embedding",
+                "path": "question_embedding",
                 "queryVector": query_vector,
                 "numCandidates": max(100, fetch_limit * 10),
                 "limit": fetch_limit,

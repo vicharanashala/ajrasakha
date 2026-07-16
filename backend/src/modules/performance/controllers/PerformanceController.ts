@@ -111,11 +111,13 @@ export class PerformanceController {
   @OpenAPI({ summary: 'Get role overview and approval rates' })
   @Get('/overview')
   @Authorized()
-  async getOverview(@CurrentUser() user: IUser): Promise<{
+  async getOverview(@CurrentUser() user: IUser,@QueryParams() query: { startDateTime?: string; endDateTime?: string;}): Promise<{
     userRoleOverview: UserRoleOverview[];
+    stfExpertCount: number;
+    stfModeratorCount: number;
     moderatorApprovalRate: ModeratorApprovalRate;
   }> {
-    return this.performanceService.getOverview(user._id.toString());
+    return this.performanceService.getOverview(user._id.toString(),query);
   }
 
   @OpenAPI({ summary: 'Get golden dataset analytics' })

@@ -112,6 +112,7 @@ const DEFAULT_FILTERS: UserDetailsFilters = {
   lowFeedbackOnly: false,
   userType: "all",
   verificationStatus: "all",
+  loginStatus: "all",
 };
 
 const rolesForUserType = (value: "all" | "external" | "internal"): string[] => {
@@ -256,6 +257,8 @@ export function UserDetailsView({
     false,
     "",
     filters.verificationStatus,
+    true,
+    filters.loginStatus,
   );
 
   const {
@@ -394,7 +397,8 @@ export function UserDetailsView({
     filters.profileCompleted !== "all" ||
     filters.inactiveOnly ||
     filters.lowFeedbackOnly ||
-    filters.verificationStatus !== "all";
+    filters.verificationStatus !== "all" ||
+    filters.loginStatus !== "all";
 
   // const dateLabel =
   //   filters.startTime && filters.endTime

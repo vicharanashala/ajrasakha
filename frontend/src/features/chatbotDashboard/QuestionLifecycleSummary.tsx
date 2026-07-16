@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
-import { AlertCircle, Clock, RefreshCw, Pencil, Loader2 } from "lucide-react";
-
+import { Clock, Pencil, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/atoms/card";
 import { useLifeCycleSummary } from "./hooks/useActiveUsersAnalytics";
-import { Skeleton } from "@/components/atoms/skeleton";
 import { Info } from "lucide-react";
 import {
   Accordion,
@@ -26,6 +24,12 @@ interface Props {
   isPassed?: boolean;
   tag?: string;
   notificationType?: string;
+  page: number;
+  limit: number;
+  totalPages: number;
+  totalCount: number;
+  onPageChange: (page: number) => void;
+  onLimitChange: (limit: number) => void;
 }
 
 const formatDuration = (ms?: number) => {
@@ -57,7 +61,16 @@ export function QuestionLifecycleSummary({
   isPassed,
   tag,
   notificationType,
+  page,
+  limit,
+  totalPages,
+  totalCount,
+  onPageChange,
+  onLimitChange,
 }: Props) {
+  useEffect(() => {
+    onPageChange(1);
+  }, [startDate, endDate, source, status, userType, isPassed, tag]);
   const {
     data: summary,
     isLoading,
@@ -71,26 +84,21 @@ export function QuestionLifecycleSummary({
     isPassed,
     tag,
     notificationType,
+    page,
+    limit,
   );
-  // console.log("tag", summary);
   const primaryMetrics = [
-    {
-      title: "Authoring (R0)",
-      value: summary?.avgAuthoringTime,
-      tooltip:
-        "Average time spent by authors writing answers.\n\nNumerator: Total authoring time across questions that reached R0.\nDenominator: Questions having an authoring stage (authoringCount).",
-    },
     {
       title: "R1 Review",
       value: summary?.avgR1Time,
       tooltip:
-        "Average duration of the first reviewer.\n\nNumerator: Sum of all first-review durations.\nDenominator: Questions that reached R1 (r1Count).",
+        "Average duration of the first review stage across all questions in the selected dataset.\n\nNumerator: Total R1 review duration.\nDenominator: All questions in the selected dataset.",
     },
     {
       title: "Moderator",
       value: summary?.avgModeratorTime,
       tooltip:
-        "Average time moderators spend approving questions.\n\nNumerator: Total moderator review duration.\nDenominator: Questions assigned to moderators (moderatorCount).",
+        "Average time spent in moderator review across all questions in the selected dataset.\n\nNumerator: Total moderator review duration.\nDenominator: All questions in the selected dataset.",
     },
     {
       title: "Awaiting Moderator",
@@ -98,25 +106,15 @@ export function QuestionLifecycleSummary({
       tooltip:
         "Average waiting time between final reviewer completion and moderator assignment.\n\nNumerator: Total waiting time.\nDenominator: All questions in the selected dataset.",
     },
-  ];
-
-  const secondaryMetrics = [
-    {
-      title: "SLA Breached %",
-      value:
-        summary?.totalQuestions > 0
-          ? (summary?.slaBreachedCount / summary?.totalQuestions) * 100
-          : 0,
-      formatter: (v: number) => `${v.toFixed(1)}%`,
-      tooltip:
-        "Percentage of resolved questions taking more than 2 hours.\n\nFormula:\n(SLA Breached Questions ÷ Total Questions) × 100",
-    },
     {
       title: "Initial Allocation",
       value: summary?.avgInitialAllocationTime,
       tooltip:
         "Average time from question creation until first allocation.\n\nNumerator: Total initial allocation waiting time.\nDenominator: All questions.",
     },
+  ];
+
+  const secondaryMetrics = [
     {
       title: "Pending Assignment",
       value: summary?.avgPendingAssignmentTime,
@@ -133,27 +131,13 @@ export function QuestionLifecycleSummary({
       title: "R2 Review",
       value: summary?.avgR2Time,
       tooltip:
-        "Average duration of the second reviewer.\n\nNumerator: Total R2 review duration.\nDenominator: Questions that reached R2 (r2Count).",
+        "Average duration of the second review stage across all questions in the selected dataset.\n\nNumerator: Total R2 review duration.\nDenominator: All questions in the selected dataset.",
     },
     {
       title: "R3 Review",
       value: summary?.avgR3Time,
       tooltip:
-        "Average duration of the third reviewer.\n\nNumerator: Total R3 review duration.\nDenominator: Questions that reached R3 (r3Count).",
-    },
-    {
-      title: "Avg Reroutes",
-      value: summary?.avgReroutesPerQuestion,
-      formatter: (v: number) => v?.toFixed(2),
-      tooltip:
-        "Average reroutes per question.\n\nFormula:\nTotal Reroutes ÷ Total Questions.",
-    },
-    {
-      title: "Resolution Rate",
-      value: summary?.resolutionRate,
-      formatter: (v: number) => `${v.toFixed(1)}%`,
-      tooltip:
-        "Percentage of questions that are closed or passed.\n\nFormula:\nResolved Questions ÷ Total Questions × 100.",
+        "Average duration of the third review stage across all questions in the selected dataset.\n\nNumerator: Total R3 review duration.\nDenominator: All questions in the selected dataset.",
     },
   ];
 
@@ -166,7 +150,7 @@ export function QuestionLifecycleSummary({
     {
       title: "Avg Lifecycle",
       tooltip:
-        "Average end-to-end lifecycle duration.\n\nNumerator: Total lifecycle time of resolved questions.\nDenominator: Closed/Passed questions only (resolvedQuestions).",
+        "Average time taken to complete a question from creation until its final outcome.\n\nIncludes Closed, Passed, and Duplicate questions.",
     },
 
     {
@@ -174,11 +158,10 @@ export function QuestionLifecycleSummary({
       tooltip:
         "Sum of all average waiting periods:\n• Initial Allocation\n• Pending Assignment\n• Awaiting Moderator\n• Awaiting Closure\n\nRepresents non-working time in the lifecycle.",
     },
-
     {
-      title: "Within SLA",
+      title: "Authoring (R0)",
       tooltip:
-        "Questions resolved within 2 hours.\n\nFormula:\nTotal Questions − SLA Breached Questions.",
+        "Average time spent in the authoring stage across all questions in the selected dataset.\n\nNumerator: Total authoring duration.\nDenominator: All questions in the selected dataset.",
     },
   ];
 
@@ -205,8 +188,8 @@ export function QuestionLifecycleSummary({
     },
     {
       ...topMetrics[3],
-      value: summary?.totalQuestions - summary?.slaBreachedCount,
-      valueClass: "text-green-500",
+      value: formatDuration(summary?.avgAuthoringTime),
+      // valueClass: "text-green-500",
     },
   ];
 
@@ -245,46 +228,12 @@ export function QuestionLifecycleSummary({
     });
   }
 
-  if ((summary?.avgAwaitingModeratorTime || 0) > 20 * 60 * 1000) {
-    insights.push({
-      icon: Clock,
-      color: "text-purple-500",
-      title: "Moderator assignment is the largest bottleneck",
-      description: `Questions wait ${formatDuration(
-        summary?.avgAwaitingModeratorTime,
-      )} on average before moderator approval.`,
-    });
-  }
-
-  if ((summary?.totalReroutes || 0) > 0) {
-    insights.push({
-      icon: RefreshCw,
-      color: "text-orange-500",
-      title: `${summary?.totalReroutes} reroutes occurred`,
-      description: `Average reroute overhead: ${formatDuration(
-        summary?.avgRerouteTime,
-      )}`,
-    });
-  }
-
   if ((summary?.avgAuthoringTime || 0) > 20 * 60 * 1000) {
     insights.push({
       icon: Pencil,
       color: "text-amber-500",
       title: `Authoring averages ${formatDuration(summary?.avgAuthoringTime)}`,
       description: "Authoring time exceeds the expected 20-minute benchmark.",
-    });
-  }
-
-  if ((summary?.slaBreachedCount || 0) > 0) {
-    insights.push({
-      icon: AlertCircle,
-      color: "text-red-500",
-      title: `${summary?.slaBreachedCount} SLA breaches`,
-      description: `${(
-        (summary?.slaBreachedCount / summary?.totalQuestions) *
-        100
-      ).toFixed(1)}% of questions breached the SLA.`,
     });
   }
 
@@ -307,7 +256,7 @@ export function QuestionLifecycleSummary({
 
       timeoutId = setTimeout(() => {
         setLoadingMessageIndex((prev) => (prev + 1) % loadingMessages.length);
-        updateMessage(); 
+        updateMessage();
       }, randomDelay);
     };
 
@@ -324,17 +273,19 @@ export function QuestionLifecycleSummary({
           <Loader2 className="h-12 w-12 text-primary animate-spin" />
           <div className="absolute inset-0 h-12 w-12 rounded-full border-4 border-primary/30 animate-ping opacity-20"></div>
         </div>
-        
+
         {/* Rotating Loading Message */}
         <div className="text-center space-y-1">
           <p className="text-sm font-medium text-gray-700 dark:text-gray-300 animate-pulse">
             {loadingMessages[loadingMessageIndex]}
           </p>
-          {summary?.totalQuestions !== undefined && summary.totalQuestions > 0 && (
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Analyzing {summary.totalQuestions.toLocaleString()} question{summary.totalQuestions !== 1 ? "s" : ""}
-            </p>
-          )}
+          {summary?.totalQuestions !== undefined &&
+            summary.totalQuestions > 0 && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Analyzing {summary.totalQuestions.toLocaleString()} question
+                {summary.totalQuestions !== 1 ? "s" : ""}
+              </p>
+            )}
         </div>
       </div>
     );
@@ -343,120 +294,121 @@ export function QuestionLifecycleSummary({
   return (
     <div className="space-y-6 p-6 overflow-auto">
       {/* Top KPIs */}
+      <div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {topMetricValues.map((item) => (
+            <Card key={item.title}>
+              <CardContent className="p-4">
+                <MetricTitle title={item.title} tooltip={item.tooltip} />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {topMetricValues.map((item) => (
-          <Card key={item.title}>
-            <CardContent className="p-4">
-              <MetricTitle title={item.title} tooltip={item.tooltip} />
+                <p className={`text-2xl font-bold ${item.valueClass ?? ""}`}>
+                  {item.value}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
 
-              <p className={`text-2xl font-bold ${item.valueClass ?? ""}`}>
-                {item.value}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+        {/* Primary Metrics */}
 
-      {/* Primary Metrics */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {primaryMetrics.map((item) => (
+            <Card key={item.title}>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-1 mb-2">
+                  <p className="text-sm text-muted-foreground">{item.title}</p>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {primaryMetrics.map((item) => (
-          <Card key={item.title}>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-1 mb-2">
-                <p className="text-sm text-muted-foreground">{item.title}</p>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button type="button">
+                        <Info className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+                      </button>
+                    </TooltipTrigger>
 
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button type="button">
-                      <Info className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                    </button>
-                  </TooltipTrigger>
-
-                  <TooltipContent
-                    side="top"
-                    className="max-w-sm whitespace-pre-line"
-                  >
-                    {item.tooltip}
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-
-              <p className="text-lg font-semibold">
-                {item.formatter
-                  ? item.formatter(item.value)
-                  : formatDuration(item.value)}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <Accordion type="single" collapsible className="w-full">
-        <AccordionItem value="advanced-metrics">
-          <AccordionTrigger>Detailed Metrics</AccordionTrigger>
-
-          <AccordionContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
-              {secondaryMetrics.map((item) => (
-                <Card key={item.title}>
-                  <CardContent className="p-4">
-                    <MetricTitle
-                      title={item.title}
-                      tooltip={item.tooltip}
-                      textClassName="text-xs"
-                    />
-
-                    <p className="text-lg font-semibold">
-                      {item.formatter
-                        ? item.formatter(item.value)
-                        : formatDuration(item.value)}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
-
-      {/* Insights */}
-
-      <Card>
-        <CardContent className="p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold">Lifecycle Insights</h3>
-
-            <span className="text-sm text-muted-foreground">
-              {insights.length} insights
-            </span>
-          </div>
-
-          <div className="max-h-[250px] overflow-y-auto space-y-4 pr-2">
-            {insights.map((insight, index) => {
-              const Icon = insight.icon;
-
-              return (
-                <div
-                  key={index}
-                  className="flex gap-4 border-b pb-4 last:border-0"
-                >
-                  <Icon className={`h-6 w-6 mt-1 ${insight.color}`} />
-
-                  <div>
-                    <p className="font-semibold">{insight.title}</p>
-
-                    <p className="text-sm text-muted-foreground">
-                      {insight.description}
-                    </p>
-                  </div>
+                    <TooltipContent
+                      side="top"
+                      className="max-w-sm whitespace-pre-line z-9999"
+                    >
+                      {item.tooltip}
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+
+                <p className="text-lg font-semibold">
+                  {item.formatter
+                    ? item.formatter(item.value)
+                    : formatDuration(item.value)}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <Accordion type="single" collapsible className="w-full">
+          <AccordionItem value="advanced-metrics">
+            <AccordionTrigger>Detailed Metrics</AccordionTrigger>
+
+            <AccordionContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
+                {secondaryMetrics.map((item) => (
+                  <Card key={item.title}>
+                    <CardContent className="p-4">
+                      <MetricTitle
+                        title={item.title}
+                        tooltip={item.tooltip}
+                        textClassName="text-xs"
+                      />
+
+                      <p className="text-lg font-semibold">
+                        {item.formatter
+                          ? item.formatter(item.value)
+                          : formatDuration(item.value)}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+
+        {/* Insights */}
+
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold">Lifecycle Insights</h3>
+
+              <span className="text-sm text-muted-foreground">
+                {insights.length} insights
+              </span>
+            </div>
+
+            <div className="max-h-[250px] overflow-y-auto space-y-4 pr-2">
+              {insights.map((insight, index) => {
+                const Icon = insight.icon;
+
+                return (
+                  <div
+                    key={index}
+                    className="flex gap-4 border-b pb-4 last:border-0"
+                  >
+                    <Icon className={`h-6 w-6 mt-1 ${insight.color}`} />
+
+                    <div>
+                      <p className="font-semibold">{insight.title}</p>
+
+                      <p className="text-sm text-muted-foreground">
+                        {insight.description}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
@@ -480,7 +432,10 @@ const MetricTitle = ({
         </button>
       </TooltipTrigger>
 
-      <TooltipContent side="top" className="max-w-sm whitespace-pre-line">
+      <TooltipContent
+        side="top"
+        className="max-w-sm whitespace-pre-line z-9999"
+      >
         {tooltip}
       </TooltipContent>
     </Tooltip>

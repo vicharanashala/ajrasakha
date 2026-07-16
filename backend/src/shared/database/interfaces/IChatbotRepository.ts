@@ -89,7 +89,7 @@ export interface PaginatedQueryCategoryQuestions {
 export interface DistrictAnalyticsEntry {
   district: string;
   totalQuestions: number;
-  closedQuestions: number;
+  // closedQuestions: number;
   uniqueQuestions: number;
   duplicateQuestions: number;
   totalUsers: number
@@ -316,6 +316,34 @@ export interface FeedbackData {
   };
 }
 
+export interface FeedbackMessageEntry {
+  _id: string;
+  conversationId: string;
+  userId?: string;
+  farmerName?: string;
+  email?: string;
+  village?: string;
+  block?: string;
+  district?: string;
+  state?: string;
+  questionId?: string;
+  question: string;
+  response: string;
+  feedback: {
+    rating: string;
+    tag?: string;
+    details?: string;
+  };
+  createdAt: Date;
+}
+
+export interface PaginatedFeedbackMessages {
+  messages: FeedbackMessageEntry[];
+  totalFeedbacks: number;
+  totalPages: number;
+  currentPage: number;
+}
+
 export interface FarmerProfile {
   farmerName?: string;
   age?: number;
@@ -351,6 +379,7 @@ export interface UserDetailEntry {
   role?: string;
   userRole?: string;
   totalQuestions: number;
+  activeSessionCount?: number;
   farmerProfile?: FarmerProfile;
   createdAt: Date;
   isVerified?: boolean;
@@ -360,6 +389,9 @@ export interface PaginatedUserDetails {
   users: UserDetailEntry[];
   totalUsers: number;
   totalPages: number;
+  currentPage?: number;
+  page?: number;
+  limit?: number;
   userRoleCounts?: {farmer: number, coordinator: number, internal: number}
   activeUsers?: number;
   inactiveUsers?: number;
@@ -518,6 +550,7 @@ export interface IChatbotRepository {
     session?: ClientSession,
     userType?: string,
     search?: string,
+    knownDistricts?: string[],
   ): Promise<any>;
 
   getTopCrops(
@@ -674,6 +707,7 @@ export interface IChatbotRepository {
     activeTodayByProfile?: boolean,
     missingDemographicField?: string,
     isVerified?: boolean,
+    loginStatus?: 'all' | 'loggedIn' | 'loggedOut',
   ): Promise<PaginatedUserDetails>;
 
   getUserQuestionsData(
@@ -736,6 +770,19 @@ export interface IChatbotRepository {
     userType?: string,
   ): Promise<UserDemographics>;
 
+  getUsersByDemographic(
+    category: string,
+    value: string,
+    source?: string,
+    userType?: string,
+    page?: number,
+    limit?: number,
+    search?: string,
+    sortBy?: string,
+    sortOrder?: string,
+    session?: ClientSession,
+  ): Promise<PaginatedUserDetails>;
+
   /** Aggregate KCC policy awareness and agri app usage splits from farmerProfile. */
   getKccAndAgriAppStats(
     source?: string,
@@ -753,12 +800,37 @@ export interface IChatbotRepository {
     userType?: string,
   ): Promise<FeedbackData>;
 
+  getFeedbackUsers(
+    source?: string,
+    page?: number,
+    limit?: number,
+    search?: string,
+    sortBy?: string,
+    sortOrder?: string,
+    userType?: string,
+    rating?: string,
+    tag?: string,
+    session?: ClientSession,
+  ): Promise<PaginatedFeedbackMessages>;
+
   // get platform wise installs
   getPlatformInstalls(
     source: string,
     session?: ClientSession,
     userType?: string,
   ): Promise<PlatformInstallEntry[]>;
+
+  getUsersByPlatform(
+    platform: string,
+    source?: string,
+    page?: number,
+    limit?: number,
+    search?: string,
+    sortBy?: string,
+    sortOrder?: string,
+    userType?: string,
+    session?: ClientSession,
+  ): Promise<PaginatedUserDetails>;
 
   /** Duplicate questions (questions with a similarityScore) enriched with farmer details. */
   getDuplicateQuestions(
@@ -798,7 +870,19 @@ export interface IChatbotRepository {
     userType?: string,
     startTime?: string,
     endTime?: string,
-  ): Promise<Array<{question: string; count: number}>>;
+  ): Promise<Array<{questionId: string; question: string; count: number}>>;
+
+  /** Get documents for a specific top question drill-down. */
+  getTopQuestionInstances(
+    questionId: string,
+    dbSource?: string,
+    userType?: string,
+    startTime?: string,
+    endTime?: string,
+    page?: number,
+    limit?: number,
+    session?: ClientSession,
+  ): Promise<{ data: any[]; total: number; page: number; limit: number; totalPages: number }>;
   getResponseAdherenceTable(
     session?: ClientSession,
     userType?: string,
@@ -1058,7 +1142,31 @@ export interface IChatbotRepository {
       isPassed?: string,
       tag?: string,
       notificationType?: string,
+      page?: number,
+      limit?: number,
     ): Promise<any>
+  
+  getFeedbackByLocation(
+    source: string,
+    page: number,
+    limit: number,
+    sortBy: string,
+    sortOrder: string,
+    userType: string,
+    rating?: string,
+    state?: string,
+    district?: string,
+    search?: string,
+    session?: ClientSession,
+  ): Promise<PaginatedFeedbackMessages>
+
+  getClosedInLastTwoHoursByLocation(
+    source?: string,
+    userType?: string,
+    state?: string,
+    district?: string,
+  ): Promise<any>
+    
 }
 
 export interface ChatbotConversationData {

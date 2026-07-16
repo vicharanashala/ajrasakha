@@ -47,6 +47,7 @@ export function CoordinatorDashboardSummary({
   availableCount: number;
   isReadOnly: boolean;
 }) {
+  const activeSessionCount = user.activeSessionCount ?? 0;
   const roleLabel = formatRoleLabel(user.userRole);
   const region = [
     user.farmerProfile?.state,
@@ -87,9 +88,34 @@ export function CoordinatorDashboardSummary({
             )}
             {isReadOnly ? <Badge variant="secondary">Read-only view</Badge> : null}
           </div>
-          <h4 className="text-1rm xl font-semibold tracking-tight sm:text-2xl">
-            {user.name || "Coordinator"}
-          </h4>
+          <div className="flex items-center gap-3">
+            <h4 className="text-1rm xl font-semibold tracking-tight sm:text-2xl">
+              {user.name || "Coordinator"}
+            </h4>
+            {activeSessionCount > 0 && (
+              <span
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold leading-none text-emerald-700 shadow-sm dark:border-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-300"
+                title={
+                  activeSessionCount === 1
+                    ? "Currently logged in"
+                    : `${activeSessionCount} active sessions`
+                }
+                aria-label={
+                  activeSessionCount === 1
+                    ? "Currently logged in"
+                    : `${activeSessionCount} active sessions`
+                }
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                <span>Logged in</span>
+                {activeSessionCount > 1 && (
+                  <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">
+                    {activeSessionCount}
+                  </span>
+                )}
+              </span>
+            )}
+          </div>
           <div className="mt-4 grid gap-2 text-sm font-medium text-muted-foreground sm:text-base">
             {user.email ? (
               <span className="inline-flex items-center gap-2">

@@ -8,6 +8,7 @@ import type {
   ReroutedQuestionItem,
   WorkloadBalanceResponse,
   QuestionMessageDetailsResponse,
+  QuestionFeedbackResponse,
 } from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import type { QuestionFilter } from "@/features/qa-interface-page/QA-interface";
@@ -157,6 +158,10 @@ export class QuestionService {
       params.append("is_non_agri", "true");
     }
 
+    if (filter.is_testing === true) {
+      params.append("is_testing", "true");
+    }
+
     if (filter.moderatorId) {
       params.append("moderatorId", filter.moderatorId);
     }
@@ -275,6 +280,16 @@ export class QuestionService {
   ): Promise<QuestionMessageDetailsResponse | null> {
     const response = await apiFetch<QuestionMessageDetailsResponse | null>(
       `${this._baseUrl}/${questionId}/chatbot`,
+    );
+
+    return response;
+  }
+
+  async getQuestionFeedbackByQuestionId(
+    questionId: string,
+  ): Promise<QuestionFeedbackResponse | null> {
+    const response = await apiFetch<QuestionFeedbackResponse | null>(
+      `${this._baseUrl}/${questionId}/feedback`,
     );
 
     return response;
@@ -895,6 +910,10 @@ export class QuestionService {
 
     if (filter.is_non_agri === true) {
       params.append("is_non_agri", "true");
+    }
+
+    if (filter.is_testing === true) {
+      params.append("is_testing", "true");
     }
 
     // states and normalisedCrops sent as JSON arrays in request body

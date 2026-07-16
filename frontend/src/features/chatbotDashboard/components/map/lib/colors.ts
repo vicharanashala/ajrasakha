@@ -28,31 +28,146 @@
 // }
 
 
+// export function colorFor(
+//   value: number,
+//   min: number,
+//   max: number,
+//   dark: boolean,
+// ): string {
+//   if (max === min) {
+//     return "#22c55e";
+//   }
+
+//   const t = (value - min) / (max - min);
+
+//   // Red → Orange → Green
+
+//   if (t < 0.2)
+//     return "#dc2626"; // Dark Red
+
+//   if (t < 0.4)
+//     return "#ef4444"; // Red
+
+//   if (t < 0.6)
+//     return "#f97316"; // Orange
+
+//   if (t < 0.8)
+//     return "#84cc16"; // Light Green
+
+//   return "#16a34a"; // Dark Green
+// }
+
+// export function colorFor(
+//   value: number,
+//   min: number,
+//   max: number,
+// ): string {
+//   if (max <= min) {
+//     return "#16a34a";
+//   }
+
+//   const t = (value - min) / (max - min);
+
+//   if (t < 1 / 3) {
+//     return "#dc2626"; // Red
+//   }
+
+//   if (t < 2 / 3) {
+//     return "#f97316"; // Orange
+//   }
+
+//   return "#16a34a"; // Green
+// }
+
+// export function colorFor(
+//   value: number,
+//   min: number,
+//   max: number,
+// ): string {
+//   if (max <= min) {
+//     return "#16a34a";
+//   }
+
+//   const logMin = Math.log1p(min);
+//   const logMax = Math.log1p(max);
+//   const logValue = Math.log1p(value);
+
+//   const t = (logValue - logMin) / (logMax - logMin);
+
+//   if (t < 1 / 3) return "#dc2626";
+//   if (t < 2 / 3) return "#f97316";
+
+//   return "#16a34a";
+// }
+
+// export function colorFor(
+//   value: number,
+//   min: number,
+//   max: number,
+//   useLogScale = false,
+// ): string {
+//   if (max <= min) {
+//     return "#16a34a";
+//   }
+
+//   let t: number;
+
+//   if (useLogScale) {
+//     const logMin = Math.log1p(min);
+//     const logMax = Math.log1p(max);
+//     const logValue = Math.log1p(value);
+
+//     t = (logValue - logMin) / (logMax - logMin);
+//   } else {
+//     t = (value - min) / (max - min);
+//   }
+
+//   if (t < 1 / 3) return "#dc2626";
+//   if (t < 2 / 3) return "#f97316";
+
+//   return "#16a34a";
+// }
+
 export function colorFor(
   value: number,
   min: number,
   max: number,
-  dark: boolean,
+  useLogScale = false,
+  useFixedQuestionScale = false,
 ): string {
-  if (max === min) {
-    return "#22c55e";
+  if (max <= min) {
+    return "#16a34a";
   }
 
-  const t = (value - min) / (max - min);
+  // India Questions View
+  if (useFixedQuestionScale) {
+    if (value <= 50) {
+      return "#dc2626";
+    }
 
-  // Red → Orange → Green
+    const orangeEnd = Math.round(50 + (max - 50) / 2);
 
-  if (t < 0.2)
-    return "#dc2626"; // Dark Red
+    if (value <= orangeEnd) {
+      return "#f97316";
+    }
 
-  if (t < 0.4)
-    return "#ef4444"; // Red
+    return "#16a34a";
+  }
 
-  if (t < 0.6)
-    return "#f97316"; // Orange
+  let t: number;
 
-  if (t < 0.8)
-    return "#84cc16"; // Light Green
+  if (useLogScale) {
+    const logMin = Math.log1p(min);
+    const logMax = Math.log1p(max);
+    const logValue = Math.log1p(value);
 
-  return "#16a34a"; // Dark Green
+    t = (logValue - logMin) / (logMax - logMin);
+  } else {
+    t = (value - min) / (max - min);
+  }
+
+  if (t < 1 / 3) return "#dc2626";
+  if (t < 2 / 3) return "#f97316";
+
+  return "#16a34a";
 }

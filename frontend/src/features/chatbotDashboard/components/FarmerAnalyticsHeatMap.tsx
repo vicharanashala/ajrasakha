@@ -3,13 +3,6 @@ import { Activity, InfoIcon, MapPinned, RefreshCw } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/atoms/dialog";
-import { ScrollArea } from "@/components/atoms/scroll-area";
 import { SearchableSelect } from "@/components/atoms/SearchableSelect";
 import { Skeleton } from "@/components/atoms/skeleton";
 import {
@@ -42,6 +35,7 @@ import {
   useFarmerHeatMapAnalytics,
 } from "../hooks/useFarmerHeatMapAnalytics";
 import CountUp from "react-countup";
+import { QuestionActivityModal } from "./QuestionActivityModal";
 
 interface FarmerAnalyticsHeatMapProps {
   source: "vicharanashala" | "annam";
@@ -146,13 +140,6 @@ const formatStatusDistribution = (statusDistribution: Record<string, number>) =>
     .join(", ");
 };
 
-const formatDateTime = (value?: string) => {
-  if (!value) return "N/A";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "N/A";
-  return date.toLocaleString();
-};
-
 const getDuplicateGroupKey = (question: FarmerHeatMapQuestionDetail) => {
   if (question.referenceQuestionId) return `reference-id:${question.referenceQuestionId}`;
   if (question.referenceQuestion?.trim()) {
@@ -164,10 +151,17 @@ const getDuplicateGroupKey = (question: FarmerHeatMapQuestionDetail) => {
 const normalizeStatus = (status?: string) =>
   String(status || "unknown").trim().toLowerCase().replace(/_/g, "-");
 
+const isQuestionListingMetric = (metric: FarmerHeatMapMetric) =>
+  metric !== "activeFarmers";
+
 const getMetricQuestionDetails = (
   metric: FarmerHeatMapMetric,
   details: FarmerHeatMapQuestionDetail[],
 ) => {
+  if (!isQuestionListingMetric(metric)) {
+    return [];
+  }
+
   if (metric === "duplicateQuestions") {
     return details.filter((item) => normalizeStatus(item.status) === "duplicate");
   }
@@ -319,6 +313,8 @@ export function FarmerAnalyticsHeatMap({
         : [],
     [selectedCell],
   );
+  const selectedCellModalMode =
+    selectedCell?.metric === "duplicateQuestions" ? "duplicateGroups" : "details";
   const selectedDuplicateGroups = useMemo(() => {
     if (!selectedCell || selectedCell.metric !== "duplicateQuestions") return [];
 
@@ -956,7 +952,10 @@ export function FarmerAnalyticsHeatMap({
                             metric,
                             cell.questionDetails ?? [],
                           );
-                          const canOpenDetails = value > 0 && cellDetails.length > 0;
+                          const canOpenDetails =
+                            isQuestionListingMetric(metric) &&
+                            value > 0 &&
+                            cellDetails.length > 0;
                           const title = [
                             `${row.label} - ${cell.label}`,
                             `Active farmers: ${cell.activeFarmers}`,
@@ -982,7 +981,7 @@ export function FarmerAnalyticsHeatMap({
                                   stiffness: 400,
                                   damping: 20,
                                 }}
-                                className="flex h-9 min-w-[70px] items-center justify-center rounded-md px-2 text-[11px] font-semibold tabular-nums shadow-sm disabled:cursor-default"
+                                className="flex h-9 min-w-[70px] cursor-pointer items-center justify-center rounded-md px-2 text-[11px] font-semibold tabular-nums shadow-sm disabled:cursor-default"
                                 style={getCellStyle(value)}
                                 disabled={!canOpenDetails}
                                 onClick={() =>
@@ -1010,135 +1009,25 @@ export function FarmerAnalyticsHeatMap({
         </AnimatePresence>
       </CardContent>
     </Card>
-    <Dialog
+    <QuestionActivityModal
       open={Boolean(selectedCell)}
       onOpenChange={(open) => !open && setSelectedCell(null)}
-    >
-      <DialogContent className="flex h-[88vh] max-h-[88vh] flex-col overflow-hidden p-0 sm:max-w-4xl">
-        <DialogHeader className="shrink-0 border-b px-6 py-4">
-          <DialogTitle>
-            {selectedCellMetric?.label ?? "Question Details"}
-          </DialogTitle>
-          <p className="text-sm text-muted-foreground">
-            {selectedCell?.location} / {selectedCell?.period} /{" "}
-            {formatValue(selectedCell?.metric ?? "totalQuestions", selectedCell?.value ?? 0)}
-          </p>
-        </DialogHeader>
-        <ScrollArea className="min-h-0 flex-1">
-          <div className="space-y-3 p-6">
-            {selectedCell?.metric === "duplicateQuestions" ? (
-              selectedDuplicateGroups.length ? (
-                selectedDuplicateGroups.map((group) => {
-                  const hasReference = !group.key.startsWith("question-id:");
-                  const totalAskedCount = group.questions.length + (hasReference ? 1 : 0);
-                  const askedBy = Array.from(
-                    new Set(
-                      group.questions
-                        .map((question) => question.askedBy || question.email || question.userId)
-                        .filter(Boolean),
-                    ),
-                  ).join(", ");
-
-                  return (
-                    <div key={group.key} className="rounded-md border bg-background p-4">
-                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-full bg-primary px-2.5 py-0.5 text-xs font-semibold text-primary-foreground">
-                            Asked {totalAskedCount} time{totalAskedCount === 1 ? "" : "s"}
-                          </span>
-                          <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-foreground">
-                            {group.questions.length} duplicate record detail{group.questions.length === 1 ? "" : "s"}
-                          </span>
-                        </div>
-                        <span className="text-xs text-muted-foreground">
-                          Reference group
-                        </span>
-                      </div>
-                      <div className="mb-3">
-                        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                          Reference question
-                        </p>
-                        <p className="whitespace-pre-wrap text-sm font-semibold">
-                          {group.referenceQuestion}
-                        </p>
-                      </div>
-                      <div className="rounded-md bg-muted/40 p-3 text-xs text-muted-foreground">
-                        Asked by:{" "}
-                        <span className="font-medium text-foreground">
-                          {askedBy || "N/A"}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-                  No duplicate question details for this selection.
-                </div>
-              )
-            ) : selectedCellDetails.length ? (
-              selectedCellDetails.map((question) => (
-                <div key={question.questionId} className="rounded-md border bg-background p-4">
-                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-foreground">
-                      {question.status || "unknown"}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {formatDateTime(question.createdAt)}
-                    </span>
-                  </div>
-                  <p className="whitespace-pre-wrap text-sm font-medium">
-                    {question.question || "Question text not available"}
-                  </p>
-                  <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
-                    <span>
-                      Asked by:{" "}
-                      <span className="font-medium text-foreground">
-                        {question.askedBy || question.email || question.userId || "N/A"}
-                      </span>
-                    </span>
-                    <span>
-                      Village:{" "}
-                      <span className="font-medium text-foreground">
-                        {question.village || "N/A"}
-                      </span>
-                    </span>
-                    <span>
-                      Block:{" "}
-                      <span className="font-medium text-foreground">
-                        {question.block || "N/A"}
-                      </span>
-                    </span>
-                    <span>
-                      District:{" "}
-                      <span className="font-medium text-foreground">
-                        {question.district || "N/A"}
-                      </span>
-                    </span>
-                    <span>
-                      Crop:{" "}
-                      <span className="font-medium text-foreground">
-                        {question.crop || "N/A"}
-                      </span>
-                    </span>
-                    <span>
-                      Domain:{" "}
-                      <span className="font-medium text-foreground">
-                        {question.domain || "N/A"}
-                      </span>
-                    </span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-                No question details for this selection.
-              </div>
-            )}
-          </div>
-        </ScrollArea>
-      </DialogContent>
-    </Dialog>
+      title={selectedCellMetric?.label ?? "Question Details"}
+      subtitle={
+        selectedCell
+          ? `${selectedCell.location} / ${selectedCell.period} / ${formatValue(
+              selectedCell.metric,
+              selectedCell.value,
+            )}`
+          : undefined
+      }
+      mode={selectedCellModalMode}
+      detailItems={selectedCellDetails}
+      duplicateGroups={selectedDuplicateGroups}
+      showCloseButton
+      emptyMessage="No question details for this selection."
+      duplicateEmptyMessage="No duplicate question details for this selection."
+    />
     </>
   );
 }

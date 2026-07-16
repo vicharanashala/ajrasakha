@@ -4,6 +4,11 @@
 
 import states from "../../../../../geojson/State.json";
 import districtPatches from "../../../../../geojson/District.json";
+import {
+  DISTRICT_RENAMES,
+  DISTRICT_STATE_OVERRIDES,
+  STATE_RENAMES,
+} from "@/lib/rename";
 
 // export const STATES_URL =
 //  "/geojson/State.json";
@@ -47,7 +52,7 @@ export async function fetchStates(): Promise<unknown> {
     }
 
     if (stateName === "Jammu and Kashmir") {
-      feature.properties.NAME_1 = "Jammu And Kashmir"
+      feature.properties.NAME_1 = "Jammu And Kashmir";
       feature.geometry = states["Jammu And Kashmir"].geometry;
     }
   });
@@ -101,135 +106,33 @@ export async function fetchDistricts(): Promise<unknown> {
   const res = await fetch(DISTRICTS_URL);
   const data = await res.json();
 
-  // data.features.forEach((feature: any) => {
-  //   const districtName =
-  //     feature.properties?.NAME_2;
+  const patchedFeatures = Object.values(districtPatches).flat();
 
-  //   const stateName =
-  //     feature.properties?.NAME_1;
+  data.features.push(...patchedFeatures);
 
-  //   // Telangana fix
-  //   if (
-  //     TELANGANA_DISTRICTS.has(
-  //       districtName,
-  //     )
-  //   ) {
-  //     feature.properties.NAME_1 =
-  //       'Telangana';
-  //   }
+  data.features.forEach((feature: any) => {
+    const props = feature.properties;
 
-  //   // State renames
-  //   if (stateName === 'Orissa') {
-  //     feature.properties.NAME_1 =
-  //       'Odisha';
-  //   }
+    let district = props.NAME_2;
+    let state = props.NAME_1;
 
-  //   if (stateName === 'Uttaranchal') {
-  //     feature.properties.NAME_1 =
-  //       'Uttarakhand';
-  //   }
+    // Telangana
+    if (TELANGANA_DISTRICTS.has(district)) {
+      state = "Telangana";
+    }
 
-  //   if(districtName === "Naini Tal"){
-  //     feature.properties.NAME_2 = "Nainital"
-  //   }
-  // });
+    // State rename
+    state = STATE_RENAMES[state] ?? state;
 
- data.features.forEach((feature: any) => {
-  const districtName =
-    feature.properties?.NAME_2;
+    // District rename
+    district = DISTRICT_RENAMES[district] ?? district;
 
-  // const cleanedDistrictName =
-  //   districtName
-  //     ?.replace(/\([^)]*\)/g, "")
-  //     .trim();
+    // District belongs to another state
+    state = DISTRICT_STATE_OVERRIDES[district] ?? state;
 
-  const stateName =
-    feature.properties?.NAME_1;
-
-  // Remove brackets from all districts
-  // feature.properties.NAME_2 =
-  //   districtName;
-
-  // Telangana fix
-  if (
-    TELANGANA_DISTRICTS.has(
-      districtName,
-    )
-  ) {
-    feature.properties.NAME_1 =
-      "Telangana";
-  }
-
-    if (
-    stateName === "Jammu and Kashmir"
-  ) {
-    feature.properties.NAME_1 =
-      "Jammu And Kashmir";
-  }
-
-  // Jammu & Kashmir → Ladakh
-  if (
-    districtName === "Kargil" ||
-    districtName === "Ladakh (Leh)"
-  ) {
-  try {
-
-    feature.properties.NAME_1 =
-      "Ladakh";
-  } catch (e) {
-    console.error(e);
-  }
-}
-  
-
-//   if (
-//   districtName.includes("Kargil") ||
-//   districtName.includes("Ladakh")
-// ) {
-//   console.log(
-//     districtName,
-//   );
-// }
-
-  // State renames
-  if (stateName === "Orissa") {
-    feature.properties.NAME_1 =
-      "Odisha";
-  }
-
-  if (stateName === "Uttaranchal") {
-    feature.properties.NAME_1 =
-      "Uttarakhand";
-  }
-
-
-
-  // District renames
-  if (
-    districtName ===
-    "Naini Tal"
-  ) {
-    feature.properties.NAME_2 =
-      "Nainital";
-  }
-
-  if (
-    districtName ===
-    "Ladakh (Leh)"
-  ) {
-    feature.properties.NAME_2 =
-      "Leh";
-  }
-  if( districtName === "Baramula"){
-    feature.properties.NAME_2 = "Baramulla"
-  }
-  if(districtName === "Mysore"){
-    feature.properties.NAME_2 = "Mysuru"
-  }
-});
-
-  // Add missing districts
-  data.features.push(districtPatches);
+    props.NAME_1 = state;
+    props.NAME_2 = district;
+  });
 
   districtsCache = data;
 
@@ -240,10 +143,10 @@ export async function fetchDistricts(): Promise<unknown> {
  * Clear caches (useful for testing or refresh)
  */
 export function clearGeoJsonCache(): void {
- if (import.meta.hot) {
-  import.meta.hot.dispose(() => {
-    statesCache = null;
-    districtsCache = null;
-  });
-}
+  if (import.meta.hot) {
+    import.meta.hot.dispose(() => {
+      statesCache = null;
+      districtsCache = null;
+    });
+  }
 }

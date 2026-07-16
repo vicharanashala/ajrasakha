@@ -71,6 +71,16 @@ interface QueryCategoryQuestionsModalProps {
   onClose: () => void;
   isPassed?: boolean;
   tag?: string;
+  totalClosedAndPassed?: number;
+  closedQuestions?: number;
+  totalQuestions?: number;
+  passedQuestions?: number;
+  closedInLastTwoHours?: number;
+  passedInLastTwoHours?: number;
+  slaBreached?: number;
+  safeNotified?: number;
+  safeNotNotified?: number;
+  safeUntracked?: number;
 }
 
 const PAGE_SIZE = 10;
@@ -92,7 +102,17 @@ export function QueryCategoryQuestionsModal({
   endDate,
   onClose,
   isPassed,
-  tag
+  tag,
+  totalClosedAndPassed,
+  closedQuestions,
+  totalQuestions,
+  passedQuestions,
+  closedInLastTwoHours,
+  passedInLastTwoHours,
+  slaBreached,
+  safeNotified,
+  safeNotNotified,
+  safeUntracked
 }: QueryCategoryQuestionsModalProps) {
   const {
     setSelectedQuestionId,
@@ -431,7 +451,7 @@ export function QueryCategoryQuestionsModal({
                       ? "Question that closed with in 2 hours"
                       : notificationType
                         ? "Question related to Notification users"
-                        : period? `Question related to the ${period}` : state ?`Question releated to the ${state}`: `Question releated to the ${district}`}
+                        : period? `Question related to the ${period}` : state && !district ?`Question releated to the ${state}`: `Question releated to the ${district}`}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-3">
@@ -507,6 +527,16 @@ export function QueryCategoryQuestionsModal({
           isPassed={isPassed}
           tag={tag}
           notificationType={notificationType}
+          totalClosedAndPassed={totalClosedAndPassed}
+          closedQuestions={closedQuestions}
+          totalQuestions={totalQuestions}
+          passedQuestions={passedQuestions}
+          closedInLastTwoHours ={closedInLastTwoHours}
+          passedInLastTwoHours={passedInLastTwoHours}
+          slaBreached={slaBreached}
+          safeNotified={safeNotified}
+          safeNotNotified={safeNotNotified}
+          safeUntracked={safeUntracked}
         />
 
         <div className="flex shrink-0 items-center justify-between border-t border-gray-100 px-6 py-3 text-xs text-gray-400 dark:border-[#2a2a2a] dark:text-gray-500">

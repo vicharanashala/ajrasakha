@@ -34,6 +34,7 @@ import {
   IUser,
   IcheckStatusResponseDto
 } from '#root/shared/interfaces/models.js';
+import type { QAMetadata } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
 import { BadRequestErrorResponse } from '#shared/middleware/errorHandler.js';
 import { verifyNotTester } from '#root/shared/functions/verifyNotTester.js';
 import {
@@ -262,6 +263,7 @@ export class QuestionController {
     extracted_crop: string;
     extracted_state: string;
     extracted_district: string;
+    extracted_domain?: string | string[];
   }> {
     try {
       const result = await this.questionService.extractAccAgentData(body.threadId, body.transcript);
@@ -284,6 +286,8 @@ export class QuestionController {
         crop: string;
         state: string;
         district: string;
+        domain: string | string[];
+        season: string;
       };
     }
   ): Promise<{ success: boolean }> {
@@ -301,10 +305,11 @@ export class QuestionController {
   @Authorized()
   @OpenAPI({ summary: 'Resume ACC Agent and get final answer' })
   async resumeAccAgentAndGetAnswer(
-    @Body() body: { threadId: string }
-  ): Promise<{ final_answer: string }> {
+    @Body() body: { threadId: string; callUuid?: string; metadata?: QAMetadata }
+  ): Promise<any> {
     try {
-      const result = await this.questionService.resumeAccAgentAndGetAnswer(body.threadId);
+      // const result = await this.questionService.resumeAccAgentAndGetAnswer(body.threadId, body.callUuid, body.metadata);
+      const result = await this.questionService.getAccAgentState(body.threadId, body.callUuid, body.metadata);
       return result;
     } catch (error) {
       console.error('[QuestionController] resumeAccAgentAndGetAnswer: Error', error);
@@ -1370,7 +1375,7 @@ export class QuestionController {
         context: { questionId },
         createdAt: new Date(),
       };
-
+      updates.passedBy = new ObjectId(user._id.toString());
       try {
         prevQuestion = await this.questionService.getQuestionById(questionId);
         response = await this.questionService.updateQuestion(questionId, updates);
@@ -1405,6 +1410,56 @@ export class QuestionController {
         throw new BadRequestError(
           err?.message || 'Failed to pass question',
         );
+      }
+    }
+
+    // ─── Moderator auto-allocation toggle — audited as TOGGLE_MODERATOR_ALLOCATION ──
+    // The moderator queue toggle sends { autoAllocateModerator } through this generic
+    // update; record it as its own action (on/off) instead of a plain "Question Updated".
+    if (updates.autoAllocateModerator !== undefined) {
+      const toggleAudit: ModeratorAuditTrail = {
+        category: AuditCategory.EXPERTS_CATEGORY,
+        action: AuditAction.TOGGLE_MODERATOR_ALLOCATION,
+        actor: {
+          id: user._id.toString(),
+          name: `${user.firstName} ${user.lastName}`,
+          email: user.email,
+          role: user.role,
+          avatar: user?.avatar || '',
+        },
+        context: { questionId },
+        outcome: { status: OutComeStatus.SUCCESS },
+        createdAt: new Date(),
+      };
+      try {
+        // Use getQuestionDataById (raw IQuestion) — getQuestionById returns a trimmed
+        // object WITHOUT autoAllocateModerator, which would make `before` always false.
+        const prev = await this.questionService.getQuestionDataById(questionId);
+        response = await this.questionService.updateQuestion(questionId, updates);
+        this.auditTrailsService.createAuditTrail({
+          ...toggleAudit,
+          context: { ...toggleAudit.context, question: (prev as any)?.question },
+          changes: {
+            before: { autoAllocateModerator: prev?.autoAllocateModerator ?? false },
+            after: { autoAllocateModerator: updates.autoAllocateModerator },
+          },
+        });
+        return response;
+      } catch (err: any) {
+        this.auditTrailsService.createAuditTrail({
+          ...toggleAudit,
+          outcome: {
+            status: OutComeStatus.FAILED,
+            errorCode: err?.errorCode || 'INTERNAL_ERROR',
+            errorMessage: err?.message || 'Failed to toggle moderator allocation',
+            errorName: err?.name || 'Error',
+            errorStack: err?.stack?.split('\n')?.slice(0, 5)?.join('\n') || 'No stack trace available',
+          },
+        });
+        if (err instanceof InternalServerError) {
+          throw new InternalServerError(err.message);
+        }
+        throw new BadRequestError(err?.message || 'Failed to toggle moderator allocation');
       }
     }
 
@@ -1838,6 +1893,22 @@ export class QuestionController {
       throw error;
     }
   }
+  @Get('/:questionId/feedback')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Get user feedback for a selected question by ID' })
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  async getQuestionFeedback(
+    @Params() params: QuestionIdParam,
+  ) {
+    const { questionId } = params;
+    const data = await this.questionService.getQuestionFeedback(questionId);
+
+    return {
+      success: true,
+      data,
+    };
+  }
 
   @Get('/:questionId/chatbot')
   @HttpCode(200)
@@ -2131,7 +2202,7 @@ export class QuestionController {
       const result = await this.questionService.replaceQueueExpert(
         userId.toString(),
         questionId,
-        levelIndex+1,
+        levelIndex + 1,
         newExpertId,
         isAuthor,
         reasonForChange,

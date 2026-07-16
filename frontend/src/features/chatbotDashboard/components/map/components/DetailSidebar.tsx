@@ -31,6 +31,10 @@ import { InfoIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { QueryCategoryQuestionsModal } from "../../QueryCategoryQuestionsModal";
 import { ActiveUserDetailsModal } from "@/features/chatbotDashboard/ActiveUserDetailsTable";
+import { useUserMertices } from "@/features/chatbotDashboard/hooks/useDashboardData";
+import { FeedbackUsersModal } from "@/features/chatbotDashboard/FeedbackUsersModal";
+import { useClosedQuestionLocation } from "@/features/chatbotDashboard/hooks/useFeedbackUsers";
+import { ClosedInLastTwoHoursCard } from "@/features/chatbotDashboard/ClosedInLastTwoHoursCard";
 interface MapFeatureBase {
   type: string;
   properties: Record<string, unknown>;
@@ -58,13 +62,17 @@ interface DetailSidebarProps {
   districtAnalytic?: any;
   metric: "questions" | "users" | "activeUsers";
   status: string | null;
-  handleClick: (value?: string)=>void;
-  setStatus: (value: string | null)=> void
-  isIndiaView: boolean
-  clickedState: string | null,
-  setClickedState:(value: string | null)=>void
-  clickedDistrict: string | null,
-  setClickedDistrict: (value: string | null)=> void
+  handleClick: (value?: string) => void;
+  setStatus: (value: string | null) => void;
+  isIndiaView: boolean;
+  clickedState: string | null;
+  setClickedState: (value: string | null) => void;
+  clickedDistrict: string | null;
+  setClickedDistrict: (value: string | null) => void;
+  analyticsData?: any;
+  weeklyAnalyticsData?: any;
+  monthlyAnalyticsData?: any;
+
 }
 
 export function DetailSidebar({
@@ -91,11 +99,34 @@ export function DetailSidebar({
   setClickedState,
   clickedDistrict,
   setClickedDistrict,
+  analyticsData,
+  weeklyAnalyticsData,
+  monthlyAnalyticsData
 }: DetailSidebarProps) {
   const [isPassed, setIsPassed] = useState(false);
   const [showActiveUsersModal, setShowActiveUsersModal] = useState(false);
   const [showModeratorsModal, setShowModeratorsModal] = useState(false);
   const [showUsersModal, setShowUsersModal] = useState(false);
+  const [showFeedBackModal, setShowFeedBackModal] = useState(false);
+  const [rating, setRating] = useState<"all" | "positive" | "negative">("all");
+  const [showResolutionModal, setShowResolutionModal] = useState(false);
+
+  const { data: userMetricesData } = useUserMertices(
+    source as any,
+    userType as any,
+    true,
+  );
+
+  const {
+  data: closedQuestionLocationData,
+  isLoading: isClosedQuestionLoading,
+} = useClosedQuestionLocation({
+  source,
+  userType,
+  state: selectedState ?? undefined,
+  district: selectedDistrict ?? undefined,
+  enabled: !isIndiaView,
+});
 
   // Calculate aggregated analytics
 
@@ -145,7 +176,8 @@ export function DetailSidebar({
           const x = f.properties._analytics as Analytics;
           return {
             questions: acc.questions + x.questions,
-            answers: acc.answers + x.answers,
+            // answers: acc.answers + x.answers,
+            feedback: acc.feedback + x.feedback,
             users: acc.users + x.users,
             activeUsers: acc.activeUsers + x.activeUsers,
             coordinators: acc.coordinators + x.coordinators,
@@ -154,7 +186,8 @@ export function DetailSidebar({
         },
         {
           questions: 0,
-          answers: 0,
+          // answers: 0,
+          feedback: 0,
           users: 0,
           activeUsers: 0,
           coordinators: 0,
@@ -166,6 +199,26 @@ export function DetailSidebar({
   const activeAnalytics =
     districtAnalytics ?? stateAnalytics ?? countryAnalytics;
   // const isIndiaView = !selectedState && !selectedDistrict;
+
+const closedData = isIndiaView
+  ? questionStatusData?.closedInLastTwoHours
+  : closedQuestionLocationData;
+
+const safeCount =
+  closedData?.closedInTwoHoursCount ?? 0;
+
+const safeTotalClosed =
+  closedData?.totalClosedCount ?? 0;
+
+const totalPassed =
+  closedData?.totalPassCount ?? 0;
+
+const passedInLastTwoHours =
+  closedData?.passInTwoHoursCount ?? 0;
+
+  const combinedPct = ((safeCount + passedInLastTwoHours) / (safeTotalClosed + totalPassed)) *
+      100 || 0;
+
   const { data: allUsers } = useUserDetails(
     undefined,
     undefined,
@@ -232,10 +285,9 @@ export function DetailSidebar({
         {/* Stats Grid */}
         {activeAnalytics && (
           <div className="grid grid-cols-2 gap-2">
-             <StatCard
-             onClick={()=> handleClick("all")}
+            <StatCard
+              onClick={() => handleClick("all")}
               // label="Questions"
-
               label={
                 <div className="flex items-center gap-1">
                   <span>Questions</span>
@@ -268,95 +320,105 @@ export function DetailSidebar({
                 </div>
               }
               value={renderCardValue(
-                fmt(
-                  isIndiaView
-                    ? questionStatusData?.closedVsTotalQuestions.totalQuestions
-                    : activeAnalytics.questions,
-                ),
+                isIndiaView
+                  ? questionStatusData?.closedVsTotalQuestions.totalQuestions
+                  : activeAnalytics.questions,
               )}
               icon={<Activity className="h-3.5 w-3.5" />}
             />
 
-            {status ? <QueryCategoryQuestionsModal  
-            status={status}
-          source={source}
-          userType={userType}
-          isPassed={isPassed}
-          onClose={() => {
-            setStatus(null);
-            setIsPassed(false);
-          }}
-        />: clickedState ? <QueryCategoryQuestionsModal
-              state= {selectedState}
-              source={source}
-              userType={userType}
-              isQueryCategory = {false}
-              onClose={()=>setClickedState(null)}
-        />: clickedDistrict ? <QueryCategoryQuestionsModal
-              district={selectedDistrict}
-              state= {selectedState}
-              source={source}
-              userType={userType}
-              isQueryCategory = {false}
-              onClose={() => setClickedDistrict(null)}
-        />: null}
-        {showActiveUsersModal && (
-  <ActiveUserDetailsModal
-    source={source}
-    userType={userType}
-    state={selectedState ?? undefined}
-    district={selectedDistrict ?? undefined}
-    onClose={() => setShowActiveUsersModal(false)}
-    type="activeUsers"
-  />
-)}
-            <StatCard
-            
-              label="Answers"
+            {status ? (
+              <QueryCategoryQuestionsModal
+                status={status}
+                source={source}
+                userType={userType}
+                isPassed={isPassed}
+                onClose={() => {
+                  setStatus(null);
+                  setIsPassed(false);
+                }}
+              />
+            ) : clickedState ? (
+              <QueryCategoryQuestionsModal
+                state={selectedState}
+                source={source}
+                userType={userType}
+                isQueryCategory={false}
+                onClose={() => setClickedState(null)}
+              />
+            ) : clickedDistrict ? (
+              <QueryCategoryQuestionsModal
+                district={selectedDistrict}
+                state={selectedState}
+                source={source}
+                userType={userType}
+                isQueryCategory={false}
+                onClose={() => setClickedDistrict(null)}
+              />
+            ) : null}
+            {showActiveUsersModal && (
+              <ActiveUserDetailsModal
+                source={source}
+                userType={userType}
+                state={selectedState ?? undefined}
+                district={selectedDistrict ?? undefined}
+                onClose={() => setShowActiveUsersModal(false)}
+                type="activeUsers"
+              />
+            )}
+            {source !== "whatsapp" ? <StatCard
+              onClick={() => setShowFeedBackModal(true)}
+              label="Feedback"
               value={renderCardValue(
-                fmt(
-                  isIndiaView
-                    ? questionStatusData?.closedVsTotalQuestions.closed.count
-                    : activeAnalytics.answers,
-                ),
+                isIndiaView
+                  ? (userMetricesData?.feedbackData?.stats?.positiveCount ??
+                      0) +
+                      (userMetricesData?.feedbackData?.stats?.negativeCount ??
+                        0)
+                  : activeAnalytics.feedback,
               )}
               icon={<Activity className="h-3.5 w-3.5" />}
-            />
-
-                    {showUsersModal && (
-  <ActiveUserDetailsModal
-    source={source}
-    userType={userType}
-    state={selectedState ?? undefined}
-    district={selectedDistrict ?? undefined}
-    onClose={() => setShowUsersModal(false)}
-    type="users"
-  />
-)}
-            <StatCard
-              onClick={()=> setShowUsersModal(true)}
+            /> : (<StatCard label="Todays Questions" value={isIndiaView ? analyticsData[analyticsData?.length -1].totalQuestions : 0}/> )}
+            {showFeedBackModal && (
+              <FeedbackUsersModal
+                source={source}
+                userType={userType}
+                onClose={() => setShowFeedBackModal(false)}
+                setRating={setRating}
+                rating={rating}
+                isMapComponent={true}
+                state={selectedState ?? undefined}
+                district={selectedDistrict ?? undefined}
+              />
+            )}
+            {showUsersModal && (
+              <ActiveUserDetailsModal
+                source={source}
+                userType={userType}
+                state={selectedState ?? undefined}
+                district={selectedDistrict ?? undefined}
+                onClose={() => setShowUsersModal(false)}
+                type="users"
+              />
+            )}
+            {source !== "whatsapp" ? <StatCard
+              onClick={() => setShowUsersModal(true)}
               label="Users"
               value={renderCardValue(
-                fmt(isIndiaView ? allUsers.totalUsers : activeAnalytics.users),
+                isIndiaView ? allUsers.totalUsers : activeAnalytics.users,
               )}
               icon={<Users className="h-3.5 w-3.5" />}
-            />
-         <StatCard
-         onClick={()=> setShowActiveUsersModal(true)}
-  label={
-    <span>
-      Active
-    </span>
-  }
-  value={renderCardValue(
-    fmt(
-      isIndiaView
-        ? todayActiveFarmersData?.totalUsers
-        : activeAnalytics.activeUsers,
-    ),
-  )}
-  icon={<Users className="h-3.5 w-3.5" />}
-/>
+            />: (<StatCard label="Weekly Questions" value={isIndiaView ? weeklyAnalyticsData[weeklyAnalyticsData?.length -1].totalQuestions : 0}/> )}
+            {source !== "whatsapp" && <StatCard
+              onClick={() => setShowActiveUsersModal(true)}
+              label={<span>Active</span>}
+              value={renderCardValue(
+                isIndiaView
+                  ? todayActiveFarmersData?.totalUsers
+                  : activeAnalytics.activeUsers,
+              )}
+              icon={<Users className="h-3.5 w-3.5" />}
+            />}
             {/* <StatCard
   label="Coordinators"
   value={fmt(
@@ -366,21 +428,21 @@ export function DetailSidebar({
   )}
   icon={<Building2 className="h-3.5 w-3.5" />}
 /> */}
-         {showModeratorsModal && (
-  <ActiveUserDetailsModal
-    source={source}
-    userType={userType}
-    state={selectedState ?? undefined}
-    district={selectedDistrict ?? undefined}
-    onClose={() => setShowModeratorsModal(false)}
-    type="moderators"
-  />
-)}
-            <StatCard
-            onClick={() => setShowModeratorsModal(true)}
+            {showModeratorsModal && (
+              <ActiveUserDetailsModal
+                source={source}
+                userType={userType}
+                state={selectedState ?? undefined}
+                district={selectedDistrict ?? undefined}
+                onClose={() => setShowModeratorsModal(false)}
+                type="moderators"
+              />
+            )}
+            {source !== "whatsapp" ? <StatCard
+              onClick={() => setShowModeratorsModal(true)}
               label={
                 <div className="flex items-center gap-1">
-                  <span >Coordinators</span>
+                  <span>Coordinators</span>
 
                   <TooltipProvider>
                     <Tooltip>
@@ -433,19 +495,38 @@ export function DetailSidebar({
                 ),
               )}
               icon={<Building2 className="h-3.5 w-3.5" />}
-            />
+            />: (<StatCard label="Monthly Questions" value={isIndiaView ? monthlyAnalyticsData[monthlyAnalyticsData?.length -1].totalQuestions : 0}/> )}
             <StatCard
-              label="Avg closure"
-              value={`${
-                districtAnalytics || stateAnalytics
-                  ? (activeAnalytics.closureHrs / 60).toFixed(2)
-                  : (
-                      questionStatusData?.closedVsTotalQuestions.closed
-                        .avgTimeMinutes / 60
-                    ).toFixed(2)
-              }h`}
+             onClick={() => setShowResolutionModal(true)}
+              label="Resolution Rate"
+              value={
+                 isLoading || isClosedQuestionLoading
+    ? <Skeleton className="h-6 w-16" />
+    : `${combinedPct.toFixed(1)}%`
+              }
               icon={<Activity className="h-3.5 w-3.5" />}
             />
+            {showResolutionModal && (
+  <div
+    className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+    onClick={() => setShowResolutionModal(false)}
+  >
+    <div
+      className="w-[900px] max-w-[95vw]"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <ClosedInLastTwoHoursCard
+        source={source}
+        userType={userType}
+        closedInLastTwoHours={safeCount}
+        totalClosed={safeTotalClosed}
+        passedInLastTwoHours={passedInLastTwoHours}
+        totalPassed={totalPassed}
+        isMapComponent={true}
+      />
+    </div>
+  </div>
+)}
           </div>
         )}
 
@@ -481,6 +562,7 @@ export function DetailSidebar({
             state={selectedState}
             source={source}
             userType={userType}
+            districtAnalytic={districtAnalytic}
           />
         )}
       </div>

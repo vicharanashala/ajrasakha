@@ -6,11 +6,13 @@ export type LevelKey = "india" | "state" | "district";
 
 export interface Analytics {
   questions: number;
-  answers: number;
+  // answers: number;
+  feedback: number;
   users: number;
   activeUsers: number;
   coordinators: number;
   closureHrs: number;
+  rank: number;
 }
 
 export interface Village {
