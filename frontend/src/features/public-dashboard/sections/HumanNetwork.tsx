@@ -6,7 +6,7 @@ import { networkRoles } from "../data/dashboardData";
 /** Layer 04 — the distributed expert network: roles, KVKs and SAUs. */
 export const HumanNetwork = () => (
   <section className="wrap" id="layer4">
-    <SectionHead num="LAYER 04" title="Human Intelligence Network" />
+    <SectionHead title="Human Intelligence Network" />
     <p className="sec-desc">
       ANNAM.AI's knowledge base is validated by a distributed network of Post-graduate
       Agri Experts (PAEs), reviewers, moderators, authors, gatekeepers and auditors,

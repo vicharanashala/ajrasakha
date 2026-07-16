@@ -16,7 +16,7 @@ export const CropMatrix = () => {
 
   return (
     <section className="wrap" id="matrix">
-      <SectionHead num="COVERAGE" title="National Crop Coverage Matrix" />
+      <SectionHead title="National Crop Coverage Matrix" />
       <p className="sec-desc">
         Saturation maturity by state and crop — darker fill indicates a more complete
         validated knowledge base.

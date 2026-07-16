@@ -26,7 +26,7 @@ export const HeroSnapshot = ({ stats }: { stats: StatCell[] }) => {
 
   return (
     <section className="hero wrap" id="layer1">
-      <SectionHead num="LAYER 01" title="National Mission Snapshot" />
+      <SectionHead title="National Mission Snapshot" />
       <div className="hero-top">
         <div>
           <h1>

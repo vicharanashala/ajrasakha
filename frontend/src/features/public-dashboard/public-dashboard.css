@@ -49,6 +49,7 @@
   font-weight: 700;
 }
 .ace-dash section { padding: 56px 0; }
+.ace-dash section#about { padding-top: 40px; }
 
 /* ---------- UTILITY BAR (above the banner, light, right-aligned) ---------- */
 .ace-dash .util-bar { background: var(--paper-raised); border-bottom: 1px solid var(--line); }
@@ -61,7 +62,10 @@
 .ace-dash header.top {
   background: linear-gradient(90deg, #8ad9ab 0%, #2ea666 28%, #0f7a3f 50%, #2ea666 72%, #8ad9ab 100%);
   color: #fff;
-  position: relative;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 12px rgba(12, 40, 24, 0.18);
 }
 .ace-dash .top-bar {
   display: flex;
@@ -337,9 +341,9 @@
 }
 
 /* ---------- HERO ---------- */
-.ace-dash .hero { padding: 44px 0 48px; }
-.ace-dash .hero-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 40px; flex-wrap: wrap; margin-bottom: 32px; }
-.ace-dash .hero h1 { font-size: clamp(30px, 4.2vw, 44px); line-height: 1.08; max-width: 680px; }
+.ace-dash .hero { padding: 56px 0 48px; }
+.ace-dash .hero-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 40px; flex-wrap: wrap; margin-bottom: 32px; }
+.ace-dash .hero h1 { font-size: clamp(30px, 4.2vw, 44px); line-height: 1.08; max-width: 680px; margin-top: 16px; }
 .ace-dash .hero p.lede { font-size: 15.5px; color: var(--ink-soft); max-width: 520px; margin-top: 12px; line-height: 1.6; }
 .ace-dash .coverage-score {
   text-align: right; min-width: 220px; background: var(--paper-raised);
@@ -356,9 +360,9 @@
 .ace-dash .stat-cell .lab { font-size: 12.5px; color: var(--ink-soft); margin-top: 4px; line-height: 1.3; }
 
 /* ---------- SECTION HEADERS ---------- */
-.ace-dash .sec-head { display: flex; align-items: baseline; gap: 16px; margin-bottom: 8px; flex-wrap: wrap; }
+.ace-dash .sec-head { display: flex; align-items: baseline; gap: 20px; margin-bottom: 12px; flex-wrap: wrap; }
 .ace-dash .sec-num { font-size: 11.5px; color: var(--green-deep); font-weight: 700; letter-spacing: 0.08em; background: var(--green-soft); padding: 4px 10px; border-radius: 999px; }
-.ace-dash .sec-head h2 { font-size: 24px; }
+.ace-dash .sec-head h2 { font-size: 24px; letter-spacing: -0.01em; }
 .ace-dash .sec-desc { color: var(--ink-soft); font-size: 14.5px; max-width: 640px; margin-top: 10px; margin-bottom: 28px; line-height: 1.5; }
 
 /* ---------- GEO / STATES ---------- */
@@ -450,7 +454,7 @@
   .ace-dash .grid-3, .ace-dash .grid-4 { grid-template-columns: 1fr 1fr; }
   .ace-dash .two-col, .ace-dash .kcc-grid { grid-template-columns: 1fr; }
   .ace-dash .hero-top { flex-direction: column; align-items: flex-start; }
-  .ace-dash .coverage-score { text-align: left; }
+  .ace-dash .coverage-score { text-align: left; align-self: stretch; }
 }
 @media (max-width: 520px) {
   .ace-dash .grid-3, .ace-dash .grid-4 { grid-template-columns: 1fr; }

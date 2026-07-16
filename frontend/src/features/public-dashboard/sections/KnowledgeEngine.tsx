@@ -22,7 +22,7 @@ export const KnowledgeEngine = () => {
 
   return (
     <section className="wrap" id="layer3">
-      <SectionHead num="LAYER 03" title="Agricultural Knowledge Engine" />
+      <SectionHead title="Agricultural Knowledge Engine" />
       <p className="sec-desc">
         Crop-wise and state-wise saturation of the golden knowledge base, sourced from
         Kisan Call Centre (KCC) transcripts and expert-validated Q&amp;A pairs.

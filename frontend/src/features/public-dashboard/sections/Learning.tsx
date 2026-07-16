@@ -4,7 +4,7 @@ import { SectionHead } from "../components/SectionHead";
 /** The Agri AI course and the institutions building on it. */
 export const Learning = () => (
   <section className="wrap" id="learning">
-    <SectionHead num="CAPACITY" title="Learning Ecosystem" />
+    <SectionHead title="Learning Ecosystem" />
     <p className="sec-desc">The Agri AI Course and the institutions building on it.</p>
     <div className="stat-grid">
       <div className="stat-cell">

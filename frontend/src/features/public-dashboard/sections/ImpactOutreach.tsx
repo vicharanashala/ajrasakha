@@ -17,7 +17,7 @@ export const ImpactOutreach = ({
 
   return (
     <section className="wrap" id="layer6">
-      <SectionHead num="LAYER 06" title="Impact & Outreach" />
+      <SectionHead title="Impact & Outreach" />
       <p className="sec-desc">
         Ground activity from the Punjab outreach programme, weekly Farmer Friday artefacts,
         and the domain distribution of every question collected.

@@ -4,7 +4,7 @@ import { integrations } from "../data/dashboardData";
 /** Layer 05 — live data sources (weather, mandi prices, schemes …) and their status. */
 export const Integrations = () => (
   <section className="wrap" id="layer5">
-    <SectionHead num="LAYER 05" title="Live Intelligence Integrations" />
+    <SectionHead title="Live Intelligence Integrations" />
     <p className="sec-desc">
       Dynamic data sources feeding real-time advisory into the ecosystem, each with a
       declared refresh cadence and operational status.
