@@ -54,8 +54,8 @@
 /* ---------- UTILITY BAR (above the banner, light, right-aligned) ---------- */
 .ace-dash .util-bar { background: var(--paper-raised); border-bottom: 1px solid var(--line); }
 .ace-dash .util-inner {
-  max-width: var(--max); margin: 0 auto; padding: 12px 28px;
-  display: flex; align-items: center; justify-content: flex-end; gap: 18px; flex-wrap: wrap;
+  max-width: var(--max); margin: 0 auto; padding: 10px 28px;
+  display: flex; align-items: center; justify-content: flex-end; gap: 20px; flex-wrap: wrap;
 }
 
 /* ---------- HEADER (ACE content on green banner) ---------- */
@@ -93,11 +93,41 @@
 .ace-dash .nav-links a:hover { background: rgba(255, 255, 255, 0.16); color: #fff; }
 .ace-dash .nav-links a.active { background: rgba(255, 255, 255, 0.9); color: var(--green-deep); }
 .ace-dash .top-right { display: flex; align-items: center; gap: 16px; }
-.ace-dash .ticker { display: flex; gap: 20px; font-size: 12px; color: var(--ink-soft); flex-wrap: wrap; }
+.ace-dash .ticker { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* LIVE badge */
+.ace-dash .ticker-live {
+  display: flex; align-items: center; gap: 5px;
+  background: var(--green-soft); border: 1px solid rgba(34,165,90,0.25);
+  border-radius: 999px; padding: 3px 10px 3px 7px;
+}
+.ace-dash .ticker-live-text {
+  font-size: 10.5px; font-weight: 800; letter-spacing: 0.07em;
+  text-transform: uppercase; color: var(--green-deep);
+}
+
+/* Individual stat — no box, just label + bold number inline */
+.ace-dash .ticker-stat {
+  display: flex; align-items: baseline; gap: 5px;
+}
+.ace-dash .ticker-stat-label {
+  font-size: 12px; color: var(--ink-soft); font-weight: 500;
+}
+.ace-dash .ticker-stat-value {
+  font-size: 14px; font-weight: 800; color: var(--green-deep);
+  letter-spacing: -0.01em; font-variant-numeric: tabular-nums;
+}
+
+/* Thin vertical divider */
+.ace-dash .ticker-divider {
+  width: 1px; height: 16px; background: var(--line); flex-shrink: 0;
+}
+
 .ace-dash .ticker b { color: var(--navy-deep); font-weight: 700; }
 .ace-dash .status-dot {
-  display: inline-block; width: 6px; height: 6px; border-radius: 50%;
-  background: var(--green); margin-right: 6px; box-shadow: 0 0 0 3px var(--green-soft);
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+  background: var(--green); box-shadow: 0 0 0 3px rgba(34, 165, 90, 0.2);
+  animation: dotPulse 2s ease-in-out infinite;
 }
 .ace-dash .demo-badge {
   font-size: 10px; font-weight: 700; letter-spacing: 0.04em;

@@ -39,20 +39,31 @@ export const Header = ({ activeNav, onLogin, today, thisMonth }: HeaderProps) =>
     <div className="util-bar">
       <div className="util-inner">
         <div className="ticker">
-          <span>
+          {/* LIVE badge */}
+          <div className="ticker-live">
             <span className="status-dot" />
-            Today{" "}
-            <b>
-              <Counter value={today} />
-            </b>
-          </span>
-          <span>
-            This month{" "}
-            <b>
-              <Counter value={thisMonth} />
-            </b>
-          </span>
+            <span className="ticker-live-text">Live</span>
+          </div>
+
+          {/* Divider */}
+          <div className="ticker-divider" />
+
+          {/* Today */}
+          <div className="ticker-stat">
+            <span className="ticker-stat-label">Questions today</span>
+            <span className="ticker-stat-value"><Counter value={today} /></span>
+          </div>
+
+          {/* Divider */}
+          <div className="ticker-divider" />
+
+          {/* This month */}
+          <div className="ticker-stat">
+            <span className="ticker-stat-label">This month</span>
+            <span className="ticker-stat-value"><Counter value={thisMonth} /></span>
+          </div>
         </div>
+
         <button className="login-btn" onClick={onLogin}>
           Login
         </button>

@@ -16,8 +16,8 @@ export const OutreachGallery = ({
 
   return (
     <section className="wrap" id="outreach-media">
-      <div className="sec-head">
-        <span className="sec-num">FIELD</span>
+      <div className="sec-head mt-10">
+        {/* <span className="sec-num">FIELD</span> */}
         <h2>Outreach from the Ground</h2>
       </div>
       <p className="sec-desc">
