@@ -12,9 +12,9 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Ref to deploy (branch / tag / SHA). Leave blank to use the branch selected above."
-        required: false
-        default: ""
+        description: "Branch / tag / SHA to deploy to staging."
+        required: true
+        default: "staging_branch/main_copy"
         type: string
 
 permissions:
