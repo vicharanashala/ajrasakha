@@ -53,6 +53,7 @@ export function ClosedQuestionsCard({
   statusBreakup,
   avgCloseTimeMinutes = 0,
   avgPassTimeMinutes = 0,
+  combinedCount,
   combinedAvgTime = 0,
   source = "both",
   userType,
@@ -344,26 +345,26 @@ export function ClosedQuestionsCard({
                       {formatDurationFromMinutes(combinedAvgTime)}
                     </span>
                   </TooltipTrigger>
-                  <TooltipContent className="w-56 p-3">
+                  <TooltipContent className="w-64 p-3">
                     <div className="space-y-2 text-xs">
                       <div className="font-semibold">
                         Resolution Time Breakdown
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">GDB</span>
+                        <span className="text-muted-foreground">GDB ({closedQuestions ?? 0})</span>
                         <span className="tabular-nums">
                           {formatDurationFromMinutes(avgCloseTimeMinutes)}
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Non-GDB</span>
+                        <span className="text-muted-foreground">Non-GDB ({passedQuestions ?? 0})</span>
                         <span className="tabular-nums">
                           {formatDurationFromMinutes(avgPassTimeMinutes)}
                         </span>
                       </div>
                       <div className="flex justify-between border-t pt-2 font-medium">
-                        <span>Combined</span>
-                        <span className="tabular-nums">
+                        <span>Weighted Average ({combinedCount ?? ((closedQuestions ?? 0) + (passedQuestions ?? 0))})</span>
+                        <span className="tabular-nums font-semibold">
                           {formatDurationFromMinutes(combinedAvgTime)}
                         </span>
                       </div>

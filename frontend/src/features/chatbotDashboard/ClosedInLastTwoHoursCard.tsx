@@ -359,7 +359,7 @@ export function ClosedInLastTwoHoursCard({
                 <div className="flex items-center gap-1.5">
                   <Gauge className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                    Combined Resolution Rate
+                    Weighted Combined Rate
                   </span>
                 </div>
                 <Tooltip>
@@ -368,31 +368,31 @@ export function ClosedInLastTwoHoursCard({
                       {combinedPct.toFixed(1)}%
                     </span>
                   </TooltipTrigger>
-                  <TooltipContent className="w-56 p-3 z-[9999]">
+                  <TooltipContent className="w-64 p-3 z-[9999]">
                     <div className="space-y-2 text-xs ">
                       <div className="font-semibold">
                         Resolution Rate Breakdown
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex justify-between gap-4">
                         <span className="text-muted-foreground">
                           GDB in 2h
                         </span>
-                        <span className="tabular-nums">
-                          {closedWithinTwoHoursPct.toFixed(1)}%
+                        <span className="tabular-nums font-medium text-right">
+                          {closedWithinTwoHoursPct.toFixed(1)}% <span className="text-[10px] text-muted-foreground">({safeCount}/{safeTotalClosed})</span>
                         </span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex justify-between gap-4">
                         <span className="text-muted-foreground">
                           Non-GDB in 2h
                         </span>
-                        <span className="tabular-nums">
-                          {passedPct.toFixed(1)}%
+                        <span className="tabular-nums font-medium text-right">
+                          {passedPct.toFixed(1)}% <span className="text-[10px] text-muted-foreground">({passedInLastTwoHoursCombined}/{totalPassedCombined})</span>
                         </span>
                       </div>
-                      <div className="flex justify-between border-t pt-2 font-medium">
-                        <span>Combined Rate</span>
-                        <span className="tabular-nums">
-                          {combinedPct.toFixed(1)}%
+                      <div className="flex justify-between border-t pt-2 font-medium gap-4">
+                        <span>Weighted Combined Rate</span>
+                        <span className="tabular-nums text-right font-semibold">
+                          {combinedPct.toFixed(1)}% <span className="text-[10px] text-muted-foreground font-normal">({safeCount + passedInLastTwoHoursCombined}/{safeTotalClosed + totalPassedCombined})</span>
                         </span>
                       </div>
                     </div>
