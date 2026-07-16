@@ -139,6 +139,7 @@ jobs:
             NODE_ENV=staging
             TAILSCALE_AUTHKEY=${{ secrets.TAILSCALE_AUTHKEY }}
             TAILSCALE_HOSTNAME=gcp-staging
+            GCP_MEDIA_BUCKET=${{ secrets.GCP_MEDIA_BUCKET }}
           env_vars_update_strategy: merge
 
           # ── The remaining app env vars are NOT set from here ───────────────────

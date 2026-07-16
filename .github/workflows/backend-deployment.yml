@@ -83,4 +83,5 @@ jobs:
             DB_URL_ANALYTICS=${{ secrets.DB_URL_ANALYTICS }}
             DB_NAME_ANALYTICS=${{ secrets.DB_NAME_ANALYTICS }}
             TAILSCALE_AUTHKEY=${{ secrets.TAILSCALE_AUTHKEY }}
+            GCP_MEDIA_BUCKET=${{ secrets.GCP_MEDIA_BUCKET }}
           flags: --allow-unauthenticated
