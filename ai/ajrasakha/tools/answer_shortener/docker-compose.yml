@@ -1,0 +1,13 @@
+services:
+  answer-shortener-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: answer-shortener-api
+    ports:
+      - "127.0.0.1:${ANSWER_SHORTENER_HOST_PORT:-8112}:8007"
+    env_file:
+      - .env
+    environment:
+      PYTHONUNBUFFERED: "1"
+    restart: unless-stopped
