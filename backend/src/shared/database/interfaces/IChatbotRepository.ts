@@ -162,6 +162,7 @@ export interface FarmerHeatMapMetricTotals {
   totalQuestions: number;
   duplicateQuestions: number;
   closedQuestions: number;
+  nonGdbQuestions: number;
   notifiedQuestions: number;
   averageClosureTimeMinutes: number;
 }
@@ -200,6 +201,7 @@ export interface FarmerHeatMapCell {
   totalQuestions: number;
   duplicateQuestions: number;
   closedQuestions: number;
+  nonGdbQuestions: number;
   notifiedQuestions: number;
   averageClosureTimeMinutes: number;
   statusDistribution: Record<string, number>;
@@ -224,6 +226,7 @@ export interface FarmerHeatMapResponse {
     totalQuestions: number;
     duplicateQuestions: number;
     closedQuestions: number;
+    nonGdbQuestions: number;
     notifiedQuestions: number;
     averageClosureTimeMinutes: number;
   };

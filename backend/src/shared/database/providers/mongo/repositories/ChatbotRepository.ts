@@ -3639,6 +3639,7 @@ export class ChatbotRepository implements IChatbotRepository {
         totalQuestions: 0,
         duplicateQuestions: 0,
         closedQuestions: 0,
+        nonGdbQuestions: 0,
         notifiedQuestions: 0,
         averageClosureTimeMinutes: 0,
       });
@@ -4119,6 +4120,7 @@ export class ChatbotRepository implements IChatbotRepository {
           totalQuestions: number;
           duplicateQuestions: number;
           closedQuestions: number;
+          nonGdbQuestions: number;
           notifiedQuestions: number;
           closureTotalMinutes: number;
           closureCount: number;
@@ -4157,6 +4159,7 @@ export class ChatbotRepository implements IChatbotRepository {
           totalQuestions: 0,
           duplicateQuestions: 0,
           closedQuestions: 0,
+          nonGdbQuestions: 0,
           notifiedQuestions: 0,
           closureTotalMinutes: 0,
           closureCount: 0,
@@ -4195,6 +4198,11 @@ export class ChatbotRepository implements IChatbotRepository {
           existing.duplicateQuestions = existing.duplicateQuestionKeys.size;
         }
 
+        const statusLower = status.toLowerCase();
+        if (statusLower === 'pass' || statusLower === 'dynamic-closed' || statusLower === 'dynamic_closed') {
+          existing.nonGdbQuestions += 1;
+        }
+
         if (status === 'closed') {
           existing.closedQuestions += 1;
           if (row.isCustomerNotified === true) {
@@ -4223,7 +4231,9 @@ export class ChatbotRepository implements IChatbotRepository {
       ): FarmerHeatMapMetricTotals => {
         const activeFarmerIds = new Set<string>();
         let totalQuestions = 0;
+        let duplicateQuestionsCount = 0;
         let closedQuestions = 0;
+        let nonGdbQuestions = 0;
         let notifiedQuestions = 0;
         let closureTotalMinutes = 0;
         const duplicateQuestionKeys = new Set<string>();
@@ -4251,6 +4261,7 @@ export class ChatbotRepository implements IChatbotRepository {
               duplicateQuestionKeys.add(duplicateQuestionKey);
             }
             closedQuestions += questionMetrics.closedQuestions;
+            nonGdbQuestions += questionMetrics.nonGdbQuestions || 0;
             notifiedQuestions += questionMetrics.notifiedQuestions;
             closureTotalMinutes += questionMetrics.closureTotalMinutes;
           }
@@ -4261,6 +4272,7 @@ export class ChatbotRepository implements IChatbotRepository {
           totalQuestions,
           duplicateQuestions: duplicateQuestionKeys.size,
           closedQuestions,
+          nonGdbQuestions,
           notifiedQuestions,
           averageClosureTimeMinutes:
             totalQuestions > 0
@@ -4290,6 +4302,7 @@ export class ChatbotRepository implements IChatbotRepository {
             totalQuestions: questionMetrics?.totalQuestions ?? 0,
             duplicateQuestions: questionMetrics?.duplicateQuestions ?? 0,
             closedQuestions: questionMetrics?.closedQuestions ?? 0,
+            nonGdbQuestions: questionMetrics?.nonGdbQuestions ?? 0,
             notifiedQuestions: questionMetrics?.notifiedQuestions ?? 0,
             averageClosureTimeMinutes,
             statusDistribution: questionMetrics?.statusDistribution ?? {},
@@ -4329,6 +4342,10 @@ export class ChatbotRepository implements IChatbotRepository {
               acc.closedQuestions,
               cell.closedQuestions,
             );
+            acc.nonGdbQuestions = Math.max(
+              acc.nonGdbQuestions,
+              cell.nonGdbQuestions ?? 0,
+            );
             acc.notifiedQuestions = Math.max(
               acc.notifiedQuestions,
               cell.notifiedQuestions,
@@ -4345,6 +4362,7 @@ export class ChatbotRepository implements IChatbotRepository {
           totalQuestions: 0,
           duplicateQuestions: 0,
           closedQuestions: 0,
+          nonGdbQuestions: 0,
           notifiedQuestions: 0,
           averageClosureTimeMinutes: 0,
         },
