@@ -25,6 +25,8 @@ export function useStateWiseAnalytics(
   selectedStateCode: number,
   source: "vicharanashala" | "annam" | "whatsapp"= "annam",
   userType: "all" | "external" | "internal" = "all",
+  /** Authenticated endpoint — pass false on the public dashboard so it never fires. */
+  enabled: boolean = true,
 ) {
   const { data, isLoading,  isFetching, error } = useQuery<
     DistrictAnalyticsResponse,
@@ -38,7 +40,7 @@ export function useStateWiseAnalytics(
       userType,
     ],
 
-    enabled: !!state,
+    enabled: !!state && enabled,
 
     placeholderData: (prev) => prev,
 

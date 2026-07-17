@@ -2,7 +2,7 @@ import { env } from "@/config/env";
 import { auth } from "@/config/firebase";
 import type { GrowthResponse } from "@/types";
 import { getIdToken } from "firebase/auth";
-import { apiFetch } from "../api/api-fetch";
+import { apiFetch, publicApiFetch } from "../api/api-fetch";
 
 const API_BASE_URL = env.apiBaseUrl();
 
@@ -450,6 +450,41 @@ export class ChatbotService {
     return apiFetch<any>(
       `${this._baseUrl}/state-user-data?${params.toString()}`,
     );
+  }
+
+  /**
+   * Public version - uses publicApiFetch (no auth redirect on 401)
+   * For use in public dashboard
+   */
+  async getAllStatesQuestionsAndUsersDataPublic({
+    source,
+    userType,
+  }: {
+    source: string;
+    userType?: string;
+  }) {
+    const params = new URLSearchParams();
+    params.append("source", source);
+    if (userType) params.append("userType", userType);
+    return publicApiFetch<any>(
+      `${this._baseUrl}/state-user-data?${params.toString()}`,
+    );
+  }
+
+  /**
+   * Public counts-only overview for the dashboard map (questions / answers / avg closure /
+   * users / coordinators). Numbers only — the endpoint returns no documents, so it needs
+   * no auth.
+   */
+  async getPublicOverviewCounts({
+    source = "annam",
+    userType = "all",
+  }: {
+    source?: string;
+    userType?: string;
+  }) {
+    const params = new URLSearchParams({ source, userType });
+    return publicApiFetch<any>(`${this._baseUrl}/public-overview?${params.toString()}`);
   }
 
   async getVillageUserCounts({

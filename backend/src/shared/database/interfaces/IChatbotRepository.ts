@@ -973,7 +973,21 @@ export interface IChatbotRepository {
     userType?: string,
   ): Promise<{label: string; totalQueries: number}>;
 
-  getClosedVsTotalQuestions(source: string, userType?: string, startDate?: Date, endDate?: Date):Promise<any>;
+  /** `source` omitted ⇒ no source filter (questions from every source). */
+  getClosedVsTotalQuestions(source?: string, userType?: string, startDate?: Date, endDate?: Date):Promise<any>;
+
+  /** Counts-only user tally for the public dashboard — numbers only, no user documents. */
+  getPublicUserCounts(userType?: string): Promise<{
+    totalUsers: number;
+    userRoleCounts: {
+      farmer: number;
+      coordinator: number;
+      internal: number;
+      districtCoordinator: number;
+      blockCoordinator: number;
+      villageVolunteer: number;
+    };
+  }>;
 
   getNotifiedVsClosed(source?: string, userType?: string, startDate?: Date, endDate?: Date):Promise<any>;
 

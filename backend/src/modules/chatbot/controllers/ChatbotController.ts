@@ -206,7 +206,7 @@ export class ChatbotController {
   })
   @Get('/state-wise-analytics')
   @HttpCode(200)
-  @Authorized()
+  // @Authorized() // Commented for public dashboard access
   async getDistrictAnalyticsByState(
     @QueryParam('state') state: string,
 
@@ -1796,6 +1796,20 @@ export class ChatbotController {
     return this.chatbotService.notifyUser(userEmail, messageId, message);
   }
 
+  /**
+   * PUBLIC — counts only, for the public dashboard map's country overview.
+   * Returns numbers (questions/answers/avg-closure/users/coordinators) and no documents,
+   * which is why it needs no @Authorized(), unlike /closed-notified-data below.
+   */
+  @Get('/public-overview')
+  @HttpCode(200)
+  async getPublicOverviewCounts(
+    @QueryParam('source') source: string = 'all', // 'all' ⇒ every source, unfiltered
+    @QueryParam('userType') userType: string = 'all',
+  ) {
+    return this.chatbotService.getPublicOverviewCounts(source, userType);
+  }
+
   @Get('/closed-notified-data')
   @HttpCode(200)
   @Authorized()
@@ -1984,7 +1998,7 @@ export class ChatbotController {
 
   @Get('/state-user-data')
   @HttpCode(200)
-  @Authorized()
+  // @Authorized() // Commented for public dashboard access
   async getAllStatesQuestionsAndUsersData(
         @QueryParams()
     query: {

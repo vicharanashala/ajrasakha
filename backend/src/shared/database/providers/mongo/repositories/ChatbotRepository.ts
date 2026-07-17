@@ -2867,7 +2867,15 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.initReviewSystem();
 
-      const source = _source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
+      // 'all' ⇒ don't filter by source, so districts count questions from EVERY source.
+      // Hardcoding AJRASAKHA here dropped whole districts: e.g. MANDLA's 23 questions are
+      // all AGRI_EXPERT, so it rendered as 0.
+      const isAllSources = !_source || _source === 'all';
+      const source = isAllSources
+        ? undefined
+        : _source === 'whatsapp'
+          ? 'WHATSAPP'
+          : 'AJRASAKHA';
 
       const districts = district.map(d => {
         if (d.districtNameEnglish === 'S.A.S Nagar') {
@@ -2891,8 +2899,12 @@ export class ChatbotRepository implements IChatbotRepository {
       );
 
       const matchQuery: any = {
-        source,
-        'details.state': state,
+        // Only narrow by source when one was asked for (see isAllSources above).
+        ...(source ? {source} : {}),
+        // details.state casing is inconsistent in the data ('MADHYA PRADESH' vs
+        // 'Madhya Pradesh'), while LGD supplies the title-case name — an exact match found
+        // only the handful that happened to match. Compare case-insensitively.
+        'details.state': this.buildExactTextRegex(state) ?? state,
         'details.district': {
           $exists: true,
           $ne: null,
@@ -11818,8 +11830,77 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
+  /**
+   * Counts-only user tally for the PUBLIC dashboard map.
+   *
+   * Deliberately returns nothing but numbers — no user documents ever leave this method —
+   * so it is safe to expose without auth. Unlike getUserDetails (which loads every matching
+   * user with .find().toArray() to tally roles), this groups in the database, so it stays
+   * cheap no matter how many users exist.
+   */
+  async getPublicUserCounts(
+    userType = 'all',
+  ): Promise<{
+    totalUsers: number;
+    userRoleCounts: {
+      farmer: number;
+      coordinator: number;
+      internal: number;
+      districtCoordinator: number;
+      blockCoordinator: number;
+      villageVolunteer: number;
+    };
+  }> {
+    await this.init();
+
+    const rows = (await this.users
+      .aggregate(
+        [
+          { $match: { ...this.buildUserDocFilter(userType) } },
+          { $group: { _id: '$userRole', count: { $sum: 1 } } },
+        ],
+      )
+      .toArray()) as { _id: string | null; count: number }[];
+
+    const userRoleCounts = {
+      farmer: 0,
+      coordinator: 0,
+      internal: 0,
+      districtCoordinator: 0,
+      blockCoordinator: 0,
+      villageVolunteer: 0,
+    };
+    let totalUsers = 0;
+
+    for (const { _id, count } of rows) {
+      totalUsers += count;
+      const role = _id || '';
+      if (role === 'FARMER') {
+        userRoleCounts.farmer += count;
+      } else if (role === 'district_coordinator') {
+        userRoleCounts.coordinator += count;
+        userRoleCounts.districtCoordinator += count;
+      } else if (role === 'block_coordinator') {
+        userRoleCounts.coordinator += count;
+        userRoleCounts.blockCoordinator += count;
+      } else if (role === 'village_volunteer') {
+        userRoleCounts.coordinator += count;
+        userRoleCounts.villageVolunteer += count;
+      } else if (role === 'INTERNAL') {
+        userRoleCounts.internal += count;
+      }
+    }
+
+    return { totalUsers, userRoleCounts };
+  }
+
+  /**
+   * `source` omitted ⇒ NO source filter, i.e. questions from every source (AJRASAKHA,
+   * WHATSAPP, AGRI_EXPERT, OUTREACH) — see buildBaseQuestionMatch, which only narrows by
+   * source when one is supplied. The public dashboard relies on this.
+   */
   async getClosedVsTotalQuestions(
-    source: string,
+    source?: string,
     userType?: string,
     startDate?: Date,
     endDate?: Date,
@@ -14980,7 +15061,17 @@ export class ChatbotRepository implements IChatbotRepository {
       await this.initReviewSystem();
       await this.init(source);
 
-      const sourceType = source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
+      // 'all' (public dashboard) ⇒ no source filter, so questions from EVERY source count
+      // (AJRASAKHA, WHATSAPP, AGRI_EXPERT, OUTREACH). Questions all live in the shared
+      // QuestionCollection with a `source` field, so this is just a narrower/wider match.
+      // NOTE: undefined must be passed rather than 'all' — buildBaseQuestionMatch would
+      // treat 'all' as "not whatsapp" and silently filter down to AJRASAKHA only.
+      const isAllSources = !source || source === 'all';
+      const sourceType = isAllSources
+        ? undefined
+        : source === 'whatsapp'
+          ? 'WHATSAPP'
+          : 'AJRASAKHA';
 
       const userDocFilter = this.buildUserDocFilter(userType);
       const matchQuery = buildBaseQuestionMatch(sourceType);

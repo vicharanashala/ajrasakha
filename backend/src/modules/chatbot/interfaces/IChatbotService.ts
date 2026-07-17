@@ -316,6 +316,17 @@ export interface IChatbotService {
     startDate?: string,
     endDate?: string,
   ): Promise<any>;
+
+  /** PUBLIC — counts only (no documents), for the public dashboard map's overview. */
+  getPublicOverviewCounts(
+    source?: string,
+    userType?: string,
+  ): Promise<{
+    closedVsTotalQuestions: any;
+    totalUsers: number;
+    userRoleCounts: Record<string, number>;
+  }>;
+
   getMonthlyChurnRate(source: string, userType: string): Promise<any>;
   getActiveUsersTrend(
     source: string,

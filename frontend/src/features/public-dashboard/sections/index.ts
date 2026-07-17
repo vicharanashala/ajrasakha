@@ -1,3 +1,4 @@
+export { AnalyticsMapPublic } from "./AnalyticsMapPublic";
 export { Channels } from "./Channels";
 export { CropMatrix } from "./CropMatrix";
 export { GeographicIntelligence } from "./GeographicIntelligence";

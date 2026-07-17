@@ -40,6 +40,12 @@ export default function IndiaAnalyticsMap({
   source,
   userType,
   todayActiveFarmersData,
+  allStatesData: externalAllStatesData, // Optional prop for public dashboard
+  isPublic = false, // Public dashboard: skip every authenticated hook below
+  // Public dashboard supplies these from the counts-only endpoint, since the hooks that
+  // normally produce them are authenticated and disabled when isPublic.
+  questionStatusData: externalQuestionStatusData,
+  allUsers: externalAllUsers,
 }: any) {
   // Hooks
 
@@ -55,12 +61,15 @@ export default function IndiaAnalyticsMap({
 
   const dark = useIsDark();
   const { statesGeo, districtsAll, loading } = useGeoJson();
-  const { data: questionStatusData } = useClosedAndNotifedData(
+  const { data: internalQuestionStatusData } = useClosedAndNotifedData(
     source,
     userType,
     undefined,
     undefined,
+    !isPublic, // authenticated endpoint — never fire it on the public dashboard
   );
+  // Public dashboard passes the counts in; everywhere else the authenticated hook supplies them.
+  const questionStatusData = externalQuestionStatusData ?? internalQuestionStatusData;
   const {
     level,
     selectedState,
@@ -78,15 +87,22 @@ export default function IndiaAnalyticsMap({
 
   // console.log(selectedStateCode);
 
+  // Use external data if provided (public dashboard), otherwise use internal hook
   const {
-    data: allStatesData,
+    data: internalAllStatesData,
     isLoading,
     isFetching,
   } = useAllStatesandUserData({
     source: source as string,
     userType: userType as string,
-    enabled: true,
+    // Must key off isPublic, NOT off externalAllStatesData: the parent's data is undefined
+    // while its own query is in flight, which would let this authenticated call fire and 401.
+    enabled: !isPublic,
   });
+
+  // Use external data or internal data
+  const allStatesData = externalAllStatesData ?? internalAllStatesData;
+
   // setAllStatesDataandUser(allStatesData);
 
   useEffect(()=>{
@@ -98,6 +114,9 @@ export default function IndiaAnalyticsMap({
     selectedStateCode,
     source,
     userType,
+    // /state-wise-analytics is public (its @Authorized is commented out), so district
+    // drill-down works for anonymous visitors too.
+    true,
   );
 
   // console.log("Analytics of all state", allStatesData)
@@ -431,6 +450,8 @@ const v = level === "state"
         userType={userType}
         questionStatusData={questionStatusData}
         todayActiveFarmersData={todayActiveFarmersData}
+        isPublic={isPublic}
+        allUsers={externalAllUsers}
         isLoading={isLoading || isFetching}
         districtAnalytic={districtAnalytics}
         metric={metric}

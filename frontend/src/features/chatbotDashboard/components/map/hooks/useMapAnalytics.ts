@@ -367,6 +367,53 @@ export function useMapAnalytics({
 
 const chatbotService = new ChatbotService();
 
+/**
+ * Public version of the hook - uses publicApiFetch (no auth redirect on 401)
+ * For use in public dashboard
+ */
+/**
+ * Public counts-only overview for the map's country panel (questions / answers /
+ * avg closure / users / coordinators). Uses publicApiFetch — no auth, no redirect.
+ */
+export const useMapOverviewCountsPublic = ({
+  source,
+  userType,
+  enabled = true,
+}: {
+  source: string;
+  userType: string;
+  enabled?: boolean;
+}) =>
+  useQuery<any>({
+    queryKey: ["public-map-overview-counts", source, userType],
+    queryFn: () => chatbotService.getPublicOverviewCounts({ source, userType }),
+    enabled,
+  });
+
+export const useAllStatesandUserDataPublic = ({
+  source,
+  userType,
+  enabled = true,
+}: {
+  source: string;
+  userType: string;
+  enabled: boolean;
+}) => {
+  return useQuery<any>({
+    queryKey: [
+      "get-user-and-map-data-public",
+      source,
+      userType,
+    ],
+    queryFn: () =>
+      chatbotService.getAllStatesQuestionsAndUsersDataPublic({
+        source,
+        userType,
+      }),
+    enabled: enabled && Boolean(true),
+  });
+};
+
 export const useAllStatesandUserData = ({
   // category,
   // district,

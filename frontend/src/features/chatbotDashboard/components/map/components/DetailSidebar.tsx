@@ -54,6 +54,10 @@ interface DetailSidebarProps {
   userType: string;
   questionStatusData: any;
   todayActiveFarmersData: PaginatedUserDetailsResponse;
+  /** Public dashboard: skip the authenticated user-details lookup. */
+  isPublic?: boolean;
+  /** Public dashboard supplies user COUNTS here (no records), replacing useUserDetails. */
+  allUsers?: { totalUsers?: number; userRoleCounts?: Record<string, number> };
   isLoading: boolean;
   districtAnalytic?: any;
   metric: "questions" | "users" | "activeUsers";
@@ -80,6 +84,8 @@ export function DetailSidebar({
   userType,
   questionStatusData,
   todayActiveFarmersData,
+  isPublic = false,
+  allUsers: externalAllUsers,
   isLoading = false,
   districtAnalytic,
   metric = "questions",
@@ -166,7 +172,7 @@ export function DetailSidebar({
   const activeAnalytics =
     districtAnalytics ?? stateAnalytics ?? countryAnalytics;
   // const isIndiaView = !selectedState && !selectedDistrict;
-  const { data: allUsers } = useUserDetails(
+  const { data: internalAllUsers } = useUserDetails(
     undefined,
     undefined,
     1,
@@ -190,8 +196,11 @@ export function DetailSidebar({
     false,
     "",
     "verified",
-    true,
+    !isPublic, // `enabled` — authenticated endpoint, never fire it on the public dashboard
   );
+
+  // Public dashboard passes counts in (no user records); elsewhere use the authenticated hook.
+  const allUsers: any = externalAllUsers ?? internalAllUsers;
 
   const getTitle = () => {
     if (level === "india") return "Country overview";
@@ -233,7 +242,7 @@ export function DetailSidebar({
         {activeAnalytics && (
           <div className="grid grid-cols-2 gap-2">
              <StatCard
-             onClick={()=> handleClick("all")}
+             onClick={isPublic ? undefined : ()=> handleClick("all")}
               // label="Questions"
 
               label={
@@ -277,7 +286,8 @@ export function DetailSidebar({
               icon={<Activity className="h-3.5 w-3.5" />}
             />
 
-            {status ? <QueryCategoryQuestionsModal  
+            {/* These modals fetch authenticated question data — never render them publicly. */}
+            {isPublic ? null : status ? <QueryCategoryQuestionsModal
             status={status}
           source={source}
           userType={userType}
@@ -300,7 +310,7 @@ export function DetailSidebar({
               isQueryCategory = {false}
               onClose={() => setClickedDistrict(null)}
         />: null}
-        {showActiveUsersModal && (
+        {!isPublic && showActiveUsersModal && (
   <ActiveUserDetailsModal
     source={source}
     userType={userType}
@@ -323,7 +333,7 @@ export function DetailSidebar({
               icon={<Activity className="h-3.5 w-3.5" />}
             />
 
-                    {showUsersModal && (
+                    {!isPublic && showUsersModal && (
   <ActiveUserDetailsModal
     source={source}
     userType={userType}
@@ -334,13 +344,15 @@ export function DetailSidebar({
   />
 )}
             <StatCard
-              onClick={()=> setShowUsersModal(true)}
+              onClick={isPublic ? undefined : ()=> setShowUsersModal(true)}
               label="Users"
               value={renderCardValue(
                 fmt(isIndiaView ? allUsers.totalUsers : activeAnalytics.users),
               )}
               icon={<Users className="h-3.5 w-3.5" />}
             />
+         {/* "Active" needs the authenticated per-day active-user lookup — hidden publicly. */}
+         {!isPublic && (
          <StatCard
          onClick={()=> setShowActiveUsersModal(true)}
   label={
@@ -357,6 +369,7 @@ export function DetailSidebar({
   )}
   icon={<Users className="h-3.5 w-3.5" />}
 />
+         )}
             {/* <StatCard
   label="Coordinators"
   value={fmt(
@@ -366,7 +379,7 @@ export function DetailSidebar({
   )}
   icon={<Building2 className="h-3.5 w-3.5" />}
 /> */}
-         {showModeratorsModal && (
+         {!isPublic && showModeratorsModal && (
   <ActiveUserDetailsModal
     source={source}
     userType={userType}
@@ -377,7 +390,7 @@ export function DetailSidebar({
   />
 )}
             <StatCard
-            onClick={() => setShowModeratorsModal(true)}
+            onClick={isPublic ? undefined : () => setShowModeratorsModal(true)}
               label={
                 <div className="flex items-center gap-1">
                   <span >Coordinators</span>
@@ -434,6 +447,8 @@ export function DetailSidebar({
               )}
               icon={<Building2 className="h-3.5 w-3.5" />}
             />
+            {/* Avg closure is an internal operations metric — not shown on the public dashboard. */}
+            {!isPublic && (
             <StatCard
               label="Avg closure"
               value={`${
@@ -446,6 +461,7 @@ export function DetailSidebar({
               }h`}
               icon={<Activity className="h-3.5 w-3.5" />}
             />
+            )}
           </div>
         )}
 

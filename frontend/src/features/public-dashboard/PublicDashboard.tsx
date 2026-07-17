@@ -6,6 +6,7 @@ import { Header } from "./components/Header";
 import { HeroCarousel, type CarouselStatItem } from "./components/HeroCarousel";
 import { OutreachGallery } from "./components/OutreachGallery";
 import {
+  AnalyticsMapPublic,
   Channels,
   CropMatrix,
   GeographicIntelligence,
@@ -118,6 +119,7 @@ export const PublicDashboard = () => {
       />
       <main>
         <NarrativeSection blocks={blocks} />
+        <AnalyticsMapPublic />
         <HeroSnapshot stats={stats} />
         <GeographicIntelligence />
         <KnowledgeEngine />

@@ -3305,6 +3305,39 @@ export class ChatbotService extends BaseService implements IChatbotService {
     };
   }
 
+  /**
+   * Counts ONLY, for the public dashboard map's country overview.
+   *
+   * Everything the public map needs (questions, answers, avg closure, users, coordinators)
+   * as plain numbers — no question or user documents. That is what makes it safe to serve
+   * without auth, unlike /closed-notified-data and /user-details which return records.
+   */
+  async getPublicOverviewCounts(
+    source = 'all',
+    userType = 'all',
+  ): Promise<{
+    closedVsTotalQuestions: any;
+    totalUsers: number;
+    userRoleCounts: Record<string, number>;
+  }> {
+    // 'all' (the public dashboard's default) means EVERY source. buildBaseQuestionMatch only
+    // narrows by source when one is given, so we pass undefined rather than a value —
+    // note 'all' must NOT be forwarded: it would fall into the `!== 'whatsapp'` branch there
+    // and silently filter down to AJRASAKHA only.
+    const repoSource = !source || source === 'all' ? undefined : source;
+
+    const [closedVsTotalQuestions, userCounts] = await Promise.all([
+      this.chatbotRepository.getClosedVsTotalQuestions(repoSource, userType),
+      this.chatbotRepository.getPublicUserCounts(userType),
+    ]);
+
+    return {
+      closedVsTotalQuestions,
+      totalUsers: userCounts.totalUsers,
+      userRoleCounts: userCounts.userRoleCounts,
+    };
+  }
+
   async getMonthlyChurnRate(source: string, userType: string): Promise<any> {
     return await this.chatbotRepository.getMonthlyChurnRate(source, userType);
   }
