@@ -171,12 +171,12 @@ export function SourceTabsHeader({
           <span className="text-sm font-medium">Refresh</span>
         </motion.button>
 
-        <Popover>
+        {mapView && <Popover>
           <PopoverTrigger asChild>
             <Button
               variant="outline"
               size="sm"
-              className="h-7 rounded-full border-border/50 bg-background/60 px-3 text-[11px] font-medium hover:bg-muted/50"
+              className="h-9 w-20 rounded-full border-border/50 bg-background/60 px-3 text-[11px] font-medium hover:bg-muted/50"
             >
               {dateRange?.from
                 ? dateRange.to
@@ -196,8 +196,8 @@ export function SourceTabsHeader({
               className="pointer-events-auto"
             />
           </PopoverContent>
-        </Popover>
-        {dateRange && (
+        </Popover>}
+        {dateRange && mapView && (
           <Button
             variant="ghost"
             size="icon"

@@ -19790,64 +19790,68 @@ if (startDate || endDate) {
       );
     }
   }
+
   async getClosedInLastTwoHoursByLocation(
-    source?: string,
-    userType?: string,
-    state?: string,
-    district?: string,
-  ): Promise<any> {
-    try {
-      await this.initReviewSystem();
+  source?: string,
+  userType?: string,
+  state?: string,
+  district?: string,
+): Promise<any> {
+  try {
+    await this.initReviewSystem();
 
-      const matchStage = buildBaseQuestionMatch(source);
+    const matchStage = buildBaseQuestionMatch(source);
 
-      const query = await this.buildQuestionUserTypeMatchQuery(
-        source,
-        userType,
-      );
+    const query = await this.buildQuestionUserTypeMatchQuery(
+      source,
+      userType,
+    );
 
-      if (query && Object.keys(query).length > 0) {
-        matchStage.$and.push(query);
-      }
+    if (query && Object.keys(query).length > 0) {
+      matchStage.$and.push(query);
+    }
 
-      if (source === 'both') {
-        matchStage.source = {
-          $in: ['WHATSAPP', 'AJRASAKHA'],
-        };
-      }
-
-      matchStage.status = {
-        $in: ['closed', 'pass'],
+    if (source === 'both') {
+      matchStage.source = {
+        $in: ['WHATSAPP', 'AJRASAKHA'],
       };
+    }
 
     matchStage.status = {
       $in: ['closed', 'pass', 'dynamic_closed'],
     };
 
-      if (district) {
-        matchStage['details.district'] = {
-          $regex: `^${district}$`,
-          $options: 'i',
-        };
-      }
+    if (state) {
+      matchStage['details.state'] = {
+        $regex: `^${state}$`,
+        $options: 'i',
+      };
+    }
 
-      const [totalCountResult, lastTwoHoursResult] = await Promise.all([
-        this.QuestionCollection.aggregate([
-          {
-            $match: matchStage,
-          },
-          {
-            $addFields: {
-              _statusLower: {
-                $toLower: {
-                  $ifNull: ['$status', ''],
-                },
+    if (district) {
+      matchStage['details.district'] = {
+        $regex: `^${district}$`,
+        $options: 'i',
+      };
+    }
+
+    const [totalCountResult, lastTwoHoursResult] = await Promise.all([
+      this.QuestionCollection.aggregate([
+        {
+          $match: matchStage,
+        },
+        {
+          $addFields: {
+            _statusLower: {
+              $toLower: {
+                $ifNull: ['$status', ''],
               },
             },
           },
-          {
-            $group: {
-              _id: null,
+        },
+        {
+          $group: {
+            _id: null,
 
             closedCount: {
               $sum: {
@@ -19893,193 +19897,158 @@ if (startDate || endDate) {
                 {
                   $eq: [
                     {
-                      $eq: ['$_statusLower', 'closed'],
+                      $toLower: {
+                        $ifNull: ['$status', ''],
+                      },
                     },
-                    1,
-                    0,
+                    'pass',
                   ],
                 },
-              },
+                '$passedAt',
+                '$closedAt',
+              ],
+            },
 
-              passCount: {
-                $sum: {
-                  $cond: [
-                    {
-                      $eq: ['$_statusLower', 'pass'],
+            _effectiveCreatedAt: {
+              $let: {
+                vars: {
+                  istHour: {
+                    $hour: {
+                      date: '$createdAt',
+                      timezone: 'Asia/Kolkata',
                     },
-                    1,
-                    0,
-                  ],
+                  },
+
+                  istDateTrunc: {
+                    $dateTrunc: {
+                      date: '$createdAt',
+                      unit: 'day',
+                      timezone: 'Asia/Kolkata',
+                    },
+                  },
+                },
+
+                in: {
+                  $cond: {
+                    if: {
+                      $gte: ['$$istHour', 22],
+                    },
+
+                    then: {
+                      $dateAdd: {
+                        startDate: '$$istDateTrunc',
+                        unit: 'hour',
+                        amount: 30,
+                      },
+                    },
+
+                    else: {
+                      $cond: {
+                        if: {
+                          $lt: ['$$istHour', 6],
+                        },
+
+                        then: {
+                          $dateAdd: {
+                            startDate: '$$istDateTrunc',
+                            unit: 'hour',
+                            amount: 6,
+                          },
+                        },
+
+                        else: '$createdAt',
+                      },
+                    },
+                  },
                 },
               },
             },
           },
-        ]).toArray(),
+        },
+        {
+          $match: {
+            _statusLower: {
+              $in: ['closed', 'pass', 'dynamic_closed'],
+            },
 
-        this.QuestionCollection.aggregate([
-          {
-            $match: matchStage,
-          },
-          {
-            $addFields: {
-              _statusLower: {
-                $toLower: {
-                  $ifNull: ['$status', ''],
+            _operationalCompletionAt: {
+              $ne: null,
+            },
+
+            $expr: {
+              $and: [
+                {
+                  $gte: [
+                    '$_operationalCompletionAt',
+                    '$createdAt',
+                  ],
                 },
-              },
+                {
+                  $lte: [
+                    {
+                      $max: [
+                        0,
+                        {
+                          $subtract: [
+                            '$_operationalCompletionAt',
+                            '$_effectiveCreatedAt',
+                          ],
+                        },
+                      ],
+                    },
+                    2 * 60 * 60 * 1000,
+                  ],
+                },
+              ],
+            },
+          },
+        },
+        {
+          $group: {
+            _id: null,
 
-              _operationalCompletionAt: {
+            closedCount: {
+              $sum: {
                 $cond: [
                   {
-                    $eq: [
-                      {
-                        $toLower: {
-                          $ifNull: ['$status', ''],
-                        },
-                      },
-                      'pass',
-                    ],
+                    $eq: ['$_statusLower', 'closed'],
                   },
-                  '$passedAt',
-                  '$closedAt',
+                  1,
+                  0,
                 ],
               },
-
-              _effectiveCreatedAt: {
-                $let: {
-                  vars: {
-                    istHour: {
-                      $hour: {
-                        date: '$createdAt',
-                        timezone: 'Asia/Kolkata',
-                      },
-                    },
-
-                    istDateTrunc: {
-                      $dateTrunc: {
-                        date: '$createdAt',
-                        unit: 'day',
-                        timezone: 'Asia/Kolkata',
-                      },
-                    },
-                  },
-
-                  in: {
-                    $cond: {
-                      if: {
-                        $gte: ['$$istHour', 22],
-                      },
-
-                      then: {
-                        $dateAdd: {
-                          startDate: '$$istDateTrunc',
-                          unit: 'hour',
-                          amount: 30,
-                        },
-                      },
-
-                      else: {
-                        $cond: {
-                          if: {
-                            $lt: ['$$istHour', 6],
-                          },
-
-                          then: {
-                            $dateAdd: {
-                              startDate: '$$istDateTrunc',
-                              unit: 'hour',
-                              amount: 6,
-                            },
-                          },
-
-                          else: '$createdAt',
-                        },
-                      },
-                    },
-                  },
-                },
-              },
             },
-          },
-          {
-            $match: {
-              _statusLower: {
-                $in: ['closed', 'pass', 'dynamic_closed'],
-              },
 
-              _operationalCompletionAt: {
-                $ne: null,
-              },
-
-              $expr: {
-                $and: [
+            passCount: {
+              $sum: {
+                $cond: [
                   {
-                    $gte: ['$_operationalCompletionAt', '$createdAt'],
+                    $in: ['$_statusLower', ['pass', 'dynamic_closed']],
                   },
-                  {
-                    $lte: [
-                      {
-                        $max: [
-                          0,
-                          {
-                            $subtract: [
-                              '$_operationalCompletionAt',
-                              '$_effectiveCreatedAt',
-                            ],
-                          },
-                        ],
-                      },
-                      2 * 60 * 60 * 1000,
-                    ],
-                  },
+                  1,
+                  0,
                 ],
               },
             },
           },
-          {
-            $group: {
-              _id: null,
+        },
+      ]).toArray(),
+    ]);
 
-              closedCount: {
-                $sum: {
-                  $cond: [
-                    {
-                      $eq: ['$_statusLower', 'closed'],
-                    },
-                    1,
-                    0,
-                  ],
-                },
-              },
+    return {
+      totalClosedCount: totalCountResult[0]?.closedCount ?? 0,
+      totalPassCount: totalCountResult[0]?.passCount ?? 0,
 
-              passCount: {
-                $sum: {
-                  $cond: [
-                    {
-                      $in: ['$_statusLower', ['pass', 'dynamic_closed']],
-                    },
-                    1,
-                    0,
-                  ],
-                },
-              },
-            },
-          },
-        ]).toArray(),
-      ]);
+      closedInTwoHoursCount:
+        lastTwoHoursResult[0]?.closedCount ?? 0,
 
-      return {
-        totalClosedCount: totalCountResult[0]?.closedCount ?? 0,
-        totalPassCount: totalCountResult[0]?.passCount ?? 0,
-
-        closedInTwoHoursCount: lastTwoHoursResult[0]?.closedCount ?? 0,
-
-        passInTwoHoursCount: lastTwoHoursResult[0]?.passCount ?? 0,
-      };
-    } catch (error) {
-      throw new InternalServerError(
-        `Failed to get closed questions by location: ${error}`,
-      );
-    }
+      passInTwoHoursCount:
+        lastTwoHoursResult[0]?.passCount ?? 0,
+    };
+  } catch (error) {
+    throw new InternalServerError(
+      `Failed to get closed questions by location: ${error}`,
+    );
   }
+}
 }
