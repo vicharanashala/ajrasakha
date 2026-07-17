@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import {
   Home,
   Tractor,
@@ -6,10 +7,8 @@ import {
 } from "lucide-react";
 
 export const NotFound = () => {
-  // @ts-ignore
   const [timestamp, setTimestamp] = useState(new Date().toISOString());
 
-  // @ts-ignore
   useEffect(() => {
     const timer = setInterval(
       () => setTimestamp(new Date().toISOString()),

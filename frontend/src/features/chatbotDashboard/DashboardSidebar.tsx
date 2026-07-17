@@ -8,6 +8,7 @@ import {
   DialogClose,
 } from "@/components/atoms/dialog";
 import { Calendar } from "@/components/atoms/calendar";
+import { ThemeToggleCompact } from "@/components/atoms/ThemeToggle";
 import { Button } from "@/components/atoms/button";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
@@ -841,6 +842,16 @@ export const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                     </div>
                 )}
             </div> */}
+
+      {/* ── THEME TOGGLE FOOTER ── */}
+      <div className="mt-auto border-t border-(--border) p-2">
+        <div className={`${collapsed && !isMobile ? "flex justify-center" : "flex items-center gap-2 px-2"}`}>
+          <ThemeToggleCompact />
+          {!(collapsed && !isMobile) && (
+            <span className="text-xs text-(--muted-foreground)">Theme</span>
+          )}
+        </div>
+      </div>
     </aside>
   );
 
