@@ -457,8 +457,12 @@ export class ChatbotController {
       endDate?: Date;
       isPassed?: string;
       tag?: string;
+      userId?: string;
     },
+    @QueryParam('userId') userId?: string,
   ) {
+    const scopedUserId = userId || query.userId;
+
     if (query.category) {
       return this.chatbotService.getQueryCategoryQuestions(
         query.category,
@@ -514,6 +518,7 @@ export class ChatbotController {
         query.search,
         startDate,
         endDate,
+        scopedUserId,
       );
     } else if (query.closedWithInTwohours) {
       const startDate = new Date(query.startDate);
@@ -528,6 +533,7 @@ export class ChatbotController {
         endDate,
         query.isPassed,
         query.tag,
+        scopedUserId,
       );
     } else {
       if(query.period){
@@ -552,6 +558,7 @@ export class ChatbotController {
         query.search,
         startDate,
         endDate,
+        scopedUserId,
       );
     }
   }
@@ -1786,6 +1793,23 @@ export class ChatbotController {
     );
   }
 
+  @Get('/user-message-metric-details')
+  @HttpCode(200)
+  @Authorized()
+  async getUserMessageMetricDetails(
+    @QueryParam('userId') userId: string,
+    @QueryParam('metric') metric: string,
+    @QueryParam('page') page: number = 1,
+    @QueryParam('limit') limit: number = 10,
+  ): Promise<any> {
+    return await this.chatbotService.getUserMessageMetricDetails(
+      userId,
+      metric,
+      Number(page),
+      Number(limit),
+    );
+  }
+
   @Post('/notify-user')
   @HttpCode(200)
   @Authorized()
@@ -1809,12 +1833,15 @@ export class ChatbotController {
     startDate?: string,
     @QueryParam('endDate')
     endDate?: string,
+    @QueryParam('userId')
+    userId?: string,
   ): Promise<any> {
     return await this.chatbotService.getClosedAndNotifedData(
       source,
       userType,
       startDate,
       endDate,
+      userId,
     );
   }
 
@@ -2018,6 +2045,8 @@ export class ChatbotController {
   ) {
     return await this.chatbotService.getUserProfile(
       query.userId,
+      query.startDate,
+      query.endDate,
     );
   }
 
@@ -2172,6 +2201,7 @@ export class ChatbotController {
     @QueryParam('isPassed') isPassed?: string,
     @QueryParam('tag') tag?: string,
     @QueryParam('notificationType') notificationType?: string,
+    @QueryParam('userId') userId?: string,
     @QueryParam('page') page?: number,
     @QueryParam('limit') limit?: number,
   ): Promise<any> {
@@ -2190,6 +2220,7 @@ export class ChatbotController {
       isPassed,
       tag,
       notificationType,
+      userId,
       page,
       limit
     );

@@ -304,6 +304,12 @@ export interface IChatbotService {
     page?: number,
     limit?: number,
   ): Promise<any>;
+  getUserMessageMetricDetails(
+    userId: string,
+    metric: string,
+    page?: number,
+    limit?: number,
+  ): Promise<any>;
   notifyUser(
     userEmail: string,
     messageId: string,
@@ -315,6 +321,7 @@ export interface IChatbotService {
     userType?: string,
     startDate?: string,
     endDate?: string,
+    userId?: string,
   ): Promise<any>;
   getMonthlyChurnRate(source: string, userType: string): Promise<any>;
   getActiveUsersTrend(
@@ -376,7 +383,8 @@ export interface IChatbotService {
     userType?: string,
     search?: string,
     startDate?: Date,
-    endDate?: Date): Promise<any>
+    endDate?: Date,
+    userId?: string): Promise<any>
 
   getQuestionsClosedWithinTwoHours(
     page?: number,
@@ -388,6 +396,7 @@ export interface IChatbotService {
     endDate?: Date,
     isPassed?: string,
     tag?: string,
+    userId?: string,
   ) : Promise<any>
 
   getQuestionsByNotificationStatus(
@@ -399,6 +408,7 @@ export interface IChatbotService {
     search?: string,
     startDate?: Date,
     endDate?: Date,
+    userId?: string,
   ): Promise<any>
 
     getQueriesByPeriod (
@@ -422,7 +432,7 @@ export interface IChatbotService {
       startDate?: Date,
       endDate?: Date
     ): Promise<any>
-  getUserProfile(userId: string): Promise<any>
+  getUserProfile(userId: string, startDate?: string, endDate?: string): Promise<any>
   assignUsers(userId: string, targetIds: string[]): Promise<any>
   unAssignUsers(userId: string, targetIds: string[]): Promise<any>
 
@@ -476,6 +486,7 @@ export interface IChatbotService {
       isPassed?: string,
       tag?: string,
       notificationType?: string,
+      userId?: string,
       page?: number,
       limit?: number,
     ): Promise<any>

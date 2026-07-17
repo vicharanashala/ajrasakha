@@ -1259,7 +1259,7 @@ export class ChatbotRepository implements IChatbotRepository {
   // }
 
   //without unwind
-  private buildUserTypeLookupStages(userType: string): any[] {
+  private buildUserTypeLookupStages(userType: string, keepUserDoc: boolean = false): any[] {
     if (userType === 'all') return [];
 
     const userRoleMatch =
@@ -1295,7 +1295,7 @@ export class ChatbotRepository implements IChatbotRepository {
         $match: userRoleMatch,
       },
       {
-        $unset: ['_userOid', '_userDoc'],
+        $unset: keepUserDoc ? ['_userOid'] : ['_userOid', '_userDoc'],
       },
     ];
   }
@@ -3639,6 +3639,7 @@ export class ChatbotRepository implements IChatbotRepository {
         totalQuestions: 0,
         duplicateQuestions: 0,
         closedQuestions: 0,
+        nonGdbQuestions: 0,
         notifiedQuestions: 0,
         averageClosureTimeMinutes: 0,
       });
@@ -4119,6 +4120,7 @@ export class ChatbotRepository implements IChatbotRepository {
           totalQuestions: number;
           duplicateQuestions: number;
           closedQuestions: number;
+          nonGdbQuestions: number;
           notifiedQuestions: number;
           closureTotalMinutes: number;
           closureCount: number;
@@ -4157,6 +4159,7 @@ export class ChatbotRepository implements IChatbotRepository {
           totalQuestions: 0,
           duplicateQuestions: 0,
           closedQuestions: 0,
+          nonGdbQuestions: 0,
           notifiedQuestions: 0,
           closureTotalMinutes: 0,
           closureCount: 0,
@@ -4195,6 +4198,11 @@ export class ChatbotRepository implements IChatbotRepository {
           existing.duplicateQuestions = existing.duplicateQuestionKeys.size;
         }
 
+        const statusLower = status.toLowerCase();
+        if (statusLower === 'pass' || statusLower === 'dynamic-closed' || statusLower === 'dynamic_closed') {
+          existing.nonGdbQuestions += 1;
+        }
+
         if (status === 'closed') {
           existing.closedQuestions += 1;
           if (row.isCustomerNotified === true) {
@@ -4223,7 +4231,9 @@ export class ChatbotRepository implements IChatbotRepository {
       ): FarmerHeatMapMetricTotals => {
         const activeFarmerIds = new Set<string>();
         let totalQuestions = 0;
+        let duplicateQuestionsCount = 0;
         let closedQuestions = 0;
+        let nonGdbQuestions = 0;
         let notifiedQuestions = 0;
         let closureTotalMinutes = 0;
         const duplicateQuestionKeys = new Set<string>();
@@ -4251,6 +4261,7 @@ export class ChatbotRepository implements IChatbotRepository {
               duplicateQuestionKeys.add(duplicateQuestionKey);
             }
             closedQuestions += questionMetrics.closedQuestions;
+            nonGdbQuestions += questionMetrics.nonGdbQuestions || 0;
             notifiedQuestions += questionMetrics.notifiedQuestions;
             closureTotalMinutes += questionMetrics.closureTotalMinutes;
           }
@@ -4261,6 +4272,7 @@ export class ChatbotRepository implements IChatbotRepository {
           totalQuestions,
           duplicateQuestions: duplicateQuestionKeys.size,
           closedQuestions,
+          nonGdbQuestions,
           notifiedQuestions,
           averageClosureTimeMinutes:
             totalQuestions > 0
@@ -4290,6 +4302,7 @@ export class ChatbotRepository implements IChatbotRepository {
             totalQuestions: questionMetrics?.totalQuestions ?? 0,
             duplicateQuestions: questionMetrics?.duplicateQuestions ?? 0,
             closedQuestions: questionMetrics?.closedQuestions ?? 0,
+            nonGdbQuestions: questionMetrics?.nonGdbQuestions ?? 0,
             notifiedQuestions: questionMetrics?.notifiedQuestions ?? 0,
             averageClosureTimeMinutes,
             statusDistribution: questionMetrics?.statusDistribution ?? {},
@@ -4329,6 +4342,10 @@ export class ChatbotRepository implements IChatbotRepository {
               acc.closedQuestions,
               cell.closedQuestions,
             );
+            acc.nonGdbQuestions = Math.max(
+              acc.nonGdbQuestions,
+              cell.nonGdbQuestions ?? 0,
+            );
             acc.notifiedQuestions = Math.max(
               acc.notifiedQuestions,
               cell.notifiedQuestions,
@@ -4345,6 +4362,7 @@ export class ChatbotRepository implements IChatbotRepository {
           totalQuestions: 0,
           duplicateQuestions: 0,
           closedQuestions: 0,
+          nonGdbQuestions: 0,
           notifiedQuestions: 0,
           averageClosureTimeMinutes: 0,
         },
@@ -6752,7 +6770,7 @@ export class ChatbotRepository implements IChatbotRepository {
   ): Promise<PaginatedFeedbackMessages> {
     try {
       await this.init(source);
-      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType, true);
 
       const matchStage: any = {
         feedback: {$exists: true, $ne: null},
@@ -6841,6 +6859,8 @@ export class ChatbotRepository implements IChatbotRepository {
                 _id: 1,
                 conversationId: 1,
                 userId: '$_userDoc._id',
+                name: '$_userDoc.name',
+                username: '$_userDoc.username',
                 farmerName: '$_userDoc.farmerProfile.farmerName',
                 email: '$_userDoc.email',
                 village: '$_userDoc.farmerProfile.villageName',
@@ -9020,6 +9040,24 @@ export class ChatbotRepository implements IChatbotRepository {
         if (value.startsWith('Large'))
           return {'farmerProfile.landhold': {$gte: 10}};
         break;
+
+      case 'kccAwareness':
+      case 'awarenessOfKCC':
+        if (value.toLowerCase() === 'yes') {
+          return { 'farmerProfile.awarenessOfKCC': true };
+        } else if (value.toLowerCase() === 'no') {
+          return { 'farmerProfile.awarenessOfKCC': { $ne: true } };
+        }
+        break;
+
+      case 'agriAppUsage':
+      case 'usesAgriApps':
+        if (value.toLowerCase() === 'yes') {
+          return { 'farmerProfile.usesAgriApps': true };
+        } else if (value.toLowerCase() === 'no') {
+          return { 'farmerProfile.usesAgriApps': { $ne: true } };
+        }
+        break;
     }
 
     return {};
@@ -9042,6 +9080,8 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const userFilter: Record<string, any> = {
         ...this.buildUserDocFilter(userType),
+        isVerified: true,
+        farmerProfile: { $exists: true, $ne: null },
       };
 
       if (search && search.trim()) {
@@ -9136,6 +9176,8 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const userFilter: Record<string, any> = {
         ...this.buildUserDocFilter(userType),
+        isVerified: true,
+        farmerProfile: { $exists: true, $ne: null },
       };
 
       const normalizedPlatform = platform?.trim();
@@ -9952,17 +9994,21 @@ export class ChatbotRepository implements IChatbotRepository {
         },
       };
 
+      const matchStage = {
+        ...domainMatch,
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+        status: {$ne: 'non_agri'},
+      };
+
       const pipeline: any[] = [
         {
-          $match: domainMatch,
-          $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          status: {$ne: 'non_agri'},
+          $match: matchStage,
         },
         groupStage,
         {
           $unionWith: {
             coll: 'duplicate_questions',
-            pipeline: [{$match: domainMatch}, groupStage],
+            pipeline: [{$match: matchStage}, groupStage],
           },
         },
         {
@@ -10051,7 +10097,7 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.initReviewSystem();
 
-      const matchQuery = buildBaseQuestionMatch('whatsapp');
+      const matchQuery = buildBaseQuestionMatch(dbSource);
 
       if (startTime || endTime) {
         matchQuery.createdAt = {};
@@ -10203,7 +10249,7 @@ export class ChatbotRepository implements IChatbotRepository {
   ): Promise<Array<{questionId: string; question: string; count: number}>> {
     try {
       await this.initReviewSystem();
-      const matchQuery = buildBaseQuestionMatch('whatsapp');
+      const matchQuery = buildBaseQuestionMatch(dbSource);
 
       if (startTime || endTime) {
         matchQuery.createdAt = {};
@@ -10305,8 +10351,9 @@ export class ChatbotRepository implements IChatbotRepository {
     totalPages: number;
   }> {
     try {
+      await this.init(dbSource);
       await this.initReviewSystem();
-      const matchQuery = buildBaseQuestionMatch('whatsapp');
+      const matchQuery = buildBaseQuestionMatch(dbSource);
 
       if (startTime || endTime) {
         matchQuery.createdAt = {};
@@ -10366,8 +10413,8 @@ export class ChatbotRepository implements IChatbotRepository {
                     status: 1,
                     source: 1,
                     userRole: 1,
-                    farmerId: 1,
-                    coordinatorId: 1,
+                    userId: 1,
+                    messageId: 1,
                   },
                 },
               ],
@@ -10378,11 +10425,25 @@ export class ChatbotRepository implements IChatbotRepository {
       ).toArray();
 
       const total = result[0]?.metadata[0]?.total || 0;
-      const data = result[0]?.data || [];
+      const rawData = result[0]?.data || [];
       const totalPages = Math.ceil(total / limit);
 
+      const resolved = await this.resolveQuestionUsers(rawData);
+      const userMap = resolved.userMap;
+      const questionUserMap = resolved.questionUserMap;
+
+      const enrichedData = rawData.map((question: any) => {
+        const questionId = question.questionId ?? question._id?.toString();
+        const resolvedUserId = questionUserMap.get(questionId);
+        const user = resolvedUserId ? userMap.get(resolvedUserId) : undefined;
+        return {
+          ...question,
+          email: user?.email || null,
+        };
+      });
+
       return {
-        data,
+        data: enrichedData,
         total,
         page,
         limit,
@@ -11317,6 +11378,38 @@ export class ChatbotRepository implements IChatbotRepository {
                 ],
               },
             },
+            dynamicClosedTimedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'dynamic_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            dynamicClosedTimeSum: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'dynamic_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  {$subtract: ['$closedAt', '$createdAt']},
+                  0,
+                ],
+              },
+            },
           },
         },
         // Group by period
@@ -11343,6 +11436,12 @@ export class ChatbotRepository implements IChatbotRepository {
             },
             passedTimeSum: {
               $sum: '$passedTimeSum',
+            },
+            dynamicClosedTimedCount: {
+              $sum: '$dynamicClosedTimedCount',
+            },
+            dynamicClosedTimeSum: {
+              $sum: '$dynamicClosedTimeSum',
             },
           },
         },
@@ -11388,19 +11487,57 @@ export class ChatbotRepository implements IChatbotRepository {
                 0,
               ],
             },
+            averageDynamicCloseTimeMinutes: {
+              $cond: [
+                {$gt: ['$dynamicClosedTimedCount', 0]},
+                {
+                  $round: [
+                    {
+                      $divide: [
+                        '$dynamicClosedTimeSum',
+                        {$multiply: ['$dynamicClosedTimedCount', 60000]},
+                      ],
+                    },
+                    2,
+                  ],
+                },
+                0,
+              ],
+            },
             combinedAverageTimeMinutes: {
               $cond: [
                 {
-                  $gt: [{$add: ['$closedTimedCount', '$passedTimedCount']}, 0],
+                  $gt: [
+                    {
+                      $add: [
+                        '$closedTimedCount',
+                        '$passedTimedCount',
+                        '$dynamicClosedTimedCount',
+                      ],
+                    },
+                    0,
+                  ],
                 },
                 {
                   $round: [
                     {
                       $divide: [
-                        {$add: ['$closedTimeSum', '$passedTimeSum']},
+                        {
+                          $add: [
+                            '$closedTimeSum',
+                            '$passedTimeSum',
+                            '$dynamicClosedTimeSum',
+                          ],
+                        },
                         {
                           $multiply: [
-                            {$add: ['$closedTimedCount', '$passedTimedCount']},
+                            {
+                              $add: [
+                                '$closedTimedCount',
+                                '$passedTimedCount',
+                                '$dynamicClosedTimedCount',
+                              ],
+                            },
                             60000,
                           ],
                         },
@@ -11608,6 +11745,38 @@ export class ChatbotRepository implements IChatbotRepository {
                 ],
               },
             },
+            dynamicClosedTimedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'dynamic_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            dynamicClosedTimeSum: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'dynamic_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  {$subtract: ['$closedAt', '$createdAt']},
+                  0,
+                ],
+              },
+            },
           },
         },
         // Group by week
@@ -11634,6 +11803,12 @@ export class ChatbotRepository implements IChatbotRepository {
             },
             passedTimeSum: {
               $sum: '$passedTimeSum',
+            },
+            dynamicClosedTimedCount: {
+              $sum: '$dynamicClosedTimedCount',
+            },
+            dynamicClosedTimeSum: {
+              $sum: '$dynamicClosedTimeSum',
             },
           },
         },
@@ -11679,19 +11854,57 @@ export class ChatbotRepository implements IChatbotRepository {
                 0,
               ],
             },
+            averageDynamicCloseTimeMinutes: {
+              $cond: [
+                {$gt: ['$dynamicClosedTimedCount', 0]},
+                {
+                  $round: [
+                    {
+                      $divide: [
+                        '$dynamicClosedTimeSum',
+                        {$multiply: ['$dynamicClosedTimedCount', 60000]},
+                      ],
+                    },
+                    2,
+                  ],
+                },
+                0,
+              ],
+            },
             combinedAverageTimeMinutes: {
               $cond: [
                 {
-                  $gt: [{$add: ['$closedTimedCount', '$passedTimedCount']}, 0],
+                  $gt: [
+                    {
+                      $add: [
+                        '$closedTimedCount',
+                        '$passedTimedCount',
+                        '$dynamicClosedTimedCount',
+                      ],
+                    },
+                    0,
+                  ],
                 },
                 {
                   $round: [
                     {
                       $divide: [
-                        {$add: ['$closedTimeSum', '$passedTimeSum']},
+                        {
+                          $add: [
+                            '$closedTimeSum',
+                            '$passedTimeSum',
+                            '$dynamicClosedTimeSum',
+                          ],
+                        },
                         {
                           $multiply: [
-                            {$add: ['$closedTimedCount', '$passedTimedCount']},
+                            {
+                              $add: [
+                                '$closedTimedCount',
+                                '$passedTimedCount',
+                                '$dynamicClosedTimedCount',
+                              ],
+                            },
                             60000,
                           ],
                         },
@@ -11841,6 +12054,38 @@ export class ChatbotRepository implements IChatbotRepository {
                 ],
               },
             },
+            dynamicClosedTimedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'dynamic_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            dynamicClosedTimeSum: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'dynamic_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  {$subtract: ['$closedAt', '$createdAt']},
+                  0,
+                ],
+              },
+            },
           },
         },
         // Group by month
@@ -11867,6 +12112,12 @@ export class ChatbotRepository implements IChatbotRepository {
             },
             passedTimeSum: {
               $sum: '$passedTimeSum',
+            },
+            dynamicClosedTimedCount: {
+              $sum: '$dynamicClosedTimedCount',
+            },
+            dynamicClosedTimeSum: {
+              $sum: '$dynamicClosedTimeSum',
             },
           },
         },
@@ -11912,19 +12163,57 @@ export class ChatbotRepository implements IChatbotRepository {
                 0,
               ],
             },
+            averageDynamicCloseTimeMinutes: {
+              $cond: [
+                {$gt: ['$dynamicClosedTimedCount', 0]},
+                {
+                  $round: [
+                    {
+                      $divide: [
+                        '$dynamicClosedTimeSum',
+                        {$multiply: ['$dynamicClosedTimedCount', 60000]},
+                      ],
+                    },
+                    2,
+                  ],
+                },
+                0,
+              ],
+            },
             combinedAverageTimeMinutes: {
               $cond: [
                 {
-                  $gt: [{$add: ['$closedTimedCount', '$passedTimedCount']}, 0],
+                  $gt: [
+                    {
+                      $add: [
+                        '$closedTimedCount',
+                        '$passedTimedCount',
+                        '$dynamicClosedTimedCount',
+                      ],
+                    },
+                    0,
+                  ],
                 },
                 {
                   $round: [
                     {
                       $divide: [
-                        {$add: ['$closedTimeSum', '$passedTimeSum']},
+                        {
+                          $add: [
+                            '$closedTimeSum',
+                            '$passedTimeSum',
+                            '$dynamicClosedTimeSum',
+                          ],
+                        },
                         {
                           $multiply: [
-                            {$add: ['$closedTimedCount', '$passedTimedCount']},
+                            {
+                              $add: [
+                                '$closedTimedCount',
+                                '$passedTimedCount',
+                                '$dynamicClosedTimedCount',
+                              ],
+                            },
                             60000,
                           ],
                         },
@@ -12130,11 +12419,57 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
+  private async buildUserQuestionScope(userId?: string): Promise<any | null> {
+    if (!userId) return null;
+
+    const userMatches: any[] = [{userId}];
+    if (ObjectId.isValid(userId)) {
+      const objectId = new ObjectId(userId);
+      userMatches.push({userId: objectId});
+
+      await this.init('annam');
+      const userMessages = await this.messagesCollection
+        .find(
+          {
+            user: objectId.toString(),
+            isDeleted: {$ne: true},
+          },
+          {
+            projection: {
+              messageId: 1,
+              threadId: 1,
+              conversationId: 1,
+            },
+          },
+        )
+        .toArray();
+
+      const messageIds = [
+        ...new Set(
+          userMessages.map((message: any) => message.messageId).filter(Boolean),
+        ),
+      ];
+      const threadIds = [
+        ...new Set(
+          userMessages
+            .map((message: any) => message.threadId || message.conversationId)
+            .filter(Boolean),
+        ),
+      ];
+
+      if (messageIds.length > 0) userMatches.push({messageId: {$in: messageIds}});
+      if (threadIds.length > 0) userMatches.push({threadId: {$in: threadIds}});
+    }
+
+    return {$or: userMatches};
+  }
+
   async getClosedVsTotalQuestions(
     source: string,
     userType?: string,
     startDate?: Date,
     endDate?: Date,
+    userId?: string,
   ): Promise<any> {
     try {
       await this.initReviewSystem();
@@ -12153,6 +12488,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchStage.$and.push(query);
+      }
+      const userScope = await this.buildUserQuestionScope(userId);
+      if (userScope) {
+        matchStage.$and.push(userScope);
       }
       if (source === 'both') {
         matchStage.source = {
@@ -12202,7 +12541,7 @@ export class ChatbotRepository implements IChatbotRepository {
             totalQuestions: {$sum: 1},
             completedQuestions: {
               $sum: {
-                $cond: [{$in: ['$_statusLower', ['closed', 'pass']]}, 1, 0],
+                $cond: [{$in: ['$_statusLower', ['closed', 'pass', 'dynamic_closed']]}, 1, 0],
               },
             },
             timedCompletedQuestions: {
@@ -12210,7 +12549,7 @@ export class ChatbotRepository implements IChatbotRepository {
                 $cond: [
                   {
                     $and: [
-                      {$in: ['$_statusLower', ['closed', 'pass']]},
+                      {$in: ['$_statusLower', ['closed', 'pass', 'dynamic_closed']]},
                       {$ne: ['$createdAt', null]},
                       {$ne: ['$_operationalCompletionAt', null]},
                       {$gte: ['$_operationalCompletionAt', '$createdAt']},
@@ -12226,7 +12565,7 @@ export class ChatbotRepository implements IChatbotRepository {
                 $cond: [
                   {
                     $and: [
-                      {$in: ['$_statusLower', ['closed', 'pass']]},
+                      {$in: ['$_statusLower', ['closed', 'pass', 'dynamic_closed']]},
                       {$ne: ['$createdAt', null]},
                       {$ne: ['$_operationalCompletionAt', null]},
                       {$gte: ['$_operationalCompletionAt', '$createdAt']},
@@ -12296,6 +12635,11 @@ export class ChatbotRepository implements IChatbotRepository {
                         $cond: [{$eq: ['$_statusLower', 'pass']}, 1, 0],
                       },
                     },
+                    dynamicClosedQuestions: {
+                      $sum: {
+                        $cond: [{$eq: ['$_statusLower', 'dynamic_closed']}, 1, 0],
+                      },
+                    },
                     // Closed metrics
                     closedTimedQuestions: {
                       $sum: {
@@ -12361,6 +12705,41 @@ export class ChatbotRepository implements IChatbotRepository {
                           },
                           {
                             $subtract: ['$passedAt', '$createdAt'],
+                          },
+                          0,
+                        ],
+                      },
+                    },
+                    // Dynamic Closed metrics
+                    dynamicClosedTimedQuestions: {
+                      $sum: {
+                        $cond: [
+                          {
+                            $and: [
+                              {$eq: ['$_statusLower', 'dynamic_closed']},
+                              {$ne: ['$createdAt', null]},
+                              {$ne: ['$closedAt', null]},
+                              {$gte: ['$closedAt', '$createdAt']},
+                            ],
+                          },
+                          1,
+                          0,
+                        ],
+                      },
+                    },
+                    dynamicClosedTimeSumMs: {
+                      $sum: {
+                        $cond: [
+                          {
+                            $and: [
+                              {$eq: ['$_statusLower', 'dynamic_closed']},
+                              {$ne: ['$createdAt', null]},
+                              {$ne: ['$closedAt', null]},
+                              {$gte: ['$closedAt', '$createdAt']},
+                            ],
+                          },
+                          {
+                            $subtract: ['$closedAt', '$createdAt'],
                           },
                           0,
                         ],
@@ -12473,12 +12852,90 @@ export class ChatbotRepository implements IChatbotRepository {
                   ],
                 },
               },
+              dynamicClosed: {
+                count: '$metrics.dynamicClosedQuestions',
+                avgTimeMinutes: {
+                  $cond: [
+                    {
+                      $gt: ['$metrics.dynamicClosedTimedQuestions', 0],
+                    },
+                    {
+                      $round: [
+                        {
+                          $divide: [
+                            '$metrics.dynamicClosedTimeSumMs',
+                            {
+                              $multiply: [
+                                '$metrics.dynamicClosedTimedQuestions',
+                                60000,
+                              ],
+                            },
+                          ],
+                        },
+                        2,
+                      ],
+                    },
+                    0,
+                  ],
+                },
+              },
               statuses: 1,
+              nonGdb: {
+                count: {
+                  $add: [
+                    '$metrics.passedQuestions',
+                    '$metrics.dynamicClosedQuestions',
+                  ],
+                },
+                avgTimeMinutes: {
+                  $cond: [
+                    {
+                      $gt: [
+                        {
+                          $add: [
+                            '$metrics.passedTimedQuestions',
+                            '$metrics.dynamicClosedTimedQuestions',
+                          ],
+                        },
+                        0,
+                      ],
+                    },
+                    {
+                      $round: [
+                        {
+                          $divide: [
+                            {
+                              $add: [
+                                '$metrics.passedTimeSumMs',
+                                '$metrics.dynamicClosedTimeSumMs',
+                              ],
+                            },
+                            {
+                              $multiply: [
+                                {
+                                  $add: [
+                                    '$metrics.passedTimedQuestions',
+                                    '$metrics.dynamicClosedTimedQuestions',
+                                  ],
+                                },
+                                60000,
+                              ],
+                            },
+                          ],
+                        },
+                        2,
+                      ],
+                    },
+                    0,
+                  ],
+                },
+              },
               combined: {
                 count: {
                   $add: [
                     '$metrics.closedQuestions',
                     '$metrics.passedQuestions',
+                    '$metrics.dynamicClosedQuestions',
                   ],
                 },
                 avgTimeMinutes: {
@@ -12489,6 +12946,7 @@ export class ChatbotRepository implements IChatbotRepository {
                           $add: [
                             '$metrics.closedTimedQuestions',
                             '$metrics.passedTimedQuestions',
+                            '$metrics.dynamicClosedTimedQuestions',
                           ],
                         },
                         0,
@@ -12502,6 +12960,7 @@ export class ChatbotRepository implements IChatbotRepository {
                               $add: [
                                 '$metrics.closedTimeSumMs',
                                 '$metrics.passedTimeSumMs',
+                                '$metrics.dynamicClosedTimeSumMs',
                               ],
                             },
                             {
@@ -12510,6 +12969,7 @@ export class ChatbotRepository implements IChatbotRepository {
                                   $add: [
                                     '$metrics.closedTimedQuestions',
                                     '$metrics.passedTimedQuestions',
+                                    '$metrics.dynamicClosedTimedQuestions',
                                   ],
                                 },
                                 60000,
@@ -12561,6 +13021,7 @@ export class ChatbotRepository implements IChatbotRepository {
     userType?: string,
     startDate?: Date,
     endDate?: Date,
+    userId?: string,
   ): Promise<any> {
     try {
       await this.initReviewSystem();
@@ -12577,6 +13038,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchStage.$and.push(query);
+      }
+      const userScope = await this.buildUserQuestionScope(userId);
+      if (userScope) {
+        matchStage.$and.push(userScope);
       }
       if (source === 'both') {
         matchStage.source = {
@@ -12598,7 +13063,7 @@ export class ChatbotRepository implements IChatbotRepository {
                 $cond: [
                   {
                     $and: [
-                      {$in: ['$status', ['closed']]},
+                      {$in: ['$status', ['closed', 'dynamic_closed']]},
                       {$eq: ['$isCustomerNotified', false]},
                     ],
                   },
@@ -12612,7 +13077,7 @@ export class ChatbotRepository implements IChatbotRepository {
                 $cond: [
                   {
                     $and: [
-                      {$in: ['$status', ['closed']]},
+                      {$in: ['$status', ['closed', 'dynamic_closed']]},
                       {$eq: ['$isCustomerNotified', true]},
                     ],
                   },
@@ -12636,7 +13101,7 @@ export class ChatbotRepository implements IChatbotRepository {
         await this.QuestionCollection.countDocuments({
           ...matchStage,
           status: {
-            $in: ['closed'],
+            $in: ['closed', 'dynamic_closed'],
           },
           isCustomerNotified: {$exists: false},
         });
@@ -12660,6 +13125,7 @@ export class ChatbotRepository implements IChatbotRepository {
     userType?: string,
     startDate?: Date,
     endDate?: Date,
+    userId?: string,
   ): Promise<any> {
     try {
       await this.initReviewSystem();
@@ -12678,13 +13144,17 @@ export class ChatbotRepository implements IChatbotRepository {
       if (query && Object.keys(query).length > 0) {
         matchStage.$and.push(query);
       }
+      const userScope = await this.buildUserQuestionScope(userId);
+      if (userScope) {
+        matchStage.$and.push(userScope);
+      }
       if (source === 'both') {
         matchStage.source = {
           $in: ['WHATSAPP', 'AJRASAKHA'],
         };
       }
       matchStage.status = {
-        $in: ['closed', 'pass'],
+        $in: ['closed', 'pass', 'dynamic_closed'],
       };
 
       const [totalCountResult, lastTwoHoursResult] = await Promise.all([
@@ -12712,6 +13182,11 @@ export class ChatbotRepository implements IChatbotRepository {
               passCount: {
                 $sum: {
                   $cond: [{$eq: ['$_statusLower', 'pass']}, 1, 0],
+                },
+              },
+              dynamicClosedCount: {
+                $sum: {
+                  $cond: [{$eq: ['$_statusLower', 'dynamic_closed']}, 1, 0],
                 },
               },
             },
@@ -12777,7 +13252,7 @@ export class ChatbotRepository implements IChatbotRepository {
           },
           {
             $match: {
-              _statusLower: {$in: ['closed', 'pass']},
+              _statusLower: {$in: ['closed', 'pass', 'dynamic_closed']},
               _operationalCompletionAt: {$ne: null},
               $expr: {
                 $and: [
@@ -12815,6 +13290,11 @@ export class ChatbotRepository implements IChatbotRepository {
                   $cond: [{$eq: ['$_statusLower', 'pass']}, 1, 0],
                 },
               },
+              dynamicClosedCount: {
+                $sum: {
+                  $cond: [{$eq: ['$_statusLower', 'dynamic_closed']}, 1, 0],
+                },
+              },
             },
           },
         ]).toArray(),
@@ -12823,8 +13303,10 @@ export class ChatbotRepository implements IChatbotRepository {
       return {
         totalClosedCount: totalCountResult[0]?.closedCount ?? 0,
         totalPassCount: totalCountResult[0]?.passCount ?? 0,
+        totalDynamicClosedCount: totalCountResult[0]?.dynamicClosedCount ?? 0,
         closedInTwoHoursCount: lastTwoHoursResult[0]?.closedCount ?? 0,
         passInTwoHoursCount: lastTwoHoursResult[0]?.passCount ?? 0,
+        dynamicClosedInTwoHoursCount: lastTwoHoursResult[0]?.dynamicClosedCount ?? 0,
       };
     } catch (error) {
       throw new InternalServerError(
@@ -13192,6 +13674,13 @@ export class ChatbotRepository implements IChatbotRepository {
   ): Promise<any> {
     try {
       await this.init(source);
+      const totalFarmerProfileUsers = Math.max(
+        await this.users.countDocuments(
+          {farmerProfile: {$exists: true, $ne: null}},
+          {session},
+        ),
+        1,
+      );
       const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
       const queryMatch: any = {
         isCreatedByUser: true,
@@ -13296,7 +13785,7 @@ export class ChatbotRepository implements IChatbotRepository {
                       _id: null,
                       avgQuestionsPerUserDay: {
                         $avg: {
-                          $divide: ['$dayTotalQuestions', '$dayUniqueUsers'],
+                          $divide: ['$dayTotalQuestions', totalFarmerProfileUsers],
                         },
                       },
                     },
@@ -13393,7 +13882,7 @@ export class ChatbotRepository implements IChatbotRepository {
                         _id: null,
                         avgQuestionsPerUserDay: {
                           $avg: {
-                            $divide: ['$dayTotalQuestions', '$dayUniqueUsers'],
+                            $divide: ['$dayTotalQuestions', totalFarmerProfileUsers],
                           },
                         },
                       },
@@ -13735,12 +14224,26 @@ export class ChatbotRepository implements IChatbotRepository {
   }> {
     const directUserIds = new Set<string>();
     const messageIds: string[] = [];
+    const threadPhones = new Set<string>();
 
     for (const question of questions) {
       if (question.userId) {
         directUserIds.add(question.userId.toString());
-      } else if (question.messageId) {
+      }
+      if (question.messageId) {
         messageIds.push(question.messageId);
+      }
+      if (question.threadId) {
+        const match = question.threadId.match(/^(\d+)/);
+        if (match) {
+          const phone = match[1];
+          threadPhones.add(phone);
+          if (phone.length === 12 && phone.startsWith('91')) {
+            threadPhones.add(phone.slice(2));
+          } else if (phone.length === 10) {
+            threadPhones.add('91' + phone);
+          }
+        }
       }
     }
 
@@ -13767,24 +14270,78 @@ export class ChatbotRepository implements IChatbotRepository {
       messages.map(message => [message.messageId, message.user?.toString()]),
     );
 
-    const resolvedUserIds = new Set<string>(directUserIds);
+    // Resolve threadId (phone) -> user
+    const phoneUsers = threadPhones.size > 0
+      ? await this.users
+          .find({
+            $or: [
+              { phoneNo: { $in: Array.from(threadPhones) } },
+              { phone: { $in: Array.from(threadPhones) } },
+              { username: { $in: Array.from(threadPhones) } },
+              { 'farmerProfile.phoneNo': { $in: Array.from(threadPhones) } },
+              { 'farmerProfile.phone': { $in: Array.from(threadPhones) } }
+            ]
+          })
+          .toArray()
+      : [];
 
+    const userMapByPhone = new Map<string, any>();
+    for (const u of phoneUsers) {
+      const uAny = u as any;
+      const addPhone = (p: any) => {
+        if (!p) return;
+        const cleaned = String(p).replace(/\D/g, '');
+        if (cleaned) {
+          userMapByPhone.set(cleaned, u);
+          if (cleaned.length === 12 && cleaned.startsWith('91')) {
+            userMapByPhone.set(cleaned.slice(2), u);
+          } else if (cleaned.length === 10) {
+            userMapByPhone.set('91' + cleaned, u);
+          }
+        }
+      };
+      addPhone(uAny.phoneNo);
+      addPhone(uAny.phone);
+      addPhone(uAny.username);
+      addPhone(uAny.farmerProfile?.phoneNo);
+      addPhone(uAny.farmerProfile?.phone);
+    }
+
+    const resolvedUserIds = new Set<string>(directUserIds);
     const questionUserMap = new Map<string, string>();
+    const userMap = new Map<string, any>();
+
+    // Put phoneUsers in userMap directly by ID
+    for (const u of phoneUsers) {
+      userMap.set(u._id.toString(), u);
+    }
 
     for (const question of questions) {
       const questionId = question.questionId ?? question._id?.toString();
-
       let resolvedUserId: string | undefined;
 
-      if (question.userId) {
-        resolvedUserId = question.userId.toString();
-      } else if (question.messageId) {
-        resolvedUserId = messageUserMap.get(question.messageId);
+      if (question.threadId) {
+        const match = question.threadId.match(/^(\d+)/);
+        if (match) {
+          const phone = match[1];
+          const matchedUser = userMapByPhone.get(phone);
+          if (matchedUser) {
+            resolvedUserId = matchedUser._id.toString();
+            userMap.set(resolvedUserId, matchedUser);
+          }
+        }
+      }
+
+      if (!resolvedUserId) {
+        if (question.userId) {
+          resolvedUserId = question.userId.toString();
+        } else if (question.messageId) {
+          resolvedUserId = messageUserMap.get(question.messageId);
+        }
       }
 
       if (resolvedUserId) {
         resolvedUserIds.add(resolvedUserId);
-
         if (questionId) {
           questionUserMap.set(questionId, resolvedUserId);
         }
@@ -13802,7 +14359,9 @@ export class ChatbotRepository implements IChatbotRepository {
             .toArray()
         : [];
 
-    const userMap = new Map(users.map(user => [user._id.toString(), user]));
+    for (const user of users) {
+      userMap.set(user._id.toString(), user);
+    }
 
     return {
       userMap,
@@ -14279,6 +14838,7 @@ export class ChatbotRepository implements IChatbotRepository {
     search?: string,
     startDate?: Date,
     endDate?: Date,
+    userId?: string,
   ): Promise<any> {
     try {
       await this.initReviewSystem();
@@ -14306,9 +14866,14 @@ export class ChatbotRepository implements IChatbotRepository {
           $in: ['closed'],
         };
       }
+      if (status === 'non_gdb') {
+        matchQuery.status = {
+          $in: ['pass', 'dynamic_closed'],
+        };
+      }
       if (status === 'pending') {
         matchQuery.status = {
-          $nin: ['closed', 'pass'],
+          $nin: ['closed', 'pass', 'dynamic_closed'],
         };
       }
 
@@ -14343,6 +14908,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
+      }
+      const userScope = await this.buildUserQuestionScope(userId);
+      if (userScope) {
+        matchQuery.$and.push(userScope);
       }
       // Search by name/email
       if (search?.trim()) {
@@ -14498,6 +15067,7 @@ export class ChatbotRepository implements IChatbotRepository {
     endDate?: Date,
     isPassed?: string,
     tag?: string,
+    userId?: string,
   ): Promise<any> {
     await this.initReviewSystem();
     await this.init('annam');
@@ -14518,9 +15088,19 @@ export class ChatbotRepository implements IChatbotRepository {
         $in: ['closed'],
       };
       if (isPassed === 'true') {
-        matchQuery.status = {
-          $in: ['pass'],
-        };
+        if (tag === 'pass') {
+          matchQuery.status = {
+            $in: ['pass'],
+          };
+        } else if (tag === 'dynamic_closed') {
+          matchQuery.status = {
+            $in: ['dynamic_closed'],
+          };
+        } else {
+          matchQuery.status = {
+            $in: ['pass', 'dynamic_closed'],
+          };
+        }
       }
     }
     const validStartDate =
@@ -14548,6 +15128,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
     if (query && Object.keys(query).length > 0) {
       matchQuery.$and.push(query);
+    }
+    const userScope = await this.buildUserQuestionScope(userId);
+    if (userScope) {
+      matchQuery.$and.push(userScope);
     }
 
     // search logic same as other methods
@@ -14686,7 +15270,7 @@ export class ChatbotRepository implements IChatbotRepository {
       },
       {
         $match: {
-          _statusLower: {$in: ['closed', 'pass']},
+          _statusLower: {$in: ['closed', 'pass', 'dynamic_closed']},
           _operationalCompletionAt: {$ne: null},
           $expr: {
             $and: [
@@ -14789,6 +15373,7 @@ export class ChatbotRepository implements IChatbotRepository {
     search?: string,
     startDate?: Date,
     endDate?: Date,
+    userId?: string,
   ): Promise<any> {
     try {
       // console.log("startdate enddate-------", startDate, endDate);
@@ -14840,6 +15425,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
+      }
+      const userScope = await this.buildUserQuestionScope(userId);
+      if (userScope) {
+        matchQuery.$and.push(userScope);
       }
       // console.log("getQuestionsByNotificationStatus", notificationType, JSON.stringify(matchQuery, null, 2))
       // Notification filter
@@ -15824,7 +16413,209 @@ if (startDate || endDate) {
     messageId?: string | undefined;
   }) {}
 
-  async getUserProfile(userId: string, session?: ClientSession): Promise<any> {
+  async getUserMessageMetricDetails(
+    userId: string,
+    metric: string,
+    page = 1,
+    limit = 10,
+    session?: ClientSession,
+  ): Promise<any> {
+    try {
+      await this.init('annam');
+      await this.initReviewSystem();
+
+      const isValidObjectId =
+        ObjectId.isValid(userId) && String(new ObjectId(userId)) === userId;
+      const users = isValidObjectId
+        ? await this.users.find({_id: new ObjectId(userId)}).toArray()
+        : await this.users
+            .find({$or: [{firebaseUID: userId}, {email: userId}]})
+            .toArray();
+
+      if (!users.length) {
+        return {total: 0, totalPages: 1, currentPage: page, limit, items: []};
+      }
+
+      const userObjectId =
+        users[0]._id instanceof ObjectId
+          ? users[0]._id
+          : new ObjectId(users[0]._id);
+      const userIdString = userObjectId.toString();
+      const skip = (page - 1) * limit;
+      const paginate = (items: any[]) => ({
+        total: items.length,
+        totalPages: Math.max(1, Math.ceil(items.length / limit)),
+        currentPage: page,
+        limit,
+        items: items.slice(skip, skip + limit),
+      });
+      const getConversationKey = (record: any) =>
+        record.threadId ||
+        record.conversationId ||
+        record.messageId ||
+        record._id?.toString?.() ||
+        String(record._id || '');
+      const toMessageItem = (message: any) => ({
+        _id: message.messageId || message._id?.toString?.() || String(message._id),
+        message: message.text || '',
+        createdAt: message.createdAt,
+      });
+
+      const userMessages = await this.messagesCollection
+        .find(
+          {
+            user: userIdString,
+            isDeleted: {$ne: true},
+          },
+          {session},
+        )
+        .project({
+          _id: 1,
+          text: 1,
+          messageId: 1,
+          threadId: 1,
+          conversationId: 1,
+          isCreatedByUser: 1,
+          createdAt: 1,
+        })
+        .sort({createdAt: 1})
+        .toArray();
+
+      const userOnlyMessages = userMessages
+        .filter((message: any) => message.isCreatedByUser === true)
+        .sort(
+          (a: any, b: any) =>
+            new Date(b.createdAt || 0).getTime() -
+            new Date(a.createdAt || 0).getTime(),
+        );
+
+      if (metric === 'userMessages') {
+        return paginate(userOnlyMessages.map(toMessageItem));
+      }
+
+      if (metric === 'lastMessageSentAt') {
+        return paginate(userOnlyMessages.slice(0, 1).map(toMessageItem));
+      }
+
+      const conversationsByKey = new Map<string, any[]>();
+      userMessages.forEach((message: any) => {
+        const key = getConversationKey(message);
+        if (!conversationsByKey.has(key)) conversationsByKey.set(key, []);
+        conversationsByKey.get(key)!.push(message);
+      });
+      const conversations = [...conversationsByKey.entries()]
+        .map(([conversationKey, messages]) => {
+          const sortedMessages = [...messages].sort(
+            (a, b) =>
+              new Date(a.createdAt || 0).getTime() -
+              new Date(b.createdAt || 0).getTime(),
+          );
+          const latestMessage = sortedMessages[sortedMessages.length - 1];
+          const messageCount = sortedMessages.length;
+          const threadId =
+            latestMessage?.threadId ||
+            latestMessage?.conversationId ||
+            conversationKey;
+          return {
+            _id: conversationKey,
+            message: `${messageCount} message${messageCount === 1 ? '' : 's'}\nThread: ${threadId}${
+              latestMessage?.text ? `\nLatest: ${latestMessage.text}` : ''
+            }`,
+            createdAt: latestMessage?.createdAt,
+            messageCount,
+            messages: sortedMessages,
+          };
+        })
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt || 0).getTime() -
+            new Date(a.createdAt || 0).getTime(),
+        );
+
+      if (
+        metric === 'conversations' ||
+        metric === 'averageMessagesPerConversation'
+      ) {
+        return paginate(
+          conversations.map(({messages, ...conversation}) => conversation),
+        );
+      }
+
+      if (metric === 'longestConversation') {
+        const longestConversation = [...conversations].sort(
+          (a, b) => (b.messageCount ?? 0) - (a.messageCount ?? 0),
+        )[0];
+        return paginate((longestConversation?.messages ?? []).map(toMessageItem));
+      }
+
+      if (metric === 'questionsFromMessages') {
+        const userMessageIds = [
+          ...new Set(
+            userMessages.map((message: any) => message.messageId).filter(Boolean),
+          ),
+        ];
+        const userThreadIds = [
+          ...new Set(
+            userMessages
+              .map((message: any) => message.threadId || message.conversationId)
+              .filter(Boolean),
+          ),
+        ];
+        const questionUserMatches: any[] = [
+          {userId: userIdString},
+          {userId: userObjectId},
+        ];
+        if (userMessageIds.length > 0) {
+          questionUserMatches.push({messageId: {$in: userMessageIds}});
+        }
+        if (userThreadIds.length > 0) {
+          questionUserMatches.push({threadId: {$in: userThreadIds}});
+        }
+        const userQuestionFilter: any = buildBaseQuestionMatch('AJRASAKHA');
+        userQuestionFilter.$and.push({$or: questionUserMatches});
+
+        const questions = await this.QuestionCollection.find(
+          {
+            ...userQuestionFilter,
+            $or: [{messageId: {$exists: true, $ne: null}}, {threadId: {$exists: true, $ne: null}}],
+          },
+          {session},
+        )
+          .project({
+            _id: 1,
+            question: 1,
+            status: 1,
+            createdAt: 1,
+            messageId: 1,
+            threadId: 1,
+          })
+          .sort({createdAt: -1})
+          .toArray();
+
+        return paginate(
+          questions.map((question: any) => ({
+            _id: question._id?.toString?.() || String(question._id),
+            question: question.question,
+            status: question.status,
+            createdAt: question.createdAt,
+          })),
+        );
+      }
+
+      return {total: 0, totalPages: 1, currentPage: page, limit, items: []};
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get user message metric details: ${error}`,
+      );
+    }
+  }
+
+  async getUserProfile(
+    userId: string,
+    session?: ClientSession,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<any> {
     try {
       await this.init('annam');
       await this.initReviewSystem();
@@ -15967,6 +16758,17 @@ if (startDate || endDate) {
         record._id?.toString?.() ||
         String(record._id || '');
       const formatBucketDate = (date: Date) => date.toISOString().slice(0, 10);
+      const trendStartDate = startDate ? new Date(startDate) : null;
+      const trendEndDate = endDate ? new Date(endDate) : null;
+      const hasValidTrendStart = isValidDate(trendStartDate);
+      const hasValidTrendEnd = isValidDate(trendEndDate);
+      const isInsideTrendRange = (record: any) => {
+        const createdAt = toDate(record.createdAt);
+        if (!isValidDate(createdAt)) return false;
+        if (hasValidTrendStart && createdAt! < trendStartDate!) return false;
+        if (hasValidTrendEnd && createdAt! > trendEndDate!) return false;
+        return true;
+      };
       const startOfWeek = (date: Date) => {
         const copy = new Date(date);
         copy.setHours(0, 0, 0, 0);
@@ -16032,7 +16834,7 @@ if (startDate || endDate) {
         conversationsByKey.get(key)!.push(message);
       });
 
-      const recentConversations = [...conversationsByKey.entries()]
+      const conversations = [...conversationsByKey.entries()]
         .map(([conversationKey, messages]) => {
           const sortedMessages = [...messages].sort(
             (a, b) =>
@@ -16070,48 +16872,68 @@ if (startDate || endDate) {
           (a, b) =>
             new Date(b.conversationDate || 0).getTime() -
             new Date(a.conversationDate || 0).getTime(),
-        )
-        .slice(0, 10);
+        );
+      const recentConversations = conversations.slice(0, 10);
 
       const conversationLookup = new Map(
-        recentConversations.map(conversation => [
+        conversations.map(conversation => [
           conversation.conversationKey,
           conversation,
         ]),
       );
+      const mapQuestionForDashboard = (question: any) => {
+        const conversationKey = getConversationKey(question);
+        const matchedConversation =
+          conversationLookup.get(conversationKey) ||
+          conversations.find(conversation =>
+            conversation.messages.some(
+              (message: any) => message.messageId === question.messageId,
+            ),
+          );
+        return {
+          id: question._id?.toString?.() || String(question._id),
+          question: question.question,
+          status: question.status,
+          crop:
+            question.details?.normalised_crop ||
+            question.details?.crop?.name ||
+            question.details?.crop ||
+            '',
+          category:
+            question.details?.domain || question.details?.category || '',
+          source: question.source,
+          createdAt: question.createdAt,
+          closedAt: getOperationalCompletionAt(question),
+          isDuplicate: isDuplicateQuestion(question),
+          conversationKey:
+            matchedConversation?.conversationKey || conversationKey,
+          messages: matchedConversation?.messages || [],
+        };
+      };
       const recentQuestions = userQuestions
         .slice(0, 10)
-        .map((question: any) => {
-          const conversationKey = getConversationKey(question);
-          const matchedConversation =
-            conversationLookup.get(conversationKey) ||
-            recentConversations.find(conversation =>
-              conversation.messages.some(
-                (message: any) => message.messageId === question.messageId,
-              ),
-            );
-          return {
-            id: question._id?.toString?.() || String(question._id),
-            question: question.question,
-            status: question.status,
-            crop:
-              question.details?.normalised_crop ||
-              question.details?.crop?.name ||
-              question.details?.crop ||
-              '',
-            category:
-              question.details?.domain || question.details?.category || '',
-            source: question.source,
-            createdAt: question.createdAt,
-            closedAt: getOperationalCompletionAt(question),
-            isDuplicate: isDuplicateQuestion(question),
-            conversationKey:
-              matchedConversation?.conversationKey || conversationKey,
-            messages: matchedConversation?.messages || [],
-          };
-        });
+        .map(mapQuestionForDashboard);
+      const questionsFromMessages = userQuestions
+        .filter((question: any) => question.messageId || question.threadId)
+        .map(mapQuestionForDashboard);
+      const dashboardUserMessages = userMessages
+        .filter((message: any) => message.isCreatedByUser === true)
+        .sort(
+          (a: any, b: any) =>
+            new Date(b.createdAt || 0).getTime() -
+            new Date(a.createdAt || 0).getTime(),
+        )
+        .map((message: any) => ({
+          id: message._id?.toString?.() || String(message._id),
+          text: message.text || '',
+          isCreatedByUser: Boolean(message.isCreatedByUser),
+          createdAt: message.createdAt,
+          messageId: message.messageId,
+        }));
+      const trendQuestions = userQuestions.filter(isInsideTrendRange);
+      const trendUserMessages = dashboardUserMessages.filter(isInsideTrendRange);
       const totalMessages = userMessages.length;
-      const conversationCounts = recentConversations.map(
+      const conversationCounts = conversations.map(
         conversation => conversation.messageCount,
       );
       const farmerDashboard = {
@@ -16150,23 +16972,22 @@ if (startDate || endDate) {
           longestConversation:
             conversationCounts.length > 0 ? Math.max(...conversationCounts) : 0,
           latestConversationDate:
-            recentConversations[0]?.conversationDate || null,
-          questionsDerivedFromMessages: userQuestions.filter(
-            (question: any) => question.messageId || question.threadId,
-          ).length,
+            conversations[0]?.conversationDate || null,
+          latestUserMessageDate: dashboardUserMessages[0]?.createdAt || null,
+          questionsDerivedFromMessages: questionsFromMessages.length,
         },
         engagementTrends: {
           daily: {
-            questions: buildTrend(userQuestions, 'daily'),
-            messages: buildTrend(userMessages, 'daily'),
+            questions: buildTrend(trendQuestions, 'daily'),
+            messages: buildTrend(trendUserMessages, 'daily'),
           },
           weekly: {
-            questions: buildTrend(userQuestions, 'weekly'),
-            messages: buildTrend(userMessages, 'weekly'),
+            questions: buildTrend(trendQuestions, 'weekly'),
+            messages: buildTrend(trendUserMessages, 'weekly'),
           },
           monthly: {
-            questions: buildTrend(userQuestions, 'monthly'),
-            messages: buildTrend(userMessages, 'monthly'),
+            questions: buildTrend(trendQuestions, 'monthly'),
+            messages: buildTrend(trendUserMessages, 'monthly'),
           },
         },
         recentQuestions,
@@ -17908,6 +18729,7 @@ if (startDate || endDate) {
     isPassed?: string,
     tag?: string,
     notificationType?: string,
+    userId?: string,
     page = 1,
     limit = 1000,
   ) {
@@ -17928,9 +18750,13 @@ if (startDate || endDate) {
           matchQuery.status = {
             $in: ['closed'],
           };
+        } else if (status === 'non_gdb') {
+          matchQuery.status = {
+            $in: ['pass', 'dynamic_closed'],
+          };
         } else if (status === 'pending') {
           matchQuery.status = {
-            $nin: ['closed', 'pass'],
+            $nin: ['closed', 'pass', 'dynamic_closed'],
           };
         } else if (status !== 'all') {
           matchQuery.status = status;
@@ -17938,7 +18764,7 @@ if (startDate || endDate) {
       } else if (tag === 'sla') {
         if (isPassed === 'true') {
           matchQuery.status = {
-            $in: ['pass'],
+            $in: ['pass', 'dynamic_closed'],
           };
         }
         if (isPassed === 'false') {
@@ -17959,6 +18785,10 @@ if (startDate || endDate) {
 
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
+      }
+      const userScope = await this.buildUserQuestionScope(userId);
+      if (userScope) {
+        matchQuery.$and.push(userScope);
       }
 
       if (startDate || endDate) {
@@ -18035,7 +18865,7 @@ if (startDate || endDate) {
           {
             $match: {
               _statusLower: {
-                $in: ['closed', 'pass'],
+                $in: ['closed', 'pass', 'dynamic_closed'],
               },
               _operationalCompletionAt: {
                 $ne: null,
@@ -18073,7 +18903,7 @@ if (startDate || endDate) {
         questionIds = result.map(x => x._id.toString());
       } else if (tag === 'slabreached') {
         matchQuery.status = {
-          $in: ['closed', 'pass'],
+          $in: ['closed', 'pass', 'dynamic_closed'],
         };
 
         const breachedQuestions = await this.QuestionCollection.aggregate([
@@ -18108,7 +18938,7 @@ if (startDate || endDate) {
           {
             $match: {
               _statusLower: {
-                $in: ['closed', 'pass'],
+                $in: ['closed', 'pass', 'dynamic_closed'],
               },
               _operationalCompletionAt: {
                 $ne: null,
@@ -18990,12 +19820,9 @@ if (startDate || endDate) {
         $in: ['closed', 'pass'],
       };
 
-      if (state) {
-        matchStage['details.state'] = {
-          $regex: `^${state}$`,
-          $options: 'i',
-        };
-      }
+    matchStage.status = {
+      $in: ['closed', 'pass', 'dynamic_closed'],
+    };
 
       if (district) {
         matchStage['details.district'] = {
@@ -19022,9 +19849,49 @@ if (startDate || endDate) {
             $group: {
               _id: null,
 
-              closedCount: {
-                $sum: {
-                  $cond: [
+            closedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $eq: ['$_statusLower', 'closed'],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+
+            passCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $in: ['$_statusLower', ['pass', 'dynamic_closed']],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+      ]).toArray(),
+
+      this.QuestionCollection.aggregate([
+        {
+          $match: matchStage,
+        },
+        {
+          $addFields: {
+            _statusLower: {
+              $toLower: {
+                $ifNull: ['$status', ''],
+              },
+            },
+
+            _operationalCompletionAt: {
+              $cond: [
+                {
+                  $eq: [
                     {
                       $eq: ['$_statusLower', 'closed'],
                     },
@@ -19137,7 +20004,7 @@ if (startDate || endDate) {
           {
             $match: {
               _statusLower: {
-                $in: ['closed', 'pass'],
+                $in: ['closed', 'pass', 'dynamic_closed'],
               },
 
               _operationalCompletionAt: {
@@ -19189,7 +20056,7 @@ if (startDate || endDate) {
                 $sum: {
                   $cond: [
                     {
-                      $eq: ['$_statusLower', 'pass'],
+                      $in: ['$_statusLower', ['pass', 'dynamic_closed']],
                     },
                     1,
                     0,

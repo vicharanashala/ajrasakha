@@ -72,11 +72,13 @@ interface QueryCategoryQuestionsModalProps {
   isPassed?: boolean;
   tag?: string;
   totalClosedAndPassed?: number;
+  userId?: string;
   closedQuestions?: number;
   totalQuestions?: number;
   passedQuestions?: number;
   closedInLastTwoHours?: number;
   passedInLastTwoHours?: number;
+  dynamicClosedInLastTwoHours?: number;
   slaBreached?: number;
   safeNotified?: number;
   safeNotNotified?: number;
@@ -105,16 +107,17 @@ export function QueryCategoryQuestionsModal({
   isPassed,
   tag,
   totalClosedAndPassed,
+  userId,
   closedQuestions,
   totalQuestions,
   passedQuestions,
   closedInLastTwoHours,
   passedInLastTwoHours,
+  dynamicClosedInLastTwoHours,
   slaBreached,
   safeNotified,
   safeNotNotified,
   safeUntracked,
-  isIndiaView
 }: QueryCategoryQuestionsModalProps) {
   const { setSelectedQuestionId, setView } = useSelectedQuestion();
 
@@ -164,6 +167,7 @@ export function QueryCategoryQuestionsModal({
     enabled: true,
     isPassed,
     tag,
+    userId,
   });
 
   const isMapView = isIndiaView ?? (!!state || !!district);
@@ -567,11 +571,13 @@ export function QueryCategoryQuestionsModal({
           tag={tag}
           notificationType={notificationType}
           totalClosedAndPassed={totalClosedAndPassed}
+          userId={userId}
           closedQuestions={closedQuestions}
           totalQuestions={totalQuestions}
           passedQuestions={passedQuestions}
           closedInLastTwoHours={closedInLastTwoHours}
           passedInLastTwoHours={passedInLastTwoHours}
+          dynamicClosedInLastTwoHours={dynamicClosedInLastTwoHours}
           slaBreached={slaBreached}
           safeNotified={safeNotified}
           safeNotNotified={safeNotNotified}

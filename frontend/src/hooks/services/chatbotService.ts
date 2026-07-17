@@ -271,7 +271,8 @@ export class ChatbotService {
     stringEndDate,
     search,
     isPassed,
-    tag
+    tag,
+    userId,
   }: {
     category?: string;
     district?: string;
@@ -292,6 +293,7 @@ export class ChatbotService {
     search?: string;
     isPassed?: boolean;
     tag?: string;
+    userId?: string;
   }) {
     const params = new URLSearchParams();
     if (category) params.append("category", category);
@@ -319,6 +321,9 @@ export class ChatbotService {
     if(tag){
       params.append("tag", tag)
     }
+    if (userId) {
+      params.append("userId", userId);
+    }
     return apiFetch<any>(
       `${this._baseUrl}/filtered-questions?${params.toString()}`,
     );
@@ -343,6 +348,7 @@ export class ChatbotService {
     userType: string,
     startDate?: string,
     endDate?: string,
+    userId?: string,
   ): Promise<any> {
     const params = new URLSearchParams();
     params.append("source", source);
@@ -352,6 +358,9 @@ export class ChatbotService {
     }
     if (endDate) {
       params.append("endDate", endDate);
+    }
+    if (userId) {
+      params.append("userId", userId);
     }
     return apiFetch<any>(
       `${this._baseUrl}/closed-notified-data?${params.toString()}`,
@@ -595,8 +604,9 @@ export class ChatbotService {
     isPassed?: boolean,
     tag?: string,
     notificationType?: string,
-    page = 1,
-    limit = 1000,
+    userId?: string,
+    page?: number,
+    limit?: number,
   ): Promise<any> {
     const params = new URLSearchParams();
     if (startDate) {
@@ -623,10 +633,13 @@ export class ChatbotService {
     if (notificationType) {
       params.append("notificationType", String(notificationType));
     }
-    if(page) {
+    if (userId) {
+      params.append("userId", userId);
+    }
+    if (page) {
       params.append("page", String(page));
     }
-    if(limit) {
+    if (limit) {
       params.append("limit", String(limit));
     }
 

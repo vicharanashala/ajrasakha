@@ -144,7 +144,8 @@ export const useQuestionFilter = ({
   search = "",
   enabled = true,
   isPassed = false,
-  tag
+  tag,
+  userId,
 }: {
   category?: string;
   district?: string;
@@ -165,7 +166,8 @@ export const useQuestionFilter = ({
   search?: string;
   enabled?: boolean;
   isPassed?: boolean;
-  tag?: string;
+  tag?: string
+  userId?: string;
 }) => {
   const stringStartDate = startDate?.toISOString();
   const stringEndDate = endDate?.toISOString();
@@ -191,7 +193,8 @@ export const useQuestionFilter = ({
     stringEndDate,
     search,
     isPassed,
-    tag
+    tag,
+    userId,
   ],
     queryFn: () =>
       chatbotService.getQuestionByFilters({
@@ -213,7 +216,8 @@ export const useQuestionFilter = ({
         stringEndDate,
         search,
         isPassed,
-        tag
+        tag,
+        userId,
       }),
     enabled: enabled && Boolean(category || district || crop || status || true),
   });
@@ -254,16 +258,17 @@ export const useAllWhatsappUsers = () => {
   });
 };
 
-export const useClosedAndNotifedData = (source: string, userType: string, startDate?: string, endDate?: string, enabled: boolean = true)=>{
+export const useClosedAndNotifedData = (source: string, userType: string, startDate?: string, endDate?: string, enabled: boolean = true, userId?: string)=>{
   return useQuery({
     queryKey: ["closed-notified-data",
       source,
       userType,
       startDate,
       endDate,
+      userId,
     ],
     queryFn: () => {
-      return chatbotService.getClosedAndNotifedData(source, userType, startDate, endDate);
+      return chatbotService.getClosedAndNotifedData(source, userType, startDate, endDate, userId);
     },
     // Removed placeholderData to ensure proper refetch
     staleTime: 1000 * 60 * 2, // 2 minutes
@@ -412,6 +417,7 @@ export const useLifeCycleSummary = (
   isPassed?: boolean,
   tag?: string,
   notificationType?: string,
+  userId?: string,
   page?: number,
   limit?: number,
   enabled=true) => {
@@ -426,6 +432,7 @@ export const useLifeCycleSummary = (
       isPassed,
       tag,
       notificationType,
+      userId,
       page,
       limit,
     ],
@@ -439,6 +446,7 @@ export const useLifeCycleSummary = (
         isPassed,
         tag,
         notificationType,
+        userId,
         page,
         limit);
     },
