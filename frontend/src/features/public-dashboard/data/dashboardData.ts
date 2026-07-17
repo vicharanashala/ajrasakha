@@ -120,7 +120,7 @@ export const channels: Channel[] = [
 ];
 
 export const workflowSteps = [
-  "Question Submitted", "AI Processing", "Reviewer 1", "Reviewer 2",
+  "Question Submitted", "AI Processing", "Author", "Reviewer 1", "Reviewer 2",
   "Reviewer 3", "Moderator Approval", "Golden Database",
 ];
 
