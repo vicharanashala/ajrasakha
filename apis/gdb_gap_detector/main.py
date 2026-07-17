@@ -7,13 +7,13 @@ import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 
-from gap_service import (
+from .gap_service import (
     analyze_query,
     analyze_batch,
     generate_weekly_report,
     get_statistics,
 )
-from models import (
+from .models import (
     AnalyzeRequest,
     AnalyzeResponse,
     BatchAnalyzeRequest,
@@ -35,17 +35,18 @@ logging.basicConfig(
 log = logging.getLogger("gdb_gap_detector")
 
 app = FastAPI(
-    title="Ajrasakha GDB Gap Detector API",
+    title="Ajrasakha GDB Gap Detector",
     version="1.0.0",
     description=(
-        "Analyzes unanswered farmer queries to identify "
-        "knowledge gaps in the Golden Dataset (GDB)."
+        "Detects unanswered farmer queries, "
+        "clusters knowledge gaps, "
+        "and generates reviewer reports."
     ),
 )
 
 
 @app.get("/health", tags=["meta"])
-def health():
+async def health():
     return {
         "status": "ok",
         "service": "gdb-gap-detector",
@@ -72,16 +73,15 @@ async def health_ready():
 
 @app.post(
     "/analyze",
-    tags=["gap-detector"],
-    response_model=AnalyzeResponse,
-    summary="Analyze a single unanswered farmer query",
+    summary="Analyze unanswered farmer query",
+    response_description="Gap analysis result",
 )
 async def analyze(body: AnalyzeRequest):
 
-    if not body.query.strip():
+    if not body.question.strip():
         raise HTTPException(
             status_code=400,
-            detail="query must not be empty",
+            detail="question must not be empty",
         )
 
     try:
@@ -97,7 +97,7 @@ async def analyze(body: AnalyzeRequest):
 
 
 @app.post(
-    "/batch-analyze",
+    "/analyze/batch",
     tags=["gap-detector"],
     response_model=BatchAnalyzeResponse,
     summary="Analyze multiple unanswered queries",
@@ -142,7 +142,7 @@ async def statistics():
 
 
 @app.get(
-    "/report/weekly",
+    "/report",
     tags=["reports"],
     response_model=WeeklyGapReport,
 )

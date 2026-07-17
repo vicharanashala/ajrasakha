@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional, Literal
+from typing import Any, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -16,22 +16,36 @@ GapType = Literal[
 
 
 class AnalyzeRequest(BaseModel):
+
     question: str
 
-    farmer_id: Optional[str] = None
-    message_id: Optional[str] = None
+    state: str
 
-    state: Optional[str] = None
-    language: Optional[str] = None
+    district: list[str] = Field(default_factory=list)
 
-    domain: Optional[str] = None
+    crop: str | None = None
 
-    timestamp: Optional[datetime] = None
+    season: str | None = None
+
+    domain: list[str] | str | None = None
+
+    language: str = "English"
+
+    timestamp: datetime = Field(
+        default_factory=datetime.utcnow,
+    )
 
 
 class SimilarQuestion(BaseModel):
-    question_id: str
-    similarity_score: float
+    question: str
+
+    score: float
+
+    state: str | None = None
+
+    crop: str | None = None
+
+    domain: str | list[str] | None = None
 
 
 class GapEvent(BaseModel):
@@ -58,36 +72,96 @@ class AnalyzeResponse(BaseModel):
 
     coverage_score: float
 
-    gap_type: GapType
+    gap_type: str
 
-    cluster_id: Optional[str] = None
+    cluster_id: str
 
     priority_score: float
 
     recommendation: str
 
-    similar_questions: List[SimilarQuestion] = []
+    similar_questions: List[SimilarQuestion] = Field(default_factory=list)
 
 
-class ClusterSummary(BaseModel):
+class GapClusterSummary(BaseModel):
+
     cluster_id: str
+
+    state: str | None = None
+
+    crop: str | None = None
+
+    domain: list[str] | str | None = None
 
     size: int
 
-    crop: Optional[str]
+    priority_score: float
 
-    state: Optional[str]
-
-    dominant_intent: Optional[str]
-
-    average_priority: float
+    recommendation: str
 
 
 class WeeklyGapReport(BaseModel):
-    generated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    generated_at: datetime
 
     total_gap_events: int
 
     total_clusters: int
 
-    top_clusters: List[ClusterSummary]
+    top_clusters: list[GapClusterSummary]
+
+class BatchAnalyzeRequest(BaseModel):
+
+    queries: list[AnalyzeRequest]
+
+class BatchAnalyzeResponse(BaseModel):
+
+    total_queries: int
+
+    analyzed_at: datetime
+
+    results: list[AnalyzeResponse]
+
+class GapStatistics(BaseModel):
+
+    generated_at: datetime
+
+    total_gap_events: int
+
+    total_clusters: int
+
+    uncovered_queries: int
+
+    average_priority_score: float
+
+class GapCluster(BaseModel):
+
+    cluster_id: str
+
+    centroid: list[float]
+
+    size: int
+
+    state: str | None = None
+
+    district: list[str] = Field(default_factory=list)
+
+    crop: str | None = None
+
+    season: str | None = None
+
+    domain: list[str] | str | None = None
+
+    questions: list[str]
+
+    coverage_score: float = 0.0
+
+    priority_score: float = 0.0
+
+    growth_rate: float = 0.0
+
+    created_at: datetime | None = None
+
+    last_seen: datetime | None = None
+
+    pending_reviews: int = 0

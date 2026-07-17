@@ -141,10 +141,18 @@ async def compute_gap_analysis(
         scored_candidates,
         key=lambda x: x["coverage_score"],
     )
+    confidence = _calculate_confidence(
+    scored_candidates,
+)
     dominant_gap = _determine_dominant_gap(
     summary,
     len(candidates),
     best_match["gap_type"],
+)
+    explanation = _build_explanation(
+    best_match,
+    dominant_gap,
+    confidence,
 )
 
     covered = (
@@ -160,9 +168,14 @@ async def compute_gap_analysis(
             best_match["coverage_score"],
             3,
         ),
+        "confidence": confidence,
         "gap_type": dominant_gap,
+        "explanation": explanation,
         "matched_question": best_match["candidate"],
-        "similar_questions": scored_candidates,
+        "similar_questions":
+    _format_similar_questions(
+        scored_candidates,
+    ),
     }
 # =============================================================================
 # Dominant Gap Decision
@@ -661,3 +674,188 @@ def _summarize_candidates(
         "season_matches": season_matches,
         "domain_matches": domain_matches,
     }
+    # =============================================================================
+# Coverage Confidence
+# =============================================================================
+
+
+def _calculate_confidence(
+    scored_candidates: list[dict[str, Any]],
+) -> float:
+    """
+    Estimate confidence of the coverage decision.
+
+    Confidence depends on:
+
+    - best semantic match
+    - average semantic agreement
+    - consistency across neighbours
+
+    Returns a value between 0.0 and 1.0.
+    """
+
+    if not scored_candidates:
+        return 0.0
+
+    semantic_scores = [
+        c["semantic_score"]
+        for c in scored_candidates
+    ]
+
+    best = max(semantic_scores)
+
+    average = (
+        sum(semantic_scores)
+        / len(semantic_scores)
+    )
+
+    spread = max(semantic_scores) - min(semantic_scores)
+
+    consistency = 1.0 - spread
+
+    confidence = (
+        (0.50 * best)
+        + (0.30 * average)
+        + (0.20 * consistency)
+    )
+
+    return round(
+        max(0.0, min(confidence, 1.0)),
+        3,
+    )
+# =============================================================================
+# Explainability
+# =============================================================================
+
+
+def _build_explanation(
+    best_match: dict[str, Any],
+    dominant_gap: str,
+    confidence: float,
+) -> list[str]:
+    """
+    Produce human-readable reasoning for the
+    detected coverage gap.
+    """
+
+    explanation = []
+
+    explanation.append(
+        f"Semantic similarity: "
+        f"{best_match['semantic_score']:.3f}"
+    )
+
+    explanation.append(
+        f"Coverage score: "
+        f"{best_match['coverage_score']:.3f}"
+    )
+
+    explanation.append(
+        f"Confidence: "
+        f"{confidence:.3f}"
+    )
+
+    if dominant_gap == "LOCATION_GAP":
+
+        explanation.append(
+            "Relevant agricultural knowledge exists "
+            "but not for the requested state."
+        )
+
+    elif dominant_gap == "CROP_GAP":
+
+        explanation.append(
+            "Similar questions exist for other crops."
+        )
+
+    elif dominant_gap == "DOMAIN_GAP":
+
+        explanation.append(
+            "Requested agricultural domain is "
+            "poorly represented in the GDB."
+        )
+
+    elif dominant_gap == "SEASON_GAP":
+
+        explanation.append(
+            "Knowledge exists but for different seasons."
+        )
+
+    elif dominant_gap == "NO_MATCH":
+
+        explanation.append(
+            "No semantically similar questions found."
+        )
+
+    else:
+
+        explanation.append(
+            "Coverage considered sufficient."
+        )
+
+    return explanation
+# =============================================================================
+# Similar Question Formatter
+# =============================================================================
+
+
+def _format_similar_questions(
+    scored_candidates: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """
+    Convert scored neighbours into dashboard-
+    friendly output.
+    """
+
+    formatted = []
+
+    for item in scored_candidates:
+
+        candidate = item["candidate"]
+
+        formatted.append(
+            {
+                "question":
+                    candidate.get(
+                        "question",
+                        "",
+                    ),
+
+                "state":
+                    candidate.get(
+                        "state",
+                    ),
+
+                "crop":
+                    candidate.get(
+                        "crop",
+                    ),
+
+                "domain":
+                    candidate.get(
+                        "domain",
+                    ),
+
+                "similarity":
+                    round(
+                        item["semantic_score"],
+                        3,
+                    ),
+
+                "coverage":
+                    round(
+                        item["coverage_score"],
+                        3,
+                    ),
+
+                "gap":
+                    item["gap_type"],
+            }
+        )
+
+    formatted.sort(
+        key=lambda x: x["coverage"],
+        reverse=True,
+    )
+
+    return formatted
