@@ -1259,7 +1259,7 @@ export class ChatbotRepository implements IChatbotRepository {
   // }
 
   //without unwind
-  private buildUserTypeLookupStages(userType: string): any[] {
+  private buildUserTypeLookupStages(userType: string, keepUserDoc: boolean = false): any[] {
     if (userType === 'all') return [];
 
     const userRoleMatch =
@@ -1295,7 +1295,7 @@ export class ChatbotRepository implements IChatbotRepository {
         $match: userRoleMatch,
       },
       {
-        $unset: ['_userOid', '_userDoc'],
+        $unset: keepUserDoc ? ['_userOid'] : ['_userOid', '_userDoc'],
       },
     ];
   }
@@ -6874,7 +6874,7 @@ export class ChatbotRepository implements IChatbotRepository {
   ): Promise<PaginatedFeedbackMessages> {
     try {
       await this.init(source);
-      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType, true);
 
       const matchStage: any = {
         feedback: {$exists: true, $ne: null},
@@ -6964,6 +6964,8 @@ export class ChatbotRepository implements IChatbotRepository {
                 conversationId: 1,
                 messageId: 1,
                 userId: '$_userDoc._id',
+                name: '$_userDoc.name',
+                username: '$_userDoc.username',
                 farmerName: '$_userDoc.farmerProfile.farmerName',
                 email: '$_userDoc.email',
                 village: '$_userDoc.farmerProfile.villageName',
