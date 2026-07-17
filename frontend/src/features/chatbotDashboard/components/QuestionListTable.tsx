@@ -68,6 +68,7 @@ type QuestionListTableProps<T> = {
   tag?: string,
   notificationType?: string,
   totalClosedAndPassed?: number,
+  userId?: string,
   closedQuestions?: number,
   totalQuestions?: number,
   passedQuestions?: number,
@@ -143,6 +144,7 @@ export function QuestionListTable<T>({
   tag,
   notificationType,
   totalClosedAndPassed,
+  userId,
   closedQuestions,
   totalQuestions,
   passedQuestions,
@@ -409,6 +411,8 @@ export function QuestionListTable<T>({
         isPassed={isPassed}
         tag={tag}
         notificationType={notificationType}
+        totalClosedAndPassed={totalClosedAndPassed}
+        userId={userId}
         page={summaryPage}
         limit={summaryLimit}
         totalPages={lifecycleTotalPages}

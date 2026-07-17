@@ -72,6 +72,7 @@ interface QueryCategoryQuestionsModalProps {
   isPassed?: boolean;
   tag?: string;
   totalClosedAndPassed?: number;
+  userId?: string;
   closedQuestions?: number;
   totalQuestions?: number;
   passedQuestions?: number;
@@ -104,6 +105,7 @@ export function QueryCategoryQuestionsModal({
   isPassed,
   tag,
   totalClosedAndPassed,
+  userId,
   closedQuestions,
   totalQuestions,
   passedQuestions,
@@ -112,7 +114,7 @@ export function QueryCategoryQuestionsModal({
   slaBreached,
   safeNotified,
   safeNotNotified,
-  safeUntracked
+  safeUntracked,
 }: QueryCategoryQuestionsModalProps) {
   const {
     setSelectedQuestionId,
@@ -164,7 +166,8 @@ export function QueryCategoryQuestionsModal({
     search: debouncedSearch,
     enabled: true,
     isPassed,
-    tag
+    tag,
+    userId,
   });
 // console.log("dta----", data)
   // const columns = useMemo<QuestionListColumn<QueryCategoryQuestionEntry>[]>(
@@ -528,10 +531,11 @@ export function QueryCategoryQuestionsModal({
           tag={tag}
           notificationType={notificationType}
           totalClosedAndPassed={totalClosedAndPassed}
+          userId={userId}
           closedQuestions={closedQuestions}
           totalQuestions={totalQuestions}
           passedQuestions={passedQuestions}
-          closedInLastTwoHours ={closedInLastTwoHours}
+          closedInLastTwoHours={closedInLastTwoHours}
           passedInLastTwoHours={passedInLastTwoHours}
           slaBreached={slaBreached}
           safeNotified={safeNotified}
