@@ -66,6 +66,7 @@ interface ApproveAnswerDialogProps {
   questionStatus?: string;
   paeReview?: boolean;
   mode?: DialogMode;
+  isStaticDynamic?: boolean;
 }
 
 export const ApproveAnswerDialog = ({
@@ -83,6 +84,7 @@ export const ApproveAnswerDialog = ({
   questionStatus,
   paeReview,
   mode = "approve",
+  isStaticDynamic = false,
 }: ApproveAnswerDialogProps) => {
   const isEdit = mode === "edit";
   const isPaeSubmitted = questionStatus === "pae_submitted";
@@ -209,7 +211,7 @@ export const ApproveAnswerDialog = ({
             `}
           >
             <CheckCircle2 className="h-4 w-4" />
-            Approve Answer
+            {isStaticDynamic ? "Notify User" : "Approve Answer"}
           </button>
         )}
       </DialogTrigger>
