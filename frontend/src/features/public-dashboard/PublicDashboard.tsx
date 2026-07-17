@@ -65,6 +65,10 @@ export const PublicDashboard = () => {
   // supplies the coverage breakdowns and seeds the counts until the first poll lands.
   const headline = counts ?? live;
 
+  // Until the first stats/counts response lands, show a spinner in place of the live
+  // figures instead of a hard 0 (which flashed on initial load before the data arrived).
+  const figuresLoading = !headline;
+
   // Coverage from /stats, but the counts overridden by the polled values so the stat grid's
   // "Total Validated Question-Answer Pairs" tracks new questions too.
   const liveForStats = useMemo(
@@ -100,6 +104,7 @@ export const PublicDashboard = () => {
         onLogin={() => navigate({ to: "/auth" })}
         today={headline?.questionsToday ?? 0}
         thisMonth={headline?.questionsThisMonth ?? 0}
+        loading={figuresLoading}
       />
       <HeroCarousel
         stats={{
@@ -107,6 +112,7 @@ export const PublicDashboard = () => {
           validatedQAPairs: headline?.validatedQAPairs ?? 0,
           ...editorial,
         }}
+        loading={figuresLoading}
         images={carouselImages ?? []}
       />
       <main>

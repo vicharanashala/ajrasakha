@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Counter } from "./Counter";
+import { InlineLoader } from "./InlineLoader";
 import type { MediaItem } from "@/hooks/services/mediaService";
 
 interface Slide {
@@ -10,7 +11,7 @@ interface Slide {
   image?: string;
   bg: string;
   /** A numeric value counts up; a string renders as typed (e.g. "22+", "18.6M"). */
-  stats: { value: number | string; suffix?: string; label: string }[];
+  stats: { value: number | string; suffix?: string; label: string; loading?: boolean }[];
 }
 
 /** An admin-edited headline figure — BOTH the label and the value come from the content. */
@@ -26,10 +27,10 @@ export interface CarouselStatItem {
  * Dashboard shows the new wording here too.
  */
 export interface CarouselStats {
-  /** Every question in the collection, any status. */
-  totalQuestions: number;
+  /** Every question in the collection, any status. String (e.g. "—") = placeholder while loading. */
+  totalQuestions: number | string;
   /** Questions in a closed state (closed / dynamic_closed / duplicate_closed). */
-  validatedQAPairs: number;
+  validatedQAPairs: number | string;
   languages: CarouselStatItem;
   experts: CarouselStatItem;
   kvks: CarouselStatItem;
@@ -48,15 +49,17 @@ const SLIDE_IMAGES = [
   "https://images.unsplash.com/photo-1574943320219-553eb213f72d?w=1400&q=80",                    // vegetable market
 ];
 
-const buildSlides = (live: CarouselStats): Slide[] => [
+const buildSlides = (live: CarouselStats, loading = false): Slide[] => [
   {
     title: "India's Agricultural Intelligence Infrastructure",
     tag: "Validated, expert-backed advisories for every farmer, in every language.",
     image: SLIDE_IMAGES[0],
     bg: "linear-gradient(135deg, #14532d 0%, #166534 45%, #3f8f4e 100%)",
     stats: [
-      { value: live.totalQuestions, label: "Questions processed" },
-      { value: live.validatedQAPairs, label: "Validated Q&A pairs" },
+      // The two DB-derived figures show a spinner until stats load; the rest come from
+      // content/defaults and always have a value.
+      { value: live.totalQuestions, label: "Questions processed", loading },
+      { value: live.validatedQAPairs, label: "Validated Q&A pairs", loading },
       { value: live.languages.value, label: live.languages.label },
     ],
   },
@@ -120,15 +123,17 @@ const INTERVAL = 5000;
 export const HeroCarousel = ({
   stats,
   images = [],
+  loading = false,
 }: {
   stats: CarouselStats;
   images?: MediaItem[];
+  loading?: boolean;
 }) => {
   const [index, setIndex] = useState(0);
   const [progressKey, setProgressKey] = useState(0); // increments to restart the CSS animation
   const paused = useRef(false);
 
-  const slides = buildSlides(stats);
+  const slides = buildSlides(stats, loading);
   const slideCount = slides.length;
 
   const effectiveSlides = slides.map((s, i) => ({
@@ -188,7 +193,9 @@ export const HeroCarousel = ({
                 return (
                   <div className="cstat" key={st.label}>
                     <div className="n">
-                      {isNumeric ? (
+                      {st.loading ? (
+                        <InlineLoader size={26} />
+                      ) : isNumeric ? (
                         <Counter value={n} suffix={st.suffix} />
                       ) : (
                         <span className="mono">{st.value}</span>

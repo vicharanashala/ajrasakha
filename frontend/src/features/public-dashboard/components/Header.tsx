@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { Counter } from "./Counter";
+import { InlineLoader } from "./InlineLoader";
 import { NAV } from "../data/nav";
 
 interface HeaderProps {
@@ -8,8 +9,10 @@ interface HeaderProps {
   activeNav: string;
   onLogin: () => void;
   /** Ticker: questions that entered the database today / this month (IST). */
-  today: number;
-  thisMonth: number;
+  today: number | string;
+  thisMonth: number | string;
+  /** True until the stats first load — shows a spinner in place of the figures. */
+  loading?: boolean;
 }
 
 /** Scroll to a section by id without putting the hash in the URL. */
@@ -25,7 +28,7 @@ function scrollToSection(id: string, e: React.MouseEvent<HTMLAnchorElement>) {
  * On narrow screens the section nav collapses behind a hamburger button; tapping a link
  * closes it again.
  */
-export const Header = ({ activeNav, onLogin, today, thisMonth }: HeaderProps) => {
+export const Header = ({ activeNav, onLogin, today, thisMonth, loading }: HeaderProps) => {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const onNavClick = (id: string, e: React.MouseEvent<HTMLAnchorElement>) => {
@@ -84,7 +87,9 @@ export const Header = ({ activeNav, onLogin, today, thisMonth }: HeaderProps) =>
           {/* Today */}
           <div className="ticker-stat">
             <span className="ticker-stat-label">Questions today</span>
-            <span className="ticker-stat-value"><Counter value={today} /></span>
+            <span className="ticker-stat-value">
+              {loading ? <InlineLoader size={14} /> : <Counter value={today} />}
+            </span>
           </div>
 
           {/* Divider */}
@@ -93,7 +98,9 @@ export const Header = ({ activeNav, onLogin, today, thisMonth }: HeaderProps) =>
           {/* This month */}
           <div className="ticker-stat">
             <span className="ticker-stat-label">This month</span>
-            <span className="ticker-stat-value"><Counter value={thisMonth} /></span>
+            <span className="ticker-stat-value">
+              {loading ? <InlineLoader size={14} /> : <Counter value={thisMonth} />}
+            </span>
           </div>
         </div>
 
