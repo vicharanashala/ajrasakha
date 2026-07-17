@@ -18,6 +18,7 @@ type AnalyticsItem = {
   averageCloseTimeMinutes?: number;
   averagePassTimeMinutes?: number;
   averageDynamicCloseTimeMinutes?: number;
+  averageDuplicateCloseTimeMinutes?: number;
   combinedAverageTimeMinutes?: number;
   closedInPeriod?: number;
   delayed?: number;
@@ -327,6 +328,16 @@ export function WhatsAppAnalyticsCard({
                               </div>
                               <div className="flex justify-between gap-6">
                                 <span className="text-muted-foreground text-xs">
+                                  Duplicate Closed ({item.statuses?.duplicate_closed ?? 0})
+                                </span>
+                                <span className="font-medium text-xs">
+                                  {formatCloseTime(
+                                    item.averageDuplicateCloseTimeMinutes ?? 0,
+                                  )}
+                                </span>
+                              </div>
+                              <div className="flex justify-between gap-6">
+                                <span className="text-muted-foreground text-xs">
                                   Passed ({item.statuses?.pass ?? 0})
                                 </span>
                                 <span className="font-medium text-xs">
@@ -336,7 +347,7 @@ export function WhatsAppAnalyticsCard({
                                 </span>
                               </div>
                               <div className="flex justify-between gap-6 border-t border-border/20 pt-1.5 font-medium">
-                                <span className="text-xs">Weighted Average ({(item.statuses?.closed ?? 0) + (item.statuses?.dynamic_closed ?? 0) + (item.statuses?.pass ?? 0)})</span>
+                                <span className="text-xs">Weighted Average ({(item.statuses?.closed ?? 0) + (item.statuses?.dynamic_closed ?? 0) + (item.statuses?.pass ?? 0) + (item.statuses?.duplicate_closed ?? 0)})</span>
                                 <span className="font-medium text-xs">
                                   {formatCloseTime(
                                     item.combinedAverageTimeMinutes ?? 0,

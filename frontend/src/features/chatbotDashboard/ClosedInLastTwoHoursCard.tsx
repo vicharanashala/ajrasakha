@@ -47,6 +47,8 @@ type ClosedInLastTwoHoursCardProps = {
   totalPassed: number;
   dynamicClosedInLastTwoHours?: number;
   totalDynamicClosed?: number;
+  duplicateClosedInLastTwoHours?: number;
+  totalDuplicateClosed?: number;
   userId?: string;
   isMapComponent?: boolean;
   showSourceFilter?: boolean;
@@ -67,6 +69,8 @@ export function ClosedInLastTwoHoursCard({
   totalPassed = 0,
   dynamicClosedInLastTwoHours = 0,
   totalDynamicClosed = 0,
+  duplicateClosedInLastTwoHours = 0,
+  totalDuplicateClosed = 0,
   userId,
   isMapComponent = false,
   showSourceFilter = true,
@@ -89,8 +93,8 @@ export function ClosedInLastTwoHoursCard({
   const closedWithinTwoHoursPct =
     safeTotalClosed > 0 ? (safeCount / safeTotalClosed) * 100 : 0;
   
-  const passedInLastTwoHoursCombined = passedInLastTwoHours + dynamicClosedInLastTwoHours;
-  const totalPassedCombined = totalPassed + totalDynamicClosed;
+  const passedInLastTwoHoursCombined = passedInLastTwoHours + dynamicClosedInLastTwoHours + duplicateClosedInLastTwoHours;
+  const totalPassedCombined = totalPassed + totalDynamicClosed + totalDuplicateClosed;
   
   const passedPct =
     totalPassedCombined > 0 ? (passedInLastTwoHoursCombined / totalPassedCombined) * 100 : 0;
@@ -122,6 +126,13 @@ export function ClosedInLastTwoHoursCard({
       count: dynamicClosedInLastTwoHours,
       of: totalDynamicClosed,
       statusKey: "dynamic_closed",
+      isPassedVal: true,
+    },
+    {
+      label: "Duplicate Closed",
+      count: duplicateClosedInLastTwoHours,
+      of: totalDuplicateClosed,
+      statusKey: "duplicate_closed",
       isPassedVal: true,
     },
   ];
@@ -425,6 +436,7 @@ export function ClosedInLastTwoHoursCard({
           closedInLastTwoHours ={(closedInLastTwoHours || 0)}
           passedInLastTwoHours={passedInLastTwoHours || 0}
           dynamicClosedInLastTwoHours={dynamicClosedInLastTwoHours || 0}
+          duplicateClosedInLastTwoHours={duplicateClosedInLastTwoHours || 0}
           slaBreached={(slaBreached || 0)}
           userId={userId}
         />
