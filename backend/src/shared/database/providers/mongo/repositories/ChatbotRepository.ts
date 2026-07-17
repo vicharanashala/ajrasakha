@@ -13729,6 +13729,13 @@ export class ChatbotRepository implements IChatbotRepository {
   ): Promise<any> {
     try {
       await this.init(source);
+      const totalFarmerProfileUsers = Math.max(
+        await this.users.countDocuments(
+          {farmerProfile: {$exists: true, $ne: null}},
+          {session},
+        ),
+        1,
+      );
       const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
       const queryMatch: any = {
         isCreatedByUser: true,
@@ -13833,7 +13840,7 @@ export class ChatbotRepository implements IChatbotRepository {
                       _id: null,
                       avgQuestionsPerUserDay: {
                         $avg: {
-                          $divide: ['$dayTotalQuestions', '$dayUniqueUsers'],
+                          $divide: ['$dayTotalQuestions', totalFarmerProfileUsers],
                         },
                       },
                     },
@@ -13930,7 +13937,7 @@ export class ChatbotRepository implements IChatbotRepository {
                         _id: null,
                         avgQuestionsPerUserDay: {
                           $avg: {
-                            $divide: ['$dayTotalQuestions', '$dayUniqueUsers'],
+                            $divide: ['$dayTotalQuestions', totalFarmerProfileUsers],
                           },
                         },
                       },
