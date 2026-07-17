@@ -1264,11 +1264,16 @@ export class QuestionService extends BaseService implements IQuestionService {
           : result.referenceQuestionId
             ? new ObjectId(String(result.referenceQuestionId))
             : null;
+      
+      // Get submission to check queue length
+      const questionSubmission = await this.questionSubmissionRepo.getByQuestionId(questionId);
+      const queueLength = questionSubmission?.queue?.length || 0;
+      
       // Only flip the status to 'duplicate' when the question is still open/delayed.
       // For any other status (in-review, closed, etc.) the workflow is already past
       // that point, so the status must not change — we just record the reference.
       const canMarkDuplicate =
-        question.status === 'open' || question.status === 'delayed';
+        (question.status === 'open' || question.status === 'delayed') && queueLength === 0;
       await this.questionRepo.updateQuestion(questionId, {
         ...(canMarkDuplicate ? { status: 'duplicate' } : {}),
         similarityScore: result.similarityScore,
@@ -4135,13 +4140,18 @@ export class QuestionService extends BaseService implements IQuestionService {
         questionId.toString(),
         session,
       );
-      if (question.isAutoAllocate === false) {
-        await this.questionRepo.updateAutoAllocate(
-          questionId.toString(),
-          true,
-          session,
+
+      // Do NOT reset isAutoAllocate here. If a moderator deliberately turned off
+      // auto-allocation for this question, that decision must be respected even
+      // when the absent-expert cleanup removes experts from the queue.
+      // Only attempt re-allocation when the question still has isAutoAllocate: true.
+      if (!question.isAutoAllocate) {
+        console.log(
+          `[AbsentExpert] Skipping auto-reallocation for question ${questionId} — isAutoAllocate is false (moderator override).`,
         );
+        continue;
       }
+
       const latestSubmission =
         await this.questionSubmissionRepo.getByQuestionId(
           questionId.toString(),

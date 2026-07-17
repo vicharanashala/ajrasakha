@@ -72,11 +72,13 @@ interface QueryCategoryQuestionsModalProps {
   isPassed?: boolean;
   tag?: string;
   totalClosedAndPassed?: number;
+  userId?: string;
   closedQuestions?: number;
   totalQuestions?: number;
   passedQuestions?: number;
   closedInLastTwoHours?: number;
   passedInLastTwoHours?: number;
+  dynamicClosedInLastTwoHours?: number;
   slaBreached?: number;
   safeNotified?: number;
   safeNotNotified?: number;
@@ -104,15 +106,17 @@ export function QueryCategoryQuestionsModal({
   isPassed,
   tag,
   totalClosedAndPassed,
+  userId,
   closedQuestions,
   totalQuestions,
   passedQuestions,
   closedInLastTwoHours,
   passedInLastTwoHours,
+  dynamicClosedInLastTwoHours,
   slaBreached,
   safeNotified,
   safeNotNotified,
-  safeUntracked
+  safeUntracked,
 }: QueryCategoryQuestionsModalProps) {
   const {
     setSelectedQuestionId,
@@ -164,7 +168,8 @@ export function QueryCategoryQuestionsModal({
     search: debouncedSearch,
     enabled: true,
     isPassed,
-    tag
+    tag,
+    userId,
   });
 // console.log("dta----", data)
   // const columns = useMemo<QuestionListColumn<QueryCategoryQuestionEntry>[]>(
@@ -311,7 +316,7 @@ export function QueryCategoryQuestionsModal({
         label: period ? "Query" : "Question",
         sortable: true,
         sortAccessor: (row) => row.question,
-        className: "w-[32%]",
+        className: "w-[28%]",
         cellClassName: "overflow-hidden",
         render: (row) => (
         <button
@@ -376,13 +381,13 @@ export function QueryCategoryQuestionsModal({
     align: "center",
     sortable: true,
     sortAccessor: (row) => row.status ?? "",
-    className: "w-[8%]",
+    className: "w-[12%]",
     render: (row) => (
       <Badge
         variant="outline"
-        className="justify-center capitalize text-gray-500"
+        className="justify-center capitalize text-gray-500 whitespace-nowrap"
       >
-        {row.status}
+        {row.status?.replace(/[_-]/g, " ")}
       </Badge>
     ),
   });
@@ -528,11 +533,13 @@ export function QueryCategoryQuestionsModal({
           tag={tag}
           notificationType={notificationType}
           totalClosedAndPassed={totalClosedAndPassed}
+          userId={userId}
           closedQuestions={closedQuestions}
           totalQuestions={totalQuestions}
           passedQuestions={passedQuestions}
-          closedInLastTwoHours ={closedInLastTwoHours}
+          closedInLastTwoHours={closedInLastTwoHours}
           passedInLastTwoHours={passedInLastTwoHours}
+          dynamicClosedInLastTwoHours={dynamicClosedInLastTwoHours}
           slaBreached={slaBreached}
           safeNotified={safeNotified}
           safeNotNotified={safeNotNotified}
