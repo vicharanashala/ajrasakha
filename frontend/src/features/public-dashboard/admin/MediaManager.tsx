@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
-import { Images, Loader2, Trash2, Upload, Video } from "lucide-react";
+import { Images, Loader2, Trash2, Upload, Video, Youtube } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import {
+  useAddYoutube,
   useDeleteMedia,
   useGetMedia,
   useUploadMedia,
@@ -84,9 +85,14 @@ const MediaSection = ({
 }) => {
   const { data, isLoading } = useGetMedia(kind);
   const { mutateAsync: upload, isPending: uploading, progress } = useUploadMedia();
+  const { mutateAsync: addYoutube, isPending: addingYoutube } = useAddYoutube();
   const { mutateAsync: remove, isPending: deleting } = useDeleteMedia();
   const inputRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState("");
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+
+  // YouTube videos are an outreach-video option only.
+  const allowYoutube = kind === "outreach_video";
 
   const items: MediaItem[] = data ?? [];
 
@@ -96,6 +102,13 @@ const MediaSection = ({
     await upload({ kind, file, title: title || undefined });
     setTitle("");
     if (inputRef.current) inputRef.current.value = "";
+  };
+
+  const onAddYoutube = async () => {
+    if (!youtubeUrl.trim()) return;
+    await addYoutube({ url: youtubeUrl.trim(), title: title || undefined });
+    setYoutubeUrl("");
+    setTitle("");
   };
 
   return (
@@ -148,6 +161,31 @@ const MediaSection = ({
         </div>
       )}
 
+      {allowYoutube && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <input
+            value={youtubeUrl}
+            onChange={(e) => setYoutubeUrl(e.target.value)}
+            placeholder="Paste a YouTube URL…"
+            className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={addingYoutube || !youtubeUrl.trim()}
+            onClick={onAddYoutube}
+            className="gap-2"
+          >
+            {addingYoutube ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Youtube className="h-4 w-4" />
+            )}
+            Add YouTube
+          </Button>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" /> Loading…
@@ -160,16 +198,24 @@ const MediaSection = ({
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
           {items.map((m) => (
             <div key={m._id} className="group relative overflow-hidden rounded-md border">
-              {m.mimeType.startsWith("video/") ? (
+              {m.source === "youtube" ? (
+                <img
+                  src={`https://img.youtube.com/vi/${m.youtubeId}/hqdefault.jpg`}
+                  alt={m.title || "YouTube video"}
+                  className="h-32 w-full bg-black object-cover"
+                />
+              ) : m.mimeType?.startsWith("video/") ? (
                 <video src={m.url} controls className="h-32 w-full bg-black object-cover" />
               ) : (
                 <img src={m.url} alt={m.title || label} className="h-32 w-full object-cover" />
               )}
               <div className="p-2">
                 <p className="truncate text-xs font-medium" title={m.title || m.storagePath}>
-                  {m.title || m.storagePath.split("/").pop()}
+                  {m.title || (m.source === "youtube" ? "YouTube video" : m.storagePath?.split("/").pop())}
                 </p>
-                <p className="text-[10px] text-muted-foreground">{prettySize(m.size)}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {m.source === "youtube" ? "YouTube" : prettySize(m.size ?? 0)}
+                </p>
               </div>
               <Button
                 variant="destructive"

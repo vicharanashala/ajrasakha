@@ -70,9 +70,23 @@ export class CompleteUploadBody {
   caption?: string;
 }
 
+export class YoutubeBody {
+  @IsString()
+  url: string;
+
+  @IsOptional()
+  @IsString()
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  caption?: string;
+}
+
 export const MEDIA_VALIDATORS = [
   UploadMediaBody,
   ListMediaQuery,
   SignedUrlBody,
   CompleteUploadBody,
+  YoutubeBody,
 ];

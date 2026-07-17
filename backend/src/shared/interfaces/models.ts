@@ -41,6 +41,8 @@ export interface IDashboardContent {
   blocks: IDashboardBlock[];
   /** Headline snapshot figures. Empty ⇒ the dashboard falls back to its built-in defaults. */
   stats?: IDashboardStat[];
+  /** Carousel images + outreach images/videos (uploaded or YouTube), stored inline here. */
+  media?: IMedia[];
   updatedAt?: Date;
   updatedBy?: string | null;
 }
@@ -48,17 +50,25 @@ export interface IDashboardContent {
 /** The three admin-uploadable media categories on the public dashboard. */
 export type MediaKind = 'carousel' | 'outreach_image' | 'outreach_video';
 
-/** A file uploaded by an admin to the media bucket (GCS). One document per file;
- *  `storagePath` is kept so the object can be deleted from the bucket later. */
+/** Where a media item's bytes live: a GCS upload, or an external YouTube video. */
+export type MediaSource = 'upload' | 'youtube';
+
+/** A dashboard media item. Stored inside the dashboard_content singleton (see
+ *  IDashboardContent.media), so it retrieves with the rest of the dashboard content.
+ *  Uploads carry `storagePath` (GCS); YouTube videos carry `youtubeId` and no file. */
 export interface IMedia {
   _id?: string | ObjectId;
   kind: MediaKind;
-  /** Public URL of the object in the media bucket. */
+  /** 'upload' (GCS file) or 'youtube' (external embed). Absent ⇒ 'upload' (legacy). */
+  source?: MediaSource;
+  /** Served URL — the GCS object (signed on read) for uploads, the watch URL for YouTube. */
   url: string;
-  /** Object path inside the bucket — required to delete/replace the file. */
-  storagePath: string;
-  mimeType: string;
-  size: number;
+  /** Object path inside the bucket — uploads only; required to delete the file. */
+  storagePath?: string;
+  /** YouTube video id (outreach_video + source 'youtube') — used to build the embed URL. */
+  youtubeId?: string;
+  mimeType?: string;
+  size?: number;
   title?: string;
   caption?: string;
   order: number;

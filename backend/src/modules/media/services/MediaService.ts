@@ -54,10 +54,14 @@ export class MediaService implements IMediaService {
     // `url` is swapped for a short-lived v4 signed READ url that anyone can fetch. The stored
     // `url` in Mongo is left as-is; this only affects what we hand out.
     return Promise.all(
-      items.map(async item => ({
-        ...item,
-        url: await this.signReadUrl(item.storagePath).catch(() => item.url),
-      })),
+      items.map(async item => {
+        // YouTube items have no GCS object — keep their watch URL untouched.
+        if (item.source === 'youtube' || !item.storagePath) return item;
+        return {
+          ...item,
+          url: await this.signReadUrl(item.storagePath).catch(() => item.url),
+        };
+      }),
     );
   }
 
@@ -237,18 +241,84 @@ export class MediaService implements IMediaService {
     }
   }
 
+  /**
+   * Register a YouTube video as an outreach item. No file/GCS — we store the watch URL and
+   * the parsed video id, which the frontend turns into an embed.
+   */
+  async addYoutube({
+    url,
+    title,
+    caption,
+    userId,
+  }: {
+    url: string;
+    title?: string;
+    caption?: string;
+    userId: string;
+  }): Promise<IMedia> {
+    const youtubeId = parseYoutubeId(url);
+    if (!youtubeId) {
+      throw new BadRequestError('Not a valid YouTube URL.');
+    }
+
+    const order = await this.repo.nextOrder('outreach_video');
+
+    return this.repo.create({
+      kind: 'outreach_video',
+      source: 'youtube',
+      url: `https://www.youtube.com/watch?v=${youtubeId}`,
+      youtubeId,
+      title: title?.trim() || undefined,
+      caption: caption?.trim() || undefined,
+      order,
+      uploadedBy: userId || null,
+      createdAt: new Date(),
+    });
+  }
+
   async remove(id: string): Promise<boolean> {
     const doc = await this.repo.getById(id);
     if (!doc) throw new NotFoundError('Media not found.');
 
-    // Best-effort object delete — if the file is already gone we still drop the record.
-    try {
-      const { bucket } = this.getBucket();
-      await bucket.file(doc.storagePath).delete({ ignoreNotFound: true });
-    } catch (err: any) {
-      console.error(`[Media] Failed to delete object ${doc.storagePath}:`, err?.message);
+    // Uploaded files have a GCS object to remove; YouTube items don't. Best-effort — if the
+    // object is already gone we still drop the record.
+    if (doc.storagePath) {
+      try {
+        const { bucket } = this.getBucket();
+        await bucket.file(doc.storagePath).delete({ ignoreNotFound: true });
+      } catch (err: any) {
+        console.error(`[Media] Failed to delete object ${doc.storagePath}:`, err?.message);
+      }
     }
 
     return this.repo.delete(id);
   }
+}
+
+/**
+ * Extract the 11-char video id from any common YouTube URL form:
+ * youtube.com/watch?v=ID, youtu.be/ID, youtube.com/embed/ID, /shorts/ID, or a bare id.
+ */
+function parseYoutubeId(input: string): string | null {
+  const s = (input || '').trim();
+  if (/^[A-Za-z0-9_-]{11}$/.test(s)) return s; // already a bare id
+
+  try {
+    const u = new URL(s);
+    const host = u.hostname.replace(/^www\./, '');
+
+    if (host === 'youtu.be') {
+      const id = u.pathname.slice(1);
+      return /^[A-Za-z0-9_-]{11}$/.test(id) ? id : null;
+    }
+    if (host.endsWith('youtube.com')) {
+      const v = u.searchParams.get('v');
+      if (v && /^[A-Za-z0-9_-]{11}$/.test(v)) return v;
+      const m = u.pathname.match(/\/(embed|shorts|v)\/([A-Za-z0-9_-]{11})/);
+      if (m) return m[2];
+    }
+  } catch {
+    // not a URL
+  }
+  return null;
 }

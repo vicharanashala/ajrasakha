@@ -33,7 +33,18 @@ export const OutreachGallery = ({
           <div className="media-grid" style={{ marginBottom: images.length ? 28 : 0 }}>
             {clips.map((v) => (
               <figure className="media-card" key={v._id}>
-                <video src={v.url} controls preload="metadata" />
+                {v.source === "youtube" ? (
+                  <iframe
+                    src={`https://www.youtube.com/embed/${v.youtubeId}`}
+                    title={v.title || "YouTube video"}
+                    loading="lazy"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    style={{ width: "100%", aspectRatio: "16 / 9", border: 0, display: "block" }}
+                  />
+                ) : (
+                  <video src={v.url} controls preload="metadata" />
+                )}
                 {(v.title || v.caption) && (
                   <figcaption>
                     {v.title && <strong>{v.title}</strong>}

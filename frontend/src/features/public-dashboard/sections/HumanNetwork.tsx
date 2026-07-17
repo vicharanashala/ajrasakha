@@ -1,5 +1,4 @@
 import { Counter } from "../components/Counter";
-import { MiniCounter } from "../components/MiniMetric";
 import { SectionHead } from "../components/SectionHead";
 import { networkRoles } from "../data/dashboardData";
 import type { RoleCount } from "@/hooks/services/publicStatsService";

@@ -4,14 +4,19 @@ import { env } from "@/config/env";
 const API_BASE_URL = env.apiBaseUrl();
 
 export type MediaKind = "carousel" | "outreach_image" | "outreach_video";
+export type MediaSource = "upload" | "youtube";
 
 export interface MediaItem {
   _id: string;
   kind: MediaKind;
+  /** "upload" (GCS file) or "youtube" (embed). Absent ⇒ "upload". */
+  source?: MediaSource;
   url: string;
-  storagePath: string;
-  mimeType: string;
-  size: number;
+  storagePath?: string;
+  /** YouTube video id — present when source is "youtube". */
+  youtubeId?: string;
+  mimeType?: string;
+  size?: number;
   title?: string;
   caption?: string;
   order: number;
@@ -100,7 +105,19 @@ export class MediaService {
     });
   }
 
-  /** Admin/moderator — removes the bucket object and the record. */
+  /** Admin/moderator — add a YouTube video to outreach (URL only, no upload). */
+  async addYoutube(params: {
+    url: string;
+    title?: string;
+    caption?: string;
+  }): Promise<MediaItem | null> {
+    return apiFetch<MediaItem>(`${this._baseUrl}/youtube`, {
+      method: "POST",
+      body: JSON.stringify(params),
+    });
+  }
+
+  /** Admin/moderator — removes the bucket object (if any) and the record. */
   async remove(id: string): Promise<{ deleted: boolean } | null> {
     return apiFetch<{ deleted: boolean }>(`${this._baseUrl}/${id}`, {
       method: "DELETE",

@@ -30,6 +30,7 @@ import {
   MediaUploadOptions,
   SignedUrlBody,
   CompleteUploadBody,
+  YoutubeBody,
   MEDIA_KINDS,
 } from '#root/modules/media/classes/validators/MediaValidators.js';
 import {
@@ -167,6 +168,19 @@ export class DashboardContentController {
     return this.mediaService.completeUpload({
       kind: body.kind,
       storagePath: body.storagePath,
+      title: body.title,
+      caption: body.caption,
+      userId: (user._id ?? '').toString(),
+    });
+  }
+
+  /** Add a YouTube video to the outreach section (URL only — no file upload). */
+  @Authorized()
+  @Post('/media/youtube')
+  async addYoutube(@CurrentUser() user: IUser, @Body() body: YoutubeBody) {
+    this.assertCanManage(user);
+    return this.mediaService.addYoutube({
+      url: body.url,
       title: body.title,
       caption: body.caption,
       userId: (user._id ?? '').toString(),

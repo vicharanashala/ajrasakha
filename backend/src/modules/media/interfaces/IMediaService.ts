@@ -32,6 +32,14 @@ export interface IMediaService {
     userId: string;
   }): Promise<IMedia>;
 
-  /** Delete the object from the bucket AND its metadata document. */
+  /** Register a YouTube video as an outreach item (no file — just the URL). */
+  addYoutube(params: {
+    url: string;
+    title?: string;
+    caption?: string;
+    userId: string;
+  }): Promise<IMedia>;
+
+  /** Delete the object from the bucket (if any) AND its metadata. */
   remove(id: string): Promise<boolean>;
 }

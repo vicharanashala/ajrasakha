@@ -43,6 +43,21 @@ export const useUploadMedia = () => {
   return { ...mutation, progress };
 };
 
+/** Register a YouTube video as an outreach item (URL only). */
+export const useAddYoutube = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationKey: ["add-youtube"],
+    mutationFn: (params: { url: string; title?: string; caption?: string }) =>
+      service.addYoutube(params),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["media"] });
+      toast.success("YouTube video added");
+    },
+    onError: (e: any) => toast.error(e?.message || "Failed to add YouTube video"),
+  });
+};
+
 export const useDeleteMedia = () => {
   const qc = useQueryClient();
   return useMutation({
