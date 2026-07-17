@@ -386,7 +386,7 @@ export function ClosedInLastTwoHoursCard({
                           GDB in 2h
                         </span>
                         <span className="tabular-nums font-medium text-right">
-                          {closedWithinTwoHoursPct.toFixed(1)}% <span className="text-[10px] text-muted-foreground">({safeCount}/{safeTotalClosed})</span>
+                          {closedWithinTwoHoursPct.toFixed(1)}% 
                         </span>
                       </div>
                       <div className="flex justify-between gap-4">
@@ -394,13 +394,13 @@ export function ClosedInLastTwoHoursCard({
                           Non-GDB in 2h
                         </span>
                         <span className="tabular-nums font-medium text-right">
-                          {passedPct.toFixed(1)}% <span className="text-[10px] text-muted-foreground">({passedInLastTwoHoursCombined}/{totalPassedCombined})</span>
+                          {passedPct.toFixed(1)}% 
                         </span>
                       </div>
                       <div className="flex justify-between border-t pt-2 font-medium gap-4">
                         <span>Weighted Combined Rate</span>
                         <span className="tabular-nums text-right font-semibold">
-                          {combinedPct.toFixed(1)}% <span className="text-[10px] text-muted-foreground font-normal">({safeCount + passedInLastTwoHoursCombined}/{safeTotalClosed + totalPassedCombined})</span>
+                          {combinedPct.toFixed(1)}% 
                         </span>
                       </div>
                     </div>

@@ -357,19 +357,19 @@ export function ClosedQuestionsCard({
                         Resolution Time Breakdown
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">GDB ({closedQuestions ?? 0})</span>
+                        <span className="text-muted-foreground">GDB </span>
                         <span className="tabular-nums">
                           {formatDurationFromMinutes(avgCloseTimeMinutes)}
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Non-GDB ({passedQuestions ?? 0})</span>
+                        <span className="text-muted-foreground">Non-GDB </span>
                         <span className="tabular-nums">
                           {formatDurationFromMinutes(avgPassTimeMinutes)}
                         </span>
                       </div>
                       <div className="flex justify-between border-t pt-2 font-medium">
-                        <span>Weighted Average ({combinedCount ?? ((closedQuestions ?? 0) + (passedQuestions ?? 0))})</span>
+                        <span>Weighted Average </span>
                         <span className="tabular-nums font-semibold">
                           {formatDurationFromMinutes(combinedAvgTime)}
                         </span>
