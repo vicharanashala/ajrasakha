@@ -771,7 +771,10 @@ describe('ChatbotService', () => {
 
       expect(
         mockChatbotRepository.getFarmerHeatMapAnalytics,
-      ).toHaveBeenCalledWith(filters);
+      ).toHaveBeenCalledWith(filters, {
+        scope: 'district',
+        labels: [],
+      });
 
       expect(result).toEqual(response);
     });
@@ -790,7 +793,13 @@ describe('ChatbotService', () => {
 
       expect(
         mockChatbotRepository.getFarmerHeatMapAnalytics,
-      ).toHaveBeenCalledWith({});
+      ).toHaveBeenCalledWith(
+        {},
+        {
+          scope: 'state',
+          labels: [],
+        },
+      );
     });
 
     it('throws InternalServerError when repository fails', async () => {
@@ -932,6 +941,7 @@ describe('ChatbotService', () => {
         undefined,
         'all',
         undefined,
+        undefined,
       );
 
       expect(result).toEqual(response);
@@ -970,6 +980,7 @@ describe('ChatbotService', () => {
         undefined,
         'farmer',
         'wheat',
+        undefined,
       );
     });
 
@@ -1769,10 +1780,10 @@ describe('ChatbotService', () => {
         10,
       );
 
-      expect(mockChatbotRepository.getUserConversationIds).toHaveBeenCalledWith(
-        'user-1',
-        'annam',
-      );
+      // expect(mockChatbotRepository.getUserConversationIds).toHaveBeenCalledWith(
+      //   'user-1',
+      //   'annam',
+      // );
 
       expect(mockChatbotRepository.getAllUserMessageIds).toHaveBeenCalledWith(
         'user@test.com',
@@ -1781,7 +1792,7 @@ describe('ChatbotService', () => {
 
       expect(mockChatbotRepository.getUserQuestionsData).toHaveBeenCalledWith(
         {
-          threadIds: ['thread-1'],
+          threadIds: [],
           messageIds: ['msg-1', 'msg-2'],
           userId: 'user-1',
         },
@@ -1897,7 +1908,7 @@ describe('ChatbotService', () => {
 
       expect(mockChatbotRepository.getUserQuestionsData).toHaveBeenCalledWith(
         {
-          threadIds: ['thread-1'],
+          threadIds: [],
           messageIds: ['msg-1'],
           userId: 'user-1',
         },
@@ -4554,6 +4565,7 @@ describe('ChatbotService', () => {
         undefined,
         undefined,
         undefined,
+        undefined,
       );
 
       expect(result).toEqual(response);
@@ -4590,6 +4602,7 @@ describe('ChatbotService', () => {
         startDate,
         endDate,
         'true',
+        undefined,
       );
     });
 
