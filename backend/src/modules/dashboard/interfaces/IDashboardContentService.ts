@@ -27,6 +27,12 @@ export interface PublicDashboardCounts {
  * call; the coverage breakdowns are refreshed lazily, while the counts above are polled
  * separately via getPublicDashboardCounts().
  */
+/** One role and how many users currently hold it (PAEs, reviewers, moderators, …). */
+export interface RoleCount {
+  role: string;
+  count: number;
+}
+
 export interface PublicDashboardStats extends PublicDashboardCounts {
   statesCovered: number;
   cropsCovered: number;
@@ -34,6 +40,8 @@ export interface PublicDashboardStats extends PublicDashboardCounts {
   stateData: Analytics['stateData'];
   cropData: Analytics['cropData'];
   domainData: Analytics['domainData'];
+  /** The Human Intelligence Network headcounts — from performance/overview's userRoleOverview. */
+  userRoleOverview: RoleCount[];
 }
 
 export interface IDashboardContentService {

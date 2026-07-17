@@ -20,6 +20,12 @@ export interface PublicDashboardCounts {
   questionsThisMonth: number;
 }
 
+/** One role and how many users currently hold it (PAEs, reviewers, moderators, …). */
+export interface RoleCount {
+  role: string;
+  count: number;
+}
+
 /** Live figures for the public dashboard (no auth). */
 export interface PublicDashboardStats extends PublicDashboardCounts {
   statesCovered: number;
@@ -28,6 +34,8 @@ export interface PublicDashboardStats extends PublicDashboardCounts {
   stateData: CoverageItem[];
   cropData: CoverageItem[];
   domainData: CoverageItem[];
+  /** Human Intelligence Network headcounts (from performance/overview's userRoleOverview). */
+  userRoleOverview: RoleCount[];
 }
 
 export class PublicStatsService {

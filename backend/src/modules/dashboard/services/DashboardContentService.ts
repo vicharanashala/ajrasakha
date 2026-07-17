@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { GLOBAL_TYPES } from '#root/types.js';
 import { IDashboardContentRepository } from '#root/shared/database/interfaces/IDashboardContentRepository.js';
 import { IQuestionRepository } from '#root/shared/database/interfaces/IQuestionRepository.js';
+import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
 import {
   IDashboardBlock,
   IDashboardContent,
@@ -15,6 +16,27 @@ import {
   PublicDashboardStats,
 } from '../interfaces/IDashboardContentService.js';
 
+/** Raw role keys → the labels shown on the public Human Intelligence Network grid. */
+const ROLE_LABELS: Record<string, string> = {
+  expert: 'Experts',
+  pae_expert: 'PAE Experts',
+  moderator: 'Moderators',
+  auditor: 'Auditors',
+  gate_keeper: 'Gatekeepers',
+  district_coordinator: 'District Coordinators',
+  block_coordinator: 'Block Coordinators',
+  village_volunteer: 'Village Volunteers',
+  call_agent: 'Call Agents',
+  tester: 'Testers',
+};
+
+/** Fallback for an unmapped role key: "some_new_role" → "Some New Roles". */
+const prettifyRole = (role: string): string =>
+  role
+    .split('_')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ') + 's';
+
 @injectable()
 export class DashboardContentService implements IDashboardContentService {
   constructor(
@@ -23,6 +45,9 @@ export class DashboardContentService implements IDashboardContentService {
 
     @inject(GLOBAL_TYPES.QuestionRepository)
     private questionRepo: IQuestionRepository,
+
+    @inject(GLOBAL_TYPES.UserRepository)
+    private userRepo: IUserRepository,
   ) {}
 
   async getContent(): Promise<IDashboardContent> {
@@ -60,9 +85,13 @@ export class DashboardContentService implements IDashboardContentService {
   }
 
   async getPublicDashboardStats(): Promise<PublicDashboardStats> {
-    const [counts, { analytics }] = await Promise.all([
+    const [counts, { analytics }, roleCounts] = await Promise.all([
       this.getPublicDashboardCounts(),
       this.questionRepo.getQuestionAnalytics(),
+      // The Human Intelligence Network headcounts — current active users grouped by role
+      // (status not in-active), from the live users collection. Folded into /stats rather
+      // than a new endpoint since it is part of the heavy, lazily-refreshed figures.
+      this.userRepo.getActiveUserCountByRole(),
     ]);
 
     const { cropData = [], stateData = [], domainData = [] } =
@@ -83,6 +112,11 @@ export class DashboardContentService implements IDashboardContentService {
       stateData,
       cropData,
       domainData: realDomains,
+      // Every role except admin (an internal role, not part of the public network view),
+      // with raw role keys mapped to display labels.
+      userRoleOverview: roleCounts
+        .filter(r => r.role !== 'admin')
+        .map(r => ({ role: ROLE_LABELS[r.role] ?? prettifyRole(r.role), count: r.count })),
     };
   }
 

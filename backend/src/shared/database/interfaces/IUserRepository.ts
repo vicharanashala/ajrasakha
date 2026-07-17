@@ -272,6 +272,15 @@ export interface IUserRepository {
   }>;
 
   /**
+   * Current per-role headcount from the users collection, counting only users that are NOT
+   * in-active (status 'active' or status not set). Reflects the live network, unlike
+   * getUserRoleCount which reads the date-windowed role-history collection.
+   */
+  getActiveUserCountByRole(
+    session?: ClientSession,
+  ): Promise<{ role: string; count: number }[]>;
+
+  /**
    * @param session
    */
   getExpertPerformance(session?: ClientSession): Promise<ExpertPerformance[]>;

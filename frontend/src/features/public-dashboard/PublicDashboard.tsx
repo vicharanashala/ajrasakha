@@ -114,7 +114,7 @@ export const PublicDashboard = () => {
         <HeroSnapshot stats={stats} />
         <GeographicIntelligence />
         <KnowledgeEngine />
-        <HumanNetwork />
+        <HumanNetwork roles={live?.userRoleOverview} />
         <Integrations />
         <ImpactOutreach domainData={domainData} />
         <OutreachGallery images={outreachImages ?? []} videos={outreachVideos ?? []} />

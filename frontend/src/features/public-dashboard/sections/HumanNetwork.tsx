@@ -2,9 +2,19 @@ import { Counter } from "../components/Counter";
 import { MiniCounter } from "../components/MiniMetric";
 import { SectionHead } from "../components/SectionHead";
 import { networkRoles } from "../data/dashboardData";
+import type { RoleCount } from "@/hooks/services/publicStatsService";
 
-/** Layer 04 — the distributed expert network: roles, KVKs and SAUs. */
-export const HumanNetwork = () => (
+/**
+ * Layer 04 — the distributed expert network: roles, KVKs and SAUs. Role headcounts come
+ * from the live userRoleOverview (via /dashboard/stats); the demo `networkRoles` are used
+ * only until that arrives.
+ */
+export const HumanNetwork = ({ roles }: { roles?: RoleCount[] }) => {
+  const roleCells = roles?.length
+    ? roles.map((r) => ({ label: r.role, count: r.count }))
+    : networkRoles;
+
+  return (
   <section className="wrap" id="layer4">
     <SectionHead title="Human Intelligence Network" />
     <p className="sec-desc">
@@ -13,7 +23,7 @@ export const HumanNetwork = () => (
       anchored by KVKs and State Agricultural Universities.
     </p>
     <div className="stat-grid" style={{ marginBottom: 28 }}>
-      {networkRoles.map((r) => (
+      {roleCells.map((r) => (
         <div className="stat-cell" key={r.label}>
           <div className="val">
             <Counter value={r.count} />
@@ -22,7 +32,7 @@ export const HumanNetwork = () => (
         </div>
       ))}
     </div>
-    <div className="two-col">
+  {/**  <div className="two-col">
       <div className="chart-box">
         <h4 style={{ fontSize: 16, marginBottom: 14 }}>KVK Mapping</h4>
         <div className="metric-mini-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
@@ -46,6 +56,7 @@ export const HumanNetwork = () => (
           region-specific advisory content, anchoring coverage in local agro-climatic reality.
         </p>
       </div>
-    </div>
+    </div>*/} 
   </section>
-);
+  );
+};

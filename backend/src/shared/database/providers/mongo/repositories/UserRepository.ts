@@ -1672,6 +1672,34 @@ export class UserRepository implements IUserRepository {
   }
 
 
+  /**
+   * Current headcount of users per role, counting only those that are NOT in-active.
+   *
+   * `status: { $ne: 'in-active' }` includes both `status: 'active'` and users with no status
+   * field at all (a missing field is not equal to 'in-active'), and excludes only the ones
+   * explicitly marked in-active — which is exactly "active, or status not set".
+   *
+   * Unlike getUserRoleCount (which aggregates the role-HISTORY collection over a date
+   * window), this reads the live users collection, so it reflects the present network.
+   */
+  async getActiveUserCountByRole(
+    session?: ClientSession,
+  ): Promise<{ role: string; count: number }[]> {
+    await this.init();
+    const result = await this.usersCollection
+      .aggregate(
+        [
+          { $match: { status: { $ne: 'in-active' } } },
+          { $group: { _id: '$role', count: { $sum: 1 } } },
+          { $project: { role: '$_id', count: 1, _id: 0 } },
+          { $sort: { role: 1 } },
+        ],
+        { session },
+      )
+      .toArray();
+    return result as { role: string; count: number }[];
+  }
+
   async getUserRoleCount(
     startDateTime?:string,
     endDateTime?:string,
