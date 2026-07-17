@@ -42,6 +42,7 @@ type ClosedQuestionsCardProps = {
   combinedAvgTime?: number;
   onSourceChange?: (source: "both" | "annam" | "whatsapp") => void;
   userId?: string;
+  showSourceFilter?: boolean;
 };
 
 export function ClosedQuestionsCard({
@@ -60,6 +61,7 @@ export function ClosedQuestionsCard({
   onRefresh,
   onSourceChange,
   userId,
+  showSourceFilter = true,
 }: ClosedQuestionsCardProps) {
   const pendingQuestions =
     (totalQuestions || 0) - (closedQuestions || 0) - (passedQuestions || 0);
@@ -143,6 +145,7 @@ export function ClosedQuestionsCard({
                   className="flex items-center gap-1.5 shrink-0"
                   onClick={(e) => e.stopPropagation()}
                 >
+                  {showSourceFilter && (
                   <Popover
                     open={sourcePopoverOpen}
                     onOpenChange={setSourcePopoverOpen}
@@ -178,6 +181,7 @@ export function ClosedQuestionsCard({
                       </div>
                     </PopoverContent>
                   </Popover>
+                  )}
 
                   <Popover>
                     <PopoverTrigger asChild>
@@ -453,7 +457,7 @@ function StatTile({
           className={cn(
             "group/tile relative flex flex-col items-start gap-1.5 overflow-hidden rounded-xl p-1 text-left",
             "bg-background/40 ring-1 ring-border/50 transition-all duration-200",
-            "hover:bg-background/80 hover:shadow-md",
+            "hover:bg-background/80 hover:shadow-md cursor-pointer",
             a.ring,
             a.glow,
           )}

@@ -44,6 +44,7 @@ type CustomerNotificationsCardProps = {
   onRefresh?: () => void;
   onSourceChange?: (source: "both" | "annam" | "whatsapp") => void;
   userId?: string;
+  showSourceFilter?: boolean;
 };
 
 export function CustomerNotificationsCard({
@@ -59,6 +60,7 @@ export function CustomerNotificationsCard({
   onRefresh,
   onSourceChange,
   userId,
+  showSourceFilter = true,
 }: CustomerNotificationsCardProps) {
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
@@ -159,6 +161,7 @@ export function CustomerNotificationsCard({
                   className="flex items-center gap-1.5"
                   onClick={(e) => e.stopPropagation()}
                 >
+                  {showSourceFilter && (
                   <Popover
                     open={sourcePopoverOpen}
                     onOpenChange={setSourcePopoverOpen}
@@ -195,6 +198,7 @@ export function CustomerNotificationsCard({
                       </div>
                     </PopoverContent>
                   </Popover>
+                  )}
 
                   <Popover>
                     <PopoverTrigger asChild>
@@ -433,7 +437,7 @@ function StatTile({
           className={cn(
             "group/tile relative flex flex-col items-start gap-1.5 overflow-hidden rounded-xl p-3 text-left",
             "bg-background/40 ring-1 ring-border/50 transition-all duration-200",
-            "hover:bg-background/80 hover:shadow-md",
+            "hover:bg-background/80 hover:shadow-md cursor-pointer",
             a.ring,
             a.glow,
           )}
