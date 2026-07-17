@@ -31,6 +31,10 @@ import { ManageCallAgents } from "./ManageCallAgents";
 import { DataProcessingDashboard } from "../features/faq-pop/DataProcessingDashboard";
 import { CallAgentDashboard } from "./CallAgentDashboard";
 import { UserService } from "@/hooks/services/userService";
+import { SystemHealthMonitor } from "../features/chatbotDashboard/components/SystemHealthMonitor";
+import { BulkOperationsPanel } from "../features/chatbotDashboard/components/BulkOperationsPanel";
+import { ExpertAvailabilityDashboard } from "../features/chatbotDashboard/components/ExpertAvailabilityDashboard";
+import { QuestionTrackingPage } from "../features/chatbotDashboard/components/QuestionTrackingPage";
 
 export const PlaygroundPage = () => {
   const { data: user } = useGetCurrentUser({});
@@ -344,6 +348,38 @@ export const PlaygroundPage = () => {
                     <span>Data Processing</span>
                   </TabsTrigger>
                 )}
+                {user && (user.role === "admin" || user.role === "moderator") && (
+                  <TabsTrigger
+                    value="system_health"
+                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  >
+                    <span>System Health</span>
+                  </TabsTrigger>
+                )}
+                {user && user.role === "admin" && (
+                  <TabsTrigger
+                    value="bulk_operations"
+                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  >
+                    <span>Bulk Operations</span>
+                  </TabsTrigger>
+                )}
+                {user && user.role === "admin" && (
+                  <TabsTrigger
+                    value="expert_availability"
+                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  >
+                    <span>Expert Availability</span>
+                  </TabsTrigger>
+                )}
+                {user && user.role !== "call_agent" && (
+                  <TabsTrigger
+                    value="question_tracking"
+                    className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                  >
+                    <span>Question Tracking</span>
+                  </TabsTrigger>
+                )}
                 {/*
                 {user && (
                   <TabsTrigger
@@ -611,6 +647,78 @@ export const PlaygroundPage = () => {
                 >
                   <ErrorBoundary level="section">
                     <DataProcessingDashboard />
+                  </ErrorBoundary>
+                </TabsContent>
+              )}
+
+              {user && (user.role === "admin" || user.role === "moderator") && (
+                <TabsContent
+                  value="system_health"
+                  className={cn(
+                    "mt-0 border-0 md:px-4 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <ErrorBoundary level="section">
+                    <SystemHealthMonitor />
+                  </ErrorBoundary>
+                </TabsContent>
+              )}
+
+              {user && user.role === "admin" && (
+                <TabsContent
+                  value="bulk_operations"
+                  className={cn(
+                    "mt-0 border-0 md:px-4 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <ErrorBoundary level="section">
+                    <BulkOperationsPanel />
+                  </ErrorBoundary>
+                </TabsContent>
+              )}
+
+              {user && user.role === "admin" && (
+                <TabsContent
+                  value="expert_availability"
+                  className={cn(
+                    "mt-0 border-0 md:px-4 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <ErrorBoundary level="section">
+                    <ExpertAvailabilityDashboard />
+                  </ErrorBoundary>
+                </TabsContent>
+              )}
+
+              {user && user.role !== "call_agent" && (
+                <TabsContent
+                  value="question_tracking"
+                  className={cn(
+                    "mt-0 border-0 md:px-4 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <ErrorBoundary level="section">
+                    <QuestionTrackingPage />
                   </ErrorBoundary>
                 </TabsContent>
               )}
