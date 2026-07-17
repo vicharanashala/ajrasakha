@@ -1146,18 +1146,20 @@ describe('UserService', () => {
       expect(mockUserRepo.updateIsBlocked).toHaveBeenCalled();
     });
 
-    it('throws when blocking would reduce experts below minimum', async () => {
+    it('continues blocking even when expert count is 10', async () => {
       setupBlockUnblockExperts();
 
       mockUserRepo.countNonBlockedExperts.mockResolvedValue(10);
 
-      await expect(
-        service.blockUnblockExperts(userId, 'block'),
-      ).rejects.toThrow(
-        'Minimum 10 active experts required. Cannot block more experts.',
-      );
+      await service.blockUnblockExperts(userId, 'block');
 
-      expect(mockUserRepo.updateIsBlocked).not.toHaveBeenCalled();
+      expect(mockUserRepo.countNonBlockedExperts).toHaveBeenCalled();
+
+      expect(mockUserRepo.updateIsBlocked).toHaveBeenCalledWith(
+        userId,
+        'block',
+        expect.anything(),
+      );
     });
 
     it('unblocks a user without checking expert count', async () => {
@@ -1245,18 +1247,20 @@ describe('UserService', () => {
       );
     });
 
-    it('throws when active experts would fall below minimum', async () => {
+    it('continues updating when active expert count is 10', async () => {
       setupUpdateActivityStatus();
 
       mockUserRepo.countActiveExperts.mockResolvedValue(10);
 
-      await expect(
-        service.updateActivityStatus(userId, 'in-active'),
-      ).rejects.toThrow(
-        'Minimum 10 active experts required. Cannot mark more experts inactive.',
-      );
+      await service.updateActivityStatus(userId, 'in-active');
 
-      expect(mockUserRepo.updateActivityStatus).not.toHaveBeenCalled();
+      expect(mockUserRepo.countActiveExperts).toHaveBeenCalled();
+
+      expect(mockUserRepo.updateActivityStatus).toHaveBeenCalledWith(
+        userId,
+        'in-active',
+        expect.anything(),
+      );
     });
 
     it('propagates repository errors', async () => {
