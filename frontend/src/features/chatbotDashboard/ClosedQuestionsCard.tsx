@@ -41,6 +41,8 @@ type ClosedQuestionsCardProps = {
   combinedCount?: number;
   combinedAvgTime?: number;
   onSourceChange?: (source: "both" | "annam" | "whatsapp") => void;
+  userId?: string;
+  showSourceFilter?: boolean;
 };
 
 export function ClosedQuestionsCard({
@@ -59,6 +61,8 @@ export function ClosedQuestionsCard({
   userType,
   onRefresh,
   onSourceChange,
+  userId,
+  showSourceFilter = true,
 }: ClosedQuestionsCardProps) {
   const pendingQuestions =
     (totalQuestions || 0) -
@@ -144,6 +148,7 @@ export function ClosedQuestionsCard({
                   className="flex items-center gap-1.5 shrink-0"
                   onClick={(e) => e.stopPropagation()}
                 >
+                  {showSourceFilter && (
                   <Popover
                     open={sourcePopoverOpen}
                     onOpenChange={setSourcePopoverOpen}
@@ -179,6 +184,7 @@ export function ClosedQuestionsCard({
                       </div>
                     </PopoverContent>
                   </Popover>
+                  )}
 
                   <Popover>
                     <PopoverTrigger asChild>
@@ -390,9 +396,10 @@ export function ClosedQuestionsCard({
           }}
           tag="closed"
           totalClosedAndPassed ={(closedQuestions || 0) + (passedQuestions || 0)}
-          closedQuestions={closedQuestions || 0}
-          totalQuestions={totalQuestions || 0}
-          passedQuestions={passedQuestions || 0}
+          userId={userId}
+          closedQuestions={closedQuestions}
+          totalQuestions={totalQuestions}
+          passedQuestions={passedQuestions}
         />
       )}
     </div>
@@ -468,7 +475,7 @@ function StatTile({
           className={cn(
             "group/tile relative flex flex-col items-start gap-1.5 overflow-hidden rounded-xl p-1 text-left",
             "bg-background/40 ring-1 ring-border/50 transition-all duration-200",
-            "hover:bg-background/80 hover:shadow-md",
+            "hover:bg-background/80 hover:shadow-md cursor-pointer",
             a.ring,
             a.glow,
           )}

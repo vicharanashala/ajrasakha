@@ -1259,7 +1259,7 @@ export class ChatbotRepository implements IChatbotRepository {
   // }
 
   //without unwind
-  private buildUserTypeLookupStages(userType: string): any[] {
+  private buildUserTypeLookupStages(userType: string, keepUserDoc: boolean = false): any[] {
     if (userType === 'all') return [];
 
     const userRoleMatch =
@@ -1295,7 +1295,7 @@ export class ChatbotRepository implements IChatbotRepository {
         $match: userRoleMatch,
       },
       {
-        $unset: ['_userOid', '_userDoc'],
+        $unset: keepUserDoc ? ['_userOid'] : ['_userOid', '_userDoc'],
       },
     ];
   }
@@ -2869,6 +2869,8 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const source = _source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
 
+      console.log("District data", district)
+
       const districts = district.map(d => {
         if (d.districtNameEnglish === 'S.A.S Nagar') {
           return 'Sahibzada Ajit Singh Nagar';
@@ -3285,6 +3287,7 @@ export class ChatbotRepository implements IChatbotRepository {
         const districtMeta = districtCodeMap.get(normalizedDistrict);
 
         const feedbackData = feedbackMap.get(normalizedDistrict);
+
 
         return {
           district,
@@ -6889,7 +6892,7 @@ export class ChatbotRepository implements IChatbotRepository {
   ): Promise<PaginatedFeedbackMessages> {
     try {
       await this.init(source);
-      const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
+      const userTypeLookupStages = this.buildUserTypeLookupStages(userType, true);
 
       const matchStage: any = {
         feedback: {$exists: true, $ne: null},
@@ -6977,7 +6980,10 @@ export class ChatbotRepository implements IChatbotRepository {
               $project: {
                 _id: 1,
                 conversationId: 1,
+                messageId: 1,
                 userId: '$_userDoc._id',
+                name: '$_userDoc.name',
+                username: '$_userDoc.username',
                 farmerName: '$_userDoc.farmerProfile.farmerName',
                 email: '$_userDoc.email',
                 village: '$_userDoc.farmerProfile.villageName',
@@ -7001,6 +7007,29 @@ export class ChatbotRepository implements IChatbotRepository {
         .toArray();
       const totalFeedbacks = result[0]?.metadata[0]?.total || 0;
       const messages = result[0]?.data || [];
+
+      // Look up questionId from the questions collection (review system db)
+      // by matching each message's messageId to the question's messageId field
+      if (messages.length > 0) {
+        await this.initReviewSystem();
+        const messageIds = messages
+          .map((m: any) => m.messageId)
+          .filter((id: any) => id != null && id !== '');
+        if (messageIds.length > 0) {
+          const questions = await this.QuestionCollection.find(
+            {messageId: {$in: messageIds}},
+            {projection: {_id: 1, messageId: 1}},
+          ).toArray();
+          const messageIdToQuestionId = new Map<string, string>(
+            questions.map((q: any) => [String(q.messageId), String(q._id)]),
+          );
+          for (const msg of messages) {
+            msg.questionId = msg.messageId
+              ? messageIdToQuestionId.get(String(msg.messageId)) ?? null
+              : null;
+          }
+        }
+      }
 
       return {
         messages,
@@ -12534,11 +12563,57 @@ export class ChatbotRepository implements IChatbotRepository {
     }
   }
 
+  private async buildUserQuestionScope(userId?: string): Promise<any | null> {
+    if (!userId) return null;
+
+    const userMatches: any[] = [{userId}];
+    if (ObjectId.isValid(userId)) {
+      const objectId = new ObjectId(userId);
+      userMatches.push({userId: objectId});
+
+      await this.init('annam');
+      const userMessages = await this.messagesCollection
+        .find(
+          {
+            user: objectId.toString(),
+            isDeleted: {$ne: true},
+          },
+          {
+            projection: {
+              messageId: 1,
+              threadId: 1,
+              conversationId: 1,
+            },
+          },
+        )
+        .toArray();
+
+      const messageIds = [
+        ...new Set(
+          userMessages.map((message: any) => message.messageId).filter(Boolean),
+        ),
+      ];
+      const threadIds = [
+        ...new Set(
+          userMessages
+            .map((message: any) => message.threadId || message.conversationId)
+            .filter(Boolean),
+        ),
+      ];
+
+      if (messageIds.length > 0) userMatches.push({messageId: {$in: messageIds}});
+      if (threadIds.length > 0) userMatches.push({threadId: {$in: threadIds}});
+    }
+
+    return {$or: userMatches};
+  }
+
   async getClosedVsTotalQuestions(
     source: string,
     userType?: string,
     startDate?: Date,
     endDate?: Date,
+    userId?: string,
   ): Promise<any> {
     try {
       await this.initReviewSystem();
@@ -12557,6 +12632,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchStage.$and.push(query);
+      }
+      const userScope = await this.buildUserQuestionScope(userId);
+      if (userScope) {
+        matchStage.$and.push(userScope);
       }
       if (source === 'both') {
         matchStage.source = {
@@ -13086,6 +13165,7 @@ export class ChatbotRepository implements IChatbotRepository {
     userType?: string,
     startDate?: Date,
     endDate?: Date,
+    userId?: string,
   ): Promise<any> {
     try {
       await this.initReviewSystem();
@@ -13102,6 +13182,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchStage.$and.push(query);
+      }
+      const userScope = await this.buildUserQuestionScope(userId);
+      if (userScope) {
+        matchStage.$and.push(userScope);
       }
       if (source === 'both') {
         matchStage.source = {
@@ -13185,6 +13269,7 @@ export class ChatbotRepository implements IChatbotRepository {
     userType?: string,
     startDate?: Date,
     endDate?: Date,
+    userId?: string,
   ): Promise<any> {
     try {
       await this.initReviewSystem();
@@ -13202,6 +13287,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchStage.$and.push(query);
+      }
+      const userScope = await this.buildUserQuestionScope(userId);
+      if (userScope) {
+        matchStage.$and.push(userScope);
       }
       if (source === 'both') {
         matchStage.source = {
@@ -14893,6 +14982,7 @@ export class ChatbotRepository implements IChatbotRepository {
     search?: string,
     startDate?: Date,
     endDate?: Date,
+    userId?: string,
   ): Promise<any> {
     try {
       await this.initReviewSystem();
@@ -14962,6 +15052,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
+      }
+      const userScope = await this.buildUserQuestionScope(userId);
+      if (userScope) {
+        matchQuery.$and.push(userScope);
       }
       // Search by name/email
       if (search?.trim()) {
@@ -15117,6 +15211,7 @@ export class ChatbotRepository implements IChatbotRepository {
     endDate?: Date,
     isPassed?: string,
     tag?: string,
+    userId?: string,
   ): Promise<any> {
     await this.initReviewSystem();
     await this.init('annam');
@@ -15177,6 +15272,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
     if (query && Object.keys(query).length > 0) {
       matchQuery.$and.push(query);
+    }
+    const userScope = await this.buildUserQuestionScope(userId);
+    if (userScope) {
+      matchQuery.$and.push(userScope);
     }
 
     // search logic same as other methods
@@ -15418,6 +15517,7 @@ export class ChatbotRepository implements IChatbotRepository {
     search?: string,
     startDate?: Date,
     endDate?: Date,
+    userId?: string,
   ): Promise<any> {
     try {
       // console.log("startdate enddate-------", startDate, endDate);
@@ -15469,6 +15569,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
+      }
+      const userScope = await this.buildUserQuestionScope(userId);
+      if (userScope) {
+        matchQuery.$and.push(userScope);
       }
       // console.log("getQuestionsByNotificationStatus", notificationType, JSON.stringify(matchQuery, null, 2))
       // Notification filter
@@ -16390,7 +16494,209 @@ export class ChatbotRepository implements IChatbotRepository {
     messageId?: string | undefined;
   }) {}
 
-  async getUserProfile(userId: string, session?: ClientSession): Promise<any> {
+  async getUserMessageMetricDetails(
+    userId: string,
+    metric: string,
+    page = 1,
+    limit = 10,
+    session?: ClientSession,
+  ): Promise<any> {
+    try {
+      await this.init('annam');
+      await this.initReviewSystem();
+
+      const isValidObjectId =
+        ObjectId.isValid(userId) && String(new ObjectId(userId)) === userId;
+      const users = isValidObjectId
+        ? await this.users.find({_id: new ObjectId(userId)}).toArray()
+        : await this.users
+            .find({$or: [{firebaseUID: userId}, {email: userId}]})
+            .toArray();
+
+      if (!users.length) {
+        return {total: 0, totalPages: 1, currentPage: page, limit, items: []};
+      }
+
+      const userObjectId =
+        users[0]._id instanceof ObjectId
+          ? users[0]._id
+          : new ObjectId(users[0]._id);
+      const userIdString = userObjectId.toString();
+      const skip = (page - 1) * limit;
+      const paginate = (items: any[]) => ({
+        total: items.length,
+        totalPages: Math.max(1, Math.ceil(items.length / limit)),
+        currentPage: page,
+        limit,
+        items: items.slice(skip, skip + limit),
+      });
+      const getConversationKey = (record: any) =>
+        record.threadId ||
+        record.conversationId ||
+        record.messageId ||
+        record._id?.toString?.() ||
+        String(record._id || '');
+      const toMessageItem = (message: any) => ({
+        _id: message.messageId || message._id?.toString?.() || String(message._id),
+        message: message.text || '',
+        createdAt: message.createdAt,
+      });
+
+      const userMessages = await this.messagesCollection
+        .find(
+          {
+            user: userIdString,
+            isDeleted: {$ne: true},
+          },
+          {session},
+        )
+        .project({
+          _id: 1,
+          text: 1,
+          messageId: 1,
+          threadId: 1,
+          conversationId: 1,
+          isCreatedByUser: 1,
+          createdAt: 1,
+        })
+        .sort({createdAt: 1})
+        .toArray();
+
+      const userOnlyMessages = userMessages
+        .filter((message: any) => message.isCreatedByUser === true)
+        .sort(
+          (a: any, b: any) =>
+            new Date(b.createdAt || 0).getTime() -
+            new Date(a.createdAt || 0).getTime(),
+        );
+
+      if (metric === 'userMessages') {
+        return paginate(userOnlyMessages.map(toMessageItem));
+      }
+
+      if (metric === 'lastMessageSentAt') {
+        return paginate(userOnlyMessages.slice(0, 1).map(toMessageItem));
+      }
+
+      const conversationsByKey = new Map<string, any[]>();
+      userMessages.forEach((message: any) => {
+        const key = getConversationKey(message);
+        if (!conversationsByKey.has(key)) conversationsByKey.set(key, []);
+        conversationsByKey.get(key)!.push(message);
+      });
+      const conversations = [...conversationsByKey.entries()]
+        .map(([conversationKey, messages]) => {
+          const sortedMessages = [...messages].sort(
+            (a, b) =>
+              new Date(a.createdAt || 0).getTime() -
+              new Date(b.createdAt || 0).getTime(),
+          );
+          const latestMessage = sortedMessages[sortedMessages.length - 1];
+          const messageCount = sortedMessages.length;
+          const threadId =
+            latestMessage?.threadId ||
+            latestMessage?.conversationId ||
+            conversationKey;
+          return {
+            _id: conversationKey,
+            message: `${messageCount} message${messageCount === 1 ? '' : 's'}\nThread: ${threadId}${
+              latestMessage?.text ? `\nLatest: ${latestMessage.text}` : ''
+            }`,
+            createdAt: latestMessage?.createdAt,
+            messageCount,
+            messages: sortedMessages,
+          };
+        })
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt || 0).getTime() -
+            new Date(a.createdAt || 0).getTime(),
+        );
+
+      if (
+        metric === 'conversations' ||
+        metric === 'averageMessagesPerConversation'
+      ) {
+        return paginate(
+          conversations.map(({messages, ...conversation}) => conversation),
+        );
+      }
+
+      if (metric === 'longestConversation') {
+        const longestConversation = [...conversations].sort(
+          (a, b) => (b.messageCount ?? 0) - (a.messageCount ?? 0),
+        )[0];
+        return paginate((longestConversation?.messages ?? []).map(toMessageItem));
+      }
+
+      if (metric === 'questionsFromMessages') {
+        const userMessageIds = [
+          ...new Set(
+            userMessages.map((message: any) => message.messageId).filter(Boolean),
+          ),
+        ];
+        const userThreadIds = [
+          ...new Set(
+            userMessages
+              .map((message: any) => message.threadId || message.conversationId)
+              .filter(Boolean),
+          ),
+        ];
+        const questionUserMatches: any[] = [
+          {userId: userIdString},
+          {userId: userObjectId},
+        ];
+        if (userMessageIds.length > 0) {
+          questionUserMatches.push({messageId: {$in: userMessageIds}});
+        }
+        if (userThreadIds.length > 0) {
+          questionUserMatches.push({threadId: {$in: userThreadIds}});
+        }
+        const userQuestionFilter: any = buildBaseQuestionMatch('AJRASAKHA');
+        userQuestionFilter.$and.push({$or: questionUserMatches});
+
+        const questions = await this.QuestionCollection.find(
+          {
+            ...userQuestionFilter,
+            $or: [{messageId: {$exists: true, $ne: null}}, {threadId: {$exists: true, $ne: null}}],
+          },
+          {session},
+        )
+          .project({
+            _id: 1,
+            question: 1,
+            status: 1,
+            createdAt: 1,
+            messageId: 1,
+            threadId: 1,
+          })
+          .sort({createdAt: -1})
+          .toArray();
+
+        return paginate(
+          questions.map((question: any) => ({
+            _id: question._id?.toString?.() || String(question._id),
+            question: question.question,
+            status: question.status,
+            createdAt: question.createdAt,
+          })),
+        );
+      }
+
+      return {total: 0, totalPages: 1, currentPage: page, limit, items: []};
+    } catch (error) {
+      throw new InternalServerError(
+        `Failed to get user message metric details: ${error}`,
+      );
+    }
+  }
+
+  async getUserProfile(
+    userId: string,
+    session?: ClientSession,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<any> {
     try {
       await this.init('annam');
       await this.initReviewSystem();
@@ -16533,6 +16839,17 @@ export class ChatbotRepository implements IChatbotRepository {
         record._id?.toString?.() ||
         String(record._id || '');
       const formatBucketDate = (date: Date) => date.toISOString().slice(0, 10);
+      const trendStartDate = startDate ? new Date(startDate) : null;
+      const trendEndDate = endDate ? new Date(endDate) : null;
+      const hasValidTrendStart = isValidDate(trendStartDate);
+      const hasValidTrendEnd = isValidDate(trendEndDate);
+      const isInsideTrendRange = (record: any) => {
+        const createdAt = toDate(record.createdAt);
+        if (!isValidDate(createdAt)) return false;
+        if (hasValidTrendStart && createdAt! < trendStartDate!) return false;
+        if (hasValidTrendEnd && createdAt! > trendEndDate!) return false;
+        return true;
+      };
       const startOfWeek = (date: Date) => {
         const copy = new Date(date);
         copy.setHours(0, 0, 0, 0);
@@ -16598,7 +16915,7 @@ export class ChatbotRepository implements IChatbotRepository {
         conversationsByKey.get(key)!.push(message);
       });
 
-      const recentConversations = [...conversationsByKey.entries()]
+      const conversations = [...conversationsByKey.entries()]
         .map(([conversationKey, messages]) => {
           const sortedMessages = [...messages].sort(
             (a, b) =>
@@ -16636,48 +16953,68 @@ export class ChatbotRepository implements IChatbotRepository {
           (a, b) =>
             new Date(b.conversationDate || 0).getTime() -
             new Date(a.conversationDate || 0).getTime(),
-        )
-        .slice(0, 10);
+        );
+      const recentConversations = conversations.slice(0, 10);
 
       const conversationLookup = new Map(
-        recentConversations.map(conversation => [
+        conversations.map(conversation => [
           conversation.conversationKey,
           conversation,
         ]),
       );
+      const mapQuestionForDashboard = (question: any) => {
+        const conversationKey = getConversationKey(question);
+        const matchedConversation =
+          conversationLookup.get(conversationKey) ||
+          conversations.find(conversation =>
+            conversation.messages.some(
+              (message: any) => message.messageId === question.messageId,
+            ),
+          );
+        return {
+          id: question._id?.toString?.() || String(question._id),
+          question: question.question,
+          status: question.status,
+          crop:
+            question.details?.normalised_crop ||
+            question.details?.crop?.name ||
+            question.details?.crop ||
+            '',
+          category:
+            question.details?.domain || question.details?.category || '',
+          source: question.source,
+          createdAt: question.createdAt,
+          closedAt: getOperationalCompletionAt(question),
+          isDuplicate: isDuplicateQuestion(question),
+          conversationKey:
+            matchedConversation?.conversationKey || conversationKey,
+          messages: matchedConversation?.messages || [],
+        };
+      };
       const recentQuestions = userQuestions
         .slice(0, 10)
-        .map((question: any) => {
-          const conversationKey = getConversationKey(question);
-          const matchedConversation =
-            conversationLookup.get(conversationKey) ||
-            recentConversations.find(conversation =>
-              conversation.messages.some(
-                (message: any) => message.messageId === question.messageId,
-              ),
-            );
-          return {
-            id: question._id?.toString?.() || String(question._id),
-            question: question.question,
-            status: question.status,
-            crop:
-              question.details?.normalised_crop ||
-              question.details?.crop?.name ||
-              question.details?.crop ||
-              '',
-            category:
-              question.details?.domain || question.details?.category || '',
-            source: question.source,
-            createdAt: question.createdAt,
-            closedAt: getOperationalCompletionAt(question),
-            isDuplicate: isDuplicateQuestion(question),
-            conversationKey:
-              matchedConversation?.conversationKey || conversationKey,
-            messages: matchedConversation?.messages || [],
-          };
-        });
+        .map(mapQuestionForDashboard);
+      const questionsFromMessages = userQuestions
+        .filter((question: any) => question.messageId || question.threadId)
+        .map(mapQuestionForDashboard);
+      const dashboardUserMessages = userMessages
+        .filter((message: any) => message.isCreatedByUser === true)
+        .sort(
+          (a: any, b: any) =>
+            new Date(b.createdAt || 0).getTime() -
+            new Date(a.createdAt || 0).getTime(),
+        )
+        .map((message: any) => ({
+          id: message._id?.toString?.() || String(message._id),
+          text: message.text || '',
+          isCreatedByUser: Boolean(message.isCreatedByUser),
+          createdAt: message.createdAt,
+          messageId: message.messageId,
+        }));
+      const trendQuestions = userQuestions.filter(isInsideTrendRange);
+      const trendUserMessages = dashboardUserMessages.filter(isInsideTrendRange);
       const totalMessages = userMessages.length;
-      const conversationCounts = recentConversations.map(
+      const conversationCounts = conversations.map(
         conversation => conversation.messageCount,
       );
       const farmerDashboard = {
@@ -16716,23 +17053,22 @@ export class ChatbotRepository implements IChatbotRepository {
           longestConversation:
             conversationCounts.length > 0 ? Math.max(...conversationCounts) : 0,
           latestConversationDate:
-            recentConversations[0]?.conversationDate || null,
-          questionsDerivedFromMessages: userQuestions.filter(
-            (question: any) => question.messageId || question.threadId,
-          ).length,
+            conversations[0]?.conversationDate || null,
+          latestUserMessageDate: dashboardUserMessages[0]?.createdAt || null,
+          questionsDerivedFromMessages: questionsFromMessages.length,
         },
         engagementTrends: {
           daily: {
-            questions: buildTrend(userQuestions, 'daily'),
-            messages: buildTrend(userMessages, 'daily'),
+            questions: buildTrend(trendQuestions, 'daily'),
+            messages: buildTrend(trendUserMessages, 'daily'),
           },
           weekly: {
-            questions: buildTrend(userQuestions, 'weekly'),
-            messages: buildTrend(userMessages, 'weekly'),
+            questions: buildTrend(trendQuestions, 'weekly'),
+            messages: buildTrend(trendUserMessages, 'weekly'),
           },
           monthly: {
-            questions: buildTrend(userQuestions, 'monthly'),
-            messages: buildTrend(userMessages, 'monthly'),
+            questions: buildTrend(trendQuestions, 'monthly'),
+            messages: buildTrend(trendUserMessages, 'monthly'),
           },
         },
         recentQuestions,
@@ -18474,6 +18810,7 @@ export class ChatbotRepository implements IChatbotRepository {
     isPassed?: string,
     tag?: string,
     notificationType?: string,
+    userId?: string,
     page = 1,
     limit = 1000,
   ) {
@@ -18529,6 +18866,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
       if (query && Object.keys(query).length > 0) {
         matchQuery.$and.push(query);
+      }
+      const userScope = await this.buildUserQuestionScope(userId);
+      if (userScope) {
+        matchQuery.$and.push(userScope);
       }
 
       if (startDate || endDate) {

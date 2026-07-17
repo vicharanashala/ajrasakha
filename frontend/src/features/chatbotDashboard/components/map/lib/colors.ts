@@ -100,13 +100,57 @@
 //   return "#16a34a";
 // }
 
+// export function colorFor(
+//   value: number,
+//   min: number,
+//   max: number,
+//   useLogScale = false,
+// ): string {
+//   if (max <= min) {
+//     return "#16a34a";
+//   }
+
+//   let t: number;
+
+//   if (useLogScale) {
+//     const logMin = Math.log1p(min);
+//     const logMax = Math.log1p(max);
+//     const logValue = Math.log1p(value);
+
+//     t = (logValue - logMin) / (logMax - logMin);
+//   } else {
+//     t = (value - min) / (max - min);
+//   }
+
+//   if (t < 1 / 3) return "#dc2626";
+//   if (t < 2 / 3) return "#f97316";
+
+//   return "#16a34a";
+// }
+
 export function colorFor(
   value: number,
   min: number,
   max: number,
   useLogScale = false,
+  useFixedQuestionScale = false,
 ): string {
   if (max <= min) {
+    return "#16a34a";
+  }
+
+  // India Questions View
+  if (useFixedQuestionScale) {
+    if (value <= 50) {
+      return "#dc2626";
+    }
+
+    const orangeEnd = Math.round(50 + (max - 50) / 2);
+
+    if (value <= orangeEnd) {
+      return "#f97316";
+    }
+
     return "#16a34a";
   }
 

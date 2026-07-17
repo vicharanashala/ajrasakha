@@ -43,6 +43,8 @@ type CustomerNotificationsCardProps = {
   /** Callback to notify parent to refresh all related cards in the row */
   onRefresh?: () => void;
   onSourceChange?: (source: "both" | "annam" | "whatsapp") => void;
+  userId?: string;
+  showSourceFilter?: boolean;
 };
 
 export function CustomerNotificationsCard({
@@ -57,6 +59,8 @@ export function CustomerNotificationsCard({
   userType,
   onRefresh,
   onSourceChange,
+  userId,
+  showSourceFilter = true,
 }: CustomerNotificationsCardProps) {
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
@@ -157,6 +161,7 @@ export function CustomerNotificationsCard({
                   className="flex items-center gap-1.5"
                   onClick={(e) => e.stopPropagation()}
                 >
+                  {showSourceFilter && (
                   <Popover
                     open={sourcePopoverOpen}
                     onOpenChange={setSourcePopoverOpen}
@@ -193,6 +198,7 @@ export function CustomerNotificationsCard({
                       </div>
                     </PopoverContent>
                   </Popover>
+                  )}
 
                   <Popover>
                     <PopoverTrigger asChild>
@@ -380,9 +386,7 @@ export function CustomerNotificationsCard({
           endDate={dateRange?.to}
           onClose={() => setNotificationType(null)}
           tag="notify"
-          safeNotified={safeNotified}
-          safeNotNotified={safeNotNotified}
-          safeUntracked={safeUntracked}
+          userId={userId}
         />
       )}
     </div>
@@ -433,7 +437,7 @@ function StatTile({
           className={cn(
             "group/tile relative flex flex-col items-start gap-1.5 overflow-hidden rounded-xl p-3 text-left",
             "bg-background/40 ring-1 ring-border/50 transition-all duration-200",
-            "hover:bg-background/80 hover:shadow-md",
+            "hover:bg-background/80 hover:shadow-md cursor-pointer",
             a.ring,
             a.glow,
           )}

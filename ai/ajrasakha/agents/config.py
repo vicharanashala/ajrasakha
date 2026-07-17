@@ -110,4 +110,5 @@ MCP_URLS = {
     "schemes":    f"http://{REMOTE_IP}:9009/mcp",
     "faq_video":  f"http://{REMOTE_IP}:9007/mcp",
     "chemical_checker": f"http://{REMOTE_IP}:9101/mcp",
+    "daily_price": os.getenv("DAILY_PRICE_MCP_URL", f"http://{REMOTE_IP}:8111/mcp"),
 }

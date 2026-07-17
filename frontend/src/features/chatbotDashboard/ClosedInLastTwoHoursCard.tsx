@@ -47,7 +47,9 @@ type ClosedInLastTwoHoursCardProps = {
   totalPassed: number;
   dynamicClosedInLastTwoHours?: number;
   totalDynamicClosed?: number;
+  userId?: string;
   isMapComponent?: boolean;
+  showSourceFilter?: boolean;
 };
 
 export function ClosedInLastTwoHoursCard({
@@ -65,7 +67,9 @@ export function ClosedInLastTwoHoursCard({
   totalPassed = 0,
   dynamicClosedInLastTwoHours = 0,
   totalDynamicClosed = 0,
+  userId,
   isMapComponent = false,
+  showSourceFilter = true,
 }: ClosedInLastTwoHoursCardProps) {
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
@@ -188,10 +192,12 @@ export function ClosedInLastTwoHoursCard({
                 </div>
 
                 {/* Filters */}
-                {!isMapComponent && <div
+                {!isMapComponent && (
+                <div
                   className="flex items-center gap-1.5 shrink-0"
                   onClick={(e) => e.stopPropagation()}
                 >
+                  {showSourceFilter && (
                   <Popover
                     open={sourcePopoverOpen}
                     onOpenChange={setSourcePopoverOpen}
@@ -227,6 +233,7 @@ export function ClosedInLastTwoHoursCard({
                       </div>
                     </PopoverContent>
                   </Popover>
+                  )}
 
                   <Popover>
                     <PopoverTrigger asChild>
@@ -265,7 +272,8 @@ export function ClosedInLastTwoHoursCard({
                       <X className="h-3 w-3" />
                     </Button>
                   )}
-                </div>}
+                </div>
+                )}
               </div>
 
               {/* Segmented progress bar */}
@@ -418,6 +426,7 @@ export function ClosedInLastTwoHoursCard({
           passedInLastTwoHours={passedInLastTwoHours || 0}
           dynamicClosedInLastTwoHours={dynamicClosedInLastTwoHours || 0}
           slaBreached={(slaBreached || 0)}
+          userId={userId}
         />
       )}
     </div>
@@ -496,7 +505,7 @@ function StatTile({
           className={cn(
             "group/tile relative flex flex-col items-start gap-1.5 overflow-hidden rounded-xl p-3 text-left",
             "bg-background/40 ring-1 ring-border/50 transition-all duration-200",
-            "hover:bg-background/80 hover:shadow-md",
+            "hover:bg-background/80 hover:shadow-md cursor-pointer",
             a.ring,
             a.glow,
           )}

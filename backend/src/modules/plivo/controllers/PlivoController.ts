@@ -55,7 +55,8 @@ export class PlivoController {
       const streamUrl = appConfig.plivo.streamUrl;
       const myPlivoNumber = appConfig.plivo.plivo_number;
       const callUuid = req.body?.CallUUID || req.query?.CallUUID;
-
+      const callerNumber = req.body?.From || req.query?.From || 'unknown';
+      console.log(`📞 [PLIVO-CONTROLLER] Incoming call: CallUUID=${callUuid}, From=${callerNumber}`);
 
       // Atomically find and mark an available agent as busy (prevents race conditions)
       availableAgent = await this.userService.findAndMarkAvailableAgent(callUuid);
@@ -63,6 +64,7 @@ export class PlivoController {
 
       let endpointUser: string;
       let fallbackMessage: string;
+      let welcomeMessage: string = "Thank you for calling ACC, we will connect you with a specialist shortly. Please stay on the line.";
 
       if (availableAgent && availableAgent.agent) {
         // Get the Plivo endpoint credentials for this agent
@@ -73,12 +75,14 @@ export class PlivoController {
 
         // Store the agent userid for this call in PlivoService
         this.plivoService.setCallAgent(callUuid, availableAgent._id.toString());
+        console.log(`✅ [PLIVO-CONTROLLER] Assigned agent ${agentNumber} (userId=${availableAgent._id}, endpoint=${endpointUser}) to call ${callUuid}`);
 
         fallbackMessage = 'The specialist is busy. Please stay on the line.';
       } else {
         // No available agents - play busy message
         endpointUser = '';
         fallbackMessage = 'All agents are busy. Please call back later.';
+        console.warn(`⚠️ [PLIVO-CONTROLLER] No available agents for call ${callUuid}. Caller: ${callerNumber}`);
       }
 
       // FIXED XML Structure: Stream outside Dial, proper fallback handling
@@ -90,6 +94,7 @@ export class PlivoController {
                               <Stream contentType="audio/x-l16;rate=16000"
           noiseCancellation="true" audioTrack="both" noise_cancellation_level="85"
           >${streamUrl}</Stream>
+          <Speak voice="MAN" language="en-US">${welcomeMessage}</Speak>
                               <Dial timeout="40" callerId="${myPlivoNumber}">
                                         <User>${endpointUser}</User>
                               </Dial>
@@ -113,7 +118,7 @@ export class PlivoController {
 
       if (availableAgent) {
         try {
-          // console.log(`[PLIVO-CONTROLLER] Releasing agent ${availableAgent._id} due to answer endpoint error`);
+          console.log(`[PLIVO-CONTROLLER] Releasing agent ${availableAgent._id} due to answer endpoint error`);
           await this.userService.markAgentAsAvailable(availableAgent._id.toString());
         } catch (releaseError) {
           console.error(`[PLIVO-CONTROLLER] Failed to release agent ${availableAgent._id} after error:`, releaseError);
@@ -225,10 +230,11 @@ export class PlivoController {
         });
       }
 
+      const isUnicode = /[^\u0000-\u007F]/.test(body.text);
       const requestBody = {
         route: 'q',
         message: body.text,
-        language: 'english',
+        language: isUnicode ? 'unicode' : 'english',
         flash: 0,
         numbers: body.destination,
         sms_details: 1
