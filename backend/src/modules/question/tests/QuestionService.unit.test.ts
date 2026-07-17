@@ -259,6 +259,11 @@ describe('QuestionService', () => {
   const mockAuditTrailsService = {
     createAuditTrail: vi.fn().mockResolvedValue(undefined),
   };
+  const mockCallDetailsRepository = {
+    getByCallUuid: vi.fn(),
+    updateQA_Pairs: vi.fn(),
+    create: vi.fn(),
+  };
 
   // ==========================================================
   // Service
@@ -293,6 +298,7 @@ describe('QuestionService', () => {
       mockChatbotRepository as any,
       mockMongoDatabase as any,
       mockUserService as any,
+      mockCallDetailsRepository as any,
       mockAuditTrailsService as any,
     );
 
@@ -2817,6 +2823,8 @@ describe('QuestionService', () => {
         crop: 'Paddy',
         state: 'Punjab',
         district: 'Bathinda',
+        domain: 'Disease',
+        season: 'Kharif',
       };
 
       await service.updateAccAgentState('thread-123', correctedData);
@@ -2838,6 +2846,8 @@ describe('QuestionService', () => {
           crop: 'Crop',
           state: 'State',
           district: 'District',
+          domain: 'Disease',
+          season: 'Kharif',
         }),
       ).rejects.toThrow('Failed to update ACC Agent state');
     });
@@ -9499,7 +9509,7 @@ describe('QuestionService', () => {
 
       const result = await service.getQueueDetails();
 
-      expect(service.getQueueSection).toHaveBeenCalledTimes(20);
+      expect(service.getQueueSection).toHaveBeenCalledTimes(26);
 
       expect(result.received).toEqual(section);
       expect(result.autoAllocateOff).toEqual(section);
