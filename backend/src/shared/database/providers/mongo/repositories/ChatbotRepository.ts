@@ -10116,17 +10116,21 @@ export class ChatbotRepository implements IChatbotRepository {
         },
       };
 
+      const matchStage = {
+        ...domainMatch,
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+        status: {$ne: 'non_agri'},
+      };
+
       const pipeline: any[] = [
         {
-          $match: domainMatch,
-          $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          status: {$ne: 'non_agri'},
+          $match: matchStage,
         },
         groupStage,
         {
           $unionWith: {
             coll: 'duplicate_questions',
-            pipeline: [{$match: domainMatch}, groupStage],
+            pipeline: [{$match: matchStage}, groupStage],
           },
         },
         {
