@@ -1,19 +1,23 @@
-import { DomainDoughnut } from "../components/charts";
+import { DistributionDoughnut } from "../components/charts";
 import { MiniCounter } from "../components/MiniMetric";
 import { SectionHead } from "../components/SectionHead";
+import { cropColors } from "../data/dashboardData";
 import { useInView } from "../utils";
 
 /**
- * Layer 06 — ground impact. The domain doughnut is fed from the parent (the live domain
- * breakdown out of the questions collection); the outreach counters are still demo data.
+ * Layer 06 — ground impact. The domain and crop doughnuts are fed from the parent (the live
+ * breakdowns out of the questions collection); the outreach counters are still demo data.
  */
 export const ImpactOutreach = ({
   domainData,
+  cropData,
 }: {
   domainData: { label: string; value: number }[];
+  cropData: { label: string; value: number }[];
 }) => {
   const { ref: outreachRef, inView: outreachInView } = useInView(0.15);
   const { ref: donutRef, inView: donutInView } = useInView(0.15);
+  const { ref: cropRef, inView: cropInView } = useInView(0.15);
 
   return (
     <section className="wrap" id="layer6">
@@ -42,10 +46,19 @@ export const ImpactOutreach = ({
           </div>
         </div>
       </div>
-      {/* Donut only renders (and Recharts animates it) once in view */}
+      {/* Donuts only render (and Recharts animates them) once in view */}
       <div ref={donutRef} className={`chart-box chart-box-anim${donutInView ? " in-view" : ""}`}>
         <h4 style={{ fontSize: 16, marginBottom: 10 }}>Domains of Questions</h4>
-        {donutInView && <DomainDoughnut data={domainData} />}
+        {donutInView && <DistributionDoughnut data={domainData} />}
+      </div>
+
+      <div
+        ref={cropRef}
+        className={`chart-box chart-box-anim${cropInView ? " in-view" : ""}`}
+        style={{ marginTop: 20 }}
+      >
+        <h4 style={{ fontSize: 16, marginBottom: 10 }}>Crops of Questions</h4>
+        {cropInView && <DistributionDoughnut data={cropData} colors={cropColors} />}
       </div>
     </section>
   );

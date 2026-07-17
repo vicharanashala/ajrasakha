@@ -24,7 +24,7 @@ import {
   type StatCell,
 } from "./sections";
 import { defaultBlocks } from "./data/contentDefaults";
-import { domains, heroStats } from "./data/dashboardData";
+import { crops, domains, heroStats } from "./data/dashboardData";
 import { NAV } from "./data/nav";
 import { useScrollSpy } from "./utils";
 import { useGetDashboardContent } from "@/hooks/api/dashboard/useDashboardContent";
@@ -81,6 +81,7 @@ export const PublicDashboard = () => {
     [liveForStats, content?.stats],
   );
   const domainData = useMemo(() => buildDomainSlices(live), [live]);
+  const cropData = useMemo(() => buildCropSlices(live), [live]);
 
   // Carousel figures that aren't derivable from the questions collection — an admin
   // maintains them (label AND value) as headline stats in Edit Dashboard.
@@ -122,7 +123,7 @@ export const PublicDashboard = () => {
         <KnowledgeEngine />
         <HumanNetwork roles={live?.userRoleOverview} />
         <Integrations />
-        <ImpactOutreach domainData={domainData} />
+        <ImpactOutreach domainData={domainData} cropData={cropData} />
         <OutreachGallery images={outreachImages ?? []} videos={outreachVideos ?? []} />
         <TechShowcase />
         <Roadmap />
@@ -224,4 +225,13 @@ function buildDomainSlices(live: PublicDashboardStats | null | undefined) {
     .sort((a, b) => b.count - a.count)
     .slice(0, 10)
     .map((d) => ({ label: d.name, value: d.count }));
+}
+
+/** Top 10 crops by question volume; the demo figures until the API answers. */
+function buildCropSlices(live: PublicDashboardStats | null | undefined) {
+  if (!live?.cropData?.length) return crops.map((c) => ({ label: c.name, value: c.qa }));
+  return [...live.cropData]
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10)
+    .map((c) => ({ label: c.name, value: c.count }));
 }

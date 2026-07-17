@@ -178,6 +178,12 @@ export const domainColors = [
   "#d9a15c", "#3d8a63", "#8c4a2b", "#6e7b8b", "#c98f4e",
 ];
 
+/** A distinct greens-and-earth palette for the crop distribution doughnut. */
+export const cropColors = [
+  "#1f6e45", "#7cb342", "#c0a02c", "#a8582b", "#4e8d6e",
+  "#9ac154", "#d4a017", "#7d4e24", "#3f7a5a", "#b5893f",
+];
+
 /** Growth line colours by series. */
 export const growthColors = {
   questions: "#16382c",
