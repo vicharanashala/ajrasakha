@@ -17,7 +17,9 @@ TOOL_TO_MCP_SERVICE = {
     "get_subdivision_rainfall_forecast": "weather",
 
     # Market
+    "daily_price": "market",
     "market": "market",
+    "mandi": "market",
     "get_states": "market",
     "get_districts": "market",
     "get_markets": "market",

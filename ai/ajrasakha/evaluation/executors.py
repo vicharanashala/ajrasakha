@@ -19,42 +19,96 @@ ASSISTANT_ID = os.getenv("ASSISTANT_ID", "")
 def extract_tools_from_response(response_text: str) -> list[str]:
     tools = set()
 
-    try:
-        data = json.loads(response_text)
+    def visit(value):
+        if isinstance(value, dict):
+            name = value.get("name")
+            value_type = value.get("type")
+            if name and value_type in {"tool_call", "tool_use", "tool"}:
+                tools.add(str(name))
 
-        for message in data.get("messages", []):
-            content = message.get("content", [])
-
-            if isinstance(content, list):
-                for block in content:
-                    if isinstance(block, dict) and block.get("type") == "tool_use":
-                        name = block.get("name")
-                        if name:
-                            tools.add(name)
-
-            tool_calls = message.get("tool_calls", [])
+            tool_calls = value.get("tool_calls")
             if isinstance(tool_calls, list):
                 for call in tool_calls:
-                    name = call.get("name")
-                    if name:
-                        tools.add(name)
+                    if isinstance(call, dict) and call.get("name"):
+                        tools.add(str(call["name"]))
+                    visit(call)
 
-    except Exception:
-        pass
+            for child in value.values():
+                visit(child)
+
+        elif isinstance(value, list):
+            for item in value:
+                visit(item)
+
+    candidates = [response_text]
+    candidates.extend(
+        line.strip()
+        for line in response_text.splitlines()
+        if line.strip().startswith("{") and line.strip().endswith("}")
+    )
+
+    for candidate in candidates:
+        try:
+            data = json.loads(candidate)
+            visit(data)
+        except Exception:
+            pass
 
     matches = re.findall(
-        r'"name"\s*:\s*"([^"]+)"\s*,\s*"type"\s*:\s*"tool_use"',
+        r'"name"\s*:\s*"([^"]+)".{0,1000}?"type"\s*:\s*"tool_use"',
         response_text,
+        flags=re.DOTALL,
     )
     tools.update(matches)
 
     matches = re.findall(
-        r'"name"\s*:\s*"([^"]+)"\s*,\s*"type"\s*:\s*"tool_call"',
+        r'"name"\s*:\s*"([^"]+)".{0,1000}?"type"\s*:\s*"tool_call"',
         response_text,
+        flags=re.DOTALL,
+    )
+    tools.update(matches)
+
+    matches = re.findall(
+        r'"type"\s*:\s*"tool".{0,1000}?"name"\s*:\s*"([^"]+)"',
+        response_text,
+        flags=re.DOTALL,
     )
     tools.update(matches)
 
     return sorted(tools)
+
+
+def extract_final_answer_text(response_text: str) -> str:
+    try:
+        data = json.loads(response_text)
+    except Exception:
+        return response_text
+
+    if not isinstance(data, dict):
+        return response_text
+
+    messages = data.get("messages") or []
+    if not isinstance(messages, list):
+        return response_text
+
+    for message in reversed(messages):
+        if not isinstance(message, dict):
+            continue
+        if message.get("type") not in {"ai", "assistant"} and message.get("role") != "assistant":
+            continue
+        content = message.get("content")
+        if isinstance(content, str) and content.strip():
+            return content.strip()
+        if isinstance(content, list):
+            text = "".join(
+                block.get("text", "")
+                for block in content
+                if isinstance(block, dict) and block.get("type") == "text"
+            ).strip()
+            if text:
+                return text
+
+    return response_text
 
 
 def extract_nodes_from_response(response_text: str) -> list[str]:
@@ -119,16 +173,29 @@ def run_mock_case(case: dict) -> dict:
 
 
 def build_live_payload(query: str, location: dict | None = None) -> dict:
+    run_id = f"eval-{int(time.time() * 1000)}"
+    input_payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": query,
+            }
+        ],
+    }
+    if location is not None:
+        input_payload["location"] = location
+
     return {
         "assistant_id": ASSISTANT_ID,
-        "input": {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": query,
-                }
-            ],
-            "location": location,
+        "input": input_payload,
+        "config": {
+            "configurable": {
+                "thread_id": run_id,
+                "user_id": "evaluation-suite",
+                "message_id": run_id,
+                "question_source": "AJRASAKHA",
+                "location": location or {},
+            }
         },
         "stream": True,
         "stream_mode": "values",
@@ -240,7 +307,10 @@ def run_live_case(case: dict) -> dict:
     )
 
     extraction_source = last_values_payload or response_text or full_stream_text
-    observed_tools_list = extract_tools_from_response(extraction_source)
+    final_answer_text = extract_final_answer_text(extraction_source)
+    observed_tools_list = extract_tools_from_response(
+        "\n".join(part for part in [full_stream_text, extraction_source] if part)
+    )
     observed_nodes = extract_nodes_from_response(full_stream_text)
     observed_plan = extract_plan_from_response(extraction_source)
 
@@ -252,7 +322,8 @@ def run_live_case(case: dict) -> dict:
         "http_status": http_status,
         "graph_status": graph_status,
         "latency_seconds": round(time.time() - start_time, 2),
-        "response_text": extraction_source[:500],
+        "response_text": final_answer_text,
+        "raw_response_text": extraction_source[:8000],
         "error": error[:500],
         "trace": {
             "nodes": observed_nodes,

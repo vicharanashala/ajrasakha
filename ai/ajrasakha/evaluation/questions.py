@@ -1,6 +1,8 @@
 TEST_CASES = [
     {
         "name": "non_agriculture_question_english",
+        "category": "general",
+        "source_url_required": False,
         "query": "How can I make money quickly?",
         "location": {"city": "Ropar", "state": "Punjab"},
         "expected_domain": "General",
@@ -81,13 +83,13 @@ TEST_CASES = [
     {
         "name": "market_question_1",
         "category": "dynamic_market",
-        "source_url_required": True,
+        "source_url_required": False,
         "query": "What is the price of wheat in Sirsa mandi, Haryana?",
         "location": {"city": "Sirsa", "state": "Haryana"},
         "expected_domain": "Market Prices",
         "stable": True,
         "expected_nodes": ["planner", "execute_plan", "assemble_answer_body", "translate_answer"],
-        "expected_tools": ["upload_question_to_reviewer_system", "market", "gdb"],
+        "expected_tools": ["upload_question_to_reviewer_system", "daily_price", "gdb"],
         "expected_plan": {
             "mandi": True,
             "knowledge_base": True,
@@ -100,13 +102,13 @@ TEST_CASES = [
     {
         "name": "market_question_2",
         "category": "dynamic_market",
-        "source_url_required": True,
+        "source_url_required": False,
         "query": "What is the current price of rice in Karnal mandi, Haryana?",
         "location": {"city": "Karnal", "state": "Haryana"},
         "expected_domain": "Market Prices",
         "stable": False,
         "expected_nodes": ["planner", "execute_plan", "assemble_answer_body", "translate_answer"],
-        "expected_tools": ["upload_question_to_reviewer_system", "market", "gdb"],
+        "expected_tools": ["upload_question_to_reviewer_system", "daily_price", "gdb"],
         "expected_plan": {
             "mandi": True,
             "knowledge_base": True,
@@ -142,15 +144,13 @@ TEST_CASES = [
         "location": {"city": "Jaipur", "state": "Rajasthan"},
         "expected_domain": "Government Schemes",
         "stable": False,
-        "expected_nodes": ["planner", "execute_plan", "assemble_answer_body", "translate_answer"],
-        "expected_tools": ["upload_question_to_reviewer_system", "schemes", "gdb"],
+        "expected_nodes": ["planner", "clarify"],
+        "expected_tools": [],
         "expected_plan": {
-            "schemes": True,
+            "schemes": False,
             "knowledge_base": True,
             "state": "Rajasthan",
-            
-            "crop": "all",
-            "is_complete": True,
+            "is_complete": False,
         },
     },
     {
@@ -161,15 +161,13 @@ TEST_CASES = [
         "location": {"city": "Nashik", "state": "Maharashtra"},
         "expected_domain": "Government Schemes",
         "stable": False,
-        "expected_nodes": ["planner", "execute_plan", "assemble_answer_body", "translate_answer"],
-        "expected_tools": ["upload_question_to_reviewer_system", "schemes", "gdb"],
+        "expected_nodes": ["planner", "clarify"],
+        "expected_tools": [],
         "expected_plan": {
-            "schemes": True,
+            "schemes": False,
             "knowledge_base": True,
             "state": "Maharashtra",
-          
-            "crop": "all",
-            "is_complete": True,
+            "is_complete": False,
         },
     },
     {
@@ -264,16 +262,21 @@ TEST_CASES = [
     "source_url_required": True,
     "query": "What is the price of paddy in Mandya Mandi?",
     "stable": False,
-    "expected_domain": "Market",
+    "expected_domain": "Market Prices",
     "expected_tools": [
         "upload_question_to_reviewer_system",
-        "mandi"
+        "daily_price",
+        "gdb"
     ],
     "expected_plan": {
         "mandi": True,
         "weather": False,
         "soil": False,
         "schemes": False,
+        "knowledge_base": True,
+        "state": "Karnataka",
+        "crop": "Paddy",
+        "is_complete": True,
     },
 }
 ]

@@ -2,7 +2,7 @@
 
 Layer 1 checks Aegra AI, reviewer backend, and wa-client API contracts.
 Layer 2 checks MCP service connectivity.
-Layer 3 runs stable live LangGraph evaluation scenarios.
+Layer 3 runs live LangGraph regression evaluation scenarios.
 Layer 4 sends WhatsApp webhook messages and validates responses and tool routing.
 
 Required environment variables: BACKEND_BASE_URL, WHATSAPP_CLIENT_BASE_URL,
@@ -40,9 +40,9 @@ COMMANDS = [
         "report": ROOT / "tests" / "api" / "reports" / "mcp_connectivity_report.csv",
     },
     {
-        "layer": "Layer 3 - Stable LangGraph Scenarios",
-        "name": "stable_langgraph",
-        "command": [sys.executable, "-m", "ajrasakha.evaluation.run", "--mode", "live", "--stable-only"],
+        "layer": "Layer 3 - LangGraph Regression Scenarios",
+        "name": "langgraph_regression",
+        "command": [sys.executable, "-m", "ajrasakha.evaluation.run", "--mode", "live"],
         "report": ROOT / "evaluation_report_live.csv",
     },
     {
