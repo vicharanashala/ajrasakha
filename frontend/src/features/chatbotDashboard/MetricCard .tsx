@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from "react";
+import {useState, useRef} from "react";
 import CountUp from "react-countup";
 import { createPortal } from "react-dom";
 import { Card, CardContent } from "@/components/atoms/card";
@@ -743,8 +743,8 @@ function KpiCard({
                           transition={{ delay: 0.3 }}
                         >
                           <ActiveFarmersTable
-                            source={source}
-                            userType={kpi.userType || "all"}
+          source={source}
+          userType={kpi.userType || "all"}
                           />
                         </motion.div>
                       )}
@@ -759,7 +759,7 @@ function KpiCard({
       {showQuestions && (
         <QueryCategoryQuestionsModal
           period={granularity}
-          source={source}
+          source={source as any}
           userType={userType}
           onClose={() => setShowQuestions(false)}
         />

@@ -217,16 +217,16 @@ const DownloadShiftWiseReportButton = ({
     });
 
   const formattedAuditActionCounts = (auditActionCounts?.data ?? []).map(
-    (item) => {
+    (item: any) => {
       const formattedAction = item.action.action
         .replaceAll("_", " ")
         .toLowerCase()
-        .replace(/\b\w/g, (c) => c.toUpperCase());
+        .replace(/\b\w/g, (c: any) => c.toUpperCase());
 
       const formattedCategory = item.action.category
         .replaceAll("_", " ")
         .toLowerCase()
-        .replace(/\b\w/g, (c) => c.toUpperCase());
+        .replace(/\b\w/g, (c: any) => c.toUpperCase());
 
       return {
         ...item,
@@ -306,7 +306,7 @@ const DownloadShiftWiseReportButton = ({
       rows.push("QUESTIONS ADDED VS CLOSED");
       rows.push("Hour,Questions Added,Questions Closed");
 
-      (shiftWiseTrends ?? []).forEach((item) => {
+      (shiftWiseTrends ?? []).forEach((item: any) => {
         rows.push(`"${item.hour}","${item.added}","${item.closed}"`);
       });
 
@@ -318,7 +318,7 @@ const DownloadShiftWiseReportButton = ({
       rows.push("STATUS DISTRIBUTION");
       rows.push("Status,Count");
 
-      (questionStatusDistribution ?? []).forEach((item) => {
+      (questionStatusDistribution ?? []).forEach((item: any) => {
         rows.push(`"${item.status}","${item.count}"`);
       });
 
@@ -330,7 +330,7 @@ const DownloadShiftWiseReportButton = ({
       rows.push("LEVEL DISTRIBUTION");
       rows.push("Level,Count");
 
-      (questionLevelDistribution ?? []).forEach((item) => {
+      (questionLevelDistribution ?? []).forEach((item: any) => {
         rows.push(`"${item.level}","${item.count}"`);
       });
 
@@ -342,7 +342,7 @@ const DownloadShiftWiseReportButton = ({
       rows.push("TOP EXPERTS");
       rows.push("Name,Reviews,Reputation,Incentive,Penalty");
 
-      (topExperts ?? []).forEach((expert) => {
+      (topExperts ?? []).forEach((expert: any) => {
         rows.push(
           `"${expert.name}","${expert.reviewCount}","${expert.reputation}","${expert.incentive ? expert.incentive : 0}","${expert.penalty ? expert.penalty : 0}"`,
         );
@@ -356,7 +356,7 @@ const DownloadShiftWiseReportButton = ({
       rows.push("TOP APPROVERS");
       rows.push("Name,Approvals,Reputation,Incentive,Penalty");
 
-      (topApprovingExperts ?? []).forEach((expert) => {
+      (topApprovingExperts ?? []).forEach((expert: any) => {
         rows.push(`"${expert.name}","${expert.approvedCount}"`);
       });
 
@@ -368,7 +368,7 @@ const DownloadShiftWiseReportButton = ({
       rows.push("AUDIT ACTIONS");
       rows.push("Action,Count");
 
-      formattedAuditActionCounts.forEach((item) => {
+      formattedAuditActionCounts.forEach((item: any) => {
         rows.push(`"${item.yAxisLabel}","${item.count}"`);
       });
 
@@ -729,7 +729,7 @@ const DownloadShiftWiseReportButton = ({
                       </div>
                     ) : topExperts?.length ? (
                       <div className="space-y-4">
-                        {(topExperts ?? []).map((expert, index) => {
+                        {(topExperts ?? []).map((expert: any, index: any) => {
                           const rankColors = [
                             "bg-yellow-500",
                             "bg-slate-400",
@@ -846,7 +846,7 @@ const DownloadShiftWiseReportButton = ({
                       </div>
                     ) : topApprovingExperts?.length ? (
                       <div className="space-y-4">
-                        {(topApprovingExperts ?? []).map((expert, index) => {
+                        {(topApprovingExperts ?? []).map((expert: any, index: any) => {
                           const rankColors = [
                             "bg-yellow-500",
                             "bg-slate-400",
@@ -1096,7 +1096,7 @@ const DownloadShiftWiseReportButton = ({
 
                           <Bar dataKey="count" radius={[0, 8, 8, 0]}>
                             {(questionStatusDistribution ?? []).map(
-                              (entry, index) => {
+                              (entry: any, index: any) => {
                                 const statusColors: Record<string, string> = {
                                   open: "#3b82f6",
                                   "in-review": "#8b5cf6",
@@ -1212,7 +1212,7 @@ const DownloadShiftWiseReportButton = ({
 
                           <Bar dataKey="count" radius={[8, 8, 0, 0]}>
                             {(questionLevelDistribution ?? []).map(
-                              (entry, index) => {
+                              (entry: any, index: any) => {
                                 const level = Number(
                                   entry.level.replace("Level ", ""),
                                 );

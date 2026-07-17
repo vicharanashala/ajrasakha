@@ -43,6 +43,7 @@ const AvatarComponent = ({
   const rank = rankPosition ?? u?.rankPosition;
 
   const showCrown =
+    // @ts-ignore
     showRankBadge && [1, 2, 3].includes(rank);
 
   return (
@@ -50,6 +51,7 @@ const AvatarComponent = ({
       {showCrown && (
         <Crown
           className={`absolute -top-2 left-1/2 -translate-x-1/2 z-10 w-4 h-4 ${
+            // @ts-ignore
             crownStyles[rank]
           }`}
         />
@@ -57,6 +59,7 @@ const AvatarComponent = ({
 
       <Avatar
         className={`h-8 w-8 flex-shrink-0 ${
+          // @ts-ignore
           showRankBadge ? ringStyles[rank] || "" : ""
         }`}
       >

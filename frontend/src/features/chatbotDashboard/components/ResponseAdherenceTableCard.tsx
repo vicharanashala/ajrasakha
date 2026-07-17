@@ -569,9 +569,8 @@ export function ResponseAdherenceTableCard({
           <AccordionItem value="response-adherence" className="border-none">
             {/* ── Card Header ── */}
             <CardHeader className="p-0">
-              <AccordionTrigger className="w-full px-6 py-3 hover:no-underline [&[data-state=open]]:border-b [&[data-state=open]]:border-border/40">
-                <div className="flex w-full items-center justify-between gap-4">
-                  {/* Left */}
+              <div className="flex w-full items-center px-6 py-3 hover:no-underline [&[data-state=open]]:border-b [&[data-state=open]]:border-border/40">
+                <AccordionTrigger className="flex-1 hover:no-underline">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <motion.div
                       whileHover={{ scale: 1.08, rotate: -3 }}
@@ -604,77 +603,74 @@ export function ResponseAdherenceTableCard({
                       </span>
                     </div>
                   </div>
+                </AccordionTrigger>
 
-                  {/* Right Section */}
-                  <div
-                    className="flex items-center gap-2 ml-auto mr-3"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {/* Date Picker */}
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <motion.div
-                          whileHover={{ y: -1 }}
-                          whileTap={{ scale: 0.97 }}
-                        >
-                          <Button
-                            variant="outline"
-                            className="h-9 min-w-[200px] justify-start text-sm font-normal border-border/70 bg-background/80 backdrop-blur-sm shadow-sm hover:bg-muted/40"
-                          >
-                            <CalendarIcon className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-                            {format(
-                              parseInputDateToLocalDate(effectiveDate),
-                              "MMM dd, yyyy",
-                            )}
-                          </Button>
-                        </motion.div>
-                      </PopoverTrigger>
-
-                      <PopoverContent className="w-auto p-0" align="end">
-                        <Calendar
-                          initialFocus
-                          mode="single"
-                          selected={parseInputDateToLocalDate(effectiveDate)}
-                          onSelect={(date) => {
-                            if (!date) return;
-                            handleDateChange(todayAsInputDate(date));
-                          }}
-                          disabled={{ after: new Date() }}
-                          className="pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
-
-                    {/* Download */}
-                    <motion.div
-                      whileHover={{ y: -1 }}
-                      whileTap={{ scale: 0.97 }}
-                    >
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleDownloadSelectedFields}
-                        disabled={!hasSelectedRows}
-                        className="h-9 px-4 text-sm gap-2 border-border/70 bg-background/80 shadow-sm hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
+                {/* Right Section - outside AccordionTrigger to avoid nested <button> */}
+                <div className="flex items-center gap-2 ml-auto mr-3">
+                  {/* Date Picker */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <motion.div
+                        whileHover={{ y: -1 }}
+                        whileTap={{ scale: 0.97 }}
                       >
-                        <motion.span
-                          animate={hasSelectedRows ? { y: [0, -2, 0] } : {}}
-                          transition={{
-                            repeat: Infinity,
-                            repeatDelay: 2,
-                            duration: 0.8,
-                          }}
-                          className="inline-flex"
+                        <Button
+                          variant="outline"
+                          className="h-9 min-w-[200px] justify-start text-sm font-normal border-border/70 bg-background/80 backdrop-blur-sm shadow-sm hover:bg-muted/40"
                         >
-                          <Download className="w-3.5 h-3.5" />
-                        </motion.span>
-                        Download .xlsx
-                      </Button>
-                    </motion.div>
-                  </div>
+                          <CalendarIcon className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                          {format(
+                            parseInputDateToLocalDate(effectiveDate),
+                            "MMM dd, yyyy",
+                          )}
+                        </Button>
+                      </motion.div>
+                    </PopoverTrigger>
+
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <Calendar
+                        initialFocus
+                        mode="single"
+                        selected={parseInputDateToLocalDate(effectiveDate)}
+                        onSelect={(date) => {
+                          if (!date) return;
+                          handleDateChange(todayAsInputDate(date));
+                        }}
+                        disabled={{ after: new Date() }}
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+
+                  {/* Download */}
+                  <motion.div
+                    whileHover={{ y: -1 }}
+                    whileTap={{ scale: 0.97 }}
+                  >
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDownloadSelectedFields}
+                      disabled={!hasSelectedRows}
+                      className="h-9 px-4 text-sm gap-2 border-border/70 bg-background/80 shadow-sm hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
+                    >
+                      <motion.span
+                        animate={hasSelectedRows ? { y: [0, -2, 0] } : {}}
+                        transition={{
+                          repeat: Infinity,
+                          repeatDelay: 2,
+                          duration: 0.8,
+                        }}
+                        className="inline-flex"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                      </motion.span>
+                      Download .xlsx
+                    </Button>
+                  </motion.div>
                 </div>
-              </AccordionTrigger>
+              </div>
             </CardHeader>
 
             {/* ── Accordion Content ── */}

@@ -38,7 +38,6 @@ import { ReRouteResponseTimeline } from "./ReRouteResponseTimeline";
 import { AnswerCreateDialog } from "./AnswerCreateDialog";
 import { QaHeader } from "./QaHeader";
 import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
-import { useToast } from "@/shared/components/toast";
 import { isEnglishCharacters } from "../questions/utils/checkLanguage";
 
 export type QuestionFilter =
@@ -151,6 +150,7 @@ export const QAInterface = ({
     hasNextPage,
     isFetchingNextPage,
     refetch,
+  // @ts-ignore
   } = useGetAllocatedQuestions(LIMIT, filter, preferences, actionType, autoSelectQuestionId, reviewLevel);
   const { data: exactQuestionPage, isLoading: isLoading } =
     useGetAllocatedQuestionPage(autoSelectQuestionId!);

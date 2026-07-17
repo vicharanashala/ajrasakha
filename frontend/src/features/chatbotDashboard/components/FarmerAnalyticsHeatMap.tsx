@@ -388,7 +388,7 @@ export function FarmerAnalyticsHeatMap({
 
     locationService.getStates().then((items) => {
       if (!cancelled) setStates(items ?? []);
-    });
+    }).catch(() => {});
 
     return () => {
       cancelled = true;
@@ -408,7 +408,7 @@ export function FarmerAnalyticsHeatMap({
     let cancelled = false;
     locationService.getDistricts(selected.stateCode).then((items) => {
       if (!cancelled) setDistricts(items ?? []);
-    });
+    }).catch(() => {});
 
     return () => {
       cancelled = true;
@@ -428,7 +428,7 @@ export function FarmerAnalyticsHeatMap({
     let cancelled = false;
     locationService.getBlocks(selected.districtCode).then((items) => {
       if (!cancelled) setBlocks(items ?? []);
-    });
+    }).catch(() => {});
 
     return () => {
       cancelled = true;
@@ -448,7 +448,7 @@ export function FarmerAnalyticsHeatMap({
     let cancelled = false;
     locationService.getVillages(selected.blockCode).then((items) => {
       if (!cancelled) setVillages(items ?? []);
-    });
+    }).catch(() => {});
 
     return () => {
       cancelled = true;

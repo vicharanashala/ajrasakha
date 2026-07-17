@@ -6,6 +6,7 @@ import {
 } from "@/components/atoms/tabs";
 import { UserProfileActions } from "@/components/atoms/user-profile-actions";
 import { ThemeToggleCompact } from "./atoms/ThemeToggle";
+import { ErrorBoundary } from "./atoms/ErrorBoundary";
 import { QAInterface } from "../features/qa-interface-page/QA-interface";
 // import { FullSubmissionHistory } from "./submission-history";
 import { VoiceRecorderCard } from "./voice-recorder-card";
@@ -27,7 +28,6 @@ import { cn } from "@/lib/utils";
 import { CallInterface } from "./CallInterface";
 import { CallHistory } from "./CallHistory";
 import { ManageCallAgents } from "./ManageCallAgents";
-import { env } from "@/config/env";
 import { DataProcessingDashboard } from "../features/faq-pop/DataProcessingDashboard";
 import { CallAgentDashboard } from "./CallAgentDashboard";
 import { UserService } from "@/hooks/services/userService";
@@ -421,8 +421,9 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  {/* <PerformanceMatrics /> */}
-                  <Dashboard />
+                  <ErrorBoundary level="section">
+                    <Dashboard />
+                  </ErrorBoundary>
                 </TabsContent>
               )}
               {user && user.role === "expert" && (
@@ -437,8 +438,9 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  {/* <PerformanceMatrics /> */}
-                  <ExpertDashboard />
+                  <ErrorBoundary level="section">
+                    <ExpertDashboard />
+                  </ErrorBoundary>
                 </TabsContent>
               )}
               {user && user.role == "expert" && (
@@ -453,12 +455,14 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  <QAInterface
-                    autoSelectQuestionId={selectedQuestionId}
-                    onManualSelect={setSelectedQuestionId}
-                    selectQuestionType={selectedQuestionType}
-                    onManualSelectQuestionType={setSelectedQuestionType}
-                  />
+                  <ErrorBoundary level="section">
+                    <QAInterface
+                      autoSelectQuestionId={selectedQuestionId}
+                      onManualSelect={setSelectedQuestionId}
+                      selectQuestionType={selectedQuestionType}
+                      onManualSelectQuestionType={setSelectedQuestionType}
+                    />
+                  </ErrorBoundary>
                 </TabsContent>
               )}
               {user && user.role !== "call_agent" && (
@@ -473,10 +477,12 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  <QuestionsPage
-                    currentUser={user!}
-                    autoOpenQuestionId={selectedCommentId || selectedQuestionId}
-                  />
+                  <ErrorBoundary level="section">
+                    <QuestionsPage
+                      currentUser={user!}
+                      autoOpenQuestionId={selectedCommentId || selectedQuestionId}
+                    />
+                  </ErrorBoundary>
                 </TabsContent>
               )}
               {user && user.role !== "expert" && user.role !== "call_agent" && (
@@ -491,10 +497,12 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  <AnnamDashboard
-                    source={chatbotSource}
-                    onSourceChange={setChatbotSource}
-                  />
+                  <ErrorBoundary level="section">
+                    <AnnamDashboard
+                      source={chatbotSource}
+                      onSourceChange={setChatbotSource}
+                    />
+                  </ErrorBoundary>
                 </TabsContent>
               )}
 
@@ -510,7 +518,9 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  <UserManagement currentUser={user} />
+                  <ErrorBoundary level="section">
+                    <UserManagement currentUser={user} />
+                  </ErrorBoundary>
                 </TabsContent>
               )}
               {/* {user && user.role !== "expert" && (
@@ -539,11 +549,13 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  <div className=" overflow-hidden bg-background p-4 ps-0">
-                    <div className=" mx-auto py-8 pt-0">
-                      <VoiceRecorderCard />
+                  <ErrorBoundary level="section">
+                    <div className=" overflow-hidden bg-background p-4 ps-0">
+                      <div className=" mx-auto py-8 pt-0">
+                        <VoiceRecorderCard />
+                      </div>
                     </div>
-                  </div>
+                  </ErrorBoundary>
                 </TabsContent>
               )}
 
@@ -559,7 +571,9 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  <CallAgentDashboard />
+                  <ErrorBoundary level="section">
+                    <CallAgentDashboard />
+                  </ErrorBoundary>
                 </TabsContent>
               )}
 
@@ -575,7 +589,9 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  <CallInterface />
+                  <ErrorBoundary level="section">
+                    <CallInterface />
+                  </ErrorBoundary>
                 </TabsContent>
               )}
               {user?.role === "call_agent" && (
@@ -590,9 +606,11 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  <div className="w-full max-w-full px-4 md:px-6 py-2">
-                    <CallHistory onRedial={() => { }} />
-                  </div>
+                  <ErrorBoundary level="section">
+                    <div className="w-full max-w-full px-4 md:px-6 py-2">
+                      <CallHistory onRedial={() => { }} />
+                    </div>
+                  </ErrorBoundary>
                 </TabsContent>
               )}
 
@@ -608,7 +626,9 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  <DataProcessingDashboard />
+                  <ErrorBoundary level="section">
+                    <DataProcessingDashboard />
+                  </ErrorBoundary>
                 </TabsContent>
               )}
 
@@ -624,7 +644,9 @@ export const PlaygroundPage = () => {
                     "duration-500 ease-out",
                   )}
                 >
-                  <ManageCallAgents />
+                  <ErrorBoundary level="section">
+                    <ManageCallAgents />
+                  </ErrorBoundary>
                 </TabsContent>
               )}
               {/* {user && (

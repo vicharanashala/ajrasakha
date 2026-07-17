@@ -685,6 +685,7 @@ function CoordinatorProfilePage() {
         onOpenChange={setIsFarmerProfileOpen}
         user={editModalUser}
         isSaving={updateFarmerProfileMutation.isPending}
+        // @ts-ignore
         onSave={handleSaveFarmerProfile}
       />
     </main>

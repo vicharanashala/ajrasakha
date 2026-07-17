@@ -43,7 +43,7 @@ export const PerformanceMatrics = () => {
   const LIMIT = 2000;
   const search = "";
   const { data: questionData } =
-    useGetAllDetailedQuestions(currentPage, LIMIT, filter, search);
+    useGetAllDetailedQuestions(currentPage, LIMIT, filter, search, true);
   const { data: finalizedAnswers, refetch } = useGetFinalizedAnswers(
     selectedUser,
     date,
@@ -161,7 +161,7 @@ export const PerformanceMatrics = () => {
                   innerRadius={50}
                   outerRadius={100}
                   dataKey="value"
-                  label={{ position: "inside", fill: "#fff" }}
+                  label={{ position: "inside", fill: "#fff" } as any}
                   labelLine={false}
                 >
                   {data.map((entry, i) => (
@@ -346,7 +346,7 @@ export const PerformanceMatrics = () => {
             </CardTitle>
           </CardHeader>
         </Card>
-        <HeatMap />
+        <HeatMap {...({} as any)} />
       </div>
     </div>
   );

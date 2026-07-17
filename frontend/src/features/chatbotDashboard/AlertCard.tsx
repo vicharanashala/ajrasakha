@@ -1,7 +1,4 @@
-import { useState } from "react";
-import { TrendingUp, InfoIcon, RefreshCw } from "lucide-react";
-import { Badge } from "./components/shared/Badge";
-import { DomainSpikesModal } from "./components/DomainSpikesModal";
+import {InfoIcon, RefreshCw} from "lucide-react";
 // import { useDomainSpikes } from "./hooks/useDomainSpikes";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { useQueryClient } from "@tanstack/react-query";

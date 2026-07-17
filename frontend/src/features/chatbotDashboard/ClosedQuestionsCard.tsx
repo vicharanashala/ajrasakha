@@ -13,7 +13,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/atoms/popover";
-import { Clock3, X, InfoIcon, ListChecks, RefreshCw } from "lucide-react";
+import {Clock3, X, ListChecks, RefreshCw} from "lucide-react";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Skeleton } from "@/components/atoms/skeleton";

@@ -1,5 +1,4 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/atoms/card";
-import type { UserDemographics } from "../types";
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { Maximize2, X, InfoIcon, RefreshCw } from "lucide-react";

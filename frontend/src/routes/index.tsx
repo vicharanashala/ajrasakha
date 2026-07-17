@@ -11,9 +11,10 @@ function App() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    initAuthListener();
+    const unsubscribe = initAuthListener();
     navigate({ to: "/home" });
-  }, [initAuthListener]);
+    return () => { if (typeof unsubscribe === "function") unsubscribe(); };
+  }, [initAuthListener, navigate]);
 
   return <></>;
 }

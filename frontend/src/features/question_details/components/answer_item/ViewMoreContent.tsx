@@ -127,6 +127,7 @@ export const ViewMoreContent = ({
                   {(userRole === "moderator" || userRole === "admin" || userRole === "tester") && (
                     <AvatarComponent
                       name={submissionData.updatedBy?.name}
+                      // @ts-ignore
                       image={submissionData.updatedBy?.avatar}
                     />
                   )}

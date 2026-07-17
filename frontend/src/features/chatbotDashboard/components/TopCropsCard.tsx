@@ -21,7 +21,6 @@ import { Maximize2, X, InfoIcon, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { Tooltip as ShadcnTooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { useQueryClient } from "@tanstack/react-query";
-import { LazySectionSkeleton } from "../AnnamDashboard_dev";
 import { QueryCategoryQuestionsModal } from "./QueryCategoryQuestionsModal";
 
 const colors = [
@@ -134,7 +133,6 @@ export const TopCropsCard = ({
         return null;
     };
 
-    const showSkeleton = isLoadingTopCrops || refreshing;
 
     if (isLoadingTopCrops) {
         return (
@@ -325,6 +323,7 @@ export const TopCropsCard = ({
                 <QueryCategoryQuestionsModal
                     crop={topCrop}
                     crops={selectedCrops}
+                    // @ts-ignore
                     source={source}
                     userType={userType}
                     isQueryCategory={false}

@@ -8,6 +8,7 @@ import React, {
   Suspense,
 } from "react";
 import { cn } from "@/lib/utils";
+import { ErrorBoundary } from "@/components/atoms/ErrorBoundary";
 import {
   useDailyQuestionTrends,
   useDashboardData,
@@ -745,12 +746,14 @@ export function AnnamDashboard_dev({
                     className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3 mb-4 items-stretch"
                   >
                     {isGrowthVisible || loadImmediately ? (
-                      <Suspense fallback={<LazySectionSkeleton />}>
-                        <LazyUserGrowthChart
-                          source={source}
-                          userType={filters.userType}
-                        />
-                      </Suspense>
+                      <ErrorBoundary level="section" fallback={<LazySectionSkeleton />}>
+                        <Suspense fallback={<LazySectionSkeleton />}>
+                          <LazyUserGrowthChart
+                            source={source}
+                            userType={filters.userType}
+                          />
+                        </Suspense>
+                      </ErrorBoundary>
                     ) : (
                       <LazySectionSkeleton />
                     )}
@@ -808,19 +811,21 @@ export function AnnamDashboard_dev({
                       }}
                     >
                       {isUserDemographicsVisible || loadImmediately ? (
-                        <Suspense
-                          fallback={
-                            <LazySectionSkeleton className="h-[400px]" />
-                          }
-                        >
-                          <LazyUserDemographicsSection
-                            source={source}
-                            userType={filters.userType}
-                            shouldLoadUserDemographics={
-                              shouldLoadUserDemographics
+                        <ErrorBoundary level="section" fallback={<LazySectionSkeleton className="h-[400px]" />}>
+                          <Suspense
+                            fallback={
+                              <LazySectionSkeleton className="h-[400px]" />
                             }
-                          />
-                        </Suspense>
+                          >
+                            <LazyUserDemographicsSection
+                              source={source}
+                              userType={filters.userType}
+                              shouldLoadUserDemographics={
+                                shouldLoadUserDemographics
+                              }
+                            />
+                          </Suspense>
+                        </ErrorBoundary>
                       ) : (
                         <LazySectionSkeleton />
                       )}

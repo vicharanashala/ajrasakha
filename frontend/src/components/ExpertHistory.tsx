@@ -33,7 +33,6 @@ import {
   DialogTitle,
 } from "./atoms/dialog";
 import { ScrollArea } from "./atoms/scroll-area";
-import type { IUser } from "@/types";
 
 const getStatusColor = (status: string) => {
   switch (status?.toLowerCase()) {
@@ -371,6 +370,7 @@ export default function UserActivityHistory({
             // goBack={() => setSelectedQuestionId("")}
             goBack={goBack}
             currentUser={user!}
+            navigateToQuestionPage={() => setSelectedQuestionId("")}
           />
         </>
       ):

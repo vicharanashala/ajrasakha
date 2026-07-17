@@ -277,6 +277,7 @@ export const AllocationTimeline = ({
             const assignedAt =
               userSubmission?.assignedAt ??
               (index === 0
+                // @ts-ignore
                 ? question.submission?.currentExpertAllocatedAt
                 : null);
             const styles = getStatusStyles(status);

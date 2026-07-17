@@ -50,6 +50,7 @@ import {
 import { updateUserPassword, verifyCurrentPassword } from "@/lib/firebase";
 import { calculatePasswordStrength } from "@/components/auth-form";
 import { toast, useToast } from "@/shared/components/toast";
+import { ThemeToggleCompact } from "@/components/atoms/ThemeToggle";
 
 export const Route = createFileRoute("/profile/")({
   component: ProfilePage,
@@ -95,24 +96,27 @@ export default function ProfilePage() {
     <main className="min-h-screen bg-background ">
       <div className="mx-auto  px-6 py-8 w-[90%] md:max-w-[70%]">
         {/* Header with Back Button */}
-        <div className="mb-8 flex items-center gap-4">
-          <div
-            className="flex items-center gap-2 mb-4 sm:mb-6 group cursor-pointer w-fit"
-            onClick={handleBack}
-          >
-            <div className="flex items-center gap-2">
-              <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground group-hover:-translate-x-1 transition-transform duration-200" />
+        <div className="mb-8 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div
+              className="flex items-center gap-2 mb-4 sm:mb-6 group cursor-pointer w-fit"
+              onClick={handleBack}
+            >
+              <div className="flex items-center gap-2">
+                <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground group-hover:-translate-x-1 transition-transform duration-200" />
+              </div>
+            </div>
+            <div>
+              <h1 className="flex items-center text-2xl font-semibold tracking-tight gap-2">
+                <Settings className="w-5 h-5 text-muted-foreground shrink-0" />
+                <span>Profile Settings</span>
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Manage your account information and preferences
+              </p>
             </div>
           </div>
-          <div>
-            <h1 className="flex items-center text-2xl font-semibold tracking-tight gap-2">
-              <Settings className="w-5 h-5 text-muted-foreground shrink-0" />
-              <span>Profile Settings</span>
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Manage your account information and preferences
-            </p>
-          </div>
+          <ThemeToggleCompact />
         </div>
         {user && !isLoading && !isCoordinatorRole(user.role) ? (
           <ProfileForm

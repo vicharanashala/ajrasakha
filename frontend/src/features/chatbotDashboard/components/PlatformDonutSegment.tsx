@@ -1,5 +1,4 @@
-import { CardHeader, CardTitle } from "@/components/atoms/card";
-import { Globe, Maximize2, X, InfoIcon, RefreshCw } from "lucide-react";
+import {Globe, X, InfoIcon, RefreshCw} from "lucide-react";
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useUserMertices } from "../hooks/useDashboardData";
@@ -117,7 +116,6 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({ platform, color, className 
   const r = 48;
   const cx = VIEW / 2;
   const cy = VIEW / 2;
-  const circ = 2 * Math.PI * r;
   const queryClient = useQueryClient();
   const [dataRefreshing, setDataRefreshing] = useState(false);
   const handleRefresh = async ()=>{
@@ -161,6 +159,7 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({ platform, color, className 
           strokeWidth={stroke}
         />
         {segmentsLayout?.map((seg) => {
+          // @ts-ignore
           const dash = (seg.count / totalCount) * fullCirc;
           const el = (
             <circle
@@ -277,6 +276,7 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({ platform, color, className 
 
             <div className="flex flex-col gap-1.5 w-full">
               {segmentsLayout?.map((s) => {
+                // @ts-ignore
                 const pct = ((s.count / totalCount) * 100).toFixed(1);
                 const isActive = active?.label === s.label;
                 return (
@@ -362,8 +362,8 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({ platform, color, className 
                   Installations by Platform
                 </h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {totalCount.toLocaleString()} total installations across{" "}
-                  {segmentsLayout.length} platforms
+                  {totalCount!.toLocaleString()} total installations across{" "}
+                  {segmentsLayout!.length} platforms
                 </p>
               </div>
 
@@ -380,7 +380,7 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({ platform, color, className 
                           {active.count}
                         </span>
                         <span className="text-xs text-muted-foreground tabular-nums mt-1">
-                          {((active.count / totalCount) * 100).toFixed(1)}%
+                          {((active.count / totalCount!) * 100).toFixed(1)}%
                         </span>
                       </>
                     ) : (
@@ -397,8 +397,8 @@ const PlatformIcon: React.FC<PlatformIconProps> = ({ platform, color, className 
                 </div>
 
                 <div className="flex flex-col gap-2 w-full max-w-md">
-                  {segmentsLayout.map((s) => {
-                    const pct = ((s.count / totalCount) * 100).toFixed(1);
+                  {segmentsLayout!.map((s) => {
+                    const pct = ((s.count / totalCount!) * 100).toFixed(1);
                     const isActive = active?.label === s.label;
                     return (
                       <div

@@ -62,7 +62,7 @@ export function BulkUploadAllocationModal({
 
   const filteredPaeExperts = paeExperts.filter(
     (e) =>
-      e.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (e.userName ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       e.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 

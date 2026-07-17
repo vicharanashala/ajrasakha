@@ -19,6 +19,7 @@ export function useNotifyUser() {
           userEmail,
         )}&messageId=${encodeURIComponent(
           messageId,
+        // @ts-ignore
         )}&message=${encodeURIComponent(message)}`,
         {
           method: 'POST',

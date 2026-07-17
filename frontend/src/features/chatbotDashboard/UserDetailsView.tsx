@@ -83,7 +83,6 @@ import { FarmerDetailsModal } from "./components/FarmerDetailsModal";
 import { FarmerNameLink } from "./components/FarmerNameLink";
 import { useAddUser } from "./hooks/useAddUser";
 import { motion, AnimatePresence } from "framer-motion";
-import { Badge } from "@/components/atoms/badge";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import { useVerifyUserAnalytics } from "@/hooks/api/user/useVerifyUserAnalytics";
 import { toast } from "sonner";

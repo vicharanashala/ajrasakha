@@ -2029,6 +2029,17 @@ export class ChatbotRepository implements IChatbotRepository {
           $match: matchQuery,
         },
         {
+          $addFields: {
+            'details.domain': {
+              $cond: {
+                if: { $isArray: '$details.domain' },
+                then: '$details.domain',
+                else: [{ $toString: '$details.domain' }],
+              },
+            },
+          },
+        },
+        {
           $unwind: '$details.domain',
         },
         // ...lookupStages,

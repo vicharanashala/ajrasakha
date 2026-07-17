@@ -31,18 +31,6 @@ import { QueryCategoryQuestionsModal } from "./components/QueryCategoryQuestions
 import { useQueryClient } from "@tanstack/react-query";
 import { useGetStates } from "@/hooks/api/location/useLocations";
 
-// ─── TYPES ─────────────────────────────────────────────
-
-interface DistrictAnalyticsItem {
-  district: string;
-
-  totalQuestions: number;
-
-  uniqueQuestions: number;
-
-  duplicateQuestions: number;
-}
-
 // ─── PREMIUM PALETTE ───────────────────────────────────
 
 const PREMIUM_PALETTE = [
@@ -223,7 +211,7 @@ export const DashboardStateWiseAnalytics = ({
   const { data: responseData } = useGetStates();
   // console.log("Data from the hook is", responseData);
   const neededStateCode = responseData?.find(s => s.stateNameEnglish === selectedState);
-  const selectedStateCode = neededStateCode?.stateCode
+  const selectedStateCode = neededStateCode?.stateCode ?? 0;
   const { data, isLoading } = useStateWiseAnalytics(
     selectedState,
     selectedStateCode,
@@ -232,10 +220,10 @@ export const DashboardStateWiseAnalytics = ({
   );
 
 
-  const districts = data ?? [];
+  const districts = (data as any[]) ?? [];
 
   const maxTotal = useMemo(() => {
-    return Math.max(...districts.map((d) => d.totalQuestions), 1);
+    return Math.max(...districts.map((d: any) => d.totalQuestions), 1);
   }, [districts]);
 
   const queryClient = useQueryClient();
@@ -416,7 +404,7 @@ export const DashboardStateWiseAnalytics = ({
 
         {!isLoading && districts.length > 0 && (
           <ScrollArea className="flex-1 pr-3 h-full w-full">
-            {districts.map((district, index) => {
+            {districts.map((district: any, index: any) => {
               const pct = (district.totalQuestions / maxTotal) * 100;
 
               return (
@@ -438,7 +426,7 @@ export const DashboardStateWiseAnalytics = ({
             <QueryCategoryQuestionsModal
               district={selectedDistrict}
               state= {selectedState}
-              source={source}
+              source={source as any}
               userType={userType}
               isQueryCategory = {false}
               onClose={() => setSelectedDistrict(null)}
