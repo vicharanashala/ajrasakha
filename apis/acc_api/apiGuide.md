@@ -173,6 +173,67 @@ curl -X GET http://127.0.0.1:8001/filters
 
 ---
 
+### 4. `GET /gdb/gap-report` (GDB Coverage Gap Detector)
+
+Returns the most recent pre-computed **weekly gap report**: farmer questions the GDB could not answer (the AI agent's 2-hour-disclaimer path), clustered by crop/state/domain and ranked by farmer demand, plus a crop x state x domain coverage heatmap and outreach recommendations. Read-only — never touches `questions`.
+
+The report itself is generated out-of-band by `gap_pipeline.py` (see below), not by this endpoint, so results reflect whenever the pipeline last ran.
+
+**Example request**
+```bash
+curl -X GET http://127.0.0.1:8001/gdb/gap-report
+```
+
+**Example response (trimmed)**
+```json
+{
+  "report_type": "weekly",
+  "period_days": 7,
+  "generated_at": "2026-07-14T10:00:00Z",
+  "total_disclaimers": 214,
+  "clusters_found": 18,
+  "top_gaps": [
+    {
+      "cluster_name": "Whitefly attack on cotton during flowering",
+      "size": 37,
+      "keywords": ["dosage", "flowering", "spray"],
+      "crop": "Cotton",
+      "states": ["Gujarat"],
+      "domains": ["Pest"],
+      "growth_rate": 0.6,
+      "priority_score": 59.2,
+      "priority_level": "CRITICAL",
+      "recommended_action": "Draft a GDB answer for Cotton / Pest in Gujarat."
+    }
+  ],
+  "coverage_stats": {
+    "heatmap": [
+      {"crop": "Cotton", "state": "Gujarat", "domain": "Pest", "gdb_count": 2, "disclaimer_count": 37, "coverage_score": 0.05, "status": "gap"}
+    ],
+    "covered": 120, "partial": 30, "gaps": 18
+  },
+  "outreach_recommendations": [
+    {"target_state": "Gujarat", "focus_domain": "Pest", "gap_questions": 37, "priority": "HIGH"}
+  ]
+}
+```
+
+Returns `404` until the pipeline has produced at least one report.
+
+**Running the pipeline manually**
+```bash
+python gap_pipeline.py
+```
+This connects using the same env vars as `main.py`, builds one report, and inserts it into `GAP_REPORTS_COLLECTION` (default `gdb_gap_reports`, same database as `questions`). Wire this into your existing cron/ops tooling for a weekly cadence — no scheduler is bundled here.
+
+**Running the tests**
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
+---
+
 ## Docker Containerization
 
 This API is fully containerized and deployable via Docker.
