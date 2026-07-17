@@ -3642,6 +3642,7 @@ export class ChatbotRepository implements IChatbotRepository {
         totalQuestions: 0,
         duplicateQuestions: 0,
         closedQuestions: 0,
+        nonGdbQuestions: 0,
         notifiedQuestions: 0,
         averageClosureTimeMinutes: 0,
       });
@@ -4122,6 +4123,7 @@ export class ChatbotRepository implements IChatbotRepository {
           totalQuestions: number;
           duplicateQuestions: number;
           closedQuestions: number;
+          nonGdbQuestions: number;
           notifiedQuestions: number;
           closureTotalMinutes: number;
           closureCount: number;
@@ -4160,6 +4162,7 @@ export class ChatbotRepository implements IChatbotRepository {
           totalQuestions: 0,
           duplicateQuestions: 0,
           closedQuestions: 0,
+          nonGdbQuestions: 0,
           notifiedQuestions: 0,
           closureTotalMinutes: 0,
           closureCount: 0,
@@ -4198,6 +4201,11 @@ export class ChatbotRepository implements IChatbotRepository {
           existing.duplicateQuestions = existing.duplicateQuestionKeys.size;
         }
 
+        const statusLower = status.toLowerCase();
+        if (statusLower === 'pass' || statusLower === 'dynamic-closed' || statusLower === 'dynamic_closed') {
+          existing.nonGdbQuestions += 1;
+        }
+
         if (status === 'closed') {
           existing.closedQuestions += 1;
           if (row.isCustomerNotified === true) {
@@ -4226,7 +4234,9 @@ export class ChatbotRepository implements IChatbotRepository {
       ): FarmerHeatMapMetricTotals => {
         const activeFarmerIds = new Set<string>();
         let totalQuestions = 0;
+        let duplicateQuestionsCount = 0;
         let closedQuestions = 0;
+        let nonGdbQuestions = 0;
         let notifiedQuestions = 0;
         let closureTotalMinutes = 0;
         const duplicateQuestionKeys = new Set<string>();
@@ -4254,6 +4264,7 @@ export class ChatbotRepository implements IChatbotRepository {
               duplicateQuestionKeys.add(duplicateQuestionKey);
             }
             closedQuestions += questionMetrics.closedQuestions;
+            nonGdbQuestions += questionMetrics.nonGdbQuestions || 0;
             notifiedQuestions += questionMetrics.notifiedQuestions;
             closureTotalMinutes += questionMetrics.closureTotalMinutes;
           }
@@ -4264,6 +4275,7 @@ export class ChatbotRepository implements IChatbotRepository {
           totalQuestions,
           duplicateQuestions: duplicateQuestionKeys.size,
           closedQuestions,
+          nonGdbQuestions,
           notifiedQuestions,
           averageClosureTimeMinutes:
             totalQuestions > 0
@@ -4293,6 +4305,7 @@ export class ChatbotRepository implements IChatbotRepository {
             totalQuestions: questionMetrics?.totalQuestions ?? 0,
             duplicateQuestions: questionMetrics?.duplicateQuestions ?? 0,
             closedQuestions: questionMetrics?.closedQuestions ?? 0,
+            nonGdbQuestions: questionMetrics?.nonGdbQuestions ?? 0,
             notifiedQuestions: questionMetrics?.notifiedQuestions ?? 0,
             averageClosureTimeMinutes,
             statusDistribution: questionMetrics?.statusDistribution ?? {},
@@ -4332,6 +4345,10 @@ export class ChatbotRepository implements IChatbotRepository {
               acc.closedQuestions,
               cell.closedQuestions,
             );
+            acc.nonGdbQuestions = Math.max(
+              acc.nonGdbQuestions,
+              cell.nonGdbQuestions ?? 0,
+            );
             acc.notifiedQuestions = Math.max(
               acc.notifiedQuestions,
               cell.notifiedQuestions,
@@ -4348,6 +4365,7 @@ export class ChatbotRepository implements IChatbotRepository {
           totalQuestions: 0,
           duplicateQuestions: 0,
           closedQuestions: 0,
+          nonGdbQuestions: 0,
           notifiedQuestions: 0,
           averageClosureTimeMinutes: 0,
         },
@@ -9173,6 +9191,24 @@ export class ChatbotRepository implements IChatbotRepository {
         if (value.startsWith('Large'))
           return {'farmerProfile.landhold': {$gte: 10}};
         break;
+
+      case 'kccAwareness':
+      case 'awarenessOfKCC':
+        if (value.toLowerCase() === 'yes') {
+          return { 'farmerProfile.awarenessOfKCC': true };
+        } else if (value.toLowerCase() === 'no') {
+          return { 'farmerProfile.awarenessOfKCC': { $ne: true } };
+        }
+        break;
+
+      case 'agriAppUsage':
+      case 'usesAgriApps':
+        if (value.toLowerCase() === 'yes') {
+          return { 'farmerProfile.usesAgriApps': true };
+        } else if (value.toLowerCase() === 'no') {
+          return { 'farmerProfile.usesAgriApps': { $ne: true } };
+        }
+        break;
     }
 
     return {};
@@ -9195,6 +9231,8 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const userFilter: Record<string, any> = {
         ...this.buildUserDocFilter(userType),
+        isVerified: true,
+        farmerProfile: { $exists: true, $ne: null },
       };
 
       if (search && search.trim()) {
@@ -9289,6 +9327,8 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const userFilter: Record<string, any> = {
         ...this.buildUserDocFilter(userType),
+        isVerified: true,
+        farmerProfile: { $exists: true, $ne: null },
       };
 
       const normalizedPlatform = platform?.trim();
@@ -10105,17 +10145,21 @@ export class ChatbotRepository implements IChatbotRepository {
         },
       };
 
+      const matchStage = {
+        ...domainMatch,
+        $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
+        status: {$ne: 'non_agri'},
+      };
+
       const pipeline: any[] = [
         {
-          $match: domainMatch,
-          $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
-          status: {$ne: 'non_agri'},
+          $match: matchStage,
         },
         groupStage,
         {
           $unionWith: {
             coll: 'duplicate_questions',
-            pipeline: [{$match: domainMatch}, groupStage],
+            pipeline: [{$match: matchStage}, groupStage],
           },
         },
         {
@@ -10204,7 +10248,7 @@ export class ChatbotRepository implements IChatbotRepository {
     try {
       await this.initReviewSystem();
 
-      const matchQuery = buildBaseQuestionMatch('whatsapp');
+      const matchQuery = buildBaseQuestionMatch(dbSource);
 
       if (startTime || endTime) {
         matchQuery.createdAt = {};
@@ -10356,7 +10400,7 @@ export class ChatbotRepository implements IChatbotRepository {
   ): Promise<Array<{questionId: string; question: string; count: number}>> {
     try {
       await this.initReviewSystem();
-      const matchQuery = buildBaseQuestionMatch('whatsapp');
+      const matchQuery = buildBaseQuestionMatch(dbSource);
 
       if (startTime || endTime) {
         matchQuery.createdAt = {};
@@ -10458,8 +10502,9 @@ export class ChatbotRepository implements IChatbotRepository {
     totalPages: number;
   }> {
     try {
+      await this.init(dbSource);
       await this.initReviewSystem();
-      const matchQuery = buildBaseQuestionMatch('whatsapp');
+      const matchQuery = buildBaseQuestionMatch(dbSource);
 
       if (startTime || endTime) {
         matchQuery.createdAt = {};
@@ -10519,8 +10564,8 @@ export class ChatbotRepository implements IChatbotRepository {
                     status: 1,
                     source: 1,
                     userRole: 1,
-                    farmerId: 1,
-                    coordinatorId: 1,
+                    userId: 1,
+                    messageId: 1,
                   },
                 },
               ],
@@ -10531,11 +10576,25 @@ export class ChatbotRepository implements IChatbotRepository {
       ).toArray();
 
       const total = result[0]?.metadata[0]?.total || 0;
-      const data = result[0]?.data || [];
+      const rawData = result[0]?.data || [];
       const totalPages = Math.ceil(total / limit);
 
+      const resolved = await this.resolveQuestionUsers(rawData);
+      const userMap = resolved.userMap;
+      const questionUserMap = resolved.questionUserMap;
+
+      const enrichedData = rawData.map((question: any) => {
+        const questionId = question.questionId ?? question._id?.toString();
+        const resolvedUserId = questionUserMap.get(questionId);
+        const user = resolvedUserId ? userMap.get(resolvedUserId) : undefined;
+        return {
+          ...question,
+          email: user?.email || null,
+        };
+      });
+
       return {
-        data,
+        data: enrichedData,
         total,
         page,
         limit,
@@ -11470,6 +11529,38 @@ export class ChatbotRepository implements IChatbotRepository {
                 ],
               },
             },
+            dynamicClosedTimedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'dynamic_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            dynamicClosedTimeSum: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'dynamic_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  {$subtract: ['$closedAt', '$createdAt']},
+                  0,
+                ],
+              },
+            },
           },
         },
         // Group by period
@@ -11496,6 +11587,12 @@ export class ChatbotRepository implements IChatbotRepository {
             },
             passedTimeSum: {
               $sum: '$passedTimeSum',
+            },
+            dynamicClosedTimedCount: {
+              $sum: '$dynamicClosedTimedCount',
+            },
+            dynamicClosedTimeSum: {
+              $sum: '$dynamicClosedTimeSum',
             },
           },
         },
@@ -11541,11 +11638,34 @@ export class ChatbotRepository implements IChatbotRepository {
                 0,
               ],
             },
+            averageDynamicCloseTimeMinutes: {
+              $cond: [
+                {$gt: ['$dynamicClosedTimedCount', 0]},
+                {
+                  $round: [
+                    {
+                      $divide: [
+                        '$dynamicClosedTimeSum',
+                        {$multiply: ['$dynamicClosedTimedCount', 60000]},
+                      ],
+                    },
+                    2,
+                  ],
+                },
+                0,
+              ],
+            },
             combinedAverageTimeMinutes: {
               $cond: [
                 {
                   $gt: [
-                    {$add: ['$closedTimedCount', '$passedTimedCount']},
+                    {
+                      $add: [
+                        '$closedTimedCount',
+                        '$passedTimedCount',
+                        '$dynamicClosedTimedCount',
+                      ],
+                    },
                     0,
                   ],
                 },
@@ -11553,10 +11673,22 @@ export class ChatbotRepository implements IChatbotRepository {
                   $round: [
                     {
                       $divide: [
-                        {$add: ['$closedTimeSum', '$passedTimeSum']},
+                        {
+                          $add: [
+                            '$closedTimeSum',
+                            '$passedTimeSum',
+                            '$dynamicClosedTimeSum',
+                          ],
+                        },
                         {
                           $multiply: [
-                            {$add: ['$closedTimedCount', '$passedTimedCount']},
+                            {
+                              $add: [
+                                '$closedTimedCount',
+                                '$passedTimedCount',
+                                '$dynamicClosedTimedCount',
+                              ],
+                            },
                             60000,
                           ],
                         },
@@ -11757,6 +11889,38 @@ export class ChatbotRepository implements IChatbotRepository {
                 ],
               },
             },
+            dynamicClosedTimedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'dynamic_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            dynamicClosedTimeSum: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'dynamic_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  {$subtract: ['$closedAt', '$createdAt']},
+                  0,
+                ],
+              },
+            },
           },
         },
         // Group by week
@@ -11783,6 +11947,12 @@ export class ChatbotRepository implements IChatbotRepository {
             },
             passedTimeSum: {
               $sum: '$passedTimeSum',
+            },
+            dynamicClosedTimedCount: {
+              $sum: '$dynamicClosedTimedCount',
+            },
+            dynamicClosedTimeSum: {
+              $sum: '$dynamicClosedTimeSum',
             },
           },
         },
@@ -11828,11 +11998,34 @@ export class ChatbotRepository implements IChatbotRepository {
                 0,
               ],
             },
+            averageDynamicCloseTimeMinutes: {
+              $cond: [
+                {$gt: ['$dynamicClosedTimedCount', 0]},
+                {
+                  $round: [
+                    {
+                      $divide: [
+                        '$dynamicClosedTimeSum',
+                        {$multiply: ['$dynamicClosedTimedCount', 60000]},
+                      ],
+                    },
+                    2,
+                  ],
+                },
+                0,
+              ],
+            },
             combinedAverageTimeMinutes: {
               $cond: [
                 {
                   $gt: [
-                    {$add: ['$closedTimedCount', '$passedTimedCount']},
+                    {
+                      $add: [
+                        '$closedTimedCount',
+                        '$passedTimedCount',
+                        '$dynamicClosedTimedCount',
+                      ],
+                    },
                     0,
                   ],
                 },
@@ -11840,10 +12033,22 @@ export class ChatbotRepository implements IChatbotRepository {
                   $round: [
                     {
                       $divide: [
-                        {$add: ['$closedTimeSum', '$passedTimeSum']},
+                        {
+                          $add: [
+                            '$closedTimeSum',
+                            '$passedTimeSum',
+                            '$dynamicClosedTimeSum',
+                          ],
+                        },
                         {
                           $multiply: [
-                            {$add: ['$closedTimedCount', '$passedTimedCount']},
+                            {
+                              $add: [
+                                '$closedTimedCount',
+                                '$passedTimedCount',
+                                '$dynamicClosedTimedCount',
+                              ],
+                            },
                             60000,
                           ],
                         },
@@ -11993,6 +12198,38 @@ export class ChatbotRepository implements IChatbotRepository {
                 ],
               },
             },
+            dynamicClosedTimedCount: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'dynamic_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+            dynamicClosedTimeSum: {
+              $sum: {
+                $cond: [
+                  {
+                    $and: [
+                      {$eq: ['$status', 'dynamic_closed']},
+                      {$ne: ['$createdAt', null]},
+                      {$ne: ['$closedAt', null]},
+                      {$gte: ['$closedAt', '$createdAt']},
+                    ],
+                  },
+                  {$subtract: ['$closedAt', '$createdAt']},
+                  0,
+                ],
+              },
+            },
           },
         },
         // Group by month
@@ -12019,6 +12256,12 @@ export class ChatbotRepository implements IChatbotRepository {
             },
             passedTimeSum: {
               $sum: '$passedTimeSum',
+            },
+            dynamicClosedTimedCount: {
+              $sum: '$dynamicClosedTimedCount',
+            },
+            dynamicClosedTimeSum: {
+              $sum: '$dynamicClosedTimeSum',
             },
           },
         },
@@ -12064,11 +12307,34 @@ export class ChatbotRepository implements IChatbotRepository {
                 0,
               ],
             },
+            averageDynamicCloseTimeMinutes: {
+              $cond: [
+                {$gt: ['$dynamicClosedTimedCount', 0]},
+                {
+                  $round: [
+                    {
+                      $divide: [
+                        '$dynamicClosedTimeSum',
+                        {$multiply: ['$dynamicClosedTimedCount', 60000]},
+                      ],
+                    },
+                    2,
+                  ],
+                },
+                0,
+              ],
+            },
             combinedAverageTimeMinutes: {
               $cond: [
                 {
                   $gt: [
-                    {$add: ['$closedTimedCount', '$passedTimedCount']},
+                    {
+                      $add: [
+                        '$closedTimedCount',
+                        '$passedTimedCount',
+                        '$dynamicClosedTimedCount',
+                      ],
+                    },
                     0,
                   ],
                 },
@@ -12076,10 +12342,22 @@ export class ChatbotRepository implements IChatbotRepository {
                   $round: [
                     {
                       $divide: [
-                        {$add: ['$closedTimeSum', '$passedTimeSum']},
+                        {
+                          $add: [
+                            '$closedTimeSum',
+                            '$passedTimeSum',
+                            '$dynamicClosedTimeSum',
+                          ],
+                        },
                         {
                           $multiply: [
-                            {$add: ['$closedTimedCount', '$passedTimedCount']},
+                            {
+                              $add: [
+                                '$closedTimedCount',
+                                '$passedTimedCount',
+                                '$dynamicClosedTimedCount',
+                              ],
+                            },
                             60000,
                           ],
                         },
@@ -12407,7 +12685,7 @@ export class ChatbotRepository implements IChatbotRepository {
             totalQuestions: {$sum: 1},
             completedQuestions: {
               $sum: {
-                $cond: [{$in: ['$_statusLower', ['closed', 'pass']]}, 1, 0],
+                $cond: [{$in: ['$_statusLower', ['closed', 'pass', 'dynamic_closed']]}, 1, 0],
               },
             },
             timedCompletedQuestions: {
@@ -12415,7 +12693,7 @@ export class ChatbotRepository implements IChatbotRepository {
                 $cond: [
                   {
                     $and: [
-                      {$in: ['$_statusLower', ['closed', 'pass']]},
+                      {$in: ['$_statusLower', ['closed', 'pass', 'dynamic_closed']]},
                       {$ne: ['$createdAt', null]},
                       {$ne: ['$_operationalCompletionAt', null]},
                       {$gte: ['$_operationalCompletionAt', '$createdAt']},
@@ -12431,7 +12709,7 @@ export class ChatbotRepository implements IChatbotRepository {
                 $cond: [
                   {
                     $and: [
-                      {$in: ['$_statusLower', ['closed', 'pass']]},
+                      {$in: ['$_statusLower', ['closed', 'pass', 'dynamic_closed']]},
                       {$ne: ['$createdAt', null]},
                       {$ne: ['$_operationalCompletionAt', null]},
                       {$gte: ['$_operationalCompletionAt', '$createdAt']},
@@ -12501,6 +12779,11 @@ export class ChatbotRepository implements IChatbotRepository {
                         $cond: [{$eq: ['$_statusLower', 'pass']}, 1, 0],
                       },
                     },
+                    dynamicClosedQuestions: {
+                      $sum: {
+                        $cond: [{$eq: ['$_statusLower', 'dynamic_closed']}, 1, 0],
+                      },
+                    },
                     // Closed metrics
                     closedTimedQuestions: {
                       $sum: {
@@ -12566,6 +12849,41 @@ export class ChatbotRepository implements IChatbotRepository {
                           },
                           {
                             $subtract: ['$passedAt', '$createdAt'],
+                          },
+                          0,
+                        ],
+                      },
+                    },
+                    // Dynamic Closed metrics
+                    dynamicClosedTimedQuestions: {
+                      $sum: {
+                        $cond: [
+                          {
+                            $and: [
+                              {$eq: ['$_statusLower', 'dynamic_closed']},
+                              {$ne: ['$createdAt', null]},
+                              {$ne: ['$closedAt', null]},
+                              {$gte: ['$closedAt', '$createdAt']},
+                            ],
+                          },
+                          1,
+                          0,
+                        ],
+                      },
+                    },
+                    dynamicClosedTimeSumMs: {
+                      $sum: {
+                        $cond: [
+                          {
+                            $and: [
+                              {$eq: ['$_statusLower', 'dynamic_closed']},
+                              {$ne: ['$createdAt', null]},
+                              {$ne: ['$closedAt', null]},
+                              {$gte: ['$closedAt', '$createdAt']},
+                            ],
+                          },
+                          {
+                            $subtract: ['$closedAt', '$createdAt'],
                           },
                           0,
                         ],
@@ -12678,12 +12996,90 @@ export class ChatbotRepository implements IChatbotRepository {
                   ],
                 },
               },
+              dynamicClosed: {
+                count: '$metrics.dynamicClosedQuestions',
+                avgTimeMinutes: {
+                  $cond: [
+                    {
+                      $gt: ['$metrics.dynamicClosedTimedQuestions', 0],
+                    },
+                    {
+                      $round: [
+                        {
+                          $divide: [
+                            '$metrics.dynamicClosedTimeSumMs',
+                            {
+                              $multiply: [
+                                '$metrics.dynamicClosedTimedQuestions',
+                                60000,
+                              ],
+                            },
+                          ],
+                        },
+                        2,
+                      ],
+                    },
+                    0,
+                  ],
+                },
+              },
               statuses: 1,
+              nonGdb: {
+                count: {
+                  $add: [
+                    '$metrics.passedQuestions',
+                    '$metrics.dynamicClosedQuestions',
+                  ],
+                },
+                avgTimeMinutes: {
+                  $cond: [
+                    {
+                      $gt: [
+                        {
+                          $add: [
+                            '$metrics.passedTimedQuestions',
+                            '$metrics.dynamicClosedTimedQuestions',
+                          ],
+                        },
+                        0,
+                      ],
+                    },
+                    {
+                      $round: [
+                        {
+                          $divide: [
+                            {
+                              $add: [
+                                '$metrics.passedTimeSumMs',
+                                '$metrics.dynamicClosedTimeSumMs',
+                              ],
+                            },
+                            {
+                              $multiply: [
+                                {
+                                  $add: [
+                                    '$metrics.passedTimedQuestions',
+                                    '$metrics.dynamicClosedTimedQuestions',
+                                  ],
+                                },
+                                60000,
+                              ],
+                            },
+                          ],
+                        },
+                        2,
+                      ],
+                    },
+                    0,
+                  ],
+                },
+              },
               combined: {
                 count: {
                   $add: [
                     '$metrics.closedQuestions',
                     '$metrics.passedQuestions',
+                    '$metrics.dynamicClosedQuestions',
                   ],
                 },
                 avgTimeMinutes: {
@@ -12694,6 +13090,7 @@ export class ChatbotRepository implements IChatbotRepository {
                           $add: [
                             '$metrics.closedTimedQuestions',
                             '$metrics.passedTimedQuestions',
+                            '$metrics.dynamicClosedTimedQuestions',
                           ],
                         },
                         0,
@@ -12707,6 +13104,7 @@ export class ChatbotRepository implements IChatbotRepository {
                               $add: [
                                 '$metrics.closedTimeSumMs',
                                 '$metrics.passedTimeSumMs',
+                                '$metrics.dynamicClosedTimeSumMs',
                               ],
                             },
                             {
@@ -12715,6 +13113,7 @@ export class ChatbotRepository implements IChatbotRepository {
                                   $add: [
                                     '$metrics.closedTimedQuestions',
                                     '$metrics.passedTimedQuestions',
+                                    '$metrics.dynamicClosedTimedQuestions',
                                   ],
                                 },
                                 60000,
@@ -12808,7 +13207,7 @@ export class ChatbotRepository implements IChatbotRepository {
                 $cond: [
                   {
                     $and: [
-                      {$in: ['$status', ['closed']]},
+                      {$in: ['$status', ['closed', 'dynamic_closed']]},
                       {$eq: ['$isCustomerNotified', false]},
                     ],
                   },
@@ -12822,7 +13221,7 @@ export class ChatbotRepository implements IChatbotRepository {
                 $cond: [
                   {
                     $and: [
-                      {$in: ['$status', ['closed']]},
+                      {$in: ['$status', ['closed', 'dynamic_closed']]},
                       {$eq: ['$isCustomerNotified', true]},
                     ],
                   },
@@ -12846,7 +13245,7 @@ export class ChatbotRepository implements IChatbotRepository {
         await this.QuestionCollection.countDocuments({
           ...matchStage,
           status: {
-            $in: ['closed'],
+            $in: ['closed', 'dynamic_closed'],
           },
           isCustomerNotified: {$exists: false},
         });
@@ -12899,7 +13298,7 @@ export class ChatbotRepository implements IChatbotRepository {
         };
       }
       matchStage.status = {
-        $in: ['closed', 'pass'],
+        $in: ['closed', 'pass', 'dynamic_closed'],
       };
 
       const [totalCountResult, lastTwoHoursResult] = await Promise.all([
@@ -12927,6 +13326,11 @@ export class ChatbotRepository implements IChatbotRepository {
               passCount: {
                 $sum: {
                   $cond: [{$eq: ['$_statusLower', 'pass']}, 1, 0],
+                },
+              },
+              dynamicClosedCount: {
+                $sum: {
+                  $cond: [{$eq: ['$_statusLower', 'dynamic_closed']}, 1, 0],
                 },
               },
             },
@@ -12992,7 +13396,7 @@ export class ChatbotRepository implements IChatbotRepository {
           },
           {
             $match: {
-              _statusLower: {$in: ['closed', 'pass']},
+              _statusLower: {$in: ['closed', 'pass', 'dynamic_closed']},
               _operationalCompletionAt: {$ne: null},
               $expr: {
                 $and: [
@@ -13030,6 +13434,11 @@ export class ChatbotRepository implements IChatbotRepository {
                   $cond: [{$eq: ['$_statusLower', 'pass']}, 1, 0],
                 },
               },
+              dynamicClosedCount: {
+                $sum: {
+                  $cond: [{$eq: ['$_statusLower', 'dynamic_closed']}, 1, 0],
+                },
+              },
             },
           },
         ]).toArray(),
@@ -13038,8 +13447,10 @@ export class ChatbotRepository implements IChatbotRepository {
       return {
         totalClosedCount: totalCountResult[0]?.closedCount ?? 0,
         totalPassCount: totalCountResult[0]?.passCount ?? 0,
+        totalDynamicClosedCount: totalCountResult[0]?.dynamicClosedCount ?? 0,
         closedInTwoHoursCount: lastTwoHoursResult[0]?.closedCount ?? 0,
         passInTwoHoursCount: lastTwoHoursResult[0]?.passCount ?? 0,
+        dynamicClosedInTwoHoursCount: lastTwoHoursResult[0]?.dynamicClosedCount ?? 0,
       };
     } catch (error) {
       throw new InternalServerError(
@@ -13407,6 +13818,13 @@ export class ChatbotRepository implements IChatbotRepository {
   ): Promise<any> {
     try {
       await this.init(source);
+      const totalFarmerProfileUsers = Math.max(
+        await this.users.countDocuments(
+          {farmerProfile: {$exists: true, $ne: null}},
+          {session},
+        ),
+        1,
+      );
       const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
       const queryMatch: any = {
         isCreatedByUser: true,
@@ -13511,7 +13929,7 @@ export class ChatbotRepository implements IChatbotRepository {
                       _id: null,
                       avgQuestionsPerUserDay: {
                         $avg: {
-                          $divide: ['$dayTotalQuestions', '$dayUniqueUsers'],
+                          $divide: ['$dayTotalQuestions', totalFarmerProfileUsers],
                         },
                       },
                     },
@@ -13608,7 +14026,7 @@ export class ChatbotRepository implements IChatbotRepository {
                         _id: null,
                         avgQuestionsPerUserDay: {
                           $avg: {
-                            $divide: ['$dayTotalQuestions', '$dayUniqueUsers'],
+                            $divide: ['$dayTotalQuestions', totalFarmerProfileUsers],
                           },
                         },
                       },
@@ -13950,12 +14368,26 @@ export class ChatbotRepository implements IChatbotRepository {
   }> {
     const directUserIds = new Set<string>();
     const messageIds: string[] = [];
+    const threadPhones = new Set<string>();
 
     for (const question of questions) {
       if (question.userId) {
         directUserIds.add(question.userId.toString());
-      } else if (question.messageId) {
+      }
+      if (question.messageId) {
         messageIds.push(question.messageId);
+      }
+      if (question.threadId) {
+        const match = question.threadId.match(/^(\d+)/);
+        if (match) {
+          const phone = match[1];
+          threadPhones.add(phone);
+          if (phone.length === 12 && phone.startsWith('91')) {
+            threadPhones.add(phone.slice(2));
+          } else if (phone.length === 10) {
+            threadPhones.add('91' + phone);
+          }
+        }
       }
     }
 
@@ -13982,24 +14414,78 @@ export class ChatbotRepository implements IChatbotRepository {
       messages.map(message => [message.messageId, message.user?.toString()]),
     );
 
-    const resolvedUserIds = new Set<string>(directUserIds);
+    // Resolve threadId (phone) -> user
+    const phoneUsers = threadPhones.size > 0
+      ? await this.users
+          .find({
+            $or: [
+              { phoneNo: { $in: Array.from(threadPhones) } },
+              { phone: { $in: Array.from(threadPhones) } },
+              { username: { $in: Array.from(threadPhones) } },
+              { 'farmerProfile.phoneNo': { $in: Array.from(threadPhones) } },
+              { 'farmerProfile.phone': { $in: Array.from(threadPhones) } }
+            ]
+          })
+          .toArray()
+      : [];
 
+    const userMapByPhone = new Map<string, any>();
+    for (const u of phoneUsers) {
+      const uAny = u as any;
+      const addPhone = (p: any) => {
+        if (!p) return;
+        const cleaned = String(p).replace(/\D/g, '');
+        if (cleaned) {
+          userMapByPhone.set(cleaned, u);
+          if (cleaned.length === 12 && cleaned.startsWith('91')) {
+            userMapByPhone.set(cleaned.slice(2), u);
+          } else if (cleaned.length === 10) {
+            userMapByPhone.set('91' + cleaned, u);
+          }
+        }
+      };
+      addPhone(uAny.phoneNo);
+      addPhone(uAny.phone);
+      addPhone(uAny.username);
+      addPhone(uAny.farmerProfile?.phoneNo);
+      addPhone(uAny.farmerProfile?.phone);
+    }
+
+    const resolvedUserIds = new Set<string>(directUserIds);
     const questionUserMap = new Map<string, string>();
+    const userMap = new Map<string, any>();
+
+    // Put phoneUsers in userMap directly by ID
+    for (const u of phoneUsers) {
+      userMap.set(u._id.toString(), u);
+    }
 
     for (const question of questions) {
       const questionId = question.questionId ?? question._id?.toString();
-
       let resolvedUserId: string | undefined;
 
-      if (question.userId) {
-        resolvedUserId = question.userId.toString();
-      } else if (question.messageId) {
-        resolvedUserId = messageUserMap.get(question.messageId);
+      if (question.threadId) {
+        const match = question.threadId.match(/^(\d+)/);
+        if (match) {
+          const phone = match[1];
+          const matchedUser = userMapByPhone.get(phone);
+          if (matchedUser) {
+            resolvedUserId = matchedUser._id.toString();
+            userMap.set(resolvedUserId, matchedUser);
+          }
+        }
+      }
+
+      if (!resolvedUserId) {
+        if (question.userId) {
+          resolvedUserId = question.userId.toString();
+        } else if (question.messageId) {
+          resolvedUserId = messageUserMap.get(question.messageId);
+        }
       }
 
       if (resolvedUserId) {
         resolvedUserIds.add(resolvedUserId);
-
         if (questionId) {
           questionUserMap.set(questionId, resolvedUserId);
         }
@@ -14017,7 +14503,9 @@ export class ChatbotRepository implements IChatbotRepository {
             .toArray()
         : [];
 
-    const userMap = new Map(users.map(user => [user._id.toString(), user]));
+    for (const user of users) {
+      userMap.set(user._id.toString(), user);
+    }
 
     return {
       userMap,
@@ -14522,9 +15010,14 @@ export class ChatbotRepository implements IChatbotRepository {
           $in: ['closed'],
         };
       }
+      if (status === 'non_gdb') {
+        matchQuery.status = {
+          $in: ['pass', 'dynamic_closed'],
+        };
+      }
       if (status === 'pending') {
         matchQuery.status = {
-          $nin: ['closed', 'pass'],
+          $nin: ['closed', 'pass', 'dynamic_closed'],
         };
       }
 
@@ -14739,9 +15232,19 @@ export class ChatbotRepository implements IChatbotRepository {
         $in: ['closed'],
       };
       if (isPassed === 'true') {
-        matchQuery.status = {
-          $in: ['pass'],
-        };
+        if (tag === 'pass') {
+          matchQuery.status = {
+            $in: ['pass'],
+          };
+        } else if (tag === 'dynamic_closed') {
+          matchQuery.status = {
+            $in: ['dynamic_closed'],
+          };
+        } else {
+          matchQuery.status = {
+            $in: ['pass', 'dynamic_closed'],
+          };
+        }
       }
     }
     const validStartDate =
@@ -14911,7 +15414,7 @@ export class ChatbotRepository implements IChatbotRepository {
       },
       {
         $match: {
-          _statusLower: {$in: ['closed', 'pass']},
+          _statusLower: {$in: ['closed', 'pass', 'dynamic_closed']},
           _operationalCompletionAt: {$ne: null},
           $expr: {
             $and: [
@@ -18328,9 +18831,13 @@ export class ChatbotRepository implements IChatbotRepository {
           matchQuery.status = {
             $in: ['closed'],
           };
+        } else if (status === 'non_gdb') {
+          matchQuery.status = {
+            $in: ['pass', 'dynamic_closed'],
+          };
         } else if (status === 'pending') {
           matchQuery.status = {
-            $nin: ['closed', 'pass'],
+            $nin: ['closed', 'pass', 'dynamic_closed'],
           };
         } else if (status !== 'all') {
           matchQuery.status = status;
@@ -18338,7 +18845,7 @@ export class ChatbotRepository implements IChatbotRepository {
       } else if (tag === 'sla') {
         if (isPassed === 'true') {
           matchQuery.status = {
-            $in: ['pass'],
+            $in: ['pass', 'dynamic_closed'],
           };
         }
         if (isPassed === 'false') {
@@ -18439,7 +18946,7 @@ export class ChatbotRepository implements IChatbotRepository {
           {
             $match: {
               _statusLower: {
-                $in: ['closed', 'pass'],
+                $in: ['closed', 'pass', 'dynamic_closed'],
               },
               _operationalCompletionAt: {
                 $ne: null,
@@ -18477,7 +18984,7 @@ export class ChatbotRepository implements IChatbotRepository {
         questionIds = result.map(x => x._id.toString());
       } else if (tag === 'slabreached') {
         matchQuery.status = {
-          $in: ['closed', 'pass'],
+          $in: ['closed', 'pass', 'dynamic_closed'],
         };
 
         const breachedQuestions = await this.QuestionCollection.aggregate([
@@ -18512,7 +19019,7 @@ export class ChatbotRepository implements IChatbotRepository {
           {
             $match: {
               _statusLower: {
-                $in: ['closed', 'pass'],
+                $in: ['closed', 'pass', 'dynamic_closed'],
               },
               _operationalCompletionAt: {
                 $ne: null,
@@ -19391,7 +19898,7 @@ async getClosedInLastTwoHoursByLocation(
     }
 
     matchStage.status = {
-      $in: ['closed', 'pass'],
+      $in: ['closed', 'pass', 'dynamic_closed'],
     };
 
     if (state) {
@@ -19442,7 +19949,7 @@ async getClosedInLastTwoHoursByLocation(
               $sum: {
                 $cond: [
                   {
-                    $eq: ['$_statusLower', 'pass'],
+                    $in: ['$_statusLower', ['pass', 'dynamic_closed']],
                   },
                   1,
                   0,
@@ -19541,7 +20048,7 @@ async getClosedInLastTwoHoursByLocation(
         {
           $match: {
             _statusLower: {
-              $in: ['closed', 'pass'],
+              $in: ['closed', 'pass', 'dynamic_closed'],
             },
 
             _operationalCompletionAt: {
@@ -19596,7 +20103,7 @@ async getClosedInLastTwoHoursByLocation(
               $sum: {
                 $cond: [
                   {
-                    $eq: ['$_statusLower', 'pass'],
+                    $in: ['$_statusLower', ['pass', 'dynamic_closed']],
                   },
                   1,
                   0,

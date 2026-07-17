@@ -45,6 +45,8 @@ type ClosedInLastTwoHoursCardProps = {
   onRefresh?: () => void;
   passedInLastTwoHours: number;
   totalPassed: number;
+  dynamicClosedInLastTwoHours?: number;
+  totalDynamicClosed?: number;
   userId?: string;
   isMapComponent?: boolean;
   showSourceFilter?: boolean;
@@ -63,6 +65,8 @@ export function ClosedInLastTwoHoursCard({
   onRefresh,
   passedInLastTwoHours,
   totalPassed = 0,
+  dynamicClosedInLastTwoHours = 0,
+  totalDynamicClosed = 0,
   userId,
   isMapComponent = false,
   showSourceFilter = true,
@@ -84,22 +88,43 @@ export function ClosedInLastTwoHoursCard({
   const safeTotalClosed = totalClosed ?? 0;
   const closedWithinTwoHoursPct =
     safeTotalClosed > 0 ? (safeCount / safeTotalClosed) * 100 : 0;
+  
+  const passedInLastTwoHoursCombined = passedInLastTwoHours + dynamicClosedInLastTwoHours;
+  const totalPassedCombined = totalPassed + totalDynamicClosed;
+  
   const passedPct =
-    totalPassed > 0 ? (passedInLastTwoHours / totalPassed) * 100 : 0;
+    totalPassedCombined > 0 ? (passedInLastTwoHoursCombined / totalPassedCombined) * 100 : 0;
   const combinedPct =
-    ((safeCount + passedInLastTwoHours) / (safeTotalClosed + totalPassed)) *
+    ((safeCount + passedInLastTwoHoursCombined) / (safeTotalClosed + totalPassedCombined)) *
       100 || 0;
   const [closedWithInTwohours, setClosedWithInTowhours] = useState(false);
   const slaBreached =
-    safeTotalClosed + totalPassed - safeCount - passedInLastTwoHours;
+    safeTotalClosed + totalPassedCombined - safeCount - passedInLastTwoHoursCombined;
   const slaBreachedPct =
-    (((safeTotalClosed + totalPassed - safeCount - passedInLastTwoHours) /
-      (safeTotalClosed + totalPassed)) *
+    (((safeTotalClosed + totalPassedCombined - safeCount - passedInLastTwoHoursCombined) /
+      (safeTotalClosed + totalPassedCombined)) *
     100) || 0;
-  // const completedWithInTwoHours = (safeCount || 0) + (passedInLastTwoHours || 0)
+  // const completedWithInTwoHours = (safeCount || 0) + (passedInLastTwoHoursCombined || 0)
 
   const [isPassed, setIsPassed] = useState(false);
   const [slaBreachedQs, setSlaBreachedQs] = useState("");
+
+  const infoData = [
+    {
+      label: "Passed",
+      count: passedInLastTwoHours,
+      of: totalPassed,
+      statusKey: "pass",
+      isPassedVal: true,
+    },
+    {
+      label: "Dynamic Closed",
+      count: dynamicClosedInLastTwoHours,
+      of: totalDynamicClosed,
+      statusKey: "dynamic_closed",
+      isPassedVal: true,
+    },
+  ];
 
   return (
     <div
@@ -278,7 +303,7 @@ export function ClosedInLastTwoHoursCard({
                 <div className="flex justify-between text-[10px] text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                    {combinedPct.toFixed(1)}% Resolved within SLA (inc. passed)
+                    {combinedPct.toFixed(1)}% Resolved within SLA (inc. Non-GDB)
                   </span>
                   <span className="flex items-center gap-1">
                     <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
@@ -288,13 +313,13 @@ export function ClosedInLastTwoHoursCard({
               </div>
 
               {/* Stats Grid */}
-              <div className="grid grid-cols-4 gap-2.5">
+              <div className="grid grid-cols-3 gap-2.5">
                 <StatTile
-                  label="Closed"
+                  label="GDB"
                   count={safeCount}
                   of={safeTotalClosed}
                   accent="emerald"
-                  tooltip="Cases closed within 2 hours"
+                  tooltip="Cases closed within 2 hours (GDB)"
                   onClick={() => {
                     setIsPassed(false);
                     setClosedWithInTowhours(true);
@@ -303,26 +328,22 @@ export function ClosedInLastTwoHoursCard({
                   isMapComponent={isMapComponent}
                 />
                 <StatTile
-                  label="Passed"
-                  count={passedInLastTwoHours}
-                  of={totalPassed}
+                  label="Non-GDB"
+                  count={passedInLastTwoHoursCombined}
+                  of={totalPassedCombined}
                   accent="sky"
-                  tooltip="Cases passed within 2 hours"
+                  tooltip="Cases completed within 2 hours (Non-GDB)"
                   onClick={() => {
                     setIsPassed(true);
                     setClosedWithInTowhours(true);
-                    setSlaBreachedQs("")
+                    setSlaBreachedQs("");
                   }}
                   isMapComponent={isMapComponent}
-                />
-                <StatTile
-                  label="Rate"
-                  count={combinedPct}
-                  suffix="%"
-                  decimals={1}
-                  accent="emerald"
-                  tooltip="Completion rate within 2 hours"
-                  isMapComponent={isMapComponent}
+                  showInfo={true}
+                  infoData={infoData}
+                  setIsPassed={setIsPassed}
+                  setClosedWithInTowhours={setClosedWithInTowhours}
+                  setSlaBreachedQs={setSlaBreachedQs}
                 />
                 <StatTile
                   label="sla breached"
@@ -346,7 +367,7 @@ export function ClosedInLastTwoHoursCard({
                 <div className="flex items-center gap-1.5">
                   <Gauge className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                    Combined Resolution Rate
+                    Weighted Combined Rate
                   </span>
                 </div>
                 <Tooltip>
@@ -355,31 +376,31 @@ export function ClosedInLastTwoHoursCard({
                       {combinedPct.toFixed(1)}%
                     </span>
                   </TooltipTrigger>
-                  <TooltipContent className="w-56 p-3 z-[9999]">
+                  <TooltipContent className="w-64 p-3 z-[9999]">
                     <div className="space-y-2 text-xs ">
                       <div className="font-semibold">
                         Resolution Rate Breakdown
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex justify-between gap-4">
                         <span className="text-muted-foreground">
-                          Closed in 2h
+                          GDB in 2h
                         </span>
-                        <span className="tabular-nums">
-                          {closedWithinTwoHoursPct.toFixed(1)}%
+                        <span className="tabular-nums font-medium text-right">
+                          {closedWithinTwoHoursPct.toFixed(1)}% 
                         </span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex justify-between gap-4">
                         <span className="text-muted-foreground">
-                          Passed in 2h
+                          Non-GDB in 2h
                         </span>
-                        <span className="tabular-nums">
-                          {passedPct.toFixed(1)}%
+                        <span className="tabular-nums font-medium text-right">
+                          {passedPct.toFixed(1)}% 
                         </span>
                       </div>
-                      <div className="flex justify-between border-t pt-2 font-medium">
-                        <span>Combined Rate</span>
-                        <span className="tabular-nums">
-                          {combinedPct.toFixed(1)}%
+                      <div className="flex justify-between border-t pt-2 font-medium gap-4">
+                        <span>Weighted Combined Rate</span>
+                        <span className="tabular-nums text-right font-semibold">
+                          {combinedPct.toFixed(1)}% 
                         </span>
                       </div>
                     </div>
@@ -401,6 +422,10 @@ export function ClosedInLastTwoHoursCard({
           endDate={dateRange?.to}
           isPassed={isPassed}
           tag= {slaBreachedQs ? slaBreachedQs : "sla"}
+          closedInLastTwoHours ={(closedInLastTwoHours || 0)}
+          passedInLastTwoHours={passedInLastTwoHours || 0}
+          dynamicClosedInLastTwoHours={dynamicClosedInLastTwoHours || 0}
+          slaBreached={(slaBreached || 0)}
           userId={userId}
         />
       )}
@@ -445,7 +470,12 @@ function StatTile({
   accent,
   tooltip,
   onClick,
-  isMapComponent
+  isMapComponent,
+  showInfo = false,
+  infoData,
+  setIsPassed,
+  setClosedWithInTowhours,
+  setSlaBreachedQs,
 }: {
   label: string;
   count: number;
@@ -456,6 +486,11 @@ function StatTile({
   tooltip: string;
   onClick?: () => void;
   isMapComponent?: boolean;
+  showInfo?: boolean;
+  infoData?: { label: string; count: number; of: number; statusKey: string; isPassedVal: boolean }[];
+  setIsPassed?: (val: boolean) => void;
+  setClosedWithInTowhours?: (val: boolean) => void;
+  setSlaBreachedQs?: (val: string) => void;
 }) {
   const a = ACCENT[accent];
   return (
@@ -499,8 +534,33 @@ function StatTile({
           </div>
         </motion.button>
       </TooltipTrigger>
-      <TooltipContent side="top">
-        <p className="text-xs">{tooltip}</p>
+      <TooltipContent
+        side="top"
+        className={cn(showInfo ? "min-w-[200px] rounded-lg p-3 z-[9999]" : "z-[9999]")}
+      >
+        {showInfo && infoData ? (
+          <div className="space-y-1.5 text-xs">
+            {infoData.map((item) => (
+              <div
+                key={item.label}
+                className="flex justify-between gap-4 cursor-pointer hover:bg-muted/80 p-1 -mx-1 px-1 rounded transition-colors"
+                onClick={(e) => {
+                  setIsPassed?.(item.isPassedVal);
+                  setClosedWithInTowhours?.(true);
+                  setSlaBreachedQs?.(item.statusKey);
+                  e.stopPropagation();
+                }}
+              >
+                <span className="text-muted-foreground">{item.label}</span>
+                <span className="font-medium tabular-nums">
+                  {item.count} / {item.of}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs">{tooltip}</p>
+        )}
       </TooltipContent>
     </Tooltip>
   );

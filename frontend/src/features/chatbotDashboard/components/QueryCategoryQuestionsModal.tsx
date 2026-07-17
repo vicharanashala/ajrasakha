@@ -78,6 +78,7 @@ interface QueryCategoryQuestionsModalProps {
   passedQuestions?: number;
   closedInLastTwoHours?: number;
   passedInLastTwoHours?: number;
+  dynamicClosedInLastTwoHours?: number;
   slaBreached?: number;
   safeNotified?: number;
   safeNotNotified?: number;
@@ -111,6 +112,7 @@ export function QueryCategoryQuestionsModal({
   passedQuestions,
   closedInLastTwoHours,
   passedInLastTwoHours,
+  dynamicClosedInLastTwoHours,
   slaBreached,
   safeNotified,
   safeNotNotified,
@@ -314,7 +316,7 @@ export function QueryCategoryQuestionsModal({
         label: period ? "Query" : "Question",
         sortable: true,
         sortAccessor: (row) => row.question,
-        className: "w-[32%]",
+        className: "w-[28%]",
         cellClassName: "overflow-hidden",
         render: (row) => (
         <button
@@ -379,13 +381,13 @@ export function QueryCategoryQuestionsModal({
     align: "center",
     sortable: true,
     sortAccessor: (row) => row.status ?? "",
-    className: "w-[8%]",
+    className: "w-[12%]",
     render: (row) => (
       <Badge
         variant="outline"
-        className="justify-center capitalize text-gray-500"
+        className="justify-center capitalize text-gray-500 whitespace-nowrap"
       >
-        {row.status}
+        {row.status?.replace(/[_-]/g, " ")}
       </Badge>
     ),
   });
@@ -537,6 +539,7 @@ export function QueryCategoryQuestionsModal({
           passedQuestions={passedQuestions}
           closedInLastTwoHours={closedInLastTwoHours}
           passedInLastTwoHours={passedInLastTwoHours}
+          dynamicClosedInLastTwoHours={dynamicClosedInLastTwoHours}
           slaBreached={slaBreached}
           safeNotified={safeNotified}
           safeNotNotified={safeNotNotified}

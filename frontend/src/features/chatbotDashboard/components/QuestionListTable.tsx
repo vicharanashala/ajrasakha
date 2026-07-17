@@ -74,6 +74,7 @@ type QuestionListTableProps<T> = {
   passedQuestions?: number,
   closedInLastTwoHours?: number,
   passedInLastTwoHours?: number,
+  dynamicClosedInLastTwoHours?: number,
   slaBreached?: number,
   safeNotified?: number,
   safeNotNotified?: number,
@@ -150,6 +151,7 @@ export function QuestionListTable<T>({
   passedQuestions,
   closedInLastTwoHours,
   passedInLastTwoHours,
+  dynamicClosedInLastTwoHours,
   slaBreached,
   safeNotified,
   safeNotNotified,
@@ -237,7 +239,7 @@ export function QuestionListTable<T>({
     tag === "closed"
       ? status === "closed"
         ? (closedQuestions ?? 0)
-        : status === "pass"
+        : status === "non_gdb"
           ? (passedQuestions ?? 0)
         : status === "pending"
           ? ((totalQuestions ?? 0) - (closedQuestions ?? 0) - (passedQuestions ?? 0))
@@ -246,6 +248,10 @@ export function QuestionListTable<T>({
         ? isPassed == false
           ? (closedInLastTwoHours ?? 0)
           : (passedInLastTwoHours ?? 0)
+      : tag === "pass"
+        ? (passedInLastTwoHours ?? 0)
+      : tag === "dynamic_closed"
+        ? (dynamicClosedInLastTwoHours ?? 0)
       : tag === "slabreached"
         ? (slaBreached ?? 0)
       : tag === "notify"
