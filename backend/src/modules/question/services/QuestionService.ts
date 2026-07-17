@@ -172,6 +172,17 @@ export class QuestionService extends BaseService implements IQuestionService {
     return questionText.substring(0, maxLength) + '...';
   }
 
+  private filterExpertsForTrainingQuestion(
+    users: IUser[],
+    isTrainingQuestion?: boolean,
+  ): IUser[] {
+    if (!isTrainingQuestion) {
+      return users;
+    }
+
+    return users.filter(user => user.isTrainingUser === true);
+  }
+
   async createBulkQuestions(
     userId: string,
     questions: any[],
@@ -1655,10 +1666,20 @@ export class QuestionService extends BaseService implements IQuestionService {
         const users = await this.userRepo.findExpertsByPreference(
           details as PreferenceDto,
         );
-        const initialUsersToAllocate = users.slice(
-          0,
-          DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT,
-        );
+
+        const TMU = users.filter(u => u.isTrainingUser === true);
+        console.log('training question:', baseQuestion.isTrainingQuestion);
+        const trainingModelQuestion = baseQuestion.isTrainingQuestion === true;
+        const initialUsersToAllocate = trainingModelQuestion ?
+          TMU.slice(
+            0,
+            DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT,
+          )
+          :
+          users.slice(
+            0,
+            DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT,
+          );
         const queue: ObjectId[] = initialUsersToAllocate.map(
           u => new ObjectId(u._id.toString()),
         );
@@ -2280,32 +2301,45 @@ export class QuestionService extends BaseService implements IQuestionService {
     }
 
     let allExpertIds: string[] = [];
-    const isAjrasakha = question.source == 'AJRASAKHA' ? true : false;
-    if (isAjrasakha) {
-      const users = await this.userRepo.getExpertsWithFallback(
-        details,
-        session,
-      );
+      const isAjrasakha = question.source == 'AJRASAKHA' ? true : false;
+      const isTrainingQuestion = question.isTrainingQuestion === true;
+      if (isAjrasakha) {
+        const users = await this.userRepo.getExpertsWithFallback(
+          details,
+          session,
+        );
 
-      allExpertIds = users.map(user => user._id.toString());
-    } else {
-      const [users, preferredExperts] = await Promise.all([
-        this.userRepo.findAll(),
-        this.userRepo.findExpertsByPreference(details, session),
-      ]);
+        allExpertIds = this.filterExpertsForTrainingQuestion(
+          users,
+          isTrainingQuestion,
+        ).map(user => user._id.toString());
+      } else {
+        const [users, preferredExperts] = await Promise.all([
+          this.userRepo.findAll(),
+          this.userRepo.findExpertsByPreference(details, session),
+        ]);
 
-      const expertIdsSet = new Set<string>();
+        const eligibleUsers = this.filterExpertsForTrainingQuestion(
+          users.filter(user => user.role === 'expert' && user.isBlocked !== true),
+          isTrainingQuestion,
+        );
+        const eligiblePreferredExperts = this.filterExpertsForTrainingQuestion(
+          preferredExperts,
+          isTrainingQuestion,
+        );
 
-      // Add preferred experts first to the set to ensure they get priority in allocation
-      preferredExperts.forEach(user => expertIdsSet.add(user._id.toString()));
+        const expertIdsSet = new Set<string>();
 
-      // Add remaining
-      users
-        .filter(user => user.role === 'expert' && user.isBlocked !== true)
-        .forEach(user => expertIdsSet.add(user._id.toString()));
+        // Add preferred experts first to the set to ensure they get priority in allocation
+        eligiblePreferredExperts.forEach(user =>
+          expertIdsSet.add(user._id.toString()),
+        );
 
-      allExpertIds = Array.from(expertIdsSet);
-    }
+        // Add remaining
+        eligibleUsers.forEach(user => expertIdsSet.add(user._id.toString()));
+
+        allExpertIds = Array.from(expertIdsSet);
+      }
 
     let updatedQueue;
 
