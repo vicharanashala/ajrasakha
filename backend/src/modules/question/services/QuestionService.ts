@@ -183,6 +183,13 @@ export class QuestionService extends BaseService implements IQuestionService {
     return users.filter(user => user.isTrainingUser === true);
   }
 
+  private isQuestionUserTrainingTypeMatch(
+    user: IUser,
+    question: IQuestion,
+  ): boolean {
+    return (question.isTrainingQuestion === true) === (user.isTrainingUser === true);
+  }
+
   async createBulkQuestions(
     userId: string,
     questions: any[],
@@ -6459,16 +6466,21 @@ export class QuestionService extends BaseService implements IQuestionService {
       let failedAssignments = 0;
 
       // Assign one question per available moderator within a single source group.
+      // For manual questions only, training questions may be assigned only to
+      // moderators marked as training users.
       const runPass = async (
         label: string,
         moderators: IUser[],
         questions: IQuestion[],
+        canAssignQuestion?: (moderator: IUser, question: IQuestion) => boolean,
       ) => {
         for (const moderator of moderators) {
           const moderatorId = moderator._id!.toString();
 
           const nextQuestion = questions.find(
-            (q: any) => !claimedIds.has(q._id.toString()),
+            (q: any) =>
+              !claimedIds.has(q._id.toString()) &&
+              (canAssignQuestion ? canAssignQuestion(moderator, q) : true),
           );
           if (!nextQuestion) {
             // Moderator is free for this category but no more questions left in it.
@@ -6555,7 +6567,13 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
 
       await runPass('time-bound', timeBoundModerators, timeBoundQuestions);
-      await runPass('manual', manualModerators, manualQuestions);
+      await runPass(
+        'manual',
+        manualModerators,
+        manualQuestions,
+        (moderator, question) =>
+          this.isQuestionUserTrainingTypeMatch(moderator, question),
+      );
 
       console.log(
         `[ModeratorQueue] Done. assigned=${assigned}, availableWaiting=${availableWaiting}, failed=${failedAssignments}`,
