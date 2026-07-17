@@ -1,13 +1,33 @@
 import csv
+import os
 from pathlib import Path
+from urllib.parse import urlparse
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from tests.api.core.client import send_request
 from tests.api.core.validators import validate_response
-from tests.api.contracts.ai_api import AI_API_BASE_URL, AI_API_CASES
-from tests.api.contracts.backend_questions import BACKEND_BASE_URL, BACKEND_QUESTIONS_CASES
+from tests.api.contracts.ai_api import AI_API_CASES
+from tests.api.contracts.backend_questions import BACKEND_QUESTIONS_CASES
 from tests.api.contracts.backend_answers import BACKEND_ANSWERS_CASES
 from tests.api.contracts.backend_analytics import BACKEND_ANALYTICS_CASES
 from tests.api.contracts.backend_auth import BACKEND_AUTH_CASES
+
+
+def require_base_url(name: str) -> str:
+    value = os.getenv(name, "").strip().rstrip("/")
+    if not value:
+        raise ValueError(f"Missing required environment variable: {name}")
+    return value
+
+
+def live_api_base_url() -> str:
+    parsed = urlparse(require_base_url("LIVE_API_URL"))
+    if not parsed.scheme or not parsed.netloc:
+        raise ValueError("LIVE_API_URL must be an absolute URL")
+    return f"{parsed.scheme}://{parsed.netloc}"
 
 
 WHATSAPP_BACKEND_CASES = [
@@ -79,17 +99,18 @@ def write_csv(results: list[dict], output_path: str) -> None:
 
 def main():
     results = []
+    ai_api_base_url = live_api_base_url()
+    backend_base_url = require_base_url("BACKEND_BASE_URL")
+    whatsapp_client_base_url = require_base_url("WHATSAPP_CLIENT_BASE_URL")
 
-    results.extend(run_suite(AI_API_BASE_URL, AI_API_CASES))
+    results.extend(run_suite(ai_api_base_url, AI_API_CASES))
 
-    results.extend(run_suite(BACKEND_BASE_URL, BACKEND_QUESTIONS_CASES))
-    results.extend(run_suite(BACKEND_BASE_URL, BACKEND_ANSWERS_CASES))
-    results.extend(run_suite(BACKEND_BASE_URL, BACKEND_ANALYTICS_CASES))
-    results.extend(run_suite(BACKEND_BASE_URL, BACKEND_AUTH_CASES))
+    results.extend(run_suite(backend_base_url, BACKEND_QUESTIONS_CASES))
+    results.extend(run_suite(backend_base_url, BACKEND_ANSWERS_CASES))
+    results.extend(run_suite(backend_base_url, BACKEND_ANALYTICS_CASES))
+    results.extend(run_suite(backend_base_url, BACKEND_AUTH_CASES))
 
-    # WhatsApp backend endpoints are part of the same reviewer/backend API.
-    # Do not use localhost:4000 here unless that WhatsApp service is actually running.
-    results.extend(run_suite(BACKEND_BASE_URL, WHATSAPP_BACKEND_CASES))
+    results.extend(run_suite(whatsapp_client_base_url, WHATSAPP_BACKEND_CASES))
 
     report_path = "tests/api/reports/api_contract_report.csv"
     write_csv(results, report_path)

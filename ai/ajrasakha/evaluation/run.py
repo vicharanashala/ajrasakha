@@ -43,6 +43,7 @@ def run_case(case: dict, mode: str) -> dict:
 
     combined = {
         **result,
+        "category": case.get("category", "unknown"),
         **technical_result,
         **routing_result,
         **tool_result,
@@ -85,6 +86,12 @@ def main():
         help="Run only stable test cases.",
     )
 
+    parser.add_argument(
+        "--case",
+        default="",
+        help="Comma-separated test case names to run.",
+    )
+
     args = parser.parse_args()
 
     selected_cases = TEST_CASES
@@ -93,6 +100,33 @@ def main():
         selected_cases = [
             case for case in TEST_CASES
             if case.get("stable") is True
+        ]
+
+    if args.case:
+        requested_names = [
+            name.strip()
+            for name in args.case.split(",")
+            if name.strip()
+        ]
+        requested_set = set(requested_names)
+        available_names = {
+            case.get("name")
+            for case in selected_cases
+        }
+        missing_names = [
+            name for name in requested_names
+            if name not in available_names
+        ]
+
+        if missing_names:
+            raise SystemExit(
+                "Unknown or filtered-out test case(s): "
+                + ", ".join(missing_names)
+            )
+
+        selected_cases = [
+            case for case in selected_cases
+            if case.get("name") in requested_set
         ]
 
     results = []
