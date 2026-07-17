@@ -323,8 +323,8 @@ export const IncomingCallBox = ({
     // Get agent-specific Plivo credentials
     const { username: endpointUsername, password: endpointPassword } = getAgentCredentials();
 
-    console.log("🔑 Attempting Plivo login with username:", endpointUsername);
-    console.log("🌐 Plivo SDK loaded successfully");
+    console.log("🔑 Attempting Plivo login with username:", import.meta.env.DEV ? endpointUsername : "***");
+    if (import.meta.env.DEV) console.log("🌐 Plivo SDK loaded successfully");
 
     client.client.login(endpointUsername, endpointPassword);
 
@@ -604,7 +604,7 @@ export const IncomingCallBox = ({
 
     // Connect to WebSocket
     const token = localStorage.getItem("token");
-    console.log("🔑 [IncomingCallBox] Using token:", token ? "✅" : "❌ None");
+    if (import.meta.env.DEV) console.log("🔑 [IncomingCallBox] Using token:", token ? "✅" : "❌ None");
 
     if (token) {
       ws.connect(token).catch((error) => {

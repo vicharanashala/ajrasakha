@@ -5,7 +5,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/atoms/select";
-import { BookOpen, MessageCircle } from "lucide-react";
+import {MessageCircle} from "lucide-react";
 import { useEffect } from "react";
 
 type UserSourceType = "application" | "manual";

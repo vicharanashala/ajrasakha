@@ -46,7 +46,6 @@ import { NotificationModal } from "@/components/NotificationModal";
 import { apiFetch } from "@/hooks/api/api-fetch";
 import { env } from "@/config/env";
 import { useToast } from "@/shared/components/toast";
-import { isEnglishCharacters } from "@/features/questions/utils/checkLanguage";
 import { initializeNotifications } from "@/services/pushService";
 import {
   CoordinatorDashboardSummary,

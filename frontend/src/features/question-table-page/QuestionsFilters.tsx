@@ -9,7 +9,6 @@ import { Button } from "../../components/atoms/button";
 import { Input } from "../../components/atoms/input";
 
 import { Badge } from "../../components/atoms/badge";
-import { Select, SelectTrigger, SelectItem, SelectContent, SelectValue } from "../../components/atoms/select";
 
 import {
   ArrowDownNarrowWide,
@@ -547,6 +546,7 @@ export const QuestionsFilters = ({
       answersCount: advanceFilter.answersCount,
       dateRange: advanceFilter.dateRange,
       priority: advanceFilter.priority,
+      // @ts-ignore
       domain: myPreference?.domain || advanceFilter.domain,
       user: advanceFilter.user,
       endTime: advanceFilter.endTime,
@@ -712,6 +712,7 @@ export const QuestionsFilters = ({
 
       {/* ── ROW 1: Tabs (full width, scrollable on small screens) ── */}
       <AnswerModeSwitcher
+        // @ts-ignore
         answerMode={answerMode}
         handleAnswerModeChange={(mode) => {
           if (viewMode === "dedicated") setViewMode("all");

@@ -12,10 +12,12 @@ export default defineConfig({
     viteReact(),
     tailwindcss(),
   ],
-  // test: {
-  //   globals: true,
-  //   environment: "jsdom",
-  // },
+  test: {
+    globals: true,
+    environment: "jsdom",
+    setupFiles: ["./src/setupTests.tsx"],
+    css: true,
+  },
 
   resolve: {
     alias: {
@@ -26,7 +28,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "http://localhost:4000",
+        target: "http://localhost:3141",
         changeOrigin: true,
       },
     },

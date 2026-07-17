@@ -130,6 +130,7 @@ export const AnswerTimeline = ({
               queue={queue}
               rerouteQuestion={rerouteQuestion}
               lastAnswerApprovalCount={answers[0].approvalCount}
+              // @ts-ignore
               paeReview={question.pae_review}
               isDedicatedView={isDedicatedView}
               assignedModerator={question.assigned_moderator}

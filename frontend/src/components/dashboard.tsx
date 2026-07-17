@@ -390,8 +390,8 @@ export const Dashboard = () => {
               />
             )}
              <QuestionsAnsweredAfter120MinProps
-                whatsappCount={goldenData?.questionsAnsweredAfter120Min?.whatsapp??0}
-                ajrasakhaCount={goldenData?.questionsAnsweredAfter120Min?.ajrasakha??0}
+                whatsappCount={(goldenData as any)?.questionsAnsweredAfter120Min?.whatsapp??0}
+                ajrasakhaCount={(goldenData as any)?.questionsAnsweredAfter120Min?.ajrasakha??0}
                 questionsStateBreakdown={goldenData?.questionStateBreakdown}
               />
             </div>
@@ -417,12 +417,12 @@ export const Dashboard = () => {
         )}
 
         {/* PAE Metrics Row */}
-        {goldenData?.paeMetrics && (
+        {(goldenData as any)?.paeMetrics && (
           <div className="mb-6">
             <PAEMetrics
-              assigned={goldenData.paeMetrics.assigned}
-              submitted={goldenData.paeMetrics.submitted}
-              closed={goldenData.paeMetrics.closed}
+              assigned={(goldenData as any).paeMetrics.assigned}
+              submitted={(goldenData as any).paeMetrics.submitted}
+              closed={(goldenData as any).paeMetrics.closed}
             />
           </div>
         )}

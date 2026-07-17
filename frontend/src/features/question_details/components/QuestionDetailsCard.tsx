@@ -133,6 +133,7 @@ export const QuestionDetailsCard = ({
               title={
                 (Array.isArray(question.details?.domain)
                   ? question.details.domain
+                  // @ts-ignore
                   : typeof question.details?.domain === "string" && question.details.domain.trim()
                     ? [question.details.domain]
                     : []
@@ -141,6 +142,7 @@ export const QuestionDetailsCard = ({
             >
               {(Array.isArray(question.details?.domain)
                 ? question.details.domain
+                // @ts-ignore
                 : typeof question.details?.domain === "string" && question.details.domain.trim()
                   ? [question.details.domain]
                   : []

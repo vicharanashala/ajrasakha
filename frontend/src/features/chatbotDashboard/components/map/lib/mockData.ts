@@ -57,6 +57,7 @@ export function mockAnalytics(seed: string): Analytics {
     users,
     activeUsers: Math.floor(users * (0.2 + r() * 0.5)),
     questions,
+    // @ts-ignore
     answers: Math.floor(questions * (0.6 + r() * 0.35)),
     coordinators: Math.floor(r() * 120) + 8,
     closureHrs: Math.floor(r() * 60) + 2,

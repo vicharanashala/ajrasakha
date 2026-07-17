@@ -276,7 +276,7 @@ export const GoldenDatasetOverview = ({
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center">
                           <span className="text-xs font-semibold text-primary">
-                            {mod.moderatorName.charAt(0).toUpperCase()}
+                            {(mod.moderatorName ?? '').charAt(0).toUpperCase()}
                           </span>
                         </div>
                         <p className="font-medium text-foreground text-sm">

@@ -479,8 +479,8 @@ const QaQuestionItem = ({
                       : "bg-green-500/10 text-green-600 border-green-500/30"
                   }`}
               >
-                {question.priority.charAt(0).toUpperCase() +
-                  question.priority.slice(1)}
+                {String(question.priority).charAt(0).toUpperCase() +
+                  String(question.priority).slice(1)}
               </span>
             )}
 

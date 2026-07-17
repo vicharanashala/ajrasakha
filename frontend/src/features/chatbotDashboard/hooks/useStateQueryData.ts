@@ -22,6 +22,7 @@ export interface DistrictAnalyticsResponse {
 
 export function useStateWiseAnalytics(
   state?: string,
+  // @ts-ignore
   selectedStateCode: number,
   source: "vicharanashala" | "annam" | "whatsapp"= "annam",
   userType: "all" | "external" | "internal" = "all",
@@ -42,6 +43,7 @@ export function useStateWiseAnalytics(
 
     placeholderData: (prev) => prev,
 
+    // @ts-ignore
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
 

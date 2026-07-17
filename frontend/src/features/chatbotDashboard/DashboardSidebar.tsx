@@ -11,7 +11,7 @@ import { Calendar } from "@/components/atoms/calendar";
 import { Button } from "@/components/atoms/button";
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
-import { Download, Loader2, CalendarIcon, Shapes, Info, UserCheck } from "lucide-react";
+import {Download, Loader2, CalendarIcon, Shapes, Info} from "lucide-react";
 import { toast } from "sonner";
 import { ChatbotService } from "@/hooks/services/chatbotService";
 import {

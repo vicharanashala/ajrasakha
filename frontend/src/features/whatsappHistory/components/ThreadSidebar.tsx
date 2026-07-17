@@ -1,4 +1,4 @@
-import { Search, Home, MoreVertical, MessageCircle, ChevronLeft } from 'lucide-react';
+import {Search, MessageCircle, ChevronLeft} from 'lucide-react';
 import { useNavigate } from '@tanstack/react-router';
 import { Input } from '@/components/atoms/input';
 import { ThreadItem } from './ThreadItem';

@@ -29,6 +29,7 @@ export interface IUser {
   email: string;
   firstName: string;
   lastName?: string;
+  userName?: string;
   password?: string;
   preference?: IMyPreference;
   role: UserRole;
@@ -407,6 +408,7 @@ export interface IUserRef {
   _id: string;
   name: string;
   email: string;
+  userName?: string;
 }
 
 export interface IPreviousAllocation {

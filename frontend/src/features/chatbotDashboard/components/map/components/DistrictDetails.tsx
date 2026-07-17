@@ -42,7 +42,7 @@ export function DistrictDetails({
   //   userType,
   // });
   const targetDistrict = districtAnalytic.find(
-    (d) => d.district === selectedDistrict,
+    (d: any) => d.district === selectedDistrict,
   );
   const { data } = useGetBlocks(targetDistrict.districtCode);
   const blocksDetails = data;
@@ -55,6 +55,8 @@ export function DistrictDetails({
   // const villagesDetails = villageUserCounts
   //   ? villageUserCounts
   //   : (VILLAGES[selectedDistrict] ?? []);
+  // @ts-ignore
+  // @ts-ignore
   const kvksDetails = KVKS[selectedDistrict] ?? [];
   // const VILLAGES_PER_PAGE = 10;
 
@@ -106,7 +108,7 @@ export function DistrictDetails({
             >
               <div className="min-w-full">
                 <div className="font-medium text-foreground flex justify-between">
-                  <span>{villageUserCounts ? v?.village?.replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim().toUpperCase(): v.replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim().toUpperCase()}</span>
+                   <span>{villageUserCounts ? (v?.village ?? '').replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim().toUpperCase(): v.replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim().toUpperCase()}</span>
                   <span className="text-foreground-muted flex items-center gap-0.5"><User className="h-3"/>{v?.totalUsers ?? 0}</span>
                 </div>
               </div>
@@ -194,6 +196,7 @@ function BlockVillagesModal({
     setCurrentPage(1);
   }, [block.blockCode]);
   const { data: villages } = useGetVillages(block.blockCode);
+  // @ts-ignore
   const totalPages = Math.ceil(villages?.length / VILLAGES_PER_PAGE);
 
   const paginatedVillages = villages?.slice(

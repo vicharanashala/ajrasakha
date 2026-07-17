@@ -6,8 +6,6 @@ import { LayoutDashboard, MapPin, RefreshCw } from "lucide-react";
 import { SearchableSelect } from "@/components/atoms/SearchableSelect";
 import type { DashboardFilterValues } from "../DashboardFilters";
 // import { Button } from "@/components/atoms/button";
-import { Switch } from "@/components/atoms/switch";
-import { Label } from "@/components/atoms/label";
 
 interface SourceTabsHeaderProps {
   source: "annam" | "whatsapp" | "acc";

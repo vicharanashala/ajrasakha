@@ -1,6 +1,6 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { TopRightBadge } from "@/components/NewBadge";
-import { FileText, LeafyGreen, MessageCircle, Radio, Search, Sparkles, UserCheck, UserRound, Zap } from "lucide-react";
+import {FileText, LeafyGreen, MessageCircle, Radio, Search, Sparkles, UserCheck, UserRound} from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
 export const MODES = [
@@ -132,7 +132,7 @@ export function AnswerModeSwitcher({
                                     }`}
                             >
                                 <Icon className="h-4 w-4" />
-                                {(id === "draft" || id === "pae" || id === "non_agri" || id === "dynamic") && (
+                                {(id === "draft" || id === "pae" || id === "non_agri") && (
                                     <TopRightBadge label="new" right={0} />
                                 )}
                                 {label}

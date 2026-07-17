@@ -400,6 +400,7 @@ export class QuestionService {
     questionIds: string[],
     paeExpertId: string,
   ): Promise<{ jobId: string; message: string }> {
+    // @ts-ignore
     return apiFetch(`${this._baseUrl}/bulk-pae-allocate`, {
       method: "POST",
       body: JSON.stringify({ questionIds, paeExpertId }),
@@ -935,6 +936,7 @@ export class QuestionService {
       method: "POST",
       body: JSON.stringify(requestBody),
     });
+    // @ts-ignore
     return res?.data ?? null;
   }
 

@@ -291,7 +291,7 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                     : "bg-blue-500/10 text-blue-600 border-blue-500/30"
                   }
                 >
-                  {question.priority ? question.priority.toUpperCase() : "NIL"}
+                  {question.priority ? String(question.priority).toUpperCase() : "NIL"}
                 </Badge>
               </>
             )}

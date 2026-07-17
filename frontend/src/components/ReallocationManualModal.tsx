@@ -27,7 +27,6 @@ import { useManualReallocate } from "../hooks/api/question/useManualReallocate";
 import { toast } from "sonner";
 import { Loader2, AlertCircle, Zap } from "lucide-react";
 import { Badge } from "./atoms/badge";
-import { cn } from "@/lib/utils";
 
 interface ReallocationManualModalProps {
   open: boolean;

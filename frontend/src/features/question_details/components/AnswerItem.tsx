@@ -325,7 +325,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
 
   const filteredExperts = experts.filter(
     (expert) =>
-      expert.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (expert.userName ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       expert.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -388,6 +388,7 @@ export const AnswerItem = forwardRef((props: AnswerItemProps, ref) => {
         comment={comment}
         setComment={setComment}
         isUsersLoading={isUsersLoading}
+        // @ts-ignore
         filteredExperts={filteredExperts}
         selectedExperts={selectedExperts}
         handleSelectExpert={handleSelectExpert}

@@ -1,22 +1,22 @@
 import { Clock, XCircle } from "lucide-react";
 import { Badge } from "./atoms/badge";
 
-export default function CompactAnswerTimeline({ answers, onSelect, selected }) {
+export default function CompactAnswerTimeline({ answers, onSelect, selected }: { answers: any; onSelect: any; selected: any }) {
   console.log("Answer from compact->", answers);
   return (
     <div className="relative w-full">
       {/* Timeline Line */}
 
       <div className="relative flex items-center justify-between gap-6">
-        {answers.map((ans, index) => {
+        {answers.map((ans: any, index: any) => {
           const reviews = ans.reviews || [];
 
           const hasRejected = reviews.some(
-            (review) => review.action === "rejected",
+            (review: any) => review.action === "rejected",
           );
 
           const acceptedCount = reviews.filter(
-            (review) => review.action === "accepted",
+            (review: any) => review.action === "accepted",
           ).length;
 
           const hasThreeApprovals = acceptedCount >= 3;

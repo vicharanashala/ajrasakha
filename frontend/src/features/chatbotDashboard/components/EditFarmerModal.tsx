@@ -14,9 +14,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
-import{  CROPS,
-  INDIAN_LANGUAGES,
-} from "../utils/metaData";
+import { CROPS } from "../utils/metaData";
 import { KVK } from "../utils/KVKS";
 import { 
   useGetStates, 
@@ -105,6 +103,9 @@ interface EditFarmerModalProps {
 type DemographicDetailsProps = {
   form: FormState;
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
+  errors: Partial<Record<keyof FormState, string>>;
+  setErrors: React.Dispatch<React.SetStateAction<Partial<Record<keyof FormState, string>>>>;
+  validateFields: (key: keyof FormState, value: string) => string | undefined;
 };
 
 type FormState = {
@@ -280,7 +281,7 @@ export function EditFarmerModal({
       highestEducatedPerson: fp?.highestEducatedPerson ?? "",
       numberOfSmartphones:
         fp?.numberOfSmartphones != null ? String(fp.numberOfSmartphones) : "",
-      platform: fp?.platform ?? "",
+      platform: (fp as any)?.platform ?? "",
     });
   }, [open, user]);
 
@@ -331,7 +332,7 @@ export function EditFarmerModal({
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to save farmer details.";
-      setErrors(message);
+      setErrors({} as any);
     }
   };
 
@@ -405,6 +406,9 @@ export function EditFarmerModal({
 type UserInformationSectionProps = {
   form: FormState;
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
+  errors: Partial<Record<keyof FormState, string>>;
+  setErrors: React.Dispatch<React.SetStateAction<Partial<Record<keyof FormState, string>>>>;
+  validateFields: (key: keyof FormState, value: string) => string | undefined;
 };
 
 const UserInformationSection = ({
@@ -728,6 +732,9 @@ const DemographicDetails = ({
 type AgriculturalBackgroundSectionProps = {
   form: FormState;
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
+  errors: Partial<Record<keyof FormState, string>>;
+  setErrors: React.Dispatch<React.SetStateAction<Partial<Record<keyof FormState, string>>>>;
+  validateFields: (key: keyof FormState, value: string) => string | undefined;
 };
 
 const AgriculturalBackgroundSection = ({
@@ -868,6 +875,7 @@ const AgriculturalBackgroundSection = ({
 type DigitalAwarenessSectionProps = {
   form: FormState;
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
+  errors: Partial<Record<keyof FormState, string>>;
 };
 
 const DigitalAwarenessSection = ({
@@ -944,7 +952,9 @@ const DigitalAwarenessSection = ({
 type SocioEconomicIndicatorsSectionProps = {
   form: FormState;
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
-  errors;
+  errors: Partial<Record<keyof FormState, string>>;
+  setErrors: React.Dispatch<React.SetStateAction<Partial<Record<keyof FormState, string>>>>;
+  validateFields: (key: keyof FormState, value: string) => string | undefined;
 };
 
 const SocioEconomicIndicatorsSection = ({

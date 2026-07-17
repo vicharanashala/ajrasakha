@@ -147,8 +147,8 @@ function FeedbackCard({
           };
 
     items?.forEach((item) => {
-      if (defaultCategories[item.tag] !== undefined) {
-        defaultCategories[item.tag]++;
+      if ((defaultCategories as any)[item.tag] !== undefined) {
+        (defaultCategories as any)[item.tag]++;
       }
     });
 

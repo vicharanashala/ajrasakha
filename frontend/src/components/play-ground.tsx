@@ -27,7 +27,6 @@ import { cn } from "@/lib/utils";
 import { CallInterface } from "./CallInterface";
 import { CallHistory } from "./CallHistory";
 import { ManageCallAgents } from "./ManageCallAgents";
-import { env } from "@/config/env";
 import { DataProcessingDashboard } from "../features/faq-pop/DataProcessingDashboard";
 import { CallAgentDashboard } from "./CallAgentDashboard";
 import { UserService } from "@/hooks/services/userService";

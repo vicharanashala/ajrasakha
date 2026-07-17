@@ -13,6 +13,14 @@ export const SubmissionHistoryModal = ({
   rerouteQuestion,
   currentUser,
   userRole,
+}: {
+  open: any;
+  onClose: any;
+  answers: any;
+  question: any;
+  rerouteQuestion: any;
+  currentUser: any;
+  userRole: any;
 }) => {
   const reversedAnswers = answers?.toReversed() || [];
 

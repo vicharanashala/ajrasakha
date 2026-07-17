@@ -23,7 +23,7 @@ import {
 } from "@/components/atoms/alert-dialog";
 import { useGenerateInitialAnswer } from "@/hooks/api/question/useGenerateInitialAnswer";
 import { ScrollArea } from "./atoms/scroll-area";
-import { toast,useToast } from "@/shared/components/toast";
+import {toast} from "@/shared/components/toast";
 import { isEnglishCharacters } from "@/features/questions/utils/checkLanguage";
 
 interface MessageDetailCardProps {
@@ -713,7 +713,8 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
 
     const doSkip = async (remark?: string) => {
         try {
-            await updateQuestion({ isHidden: true, status: 'pass', _id: question._id!, ...(remark ? { passingRemark: remark } : {}) } as any);
+            if (!question._id) return;
+            await updateQuestion({ isHidden: true, status: 'pass', _id: question._id, ...(remark ? { passingRemark: remark } : {}) } as any);
             toast.success("Question has been hidden");
             navigateToQuestionPage();
         } catch (error: any) {

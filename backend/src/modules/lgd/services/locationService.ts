@@ -66,25 +66,37 @@ export class LocationService implements ILocationService {
 
   private async fetchStates(): Promise<any[]> {
     const apiUrl = process.env.LGD_STATES_API_URL;
-    if (!apiUrl) throw new InternalServerError('LGD_STATES_API_URL is not configured');
+    if (!apiUrl) {
+      console.warn('LGD_STATES_API_URL not configured, returning empty states');
+      return [];
+    }
     return this.makeLGDRequest(apiUrl);
   }
 
   private async fetchDistricts(filters?: Record<string, string | number>): Promise<any[]> {
     const apiUrl = process.env.LGD_DISTRICTS_API_URL;
-    if (!apiUrl) throw new InternalServerError('LGD_DISTRICTS_API_URL is not configured');
+    if (!apiUrl) {
+      console.warn('LGD_DISTRICTS_API_URL not configured, returning empty districts');
+      return [];
+    }
     return this.makeLGDRequest(apiUrl, filters);
   }
 
   private async fetchSubDistricts(filters?: Record<string, string | number>): Promise<any[]> {
     const apiUrl = process.env.LGD_SUBDISTRICTS_API_URL;
-    if (!apiUrl) throw new InternalServerError('LGD_SUBDISTRICTS_API_URL is not configured');
+    if (!apiUrl) {
+      console.warn('LGD_SUBDISTRICTS_API_URL not configured, returning empty blocks');
+      return [];
+    }
     return this.makeLGDRequest(apiUrl, filters);
   }
 
   private async fetchVillages(filters?: Record<string, string | number>): Promise<any[]> {
     const apiUrl = process.env.LGD_VILLAGES_API_URL;
-    if (!apiUrl) throw new InternalServerError('LGD_VILLAGES_API_URL is not configured');
+    if (!apiUrl) {
+      console.warn('LGD_VILLAGES_API_URL not configured, returning empty villages');
+      return [];
+    }
     return this.makeLGDRequest(apiUrl, filters);
   }
 
@@ -92,7 +104,8 @@ export class LocationService implements ILocationService {
     const apiKey = process.env.LGD_API_KEY;
 
     if (!apiKey) {
-      throw new InternalServerError('LGD_API_KEY is not configured');
+      console.warn('LGD_API_KEY not configured, returning empty results');
+      return [];
     }
 
     const params: Record<string, string | number> = {

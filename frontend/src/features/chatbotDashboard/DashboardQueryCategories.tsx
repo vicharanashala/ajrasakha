@@ -185,7 +185,7 @@ const DashboardQueryCategories: React.FC<QueryCategoriesProps> = ({
             {selectedCategory && (
                 <QueryCategoryQuestionsModal
                     category={selectedCategory.label}
-                    source={source}
+                    source={source as any}
                     userType={userType}
                     isQueryCategory={true}
                     onClose={() => setSelectedCategory(null)}

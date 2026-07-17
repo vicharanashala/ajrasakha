@@ -4,8 +4,6 @@ import type {
   IRerouteHistoryResponse,
 } from "@/types";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { QuestionService } from "@/hooks/services/questionService";
 
 import { Button } from "./atoms/button";
 
@@ -111,7 +109,7 @@ export const QuestionDetails = ({
 
     generateAIAnswer(question._id, {
       onSuccess: (data) => {
-        setTempAiAnswer(data.aiInitialAnswer);
+        setTempAiAnswer(data?.aiInitialAnswer ?? "");
       },
       onError: (err) => {
         console.error(err);

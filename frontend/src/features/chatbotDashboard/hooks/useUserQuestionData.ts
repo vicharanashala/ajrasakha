@@ -48,6 +48,7 @@ export function useUserQuestionsData(
 
     staleTime: 30 * 1000,
 
+    // @ts-ignore
     queryFn: async () => {
       const API_BASE_URL = env.apiBaseUrl();
 

@@ -19,7 +19,7 @@ interface AuthStore {
   updateUser: (data: Partial<AuthUser>) => void;
   loginWithGoogle: () => Promise<ExtendedUserCredential | null>;
   logout: () => Promise<void>;
-  initAuthListener: () => void;
+  initAuthListener: () => (() => void) | void;
   setUser: (user: AuthUser | null) => void;
   isAuthenticated: boolean;
   clearUser: () => void;
@@ -100,7 +100,7 @@ export const useAuthStore = create<AuthStore>()(
 
         initAuthListener: () => {
           set({ loading: true });
-          onAuthStateChanged(auth, async (firebaseUser) => {
+          const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
             if (firebaseUser) {
               const authUser: AuthUser = {
                 uid: firebaseUser.uid,
@@ -119,6 +119,7 @@ export const useAuthStore = create<AuthStore>()(
               set({ user: null, firebaseUser: null, loading: false });
             }
           });
+          return unsubscribe;
         },
       }),
       {

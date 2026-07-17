@@ -8,7 +8,7 @@ export const useSelectedQuestion = () => {
   const setSelectedQuestionId = useCallback(
     (id: string | null) => {
       navigate({
-        search: (prev) => ({
+        search: (prev: any) => ({
           ...prev,
           question: id ?? undefined,
           // Keep request if exists
@@ -24,7 +24,7 @@ export const useSelectedQuestion = () => {
   const setSelectedQuestionType = useCallback(
     (questionType: string | null) => {
       navigate({
-        search: (prev) => ({
+        search: (prev: any) => ({
           ...prev,
           questionType: questionType ?? undefined,
           // Keep request if exists
@@ -41,7 +41,7 @@ export const useSelectedQuestion = () => {
   const setSelectedRequestId = useCallback(
     (id: string | null) => {
       navigate({
-        search: (prev) => ({
+        search: (prev: any) => ({
           ...prev,
           request: id ?? undefined,
           // Keep question if exists
@@ -59,7 +59,7 @@ export const useSelectedQuestion = () => {
   const setSelectedCommentId = useCallback(
     (id: string | null) => {
       navigate({
-        search: (prev) => ({
+        search: (prev: any) => ({
           ...prev,
           comment: id ?? undefined,
           // Keep other params if they exist
@@ -76,7 +76,7 @@ export const useSelectedQuestion = () => {
   const setSelectedHistoryId = useCallback(
     (id: string | null) => {
       navigate({
-        search: (prev) => ({
+        search: (prev: any) => ({
           ...prev,
           history: id ?? undefined,
           // Keep request if exists
@@ -113,7 +113,7 @@ export const useSelectedQuestion = () => {
   const setView = useCallback(
     (view: string | undefined) => {
       navigate({
-        search: (prev) => ({
+        search: (prev: any) => ({
           ...prev,
           view,
         }),

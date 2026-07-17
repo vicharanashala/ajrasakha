@@ -336,7 +336,7 @@ export const QuestionsPage = ({
 
   const handleNext = () => {
     if (currentIndex < currentItems.length - 1) {
-      setSelectedQuestionId(currentItems[currentIndex + 1]._id);
+      setSelectedQuestionId(currentItems[currentIndex + 1]._id ?? "");
     } else if (currentPageVal < totalPages) {
       setPendingNav("next");
       if (viewMode === "review-level") setReviewPage(prev => prev + 1);
@@ -346,7 +346,7 @@ export const QuestionsPage = ({
 
   const handlePrev = () => {
     if (currentIndex > 0) {
-      setSelectedQuestionId(currentItems[currentIndex - 1]._id);
+      setSelectedQuestionId(currentItems[currentIndex - 1]._id ?? "");
     } else if (currentPageVal > 1) {
       setPendingNav("prev");
       if (viewMode === "review-level") setReviewPage(prev => prev - 1);
@@ -357,9 +357,9 @@ export const QuestionsPage = ({
   useEffect(() => {
     if (pendingNav && !isLoading && !isFetching && !isReviewLoading && currentItems.length > 0) {
       if (pendingNav === "next") {
-        setSelectedQuestionId(currentItems[0]._id);
+        setSelectedQuestionId(currentItems[0]._id ?? "");
       } else {
-        setSelectedQuestionId(currentItems[currentItems.length - 1]._id);
+        setSelectedQuestionId(currentItems[currentItems.length - 1]._id ?? "");
       }
       setPendingNav(null);
     }
@@ -566,7 +566,7 @@ export const QuestionsPage = ({
             setUploadedQuestionsCount={setUploadedQuestionsCount}
             setIsBulkUpload={setIsBulkUpload}
             states={STATES}
-            onChange={onChangeFilters}
+            onChange={onChangeFilters as any}
             onReset={onReset}
             crops={CROPS}
             refetch={() => {
