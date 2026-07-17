@@ -1,5 +1,4 @@
 import { UserProfileActions } from "@/components/atoms/user-profile-actions";
-import { ThemeToggleCompact } from "@/components/atoms/ThemeToggle";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { useAuthStore } from "@/stores/auth-store";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -536,7 +535,6 @@ function RouteComponent() {
               }
             />
           )}
-          <ThemeToggleCompact />
           {currentUser?.role !== "admin" && <UserProfileActions />}
         </div>
       </header>
@@ -808,7 +806,6 @@ function DashboardMessage({
         </Button>
         <h1 className="text-base font-semibold">User Dashboard</h1>
         <div className="flex items-center gap-2">
-          <ThemeToggleCompact />
           <UserProfileActions />
         </div>
       </header>

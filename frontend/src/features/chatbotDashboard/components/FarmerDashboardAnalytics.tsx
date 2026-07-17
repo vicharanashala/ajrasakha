@@ -453,6 +453,7 @@ function UserQuestionMetricsCards({ userId }: { userId?: string }) {
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <ClosedQuestionsCard
+        showSourceFilter={false}
         closedQuestions={
           questionStatusData?.closedVsTotalQuestions?.closed?.count
         }
@@ -490,6 +491,7 @@ function UserQuestionMetricsCards({ userId }: { userId?: string }) {
       />
 
       <ClosedInLastTwoHoursCard
+        showSourceFilter={false}
         source="annam"
         userType="all"
         closedInLastTwoHours={
@@ -508,6 +510,7 @@ function UserQuestionMetricsCards({ userId }: { userId?: string }) {
       />
 
       <CustomerNotificationsCard
+        showSourceFilter={false}
         notified={customerNotificationsData?.notifiedVsClosed?.notified}
         notNotified={
           customerNotificationsData?.notifiedVsClosed?.notNotified
@@ -613,7 +616,7 @@ function RecentActivitySection({
                         <button
                           type="button"
                           title={question.question || "Not provided"}
-                          className="block w-full overflow-hidden text-left text-sm font-medium leading-snug text-foreground hover:text-[#8174e8] hover:underline"
+                          className="block w-full cursor-pointer overflow-hidden text-left text-sm font-medium leading-snug text-foreground hover:text-[#8174e8] hover:underline"
                           style={{
                             display: "-webkit-box",
                             WebkitBoxOrient: "vertical",
@@ -702,7 +705,7 @@ function MetricGrid({
             className={`group rounded-md border bg-background/80 p-4 text-left shadow-sm transition ${
               isDisabled
                 ? "cursor-default opacity-80"
-                : "hover:-translate-y-0.5 hover:border-primary/40 hover:bg-background hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/30"
+                : "cursor-pointer hover:-translate-y-0.5 hover:border-primary/40 hover:bg-background hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/30"
             }`}
             onClick={isDisabled ? undefined : () => onMetricClick(metric)}
         >
