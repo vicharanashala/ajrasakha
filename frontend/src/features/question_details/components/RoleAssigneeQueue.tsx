@@ -73,7 +73,7 @@ export const RoleAssigneeQueue = ({
     ? question.autoAllocateGateKeeper === true
     : question.autoAllocateAuditor === true;
   const canManage =
-    currentUser.role === "moderator" || currentUser.role === "admin";
+    currentUser.role === "moderator" || currentUser.role === "admin"||currentUser.role==="gate_keeper"||currentUser.role==="auditor";
 
   // Manual select/remove is only relevant while the question is actually in this
   // role's handling statuses (gate keeper: dynamic/duplicate/queue_duplicate;
@@ -188,7 +188,7 @@ export const RoleAssigneeQueue = ({
               {/* Manual select only when auto-allocation is OFF and the question is in
                   this role's handling status (otherwise the queue assigns automatically
                   or it's not this role's turn — just the toggle shows). */}
-              {!autoAllocate && isRoleStatus && (
+              {!autoAllocate  && (
                 <Button
                   variant="default"
                   className="gap-2 w-full sm:w-auto"
