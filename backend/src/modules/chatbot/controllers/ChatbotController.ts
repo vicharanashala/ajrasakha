@@ -1999,9 +1999,15 @@ export class ChatbotController {
     query: {
       source: string,
       userType: string,
+      startDate: string,
+      endDate: string,
     }
   ): Promise<any>{
-    return this.chatbotService.getAllStatesQuestionsAndUsersData(query.source, query.userType)
+    let startDate = undefined
+    let endDate = undefined
+    if(query.startDate) startDate = new Date(query.startDate)
+    if(query.endDate) endDate =  new Date(query.endDate);
+    return this.chatbotService.getAllStatesQuestionsAndUsersData(query.source, query.userType, startDate, endDate);
   }
   
   @Get('/user-profile')

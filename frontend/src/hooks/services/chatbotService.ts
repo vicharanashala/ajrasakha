@@ -408,6 +408,8 @@ export class ChatbotService {
     // stringStartDate,
     // stringEndDate,
     // search,
+    startDate,
+    endDate
   }: {
     // category?: string;
     // district?: string;
@@ -426,6 +428,8 @@ export class ChatbotService {
     // stringStartDate?: string;
     // stringEndDate?: string;
     // search?: string;
+    startDate?: string
+    endDate?: string;
   }) {
     const params = new URLSearchParams();
     // if (category) params.append("category", category);
@@ -447,6 +451,8 @@ export class ChatbotService {
     // if (search?.trim()) {
     //   params.append("search", search.trim());
     // }
+    if (startDate) params.append("startDate", startDate);
+    if(endDate) params.append("endDate", endDate);
     return apiFetch<any>(
       `${this._baseUrl}/state-user-data?${params.toString()}`,
     );

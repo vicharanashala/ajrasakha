@@ -1075,7 +1075,9 @@ export interface IChatbotRepository {
     source: string,
     userType: string,
     allState?:ILocationState[],
-    session?: string
+    session?: ClientSession,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<any>
 
 

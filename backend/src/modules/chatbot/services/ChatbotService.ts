@@ -3719,7 +3719,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getAllStatesQuestionsAndUsersData(source: string, userType: string): Promise<any> {
+  async getAllStatesQuestionsAndUsersData(source: string, userType: string, startDate?: Date, endDate?: Date): Promise<any> {
     try{
         // console.time("LGD");
 
@@ -3729,7 +3729,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     // console.timeEnd("LGD");
 
     //   console.log("All states", allStates);
-      return this.chatbotRepository.getAllStatesQuestionsAndUsersData(source, userType, allStates, undefined)
+      return this.chatbotRepository.getAllStatesQuestionsAndUsersData(source, userType, allStates, undefined, startDate, endDate)
     }catch(error){
       throw new InternalServerError(`Internal Server Error ${error}`)
     }

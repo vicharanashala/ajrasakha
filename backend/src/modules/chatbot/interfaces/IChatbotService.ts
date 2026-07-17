@@ -419,6 +419,8 @@ export interface IChatbotService {
     getAllStatesQuestionsAndUsersData(
       source: string,
       userType: string,
+      startDate?: Date,
+      endDate?: Date
     ): Promise<any>
   getUserProfile(userId: string): Promise<any>
   assignUsers(userId: string, targetIds: string[]): Promise<any>

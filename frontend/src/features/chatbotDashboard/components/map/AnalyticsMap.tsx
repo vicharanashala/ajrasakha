@@ -90,6 +90,8 @@ export default function IndiaAnalyticsMap({
   } = useAllStatesandUserData({
     source: source as string,
     userType: userType as string,
+    startDate: questionStatusRange.startTime,
+    endDate: questionStatusRange.endTime,
     enabled: true,
   });
   // setAllStatesDataandUser(allStatesData);
