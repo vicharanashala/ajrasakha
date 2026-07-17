@@ -344,8 +344,8 @@ export const PlaygroundPage = () => {
                 )}
 
                 {user &&
-                  user.role !== "expert" &&
-                  user.role !== "call_agent" && (
+                  (user.role === "admin" ||
+                  user.role === "moderator") && (
                     <TabsTrigger
                       value="chatbotanalytics"
                       className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
