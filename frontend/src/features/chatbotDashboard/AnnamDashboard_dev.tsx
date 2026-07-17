@@ -68,6 +68,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 // import { RefreshCw } from "lucide-react";
 import { KnowledgeAwarenessCard } from "./components/KnowledgeAwarenessCard";
+import { UsersListModal } from "./components/UsersListModal";
 import { ActiveUsersSection } from "./components/ActiveUsersSection";
 import { WhatsAppUniqueUsersCard } from "./WhatsAppUniqueUsersCard";
 import { ClosedInLastTwoHoursCard } from "./ClosedInLastTwoHoursCard";
@@ -184,6 +185,14 @@ export function AnnamDashboard_dev({
   const [userDetailsInitialFilters, setUserDetailsInitialFilters] = useState<
     Partial<UserDetailsFilters> | undefined
   >(undefined);
+
+  const [selectedMetricUsers, setSelectedMetricUsers] = useState<{
+    title: string;
+    category: string;
+    value: string;
+    dynamicFieldLabel: string;
+    dynamicFieldKey: string;
+  } | null>(null);
 
   // ─── Computed Values ───────────────────────────────────────────────────────
   const isAppAnalyticsSource = source === "annam" || source === "whatsapp";
@@ -534,10 +543,10 @@ export function AnnamDashboard_dev({
                     userType={filters.userType}
                     onRefresh={handleRefreshStatsCards}
                     passedQuestions={
-                      questionStatusData?.closedVsTotalQuestions?.statuses?.pass
+                      questionStatusData?.closedVsTotalQuestions?.nonGdb?.count
                     }
                     avgPassTimeMinutes={
-                      questionStatusData?.closedVsTotalQuestions?.pass
+                      questionStatusData?.closedVsTotalQuestions?.nonGdb
                         ?.avgTimeMinutes
                     }
                     combinedCount={
@@ -571,6 +580,12 @@ export function AnnamDashboard_dev({
                     }
                     totalPassed={
                       closed2hData?.closedInLastTwoHours?.totalPassCount
+                    }
+                    dynamicClosedInLastTwoHours={
+                      closed2hData?.closedInLastTwoHours?.dynamicClosedInTwoHoursCount
+                    }
+                    totalDynamicClosed={
+                      closed2hData?.closedInLastTwoHours?.totalDynamicClosedCount
                     }
                   />
 
@@ -856,6 +871,25 @@ export function AnnamDashboard_dev({
                           setAgriHovered={setAgriHovered}
                           isRefreshing={kwDataRefreshing}
                           onRefresh={handleKWRefresh}
+                          onMetricClick={(metric, value) => {
+                            if (metric === "kcc") {
+                              setSelectedMetricUsers({
+                                title: "KCC Awareness Users List",
+                                category: "kccAwareness",
+                                value: value,
+                                dynamicFieldLabel: "KCC Awareness",
+                                dynamicFieldKey: "awarenessOfKCC",
+                              });
+                            } else {
+                              setSelectedMetricUsers({
+                                title: "Uses Agri Apps Users List",
+                                category: "agriAppUsage",
+                                value: value,
+                                dynamicFieldLabel: "Uses Agri Apps",
+                                dynamicFieldKey: "usesAgriApps",
+                              });
+                            }
+                          }}
                         />
                       </div>
                     )}
@@ -1057,6 +1091,22 @@ export function AnnamDashboard_dev({
                     >
                       <WhatsAppUsersView />
                     </div>
+                  )}
+
+                  {selectedMetricUsers && (
+                    <UsersListModal
+                      isOpen={Boolean(selectedMetricUsers)}
+                      onClose={() => setSelectedMetricUsers(null)}
+                      title={selectedMetricUsers.title}
+                      source={source as any}
+                      userType={filters.userType as any}
+                      dynamicFieldLabel={selectedMetricUsers.dynamicFieldLabel}
+                      dynamicFieldKey={selectedMetricUsers.dynamicFieldKey}
+                      category={selectedMetricUsers.category}
+                      value={selectedMetricUsers.value}
+                      filterOptions={["Yes", "No"]}
+                      initialFilterValue={selectedMetricUsers.value === "yes" ? "Yes" : "No"}
+                    />
                   )}
                 </>
               )}

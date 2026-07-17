@@ -100,11 +100,20 @@ export function TopQuestionInstancesModal({
         render: (row) => <CopyableIdCell id={row._id} />,
       },
       {
+        key: "email",
+        label: "Email",
+        sortable: true,
+        sortAccessor: (row) => row.email ?? "",
+        className: "w-[16%]",
+        cellClassName: "text-xs text-gray-500 truncate",
+        render: (row) => row.email || "Not Available",
+      },
+      {
         key: "question",
         label: "Question",
         sortable: true,
         sortAccessor: (row) => row.question,
-        className: "w-[44%]",
+        className: "w-[38%]",
         cellClassName: "overflow-hidden",
         render: (row) => (
           <button
