@@ -24,8 +24,12 @@ export const Routes = {
   login: "/login",
   dashboard: "/dashboard",
   queue: "/queue",
-  // Reserve detail-route helpers for the page objects to interpolate IDs into.
+  // Moderator detail view (used by PR #1).
   detail: (questionId: string): string => `/queue/${questionId}`,
+  // Expert surfaces (added in PR #2).
+  expertInbox: "/expert/inbox",
+  expertHistory: "/expert/history",
+  expertDetail: (questionId: string): string => `/expert/inbox/${questionId}`,
 } as const;
 
 export const SELECTOR_MAP = {
@@ -60,6 +64,53 @@ export const SELECTOR_MAP = {
     statPrefix: "dashboard-stat-", // e.g. `dashboard-stat-pending`
     userMenu: "user-menu", // TODO(selector) — top-right avatar / initials
     logoutButton: "user-menu-logout", // TODO(selector)
+  },
+  /**
+   * Expert surfaces (PR #2).
+   *
+   * The expert:
+   *  • Inbox      /expert/inbox            — assigned, not-yet-answered
+   *  • Detail     /expert/inbox/:questionId — write/submit/draft answer
+   *  • History    /expert/history          — past submissions
+   *
+   * The inbox rows are keyed `expert-inbox-row-${questionId}` so tests can
+   * target a specific assignment without positional indexing.  The detail
+   * page exposes a rich-text answer input (textarea or contenteditable),
+   * separate "Save draft" and "Submit for review" CTAs, an inline AI-draft
+   * region (when present), and a status badge the test reads after the
+   * submission side-effect fires.
+   */
+  expert: {
+    inbox: {
+      heading: "expert-inbox-heading", // TODO(selector)
+      rowPrefix: "expert-inbox-row-", // expert-inbox-row-${questionId}
+      rowLanguage: "expert-inbox-row-language", // TODO(selector)
+      rowDeadline: "expert-inbox-row-deadline", // TODO(selector) — SLA / due-by
+      rowStatus: "expert-inbox-row-status", // TODO(selector)
+      empty: "expert-inbox-empty", // TODO(selector)
+      linkHistory: "expert-inbox-link-history", // TODO(selector)
+    },
+    answer: {
+      heading: "expert-answer-heading", // TODO(selector)
+      statusBadge: "expert-answer-status", // TODO(selector)
+      farmerQuery: "expert-farmer-query", // TODO(selector) — original text
+      aiDraft: "expert-answer-ai-draft", // TODO(selector) — optional AI prefilled
+      input: "expert-answer-input", // TODO(selector) — textarea / rich-text
+      submit: "expert-answer-submit", // TODO(selector)
+      draftSave: "expert-answer-draft-save", // TODO(selector)
+      draftSavedToast: "expert-answer-draft-saved-toast", // TODO(selector)
+      submittedToast: "expert-answer-submitted-toast", // TODO(selector)
+      validationError: "expert-answer-validation-error", // TODO(selector)
+      handoverToast: "expert-answer-handover-toast", // TODO(selector) — "sent for review"
+    },
+    history: {
+      heading: "expert-history-heading", // TODO(selector)
+      rowPrefix: "expert-history-row-", // expert-history-row-${questionId}
+      empty: "expert-history-empty", // TODO(selector)
+    },
+    denied: {
+      heading: "expert-permission-denied", // TODO(selector) — generic 403/404 region
+    },
   },
 } as const;
 

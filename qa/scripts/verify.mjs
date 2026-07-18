@@ -6,7 +6,8 @@
  * template, README, and CI all agree.
  *
  * Authoritative floor values
- *   reviewer-system  ≥ 15 tests   (5 ErrorBoundary + 10 moderator — PR #1)
+ *   reviewer-system  ≥ 25 tests   (5 ErrorBoundary + 10 moderator — PR #1
+ *                                 + 10 expert — PR #2)
  *   web-app          ≥  7 tests   (PR #1 tightens the verifier regex; floor
  *                                 tracks reality — bump deliberately as new
  *                                 specs land)
@@ -29,7 +30,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const TESTS_DIR = path.join(__dirname, "..", "tests");
-const FLOOR = { "reviewer-system": 15, "web-app": 7 };
+const FLOOR = { "reviewer-system": 25, "web-app": 7 };
 
 /**
  * Count only `test(…)` declarations (i.e. the *first* character after the
