@@ -29,7 +29,7 @@ from ajrasakha.agents.language import language_directive_for_synthesis
 from ajrasakha.agents.translation_catalog import language_pair_from_plan
 from ajrasakha.agents.config import SYNTHESIZE_MODEL
 from ajrasakha.agents.prompts import GREETING_SYNTHESIS_PROMPT
-from langchain_anthropic import ChatAnthropic
+from ajrasakha.agents.config import ChatAnthropic
 from anthropic import APITimeoutError, APIConnectionError, APIStatusError
 from langchain_core.messages import SystemMessage, HumanMessage, BaseMessage
 import asyncio

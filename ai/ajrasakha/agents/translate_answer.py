@@ -6,7 +6,7 @@ import logging
 from typing import Optional
 
 from anthropic import APITimeoutError, APIConnectionError, APIStatusError
-from langchain_anthropic import ChatAnthropic
+from ajrasakha.agents.config import ChatAnthropic
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 

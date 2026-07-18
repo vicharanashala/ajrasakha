@@ -1614,7 +1614,7 @@ export class AnswerService extends BaseService implements IAnswerService {
           selectedHistoryId,
         );
       }
-      if (user.role === 'expert') {
+      if (user.role === 'expert' || user.role === 'pae_expert') {
         return await this.questionSubmissionRepo.getUserActivityHistory(
           userId,
           page,
@@ -1623,7 +1623,7 @@ export class AnswerService extends BaseService implements IAnswerService {
           session,
           selectedHistoryId,
         );
-      } else if (user.role === 'moderator') {
+      } else if (user.role === 'moderator' || user.role === 'admin') {
         return await this.answerRepo.getModeratorActivityHistory(
           userId,
           page,
@@ -1633,6 +1633,7 @@ export class AnswerService extends BaseService implements IAnswerService {
           session,
         );
       }
+      return [];
     });
   }
   async getFinalAnswerQuestions(

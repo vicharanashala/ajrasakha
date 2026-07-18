@@ -111,3 +111,23 @@ MCP_URLS = {
     "faq_video":  f"http://{REMOTE_IP}:9007/mcp",
     "chemical_checker": f"http://{REMOTE_IP}:9101/mcp",
 }
+
+
+from langchain_openai import ChatOpenAI
+
+class ChatAnthropic(ChatOpenAI):
+    """
+    Universal drop-in replacement for ChatAnthropic that routes all LLM calls
+    to any OpenAI-compatible API endpoint (such as MorphLLM/MiniMax) using ChatOpenAI.
+    """
+    def __init__(self, *args, **kwargs):
+        model = kwargs.pop("model", None) or kwargs.pop("model_name", None) or os.getenv("CLAUDE_MODEL", "morph-minimax3-428b")
+        api_key = kwargs.pop("api_key", None) or kwargs.pop("anthropic_api_key", None) or os.getenv("OPENAI_API_KEY", "").strip()
+        base_url = kwargs.pop("base_url", None) or os.getenv("OPENAI_BASE_URL", "").strip()
+        super().__init__(
+            model=model,
+            openai_api_key=api_key,
+            openai_api_base=base_url,
+            *args,
+            **kwargs
+        )

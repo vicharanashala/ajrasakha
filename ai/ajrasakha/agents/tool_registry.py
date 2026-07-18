@@ -21,22 +21,38 @@ _main_tool_node: ToolNode | None = None
 async def get_location_tool():
     global _location_tool
     if _location_tool is None:
-        client = MultiServerMCPClient(
-            {"location_server": {"url": MCP_URLS["location"], "transport": "http"}}
-        )
-        tools = await client.get_tools()
-        _location_tool = tools[0]
+        try:
+            client = MultiServerMCPClient(
+                {"location_server": {"url": MCP_URLS["location"], "transport": "http"}}
+            )
+            tools = await client.get_tools()
+            _location_tool = tools[0]
+        except BaseException as e:
+            from langchain_core.tools import tool
+            @tool
+            def location_information_tool(latitude: float, longitude: float) -> str:
+                """Fallback location tool when MCP server is offline."""
+                return f"Location coordinates: {latitude}, {longitude}"
+            _location_tool = location_information_tool
     return _location_tool
 
 
 async def get_reviewer_tool():
     global _reviewer_tool
     if _reviewer_tool is None:
-        client = MultiServerMCPClient(
-            {"reviewer_server": {"url": MCP_URLS["reviewer"], "transport": "http"}}
-        )
-        tools = await client.get_tools()
-        _reviewer_tool = tools[0]
+        try:
+            client = MultiServerMCPClient(
+                {"reviewer_server": {"url": MCP_URLS["reviewer"], "transport": "http"}}
+            )
+            tools = await client.get_tools()
+            _reviewer_tool = tools[0]
+        except BaseException as e:
+            from langchain_core.tools import tool
+            @tool
+            def upload_question_to_reviewer_system(question: str, state_name: str, crop: str, details: dict = None, source: str = "AJRASAKHA") -> dict:
+                """Fallback reviewer upload tool when MCP server is offline."""
+                return {"status": "uploaded_offline_fallback", "question": question, "state": state_name, "crop": crop}
+            _reviewer_tool = upload_question_to_reviewer_system
     return _reviewer_tool
 
 

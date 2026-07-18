@@ -76,6 +76,8 @@ export const MobileSidebar = ({
       setActiveTab(value);
     } else if (value === "whatsapp_history") {
       navigate({ to: "/whatsapp-history" });
+    } else if (value === "farmer_feedback") {
+      navigate({ to: "/dashboard/feedback" });
     } else {
       setTab(value);
       setActiveTab(value);
@@ -145,6 +147,7 @@ export const MobileSidebar = ({
 
     ...(user && !isCoordinator && user.role !== "call_agent" ? [{ id: "history", label: "History", icon: History }] : []),
     ...(user && !isCoordinator && user.role !== "call_agent" ? [{ id: "whatsapp_history", label: "WhatsApp History", icon: MessageSquare }] : []),
+    ...(user && !isCoordinator && user.role !== "call_agent" ? [{ id: "farmer_feedback", label: "Farmer Feedback", icon: BarChart3 }] : []),
   ];
 
   return (
