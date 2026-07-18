@@ -4,6 +4,9 @@ export interface IMediaService {
   /** Public list, optionally filtered by kind. */
   list(kind?: MediaKind): Promise<IMedia[]>;
 
+  /** Sign the read URLs on a set of media items (so /content can carry usable media). */
+  signMediaUrls(items: IMedia[]): Promise<IMedia[]>;
+
   /** Small files only (≤31 MB): upload through the API and record it. */
   upload(params: {
     kind: MediaKind;

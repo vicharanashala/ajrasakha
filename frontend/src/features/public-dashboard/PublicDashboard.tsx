@@ -28,7 +28,6 @@ import { DASHBOARD_TABS, DEFAULT_TAB } from "./data/tabs";
 import { useGetDashboardContent } from "@/hooks/api/dashboard/useDashboardContent";
 import { useGetPublicCounts, useGetPublicStats } from "@/hooks/api/dashboard/usePublicStats";
 import { usePublicCountsSocket } from "@/hooks/api/dashboard/usePublicCountsSocket";
-import { useGetMedia } from "@/hooks/api/media/useMedia";
 import type { PublicDashboardStats } from "@/hooks/services/publicStatsService";
 import type { DashboardStat } from "@/hooks/services/dashboardContentService";
 
@@ -50,9 +49,13 @@ export const PublicDashboard = () => {
   const { data: live } = useGetPublicStats();
   const { data: counts } = useGetPublicCounts(); // seeded by fetch, kept live by the socket
   usePublicCountsSocket(); // pushes count updates into the query above (change-stream driven)
-  const { data: carouselImages } = useGetMedia("carousel");
-  const { data: outreachImages } = useGetMedia("outreach_image");
-  const { data: outreachVideos } = useGetMedia("outreach_video");
+
+  // Media is stored inline in the content doc (URLs already signed server-side), so there's
+  // no separate /media fetch — everything comes from /content.
+  const media = content?.media ?? [];
+  const carouselImages = media.filter((m) => m.kind === "carousel");
+  const outreachImages = media.filter((m) => m.kind === "outreach_image");
+  const outreachVideos = media.filter((m) => m.kind === "outreach_video");
 
   // Admin-authored narrative, falling back to the seed blocks until something is saved.
   const blocks = content?.blocks?.length ? content.blocks : defaultBlocks;
@@ -106,7 +109,7 @@ export const PublicDashboard = () => {
               ...editorial,
             }}
             loading={figuresLoading}
-            images={carouselImages ?? []}
+            images={carouselImages}
           />
           <main>
             {/* 60-second overview carousel (left) + Human Intelligence Network (right) */}
@@ -122,7 +125,7 @@ export const PublicDashboard = () => {
             {/* HumanNetwork now renders inside NarrativeSection's right column, above. */}
             <Integrations />
             <ImpactOutreach />
-            <OutreachGallery images={outreachImages ?? []} videos={outreachVideos ?? []} />
+            <OutreachGallery images={outreachImages} videos={outreachVideos} />
             <TechShowcase />
             <Roadmap />
             <Multilingual />

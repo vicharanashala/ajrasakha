@@ -1,5 +1,6 @@
 import { apiFetch } from "../api/api-fetch";
 import { env } from "@/config/env";
+import type { MediaItem } from "./mediaService";
 
 const API_BASE_URL = env.apiBaseUrl();
 
@@ -29,6 +30,8 @@ export interface DashboardContent {
   key?: string;
   blocks: DashboardBlock[];
   stats?: DashboardStat[];
+  /** Carousel + outreach media, stored inline with the content (URLs already signed). */
+  media?: MediaItem[];
   updatedAt?: string;
   updatedBy?: string | null;
 }

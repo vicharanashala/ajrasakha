@@ -46,16 +46,21 @@ export class MediaService implements IMediaService {
   }
 
   async list(kind?: MediaKind): Promise<IMedia[]> {
-    const items = await this.repo.list(kind);
+    return this.signMediaUrls(await this.repo.list(kind));
+  }
 
-    // The public dashboard is unauthenticated, so it can only load an image if the object is
-    // reachable without a login. Rather than depend on the bucket being world-readable
-    // (which Public Access Prevention / Uniform Bucket-Level Access can forbid), each object's
-    // `url` is swapped for a short-lived v4 signed READ url that anyone can fetch. The stored
-    // `url` in Mongo is left as-is; this only affects what we hand out.
+  /**
+   * Swap each uploaded item's stored (unsigned) `url` for a short-lived v4 signed READ url,
+   * so the unauthenticated public dashboard can load it without the bucket being world-
+   * readable (which Public Access Prevention / Uniform Bucket-Level Access can forbid). The
+   * stored `url` in Mongo is left as-is; this only affects what we hand out.
+   *
+   * Public so /dashboard/content can sign the media it now carries inline — the frontend
+   * reads media straight from the content payload instead of a separate /media call.
+   */
+  async signMediaUrls(items: IMedia[]): Promise<IMedia[]> {
     return Promise.all(
       items.map(async item => {
-        // YouTube items have no GCS object — keep their watch URL untouched.
         // External items (YouTube, image links) carry their URL directly — nothing to sign.
         if (item.source === 'youtube' || item.source === 'link' || !item.storagePath) {
           return item;

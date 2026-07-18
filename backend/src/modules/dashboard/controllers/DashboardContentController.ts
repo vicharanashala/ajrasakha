@@ -89,7 +89,10 @@ export class DashboardContentController {
   @OpenAPI({ summary: 'Public — editable dashboard content (blocks + headline stats)' })
   @Get('/content')
   async content(): Promise<IDashboardContent> {
-    return this.contentService.getContent();
+    const content = await this.contentService.getContent();
+    // Media lives inside the content doc; sign its read URLs here so the public dashboard
+    // can render images straight from /content without a separate /media call.
+    return { ...content, media: await this.mediaService.signMediaUrls(content.media ?? []) };
   }
 
   /** Uploaded media, optionally filtered by kind. */
