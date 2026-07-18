@@ -49,6 +49,7 @@ export interface DailyStats {
   duplicateClosed?: number;
   agriExpertCount?: number;
   outReachCount?: number;
+  newModeratorApprovalRate?: number;
 }
 
 // export const getDailyStats = async (): Promise<DailyStats> => {
@@ -205,7 +206,7 @@ export const getDailyStats = async (): Promise<DailyStats> => {
   const inReview = statusCount.find(s => s._id === 'in-review')?.count ?? 0;
   const pass = statusCount.find(s => s._id === 'pass')?.count ?? 0;
   const duplicateClosed = statusCount.find(s => s._id === 'duplicate_closed')?.count ?? 0;
-
+  const newModeratorApprovalRate = agriCount == 0 ? 0 : (closed / agriCount) * 100;
   const totalQuestionsUnderExpertReview =
     totalQuestions - (totalClosedQuestions + totalInReviewQuestions);
 
@@ -242,5 +243,6 @@ export const getDailyStats = async (): Promise<DailyStats> => {
     duplicateClosed,
     agriExpertCount,
     outReachCount,
+    newModeratorApprovalRate
   };
 };
