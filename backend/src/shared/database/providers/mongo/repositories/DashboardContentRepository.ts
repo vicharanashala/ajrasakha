@@ -41,13 +41,20 @@ export class DashboardContentRepository implements IDashboardContentRepository {
     blocks: IDashboardBlock[],
     stats: IDashboardStat[],
     updatedBy: string | null,
+    saturationThreshold?: number,
   ): Promise<IDashboardContent> {
     await this.init();
     const now = new Date();
     await this.collection.updateOne(
       { key: SINGLETON_KEY },
       {
-        $set: { blocks, stats, updatedAt: now, updatedBy },
+        $set: {
+          blocks,
+          stats,
+          updatedAt: now,
+          updatedBy,
+          ...(saturationThreshold !== undefined ? { saturationThreshold } : {}),
+        },
         $setOnInsert: { key: SINGLETON_KEY },
       },
       { upsert: true },

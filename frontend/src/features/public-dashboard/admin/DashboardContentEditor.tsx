@@ -35,11 +35,16 @@ export const DashboardContentEditor = () => {
   const { mutateAsync: save, isPending: saving } = useUpdateDashboardContent();
   const [blocks, setBlocks] = useState<DashboardBlock[]>([]);
   const [stats, setStats] = useState<DashboardStat[]>([]);
+  // Empty string = "not set" (falls back to the server default); otherwise a number string.
+  const [saturationThreshold, setSaturationThreshold] = useState<string>("");
 
   useEffect(() => {
     if (!data) return;
     setBlocks(data.blocks?.length ? data.blocks : []);
     setStats(data.stats?.length ? data.stats : []);
+    setSaturationThreshold(
+      data.saturationThreshold != null ? String(data.saturationThreshold) : "",
+    );
   }, [data]);
 
   // ── Headline stats (the snapshot grid) ────────────────────────────────────
@@ -89,6 +94,8 @@ export const DashboardContentEditor = () => {
     save({
       blocks: blocks.map((b, i) => ({ ...b, order: i })),
       stats: stats.map((s, i) => ({ ...s, order: i })),
+      saturationThreshold:
+        saturationThreshold.trim() === "" ? undefined : Number(saturationThreshold),
     });
 
   if (isLoading) {
@@ -118,6 +125,27 @@ export const DashboardContentEditor = () => {
           </Button>
         </div>
       </div>
+
+      {/* ── Saturation threshold for the "Saturated Crops" grouping ── */}
+      <section className="mb-8 rounded-lg border bg-card p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold">Saturation threshold</h2>
+            <p className="text-xs text-muted-foreground">
+              A crop counts as “saturated” in a state once its question count exceeds this
+              number. Leave blank to use the server default.
+            </p>
+          </div>
+          <Input
+            type="number"
+            min={0}
+            value={saturationThreshold}
+            onChange={(e) => setSaturationThreshold(e.target.value)}
+            placeholder="e.g. 50"
+            className="w-32"
+          />
+        </div>
+      </section>
 
       {/* ── Headline figures shown in the dashboard's snapshot grid ── */}
       <section className="mb-8 rounded-lg border bg-card p-4">

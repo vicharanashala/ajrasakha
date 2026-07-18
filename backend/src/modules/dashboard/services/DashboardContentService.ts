@@ -16,6 +16,9 @@ import {
   PublicDashboardStats,
 } from '../interfaces/IDashboardContentService.js';
 
+/** Fallback saturation threshold when an admin hasn't set one. */
+const DEFAULT_SATURATION_THRESHOLD = 50;
+
 /** Raw role keys → the labels shown on the public Human Intelligence Network grid. */
 const ROLE_LABELS: Record<string, string> = {
   expert: 'Experts',
@@ -85,13 +88,18 @@ export class DashboardContentService implements IDashboardContentService {
   }
 
   async getPublicDashboardStats(): Promise<PublicDashboardStats> {
-    const [counts, { analytics }, roleCounts] = await Promise.all([
+    // The admin-configured saturation threshold drives the saturated-crops grouping.
+    const content = await this.repo.get();
+    const threshold = content?.saturationThreshold ?? DEFAULT_SATURATION_THRESHOLD;
+
+    const [counts, { analytics }, roleCounts, saturatedCropsByState] = await Promise.all([
       this.getPublicDashboardCounts(),
       this.questionRepo.getQuestionAnalytics(),
       // The Human Intelligence Network headcounts — current active users grouped by role
       // (status not in-active), from the live users collection. Folded into /stats rather
       // than a new endpoint since it is part of the heavy, lazily-refreshed figures.
       this.userRepo.getActiveUserCountByRole(),
+      this.questionRepo.getSaturatedCropsByState(threshold),
     ]);
 
     const { cropData = [], stateData = [], domainData = [] } =
@@ -117,6 +125,8 @@ export class DashboardContentService implements IDashboardContentService {
       userRoleOverview: roleCounts
         .filter(r => r.role !== 'admin')
         .map(r => ({ role: ROLE_LABELS[r.role] ?? prettifyRole(r.role), count: r.count })),
+      saturationThreshold: threshold,
+      saturatedCropsByState,
     };
   }
 
@@ -124,6 +134,7 @@ export class DashboardContentService implements IDashboardContentService {
     blocks: IDashboardBlock[],
     stats: IDashboardStat[],
     userId: string,
+    saturationThreshold?: number,
   ): Promise<IDashboardContent> {
     // Normalise: trim, drop empty blocks, ensure ids, re-sequence order, sanitise figures.
     const cleanedBlocks: IDashboardBlock[] = (blocks ?? [])
@@ -150,7 +161,13 @@ export class DashboardContentService implements IDashboardContentService {
       }))
       .filter(s => s.label);
 
-    return this.repo.save(cleanedBlocks, cleanedStats, userId ?? null);
+    // Clamp to a sane non-negative integer when provided.
+    const threshold =
+      saturationThreshold === undefined || Number.isNaN(saturationThreshold)
+        ? undefined
+        : Math.max(0, Math.floor(saturationThreshold));
+
+    return this.repo.save(cleanedBlocks, cleanedStats, userId ?? null, threshold);
   }
 }
 

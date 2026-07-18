@@ -66,6 +66,11 @@ export class UpdateDashboardContentDto {
   @ValidateNested({ each: true })
   @Type(() => DashboardStatDto)
   stats?: DashboardStatDto[];
+
+  /** A crop counts as "saturated" in a state once its question count exceeds this. */
+  @IsOptional()
+  @IsNumber()
+  saturationThreshold?: number;
 }
 
 export const DASHBOARD_CONTENT_VALIDATORS = [

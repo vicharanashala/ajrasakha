@@ -32,6 +32,8 @@ export interface DashboardContent {
   stats?: DashboardStat[];
   /** Carousel + outreach media, stored inline with the content (URLs already signed). */
   media?: MediaItem[];
+  /** A crop counts as "saturated" in a state once its question count exceeds this. */
+  saturationThreshold?: number;
   updatedAt?: string;
   updatedBy?: string | null;
 }
@@ -48,10 +50,11 @@ export class DashboardContentService {
   async update(
     blocks: DashboardBlock[],
     stats: DashboardStat[],
+    saturationThreshold?: number,
   ): Promise<DashboardContent | null> {
     return apiFetch<DashboardContent>(`${this._baseUrl}/content`, {
       method: "PUT",
-      body: JSON.stringify({ blocks, stats }),
+      body: JSON.stringify({ blocks, stats, saturationThreshold }),
     });
   }
 }

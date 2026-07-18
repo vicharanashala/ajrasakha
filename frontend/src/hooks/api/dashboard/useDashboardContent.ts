@@ -23,10 +23,12 @@ export const useUpdateDashboardContent = () => {
     mutationFn: ({
       blocks,
       stats,
+      saturationThreshold,
     }: {
       blocks: DashboardBlock[];
       stats: DashboardStat[];
-    }) => service.update(blocks, stats),
+      saturationThreshold?: number;
+    }) => service.update(blocks, stats, saturationThreshold),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["dashboard-content"] });
       toast.success("Dashboard content saved");

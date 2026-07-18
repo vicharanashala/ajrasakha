@@ -43,6 +43,8 @@ export interface IDashboardContent {
   stats?: IDashboardStat[];
   /** Carousel images + outreach images/videos (uploaded or YouTube), stored inline here. */
   media?: IMedia[];
+  /** A crop counts as "saturated" in a state once its question count exceeds this number. */
+  saturationThreshold?: number;
   updatedAt?: Date;
   updatedBy?: string | null;
 }

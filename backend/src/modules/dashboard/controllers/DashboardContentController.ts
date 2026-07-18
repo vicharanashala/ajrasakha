@@ -128,6 +128,7 @@ export class DashboardContentController {
       body.blocks as unknown as IDashboardBlock[],
       (body.stats ?? []) as unknown as IDashboardStat[],
       (user._id ?? '').toString(),
+      body.saturationThreshold,
     );
   }
 

@@ -33,6 +33,13 @@ export interface RoleCount {
   count: number;
 }
 
+/** Crops considered saturated in a state (count exceeds the admin's threshold). */
+export interface SaturatedCropState {
+  state: string;
+  total: number;
+  crops: { crop: string; count: number }[];
+}
+
 export interface PublicDashboardStats extends PublicDashboardCounts {
   statesCovered: number;
   cropsCovered: number;
@@ -42,6 +49,10 @@ export interface PublicDashboardStats extends PublicDashboardCounts {
   domainData: Analytics['domainData'];
   /** The Human Intelligence Network headcounts — from performance/overview's userRoleOverview. */
   userRoleOverview: RoleCount[];
+  /** Threshold used for the saturated-crops grouping (admin-configured). */
+  saturationThreshold: number;
+  /** Per state, the crops whose question count exceeds the threshold. */
+  saturatedCropsByState: SaturatedCropState[];
 }
 
 export interface IDashboardContentService {
@@ -53,6 +64,7 @@ export interface IDashboardContentService {
     blocks: IDashboardBlock[],
     stats: IDashboardStat[],
     userId: string,
+    saturationThreshold?: number,
   ): Promise<IDashboardContent>;
 
   /** Public read — live figures computed from the questions collection. */

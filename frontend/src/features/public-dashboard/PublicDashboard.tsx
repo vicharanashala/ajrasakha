@@ -120,7 +120,10 @@ export const PublicDashboard = () => {
               cropsCovered={live?.cropsCovered}
               domainsCovered={live?.domainsCovered}
             />
-            <KnowledgeEngine />
+            <KnowledgeEngine
+              saturatedCropsByState={live?.saturatedCropsByState}
+              saturationThreshold={live?.saturationThreshold}
+            />
             {/* HumanNetwork now renders inside NarrativeSection's right column, above. */}
             <Integrations />
             <ImpactOutreach />

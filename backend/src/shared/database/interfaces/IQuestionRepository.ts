@@ -402,6 +402,14 @@ export interface IQuestionRepository {
   /** Every question in the collection, any status — total intake since inception. */
   countAllQuestions(session?: ClientSession): Promise<number>;
 
+  /** Crops per state whose question count exceeds `threshold` (saturated crops). */
+  getSaturatedCropsByState(
+    threshold: number,
+    session?: ClientSession,
+  ): Promise<
+    { state: string; total: number; crops: { crop: string; count: number }[] }[]
+  >;
+
   /** Questions created on/after `since`, any status — raw intake volume. */
   countQuestionsCreatedSince(
     since: Date,

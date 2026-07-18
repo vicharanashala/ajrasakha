@@ -4788,6 +4788,78 @@ export class QuestionRepository implements IQuestionRepository {
   }
 
   /**
+   * Saturated crops per state: questions grouped by state → crop, keeping only crops whose
+   * count EXCEEDS `threshold`. A crop is "saturated" in a state once enough questions have
+   * been collected for it there.
+   *
+   * State is matched case-insensitively (details.state has mixed casing — 'MADHYA PRADESH'
+   * vs 'Madhya Pradesh'), and crop uses normalised_crop when present.
+   */
+  async getSaturatedCropsByState(
+    threshold: number,
+    session?: ClientSession,
+  ): Promise<
+    { state: string; total: number; crops: { crop: string; count: number }[] }[]
+  > {
+    await this.init();
+
+    const cropExpr = {
+      $ifNull: [
+        '$details.normalised_crop',
+        { $ifNull: ['$details.crop', 'Not Normalized'] },
+      ],
+    };
+
+    const rows = (await this.QuestionCollection.aggregate(
+      [
+        {
+          $match: {
+            isTesting: { $ne: true },
+            status: { $nin: ['non_agri'] },
+            'details.state': {
+              $type: 'string',
+              $nin: ['', 'all', 'All', '<unknown>', 'Not Specified'],
+            },
+          },
+        },
+        // Count per (state, crop) — fold casing so 'MADHYA PRADESH'/'Madhya Pradesh' merge.
+        {
+          $group: {
+            _id: {
+              stateKey: { $toLower: { $trim: { input: '$details.state' } } },
+              crop: cropExpr,
+            },
+            stateName: { $first: '$details.state' },
+            count: { $sum: 1 },
+          },
+        },
+        { $match: { count: { $gt: threshold } } },
+        {
+          $group: {
+            _id: '$_id.stateKey',
+            state: { $first: '$stateName' },
+            crops: { $push: { crop: '$_id.crop', count: '$count' } },
+            total: { $sum: '$count' },
+          },
+        },
+        { $project: { _id: 0, state: 1, crops: 1, total: 1 } },
+        { $sort: { total: -1 } },
+      ],
+      { session },
+    ).toArray()) as {
+      state: string;
+      total: number;
+      crops: { crop: string; count: number }[];
+    }[];
+
+    // Sort each state's crops by count (desc) for a tidy display.
+    return rows.map(r => ({
+      ...r,
+      crops: [...r.crops].sort((a, b) => b.count - a.count),
+    }));
+  }
+
+  /**
    * Questions that entered the database on/after `since` — every question regardless of
    * status, i.e. raw intake volume. Feeds the public dashboard's "Today / This month" ticker.
    */

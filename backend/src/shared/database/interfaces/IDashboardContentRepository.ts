@@ -12,5 +12,6 @@ export interface IDashboardContentRepository {
     blocks: IDashboardBlock[],
     stats: IDashboardStat[],
     updatedBy: string | null,
+    saturationThreshold?: number,
   ): Promise<IDashboardContent>;
 }
