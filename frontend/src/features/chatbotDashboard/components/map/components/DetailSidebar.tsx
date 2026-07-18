@@ -223,7 +223,7 @@ export function DetailSidebar({
   };
 
   return (
-    <aside className="flex w-[380px] shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+    <aside className="flex w-full shrink-0 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm md:w-[380px]">
       {/* Header */}
       <div className="border-b border-border p-4">
         <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">

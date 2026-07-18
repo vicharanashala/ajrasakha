@@ -297,7 +297,7 @@ const v = level === "state"
     '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
   return (
-    <div className="flex h-[calc(100vh-2rem)] min-h-[640px] gap-4 p-4">
+    <div className="flex flex-col gap-4 p-4 md:h-[calc(100vh-2rem)] md:min-h-[640px] md:flex-row">
       {/* Styles */}
       <style>{`
         .leaflet-container { background: transparent !important; font-family: inherit; }
@@ -331,7 +331,7 @@ const v = level === "state"
       `}</style>
 
       {/* LEFT: Map panel */}
-      <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+      <div className="relative flex min-w-0 flex-none flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm h-[65vh] md:h-auto md:flex-1">
         {/* Top bar */}
         <div className="flex flex-wrap items-center gap-3 border-b border-border p-3">
           <Breadcrumbs
