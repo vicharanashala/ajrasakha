@@ -1674,19 +1674,18 @@ export class QuestionService extends BaseService implements IQuestionService {
           details as PreferenceDto,
         );
 
-        const TMU = users.filter(u => u.isTrainingUser === true);
-        console.log('training question:', baseQuestion.isTrainingQuestion);
-        const trainingModelQuestion = baseQuestion.isTrainingQuestion === true;
-        const initialUsersToAllocate = trainingModelQuestion ?
-          TMU.slice(
-            0,
-            DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT,
-          )
-          :
-          users.slice(
-            0,
-            DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT,
-          );
+        const TMU: typeof users = [];
+        const normalUsers: typeof users = [];
+        for (const user of users) {
+          if (user.isTrainingUser) {
+            TMU.push(user);
+          } else {
+            normalUsers.push(user);
+          }
+        }
+        const initialUsersToAllocate = (
+          baseQuestion.isTrainingQuestion ? TMU : normalUsers
+        ).slice(0, DEFAULT_AUTO_ALLOCATE_EXPERTS_COUNT);
         const queue: ObjectId[] = initialUsersToAllocate.map(
           u => new ObjectId(u._id.toString()),
         );
@@ -2315,25 +2314,45 @@ export class QuestionService extends BaseService implements IQuestionService {
           details,
           session,
         );
-
-        allExpertIds = this.filterExpertsForTrainingQuestion(
-          users,
-          isTrainingQuestion,
-        ).map(user => user._id.toString());
+        
+        allExpertIds = users
+          .filter(user => user.isTrainingUser !== true)
+          .map(user => user._id.toString());
       } else {
+        const expertTMU = [];
+        const expertNormal = [];
         const [users, preferredExperts] = await Promise.all([
           this.userRepo.findAll(),
           this.userRepo.findExpertsByPreference(details, session),
         ]);
 
-        const eligibleUsers = this.filterExpertsForTrainingQuestion(
-          users.filter(user => user.role === 'expert' && user.isBlocked !== true),
-          isTrainingQuestion,
-        );
-        const eligiblePreferredExperts = this.filterExpertsForTrainingQuestion(
-          preferredExperts,
-          isTrainingQuestion,
-        );
+        for (const user of users) {
+          if (user.role !== 'expert' || user.isBlocked === true) {
+            continue;
+          }
+
+          if (user.isTrainingUser) {
+            expertTMU.push(user);
+          } else {
+            expertNormal.push(user);
+          }
+        }
+
+        const eligibleUsers = isTrainingQuestion ? expertTMU : expertNormal;
+
+        const preferredTMU = [];
+        const preferredNormal = [];
+
+        for (const user of preferredExperts) {
+          if (user.isTrainingUser) {
+            preferredTMU.push(user);
+          } else {
+            preferredNormal.push(user);
+          }
+        }
+        const eligiblePreferredExperts = isTrainingQuestion
+          ? preferredTMU
+          : preferredNormal;
 
         const expertIdsSet = new Set<string>();
 
