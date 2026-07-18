@@ -11806,13 +11806,23 @@ export class ChatbotRepository implements IChatbotRepository {
 
     const result = dateStrings.map(dateStr => {
       const existing = analyticsMap.get(dateStr);
+      const averages = [
+        existing?.averageCloseTimeMinutes || 0,
+        existing?.averagePassTimeMinutes || 0,
+        existing?.averageDynamicCloseTimeMinutes || 0,
+        existing?.averageDuplicateCloseTimeMinutes || 0,
+      ].filter(v => v > 0);
+      const normalAvg = averages.length > 0
+        ? Number((averages.reduce((a, b) => a + b, 0) / averages.length).toFixed(2))
+        : 0;
+
       return {
         period: dateStr,
         totalQuestions: existing?.totalQuestions || 0,
         statuses: existing?.statuses || {},
         averageCloseTimeMinutes: existing?.averageCloseTimeMinutes || 0,
         averagePassTimeMinutes: existing?.averagePassTimeMinutes || 0,
-        combinedAverageTimeMinutes: existing?.combinedAverageTimeMinutes || 0,
+        combinedAverageTimeMinutes: normalAvg,
         closedInPeriod: closedMap.get(dateStr) || 0,
         carryForward: 0,
       };
@@ -12191,10 +12201,23 @@ export class ChatbotRepository implements IChatbotRepository {
       closedInSelectedTime.map(item => [item._id, item.closedInPeriod]),
     );
 
-    return analytics.map(item => ({
-      ...item,
-      closedInPeriod: closedMap.get(item.period) || 0,
-    }));
+    return analytics.map(item => {
+      const averages = [
+        item.averageCloseTimeMinutes || 0,
+        item.averagePassTimeMinutes || 0,
+        item.averageDynamicCloseTimeMinutes || 0,
+        item.averageDuplicateCloseTimeMinutes || 0,
+      ].filter(v => v > 0);
+      const normalAvg = averages.length > 0
+        ? Number((averages.reduce((a, b) => a + b, 0) / averages.length).toFixed(2))
+        : 0;
+
+      return {
+        ...item,
+        combinedAverageTimeMinutes: normalAvg,
+        closedInPeriod: closedMap.get(item.period) || 0,
+      };
+    });
   }
 
   async getMonthlyAnalyticsForWhatsApp(): Promise<any[]> {
@@ -12558,10 +12581,23 @@ export class ChatbotRepository implements IChatbotRepository {
       closedInSelectedTime.map(item => [item._id, item.closedInPeriod]),
     );
 
-    return analytics.map(item => ({
-      ...item,
-      closedInPeriod: closedMap.get(item.period) || 0,
-    }));
+    return analytics.map(item => {
+      const averages = [
+        item.averageCloseTimeMinutes || 0,
+        item.averagePassTimeMinutes || 0,
+        item.averageDynamicCloseTimeMinutes || 0,
+        item.averageDuplicateCloseTimeMinutes || 0,
+      ].filter(v => v > 0);
+      const normalAvg = averages.length > 0
+        ? Number((averages.reduce((a, b) => a + b, 0) / averages.length).toFixed(2))
+        : 0;
+
+      return {
+        ...item,
+        combinedAverageTimeMinutes: normalAvg,
+        closedInPeriod: closedMap.get(item.period) || 0,
+      };
+    });
   }
 
   async getWhatsAppDuplicateQuestions(
@@ -13388,17 +13424,29 @@ export class ChatbotRepository implements IChatbotRepository {
           ...avgCloseTimeStages,
         ]).toArray(),
       ]);
-      // console.log("result---", result)
+      const data = result[0] || {
+        totalQuestions: 0,
+        closedQuestions: 0,
+        inReviewQuestions: 0,
+        avgCloseTimeMinutes: 0,
+        combined: { count: 0, avgTimeMinutes: 0 },
+        closed: { count: 0, avgTimeMinutes: 0 },
+        pass: { count: 0, avgTimeMinutes: 0 },
+        nonGdb: { count: 0, avgTimeMinutes: 0 },
+      };
+
+      const closedAvg = data.closed?.avgTimeMinutes ?? 0;
+      const nonGdbAvg = data.nonGdb?.avgTimeMinutes ?? 0;
+      const normalAvg = (closedAvg > 0 && nonGdbAvg > 0)
+        ? (closedAvg + nonGdbAvg) / 2
+        : (closedAvg || nonGdbAvg || 0);
+
+      if (data.combined) {
+        data.combined.avgTimeMinutes = Number(normalAvg.toFixed(2));
+      }
+
       return {
-        ...(result[0] || {
-          totalQuestions: 0,
-          closedQuestions: 0,
-          inReviewQuestions: 0,
-          avgCloseTimeMinutes: 0,
-          combined: 0,
-          closed: 0,
-          pass: 0,
-        }),
+        ...data,
         previousMonthAvgCloseTimeMinutes:
           previousMonthResult[0]?.avgCloseTimeMinutes || 0,
       };

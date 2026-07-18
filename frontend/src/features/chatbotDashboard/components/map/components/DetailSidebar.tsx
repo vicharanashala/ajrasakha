@@ -216,8 +216,13 @@ const totalPassed =
 const passedInLastTwoHours =
   closedData?.passInTwoHoursCount ?? 0;
 
-  const combinedPct = ((safeCount + passedInLastTwoHours) / (safeTotalClosed + totalPassed)) *
-      100 || 0;
+  const closedWithinTwoHoursPct =
+    safeTotalClosed > 0 ? (safeCount / safeTotalClosed) * 100 : 0;
+  const passedPct =
+    totalPassed > 0 ? (passedInLastTwoHours / totalPassed) * 100 : 0;
+  const combinedPct = (safeTotalClosed > 0 && totalPassed > 0)
+    ? (closedWithinTwoHoursPct + passedPct) / 2
+    : (safeTotalClosed > 0 ? closedWithinTwoHoursPct : passedPct);
 
   const { data: allUsers } = useUserDetails(
     undefined,

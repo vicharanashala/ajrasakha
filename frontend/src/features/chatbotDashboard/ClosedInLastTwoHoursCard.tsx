@@ -98,9 +98,9 @@ export function ClosedInLastTwoHoursCard({
   
   const passedPct =
     totalPassedCombined > 0 ? (passedInLastTwoHoursCombined / totalPassedCombined) * 100 : 0;
-  const combinedPct =
-    ((safeCount + passedInLastTwoHoursCombined) / (safeTotalClosed + totalPassedCombined)) *
-      100 || 0;
+  const combinedPct = (safeTotalClosed > 0 && totalPassedCombined > 0)
+    ? (closedWithinTwoHoursPct + passedPct) / 2
+    : (safeTotalClosed > 0 ? closedWithinTwoHoursPct : passedPct);
   const [closedWithInTwohours, setClosedWithInTowhours] = useState(false);
   const slaBreached =
     safeTotalClosed + totalPassedCombined - safeCount - passedInLastTwoHoursCombined;
@@ -378,7 +378,7 @@ export function ClosedInLastTwoHoursCard({
                 <div className="flex items-center gap-1.5">
                   <Gauge className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                    Weighted Combined Rate
+                    Average Combined Rate
                   </span>
                 </div>
                 <Tooltip>
@@ -409,7 +409,7 @@ export function ClosedInLastTwoHoursCard({
                         </span>
                       </div>
                       <div className="flex justify-between border-t pt-2 font-medium gap-4">
-                        <span>Weighted Combined Rate</span>
+                        <span>Average Combined Rate</span>
                         <span className="tabular-nums text-right font-semibold">
                           {combinedPct.toFixed(1)}% 
                         </span>

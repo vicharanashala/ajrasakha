@@ -68,6 +68,9 @@ export function ClosedQuestionsCard({
     (totalQuestions || 0) -
     (closedQuestions || 0) -
     (passedQuestions || 0);
+  const normalAvgTime = (avgCloseTimeMinutes > 0 && avgPassTimeMinutes > 0)
+    ? (avgCloseTimeMinutes + avgPassTimeMinutes) / 2
+    : (avgCloseTimeMinutes || avgPassTimeMinutes || 0);
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
@@ -348,7 +351,7 @@ export function ClosedQuestionsCard({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="cursor-help text-xs font-semibold tabular-nums text-foreground underline-offset-2 hover:underline">
-                      {formatDurationFromMinutes(combinedAvgTime)}
+                      {formatDurationFromMinutes(normalAvgTime)}
                     </span>
                   </TooltipTrigger>
                   <TooltipContent className="w-64 p-3">
@@ -369,9 +372,9 @@ export function ClosedQuestionsCard({
                         </span>
                       </div>
                       <div className="flex justify-between border-t pt-2 font-medium">
-                        <span>Weighted Average </span>
+                        <span>Average </span>
                         <span className="tabular-nums font-semibold">
-                          {formatDurationFromMinutes(combinedAvgTime)}
+                          {formatDurationFromMinutes(normalAvgTime)}
                         </span>
                       </div>
                     </div>
