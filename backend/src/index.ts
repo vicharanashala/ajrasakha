@@ -27,7 +27,6 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 import { faqPopConfig } from './config/faqPop.js';
 
 
-
 const app = express();
 
 
@@ -38,6 +37,22 @@ app.get(`${appConfig.routePrefix}/health`, (_req, res) => {
     timestamp: new Date().toISOString(),
     environment: NODE_ENV,
   });
+});
+
+// Top-level probes for container orchestrators (no rate-limit, no auth)
+app.get('/healthz', (_req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    instance: process.env.INSTANCE_ID || 'backend',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    environment: NODE_ENV,
+    pid: process.pid,
+  });
+});
+
+app.get('/readyz', (_req, res) => {
+  res.status(200).json({ ready: true, timestamp: new Date().toISOString() });
 });
 
 app.use(loggingHandler);
