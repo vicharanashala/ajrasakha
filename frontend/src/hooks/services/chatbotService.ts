@@ -744,13 +744,14 @@ export class ChatbotService {
     );
   }
 
-  async getClosedInLastTwoHoursByLocation({source, userType, state, district}:{source?: string, userType?: string, state?: string, district?: string}){
+  async getClosedInLastTwoHoursByLocation({source, userType, state, district, startDate, endDate}:{source?: string, userType?: string, state?: string, district?: string, startDate?: string, endDate?: string}){
     const params = new URLSearchParams();
     if(source) params.append("source", source);
     if(userType) params.append("userType", userType);
     if(state) params.append("state", state);
     if(district) params.append("district", district);
-
+    if(startDate) params.append("startDate", startDate);
+    if(endDate) params.append("endDate", endDate)
     return apiFetch<any>(`${this._baseUrl}/closed-question-by-location?${params.toString()}`)
   }
 

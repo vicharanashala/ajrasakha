@@ -19,7 +19,7 @@ import {
   type PaginatedUserDetailsResponse,
 } from "@/features/chatbotDashboard/hooks/useUserDetails";
 import { Skeleton } from "@/components/atoms/skeleton";
-
+import { ScrollArea } from "@/components/atoms/scroll-area";
 import {
   Tooltip,
   TooltipContent,
@@ -72,7 +72,7 @@ interface DetailSidebarProps {
   analyticsData?: any;
   weeklyAnalyticsData?: any;
   monthlyAnalyticsData?: any;
-  questionStatusRange?: any
+  questionStatusRange?: any;
 }
 
 export function DetailSidebar({
@@ -111,8 +111,8 @@ export function DetailSidebar({
   const [showFeedBackModal, setShowFeedBackModal] = useState(false);
   const [rating, setRating] = useState<"all" | "positive" | "negative">("all");
   const [showResolutionModal, setShowResolutionModal] = useState(false);
-  const [startDate, setStartDate] = useState<Date | undefined>(undefined)
-  const [endDate, setEndDate] = useState<Date | undefined>(undefined)
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
 
   const { data: userMetricesData } = useUserMertices(
     source as any,
@@ -220,21 +220,27 @@ export function DetailSidebar({
   const combinedPct =
     ((safeCount + passedInLastTwoHours) / (safeTotalClosed + totalPassed)) *
       100 || 0;
-      console.log("Start and end is", questionStatusRange.startTime,
-    questionStatusRange.endTime)
+  console.log(
+    "Start and end is",
+    questionStatusRange.startTime,
+    questionStatusRange.endTime,
+  );
 
-    useEffect(()=>{
-      if(questionStatusRange.startTime !== undefined || questionStatusRange.endTime !== undefined){
-        setStartDate(new Date(questionStatusRange.startTime));
-        setEndDate(new Date(questionStatusRange.endTime));
-        return
-      }else {
-        setStartDate(undefined);
-        setEndDate(undefined);
-        return
-      }
-    },[questionStatusRange.startTime, questionStatusRange.endTime])
-    
+  useEffect(() => {
+    if (
+      questionStatusRange.startTime !== undefined ||
+      questionStatusRange.endTime !== undefined
+    ) {
+      setStartDate(new Date(questionStatusRange.startTime));
+      setEndDate(new Date(questionStatusRange.endTime));
+      return;
+    } else {
+      setStartDate(undefined);
+      setEndDate(undefined);
+      return;
+    }
+  }, [questionStatusRange.startTime, questionStatusRange.endTime]);
+
   const { data: allUsers } = useUserDetails(
     startDate,
     endDate,
@@ -262,7 +268,13 @@ export function DetailSidebar({
     true,
   );
 
-  console.log ("All users data for date range", startDate, endDate, " is", allUsers);
+  console.log(
+    "All users data for date range",
+    startDate,
+    endDate,
+    " is",
+    allUsers,
+  );
   const getTitle = () => {
     if (level === "india") return "Country overview";
     if (level === "state" && !selectedDistrict) return "State details";
@@ -298,7 +310,8 @@ export function DetailSidebar({
       </div>
 
       {/* Content */}
-      <div className="flex-1 space-y-4 overflow-auto p-4">
+      <ScrollArea className="flex-1">
+      <div className="space-y-4 p-4 pr-5">
         {/* Stats Grid */}
         {activeAnalytics && (
           <div className="grid grid-cols-2 gap-2">
@@ -361,7 +374,7 @@ export function DetailSidebar({
                 }}
                 isIndiaView={isIndiaView}
                 startDate={questionStatusRange.startTime}
-                endDate= {questionStatusRange.endTime}
+                endDate={questionStatusRange.endTime}
               />
             ) : clickedState ? (
               <QueryCategoryQuestionsModal
@@ -371,8 +384,7 @@ export function DetailSidebar({
                 isQueryCategory={false}
                 onClose={() => setClickedState(null)}
                 startDate={questionStatusRange.startTime}
-                endDate= {questionStatusRange.endTime}
-               
+                endDate={questionStatusRange.endTime}
               />
             ) : clickedDistrict ? (
               <QueryCategoryQuestionsModal
@@ -383,7 +395,7 @@ export function DetailSidebar({
                 isQueryCategory={false}
                 onClose={() => setClickedDistrict(null)}
                 startDate={questionStatusRange.startTime}
-                endDate= {questionStatusRange.endTime}
+                endDate={questionStatusRange.endTime}
               />
             ) : null}
             {showActiveUsersModal && (
@@ -395,7 +407,7 @@ export function DetailSidebar({
                 onClose={() => setShowActiveUsersModal(false)}
                 type="activeUsers"
                 startDate={questionStatusRange.startTime}
-                endDate= {questionStatusRange.endTime}
+                endDate={questionStatusRange.endTime}
               />
             )}
             {source !== "whatsapp" ? (
@@ -443,7 +455,7 @@ export function DetailSidebar({
                 state={selectedState ?? undefined}
                 district={selectedDistrict ?? undefined}
                 startDate={questionStatusRange.startTime}
-                endDate= {questionStatusRange.endTime}
+                endDate={questionStatusRange.endTime}
               />
             )}
             {showUsersModal && (
@@ -456,41 +468,42 @@ export function DetailSidebar({
                 type="users"
               />
             )}
-          {source !== "whatsapp" &&
- !startDate &&
- !endDate && (
-  <StatCard
-    onClick={() => setShowUsersModal(true)}
-    label="Users"
-    value={renderCardValue(
-      isIndiaView ? allUsers.totalUsers : activeAnalytics.users,
-    )}
-    icon={<Users className="h-3.5 w-3.5" />}
-    tooltip={
-      <div className="space-y-1 text-xs">
-        <div>Total registered users.</div>
-      </div>
-    }
-  />
-)}
+            {source !== "whatsapp" && !startDate && !endDate && (
+              <StatCard
+                onClick={() => setShowUsersModal(true)}
+                label="Users"
+                value={renderCardValue(
+                  isIndiaView ? allUsers.totalUsers : activeAnalytics.users,
+                )}
+                icon={<Users className="h-3.5 w-3.5" />}
+                tooltip={
+                  <div className="space-y-1 text-xs">
+                    <div>Total registered users.</div>
+                  </div>
+                }
+              />
+            )}
 
-{source === "whatsapp" && (
-  <StatCard
-    label="Weekly Questions"
-    value={
-      isIndiaView
-        ? weeklyAnalyticsData?.[weeklyAnalyticsData.length - 1]?.totalQuestions ?? 0
-        : 0
-    }
-  />
-)}
+            {source === "whatsapp" && (
+              <StatCard
+                label="Weekly Questions"
+                value={
+                  isIndiaView
+                    ? (weeklyAnalyticsData?.[weeklyAnalyticsData.length - 1]
+                        ?.totalQuestions ?? 0)
+                    : 0
+                }
+              />
+            )}
             {source !== "whatsapp" && (
               <StatCard
                 onClick={() => setShowActiveUsersModal(true)}
                 label={<span>Active</span>}
                 value={renderCardValue(
                   isIndiaView
-                    ? !startDate ? todayActiveFarmersData?.totalUsers : allUsers.totalUsers
+                    ? !startDate
+                      ? todayActiveFarmersData?.totalUsers
+                      : allUsers.totalUsers
                     : activeAnalytics.activeUsers,
                 )}
                 icon={<Users className="h-3.5 w-3.5" />}
@@ -511,85 +524,86 @@ export function DetailSidebar({
                 type="moderators"
               />
             )}
-            {source !== "whatsapp" &&
- !startDate &&
- !endDate ? (
-  <StatCard
-    onClick={() => setShowModeratorsModal(true)}
-    label={
-      <div className="flex items-center gap-1">
-        <span>Coordinators</span>
+            {source !== "whatsapp" && !startDate && !endDate ? (
+              <StatCard
+                onClick={() => setShowModeratorsModal(true)}
+                label={
+                  <div className="flex items-center gap-1">
+                    <span>Coordinators</span>
 
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <InfoIcon className="h-3 w-3 cursor-pointer text-muted-foreground" />
-            </TooltipTrigger>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <InfoIcon className="h-3 w-3 cursor-pointer text-muted-foreground" />
+                        </TooltipTrigger>
 
-            <TooltipContent side="top">
-              <div className="space-y-1 text-xs">
-                <div>
-                  District Coordinators:{" "}
-                  {isIndiaView
-                    ? (allUsers?.userRoleCounts?.districtCoordinator ?? 0)
-                    : selectedState
-                      ? totalDistrictCoordinator
-                      : districtData?.districtCoordinator}
-                </div>
+                        <TooltipContent side="top">
+                          <div className="space-y-1 text-xs">
+                            <div>
+                              District Coordinators:{" "}
+                              {isIndiaView
+                                ? (allUsers?.userRoleCounts
+                                    ?.districtCoordinator ?? 0)
+                                : selectedState
+                                  ? totalDistrictCoordinator
+                                  : districtData?.districtCoordinator}
+                            </div>
 
-                <div>
-                  Block Coordinators:{" "}
-                  {isIndiaView
-                    ? (allUsers?.userRoleCounts?.blockCoordinator ?? 0)
-                    : selectedState
-                      ? totalBlockCoordinator
-                      : districtData?.blockCoordinator}
-                </div>
+                            <div>
+                              Block Coordinators:{" "}
+                              {isIndiaView
+                                ? (allUsers?.userRoleCounts?.blockCoordinator ??
+                                  0)
+                                : selectedState
+                                  ? totalBlockCoordinator
+                                  : districtData?.blockCoordinator}
+                            </div>
 
-                <div>
-                  Village Volunteers:{" "}
-                  {isIndiaView
-                    ? (allUsers?.userRoleCounts?.villageVolunteer ?? 0)
-                    : selectedDistrict
-                      ? totalVillageVolunteer
-                      : districtData?.villageVolunteer}
-                </div>
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
-    }
-    value={renderCardValue(
-      fmt(
-        isIndiaView
-          ? allUsers?.userRoleCounts?.coordinator
-          : activeAnalytics.coordinators,
-      ),
-    )}
-    icon={<Building2 className="h-3.5 w-3.5" />}
-    tooltip={
-      <div className="space-y-1 text-xs">
-        <div>Coordinators Count.</div>
-      </div>
-    }
-  />
-) : source === "whatsapp" ? (
-  <StatCard
-    label="Monthly Questions"
-    value={
-      isIndiaView
-        ? monthlyAnalyticsData?.[monthlyAnalyticsData.length - 1]
-            ?.totalQuestions ?? 0
-        : 0
-    }
-    tooltip={
-      <div className="space-y-1 text-xs">
-        <div>Monthly Questions Asked</div>
-      </div>
-    }
-  />
-) : null}
+                            <div>
+                              Village Volunteers:{" "}
+                              {isIndiaView
+                                ? (allUsers?.userRoleCounts?.villageVolunteer ??
+                                  0)
+                                : selectedDistrict
+                                  ? totalVillageVolunteer
+                                  : districtData?.villageVolunteer}
+                            </div>
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                }
+                value={renderCardValue(
+                  fmt(
+                    isIndiaView
+                      ? allUsers?.userRoleCounts?.coordinator
+                      : activeAnalytics.coordinators,
+                  ),
+                )}
+                icon={<Building2 className="h-3.5 w-3.5" />}
+                tooltip={
+                  <div className="space-y-1 text-xs">
+                    <div>Coordinators Count.</div>
+                  </div>
+                }
+              />
+            ) : source === "whatsapp" ? (
+              <StatCard
+                label="Monthly Questions"
+                value={
+                  isIndiaView
+                    ? (monthlyAnalyticsData?.[monthlyAnalyticsData.length - 1]
+                        ?.totalQuestions ?? 0)
+                    : 0
+                }
+                tooltip={
+                  <div className="space-y-1 text-xs">
+                    <div>Monthly Questions Asked</div>
+                  </div>
+                }
+              />
+            ) : null}
 
             <StatCard
               onClick={() => setShowResolutionModal(true)}
@@ -602,17 +616,15 @@ export function DetailSidebar({
                 )
               }
               icon={<Activity className="h-3.5 w-3.5" />}
-                          tooltip={
-    <div className="space-y-1 text-xs">
-      <div>
-        Resolution Rate of Questions
-      </div>
-    </div>
-  }
+              tooltip={
+                <div className="space-y-1 text-xs">
+                  <div>Resolution Rate of Questions</div>
+                </div>
+              }
             />
             {showResolutionModal && (
               <div
-                className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+                className="fixed inset-0 z-[999] flex items-center justify-center bg-black/40 backdrop-blur-sm"
                 onClick={() => setShowResolutionModal(false)}
               >
                 <div
@@ -644,6 +656,7 @@ export function DetailSidebar({
             isLoading={isLoading}
             renderCardValue={renderCardValue}
             metric={metric}
+            questionStatusRnage = {questionStatusRange}
           />
         )}
 
@@ -655,6 +668,7 @@ export function DetailSidebar({
             }
             selectedState={selectedState}
             onSelectDistrict={onSelectDistrict}
+            questionStatusRnage = {questionStatusRange}
           />
         )}
 
@@ -670,6 +684,7 @@ export function DetailSidebar({
           />
         )}
       </div>
+    </ScrollArea>
     </aside>
   );
 }

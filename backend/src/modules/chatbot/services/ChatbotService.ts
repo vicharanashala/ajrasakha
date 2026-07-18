@@ -3888,9 +3888,9 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getClosedInLastTwoHoursByLocation(source?: string, userType?: string, state?: string, district?: string): Promise<any> {
+  async getClosedInLastTwoHoursByLocation(source?: string, userType?: string, state?: string, district?: string,startDate?: Date, endDate?: Date): Promise<any> {
     try{
-      return this.chatbotRepository.getClosedInLastTwoHoursByLocation(source, userType, state, district);
+      return this.chatbotRepository.getClosedInLastTwoHoursByLocation(source, userType, state, district, startDate, endDate);
     }catch(error){
       throw new InternalServerError(`Something went wrong ${error}`)
     }

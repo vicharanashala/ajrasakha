@@ -19131,7 +19131,7 @@ export class ChatbotRepository implements IChatbotRepository {
     search?: string,
     session?: ClientSession,
     startDate?: Date,
-    endDate?: Date
+    endDate?: Date,
   ): Promise<PaginatedFeedbackMessages> {
     try {
       await this.init(source);
@@ -19139,30 +19139,30 @@ export class ChatbotRepository implements IChatbotRepository {
       const userTypeLookupStages = this.buildUserTypeLookupStages(userType);
 
       const matchStage: any = {
-  feedback: {
-    $exists: true,
-    $ne: null,
-  },
-  'feedback.rating': {
-    $exists: true,
-  },
-  isCreatedByUser: false,
-  isDeleted: {
-    $ne: true,
-  },
-};
+        feedback: {
+          $exists: true,
+          $ne: null,
+        },
+        'feedback.rating': {
+          $exists: true,
+        },
+        isCreatedByUser: false,
+        isDeleted: {
+          $ne: true,
+        },
+      };
 
-if (startDate || endDate) {
-  matchStage.createdAt = {};
+      if (startDate || endDate) {
+        matchStage.createdAt = {};
 
-  if (startDate) {
-    matchStage.createdAt.$gte = startDate;
-  }
+        if (startDate) {
+          matchStage.createdAt.$gte = startDate;
+        }
 
-  if (endDate) {
-    matchStage.createdAt.$lte = endDate;
-  }
-}
+        if (endDate) {
+          matchStage.createdAt.$lte = endDate;
+        }
+      }
 
       if (
         rating &&
@@ -19367,6 +19367,8 @@ if (startDate || endDate) {
     userType?: string,
     state?: string,
     district?: string,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<any> {
     try {
       await this.initReviewSystem();
@@ -19404,6 +19406,18 @@ if (startDate || endDate) {
           $regex: `^${district}$`,
           $options: 'i',
         };
+      }
+
+      if (startDate || endDate) {
+        matchStage.createdAt = {};
+
+        if (startDate) {
+          matchStage.createdAt.$gte = startDate;
+        }
+
+        if (endDate) {
+          matchStage.createdAt.$lte = endDate;
+        }
       }
 
       const [totalCountResult, lastTwoHoursResult] = await Promise.all([
@@ -19619,167 +19633,162 @@ if (startDate || endDate) {
   }
 
   async getActiveUsersDetailsByQuestions(
-  page = 1,
-  limit = 10,
-  source: string,
-  userType = 'all',
-  session?: ClientSession,
-  state?: string,
-  district?: string,
-  search?: string,
-  startDate?: Date,
-  endDate?: Date,
-): Promise<any> {
-  await this.init(source);
+    page = 1,
+    limit = 10,
+    source: string,
+    userType = 'all',
+    session?: ClientSession,
+    state?: string,
+    district?: string,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<any> {
+    await this.init(source);
 
-  const safePage = Math.max(Number(page) || 1, 1);
-  const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
-  const skip = (safePage - 1) * safeLimit;
+    const safePage = Math.max(Number(page) || 1, 1);
+    const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
+    const skip = (safePage - 1) * safeLimit;
 
-  // Build message match (same as getUserDetails)
-  const messageMatch: Record<string, any> = {
-    isCreatedByUser: true,
-    isDeleted: { $ne: true },
-  };
+    // Build message match (same as getUserDetails)
+    const messageMatch: Record<string, any> = {
+      isCreatedByUser: true,
+      isDeleted: {$ne: true},
+    };
 
-  if (startDate || endDate) {
-    messageMatch.createdAt = {};
+    if (startDate || endDate) {
+      messageMatch.createdAt = {};
 
-    if (startDate) {
-      messageMatch.createdAt.$gte = startDate;
+      if (startDate) {
+        messageMatch.createdAt.$gte = startDate;
+      }
+
+      if (endDate) {
+        messageMatch.createdAt.$lte = endDate;
+      }
     }
 
-    if (endDate) {
-      messageMatch.createdAt.$lte = endDate;
-    }
-  }
-
-  // Get question counts from messages collection
-  const messageCounts = await this.messagesCollection
-    .aggregate(
-      [
-        {
-          $match: messageMatch,
-        },
-        {
-          $group: {
-            _id: '$user',
-            totalQuestions: {
-              $sum: 1,
+    // Get question counts from messages collection
+    const messageCounts = await this.messagesCollection
+      .aggregate(
+        [
+          {
+            $match: messageMatch,
+          },
+          {
+            $group: {
+              _id: '$user',
+              totalQuestions: {
+                $sum: 1,
+              },
             },
           },
-        },
-      ],
-      { session },
-    )
-    .toArray();
-
-  const questionCountMap = new Map<string, number>();
-
-  for (const item of messageCounts) {
-    questionCountMap.set(String(item._id), item.totalQuestions);
-  }
-
-  // Build user filter (same pattern as getUserDetails)
-  const userFilter: Record<string, any> = {
-    ...this.buildUserDocFilter(userType),
-    isVerified: true,
-    'farmerProfile.state': {
-      $nin: [null, ''],
-    },
-  };
-
-  if (state?.trim()) {
-    const stateRegex = {
-      $regex: `^${state.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
-      $options: 'i',
-    };
-
-    userFilter.$and = [
-      ...(userFilter.$and ?? []),
-      {
-        'farmerProfile.state': stateRegex,
-      },
-    ];
-  }
-
-  if (district?.trim()) {
-    const escapedDistrict = district
-      .trim()
-      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-    userFilter.$and = [
-      ...(userFilter.$and ?? []),
-      {
-        'farmerProfile.district': {
-          $regex: `^${escapedDistrict}(\\s*\\(.*\\))?$`,
-          $options: 'i',
-        },
-      },
-    ];
-  }
-
-  if (search?.trim()) {
-    const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = {
-      $regex: escaped,
-      $options: 'i',
-    };
-
-    userFilter.$and = [
-      ...(userFilter.$and ?? []),
-      {
-        $or: [
-          { name: regex },
-          { username: regex },
-          { email: regex },
         ],
+        {session},
+      )
+      .toArray();
+
+    const questionCountMap = new Map<string, number>();
+
+    for (const item of messageCounts) {
+      questionCountMap.set(String(item._id), item.totalQuestions);
+    }
+
+    // Build user filter (same pattern as getUserDetails)
+    const userFilter: Record<string, any> = {
+      ...this.buildUserDocFilter(userType),
+      isVerified: true,
+      'farmerProfile.state': {
+        $nin: [null, ''],
       },
-    ];
+    };
+
+    if (state?.trim()) {
+      const stateRegex = {
+        $regex: `^${state.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+        $options: 'i',
+      };
+
+      userFilter.$and = [
+        ...(userFilter.$and ?? []),
+        {
+          'farmerProfile.state': stateRegex,
+        },
+      ];
+    }
+
+    if (district?.trim()) {
+      const escapedDistrict = district
+        .trim()
+        .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+      userFilter.$and = [
+        ...(userFilter.$and ?? []),
+        {
+          'farmerProfile.district': {
+            $regex: `^${escapedDistrict}(\\s*\\(.*\\))?$`,
+            $options: 'i',
+          },
+        },
+      ];
+    }
+
+    if (search?.trim()) {
+      const escaped = search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = {
+        $regex: escaped,
+        $options: 'i',
+      };
+
+      userFilter.$and = [
+        ...(userFilter.$and ?? []),
+        {
+          $or: [{name: regex}, {username: regex}, {email: regex}],
+        },
+      ];
+    }
+
+    // Get all matching users
+    const allUsers = await this.users.find(userFilter, {session}).toArray();
+
+    // Keep only active users
+    const filteredUsers = allUsers.filter(
+      user => (questionCountMap.get(user._id.toString()) ?? 0) > 0,
+    );
+
+    // Sort by createdAt desc
+    filteredUsers.sort((a, b) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+
+      return timeB - timeA;
+    });
+
+    const total = filteredUsers.length;
+
+    const users = filteredUsers.slice(skip, skip + safeLimit);
+
+    const formattedUsers = users.map(user => ({
+      userId: user._id.toString(),
+      farmerName: user.farmerProfile?.farmerName ?? user.name ?? '',
+      name: user.name ?? '',
+      email: user.email ?? '',
+      phoneNumber: user.farmerProfile?.phoneNo,
+      village: user.farmerProfile?.villageName,
+      block: user.farmerProfile?.blockName,
+      district: user.farmerProfile?.district,
+      state: user.farmerProfile?.state,
+      role: user.userRole,
+      totalQuestions: questionCountMap.get(user._id.toString()) ?? 0,
+      createdAt: user.createdAt,
+    }));
+
+    return {
+      users: formattedUsers,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / safeLimit)),
+      page: safePage,
+      limit: safeLimit,
+    };
   }
-
-  // Get all matching users
-  const allUsers = await this.users.find(userFilter, { session }).toArray();
-
-  // Keep only active users
-  const filteredUsers = allUsers.filter(
-    user => (questionCountMap.get(user._id.toString()) ?? 0) > 0,
-  );
-
-  // Sort by createdAt desc
-  filteredUsers.sort((a, b) => {
-    const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-    const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-
-    return timeB - timeA;
-  });
-
-  const total = filteredUsers.length;
-
-  const users = filteredUsers.slice(skip, skip + safeLimit);
-
-  const formattedUsers = users.map(user => ({
-    userId: user._id.toString(),
-    farmerName: user.farmerProfile?.farmerName ?? user.name ?? '',
-    name: user.name ?? '',
-    email: user.email ?? '',
-    phoneNumber: user.farmerProfile?.phoneNo,
-    village: user.farmerProfile?.villageName,
-    block: user.farmerProfile?.blockName,
-    district: user.farmerProfile?.district,
-    state: user.farmerProfile?.state,
-    role: user.userRole,
-    totalQuestions: questionCountMap.get(user._id.toString()) ?? 0,
-    createdAt: user.createdAt,
-  }));
-
-  return {
-    users: formattedUsers,
-    total,
-    totalPages: Math.max(1, Math.ceil(total / safeLimit)),
-    page: safePage,
-    limit: safeLimit,
-  };
-}
-
 }

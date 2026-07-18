@@ -121,7 +121,7 @@ export const useFeedbackLocation =({
   });
 }
 
-export const useClosedQuestionLocation = ({source, userType, state, district, enabled=true}:{source?: string, userType?: string, state?: string, district?: string, enabled?: boolean})=>{
+export const useClosedQuestionLocation = ({source, userType, state, district, startDate, endDate, enabled=true}:{source?: string, userType?: string, state?: string, district?: string, startDate?: string, endDate?: string, enabled?: boolean})=>{
   return useQuery({
     queryKey: [
       "closed-question-location",
@@ -129,6 +129,8 @@ export const useClosedQuestionLocation = ({source, userType, state, district, en
       userType,
       state,
       district,
+      startDate,
+      endDate
     ],
     queryFn: () => {
       return chatbotService.getClosedInLastTwoHoursByLocation({
@@ -136,6 +138,8 @@ export const useClosedQuestionLocation = ({source, userType, state, district, en
         userType,
         state,
         district,
+        startDate,
+        endDate,
       });
     },
     enabled,

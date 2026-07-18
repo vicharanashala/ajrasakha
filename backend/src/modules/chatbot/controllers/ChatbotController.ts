@@ -2290,11 +2290,17 @@ export class ChatbotController {
   @HttpCode(200)
   @Authorized()
   async getClosedInLastTwoHoursByLocation(@QueryParams() query: any) {
+        let startDate = undefined;
+    let endDate = undefined;
+    if(query.startDate) startDate = new Date(query.startDate);
+    if(query.endDate) endDate = new Date(query.endDate);
     return this.chatbotService.getClosedInLastTwoHoursByLocation(
       query.source,
       query.userType,
       query.state,
       query.district,
+      startDate,
+      endDate
     );
   }
 

@@ -1199,6 +1199,8 @@ export interface IChatbotRepository {
     userType?: string,
     state?: string,
     district?: string,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<any>
 
   getActiveUsersDetailsByQuestions(
