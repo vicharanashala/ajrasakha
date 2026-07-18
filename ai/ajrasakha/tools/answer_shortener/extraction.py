@@ -16,6 +16,7 @@ from typing import Iterable, Sequence
 _NEWLINE_RE = re.compile(r"\r\n|\r|\n")
 _SENTENCE_TERMINATORS = frozenset(".!?\u0964\u0965\u061f\u3002\uff01\uff1f")
 _SENTENCE_CLOSERS = frozenset("\"'\u201d\u2019\u00bb)]}")
+_SECTION_HEADING_SUFFIXES = (":", "\uff1a")
 _NON_TERMINAL_ABBREVIATIONS = frozenset(
     {
         "approx",
@@ -137,6 +138,30 @@ def _trim_slice(source: str, start: int, end: int) -> tuple[int, int]:
     return start, end
 
 
+def _period_is_ordered_list_marker(source: str, index: int) -> bool:
+    """Return whether a period belongs to a numeric list prefix such as ``1.``.
+
+    A numeric prefix is structural only when it begins a logical source line.
+    This distinguishes ``1. Crop insurance`` from a normal in-paragraph
+    sentence such as ``Yield improved. 2 irrigations are sufficient.``
+    """
+
+    if source[index] != "." or index == 0 or not source[index - 1].isdigit():
+        return False
+    if index + 1 >= len(source) or not source[index + 1].isspace():
+        return False
+
+    marker_start = index
+    while marker_start > 0 and source[marker_start - 1].isdigit():
+        marker_start -= 1
+
+    logical_line_start = (
+        max(source.rfind("\n", 0, marker_start), source.rfind("\r", 0, marker_start))
+        + 1
+    )
+    return not source[logical_line_start:marker_start].strip()
+
+
 def _period_ends_abbreviation_or_number(source: str, index: int, line_start: int) -> bool:
     """Return whether a full stop is part of text that must stay together.
 
@@ -145,6 +170,9 @@ def _period_ends_abbreviation_or_number(source: str, index: int, line_start: int
     separate extractive segments, while still leaving the emitted text as exact
     source slices.
     """
+
+    if _period_is_ordered_list_marker(source, index):
+        return True
 
     previous = source[index - 1] if index > line_start else ""
     following = source[index + 1] if index + 1 < len(source) else ""
@@ -216,13 +244,26 @@ def _sentence_end_offsets(source: str, line_start: int, line_end: int) -> Iterab
         yield index
 
 
+def _is_standalone_section_heading(source: str, line_start: int, line_end: int) -> bool:
+    """Return whether a complete source line introduces following content.
+
+    This deliberately relies on structure rather than a vocabulary of known
+    labels. A line ending in a colon introduces the next content block whether
+    it says ``Objectives:``, a future label, or text in another script.
+    """
+
+    return source[line_start:line_end].strip().endswith(_SECTION_HEADING_SUFFIXES)
+
+
 def split_source_into_segments(source: str) -> tuple[ExtractionSegment, ...]:
-    """Split a normalized source at newlines and safe sentence boundaries.
+    """Split a normalized source at safe boundaries without orphan headings.
 
     Boundary whitespace is excluded, but ``segment.text`` is always exactly
     ``source[segment.start:segment.end]``.  Blank/whitespace-only pieces are
-    ignored.  IDs are stable for a given normalized source and begin at
-    ``s0001``.
+    ignored unless they separate a section heading from its first content line.
+    A standalone colon-ended heading is joined to that first line so selection
+    cannot return labels such as ``Objectives:`` without their meaning. IDs
+    are stable for a given normalized source and begin at ``s0001``.
     """
 
     if not isinstance(source, str):
@@ -230,23 +271,44 @@ def split_source_into_segments(source: str) -> tuple[ExtractionSegment, ...]:
 
     offsets: list[tuple[int, int]] = []
 
-    def add_line(line_start: int, line_end: int) -> None:
-        piece_start = line_start
-        for sentence_end in _sentence_end_offsets(source, line_start, line_end):
+    def add_span(span_start: int, span_end: int) -> None:
+        piece_start = span_start
+        for sentence_end in _sentence_end_offsets(source, span_start, span_end):
             start, end = _trim_slice(source, piece_start, sentence_end)
             if start < end:
                 offsets.append((start, end))
             piece_start = sentence_end
 
-        start, end = _trim_slice(source, piece_start, line_end)
+        start, end = _trim_slice(source, piece_start, span_end)
         if start < end:
             offsets.append((start, end))
 
+    pending_heading_start: int | None = None
+
+    def add_source_line(line_start: int, line_end: int) -> None:
+        nonlocal pending_heading_start
+        if not source[line_start:line_end].strip():
+            return
+        if _is_standalone_section_heading(source, line_start, line_end):
+            if pending_heading_start is None:
+                pending_heading_start = line_start
+            return
+
+        if pending_heading_start is not None:
+            add_span(pending_heading_start, line_end)
+            pending_heading_start = None
+            return
+        add_span(line_start, line_end)
+
     line_start = 0
     for newline in _NEWLINE_RE.finditer(source):
-        add_line(line_start, newline.start())
+        add_source_line(line_start, newline.start())
         line_start = newline.end()
-    add_line(line_start, len(source))
+    add_source_line(line_start, len(source))
+    if pending_heading_start is not None:
+        # Preserve source completeness when an unfinished answer ends on a
+        # heading; there is no following content available to attach.
+        add_span(pending_heading_start, len(source))
 
     segments: list[ExtractionSegment] = []
     previous_end = 0
