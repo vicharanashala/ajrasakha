@@ -4192,13 +4192,18 @@ export class QuestionService extends BaseService implements IQuestionService {
         questionId.toString(),
         session,
       );
-      if (question.isAutoAllocate === false) {
-        await this.questionRepo.updateAutoAllocate(
-          questionId.toString(),
-          true,
-          session,
+
+      // Do NOT reset isAutoAllocate here. If a moderator deliberately turned off
+      // auto-allocation for this question, that decision must be respected even
+      // when the absent-expert cleanup removes experts from the queue.
+      // Only attempt re-allocation when the question still has isAutoAllocate: true.
+      if (!question.isAutoAllocate) {
+        console.log(
+          `[AbsentExpert] Skipping auto-reallocation for question ${questionId} — isAutoAllocate is false (moderator override).`,
         );
+        continue;
       }
+
       const latestSubmission =
         await this.questionSubmissionRepo.getByQuestionId(
           questionId.toString(),

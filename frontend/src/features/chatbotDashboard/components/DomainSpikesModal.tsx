@@ -33,11 +33,11 @@ export function DomainSpikesModal({ onClose }: DomainSpikesModalProps) {
   const { data: spikes = [], isLoading, isError } = useDomainSpikes(true, 60);
 
   const today = new Date();
-  const thirtyDaysAgo = new Date(today);
-  thirtyDaysAgo.setDate(today.getDate() - 30);
+  const sixtyDaysAgo = new Date(today);
+  sixtyDaysAgo.setDate(today.getDate() - 60);
 
   const [startDate, setStartDate] = useState<string>(
-    thirtyDaysAgo.toISOString().slice(0, 10)
+    sixtyDaysAgo.toISOString().slice(0, 10)
   );
   const [endDate, setEndDate] = useState<string>(today.toISOString().slice(0, 10));
   const [selectedDomain, setSelectedDomain] = useState<string>('all');
@@ -132,7 +132,7 @@ export function DomainSpikesModal({ onClose }: DomainSpikesModalProps) {
           <button
             onClick={() => {
               setSelectedDomain('all');
-              setStartDate(thirtyDaysAgo.toISOString().slice(0, 10));
+              setStartDate(sixtyDaysAgo.toISOString().slice(0, 10));
               setEndDate(today.toISOString().slice(0, 10));
             }}
             className="text-xs text-[#3AAA5A] hover:underline pb-1.5"
@@ -228,7 +228,7 @@ export function DomainSpikesModal({ onClose }: DomainSpikesModalProps) {
               <button
                 onClick={() => {
                   setSelectedDomain('all');
-                  setStartDate(thirtyDaysAgo.toISOString().slice(0, 10));
+                  setStartDate(sixtyDaysAgo.toISOString().slice(0, 10));
                   setEndDate(today.toISOString().slice(0, 10));
                 }}
                 className="text-[#3AAA5A] hover:underline"

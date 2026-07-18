@@ -72,15 +72,50 @@ function DetailSection({
   icon: LucideIcon;
   children: React.ReactNode;
 }) {
+  const [open, setOpen] = useState(false);
+
   return (
-    <section className="rounded-md border bg-card/80 p-4 shadow-sm">
-      <div className="mb-4 flex items-center gap-2">
-        <Icon className="h-4 w-4 text-muted-foreground" />
-        <h4 className="text-sm font-semibold uppercase text-muted-foreground">
-          {title}
-        </h4>
-      </div>
-      <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{children}</dl>
+    <section className="overflow-hidden rounded-md border bg-card/80 shadow-sm">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-accent/50"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <span className="truncate text-sm font-semibold uppercase text-muted-foreground">
+            {title}
+          </span>
+        </span>
+        <motion.span
+          animate={{ rotate: open ? 180 : 0 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+          className="shrink-0 text-muted-foreground"
+        >
+          <ChevronDown className="h-4 w-4" />
+        </motion.span>
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key={`${title}-content`}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{
+              height: { duration: 0.24, ease: [0.4, 0, 0.2, 1] },
+              opacity: { duration: 0.18, ease: "easeInOut" },
+            }}
+            className="overflow-hidden"
+          >
+            <dl className="grid gap-3 border-t p-4 sm:grid-cols-2 xl:grid-cols-3">
+              {children}
+            </dl>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }

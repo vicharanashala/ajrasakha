@@ -19,6 +19,7 @@ from ajrasakha.tools.answer_shortener.claude_client import (
 )
 from ajrasakha.tools.answer_shortener.config import Settings, get_settings
 from ajrasakha.tools.answer_shortener.service import (
+    AnswerBodyMissingError,
     ExtractiveRangeNotFeasibleError,
     ModelSelectionError,
     ProtectedContentTooLargeError,
@@ -31,7 +32,8 @@ class StubService:
     async def shorten(self, **kwargs) -> ShorteningOutcome:
         answer = "short answer" + ("x" * 89)
         return ShorteningOutcome(
-            shortened_answer=answer,
+            short_answer=answer,
+            full_answer=kwargs["answer"],
             status="shortened",
             original_character_count=len(kwargs["answer"]),
             expected_character_count=kwargs["expected_character_count"],
@@ -40,6 +42,7 @@ class StubService:
             actual_character_count=len(answer),
             tolerance=50,
             within_tolerance=True,
+            footer_character_count=0,
             changed=True,
             rewrite_attempts=1,
             model="claude-test-sonnet",
@@ -124,6 +127,8 @@ def test_shorten_endpoint_contract():
     assert payload["within_tolerance"] is True
     assert payload["expected_character_count"] == 100
     assert payload["actual_character_count"] == 101
+    assert payload["full_answer"] == "a" * 220
+    assert payload["footer_character_count"] == 0
 
 
 @pytest.mark.parametrize(
@@ -197,6 +202,11 @@ def test_api_key_is_required_when_configured(monkeypatch):
             TargetRequiresExpansionError("target requires expansion"),
             422,
             "TARGET_REQUIRES_EXPANSION",
+        ),
+        (
+            AnswerBodyMissingError("answer body is missing"),
+            422,
+            "ANSWER_BODY_MISSING",
         ),
         (
             ProtectedContentTooLargeError("protected content is too large"),
