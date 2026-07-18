@@ -245,20 +245,20 @@ export function AnnamDashboard_dev({
     "both" | "annam" | "whatsapp"
   >("both");
   // Data queries with date ranges
-  const { data: closed2hData, isFetching: isClosed2hFetching } =
+  const { data: closed2hData, isLoading: isClosed2hLoading, isFetching: isClosed2hFetching } =
     useClosedAndNotifedData(
       closed2hSource,
       filters.userType,
       closed2hRange.startTime,
       closed2hRange.endTime,
     );
-  const { data: questionStatusData } = useClosedAndNotifedData(
+  const { data: questionStatusData, isLoading: isQuestionStatusLoading } = useClosedAndNotifedData(
     questionStatusSource,
     filters.userType,
     questionStatusRange.startTime,
     questionStatusRange.endTime,
   );
-  const { data: customerNotificationsData } = useClosedAndNotifedData(
+  const { data: customerNotificationsData, isLoading: isCustomerNotificationsLoading } = useClosedAndNotifedData(
     notificationsSource,
     filters.userType,
     customerNotificationsRange.startTime,
@@ -584,8 +584,8 @@ export function AnnamDashboard_dev({
                     }
                     dateRange={questionStatusDateRange}
                     onDateRangeChange={setQuestionStatusDateRange}
-                    isLoading={false}
-                    isFetching={false}
+                    isLoading={isQuestionStatusLoading}
+                    isFetching={isQuestionStatusLoading}
                     carryForward={questionStatusData?.carryForward}
                     avgCloseTimeMinutes={
                       questionStatusData?.closedVsTotalQuestions?.closed
@@ -629,7 +629,7 @@ export function AnnamDashboard_dev({
                     }
                     dateRange={closed2hDateRange}
                     onDateRangeChange={setClosed2hDateRange}
-                    isLoading={false}
+                    isLoading={isClosed2hLoading}
                     isFetching={isClosed2hFetching}
                     onRefresh={handleRefreshStatsCards}
                     passedInLastTwoHours={
@@ -665,8 +665,8 @@ export function AnnamDashboard_dev({
                     }
                     dateRange={customerNotificationsDateRange}
                     onDateRangeChange={setCustomerNotificationsDateRange}
-                    isLoading={false}
-                    isFetching={false}
+                    isLoading={isCustomerNotificationsLoading}
+                    isFetching={isCustomerNotificationsLoading}
                     source={notificationsSource}
                     userType={filters.userType}
                     onRefresh={handleRefreshStatsCards}

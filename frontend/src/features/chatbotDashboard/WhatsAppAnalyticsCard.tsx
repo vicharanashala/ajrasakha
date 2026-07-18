@@ -346,14 +346,26 @@ export function WhatsAppAnalyticsCard({
                                   )}
                                 </span>
                               </div>
-                              <div className="flex justify-between gap-6 border-t border-border/20 pt-1.5 font-medium">
-                                <span className="text-xs">Weighted Average ({(item.statuses?.closed ?? 0) + (item.statuses?.dynamic_closed ?? 0) + (item.statuses?.pass ?? 0) + (item.statuses?.duplicate_closed ?? 0)})</span>
-                                <span className="font-medium text-xs">
-                                  {formatCloseTime(
-                                    item.combinedAverageTimeMinutes ?? 0,
-                                  )}
-                                </span>
-                              </div>
+                              {(() => {
+                                const averages = [
+                                  item.averageCloseTimeMinutes ?? 0,
+                                  item.averageDynamicCloseTimeMinutes ?? 0,
+                                  item.averageDuplicateCloseTimeMinutes ?? 0,
+                                  item.averagePassTimeMinutes ?? 0,
+                                ].filter((v) => v > 0);
+                                const normalAvg =
+                                  averages.length > 0
+                                    ? averages.reduce((a, b) => a + b, 0) / averages.length
+                                    : 0;
+                                return (
+                                  <div className="flex justify-between gap-6 border-t border-border/20 pt-1.5 font-medium">
+                                    <span className="text-xs">Average</span>
+                                    <span className="font-medium text-xs">
+                                      {formatCloseTime(normalAvg)}
+                                    </span>
+                                  </div>
+                                );
+                              })()}
                             </div>
 
                             <div className="flex justify-between gap-6">
