@@ -9,7 +9,11 @@ def write_csv_report(results: list[dict], output_file: str = "evaluation_report.
 
     output_path = Path(output_file)
 
-    fieldnames = results[0].keys()
+    fieldnames = []
+    for result in results:
+        for key in result.keys():
+            if key not in fieldnames:
+                fieldnames.append(key)
 
     with open(output_path, mode="w", newline="", encoding="utf-8") as csv_file:
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)

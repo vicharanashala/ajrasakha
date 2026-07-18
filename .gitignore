@@ -38,10 +38,15 @@ secrets/
 ai/tests/api/reports/
 
 ai/evaluation_report_*.csv
+ai/multilingual_evaluation_report_*.csv
+ai/language_quality_matrix_*.csv
+ai/language_quality_summary.md
+ai/language_quality_summary.json
+ai/language_quality_recommendations.md
+ai/language_quality_metrics.md
+ai/language_quality_metrics.json
 ai/tests/reports/
 ai/openapi.json
 ai/backend_routes.txt
 backend_routes.txt
 endpoints.txt
-
-
