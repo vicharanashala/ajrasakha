@@ -1,11 +1,12 @@
 import { createPortal } from 'react-dom';
 import { useState, useMemo } from 'react';
-import { X, TrendingUp, RefreshCw } from 'lucide-react';
+import { X, TrendingUp, RefreshCw, Info } from 'lucide-react';
 import { DOMAINS } from '@/components/MetaData';
 import { Spinner } from '@/components/atoms/spinner';
 import { useDomainSpikes } from '../hooks/useDomainSpikes';
 import { DateRangeFilter } from '@/components/DateRangeFilter';
 import { Pagination } from '@/components/pagination';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/atoms/tooltip';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -89,7 +90,19 @@ export function DomainSpikesModal({ onClose }: DomainSpikesModalProps) {
           <div>
             <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-red-500" />
-              Domain Query Spikes
+              <span>Domain Query Spikes</span>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex items-center text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
+                      <Info className="h-3.5 w-3.5" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent sideOffset={6} className="!z-[10000] max-w-xs">
+                    A spike is detected when daily queries on a domain exceed 1.5 times (a 50% increase) the domain's normal daily baseline. The percentage shows the growth rate over the baseline.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
               Domains with abnormally high query volume on a given date
