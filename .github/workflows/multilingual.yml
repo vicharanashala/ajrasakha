@@ -1,0 +1,122 @@
+name: Multilingual Testing Suite (180 cases × 6 languages)
+
+# -----------------------------------------------------------------------------
+# Project 4 — Cross-lingual & Multilingual Testing Suite.
+#
+# Runs the Python pytest-based suite in qa/tests/multilingual that:
+#   • loads 30 canonical farming scenarios × 6 languages (Hindi, English,
+#     Kannada, Tamil, Punjabi, Telugu) = 180 test cases
+#   • executes them through the WhatsApp test client (or mock fallback)
+#   • evaluates GDB accuracy, response-language detection, 2-hour
+#     disclaimer language, mid-answer language switching, named-entity
+#     transliteration
+#   • emits a Language Quality Matrix + AI-team recommendations
+#
+# Triggers: PRs and pushes touching qa/tests/multilingual/** or this
+# workflow. Always runnable manually.
+# -----------------------------------------------------------------------------
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - staging
+      - "chore/**"
+      - "feature/**"
+    paths:
+      - "qa/tests/multilingual/**"
+      - ".github/workflows/multilingual.yml"
+  pull_request:
+    branches:
+      - main
+      - develop
+      - staging
+      - "chore/**"
+      - "feature/**"
+    paths:
+      - "qa/tests/multilingual/**"
+      - ".github/workflows/multilingual.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: multilingual-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  multilingual:
+    name: Multilingual suite (pytest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Use the mock client so the suite is fully offline / hermetic.
+      # Set to a real AjraSakha URL when running against a staging cluster.
+      AJRASAKHA_BASE_URL: ${{ secrets.AJRASAKHA_BASE_URL || '' }}
+      AJRASAKHA_API_KEY: ${{ secrets.AJRASAKHA_API_KEY || '' }}
+      AJRASAKHA_USE_REAL_CLIENT: "false"
+      WHATSAPP_USE_MOCK: "true"
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: qa/tests/multilingual/requirements.txt
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r qa/tests/multilingual/requirements.txt
+
+      - name: Structural pytest (always runs, no network)
+        working-directory: qa/tests/multilingual
+        run: python -m pytest tests/ -v --tb=short --color=yes
+
+      - name: Run suite (mock client, all 6 languages × 30 scenarios = 180 cases)
+        run: |
+          python -m qa.tests.multilingual.run_suite \
+            --output-dir qa/tests/multilingual/reports/ \
+            --language hi --language en --language kn \
+            --language ta --language pa --language te \
+            || echo "::warning::Suite reported failures — see reports/"
+
+      - name: Upload Language Quality Matrix + recommendations
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: multilingual-reports
+          path: qa/tests/multilingual/reports/
+          retention-days: 30
+
+      - name: Post PR comment
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const reportPath = 'qa/tests/multilingual/reports';
+            let md = '';
+            try {
+              const summary = fs.readFileSync(`${reportPath}/language_quality_matrix.md`, 'utf8');
+              // Trim to the first ~80 lines so the PR comment stays readable.
+              md = '## 🌐 Language Quality Matrix\n\n```\n' +
+                   summary.split('\n').slice(0, 80).join('\n') +
+                   '\n```\n\n' +
+                   '_Full matrix + AI-team recommendations attached as artifact `multilingual-reports`._';
+            } catch (e) {
+              md = '## 🌐 Multilingual Suite\n\nCould not load `language_quality_matrix.md` — see `multilingual-reports` artifact.';
+            }
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: md,
+            });
