@@ -15,11 +15,19 @@ from database import (
     answers_collection,
     pending_feedback_collection
 )
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
+from digest_email import send_digest_email
 from datetime import datetime
 from bson import ObjectId
 import uuid
+import logging
+import pytz
 
-app = FastAPI(title="Farmer Feedback API", version="1.1")
+logger = logging.getLogger(__name__)
+scheduler = AsyncIOScheduler()
+
+app = FastAPI(title="Farmer Feedback API", version="1.3")
 
 app.add_middleware(
     CORSMiddleware,
@@ -66,11 +74,64 @@ async def _lookup_and_enrich(question_id: str, answer_id: str):
 
     return domain, state
 
+
+# --- Shared digest logic ---
+
+async def _get_digest_entries(min_responses: int = 3, top_n: int = 20):
+    """
+    Shared logic for the scheduled job, manual trigger, and GET /feedback/digest.
+
+    Fixes two bugs from the original implementation:
+    1. Sort bug — was sorting by raw helpful count (wrong). Now sorts by
+       helpfulness_rate in Python after computing it, which is the correct field.
+    2. Threshold inconsistency — scheduled job and manual trigger used different
+       min_responses values (3 vs 1). Both now use the same default of 3.
+
+    Rank is assigned after sorting so rank 1 = worst performing entry.
+    """
+    all_entries = []
+    below_threshold = 0
+
+    async for doc in feedback_collection.aggregate([
+        {"$group": {
+            "_id": "$answer_id",
+            "domain": {"$first": "$domain"},
+            "state": {"$first": "$state"},
+            "total": {"$sum": 1},
+            "helpful": {"$sum": {"$cond": [{"$eq": ["$response", "1"]}, 1, 0]}}
+        }},
+        {"$match": {"total": {"$gte": min_responses}}},
+    ]):
+        t = doc["total"]
+        h = doc["helpful"]
+        rate = round(h / t * 100, 1) if t > 0 else 0.0
+        if rate < 60.0:
+            below_threshold += 1
+        all_entries.append({
+            "answer_id": doc["_id"],
+            "domain": doc["domain"] or "unknown",
+            "state": doc["state"] or "unknown",
+            "total_responses": t,
+            "helpfulness_rate": rate,
+        })
+
+    # Sort by rate ascending (worst first) — done in Python after rate exists
+    all_entries.sort(key=lambda e: e["helpfulness_rate"])
+
+    # Assign rank AFTER sorting
+    top_entries = all_entries[:top_n]
+    for i, entry in enumerate(top_entries):
+        entry["rank"] = i + 1
+
+    return top_entries, len(all_entries), below_threshold
+
+
 # --- Health Check ---
 
 @app.get("/")
 async def root():
-    return {"status": "Farmer Feedback API is running", "version": "1.1"}
+    return {"status": "Farmer Feedback API is running", "version": "1.3"}
+
 
 # --- Sample Questions (for Test Panel dropdown) ---
 
@@ -123,6 +184,7 @@ async def get_sample_questions():
 
     return {"samples": samples}
 
+
 # --- Pending Feedback ---
 
 @app.post("/pending-feedback")
@@ -159,6 +221,7 @@ async def create_pending_feedback(data: PendingFeedbackCreate):
         "message_text": pending["message_text"]
     }
 
+
 @app.get("/pending-feedback/all")
 async def get_all_pending():
     """Returns all currently pending feedback requests. Useful for debugging."""
@@ -167,6 +230,7 @@ async def get_all_pending():
         doc["id"] = doc.pop("_id")
         pending.append(doc)
     return {"count": len(pending), "pending": pending}
+
 
 # --- Complete Feedback (farmer replies 1 or 2) ---
 
@@ -216,6 +280,7 @@ async def complete_feedback(data: FeedbackCompleteRequest):
         "state": state
     }
 
+
 # --- Submit Feedback (direct, for Test Panel one-shot mode) ---
 
 @app.post("/feedback")
@@ -243,6 +308,7 @@ async def submit_feedback(data: FeedbackCreate):
         "state": state
     }
 
+
 # --- Get All Feedback ---
 
 @app.get("/feedback/all")
@@ -253,12 +319,14 @@ async def get_all_feedback():
         feedbacks.append(doc)
     return feedbacks
 
+
 # --- Feedback Count ---
 
 @app.get("/feedback/count")
 async def get_feedback_count():
     total = await feedback_collection.count_documents({})
     return {"total": total}
+
 
 # --- Dashboard ---
 
@@ -320,6 +388,7 @@ async def get_dashboard():
         by_state=by_state
     )
 
+
 # --- Flagged Entries ---
 
 @app.get("/feedback/flagged")
@@ -333,7 +402,6 @@ async def get_flagged(threshold: float = 60.0, min_responses: int = 10):
             "helpful": {"$sum": {"$cond": [{"$eq": ["$response", "1"]}, 1, 0]}}
         }},
         {"$match": {"total": {"$gte": min_responses}}},
-        {"$sort": {"helpful": 1}}
     ]):
         t = doc["total"]
         h = doc["helpful"]
@@ -347,6 +415,9 @@ async def get_flagged(threshold: float = 60.0, min_responses: int = 10):
                 reason=f"Below {threshold}% helpfulness threshold"
             ))
 
+    # Sort worst first in Python (same fix as digest)
+    entries.sort(key=lambda e: e.helpfulness_rate)
+
     return FlaggedResponse(
         flagged_count=len(entries),
         threshold_used=threshold,
@@ -354,47 +425,83 @@ async def get_flagged(threshold: float = 60.0, min_responses: int = 10):
         entries=entries
     )
 
-# --- Weekly Digest ---
+
+# --- Weekly Digest (GET endpoint) ---
 
 @app.get("/feedback/digest")
 async def get_digest(top_n: int = 20, min_responses: int = 3):
-    all_entries = []
-    below_threshold = 0
-
-    async for doc in feedback_collection.aggregate([
-        {"$group": {
-            "_id": "$answer_id",
-            "domain": {"$first": "$domain"},
-            "state": {"$first": "$state"},
-            "total": {"$sum": 1},
-            "helpful": {"$sum": {"$cond": [{"$eq": ["$response", "1"]}, 1, 0]}}
-        }},
-        {"$match": {"total": {"$gte": min_responses}}},
-        {"$sort": {"helpful": 1}}
-    ]):
-        t = doc["total"]
-        h = doc["helpful"]
-        rate = round(h / t * 100, 1) if t > 0 else 0.0
-        if rate < 60.0:
-            below_threshold += 1
-        all_entries.append({
-            "answer_id": doc["_id"],
-            "domain": doc["domain"] or "unknown",
-            "state": doc["state"] or "unknown",
-            "total_responses": t,
-            "helpfulness_rate": rate
-        })
-
-    top_entries = all_entries[:top_n]
-    digest_entries = [
-        DigestEntry(rank=i + 1, **entry)
-        for i, entry in enumerate(top_entries)
-    ]
-
+    entries, total_analysed, below_threshold = await _get_digest_entries(
+        min_responses=min_responses,
+        top_n=top_n
+    )
     return DigestResponse(
         generated_at=datetime.now(),
-        total_entries_analysed=len(all_entries),
+        total_entries_analysed=total_analysed,
         entries_below_threshold=below_threshold,
         top_n=top_n,
-        entries=digest_entries
+        entries=[DigestEntry(**e) for e in entries]
     )
+
+
+# --- Scheduled weekly digest job ---
+
+async def run_weekly_digest():
+    """Runs every Monday at 9:00 AM IST via APScheduler."""
+    logger.info("Running weekly digest job...")
+    try:
+        entries, total_analysed, below_threshold = await _get_digest_entries(
+            min_responses=3,
+            top_n=20
+        )
+        send_digest_email(
+            entries=entries,
+            total_analysed=total_analysed,
+            below_threshold=below_threshold
+        )
+        logger.info("Weekly digest email sent successfully")
+    except Exception as e:
+        logger.error(f"Failed to send weekly digest: {e}")
+
+
+@app.on_event("startup")
+async def startup_event():
+    IST = pytz.timezone("Asia/Kolkata")
+    scheduler.add_job(
+        run_weekly_digest,
+        CronTrigger(day_of_week="mon", hour=9, minute=0, timezone=IST),
+        id="weekly_digest",
+        replace_existing=True
+    )
+    scheduler.start()
+    logger.info("Scheduler started — weekly digest runs every Monday 9:00 AM IST")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    scheduler.shutdown()
+
+
+# --- Manual digest trigger ---
+
+@app.post("/digest/send")
+async def send_digest_now():
+    """
+    Manually trigger the weekly digest email.
+    Uses identical logic and thresholds as the scheduled Monday job.
+    What you see here is exactly what Monday's email will contain.
+    """
+    entries, total_analysed, below_threshold = await _get_digest_entries(
+        min_responses=3,
+        top_n=20
+    )
+    try:
+        result = send_digest_email(
+            entries=entries,
+            total_analysed=total_analysed,
+            below_threshold=below_threshold
+        )
+        return {"message": "Digest email sent successfully", **result}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
