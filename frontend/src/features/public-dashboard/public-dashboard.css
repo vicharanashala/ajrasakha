@@ -94,6 +94,17 @@
 .ace-dash .nav-links a.active { background: rgba(255, 255, 255, 0.9); color: var(--green-deep); }
 .ace-dash .top-right { display: flex; align-items: center; gap: 16px; }
 
+/* Top-level tabs (reuse .nav-links flex + mobile hamburger behaviour). */
+.ace-dash .tab-bar .tab {
+  font-size: 13.5px; font-weight: 600; color: rgba(255, 255, 255, 0.9);
+  padding: 9px 16px; border-radius: 999px; cursor: pointer;
+  border: none; background: transparent; white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.ace-dash .tab-bar .tab:hover:not(:disabled) { background: rgba(255, 255, 255, 0.16); color: #fff; }
+.ace-dash .tab-bar .tab.active { background: rgba(255, 255, 255, 0.9); color: var(--green-deep); }
+.ace-dash .tab-bar .tab.coming-soon { opacity: 0.5; cursor: not-allowed; }
+
 /* Hamburger toggle — hidden on desktop, shown on mobile via the media query below. */
 .ace-dash .nav-toggle {
   display: none;
@@ -170,6 +181,15 @@
 }
 .ace-dash .login-btn:hover { background: var(--navy-deep); }
 
+/* Login button now sits in the green header — white pill so it stands out on green. */
+.ace-dash .header-login {
+  flex-shrink: 0;
+  background: #fff;
+  color: var(--green-deep);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+.ace-dash .header-login:hover { background: var(--green-soft); color: var(--green-deep); }
+
 /* ---------- HERO CAROUSEL ---------- */
 
 /* Ken-Burns zoom keyframe */
@@ -215,6 +235,7 @@
 .ace-dash .carousel {
   position: relative;
   height: clamp(360px, 46vw, 500px);
+  margin-top: 24px; /* breathing room below the sticky header */
   overflow: hidden;
   background: var(--navy-deep);
 }

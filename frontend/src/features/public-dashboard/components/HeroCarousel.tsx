@@ -31,6 +31,9 @@ export interface CarouselStats {
   totalQuestions: number | string;
   /** Questions in a closed state (closed / dynamic_closed / duplicate_closed). */
   validatedQAPairs: number | string;
+  /** Questions that entered the DB today / this month (IST) — moved here from the header ticker. */
+  questionsToday: number | string;
+  questionsThisMonth: number | string;
   languages: CarouselStatItem;
   experts: CarouselStatItem;
   kvks: CarouselStatItem;
@@ -56,11 +59,11 @@ const buildSlides = (live: CarouselStats, loading = false): Slide[] => [
     image: SLIDE_IMAGES[0],
     bg: "linear-gradient(135deg, #14532d 0%, #166534 45%, #3f8f4e 100%)",
     stats: [
-      // The two DB-derived figures show a spinner until stats load; the rest come from
-      // content/defaults and always have a value.
-      { value: live.totalQuestions, label: "Questions processed", loading },
+      // All four are DB-derived → show a spinner until stats load.
+      { value: live.questionsToday, label: "Questions received today", loading },
+      { value: live.questionsThisMonth, label: "This month", loading },
       { value: live.validatedQAPairs, label: "Validated Q&A pairs", loading },
-      { value: live.languages.value, label: live.languages.label },
+      { value: live.totalQuestions, label: "Questions processed", loading },
     ],
   },
   {
@@ -83,6 +86,7 @@ const buildSlides = (live: CarouselStats, loading = false): Slide[] => [
       { value: live.states.value, label: live.states.label },
       { value: live.districts.value, label: live.districts.label },
       { value: live.villages.value, label: live.villages.label },
+      { value: live.languages.value, label: live.languages.label },
     ],
   },
  /* {

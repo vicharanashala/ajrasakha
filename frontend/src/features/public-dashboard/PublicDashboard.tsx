@@ -1,10 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import "./public-dashboard.css";
 import { Footer } from "./components/Footer";
 import { Header } from "./components/Header";
 import { HeroCarousel, type CarouselStatItem } from "./components/HeroCarousel";
 import { OutreachGallery } from "./components/OutreachGallery";
+import { TabPlaceholder } from "./components/TabPlaceholder";
 import {
   AnalyticsMapPublic,
   Channels,
@@ -23,16 +24,13 @@ import {
 } from "./sections";
 import { defaultBlocks } from "./data/contentDefaults";
 import { crops, domains, heroStats } from "./data/dashboardData";
-import { NAV } from "./data/nav";
-import { useScrollSpy } from "./utils";
+import { DASHBOARD_TABS, DEFAULT_TAB } from "./data/tabs";
 import { useGetDashboardContent } from "@/hooks/api/dashboard/useDashboardContent";
 import { useGetPublicCounts, useGetPublicStats } from "@/hooks/api/dashboard/usePublicStats";
 import { usePublicCountsSocket } from "@/hooks/api/dashboard/usePublicCountsSocket";
 import { useGetMedia } from "@/hooks/api/media/useMedia";
 import type { PublicDashboardStats } from "@/hooks/services/publicStatsService";
 import type { DashboardStat } from "@/hooks/services/dashboardContentService";
-
-const NAV_IDS = NAV.map((n) => n.id);
 
 /**
  * Public ACE dashboard (ANNAM.AI) — no login required. A national, multi-layer
@@ -45,7 +43,7 @@ const NAV_IDS = NAV.map((n) => n.id);
  */
 export const PublicDashboard = () => {
   const navigate = useNavigate();
-  const activeNav = useScrollSpy(NAV_IDS, "layer1");
+  const [activeTab, setActiveTab] = useState(DEFAULT_TAB);
 
   // ---- live data -----------------------------------------------------------
   const { data: content } = useGetDashboardContent();
@@ -85,48 +83,63 @@ export const PublicDashboard = () => {
     [content?.stats],
   );
 
+  const activeTabLabel =
+    DASHBOARD_TABS.find((t) => t.id === activeTab)?.label ?? "Coming soon";
+
   return (
     <div className="ace-dash">
       <Header
-        activeNav={activeNav}
+        tabs={DASHBOARD_TABS}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
         onLogin={() => navigate({ to: "/auth" })}
-        today={headline?.questionsToday ?? 0}
-        thisMonth={headline?.questionsThisMonth ?? 0}
-        loading={figuresLoading}
       />
-      <HeroCarousel
-        stats={{
-          totalQuestions: headline?.totalQuestions ?? 0,
-          validatedQAPairs: headline?.validatedQAPairs ?? 0,
-          ...editorial,
-        }}
-        loading={figuresLoading}
-        images={carouselImages ?? []}
-      />
-      <main>
-        {/* 60-second overview carousel (left) + Human Intelligence Network (right) */}
-        <NarrativeSection blocks={blocks} roles={live?.userRoleOverview} />
-        <AnalyticsMapPublic />
-        <CoverageOverview
-          cropData={cropData}
-          domainData={domainData}
-          cropsCovered={live?.cropsCovered}
-          domainsCovered={live?.domainsCovered}
-        />
-        <KnowledgeEngine />
-        {/* HumanNetwork now renders inside NarrativeSection's right column, above. */}
-        <Integrations />
-        <ImpactOutreach />
-        <OutreachGallery images={outreachImages ?? []} videos={outreachVideos ?? []} />
-        <TechShowcase />
-        <Roadmap />
-        <Multilingual />
-        <Channels />
-        <Learning />
-        <ReviewWorkflow />
-        <CropMatrix />
-        <GrowthTimeline />
-      </main>
+
+      {activeTab === "ace" ? (
+        <>
+          <HeroCarousel
+            stats={{
+              totalQuestions: headline?.totalQuestions ?? 0,
+              validatedQAPairs: headline?.validatedQAPairs ?? 0,
+              questionsToday: headline?.questionsToday ?? 0,
+              questionsThisMonth: headline?.questionsThisMonth ?? 0,
+              ...editorial,
+            }}
+            loading={figuresLoading}
+            images={carouselImages ?? []}
+          />
+          <main>
+            {/* 60-second overview carousel (left) + Human Intelligence Network (right) */}
+            <NarrativeSection blocks={blocks} roles={live?.userRoleOverview} />
+            <AnalyticsMapPublic />
+            <CoverageOverview
+              cropData={cropData}
+              domainData={domainData}
+              cropsCovered={live?.cropsCovered}
+              domainsCovered={live?.domainsCovered}
+            />
+            <KnowledgeEngine />
+            {/* HumanNetwork now renders inside NarrativeSection's right column, above. */}
+            <Integrations />
+            <ImpactOutreach />
+            <OutreachGallery images={outreachImages ?? []} videos={outreachVideos ?? []} />
+            <TechShowcase />
+            <Roadmap />
+            <Multilingual />
+            <Channels />
+            <Learning />
+            <ReviewWorkflow />
+            <CropMatrix />
+            <GrowthTimeline />
+          </main>
+        </>
+      ) : (
+        // Question Collection + future tabs aren't built yet.
+        <main>
+          <TabPlaceholder label={activeTabLabel} />
+        </main>
+      )}
+
       <Footer />
     </div>
   );
