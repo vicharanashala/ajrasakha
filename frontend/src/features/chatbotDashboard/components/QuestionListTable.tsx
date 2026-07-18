@@ -75,6 +75,7 @@ type QuestionListTableProps<T> = {
   closedInLastTwoHours?: number,
   passedInLastTwoHours?: number,
   dynamicClosedInLastTwoHours?: number,
+  duplicateClosedInLastTwoHours?: number,
   slaBreached?: number,
   safeNotified?: number,
   safeNotNotified?: number,
@@ -152,6 +153,7 @@ export function QuestionListTable<T>({
   closedInLastTwoHours,
   passedInLastTwoHours,
   dynamicClosedInLastTwoHours,
+  duplicateClosedInLastTwoHours,
   slaBreached,
   safeNotified,
   safeNotNotified,
@@ -252,6 +254,8 @@ export function QuestionListTable<T>({
         ? (passedInLastTwoHours ?? 0)
       : tag === "dynamic_closed"
         ? (dynamicClosedInLastTwoHours ?? 0)
+      : tag === "duplicate_closed"
+        ? (duplicateClosedInLastTwoHours ?? 0)
       : tag === "slabreached"
         ? (slaBreached ?? 0)
       : tag === "notify"

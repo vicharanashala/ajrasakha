@@ -55,6 +55,147 @@ def test_sentence_split_preserves_internal_whitespace_and_skips_blank_pieces():
     ]
 
 
+def test_sentence_split_keeps_abbreviations_decimals_and_urls_intact():
+    source = (
+        "Apply Rs. 400 per acre. Consult Dr. Mehta before use. "
+        "Use 2.5 g/kg of seed. Read https://example.org/advisory. "
+        "Use Thiram, e.g. only when advised."
+    )
+
+    segments = split_source_into_segments(source)
+
+    assert [segment.text for segment in segments] == [
+        "Apply Rs. 400 per acre.",
+        "Consult Dr. Mehta before use.",
+        "Use 2.5 g/kg of seed.",
+        "Read https://example.org/advisory.",
+        "Use Thiram, e.g. only when advised.",
+    ]
+    assert all(segment.text == source[segment.start : segment.end] for segment in segments)
+
+
+def test_sentence_split_keeps_initialisms_and_numbered_references_intact():
+    source = "Apply No. 1 seed treatment. Contact the U.P. office. Then irrigate."
+
+    segments = split_source_into_segments(source)
+
+    assert [segment.text for segment in segments] == [
+        "Apply No. 1 seed treatment.",
+        "Contact the U.P. office.",
+        "Then irrigate.",
+    ]
+
+
+def test_sentence_split_keeps_unlisted_abbreviations_with_their_context():
+    source = (
+        "Contact AgroDept. for certified seed. "
+        "The AgroDept. 2026 scheme offers support. "
+        "Then irrigate the field."
+    )
+
+    segments = split_source_into_segments(source)
+
+    assert [segment.text for segment in segments] == [
+        "Contact AgroDept. for certified seed.",
+        "The AgroDept. 2026 scheme offers support.",
+        "Then irrigate the field.",
+    ]
+
+
+def test_sentence_split_still_splits_a_normal_sentence_before_a_number():
+    source = "Yield improved. 2 irrigations are usually sufficient."
+
+    segments = split_source_into_segments(source)
+
+    assert [segment.text for segment in segments] == [
+        "Yield improved.",
+        "2 irrigations are usually sufficient.",
+    ]
+
+
+def test_standalone_section_heading_is_attached_to_first_content_line():
+    source = (
+        "Objectives:\n"
+        "To provide insurance coverage and financial support.\n"
+        "To stabilise farmer income."
+    )
+
+    segments = split_source_into_segments(source)
+
+    assert [segment.text for segment in segments] == [
+        "Objectives:\nTo provide insurance coverage and financial support.",
+        "To stabilise farmer income.",
+    ]
+    assert all(segment.text == source[segment.start : segment.end] for segment in segments)
+
+
+def test_section_heading_preserves_blank_lines_and_first_bullet():
+    source = "Management:\n\n- Use certified seed.\n- Avoid waterlogging."
+
+    segments = split_source_into_segments(source)
+
+    assert [segment.text for segment in segments] == [
+        "Management:\n\n- Use certified seed.",
+        "- Avoid waterlogging.",
+    ]
+
+
+def test_any_colon_ended_standalone_line_is_treated_as_a_section_heading():
+    source = "Follow these practices:\nUse certified seed.\nनई सलाह：\nसमय पर सिंचाई करें।"
+
+    segments = split_source_into_segments(source)
+
+    assert [segment.text for segment in segments] == [
+        "Follow these practices:\nUse certified seed.",
+        "नई सलाह：\nसमय पर सिंचाई करें।",
+    ]
+
+
+def test_inline_colon_does_not_start_a_section_heading():
+    source = "Use this ratio: 2.5 g/kg seed. Then irrigate."
+
+    segments = split_source_into_segments(source)
+
+    assert [segment.text for segment in segments] == [
+        "Use this ratio: 2.5 g/kg seed.",
+        "Then irrigate.",
+    ]
+
+
+def test_unfinished_section_heading_is_preserved_when_no_content_follows():
+    source = "Objectives:"
+
+    segments = split_source_into_segments(source)
+
+    assert [segment.text for segment in segments] == ["Objectives:"]
+
+
+def test_section_heading_and_numbered_list_prefix_stay_with_first_list_item():
+    source = (
+        "The major schemes available for farmers are as follows:\n\n"
+        "1. Crop insurance protects against notified crop losses.\n"
+        "2. Income support helps eligible farmer families."
+    )
+
+    segments = split_source_into_segments(source)
+
+    assert [segment.text for segment in segments] == [
+        "The major schemes available for farmers are as follows:\n\n"
+        "1. Crop insurance protects against notified crop losses.",
+        "2. Income support helps eligible farmer families.",
+    ]
+
+
+def test_multi_digit_numbered_list_prefix_stays_with_its_content():
+    source = "10. Apply the final irrigation at grain filling stage."
+
+    segments = split_source_into_segments(source)
+
+    assert [segment.text for segment in segments] == [
+        "10. Apply the final irrigation at grain filling stage."
+    ]
+
+
 def test_parses_plain_and_optionally_fenced_strict_json_ranking():
     known = ("s0001", "s0002", "s0003")
 

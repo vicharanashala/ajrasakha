@@ -13,6 +13,7 @@ from ajrasakha.tools.answer_shortener.service import (
     AnswerShorteningService,
     ModelSelectionError,
     ProtectedContentTooLargeError,
+    split_reviewer_footer,
     TargetRequiresExpansionError,
 )
 
@@ -126,6 +127,86 @@ async def test_reviewer_footer_does_not_make_a_short_body_longer_for_tolerance()
     assert result.full_answer == body + footer
     assert result.original_character_count == len(body)
     assert result.actual_character_count == len(body)
+    assert result.footer_character_count == len(footer)
+    assert gateway.calls == []
+
+
+@pytest.mark.asyncio
+async def test_standard_footer_separator_is_excluded_from_selection_and_body_counts():
+    source, texts = source_with_four_segments()
+    selected_body = texts[0] + "\n" + texts[1]
+    footer = (
+        "\n\n_____________________________\n"
+        "⚠️ Important Notice (Testing) ⚠️\n"
+        "This AjraSakha application is under development."
+    )
+    complete_answer = source + footer
+    gateway = FakeGateway([ranking_response(source, (1, 0, 2, 3))])
+
+    result = await make_service(gateway).shorten(
+        original_query="How should I manage wheat irrigation?",
+        answer=complete_answer,
+        expected_character_count=len(selected_body),
+    )
+
+    assert result.short_answer == selected_body + footer
+    assert result.full_answer == complete_answer
+    assert result.original_character_count == len(source)
+    assert result.actual_character_count == len(selected_body)
+    assert result.footer_character_count == len(footer)
+    assert footer not in gateway.calls[0]["user_prompt"]
+
+
+@pytest.mark.asyncio
+async def test_short_underscore_divider_is_excluded_from_selection_and_body_counts():
+    source, texts = source_with_four_segments()
+    selected_body = texts[0] + "\n" + texts[1]
+    footer = "\n\n___________\n\n👤 Answered by: Dr. Mehta"
+    complete_answer = source + footer
+    gateway = FakeGateway([ranking_response(source, (1, 0, 2, 3))])
+
+    result = await make_service(gateway).shorten(
+        original_query="How should I manage wheat irrigation?",
+        answer=complete_answer,
+        expected_character_count=len(selected_body),
+    )
+
+    assert result.short_answer == selected_body + footer
+    assert result.full_answer == complete_answer
+    assert result.original_character_count == len(source)
+    assert result.actual_character_count == len(selected_body)
+    assert result.footer_character_count == len(footer)
+    assert footer not in gateway.calls[0]["user_prompt"]
+
+
+def test_inline_underscores_do_not_start_a_footer():
+    answer = "Use crop_variety_2026 only when the local guide recommends it."
+
+    parts = split_reviewer_footer(answer)
+
+    assert parts.body == answer
+    assert parts.footer == ""
+
+
+@pytest.mark.asyncio
+async def test_first_recognized_footer_boundary_is_preserved():
+    body = "a" * 120
+    footer = (
+        "\n\n_____________________________\n"
+        "⚠️ Important Notice\n\n"
+        "👤 Answered by: Dr. Mehta"
+    )
+    gateway = FakeGateway([])
+
+    result = await make_service(gateway).shorten(
+        original_query="query",
+        answer=body + footer,
+        expected_character_count=100,
+    )
+
+    assert result.short_answer == body + footer
+    assert result.full_answer == body + footer
+    assert result.original_character_count == len(body)
     assert result.footer_character_count == len(footer)
     assert gateway.calls == []
 

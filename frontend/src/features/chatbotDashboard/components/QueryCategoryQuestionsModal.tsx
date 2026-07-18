@@ -79,6 +79,7 @@ interface QueryCategoryQuestionsModalProps {
   closedInLastTwoHours?: number;
   passedInLastTwoHours?: number;
   dynamicClosedInLastTwoHours?: number;
+  duplicateClosedInLastTwoHours?: number;
   slaBreached?: number;
   safeNotified?: number;
   safeNotNotified?: number;
@@ -114,6 +115,7 @@ export function QueryCategoryQuestionsModal({
   closedInLastTwoHours,
   passedInLastTwoHours,
   dynamicClosedInLastTwoHours,
+  duplicateClosedInLastTwoHours,
   slaBreached,
   safeNotified,
   safeNotNotified,
@@ -579,6 +581,7 @@ export function QueryCategoryQuestionsModal({
           closedInLastTwoHours={closedInLastTwoHours}
           passedInLastTwoHours={passedInLastTwoHours}
           dynamicClosedInLastTwoHours={dynamicClosedInLastTwoHours}
+          duplicateClosedInLastTwoHours={duplicateClosedInLastTwoHours}
           slaBreached={slaBreached}
           safeNotified={safeNotified}
           safeNotNotified={safeNotNotified}
