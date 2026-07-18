@@ -14,6 +14,7 @@
     "test:reviewer:mobile": "playwright test --project=reviewer-mobile --config=playwright.config.ts",
     "test:reviewer:report": "playwright show-report --config=playwright.config.ts",
     "test:webapp": "playwright test --project=webapp --config=playwright.config.ts",
+    "test:mocked": "playwright test --project=mocked --config=playwright.config.ts",
     "test": "playwright test --config=playwright.config.ts",
     "lint": "eslint \"tests/**/*.ts\" \"scripts/**/*.mjs\"",
     "typecheck": "tsc --noEmit",

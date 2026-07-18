@@ -48,6 +48,26 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   projects: [
+    // ----------------------------------------------------------------------
+    // `mocked` — unconditional suite that runs on every PR, including
+    // fork PRs that cannot see repo secrets.  Matches `*.mocked.spec.ts`
+    // anywhere under tests/.  Specs in this project use
+    // `page.setContent()` to load stub HTML and never reach the network,
+    // so they catch "I broke the test infrastructure" regressions
+    // (selector renames, removed data-testids, fixture import errors)
+    // that are invisible to typecheck alone.  See qa/tests/mocked/.
+    // ----------------------------------------------------------------------
+    {
+      name: "mocked",
+      testMatch: /tests\/.*\.mocked\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        // Stub baseURL — mocked tests use `page.setContent()` and never
+        // navigate.  Set a placeholder so any accidental `page.goto()` in
+        // a mocked spec fails loudly rather than hitting an arbitrary URL.
+        baseURL: "http://mocked.localhost/",
+      },
+    },
     {
       name: "reviewer",
       testMatch: /tests\/reviewer-system\/.*\.spec\.ts/,

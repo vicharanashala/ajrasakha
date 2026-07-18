@@ -9,6 +9,41 @@ name: E2E Tests (Reviewer + Web App)
 #
 # The Playwright/TypeScript suites live in qa/. The Python multilingual
 # suite (qa/tests/multilingual) is a separate workflow: multilingual.yml.
+#
+# -----------------------------------------------------------------------------
+# Fork-PR / no-secrets semantics (read this before changing the gates):
+#
+#   GitHub intentionally does NOT pass repo secrets to workflows triggered
+#   by `pull_request` from a fork — a fork PR is untrusted code, and
+#   leaking secrets to it would let any contributor exfiltrate them.
+#   As a result, on a fork PR `secrets.REVIEWER_STAGING_URL` and
+#   `secrets.WEBAPP_BASE_URL` evaluate to the empty string.
+#
+#   To keep fork PRs from going permanently red, this workflow:
+#
+#     1. Runs `check-secrets` as a separate, cheap job that probes whether
+#        the staging secrets are configured.  Its only side-effect is
+#        writing `has_reviewer_secrets` / `has_webapp_secrets` to its
+#        outputs — no code is executed with the secret values, so this
+#        is safe on every PR.
+#
+#     2. Gates each suite's job with
+#            needs: check-secrets
+#            if: needs.check-secrets.outputs.has_*_secrets == 'true'
+#        so each suite is *skipped* (not failed) on fork PRs.  GitHub
+#        treats a skipped required status check as satisfying branch
+#        protection, so the PR can still merge.
+#
+#     3. Runs `static-checks` unconditionally so every PR — including
+#        fork PRs without secrets — gets real signal:
+#          - typecheck (npx tsc --noEmit)
+#          - lint
+#          - test-count floor (npm run verify)
+#          - mocked Playwright run (page.route() stubs — no staging needed)
+#
+#   If you ever migrate this workflow to `pull_request_target` to get
+#   secrets on fork PRs, see PR review notes — that requires explicit
+#   maintainer approval for outside-collaborator workflow runs.
 # -----------------------------------------------------------------------------
 on:
   push:
@@ -40,10 +75,49 @@ permissions:
 
 jobs:
   # =========================================================================
-  # 1. Smoke — npm install + typecheck + verify (test-count gate) + lint
+  # 0. check-secrets — cheap, unconditional probe that sets has_*_secrets.
+  #    Runs on every trigger (including fork PRs) because it touches no
+  #    code and exposes no secret values.
   # =========================================================================
-  smoke:
-    name: Smoke (install + typecheck + lint)
+  check-secrets:
+    name: Check staging secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      has_reviewer_secrets: ${{ steps.probe-reviewer.outputs.has_secrets }}
+      has_webapp_secrets: ${{ steps.probe-webapp.outputs.has_secrets }}
+    steps:
+      - name: Probe REVIEWER_STAGING_URL
+        id: probe-reviewer
+        env:
+          REVIEWER_STAGING_URL: ${{ secrets.REVIEWER_STAGING_URL || secrets.REVIEWER_BASE_URL }}
+        run: |
+          if [ -n "$REVIEWER_STAGING_URL" ]; then
+            echo "has_secrets=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::REVIEWER_STAGING_URL is not configured — the reviewer-system job will be skipped (this is normal for fork PRs)."
+            echo "has_secrets=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Probe WEBAPP_BASE_URL
+        id: probe-webapp
+        env:
+          WEBAPP_BASE_URL: ${{ secrets.WEBAPP_BASE_URL }}
+        run: |
+          if [ -n "$WEBAPP_BASE_URL" ]; then
+            echo "has_secrets=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::WEBAPP_BASE_URL is not configured — the web-app job will be skipped (this is normal for fork PRs)."
+            echo "has_secrets=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # =========================================================================
+  # 1. static-checks — typecheck + lint + verify + mocked Playwright.
+  #    Runs unconditionally so every PR (including fork PRs) gets real
+  #    signal.  No staging URL required.
+  # =========================================================================
+  static-checks:
+    name: Static checks (typecheck + lint + verify + mocked E2E)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -53,9 +127,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          # Cache only when the lockfile exists on the checked-out ref —
-          # setup-node@v4 emits a hard error otherwise, which was
-          # breaking every PR that didn't yet contain qa/package-lock.json.
           cache: ${{ hashFiles('qa/package-lock.json') != '' && 'npm' || '' }}
           cache-dependency-path: qa/package-lock.json
 
@@ -86,14 +157,61 @@ jobs:
             echo "No lint script — skipping"
           fi
 
+      - name: Install Playwright Chromium (mocked run only needs the browser)
+        working-directory: qa
+        run: npx playwright install --with-deps chromium
+
+      - name: Run mocked Playwright suite
+        working-directory: qa
+        run: npm run test:mocked
+
+      - name: Upload mocked-run HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-mocked-html-report
+          path: qa/playwright-report
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Upload mocked-run JUnit XML
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-mocked-junit
+          path: qa/test-results
+          retention-days: 14
+          if-no-files-found: ignore
+
   # =========================================================================
   # 2. Reviewer System
   # =========================================================================
   reviewer-system:
     name: Reviewer System (@reviewer)
-    needs: smoke
+    needs: [static-checks, check-secrets]
+    if: needs.check-secrets.outputs.has_reviewer_secrets == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      # New canonical names (PR #1+)
+      REVIEWER_STAGING_URL: ${{ secrets.REVIEWER_STAGING_URL || secrets.REVIEWER_BASE_URL }}
+      MODERATOR_TEST_EMAIL: ${{ secrets.MODERATOR_TEST_EMAIL || secrets.REVIEWER_MODERATOR_EMAIL }}
+      MODERATOR_TEST_PASSWORD: ${{ secrets.MODERATOR_TEST_PASSWORD || secrets.REVIEWER_MODERATOR_PASSWORD }}
+      EXPERT_TEST_EMAIL: ${{ secrets.EXPERT_TEST_EMAIL || secrets.REVIEWER_EXPERT_EMAIL }}
+      EXPERT_TEST_PASSWORD: ${{ secrets.EXPERT_TEST_PASSWORD || secrets.REVIEWER_EXPERT_PASSWORD }}
+      EXPERT_TEST_2_EMAIL: ${{ secrets.EXPERT_TEST_2_EMAIL || secrets.REVIEWER_EXPERT_2_EMAIL }}
+      EXPERT_TEST_2_PASSWORD: ${{ secrets.EXPERT_TEST_2_PASSWORD || secrets.REVIEWER_EXPERT_2_PASSWORD }}
+      REVIEWER_TEST_EMAIL: ${{ secrets.REVIEWER_TEST_EMAIL || secrets.REVIEWER_REVIEWER_EMAIL }}
+      REVIEWER_TEST_PASSWORD: ${{ secrets.REVIEWER_TEST_PASSWORD || secrets.REVIEWER_REVIEWER_PASSWORD }}
+      COORDINATOR_TEST_EMAIL: ${{ secrets.COORDINATOR_TEST_EMAIL || secrets.REVIEWER_COORDINATOR_EMAIL }}
+      COORDINATOR_TEST_PASSWORD: ${{ secrets.COORDINATOR_TEST_PASSWORD || secrets.REVIEWER_COORDINATOR_PASSWORD }}
+      # Pass the legacy alias through too, so older dots env code can
+      # also resolve cleanly if a future task slips through.
+      REVIEWER_BASE_URL: ${{ secrets.REVIEWER_BASE_URL }}
+      REVIEWER_MODERATOR_EMAIL: ${{ secrets.REVIEWER_MODERATOR_EMAIL }}
+      REVIEWER_MODERATOR_PASSWORD: ${{ secrets.REVIEWER_MODERATOR_PASSWORD }}
+      REVIEWER_EXPERT_EMAIL: ${{ secrets.REVIEWER_EXPERT_EMAIL }}
+      REVIEWER_EXPERT_PASSWORD: ${{ secrets.REVIEWER_EXPERT_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -112,47 +230,10 @@ jobs:
         working-directory: qa
         run: npx playwright install --with-deps chromium
 
-      # ----------------------------------------------------------------------
-      # Environment
-      # ----------------------------------------------------------------------
-      # PR #1 (this PR) adopted friendlier names (REVIEWER_STAGING_URL,
-      # MODERATOR_TEST_EMAIL, …).  The legacy REVIEWER_* names remain as
-      # fallbacks so existing GitHub Secrets still drive the build until
-      # the secrets store is migrated.
-      #
-      # Set the new secrets and remove the legacy ones in a follow-up PR —
-      # both work today.
-      # ----------------------------------------------------------------------
       - name: Run Reviewer System tests
         working-directory: qa
-        env:
-          # New canonical names (PR #1+)
-          REVIEWER_STAGING_URL: ${{ secrets.REVIEWER_STAGING_URL || secrets.REVIEWER_BASE_URL }}
-          MODERATOR_TEST_EMAIL: ${{ secrets.MODERATOR_TEST_EMAIL || secrets.REVIEWER_MODERATOR_EMAIL }}
-          MODERATOR_TEST_PASSWORD: ${{ secrets.MODERATOR_TEST_PASSWORD || secrets.REVIEWER_MODERATOR_PASSWORD }}
-          EXPERT_TEST_EMAIL: ${{ secrets.EXPERT_TEST_EMAIL || secrets.REVIEWER_EXPERT_EMAIL }}
-          EXPERT_TEST_PASSWORD: ${{ secrets.EXPERT_TEST_PASSWORD || secrets.REVIEWER_EXPERT_PASSWORD }}
-          EXPERT_TEST_2_EMAIL: ${{ secrets.EXPERT_TEST_2_EMAIL || secrets.REVIEWER_EXPERT_2_EMAIL }}
-          EXPERT_TEST_2_PASSWORD: ${{ secrets.EXPERT_TEST_2_PASSWORD || secrets.REVIEWER_EXPERT_2_PASSWORD }}
-          REVIEWER_TEST_EMAIL: ${{ secrets.REVIEWER_TEST_EMAIL || secrets.REVIEWER_REVIEWER_EMAIL }}
-          REVIEWER_TEST_PASSWORD: ${{ secrets.REVIEWER_TEST_PASSWORD || secrets.REVIEWER_REVIEWER_PASSWORD }}
-          COORDINATOR_TEST_EMAIL: ${{ secrets.COORDINATOR_TEST_EMAIL || secrets.REVIEWER_COORDINATOR_EMAIL }}
-          COORDINATOR_TEST_PASSWORD: ${{ secrets.COORDINATOR_TEST_PASSWORD || secrets.REVIEWER_COORDINATOR_PASSWORD }}
-          # Pass the legacy alias through too, so older dots env code can
-          # also resolve cleanly if a future task slips through.
-          REVIEWER_BASE_URL: ${{ secrets.REVIEWER_BASE_URL }}
-          REVIEWER_MODERATOR_EMAIL: ${{ secrets.REVIEWER_MODERATOR_EMAIL }}
-          REVIEWER_MODERATOR_PASSWORD: ${{ secrets.REVIEWER_MODERATOR_PASSWORD }}
-          REVIEWER_EXPERT_EMAIL: ${{ secrets.REVIEWER_EXPERT_EMAIL }}
-          REVIEWER_EXPERT_PASSWORD: ${{ secrets.REVIEWER_EXPERT_PASSWORD }}
         run: npm run test:reviewer
 
-      # ----------------------------------------------------------------------
-      # Artifacts
-      # ----------------------------------------------------------------------
-      # Always upload the HTML/JUnit summary; upload trace.zip + screenshots
-      # + video only when the suite failed — keeps artifact storage tight.
-      # ----------------------------------------------------------------------
       - name: Upload HTML report
         if: always()
         uses: actions/upload-artifact@v4
@@ -160,6 +241,7 @@ jobs:
           name: reviewer-system-report
           path: qa/playwright-report
           retention-days: 14
+          if-no-files-found: ignore
 
       - name: Upload JUnit XML
         if: always()
@@ -168,6 +250,7 @@ jobs:
           name: reviewer-system-results
           path: qa/test-results
           retention-days: 14
+          if-no-files-found: ignore
 
       - name: Upload traces/screenshots/video on failure
         if: failure()
@@ -186,9 +269,14 @@ jobs:
   # =========================================================================
   web-app:
     name: Web App (@webapp)
-    needs: smoke
+    needs: [static-checks, check-secrets]
+    if: needs.check-secrets.outputs.has_webapp_secrets == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      WEBAPP_BASE_URL: ${{ secrets.WEBAPP_BASE_URL }}
+      WEBAPP_FARMER_PHONE: ${{ secrets.WEBAPP_FARMER_PHONE }}
+      WEBAPP_OTP: ${{ secrets.WEBAPP_OTP }}
     steps:
       - uses: actions/checkout@v4
 
@@ -209,10 +297,6 @@ jobs:
 
       - name: Run Web App tests
         working-directory: qa
-        env:
-          WEBAPP_BASE_URL: ${{ secrets.WEBAPP_BASE_URL }}
-          WEBAPP_FARMER_PHONE: ${{ secrets.WEBAPP_FARMER_PHONE }}
-          WEBAPP_OTP: ${{ secrets.WEBAPP_OTP }}
         run: npm run test:webapp
 
       - name: Upload HTML report
@@ -222,6 +306,7 @@ jobs:
           name: web-app-report
           path: qa/playwright-report
           retention-days: 14
+          if-no-files-found: ignore
 
       - name: Upload JUnit XML
         if: always()
@@ -230,6 +315,7 @@ jobs:
           name: web-app-results
           path: qa/test-results
           retention-days: 14
+          if-no-files-found: ignore
 
       - name: Upload traces/screenshots/video on failure
         if: failure()
@@ -244,11 +330,13 @@ jobs:
           if-no-files-found: ignore
 
   # =========================================================================
-  # 4. PR comment — once everything is done
+  # 4. PR comment — once everything is done.
+  #    `if: always()` lets us post the comment even when reviewer-system
+  #    and/or web-app are skipped (typical on fork PRs without secrets).
   # =========================================================================
   pr-comment:
     name: PR summary comment
-    needs: [reviewer-system, web-app]
+    needs: [reviewer-system, web-app, static-checks]
     if: github.event_name == 'pull_request' && always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -257,20 +345,59 @@ jobs:
 
       - name: Post PR summary
         uses: actions/github-script@v7
+        env:
+          REVIEWER_RESULT: ${{ needs.reviewer-system.result }}
+          WEBAPP_RESULT: ${{ needs.web-app.result }}
+          STATIC_RESULT: ${{ needs.static-checks.result }}
         with:
           script: |
-            const reviewer = "${{ needs.reviewer-system.result }}";
-            const webapp = "${{ needs.web-app.result }}";
-            const verdict =
-              reviewer === "success" && webapp === "success" ? "✅ All green" :
-              reviewer === "failure" || webapp === "failure" ? "❌ One or more suites failed" :
-              "⚠️ Skipped or cancelled";
+            const reviewer = process.env.REVIEWER_RESULT;
+            const webapp = process.env.WEBAPP_RESULT;
+            const sc = process.env.STATIC_RESULT;
+
+            const fmt = (name, r, okMsg, skipMsg, failMsg) => {
+              if (r === "success") return `- ${name}: ${okMsg}`;
+              if (r === "failure") return `- ${name}: ${failMsg}`;
+              if (r === "skipped") return `- ${name}: ${skipMsg}`;
+              return `- ${name}: ⚠️ ${r}`;
+            };
+
+            const reviewerLine = fmt(
+              "Reviewer System",
+              reviewer,
+              "✅ passed",
+              "⚠️ skipped (no `REVIEWER_STAGING_URL` secret — typical for fork PRs)",
+              "❌ failed"
+            );
+            const webappLine = fmt(
+              "Web App",
+              webapp,
+              "✅ passed",
+              "⚠️ skipped (no `WEBAPP_BASE_URL` secret — typical for fork PRs)",
+              "❌ failed"
+            );
+            const scLine = fmt(
+              "Static checks",
+              sc,
+              "✅ passed (typecheck + lint + verify + mocked E2E)",
+              "⚠️ skipped",
+              "❌ failed"
+            );
+
+            const allGreen = reviewer === "success" && webapp === "success" && sc === "success";
+            const anyFailed = reviewer === "failure" || webapp === "failure" || sc === "failure";
+            const verdict = allGreen
+              ? "✅ All green"
+              : anyFailed
+              ? "❌ One or more suites failed"
+              : "⚠️ Some suites were skipped (no staging secrets) — static checks + mocked E2E still ran";
 
             const body = [
               "## 🧪 E2E Test Summary",
               "",
-              `- **Reviewer System**: ${reviewer === "success" ? "✅ passed" : reviewer === "failure" ? "❌ failed" : reviewer}`,
-              `- **Web App**: ${webapp === "success" ? "✅ passed" : webapp === "failure" ? "❌ failed" : webapp}`,
+              reviewerLine,
+              webappLine,
+              scLine,
               "",
               `**Overall:** ${verdict}`,
               "",
