@@ -40,6 +40,8 @@ export const SELECTOR_MAP = {
     heading: "queue-heading", // TODO(selector)
     rowPrefix: "queue-row-", // rows are keyed `queue-row-${questionId}`
     rowStatus: "queue-row-status", // TODO(selector) — badge inside each row
+    rowStuckIndicator: "queue-row-stuck-indicator", // TODO(selector) — visual badge/icon for overdue work
+    rowStuckTooltip: "queue-row-stuck-tooltip", // TODO(selector) — optional hover context
     empty: "queue-empty", // TODO(selector)
     filterStatus: "queue-filter-status", // TODO(selector) — <select> or listbox
     filterLanguage: "queue-filter-language", // TODO(selector)
@@ -50,6 +52,9 @@ export const SELECTOR_MAP = {
   detail: {
     heading: "question-detail-heading", // TODO(selector)
     statusBadge: "question-detail-status", // TODO(selector)
+    approveButton: "question-approve-button", // TODO(selector)
+    rejectButton: "question-reject-button", // TODO(selector)
+    gdbConfirmationToast: "question-push-to-gdb-toast", // TODO(selector)
     expertPicker: "allocate-expert-picker", // TODO(selector)
     allocateButton: "allocate-submit", // TODO(selector)
     allocationToast: "allocate-success-toast", // TODO(selector)

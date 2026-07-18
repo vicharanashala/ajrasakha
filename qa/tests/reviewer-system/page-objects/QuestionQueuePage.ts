@@ -117,6 +117,18 @@ export class QuestionQueuePage {
     );
   }
 
+  rowStuckIndicator(questionId: string): Locator {
+    return this.rowById(questionId).locator(
+      `[data-testid="${SELECTOR_MAP.queue.rowStuckIndicator}"]`,
+    );
+  }
+
+  rowStuckTooltip(questionId: string): Locator {
+    return this.rowById(questionId).locator(
+      `[data-testid="${SELECTOR_MAP.queue.rowStuckTooltip}"]`,
+    );
+  }
+
   // ── Assertions ─────────────────────────────────────────────────────────────
   /**
    * Assert the queue shows at least one row.  Does NOT hard-fail when

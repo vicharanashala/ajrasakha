@@ -46,6 +46,24 @@ export class QuestionDetailPage {
     );
   }
 
+  get approveButton(): Locator {
+    return this.page.locator(
+      `[data-testid="${SELECTOR_MAP.detail.approveButton}"]`,
+    );
+  }
+
+  get rejectButton(): Locator {
+    return this.page.locator(
+      `[data-testid="${SELECTOR_MAP.detail.rejectButton}"]`,
+    );
+  }
+
+  get gdbConfirmationToast(): Locator {
+    return this.page.locator(
+      `[data-testid="${SELECTOR_MAP.detail.gdbConfirmationToast}"]`,
+    );
+  }
+
   /** Optional inline error on the allocate form. */
   get allocationError(): Locator {
     return this.page.locator(
@@ -103,6 +121,57 @@ export class QuestionDetailPage {
     await this.allocateButton.click();
     await responsePromise;
     return { response: notificationResponse };
+  }
+
+  async approveFinalAnswer(): Promise<void> {
+    const approve = await this.actionButton(
+      this.approveButton,
+      /approve answer|approve/i,
+    );
+    await approve.click();
+  }
+
+  async rejectFinalAnswer(): Promise<void> {
+    const reject = await this.actionButton(
+      this.rejectButton,
+      /reject|send back|return/i,
+    );
+    await reject.click();
+  }
+
+  async isApproveAvailable(): Promise<boolean> {
+    const count = await this.approveButton.count();
+    if (count > 0) return await this.approveButton.isVisible().catch(() => false);
+    const fallback = this.page.getByRole("button", {
+      name: /approve answer|approve/i,
+    });
+    return await fallback.count().then((n) => n > 0);
+  }
+
+  async assertCannotReapprove(): Promise<void> {
+    const button = await this.approveButton.count()
+      ? this.approveButton
+      : this.page.getByRole("button", { name: /approve answer|approve/i });
+    if (await button.count()) {
+      const visible = await button.isVisible().catch(() => false);
+      if (visible) {
+        await expect(button).toBeDisabled();
+      }
+    }
+  }
+
+  private async actionButton(
+    primary: Locator,
+    label: RegExp,
+  ): Promise<Locator> {
+    if ((await primary.count()) > 0) {
+      return primary;
+    }
+    const fallback = this.page.getByRole("button", { name: label });
+    if ((await fallback.count()) > 0) {
+      return fallback;
+    }
+    throw new Error(`Could not locate action button matching ${label}`);
   }
 
   // ── Assertions ─────────────────────────────────────────────────────────────
