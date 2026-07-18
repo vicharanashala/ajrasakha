@@ -420,6 +420,22 @@ const UserRow: React.FC<UserRowProps> = ({
                 </Tooltip>
               )}
 
+              {u?.isTrainingUser && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge
+                      variant="outline"
+                      className="bg-purple-50/50 hover:bg-purple-50 text-purple-700 border-purple-200 text-[9px] h-5 px-1.5 rounded-full flex items-center gap-1 transition-colors whitespace-nowrap"
+                    >
+                      <GraduationCap className="w-3.5 h-5 fill-violet-500" />
+                    </Badge>
+                  </TooltipTrigger>
+
+                  <TooltipContent>
+                    Training {u.role ?? 'user'}
+                  </TooltipContent>
+                </Tooltip>
+              )}
               {u?.special_task_force_moderator && (
                 <Tooltip>
                   <TooltipTrigger asChild>
