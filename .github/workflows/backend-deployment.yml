@@ -10,8 +10,8 @@ permissions:
 
 env:
   DOCKER_IMAGE: reviewer-api
-  GCP_REGION: asia-south1
-  GCP_SERVICE: reviewer-api-production
+  GCP_REGION: asia-south2
+  GCP_SERVICE: reviewer-backend
 
 jobs:
   build:
@@ -52,37 +52,35 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          credentials_json: ${{ secrets.GCP_GH_SA_KEY }}
 
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v1
         with:
           service: ${{ env.GCP_SERVICE }}
           region: ${{ env.GCP_REGION }}
-          image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:latest
+          image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:${{ github.sha }}
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
           env_vars: |
             NODE_ENV=production
             APP_PORT=${{ secrets.APP_PORT }}
-            APP_URL=${{ secrets.APP_URL }}
-            APP_ORIGINS=${{ secrets.APP_ORIGINS }}
-            APP_MODULE=${{ secrets.APP_MODULE }}
-            APP_ROUTE_PREFIX=${{ secrets.APP_ROUTE_PREFIX }}
-            FRONTEND_URL=${{ secrets.FRONTEND_URL }}
-            ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}
             DB_URL=${{ secrets.DB_URL }}
             DB_NAME=${{ secrets.DB_NAME }}
-            SENTRY_DSN=${{ secrets.SENTRY_DSN }}
+            VAPID_EMAIL=${{ secrets.VAPID_EMAIL }}
+            VAPID_PUBLIC_KEY=${{ secrets.VAPID_PUBLIC_KEY }}
+            VAPID_PRIVATE_KEY=${{ secrets.VAPID_PRIVATE_KEY }}
+            INTERNAL_API_KEY=${{ secrets.INTERNAL_API_KEY }}
+            PLIVO_AUTH_ID=${{ secrets.PLIVO_AUTH_ID }}
+            PLIVO_AUTH_TOKEN=${{ secrets.PLIVO_AUTH_TOKEN }}
+            LGD_STATES_API_URL=${{ secrets.LGD_STATES_API_URL }}
+            LGD_DISTRICTS_API_URL=${{ secrets.LGD_DISTRICTS_API_URL }}
+            LGD_SUBDISTRICTS_API_URL=${{ secrets.LGD_SUBDISTRICTS_API_URL }}
+            LGD_VILLAGES_API_URL=${{ secrets.LGD_VILLAGES_API_URL }}
+            LGD_API_KEY=${{ secrets.LGD_API_KEY }}
+            ANNAM_URL_ANALYTICS=${{ secrets.ANNAM_URL_ANALYTICS }}
+            ANNAM_DB_ANALYTICS=${{ secrets.ANNAM_DB_ANALYTICS }}
+            DB_URL_ANALYTICS=${{ secrets.DB_URL_ANALYTICS }}
+            DB_NAME_ANALYTICS=${{ secrets.DB_NAME_ANALYTICS }}
             TAILSCALE_AUTHKEY=${{ secrets.TAILSCALE_AUTHKEY }}
-            RECAPTCHA_SECRET_KEY=${{ secrets.RECAPTCHA_SECRET_KEY }}
-            IS_RECAPTCHA_ENABLED=${{ secrets.IS_RECAPTCHA_ENABLED }}
-            ENABLE_DB_BACKUP=${{ secrets.ENABLE_DB_BACKUP }}
-            GCP_BACKUP_BUCKET=${{ secrets.GCP_BACKUP_BUCKET }}
-            ENABLE_HP_JOB=${{ secrets.ENABLE_HP_JOB }}
-            GCP_BACKUP_ACTIVITY_BUCKET=${{ secrets.GCP_BACKUP_ACTIVITY_BUCKET }}
-            AI_SERVER_IP=${{ secrets.AI_SERVER_IP }}
-            AI_SERVER_PORT=${{ secrets.AI_SERVER_PORT }}
-            AI_PROXY_ADDRESS=socks5h://localhost:1055
-
           flags: --allow-unauthenticated

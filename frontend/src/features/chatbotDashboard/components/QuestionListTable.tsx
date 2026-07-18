@@ -68,11 +68,14 @@ type QuestionListTableProps<T> = {
   tag?: string,
   notificationType?: string,
   totalClosedAndPassed?: number,
+  userId?: string,
   closedQuestions?: number,
   totalQuestions?: number,
   passedQuestions?: number,
   closedInLastTwoHours?: number,
   passedInLastTwoHours?: number,
+  dynamicClosedInLastTwoHours?: number,
+  duplicateClosedInLastTwoHours?: number,
   slaBreached?: number,
   safeNotified?: number,
   safeNotNotified?: number,
@@ -143,11 +146,14 @@ export function QuestionListTable<T>({
   tag,
   notificationType,
   totalClosedAndPassed,
+  userId,
   closedQuestions,
   totalQuestions,
   passedQuestions,
   closedInLastTwoHours,
   passedInLastTwoHours,
+  dynamicClosedInLastTwoHours,
+  duplicateClosedInLastTwoHours,
   slaBreached,
   safeNotified,
   safeNotNotified,
@@ -235,7 +241,7 @@ export function QuestionListTable<T>({
     tag === "closed"
       ? status === "closed"
         ? (closedQuestions ?? 0)
-        : status === "pass"
+        : status === "non_gdb"
           ? (passedQuestions ?? 0)
         : status === "pending"
           ? ((totalQuestions ?? 0) - (closedQuestions ?? 0) - (passedQuestions ?? 0))
@@ -244,6 +250,12 @@ export function QuestionListTable<T>({
         ? isPassed == false
           ? (closedInLastTwoHours ?? 0)
           : (passedInLastTwoHours ?? 0)
+      : tag === "pass"
+        ? (passedInLastTwoHours ?? 0)
+      : tag === "dynamic_closed"
+        ? (dynamicClosedInLastTwoHours ?? 0)
+      : tag === "duplicate_closed"
+        ? (duplicateClosedInLastTwoHours ?? 0)
       : tag === "slabreached"
         ? (slaBreached ?? 0)
       : tag === "notify"
@@ -409,6 +421,8 @@ export function QuestionListTable<T>({
         isPassed={isPassed}
         tag={tag}
         notificationType={notificationType}
+        totalClosedAndPassed={totalClosedAndPassed}
+        userId={userId}
         page={summaryPage}
         limit={summaryLimit}
         totalPages={lifecycleTotalPages}

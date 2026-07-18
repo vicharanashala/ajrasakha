@@ -53,6 +53,7 @@ export interface IUser {
   university?: string;
   isVerified?: boolean;
   isCallAgentActive?: boolean;
+  lastAgentActiveAt?: string | Date;
   Call_centre_manager?: boolean;
   agent?: string; // "not_available" or "agent_1", "agent_2", etc.
   isBusy?: boolean; // true if agent is currently in a call
@@ -278,7 +279,7 @@ export type SupportedLanguage =
   | "sat-IN"
   | "sd-IN";
 
-export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold" | "pae_submitted" | "draft" | "duplicate" | "pass" | "non_agri" | "pending" | "dynamic";
+export type QuestionStatus = "open" | "in-review" | "closed" | "delayed" | "re-routed" | "hold" | "pae_submitted" | "draft" | "duplicate" | "pass" | "non_agri" | "pending" | "dynamic" | "dynamic_closed" | "duplicate_closed";
 export type ReRouteStatus = "pending" | "expert_rejected" | "expert_completed" | "moderator_rejected" | "moderator_approved" | "approved" | "rejected" | "modified" | "in-review";
 export interface ResponseDto {
   id: string;
@@ -562,6 +563,23 @@ export interface QuestionMessageDetailsResponse {
   success: boolean;
   data: QuestionMessageDetail,
   message?: string;
+}
+
+export interface QuestionFeedbackResponse {
+  success: boolean;
+  data: {
+    feedback: {
+      rating: string;
+      tag?: string;
+      text?: string;
+    } | null;
+    user?: {
+      username: string;
+      email: string;
+      avatar: string | null;
+    };
+    createdAt?: string;
+  };
 }
 
 

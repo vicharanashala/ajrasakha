@@ -8,6 +8,7 @@ import type {
   ReroutedQuestionItem,
   WorkloadBalanceResponse,
   QuestionMessageDetailsResponse,
+  QuestionFeedbackResponse,
 } from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import type { QuestionFilter } from "@/features/qa-interface-page/QA-interface";
@@ -279,6 +280,16 @@ export class QuestionService {
   ): Promise<QuestionMessageDetailsResponse | null> {
     const response = await apiFetch<QuestionMessageDetailsResponse | null>(
       `${this._baseUrl}/${questionId}/chatbot`,
+    );
+
+    return response;
+  }
+
+  async getQuestionFeedbackByQuestionId(
+    questionId: string,
+  ): Promise<QuestionFeedbackResponse | null> {
+    const response = await apiFetch<QuestionFeedbackResponse | null>(
+      `${this._baseUrl}/${questionId}/feedback`,
     );
 
     return response;
@@ -919,6 +930,7 @@ export class QuestionService {
       data: {
         totalQuestions: number;
         statuses: { status: string; count: number }[];
+        sourceCounts: { source: string; count: number }[];
       };
     }>(`${this._baseUrl}/status-summary?${params.toString()}`, {
       method: "POST",

@@ -8,6 +8,7 @@ import {
 import { useFeedbackUsers } from "./hooks/useFeedbackUsers";
 import { useQueryClient } from "@tanstack/react-query";
 import { useFeedbackLocation } from "./hooks/useFeedbackUsers";
+import { useNavigateToQuestion } from "@/hooks/api/question/useNavigateToQuestion";
 
 interface FeedbackUserEntry {
   id?: string;
@@ -28,6 +29,8 @@ interface FeedbackUsersModalProps {
   isMapComponent?: boolean;
   state?: string
   district?: string
+  startDate?: string
+  endDate?: string
 }
 
 const PAGE_SIZE = 10;
@@ -40,7 +43,9 @@ export function FeedbackUsersModal({
   setRating,
   isMapComponent,
   state,
-  district
+  district,
+  startDate,
+  endDate
 }: FeedbackUsersModalProps) {
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
@@ -50,6 +55,7 @@ export function FeedbackUsersModal({
 
   const queryClient = useQueryClient();
   const [dataRefreshing, setDataRefreshing] = useState(false);
+  const { goToQuestion } = useNavigateToQuestion();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -93,6 +99,8 @@ const feedbackLocationQuery = useFeedbackLocation({
   userType,
   state,
   district,
+  startDate,
+  endDate,
   enabled: !!isMapComponent,
 });
 
@@ -120,18 +128,36 @@ const {
 
   const columns = useMemo<QuestionListColumn<FeedbackUserEntry>[]>(
     () => [
-      {
-        key: "name",
-        label: "Username",
-        sortable: true,
-        sortAccessor: (row: any) => row.farmerName ?? row.name ?? "",
-        accessor: (row: any) => row.farmerName ?? row.name ?? "-",
-      },
+      // {
+      //   key: "name",
+      //   label: "Username",
+      //   sortable: true,
+      //   sortAccessor: (row: any) => row.farmerName ?? row.name ?? "",
+      //   accessor: (row: any) => row.farmerName ?? row.name ?? "-",
+      // },
       {
         key: "email",
         label: "Email",
         sortable: false,
         accessor: (row) => row.email ?? "-",
+      },
+      {
+        key: "questionId",
+        label: "Question ID",
+        sortable: false,
+        accessor: (row: any) => row.questionId ?? "-",
+        render: (row: any) => {
+          if (!row.questionId) return "Not Available";
+          return (
+            <button
+              onClick={() => goToQuestion(row.questionId, "")}
+              className="text-primary hover:underline font-medium text-left truncate max-w-[150px]"
+              title={row.questionId}
+            >
+              {row.questionId}
+            </button>
+          );
+        }
       },
       {
         key: "rating",

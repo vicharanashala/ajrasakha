@@ -162,6 +162,7 @@ export interface FarmerHeatMapMetricTotals {
   totalQuestions: number;
   duplicateQuestions: number;
   closedQuestions: number;
+  nonGdbQuestions: number;
   notifiedQuestions: number;
   averageClosureTimeMinutes: number;
 }
@@ -200,6 +201,7 @@ export interface FarmerHeatMapCell {
   totalQuestions: number;
   duplicateQuestions: number;
   closedQuestions: number;
+  nonGdbQuestions: number;
   notifiedQuestions: number;
   averageClosureTimeMinutes: number;
   statusDistribution: Record<string, number>;
@@ -224,6 +226,7 @@ export interface FarmerHeatMapResponse {
     totalQuestions: number;
     duplicateQuestions: number;
     closedQuestions: number;
+    nonGdbQuestions: number;
     notifiedQuestions: number;
     averageClosureTimeMinutes: number;
   };
@@ -326,6 +329,7 @@ export interface FeedbackMessageEntry {
   block?: string;
   district?: string;
   state?: string;
+  questionId?: string;
   question: string;
   response: string;
   feedback: {
@@ -550,6 +554,8 @@ export interface IChatbotRepository {
     userType?: string,
     search?: string,
     knownDistricts?: string[],
+    startDate?: Date,
+    endDate?: Date
   ): Promise<any>;
 
   getTopCrops(
@@ -581,7 +587,8 @@ export interface IChatbotRepository {
     userType?: string,
     search?: string,
     startDate?: Date,
-    endDate?: Date
+    endDate?: Date,
+    userId?: string
   ): Promise<any>;
 
   // getQuestionsByCrop(
@@ -721,6 +728,14 @@ export interface IChatbotRepository {
     limit?: number,
   ): Promise<any>;
 
+  getUserMessageMetricDetails(
+    userId: string,
+    metric: string,
+    page?: number,
+    limit?: number,
+    session?: ClientSession,
+  ): Promise<any>;
+
   getUsersMessages(
     email: string,
     source?: string,
@@ -797,6 +812,8 @@ export interface IChatbotRepository {
     source?: string,
     session?: ClientSession,
     userType?: string,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<FeedbackData>;
 
   getFeedbackUsers(
@@ -895,6 +912,8 @@ export interface IChatbotRepository {
     source?: string,
     session?: ClientSession,
     userType?: string,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<DistrictAnalyticsEntry[]>;
 
   getWeatherConcernAnalytics(
@@ -973,11 +992,11 @@ export interface IChatbotRepository {
     userType?: string,
   ): Promise<{label: string; totalQueries: number}>;
 
-  getClosedVsTotalQuestions(source: string, userType?: string, startDate?: Date, endDate?: Date):Promise<any>;
+  getClosedVsTotalQuestions(source: string, userType?: string, startDate?: Date, endDate?: Date, userId?: string):Promise<any>;
 
-  getNotifiedVsClosed(source?: string, userType?: string, startDate?: Date, endDate?: Date):Promise<any>;
+  getNotifiedVsClosed(source?: string, userType?: string, startDate?: Date, endDate?: Date, userId?: string):Promise<any>;
 
-  getClosedInLastTwoHours(source?: string, userType?: string, startDate?: Date, endDate?: Date): Promise<any>;
+  getClosedInLastTwoHours(source?: string, userType?: string, startDate?: Date, endDate?: Date, userId?: string): Promise<any>;
 
   getMonthlyChurnRate(source: string, userType: string): Promise<any>;
 
@@ -1036,6 +1055,7 @@ export interface IChatbotRepository {
     endDate?: Date,
     isPassed?: string,
     tag?: string,
+    userId?: string,
   ): Promise<any>
 
   getQuestionsByNotificationStatus(
@@ -1048,6 +1068,7 @@ export interface IChatbotRepository {
   search?: string,
   startDate?: Date,
   endDate?: Date,
+  userId?: string,
   ): Promise<any>
 
   getQueriesByPeriod (
@@ -1072,7 +1093,9 @@ export interface IChatbotRepository {
     source: string,
     userType: string,
     allState?:ILocationState[],
-    session?: string
+    session?: ClientSession,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<any>
 
 
@@ -1082,7 +1105,12 @@ export interface IChatbotRepository {
     source: string,
   ): Promise<any>
 
-  getUserProfile(userId: string) : Promise<any>
+  getUserProfile(
+    userId: string,
+    session?: ClientSession,
+    startDate?: string,
+    endDate?: string,
+  ) : Promise<any>
   assignUsers(userId: string, targetIds: string[]): Promise<any>
   unAssignUsers(userId: string, targetIds: string[]): Promise<any>
 
@@ -1109,6 +1137,8 @@ export interface IChatbotRepository {
     session?: ClientSession,
     userType?: string,
     search?: string,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<any>;
 
   getActiveUsersDetails(
@@ -1119,7 +1149,9 @@ export interface IChatbotRepository {
     session?:ClientSession, 
     state?:string, 
     district?:string, 
-    search?: string
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<any>
 
     getCoordinatorsDetails(
@@ -1141,6 +1173,7 @@ export interface IChatbotRepository {
       isPassed?: string,
       tag?: string,
       notificationType?: string,
+      userId?: string,
       page?: number,
       limit?: number,
     ): Promise<any>
@@ -1157,6 +1190,8 @@ export interface IChatbotRepository {
     district?: string,
     search?: string,
     session?: ClientSession,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<PaginatedFeedbackMessages>
 
   getClosedInLastTwoHoursByLocation(
@@ -1164,6 +1199,21 @@ export interface IChatbotRepository {
     userType?: string,
     state?: string,
     district?: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<any>
+
+  getActiveUsersDetailsByQuestions(
+    page: number,
+    limit: number,
+    source: string,
+    userType: string,
+    session?: ClientSession,
+    state?: string,
+    district?: string,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<any>
     
 }
