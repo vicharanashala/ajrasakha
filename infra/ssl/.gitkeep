@@ -1,0 +1,2 @@
+# Add fullchain.pem and privkey.pem here to enable HTTPS.
+# See PRODUCTION.md → "Enable TLS" for instructions.

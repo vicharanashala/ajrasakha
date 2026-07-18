@@ -1,0 +1,414 @@
+name: E2E Tests (Reviewer + Web App)
+
+# -----------------------------------------------------------------------------
+# Triggers:
+#   • Every push to main, develop, staging, chore/**, feature/**
+#   • Every PR against main, develop, staging, chore/**, feature/**
+#   • Manual trigger via workflow_dispatch
+#   • repository_dispatch when 'deployment_success' fires (CD hook)
+#
+# The Playwright/TypeScript suites live in qa/. The Python multilingual
+# suite (qa/tests/multilingual) is a separate workflow: multilingual.yml.
+#
+# -----------------------------------------------------------------------------
+# Fork-PR / no-secrets semantics (read this before changing the gates):
+#
+#   GitHub intentionally does NOT pass repo secrets to workflows triggered
+#   by `pull_request` from a fork — a fork PR is untrusted code, and
+#   leaking secrets to it would let any contributor exfiltrate them.
+#   As a result, on a fork PR `secrets.REVIEWER_STAGING_URL` and
+#   `secrets.WEBAPP_BASE_URL` evaluate to the empty string.
+#
+#   To keep fork PRs from going permanently red, this workflow:
+#
+#     1. Runs `check-secrets` as a separate, cheap job that probes whether
+#        the staging secrets are configured.  Its only side-effect is
+#        writing `has_reviewer_secrets` / `has_webapp_secrets` to its
+#        outputs — no code is executed with the secret values, so this
+#        is safe on every PR.
+#
+#     2. Gates each suite's job with
+#            needs: check-secrets
+#            if: needs.check-secrets.outputs.has_*_secrets == 'true'
+#        so each suite is *skipped* (not failed) on fork PRs.  GitHub
+#        treats a skipped required status check as satisfying branch
+#        protection, so the PR can still merge.
+#
+#     3. Runs `static-checks` unconditionally so every PR — including
+#        fork PRs without secrets — gets real signal:
+#          - typecheck (npx tsc --noEmit)
+#          - lint
+#          - test-count floor (npm run verify)
+#          - mocked Playwright run (page.route() stubs — no staging needed)
+#
+#   If you ever migrate this workflow to `pull_request_target` to get
+#   secrets on fork PRs, see PR review notes — that requires explicit
+#   maintainer approval for outside-collaborator workflow runs.
+# -----------------------------------------------------------------------------
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - staging
+      - "chore/**"
+      - "feature/**"
+  pull_request:
+    branches:
+      - main
+      - develop
+      - staging
+      - "chore/**"
+      - "feature/**"
+  workflow_dispatch:
+  repository_dispatch:
+    types: [deployment_success, staging_deployed]
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  # =========================================================================
+  # 0. check-secrets — cheap, unconditional probe that sets has_*_secrets.
+  #    Runs on every trigger (including fork PRs) because it touches no
+  #    code and exposes no secret values.
+  # =========================================================================
+  check-secrets:
+    name: Check staging secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      has_reviewer_secrets: ${{ steps.probe-reviewer.outputs.has_secrets }}
+      has_webapp_secrets: ${{ steps.probe-webapp.outputs.has_secrets }}
+    steps:
+      - name: Probe REVIEWER_STAGING_URL
+        id: probe-reviewer
+        env:
+          REVIEWER_STAGING_URL: ${{ secrets.REVIEWER_STAGING_URL || secrets.REVIEWER_BASE_URL }}
+        run: |
+          if [ -n "$REVIEWER_STAGING_URL" ]; then
+            echo "has_secrets=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::REVIEWER_STAGING_URL is not configured — the reviewer-system job will be skipped (this is normal for fork PRs)."
+            echo "has_secrets=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Probe WEBAPP_BASE_URL
+        id: probe-webapp
+        env:
+          WEBAPP_BASE_URL: ${{ secrets.WEBAPP_BASE_URL }}
+        run: |
+          if [ -n "$WEBAPP_BASE_URL" ]; then
+            echo "has_secrets=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::WEBAPP_BASE_URL is not configured — the web-app job will be skipped (this is normal for fork PRs)."
+            echo "has_secrets=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # =========================================================================
+  # 1. static-checks — typecheck + lint + verify + mocked Playwright.
+  #    Runs unconditionally so every PR (including fork PRs) gets real
+  #    signal.  No staging URL required.
+  # =========================================================================
+  static-checks:
+    name: Static checks (typecheck + lint + verify + mocked E2E)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: ${{ hashFiles('qa/package-lock.json') != '' && 'npm' || '' }}
+          cache-dependency-path: qa/package-lock.json
+
+      - name: Install QA dependencies
+        working-directory: qa
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install --no-audit --no-fund
+          fi
+
+      - name: TypeScript typecheck
+        working-directory: qa
+        run: npx tsc --noEmit
+
+      - name: Verify test counts (CI gate)
+        working-directory: qa
+        run: npm run verify
+
+      - name: Lint (best-effort)
+        working-directory: qa
+        continue-on-error: true
+        run: |
+          if [ -f package.json ] && grep -q '"lint"' package.json; then
+            npm run lint
+          else
+            echo "No lint script — skipping"
+          fi
+
+      - name: Install Playwright Chromium (mocked run only needs the browser)
+        working-directory: qa
+        run: npx playwright install --with-deps chromium
+
+      - name: Run mocked Playwright suite
+        working-directory: qa
+        run: npm run test:mocked
+
+      - name: Upload mocked-run HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-mocked-html-report
+          path: qa/playwright-report
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Upload mocked-run JUnit XML
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-mocked-junit
+          path: qa/test-results
+          retention-days: 14
+          if-no-files-found: ignore
+
+  # =========================================================================
+  # 2. Reviewer System
+  # =========================================================================
+  reviewer-system:
+    name: Reviewer System (@reviewer)
+    needs: [static-checks, check-secrets]
+    if: needs.check-secrets.outputs.has_reviewer_secrets == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      # New canonical names (PR #1+)
+      REVIEWER_STAGING_URL: ${{ secrets.REVIEWER_STAGING_URL || secrets.REVIEWER_BASE_URL }}
+      MODERATOR_TEST_EMAIL: ${{ secrets.MODERATOR_TEST_EMAIL || secrets.REVIEWER_MODERATOR_EMAIL }}
+      MODERATOR_TEST_PASSWORD: ${{ secrets.MODERATOR_TEST_PASSWORD || secrets.REVIEWER_MODERATOR_PASSWORD }}
+      EXPERT_TEST_EMAIL: ${{ secrets.EXPERT_TEST_EMAIL || secrets.REVIEWER_EXPERT_EMAIL }}
+      EXPERT_TEST_PASSWORD: ${{ secrets.EXPERT_TEST_PASSWORD || secrets.REVIEWER_EXPERT_PASSWORD }}
+      EXPERT_TEST_2_EMAIL: ${{ secrets.EXPERT_TEST_2_EMAIL || secrets.REVIEWER_EXPERT_2_EMAIL }}
+      EXPERT_TEST_2_PASSWORD: ${{ secrets.EXPERT_TEST_2_PASSWORD || secrets.REVIEWER_EXPERT_2_PASSWORD }}
+      REVIEWER_TEST_EMAIL: ${{ secrets.REVIEWER_TEST_EMAIL || secrets.REVIEWER_REVIEWER_EMAIL }}
+      REVIEWER_TEST_PASSWORD: ${{ secrets.REVIEWER_TEST_PASSWORD || secrets.REVIEWER_REVIEWER_PASSWORD }}
+      COORDINATOR_TEST_EMAIL: ${{ secrets.COORDINATOR_TEST_EMAIL || secrets.REVIEWER_COORDINATOR_EMAIL }}
+      COORDINATOR_TEST_PASSWORD: ${{ secrets.COORDINATOR_TEST_PASSWORD || secrets.REVIEWER_COORDINATOR_PASSWORD }}
+      # Pass the legacy alias through too, so older dots env code can
+      # also resolve cleanly if a future task slips through.
+      REVIEWER_BASE_URL: ${{ secrets.REVIEWER_BASE_URL }}
+      REVIEWER_MODERATOR_EMAIL: ${{ secrets.REVIEWER_MODERATOR_EMAIL }}
+      REVIEWER_MODERATOR_PASSWORD: ${{ secrets.REVIEWER_MODERATOR_PASSWORD }}
+      REVIEWER_EXPERT_EMAIL: ${{ secrets.REVIEWER_EXPERT_EMAIL }}
+      REVIEWER_EXPERT_PASSWORD: ${{ secrets.REVIEWER_EXPERT_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: ${{ hashFiles('qa/package-lock.json') != '' && 'npm' || '' }}
+          cache-dependency-path: qa/package-lock.json
+
+      - name: Install dependencies
+        working-directory: qa
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: qa
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Reviewer System tests
+        working-directory: qa
+        run: npm run test:reviewer
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reviewer-system-report
+          path: qa/playwright-report
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Upload JUnit XML
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reviewer-system-results
+          path: qa/test-results
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Upload traces/screenshots/video on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reviewer-system-traces
+          path: |
+            qa/test-results/**/trace.zip
+            qa/test-results/**/video
+            qa/test-results/**/error-context.md
+          retention-days: 14
+          if-no-files-found: ignore
+
+  # =========================================================================
+  # 3. Web App
+  # =========================================================================
+  web-app:
+    name: Web App (@webapp)
+    needs: [static-checks, check-secrets]
+    if: needs.check-secrets.outputs.has_webapp_secrets == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      WEBAPP_BASE_URL: ${{ secrets.WEBAPP_BASE_URL }}
+      WEBAPP_FARMER_PHONE: ${{ secrets.WEBAPP_FARMER_PHONE }}
+      WEBAPP_OTP: ${{ secrets.WEBAPP_OTP }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: ${{ hashFiles('qa/package-lock.json') != '' && 'npm' || '' }}
+          cache-dependency-path: qa/package-lock.json
+
+      - name: Install dependencies
+        working-directory: qa
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: qa
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Web App tests
+        working-directory: qa
+        run: npm run test:webapp
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-app-report
+          path: qa/playwright-report
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Upload JUnit XML
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-app-results
+          path: qa/test-results
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Upload traces/screenshots/video on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-app-traces
+          path: |
+            qa/test-results/**/trace.zip
+            qa/test-results/**/video
+            qa/test-results/**/error-context.md
+          retention-days: 14
+          if-no-files-found: ignore
+
+  # =========================================================================
+  # 4. PR comment — once everything is done.
+  #    `if: always()` lets us post the comment even when reviewer-system
+  #    and/or web-app are skipped (typical on fork PRs without secrets).
+  # =========================================================================
+  pr-comment:
+    name: PR summary comment
+    needs: [reviewer-system, web-app, static-checks]
+    if: github.event_name == 'pull_request' && always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Post PR summary
+        uses: actions/github-script@v7
+        env:
+          REVIEWER_RESULT: ${{ needs.reviewer-system.result }}
+          WEBAPP_RESULT: ${{ needs.web-app.result }}
+          STATIC_RESULT: ${{ needs.static-checks.result }}
+        with:
+          script: |
+            const reviewer = process.env.REVIEWER_RESULT;
+            const webapp = process.env.WEBAPP_RESULT;
+            const sc = process.env.STATIC_RESULT;
+
+            const fmt = (name, r, okMsg, skipMsg, failMsg) => {
+              if (r === "success") return `- ${name}: ${okMsg}`;
+              if (r === "failure") return `- ${name}: ${failMsg}`;
+              if (r === "skipped") return `- ${name}: ${skipMsg}`;
+              return `- ${name}: ⚠️ ${r}`;
+            };
+
+            const reviewerLine = fmt(
+              "Reviewer System",
+              reviewer,
+              "✅ passed",
+              "⚠️ skipped (no `REVIEWER_STAGING_URL` secret — typical for fork PRs)",
+              "❌ failed"
+            );
+            const webappLine = fmt(
+              "Web App",
+              webapp,
+              "✅ passed",
+              "⚠️ skipped (no `WEBAPP_BASE_URL` secret — typical for fork PRs)",
+              "❌ failed"
+            );
+            const scLine = fmt(
+              "Static checks",
+              sc,
+              "✅ passed (typecheck + lint + verify + mocked E2E)",
+              "⚠️ skipped",
+              "❌ failed"
+            );
+
+            const allGreen = reviewer === "success" && webapp === "success" && sc === "success";
+            const anyFailed = reviewer === "failure" || webapp === "failure" || sc === "failure";
+            const verdict = allGreen
+              ? "✅ All green"
+              : anyFailed
+              ? "❌ One or more suites failed"
+              : "⚠️ Some suites were skipped (no staging secrets) — static checks + mocked E2E still ran";
+
+            const body = [
+              "## 🧪 E2E Test Summary",
+              "",
+              reviewerLine,
+              webappLine,
+              scLine,
+              "",
+              `**Overall:** ${verdict}`,
+              "",
+              "Download HTML reports and (on failure) **trace.zip / video** from the **Checks** tab → **Artifacts**.",
+              "",
+              "_Multilingual suite (180 cases, 6 languages) runs in `multilingual.yml`._",
+            ].join("\n");
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
