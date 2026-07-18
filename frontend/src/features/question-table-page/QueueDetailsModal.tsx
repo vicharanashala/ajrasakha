@@ -97,6 +97,8 @@ const STATUS_TAB_COLOR: Record<
   duplicate:   { dot: "bg-rose-500",    active: "text-rose-600 dark:text-rose-400",        badge: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300" },
   "in-review": { dot: "bg-blue-500",    active: "text-blue-600 dark:text-blue-400",        badge: "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300" },
   closed:      { dot: "bg-gray-400",    active: "text-gray-600 dark:text-gray-400",        badge: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" },
+  dynamic_closed: { dot: "bg-gray-400", active: "text-gray-600 dark:text-gray-400",        badge: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" },
+  duplicate_closed: { dot: "bg-rose-400", active: "text-rose-600 dark:text-rose-400",        badge: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300" },
   pass:        { dot: "bg-teal-500",    active: "text-teal-600 dark:text-teal-400",        badge: "bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300" },
   hold:        { dot: "bg-orange-500",  active: "text-orange-600 dark:text-orange-400",    badge: "bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300" },
   "re-routed": { dot: "bg-violet-500",  active: "text-violet-600 dark:text-violet-400",    badge: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300" },
@@ -580,7 +582,7 @@ export const QueueDetailsModal = ({
               );
               const totalCount = data.received.count;
 
-              const ORDER = ["open", "delayed", "duplicate", "in-review", "closed", "pass", "hold", "re-routed", "draft", "dynamic"];
+              const ORDER = ["open", "delayed", "duplicate", "in-review", "closed", "dynamic_closed", "duplicate_closed", "pass", "hold", "re-routed", "draft", "dynamic"];
               const backendStatuses = new Set((data.receivedStatusCounts ?? []).map(r => r.status.toLowerCase()));
               const tabs = [
                 "all",

@@ -88,7 +88,7 @@ export function useUserDetails(
     : undefined;
 
   const { data, isLoading, error, refetch } = useQuery<PaginatedUserDetailsResponse, Error>({
-    queryKey: ['user-details', startISO, endISO, page, limit, search, source, crop, primaryCrops, secondaryCrops, village, state, district, block, profileCompleted, inactiveOnly, lowFeedbackOnly, userType, roles, sortBy, sortOrder, activeTodayByProfile, missingDemographicField, verificationStatus, loginStatus],
+    queryKey: ['user-details', startISO, endISO, startDate, endDate, page, limit, search, source, crop, primaryCrops, secondaryCrops, village, state, district, block, profileCompleted, inactiveOnly, lowFeedbackOnly, userType, roles, sortBy, sortOrder, activeTodayByProfile, missingDemographicField, verificationStatus, loginStatus],
     staleTime: 30 * 1000,
     enabled,
     queryFn: async () => {

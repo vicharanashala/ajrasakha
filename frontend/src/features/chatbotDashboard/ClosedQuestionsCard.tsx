@@ -55,6 +55,7 @@ export function ClosedQuestionsCard({
   statusBreakup,
   avgCloseTimeMinutes = 0,
   avgPassTimeMinutes = 0,
+  combinedCount,
   combinedAvgTime = 0,
   source = "both",
   userType,
@@ -64,7 +65,12 @@ export function ClosedQuestionsCard({
   showSourceFilter = true,
 }: ClosedQuestionsCardProps) {
   const pendingQuestions =
-    (totalQuestions || 0) - (closedQuestions || 0) - (passedQuestions || 0);
+    (totalQuestions || 0) -
+    (closedQuestions || 0) -
+    (passedQuestions || 0);
+  const normalAvgTime = (avgCloseTimeMinutes > 0 && avgPassTimeMinutes > 0)
+    ? (avgCloseTimeMinutes + avgPassTimeMinutes) / 2
+    : (avgCloseTimeMinutes || avgPassTimeMinutes || 0);
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
@@ -223,14 +229,16 @@ export function ClosedQuestionsCard({
                 </div>
               </div>
 
-              {/* Segmented progress — closed vs passed vs open */}
+              {/* Segmented progress — closed vs passed vs dynamic closed vs open */}
               {(() => {
                 const total = Math.max(totalQuestions ?? 0, 1);
                 const closedPct = ((closedQuestions ?? 0) / total) * 100;
                 const passedPct =
                   (Math.max(passedQuestions ?? 0, 0) / total) * 100;
-                const openPct = Math.max(100 - closedPct - passedPct, 0);
-                // const pendingPct = Math.max(100 - pens)
+                const openPct = Math.max(
+                  100 - closedPct - passedPct,
+                  0,
+                );
                 return (
                   <div className="space-y-1.5">
                     <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted/40">
@@ -246,7 +254,7 @@ export function ClosedQuestionsCard({
                         transition={{
                           duration: 0.8,
                           ease: "easeOut",
-                          delay: 0.1,
+                          delay: 0.15,
                         }}
                         className="bg-emerald-500"
                       />
@@ -261,14 +269,14 @@ export function ClosedQuestionsCard({
                         className="bg-muted-foreground/30"
                       />
                     </div>
-                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                    <div className="flex flex-wrap justify-between gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
-                        {closedPct.toFixed(1)}% closed
+                        {closedPct.toFixed(1)}% GDB
                       </span>
                       <span className="flex items-center gap-1">
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                        {passedPct.toFixed(1)}% passed
+                        {passedPct.toFixed(1)}% Non-GDB
                       </span>
                       <span className="flex items-center gap-1">
                         <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50" />
@@ -280,7 +288,7 @@ export function ClosedQuestionsCard({
               })()}
 
               {/* Stats Grid */}
-              <div className="grid grid-cols-4 gap-2.5">
+              <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
                 <StatTile
                   label="Total"
                   count={totalQuestions ?? 0}
@@ -291,30 +299,35 @@ export function ClosedQuestionsCard({
                   }}
                 />
                 <StatTile
-                  label="Closed"
+                  label="GDB"
                   count={closedQuestions ?? 0}
                   accent="sky"
-                  tooltip="Closed questions"
+                  tooltip="GDB questions"
                   onClick={() => {
                     setIsPassed(false);
                     handleClick("closed");
                   }}
                 />
                 <StatTile
-                  label="Passed"
+                  label="Non-GDB"
                   count={Math.max(passedQuestions ?? 0, 0)}
                   accent="emerald"
-                  tooltip="Questions with pass status"
+                  tooltip="Non-GDB questions"
                   onClick={() => {
                     setIsPassed(true);
-                    handleClick("pass");
+                    handleClick("non_gdb");
                   }}
+                  showInfo={true}
+                  statusBreakup={statusBreakup}
+                  setIsPassed={setIsPassed}
+                  handleClick={handleClick}
+                  infoType="non_gdb"
                 />
                 <StatTile
                   label="In Queue"
                   count={Math.max(pendingQuestions ?? 0, 0)}
                   accent="muted"
-                  tooltip="Questions neither closed nor passed"
+                  tooltip="Questions in queue"
                   onClick={() => {
                     setIsPassed(true);
                     handleClick("pending");
@@ -323,6 +336,7 @@ export function ClosedQuestionsCard({
                   statusBreakup={statusBreakup}
                   setIsPassed={setIsPassed}
                   handleClick={handleClick}
+                  infoType="in_queue"
                 />
               </div>
 
@@ -337,30 +351,30 @@ export function ClosedQuestionsCard({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="cursor-help text-xs font-semibold tabular-nums text-foreground underline-offset-2 hover:underline">
-                      {formatDurationFromMinutes(combinedAvgTime)}
+                      {formatDurationFromMinutes(normalAvgTime)}
                     </span>
                   </TooltipTrigger>
-                  <TooltipContent className="w-56 p-3">
+                  <TooltipContent className="w-64 p-3">
                     <div className="space-y-2 text-xs">
                       <div className="font-semibold">
                         Resolution Time Breakdown
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Closed</span>
+                        <span className="text-muted-foreground">GDB </span>
                         <span className="tabular-nums">
                           {formatDurationFromMinutes(avgCloseTimeMinutes)}
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Passed</span>
+                        <span className="text-muted-foreground">Non-GDB </span>
                         <span className="tabular-nums">
                           {formatDurationFromMinutes(avgPassTimeMinutes)}
                         </span>
                       </div>
                       <div className="flex justify-between border-t pt-2 font-medium">
-                        <span>Combined</span>
-                        <span className="tabular-nums">
-                          {formatDurationFromMinutes(combinedAvgTime)}
+                        <span>Average </span>
+                        <span className="tabular-nums font-semibold">
+                          {formatDurationFromMinutes(normalAvgTime)}
                         </span>
                       </div>
                     </div>
@@ -406,6 +420,11 @@ const ACCENT = {
     ring: "group-hover/tile:ring-sky-500/30",
     glow: "group-hover/tile:shadow-sky-500/10",
   },
+  indigo: {
+    dot: "bg-indigo-500",
+    ring: "group-hover/tile:ring-indigo-500/30",
+    glow: "group-hover/tile:shadow-indigo-500/10",
+  },
   emerald: {
     dot: "bg-emerald-500",
     ring: "group-hover/tile:ring-emerald-500/30",
@@ -433,6 +452,7 @@ function StatTile({
   statusBreakup,
   setIsPassed,
   handleClick,
+  infoType,
 }: {
   label: string;
   count: number;
@@ -443,6 +463,7 @@ function StatTile({
   statusBreakup?: any;
   setIsPassed?: (value: boolean) => void;
   handleClick?: (status: string) => void;
+  infoType?: "non_gdb" | "in_queue";
 }) {
   const a = ACCENT[accent];
   return (
@@ -479,11 +500,23 @@ function StatTile({
       >
         {showInfo ? (
           <div className="space-y-1.5 text-xs">
-            {Object.entries(statusBreakup?.statuses ?? {})
-              .filter(([key, value]) => {
-                return key !== "pass" && key !== "closed"
-              })
-              .map(([key, value]) => (
+            {(() => {
+              const statusesObj = statusBreakup?.statuses ?? {};
+              let entriesToShow: [string, number][] = [];
+              if (infoType === "non_gdb") {
+                entriesToShow = [
+                  ["dynamic_closed", statusesObj.dynamic_closed ?? 0],
+                  ["duplicate_closed", statusesObj.duplicate_closed ?? 0],
+                  ["pass", statusesObj.pass ?? 0],
+                ];
+              } else {
+                const excludeKeys = ["pass", "closed", "dynamic_closed", "duplicate_closed"];
+                entriesToShow = Object.entries(statusesObj)
+                  .filter(([key]) => !excludeKeys.includes(key))
+                  .map(([key, val]) => [key, Number(val ?? 0)]);
+              }
+
+              return entriesToShow.map(([key, value]) => (
                 <div
                   key={key}
                   className="flex justify-between gap-4 cursor-pointer hover:bg-muted/80 p-1 -mx-1 px-1 rounded transition-colors"
@@ -501,7 +534,8 @@ function StatTile({
 
                   <span className="font-medium">{String(value)}</span>
                 </div>
-              ))}
+              ));
+            })()}
           </div>
         ) : (
           <p className="text-xs">{tooltip}</p>

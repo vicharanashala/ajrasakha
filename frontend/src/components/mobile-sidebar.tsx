@@ -77,8 +77,8 @@ export const MobileSidebar = ({
   const isCoordinator = isCoordinatorRole(user?.role);
   const handleClick = (value: string) => {
     if (value === "chatbotanalytics") {
-      setTab("chatbotanalytics");
-      setActiveTab(value);
+      // ChatBot Analytics is now its own route rather than an in-page tab.
+      navigate({ to: "/chatbot" });
     } else if (value === "whatsapp_history") {
       navigate({ to: "/whatsapp-history" });
     } else {

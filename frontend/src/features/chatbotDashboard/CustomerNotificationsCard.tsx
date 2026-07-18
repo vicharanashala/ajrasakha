@@ -332,41 +332,41 @@ export function CustomerNotificationsCard({
                       {notifiedPct.toFixed(1)}%
                     </span>
                   </TooltipTrigger>
-                  <TooltipContent className="w-56 p-3">
+                  <TooltipContent className="w-64 p-3">
                     <div className="space-y-2 text-xs">
                       <div className="font-semibold">
                         Notification Rate Breakdown
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex justify-between gap-4">
                         <span className="text-muted-foreground">Notified</span>
-                        <span className="tabular-nums text-emerald-500">
-                          {notifiedPct.toFixed(1)}%
+                        <span className="tabular-nums text-emerald-500 font-medium text-right">
+                          {notifiedPct.toFixed(1)}% <span className="text-[10px] text-muted-foreground font-normal">({safeNotified}/{totalClosedQuestions})</span>
                         </span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex justify-between gap-4">
                         <span className="text-muted-foreground">
                           Not Notified
                         </span>
-                        <span className="tabular-nums text-amber-500">
+                        <span className="tabular-nums text-amber-500 font-medium text-right">
                           {totalClosedQuestions > 0
                             ? (
                                 (safeNotNotified / totalClosedQuestions) *
                                 100
                               ).toFixed(1)
                             : 0}
-                          %
+                          % <span className="text-[10px] text-muted-foreground font-normal">({safeNotNotified}/{totalClosedQuestions})</span>
                         </span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex justify-between gap-4">
                         <span className="text-muted-foreground">Untracked</span>
-                        <span className="tabular-nums text-muted-foreground">
+                        <span className="tabular-nums text-muted-foreground font-medium text-right">
                           {totalClosedQuestions > 0
                             ? (
                                 (safeUntracked / totalClosedQuestions) *
                                 100
                               ).toFixed(1)
                             : 0}
-                          %
+                          % <span className="text-[10px] text-muted-foreground font-normal">({safeUntracked}/{totalClosedQuestions})</span>
                         </span>
                       </div>
                     </div>
