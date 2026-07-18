@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /** Indian-grouped integer formatting (1,28,450) — the authentic register for a GoI page. */
 export const formatIndian = (n: number): string =>
@@ -9,28 +9,34 @@ export const formatIndian = (n: number): string =>
  * Used to gate chart rendering and bar animations until visible.
  */
 export function useInView(threshold = 0.2) {
-  const ref = useRef<HTMLDivElement | null>(null);
   const [inView, setInView] = useState(false);
+  // A callback ref (rather than a static object ref) so the observer re-attaches when the
+  // node actually mounts — e.g. a grid that's swapped in only after its data finishes loading.
+  const cleanup = useRef<(() => void) | null>(null);
 
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setInView(true);
-      return;
-    }
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          setInView(true);
-          io.disconnect();
-        }
-      },
-      { threshold },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [threshold]);
+  const ref = useCallback(
+    (el: HTMLDivElement | null) => {
+      cleanup.current?.();
+      cleanup.current = null;
+      if (!el) return;
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        setInView(true);
+        return;
+      }
+      const io = new IntersectionObserver(
+        (entries) => {
+          if (entries[0]?.isIntersecting) {
+            setInView(true);
+            io.disconnect();
+          }
+        },
+        { threshold },
+      );
+      io.observe(el);
+      cleanup.current = () => io.disconnect();
+    },
+    [threshold],
+  );
 
   return { ref, inView };
 }

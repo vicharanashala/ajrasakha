@@ -4,6 +4,7 @@ import { MiniCounter } from "../components/MiniMetric";
 import { SectionHead } from "../components/SectionHead";
 import { states } from "../data/dashboardData";
 import { useInView } from "../utils";
+import { Loader2 } from "lucide-react";
 import type { SaturatedCropState } from "@/hooks/services/publicStatsService";
 
 interface KnowledgeEngineProps {
@@ -11,12 +12,15 @@ interface KnowledgeEngineProps {
   saturatedCropsByState?: SaturatedCropState[];
   /** The threshold a crop's count must exceed to count as saturated. */
   saturationThreshold?: number;
+  /** True while the live stats are still loading — show a spinner instead of "no crops". */
+  loading?: boolean;
 }
 
 /** Layer 03 — KCC dataset progress, state maturity and crop saturation. */
 export const KnowledgeEngine = ({
   saturatedCropsByState = [],
   saturationThreshold,
+  loading = false,
 }: KnowledgeEngineProps) => {
   const [kccW, setKccW] = useState(0);
   const { ref: kccRef, inView: kccInView } = useInView(0.2);
@@ -96,47 +100,74 @@ export const KnowledgeEngine = ({
         {typeof saturationThreshold === "number" ? "questions" : "saturation threshold"} in each
         state, ranked by volume.
       </p>
-      {saturatedCropsByState.length === 0 ? (
+      {loading ? (
+        <div className="sat-loading">
+          <Loader2 className="sat-spinner" />
+          <span>Loading saturated crops…</span>
+        </div>
+      ) : saturatedCropsByState.length === 0 ? (
         <p className="sec-desc">No crops have crossed the saturation threshold yet.</p>
       ) : (
-        <div ref={cropsRef} className={`card-grid grid-4 card-grid-anim${cropsInView ? " in-view" : ""}`}>
-          {saturatedCropsByState.map((st) => {
-            const max = Math.max(...st.crops.map((c) => c.count), 1);
-            return (
-              <div className="card" key={st.state}>
-                <h4>{st.state}</h4>
-                <div className="meta">
-                  {st.crops.length} saturated crop{st.crops.length === 1 ? "" : "s"} ·{" "}
-                  {st.total.toLocaleString("en-IN")} questions
-                </div>
-                <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
-                  {st.crops.map((c) => (
-                    <div key={c.crop}>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          fontSize: 12.5,
-                          marginBottom: 4,
-                        }}
-                      >
-                        <span>{c.crop}</span>
-                        <span className="mono">{c.count.toLocaleString("en-IN")}</span>
-                      </div>
-                      <div className="crop-bar-track">
-                        <div
-                          className="crop-bar-fill"
-                          style={{ width: cropsInView ? `${(c.count / max) * 100}%` : "0%" }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
+        <div ref={cropsRef} className={`card-grid grid-4 sat-grid${cropsInView ? " in-view" : ""}`}>
+          {saturatedCropsByState.map((st, si) => (
+            <SaturatedStateCard
+              key={st.state}
+              state={st}
+              index={si}
+              animate={cropsInView}
+            />
+          ))}
         </div>
       )}
     </section>
+  );
+};
+
+/** One state's card: shows the top crop, with a "+N" pill that expands the rest. */
+const SaturatedStateCard = ({
+  state,
+  index,
+  animate,
+}: {
+  state: SaturatedCropState;
+  index: number;
+  animate: boolean;
+}) => {
+  const [expanded, setExpanded] = useState(false);
+  const [lead, ...rest] = state.crops;
+  const chip = (c: { crop: string; count: number }) => (
+    <span className="sat-chip" key={c.crop}>
+      <span className="sat-chip-name">{c.crop}</span>
+      <span className="sat-chip-count mono">{animate ? <Counter value={c.count} /> : 0}</span>
+    </span>
+  );
+
+  return (
+    <div className="sat-card" style={{ transitionDelay: `${index * 70}ms` }}>
+      <div className="sat-card-head">
+        <h4>{state.state}</h4>
+        <span className="sat-count-badge">
+          {state.crops.length} crop{state.crops.length === 1 ? "" : "s"}
+        </span>
+      </div>
+      <div className="sat-chips">
+        {lead && chip(lead)}
+        {rest.length > 0 && (
+          <button
+            type="button"
+            className={`sat-more${expanded ? " open" : ""}`}
+            onClick={() => setExpanded((v) => !v)}
+            aria-expanded={expanded}
+          >
+            {expanded ? "Show less" : `+${rest.length}`}
+          </button>
+        )}
+      </div>
+      {rest.length > 0 && (
+        <div className={`sat-rest${expanded ? " open" : ""}`}>
+          <div className="sat-rest-inner sat-chips">{rest.map(chip)}</div>
+        </div>
+      )}
+    </div>
   );
 };

@@ -45,7 +45,7 @@ export const PublicDashboard = () => {
 
   // ---- live data -----------------------------------------------------------
   const { data: content } = useGetDashboardContent();
-  const { data: live } = useGetPublicStats();
+  const { data: live, isLoading: statsLoading } = useGetPublicStats();
   const { data: counts } = useGetPublicCounts(); // seeded by fetch, kept live by the socket
   usePublicCountsSocket(); // pushes count updates into the query above (change-stream driven)
 
@@ -123,6 +123,7 @@ export const PublicDashboard = () => {
             <KnowledgeEngine
               saturatedCropsByState={live?.saturatedCropsByState}
               saturationThreshold={live?.saturationThreshold}
+              loading={statsLoading || !live}
             />
             {/* HumanNetwork now renders inside NarrativeSection's right column, above. */}
             <Integrations />
