@@ -67,6 +67,8 @@ export const useFeedbackLocation =({
   state,
   district,
   search,
+  startDate,
+  endDate,
   enabled = true,
 }: {
   source?: string;
@@ -79,6 +81,8 @@ export const useFeedbackLocation =({
   state?: string;
   district?: string; 
   search?: string;
+  startDate?: string,
+  endDate?: string,
   enabled?: boolean;
 }) =>{
   return useQuery({
@@ -94,7 +98,8 @@ export const useFeedbackLocation =({
       state,
       district,
       search,
-
+      startDate,
+      endDate
     ],
     queryFn: () => {
       return chatbotService.getFeedbackByLocation({
@@ -108,6 +113,8 @@ export const useFeedbackLocation =({
         state,
         district,
         search,
+        startDate,
+        endDate
       });
     },
     enabled,

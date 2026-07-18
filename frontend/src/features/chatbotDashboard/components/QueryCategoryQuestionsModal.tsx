@@ -118,6 +118,7 @@ export function QueryCategoryQuestionsModal({
   safeNotified,
   safeNotNotified,
   safeUntracked,
+  isIndiaView,
 }: QueryCategoryQuestionsModalProps) {
   const { setSelectedQuestionId, setView } = useSelectedQuestion();
 

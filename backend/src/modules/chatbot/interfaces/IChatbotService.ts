@@ -122,6 +122,8 @@ export interface IChatbotService {
     source?: string,
     userType?: string,
     search?: string,
+    startDate?: Date,
+    endDate?: Date,
     knownDistricts?: string[],
   ): Promise<any>;
   getTopCrops(source?: string, userType?: string): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
@@ -217,6 +219,8 @@ export interface IChatbotService {
     selectedStateCode?: string,
     source?: string,
     userType?: string,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<DistrictAnalyticsEntry[]>;
   getWeatherConcernAnalytics(
     filters?: WeatherConcernAnalyticsFilters,
@@ -455,6 +459,8 @@ export interface IChatbotService {
       source?: string,
       userType?: string,
       search?: string,
+      startDate?: Date,
+      enDate?: Date,
     ): Promise<any>;
 
     getActiveUsersDetails(
@@ -465,6 +471,8 @@ export interface IChatbotService {
       state?: string,
       district?: string,
       search?: string,
+      startDate?: Date,
+      endDate?: Date,
     ): Promise<any>
 
       getCoordinatorsDetails(
@@ -502,6 +510,8 @@ export interface IChatbotService {
     state?: string,
     district?: string,
     search?: string,
+    startDate?: Date,
+    endDate?: Date
   ) : Promise<any>
 
     getClosedInLastTwoHoursByLocation(
@@ -510,4 +520,16 @@ export interface IChatbotService {
     state?: string,
     district?: string,
   ): Promise<any>
+
+    getActiveUsersDetailsByQuestions(
+      page: number,
+      limit: number,
+      source: string,
+      userType: string,
+      state?: string,
+      district?: string,
+      search?: string,
+      startDate?: Date,
+      endDate?: Date,
+    ): Promise<any>
 }

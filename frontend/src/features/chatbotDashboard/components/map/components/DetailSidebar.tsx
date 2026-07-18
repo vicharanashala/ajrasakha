@@ -360,6 +360,8 @@ export function DetailSidebar({
                   setIsPassed(false);
                 }}
                 isIndiaView={isIndiaView}
+                startDate={questionStatusRange.startTime}
+                endDate= {questionStatusRange.endTime}
               />
             ) : clickedState ? (
               <QueryCategoryQuestionsModal
@@ -368,6 +370,8 @@ export function DetailSidebar({
                 userType={userType}
                 isQueryCategory={false}
                 onClose={() => setClickedState(null)}
+                startDate={questionStatusRange.startTime}
+                endDate= {questionStatusRange.endTime}
                
               />
             ) : clickedDistrict ? (
@@ -378,6 +382,8 @@ export function DetailSidebar({
                 userType={userType}
                 isQueryCategory={false}
                 onClose={() => setClickedDistrict(null)}
+                startDate={questionStatusRange.startTime}
+                endDate= {questionStatusRange.endTime}
               />
             ) : null}
             {showActiveUsersModal && (
@@ -388,6 +394,8 @@ export function DetailSidebar({
                 district={selectedDistrict ?? undefined}
                 onClose={() => setShowActiveUsersModal(false)}
                 type="activeUsers"
+                startDate={questionStatusRange.startTime}
+                endDate= {questionStatusRange.endTime}
               />
             )}
             {source !== "whatsapp" ? (
@@ -434,6 +442,8 @@ export function DetailSidebar({
                 isMapComponent={true}
                 state={selectedState ?? undefined}
                 district={selectedDistrict ?? undefined}
+                startDate={questionStatusRange.startTime}
+                endDate= {questionStatusRange.endTime}
               />
             )}
             {showUsersModal && (

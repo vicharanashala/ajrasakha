@@ -267,8 +267,8 @@ export class ChatbotService {
     limit,
     source,
     userType,
-    stringStartDate,
-    stringEndDate,
+    startDate,
+    endDate,
     search,
     isPassed,
     tag,
@@ -288,8 +288,8 @@ export class ChatbotService {
     limit: number;
     source: string;
     userType?: string;
-    stringStartDate?: string;
-    stringEndDate?: string;
+    startDate?: string;
+    endDate?: string;
     search?: string;
     isPassed?: boolean;
     tag?: string;
@@ -310,8 +310,8 @@ export class ChatbotService {
     params.append("limit", limit.toString());
     params.append("source", source);
     if (userType) params.append("userType", userType);
-    if (stringStartDate) params.append("startDate", stringStartDate);
-    if (stringEndDate) params.append("endDate", stringEndDate);
+    if (startDate) params.append("startDate", startDate);
+    if (endDate) params.append("endDate", endDate);
     if (search?.trim()) {
       params.append("search", search.trim());
     }
@@ -547,6 +547,8 @@ export class ChatbotService {
     district,
     state,
     search,
+    startDate,
+    endDate
   }:{
     page: number,
     limit: number,
@@ -555,6 +557,8 @@ export class ChatbotService {
     district?: string,
     state?: string,
     search?: string,
+    startDate?: string,
+    endDate?: string,
   }){
     const params = new URLSearchParams();
     params.append('page', page.toString());
@@ -564,6 +568,8 @@ export class ChatbotService {
     if(district) params.append('district', district);
     if(state) params.append('state', state);
     if(search) params.append('search', search);
+    if(startDate) params.append('startDate', startDate);
+    if(endDate) params.append('endDate', endDate);
     return apiFetch<any>(`${this._baseUrl}/active-users-details?${params.toString()}`)
   }
 
@@ -699,6 +705,8 @@ export class ChatbotService {
     state,
     district,
     search,
+    startDate,
+    endDate,
   }: {
     source?: string;
     page: number;
@@ -710,6 +718,8 @@ export class ChatbotService {
     state?: string,
     district?: string,
     search?: string;
+    startDate?: string,
+    endDate?: string,
   }): Promise<any> {
     const params = new URLSearchParams();
     if (source) params.append("source", source);
@@ -726,6 +736,9 @@ export class ChatbotService {
     if(district) params.append('district', district);
     if (search) params.append("search", search);
 
+    if(startDate) params.append("startDate", startDate);
+    if(endDate) params.append("endDate", endDate)
+
     return apiFetch<any>(
       `${this._baseUrl}/feedback-by-location?${params.toString()}`
     );
@@ -740,4 +753,39 @@ export class ChatbotService {
 
     return apiFetch<any>(`${this._baseUrl}/closed-question-by-location?${params.toString()}`)
   }
+
+    async getActiveUsersDetailsByQuestions ({
+    page,
+    limit,
+    source,
+    userType,
+    district,
+    state,
+    search,
+    startDate,
+    endDate
+  }:{
+    page: number,
+    limit: number,
+    source:string,
+    userType: string,
+    district?: string,
+    state?: string,
+    search?: string,
+    startDate?: string,
+    endDate?: string,
+  }){
+    const params = new URLSearchParams();
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
+    params.append('source', source)
+    params.append('userType', userType)
+    if(district) params.append('district', district);
+    if(state) params.append('state', state);
+    if(search) params.append('search', search);
+    if(startDate) params.append('startDate', startDate);
+    if(endDate) params.append('endDate', endDate);
+    return apiFetch<any>(`${this._baseUrl}/active-user-by-questions?${params.toString()}`)
+  }
+
 }

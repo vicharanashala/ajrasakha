@@ -554,6 +554,8 @@ export interface IChatbotRepository {
     userType?: string,
     search?: string,
     knownDistricts?: string[],
+    startDate?: Date,
+    endDate?: Date
   ): Promise<any>;
 
   getTopCrops(
@@ -910,6 +912,8 @@ export interface IChatbotRepository {
     source?: string,
     session?: ClientSession,
     userType?: string,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<DistrictAnalyticsEntry[]>;
 
   getWeatherConcernAnalytics(
@@ -1133,6 +1137,8 @@ export interface IChatbotRepository {
     session?: ClientSession,
     userType?: string,
     search?: string,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<any>;
 
   getActiveUsersDetails(
@@ -1143,7 +1149,9 @@ export interface IChatbotRepository {
     session?:ClientSession, 
     state?:string, 
     district?:string, 
-    search?: string
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<any>
 
     getCoordinatorsDetails(
@@ -1182,6 +1190,8 @@ export interface IChatbotRepository {
     district?: string,
     search?: string,
     session?: ClientSession,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<PaginatedFeedbackMessages>
 
   getClosedInLastTwoHoursByLocation(
@@ -1189,6 +1199,19 @@ export interface IChatbotRepository {
     userType?: string,
     state?: string,
     district?: string,
+  ): Promise<any>
+
+  getActiveUsersDetailsByQuestions(
+    page: number,
+    limit: number,
+    source: string,
+    userType: string,
+    session?: ClientSession,
+    state?: string,
+    district?: string,
+    search?: string,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<any>
     
 }
