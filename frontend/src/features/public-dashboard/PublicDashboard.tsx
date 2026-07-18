@@ -9,7 +9,6 @@ import {
   AnalyticsMapPublic,
   Channels,
   CropMatrix,
-  GeographicIntelligence,
   GrowthTimeline,
   CoverageOverview,
   ImpactOutreach,
@@ -114,7 +113,6 @@ export const PublicDashboard = () => {
           cropsCovered={live?.cropsCovered}
           domainsCovered={live?.domainsCovered}
         />
-        <GeographicIntelligence />
         <KnowledgeEngine />
         {/* HumanNetwork now renders inside NarrativeSection's right column, above. */}
         <Integrations />

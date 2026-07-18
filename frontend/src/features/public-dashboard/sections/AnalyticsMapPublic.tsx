@@ -33,7 +33,8 @@ export const AnalyticsMapPublic = () => {
   });
 
   return (
-    <section className="wrap" id="analytics-map" style={{ marginTop: 44 }}>
+    // id="layer2" = the "Coverage Map" nav link (was GeographicIntelligence, now removed).
+    <section className="wrap" id="layer2" style={{ marginTop: 44 }}>
       <SectionHead title="State-wise Coverage" />
       <p className="sec-desc">
         Interactive map showing validated question-answer pairs across Indian
