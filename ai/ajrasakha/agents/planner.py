@@ -622,12 +622,13 @@ async def planner_node(
         )
         plan = planner_output_to_plan(output)
 
-        # Use LLM-based language detection for vocal_language to avoid incorrect inference from state/crop names
-        detected_vocal = _llm_detect_language(user_text)
-        vocal = _coerce_official_language(detected_vocal) or "English"
-        
-        # Use Unicode-based script detection for script_language
+        # Use Unicode-based script detection first (before LLM detection)
         detected_script = detect_script_language(user_text)
+        
+        # Use LLM-based language detection for vocal_language with script context
+        # to avoid incorrect inference from state/crop names
+        detected_vocal = _llm_detect_language(user_text, script_context=detected_script)
+        vocal = _coerce_official_language(detected_vocal) or "English"
         
         if vocal != plan.get("vocal_language"):
             logger.info(

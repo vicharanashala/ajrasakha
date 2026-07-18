@@ -7,6 +7,7 @@ import {
   ICropRef,
   QuestionStatus,
   QuestionSource,
+  IUserHistory,
 } from '#shared/interfaces/models.js';
 import { instanceToPlain } from 'class-transformer';
 import { injectable, inject } from 'inversify';
@@ -2016,6 +2017,29 @@ export class UserRepository implements IUserRepository {
     }
   }
 
+  async findActiveCallAgents(session?: ClientSession): Promise<IUser[]> {
+    try {
+      await this.init();
+
+      const agents = await this.usersCollection
+        .find(
+          {
+            role: 'call_agent' as any,
+            isCallAgentActive: true,
+          },
+          { session },
+        )
+        .toArray();
+
+      return agents.map((agent) => ({
+        ...agent,
+        _id: agent._id.toString(),
+      })) as IUser[];
+    } catch (error) {
+      throw new InternalServerError('Failed to find active call agents');
+    }
+  }
+
   async setCallAgentStatus(
     userId: string,
     isCallAgent: boolean,
@@ -2138,6 +2162,130 @@ export class UserRepository implements IUserRepository {
     } catch (error) {
       console.error('findAndMarkAvailableAgent - error:', error);
       throw new InternalServerError('Failed to find and mark available agent');
+    }
+  }
+
+  //get user history by userId
+  async getUserHistory(
+    query: { userId: string; startDateTime?: string; endDateTime?: string },
+    session?: ClientSession,
+  ): Promise<IUserHistory> {
+    try {
+      const { userId, startDateTime, endDateTime } = query;
+      await this.init();
+
+      // Default to today's full UTC day if values are not provided
+      const start =
+        startDateTime != null
+          ? new Date(startDateTime)
+          : new Date(new Date().setUTCHours(0, 0, 0, 0));
+
+      const end =
+        endDateTime != null
+          ? new Date(endDateTime)
+          : new Date(new Date().setUTCHours(23, 59, 59, 999));
+
+      const result = await this.usersCollection
+        .aggregate<IUserHistory>(
+          [
+            // -------------------------------------------------------------------------
+            // Step 1:
+            // Find the requested user.
+            // -------------------------------------------------------------------------
+            {
+              $match: {
+                _id: new ObjectId(userId),
+              },
+            },
+
+            // -------------------------------------------------------------------------
+            // Step 2:
+            // Lookup all role history records that overlap the selected period.
+            // -------------------------------------------------------------------------
+            {
+              $lookup: {
+                from: "user_role_history",
+                let: {
+                  userId: "$_id",
+                },
+                pipeline: [
+                  {
+                    $match: {
+                      $expr: {
+                        $eq: ["$userId", "$$userId"],
+                      },
+                      from: {
+                        $lte: end,
+                      },
+                      $or: [
+                        {
+                          to: null,
+                        },
+                        {
+                          to: {
+                            $gt: start,
+                          },
+                        },
+                      ],
+                    },
+                  },
+                  {
+                    $sort: {
+                      from: 1,
+                    },
+                  },
+                ],
+                as: "roleHistory",
+              },
+            },
+
+            // -------------------------------------------------------------------------
+            // Step 3:
+            // Shape the response.
+            // roleHistory will always be an array ([] if no history exists).
+            // -------------------------------------------------------------------------
+            {
+              $project: {
+                _id: 0,
+
+                roleHistory: 1,
+
+                userDetails: {
+                  name: {
+                    $trim: {
+                      input: {
+                        $concat: [
+                          { $ifNull: ["$firstName", ""] },
+                          " ",
+                          { $ifNull: ["$lastName", ""] },
+                        ],
+                      },
+                    },
+                  },
+                  email: "$email",
+                  firstName: "$firstName",
+                  lastName: "$lastName",
+                  role: "$role",
+                  status: "$status",
+                  isBlocked: "$isBlocked",
+                  special_task_force: "$special_task_force",
+                },
+              },
+            },
+          ],
+          { session },
+        )
+        .toArray();
+
+      const userHistory = result[0];
+
+      return {
+        roleHistory: userHistory?.roleHistory ?? [],
+        userDetails: userHistory?.userDetails ?? null,
+      };
+    } catch (error) {
+      console.error('Error fetching user history:', error);
+      throw new InternalServerError('Failed to fetch user history');
     }
   }
 }

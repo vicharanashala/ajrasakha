@@ -45,6 +45,7 @@ type ClosedInLastTwoHoursCardProps = {
   onRefresh?: () => void;
   passedInLastTwoHours: number;
   totalPassed: number;
+  isMapComponent?: boolean;
 };
 
 export function ClosedInLastTwoHoursCard({
@@ -60,6 +61,7 @@ export function ClosedInLastTwoHoursCard({
   onRefresh,
   passedInLastTwoHours,
   totalPassed = 0,
+  isMapComponent = false,
 }: ClosedInLastTwoHoursCardProps) {
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
@@ -161,7 +163,7 @@ export function ClosedInLastTwoHoursCard({
                 </div>
 
                 {/* Filters */}
-                <div
+                {!isMapComponent && <div
                   className="flex items-center gap-1.5 shrink-0"
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -238,7 +240,7 @@ export function ClosedInLastTwoHoursCard({
                       <X className="h-3 w-3" />
                     </Button>
                   )}
-                </div>
+                </div>}
               </div>
 
               {/* Segmented progress bar */}
@@ -290,6 +292,7 @@ export function ClosedInLastTwoHoursCard({
                     setClosedWithInTowhours(true);
                     setSlaBreachedQs("")
                   }}
+                  isMapComponent={isMapComponent}
                 />
                 <StatTile
                   label="Passed"
@@ -302,6 +305,7 @@ export function ClosedInLastTwoHoursCard({
                     setClosedWithInTowhours(true);
                     setSlaBreachedQs("")
                   }}
+                  isMapComponent={isMapComponent}
                 />
                 <StatTile
                   label="Rate"
@@ -310,6 +314,7 @@ export function ClosedInLastTwoHoursCard({
                   decimals={1}
                   accent="emerald"
                   tooltip="Completion rate within 2 hours"
+                  isMapComponent={isMapComponent}
                 />
                 <StatTile
                   label="sla breached"
@@ -318,12 +323,13 @@ export function ClosedInLastTwoHoursCard({
                   suffix=""
                   decimals={0}
                   accent="red"
-                  tooltip="Question resolution took more than 2 hours"
+                  tooltip="Questions exceeding 2 hours based on expert working hours. Questions received between 10:00 PM and 6:00 AM start counting from 6:00 AM"
                   onClick={() => {
                     setIsPassed(true);
                     setClosedWithInTowhours(true);
                     setSlaBreachedQs("slabreached")
                   }}
+                  isMapComponent={isMapComponent}
                 />
               </div>
 
@@ -337,12 +343,12 @@ export function ClosedInLastTwoHoursCard({
                 </div>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="cursor-help text-xs font-semibold tabular-nums text-foreground underline-offset-2 hover:underline">
+                    <span className="cursor-help text-xs font-semibold tabular-nums text-foreground underline-offset-2 hover:underline ">
                       {combinedPct.toFixed(1)}%
                     </span>
                   </TooltipTrigger>
-                  <TooltipContent className="w-56 p-3">
-                    <div className="space-y-2 text-xs">
+                  <TooltipContent className="w-56 p-3 z-[9999]">
+                    <div className="space-y-2 text-xs ">
                       <div className="font-semibold">
                         Resolution Rate Breakdown
                       </div>
@@ -433,6 +439,7 @@ function StatTile({
   accent,
   tooltip,
   onClick,
+  isMapComponent
 }: {
   label: string;
   count: number;
@@ -442,6 +449,7 @@ function StatTile({
   accent: keyof typeof ACCENT;
   tooltip: string;
   onClick?: () => void;
+  isMapComponent?: boolean;
 }) {
   const a = ACCENT[accent];
   return (
@@ -449,7 +457,7 @@ function StatTile({
       <TooltipTrigger asChild>
         <motion.button
           type="button"
-          onClick={onClick}
+          onClick={isMapComponent ? undefined : onClick}
           whileHover={{ y: -2 }}
           whileTap={{ scale: 0.98 }}
           transition={{ duration: 0.15 }}

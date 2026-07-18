@@ -5,6 +5,7 @@ import {
   INotificationType,
   NotificationRetentionType,
   UserRole,
+  IUserHistory,
 } from '#root/shared/interfaces/models.js';
 import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
 import {
@@ -838,7 +839,8 @@ export class UserService extends BaseService {
         agent: assignedAgent,
         isCallAgentActive: true,
         isBusy: false,
-        currentCallUuid: null
+        currentCallUuid: null,
+        lastAgentActiveAt: new Date()
       }, session);
 
       return updatedUser;
@@ -870,6 +872,53 @@ export class UserService extends BaseService {
 
       return updatedUser;
     });
+  }
+
+  /**
+   * Updates the heartbeat timestamp for an active agent
+   */
+  async updateAgentHeartbeat(userId: string): Promise<void> {
+    await this._withTransaction(async (session: ClientSession) => {
+      const user = await this.userRepo.findById(userId, session);
+      if (!user) {
+        throw new NotFoundError(`User with ID ${userId} not found`);
+      }
+
+      if (user.role !== ('call_agent' as any)) {
+        throw new BadRequestError('User is not a call agent');
+      }
+
+      await this.userRepo.edit(userId, {
+        lastAgentActiveAt: new Date()
+      }, session);
+    });
+  }
+
+  /**
+   * Cleanup inactive agents who haven't sent a heartbeat for over 75 seconds
+   */
+  async cleanupInactiveAgents(): Promise<void> {
+    const activeAgents = await this.userRepo.findActiveCallAgents();
+    if (activeAgents.length === 0) {
+      return; // Run only if there are active agents
+    }
+
+    const oneMinuteAgo = new Date(Date.now() - 75 * 1000); // 75 seconds ago
+    const inactiveAgents = activeAgents.filter(
+      agent =>
+        !agent.lastAgentActiveAt || new Date(agent.lastAgentActiveAt) < oneMinuteAgo
+    );
+
+    if (inactiveAgents.length > 0) {
+      for (const agent of inactiveAgents) {
+        try {
+          const userId = agent._id.toString();
+          await this.setAgentOffline(userId);
+        } catch (error) {
+          console.error(`[AGENT-CLEANUP] Failed to mark agent ${agent._id} offline:`, error);
+        }
+      }
+    }
   }
 
   /**
@@ -952,5 +1001,26 @@ export class UserService extends BaseService {
    */
   async findAndMarkAvailableAgent(callUuid: string): Promise<IUser | null> {
     return await this.userRepo.findAndMarkAvailableAgent(callUuid);
+  }
+
+  //get user history by id
+  async getUserHistoryById(query: { userId: string; startDateTime?: string; endDateTime?: string }): Promise<IUserHistory> {
+    try {
+      const { userId } = query;
+      if (!userId) throw new NotFoundError('User ID is required');
+
+      return this._withTransaction(async (session: ClientSession) => {
+        let user = await this.userRepo.findById(userId, session);
+        if (!user) throw new NotFoundError(`User with ID ${userId} not found`);
+        return await this.userRepo.getUserHistory(query, session);
+      });
+    } catch (error) {
+      if (error instanceof NotFoundError || error instanceof BadRequestError) {
+        throw error;
+      }
+      throw new InternalServerError(
+        `Failed to fetch user history`,
+      );
+    }
   }
 }
