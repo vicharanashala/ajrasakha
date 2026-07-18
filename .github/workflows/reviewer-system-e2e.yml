@@ -1,0 +1,318 @@
+name: Reviewer System E2E (queue + analytics + CI)
+
+# -----------------------------------------------------------------------------
+# PR #4 — dedicated CI workflow for the Reviewer System E2E suite.
+#
+# This workflow is intentionally separate from the existing
+# `.github/workflows/e2e.yml` (which also runs reviewer-system + webapp):
+#   • Faster signal — the @reviewer suite is gated on its own job so a
+#     reviewer-only failure does not get swamped by the broader smoke
+#     job, and PRs that only touch analytics/queue tests get a tighter
+#     feedback loop.
+#   • Deployment hook — this workflow is the one deploy pipelines invoke
+#     after pushing to staging (see "deployment hook" below).
+#
+# Triggers:
+#   • push to main            — every merge is verified on main
+#   • pull_request to main    — every PR is verified before merge
+#   • workflow_dispatch       — manual runs from the Actions tab
+#   • workflow_call           — composite / reusable invocation from a
+#                               deploy workflow (see "deployment hook")
+#   • repository_dispatch     — `deployment_success` event fires this
+#                               workflow after every staging deploy
+#                               (mirrors `.github/workflows/e2e.yml`)
+#
+# Deployment hook (how a deploy workflow invokes this one):
+#   In your deploy workflow, after the deploy step, add:
+#     uses: ./.github/workflows/reviewer-system-e2e.yml
+#     with:
+#       environment: staging
+#     secrets: inherit
+#   …or, if your CD only speaks the GitHub REST API:
+#     curl -X POST \
+#       -H "Authorization: token $GITHUB_TOKEN" \
+#       https://api.github.com/repos/$REPO/dispatches \
+#       -d '{"event_type":"deployment_success","client_payload":{...}}'
+#   …which will hit this workflow via the `repository_dispatch` trigger
+#   below.  Both paths give the reviewer-system suite the same coverage
+#   post-deploy that PRs get pre-merge.
+#
+# Required GitHub Secrets (set in Settings → Secrets → Actions):
+#   REVIEWER_STAGING_URL                 — staging URL (e.g. https://desk.ajrasakha.in)
+#   MODERATOR_TEST_EMAIL / _PASSWORD     — moderator credentials
+#   EXPERT_TEST_EMAIL / _PASSWORD        — expert credentials (allocation + reputation tests)
+#   EXPERT_TEST_2_EMAIL / _PASSWORD      — second expert (re-allocation)
+#   REVIEWER_TEST_EMAIL / _PASSWORD      — peer reviewer credentials
+#   COORDINATOR_TEST_EMAIL / _PASSWORD   — coordinator credentials
+#   (Legacy aliases — REVIEWER_BASE_URL, REVIEWER_*_EMAIL / _PASSWORD —
+#    are accepted as fallbacks via the loader in
+#    `tests/helpers/test-config.ts`.  No code change required to keep
+#    using them.)
+#
+# Do NOT hardcode any of the above in this file or in the test fixtures.
+# -----------------------------------------------------------------------------
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      environment:
+        description: "Environment label (e.g. staging, production)"
+        required: false
+        type: string
+        default: "staging"
+    secrets:
+      REVIEWER_STAGING_URL:
+        required: false
+      MODERATOR_TEST_EMAIL:
+        required: false
+      MODERATOR_TEST_PASSWORD:
+        required: false
+      EXPERT_TEST_EMAIL:
+        required: false
+      EXPERT_TEST_PASSWORD:
+        required: false
+      EXPERT_TEST_2_EMAIL:
+        required: false
+      EXPERT_TEST_2_PASSWORD:
+        required: false
+      REVIEWER_TEST_EMAIL:
+        required: false
+      REVIEWER_TEST_PASSWORD:
+        required: false
+      COORDINATOR_TEST_EMAIL:
+        required: false
+      COORDINATOR_TEST_PASSWORD:
+        required: false
+  repository_dispatch:
+    types: [deployment_success, staging_deployed]
+
+# Serialize on the ref so concurrent pushes / PRs don't thrash staging
+# (or double-spend test-data mutations).  Cancel-in-progress keeps
+# feedback tight when the developer pushes again before the prior
+# run finishes.
+concurrency:
+  group: reviewer-system-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  # =========================================================================
+  # 1. Smoke — install + typecheck + lint + verify floor
+  # =========================================================================
+  smoke:
+    name: Smoke (install + typecheck + lint + verify)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          # Cache only when the lockfile exists on the checked-out ref —
+          # setup-node@v4 emits a hard error otherwise, which was
+          # breaking every PR that didn't yet contain qa/package-lock.json.
+          cache: ${{ hashFiles('qa/package-lock.json') != '' && 'npm' || '' }}
+          cache-dependency-path: qa/package-lock.json
+
+      - name: Install QA dependencies
+        working-directory: qa
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install --no-audit --no-fund
+          fi
+
+      - name: TypeScript typecheck
+        working-directory: qa
+        run: npx tsc --noEmit
+
+      - name: Verify test counts (CI gate)
+        working-directory: qa
+        run: npm run verify
+
+      - name: Lint (best-effort)
+        working-directory: qa
+        continue-on-error: true
+        run: |
+          if [ -f package.json ] && grep -q '"lint"' package.json; then
+            npm run lint
+          else
+            echo "No lint script — skipping"
+          fi
+
+  # =========================================================================
+  # 2. Reviewer System — queue + analytics E2E
+  # =========================================================================
+  reviewer-system:
+    name: Reviewer System E2E (queue + analytics)
+    needs: smoke
+    # 20 minutes is enough for ~31 atomic tests on a slow staging cluster;
+    # a hung test past this point should fail the job rather than block CI.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: ${{ hashFiles('qa/package-lock.json') != '' && 'npm' || '' }}
+          cache-dependency-path: qa/package-lock.json
+
+      - name: Install dependencies
+        working-directory: qa
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: qa
+        run: npx playwright install --with-deps chromium
+
+      # ----------------------------------------------------------------------
+      # Environment
+      # ----------------------------------------------------------------------
+      # All values come from GitHub Secrets — none are hardcoded.  The
+      # `workflow_call` trigger can override individual secrets at call
+      # time (so a deploy workflow can pass staging credentials without
+      # touching the repo's default secrets).  When called via
+      # `workflow_call`, the `secrets.REVIEWER_STAGING_URL` reference
+      # picks up the *caller's* secret; otherwise it falls through to
+      # the repo secret of the same name.
+      #
+      # Set the new secrets and remove the legacy ones in a follow-up PR —
+      # both work today.
+      # ----------------------------------------------------------------------
+      - name: Run Reviewer System E2E suite
+        working-directory: qa
+        env:
+          # Canonical (PR #1+) names — secrets pass-through.
+          REVIEWER_STAGING_URL: >-
+            ${{
+              (inputs.REVIEWER_STAGING_URL && secrets.REVIEWER_STAGING_URL)
+              || secrets.REVIEWER_STAGING_URL
+              || secrets.REVIEWER_BASE_URL
+            }}
+          MODERATOR_TEST_EMAIL: >-
+            ${{ secrets.MODERATOR_TEST_EMAIL || secrets.REVIEWER_MODERATOR_EMAIL }}
+          MODERATOR_TEST_PASSWORD: >-
+            ${{ secrets.MODERATOR_TEST_PASSWORD || secrets.REVIEWER_MODERATOR_PASSWORD }}
+          EXPERT_TEST_EMAIL: >-
+            ${{ secrets.EXPERT_TEST_EMAIL || secrets.REVIEWER_EXPERT_EMAIL }}
+          EXPERT_TEST_PASSWORD: >-
+            ${{ secrets.EXPERT_TEST_PASSWORD || secrets.REVIEWER_EXPERT_PASSWORD }}
+          EXPERT_TEST_2_EMAIL: >-
+            ${{ secrets.EXPERT_TEST_2_EMAIL || secrets.REVIEWER_EXPERT_2_EMAIL }}
+          EXPERT_TEST_2_PASSWORD: >-
+            ${{ secrets.EXPERT_TEST_2_PASSWORD || secrets.REVIEWER_EXPERT_2_PASSWORD }}
+          REVIEWER_TEST_EMAIL: >-
+            ${{ secrets.REVIEWER_TEST_EMAIL || secrets.REVIEWER_REVIEWER_EMAIL }}
+          REVIEWER_TEST_PASSWORD: >-
+            ${{ secrets.REVIEWER_TEST_PASSWORD || secrets.REVIEWER_REVIEWER_PASSWORD }}
+          COORDINATOR_TEST_EMAIL: >-
+            ${{ secrets.COORDINATOR_TEST_EMAIL || secrets.REVIEWER_COORDINATOR_EMAIL }}
+          COORDINATOR_TEST_PASSWORD: >-
+            ${{ secrets.COORDINATOR_TEST_PASSWORD || secrets.REVIEWER_COORDINATOR_PASSWORD }}
+          # Pass the legacy aliases through too, so older code paths can
+          # also resolve cleanly if a future task slips through.
+          REVIEWER_BASE_URL: ${{ secrets.REVIEWER_BASE_URL }}
+          REVIEWER_MODERATOR_EMAIL: ${{ secrets.REVIEWER_MODERATOR_EMAIL }}
+          REVIEWER_MODERATOR_PASSWORD: ${{ secrets.REVIEWER_MODERATOR_PASSWORD }}
+          REVIEWER_EXPERT_EMAIL: ${{ secrets.REVIEWER_EXPERT_EMAIL }}
+          REVIEWER_EXPERT_PASSWORD: ${{ secrets.REVIEWER_EXPERT_PASSWORD }}
+        run: npm run test:reviewer
+
+      # ----------------------------------------------------------------------
+      # Artifacts — uploaded with `if: always()` so even green runs leave a
+      # paper trail.  Traces / video / screenshots are retained on failure
+      # via `retain-on-failure` in playwright.config.ts.
+      # ----------------------------------------------------------------------
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reviewer-system-html-report
+          path: qa/playwright-report
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Upload JUnit XML + test-results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reviewer-system-junit
+          path: qa/test-results
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Upload traces / screenshots / video (failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reviewer-system-traces
+          path: |
+            qa/test-results/**/trace.zip
+            qa/test-results/**/video
+            qa/test-results/**/error-context.md
+          retention-days: 14
+          if-no-files-found: ignore
+
+  # =========================================================================
+  # 3. PR comment — surface pass/fail + a deep link to the HTML report
+  # =========================================================================
+  pr-comment:
+    name: Reviewer System PR summary
+    needs: [reviewer-system]
+    if: github.event_name == 'pull_request' && always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Post PR summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const result = "${{ needs.reviewer-system.result }}";
+            const verdict =
+              result === "success" ? "✅ All Reviewer-System tests passed" :
+              result === "failure" ? "❌ One or more Reviewer-System tests failed" :
+              "⚠️ Skipped or cancelled";
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            const body = [
+              "## 🧪 Reviewer System E2E — PR #4",
+              "",
+              `**Overall:** ${verdict}`,
+              "",
+              "Test surface: **31 atomic tests** across `moderator/`, `error-boundary-ui/`, and the new `analytics/` folder (queue details + analytics dashboard).",
+              "",
+              "Artifacts:",
+              "- 📄 `reviewer-system-html-report` (always) — HTML summary",
+              "- 🧾 `reviewer-system-junit` (always) — JUnit XML for downstream dashboards",
+              "- 🎥 `reviewer-system-traces` (on failure) — `trace.zip`, video, `error-context.md`",
+              "",
+              `[Open the run](${runUrl})`,
+            ].join("\n");
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });

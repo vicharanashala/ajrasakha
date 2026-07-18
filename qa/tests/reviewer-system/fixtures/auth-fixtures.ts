@@ -25,6 +25,7 @@ import {
   QuestionQueuePage,
   QuestionDetailPage,
   ModeratorDashboardPage,
+  AnalyticsPage,
 } from "../page-objects";
 import { testConfig } from "../../helpers/test-config";
 
@@ -58,6 +59,11 @@ type AuthFixtures = {
   queuePage: QuestionQueuePage;
   detailPage: QuestionDetailPage;
   dashboardPage: ModeratorDashboardPage;
+  /**
+   * PR #4 — analytics dashboard page object.  Tests in
+   * `tests/reviewer-system/analytics/*.spec.ts` pull it from the fixture.
+   */
+  analyticsPage: AnalyticsPage;
 };
 
 /**
@@ -80,6 +86,9 @@ export const test = base.extend<AuthFixtures>({
   },
   dashboardPage: async ({ page }, use) => {
     await use(new ModeratorDashboardPage(page));
+  },
+  analyticsPage: async ({ page }, use) => {
+    await use(new AnalyticsPage(page));
   },
 });
 

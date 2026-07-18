@@ -10,4 +10,14 @@ export { LoginPage } from "./LoginPage";
 export { QuestionQueuePage } from "./QuestionQueuePage";
 export { QuestionDetailPage } from "./QuestionDetailPage";
 export { ModeratorDashboardPage } from "./ModeratorDashboardPage";
-export { SELECTOR_MAP, Routes } from "./selector-map";
+// PR #4 — analytics dashboard page object.
+export { AnalyticsPage } from "./AnalyticsPage";
+export {
+  SELECTOR_MAP,
+  Routes,
+} from "./selector-map";
+export type {
+  SelectorMap,
+  QueueSectionName,
+  AnalyticsMetricName,
+} from "./selector-map";

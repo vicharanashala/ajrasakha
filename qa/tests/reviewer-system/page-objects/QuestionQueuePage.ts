@@ -16,6 +16,15 @@
  *
  *  If the staging DOM uses a different attribute (e.g. `aria-rowindex`,
  *  a TanStack Table className, etc.), update SELECTOR_MAP only.
+ *
+ *  PR #4 adds queue-details sections:
+ *    • A "total" badge (`data-testid="queue-total-count"`) at the top of /queue
+ *    • A collapsible section accordion per status (pending / in-review / stuck
+ *      / closed).  Each section has a count badge and a card container that
+ *      renders the section rows when expanded.
+ *
+ *  The PR #1 row locator (`data-testid^="queue-row-"`) is reused for the
+ *  rows inside each section — the row ID prefix is stable across the page.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 import { expect, Locator, Page } from "@playwright/test";
@@ -60,6 +69,12 @@ export class QuestionQueuePage {
     return this.page.locator(`[data-testid="${SELECTOR_MAP.queue.applyFilter}"]`);
   }
 
+  // ── PR #4 queue details (counts + sections) ──────────────────────────────
+  /** The "Total questions: N" badge at the top of the queue page. */
+  get totalCount(): Locator {
+    return this.page.locator(`[data-testid="${SELECTOR_MAP.queue.totalCount}"]`);
+  }
+
   constructor(page: Page) {
     this.page = page;
   }
@@ -101,6 +116,86 @@ export class QuestionQueuePage {
   async search(text: string): Promise<void> {
     await this.searchInput.fill(text);
     await this.searchInput.press("Enter");
+  }
+
+  // ── PR #4 queue details helpers ──────────────────────────────────────────
+  /** Outer section container (`data-testid="queue-section-{name}"`). */
+  section(name: string): Locator {
+    return this.page.locator(
+      `[data-testid="${SELECTOR_MAP.queue.sectionPrefix}${name}"]`,
+    );
+  }
+
+  /** The count badge inside a section (e.g. "12" inside the Pending section). */
+  sectionCount(name: string): Locator {
+    return this.page.locator(
+      `[data-testid="${SELECTOR_MAP.queue.sectionCountPrefix}${name}"]`,
+    );
+  }
+
+  /** The expand/collapse toggle for a section. */
+  sectionToggle(name: string): Locator {
+    return this.page.locator(
+      `[data-testid="${SELECTOR_MAP.queue.sectionTogglePrefix}${name}"]`,
+    );
+  }
+
+  /** The card container holding the section's rows when expanded. */
+  sectionRows(name: string): Locator {
+    return this.page.locator(
+      `[data-testid="${SELECTOR_MAP.queue.sectionRowsPrefix}${name}"]`,
+    );
+  }
+
+  /**
+   * Read the count shown on a section's badge.  Returns `null` when the
+   * badge is missing (the section is collapsed, the staging DOM uses a
+   * different testid, or the section has been hidden).
+   *
+   * Strips thousands separators so the value parses with `Number.parseInt`
+   * regardless of locale formatting (`1,234` → 1234).
+   */
+  async readSectionCount(name: string): Promise<number | null> {
+    const badge = this.sectionCount(name);
+    if ((await badge.count()) === 0) return null;
+    const text = (await badge.innerText().catch(() => "")).trim();
+    if (!text) return null;
+    const cleaned = text.replace(/[,\s]/g, "");
+    const parsed = Number.parseInt(cleaned, 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  /** Read the "Total questions: N" badge at the top of the page. */
+  async readTotalCount(): Promise<number | null> {
+    if ((await this.totalCount.count()) === 0) return null;
+    const text = (await this.totalCount.innerText().catch(() => "")).trim();
+    if (!text) return null;
+    const match = text.match(/(\d[\d,\s]*)/);
+    const cleaned = (match ? match[1] : text).replace(/[,\s]/g, "");
+    const parsed = Number.parseInt(cleaned, 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  /**
+   * Count the rows that are visually rendered inside a specific section's
+   * card container.  When the section is collapsed the container is hidden
+   * (Playwright reports 0) — callers should expand the section first via
+   * {@link expandSection} if they need a real card count.
+   */
+  async countRowsInSection(name: string): Promise<number> {
+    const container = this.sectionRows(name);
+    if ((await container.count()) === 0) return 0;
+    return container.locator(`[data-testid^="${SELECTOR_MAP.queue.rowPrefix}"]`).count();
+  }
+
+  /**
+   * Expand a section's accordion.  Idempotent — clicking an already-expanded
+   * toggle is a no-op on the staging UI (we tolerate either toggle).
+   */
+  async expandSection(name: string): Promise<void> {
+    const toggle = this.sectionToggle(name);
+    if ((await toggle.count()) === 0) return;
+    await toggle.click().catch(() => undefined);
   }
 
   // ── Loops / helpers ────────────────────────────────────────────────────────
