@@ -4,7 +4,7 @@ import { env } from "@/config/env";
 const API_BASE_URL = env.apiBaseUrl();
 
 export type MediaKind = "carousel" | "outreach_image" | "outreach_video";
-export type MediaSource = "upload" | "youtube";
+export type MediaSource = "upload" | "youtube" | "link";
 
 export interface MediaItem {
   _id: string;
@@ -112,6 +112,19 @@ export class MediaService {
     caption?: string;
   }): Promise<MediaItem | null> {
     return apiFetch<MediaItem>(`${this._baseUrl}/youtube`, {
+      method: "POST",
+      body: JSON.stringify(params),
+    });
+  }
+
+  /** Admin/moderator — add an external image by URL (carousel / outreach image). */
+  async addImageLink(params: {
+    kind: MediaKind;
+    url: string;
+    title?: string;
+    caption?: string;
+  }): Promise<MediaItem | null> {
+    return apiFetch<MediaItem>(`${this._baseUrl}/image-link`, {
       method: "POST",
       body: JSON.stringify(params),
     });

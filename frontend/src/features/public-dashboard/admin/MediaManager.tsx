@@ -1,7 +1,16 @@
 import { useRef, useState } from "react";
-import { Images, Loader2, Trash2, Upload, Video, Youtube } from "lucide-react";
+import { Images, Link as LinkIcon, Loader2, Trash2, Upload, Video, Youtube } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/atoms/dialog";
+import {
+  useAddImageLink,
   useAddYoutube,
   useDeleteMedia,
   useGetMedia,
@@ -38,6 +47,14 @@ const SECTIONS: {
     icon: Video,
   },
 ];
+
+const isVideoKind = (kind: MediaKind) => kind === "outreach_video";
+
+/** What the details dialog is about to add. */
+type Pending =
+  | { type: "file"; file: File; previewUrl: string }
+  | { type: "youtube"; url: string }
+  | { type: "link"; url: string };
 
 const prettySize = (bytes: number) => {
   if (bytes < 1024) return `${bytes} B`;
@@ -86,29 +103,71 @@ const MediaSection = ({
   const { data, isLoading } = useGetMedia(kind);
   const { mutateAsync: upload, isPending: uploading, progress } = useUploadMedia();
   const { mutateAsync: addYoutube, isPending: addingYoutube } = useAddYoutube();
+  const { mutateAsync: addImageLink, isPending: addingLink } = useAddImageLink();
   const { mutateAsync: remove, isPending: deleting } = useDeleteMedia();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [title, setTitle] = useState("");
   const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
 
-  // YouTube videos are an outreach-video option only.
+  // Everything (file upload, YouTube URL, image URL) goes through ONE details dialog that
+  // asks for the item's OWN title + caption, so each can be described separately.
+  const [pending, setPending] = useState<Pending | null>(null);
+  const [title, setTitle] = useState("");
+  const [caption, setCaption] = useState("");
+
+  // YouTube videos are an outreach-video option; image links apply to the image kinds.
   const allowYoutube = kind === "outreach_video";
+  const allowImageLink = kind === "carousel" || kind === "outreach_image";
 
+  const busy = uploading || addingYoutube || addingLink;
   const items: MediaItem[] = data ?? [];
 
-  const onPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    await upload({ kind, file, title: title || undefined });
+  const openDialog = (p: Pending) => {
+    setPending(p);
     setTitle("");
-    if (inputRef.current) inputRef.current.value = "";
+    setCaption("");
   };
 
-  const onAddYoutube = async () => {
+  // File chosen → open the details dialog (don't upload yet).
+  const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (inputRef.current) inputRef.current.value = ""; // allow re-picking the same file later
+    if (!file) return;
+    openDialog({ type: "file", file, previewUrl: URL.createObjectURL(file) });
+  };
+
+  const onAddYoutube = () => {
     if (!youtubeUrl.trim()) return;
-    await addYoutube({ url: youtubeUrl.trim(), title: title || undefined });
-    setYoutubeUrl("");
+    openDialog({ type: "youtube", url: youtubeUrl.trim() });
+  };
+
+  const onAddImageLink = () => {
+    if (!imageUrl.trim()) return;
+    openDialog({ type: "link", url: imageUrl.trim() });
+  };
+
+  const closeDialog = () => {
+    if (pending?.type === "file") URL.revokeObjectURL(pending.previewUrl);
+    setPending(null);
     setTitle("");
+    setCaption("");
+  };
+
+  // Confirm → run the right add with this item's own title/caption.
+  const onConfirm = async () => {
+    if (!pending) return;
+    const meta = { title: title.trim() || undefined, caption: caption.trim() || undefined };
+
+    if (pending.type === "file") {
+      await upload({ kind, file: pending.file, ...meta });
+    } else if (pending.type === "youtube") {
+      await addYoutube({ url: pending.url, ...meta });
+      setYoutubeUrl("");
+    } else {
+      await addImageLink({ kind, url: pending.url, ...meta });
+      setImageUrl("");
+    }
+    closeDialog();
   };
 
   return (
@@ -123,12 +182,6 @@ const MediaSection = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Title (optional)"
-            className="h-9 w-40 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
           <input
             ref={inputRef}
             type="file"
@@ -186,6 +239,31 @@ const MediaSection = ({
         </div>
       )}
 
+      {allowImageLink && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <input
+            value={imageUrl}
+            onChange={(e) => setImageUrl(e.target.value)}
+            placeholder="Paste an image URL…"
+            className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={addingLink || !imageUrl.trim()}
+            onClick={onAddImageLink}
+            className="gap-2"
+          >
+            {addingLink ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <LinkIcon className="h-4 w-4" />
+            )}
+            Add image link
+          </Button>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" /> Loading…
@@ -210,11 +288,20 @@ const MediaSection = ({
                 <img src={m.url} alt={m.title || label} className="h-32 w-full object-cover" />
               )}
               <div className="p-2">
-                <p className="truncate text-xs font-medium" title={m.title || m.storagePath}>
-                  {m.title || (m.source === "youtube" ? "YouTube video" : m.storagePath?.split("/").pop())}
+                <p className="truncate text-xs font-medium" title={m.title || m.url}>
+                  {m.title ||
+                    (m.source === "youtube"
+                      ? "YouTube video"
+                      : m.source === "link"
+                        ? "Image link"
+                        : m.storagePath?.split("/").pop())}
                 </p>
                 <p className="text-[10px] text-muted-foreground">
-                  {m.source === "youtube" ? "YouTube" : prettySize(m.size ?? 0)}
+                  {m.source === "youtube"
+                    ? "YouTube"
+                    : m.source === "link"
+                      ? "External link"
+                      : prettySize(m.size ?? 0)}
                 </p>
               </div>
               <Button
@@ -231,6 +318,72 @@ const MediaSection = ({
           ))}
         </div>
       )}
+
+      {/* Details dialog: prompt for THIS item's title + caption before adding it. */}
+      <Dialog open={!!pending} onOpenChange={(open) => !open && !busy && closeDialog()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Describe this {isVideoKind(kind) ? "video" : "image"}
+            </DialogTitle>
+            <DialogDescription>
+              Add a title and caption. They appear with it on the public dashboard.
+            </DialogDescription>
+          </DialogHeader>
+
+          {pending?.type === "file" &&
+            (isVideoKind(kind) ? (
+              <video src={pending.previewUrl} controls className="max-h-48 w-full rounded-md bg-black object-contain" />
+            ) : (
+              <img src={pending.previewUrl} alt="Preview" className="max-h-48 w-full rounded-md object-contain" />
+            ))}
+          {pending?.type === "link" && (
+            <img src={pending.url} alt="Preview" className="max-h-48 w-full rounded-md object-contain" />
+          )}
+          {pending?.type === "youtube" && (
+            <div className="flex items-center gap-2 rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">
+              <Youtube className="h-4 w-4 shrink-0" />
+              <span className="truncate" title={pending.url}>{pending.url}</span>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <input
+              autoFocus
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Title (optional)"
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+            <textarea
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              placeholder="Caption (optional)"
+              rows={3}
+              className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+            {pending?.type === "file" && (
+              <p className="truncate text-[11px] text-muted-foreground" title={pending.file.name}>
+                {pending.file.name}
+              </p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={closeDialog} disabled={busy}>
+              Cancel
+            </Button>
+            <Button onClick={onConfirm} disabled={busy} className="gap-2">
+              {busy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4" />
+              )}
+              {uploading ? `Uploading… ${progress}%` : busy ? "Adding…" : "Add"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 };

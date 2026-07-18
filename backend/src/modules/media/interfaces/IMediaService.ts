@@ -40,6 +40,15 @@ export interface IMediaService {
     userId: string;
   }): Promise<IMedia>;
 
+  /** Register an external image by URL (carousel / outreach image — no file). */
+  addImageLink(params: {
+    kind: MediaKind;
+    url: string;
+    title?: string;
+    caption?: string;
+    userId: string;
+  }): Promise<IMedia>;
+
   /** Delete the object from the bucket (if any) AND its metadata. */
   remove(id: string): Promise<boolean>;
 }

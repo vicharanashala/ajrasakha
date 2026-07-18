@@ -58,6 +58,25 @@ export const useAddYoutube = () => {
   });
 };
 
+/** Add an external image by URL (carousel / outreach image). */
+export const useAddImageLink = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationKey: ["add-image-link"],
+    mutationFn: (params: {
+      kind: MediaKind;
+      url: string;
+      title?: string;
+      caption?: string;
+    }) => service.addImageLink(params),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["media"] });
+      toast.success("Image link added");
+    },
+    onError: (e: any) => toast.error(e?.message || "Failed to add image link"),
+  });
+};
+
 export const useDeleteMedia = () => {
   const qc = useQueryClient();
   return useMutation({

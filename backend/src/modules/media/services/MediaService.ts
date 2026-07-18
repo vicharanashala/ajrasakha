@@ -56,7 +56,10 @@ export class MediaService implements IMediaService {
     return Promise.all(
       items.map(async item => {
         // YouTube items have no GCS object — keep their watch URL untouched.
-        if (item.source === 'youtube' || !item.storagePath) return item;
+        // External items (YouTube, image links) carry their URL directly — nothing to sign.
+        if (item.source === 'youtube' || item.source === 'link' || !item.storagePath) {
+          return item;
+        }
         return {
           ...item,
           url: await this.signReadUrl(item.storagePath).catch(() => item.url),
@@ -276,6 +279,45 @@ export class MediaService implements IMediaService {
     });
   }
 
+  /**
+   * Register an EXTERNAL image by URL — for carousel and outreach images, the counterpart to
+   * addYoutube. No file/GCS: we store the link as-is (the frontend renders it directly).
+   */
+  async addImageLink({
+    kind,
+    url,
+    title,
+    caption,
+    userId,
+  }: {
+    kind: MediaKind;
+    url: string;
+    title?: string;
+    caption?: string;
+    userId: string;
+  }): Promise<IMedia> {
+    if (kind === 'outreach_video') {
+      throw new BadRequestError('Image links apply to carousel and outreach images only.');
+    }
+    const trimmed = (url || '').trim();
+    if (!isHttpUrl(trimmed)) {
+      throw new BadRequestError('Provide a valid http(s) image URL.');
+    }
+
+    const order = await this.repo.nextOrder(kind);
+
+    return this.repo.create({
+      kind,
+      source: 'link',
+      url: trimmed,
+      title: title?.trim() || undefined,
+      caption: caption?.trim() || undefined,
+      order,
+      uploadedBy: userId || null,
+      createdAt: new Date(),
+    });
+  }
+
   async remove(id: string): Promise<boolean> {
     const doc = await this.repo.getById(id);
     if (!doc) throw new NotFoundError('Media not found.');
@@ -292,6 +334,16 @@ export class MediaService implements IMediaService {
     }
 
     return this.repo.delete(id);
+  }
+}
+
+/** True for a well-formed http(s) URL — used to validate external image links. */
+function isHttpUrl(value: string): boolean {
+  try {
+    const u = new URL(value);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
   }
 }
 

@@ -83,10 +83,30 @@ export class YoutubeBody {
   caption?: string;
 }
 
+/** Image kinds an external link can be attached to (not videos). */
+export const IMAGE_MEDIA_KINDS: MediaKind[] = ['carousel', 'outreach_image'];
+
+export class ImageLinkBody {
+  @IsIn(IMAGE_MEDIA_KINDS)
+  kind: MediaKind;
+
+  @IsString()
+  url: string;
+
+  @IsOptional()
+  @IsString()
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  caption?: string;
+}
+
 export const MEDIA_VALIDATORS = [
   UploadMediaBody,
   ListMediaQuery,
   SignedUrlBody,
   CompleteUploadBody,
   YoutubeBody,
+  ImageLinkBody,
 ];

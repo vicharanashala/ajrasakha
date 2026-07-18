@@ -51,7 +51,7 @@ export interface IDashboardContent {
 export type MediaKind = 'carousel' | 'outreach_image' | 'outreach_video';
 
 /** Where a media item's bytes live: a GCS upload, or an external YouTube video. */
-export type MediaSource = 'upload' | 'youtube';
+export type MediaSource = 'upload' | 'youtube' | 'link';
 
 /** A dashboard media item. Stored inside the dashboard_content singleton (see
  *  IDashboardContent.media), so it retrieves with the rest of the dashboard content.

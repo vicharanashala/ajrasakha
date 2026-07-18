@@ -31,6 +31,7 @@ import {
   SignedUrlBody,
   CompleteUploadBody,
   YoutubeBody,
+  ImageLinkBody,
   MEDIA_KINDS,
 } from '#root/modules/media/classes/validators/MediaValidators.js';
 import {
@@ -180,6 +181,20 @@ export class DashboardContentController {
   async addYoutube(@CurrentUser() user: IUser, @Body() body: YoutubeBody) {
     this.assertCanManage(user);
     return this.mediaService.addYoutube({
+      url: body.url,
+      title: body.title,
+      caption: body.caption,
+      userId: (user._id ?? '').toString(),
+    });
+  }
+
+  /** Add an external image by URL to the carousel / outreach images (no file upload). */
+  @Authorized()
+  @Post('/media/image-link')
+  async addImageLink(@CurrentUser() user: IUser, @Body() body: ImageLinkBody) {
+    this.assertCanManage(user);
+    return this.mediaService.addImageLink({
+      kind: body.kind,
       url: body.url,
       title: body.title,
       caption: body.caption,
