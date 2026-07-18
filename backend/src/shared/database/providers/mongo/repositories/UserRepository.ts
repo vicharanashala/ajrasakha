@@ -840,7 +840,7 @@ export class UserRepository implements IUserRepository {
     await this.init();
 
     // 1. Fetch all experts (include role and isBlocked for queue details)
-    const query: any = { role: 'expert', isBlocked: false };
+    const query: any = { role: 'expert', isBlocked: false, isTrainingUser: { $ne: true } };
     const cursor = this.usersCollection.find(query, { session });
     if (limit) cursor.limit(limit);
     const allUsersRaw = await cursor.toArray();
