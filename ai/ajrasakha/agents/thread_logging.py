@@ -255,6 +255,8 @@ def _append_to_turn_buffer(text: str, *, thread_id: str | None = None) -> None:
 
 def _append_to_file(thread_id: str, text: str) -> None:
     """Append text to the local thread log file only (fast path during request)."""
+    if os.getenv("THREAD_FILE_LOGGING", "true").lower() not in ("true", "1", "yes"):
+        return
     block = text if text.endswith("\n") else f"{text}\n"
     path = _thread_log_path(thread_id)
     path.parent.mkdir(parents=True, exist_ok=True)
