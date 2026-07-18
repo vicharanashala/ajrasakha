@@ -810,95 +810,80 @@ export const buildTodayStatsTable = (stats: DailyStats) => `
           </td>
         </tr>
 
-        <!-- WebApp -->
-        <tr style="border-bottom: 1px solid #f3f4f6;">
-          <td style="
-            padding: 12px 20px;
-            font-size: 13px;
-            color: #4b5563;
-          ">
-            <span style="
-              display: inline-block;
-              width: 8px;
-              height: 8px;
-              border-radius: 50%;
-              background-color: #2563eb;
-              margin-right: 8px;
-            "></span>
-            WebApp-Generated
-          </td>
+        ${
+          stats.webAppCount > 0
+            ? `
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td style="padding: 12px 20px; font-size: 13px; color: #4b5563;">
+              WebApp-Generated
+            </td>
+            <td style="padding: 12px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
+              ${stats.webAppCount.toLocaleString()}
+            </td>
+          </tr>
+        `
+            : ''
+        }
 
-          <td style="
-            padding: 12px 20px;
-            text-align: right;
-            font-size: 13px;
-            font-weight: 700;
-            color: #374151;
-          ">
-            ${stats.webAppCount.toLocaleString()}
-          </td>
-        </tr>
+        ${
+          stats.whatSappCount > 0
+            ? `
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td style="padding: 12px 20px; font-size: 13px; color: #4b5563;">
+              WhatsApp-Generated
+            </td>
+            <td style="padding: 12px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
+              ${stats.whatSappCount.toLocaleString()}
+            </td>
+          </tr>
+        `
+            : ''
+        }
 
-        <!-- WhatsApp -->
-        <tr style="
-          border-bottom: 1px solid #f3f4f6;
-          background-color: #fafafa;
-        ">
-          <td style="
-            padding: 12px 20px;
-            font-size: 13px;
-            color: #4b5563;
-          ">
-            <span style="
-              display: inline-block;
-              width: 8px;
-              height: 8px;
-              border-radius: 50%;
-              background-color: #059669;
-              margin-right: 8px;
-            "></span>
-            WhatsApp-Generated
-          </td>
+        ${
+          stats.manualCount > 0
+            ? `
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td style="padding: 12px 20px; font-size: 13px; color: #4b5563;">
+              Manually Added
+            </td>
+            <td style="padding: 12px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
+              ${stats.manualCount.toLocaleString()}
+            </td>
+          </tr>
+        `
+            : ''
+        }
 
-          <td style="
-            padding: 12px 20px;
-            text-align: right;
-            font-size: 13px;
-            font-weight: 700;
-            color: #374151;
-          ">
-            ${stats.whatSappCount.toLocaleString()}
-          </td>
-        </tr>
+        ${
+          stats.agriExpertCount > 0
+            ? `
+          <tr style="border-bottom: 1px solid #f3f4f6;">
+            <td style="padding: 12px 20px; font-size: 13px; color: #4b5563;">
+              Agri Expert
+            </td>
+            <td style="padding: 12px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
+              ${stats.agriExpertCount.toLocaleString()}
+            </td>
+          </tr>
+        `
+            : ''
+        }
 
-        <!-- Manual -->
-        <tr>
-          <td style="
-            padding: 12px 20px 16px;
-            font-size: 13px;
-            color: #4b5563;
-          ">
-            <span style="
-              display: inline-block;
-              width: 8px;
-              height: 8px;
-              border-radius: 50%;
-              background-color: #9ca3af;
-              margin-right: 8px;
-            "></span>
-            Manually Added
-          </td>
-
-          <td style="
-            padding: 12px 20px 16px;
-            text-align: right;
-            font-size: 13px;
-            font-weight: 700;
-            color: #374151;
-          ">
-            ${stats.manualCount.toLocaleString()}
-          </td>
-        </tr>
+        ${
+          stats.outReachCount > 0
+            ? `
+          <tr>
+            <td style="padding: 12px 20px 16px; font-size: 13px; color: #4b5563;">
+              Outreach
+            </td>
+            <td style="padding: 12px 20px 16px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
+              ${stats.outReachCount.toLocaleString()}
+            </td>
+          </tr>
+        `
+            : ''
+        }
 
       </tbody>
     </table>

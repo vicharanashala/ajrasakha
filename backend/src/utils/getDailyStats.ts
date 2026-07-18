@@ -47,6 +47,8 @@ export interface DailyStats {
   manualCount?: number;
   whatSappCount?: number;
   duplicateClosed?: number;
+  agriExpertCount?: number;
+  outReachCount?: number;
 }
 
 // export const getDailyStats = async (): Promise<DailyStats> => {
@@ -146,6 +148,8 @@ export const getDailyStats = async (): Promise<DailyStats> => {
     webAppCount,
     whatSappCount,
     manualCount,
+    agriExpertCount,
+    outReachCount
   ] = await Promise.all([
     questionRepository.getModeratorApprovalRate(''),
     questionSubmissionRepository.getReviewWiseCount(),
@@ -170,7 +174,17 @@ export const getDailyStats = async (): Promise<DailyStats> => {
     }),
     questionRepository.count({
       isTesting: { $ne: true },
-      source: { $nin: ['AJRASAKHA' , 'WHATSAPP']},
+      source: 'MANUAL',
+      closedAt: { $gte: todayStart }
+    }),
+    questionRepository.count({
+      isTesting: { $ne: true },
+      source: 'AGRI_EXPERT',
+      closedAt: { $gte: todayStart }
+    }),
+    questionRepository.count({
+      isTesting: { $ne: true },
+      source: 'OUTREACH',
       closedAt: { $gte: todayStart }
     })
   ]);
@@ -226,5 +240,7 @@ export const getDailyStats = async (): Promise<DailyStats> => {
     manualCount,
     whatSappCount,
     duplicateClosed,
+    agriExpertCount,
+    outReachCount,
   };
 };
