@@ -516,10 +516,104 @@ export const buildOverallSystemStatsTable = (stats: DailyStats) => `
               font-weight: 700;
               color: #111827;
             ">
-              ${stats.moderatorApprovalRate.toFixed(2)}%
+              ${(stats.newModeratorApprovalRate).toFixed(2)}%
             </span>
           </td>
         </tr>
+
+          <!-- ========================================= -->
+          <!-- MODERATOR QUEUE -->
+          <!-- ========================================= -->
+
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 12px 20px 18px;">
+              <div style="
+                font-size: 14px;
+                font-weight: 600;
+                color: #374151;
+              ">
+                Pending Moderator Approval
+              </div>
+
+              <div style="
+                margin-top: 7px;
+                font-size: 12px;
+                color: #6b7280;
+              ">
+                In Review:
+                <strong style="color: #374151;">
+                  ${stats.inReview.toLocaleString()}
+                </strong>
+
+                &nbsp;&nbsp;•&nbsp;&nbsp;
+
+                PAE Submitted:
+                <strong style="color: #374151;">
+                  ${stats.paeSubmitted.toLocaleString()}
+                </strong>
+              </div>
+            </td>
+
+            <td style="
+              padding: 12px 20px 18px;
+              text-align: right;
+              vertical-align: middle;
+            ">
+              <span style="
+                display: inline-block;
+                background-color: #f3f4f6;
+                color: #111827;
+                padding: 7px 12px;
+                border-radius: 6px;
+                font-size: 15px;
+                font-weight: 700;
+              ">
+                ${(stats.inReview + stats.paeSubmitted).toLocaleString()}
+              </span>
+            </td>
+          </tr>
+
+             <!-- ========================================= -->
+          <!-- OVERALL GOLDEN DATASET -->
+          <!-- ========================================= -->
+
+          <tr style="background-color: #ecfdf5;">
+            <td style="padding: 20px;">
+              <div style="
+                font-size: 14px;
+                font-weight: 700;
+                color: #065f46;
+              ">
+                Total Golden Dataset Entries
+              </div>
+
+              <div style="
+                margin-top: 5px;
+                font-size: 12px;
+                color: #047857;
+              ">
+                Overall entries currently available in the golden dataset
+              </div>
+            </td>
+
+            <td style="
+              padding: 20px;
+              text-align: right;
+              vertical-align: middle;
+            ">
+              <span style="
+                display: inline-block;
+                background-color: #059669;
+                color: #ffffff;
+                padding: 8px 14px;
+                border-radius: 6px;
+                font-size: 16px;
+                font-weight: 700;
+              ">
+                ${stats.closed.toLocaleString()}
+              </span>
+            </td>
+          </tr>
 
       </tbody>
     </table>
@@ -707,7 +801,7 @@ export const buildTodayStatsTable = (stats: DailyStats) => {
           font-weight: 700;
           color: #111827;
         ">
-          Today's Activity
+          Today's Activity And Overall Performance
         </h2>
       </div>
 
@@ -920,6 +1014,32 @@ export const buildTodayStatsTable = (stats: DailyStats) => {
               `
               : ''
           }
+
+                  <!-- Approval Rate -->
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+          <td style="
+            padding: 18px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+          ">
+            Moderator Approval Rate
+          </td>
+
+          <td style="padding: 18px 20px; text-align: right;">
+            <span style="
+              display: inline-block;
+              background-color: #f3f4f6;
+              padding: 7px 12px;
+              border-radius: 6px;
+              font-size: 16px;
+              font-weight: 700;
+              color: #111827;
+            ">
+              ${stats.newModeratorApprovalRate.toFixed(2)}%
+            </span>
+          </td>
+        </tr>
 
 
           <!-- ========================================= -->
