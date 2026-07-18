@@ -1,0 +1,55 @@
+{
+  "title": "सरकारी योजना",
+  "subtitle": "भारतीय किसानक लेल सहायता करबाक लेल केन्द्रीय आ प्रादेशिक सरकारी योजना खोजू। सब्सिडी, बीमा, ऋण आ बेसी खोजू।",
+  "categories": {
+    "Subsidy": "अनुदान",
+    "Insurance": "बीमा",
+    "Credit": "ऋण",
+    "Marketing": "बाज़ार",
+    "Organic Farming": "जैविक खेती",
+    "Irrigation": "सिंचाई",
+    "Crop Loss": "फसल हानि"
+  },
+  "search": {
+    "placeholder": "योजना नाम, विवरण या लाभ सँग खोजू...",
+    "button": "खोजू"
+  },
+  "filters": {
+    "label": "फिल्टर:",
+    "allCategories": "सब कोठिया",
+    "allStates": "सब राज्य",
+    "clear": "फिल्टर साफ करू"
+  },
+  "results": {
+    "loading": "योजना लोड भेल अछि...",
+    "showing": "देखाउँ अछि",
+    "of": "मेँ",
+    "schemes": "योजना",
+    "matchingFilters": "अहाँक फिल्टर सँग मिलत",
+    "refreshing": "नवा लोड भेल अछि..."
+  },
+  "empty": {
+    "title": "योजना नहि भेटल",
+    "description": "अहाँक वर्तमान फिल्टर मेँ कोनो सरकारी योजना नहि मिलल। खोज मापदंड बदलू या फिल्टर साफ करू।",
+    "clearAll": "सब फिल्टर साफ करू"
+  },
+  "card": {
+    "keyBenefits": "मुख्य लाभ",
+    "allIndia": "पूरा भारत",
+    "statesCount": "{{count}} राज्य"
+  },
+  "pagination": {
+    "previous": "पहिले",
+    "next": "आगे"
+  },
+  "detail": {
+    "description": "विवरण",
+    "keyBenefits": "मुख्य लाभ",
+    "eligibility": "पात्रता",
+    "applicationProcess": "आवेदन प्रक्रिया",
+    "deadline": "समय सीमा",
+    "states": "राज्य",
+    "contact": "संपर्क",
+    "visitWebsite": "अधिकृत वेबसाइट पर जाऊ"
+  }
+}

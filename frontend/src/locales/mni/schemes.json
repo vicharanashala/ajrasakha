@@ -1,0 +1,55 @@
+{
+  "title": "সৰকাৰী স্কিম",
+  "subtitle": "ভাৰতীয় চাষালৰ সহায়তাৰ বাবে কেন্দ্রীয় আৰু ৰাজ্যিক সৰকাৰী স্কিম খোজি নিয়া। ছাবসিডি, বীমা, ৰিয়াহ আৰু বেছি খোজি নিয়া।",
+  "categories": {
+    "Subsidy": "ছাবসিডি",
+    "Insurance": "বীমা",
+    "Credit": "ৰিয়াহ",
+    "Marketing": "বজাৰ",
+    "Organic Farming": "জৈৱিক খেতি",
+    "Irrigation": "পানী",
+    "Crop Loss": "শস্য ক্ষতি"
+  },
+  "search": {
+    "placeholder": "স্কিম নাম, বিৱৰণ বা লাভৰে খোজি নিয়া...",
+    "button": "খোজি নিয়া"
+  },
+  "filters": {
+    "label": "ফিল্টাৰ:",
+    "allCategories": "সকলো শ্ৰেণী",
+    "allStates": "সকলো ৰাজ্য",
+    "clear": "ফিল্টাৰ মচি দিয়া"
+  },
+  "results": {
+    "loading": "স্কিম ল'ড হ'ই আছে...",
+    "showing": "দেখুওৱা",
+    "of": "ৰ পৰা",
+    "schemes": "স্কিম",
+    "matchingFilters": "তোমাৰ ফিল্টাৰৰ লগত মিলা",
+    "refreshing": "নতুন ল'ড হ'ই আছে..."
+  },
+  "empty": {
+    "title": "স্কিম পোৱা নগ'ল",
+    "description": "তোমাৰ বৰ্তমান ফিল্টাৰত এতিয়া কোনো সৰকাৰী স্কিম নমিলা। খোজৰ মাপদণ্ড সলনি কৰা বা ফিল্টাৰ মচি দিয়া।",
+    "clearAll": "সকলো ফিল্টাৰ মচি দিয়া"
+  },
+  "card": {
+    "keyBenefits": "প্ৰধান লাভ",
+    "allIndia": "সমগ্ৰ ভাৰত",
+    "statesCount": "{{count}} ৰাজ্য"
+  },
+  "pagination": {
+    "previous": "আগৰ",
+    "next": "পৰৱৰ্তী"
+  },
+  "detail": {
+    "description": "বিৱৰণ",
+    "keyBenefits": "প্ৰধান লাভ",
+    "eligibility": "যোগ্যতা",
+    "applicationProcess": "আবেদন প্ৰক্ৰিয়া",
+    "deadline": "শেষ তাৰিখ",
+    "states": "ৰাজ্য",
+    "contact": "যোগাযোগ",
+    "visitWebsite": "অফিচিয়েল অৱ-ৰূপ চাওক"
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "title": "रिफि कैलेन्डार",
+  "subtitle": "गारी अनुसार रिफि कैलेन्डार आ साहायनिफोर नाजाय नोंनि रिफि खालिमनि काम थांनि बनाय",
+  "calendar": {
+    "activityCalendar": "काम कैलेन्डार",
+    "noActivities": "दि गारी नि अलिं काम नाजिनानै।",
+    "season": "गारी",
+    "months": "थां",
+    "activity": "काम",
+    "activities": "काम"
+  },
+  "upcoming": {
+    "title": "आहा कामफोर",
+    "next30days": "आहा ३० दिन",
+    "selectCrop": "आहा कामफोर हेरनि थारि रिफि जोबोर",
+    "none": "आहा ३० दिन नि अलिं काम नानै।",
+    "days": "दिन"
+  },
+  "reminder": {
+    "createTitle": "नवा साहायनि बनाय",
+    "crop": "रिफि",
+    "selectCrop": "रिफि जोबोर",
+    "activity": "काम",
+    "selectActivity": "काम जोबोर",
+    "remindBefore": "आगोनाय साहाय (दिन)",
+    "creating": "बनाय जिम्मो...",
+    "create": "साहायनि बनाय",
+    "activeTitle": "चालू साहायनिफोर",
+    "noReminders": "दियै साहायनि नानै। माथि ए बनाय!",
+    "remind": "साहाय",
+    "day": "दिन",
+    "days": "दिन",
+    "before": "आगोनाय",
+    "created": "बनाय"
+  },
+  "activityTypes": {
+    "preparation": "थारि खालिम",
+    "sowing": "रिफि दाना",
+    "fertilizing": "खाद दाना",
+    "irrigation": "दां दाना",
+    "weeding": "गाछ खारिज",
+    "pest_control": "गासिनि लागिनि नियन्त्रण",
+    "harvesting": "रिफि काटा",
+    "storage": "जमा खालिम"
+  },
+  "months": {
+    "January": "जानुअरी",
+    "February": "फेब्रुअरी",
+    "March": "मार्च",
+    "April": "अप्रिल",
+    "May": "मे",
+    "June": "जुन",
+    "July": "जुलाइ",
+    "August": "अगस्ट",
+    "September": "सेप्टेम्बर",
+    "October": "अक्टोबर",
+    "November": "नोभेम्बर",
+    "December": "डिसेम्बर"
+  }
+}

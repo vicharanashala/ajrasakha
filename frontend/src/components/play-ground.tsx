@@ -31,6 +31,9 @@ import { env } from "@/config/env";
 import { DataProcessingDashboard } from "../features/faq-pop/DataProcessingDashboard";
 import { CallAgentDashboard } from "./CallAgentDashboard";
 import { UserService } from "@/hooks/services/userService";
+import { GovtSchemesPage } from "../features/govtSchemes/GovtSchemesPage";
+import { FertilizerCalculatorPage } from "../features/fertilizerCalculator/FertilizerCalculatorPage";
+import { CropCalendarPage } from "../features/cropCalendar/CropCalendarPage";
 
 export const PlaygroundPage = () => {
   const { data: user } = useGetCurrentUser({});
@@ -353,6 +356,24 @@ export const PlaygroundPage = () => {
                       <span>ChatBot Analytics</span>
                     </TabsTrigger>
                   )}
+                <TabsTrigger
+                  value="schemes"
+                  className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                >
+                  <span>Schemes</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="fertilizer"
+                  className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                >
+                  <span>Fertilizer</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="crop_calendar"
+                  className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
+                >
+                  <span>Crop Calendar</span>
+                </TabsTrigger>
                 {user && user.role === "admin" && (
                   <TabsTrigger
                     value="data_processing"
@@ -595,6 +616,48 @@ export const PlaygroundPage = () => {
                   </div>
                 </TabsContent>
               )}
+
+              <TabsContent
+                value="schemes"
+                className={cn(
+                  "mt-0 border-0 outline-none",
+                  "data-[state=active]:animate-in",
+                  "data-[state=active]:fade-in-0",
+                  "data-[state=active]:zoom-in-[0.98]",
+                  "data-[state=active]:slide-in-from-bottom-3",
+                  "duration-500 ease-out",
+                )}
+              >
+                <GovtSchemesPage />
+              </TabsContent>
+
+              <TabsContent
+                value="fertilizer"
+                className={cn(
+                  "mt-0 border-0 outline-none",
+                  "data-[state=active]:animate-in",
+                  "data-[state=active]:fade-in-0",
+                  "data-[state=active]:zoom-in-[0.98]",
+                  "data-[state=active]:slide-in-from-bottom-3",
+                  "duration-500 ease-out",
+                )}
+              >
+                <FertilizerCalculatorPage />
+              </TabsContent>
+
+              <TabsContent
+                value="crop_calendar"
+                className={cn(
+                  "mt-0 border-0 outline-none",
+                  "data-[state=active]:animate-in",
+                  "data-[state=active]:fade-in-0",
+                  "data-[state=active]:zoom-in-[0.98]",
+                  "data-[state=active]:slide-in-from-bottom-3",
+                  "duration-500 ease-out",
+                )}
+              >
+                <CropCalendarPage />
+              </TabsContent>
 
               {user && user.role === "admin" && (
                 <TabsContent

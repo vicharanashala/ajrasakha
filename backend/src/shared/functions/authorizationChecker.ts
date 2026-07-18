@@ -1,19 +1,18 @@
 import { FirebaseAuthService } from "#root/modules/auth/services/FirebaseAuthService.js";
 import { getFromContainer } from "routing-controllers";
-import { getFirebaseAuth } from '#root/config/firebaseAdmin.js';
+import { appConfig } from "#root/config/app.js";
 
 export async function authorizationChecker(action): Promise<boolean> {
-  getFirebaseAuth();
+  if (!appConfig.isDevelopment) {
+    const { getFirebaseAuth } = await import('#root/config/firebaseAdmin.js');
+    getFirebaseAuth();
+  }
   const firebaseAuthService = getFromContainer(FirebaseAuthService);
   const token = action.request.headers.authorization?.split(' ')[1];
   if (!token) {
-    return false; // No token provided
+    return false;
   }
-  await firebaseAuthService.getCurrentUserFromToken(token);
-  const decoded = await firebaseAuthService.getCurrentUserFromToken(token)
-  // Moderators and Experts: access is gated by activity status, NOT isBlocked —
-  // isBlocked is their availability flag (check-in/checkout) and must not deny
-  // access. Every other role is unchanged: isBlocked denies access as before.
+  const decoded = await firebaseAuthService.getCurrentUserFromToken(token);
   if (decoded.role === 'moderator' || decoded.role === 'expert') {
     if (decoded.status === 'in-active') {
       return false
@@ -24,22 +23,5 @@ export async function authorizationChecker(action): Promise<boolean> {
   if (!decoded?.firebaseUID) {
     return false
   }
-  // const existingUser = await firebaseAuthService.findByFirebaseUID(decoded.firebaseUID);
-  // if (!existingUser) {
-  //   console.log("User authenticated in Firebase but not in DB")
-  //   await this.auth.deleteUser(decoded?.firebaseUID).catch(err => {
-  //     console.error("failed to delete firebase user ", err)
-  //   })
-  //   console.log("deleted firebase user ")
-  //   // return false
-  // }
-  // return true
-  try {
-    // await firebaseAuthService.getCurrentUserFromToken(token);
-  }
-  catch (error) {
-    console.error('Authorization error:', error);
-    return false; // Invalid token or user not found
-  }
-  return true; // Authorization successful
+  return true;
 }

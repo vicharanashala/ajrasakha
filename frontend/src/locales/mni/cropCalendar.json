@@ -1,0 +1,60 @@
+{
+  "title": "চাষৰ কেলেন্ডাৰ",
+  "subtitle": "মৌসুমী চাষৰ কেলেন্ডাৰ আৰু সৌমন্যৰে তোমাৰ খেতিৰ কাম পৰিকল্পনা কৰক",
+  "calendar": {
+    "activityCalendar": "কামৰ কেলেন্ডাৰ",
+    "noActivities": "এই মৌসুমত কোনো কাম পোৱা নগ'ল।",
+    "season": "মৌসুম",
+    "months": "মাহ",
+    "activity": "কাম",
+    "activities": "কাম"
+  },
+  "upcoming": {
+    "title": "আহা কাম",
+    "next30days": "আহা ৩০ দিন",
+    "selectCrop": "আহা কাম চাবলৈ চাষ বাছনি কৰক",
+    "none": "আহা ৩০ দিনত কোনো কাম নাই।",
+    "days": "দিন"
+  },
+  "reminder": {
+    "createTitle": "নতুন সৌমন্য বনাওক",
+    "crop": "চাষ",
+    "selectCrop": "চাষ বাছনি কৰক",
+    "activity": "কাম",
+    "selectActivity": "কাম বাছনি কৰক",
+    "remindBefore": "আগতে সৌমন্য দিয়ক (দিন)",
+    "creating": "বনাই আছে...",
+    "create": "সৌমন্য বনাওক",
+    "activeTitle": "সক্ৰিয় সৌমন্য",
+    "noReminders": "এতিয়া কোনো সৌমন্য নাই। ওপৰত এটা বনাওক!",
+    "remind": "সৌমন্য দিয়ক",
+    "day": "দিন",
+    "days": "দিন",
+    "before": "আগতে",
+    "created": "বনোৱা"
+  },
+  "activityTypes": {
+    "preparation": "প্ৰস্তুতি",
+    "sowing": "বীজ পোকলা",
+    "fertilizing": "সাবছিডি দিয়া",
+    "irrigation": "পানী দিয়া",
+    "weeding": "আগাছা উঠোৱা",
+    "pest_control": "কীট নিয়ন্ত্ৰণ",
+    "harvesting": "শস্য কটা",
+    "storage": "সংৰক্ষণ"
+  },
+  "months": {
+    "January": "জানুৱাৰী",
+    "February": "ফেব্ৰুৱাৰী",
+    "March": "মাৰ্চ",
+    "April": "এপ্ৰিল",
+    "May": "মে",
+    "June": "জুন",
+    "July": "জুলাই",
+    "August": "আগষ্ট",
+    "September": "চেপ্টেম্বৰ",
+    "October": "অক্টোবৰ",
+    "November": "নৱেম্বৰ",
+    "December": "ডিচেম্বৰ"
+  }
+}

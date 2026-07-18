@@ -1,0 +1,60 @@
+{
+  "title": "फसल कैलेंडर",
+  "subtitle": "मौसम-वार फसल कैलेंडर और अनुस्मारक के साथ अपनी खेती की गतिविधियों की योजना बनाएँ",
+  "calendar": {
+    "activityCalendar": "गतिविधि कैलेंडर",
+    "noActivities": "इस मौसम के लिए कोई गतिविधि नहीं मिली।",
+    "season": "मौसम",
+    "months": "महीने",
+    "activity": "गतिविधि",
+    "activities": "गतिविधियाँ"
+  },
+  "upcoming": {
+    "title": "आगामी गतिविधियाँ",
+    "next30days": "अगले 30 दिन",
+    "selectCrop": "आगामी गतिविधियाँ देखने के लिए फसल चुनें",
+    "none": "अगले 30 दिनों में कोई आगामी गतिविधि नहीं है।",
+    "days": "दिन"
+  },
+  "reminder": {
+    "createTitle": "नया अनुस्मारक बनाएँ",
+    "crop": "फसल",
+    "selectCrop": "फसल चुनें",
+    "activity": "गतिविधि",
+    "selectActivity": "गतिविधि चुनें",
+    "remindBefore": "पहले याद दिलाएँ (दिन)",
+    "creating": "बना रहे हैं...",
+    "create": "अनुस्मारक बनाएँ",
+    "activeTitle": "सक्रिय अनुस्मारक",
+    "noReminders": "अभी तक कोई अनुस्मारक नहीं। ऊपर बनाएँ!",
+    "remind": "याद दिलाएँ",
+    "day": "दिन",
+    "days": "दिन",
+    "before": "पहले",
+    "created": "बनाया"
+  },
+  "activityTypes": {
+    "preparation": "तैयारी",
+    "sowing": "बुवाई",
+    "fertilizing": "उर्वरक",
+    "irrigation": "सिंचाई",
+    "weeding": "निराई",
+    "pest_control": "कीट नियंत्रण",
+    "harvesting": "फसल कटाई",
+    "storage": "भंडारण"
+  },
+  "months": {
+    "January": "जनवरी",
+    "February": "फरवरी",
+    "March": "मार्च",
+    "April": "अप्रैल",
+    "May": "मई",
+    "June": "जून",
+    "July": "जुलाई",
+    "August": "अगस्त",
+    "September": "सितंबर",
+    "October": "अक्टूबर",
+    "November": "नवंबर",
+    "December": "दिसंबर"
+  }
+}

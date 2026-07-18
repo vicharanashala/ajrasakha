@@ -1,0 +1,60 @@
+{
+  "title": "फसल कैलेंडर",
+  "subtitle": "मौसम अनुसार फसल कैलेंडर ते याद देहानियां नाल तुहाडी खेती दी करम योजना बनाओ",
+  "calendar": {
+    "activityCalendar": "करम कैलेंडर",
+    "noActivities": "एह मौसम विच कोई करम नई मिलियो।",
+    "season": "मौसम",
+    "months": "महिने",
+    "activity": "करम",
+    "activities": "करम"
+  },
+  "upcoming": {
+    "title": "आउने करम",
+    "next30days": "अगले ३० दिन",
+    "selectCrop": "आउने करम देखन लई फसल चुनियां",
+    "none": "अगले ३० दिनां विच कोई करम नई ऐ।",
+    "days": "दिन"
+  },
+  "reminder": {
+    "createTitle": "नवाँ याद देहाना बनाओ",
+    "crop": "फसल",
+    "selectCrop": "फसल चुनियां",
+    "activity": "करम",
+    "selectActivity": "करम चुनियां",
+    "remindBefore": "पहलां याद देहाओ (दिन)",
+    "creating": "बनाइया ऐ...",
+    "create": "याद देहाना बनाओ",
+    "activeTitle": "चालू याद देहाने",
+    "noReminders": "हुण कोई याद देहाना नई ऐ। उप्पर एह बनाओ!",
+    "remind": "याद देहाओ",
+    "day": "दिन",
+    "days": "दिन",
+    "before": "पहलां",
+    "created": "बनेया"
+  },
+  "activityTypes": {
+    "preparation": "तयारी",
+    "sowing": "बीज पाउना",
+    "fertilizing": "खाद देना",
+    "irrigation": "पानी देना",
+    "weeding": "घाह काढ़ना",
+    "pest_control": "कीड़ नियंत्रण",
+    "harvesting": "फसल काटना",
+    "storage": "संभरण"
+  },
+  "months": {
+    "January": "जनवरी",
+    "February": "फरवरी",
+    "March": "मार्च",
+    "April": "अप्रैल",
+    "May": "मे",
+    "June": "जून",
+    "July": "जुलाई",
+    "August": "अगस्त",
+    "September": "सितम्बर",
+    "October": "अक्तूबर",
+    "November": "नवम्बर",
+    "December": "दिसम्बर"
+  }
+}

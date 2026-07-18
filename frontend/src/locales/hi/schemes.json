@@ -1,0 +1,55 @@
+{
+  "title": "सरकारी योजनाएँ",
+  "subtitle": "भारतीय किसानों का समर्थन करने के लिए डिज़ाइन की गई केंद्र और राज्य सरकार की योजनाओं का अन्वेषण करें। सब्सिडी, बीमा, ऋण और बहुत कुछ खोजें।",
+  "categories": {
+    "Subsidy": "सब्सिडी",
+    "Insurance": "बीमा",
+    "Credit": "ऋण",
+    "Marketing": "विपणन",
+    "Organic Farming": "जैविक खेती",
+    "Irrigation": "सिंचाई",
+    "Crop Loss": "फसल हानि"
+  },
+  "search": {
+    "placeholder": "नाम, विवरण या लाभों से योजनाएँ खोजें...",
+    "button": "खोजें"
+  },
+  "filters": {
+    "label": "फ़िल्टर:",
+    "allCategories": "सभी श्रेणियाँ",
+    "allStates": "सभी राज्य",
+    "clear": "फ़िल्टर साफ़ करें"
+  },
+  "results": {
+    "loading": "योजनाएँ लोड हो रही हैं...",
+    "showing": "दिखा रहे हैं",
+    "of": "में से",
+    "schemes": "योजनाएँ",
+    "matchingFilters": "आपके फ़िल्टर से मेल खाती हैं",
+    "refreshing": "रीफ़्रेश हो रहा है..."
+  },
+  "empty": {
+    "title": "कोई योजना नहीं मिली",
+    "description": "आपके वर्तमान फ़िल्टर से कोई सरकारी योजना मेल नहीं खाती। अपने खोज मानदंड समायोजित करें या फ़िल्टर साफ़ करें।",
+    "clearAll": "सभी फ़िल्टर साफ़ करें"
+  },
+  "card": {
+    "keyBenefits": "मुख्य लाभ",
+    "allIndia": "पूरे भारत",
+    "statesCount": "{{count}} राज्य"
+  },
+  "pagination": {
+    "previous": "पिछला",
+    "next": "अगला"
+  },
+  "detail": {
+    "description": "विवरण",
+    "keyBenefits": "मुख्य लाभ",
+    "eligibility": "पात्रता",
+    "applicationProcess": "आवेदन प्रक्रिया",
+    "deadline": "समय सीमा",
+    "states": "राज्य",
+    "contact": "संपर्क",
+    "visitWebsite": "आधिकारिक वेबसाइट पर जाएँ"
+  }
+}

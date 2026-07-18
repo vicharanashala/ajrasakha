@@ -1,0 +1,60 @@
+{
+  "title": "ᱨᱤᱠᱤ ᱠᱯᱟᱲᱟᱝ",
+  "subtitle": "ᱥᱟᱨᱚᱨ ᱦᱮᱨᱚᱢ ᱨᱤᱠᱤ ᱠᱯᱟᱲᱟᱝ ᱟᱨ ᱵᱟᱨᱚᱨᱚᱢ ᱡᱮᱞᱠᱟᱱ ᱡᱮᱜᱟᱞᱚᱢ",
+  "calendar": {
+    "activityCalendar": "ᱠᱟᱨᱚᱣ ᱠᱯᱟᱲᱟᱝ",
+    "noActivities": "ᱱᱚᱶᱟ ᱥᱟᱨᱚᱨ ᱨᱮ ᱜᱚᱱᱚᱜ ᱟᱨ ᱜᱚᱱᱚᱜ ᱵᱟᱝ ᱞᱟᱱᱟ।",
+    "season": "ᱥᱟᱨᱚᱨ",
+    "months": "ᱢᱟᱥ",
+    "activity": "ᱠᱟᱨᱚᱣ",
+    "activities": "ᱠᱟᱨᱚᱣ"
+  },
+  "upcoming": {
+    "title": "ᱨᱮᱱᱚᱜ ᱠᱟᱨᱚᱣ",
+    "next30days": "ᱨᱮᱱᱚᱜ ᱓᱐ ᱰᱤᱵᱟᱥ",
+    "selectCrop": "ᱨᱮᱱᱚᱜ ᱠᱟᱨᱚᱣ ᱥᱵᱚᱨᱚᱱ ᱞᱟᱱᱟ ᱨᱤᱠᱤ ᱥᱵᱚᱨᱚᱢ",
+    "none": "ᱨᱮᱱᱚᱜ ᱓᱐ ᱰᱤᱵᱟᱥ ᱨᱮ ᱜᱚᱱᱚᱜ ᱵᱟᱝ ᱞᱟᱱᱟ।",
+    "days": "ᱰᱤᱵᱟᱥ"
+  },
+  "reminder": {
+    "createTitle": "ᱱᱟᱶᱟ ᱵᱟᱨᱚᱨᱚᱢ ᱡᱮᱜᱟᱞᱚᱢ",
+    "crop": "ᱨᱤᱠᱤ",
+    "selectCrop": "ᱨᱤᱠᱤ ᱥᱵᱚᱨᱚᱢ",
+    "activity": "ᱠᱟᱨᱚᱣ",
+    "selectActivity": "ᱠᱟᱨᱚᱣ ᱥᱵᱚᱨᱚᱢ",
+    "remindBefore": "ᱦᱮᱨᱚᱢ ᱢᱮ ᱵᱟᱨᱚᱨᱚᱢ (ᱰᱤᱵᱟᱥ)",
+    "creating": "ᱡᱮᱜᱟᱞᱚᱜ ᱠᱟᱱᱟ...",
+    "create": "ᱵᱟᱨᱚᱨᱚᱢ ᱡᱮᱜᱟᱞᱚᱢ",
+    "activeTitle": "ᱥᱚᱨᱚᱢ ᱵᱟᱨᱚᱨᱚᱢ",
+    "noReminders": "ᱜᱚᱱᱚᱜ ᱵᱟᱨᱚᱨᱚᱢ ᱵᱟᱝ ᱞᱟᱱᱟ। ᱰᱟᱨᱚᱢ ᱡᱮᱜᱟᱞᱚᱢ!",
+    "remind": "ᱵᱟᱨᱚᱨᱚᱢ",
+    "day": "ᱰᱤᱵᱟᱥ",
+    "days": "ᱰᱤᱵᱟᱥ",
+    "before": "ᱦᱮᱨᱚᱢ ᱢᱮ",
+    "created": "ᱡᱮᱜᱟᱨᱚᱜ"
+  },
+  "activityTypes": {
+    "preparation": "ᱛᱤᱭᱟᱨᱤ",
+    "sowing": "ᱨᱤᱠᱤ ᱰᱟᱱᱚᱜ",
+    "fertilizing": "ᱜᱚᱨᱚᱰᱤ ᱰᱟᱱᱚᱜ",
+    "irrigation": "ᱯᱟᱨᱤ ᱰᱟᱱᱚᱜ",
+    "weeding": "ᱜᱟᱲᱚᱜ ᱥᱚᱢᱚᱱᱚᱜ",
+    "pest_control": "ᱜᱤᱛ ᱥᱚᱢᱚᱱᱚᱜ",
+    "harvesting": "ᱪᱟᱱᱟ ᱰᱟᱱᱚᱜ",
+    "storage": "ᱡᱟᱲᱤ"
+  },
+  "months": {
+    "January": "ᱡᱟᱱᱵᱟᱨᱤ",
+    "February": "ᱯᱟᱨᱵᱟᱨᱤ",
+    "March": "ᱢᱟᱨᱪ",
+    "April": "ᱟᱯᱨᱤᱲ",
+    "May": "ᱢᱤ",
+    "June": "ᱡᱩᱱ",
+    "July": "ᱡᱩᱲᱟᱭ",
+    "August": "ᱟᱜᱥᱴ",
+    "September": "ᱥᱤᱯᱴᱤᱢᱵᱟᱨ",
+    "October": "ᱚᱠᱴᱚᱵᱟᱨ",
+    "November": "ᱱᱚᱡᱵᱟᱨ",
+    "December": "ᱰᱤᱥᱡᱵᱟᱨ"
+  }
+}

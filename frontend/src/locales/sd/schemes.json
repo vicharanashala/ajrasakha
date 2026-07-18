@@ -1,0 +1,55 @@
+{
+  "title": "سرڪاري اسڪيمون",
+  "subtitle": "هنڌيستان جي کسانن جي مدد لاءِ مرڪزي ۽ صوبائي سرڪاري اسڪيمون ڳوليو۔ سبسڊي، بيمه، قرضو ۽ وڌيک ڳوليو۔",
+  "categories": {
+    "Subsidy": "سبسڊي",
+    "Insurance": "بيمه",
+    "Credit": "قرضو",
+    "Marketing": "بازار",
+    "Organic Farming": "آرگانيڪ کheti",
+    "Irrigation": "پاڻي",
+    "Crop Loss": "فصل جو نقصان"
+  },
+  "search": {
+    "placeholder": "اسڪيمون جي نال، تفصيل يا ڀائدن لاءِ ڳوليو...",
+    "button": "ڳوليو"
+  },
+  "filters": {
+    "label": "فلٽر:",
+    "allCategories": "سڀ ٿي",
+    "allStates": "سڀ صوبن",
+    "clear": "فلٽر خالو ڪريو"
+  },
+  "results": {
+    "loading": "اسڪيمون لوڊ ٿي رهيا...",
+    "showing": "دکهايو رهيا",
+    "of": "۾",
+    "schemes": "اسڪيمون",
+    "matchingFilters": "توهان جي فلٽرن سان ملندڙ",
+    "refreshing": "نئون لوڊ ٿي رهيا..."
+  },
+  "empty": {
+    "title": "اسڪيمون نه مليليون",
+    "description": "توهان جي حالتي فلٽرن ۾ ڪو به سرڪاري اسڪيم نه ملڻي۔ ڳولي جي معايير بدلائيو يا فلٽر خالو ڪريو۔",
+    "clearAll": "سڀ فلٽر خالو ڪريو"
+  },
+  "card": {
+    "keyBenefits": "مکيه ڀائدن",
+    "allIndia": "پوري هنڌستان",
+    "statesCount": "{{count}} صوبن"
+  },
+  "pagination": {
+    "previous": "اڳيون",
+    "next": "پکڙ"
+  },
+  "detail": {
+    "description": "تفصيل",
+    "keyBenefits": "مکيه ڀائدن",
+    "eligibility": "اھليت",
+    "applicationProcess": "درخواست جي عملي",
+    "deadline": "آخري مهلت",
+    "states": "صوبن",
+    "contact": "راابو",
+    "visitWebsite": "آفيسل ويب سائيٽ ڏسند"
+  }
+}

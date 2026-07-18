@@ -1,0 +1,69 @@
+{
+  "title": "Fertilizer Calculator",
+  "subtitle": "Get precise NPK recommendations for your crops based on soil type",
+  "form": {
+    "title": "Calculate Requirements",
+    "description": "Select your crop, land area, and soil type to get fertilizer recommendations",
+    "crop": "Crop",
+    "selectCrop": "Select crop",
+    "area": "Area (Acres)",
+    "areaPlaceholder": "e.g. 5",
+    "acres": "acres",
+    "soilType": "Soil Type",
+    "selectSoil": "Select soil",
+    "calculating": "Calculating...",
+    "calculate": "Calculate",
+    "error": "Failed to calculate. Please check your inputs."
+  },
+  "results": {
+    "totalCost": "Total Estimated Cost",
+    "acre": "acre",
+    "acres": "acres",
+    "soil": "soil"
+  },
+  "npk": {
+    "nitrogen": "Nitrogen (N)",
+    "phosphorus": "Phosphorus (P)",
+    "potassium": "Potassium (K)",
+    "kg": "kg",
+    "bag": "bag",
+    "bags": "bags"
+  },
+  "chart": {
+    "title": "NPK Proportions",
+    "description": "Visual breakdown of nutrient requirements per acre"
+  },
+  "tips": {
+    "title": "Application Tips"
+  },
+  "crops": {
+    "title": "Supported Crops",
+    "description": "Base NPK requirements per acre (before soil adjustment)",
+    "crop": "Crop",
+    "category": "Category",
+    "nitrogen": "Nitrogen (kg/acre)",
+    "phosphorus": "Phosphorus (kg/acre)",
+    "potassium": "Potassium (kg/acre)"
+  },
+  "soilTypes": {
+    "Alluvial": "Alluvial",
+    "Black (Regur)": "Black (Regur)",
+    "Red": "Red",
+    "Laterite": "Laterite",
+    "Sandy": "Sandy"
+  },
+  "cropNames": {
+    "Rice": "Rice",
+    "Wheat": "Wheat",
+    "Maize": "Maize",
+    "Cotton": "Cotton",
+    "Soybean": "Soybean",
+    "Groundnut": "Groundnut",
+    "Sugarcane": "Sugarcane",
+    "Banana": "Banana",
+    "Mango": "Mango",
+    "Potato": "Potato",
+    "Onion": "Onion",
+    "Tomato": "Tomato"
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "title": "सरकारी स्कीमां",
+  "subtitle": "हिंदुस्तानी किशानां हेत बनावँठ केंद्री अन प्रदेश सरकारी स्कीमां छानिव। सब्सिडी, इंश्योरेंस, करेडिट अन बरि।",
+  "categories": {
+    "Subsidy": "सब्सिडी",
+    "Insurance": "बीमा",
+    "Credit": "करेडिट",
+    "Marketing": "बाज़ार",
+    "Organic Farming": "जैविक खेती",
+    "Irrigation": "पानी देनुस",
+    "Crop Loss": "फसलास नुक्सान"
+  },
+  "search": {
+    "placeholder": "स्कीमां नाव, विवरण या फ़ायदियां हेत खोजिव...",
+    "button": "खोजिव"
+  },
+  "filters": {
+    "label": "फ़िल्टर:",
+    "allCategories": "सभि वर्ग",
+    "allStates": "सभि प्रदेश",
+    "clear": "फ़िल्टर काढ़िव"
+  },
+  "results": {
+    "loading": "स्कीमां लोड हें सान...",
+    "showing": "देखावँठ",
+    "of": "मान्ज़",
+    "schemes": "स्कीमां",
+    "matchingFilters": "तुह्नुड फ़िल्टरां त़ाल मेलदत्तियां",
+    "refreshing": "नमां लोड हें सान..."
+  },
+  "empty": {
+    "title": "स्कीमां नई मिलियां",
+    "description": "तुह्नुड अनि फ़िल्टरां मान्ज़ कहियो सरकारी स्कीम नई मिली। खोज बदलिव या फ़िल्टर काढ़िव।",
+    "clearAll": "सभि फ़िल्टर काढ़िव"
+  },
+  "card": {
+    "keyBenefits": "मुख्य फ़ायदे",
+    "allIndia": "पूरी हिंदुस्तान",
+    "statesCount": "{{count}} प्रदेश"
+  },
+  "pagination": {
+    "previous": "अगळ",
+    "next": "आगे"
+  },
+  "detail": {
+    "description": "तफ़सील",
+    "keyBenefits": "मुख्य फ़ायदे",
+    "eligibility": "पात्रता",
+    "applicationProcess": "अर्ज़ परोकर्युँ",
+    "deadline": "आखरी मियाद",
+    "states": "प्रदेश",
+    "contact": "राब्ता",
+    "visitWebsite": "असली वेबसाइट खोजिव"
+  }
+}

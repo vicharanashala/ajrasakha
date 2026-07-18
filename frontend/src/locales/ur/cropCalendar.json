@@ -1,0 +1,60 @@
+{
+  "title": "فصل کیلنڈر",
+  "subtitle": "موسمی فصل کیلنڈرز اور یاد دہانیوں کے ساتھ اپنی کاشت کی سرگرمیوں کا منصوبہ بندی کریں",
+  "calendar": {
+    "activityCalendar": "سرگرمی کیلنڈر",
+    "noActivities": "اس موسم کے لیے کوئی سرگرمی نہیں ملی۔",
+    "season": "موسم",
+    "months": "مہینے",
+    "activity": "سرگرمی",
+    "activities": "سرگرمیاں"
+  },
+  "upcoming": {
+    "title": "آنے والی سرگرمیاں",
+    "next30days": "اگلے 30 دن",
+    "selectCrop": "آنے والی سرگرمیاں دیکھنے کے لیے ایک فصل منتخب کریں",
+    "none": "اگلے 30 دنوں میں کوئی آنے والی سرگرمی نہیں ہے۔",
+    "days": "دن"
+  },
+  "reminder": {
+    "createTitle": "نئی یاد دہانی بنائیں",
+    "crop": "فصل",
+    "selectCrop": "فصل منتخب کریں",
+    "activity": "سرگرمی",
+    "selectActivity": "سرگرمی منتخب کریں",
+    "remindBefore": "پہلے یاد دلائیں (دن)",
+    "creating": "بنا رہے ہیں...",
+    "create": "یاد دہانی بنائیں",
+    "activeTitle": "فعال یاد دہانیاں",
+    "noReminders": "ابھی تک کوئی یاد دہانی سیٹ نہیں کی گئی۔ اوپر ایک بنائیں!",
+    "remind": "یاد دلائیں",
+    "day": "دن",
+    "days": "دن",
+    "before": "پہلے",
+    "created": "بنایا گیا"
+  },
+  "activityTypes": {
+    "preparation": "تیاری",
+    "sowing": "بیج بونا",
+    "fertilizing": "کھاد ڈالنا",
+    "irrigation": "آبپاشی",
+    "weeding": "گھاس اتارنا",
+    "pest_control": "کیڑوں کا کنٹرول",
+    "harvesting": "فصل کاٹنا",
+    "storage": "ذخیرہ"
+  },
+  "months": {
+    "January": "جنوری",
+    "February": "فروری",
+    "March": "مارچ",
+    "April": "اپریل",
+    "May": "مئی",
+    "June": "جون",
+    "July": "جولائی",
+    "August": "اگست",
+    "September": "ستمبر",
+    "October": "اکتوبر",
+    "November": "نومبر",
+    "December": "دسمبر"
+  }
+}

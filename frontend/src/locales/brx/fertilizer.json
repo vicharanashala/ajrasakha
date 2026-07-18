@@ -1,0 +1,69 @@
+{
+  "title": "खाद कैलकुलेटर",
+  "subtitle": "दांनि गारी अनुसार नोंनि रिफि खालिमनि थारि NPK सिफारिस मिलिम",
+  "form": {
+    "title": "गरज गणित",
+    "description": "खाद सिफारिस खालिमनि थारि रिफि, जमिन आ दां जोबोर",
+    "crop": "रिफि",
+    "selectCrop": "रिफि जोबोर",
+    "area": "जमिन (एकड)",
+    "areaPlaceholder": "जेरेन ५",
+    "acres": "एकड",
+    "soilType": "दांनि गारी",
+    "selectSoil": "दां जोबोर",
+    "calculating": "गणित हेंनाय...",
+    "calculate": "गणित",
+    "error": "गणित हेंनानै। नोंनि इनपुट हेर।"
+  },
+  "results": {
+    "totalTotal": "गासै अनुमानित खर्च",
+    "acre": "एकड",
+    "acres": "एकड",
+    "soil": "दां"
+  },
+  "npk": {
+    "nitrogen": "नाइट्रोजन (N)",
+    "phosphorus": "फस्फरस (P)",
+    "potassium": "पटासियम (K)",
+    "kg": "किलो",
+    "bag": "बोरा",
+    "bags": "बोराफोर"
+  },
+  "chart": {
+    "title": "NPK अनुपात",
+    "description": "एकड खाद गणितनि भिजुयल ब्रेकडाउन"
+  },
+  "tips": {
+    "title": "बाहरिबाइ सिफारिस"
+  },
+  "crops": {
+    "title": "गासिनि रिफिफोर",
+    "description": "एकड नि थारि NPK गरज (दां बिन्दिमनि आगोनाय)",
+    "crop": "रिफि",
+    "category": "थांनि",
+    "nitrogen": "नाइट्रोजन (किलो/एकड)",
+    "phosphorus": "फस्फरस (किलो/एकड)",
+    "potassium": "पटासियम (किलो/एकड)"
+  },
+  "soilTypes": {
+    "Alluvial": "दांनि कारी",
+    "Black (Regur)": "सोमनि (रेगुर)",
+    "Red": "देंगनि",
+    "Laterite": "लाटेराइट",
+    "Sandy": "बालिनि"
+  },
+  "cropNames": {
+    "Rice": "नांव",
+    "Wheat": "गम",
+    "Maize": "मकै",
+    "Cotton": "कपास",
+    "Soybean": "सोयाबिन",
+    "Groundnut": "बेदाम",
+    "Sugarcane": "गनै",
+    "Banana": "कलम",
+    "Mango": "आम्ब",
+    "Potato": "आलू",
+    "Onion": "पियाज",
+    "Tomato": "बेदाम"
+  }
+}

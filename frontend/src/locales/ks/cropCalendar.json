@@ -1,0 +1,60 @@
+{
+  "title": "किशन कैलेंडर",
+  "subtitle": "ऋतुअन अनुसार किशनअन काम हेत प्लान तयार करित",
+  "calendar": {
+    "activityCalendar": "काम कैलेंडर",
+    "noActivities": "अनी ऋतुस मान्ज़ कोई काम नई मिलियां।",
+    "season": "ऋतु",
+    "months": "म्हीने",
+    "activity": "काम",
+    "activities": "काम"
+  },
+  "upcoming": {
+    "title": "आनी कामक लिस्ट",
+    "next30days": "अगले ३० दिन",
+    "selectCrop": "आनी काम देखन यास किशन चुनित",
+    "none": "अगले ३० दिवसां मान्ज़ कोई काम नई छ।",
+    "days": "दिवस"
+  },
+  "reminder": {
+    "createTitle": "नमां रिमाइंडर बनावित",
+    "crop": "किशन",
+    "selectCrop": "किशन चुनित",
+    "activity": "काम",
+    "selectActivity": "काम चुनित",
+    "remindBefore": "कोत्र याद दिवावित (दिवस)",
+    "creating": "बनावँठ हें सान...",
+    "create": "रिमाइंडर बनावित",
+    "activeTitle": "चालू रिमाइंडर",
+    "noReminders": "कोई रिमाइंडर नई छ। उपर बनावित!",
+    "remind": "याद दिवावित",
+    "day": "दिवस",
+    "days": "दिवस",
+    "before": "कोत्र",
+    "created": "बनियो"
+  },
+  "activityTypes": {
+    "preparation": "तयारी",
+    "sowing": "बीज डालन",
+    "fertilizing": "खाद देन",
+    "irrigation": "पानी देनुस",
+    "weeding": "गंद काढन",
+    "pest_control": "कीट परक",
+    "harvesting": "फसल काटन",
+    "storage": "रखन"
+  },
+  "months": {
+    "January": "जनवरी",
+    "February": "फरवरी",
+    "March": "मार्च",
+    "April": "अप्रैल",
+    "May": "मे",
+    "June": "जून",
+    "July": "जुलाई",
+    "August": "अगस्त",
+    "September": "सतम्बर",
+    "October": "अक्तूबर",
+    "November": "नोवम्बर",
+    "December": "डिसम्बर"
+  }
+}

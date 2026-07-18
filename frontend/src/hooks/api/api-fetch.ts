@@ -1,46 +1,20 @@
-import { auth } from "@/config/firebase";
 import { useAuthStore } from "@/stores/auth-store";
-import { getIdToken, type User } from "firebase/auth";
 
-export const getCurrentUser = (): Promise<User | null> => {
-  return new Promise((resolve) => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      unsubscribe();
-      resolve(user);
-    });
-  });
-};
 export const apiFetch = async <T>(
   url: string,
   options: RequestInit = {}
 ): Promise<T | null> => {
-  const firebaseUser = await getCurrentUser();
-
-  let token: string | null = null;
-  if (firebaseUser) {
-    try {
-      token = await getIdToken(firebaseUser);
-    } catch (err) {
-      console.error("Failed to get token:", err);
-    }
-  }
-
   const isFormData = options.body instanceof FormData;
 
+  const token = localStorage.getItem("auth-token");
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(isFormData ? {} : { "Content-Type": "application/json" }),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
-  // const headers = {
-  //   ...(options.headers || {}),
-  //   Authorization: token ? `Bearer ${token}` : "",
-  //   "Content-Type": "application/json",
-  // };
 
-  // Add timeout to prevent hanging requests
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
 
   try {
     const res = await fetch(url, { ...options, headers, signal: controller.signal });

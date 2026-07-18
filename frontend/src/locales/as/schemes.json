@@ -1,0 +1,55 @@
+{
+  "title": "চৰকাৰী আঁচনি",
+  "subtitle": "ভাৰতীয় কৃষকক সহায় কৰিবলৈ নকশা কৰা কেন্দ্ৰ আৰু ৰাজ্য চৰকাৰী আঁচনি অনুসন্ধান কৰক। সাবছিডি, বীমা, ঋণ আৰু অধিক বিচাৰক।",
+  "categories": {
+    "Subsidy": "সাবছিডি",
+    "Insurance": "বীমা",
+    "Credit": "ঋণ",
+    "Marketing": "বিপণন",
+    "Organic Farming": "জৈব চাষ",
+    "Irrigation": "সিঁচনি",
+    "Crop Loss": "শস্য ক্ষতি"
+  },
+  "search": {
+    "placeholder": "নাম, বিৱৰণ বা লাভৰ সৈতে আঁচনি সন্ধান কৰক...",
+    "button": "সন্ধান কৰক"
+  },
+  "filters": {
+    "label": "ফিল্টাৰ:",
+    "allCategories": "সকলো শ্ৰেণী",
+    "allStates": "সকলো ৰাজ্য",
+    "clear": "ফিল্টাৰ মচক"
+  },
+  "results": {
+    "loading": "আঁচনি ল'ড হৈ আছে...",
+    "showing": "দেখুৱাই আছে",
+    "of": "ৰ",
+    "schemes": "আঁচনি",
+    "matchingFilters": "আপোনাৰ ফিল্টাৰৰ সৈতে মিল খাইছে",
+    "refreshing": "ৰিফ্ৰেচ্ৰ হৈ আছে..."
+  },
+  "empty": {
+    "title": "কোনো আঁচনি পোৱা নগ'ল",
+    "description": "কোনো চৰকাৰী আঁচনি আপোনাৰ বৰ্তমান ফিল্টাৰৰ সৈতে মিল নাখায়। আপোনাৰ সন্ধান মানদণ্ড সমন্বয় কৰিবলৈ চেষ্টা কৰক বা ফিল্টাৰ মচক।",
+    "clearAll": "সকলো ফিল্টাৰ মচক"
+  },
+  "card": {
+    "keyBenefits": "মূল লাভ",
+    "allIndia": "সমগ্ৰ ভাৰত",
+    "statesCount": "{{count}} ৰাজ্য(সমূহ)"
+  },
+  "pagination": {
+    "previous": "পূৰ্ববৰ্তী",
+    "next": "পৰৱৰ্তী"
+  },
+  "detail": {
+    "description": "বিৱৰণ",
+    "keyBenefits": "মূল লাভ",
+    "eligibility": "যোগ্যতা",
+    "applicationProcess": "আবেদন প্ৰক্ৰিয়া",
+    "deadline": "সময়সীমা",
+    "states": "ৰাজ্য",
+    "contact": "যোগাযোগ",
+    "visitWebsite": "অফিচিয়াল ৱেবছাইট চাওক"
+  }
+}

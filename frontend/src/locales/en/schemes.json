@@ -1,0 +1,55 @@
+{
+  "title": "Government Schemes",
+  "subtitle": "Explore central and state government schemes designed to support Indian farmers. Find subsidies, insurance, credit, and more.",
+  "categories": {
+    "Subsidy": "Subsidy",
+    "Insurance": "Insurance",
+    "Credit": "Credit",
+    "Marketing": "Marketing",
+    "Organic Farming": "Organic Farming",
+    "Irrigation": "Irrigation",
+    "Crop Loss": "Crop Loss"
+  },
+  "search": {
+    "placeholder": "Search schemes by name, description, or benefits...",
+    "button": "Search"
+  },
+  "filters": {
+    "label": "Filters:",
+    "allCategories": "All Categories",
+    "allStates": "All States",
+    "clear": "Clear filters"
+  },
+  "results": {
+    "loading": "Loading schemes...",
+    "showing": "Showing",
+    "of": "of",
+    "schemes": "schemes",
+    "matchingFilters": "matching your filters",
+    "refreshing": "Refreshing..."
+  },
+  "empty": {
+    "title": "No schemes found",
+    "description": "No government schemes match your current filters. Try adjusting your search criteria or clearing filters.",
+    "clearAll": "Clear all filters"
+  },
+  "card": {
+    "keyBenefits": "Key Benefits",
+    "allIndia": "All India",
+    "statesCount": "{{count}} state(s)"
+  },
+  "pagination": {
+    "previous": "Previous",
+    "next": "Next"
+  },
+  "detail": {
+    "description": "Description",
+    "keyBenefits": "Key Benefits",
+    "eligibility": "Eligibility",
+    "applicationProcess": "Application Process",
+    "deadline": "Deadline",
+    "states": "States",
+    "contact": "Contact",
+    "visitWebsite": "Visit Official Website"
+  }
+}

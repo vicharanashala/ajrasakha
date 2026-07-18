@@ -1,0 +1,55 @@
+{
+  "title": "ᱰᱟᱨᱛᱟᱭᱤᱨᱤ ᱡᱚᱨᱚᱢ",
+  "subtitle": "ᱥᱟᱱᱛᱟᱲᱤ ᱨᱤᱠᱤᱠᱚᱨ ᱥᱟᱛᱟᱣ ᱞᱟᱱᱟ ᱜᱚᱨᱚᱰᱤ ᱟᱨ ᱰᱟᱨᱛᱟᱭᱤᱨᱤ ᱡᱚᱨᱚᱢ ᱫᱮᱱᱟ। ᱜᱚᱨᱚᱰᱤ, ᱜᱟᱨᱣᱤ, ᱥᱟᱢᱟ ᱟᱨ ᱛᱮᱦᱚ ᱫᱮᱱᱟ।",
+  "categories": {
+    "Subsidy": "ᱜᱚᱨᱚᱰᱤ",
+    "Insurance": "ᱜᱟᱨᱣᱤ",
+    "Credit": "ᱥᱟᱢᱟ",
+    "Marketing": "ᱜᱟᱨᱚᱲ",
+    "Organic Farming": "ᱢᱟᱨᱟ ᱨᱤᱠᱤ",
+    "Irrigation": "ᱯᱟᱨᱤ",
+    "Crop Loss": "ᱪᱟᱱᱟ ᱨᱮᱜᱮ"
+  },
+  "search": {
+    "placeholder": "ᱡᱚᱨᱚᱢ ᱨᱮ ᱰᱟᱨᱛᱚᱢ, ᱱᱤᱨᱚᱬᱚᱨ ᱟᱨ ᱵᱟᱪᱷᱟ ᱫᱮᱱᱟ...",
+    "button": "ᱫᱮᱱᱟ"
+  },
+  "filters": {
+    "label": "ᱠᱷᱩᱞᱚᱨ:",
+    "allCategories": "ᱡᱟᱜ ᱜᱷᱚᱛ",
+    "allStates": "ᱡᱟᱜ ᱰᱟᱨᱛ",
+    "clear": "ᱠᱷᱩᱞᱚᱨ ᱥᱟᱞᱚᱢ"
+  },
+  "results": {
+    "loading": "ᱡᱚᱨᱚᱢ ᱜᱩᱨᱚᱨᱚᱛᱚᱜ ᱠᱟᱱᱟ...",
+    "showing": "ᱧᱮᱱᱟ",
+    "of": "ᱨᱮ",
+    "schemes": "ᱡᱚᱨᱚᱢ",
+    "matchingFilters": "ᱛᱮᱨᱚ ᱠᱷᱩᱞᱚᱨ ᱥᱟᱨᱮᱢᱚᱱᱚᱜ",
+    "refreshing": "ᱨᱮᱲᱟᱜ ᱜᱩᱨᱚᱨᱚᱛᱚᱜ ᱠᱟᱱᱟ..."
+  },
+  "empty": {
+    "title": "ᱡᱚᱨᱚᱢ ᱵᱟᱝ ᱫᱮᱱᱟ",
+    "description": "ᱛᱮᱨᱚ ᱠᱷᱩᱞᱚᱨ ᱨᱮ ᱜᱚᱨᱚᱰᱤ ᱡᱚᱨᱚᱢ ᱵᱟᱝ ᱢᱮᱞᱟ ᱠᱚ। ᱫᱮᱱᱚᱨ ᱠᱷᱩᱞᱚᱨ ᱥᱟᱞᱚᱢ ᱟᱨ ᱵᱟᱝ ᱠᱚ ᱫᱚᱱᱚᱨ ᱠᱷᱩᱞᱚᱨ ᱥᱟᱞᱚᱢ।",
+    "clearAll": "ᱡᱟᱜ ᱠᱷᱩᱞᱚᱨ ᱥᱟᱞᱚᱢ"
+  },
+  "card": {
+    "keyBenefits": "ᱫᱟᱨᱟ ᱵᱟᱪᱷᱟ",
+    "allIndia": "ᱡᱟᱜ ᱥᱟᱱᱛᱟ",
+    "statesCount": "{{count}} ᱰᱟᱨᱛ"
+  },
+  "pagination": {
+    "previous": "ᱛᱚᱨᱚᱢ",
+    "next": "ᱢᱟᱲᱟ"
+  },
+  "detail": {
+    "description": "ᱱᱤᱨᱚᱬᱚᱨ",
+    "keyBenefits": "ᱫᱟᱨᱟ ᱵᱟᱪᱷᱟ",
+    "eligibility": "ᱡᱚᱨᱚᱢᱚᱱ",
+    "applicationProcess": "ᱡᱚᱨᱚᱢ ᱠᱟᱨᱚᱣ",
+    "deadline": "ᱢᱩᱲᱩᱞ ᱜᱟᱨ",
+    "states": "ᱰᱟᱨᱛ",
+    "contact": "ᱨᱟᱡᱚ",
+    "visitWebsite": "ᱟᱨᱥᱟᱱᱤ ᱮᱯᱚᱨ ᱫᱮᱱᱟ"
+  }
+}
