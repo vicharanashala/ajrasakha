@@ -13,6 +13,10 @@
  *   web-app          ≥  7 tests   (PR #1 tightens the verifier regex; floor
  *                                 tracks reality — bump deliberately as new
  *                                 specs land)
+ *   ace-web-app      ≥  7 tests   (PR #5: 7 core-query-flow tests —
+ *                                 Hindi/English/AI-fallback/empty-submit/
+ *                                 language-switch/history-preservation/
+ *                                 double-submit)
  *
  * The Python multilingual suite (qa/tests/multilingual) is run separately
  * via pytest — see that suite's own README.  This verifier only enforces
@@ -20,9 +24,6 @@
  *
  * Bump the floor deliberately as new tests land; the gate exists so a
  * refactor that accidentally drops a spec fails CI rather than landing.
- *
- * The script also prints a one-line summary that the workflow surfaces
- * in the PR comment.
  */
 import fs from "fs";
 import path from "path";
@@ -32,7 +33,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const TESTS_DIR = path.join(__dirname, "..", "tests");
-const FLOOR = { "reviewer-system": 31, "web-app": 7 };
+const FLOOR = { "reviewer-system": 31, "web-app": 7, "ace-web-app": 7 };
 
 /**
  * Count only `test(…)` declarations (i.e. the *first* character after the
