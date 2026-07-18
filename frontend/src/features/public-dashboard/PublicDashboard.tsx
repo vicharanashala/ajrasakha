@@ -12,7 +12,6 @@ import {
   GeographicIntelligence,
   GrowthTimeline,
   HeroSnapshot,
-  HumanNetwork,
   ImpactOutreach,
   Integrations,
   KnowledgeEngine,
@@ -118,12 +117,13 @@ export const PublicDashboard = () => {
         images={carouselImages ?? []}
       />
       <main>
-        <NarrativeSection blocks={blocks} />
+        {/* 60-second overview carousel (left) + Human Intelligence Network (right) */}
+        <NarrativeSection blocks={blocks} roles={live?.userRoleOverview} />
         <AnalyticsMapPublic />
         <HeroSnapshot stats={stats} />
         <GeographicIntelligence />
         <KnowledgeEngine />
-        <HumanNetwork roles={live?.userRoleOverview} />
+        {/* HumanNetwork now renders inside NarrativeSection's right column, above. */}
         <Integrations />
         <ImpactOutreach domainData={domainData} cropData={cropData} />
         <OutreachGallery images={outreachImages ?? []} videos={outreachVideos ?? []} />

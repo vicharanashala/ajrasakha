@@ -1023,6 +1023,112 @@
 .ace-dash .narrative-figs .nf .l { font-size: 11.5px; color: var(--ink-soft); margin-top: 2px; }
 @media (max-width: 860px) { .ace-dash .narrative-grid { grid-template-columns: 1fr; } }
 
+/* ---------- OVERVIEW (60-second carousel) + HUMAN INTELLIGENCE NETWORK ---------- */
+
+/* Two equal halves: narrative carousel left, expert network right.
+   `stretch` makes both columns share the taller one's height, so their card surfaces line
+   up instead of one ending short. */
+.ace-dash .overview-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: stretch;
+}
+/* Each half is a flex column so its inner card can flex-grow to fill the shared height. */
+.ace-dash .overview-left,
+.ace-dash .hin-col {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The carousel shell — soft tinted plane so the section reads as one block. */
+.ace-dash .ace-narrative {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;                 /* fill the column's height so both halves match */
+  padding: 26px 28px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(34, 165, 90, 0.10) 0%, rgba(34, 165, 90, 0) 55%),
+    linear-gradient(135deg, var(--green-soft) 0%, #f7fcf9 55%, var(--saffron-soft) 100%);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+/* Subtle tricolour edge on the left. */
+.ace-dash .ace-narrative::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--saffron) 0%, #ffffff 50%, var(--green) 100%);
+}
+
+.ace-dash .ace-narrative-slide { flex: 1; animation: narrIn 0.55s ease both; }
+.ace-dash .ace-narrative-slide h3 {
+  font-size: 19px; margin-bottom: 10px; color: var(--navy-deep);
+}
+.ace-dash .ace-narrative-slide p {
+  font-size: 14px; color: var(--ink-soft); line-height: 1.7; white-space: pre-wrap;
+}
+.ace-dash .ace-narrative-slide .narrative-figs { border-top-color: rgba(23, 138, 72, 0.18); }
+.ace-dash .ace-narrative-slide .nf { animation: narrIn 0.5s ease both; }
+
+@keyframes narrIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Carousel controls */
+.ace-dash .ace-narrative-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-top: 18px; padding-top: 14px;
+  border-top: 1px solid rgba(23, 138, 72, 0.14);
+}
+.ace-dash .ace-narrative-arrow {
+  width: 30px; height: 30px; flex-shrink: 0;
+  border-radius: 50%; border: 1px solid var(--line); cursor: pointer;
+  background: var(--paper-raised); color: var(--green-deep);
+  font-size: 17px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.ace-dash .ace-narrative-arrow:hover { background: var(--green-soft); transform: scale(1.08); }
+.ace-dash .ace-narrative-dots { display: flex; gap: 7px; flex-wrap: wrap; justify-content: center; }
+.ace-dash .ace-narrative-dots .dot {
+  width: 8px; height: 8px; border-radius: 50%; border: none; padding: 0; cursor: pointer;
+  background: rgba(23, 138, 72, 0.28);
+  transition: all 0.2s ease;
+}
+.ace-dash .ace-narrative-dots .dot.active {
+  background: var(--green-deep); width: 22px; border-radius: 5px;
+}
+
+/* Right half — expert network. The role grid sits on its own card that flex-grows, so this
+   half matches the carousel's height and both bottoms align. */
+.ace-dash .hin-grid {
+  flex: 1;
+  align-content: start;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper-raised);
+  box-shadow: var(--shadow);
+}
+.ace-dash .hin-cell { animation: narrIn 0.5s ease both; }
+
+@media (max-width: 860px) {
+  .ace-dash .overview-split { grid-template-columns: 1fr; }
+  /* Stacked: don't force equal heights, let each size to its content. */
+  .ace-dash .ace-narrative { flex: 0 1 auto; min-height: 280px; }
+  .ace-dash .hin-grid { flex: 0 1 auto; }
+}
+
 /* ---------- OUTREACH MEDIA GALLERY ---------- */
 .ace-dash .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
 .ace-dash .media-card { margin: 0; background: var(--paper-raised); border-radius: var(--radius-sm); box-shadow: var(--shadow); overflow: hidden; }

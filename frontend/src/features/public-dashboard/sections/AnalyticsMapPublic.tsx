@@ -8,6 +8,7 @@ import {
   useAllStatesandUserDataPublic,
   useMapOverviewCountsPublic,
 } from "@/features/chatbotDashboard/components/map/hooks/useMapAnalytics";
+import { SectionHead } from "../components/SectionHead";
 
 /* ============================================================
    MAIN COMPONENT
@@ -32,10 +33,8 @@ export const AnalyticsMapPublic = () => {
   });
 
   return (
-    <section className="wrap" id="analytics-map">
-      <div className="section-head">
-        <h2>State-wise Coverage</h2>
-      </div>
+    <section className="wrap" id="analytics-map" style={{ marginTop: 44 }}>
+      <SectionHead title="State-wise Coverage" />
       <p className="sec-desc">
         Interactive map showing validated question-answer pairs across Indian
         states. Darker shades indicate higher coverage.
