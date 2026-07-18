@@ -14,11 +14,44 @@ from typing import Iterable, Sequence
 
 
 _NEWLINE_RE = re.compile(r"\r\n|\r|\n")
-_SENTENCE_END_RE = re.compile(
-    r"[.!?\u0964\u0965\u061f\u3002\uff01\uff1f]+"
-    r"(?:[\"'\u201d\u2019\u00bb)\]\}])*"
-    r"(?=\s|$)"
+_SENTENCE_TERMINATORS = frozenset(".!?\u0964\u0965\u061f\u3002\uff01\uff1f")
+_SENTENCE_CLOSERS = frozenset("\"'\u201d\u2019\u00bb)]}")
+_NON_TERMINAL_ABBREVIATIONS = frozenset(
+    {
+        "approx",
+        "dr",
+        "e.g",
+        "etc",
+        "fig",
+        "i.e",
+        "inc",
+        "jan",
+        "feb",
+        "mar",
+        "apr",
+        "jun",
+        "jul",
+        "aug",
+        "sep",
+        "sept",
+        "oct",
+        "nov",
+        "dec",
+        "ltd",
+        "m/s",
+        "mr",
+        "mrs",
+        "ms",
+        "no",
+        "p.m",
+        "a.m",
+        "prof",
+        "rs",
+        "sr",
+        "vs",
+    }
 )
+_INITIALISM_RE = re.compile(r"(?:[a-z]\.)+[a-z]", re.IGNORECASE)
 _OUTER_JSON_FENCE_RE = re.compile(
     r"\A```(?:json)?[ \t]*\r?\n(?P<body>.*)\r?\n```[ \t]*\Z",
     re.IGNORECASE | re.DOTALL,
@@ -104,8 +137,87 @@ def _trim_slice(source: str, start: int, end: int) -> tuple[int, int]:
     return start, end
 
 
+def _period_ends_abbreviation_or_number(source: str, index: int, line_start: int) -> bool:
+    """Return whether a full stop is part of text that must stay together.
+
+    This is deliberately conservative. It prevents common agricultural answer
+    values such as ``Rs. 400``, ``Dr. Mehta``, and ``2.5 g/kg`` from becoming
+    separate extractive segments, while still leaving the emitted text as exact
+    source slices.
+    """
+
+    previous = source[index - 1] if index > line_start else ""
+    following = source[index + 1] if index + 1 < len(source) else ""
+    if previous.isdigit() and following.isdigit():
+        return True
+
+    token_start = index
+    while token_start > line_start and not source[token_start - 1].isspace():
+        token_start -= 1
+    token = source[token_start:index]
+    normalized_token = token.casefold()
+    if (
+        normalized_token in _NON_TERMINAL_ABBREVIATIONS
+        or _INITIALISM_RE.fullmatch(token) is not None
+    ):
+        return True
+
+    next_index = index + 1
+    while next_index < len(source) and source[next_index].isspace():
+        next_index += 1
+    if next_index >= len(source):
+        return False
+
+    # Unknown abbreviations such as "Dept. of Agriculture" are common in
+    # advisory content. Prefer retaining a slightly longer source segment over
+    # breaking the abbreviation from the words that qualify it. A following
+    # number is more ambiguous, so only retain it for a short capitalized token
+    # such as "AgroDept. 2026 scheme".
+    following_token_start = source[next_index]
+    if following_token_start.islower():
+        return True
+    return (
+        following_token_start.isdigit()
+        and token[:1].isupper()
+        and token.isalpha()
+        and len(token) <= 12
+    )
+
+
+def _sentence_end_offsets(source: str, line_start: int, line_end: int) -> Iterable[int]:
+    """Yield safe sentence-end offsets within one source line.
+
+    Sentence boundaries are detected locally so periods inside abbreviations,
+    decimal values, and URLs are not treated as segment boundaries. URLs do
+    not need a special case: an internal URL period is not followed by
+    whitespace and therefore cannot be a boundary.
+    """
+
+    index = line_start
+    while index < line_end:
+        if source[index] not in _SENTENCE_TERMINATORS:
+            index += 1
+            continue
+
+        terminator_start = index
+        while index < line_end and source[index] in _SENTENCE_TERMINATORS:
+            index += 1
+        while index < line_end and source[index] in _SENTENCE_CLOSERS:
+            index += 1
+
+        if index < line_end and not source[index].isspace():
+            continue
+        if (
+            source[terminator_start] == "."
+            and _period_ends_abbreviation_or_number(source, terminator_start, line_start)
+        ):
+            continue
+
+        yield index
+
+
 def split_source_into_segments(source: str) -> tuple[ExtractionSegment, ...]:
-    """Split a normalized source at newlines and sentence boundaries.
+    """Split a normalized source at newlines and safe sentence boundaries.
 
     Boundary whitespace is excluded, but ``segment.text`` is always exactly
     ``source[segment.start:segment.end]``.  Blank/whitespace-only pieces are
@@ -120,11 +232,11 @@ def split_source_into_segments(source: str) -> tuple[ExtractionSegment, ...]:
 
     def add_line(line_start: int, line_end: int) -> None:
         piece_start = line_start
-        for match in _SENTENCE_END_RE.finditer(source, line_start, line_end):
-            start, end = _trim_slice(source, piece_start, match.end())
+        for sentence_end in _sentence_end_offsets(source, line_start, line_end):
+            start, end = _trim_slice(source, piece_start, sentence_end)
             if start < end:
                 offsets.append((start, end))
-            piece_start = match.end()
+            piece_start = sentence_end
 
         start, end = _trim_slice(source, piece_start, line_end)
         if start < end:

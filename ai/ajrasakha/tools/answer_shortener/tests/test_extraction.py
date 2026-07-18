@@ -55,6 +55,64 @@ def test_sentence_split_preserves_internal_whitespace_and_skips_blank_pieces():
     ]
 
 
+def test_sentence_split_keeps_abbreviations_decimals_and_urls_intact():
+    source = (
+        "Apply Rs. 400 per acre. Consult Dr. Mehta before use. "
+        "Use 2.5 g/kg of seed. Read https://example.org/advisory. "
+        "Use Thiram, e.g. only when advised."
+    )
+
+    segments = split_source_into_segments(source)
+
+    assert [segment.text for segment in segments] == [
+        "Apply Rs. 400 per acre.",
+        "Consult Dr. Mehta before use.",
+        "Use 2.5 g/kg of seed.",
+        "Read https://example.org/advisory.",
+        "Use Thiram, e.g. only when advised.",
+    ]
+    assert all(segment.text == source[segment.start : segment.end] for segment in segments)
+
+
+def test_sentence_split_keeps_initialisms_and_numbered_references_intact():
+    source = "Apply No. 1 seed treatment. Contact the U.P. office. Then irrigate."
+
+    segments = split_source_into_segments(source)
+
+    assert [segment.text for segment in segments] == [
+        "Apply No. 1 seed treatment.",
+        "Contact the U.P. office.",
+        "Then irrigate.",
+    ]
+
+
+def test_sentence_split_keeps_unlisted_abbreviations_with_their_context():
+    source = (
+        "Contact AgroDept. for certified seed. "
+        "The AgroDept. 2026 scheme offers support. "
+        "Then irrigate the field."
+    )
+
+    segments = split_source_into_segments(source)
+
+    assert [segment.text for segment in segments] == [
+        "Contact AgroDept. for certified seed.",
+        "The AgroDept. 2026 scheme offers support.",
+        "Then irrigate the field.",
+    ]
+
+
+def test_sentence_split_still_splits_a_normal_sentence_before_a_number():
+    source = "Yield improved. 2 irrigations are usually sufficient."
+
+    segments = split_source_into_segments(source)
+
+    assert [segment.text for segment in segments] == [
+        "Yield improved.",
+        "2 irrigations are usually sufficient.",
+    ]
+
+
 def test_parses_plain_and_optionally_fenced_strict_json_ranking():
     known = ("s0001", "s0002", "s0003")
 
