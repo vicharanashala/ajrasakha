@@ -75,6 +75,22 @@ export const SELECTOR_MAP = {
     voiceConsentDialog: "ace-voice-consent-dialog", // TODO(selector)
     errorRetry: "ace-query-error-retry", // TODO(selector)
     answerSourceBadge: "ace-query-answer-source", // TODO(selector)
+    /** Visible while the microphone is actively recording. */
+    recordingIndicator: "ace-voice-recording", // TODO(selector)
+    /** Stop/complete recording control. */
+    stopRecordingButton: "ace-voice-stop", // TODO(selector)
+    /** Transcription / speech-to-text progress marker. */
+    transcriptionStatus: "ace-voice-transcribing", // TODO(selector)
+    /** Denied/unsupported microphone fallback copy. */
+    microphonePermissionError: "ace-microphone-permission-error", // TODO(selector)
+    /** "Please type your question instead" fallback copy. */
+    voiceFallbackMessage: "ace-voice-fallback-message", // TODO(selector)
+    /** Explicit no-connection message (may live inside errorBanner). */
+    noConnectionMessage: "ace-no-connection-message", // TODO(selector)
+    /** Patience-inducing copy shown during a slow request. */
+    patienceMessage: "ace-query-patience-message", // TODO(selector)
+    /** Optional query-form wrapper used for mobile bounds checks. */
+    queryForm: "ace-query-form", // TODO(selector)
   },
 } as const;
 

@@ -84,7 +84,7 @@ export default defineConfig({
       // system so it gets its own baseURL (ACE_STAGING_URL) and its
       // own Playwright project.  Spec files live under
       // `tests/ace-web-app/**`.
-      name: "ace-web-app",
+      name: "desktop-chromium",
       testMatch: /tests\/ace-web-app\/.*\.spec\.ts/,
       // Soft-skip the whole project when ACE_STAGING_URL isn't set so
       // a missing secret doesn't red-CI the PR — the suite is
@@ -106,7 +106,7 @@ export default defineConfig({
       // `reviewer-mobile` pattern: Pixel 5 viewport, same baseURL, the
       // suite's CDP throttle helper is opt-in per-test so the spec
       // files stay fast by default.
-      name: "ace-web-app-mobile",
+      name: "mobile-chromium",
       testMatch: /tests\/ace-web-app\/.*\.spec\.ts/,
       ...(ACE_OK
         ? {}

@@ -31,8 +31,15 @@ ace-web-app/
 ├── README.md                                [this file]
 ├── core-query-flow/                         [PR #5]
 │   └── core-query-flow.spec.ts              [7 tests: ACE-QRY-01..07]
+├── mobile-voice-errors/                     [PR #6]
+│   └── mobile-voice-errors.spec.ts          [15 tests: ACE-MOB-01..04,
+│                                              ACE-VOI-01..05, ACE-ERR-01..06]
 ├── fixtures/                                [per-system Playwright fixtures]
-│   ├── ace-fixtures.ts                      [QueryPage + throttle helper]
+│   ├── ace-fixtures.ts                      [QueryPage + auto low-end
+│                                              throttle for mobile project]
+│   ├── ace-mock-helpers.ts                  [NEW in PR #6 — microphone /
+│                                              STT / 500 / slow / offline /
+│                                              throttle helpers]
 │   └── index.ts                             [barrel re-export]
 └── page-objects/                            [Page Object Model]
     ├── QueryPage.ts                         [QueryPage]
@@ -57,12 +64,15 @@ npm run test:ace:headed
 # Mobile / Pixel 5 viewport (hi-IN default)
 npm run test:ace:mobile
 
+# Both projects in one shot
+npm run test:ace:all
+
 # Open the HTML report after a run
 npm run test:ace:report
 ```
 
-The whole suite (`npm test`) runs reviewer + web-app + ace in
-parallel; the project filter is `npx playwright test --project=ace-web-app`.
+The whole suite (`npm test`) runs reviewer + web-app + ACE in
+parallel; the project filter is `npx playwright test --project=desktop-chromium`.
 
 ## Conventions
 
@@ -70,15 +80,16 @@ parallel; the project filter is `npx playwright test --project=ace-web-app`.
   these as documentation.
 - **`test.step()` for multi-action tests** — readable CI output.
 - **`test.skip()` for missing staging data** — never hard-fail the
-  suite on shared-test-data variance.  In particular, `ACE-QRY-03`
-  (disclaimer-in-locale) soft-skips when staging happens to route the
-  query to Golden Dataset / Package of Practices instead of the AI
-  fallback.
+  suite on shared-test-data variance.  ACE-QRY-03 and ACE-ERR-02
+  both soft-skip when staging happens to return the alternative
+  branch.
 - **Centralised selectors** in `page-objects/selector-map.ts` — swap a
   `data-testid` once, every test using it is updated.
 - **No invented selectors** — every locator resolves through
   `SELECTOR_MAP.query`, flagged `// TODO(selector)` until staging
   confirms the real DOM attribute.
+- **Mock helpers live in fixtures**, not in spec files — keep the
+  test bodies action-focused.
 
 ## Env contract
 
@@ -95,8 +106,9 @@ The loader prefers the canonical `ACE_STAGING_URL` and falls back to
 
 | PR | Scope | Tests added (cumulative) |
 |----|-------|--------------------------|
-| **#5** | **Scaffolding + core query submission + language flows** | **7** |
-| #6 (planned) | Mobile viewport pass + a11y baseline | 14+ |
+| #5 | Scaffolding + core query submission + language flows | 7 |
+| **#6** | **Mobile viewport + voice input + error states + CI** | **15** (cumulative: **22**) |
+| #7 (planned) | a11y / full 22-language catalog / additional mobile | 30+ |
 
 ### Landed in PR #5
 
@@ -110,4 +122,25 @@ The loader prefers the canonical `ACE_STAGING_URL` and falls back to
 | ACE-QRY-06 | `core-query-flow/core-query-flow.spec.ts` | Saved conversations remain visible after a language switch. |
 | ACE-QRY-07 | `core-query-flow/core-query-flow.spec.ts` | Double-submit guard: clicking submit twice in quick succession yields a single loading → response cycle, no duplicate UI state. |
 
-`npm run verify` confirms `ace-web-app=7/7 ✅` after the spec lands.
+### Landed in PR #6
+
+| ID | File | Behaviour |
+|----|------|-----------|
+| ACE-MOB-01 | `mobile-voice-errors/mobile-voice-errors.spec.ts` | Mobile query submission end-to-end without horizontal overflow. |
+| ACE-MOB-02 | `mobile-voice-errors/mobile-voice-errors.spec.ts` | Language selector usable on mobile via the tap-and-select path. |
+| ACE-MOB-03 | `mobile-voice-errors/mobile-voice-errors.spec.ts` | Voice input button visible + tappable on mobile without clipping. |
+| ACE-MOB-04 | `mobile-voice-errors/mobile-voice-errors.spec.ts` | Soft keyboard does not obscure the submit button on mobile. |
+| ACE-VOI-01 | `mobile-voice-errors/mobile-voice-errors.spec.ts` | Tapping voice input requests microphone permission and shows the recording UI state. |
+| ACE-VOI-02 | `mobile-voice-errors/mobile-voice-errors.spec.ts` | Mocked voice transcription populates the query input before submission. |
+| ACE-VOI-03 | `mobile-voice-errors/mobile-voice-errors.spec.ts` | Denying the microphone permission shows the typed-input fallback message. |
+| ACE-VOI-04 | `mobile-voice-errors/mobile-voice-errors.spec.ts` | STT service returns the transcript in the farmer's currently-selected locale. |
+| ACE-VOI-05 | `mobile-voice-errors/mobile-voice-errors.spec.ts` | A completed recording exposes a stop / finalize control. |
+| ACE-ERR-01 | `mobile-voice-errors/mobile-voice-errors.spec.ts` | Offline surface shows a clear no-connection message rather than an infinite spinner. |
+| ACE-ERR-02 | `mobile-voice-errors/mobile-voice-errors.spec.ts` | A 500 from the query API surfaces a user-facing error in the farmer's selected locale. |
+| ACE-ERR-03 | `mobile-voice-errors/mobile-voice-errors.spec.ts` | Mobile-specific re-check of empty-query submit (mobile form validation UI divergence). |
+| ACE-ERR-04 | `mobile-voice-errors/mobile-voice-errors.spec.ts` | Slow network surfaces a patience-inducing state rather than a frozen UI. |
+| ACE-ERR-05 | `mobile-voice-errors/mobile-voice-errors.spec.ts` | A 4xx (validation) from the query API surfaces a non-fatal error banner. |
+| ACE-ERR-06 | `mobile-voice-errors/mobile-voice-errors.spec.ts` | Returning from offline → online recovers the submission path (no infinite spinner left behind). |
+
+`npm run verify` confirms `reviewer-system=31/31 ✅  web-app=7/7 ✅  ace-web-app=22/22 ✅`
+on a clean run.

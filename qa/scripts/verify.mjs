@@ -13,10 +13,8 @@
  *   web-app          ≥  7 tests   (PR #1 tightens the verifier regex; floor
  *                                 tracks reality — bump deliberately as new
  *                                 specs land)
- *   ace-web-app      ≥  7 tests   (PR #5: 7 core-query-flow tests —
- *                                 Hindi/English/AI-fallback/empty-submit/
- *                                 language-switch/history-preservation/
- *                                 double-submit)
+ *   ace-web-app      ≥ 22 tests   (PR #5: 7 core-query-flow +
+ *                                 PR #6: 15 mobile/voice/error)
  *
  * The Python multilingual suite (qa/tests/multilingual) is run separately
  * via pytest — see that suite's own README.  This verifier only enforces
@@ -33,7 +31,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const TESTS_DIR = path.join(__dirname, "..", "tests");
-const FLOOR = { "reviewer-system": 31, "web-app": 7, "ace-web-app": 7 };
+const FLOOR = { "reviewer-system": 31, "web-app": 7, "ace-web-app": 22 };
 
 /**
  * Count only `test(…)` declarations (i.e. the *first* character after the

@@ -6,3 +6,4 @@
  * Backed by `ace-fixtures.ts`.
  */
 export * from "./ace-fixtures";
+export * from "./ace-mock-helpers";
