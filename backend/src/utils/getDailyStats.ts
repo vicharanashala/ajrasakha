@@ -27,8 +27,26 @@ export interface DailyStats {
   // Today Stats
   todayAdded: number;
   todayGolden: number;
-  chatbot: number;
-  manual: number;
+  // chatbot: number;
+  // manual: number;
+  agriCount?: number,
+  nonAgriCount?: number,
+  open?: number;
+  pending?: number;
+  closed?: number;
+  dynamic?: number;
+  duplicate?: number;
+  delayed?: number;
+  hold?: number;
+  pass?: number;
+  inReview?: number;
+  rerouted?: number;
+  dynamicClosed?: number;
+  paeSubmitted?: number;
+  webAppCount?: number;
+  manualCount?: number;
+  whatSappCount?: number;
+  duplicateClosed?: number;
 }
 
 // export const getDailyStats = async (): Promise<DailyStats> => {
@@ -112,7 +130,9 @@ export const getDailyStats = async (): Promise<DailyStats> => {
   /* -------------------------------------------------------
      PARALLEL LIGHTWEIGHT QUERIES
   ------------------------------------------------------- */
-  const totalQuestions = await questionRepository.count();
+  const totalQuestions = await questionRepository.count({
+      isTesting: { $ne: true },
+    });
   const [
     {
       approvalRate: moderatorApprovalRate,
@@ -120,28 +140,57 @@ export const getDailyStats = async (): Promise<DailyStats> => {
       pending: totalInReviewQuestions,
     },
     reviewWiseCount,
+    statusCount,
     todayAdded,
     todayGolden,
-    chatbotCount,
-    manual,
+    webAppCount,
+    whatSappCount,
+    manualCount,
   ] = await Promise.all([
     questionRepository.getModeratorApprovalRate(''),
     questionSubmissionRepository.getReviewWiseCount(),
+    questionRepository.getCountByStatus(),
     questionRepository.count({
+      isTesting: { $ne: true },
       createdAt: { $gte: todayStart },
     }),
     questionRepository.count({
-      closedAt: { $gte: todayStart },
+      isTesting: { $ne: true },
+      closedAt: { $gte: todayStart } ,
     }),
     questionRepository.count({
-      createdAt: { $gte: todayStart },
+      isTesting: { $ne: true },
       source: 'AJRASAKHA',
+      closedAt: { $gte: todayStart }
     }),
     questionRepository.count({
-      createdAt: { $gte: todayStart },
-      source: { $ne: ['AJRASAKHA' , 'WHATSAPP']},
+      isTesting: { $ne: true },
+      source: 'WHATSAPP',
+      closedAt: { $gte: todayStart }
     }),
+    questionRepository.count({
+      isTesting: { $ne: true },
+      source: { $nin: ['AJRASAKHA' , 'WHATSAPP']},
+      closedAt: { $gte: todayStart }
+    })
   ]);
+
+  const nonAgriCount = statusCount.find(s => s._id === 'non_agri')?.count ?? 0;
+  const agriCount = totalQuestions - nonAgriCount;
+  const closed = statusCount.find(s => s._id === 'closed')?.count ?? 0;
+  const pending = statusCount.find(s => s._id === 'pending')?.count ?? 0;
+  const nonAgri = statusCount.find(s => s._id === 'non_agri')?.count ?? 0;
+  const dynamic = statusCount.find(s => s._id === 'dynamic')?.count ?? 0;
+  const duplicate = statusCount.find(s => s._id === 'duplicate')?.count ?? 0;
+  const open = statusCount.find(s => s._id === 'open')?.count ?? 0;
+  const delayed = statusCount.find(s => s._id === 'delayed')?.count ?? 0;
+  const hold = statusCount.find(s => s._id === 'hold')?.count ?? 0;
+  const paeSubmitted = statusCount.find(s => s._id === 'pae_submitted')?.count ?? 0;
+  const dynamicClosed = statusCount.find(s => s._id === 'dynamic_closed')?.count ?? 0;
+  const rerouted = statusCount.find(s => s._id === 're-routed')?.count ?? 0;
+  const inReview = statusCount.find(s => s._id === 'in-review')?.count ?? 0;
+  const pass = statusCount.find(s => s._id === 'pass')?.count ?? 0;
+  const duplicateClosed = statusCount.find(s => s._id === 'duplicate_closed')?.count ?? 0;
 
   const totalQuestionsUnderExpertReview =
     totalQuestions - (totalClosedQuestions + totalInReviewQuestions);
@@ -157,7 +206,25 @@ export const getDailyStats = async (): Promise<DailyStats> => {
 
     todayAdded,
     todayGolden,
-    chatbot: chatbotCount,
-    manual,
+    // chatbot: chatbotCount,
+    // manual,
+    agriCount,
+    nonAgriCount,
+    open,
+    pending,
+    closed,
+    dynamic,
+    duplicate,
+    delayed,
+    hold,
+    pass,
+    inReview,
+    rerouted,
+    dynamicClosed,
+    paeSubmitted,
+    webAppCount,
+    manualCount,
+    whatSappCount,
+    duplicateClosed,
   };
 };
