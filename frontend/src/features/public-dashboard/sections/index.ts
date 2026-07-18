@@ -1,6 +1,5 @@
 export { AnalyticsMapPublic } from "./AnalyticsMapPublic";
 export { Channels } from "./Channels";
-export { CropMatrix } from "./CropMatrix";
 export { GrowthTimeline } from "./GrowthTimeline";
 export { CoverageOverview } from "./CoverageOverview";
 export { HumanNetwork } from "./HumanNetwork";

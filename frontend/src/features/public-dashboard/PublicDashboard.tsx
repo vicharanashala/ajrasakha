@@ -9,7 +9,6 @@ import { TabPlaceholder } from "./components/TabPlaceholder";
 import {
   AnalyticsMapPublic,
   Channels,
-  CropMatrix,
   GrowthTimeline,
   CoverageOverview,
   ImpactOutreach,
@@ -132,7 +131,6 @@ export const PublicDashboard = () => {
             <Channels />
             <Learning />
             <ReviewWorkflow />
-            <CropMatrix />
             <GrowthTimeline />
           </main>
         </>
