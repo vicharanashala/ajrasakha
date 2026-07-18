@@ -278,7 +278,10 @@ export interface IUserRepository {
    */
   getActiveUserCountByRole(
     session?: ClientSession,
-  ): Promise<{ role: string; count: number }[]>;
+  ): Promise<{
+    roles: { role: string; count: number }[];
+    universityCount: number;
+  }>;
 
   /**
    * @param session

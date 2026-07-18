@@ -47,6 +47,10 @@ export interface PublicDashboardStats extends PublicDashboardCounts {
   saturationThreshold: number;
   /** Per state, the crops whose question count exceeds the threshold. */
   saturatedCropsByState: SaturatedCropState[];
+  /** Active PAEs engaged — role 'pae_expert' headcount from the users collection. */
+  expertsEngaged: number;
+  /** Distinct collaborating universities (SAUs) from the users collection. */
+  sausCollaborated: number;
 }
 
 export class PublicStatsService {

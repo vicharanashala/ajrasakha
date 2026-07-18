@@ -92,15 +92,17 @@ export class DashboardContentService implements IDashboardContentService {
     const content = await this.repo.get();
     const threshold = content?.saturationThreshold ?? DEFAULT_SATURATION_THRESHOLD;
 
-    const [counts, { analytics }, roleCounts, saturatedCropsByState] = await Promise.all([
+    const [counts, { analytics }, userCounts, saturatedCropsByState] = await Promise.all([
       this.getPublicDashboardCounts(),
       this.questionRepo.getQuestionAnalytics(),
       // The Human Intelligence Network headcounts — current active users grouped by role
-      // (status not in-active), from the live users collection. Folded into /stats rather
-      // than a new endpoint since it is part of the heavy, lazily-refreshed figures.
+      // (status not in-active), plus the distinct collaborating-university (SAU) count, all
+      // from the live users collection. Folded into /stats rather than a new endpoint since
+      // it is part of the heavy, lazily-refreshed figures.
       this.userRepo.getActiveUserCountByRole(),
       this.questionRepo.getSaturatedCropsByState(threshold),
     ]);
+    const roleCounts = userCounts.roles;
 
     const { cropData = [], stateData = [], domainData = [] } =
       analytics ?? ({} as Analytics);
@@ -127,6 +129,8 @@ export class DashboardContentService implements IDashboardContentService {
         .map(r => ({ role: ROLE_LABELS[r.role] ?? prettifyRole(r.role), count: r.count })),
       saturationThreshold: threshold,
       saturatedCropsByState,
+      expertsEngaged: roleCounts.find(r => r.role === 'pae_expert')?.count ?? 0,
+      sausCollaborated: userCounts.universityCount,
     };
   }
 

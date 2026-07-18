@@ -75,14 +75,22 @@ export const PublicDashboard = () => {
   const editorial = useMemo(
     () => ({
       languages: findStatItem(content?.stats, "language", "Languages supported"),
-      experts: findStatItem(content?.stats, "expert", "Experts engaged"),
+      // Experts engaged (PAE count) and SAUs collaborated come live from the users
+      // collection; fall back to the admin-edited stat only until the API responds.
+      experts: liveStatItem(
+        live?.expertsEngaged,
+        findStatItem(content?.stats, "expert", "Experts engaged"),
+      ),
       kvks: findStatItem(content?.stats, "kvk", "KVKs mapped"),
-      saus: findStatItem(content?.stats, "sau", "SAUs collaborating"),
+      saus: liveStatItem(
+        live?.sausCollaborated,
+        findStatItem(content?.stats, "sau", "SAUs collaborating"),
+      ),
       states: findStatItem(content?.stats, "state", "States covered"),
       districts: findStatItem(content?.stats, "district", "Districts covered"),
       villages: findStatItem(content?.stats, "village", "Villages covered"),
     }),
-    [content?.stats],
+    [content?.stats, live?.expertsEngaged, live?.sausCollaborated],
   );
 
   const activeTabLabel =
@@ -171,6 +179,18 @@ function findStatItem(
 
   const seed = heroStats.find((s) => s.label.toLowerCase().includes(needle));
   return { label: fallbackLabel, value: seed ? String(seed.count) : "" };
+}
+
+/**
+ * Prefers a live numeric count for a carousel stat, keeping the admin/seed item's label.
+ * Falls back entirely to `fallback` until the API responds (live is undefined).
+ */
+function liveStatItem(
+  live: number | undefined,
+  fallback: CarouselStatItem,
+): CarouselStatItem {
+  if (typeof live !== "number") return fallback;
+  return { label: fallback.label, value: String(live) };
 }
 
 /** Top 10 domains by question volume; the demo figures until the API answers. */

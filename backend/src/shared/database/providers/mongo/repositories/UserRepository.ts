@@ -1684,20 +1684,47 @@ export class UserRepository implements IUserRepository {
    */
   async getActiveUserCountByRole(
     session?: ClientSession,
-  ): Promise<{ role: string; count: number }[]> {
+  ): Promise<{
+    roles: { role: string; count: number }[];
+    universityCount: number;
+  }> {
     await this.init();
-    const result = await this.usersCollection
+    // One pass over the active users (status not in-active): a $facet yields both the
+    // per-role headcounts AND the distinct collaborating-university (SAU) count. The
+    // university branch lower-cases and trims so "TNAU" / "tnau " count once, and drops
+    // blanks / placeholder values.
+    const [result] = (await this.usersCollection
       .aggregate(
         [
           { $match: { status: { $ne: 'in-active' } } },
-          { $group: { _id: '$role', count: { $sum: 1 } } },
-          { $project: { role: '$_id', count: 1, _id: 0 } },
-          { $sort: { role: 1 } },
+          {
+            $facet: {
+              roles: [
+                { $group: { _id: '$role', count: { $sum: 1 } } },
+                { $project: { role: '$_id', count: 1, _id: 0 } },
+                { $sort: { role: 1 } },
+              ],
+              universities: [
+                { $match: { university: { $type: 'string' } } },
+                { $project: { u: { $toLower: { $trim: { input: '$university' } } } } },
+                { $match: { u: { $nin: ['', 'null', 'na', 'n/a', 'none'] } } },
+                { $group: { _id: '$u' } },
+                { $count: 'n' },
+              ],
+            },
+          },
         ],
         { session },
       )
-      .toArray();
-    return result as { role: string; count: number }[];
+      .toArray()) as {
+      roles: { role: string; count: number }[];
+      universities: { n?: number }[];
+    }[];
+
+    return {
+      roles: result?.roles ?? [],
+      universityCount: result?.universities?.[0]?.n ?? 0,
+    };
   }
 
   async getUserRoleCount(
