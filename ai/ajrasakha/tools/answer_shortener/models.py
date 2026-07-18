@@ -34,8 +34,9 @@ class ShortenAnswerRequest(BaseModel):
         max_length=MAX_ANSWER_CHARACTERS,
         description=(
             "Existing complete AjraSakha answer. When it contains the exact "
-            "'👤 Answered by:' footer marker, only the preceding answer body is "
-            "shortened; the marker and everything after it are preserved verbatim."
+            "'👤 Answered by:' marker or a standalone underscore-divider line, "
+            "only the preceding answer body is shortened; the footer is preserved "
+            "verbatim."
         ),
     )
     expected_character_count: int = Field(
@@ -81,9 +82,9 @@ class ShortenAnswerResponse(BaseModel):
     within_tolerance: bool
     footer_character_count: int = Field(
         description=(
-            "Unicode code point count of the preserved footer beginning with the "
-            "exact '👤 Answered by:' marker. This is excluded from all answer-body "
-            "length fields and tolerance checks."
+            "Unicode code point count of the preserved footer beginning with a "
+            "recognized AjraSakha footer boundary. This is excluded from all "
+            "answer-body length fields and tolerance checks."
         )
     )
     changed: bool
