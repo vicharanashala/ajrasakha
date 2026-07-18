@@ -3,7 +3,7 @@ export { Channels } from "./Channels";
 export { CropMatrix } from "./CropMatrix";
 export { GeographicIntelligence } from "./GeographicIntelligence";
 export { GrowthTimeline } from "./GrowthTimeline";
-export { HeroSnapshot, type StatCell } from "./HeroSnapshot";
+export { CoverageOverview } from "./CoverageOverview";
 export { HumanNetwork } from "./HumanNetwork";
 export { ImpactOutreach } from "./ImpactOutreach";
 export { Integrations } from "./Integrations";

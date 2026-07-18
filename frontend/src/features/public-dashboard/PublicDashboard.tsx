@@ -11,7 +11,7 @@ import {
   CropMatrix,
   GeographicIntelligence,
   GrowthTimeline,
-  HeroSnapshot,
+  CoverageOverview,
   ImpactOutreach,
   Integrations,
   KnowledgeEngine,
@@ -21,7 +21,6 @@ import {
   ReviewWorkflow,
   Roadmap,
   TechShowcase,
-  type StatCell,
 } from "./sections";
 import { defaultBlocks } from "./data/contentDefaults";
 import { crops, domains, heroStats } from "./data/dashboardData";
@@ -69,17 +68,6 @@ export const PublicDashboard = () => {
   // figures instead of a hard 0 (which flashed on initial load before the data arrived).
   const figuresLoading = !headline;
 
-  // Coverage from /stats, but the counts overridden by the polled values so the stat grid's
-  // "Total Validated Question-Answer Pairs" tracks new questions too.
-  const liveForStats = useMemo(
-    () => (live ? { ...live, ...(counts ?? {}) } : live),
-    [live, counts],
-  );
-
-  const stats = useMemo(
-    () => buildStatCells(liveForStats, content?.stats),
-    [liveForStats, content?.stats],
-  );
   const domainData = useMemo(() => buildDomainSlices(live), [live]);
   const cropData = useMemo(() => buildCropSlices(live), [live]);
 
@@ -120,12 +108,17 @@ export const PublicDashboard = () => {
         {/* 60-second overview carousel (left) + Human Intelligence Network (right) */}
         <NarrativeSection blocks={blocks} roles={live?.userRoleOverview} />
         <AnalyticsMapPublic />
-        <HeroSnapshot stats={stats} />
+        <CoverageOverview
+          cropData={cropData}
+          domainData={domainData}
+          cropsCovered={live?.cropsCovered}
+          domainsCovered={live?.domainsCovered}
+        />
         <GeographicIntelligence />
         <KnowledgeEngine />
         {/* HumanNetwork now renders inside NarrativeSection's right column, above. */}
         <Integrations />
-        <ImpactOutreach domainData={domainData} cropData={cropData} />
+        <ImpactOutreach />
         <OutreachGallery images={outreachImages ?? []} videos={outreachVideos ?? []} />
         <TechShowcase />
         <Roadmap />
@@ -139,62 +132,6 @@ export const PublicDashboard = () => {
       <Footer />
     </div>
   );
-};
-
-/**
- * Headline figures = LIVE numbers from the database first, then the admin-edited stats
- * (or the built-in defaults when an admin hasn't saved any).
- *
- * The live block is computed server-side from the questions collection, so it is always
- * true: validated Q&A pairs (closed / dynamic_closed / duplicate_closed) plus the states,
- * crops and domains actually covered. Admin-edited stats that duplicate a live label are
- * dropped, so a stale hand-typed number can never shadow the real one.
- */
-function buildStatCells(
-  live: PublicDashboardStats | null | undefined,
-  adminStats: DashboardStat[] | undefined,
-): StatCell[] {
-  const liveStats: StatCell[] = live
-    ? [
-        { label: "Crops Covered", value: String(live.cropsCovered) },
-        { label: "Domains Covered", value: String(live.domainsCovered) },
-      ]
-    : [];
-
-  const liveLabels = new Set(liveStats.map((s) => s.label.toLowerCase()));
-
-  const editorial: StatCell[] = adminStats?.length
-    ? adminStats.map((s) => ({ label: s.label, value: s.value }))
-    : heroStats.map((s) => ({ label: s.label, value: String(s.count) }));
-
-  // Drop anything already shown in the hero carousel (the 9 figures below) or already in the
-  // live block above, so the snapshot grid only shows what ISN'T covered elsewhere — e.g.
-  // Markets connected, Dynamic tools integrated, Outreach events conducted.
-  return [
-    ...liveStats,
-    ...editorial.filter(
-      (s) =>
-        !liveLabels.has(s.label.trim().toLowerCase()) && !isCarouselStat(s.label),
-    ),
-  ];
-}
-
-/** Label fragments for the figures the hero carousel already displays. */
-const CAROUSEL_STAT_FRAGMENTS = [
-  "question", // Agricultural questions processed
-  "q&a", // Validated Q&A pairs
-  "language",
-  "expert",
-  "kvk",
-  "sau",
-  "state",
-  "district",
-  "village",
-];
-
-const isCarouselStat = (label: string): boolean => {
-  const l = label.toLowerCase();
-  return CAROUSEL_STAT_FRAGMENTS.some((f) => l.includes(f));
 };
 
 /**

@@ -24,18 +24,26 @@ import { domainColors, growth, growthColors } from "../data/dashboardData";
 export const DistributionDoughnut = ({
   data,
   colors = domainColors,
+  showMeta = true,
+  centerValue,
+  centerLabel,
 }: {
   data: { label: string; value: number }[];
   colors?: string[];
+  /** Show the per-slice count · % on each legend row. */
+  showMeta?: boolean;
+  /** A headline figure rendered in the doughnut hole (e.g. total crops covered). */
+  centerValue?: number | string;
+  centerLabel?: string;
 }) => {
   const total = data.reduce((sum, d) => sum + d.value, 0);
 
   return (
     <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
       <div
-        style={{ flex: "1 1 240px", minWidth: 220, height: 300 }}
+        style={{ position: "relative", flex: "1 1 240px", minWidth: 220, height: 300 }}
         role="img"
-        aria-label="Distribution of questions across agronomy domains"
+        aria-label="Distribution across agronomy categories"
       >
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
@@ -57,6 +65,38 @@ export const DistributionDoughnut = ({
             <Tooltip formatter={(v: any, n: any) => [v, n]} />
           </PieChart>
         </ResponsiveContainer>
+
+        {centerValue !== undefined && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              pointerEvents: "none",
+              textAlign: "center",
+            }}
+          >
+            <div style={{ fontSize: 34, fontWeight: 800, color: "var(--green-deep)", lineHeight: 1 }}>
+              {centerValue}
+            </div>
+            {centerLabel && (
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--ink-soft)",
+                  marginTop: 6,
+                  maxWidth: 120,
+                  lineHeight: 1.3,
+                }}
+              >
+                {centerLabel}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Scrollable legend: colour swatch · domain · count. */}
@@ -103,10 +143,12 @@ export const DistributionDoughnut = ({
                   {d.label}
                 </span>
               </span>
-              <span className="mono" style={{ flexShrink: 0, fontWeight: 600 }}>
-                {d.value.toLocaleString("en-IN")}
-                <span style={{ color: "var(--ink-soft)", fontWeight: 400 }}> · {pct}%</span>
-              </span>
+              {showMeta && (
+                <span className="mono" style={{ flexShrink: 0, fontWeight: 600 }}>
+                  {d.value.toLocaleString("en-IN")}
+                  <span style={{ color: "var(--ink-soft)", fontWeight: 400 }}> · {pct}%</span>
+                </span>
+              )}
             </li>
           );
         })}
