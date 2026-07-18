@@ -294,11 +294,11 @@ export const buildDailyStatsEmailTemplate = (stats?: DailyStats) => {
           ${
             stats
               ? `
-                ${buildOverallSystemStatsTable(stats)}
+                ${buildTodayStatsTable(stats)}
                 <div style="height: 24px;"></div>
                 ${buildReviewWiseStatsTable(stats.reviewWiseCount)}
                 <div style="height: 24px;"></div>
-                ${buildTodayStatsTable(stats)}
+                ${buildOverallSystemStatsTable(stats)}
               `
               : `
                 <div style="padding: 20px; background-color: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 4px;">
@@ -388,38 +388,6 @@ export const buildOverallSystemStatsTable = (stats: DailyStats) => `
               font-weight: 700;
             ">
               ${stats.totalQuestions.toLocaleString()}
-            </span>
-          </td>
-        </tr>
-
-
-        <!-- Moderator Approval -->
-        <tr style="border-bottom: 1px solid #e5e7eb;">
-          <td style="padding: 18px 20px;">
-            <div style="font-size: 14px; font-weight: 600; color: #374151;">
-              Pending Moderator Approval
-            </div>
-
-            <div style="margin-top: 8px; font-size: 12px; color: #6b7280;">
-              In Review:
-              <strong>${stats.inReview.toLocaleString()}</strong>
-              &nbsp;&nbsp;•&nbsp;&nbsp;
-              PAE Submitted:
-              <strong>${stats.paeSubmitted.toLocaleString()}</strong>
-            </div>
-          </td>
-
-          <td style="padding: 18px 20px; text-align: right;">
-            <span style="
-              display: inline-block;
-              background-color: #f3f4f6;
-              color: #111827;
-              padding: 7px 12px;
-              border-radius: 6px;
-              font-size: 15px;
-              font-weight: 700;
-            ">
-              ${(stats.inReview + stats.paeSubmitted).toLocaleString()}
             </span>
           </td>
         </tr>
@@ -540,35 +508,15 @@ export const buildOverallSystemStatsTable = (stats: DailyStats) => `
 
           <td style="padding: 18px 20px; text-align: right;">
             <span style="
+              display: inline-block;
+              background-color: #f3f4f6;
+              padding: 7px 12px;
+              border-radius: 6px;
               font-size: 16px;
               font-weight: 700;
               color: #111827;
             ">
               ${stats.moderatorApprovalRate.toFixed(2)}%
-            </span>
-          </td>
-        </tr>
-
-
-        <!-- Golden Dataset -->
-        <tr style="background-color: #ecfdf5;">
-          <td style="padding: 20px; color: #065f46;">
-            <div style="font-size: 14px; font-weight: 700;">
-              Total Golden Dataset Entries
-            </div>
-          </td>
-
-          <td style="padding: 20px; text-align: right;">
-            <span style="
-              display: inline-block;
-              background-color: #059669;
-              color: #ffffff;
-              padding: 8px 14px;
-              border-radius: 6px;
-              font-size: 16px;
-              font-weight: 700;
-            ">
-              ${stats.closed.toLocaleString()}
             </span>
           </td>
         </tr>
@@ -729,163 +677,348 @@ export const buildReviewWiseStatsTable = (
   </div>
 `;
 
-export const buildTodayStatsTable = (stats: DailyStats) => `
-  <div style="
-    border: 1px solid #e5e7eb;
-    border-radius: 10px;
-    overflow: hidden;
-    background-color: #ffffff;
-  ">
+export const buildTodayStatsTable = (stats: DailyStats) => {
+  const hasSourceBreakdown =
+    stats.webAppCount > 0 ||
+    stats.whatSappCount > 0 ||
+    stats.manualCount > 0 ||
+    stats.agriExpertCount > 0 ||
+    stats.outReachCount > 0;
+
+  const pendingModeratorCount = stats.inReview + stats.paeSubmitted;
+
+  return `
     <div style="
-      background-color: #f8fafc;
-      padding: 18px 20px;
-      border-bottom: 3px solid #047857;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      overflow: hidden;
+      background-color: #ffffff;
     ">
-      <h2 style="
-        margin: 0;
-        font-size: 17px;
-        font-weight: 700;
-        color: #111827;
+
+      <!-- Header -->
+      <div style="
+        background-color: #f8fafc;
+        padding: 18px 20px;
+        border-bottom: 3px solid #047857;
       ">
-        Today's Activity
-      </h2>
-    </div>
-
-    <table
-      border="0"
-      cellpadding="0"
-      cellspacing="0"
-      style="width: 100%; border-collapse: collapse;"
-    >
-      <tbody>
-
-        <!-- Golden Dataset Added Today -->
-        <tr style="
-          background-color: #ecfdf5;
-          border-bottom: 1px solid #d1fae5;
+        <h2 style="
+          margin: 0;
+          font-size: 17px;
+          font-weight: 700;
+          color: #111827;
         ">
-          <td style="padding: 20px;">
-            <div style="
-              font-size: 14px;
-              font-weight: 700;
-              color: #065f46;
-            ">
-              Golden Dataset Entries Added Today
-            </div>
-          </td>
+          Today's Activity
+        </h2>
+      </div>
 
-          <td style="
-            padding: 20px;
-            text-align: right;
-            vertical-align: middle;
+      <table
+        border="0"
+        cellpadding="0"
+        cellspacing="0"
+        style="width: 100%; border-collapse: collapse;"
+      >
+        <tbody>
+
+          <!-- ========================================= -->
+          <!-- TODAY'S GOLDEN DATASET -->
+          <!-- ========================================= -->
+
+          <tr style="
+            background-color: #ecfdf5;
+            border-bottom: 1px solid #d1fae5;
           ">
-            <span style="
-              display: inline-block;
-              background-color: #047857;
-              color: #ffffff;
-              padding: 8px 14px;
-              border-radius: 6px;
-              font-size: 16px;
-              font-weight: 700;
+            <td style="padding: 20px;">
+              <div style="
+                font-size: 14px;
+                font-weight: 700;
+                color: #065f46;
+              ">
+                Golden Dataset Entries Added Today
+              </div>
+
+              <div style="
+                margin-top: 5px;
+                font-size: 12px;
+                color: #047857;
+              ">
+                New entries added to the golden dataset today
+              </div>
+            </td>
+
+            <td style="
+              padding: 20px;
+              text-align: right;
+              vertical-align: middle;
             ">
-              +${stats.todayGolden.toLocaleString()}
-            </span>
-          </td>
-        </tr>
-
-        <!-- Source Breakdown Header -->
-        <tr>
-          <td
-            colspan="2"
-            style="
-              padding: 14px 20px 8px;
-              font-size: 11px;
-              font-weight: 700;
-              color: #9ca3af;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-            "
-          >
-            Source Breakdown
-          </td>
-        </tr>
-
-        ${
-          stats.webAppCount > 0
-            ? `
-          <tr style="border-bottom: 1px solid #f3f4f6;">
-            <td style="padding: 12px 20px; font-size: 13px; color: #4b5563;">
-              WebApp-Generated
-            </td>
-            <td style="padding: 12px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
-              ${stats.webAppCount.toLocaleString()}
+              <span style="
+                display: inline-block;
+                background-color: #047857;
+                color: #ffffff;
+                padding: 8px 14px;
+                border-radius: 6px;
+                font-size: 16px;
+                font-weight: 700;
+              ">
+                +${stats.todayGolden.toLocaleString()}
+              </span>
             </td>
           </tr>
-        `
-            : ''
-        }
 
-        ${
-          stats.whatSappCount > 0
-            ? `
-          <tr style="border-bottom: 1px solid #f3f4f6;">
-            <td style="padding: 12px 20px; font-size: 13px; color: #4b5563;">
-              WhatsApp-Generated
+
+          <!-- ========================================= -->
+          <!-- TODAY'S GOLDEN DATASET SOURCE BREAKDOWN -->
+          <!-- ========================================= -->
+
+          ${
+            hasSourceBreakdown
+              ? `
+                <tr>
+                  <td
+                    colspan="2"
+                    style="
+                      padding: 14px 20px 8px;
+                      font-size: 11px;
+                      font-weight: 700;
+                      color: #9ca3af;
+                      text-transform: uppercase;
+                      letter-spacing: 0.5px;
+                    "
+                  >
+                    Today's Golden Entries by Source
+                  </td>
+                </tr>
+              `
+              : ''
+          }
+
+          ${
+            stats.webAppCount > 0
+              ? `
+                <tr style="border-bottom: 1px solid #f3f4f6;">
+                  <td style="
+                    padding: 11px 20px 11px 32px;
+                    font-size: 13px;
+                    color: #4b5563;
+                  ">
+                    WebApp Generated
+                  </td>
+
+                  <td style="
+                    padding: 11px 20px;
+                    text-align: right;
+                    font-size: 13px;
+                    font-weight: 700;
+                    color: #374151;
+                  ">
+                    ${stats.webAppCount.toLocaleString()}
+                  </td>
+                </tr>
+              `
+              : ''
+          }
+
+          ${
+            stats.whatSappCount > 0
+              ? `
+                <tr style="border-bottom: 1px solid #f3f4f6;">
+                  <td style="
+                    padding: 11px 20px 11px 32px;
+                    font-size: 13px;
+                    color: #4b5563;
+                  ">
+                    WhatsApp Generated
+                  </td>
+
+                  <td style="
+                    padding: 11px 20px;
+                    text-align: right;
+                    font-size: 13px;
+                    font-weight: 700;
+                    color: #374151;
+                  ">
+                    ${stats.whatSappCount.toLocaleString()}
+                  </td>
+                </tr>
+              `
+              : ''
+          }
+
+          ${
+            stats.manualCount > 0
+              ? `
+                <tr style="border-bottom: 1px solid #f3f4f6;">
+                  <td style="
+                    padding: 11px 20px 11px 32px;
+                    font-size: 13px;
+                    color: #4b5563;
+                  ">
+                    Manually Added
+                  </td>
+
+                  <td style="
+                    padding: 11px 20px;
+                    text-align: right;
+                    font-size: 13px;
+                    font-weight: 700;
+                    color: #374151;
+                  ">
+                    ${stats.manualCount.toLocaleString()}
+                  </td>
+                </tr>
+              `
+              : ''
+          }
+
+          ${
+            stats.agriExpertCount > 0
+              ? `
+                <tr style="border-bottom: 1px solid #f3f4f6;">
+                  <td style="
+                    padding: 11px 20px 11px 32px;
+                    font-size: 13px;
+                    color: #4b5563;
+                  ">
+                    Agri Expert
+                  </td>
+
+                  <td style="
+                    padding: 11px 20px;
+                    text-align: right;
+                    font-size: 13px;
+                    font-weight: 700;
+                    color: #374151;
+                  ">
+                    ${stats.agriExpertCount.toLocaleString()}
+                  </td>
+                </tr>
+              `
+              : ''
+          }
+
+          ${
+            stats.outReachCount > 0
+              ? `
+                <tr style="border-bottom: 1px solid #e5e7eb;">
+                  <td style="
+                    padding: 11px 20px 11px 32px;
+                    font-size: 13px;
+                    color: #4b5563;
+                  ">
+                    Outreach
+                  </td>
+
+                  <td style="
+                    padding: 11px 20px;
+                    text-align: right;
+                    font-size: 13px;
+                    font-weight: 700;
+                    color: #374151;
+                  ">
+                    ${stats.outReachCount.toLocaleString()}
+                  </td>
+                </tr>
+              `
+              : ''
+          }
+
+
+          <!-- ========================================= -->
+          <!-- MODERATOR QUEUE -->
+          <!-- ========================================= -->
+
+          <tr style="border-bottom: 1px solid #e5e7eb;">
+            <td style="padding: 12px 20px 18px;">
+              <div style="
+                font-size: 14px;
+                font-weight: 600;
+                color: #374151;
+              ">
+                Pending Moderator Approval
+              </div>
+
+              <div style="
+                margin-top: 7px;
+                font-size: 12px;
+                color: #6b7280;
+              ">
+                In Review:
+                <strong style="color: #374151;">
+                  ${stats.inReview.toLocaleString()}
+                </strong>
+
+                &nbsp;&nbsp;•&nbsp;&nbsp;
+
+                PAE Submitted:
+                <strong style="color: #374151;">
+                  ${stats.paeSubmitted.toLocaleString()}
+                </strong>
+              </div>
             </td>
-            <td style="padding: 12px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
-              ${stats.whatSappCount.toLocaleString()}
+
+            <td style="
+              padding: 12px 20px 18px;
+              text-align: right;
+              vertical-align: middle;
+            ">
+              <span style="
+                display: inline-block;
+                background-color: #f3f4f6;
+                color: #111827;
+                padding: 7px 12px;
+                border-radius: 6px;
+                font-size: 15px;
+                font-weight: 700;
+              ">
+                ${pendingModeratorCount.toLocaleString()}
+              </span>
             </td>
           </tr>
-        `
-            : ''
-        }
 
-        ${
-          stats.manualCount > 0
-            ? `
-          <tr style="border-bottom: 1px solid #f3f4f6;">
-            <td style="padding: 12px 20px; font-size: 13px; color: #4b5563;">
-              Manually Added
+
+          <!-- ========================================= -->
+          <!-- OVERALL GOLDEN DATASET -->
+          <!-- ========================================= -->
+
+          <tr style="background-color: #ecfdf5;">
+            <td style="padding: 20px;">
+              <div style="
+                font-size: 14px;
+                font-weight: 700;
+                color: #065f46;
+              ">
+                Total Golden Dataset Entries
+              </div>
+
+              <div style="
+                margin-top: 5px;
+                font-size: 12px;
+                color: #047857;
+              ">
+                Overall entries currently available in the golden dataset
+              </div>
             </td>
-            <td style="padding: 12px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
-              ${stats.manualCount.toLocaleString()}
+
+            <td style="
+              padding: 20px;
+              text-align: right;
+              vertical-align: middle;
+            ">
+              <span style="
+                display: inline-block;
+                background-color: #059669;
+                color: #ffffff;
+                padding: 8px 14px;
+                border-radius: 6px;
+                font-size: 16px;
+                font-weight: 700;
+              ">
+                ${stats.closed.toLocaleString()}
+              </span>
             </td>
           </tr>
-        `
-            : ''
-        }
 
-        ${
-          stats.agriExpertCount > 0
-            ? `
-          <tr style="border-bottom: 1px solid #f3f4f6;">
-            <td style="padding: 12px 20px; font-size: 13px; color: #4b5563;">
-              Agri Expert
-            </td>
-            <td style="padding: 12px 20px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
-              ${stats.agriExpertCount.toLocaleString()}
-            </td>
-          </tr>
-        `
-            : ''
-        }
-
-        ${
-          stats.outReachCount > 0
-            ? `
-          <tr>
-            <td style="padding: 12px 20px 16px; font-size: 13px; color: #4b5563;">
-              Outreach
-            </td>
-            <td style="padding: 12px 20px 16px; text-align: right; font-size: 13px; font-weight: 700; color: #374151;">
-              ${stats.outReachCount.toLocaleString()}
-            </td>
-          </tr>
-        `
-            : ''
-        }
-
-      </tbody>
-    </table>
-  </div>
-`;
+        </tbody>
+      </table>
+    </div>
+  `;
+};
