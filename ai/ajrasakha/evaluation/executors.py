@@ -6,6 +6,8 @@ import time
 import httpx
 from dotenv import load_dotenv
 
+from ajrasakha.evaluation.retrieval_context_extractor import extract_retrieval_context
+
 load_dotenv()
 
 LIVE_API_URL = os.getenv("LIVE_API_URL", "http://localhost:2026/runs/stream")
@@ -62,8 +64,6 @@ def extract_nodes_from_response(events: list[dict], response_text: str) -> list[
         "execute_plan",
         "retrieval_sanitizer",
         "upload_reviewer_only",
-        "non_agriculture_reply",
-        "weather_unavailable_reply",
         "assemble_answer_body",
         "empty_gdb_reply",
         "translate_answer",
@@ -256,8 +256,13 @@ def run_live_case(case: dict) -> dict:
 
     extraction_source = last_values_payload or response_text or full_stream_text
     observed_tools_list = extract_tools_from_response(extraction_source)
-    observed_nodes = extract_nodes_from_response(events, full_stream_text)  
+    observed_nodes = extract_nodes_from_response(events, full_stream_text)
     observed_plan = extract_plan_from_response(extraction_source)
+
+    # Extract retrieval context from the final state snapshot so that
+    # FaithfulnessMetric and ContextualRelevancyMetric can auto-activate.
+    # See RETRIEVAL_CONTEXT_PLAN.md §3 Option A for the design rationale.
+    retrieval_context = extract_retrieval_context(last_values_payload)
 
     return {
         "name": case.get("name"),
@@ -268,6 +273,7 @@ def run_live_case(case: dict) -> dict:
         "graph_status": graph_status,
         "latency_seconds": round(time.time() - start_time, 2),
         "response_text": extraction_source[:500],
+        "context": retrieval_context,
         "error": error[:500],
         "trace": {
             "nodes": observed_nodes,

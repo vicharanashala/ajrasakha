@@ -1,0 +1,52 @@
+[
+  {
+    "question_id": "synthetic_greeting_hindi_namaste_01",
+    "input": "Namaste, can you help me with farming questions?",
+    "expected_output": "Namaste! I can help you with questions about crops, weather, market prices, soil health, government schemes for farmers, and plant diseases. Please tell me your question — for example, the crop you are growing, your state, and what specific help you need. I will give you an answer based on official agricultural guidance and the Golden Database of expert-validated answers.",
+    "synthetic": true,
+    "metadata": {
+      "domain": "greetings",
+      "expected_crop": "",
+      "expected_region": "",
+      "note": "Synthetic stand-in — replace with real greeting/Q&A export. Greetings have no crop or region facet; only the overall 'answered helpfully' assessment is meaningful."
+    }
+  },
+  {
+    "question_id": "synthetic_greeting_english_help_01",
+    "input": "Good morning. What kinds of questions can you answer for me?",
+    "expected_output": "Good morning. I can answer questions on 6 topics: (1) Crop cultivation — sowing, irrigation, fertilizer schedules for specific crops in specific states. (2) Plant protection — identifying diseases and pests, recommending treatment chemicals with dosages. (3) Weather — short-range forecasts and irrigation recommendations. (4) Market prices — current modal prices at APMC mandis and selling advice. (5) Soil health — testing and remediation for nutrient deficiencies and salinity. (6) Government schemes — eligibility, benefits, and application process for farmer welfare schemes. Ask your question with your crop name, state, and district if relevant, and I'll give the best answer I can.",
+    "synthetic": true,
+    "metadata": {
+      "domain": "greetings",
+      "expected_crop": "",
+      "expected_region": "",
+      "note": "Synthetic stand-in — replace with real greeting/Q&A export. Demonstrates that a greeting answer should still mention all 6 topic areas without claiming to handle anything outside that scope."
+    }
+  },
+  {
+    "question_id": "synthetic_scheme_pm_kisan_01",
+    "input": "I am a small farmer in Uttar Pradesh with 2 hectares. Am I eligible for PM-Kisan and how do I apply?",
+    "expected_output": "PM-Kisan Samman Nidhi (PM-Kisan) eligibility: Small and marginal farmers with cultivable land up to 2 hectares are eligible. Uttar Pradesh is a covered state. Benefits: Rs. 6,000 per year in three equal instalments of Rs. 2,000 each, credited directly to your bank account via DBT. Application process: (1) Visit your nearest Common Service Centre (CSC) or the official PM-Kisan portal at pmkisan.gov.in. (2) Carry your Aadhaar card, land records (khata/khasra), and bank account passbook. (3) The CSC operator will register you and verify your details. (4) Your first instalment typically arrives within 3 months of approval. (5) You can check your status at pmkisan.gov.in using your Aadhaar number. Note: PM-Kisan is income-support, not crop-specific — you continue farming as usual and the money is direct support.",
+    "synthetic": true,
+    "metadata": {
+      "domain": "schemes",
+      "expected_crop": "",
+      "expected_treatment": "PM-Kisan",
+      "expected_region": "Uttar Pradesh",
+      "note": "Synthetic stand-in — replace with real schemes export (PM-Kisan FAQ from official portal). No crop facet because PM-Kisan is income support, not crop-specific."
+    }
+  },
+  {
+    "question_id": "synthetic_scheme_pm_fby_cotton_01",
+    "input": "How do I enrol my cotton crop in PM Fasal Bima Yojana in Gujarat this kharif season?",
+    "expected_output": "Pradhan Mantri Fasal Bima Yojana (PMFBY) for cotton in Gujarat — kharif 2026: (1) Eligibility: all cotton farmers in Gujarat, including sharecroppers and tenant farmers; Loanee farmers are enrolled automatically through their bank, non-loanee farmers can opt-in. (2) Premium: 1.5% of sum insured for cotton (the farmer's share; rest is subsidised by central and state government). For most Gujarat cotton growers this works out to roughly Rs. 1,200-1,800 per hectare depending on the insured amount. (3) Last date for kharif enrolment: typically July 31; contact your nearest bank branch or insurance company before sowing completes. (4) Required documents: Aadhaar, bank passbook, land records or sowing certificate, and crop sowing declaration. (5) Claims: filed automatically through the company based on area-yield data; payouts come within 2 months of harvest. (6) Helpline: 14447 or pmfby.gov.in.",
+    "synthetic": true,
+    "metadata": {
+      "domain": "schemes",
+      "expected_crop": "cotton",
+      "expected_treatment": "PMFBY",
+      "expected_region": "Gujarat",
+      "note": "Synthetic stand-in — replace with real PMFBY FAQ. cotton is the crop facet, PMFBY is the treatment/scheme facet."
+    }
+  }
+]

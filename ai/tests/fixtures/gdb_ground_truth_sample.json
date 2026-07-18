@@ -1,0 +1,47 @@
+[
+  {
+    "question_id": "synthetic_gdb_tomato_01",
+    "input": "What is the best treatment for tomato blight in Karnataka?",
+    "expected_output": "For tomato blight (Phytophthora infestans) management in Karnataka: (1) Apply Metalaxyl + Mancozeb @ 2.5g per litre of water at 10-day intervals. (2) Remove and destroy all infected plant debris immediately after harvest. (3) Ensure proper plant spacing (60cm x 30cm) to improve air circulation and reduce humidity around foliage. (4) Avoid overhead irrigation — use drip irrigation instead. (5) As a preventive biocontrol, apply Trichoderma viride @ 5g per litre before monsoon. For severe outbreaks, use a combination spray: Metalaxyl-based fungicide followed by a protective copper-based spray 7 days later. Begin spray program before monsoon onset for best results.",
+    "synthetic": true,
+    "metadata": {
+      "domain": "gdb",
+      "crop": "tomato",
+      "state": "karnataka",
+      "expected_crop": "tomato",
+      "expected_treatment": "Metalaxyl+Mancozeb",
+      "expected_region": "Karnataka",
+      "note": "Synthetic stand-in — replace with real GDB export before production use"
+    }
+  },
+  {
+    "question_id": "synthetic_gdb_rice_npk_01",
+    "input": "What is the recommended NPK fertilizer schedule for rice in West Bengal?",
+    "expected_output": "For low-nitrogen rice soils in West Bengal, apply: Nitrogen — Urea @ 98 kg/ha in 3 splits: 50% as basal at transplanting, 25% at active tillering (21 DAT), and 25% at panicle initiation. Phosphorus — Single Super Phosphate (SSP) @ 200 kg/ha as basal dose. Potassium — Muriate of Potash (MOP) @ 50 kg/ha split 50% basal and 50% at panicle initiation. Zinc — Apply ZnSO4 @ 25 kg/ha as basal in zinc-deficient soils (common in West Bengal alluvial soils). Use neem-coated urea for better nitrogen use efficiency. Maintain soil pH between 5.5–7.0 for optimal nutrient availability.",
+    "synthetic": true,
+    "metadata": {
+      "domain": "gdb",
+      "crop": "rice",
+      "state": "west_bengal",
+      "expected_crop": "rice",
+      "expected_treatment": "Urea",
+      "expected_region": "West Bengal",
+      "note": "Synthetic stand-in — replace with real GDB export before production use"
+    }
+  },
+  {
+    "question_id": "synthetic_gdb_chilli_pest_01",
+    "input": "How do I control thrips and whitefly on chilli crops in Andhra Pradesh?",
+    "expected_output": "Integrated pest management for thrips and whitefly on chilli in Andhra Pradesh: (1) Install yellow sticky traps @ 50 per hectare to monitor and reduce adult populations. (2) Remove and destroy crop residues after harvest to eliminate alternate hosts. (3) Apply Imidacloprid 17.8% SL @ 0.5 ml per litre of water as a soil drench or seed treatment before sowing. (4) For spray application, use Spinosad 48% SC @ 0.3 ml per litre — effective against thrips with minimal impact on beneficial insects. (5) Release Trichogramma chilonis @ 50,000 eggs per hectare as a biological control agent. (6) Avoid consecutive sprays of the same mode-of-action group to prevent resistance development. Begin monitoring from seedling stage and continue through fruit development.",
+    "synthetic": true,
+    "metadata": {
+      "domain": "gdb",
+      "crop": "chilli",
+      "state": "andhra_pradesh",
+      "expected_crop": "chilli",
+      "expected_treatment": "Imidacloprid",
+      "expected_region": "Andhra Pradesh",
+      "note": "Synthetic stand-in — replace with real GDB export before production use"
+    }
+  }
+]
