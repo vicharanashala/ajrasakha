@@ -141,7 +141,9 @@ export function AnnamDashboard_dev({
   const queryClient = useQueryClient();
 
   // ─── Core State ────────────────────────────────────────────────────────────
-  const [source, setSource] = useState<"annam" | "whatsapp" | "acc">(initialSource);
+  const [source, setSource] = useState<"annam" | "whatsapp" | "acc">(
+    initialSource,
+  );
   const [activeView, setActiveView] = useState<DashboardView>("overview");
   const [activeChartTab, setActiveChartTab] = useState<string>("dau");
   const [activeSegment, setActiveSegment] = useState<Segment | null>(null);
@@ -212,9 +214,8 @@ export function AnnamDashboard_dev({
     source,
     isAppAnalyticsSource,
   );
-  console.log('Data', data);
-  useEffect(()=>{
-    setAnalyticData(data)
+  useEffect(() => {
+    setAnalyticData(data);
   }, [data]);
 
   const { data: inactiveWhatsappUsers } = useInactiveWhatsappUsers(
@@ -439,18 +440,24 @@ export function AnnamDashboard_dev({
   }, [queryClient]);
 
   // ─── Source Change Handler ─────────────────────────────────────────────────
-  const handleSourceChange = useCallback((newSource: "annam" | "whatsapp" | "acc") => {
-    setSource(newSource);
-    if (newSource === "whatsapp") {
-      setFilters((prev) => ({ ...prev, userType: "all" }));
-      onUserTypeChange?.("all");
-    }
-    setClosed2hDateRange(undefined);
-    setQuestionStatusDateRange(undefined);
-    setCustomerNotificationsDateRange(undefined);
-    onSourceChange?.(newSource);
-  }, [onSourceChange, onUserTypeChange]);
+  const handleSourceChange = useCallback(
+    (newSource: "annam" | "whatsapp" | "acc") => {
+      setSource(newSource);
 
+      if (newSource === "whatsapp") {
+        setFilters((prev) => ({ ...prev, userType: "all" }));
+        onUserTypeChange?.("all"); 
+      }
+
+      setClosed2hDateRange(undefined);
+      setQuestionStatusDateRange(undefined);
+      setCustomerNotificationsDateRange(undefined);
+
+      onSourceChange?.(newSource); 
+    },
+    [onSourceChange, onUserTypeChange], 
+  );
+  
   const handleCardClick = useCallback(
     (id: string) => {
       if (id === "totalInstalls") {
@@ -684,6 +691,8 @@ export function AnnamDashboard_dev({
                 onRefresh={handleRefreshAll}
                 mapView={mapView}
                 setMapView={handleMapViewChange}
+                dateRange={questionStatusDateRange}
+                onDateRangeChange={setQuestionStatusDateRange}
               />
 
               {/* <DashboardFilters filters={filters} onFilterChange={setFilters} /> */}
@@ -700,9 +709,11 @@ export function AnnamDashboard_dev({
                   source={source}
                   userType={filters.userType}
                   todayActiveFarmersData={todayActiveFarmersData}
-                  analyticsData = {dailyAnalytics}
-                  weeklyAnalyticsData = {weeklyAnalytics}
-                  monthlyAnalyticsData = {monthlyAnalytics}
+                  analyticsData={dailyAnalytics}
+                  weeklyAnalyticsData={weeklyAnalytics}
+                  monthlyAnalyticsData={monthlyAnalytics}
+                  questionStatusRange={questionStatusRange}
+                  questionStatusDateRange={questionStatusDateRange}
                 />
               ) : (
                 <>

@@ -1210,6 +1210,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
     selectedStateCode?: string,
     source = 'annam',
     userType = 'all',
+    startDate?: Date,
+    endDate?: Date,
   ) {
     try {
       let stateCode: number;
@@ -1231,6 +1233,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
         source,
         undefined,
         userType,
+        startDate,
+        endDate,
       );
     } catch (error) {
       throw new InternalServerError(
@@ -1248,6 +1252,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
     source = 'annam',
     userType = 'all',
     search?: string,
+    startDate?: Date,
+    endDate?: Date,
     knownDistricts?: string[],
   ): Promise<any> {
     try {
@@ -1283,6 +1289,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
         userType,
         search,
         districtNames,
+        startDate,
+        endDate,
       );
     } catch (error) {
       throw new InternalServerError(
@@ -3413,6 +3421,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
   async getUsersMetrics(
     source?: string,
     userType?: string,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<{
     userDemographics: UserDemographics;
     platformInstalls: PlatformInstallEntry[];
@@ -3433,7 +3443,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
           undefined,
           userType,
         ),
-        this.chatbotRepository.getFeedbackData(source, undefined, userType),
+        this.chatbotRepository.getFeedbackData(source, undefined, userType, startDate, endDate),
       ]);
       return {
         userDemographics,
@@ -3738,7 +3748,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     }
   }
 
-  async getAllStatesQuestionsAndUsersData(source: string, userType: string): Promise<any> {
+  async getAllStatesQuestionsAndUsersData(source: string, userType: string, startDate?: Date, endDate?: Date): Promise<any> {
     try{
         // console.time("LGD");
 
@@ -3748,7 +3758,7 @@ export class ChatbotService extends BaseService implements IChatbotService {
     // console.timeEnd("LGD");
 
     //   console.log("All states", allStates);
-      return this.chatbotRepository.getAllStatesQuestionsAndUsersData(source, userType, allStates, undefined)
+      return this.chatbotRepository.getAllStatesQuestionsAndUsersData(source, userType, allStates, undefined, startDate, endDate)
     }catch(error){
       throw new InternalServerError(`Internal Server Error ${error}`)
     }
@@ -3806,6 +3816,8 @@ export class ChatbotService extends BaseService implements IChatbotService {
     source = 'annam',
     userType = 'all',
     search?: string,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<any> {
     try {
       return this.chatbotRepository.getQuestionFromState(
@@ -3816,15 +3828,18 @@ export class ChatbotService extends BaseService implements IChatbotService {
         source,
         undefined,
         userType,
-        search,)
+        search,
+        startDate,
+        endDate
+      )
     }catch(error){
       throw new InternalServerError(`Something whet wrong ${error}`)
     }
   }
 
-  async getActiveUsersDetails(page: number, limit: number, source: string, userType: string, state?: string, district?: string, search?: string): Promise<any> {
+  async getActiveUsersDetails(page: number, limit: number, source: string, userType: string, state?: string, district?: string, search?: string, startDate?: Date, endDate?: Date,): Promise<any> {
     try {
-      return this.chatbotRepository.getActiveUsersDetails(page, limit, source, userType, undefined, state, district, search)
+      return this.chatbotRepository.getActiveUsersDetails(page, limit, source, userType, undefined, state, district, search, startDate, endDate)
     } catch (error) {
       throw new InternalServerError(`Something whet wrong ${error}`)
     }
@@ -3864,20 +3879,29 @@ export class ChatbotService extends BaseService implements IChatbotService {
         limit,
       );
   }
-  async getFeedbackByLocation(source: string, page: number, limit: number, sortBy: string, sortOrder: string, userType: string, rating?: string, state?: string, district?: string, search?: string): Promise<any> {
+  async getFeedbackByLocation(source: string, page: number, limit: number, sortBy: string, sortOrder: string, userType: string, rating?: string, state?: string, district?: string, search?: string, startDate?: Date,
+  endDate?: Date): Promise<any> {
     try {
-      return this.chatbotRepository.getFeedbackByLocation(source, page, limit, sortBy, sortOrder, userType, rating, state, district, search, undefined)
+      return this.chatbotRepository.getFeedbackByLocation(source, page, limit, sortBy, sortOrder, userType, rating, state, district, search, undefined, startDate, endDate);
     }catch(error){
       throw new InternalServerError(`Something went wrong ${error}`)
     }
   }
 
-  async getClosedInLastTwoHoursByLocation(source?: string, userType?: string, state?: string, district?: string): Promise<any> {
+  async getClosedInLastTwoHoursByLocation(source?: string, userType?: string, state?: string, district?: string,startDate?: Date, endDate?: Date): Promise<any> {
     try{
-      return this.chatbotRepository.getClosedInLastTwoHoursByLocation(source, userType, state, district);
+      return this.chatbotRepository.getClosedInLastTwoHoursByLocation(source, userType, state, district, startDate, endDate);
     }catch(error){
       throw new InternalServerError(`Something went wrong ${error}`)
     }
   }
 
+  async getActiveUsersDetailsByQuestions(page: number, limit: number, source: string, userType: string, state?: string, district?: string, search?: string, startDate?: Date, endDate?: Date): Promise<any> {
+      try{
+      return this.chatbotRepository.getActiveUsersDetailsByQuestions(page, limit, source, userType, undefined, state, district, search, startDate, endDate);
+    }catch(error){
+      throw new InternalServerError(`Something went wrong ${error}`)
+    }
+  }
 }
+

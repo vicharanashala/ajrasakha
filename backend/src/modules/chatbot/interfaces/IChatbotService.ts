@@ -122,6 +122,8 @@ export interface IChatbotService {
     source?: string,
     userType?: string,
     search?: string,
+    startDate?: Date,
+    endDate?: Date,
     knownDistricts?: string[],
   ): Promise<any>;
   getTopCrops(source?: string, userType?: string): Promise<{ totalQuestions: number, topCrops: {name: string, count: number}[] }>;
@@ -205,7 +207,7 @@ export interface IChatbotService {
     startTime?: string,
     endTime?: string,
   ): Promise<Array<{day: string; uniqueCount: number; duplicateCount: number}>>;
-  getUsersMetrics(source?: string, userType?: string): Promise<any>;
+  getUsersMetrics(source?: string, userType?: string, startDate?: Date, endDate?:Date): Promise<any>;
   getTopFaqs(
     source?: string,
     userType?: string,
@@ -217,6 +219,8 @@ export interface IChatbotService {
     selectedStateCode?: string,
     source?: string,
     userType?: string,
+    startDate?: Date,
+    endDate?: Date,
   ): Promise<DistrictAnalyticsEntry[]>;
   getWeatherConcernAnalytics(
     filters?: WeatherConcernAnalyticsFilters,
@@ -429,6 +433,8 @@ export interface IChatbotService {
     getAllStatesQuestionsAndUsersData(
       source: string,
       userType: string,
+      startDate?: Date,
+      endDate?: Date
     ): Promise<any>
   getUserProfile(userId: string, startDate?: string, endDate?: string): Promise<any>
   assignUsers(userId: string, targetIds: string[]): Promise<any>
@@ -453,6 +459,8 @@ export interface IChatbotService {
       source?: string,
       userType?: string,
       search?: string,
+      startDate?: Date,
+      enDate?: Date,
     ): Promise<any>;
 
     getActiveUsersDetails(
@@ -463,6 +471,8 @@ export interface IChatbotService {
       state?: string,
       district?: string,
       search?: string,
+      startDate?: Date,
+      endDate?: Date,
     ): Promise<any>
 
       getCoordinatorsDetails(
@@ -500,6 +510,8 @@ export interface IChatbotService {
     state?: string,
     district?: string,
     search?: string,
+    startDate?: Date,
+    endDate?: Date
   ) : Promise<any>
 
     getClosedInLastTwoHoursByLocation(
@@ -507,5 +519,19 @@ export interface IChatbotService {
     userType?: string,
     state?: string,
     district?: string,
+    startDate?: Date,
+    endDate?: Date
   ): Promise<any>
+
+    getActiveUsersDetailsByQuestions(
+      page: number,
+      limit: number,
+      source: string,
+      userType: string,
+      state?: string,
+      district?: string,
+      search?: string,
+      startDate?: Date,
+      endDate?: Date,
+    ): Promise<any>
 }

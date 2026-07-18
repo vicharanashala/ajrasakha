@@ -510,7 +510,7 @@ function StatTile({
       <TooltipTrigger asChild>
         <motion.button
           type="button"
-          onClick={isMapComponent ? undefined : onClick}
+          onClick={onClick}
           whileHover={{ y: -2 }}
           whileTap={{ scale: 0.98 }}
           transition={{ duration: 0.15 }}
