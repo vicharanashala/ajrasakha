@@ -172,17 +172,6 @@ export class QuestionService extends BaseService implements IQuestionService {
     return questionText.substring(0, maxLength) + '...';
   }
 
-  private filterExpertsForTrainingQuestion(
-    users: IUser[],
-    isTrainingQuestion?: boolean,
-  ): IUser[] {
-    if (!isTrainingQuestion) {
-      return users;
-    }
-
-    return users.filter(user => user.isTrainingUser === true);
-  }
-
   private isQuestionUserTrainingTypeMatch(
     user: IUser,
     question: IQuestion,
