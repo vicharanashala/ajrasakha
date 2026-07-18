@@ -1,0 +1,69 @@
+{
+  "title": "खाद कैल्कुलेटर",
+  "subtitle": "मिट्टीस किसमस अनुसार तुह्नुड किशानां हेत NPK सिफ़ारिश मिलिव",
+  "form": {
+    "title": "लोड गिनित",
+    "description": "खाद सिफ़ारिश पाठयास किशन, ज़मीन अन मिट्टीस चुनित",
+    "crop": "किशन",
+    "selectCrop": "किशन चुनित",
+    "area": "ज़मीन (एकड)",
+    "areaPlaceholder": "जिनेस ५",
+    "acres": "एकड",
+    "soilType": "मिट्टी किसम",
+    "selectSoil": "मिट्टी चुनित",
+    "calculating": "गिनित हें सान...",
+    "calculate": "गिनित",
+    "error": "गिनित हें नई सकिय। तुह्नुड इनपुट जांचित।"
+  },
+  "results": {
+    "totalCost": "कुल खर्च",
+    "acre": "एकड",
+    "acres": "एकड",
+    "soil": "मिट्टी"
+  },
+  "npk": {
+    "nitrogen": "नाइट्रोजन (N)",
+    "phosphorus": "फ़ॉस्फ़ोरस (P)",
+    "potassium": "पोटेशियम (K)",
+    "kg": "किलो",
+    "bag": "थैला",
+    "bags": "थैले"
+  },
+  "chart": {
+    "title": "NPK अनुपात",
+    "description": "एकड खादगिनित दिखाव"
+  },
+  "tips": {
+    "title": "खाद इस्तेमाल तरीक़ा"
+  },
+  "crops": {
+    "title": "किशनां लिस्ट",
+    "description": "एकड NPK लोड (मिट्टी गिनित खोत्र)",
+    "crop": "किशन",
+    "category": "वर्ग",
+    "nitrogen": "नाइट्रोजन (किलो/एकड)",
+    "phosphorus": "फ़ॉस्फ़ोरस (किलो/एकड)",
+    "potassium": "पोटेशियम (किलो/एकड)"
+  },
+  "soilTypes": {
+    "Alluvial": "जलोढ़ मिट्टी",
+    "Black (Regur)": "काली (रेगुर)",
+    "Red": "लाल",
+    "Laterite": "लैटेराइट",
+    "Sandy": "रेतीली"
+  },
+  "cropNames": {
+    "Rice": "चूल",
+    "Wheat": "गंदुम",
+    "Maize": "मक्की",
+    "Cotton": "कपाह",
+    "Soybean": "सोयाबीन",
+    "Groundnut": "मूंगफली",
+    "Sugarcane": "गंदास",
+    "Banana": "केल",
+    "Mango": "आम्ब",
+    "Potato": "आलू",
+    "Onion": "गंद",
+    "Tomato": "टमाटर"
+  }
+}

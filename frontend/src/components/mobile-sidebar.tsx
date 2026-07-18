@@ -3,10 +3,13 @@ import {
   AlertTriangle,
   BarChart3,
   Bot,
+  Calendar,
   Clock,
   Database,
+  FlaskConical,
   History,
   List,
+  Landmark,
   Menu,
   MessageSquare,
   Phone,
@@ -140,6 +143,14 @@ export const MobileSidebar = ({
             label: "Chatbot Analytics",
             icon: Bot,
           },
+        ]
+      : []),
+
+    ...(user
+      ? [
+          { id: "schemes", label: "Govt Schemes", icon: Landmark },
+          { id: "fertilizer", label: "Fertilizer Calc", icon: FlaskConical },
+          { id: "crop_calendar", label: "Crop Calendar", icon: Calendar },
         ]
       : []),
 

@@ -1,0 +1,60 @@
+{
+  "title": "बीजपात्रम्",
+  "subtitle": "ऋतुवार्यं बीजपात्राणि स्मरणिकाः च उपयोग्यं कृषिक्रियाः योजयतु",
+  "calendar": {
+    "activityCalendar": "क्रियापात्रम्",
+    "noActivities": "अस्याः ऋतोः क्रियाः न लभ्यन्ते।",
+    "season": "ऋतुः",
+    "months": "मासाः",
+    "activity": "क्रिया",
+    "activities": "क्रियाः"
+  },
+  "upcoming": {
+    "title": "आगामिनः क्रियाः",
+    "next30days": "अगामिनः ३० दिनानि",
+    "selectCrop": "आगामिनः क्रियाः पश्यतुं बीजं चित्वा",
+    "none": "अगामिनः ३० दिवसेषु क्रियाः न सन्ति।",
+    "days": "दिवसाः"
+  },
+  "reminder": {
+    "createTitle": "नूतनां स्मरणिकां जनयतु",
+    "crop": "बीजम्",
+    "selectCrop": "बीजं चित्वा",
+    "activity": "क्रिया",
+    "selectActivity": "क्रियां चित्वा",
+    "remindBefore": "पूर्वं स्मरयतु (दिवसाः)",
+    "creating": "जनयति...",
+    "create": "स्मरणिकां जनयतु",
+    "activeTitle": "सक्रियाः स्मरणिकाः",
+    "noReminders": "स्मरणिकाः न सन्ति। उपरि जनयतु!",
+    "remind": "स्मरयतु",
+    "day": "दिवसः",
+    "days": "दिवसाः",
+    "before": "पूर्वम्",
+    "created": "जनितम्"
+  },
+  "activityTypes": {
+    "preparation": "तयारी",
+    "sowing": "बीजोप्पादनम्",
+    "fertilizing": "उर्वरकप्रयोगः",
+    "irrigation": "सिंचनम्",
+    "weeding": "तृणनाशः",
+    "pest_control": "कीटपरिचालनम्",
+    "harvesting": "फसलग्रहणम्",
+    "storage": "भण्डारणम्"
+  },
+  "months": {
+    "January": "जनवरी",
+    "February": "फेब्रुवारी",
+    "March": "मार्च",
+    "April": "अप्रैल",
+    "May": "मे",
+    "June": "जून",
+    "July": "जुलाई",
+    "August": "अगस्त",
+    "September": "सप्तम्बर",
+    "October": "अक्तूबर",
+    "November": "नोभम्बर",
+    "December": "डिसेम्बर"
+  }
+}

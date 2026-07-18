@@ -1,0 +1,60 @@
+{
+  "title": "बीज कैलेंडर",
+  "subtitle": "ऋतु-वार बीज कैलेंडर आ स्मरणिकासँग अहाँक कृषि काम योजना बनाउ",
+  "calendar": {
+    "activityCalendar": "काम कैलेंडर",
+    "noActivities": "एकरा ऋतुमे कोनो काम नहि भेटल।",
+    "season": "ऋतु",
+    "months": "महिना",
+    "activity": "काम",
+    "activities": "काम"
+  },
+  "upcoming": {
+    "title": "आहा काम",
+    "next30days": "आहा ३० दिन",
+    "selectCrop": "आहा काम देखैक लेल बीज चुनू",
+    "none": "आहा ३० दिनमे कोनो काम नहि अछि।",
+    "days": "दिन"
+  },
+  "reminder": {
+    "createTitle": "नयाँ स्मरणिका बनाउ",
+    "crop": "बीज",
+    "selectCrop": "बीज चुनू",
+    "activity": "काम",
+    "selectActivity": "काम चुनू",
+    "remindBefore": "पहिलेक स्मरण करू (दिन)",
+    "creating": "बनाउँ अछि...",
+    "create": "स्मरणिका बनाउ",
+    "activeTitle": "चालू स्मरणिका",
+    "noReminders": "अखन कोनो स्मरणिका नहि अछि। उपर बनाउ!",
+    "remind": "स्मरण करू",
+    "day": "दिन",
+    "days": "दिन",
+    "before": "पहिलेक",
+    "created": "बनेल"
+  },
+  "activityTypes": {
+    "preparation": "तयारी",
+    "sowing": "बीज डालना",
+    "fertilizing": "खाद देना",
+    "irrigation": "सिंचाई",
+    "weeding": "गाछ उपाड़ना",
+    "pest_control": "कीट नियंत्रण",
+    "harvesting": "फसल काटना",
+    "storage": "भण्डारण"
+  },
+  "months": {
+    "January": "जनवरी",
+    "February": "फरवरी",
+    "March": "मार्च",
+    "April": "अप्रैल",
+    "May": "मे",
+    "June": "जून",
+    "July": "जुलाई",
+    "August": "अगस्त",
+    "September": "सितम्बर",
+    "October": "अक्टूबर",
+    "November": "नवम्बर",
+    "December": "दिसम्बर"
+  }
+}

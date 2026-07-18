@@ -18,6 +18,11 @@ export function ensureFirebaseAdminInitialized(): void {
     return;
   }
 
+  if (appConfig.isDevelopment) {
+    console.log('[DEV] Skipping Firebase Admin initialization — using in-memory auth');
+    return;
+  }
+
   admin.initializeApp({
     credential: admin.credential.cert(getServiceAccount()),
   });
@@ -25,5 +30,8 @@ export function ensureFirebaseAdminInitialized(): void {
 
 export function getFirebaseAuth(): admin.auth.Auth {
   ensureFirebaseAdminInitialized();
+  if (appConfig.isDevelopment && !admin.apps.length) {
+    return null as any;
+  }
   return admin.auth();
 }

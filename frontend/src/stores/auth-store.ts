@@ -11,6 +11,8 @@ import {
 import { create } from "zustand";
 import { devtools, persist } from "zustand/middleware";
 
+const isDev = import.meta.env.DEV;
+
 interface AuthStore {
   user: AuthUser | null;
   firebaseUser: User | null;
@@ -100,25 +102,37 @@ export const useAuthStore = create<AuthStore>()(
 
         initAuthListener: () => {
           set({ loading: true });
-          onAuthStateChanged(auth, async (firebaseUser) => {
-            if (firebaseUser) {
-              const authUser: AuthUser = {
-                uid: firebaseUser.uid,
-                email: firebaseUser.email || "",
-                name: firebaseUser.displayName || "",
-                avatar: firebaseUser.photoURL || "",
-              };
+          if (isDev) {
+            set({ loading: false });
+            return;
+          }
+          try {
+            const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+              if (firebaseUser) {
+                const authUser: AuthUser = {
+                  uid: firebaseUser.uid,
+                  email: firebaseUser.email || "",
+                  name: firebaseUser.displayName || "",
+                  avatar: firebaseUser.photoURL || "",
+                };
 
-              set({
-                user: authUser,
-                firebaseUser,
-                loading: false,
-                isAuthenticated: true,
-              });
-            } else {
-              set({ user: null, firebaseUser: null, loading: false });
-            }
-          });
+                set({
+                  user: authUser,
+                  firebaseUser,
+                  loading: false,
+                  isAuthenticated: true,
+                });
+              } else {
+                set({ user: null, firebaseUser: null, loading: false });
+              }
+            }, (error) => {
+              console.warn("Auth state listener error:", error.message);
+              set({ loading: false });
+            });
+          } catch (e) {
+            console.warn("Failed to init auth listener:", e);
+            set({ loading: false });
+          }
         },
       }),
       {

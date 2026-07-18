@@ -1,0 +1,55 @@
+{
+  "title": "सरकारी योजना",
+  "subtitle": "भारतीय शेतकऱ्यांना मदत करण्यासाठी बनवलेल्या केंद्र आणि राज्य सरकारी योजना शोधा। सब्सिडी, विमा, कर्ज आणि अधिक शोधा।",
+  "categories": {
+    "Subsidy": "अनुदान",
+    "Insurance": "विमा",
+    "Credit": "कर्ज",
+    "Marketing": "विपणन",
+    "Organic Farming": "सेंद्रिय शेती",
+    "Irrigation": "सिंचन",
+    "Crop Loss": "पिकाचा तोटा"
+  },
+  "search": {
+    "placeholder": "योजना नाव, वर्णन किंवा फायद्यांद्वारे शोधा...",
+    "button": "शोधा"
+  },
+  "filters": {
+    "label": "फिल्टर:",
+    "allCategories": "सर्व वर्ग",
+    "allStates": "सर्व राज्ये",
+    "clear": "फिल्टर साफ करा"
+  },
+  "results": {
+    "loading": "योजना लोड होत आहेत...",
+    "showing": "दाखवत आहोत",
+    "of": "मधील",
+    "schemes": "योजना",
+    "matchingFilters": "तुमच्या फिल्टरशी जुळणाऱ्या",
+    "refreshing": "पुन्हा लोड होत आहे..."
+  },
+  "empty": {
+    "title": "योजना सापडल्या नाहीत",
+    "description": "तुमच्या सध्याच्या फिल्टरशी कोणतीही सरकारी योजना जुळत नाही. शोध मानदंड बदला किंवा फिल्टर साफ करा.",
+    "clearAll": "सर्व फिल्टर साफ करा"
+  },
+  "card": {
+    "keyBenefits": "मुख्य फायदे",
+    "allIndia": "संपूर्ण भारत",
+    "statesCount": "{{count}} राज्य"
+  },
+  "pagination": {
+    "previous": "मागील",
+    "next": "पुढील"
+  },
+  "detail": {
+    "description": "वर्णन",
+    "keyBenefits": "मुख्य फायदे",
+    "eligibility": "पात्रता",
+    "applicationProcess": "अर्ज प्रक्रिया",
+    "deadline": "शेवटची मुदत",
+    "states": "राज्ये",
+    "contact": "संपर्क",
+    "visitWebsite": "अधिकृत वेबसाइटवर जा"
+  }
+}

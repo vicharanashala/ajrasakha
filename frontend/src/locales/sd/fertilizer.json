@@ -1,0 +1,69 @@
+{
+  "title": "سڀسڊي ڪيالڪيٽر",
+  "subtitle": "مٹي جي قسم جي مطابق توهجن ٻج لاءِ NPK سفاريśni ملت",
+  "form": {
+    "title": "لوڊ ڳنڍو",
+    "description": "سڀسڊي سفاريśni پهچين لاءِ ٻج، زمين ۽ مٹي چونڊيو",
+    "crop": "ٻج",
+    "selectCrop": "ٻج چونڊيو",
+    "area": "زمين (اﻴڪڏ)",
+    "areaPlaceholder": "جيڪڏن ٥",
+    "acres": "اﻴڪڏ",
+    "soilType": "مٹي جو قسم",
+    "selectSoil": "مٹي چونڊيو",
+    "calculating": "ڳنڍي رھيو...",
+    "calculate": "ڳنڍيو",
+    "error": "ڳنڍي ڇو ٿي۔ توهجن جي انپٽ چيڪيو۔"
+  },
+  "results": {
+    "totalCost": "ڪل اندازه قيمت",
+    "acre": "اﻴڪڏ",
+    "acres": "اﻴڪڏ",
+    "soil": "مٹي"
+  },
+  "npk": {
+    "nitrogen": "نايٽروجن (N)",
+    "phosphorus": "فاسفورس (P)",
+    "potassium": "پوٽيشيم (K)",
+    "kg": "ڪيلو",
+    "bag": "ٿيلا",
+    "bags": "ٿيلا"
+  },
+  "chart": {
+    "title": "NPK تقسيم",
+    "description": "هر اﻴڪڏ غذائي اڀار جو بينظارو"
+  },
+  "tips": {
+    "title": "استعمال جي ٽپس"
+  },
+  "crops": {
+    "title": "سھاڱي ٻج",
+    "description": "هر اﻴڪڏ بنيادي NPK لوڊ (مٹي ڀاڱي کان پهرين)",
+    "crop": "ٻج",
+    "category": "شاخ",
+    "nitrogen": "نايٽروجن (ڪيلو/اﻴڪڏ)",
+    "phosphorus": "فاسفورس (ڪيلو/اﻴڪڏ)",
+    "potassium": "پوٽيشيم (ڪيلو/اﻴڪڏ)"
+  },
+  "soilTypes": {
+    "Alluvial": "جلوڙ",
+    "Black (Regur)": "ڪالو (رگر)",
+    "Red": "لال",
+    "Laterite": "ليٽريٽ",
+    "Sandy": "رتيلي"
+  },
+  "cropNames": {
+    "Rice": "ڌان",
+    "Wheat": "ڪنڪ",
+    "Maize": "مڪئي",
+    "Cotton": "ڪپاس",
+    "Soybean": "سويابين",
+    "Groundnut": "مونگفلي",
+    "Sugarcane": "ڏڪڻ",
+    "Banana": "ڪيڻا",
+    "Mango": "ڪري",
+    "Potato": "آلو",
+    "Onion": "پياز",
+    "Tomato": "ٽماٽو"
+  }
+}

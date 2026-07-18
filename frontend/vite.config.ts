@@ -6,20 +6,21 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import { resolve } from "node:path";
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
     tanstackRouter({ autoCodeSplitting: true }),
     viteReact(),
     tailwindcss(),
   ],
-  // test: {
-  //   globals: true,
-  //   environment: "jsdom",
-  // },
 
   resolve: {
     alias: {
       "@": resolve(__dirname, "./src"),
+      ...(mode === "development"
+        ? {
+            "firebase/auth": resolve(__dirname, "./src/mocks/firebase-auth.ts"),
+          }
+        : {}),
     },
   },
 
@@ -31,4 +32,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

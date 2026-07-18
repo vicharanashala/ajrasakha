@@ -1,0 +1,55 @@
+{
+  "title": "सरकारी थांनिफोर",
+  "subtitle": "भारतनि रिफोरनि साहाय खालिमनि थां जिम्मोर सरकारनि थांनिफोर नाजिम। छाब, बीमा, रिं आ गोबाथां नाजिम।",
+  "categories": {
+    "Subsidy": "छाब",
+    "Insurance": "बीमा",
+    "Credit": "रिं",
+    "Marketing": "बजार",
+    "Organic Farming": "गुसुनि रिफि",
+    "Irrigation": "दां",
+    "Crop Loss": "रिफि खराय"
+  },
+  "search": {
+    "placeholder": "थांनिफोर नार, बिसुनसिन जां फायदाफोर नाजिम...",
+    "button": "नाजिम"
+  },
+  "filters": {
+    "label": "छाननिफोर:",
+    "allCategories": "गासिखोनै थांनिफोर",
+    "allStates": "गासिखोनै राज्यफोर",
+    "clear": "छाननिफोर खारिज"
+  },
+  "results": {
+    "loading": "थांनिफोर ल'ड जिम्मो...",
+    "showing": "देखाय जिम्मो",
+    "of": "नि",
+    "schemes": "थांनिफोर",
+    "matchingFilters": "नोंनि छाननिफोर नि संग मिलाय",
+    "refreshing": "नवा ल'ड जिम्मो..."
+  },
+  "empty": {
+    "title": "थांनिफोर नाजिनानै",
+    "description": "नोंनि दानि छाननिफोर नि अलिं सरकारी थांनि नाजिनानै। नाजिनि बिसुनसिन सोल्लिम जां छाननिफोर खारिज।",
+    "clearAll": "गासिखोनै छाननिफोर खारिज"
+  },
+  "card": {
+    "keyBenefits": "थारि फायदाफोर",
+    "allIndia": "गासिखोनै भारत",
+    "statesCount": "{{count}} राज्य"
+  },
+  "pagination": {
+    "previous": "माथि",
+    "next": "फिदोम"
+  },
+  "detail": {
+    "description": "बिसुनसिन",
+    "keyBenefits": "थारि फायदाफोर",
+    "eligibility": "योग्यता",
+    "applicationProcess": "आबेदन प्रक्रिया",
+    "deadline": "जिम्मनि समय",
+    "states": "राज्यफोर",
+    "contact": "संपर्क",
+    "visitWebsite": "अधिकारिक वेबसाइट हां बोना"
+  }
+}

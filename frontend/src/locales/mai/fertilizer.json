@@ -1,0 +1,69 @@
+{
+  "title": "खाद कैल्कुलेटर",
+  "subtitle": "माटोक प्रकारक आधार पर अहाँक बीजक लेल NPK सिफारिश पाबू",
+  "form": {
+    "title": "आवश्यकता गणना",
+    "description": "खाद सिफारिश पाबैक लेल बीज, जमिन आ माटो चुनू",
+    "crop": "बीज",
+    "selectCrop": "बीज चुनू",
+    "area": "जमिन (एकड)",
+    "areaPlaceholder": "जहिन ५",
+    "acres": "एकड",
+    "soilType": "माटोक प्रकार",
+    "selectSoil": "माटो चुनू",
+    "calculating": "गणना भेल अछि...",
+    "calculate": "गणना करू",
+    "error": "गणना नहि भेल। अहाँक इनपुट जाँचू।"
+  },
+  "results": {
+    "totalCost": "कुल अनुमानित खर्च",
+    "acre": "एकड",
+    "acres": "एकड",
+    "soil": "माटो"
+  },
+  "npk": {
+    "nitrogen": "नाइट्रोजन (N)",
+    "phosphorus": "फॉस्फोरस (P)",
+    "potassium": "पोटेशियम (K)",
+    "kg": "किलो",
+    "bag": "बोरा",
+    "bags": "बोरा"
+  },
+  "chart": {
+    "title": "NPK अनुपात",
+    "description": "एकड खाद गणनाक विजुअल ब्रेकडाउन"
+  },
+  "tips": {
+    "title": "उपयोग सुझाव"
+  },
+  "crops": {
+    "title": "समर्थित बीज",
+    "description": "एकड आधार NPK आवश्यकता (माटो समायोजनसँग पहिलेक)",
+    "crop": "बीज",
+    "category": "श्रेणी",
+    "nitrogen": "नाइट्रोजन (किलो/एकड)",
+    "phosphorus": "फॉस्फोरस (किलो/एकड)",
+    "potassium": "पोटेशियम (किलो/एकड)"
+  },
+  "soilTypes": {
+    "Alluvial": "जलोढ़",
+    "Black (Regur)": "काली (रेगुर)",
+    "Red": "लाल",
+    "Laterite": "लैटेराइट",
+    "Sandy": "बलू"
+  },
+  "cropNames": {
+    "Rice": "धान",
+    "Wheat": "गही",
+    "Maize": "मकई",
+    "Cotton": "कपास",
+    "Soybean": "सोयाबीन",
+    "Groundnut": "मूंगफली",
+    "Sugarcane": "गन्ना",
+    "Banana": "केला",
+    "Mango": "आम",
+    "Potato": "आलू",
+    "Onion": "प्याज",
+    "Tomato": "टमाटर"
+  }
+}

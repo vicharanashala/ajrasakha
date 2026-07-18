@@ -49,16 +49,53 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
     private notificationService: NotificationService,
   ) {
     super(database);
-    this.auth = getFirebaseAuth();
+    if (!appConfig.isDevelopment) {
+      this.auth = getFirebaseAuth();
+    }
   }
   async getCurrentUserFromToken(token: string): Promise<IUser> {
-    // Verify the token and decode it to get the Firebase UID
-    const decodedToken = await this.auth.verifyIdToken(token);
+    let decodedToken: any;
+
+    if (appConfig.isDevelopment) {
+      const { verifyIdToken } = await import('#auth/dev-auth.js');
+      decodedToken = verifyIdToken(token);
+      if (!decodedToken) {
+        throw new UnauthorizedError('Invalid or expired token');
+      }
+    } else {
+      decodedToken = await this.auth.verifyIdToken(token);
+    }
+
     const firebaseUID = decodedToken.uid;
 
-    // Retrieve the user from our database using the Firebase UID
-    const user = await this.userRepository.findByFirebaseUID(firebaseUID);
+    let user: any;
+    try {
+      user = await this.userRepository.findByFirebaseUID(firebaseUID);
+    } catch (e) {
+      if (appConfig.isDevelopment) {
+        return {
+          _id: decodedToken.uid,
+          firebaseUID: decodedToken.uid,
+          email: decodedToken.email || '',
+          firstName: decodedToken.displayName || decodedToken.email?.split('@')[0] || 'Dev User',
+          lastName: '',
+          role: 'pae_expert',
+        } as any;
+      }
+      throw e;
+    }
+
     if (!user) {
+      if (appConfig.isDevelopment) {
+        return {
+          _id: decodedToken.uid,
+          firebaseUID: decodedToken.uid,
+          email: decodedToken.email || '',
+          firstName: decodedToken.displayName || decodedToken.email?.split('@')[0] || 'Dev User',
+          lastName: '',
+          role: 'pae_expert',
+        } as any;
+      }
       console.warn(`Firebase user ${firebaseUID} not found in DB.`);
       throw new UnauthorizedError("User not found in database");
     }
@@ -66,28 +103,47 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
     return user;
   }
   async getUserIdFromReq(req: any): Promise<string> {
-    // Extract the token from the request headers
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
       throw new InternalServerError('No token provided');
     }
     await this.verifyToken(token);
-    // Decode the token to get the Firebase UID
-    const decodedToken = await this.auth.verifyIdToken(token);
+
+    let decodedToken: any;
+    if (appConfig.isDevelopment) {
+      const { verifyIdToken } = await import('#auth/dev-auth.js');
+      decodedToken = verifyIdToken(token);
+    } else {
+      decodedToken = await this.auth.verifyIdToken(token);
+    }
+
     const firebaseUID = decodedToken.uid;
-    const user = await this.userRepository.findByFirebaseUID(firebaseUID);
+
+    let user: any;
+    try {
+      user = await this.userRepository.findByFirebaseUID(firebaseUID);
+    } catch (e) {
+      if (appConfig.isDevelopment) {
+        return decodedToken.uid;
+      }
+      throw new InternalServerError('User not found');
+    }
+
     if (!user) {
+      if (appConfig.isDevelopment) {
+        return decodedToken.uid;
+      }
       throw new InternalServerError('User not found');
     }
     return user._id.toString();
   }
   async verifyToken(token: string): Promise<boolean> {
-    // Decode and verify the Firebase token
+    if (appConfig.isDevelopment) {
+      const { verifyIdToken } = await import('#auth/dev-auth.js');
+      const decoded = verifyIdToken(token);
+      return !!decoded;
+    }
     const decodedToken = await this.auth.verifyIdToken(token);
-    // // Retrieve the full user record from Firebase
-    // const userRecord = await this.auth.getUser(decodedToken.uid);
-
-    // Map Firebase user data to our application user model
     if (!decodedToken) {
       return false;
     }

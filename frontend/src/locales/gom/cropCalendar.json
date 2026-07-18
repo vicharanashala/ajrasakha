@@ -1,0 +1,60 @@
+{
+  "title": "पीक दिनदर्शिका",
+  "subtitle": "ऋतूनुसार पीक दिनदर्शिका आणि स्मरणपत्रे वापरून तुमच्या शेती क्रियांची योजना करा",
+  "calendar": {
+    "activityCalendar": "क्रिया दिनदर्शिका",
+    "noActivities": "या ऋतूसाठी कोणत्याही क्रिया सापडल्या नाहीत.",
+    "season": "ऋतू",
+    "months": "महिने",
+    "activity": "क्रिया",
+    "activities": "क्रिया"
+  },
+  "upcoming": {
+    "title": "येणाऱ्या क्रिया",
+    "next30days": "पुढचे ३० दिवस",
+    "selectCrop": "येणाऱ्या क्रिया पाहण्यासाठी पीक निवडा",
+    "none": "पुढच्या ३० दिवसांमध्ये कोणत्याही क्रिया नाहीत.",
+    "days": "दिवस"
+  },
+  "reminder": {
+    "createTitle": "नवीन स्मरणपत्र बनवा",
+    "crop": "पीक",
+    "selectCrop": "पीक निवडा",
+    "activity": "क्रिया",
+    "selectActivity": "क्रिया निवडा",
+    "remindBefore": "आधी स्मरण करा (दिवस)",
+    "creating": "बनवत आहे...",
+    "create": "स्मरणपत्र बनवा",
+    "activeTitle": "सक्रिय स्मरणपत्रे",
+    "noReminders": "अजून कोणत्याही स्मरणपत्र नाही. वर एक बनवा!",
+    "remind": "स्मरण करा",
+    "day": "दिवस",
+    "days": "दिवस",
+    "before": "आधी",
+    "created": "बनवले"
+  },
+  "activityTypes": {
+    "preparation": "तयारी",
+    "sowing": "पेरणी",
+    "fertilizing": "खत देणे",
+    "irrigation": "सिंचन",
+    "weeding": "गवत काढणे",
+    "pest_control": "कीटक नियंत्रण",
+    "harvesting": "पिक कापणे",
+    "storage": "साठवण"
+  },
+  "months": {
+    "January": "जानेवारी",
+    "February": "फेब्रुवारी",
+    "March": "मार्च",
+    "April": "एप्रिल",
+    "May": "मे",
+    "June": "जून",
+    "July": "जुलै",
+    "August": "ऑगस्ट",
+    "September": "सप्टेंबर",
+    "October": "ऑक्टोबर",
+    "November": "नोव्हेंबर",
+    "December": "डिसेंबर"
+  }
+}

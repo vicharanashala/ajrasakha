@@ -11,12 +11,15 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WhatsappHistoryRouteImport } from './routes/whatsapp-history'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SchemesIndexRouteImport } from './routes/schemes/index'
 import { Route as ProfileIndexRouteImport } from './routes/profile/index'
 import { Route as PaeExpertIndexRouteImport } from './routes/pae-expert/index'
 import { Route as NotificationsIndexRouteImport } from './routes/notifications/index'
 import { Route as HomeIndexRouteImport } from './routes/home/index'
 import { Route as HistoryIndexRouteImport } from './routes/history/index'
 import { Route as FlagsReportedIndexRouteImport } from './routes/flags-reported/index'
+import { Route as FertilizerIndexRouteImport } from './routes/fertilizer/index'
+import { Route as CropCalendarIndexRouteImport } from './routes/crop-calendar/index'
 import { Route as CoordinatorIndexRouteImport } from './routes/coordinator/index'
 import { Route as AuthIndexRouteImport } from './routes/auth/index'
 import { Route as AuditIndexRouteImport } from './routes/audit/index'
@@ -32,6 +35,11 @@ const WhatsappHistoryRoute = WhatsappHistoryRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SchemesIndexRoute = SchemesIndexRouteImport.update({
+  id: '/schemes/',
+  path: '/schemes/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileIndexRoute = ProfileIndexRouteImport.update({
@@ -62,6 +70,16 @@ const HistoryIndexRoute = HistoryIndexRouteImport.update({
 const FlagsReportedIndexRoute = FlagsReportedIndexRouteImport.update({
   id: '/flags-reported/',
   path: '/flags-reported/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FertilizerIndexRoute = FertilizerIndexRouteImport.update({
+  id: '/fertilizer/',
+  path: '/fertilizer/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CropCalendarIndexRoute = CropCalendarIndexRouteImport.update({
+  id: '/crop-calendar/',
+  path: '/crop-calendar/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CoordinatorIndexRoute = CoordinatorIndexRouteImport.update({
@@ -104,12 +122,15 @@ export interface FileRoutesByFullPath {
   '/audit': typeof AuditIndexRoute
   '/auth': typeof AuthIndexRoute
   '/coordinator': typeof CoordinatorIndexRoute
+  '/crop-calendar': typeof CropCalendarIndexRoute
+  '/fertilizer': typeof FertilizerIndexRoute
   '/flags-reported': typeof FlagsReportedIndexRoute
   '/history': typeof HistoryIndexRoute
   '/home': typeof HomeIndexRoute
   '/notifications': typeof NotificationsIndexRoute
   '/pae-expert': typeof PaeExpertIndexRoute
   '/profile': typeof ProfileIndexRoute
+  '/schemes': typeof SchemesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -120,12 +141,15 @@ export interface FileRoutesByTo {
   '/audit': typeof AuditIndexRoute
   '/auth': typeof AuthIndexRoute
   '/coordinator': typeof CoordinatorIndexRoute
+  '/crop-calendar': typeof CropCalendarIndexRoute
+  '/fertilizer': typeof FertilizerIndexRoute
   '/flags-reported': typeof FlagsReportedIndexRoute
   '/history': typeof HistoryIndexRoute
   '/home': typeof HomeIndexRoute
   '/notifications': typeof NotificationsIndexRoute
   '/pae-expert': typeof PaeExpertIndexRoute
   '/profile': typeof ProfileIndexRoute
+  '/schemes': typeof SchemesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -137,12 +161,15 @@ export interface FileRoutesById {
   '/audit/': typeof AuditIndexRoute
   '/auth/': typeof AuthIndexRoute
   '/coordinator/': typeof CoordinatorIndexRoute
+  '/crop-calendar/': typeof CropCalendarIndexRoute
+  '/fertilizer/': typeof FertilizerIndexRoute
   '/flags-reported/': typeof FlagsReportedIndexRoute
   '/history/': typeof HistoryIndexRoute
   '/home/': typeof HomeIndexRoute
   '/notifications/': typeof NotificationsIndexRoute
   '/pae-expert/': typeof PaeExpertIndexRoute
   '/profile/': typeof ProfileIndexRoute
+  '/schemes/': typeof SchemesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -155,12 +182,15 @@ export interface FileRouteTypes {
     | '/audit'
     | '/auth'
     | '/coordinator'
+    | '/crop-calendar'
+    | '/fertilizer'
     | '/flags-reported'
     | '/history'
     | '/home'
     | '/notifications'
     | '/pae-expert'
     | '/profile'
+    | '/schemes'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -171,12 +201,15 @@ export interface FileRouteTypes {
     | '/audit'
     | '/auth'
     | '/coordinator'
+    | '/crop-calendar'
+    | '/fertilizer'
     | '/flags-reported'
     | '/history'
     | '/home'
     | '/notifications'
     | '/pae-expert'
     | '/profile'
+    | '/schemes'
   id:
     | '__root__'
     | '/'
@@ -187,12 +220,15 @@ export interface FileRouteTypes {
     | '/audit/'
     | '/auth/'
     | '/coordinator/'
+    | '/crop-calendar/'
+    | '/fertilizer/'
     | '/flags-reported/'
     | '/history/'
     | '/home/'
     | '/notifications/'
     | '/pae-expert/'
     | '/profile/'
+    | '/schemes/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -204,12 +240,15 @@ export interface RootRouteChildren {
   AuditIndexRoute: typeof AuditIndexRoute
   AuthIndexRoute: typeof AuthIndexRoute
   CoordinatorIndexRoute: typeof CoordinatorIndexRoute
+  CropCalendarIndexRoute: typeof CropCalendarIndexRoute
+  FertilizerIndexRoute: typeof FertilizerIndexRoute
   FlagsReportedIndexRoute: typeof FlagsReportedIndexRoute
   HistoryIndexRoute: typeof HistoryIndexRoute
   HomeIndexRoute: typeof HomeIndexRoute
   NotificationsIndexRoute: typeof NotificationsIndexRoute
   PaeExpertIndexRoute: typeof PaeExpertIndexRoute
   ProfileIndexRoute: typeof ProfileIndexRoute
+  SchemesIndexRoute: typeof SchemesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -226,6 +265,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/schemes/': {
+      id: '/schemes/'
+      path: '/schemes'
+      fullPath: '/schemes'
+      preLoaderRoute: typeof SchemesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile/': {
@@ -268,6 +314,20 @@ declare module '@tanstack/react-router' {
       path: '/flags-reported'
       fullPath: '/flags-reported'
       preLoaderRoute: typeof FlagsReportedIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/fertilizer/': {
+      id: '/fertilizer/'
+      path: '/fertilizer'
+      fullPath: '/fertilizer'
+      preLoaderRoute: typeof FertilizerIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/crop-calendar/': {
+      id: '/crop-calendar/'
+      path: '/crop-calendar'
+      fullPath: '/crop-calendar'
+      preLoaderRoute: typeof CropCalendarIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/coordinator/': {
@@ -324,12 +384,15 @@ const rootRouteChildren: RootRouteChildren = {
   AuditIndexRoute: AuditIndexRoute,
   AuthIndexRoute: AuthIndexRoute,
   CoordinatorIndexRoute: CoordinatorIndexRoute,
+  CropCalendarIndexRoute: CropCalendarIndexRoute,
+  FertilizerIndexRoute: FertilizerIndexRoute,
   FlagsReportedIndexRoute: FlagsReportedIndexRoute,
   HistoryIndexRoute: HistoryIndexRoute,
   HomeIndexRoute: HomeIndexRoute,
   NotificationsIndexRoute: NotificationsIndexRoute,
   PaeExpertIndexRoute: PaeExpertIndexRoute,
   ProfileIndexRoute: ProfileIndexRoute,
+  SchemesIndexRoute: SchemesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

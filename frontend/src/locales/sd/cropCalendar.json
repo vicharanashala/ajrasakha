@@ -1,0 +1,60 @@
+{
+  "title": "ٻج جو کينڊر",
+  "subtitle": "موسم وڌاري کينڊرن ۽ ياد دهاڻن سان پک ۾ چڱيئن لاءِ منصوبو",
+  "calendar": {
+    "activityCalendar": "کم جو کينڊر",
+    "noActivities": "هتي موسم ۾ ڪو به ڪم نه ملندڙ.",
+    "season": "موسم",
+    "months": "مينهن",
+    "activity": "ڪم",
+    "activities": "ڪم"
+  },
+  "upcoming": {
+    "title": "ايندڙ ڪم",
+    "next30days": "اڳلين ٣٠ ڏينهن",
+    "selectCrop": "ايندڙ ڪم ڏسند لاءِ ٻج چونڊيو",
+    "none": "اڳلين ٣٠ ڏينهن ۾ ڪو به ڪم نه آهي.",
+    "days": "ڏينهن"
+  },
+  "reminder": {
+    "createTitle": "نئون ياد دهاڻو بنايو",
+    "crop": "ٻج",
+    "selectCrop": "ٻج چونڊيو",
+    "activity": "ڪم",
+    "selectActivity": "ڪم چونڊيو",
+    "remindBefore": "کان اڳ ياد ڪريو (ڏينهن)",
+    "creating": "بنايو رهيو...",
+    "create": "ياد دهاڻو بنايو",
+    "activeTitle": "فعال ياد دهاڻا",
+    "noReminders": "هتي ڪو به ياد دهاڻو نه آهي. مٿان بنايو!",
+    "remind": "ياد ڪريو",
+    "day": "ڏينهو",
+    "days": "ڏينهن",
+    "before": "کان اڳ",
+    "created": "بنيو"
+  },
+  "activityTypes": {
+    "preparation": "تياري",
+    "sowing": "ٻج ڏيڻو",
+    "fertilizing": "سڀسڊي ڏيڻو",
+    "irrigation": "پاڻي ڏيڻو",
+    "weeding": "ڳاڙهون کڍڻو",
+    "pest_control": "ڪيت پرک",
+    "harvesting": "فصل وڌڻو",
+    "storage": "رکڻو"
+  },
+  "months": {
+    "January": "جنيوري",
+    "February": "فيبروري",
+    "March": "مارچ",
+    "April": "اپريل",
+    "May": "مئ",
+    "June": "جون",
+    "July": "جولاء",
+    "August": "اگسٽ",
+    "September": "سيپٽمبر",
+    "October": "اڪtober",
+    "November": "نومبر",
+    "December": "ڊسمبر"
+  }
+}

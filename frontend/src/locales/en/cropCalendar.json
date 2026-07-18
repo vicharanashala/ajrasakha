@@ -1,0 +1,60 @@
+{
+  "title": "Crop Calendar",
+  "subtitle": "Plan your farming activities with season-wise crop calendars and reminders",
+  "calendar": {
+    "activityCalendar": "Activity Calendar",
+    "noActivities": "No activities found for this season.",
+    "season": "Season",
+    "months": "months",
+    "activity": "activity",
+    "activities": "activities"
+  },
+  "upcoming": {
+    "title": "Upcoming Activities",
+    "next30days": "Next 30 days",
+    "selectCrop": "Select a crop to view upcoming activities",
+    "none": "No upcoming activities in the next 30 days.",
+    "days": "d"
+  },
+  "reminder": {
+    "createTitle": "Create New Reminder",
+    "crop": "Crop",
+    "selectCrop": "Select crop",
+    "activity": "Activity",
+    "selectActivity": "Select activity",
+    "remindBefore": "Remind before (days)",
+    "creating": "Creating...",
+    "create": "Create Reminder",
+    "activeTitle": "Active Reminders",
+    "noReminders": "No reminders set yet. Create one above!",
+    "remind": "Remind",
+    "day": "day",
+    "days": "days",
+    "before": "before",
+    "created": "Created"
+  },
+  "activityTypes": {
+    "preparation": "Preparation",
+    "sowing": "Sowing",
+    "fertilizing": "Fertilizing",
+    "irrigation": "Irrigation",
+    "weeding": "Weeding",
+    "pest_control": "Pest Control",
+    "harvesting": "Harvesting",
+    "storage": "Storage"
+  },
+  "months": {
+    "January": "January",
+    "February": "February",
+    "March": "March",
+    "April": "April",
+    "May": "May",
+    "June": "June",
+    "July": "July",
+    "August": "August",
+    "September": "September",
+    "October": "October",
+    "November": "November",
+    "December": "December"
+  }
+}

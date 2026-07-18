@@ -68,9 +68,28 @@ export class AuthController {
   @HttpCode(201)
   @OnUndefined(201)
   async signup(@Body() body: SignUpBody) {
+    const isDevelopment = appConfig.isDevelopment;
+
+    if (isDevelopment) {
+      try {
+        const { devCreateUser } = await import('#auth/dev-auth.js');
+        const user = devCreateUser({
+          email: body.email,
+          password: body.password,
+          displayName: `${body.firstName} ${body.lastName || ''}`,
+          emailVerified: true,
+        });
+        return { success: true, message: 'Registration completed!', user: { uid: user.uid, email: user.email, displayName: user.displayName } };
+      } catch (error: any) {
+        if (error.code === 'auth/email-already-exists') {
+          throw new HttpError(409, 'An account with this email already exists, Please try login!');
+        }
+        throw new HttpError(400, error.message || 'Signup failed');
+      }
+    }
+
     const result = await this.authService.signup(body);
-    const isDevelopment = appConfig.isDevelopment
-    return { success: true, message: `${isDevelopment ? "Registration completed!" : "Please check your email to verify your account."}`, ...result };
+    return { success: true, message: 'Please check your email to verify your account.', ...result };
   }
 
   @OpenAPI({
@@ -225,8 +244,41 @@ export class AuthController {
   async login(@Body() body: LoginBody) {
     try {
       const { email, password } = body;
+
+      const emulatorHost = process.env.FIREBASE_AUTH_EMULATOR_HOST;
+
+      if (!emulatorHost && appConfig.isDevelopment) {
+        const { devSignIn } = await import('#auth/dev-auth.js');
+        let result;
+        try {
+          result = devSignIn(email, password);
+        } catch (e: any) {
+          if (e.code === 'EMAIL_NOT_FOUND' || e.code === 'INVALID_PASSWORD' || e.code === 'USER_DISABLED') {
+            throw new HttpError(401, 'Invalid email or password');
+          }
+          throw e;
+        }
+
+        let user;
+        try {
+          user = await this.authService.syncUserWithDb(
+            result.localId,
+            result.email,
+            result.displayName || ''
+          );
+        } catch (e) {
+          user = { isVerified: true };
+        }
+
+        return result;
+      }
+
+      const baseHost = emulatorHost
+        ? `http://${emulatorHost}`
+        : 'https://identitytoolkit.googleapis.com';
+
       const data = await fetch(
-        `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${appConfig.firebase.apiKey}`,
+        `${baseHost}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${appConfig.firebase.apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -244,16 +296,8 @@ export class AuthController {
         throw new HttpError(401, errorMessage);
       }
 
-      //alternative 
-      //   const decoded = await admin.auth().verifyIdToken(result.idToken);
-
-      // if (!decoded.email_verified) {
-      //   throw new Error('Please verify your email before logging in.');
-      // }
-
-      // 2️⃣ Verify email status
       const lookup = await fetch(
-        `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${appConfig.firebase.apiKey}`,
+        `${baseHost}/identitytoolkit.googleapis.com/v1/accounts:lookup?key=${appConfig.firebase.apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -272,12 +316,20 @@ export class AuthController {
         );
       }
 
-      // Ensure the user exists in database
-      const user = await this.authService.syncUserWithDb(
-        userInfo.localId,
-        userInfo.email,
-        userInfo.displayName || ''
-      );
+      let user;
+      try {
+        user = await this.authService.syncUserWithDb(
+          userInfo.localId,
+          userInfo.email,
+          userInfo.displayName || ''
+        );
+      } catch (e) {
+        if (appConfig.isDevelopment) {
+          user = { isVerified: true };
+        } else {
+          throw e;
+        }
+      }
 
       if (user.isVerified === false) {
         throw new HttpError(
@@ -319,6 +371,27 @@ export class AuthController {
     if (!firebaseToken) throw new HttpError(401, 'No token provided');
 
     try {
+      if (appConfig.isDevelopment) {
+        const { verifyIdToken } = await import('#auth/dev-auth.js');
+        const decoded = verifyIdToken(firebaseToken);
+        if (!decoded) {
+          throw new HttpError(401, 'Invalid or expired token');
+        }
+
+        let user;
+        try {
+          user = await this.authService.syncUserWithDb(
+            decoded.uid,
+            decoded.email || '',
+            decoded.displayName || ''
+          );
+        } catch (e) {
+          user = { isVerified: true, _id: decoded.uid };
+        }
+
+        return { success: true, user };
+      }
+
       // Decode the token manually
       const decodedEmail = await admin.auth().verifyIdToken(firebaseToken);
 
