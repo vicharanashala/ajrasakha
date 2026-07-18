@@ -644,6 +644,12 @@ export function AnnamDashboard_dev({
                     totalDynamicClosed={
                       closed2hData?.closedInLastTwoHours?.totalDynamicClosedCount
                     }
+                    duplicateClosedInLastTwoHours={
+                      closed2hData?.closedInLastTwoHours?.duplicateClosedInTwoHoursCount
+                    }
+                    totalDuplicateClosed={
+                      closed2hData?.closedInLastTwoHours?.totalDuplicateClosedCount
+                    }
                   />
 
                   <CustomerNotificationsCard
