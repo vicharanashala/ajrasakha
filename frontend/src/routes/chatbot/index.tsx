@@ -55,7 +55,7 @@ function RouteComponent() {
   // beforeLoad above) rather than owned locally — this is what makes refresh
   // and browser Back/Forward restore the right state.
   //
-  // Note: `view` here is only the top-level page mode ("dash" vs "map" —
+  // Note: `view` here is only the top-level page mode ("dashboard" vs "map" —
   // AnnamDashboard_dev's own `mapView` toggle). It is NOT the dashboard's
   // internal sidebar navigation (DashboardView), which stays local component
   // state and is untouched by this route.

@@ -11,7 +11,7 @@ import { z } from "zod";
 // needs to change.
 //
 // Note on `view`: this represents the top-level Chatbot page mode only
-// ("dash" vs "map" — AnnamDashboard_dev's own `mapView` toggle). It is NOT
+// ("dashboard" vs "map" — AnnamDashboard_dev's own `mapView` toggle). It is NOT
 // the dashboard's internal sidebar navigation (DashboardView values like
 // "overview", "farmer-segments", "query-analysis", etc.) — that internal
 // navigation stays local component state, untouched by the URL, unless a
@@ -19,7 +19,7 @@ import { z } from "zod";
 
 export const chatbotSearchSchema = z.object({
   source: z.string().optional(),
-  view: z.enum(["dash", "map"]).optional(),
+  view: z.enum(["dashboard", "map"]).optional(),
   user: z.enum(["all", "external", "internal"]).optional(),
 });
 
@@ -29,7 +29,7 @@ export type ChatbotSearch = z.infer<typeof chatbotSearchSchema>;
 // "web-application" rather than the internal "annam").
 export const CHATBOT_SEARCH_DEFAULTS: Required<ChatbotSearch> = {
   source: "web-application",
-  view: "dash",
+  view: "dashboard",
   user: "all",
 };
 
@@ -60,13 +60,13 @@ export function sourceToUrl(internalValue: InternalSource): string {
 }
 
 // ─── view: URL <-> AnnamDashboard_dev's `mapView` boolean mapping ──────────
-// "dash" is the normal dashboard (mapView=false); "map" is the map mode
+// "dashboard" is the normal dashboard (mapView=false); "map" is the map mode
 // (mapView=true). This intentionally has nothing to do with DashboardView /
 // the sidebar's internal active section.
-export function viewToMapView(urlValue: "dash" | "map"): boolean {
+export function viewToMapView(urlValue: "dashboard" | "map"): boolean {
   return urlValue === "map";
 }
 
-export function mapViewToUrl(mapView: boolean): "dash" | "map" {
-  return mapView ? "map" : "dash";
+export function mapViewToUrl(mapView: boolean): "dashboard" | "map" {
+  return mapView ? "map" : "dashboard";
 }
