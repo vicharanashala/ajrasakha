@@ -35,10 +35,8 @@
  */
 import { test, expect, reviewerCredsAvailable } from "../fixtures";
 import {
-  AnalyticsPage,
   LoginPage,
   QuestionQueuePage,
-  QuestionDetailPage,
   SELECTOR_MAP,
   Routes,
 } from "../page-objects";
@@ -51,7 +49,6 @@ import type { Locator } from "@playwright/test";
 
 const AWAITING_APPROVAL_STATUS =
   /awaiting approval|pending approval|under second review|pending review|submitted|in review/i;
-const CLOSED_STATUS = /closed|approved|finalized|moved to gdb/i;
 
 function skipWithoutCredentials(): void {
   test.skip(
@@ -107,50 +104,6 @@ async function firstAwaitingApprovalQuestionId(
       .catch(() => "");
     return AWAITING_APPROVAL_STATUS.test(statusText);
   });
-}
-
-async function firstClosedQuestionId(
-  queuePage: QuestionQueuePage,
-): Promise<string | null> {
-  return findQuestionIdByPredicate(queuePage, async (row) => {
-    const statusText = await row
-      .locator(`[data-testid="${SELECTOR_MAP.queue.rowStatus}"]`)
-      .innerText()
-      .catch(() => "");
-    return CLOSED_STATUS.test(statusText);
-  });
-}
-
-async function deriveQuestionIdFromSectionRow(
-  queuePage: QuestionQueuePage,
-  section: string,
-  row: Locator,
-): Promise<string | null> {
-  // Sections reuse the same `queue-row-{id}` data-testid as the top-level
-  // queue; we just need to read the attribute off whichever row we got.
-  return deriveQuestionIdFromRow(row);
-}
-
-async function findQuestionIdInSectionByPredicate(
-  queuePage: QuestionQueuePage,
-  section: string,
-  predicate: (row: Locator) => Promise<boolean>,
-): Promise<string | null> {
-  await queuePage.expandSection(section);
-  const container = queuePage.sectionRows(section);
-  if ((await container.count()) === 0) return null;
-  const rows = container.locator(
-    `[data-testid^="${SELECTOR_MAP.queue.rowPrefix}"]`,
-  );
-  const n = await rows.count();
-  for (let i = 0; i < n; i += 1) {
-    const row = rows.nth(i);
-    if (await predicate(row)) {
-      const id = await deriveQuestionIdFromSectionRow(queuePage, section, row);
-      if (id) return id;
-    }
-  }
-  return null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -285,7 +238,6 @@ test.describe("@reviewer Queue details (counts + sections)", () => {
 
   test("QDN-03 • filtering the queue by a specific status updates visible count + list", async ({
     queuePage,
-    loginPage,
   }) => {
     const totalBefore = await queuePage.readTotalCount();
     if (totalBefore === null) {
@@ -500,7 +452,7 @@ test.describe("@reviewer Analytics dashboard", () => {
           `${name} rendered a placeholder: "${raw}"`,
         ).toBe(false);
         // Extract the leading numeric token (handles "12 ms", "1,234", "-3", etc.)
-        const match = raw.match(/-?\d[\d,\.]*/);
+        const match = raw.match(/-?\d[\d,.]*/);
         if (!match) {
           // Non-numeric is allowed when the dashboard is qualitative
           // (e.g. "fast" / "slow") but never the placeholder strings.

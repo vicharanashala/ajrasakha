@@ -50,6 +50,13 @@ name: Reviewer System E2E (queue + analytics + CI)
 #    using them.)
 #
 # Do NOT hardcode any of the above in this file or in the test fixtures.
+#
+# Self-sufficient failure semantics:
+#   When REVIEWER_STAGING_URL is not configured the reviewer-system
+#   `playwright.config.ts` overrides the reviewer project's testMatch
+#   to a path that matches nothing, so `npm run test:reviewer` runs
+#   zero tests and exits 0.  The guard step below surfaces this in the
+#   CI log so the absence is observable rather than silent.
 # -----------------------------------------------------------------------------
 on:
   push:
@@ -143,8 +150,11 @@ jobs:
         working-directory: qa
         run: npm run verify
 
-      - name: Lint (best-effort)
+      - name: Lint
         working-directory: qa
+        # Lint is non-blocking: warnings about staging-data variance or
+        # unused placeholder helpers are noise, not signal.  Typecheck +
+        # verify already gate real correctness.
         continue-on-error: true
         run: |
           if [ -f package.json ] && grep -q '"lint"' package.json; then
@@ -185,12 +195,9 @@ jobs:
       # Environment
       # ----------------------------------------------------------------------
       # All values come from GitHub Secrets — none are hardcoded.  The
-      # `workflow_call` trigger can override individual secrets at call
-      # time (so a deploy workflow can pass staging credentials without
-      # touching the repo's default secrets).  When called via
-      # `workflow_call`, the `secrets.REVIEWER_STAGING_URL` reference
-      # picks up the *caller's* secret; otherwise it falls through to
-      # the repo secret of the same name.
+      # `workflow_call` trigger's `secrets:` block lets a deploy workflow
+      # override individual credentials at call time without touching the
+      # repo's default secrets.
       #
       # Set the new secrets and remove the legacy ones in a follow-up PR —
       # both work today.
@@ -198,33 +205,18 @@ jobs:
       - name: Run Reviewer System E2E suite
         working-directory: qa
         env:
-          # Canonical (PR #1+) names — secrets pass-through.
-          REVIEWER_STAGING_URL: >-
-            ${{
-              (inputs.REVIEWER_STAGING_URL && secrets.REVIEWER_STAGING_URL)
-              || secrets.REVIEWER_STAGING_URL
-              || secrets.REVIEWER_BASE_URL
-            }}
-          MODERATOR_TEST_EMAIL: >-
-            ${{ secrets.MODERATOR_TEST_EMAIL || secrets.REVIEWER_MODERATOR_EMAIL }}
-          MODERATOR_TEST_PASSWORD: >-
-            ${{ secrets.MODERATOR_TEST_PASSWORD || secrets.REVIEWER_MODERATOR_PASSWORD }}
-          EXPERT_TEST_EMAIL: >-
-            ${{ secrets.EXPERT_TEST_EMAIL || secrets.REVIEWER_EXPERT_EMAIL }}
-          EXPERT_TEST_PASSWORD: >-
-            ${{ secrets.EXPERT_TEST_PASSWORD || secrets.REVIEWER_EXPERT_PASSWORD }}
-          EXPERT_TEST_2_EMAIL: >-
-            ${{ secrets.EXPERT_TEST_2_EMAIL || secrets.REVIEWER_EXPERT_2_EMAIL }}
-          EXPERT_TEST_2_PASSWORD: >-
-            ${{ secrets.EXPERT_TEST_2_PASSWORD || secrets.REVIEWER_EXPERT_2_PASSWORD }}
-          REVIEWER_TEST_EMAIL: >-
-            ${{ secrets.REVIEWER_TEST_EMAIL || secrets.REVIEWER_REVIEWER_EMAIL }}
-          REVIEWER_TEST_PASSWORD: >-
-            ${{ secrets.REVIEWER_TEST_PASSWORD || secrets.REVIEWER_REVIEWER_PASSWORD }}
-          COORDINATOR_TEST_EMAIL: >-
-            ${{ secrets.COORDINATOR_TEST_EMAIL || secrets.REVIEWER_COORDINATOR_EMAIL }}
-          COORDINATOR_TEST_PASSWORD: >-
-            ${{ secrets.COORDINATOR_TEST_PASSWORD || secrets.REVIEWER_COORDINATOR_PASSWORD }}
+          # Canonical (PR #1+) names — secrets pass-through with legacy alias fallback.
+          REVIEWER_STAGING_URL: ${{ secrets.REVIEWER_STAGING_URL || secrets.REVIEWER_BASE_URL }}
+          MODERATOR_TEST_EMAIL: ${{ secrets.MODERATOR_TEST_EMAIL || secrets.REVIEWER_MODERATOR_EMAIL }}
+          MODERATOR_TEST_PASSWORD: ${{ secrets.MODERATOR_TEST_PASSWORD || secrets.REVIEWER_MODERATOR_PASSWORD }}
+          EXPERT_TEST_EMAIL: ${{ secrets.EXPERT_TEST_EMAIL || secrets.REVIEWER_EXPERT_EMAIL }}
+          EXPERT_TEST_PASSWORD: ${{ secrets.EXPERT_TEST_PASSWORD || secrets.REVIEWER_EXPERT_PASSWORD }}
+          EXPERT_TEST_2_EMAIL: ${{ secrets.EXPERT_TEST_2_EMAIL || secrets.REVIEWER_EXPERT_2_EMAIL }}
+          EXPERT_TEST_2_PASSWORD: ${{ secrets.EXPERT_TEST_2_PASSWORD || secrets.REVIEWER_EXPERT_2_PASSWORD }}
+          REVIEWER_TEST_EMAIL: ${{ secrets.REVIEWER_TEST_EMAIL || secrets.REVIEWER_REVIEWER_EMAIL }}
+          REVIEWER_TEST_PASSWORD: ${{ secrets.REVIEWER_TEST_PASSWORD || secrets.REVIEWER_REVIEWER_PASSWORD }}
+          COORDINATOR_TEST_EMAIL: ${{ secrets.COORDINATOR_TEST_EMAIL || secrets.REVIEWER_COORDINATOR_EMAIL }}
+          COORDINATOR_TEST_PASSWORD: ${{ secrets.COORDINATOR_TEST_PASSWORD || secrets.REVIEWER_COORDINATOR_PASSWORD }}
           # Pass the legacy aliases through too, so older code paths can
           # also resolve cleanly if a future task slips through.
           REVIEWER_BASE_URL: ${{ secrets.REVIEWER_BASE_URL }}
@@ -232,7 +224,14 @@ jobs:
           REVIEWER_MODERATOR_PASSWORD: ${{ secrets.REVIEWER_MODERATOR_PASSWORD }}
           REVIEWER_EXPERT_EMAIL: ${{ secrets.REVIEWER_EXPERT_EMAIL }}
           REVIEWER_EXPERT_PASSWORD: ${{ secrets.REVIEWER_EXPERT_PASSWORD }}
-        run: npm run test:reviewer
+        run: |
+          if [ -z "$REVIEWER_STAGING_URL" ]; then
+            echo "::notice::REVIEWER_STAGING_URL is not configured — the reviewer project testMatch is overridden to match nothing; npm run test:reviewer will run 0 tests and exit 0."
+            echo "::notice::Configure the secrets listed in the workflow header to actually exercise the suite."
+            # Playwright exits 0 on 0 selected tests; the explicit echo
+            # above surfaces the soft-skip reason in the run log.
+          fi
+          npm run test:reviewer
 
       # ----------------------------------------------------------------------
       # Artifacts — uploaded with `if: always()` so even green runs leave a
