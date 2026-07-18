@@ -20,3 +20,9 @@ venv/
 multilingual_reports/
 *.html
 !playwright-report/index.html
+
+# Playwright trace artifacts (uploaded by CI on failure but cached locally
+# when running with --trace=on)
+trace.zip
+test-results/.zip
+test-results/**/trace.zip

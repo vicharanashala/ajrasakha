@@ -6,12 +6,17 @@
  * template, README, and CI all agree.
  *
  * Authoritative floor values
- *   reviewer-system  ≥ 12 tests
- *   web-app          ≥ 12 tests
+ *   reviewer-system  ≥ 15 tests   (5 ErrorBoundary + 10 moderator — PR #1)
+ *   web-app          ≥  7 tests   (PR #1 tightens the verifier regex; floor
+ *                                 tracks reality — bump deliberately as new
+ *                                 specs land)
  *
  * The Python multilingual suite (qa/tests/multilingual) is run separately
  * via pytest — see that suite's own README.  This verifier only enforces
  * the Playwright/TypeScript test floors.
+ *
+ * Bump the floor deliberately as new tests land; the gate exists so a
+ * refactor that accidentally drops a spec fails CI rather than landing.
  *
  * The script also prints a one-line summary that the workflow surfaces
  * in the PR comment.
@@ -24,8 +29,15 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const TESTS_DIR = path.join(__dirname, "..", "tests");
-const FLOOR = { "reviewer-system": 12, "web-app": 12 };
+const FLOOR = { "reviewer-system": 15, "web-app": 7 };
 
+/**
+ * Count only `test(…)` declarations (i.e. the *first* character after the
+ * opening paren is a quote).  This deliberately excludes
+ * `test.skip`, `test.step`, `test.describe`, `test.only`, and
+ * `test.beforeEach`, so the floor reflects real test cases rather than
+ * internal scaffolding.
+ */
 function countTests(suiteDir) {
   const full = path.join(TESTS_DIR, suiteDir);
   if (!fs.existsSync(full)) return 0;
@@ -37,9 +49,7 @@ function countTests(suiteDir) {
       if (entry.isDirectory()) walk(p);
       else if (entry.name.endsWith(".spec.ts")) {
         const body = fs.readFileSync(p, "utf8");
-        // Match `test(` or `test.describe(` declarations, including
-        // arrow-function forms.
-        count += (body.match(/^\s*test[.(]/gm) || []).length;
+        count += (body.match(/^\s*test\(\s*['"`]/gm) || []).length;
       }
     }
   }

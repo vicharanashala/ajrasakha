@@ -2,16 +2,29 @@ name: E2E Tests (Reviewer + Web App)
 
 # -----------------------------------------------------------------------------
 # Triggers:
-#   • Every push to main, develop, staging
-#   • Every PR against main, develop, staging
+#   • Every push to main, develop, staging, chore/**, feature/**
+#   • Every PR against main, develop, staging, chore/**, feature/**
 #   • Manual trigger via workflow_dispatch
 #   • repository_dispatch when 'deployment_success' fires (CD hook)
+#
+# The Playwright/TypeScript suites live in qa/. The Python multilingual
+# suite (qa/tests/multilingual) is a separate workflow: multilingual.yml.
 # -----------------------------------------------------------------------------
 on:
   push:
-    branches: [main, develop, staging]
+    branches:
+      - main
+      - develop
+      - staging
+      - "chore/**"
+      - "feature/**"
   pull_request:
-    branches: [main, develop, staging]
+    branches:
+      - main
+      - develop
+      - staging
+      - "chore/**"
+      - "feature/**"
   workflow_dispatch:
   repository_dispatch:
     types: [deployment_success, staging_deployed]
@@ -27,7 +40,7 @@ permissions:
 
 jobs:
   # =========================================================================
-  # 1. Smoke — npm install + typecheck + lint
+  # 1. Smoke — npm install + typecheck + verify (test-count gate) + lint
   # =========================================================================
   smoke:
     name: Smoke (install + typecheck + lint)
@@ -40,12 +53,20 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'npm'
+          # Cache only when the lockfile exists on the checked-out ref —
+          # setup-node@v4 emits a hard error otherwise, which was
+          # breaking every PR that didn't yet contain qa/package-lock.json.
+          cache: ${{ hashFiles('qa/package-lock.json') != '' && 'npm' || '' }}
           cache-dependency-path: qa/package-lock.json
 
       - name: Install QA dependencies
         working-directory: qa
-        run: npm ci
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install --no-audit --no-fund
+          fi
 
       - name: TypeScript typecheck
         working-directory: qa
@@ -80,7 +101,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'npm'
+          cache: ${{ hashFiles('qa/package-lock.json') != '' && 'npm' || '' }}
           cache-dependency-path: qa/package-lock.json
 
       - name: Install dependencies
@@ -91,22 +112,47 @@ jobs:
         working-directory: qa
         run: npx playwright install --with-deps chromium
 
+      # ----------------------------------------------------------------------
+      # Environment
+      # ----------------------------------------------------------------------
+      # PR #1 (this PR) adopted friendlier names (REVIEWER_STAGING_URL,
+      # MODERATOR_TEST_EMAIL, …).  The legacy REVIEWER_* names remain as
+      # fallbacks so existing GitHub Secrets still drive the build until
+      # the secrets store is migrated.
+      #
+      # Set the new secrets and remove the legacy ones in a follow-up PR —
+      # both work today.
+      # ----------------------------------------------------------------------
       - name: Run Reviewer System tests
         working-directory: qa
         env:
+          # New canonical names (PR #1+)
+          REVIEWER_STAGING_URL: ${{ secrets.REVIEWER_STAGING_URL || secrets.REVIEWER_BASE_URL }}
+          MODERATOR_TEST_EMAIL: ${{ secrets.MODERATOR_TEST_EMAIL || secrets.REVIEWER_MODERATOR_EMAIL }}
+          MODERATOR_TEST_PASSWORD: ${{ secrets.MODERATOR_TEST_PASSWORD || secrets.REVIEWER_MODERATOR_PASSWORD }}
+          EXPERT_TEST_EMAIL: ${{ secrets.EXPERT_TEST_EMAIL || secrets.REVIEWER_EXPERT_EMAIL }}
+          EXPERT_TEST_PASSWORD: ${{ secrets.EXPERT_TEST_PASSWORD || secrets.REVIEWER_EXPERT_PASSWORD }}
+          EXPERT_TEST_2_EMAIL: ${{ secrets.EXPERT_TEST_2_EMAIL || secrets.REVIEWER_EXPERT_2_EMAIL }}
+          EXPERT_TEST_2_PASSWORD: ${{ secrets.EXPERT_TEST_2_PASSWORD || secrets.REVIEWER_EXPERT_2_PASSWORD }}
+          REVIEWER_TEST_EMAIL: ${{ secrets.REVIEWER_TEST_EMAIL || secrets.REVIEWER_REVIEWER_EMAIL }}
+          REVIEWER_TEST_PASSWORD: ${{ secrets.REVIEWER_TEST_PASSWORD || secrets.REVIEWER_REVIEWER_PASSWORD }}
+          COORDINATOR_TEST_EMAIL: ${{ secrets.COORDINATOR_TEST_EMAIL || secrets.REVIEWER_COORDINATOR_EMAIL }}
+          COORDINATOR_TEST_PASSWORD: ${{ secrets.COORDINATOR_TEST_PASSWORD || secrets.REVIEWER_COORDINATOR_PASSWORD }}
+          # Pass the legacy alias through too, so older dots env code can
+          # also resolve cleanly if a future task slips through.
           REVIEWER_BASE_URL: ${{ secrets.REVIEWER_BASE_URL }}
           REVIEWER_MODERATOR_EMAIL: ${{ secrets.REVIEWER_MODERATOR_EMAIL }}
           REVIEWER_MODERATOR_PASSWORD: ${{ secrets.REVIEWER_MODERATOR_PASSWORD }}
           REVIEWER_EXPERT_EMAIL: ${{ secrets.REVIEWER_EXPERT_EMAIL }}
           REVIEWER_EXPERT_PASSWORD: ${{ secrets.REVIEWER_EXPERT_PASSWORD }}
-          REVIEWER_EXPERT_2_EMAIL: ${{ secrets.REVIEWER_EXPERT_2_EMAIL }}
-          REVIEWER_EXPERT_2_PASSWORD: ${{ secrets.REVIEWER_EXPERT_2_PASSWORD }}
-          REVIEWER_REVIEWER_EMAIL: ${{ secrets.REVIEWER_REVIEWER_EMAIL }}
-          REVIEWER_REVIEWER_PASSWORD: ${{ secrets.REVIEWER_REVIEWER_PASSWORD }}
-          REVIEWER_COORDINATOR_EMAIL: ${{ secrets.REVIEWER_COORDINATOR_EMAIL }}
-          REVIEWER_COORDINATOR_PASSWORD: ${{ secrets.REVIEWER_COORDINATOR_PASSWORD }}
         run: npm run test:reviewer
 
+      # ----------------------------------------------------------------------
+      # Artifacts
+      # ----------------------------------------------------------------------
+      # Always upload the HTML/JUnit summary; upload trace.zip + screenshots
+      # + video only when the suite failed — keeps artifact storage tight.
+      # ----------------------------------------------------------------------
       - name: Upload HTML report
         if: always()
         uses: actions/upload-artifact@v4
@@ -123,6 +169,18 @@ jobs:
           path: qa/test-results
           retention-days: 14
 
+      - name: Upload traces/screenshots/video on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reviewer-system-traces
+          path: |
+            qa/test-results/**/trace.zip
+            qa/test-results/**/video
+            qa/test-results/**/error-context.md
+          retention-days: 14
+          if-no-files-found: ignore
+
   # =========================================================================
   # 3. Web App
   # =========================================================================
@@ -138,7 +196,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'npm'
+          cache: ${{ hashFiles('qa/package-lock.json') != '' && 'npm' || '' }}
           cache-dependency-path: qa/package-lock.json
 
       - name: Install dependencies
@@ -173,6 +231,18 @@ jobs:
           path: qa/test-results
           retention-days: 14
 
+      - name: Upload traces/screenshots/video on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-app-traces
+          path: |
+            qa/test-results/**/trace.zip
+            qa/test-results/**/video
+            qa/test-results/**/error-context.md
+          retention-days: 14
+          if-no-files-found: ignore
+
   # =========================================================================
   # 4. PR comment — once everything is done
   # =========================================================================
@@ -204,7 +274,9 @@ jobs:
               "",
               `**Overall:** ${verdict}`,
               "",
-              "Download HTML reports from the **Checks** tab → **Artifacts**.",
+              "Download HTML reports and (on failure) **trace.zip / video** from the **Checks** tab → **Artifacts**.",
+              "",
+              "_Multilingual suite (180 cases, 6 languages) runs in `multilingual.yml`._",
             ].join("\n");
 
             await github.rest.issues.createComment({
