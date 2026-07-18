@@ -124,11 +124,19 @@ export function LazySectionSkeleton({
 export function AnnamDashboard_dev({
   className,
   source: initialSource = "annam",
-  // onSourceChange,
+  onSourceChange,
+  mapView: initialMapView,
+  onMapViewChange,
+  userType: initialUserType,
+  onUserTypeChange,
 }: {
   className?: string;
   source?: "annam" | "whatsapp" | "acc";
   onSourceChange?: (source: "annam" | "whatsapp" | "acc") => void;
+  mapView?: boolean;
+  onMapViewChange?: (mapView: boolean) => void;
+  userType?: DashboardFilterValues["userType"];
+  onUserTypeChange?: (userType: DashboardFilterValues["userType"]) => void;
 }) {
   const queryClient = useQueryClient();
 
@@ -145,7 +153,7 @@ export function AnnamDashboard_dev({
     season: "all",
     startTime: undefined,
     endTime: undefined,
-    userType: "all",
+    userType: initialUserType ?? "all",
   });
   const [weatherConcernFilters, setWeatherConcernFilters] =
     useState<WeatherConcernFilters>(DEFAULT_WEATHER_CONCERN_FILTERS);
@@ -179,7 +187,7 @@ export function AnnamDashboard_dev({
   const [hovered, setHovered] = useState<string | null>(null);
   const [agriHovered, setAgriHovered] = useState<string | null>(null);
 
-  const [mapView, setMapView] = useState<boolean>(false);
+  const [mapView, setMapView] = useState<boolean>(initialMapView ?? false);
 
   const [analyticData, setAnalyticData] = useState<any>(null);
 
@@ -435,16 +443,21 @@ export function AnnamDashboard_dev({
   const handleSourceChange = useCallback(
     (newSource: "annam" | "whatsapp" | "acc") => {
       setSource(newSource);
+
       if (newSource === "whatsapp") {
         setFilters((prev) => ({ ...prev, userType: "all" }));
+        onUserTypeChange?.("all"); 
       }
+
       setClosed2hDateRange(undefined);
       setQuestionStatusDateRange(undefined);
       setCustomerNotificationsDateRange(undefined);
-    },
-    [],
-  );
 
+      onSourceChange?.(newSource); 
+    },
+    [onSourceChange, onUserTypeChange], 
+  );
+  
   const handleCardClick = useCallback(
     (id: string) => {
       if (id === "totalInstalls") {
@@ -454,6 +467,30 @@ export function AnnamDashboard_dev({
       }
     },
     [setUserDetailsInitialFilters, setActiveView, scrollTo],
+  );
+
+  // ─── Map View Change Handler ───────────────────────────────────────────────
+  // Wraps setMapView so switching between the "dash" and "map" top-level
+  // modes also notifies the parent/URL, same pattern as source.
+  const handleMapViewChange = useCallback(
+    (value: boolean) => {
+      setMapView(value);
+      onMapViewChange?.(value);
+    },
+    [onMapViewChange],
+  );
+
+  // ─── Filters Change Handler ────────────────────────────────────────────────
+  // Wraps setFilters so a userType change made via the header's user-type
+  // selector also notifies the parent/URL, same pattern as source/mapView.
+  const handleFiltersChange = useCallback(
+    (newFilters: DashboardFilterValues) => {
+      setFilters(newFilters);
+      if (newFilters.userType !== filters.userType) {
+        onUserTypeChange?.(newFilters.userType);
+      }
+    },
+    [filters.userType, onUserTypeChange],
   );
 
   // ─── Computed KPI Data ─────────────────────────────────────────────────────
@@ -488,6 +525,29 @@ export function AnnamDashboard_dev({
   const monthlyAnalytics = queryCard?.monthlyAnalytics || [];
 
   // ─── Effects ───────────────────────────────────────────────────────────────
+  // Keep internal source/mapView/userType state in sync with externally-
+  // controlled (e.g. URL-driven) prop values — needed so browser Back/Forward,
+  // which only changes props on this already-mounted component, still takes
+  // effect. Note: `activeView` (the sidebar's internal navigation) is
+  // deliberately NOT synced here — it stays local-only, untouched by the URL.
+  useEffect(() => {
+    setSource(initialSource);
+  }, [initialSource]);
+
+  useEffect(() => {
+    if (initialMapView !== undefined) {
+      setMapView(initialMapView);
+    }
+  }, [initialMapView]);
+
+  useEffect(() => {
+    if (initialUserType !== undefined) {
+      setFilters((prev) =>
+        prev.userType === initialUserType ? prev : { ...prev, userType: initialUserType },
+      );
+    }
+  }, [initialUserType]);
+
   useEffect(() => {
     if (source === "whatsapp") {
       setFilters((prev) => ({ ...prev, userType: "all" }));
@@ -620,11 +680,11 @@ export function AnnamDashboard_dev({
                 source={source}
                 onSourceChange={handleSourceChange}
                 filters={filters}
-                onFilterChange={setFilters}
+                onFilterChange={handleFiltersChange}
                 invalidating={invalidating}
                 onRefresh={handleRefreshAll}
                 mapView={mapView}
-                setMapView={setMapView}
+                setMapView={handleMapViewChange}
                 dateRange={questionStatusDateRange}
                 onDateRangeChange={setQuestionStatusDateRange}
               />
