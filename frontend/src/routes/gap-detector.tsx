@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
+import { Heatmap } from '../components/gap-detector/Heatmap'
 
 export const Route = createFileRoute('/gap-detector')({
   component: GapDetectorDashboard,
@@ -7,15 +8,19 @@ export const Route = createFileRoute('/gap-detector')({
 
 function GapDetectorDashboard() {
   const [data, setData] = useState<any>(null)
+  const [heatmapData, setHeatmapData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Basic setup to fetch data from the FastAPI backend
     const fetchData = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/v1/clusters')
-        const result = await response.json()
-        setData(result)
+        const [clustersRes, heatmapRes] = await Promise.all([
+          fetch('http://localhost:8000/api/v1/clusters'),
+          fetch('http://localhost:8000/api/v1/heatmap')
+        ])
+        
+        setData(await clustersRes.json())
+        setHeatmapData(await heatmapRes.json())
       } catch (error) {
         console.error("Failed to fetch gap detector data:", error)
       } finally {
@@ -39,15 +44,20 @@ function GapDetectorDashboard() {
           <div className="h-10 bg-slate-200 rounded w-1/4"></div>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <div className="p-6 border rounded-xl bg-card text-card-foreground shadow-sm">
-            <h3 className="tracking-tight text-sm font-medium">Total Queries Analyzed</h3>
-            <div className="text-2xl font-bold">{data?.total_queries_analyzed || 0}</div>
+        <div className="space-y-8">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="p-6 border rounded-xl bg-card text-card-foreground shadow-sm">
+              <h3 className="tracking-tight text-sm font-medium">Total Queries Analyzed</h3>
+              <div className="text-2xl font-bold">{data?.total_queries_analyzed || 0}</div>
+            </div>
+            <div className="p-6 border rounded-xl bg-card text-card-foreground shadow-sm">
+              <h3 className="tracking-tight text-sm font-medium">Clusters Found</h3>
+              <div className="text-2xl font-bold">{data?.total_clusters_found || 0}</div>
+            </div>
           </div>
-          <div className="p-6 border rounded-xl bg-card text-card-foreground shadow-sm">
-            <h3 className="tracking-tight text-sm font-medium">Clusters Found</h3>
-            <div className="text-2xl font-bold">{data?.total_clusters_found || 0}</div>
-          </div>
+
+          {/* Heatmap visualization */}
+          {heatmapData && <Heatmap data={heatmapData.heatmap} />}
         </div>
       )}
     </div>
