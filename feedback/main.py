@@ -20,6 +20,7 @@ from apscheduler.triggers.cron import CronTrigger
 from digest_email import send_digest_email
 from datetime import datetime
 from bson import ObjectId
+from reviewer_integration import check_and_flag_if_needed, push_to_reviewer_queue
 import uuid
 import logging
 import pytz
@@ -273,11 +274,21 @@ async def complete_feedback(data: FeedbackCompleteRequest):
     await feedback_collection.insert_one(feedback_doc)
     await pending_feedback_collection.delete_one({"_id": pending["_id"]})
 
+    # Auto-check if this answer has crossed the flagging threshold
+    flag_result = await check_and_flag_if_needed(
+        feedback_collection=feedback_collection,
+        question_id=pending["question_id"],
+        answer_id=pending["answer_id"],
+        domain=domain,
+    )
+
     return {
         "message": "Feedback recorded",
         "id": feedback_doc["_id"],
         "domain": domain,
-        "state": state
+        "state": state,
+        "auto_flagged": flag_result is not None,
+        "flag_result": flag_result.get("message") if flag_result else None
     }
 
 
@@ -301,11 +312,21 @@ async def submit_feedback(data: FeedbackCreate):
 
     await feedback_collection.insert_one(feedback_doc)
 
+    # Auto-check if this answer has crossed the flagging threshold
+    flag_result = await check_and_flag_if_needed(
+        feedback_collection=feedback_collection,
+        question_id=data.question_id,
+        answer_id=data.answer_id,
+        domain=domain,
+    )
+
     return {
         "message": "Feedback recorded",
         "id": feedback_doc["_id"],
         "domain": domain,
-        "state": state
+        "state": state,
+        "auto_flagged": flag_result is not None,
+        "flag_result": flag_result.get("message") if flag_result else None
     }
 
 
@@ -425,6 +446,48 @@ async def get_flagged(threshold: float = 60.0, min_responses: int = 10):
         entries=entries
     )
 
+# --- Manual reviewer push (V1.2) ---
+
+@app.post("/flagged/push-to-reviewer")
+async def push_flagged_to_reviewer(answer_id: str, question_id: str):
+    """
+    Manually push a specific flagged answer to the reviewer queue.
+    Useful for testing the integration before WhatsApp is wired up,
+    or for re-pushing an entry that was missed.
+    """
+    # Look up current stats for this answer
+    total = await feedback_collection.count_documents({"answer_id": answer_id})
+    if total == 0:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No feedback found for answer_id {answer_id}"
+        )
+
+    helpful = await feedback_collection.count_documents(
+        {"answer_id": answer_id, "response": "1"}
+    )
+    rate = round(helpful / total * 100, 1)
+
+    # Get domain from stored feedback
+    sample = await feedback_collection.find_one({"answer_id": answer_id})
+    domain = sample.get("domain", "unknown") if sample else "unknown"
+
+    result = await push_to_reviewer_queue(
+        question_id=question_id,
+        answer_id=answer_id,
+        helpfulness_rate=rate,
+        total_responses=total,
+        domain=domain,
+    )
+
+    return {
+        "answer_id": answer_id,
+        "question_id": question_id,
+        "helpfulness_rate": rate,
+        "total_responses": total,
+        "domain": domain,
+        **result
+    }
 
 # --- Weekly Digest (GET endpoint) ---
 
@@ -468,7 +531,7 @@ async def startup_event():
     IST = pytz.timezone("Asia/Kolkata")
     scheduler.add_job(
         run_weekly_digest,
-        CronTrigger(day_of_week="mon", hour=9, minute=0, timezone=IST),
+        CronTrigger(day_of_week="sat", hour=9, minute=0, timezone="Asia/Kolkata"),  # Saturday 18:20 UTC = Monday 9:50 IST
         id="weekly_digest",
         replace_existing=True
     )
