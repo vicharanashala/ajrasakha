@@ -49,14 +49,17 @@ async def get_states_for_pop() -> dict:
     STATE_CODE_MAP = {
         "ANDHRA_PRADESH": "AP", "ARUNACHAL_PRADESH": "AR", "ASSAM": "AS",
         "BIHAR": "BR", "CHATTISGARH": "CG", "CHHATTISGARH": "CG", "GOA": "GA", "GUJARAT": "GJ",
-        "HARYANA": "HR", "JAMMU_AND_KASHMIR": "JK", "JAMMU_&_KASHMIR": "JK", "JHARKHAND": "JH",
-        "KARNATAKA": "KA",
-        "KERALA": "KL", "MAHARASHTRA": "MH", "MANIPUR": "MN", "MEGHALAYA": "ML",
-        "MIZORAM": "MZ", "NAGALAND": "NL", "ODISHA": "OR", "ORISSA": "OR", "PUNJAB": "PB",
-        "RAJASTHAN": "RJ", "SIKKIM": "SK", "TAMILNADU": "TN", "TAMIL_NADU": "TN",
+        "HARYANA": "HR", "HIMACHAL_PRADESH": "HP", "HIMACHALPRADESH": "HP",
+        "JAMMU_AND_KASHMIR": "JK", "JAMMU_&_KASHMIR": "JK", "JHARKHAND": "JH",
+        "KARNATAKA": "KA", "KERALA": "KL", "MADHYA_PRADESH": "MP", "MADHYAPRADESH": "MP",
+        "MAHARASHTRA": "MH", "MANIPUR": "MN", "MEGHALAYA": "ML", "MIZORAM": "MZ",
+        "NAGALAND": "NL", "ODISHA": "OR", "ORISSA": "OR", "PUNJAB": "PB", "RAJASTHAN": "RJ",
+        "SIKKIM": "SK", "TAMILNADU": "TN", "TAMIL_NADU": "TN", "TELANGANA": "TS", "TELENGANA": "TS",
         "TRIPURA": "TR", "UTTAR_PRADESH": "UP", "UTTARPRADESH": "UP", "UTTARAKHAND": "UK",
-        "WEST_BENGAL": "WB", "DELHI": "DL",
-        "POPS_MULTIPLE_STATES": "MULTIPLE"
+        "WEST_BENGAL": "WB", "DELHI": "DL", "ANDAMAN_AND_NICOBAR_ISLANDS": "AN",
+        "ANDAMAN_&_NICOBAR": "AN", "CHANDIGARH": "CH", "DADRA_AND_NAGAR_HAVELI_AND_DAMAN_AND_DIU": "DN",
+        "DADRA_&_NAGAR_HAVELI": "DN", "DAMAN_&_DIU": "DD", "LADAKH": "LA", "LAKSHADWEEP": "LD",
+        "PUDUCHERRY": "PY", "PONDICHERRY": "PY", "POPS_MULTIPLE_STATES": "MULTIPLE"
     }
 
     state_codes = {}
