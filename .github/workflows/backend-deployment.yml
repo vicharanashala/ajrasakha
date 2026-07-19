@@ -82,5 +82,5 @@ jobs:
             ANNAM_DB_ANALYTICS=${{ secrets.ANNAM_DB_ANALYTICS }}
             DB_URL_ANALYTICS=${{ secrets.DB_URL_ANALYTICS }}
             DB_NAME_ANALYTICS=${{ secrets.DB_NAME_ANALYTICS }}
-
+            TAILSCALE_AUTHKEY=${{ secrets.TAILSCALE_AUTHKEY }}
           flags: --allow-unauthenticated

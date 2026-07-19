@@ -29,6 +29,7 @@ import { flattenAnswers } from "@/features/question_details/utils/flattenAnswers
 import { QuestionHeader } from "@/features/question_details/components/QuestionHeader";
 import { QuestionDetailsCard } from "@/features/question_details/components/QuestionDetailsCard";
 import MessageDetail from "./MessageDetail";
+import UserFeedbackDetail from "./UserFeedbackDetail";
 import { AiGeneratedAnswerCard } from "./AiGeneratedAnswerCard";
 import { useGenerateInitialAnswer } from "@/hooks/api/question/useGenerateInitialAnswer";
 import { useApproveAIAnswer } from "@/hooks/api/question/useApproveInitialAnswer";
@@ -259,13 +260,16 @@ export const QuestionDetails = ({
             (question.source == "AJRASAKHA" || question.source == "WHATSAPP") &&
             currentUser &&
             currentUser.role != "expert" && (
-              <MessageDetail
-                question={question}
-                isQuestionAllocatedToExpert={
-                  question?.submission?.history?.length > 0
-                }
-                navigateToQuestionPage={navigateToQuestionPage}
-              />
+              <>
+                <MessageDetail
+                  question={question}
+                  isQuestionAllocatedToExpert={
+                    question?.submission?.history?.length > 0
+                  }
+                  navigateToQuestionPage={navigateToQuestionPage}
+                />
+                <UserFeedbackDetail questionId={question._id || null} />
+              </>
             )}
 
           {/* {currentUser.role !== "expert" && ( */}

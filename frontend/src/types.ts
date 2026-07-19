@@ -565,6 +565,23 @@ export interface QuestionMessageDetailsResponse {
   message?: string;
 }
 
+export interface QuestionFeedbackResponse {
+  success: boolean;
+  data: {
+    feedback: {
+      rating: string;
+      tag?: string;
+      text?: string;
+    } | null;
+    user?: {
+      username: string;
+      email: string;
+      avatar: string | null;
+    };
+    createdAt?: string;
+  };
+}
+
 
 export interface IComment {
   _id: string;

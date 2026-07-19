@@ -40,4 +40,6 @@ export type TopFaqsQuery = {
 
 export type userProfileQuery = {
   userId: string;
+  startDate?: string;
+  endDate?: string;
 }

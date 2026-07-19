@@ -43,6 +43,8 @@ type CustomerNotificationsCardProps = {
   /** Callback to notify parent to refresh all related cards in the row */
   onRefresh?: () => void;
   onSourceChange?: (source: "both" | "annam" | "whatsapp") => void;
+  userId?: string;
+  showSourceFilter?: boolean;
 };
 
 export function CustomerNotificationsCard({
@@ -57,6 +59,8 @@ export function CustomerNotificationsCard({
   userType,
   onRefresh,
   onSourceChange,
+  userId,
+  showSourceFilter = true,
 }: CustomerNotificationsCardProps) {
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
@@ -157,6 +161,7 @@ export function CustomerNotificationsCard({
                   className="flex items-center gap-1.5"
                   onClick={(e) => e.stopPropagation()}
                 >
+                  {showSourceFilter && (
                   <Popover
                     open={sourcePopoverOpen}
                     onOpenChange={setSourcePopoverOpen}
@@ -193,6 +198,7 @@ export function CustomerNotificationsCard({
                       </div>
                     </PopoverContent>
                   </Popover>
+                  )}
 
                   <Popover>
                     <PopoverTrigger asChild>
@@ -326,41 +332,41 @@ export function CustomerNotificationsCard({
                       {notifiedPct.toFixed(1)}%
                     </span>
                   </TooltipTrigger>
-                  <TooltipContent className="w-56 p-3">
+                  <TooltipContent className="w-64 p-3">
                     <div className="space-y-2 text-xs">
                       <div className="font-semibold">
                         Notification Rate Breakdown
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex justify-between gap-4">
                         <span className="text-muted-foreground">Notified</span>
-                        <span className="tabular-nums text-emerald-500">
-                          {notifiedPct.toFixed(1)}%
+                        <span className="tabular-nums text-emerald-500 font-medium text-right">
+                          {notifiedPct.toFixed(1)}% <span className="text-[10px] text-muted-foreground font-normal">({safeNotified}/{totalClosedQuestions})</span>
                         </span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex justify-between gap-4">
                         <span className="text-muted-foreground">
                           Not Notified
                         </span>
-                        <span className="tabular-nums text-amber-500">
+                        <span className="tabular-nums text-amber-500 font-medium text-right">
                           {totalClosedQuestions > 0
                             ? (
                                 (safeNotNotified / totalClosedQuestions) *
                                 100
                               ).toFixed(1)
                             : 0}
-                          %
+                          % <span className="text-[10px] text-muted-foreground font-normal">({safeNotNotified}/{totalClosedQuestions})</span>
                         </span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex justify-between gap-4">
                         <span className="text-muted-foreground">Untracked</span>
-                        <span className="tabular-nums text-muted-foreground">
+                        <span className="tabular-nums text-muted-foreground font-medium text-right">
                           {totalClosedQuestions > 0
                             ? (
                                 (safeUntracked / totalClosedQuestions) *
                                 100
                               ).toFixed(1)
                             : 0}
-                          %
+                          % <span className="text-[10px] text-muted-foreground font-normal">({safeUntracked}/{totalClosedQuestions})</span>
                         </span>
                       </div>
                     </div>
@@ -380,9 +386,7 @@ export function CustomerNotificationsCard({
           endDate={dateRange?.to}
           onClose={() => setNotificationType(null)}
           tag="notify"
-          safeNotified={safeNotified}
-          safeNotNotified={safeNotNotified}
-          safeUntracked={safeUntracked}
+          userId={userId}
         />
       )}
     </div>
@@ -433,7 +437,7 @@ function StatTile({
           className={cn(
             "group/tile relative flex flex-col items-start gap-1.5 overflow-hidden rounded-xl p-3 text-left",
             "bg-background/40 ring-1 ring-border/50 transition-all duration-200",
-            "hover:bg-background/80 hover:shadow-md",
+            "hover:bg-background/80 hover:shadow-md cursor-pointer",
             a.ring,
             a.glow,
           )}

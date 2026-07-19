@@ -69,11 +69,28 @@ export const PlaygroundPage = () => {
     if (!user?.email) return null;
     return `playground_active_tab_${user.email}`;
   };
+  const explicitSelectionTab = selectedRequestId
+    ? "request_queue"
+    : selectedHistoryId
+      ? "history"
+      : selectedQuestionId
+        ? user?.role === "expert"
+          ? "questions"
+          : "all_questions"
+        : selectedCommentId
+          ? "all_questions"
+          : null;
+
   // Set default tab based on user role when user data loads
   useEffect(() => {
     if (!user) return;
     const storageKey = getStorageKey(user);
     if (!storageKey) return;
+    if (explicitSelectionTab) {
+      setActiveTab(explicitSelectionTab);
+      localStorage.setItem(storageKey, explicitSelectionTab);
+      return;
+    }
     const savedTab = localStorage.getItem(storageKey);
     if (savedTab) {
       setActiveTab(savedTab);
@@ -327,8 +344,8 @@ export const PlaygroundPage = () => {
                 )}
 
                 {user &&
-                  user.role !== "expert" &&
-                  user.role !== "call_agent" && (
+                  (user.role === "admin" ||
+                  user.role === "moderator") && (
                     <TabsTrigger
                       value="chatbotanalytics"
                       className="px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0"
