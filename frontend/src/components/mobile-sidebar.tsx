@@ -59,7 +59,6 @@ const SidebarButton = ({
 export const MobileSidebar = ({
   user,
   setTab,
-  setChatbotSource,
 }: {
   user: IUser;
   setTab: (value: string) => void;
